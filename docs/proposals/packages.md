@@ -90,7 +90,8 @@ This is the one you expect to iterate on most, so it gets the clearest boundary.
 - **Golden-file tests** are where iteration happens safely: a design in and a `.tsx` out; an edited `.tsx` in and design
   changes out; a pair that has drifted in and a list of changes out. Changing how JSX is written or read is a change to
   fixtures, reviewed like any other.
-- **React first, behind an interface** (FIND-15 already asks for one), so Vue or Svelte later is another adapter.
+- **React first, behind an interface:** `ComponentFinder` in [finder.ts](../../packages/code/src/finder.ts) (FIND-15),
+  with `reactFinder` for React, so Vue or Svelte later is another adapter.
 - **`@parity/libgen` keeps generating `.lib.par` files** and uses `@parity/code` to find components.
 
 ### Changesets

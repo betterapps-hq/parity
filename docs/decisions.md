@@ -285,6 +285,11 @@ recommended answer to each of its questions.
   parse leaves its capitalised functions and aliases to the type checker, which reads them with the rest. Files named
   `*.config.*`, such as `vite.config.ts` and `eslint.config.js`, are skipped with stories and tests, as they only export
   settings.
+- **A framework's component finding is a `ComponentFinder` in `@parity/code`.** My call: the renderer adapter keeps the
+  quick parse it already has, and the finder adds the thorough pass and props, each taking the project's one program,
+  since every framework Parity expects (React, Vue through vue-component-meta, Svelte) reads types with TypeScript. The
+  props worker calls React's through the contract. `findAll` runs all three passes in one call and returns each
+  component's id, file, export, import, role, evidence and props, for callers without the app's service.
 
 ## Libraries, icons and images
 

@@ -1,18 +1,9 @@
 // Reads components with the TypeScript checker off the service's main thread: it can take seconds on a large project.
 import { statSync } from "node:fs"
 import { freemem } from "node:os"
-import { relative, resolve } from "node:path"
+import { resolve } from "node:path"
 import { parentPort } from "node:worker_threads"
-import {
-  type CheckResult,
-  componentOptions,
-  findComponents,
-  inferProps,
-  propsFiles,
-  reactProbe,
-  readTsconfig,
-  withReactProbe
-} from "@parity/code"
+import { type CheckResult, componentOptions, reactFinder, reactProbe, readTsconfig, withReactProbe } from "@parity/code"
 import type { ComponentSource } from "@parity/core"
 import ts from "typescript"
 
@@ -35,44 +26,32 @@ parentPort?.on("message", (request: Request) => {
   }
 })
 
+/** How components are found and their props read: React's, the one renderer so far. */
+const finder = reactFinder
+
 /**
  * The components the app's files export, as TypeScript's checker sees them: what each export's type is, not how it's
  * written, so aliases such as `const Select = SelectPrimitive.Root` and components returning only `children` count.
  * The capitalised exports it leaves out come with why.
  */
 function check(root: string, files: string[]): CheckResult {
-  const entries = files.map((file) => resolve(root, file))
-  const report = findComponents({ entries, root, defaultExports: true, program: programFor(root, entries) })
-  const pathOf = (entry: string) => relative(root, entry).replaceAll("\\", "/")
-  return {
-    components: report.components.map((component) => ({
-      name: component.name,
-      path: pathOf(component.entry),
-      export: component.export,
-      as: component.as
-    })),
-    leftOut: [
-      ...report.rejected.map((entry) => ({
-        name: entry.name,
-        path: pathOf(entry.entry ?? ""),
-        export: entry.export ?? entry.name,
-        reason: entry.reason
-      })),
-      ...report.ambiguous.map((entry) => ({
-        name: entry.name,
-        path: pathOf(entry.entry ?? ""),
-        export: entry.export ?? entry.name,
-        reason: entry.reason,
-        undecided: true as const
-      }))
-    ].sort((a, b) => a.path.localeCompare(b.path, "en") || a.name.localeCompare(b.name, "en"))
-  }
+  return finder.check(
+    root,
+    files,
+    programFor(
+      root,
+      files.map((file) => resolve(root, file))
+    )
+  )
 }
 
 /** Each component's props, from the project's program, which also gets the app's `files` the checker reads next. */
 function props(root: string, components: Record<string, ComponentSource>, files: string[]) {
-  const program = programFor(root, [...propsFiles(root, components), ...files.map((file) => resolve(root, file))])
-  return inferProps(root, components, program)
+  const program = programFor(root, [
+    ...finder.propsFiles(root, components),
+    ...files.map((file) => resolve(root, file))
+  ])
+  return finder.props(root, components, program)
 }
 
 /** A project's checker: one program for listing components and reading props, rebuilt only when its files change. */

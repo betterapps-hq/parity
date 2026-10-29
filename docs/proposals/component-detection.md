@@ -109,7 +109,9 @@ Six hundred components is too many for one list, so the panel groups them by rol
 ## Other frameworks
 
 Finding components belongs to each framework's adapter, behind one contract: a list of components, each with its id,
-import path, export name, role, evidence and props.
+import path, export name, role, evidence and props. The contract is `ComponentFinder` in `@parity/code`: the renderer's
+parse is the quick pass, and a finder does the type checker's pass and props, sharing one program. `findAll` returns
+each component as an `AppComponent` with those fields. React's finder is `reactFinder`.
 
 - **Vue:** `vue-component-meta` takes the same checker approach for props, events and slots.
 - **Svelte:** every `.svelte` file is one component, so finding them is trivial. Svelte's language tools give the props.
