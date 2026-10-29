@@ -156,6 +156,14 @@ textarea,
 }
 
 /*
+ * The canvas is a layer of its own, so what tldraw stacks inside it, its watermark included, stays on the canvas and
+ * the app's menus, popovers and dialogs open over it.
+ */
+.tl-container {
+  isolation: isolate;
+}
+
+/*
  * The layer the camera moves is composited on its own, so panning moves what's already drawn instead of painting every
  * frame again, and zooming scales it until the camera stops, when it's drawn sharp at the new zoom.
  */
@@ -239,5 +247,72 @@ textarea,
   100% {
     opacity: 0;
     transform: scale(1.7);
+  }
+}
+
+/*
+ * Processes in the status bar. Each status has a color; a running process's light breathes, a starting one's ring
+ * turns, and a crashed one's pings.
+ */
+:root {
+  --process-running: oklch(0.72 0.17 158);
+  --process-starting: oklch(0.8 0.15 78);
+  --process-failed: oklch(0.64 0.22 25);
+  --process-stopped: oklch(0.6 0.01 260);
+}
+
+.dark {
+  --process-running: oklch(0.78 0.17 158);
+  --process-starting: oklch(0.84 0.15 80);
+  --process-failed: oklch(0.7 0.2 25);
+  --process-stopped: oklch(0.55 0.01 260);
+}
+
+@keyframes process-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--process-light) 0%, transparent);
+    opacity: 0.85;
+  }
+  50% {
+    box-shadow: 0 0 6px 1px color-mix(in oklch, var(--process-light) 70%, transparent);
+    opacity: 1;
+  }
+}
+
+@keyframes process-ping {
+  0% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+
+@keyframes process-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes process-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-process-motion] {
+    animation: none !important;
   }
 }

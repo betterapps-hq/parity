@@ -14,6 +14,8 @@ const frozen = process.env.PARITY_UI_FROZEN === "1"
 /** The canvas UI itself. Customer projects are served by their own builder, not by this config. */
 export default defineConfig({
   root: "src/renderer",
+  // Settings such as the tldraw license key come from `.env.local` beside this file, for the app and Storybook alike.
+  envDir: import.meta.dirname,
   base: "./",
   plugins: [react(), tailwindcss()],
   resolve: {

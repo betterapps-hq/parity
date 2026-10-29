@@ -13,6 +13,7 @@ import { containerModes, withMainMode } from "../canvas/view.ts"
 import { type ContainerEntry, useContainerEntry, useModeSettings, useNotes } from "../design-store.ts"
 import { useSelection } from "../selection.ts"
 import { ComponentsSection, ParamsSection } from "./ComponentsSection.tsx"
+import { Hint } from "./Hint.tsx"
 import { LayerPanel } from "./LayerPanel.tsx"
 import { ArrangePanel, MultiLayerPanel } from "./MultiPanel.tsx"
 import { PanelSection } from "./PanelSection.tsx"
@@ -96,9 +97,11 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
               Component
             </ToggleGroupItem>
           </ToggleGroup>
-          <Badge variant="outline" className="min-w-0 truncate font-normal" title={entry.path}>
-            {entry.path}
-          </Badge>
+          <Hint label={entry.path} wait>
+            <Badge variant="outline" className="min-w-0 truncate font-normal">
+              {entry.path}
+            </Badge>
+          </Hint>
         </div>
       </div>
 
@@ -145,19 +148,22 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
                 {isMain ? (
                   <span className="text-xs text-muted-foreground">Main</span>
                 ) : (
-                  <Switch
-                    size="sm"
-                    aria-label={`Show ${mode.name} beside it`}
-                    title="Show beside the main frame"
-                    checked={shown.has(mode.id)}
-                    onCheckedChange={(on) =>
-                      setModes(
-                        all
-                          .filter((m) => !(m.id === primary.id) && (m.id === mode.id ? on : shown.has(m.id)))
-                          .map((m) => m.id)
-                      )
-                    }
-                  />
+                  <Hint label="Show beside the main frame">
+                    <span className="inline-flex">
+                      <Switch
+                        size="sm"
+                        aria-label={`Show ${mode.name} beside it`}
+                        checked={shown.has(mode.id)}
+                        onCheckedChange={(on) =>
+                          setModes(
+                            all
+                              .filter((m) => !(m.id === primary.id) && (m.id === mode.id ? on : shown.has(m.id)))
+                              .map((m) => m.id)
+                          )
+                        }
+                      />
+                    </span>
+                  </Hint>
                 )}
               </div>
             )

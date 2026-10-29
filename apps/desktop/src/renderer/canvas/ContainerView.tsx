@@ -40,6 +40,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { deleteDesign, duplicateDesign, renameDesign, setDesignKind } from "../chrome/designs.ts"
+import { Hint } from "../chrome/Hint.tsx"
 import { ModeViewportIcon } from "../chrome/viewports.tsx"
 import type { ContainerEntry } from "../design-store.ts"
 import { useLibrary, useModeSettings } from "../design-store.ts"
@@ -254,21 +255,22 @@ function TitleButton({
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <button
-          type="button"
-          onPointerDown={onPointerDown}
-          onContextMenu={stopEventPropagation}
-          onDoubleClick={(event) => {
-            event.stopPropagation()
-            setRenaming(true)
-          }}
-          className="flex min-w-0 cursor-default items-center gap-1.5 rounded-md px-1 py-0.5 text-sm font-medium text-foreground/90 hover:text-foreground"
-          style={color ? { color } : undefined}
-          title={`${container.name}, in ${entry.path}. Double-click to rename.`}
-        >
-          {icon}
-          <span className="truncate">{container.name}</span>
-        </button>
+        <Hint label={`${container.name}, in ${entry.path}`} detail="Double-click to rename." wait>
+          <button
+            type="button"
+            onPointerDown={onPointerDown}
+            onContextMenu={stopEventPropagation}
+            onDoubleClick={(event) => {
+              event.stopPropagation()
+              setRenaming(true)
+            }}
+            className="flex min-w-0 cursor-default items-center gap-1.5 rounded-md px-1 py-0.5 text-sm font-medium text-foreground/90 hover:text-foreground"
+            style={color ? { color } : undefined}
+          >
+            {icon}
+            <span className="truncate">{container.name}</span>
+          </button>
+        </Hint>
       </ContextMenuTrigger>
       <ContextMenuContent className="w-52" onPointerDown={stopEventPropagation}>
         <ContextMenuItem onSelect={() => setRenaming(true)}>Rename</ContextMenuItem>
@@ -407,20 +409,21 @@ function StateLabel({
   const ref = useRef<HTMLButtonElement>(null)
   useCanvasLabel(ref, "detail")
   return (
-    <button
-      ref={ref}
-      type="button"
-      onPointerDown={stopEventPropagation}
-      onClick={onSelect}
-      className="state-label pointer-events-auto absolute right-full mr-8 flex origin-top-right flex-col items-end pr-4 text-right whitespace-nowrap"
-      style={{ top: offset }}
-      title={`Show only ${state.name}`}
-    >
-      <span className="text-sm font-medium text-foreground">{state.name}</span>
-      <span className="text-xs text-muted-foreground">
-        {base ? "Base state" : `${changes} change${changes === 1 ? "" : "s"}`}
-      </span>
-    </button>
+    <Hint label={`Show only ${state.name}`} wait>
+      <button
+        ref={ref}
+        type="button"
+        onPointerDown={stopEventPropagation}
+        onClick={onSelect}
+        className="state-label pointer-events-auto absolute right-full mr-8 flex origin-top-right flex-col items-end pr-4 text-right whitespace-nowrap"
+        style={{ top: offset }}
+      >
+        <span className="text-sm font-medium text-foreground">{state.name}</span>
+        <span className="text-xs text-muted-foreground">
+          {base ? "Base state" : `${changes} change${changes === 1 ? "" : "s"}`}
+        </span>
+      </button>
+    </Hint>
   )
 }
 

@@ -2,6 +2,7 @@ import { type LucideIcon, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelR
 import { Tabs as TabsPrimitive } from "radix-ui"
 import type { ReactNode } from "react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { Hint } from "./Hint.tsx"
 import { IconButton } from "./IconButton.tsx"
 import { panelLimits, setLayout, useLayout } from "./layout.ts"
 
@@ -144,40 +145,41 @@ function ResizeEdge({ side, width }: { side: "left" | "right"; width: number }) 
   const key = side === "left" ? "leftWidth" : "rightWidth"
   const resize = (next: number) => setLayout({ [key]: Math.round(Math.min(max, Math.max(min, next))) })
   return (
-    <button
-      type="button"
-      aria-label={`Resize panel, ${width} pixels wide`}
-      title="Drag to resize. Double-click to reset."
-      className={`absolute inset-y-0 z-10 w-1.5 cursor-col-resize transition-colors outline-none hover:bg-ring/40 focus-visible:bg-ring/60 active:bg-ring/60 ${
-        side === "left" ? "-right-[3px]" : "-left-[3px]"
-      }`}
-      onDoubleClick={() => setLayout({ [key]: side === "left" ? 256 : 320 })}
-      onKeyDown={(event) => {
-        const step = event.shiftKey ? 48 : 16
-        const outward = side === "left" ? "ArrowRight" : "ArrowLeft"
-        const inward = side === "left" ? "ArrowLeft" : "ArrowRight"
-        if (event.key === outward) resize(width + step)
-        else if (event.key === inward) resize(width - step)
-        else return
-        event.preventDefault()
-      }}
-      onPointerDown={(event) => {
-        if (event.button !== 0) return
-        event.preventDefault()
-        const target = event.currentTarget
-        target.setPointerCapture(event.pointerId)
-        const startX = event.clientX
-        const move = (moveEvent: PointerEvent) =>
-          resize(width + (moveEvent.clientX - startX) * (side === "left" ? 1 : -1))
-        const end = () => {
-          target.removeEventListener("pointermove", move)
-          target.removeEventListener("pointerup", end)
-          target.removeEventListener("pointercancel", end)
-        }
-        target.addEventListener("pointermove", move)
-        target.addEventListener("pointerup", end)
-        target.addEventListener("pointercancel", end)
-      }}
-    />
+    <Hint label="Drag to resize" detail="Double-click to reset." side={side === "left" ? "right" : "left"} wait>
+      <button
+        type="button"
+        aria-label={`Resize panel, ${width} pixels wide`}
+        className={`absolute inset-y-0 z-10 w-1.5 cursor-col-resize transition-colors outline-none hover:bg-ring/40 focus-visible:bg-ring/60 active:bg-ring/60 ${
+          side === "left" ? "-right-[3px]" : "-left-[3px]"
+        }`}
+        onDoubleClick={() => setLayout({ [key]: side === "left" ? 256 : 320 })}
+        onKeyDown={(event) => {
+          const step = event.shiftKey ? 48 : 16
+          const outward = side === "left" ? "ArrowRight" : "ArrowLeft"
+          const inward = side === "left" ? "ArrowLeft" : "ArrowRight"
+          if (event.key === outward) resize(width + step)
+          else if (event.key === inward) resize(width - step)
+          else return
+          event.preventDefault()
+        }}
+        onPointerDown={(event) => {
+          if (event.button !== 0) return
+          event.preventDefault()
+          const target = event.currentTarget
+          target.setPointerCapture(event.pointerId)
+          const startX = event.clientX
+          const move = (moveEvent: PointerEvent) =>
+            resize(width + (moveEvent.clientX - startX) * (side === "left" ? 1 : -1))
+          const end = () => {
+            target.removeEventListener("pointermove", move)
+            target.removeEventListener("pointerup", end)
+            target.removeEventListener("pointercancel", end)
+          }
+          target.addEventListener("pointermove", move)
+          target.addEventListener("pointerup", end)
+          target.addEventListener("pointercancel", end)
+        }}
+      />
+    </Hint>
   )
 }

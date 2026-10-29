@@ -26,6 +26,7 @@ import { useProject } from "../canvas/context.ts"
 import { focusOnMount, kindColors, layerLabel, NodeIcon } from "../canvas/kinds.tsx"
 import { activeState } from "../canvas/view.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
+import { Hint } from "./Hint.tsx"
 import { PanelSection } from "./PanelSection.tsx"
 
 /**
@@ -236,27 +237,28 @@ function ChangesList({ entry, state }: { entry: ContainerEntry; state: StateSpec
                     )}
                     <span className="truncate">{node ? layerLabel(node, entries) : nodeId}</span>
                   </button>
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    aria-label="Reset every change to this layer"
-                    title="Reset every change to this layer"
-                    onClick={() =>
-                      store.updateContainer(entry.key, "Reset layer", (current) =>
-                        resetOverride(current, state.id, nodeId)
-                      )
-                    }
-                  >
-                    <RotateCcw />
-                  </Button>
+                  <Hint label="Reset every change to this layer">
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-label="Reset every change to this layer"
+                      onClick={() =>
+                        store.updateContainer(entry.key, "Reset layer", (current) =>
+                          resetOverride(current, state.id, nodeId)
+                        )
+                      }
+                    >
+                      <RotateCcw />
+                    </Button>
+                  </Hint>
                 </div>
                 <ul className="flex flex-col gap-0.5 pl-5">
                   {patchFields(patch).map((field) => (
                     <li key={field.id} className="flex items-baseline gap-2 text-xs">
                       <span className="shrink-0 text-muted-foreground">{field.label}</span>
-                      <span className="min-w-0 flex-1 truncate font-mono" title={field.value}>
-                        {field.value}
-                      </span>
+                      <Hint label={field.value} wait>
+                        <span className="min-w-0 flex-1 truncate font-mono">{field.value}</span>
+                      </Hint>
                     </li>
                   ))}
                 </ul>

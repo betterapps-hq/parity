@@ -35,6 +35,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useProject } from "../canvas/context.ts"
 import { useModeSettings } from "../design-store.ts"
 import { useTokenList } from "../tokens-store.ts"
+import { Hint } from "./Hint.tsx"
 import { PanelSection } from "./PanelSection.tsx"
 import { type PresetGroup, ViewportIcon, ViewportPicker, viewportPresets, withViewport } from "./viewports.tsx"
 
@@ -314,12 +315,9 @@ function VariableCard({ variable, presets, onChange, onAdd, onRemove }: Variable
         {variable.options.map((option) => (
           <li key={option.id} className="group/option flex items-center gap-2 rounded-md px-1 py-1 text-sm">
             {viewport && <ViewportIcon option={option} className="size-3.5 shrink-0 text-muted-foreground" />}
-            <span
-              className="min-w-0 flex-1 truncate"
-              title={option.height ? `${option.width} × ${option.height}` : undefined}
-            >
-              {option.name}
-            </span>
+            <Hint label={option.height ? `${option.width} × ${option.height}` : undefined} wait>
+              <span className="min-w-0 flex-1 truncate">{option.name}</span>
+            </Hint>
             {option.width !== undefined ? (
               <span className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Input

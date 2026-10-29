@@ -1,7 +1,9 @@
 import { Gauge } from "lucide-react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import type { ProcessUsage } from "../../shared/protocol.ts"
+import { Hint } from "./Hint.tsx"
 import { usePerformanceStats } from "./performance.ts"
 import { setPreferences } from "./preferences.ts"
 
@@ -25,6 +27,7 @@ function fpsTone(fps: number): string {
  * minute's frame rate and each process.
  */
 export function PerformanceStats() {
+  const [open, setOpen] = useState(false)
   const { latest, history } = usePerformanceStats()
   const processes = [...(latest?.processes ?? [])].sort(
     (a, b) => roleOrder.indexOf(a.role) - roleOrder.indexOf(b.role) || b.memory - a.memory
@@ -34,30 +37,31 @@ export function PerformanceStats() {
   const lowest = history.length > 0 ? Math.min(...history) : undefined
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="flex h-6 shrink-0 items-center gap-2.5 rounded px-1.5 tabular-nums hover:bg-accent hover:text-foreground"
-          title="Show each process"
-        >
-          <Gauge className="size-3.5" />
-          {latest ? (
-            <>
-              <span>
-                <strong className={`font-medium ${fpsTone(latest.fps)}`}>{latest.fps}</strong> fps
-              </span>
-              <span>
-                <strong className="font-medium text-foreground">{megabytes(memory)}</strong>
-              </span>
-              <span>
-                <strong className="font-medium text-foreground">{percent(cpu)}</strong> CPU
-              </span>
-            </>
-          ) : (
-            <span>Measuring</span>
-          )}
-        </button>
+        <Hint label="Show each process" hidden={open}>
+          <button
+            type="button"
+            className="flex h-6 shrink-0 items-center gap-2.5 rounded px-1.5 tabular-nums hover:bg-accent hover:text-foreground"
+          >
+            <Gauge className="size-3.5" />
+            {latest ? (
+              <>
+                <span>
+                  <strong className={`font-medium ${fpsTone(latest.fps)}`}>{latest.fps}</strong> fps
+                </span>
+                <span>
+                  <strong className="font-medium text-foreground">{megabytes(memory)}</strong>
+                </span>
+                <span>
+                  <strong className="font-medium text-foreground">{percent(cpu)}</strong> CPU
+                </span>
+              </>
+            ) : (
+              <span>Measuring</span>
+            )}
+          </button>
+        </Hint>
       </PopoverTrigger>
       <PopoverContent side="top" align="end" className="w-80 gap-0 p-0 text-xs">
         <div className="flex items-center justify-between gap-2 border-b py-1.5 pr-1.5 pl-3">
@@ -91,15 +95,13 @@ export function PerformanceStats() {
           </thead>
           <tbody>
             {processes.map((process) => (
-              <tr
-                key={process.pid}
-                className={process.role === "helper" ? "text-muted-foreground" : undefined}
-                title={`Process ${process.pid}`}
-              >
-                <td className="max-w-40 truncate py-0.5 pl-3">{process.name}</td>
-                <td className="px-2 py-0.5 text-right">{percent(process.cpu)}</td>
-                <td className="py-0.5 pr-3 text-right">{megabytes(process.memory)}</td>
-              </tr>
+              <Hint key={process.pid} label={`Process ${process.pid}`} wait>
+                <tr className={process.role === "helper" ? "text-muted-foreground" : undefined}>
+                  <td className="max-w-40 truncate py-0.5 pl-3">{process.name}</td>
+                  <td className="px-2 py-0.5 text-right">{percent(process.cpu)}</td>
+                  <td className="py-0.5 pr-3 text-right">{megabytes(process.memory)}</td>
+                </tr>
+              </Hint>
             ))}
             <tr className="border-t font-medium">
               <td className="py-1.5 pl-3">All of Parity</td>
@@ -111,8 +113,8 @@ export function PerformanceStats() {
         <p className="border-t px-3 py-2 text-muted-foreground">
           {latest?.heap &&
             `This window's JavaScript uses ${megabytes(latest.heap.used)} of ${megabytes(latest.heap.limit)}. `}
-          CPU is a share of all {navigator.hardwareConcurrency} cores. Storybook and other programs the project service
-          starts aren&apos;t counted.
+          CPU is a share of all {navigator.hardwareConcurrency} cores. Storybook and the other servers listed under
+          processes, beside these stats, aren&apos;t counted.
         </p>
       </PopoverContent>
     </Popover>

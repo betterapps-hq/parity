@@ -34,6 +34,7 @@ import {
   useSelection
 } from "../selection.ts"
 import { createDesign } from "./create.ts"
+import { Hint } from "./Hint.tsx"
 import { IconButton } from "./IconButton.tsx"
 import { keymap } from "./keymap.ts"
 import { renameLayer } from "./LayerPanel.tsx"
@@ -496,9 +497,9 @@ function LayerRow({
             )}
             {row.node?.hidden && <EyeOff className="size-3" aria-label="Hidden" />}
             {row.depth === 0 && (
-              <span className="text-xs tabular-nums opacity-70" title="States">
-                {container.states.length}
-              </span>
+              <Hint label={container.states.length === 1 ? "1 state" : `${container.states.length} states`} wait>
+                <span className="text-xs tabular-nums opacity-70">{container.states.length}</span>
+              </Hint>
             )}
           </span>
         </div>

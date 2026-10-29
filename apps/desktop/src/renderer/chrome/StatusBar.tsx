@@ -4,9 +4,11 @@ import { useProject } from "../canvas/context.ts"
 import { type DesignStore, useSaveState } from "../design-store.ts"
 import { useTokenList } from "../tokens-store.ts"
 import { save } from "./commands.ts"
+import { Hint } from "./Hint.tsx"
 import { setLayout } from "./layout.ts"
 import { PerformanceStats } from "./PerformanceStats.tsx"
 import { usePreferences } from "./preferences.ts"
+import { Processes } from "./Processes.tsx"
 import { openInStorybook } from "./storybook.ts"
 
 /** How the project was understood, with nothing configured by hand. Each count opens the panel that lists it. */
@@ -23,19 +25,22 @@ export function StatusBar() {
     <footer className="flex h-7 shrink-0 items-center gap-1 border-t bg-background px-1.5 text-xs text-muted-foreground">
       <Item
         icon={<Brush className="size-3.5" />}
-        title={`Renders components with the project's own framework\n\n${detected(info.renderer.id)}`}
+        hint="Renders components with the project's own framework"
+        detail={detected(info.renderer.id)}
       >
         <strong className="font-medium text-foreground">{info.renderer.name}</strong>
       </Item>
       <Item
         icon={<Hammer className="size-3.5" />}
-        title={`Builds with the project's own toolchain\n\n${detected(info.builder.id)}\n${info.detection.packageManager.summary}`}
+        hint="Builds with the project's own toolchain"
+        detail={`${detected(info.builder.id)}\n${info.detection.packageManager.summary}`}
       >
         <strong className="font-medium text-foreground">{info.builder.name}</strong> {info.builder.toolVersion}
       </Item>
       <Item
         icon={<Blocks className="size-3.5" />}
-        title={`Show components\n\n${info.notes.join("\n")}`}
+        hint="Show components"
+        detail={info.notes.join("\n")}
         onClick={() => openTab("components")}
       >
         <strong className="font-medium text-foreground">{info.componentCount}</strong>{" "}
@@ -43,7 +48,8 @@ export function StatusBar() {
       </Item>
       <Item
         icon={<Palette className="size-3.5" />}
-        title={`Show tokens: ${semantic} from the project and ${tokens.length - semantic} from ${info.styles?.name ?? "the theme"}${info.styles ? `\n\n${detected(info.styles.id)}` : ""}`}
+        hint={`Show tokens: ${semantic} from the project and ${tokens.length - semantic} from ${info.styles?.name ?? "the theme"}`}
+        detail={info.styles && detected(info.styles.id)}
         onClick={() => openTab("tokens")}
       >
         <strong className="font-medium text-foreground">{tokens.length}</strong> tokens
@@ -51,7 +57,8 @@ export function StatusBar() {
       {info.storybook && (
         <Item
           icon={<BookOpen className="size-3.5" />}
-          title={`Open Storybook in your browser: ${Object.keys(info.storybook.stories).length} components have stories\n\n${detected("storybook")}`}
+          hint={`Open Storybook in your browser: ${Object.keys(info.storybook.stories).length} components have stories`}
+          detail={detected("storybook")}
           onClick={() => void openInStorybook(session)}
         >
           <strong className="font-medium text-foreground">Storybook</strong>
@@ -59,42 +66,41 @@ export function StatusBar() {
       )}
       <span className="flex-1" />
       <SaveFailure store={store} />
+      <Processes />
       {performanceStats && <PerformanceStats />}
     </footer>
   )
 }
 
-/** A status bar item: a button when it leads somewhere, plain text otherwise. */
+/** A status bar item, with a tooltip saying what it is: a button when it leads somewhere, plain text otherwise. */
 function Item({
   icon,
-  title,
+  hint,
+  detail,
   onClick,
   children
 }: {
   icon: ReactNode
-  title: string
+  hint: string
+  detail?: string
   onClick?: () => void
   children: ReactNode
 }) {
   const className = "flex h-6 shrink-0 items-center gap-1.5 rounded px-1.5"
-  if (!onClick) {
-    return (
-      <span className={className} title={title}>
-        {icon}
-        {children}
-      </span>
-    )
-  }
   return (
-    <button
-      type="button"
-      className={`${className} hover:bg-accent hover:text-foreground`}
-      title={title}
-      onClick={onClick}
-    >
-      {icon}
-      {children}
-    </button>
+    <Hint label={hint} detail={detail}>
+      {onClick ? (
+        <button type="button" className={`${className} hover:bg-accent hover:text-foreground`} onClick={onClick}>
+          {icon}
+          {children}
+        </button>
+      ) : (
+        <span className={className}>
+          {icon}
+          {children}
+        </span>
+      )}
+    </Hint>
   )
 }
 
@@ -108,9 +114,8 @@ function SaveFailure({ store }: { store: DesignStore }) {
   return (
     <Item
       icon={<TriangleAlert className="size-3.5 text-destructive" />}
-      title={`${state.error}
-
-Click to try again.`}
+      hint={state.error}
+      detail="Click to try again."
       onClick={() => void save()}
     >
       <span className="text-destructive">Couldn&apos;t save</span>

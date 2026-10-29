@@ -37,7 +37,7 @@ export async function openProjects(...names: ProjectName[]): Promise<void> {
   setPreferences({ snapping: true, exportScale: 2, layoutGrid: false, autosave: false, performanceStats: false })
   setTabOrderShown(false)
   await workspace.flush().catch(() => undefined)
-  for (const tab of [...workspace.getTabs()]) await workspace.close(tab.id)
+  for (const tab of workspace.getTabs()) await workspace.close(tab.id)
   const opening = names.map((name, index) => workspace.open(roots[name], index === 0))
   const tabs = await Promise.all(opening.filter((_, index) => names[index] !== "slow"))
   if (names[0]) workspace.activate(roots[names[0]])

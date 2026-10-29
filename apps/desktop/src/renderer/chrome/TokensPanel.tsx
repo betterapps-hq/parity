@@ -8,6 +8,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { useProject } from "../canvas/context.ts"
 import { resolveTokenValue, spacingUnit, useTokenList } from "../tokens-store.ts"
 import { Swatch } from "./fields.tsx"
+import { Hint } from "./Hint.tsx"
 import { PanelError } from "./PanelError.tsx"
 import { PanelSection } from "./PanelSection.tsx"
 
@@ -103,16 +104,16 @@ export function TokensPanel() {
           <ToggleGroupItem value="all" className="h-7 flex-1 text-xs">
             All
           </ToggleGroupItem>
-          <ToggleGroupItem value="semantic" className="h-7 flex-1 text-xs" title="The project's own variables">
-            Project {counts.semantic}
-          </ToggleGroupItem>
-          <ToggleGroupItem
-            value="theme"
-            className="h-7 flex-1 text-xs"
-            title={info.styles ? `${info.styles.name}'s theme` : "Theme scale"}
-          >
-            Theme {counts.theme}
-          </ToggleGroupItem>
+          <Hint label="The project's own variables" wait>
+            <ToggleGroupItem value="semantic" className="h-7 flex-1 text-xs aria-checked:bg-muted">
+              Project {counts.semantic}
+            </ToggleGroupItem>
+          </Hint>
+          <Hint label={info.styles ? `${info.styles.name}'s theme` : "Theme scale"} wait>
+            <ToggleGroupItem value="theme" className="h-7 flex-1 text-xs aria-checked:bg-muted">
+              Theme {counts.theme}
+            </ToggleGroupItem>
+          </Hint>
         </ToggleGroup>
         {info.styles?.error && <PanelError title="Some tokens may be missing">{info.styles.error}</PanelError>}
         {info.describedTokens
@@ -205,30 +206,31 @@ function TokenRow({
   return (
     <li>
       <TokenEditor token={token} tokens={tokens} themes={themes}>
-        <button
-          type="button"
-          title={described?.description ? `${described.description} (${described.library})` : undefined}
-          className="flex min-h-7 w-full min-w-0 items-center gap-2 rounded-md px-1.5 py-1 text-left text-xs hover:bg-accent/50"
-        >
-          <TokenPreview token={token} tokens={tokens} themes={themes} />
-          <span className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate font-mono">{token.name}</span>
-            {described?.description && (
-              <span className="truncate text-[11px] text-muted-foreground">{described.description}</span>
-            )}
-          </span>
-          {token.category === "spacing" ? (
-            <span className="text-muted-foreground tabular-nums" title={token.values.default}>
-              {spacingPx(token, tokens)}
+        <Hint label={described?.description ? `${described.description} (${described.library})` : undefined} wait>
+          <button
+            type="button"
+            className="flex min-h-7 w-full min-w-0 items-center gap-2 rounded-md px-1.5 py-1 text-left text-xs hover:bg-accent/50"
+          >
+            <TokenPreview token={token} tokens={tokens} themes={themes} />
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="truncate font-mono">{token.name}</span>
+              {described?.description && (
+                <span className="truncate text-[11px] text-muted-foreground">{described.description}</span>
+              )}
             </span>
-          ) : (
-            token.category !== "color" && (
-              <span className="max-w-28 truncate text-muted-foreground" title={token.values.default}>
-                {token.values.default}
-              </span>
-            )
-          )}
-        </button>
+            {token.category === "spacing" ? (
+              <Hint label={token.values.default} wait>
+                <span className="text-muted-foreground tabular-nums">{spacingPx(token, tokens)}</span>
+              </Hint>
+            ) : (
+              token.category !== "color" && (
+                <Hint label={token.values.default} wait>
+                  <span className="max-w-28 truncate text-muted-foreground">{token.values.default}</span>
+                </Hint>
+              )
+            )}
+          </button>
+        </Hint>
       </TokenEditor>
     </li>
   )
@@ -238,32 +240,35 @@ function TokenRow({
 function DescribedRow({ token }: { token: Described }) {
   const contexts = Object.entries(token.values)
   return (
-    <li
-      className="flex min-h-7 min-w-0 items-center gap-2 px-1.5 py-1 text-xs"
-      title={[token.description, `${token.type ?? "Token"} from ${token.library}`].filter(Boolean).join("\n")}
-    >
+    <li className="flex min-h-7 min-w-0 items-center gap-2 px-1.5 py-1 text-xs">
       {token.type === "color" ? (
         <span className="flex shrink-0">
           {contexts.map(([context, value]) => (
-            <span
-              key={context}
-              title={`${context === "default" ? "Default" : context}: ${value}`}
-              className="size-4 border border-white/15 first:rounded-l-sm last:rounded-r-sm"
-              style={{ background: value }}
-            />
+            <Hint key={context} label={`${context === "default" ? "Default" : context}: ${value}`} wait>
+              <span
+                className="size-4 border border-white/15 first:rounded-l-sm last:rounded-r-sm"
+                style={{ background: value }}
+              />
+            </Hint>
           ))}
         </span>
       ) : (
         <span className="w-4 shrink-0" />
       )}
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate font-mono">{token.path}</span>
-        {token.description && <span className="truncate text-[11px] text-muted-foreground">{token.description}</span>}
-      </span>
-      {token.type !== "color" && (
-        <span className="max-w-28 truncate text-muted-foreground" title={token.values.default}>
-          {token.values.default ?? contexts[0]?.[1]}
+      <Hint
+        label={token.path}
+        detail={[token.description, `${token.type ?? "Token"} from ${token.library}`].filter(Boolean).join("\n")}
+        wait
+      >
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate font-mono">{token.path}</span>
+          {token.description && <span className="truncate text-[11px] text-muted-foreground">{token.description}</span>}
         </span>
+      </Hint>
+      {token.type !== "color" && (
+        <Hint label={token.values.default} wait>
+          <span className="max-w-28 truncate text-muted-foreground">{token.values.default ?? contexts[0]?.[1]}</span>
+        </Hint>
       )}
     </li>
   )
@@ -282,13 +287,14 @@ function Palette({ tokens, all, themes }: { tokens: Token[]; all: Token[]; theme
           <div className="flex flex-1 gap-px overflow-hidden rounded-sm">
             {shades.map((token) => (
               <TokenEditor key={token.name} token={token} tokens={all} themes={themes}>
-                <button
-                  type="button"
-                  title={`${token.name}: ${token.values.default}`}
-                  aria-label={token.name}
-                  className="h-5 flex-1 hover:outline-2 hover:outline-offset-1 hover:outline-foreground"
-                  style={{ background: resolveTokenValue(all, token.name) }}
-                />
+                <Hint label={`${token.name}: ${token.values.default}`}>
+                  <button
+                    type="button"
+                    aria-label={token.name}
+                    className="h-5 flex-1 hover:outline-2 hover:outline-offset-1 hover:outline-foreground"
+                    style={{ background: resolveTokenValue(all, token.name) }}
+                  />
+                </Hint>
               </TokenEditor>
             ))}
           </div>
@@ -311,12 +317,16 @@ function TokenPreview({ token, tokens, themes }: { token: Token; tokens: Token[]
     return (
       <span className="flex shrink-0">
         {shown.map((theme) => (
-          <span
+          <Hint
             key={theme}
-            title={`${theme === "default" ? "Light" : theme}: ${resolveTokenValue(tokens, token.name, theme)}`}
-            className="size-4 border border-white/15 first:rounded-l-sm last:rounded-r-sm"
-            style={{ background: resolveTokenValue(tokens, token.name, theme) }}
-          />
+            label={`${theme === "default" ? "Light" : theme}: ${resolveTokenValue(tokens, token.name, theme)}`}
+            wait
+          >
+            <span
+              className="size-4 border border-white/15 first:rounded-l-sm last:rounded-r-sm"
+              style={{ background: resolveTokenValue(tokens, token.name, theme) }}
+            />
+          </Hint>
         ))}
       </span>
     )

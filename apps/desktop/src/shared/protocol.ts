@@ -84,6 +84,79 @@ export interface ServiceMethods {
   }
   /** Writes token values back to the project's stylesheets. */
   "tokens.save": { params: { projectId: string; changes: TokenChange[] }; result: { files: string[] } }
+  /**
+   * What Parity runs for the open projects: each one's build server and the Storybook it started, the tasks running,
+   * and each task's last result.
+   */
+  "processes.list": { params: Record<string, never>; result: ProjectProcess[] }
+  /** Stops a server Parity started, or cancels a task. */
+  "processes.stop": { params: { id: string }; result: undefined }
+  /** Starts a server again, or runs a task again. */
+  "processes.restart": { params: { id: string }; result: undefined }
+  /** Forgets a process that stopped or a task that finished, so it leaves the list. */
+  "processes.dismiss": { params: { id: string }; result: undefined }
+}
+
+/**
+ * Where a process is in its life. A server starts, runs until it's stopped, and has failed if it exits by itself. A task
+ * runs once, then passes or fails, or is canceled.
+ */
+export type ProcessStatus = "starting" | "running" | "stopping" | "stopped" | "failed" | "passed" | "canceled"
+
+/** What a server is: a project's build server, which the canvas renders through, or its Storybook. */
+export type ServerKind = "builder" | "storybook"
+
+/**
+ * What a task does: installs packages, checks types, runs unit tests or Playwright, formats, lints, verifies the whole
+ * project, builds it, exports designs, or checks a design's accessibility.
+ */
+export type TaskKind =
+  | "install"
+  | "typecheck"
+  | "test"
+  | "e2e"
+  | "format"
+  | "lint"
+  | "verify"
+  | "build"
+  | "export"
+  | "accessibility"
+
+/** A process Parity runs for an open project, as the status bar lists it: a server, or a task. */
+export interface ProjectProcess {
+  id: string
+  kind: ServerKind | TaskKind
+  /** A server runs until it's stopped; a task runs once and finishes with a result. */
+  shape: "server" | "task"
+  name: string
+  /** The open project it runs for. */
+  projectId: string
+  /** That project's name. */
+  project: string
+  status: ProcessStatus
+  /** When it started, in milliseconds since 1970. */
+  startedAt: number
+  /** When it stopped or finished, once it has. */
+  stoppedAt?: number
+  pid?: number
+  /** A server's local address, as `http://localhost:6006`. */
+  url?: string
+  /** A server's Portless address, as `https://storybook.shop.localhost`, when Portless routes to it. */
+  domain?: string
+  /** Parity started it, or it was already running when Parity needed it, as a Storybook on its usual port. */
+  startedBy: "parity" | "elsewhere"
+  /** Whether it can be stopped: a server stopped, or a task canceled. */
+  canStop: boolean
+  /** Whether it can start again: a server restarted, or a task run again. */
+  canRestart: boolean
+  /** What a running task is doing, as "Checking 34 component files". */
+  detail?: string
+  /** How far a running task has got, when it knows. */
+  progress?: { done: number; total: number }
+  /** What a finished task found, as "3 errors in 2 files". */
+  summary?: string
+  /** Why it failed: a server that exited by itself, or a task's error in full. */
+  error?: string
 }
 
 /**

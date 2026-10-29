@@ -6,6 +6,7 @@ import type { DesignStore } from "../design-store.ts"
 import { type Tab, useActiveTabId, useTabs, workspace } from "../workspace.ts"
 import { AppMenu } from "./AppMenu.tsx"
 import { openProjectFolder } from "./commands.ts"
+import { Hint } from "./Hint.tsx"
 
 const mac = navigator.userAgent.includes("Mac")
 
@@ -13,13 +14,11 @@ const mac = navigator.userAgent.includes("Mac")
  * Closes the tab. While the project has unsaved changes it shows a dot instead, like VS Code, which turns back into
  * the close button on hover.
  */
-function CloseButton({ tab, selected }: { tab: Tab; selected: boolean }) {
-  const unsaved = useUnsaved(tab.session?.store)
+function CloseButton({ tab, selected, unsaved }: { tab: Tab; selected: boolean; unsaved: boolean }) {
   return (
     <button
       type="button"
       aria-label={unsaved ? `Close ${tab.title}, which has unsaved changes` : `Close ${tab.title}`}
-      title={unsaved ? "Unsaved changes" : undefined}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={() => void workspace.close(tab.id)}
       className={`group/close grid size-5 shrink-0 place-items-center rounded hover:bg-accent ${
@@ -45,6 +44,42 @@ function useUnsaved(store: DesignStore | undefined): boolean {
 }
 
 const ignore = () => () => undefined
+
+/**
+ * A project's tab. Its tooltip names the project's folder, and says when the project has unsaved changes; the close
+ * button shows that as a dot.
+ */
+function ProjectTab({ tab, selected }: { tab: Tab; selected: boolean }) {
+  const unsaved = useUnsaved(tab.session?.store)
+  return (
+    <Hint
+      label={tab.session?.info.root ?? tab.message ?? tab.title}
+      detail={unsaved ? "Unsaved changes" : undefined}
+      side="bottom"
+      wait
+    >
+      <div
+        role="tab"
+        tabIndex={0}
+        aria-selected={selected}
+        onPointerDown={(event) => event.button === 0 && workspace.activate(tab.id)}
+        onAuxClick={(event) => event.button === 1 && void workspace.close(tab.id)}
+        onKeyDown={(event) => (event.key === "Enter" || event.key === " ") && workspace.activate(tab.id)}
+        className={`group relative flex h-8 w-56 min-w-24 shrink items-center gap-2 rounded-t-lg border border-b-0 px-3 text-sm [-webkit-app-region:no-drag] ${
+          selected
+            ? "bg-background text-foreground"
+            : "border-transparent text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+        }`}
+      >
+        {tab.status === "loading" && <LoaderCircle className="size-3.5 shrink-0 animate-spin" />}
+        {tab.status === "error" && <TriangleAlert className="size-3.5 shrink-0 text-destructive" />}
+        <span className="min-w-0 flex-1 truncate">{tab.title}</span>
+        <CloseButton tab={tab} selected={selected} unsaved={unsaved} />
+        {selected && <span className="absolute inset-x-0 -bottom-px h-px bg-background" />}
+      </div>
+    </Hint>
+  )
+}
 
 /**
  * The app's menus, then open projects as tabs. The strip doubles as the window's title bar; the system's window buttons
@@ -78,32 +113,9 @@ export function TabBar() {
         }}
         className="flex min-w-0 items-end gap-0.5 overflow-x-auto [scrollbar-width:none]"
       >
-        {tabs.map((tab) => {
-          const selected = tab.id === active
-          return (
-            <div
-              key={tab.id}
-              role="tab"
-              tabIndex={0}
-              aria-selected={selected}
-              title={tab.session?.info.root ?? tab.message ?? tab.title}
-              onPointerDown={(event) => event.button === 0 && workspace.activate(tab.id)}
-              onAuxClick={(event) => event.button === 1 && void workspace.close(tab.id)}
-              onKeyDown={(event) => (event.key === "Enter" || event.key === " ") && workspace.activate(tab.id)}
-              className={`group relative flex h-8 w-56 min-w-24 shrink items-center gap-2 rounded-t-lg border border-b-0 px-3 text-sm [-webkit-app-region:no-drag] ${
-                selected
-                  ? "bg-background text-foreground"
-                  : "border-transparent text-muted-foreground hover:bg-muted/40 hover:text-foreground"
-              }`}
-            >
-              {tab.status === "loading" && <LoaderCircle className="size-3.5 shrink-0 animate-spin" />}
-              {tab.status === "error" && <TriangleAlert className="size-3.5 shrink-0 text-destructive" />}
-              <span className="min-w-0 flex-1 truncate">{tab.title}</span>
-              <CloseButton tab={tab} selected={selected} />
-              {selected && <span className="absolute inset-x-0 -bottom-px h-px bg-background" />}
-            </div>
-          )
-        })}
+        {tabs.map((tab) => (
+          <ProjectTab key={tab.id} tab={tab} selected={tab.id === active} />
+        ))}
       </div>
       <Tooltip>
         <TooltipTrigger asChild>

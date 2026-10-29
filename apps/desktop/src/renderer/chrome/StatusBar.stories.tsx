@@ -122,8 +122,10 @@ export const OlderProject: Story = {
     }
   ],
   play: async () => {
-    await expect(await statusBar().findByTitle(/React 18\.3\.1 from node_modules\/react; untested/)).toBeVisible()
-    await expect(statusBar().getByTitle(/Vite 5\.4\.11 from node_modules\/vite; untested/)).toBeVisible()
+    await userEvent.hover(await statusBar().findByText("React"))
+    await expect(await body().findByText(/React 18\.3\.1 from node_modules\/react; untested/)).toBeInTheDocument()
+    await userEvent.hover(statusBar().getByText("Vite"))
+    await expect(await body().findByText(/Vite 5\.4\.11 from node_modules\/vite; untested/)).toBeInTheDocument()
   }
 }
 

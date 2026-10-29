@@ -8,6 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { kindColors } from "../canvas/kinds.tsx"
+import { Hint } from "./Hint.tsx"
 
 interface FieldProps {
   label: string
@@ -32,32 +33,32 @@ export function useMixed(): boolean {
 export function Field({ label, hint, changed, mixed = false, onReset, children }: FieldProps) {
   return (
     <div className="grid min-h-8 grid-cols-[88px_1fr_20px] items-center gap-2">
-      <span
-        className="truncate text-xs text-muted-foreground"
-        style={changed ? { color: kindColors.agent } : undefined}
-        title={[
-          changed ? `${label}: changed in this state` : label,
-          mixed ? "Different across the selected layers" : undefined,
-          hint
-        ]
-          .filter(Boolean)
-          .join("\n")}
+      <Hint
+        label={changed ? `${label}: changed in this state` : label}
+        detail={[mixed && "Different across the selected layers", hint].filter(Boolean).join("\n")}
+        wait
       >
-        {label}
-      </span>
+        <span
+          className="truncate text-xs text-muted-foreground"
+          style={changed ? { color: kindColors.agent } : undefined}
+        >
+          {label}
+        </span>
+      </Hint>
       <div className="min-w-0">
         <MixedContext value={mixed}>{children}</MixedContext>
       </div>
       {changed && onReset ? (
-        <button
-          type="button"
-          onClick={onReset}
-          className="grid size-5 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
-          aria-label={`Reset ${label} to the base design`}
-          title="Reset to the base design"
-        >
-          <RotateCcw className="size-3" />
-        </button>
+        <Hint label="Reset to the base design">
+          <button
+            type="button"
+            onClick={onReset}
+            className="grid size-5 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
+            aria-label={`Reset ${label} to the base design`}
+          >
+            <RotateCcw className="size-3" />
+          </button>
+        </Hint>
       ) : (
         <span />
       )}

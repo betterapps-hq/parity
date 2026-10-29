@@ -80,7 +80,7 @@ export const NoIssues: Story = {
 export const CheckFailed: Story = {
   loaders: [checking("Settings")],
   play: ({ canvasElement }) =>
-    checkAgain(canvasElement, /Couldn.t check the design/, () =>
+    checkAgain(canvasElement, /Couldn.t check Settings/, () =>
       answerNext("accessibility.check", () =>
         Promise.reject(
           new Error(

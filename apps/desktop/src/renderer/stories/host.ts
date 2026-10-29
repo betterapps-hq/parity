@@ -1,7 +1,7 @@
 import type { AccessibilityFinding } from "@parity/agent"
 import { type ComponentInfo, type ContainerSpec, defaultModeSettings, type DesignNode } from "@parity/core"
 import discovered from "virtual:parity/example-project"
-import type { CanvasHost, ProjectInfo, ServiceMethod, ServiceMethods } from "../../shared/protocol.ts"
+import type { CanvasHost, ProjectInfo, ProjectProcess, ServiceMethod, ServiceMethods } from "../../shared/protocol.ts"
 
 /** What the service's `project.open` and `project.components` answer for the example; the guest URL is set here. */
 const example = discovered as { info: Omit<ProjectInfo, "guestUrl">; components: Record<string, ComponentInfo> }
@@ -59,9 +59,16 @@ export function pickingWith(dialogs: Partial<Pick<CanvasHost, keyof typeof cance
   Object.assign(window.canvasHost, dialogs)
 }
 
+/**
+ * What the stand-in service runs besides each open project's build server, which it starts as projects open: a story
+ * adds Storybooks, servers Portless routes and its proxy.
+ */
+export const running: { processes: ProjectProcess[] } = { processes: [] }
+
 /** Puts the service and the system dialogs back as they were before any story changed them. */
 export function resetHost(): void {
   Object.assign(service, defaultService)
+  running.processes = []
   overrides.clear()
   Object.assign(window.canvasHost, cancelled)
 }
@@ -121,6 +128,58 @@ export function projectInfo(root: string): ProjectInfo {
   return { ...info, guestUrl }
 }
 
+/** A project's build server, as the service starts it when the project opens, a few seconds ago. */
+function buildServer(info: ProjectInfo): ProjectProcess {
+  const started = Date.now() - 4000
+  return {
+    id: `builder:${info.root}`,
+    kind: "builder",
+    shape: "server",
+    name: info.builder.name,
+    projectId: info.root,
+    project: info.name,
+    status: "running",
+    startedAt: started,
+    pid: 3,
+    url: new URL(info.guestUrl).origin,
+    startedBy: "parity",
+    canStop: false,
+    canRestart: false
+  }
+}
+
+/**
+ * Stops a server or cancels a task, which takes a moment: it's stopping, then stopped or canceled. Asked to restart, a
+ * server starts and then runs, and a task runs again and then passes.
+ */
+function settle(id: string, action: "stop" | "restart"): void {
+  const process = running.processes.find((candidate) => candidate.id === id)
+  if (!process) return
+  const task = process.shape === "task"
+  const move = (next: ProjectProcess["status"]) => {
+    const at = Date.now()
+    process.status = next
+    if (next === "stopped" || next === "canceled" || next === "passed") {
+      process.stoppedAt = at
+      process.canStop = false
+      delete process.progress
+      if (next === "passed") process.summary = "Passed"
+    }
+    if (next === "starting" || (task && next === "running")) {
+      process.startedAt = at
+      for (const key of ["stoppedAt", "error", "summary"] as const) delete process[key]
+      process.canStop = true
+    }
+  }
+  if (action === "stop") {
+    move("stopping")
+    setTimeout(() => move(task ? "canceled" : "stopped"), 900)
+  } else {
+    move(task ? "running" : "starting")
+    setTimeout(() => move(task ? "passed" : "running"), 1600)
+  }
+}
+
 async function answer<M extends ServiceMethod>(
   method: M,
   params: ServiceMethods[M]["params"]
@@ -137,10 +196,28 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
       if (root === roots.broken) {
         throw new Error("No renderer supports broken-app: its package.json depends on neither react nor react-dom")
       }
-      return projectInfo(root)
+      const info = projectInfo(root)
+      if (!running.processes.some((process) => process.id === `builder:${root}`)) {
+        running.processes.push(buildServer(info))
+      }
+      return info
     }
+    case "project.close":
+      running.processes = running.processes.filter((process) => process.projectId !== params.projectId)
+      return undefined
     case "project.components":
       return structuredClone(example.components)
+    case "processes.list":
+      return structuredClone(running.processes)
+    case "processes.stop":
+      settle(String(params.id), "stop")
+      return undefined
+    case "processes.restart":
+      settle(String(params.id), "restart")
+      return undefined
+    case "processes.dismiss":
+      running.processes = running.processes.filter((process) => process.id !== params.id)
+      return undefined
     case "library.catalog":
       return [
         {
@@ -148,6 +225,7 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
           name: "shadcn/ui Nova",
           description: "shadcn/ui's components on Base UI",
           package: "@buildkitgg/shadcn-baseui-nova",
+          kind: "components",
           installed: true
         },
         {
@@ -155,6 +233,7 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
           name: "Lucide",
           description: "Clean, consistent icons",
           package: "lucide-react",
+          kind: "icons",
           installed: true
         },
         {
@@ -162,6 +241,7 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
           name: "Radix Themes",
           description: "An open-source component library for fast development",
           package: "@radix-ui/themes",
+          kind: "components",
           installed: false
         }
       ]

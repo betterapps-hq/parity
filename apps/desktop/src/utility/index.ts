@@ -5,6 +5,7 @@ import { checkAccessibility, exportDesigns, startAgentServer } from "./agent.ts"
 import { handleConsoleResult } from "./console.ts"
 import { importImage } from "./images.ts"
 import { addLibrary, catalogFor, importStyles } from "./libraries.ts"
+import { dismissProcess, listProcesses, restartProcess, stopProcess } from "./processes.ts"
 import {
   closeProject,
   correctComponents,
@@ -40,7 +41,11 @@ const handlers: Handlers = {
   "library.catalog": catalogFor,
   "library.add": addLibrary,
   "library.importStyles": importStyles,
-  "tokens.save": saveTokens
+  "tokens.save": saveTokens,
+  "processes.list": listProcesses,
+  "processes.stop": stopProcess,
+  "processes.restart": restartProcess,
+  "processes.dismiss": dismissProcess
 }
 
 /** A connected editor window. Agents act through it, since it holds the live state. */

@@ -25,6 +25,7 @@ import { type ContainerEntry, useContainerEntry, useModeSettings } from "../desi
 import { useSelection } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { ruleWords } from "./accessibility-rules.ts"
+import { Hint } from "./Hint.tsx"
 import { IconButton } from "./IconButton.tsx"
 import { PanelError } from "./PanelError.tsx"
 
@@ -473,15 +474,15 @@ function LayerRow({
           </span>
         ) : (
           layer.frames.map((frame) => (
-            <button
-              key={`${frame.state}:${frame.mode}`}
-              type="button"
-              title={`Select it in ${frameName(frame)}`}
-              className="pointer-events-auto rounded-sm bg-foreground/[0.07] px-1.5 py-px text-[11px] text-muted-foreground hover:bg-foreground/15 hover:text-foreground"
-              onClick={() => select(frame)}
-            >
-              {frameName(frame)}
-            </button>
+            <Hint key={`${frame.state}:${frame.mode}`} label={`Select it in ${frameName(frame)}`} wait>
+              <button
+                type="button"
+                className="pointer-events-auto rounded-sm bg-foreground/[0.07] px-1.5 py-px text-[11px] text-muted-foreground hover:bg-foreground/15 hover:text-foreground"
+                onClick={() => select(frame)}
+              >
+                {frameName(frame)}
+              </button>
+            </Hint>
           ))
         )}
       </div>

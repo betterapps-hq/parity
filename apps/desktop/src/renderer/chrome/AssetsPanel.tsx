@@ -40,6 +40,7 @@ import { componentLabel, type InsertItem, insertAtSelection, insertMime } from "
 import { kindColors } from "../canvas/kinds.tsx"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { type ProjectSession, workspace } from "../workspace.ts"
+import { Hint } from "./Hint.tsx"
 import { GuestIcon, iconEntries, iconLibraries, iconStyles, iconsOf } from "./icons.tsx"
 import { hasStories, openInStorybook } from "./storybook.ts"
 
@@ -312,24 +313,25 @@ function NotListed({ entries }: { entries: NotListedEntry[] }) {
           className="flex items-start gap-2 py-1 pr-2 pl-8 text-muted-foreground"
         >
           <div className="min-w-0 flex-1">
-            <div className="truncate" title={entry.path}>
-              {entry.name}
-            </div>
+            <Hint label={entry.path} wait>
+              <div className="truncate">{entry.name}</div>
+            </Hint>
             <div className="text-[11px] leading-snug">
               {entry.undecided
                 ? `Can't tell: ${entry.reason}`
                 : `${entry.reason.charAt(0).toUpperCase()}${entry.reason.slice(1)}`}
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 shrink-0 px-2 text-[11px]"
-            title="List it as a component, in the project file"
-            onClick={() => correct(session, "include", entry, entry.name)}
-          >
-            {entry.excluded ? "List it again" : "List it"}
-          </Button>
+          <Hint label="List it as a component, in the project file" wait>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 shrink-0 px-2 text-[11px]"
+              onClick={() => correct(session, "include", entry, entry.name)}
+            >
+              {entry.excluded ? "List it again" : "List it"}
+            </Button>
+          </Hint>
         </div>
       ))}
     </section>
@@ -371,21 +373,33 @@ function SourceSection({ source, open }: { source: Source; open: boolean }) {
               const status = entry.item.kind === "component" ? statuses[entry.key] : undefined
               const failing = status && "error" in status
               const row = (
-                <button
-                  type="button"
-                  {...dragItem(entry.item)}
-                  onClick={() => addAtSelection(session, entry.item)}
-                  title={`${entry.key}${entry.evidence ? `, ${entry.evidence}` : ""}.${status ? ` ${describeRenderStatus(status).replace(/\.$/, "")}.` : ""} Drag onto a design, or click to add it to the selection.`}
-                  className="flex h-7 w-full cursor-grab items-center gap-2 rounded-md pr-8 pl-8 text-left hover:bg-accent active:cursor-grabbing"
+                <Hint
+                  label={entry.evidence ? `${entry.key}, ${entry.evidence}` : entry.key}
+                  detail={[
+                    status && describeRenderStatus(status),
+                    "Drag onto a design, or click to add it to the selection."
+                  ]
+                    .filter(Boolean)
+                    .join("\n")}
+                  wait
                 >
-                  {entry.item.kind === "instance" ? (
-                    <Diamond className="size-3.5 shrink-0" style={{ color: kindColors.component }} />
-                  ) : (
-                    <Component className="size-3.5 shrink-0" style={{ color: kindColors.component }} />
-                  )}
-                  <span className="truncate">{entry.label}</span>
-                  {failing && <CircleAlert className="size-3.5 shrink-0 text-destructive" aria-label="Fails to draw" />}
-                </button>
+                  <button
+                    type="button"
+                    {...dragItem(entry.item)}
+                    onClick={() => addAtSelection(session, entry.item)}
+                    className="flex h-7 w-full cursor-grab items-center gap-2 rounded-md pr-8 pl-8 text-left hover:bg-accent active:cursor-grabbing"
+                  >
+                    {entry.item.kind === "instance" ? (
+                      <Diamond className="size-3.5 shrink-0" style={{ color: kindColors.component }} />
+                    ) : (
+                      <Component className="size-3.5 shrink-0" style={{ color: kindColors.component }} />
+                    )}
+                    <span className="truncate">{entry.label}</span>
+                    {failing && (
+                      <CircleAlert className="size-3.5 shrink-0 text-destructive" aria-label="Fails to draw" />
+                    )}
+                  </button>
+                </Hint>
               )
               return (
                 <div key={entry.key} className="group/asset relative">
@@ -402,15 +416,16 @@ function SourceSection({ source, open }: { source: Source; open: boolean }) {
                     row
                   )}
                   {stories && (
-                    <button
-                      type="button"
-                      aria-label={`Open ${entry.label} in Storybook`}
-                      title="Open in Storybook"
-                      onClick={() => void openInStorybook(session, entry.key)}
-                      className="absolute top-1/2 right-1.5 grid size-5 -translate-y-1/2 place-items-center rounded text-muted-foreground opacity-0 group-hover/asset:opacity-100 hover:bg-background hover:text-foreground focus-visible:opacity-100"
-                    >
-                      <BookOpen className="size-3.5" />
-                    </button>
+                    <Hint label="Open in Storybook">
+                      <button
+                        type="button"
+                        aria-label={`Open ${entry.label} in Storybook`}
+                        onClick={() => void openInStorybook(session, entry.key)}
+                        className="absolute top-1/2 right-1.5 grid size-5 -translate-y-1/2 place-items-center rounded text-muted-foreground opacity-0 group-hover/asset:opacity-100 hover:bg-background hover:text-foreground focus-visible:opacity-100"
+                      >
+                        <BookOpen className="size-3.5" />
+                      </button>
+                    </Hint>
                   )}
                 </div>
               )
@@ -624,17 +639,17 @@ export function IconsPanel() {
               }}
             >
               {matches.slice(row.index * columns, (row.index + 1) * columns).map(({ label, item }) => (
-                <button
-                  key={item.component}
-                  type="button"
-                  {...dragItem(item)}
-                  onClick={() => addAtSelection(session, item)}
-                  title={label}
-                  aria-label={label}
-                  className="grid cursor-grab place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground active:cursor-grabbing"
-                >
-                  <GuestIcon loaded={session.loaded} item={item} />
-                </button>
+                <Hint key={item.component} label={label}>
+                  <button
+                    type="button"
+                    {...dragItem(item)}
+                    onClick={() => addAtSelection(session, item)}
+                    aria-label={label}
+                    className="grid cursor-grab place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground active:cursor-grabbing"
+                  >
+                    <GuestIcon loaded={session.loaded} item={item} />
+                  </button>
+                </Hint>
               ))}
             </div>
           ))}

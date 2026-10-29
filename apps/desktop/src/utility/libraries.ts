@@ -1,9 +1,10 @@
-import { spawn } from "node:child_process"
+import { type ChildProcess, spawn } from "node:child_process"
 import { readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { addCommand, detectPackageManager, libraryCatalog } from "@parity/project"
 import type { ServiceMethods } from "../shared/protocol.ts"
-import { getProject } from "./projects.ts"
+import { killTree, trackProcess } from "./processes.ts"
+import { getProject, message } from "./projects.ts"
 
 export async function catalogFor({
   projectId
@@ -33,14 +34,39 @@ export async function addLibrary({
   // Detected again, in case the project changed package manager since it opened.
   const packageManager = await detectPackageManager(project.info.root)
   const { command, args } = addCommand(packageManager.agent, [definition.package])
-  const log = await run(command, args, project.info.root)
-  if (definition.tailwindEntry) {
-    await importLibraryStyles(
-      project.info.root,
-      stylesheetOf(projectId),
-      `${definition.package}/${definition.tailwindEntry}`
-    )
+  let child: ChildProcess | undefined
+  const task = trackProcess(
+    {
+      id: `install:${projectId}`,
+      kind: "install",
+      shape: "task",
+      name: `Install ${definition.name}`,
+      projectId,
+      project: project.info.name,
+      status: "running",
+      detail: [command, ...args].join(" ")
+    },
+    { stop: () => child?.pid && killTree(child.pid) }
+  )
+  let log: string
+  try {
+    log = await run(command, args, project.info.root, (spawned) => (child = spawned))
+    if (definition.tailwindEntry) {
+      await importLibraryStyles(
+        project.info.root,
+        stylesheetOf(projectId),
+        `${definition.package}/${definition.tailwindEntry}`
+      )
+    }
+  } catch (error) {
+    if (task.stopping) {
+      task.set("canceled")
+      throw new Error(`Installing ${definition.name} was canceled`, { cause: error })
+    }
+    task.set("failed", { summary: `${command} couldn't install ${definition.package}`, error: message(error) })
+    throw error
   }
+  task.set("passed", { summary: `Added ${definition.package}` })
   return { log }
 }
 
@@ -75,11 +101,12 @@ async function importLibraryStyles(root: string, stylesheet: string, specifier: 
   await writeFile(path, lines.join("\n"))
 }
 
-function run(command: string, args: string[], cwd: string): Promise<string> {
+function run(command: string, args: string[], cwd: string, started: (child: ChildProcess) => void): Promise<string> {
   return new Promise((resolve, reject) => {
     // Package managers are .cmd scripts on Windows, which only start through a shell. The arguments are package
     // names from the catalog, never anything typed.
     const child = spawn(command, args, { cwd, shell: process.platform === "win32", env: process.env })
+    started(child)
     let log = ""
     child.stdout.on("data", (chunk: Buffer) => (log += chunk.toString()))
     child.stderr.on("data", (chunk: Buffer) => (log += chunk.toString()))

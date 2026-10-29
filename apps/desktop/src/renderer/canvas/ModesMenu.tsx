@@ -8,6 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
+import { Hint } from "../chrome/Hint.tsx"
 import { ModeViewportIcon } from "../chrome/viewports.tsx"
 import { kindColors } from "./kinds.tsx"
 import { toggleShownMode } from "./view.ts"
@@ -123,15 +124,16 @@ export function ModesMenu({
 /** A frame on the board, as its viewport and theme: the main one tinted and named, the rest named on hover. */
 function ModeChip({ mode, main }: { mode: ResolvedMode; main: boolean }) {
   return (
-    <span
-      className={`flex h-5 items-center gap-0.5 rounded px-1 ${main ? "" : "bg-muted text-muted-foreground"}`}
-      style={main ? mainTint : undefined}
-      title={main ? `${mode.name}, the main frame` : mode.name}
-    >
-      <ModeViewportIcon of={mode} className="size-3.5" aria-hidden />
-      <ThemeIcon mode={mode} />
-      {main && <span className="ml-0.5 max-w-32 truncate text-xs font-medium">{mode.name}</span>}
-    </span>
+    <Hint label={main ? `${mode.name}, the main frame` : mode.name} wait>
+      <span
+        className={`flex h-5 items-center gap-0.5 rounded px-1 ${main ? "" : "bg-muted text-muted-foreground"}`}
+        style={main ? mainTint : undefined}
+      >
+        <ModeViewportIcon of={mode} className="size-3.5" aria-hidden />
+        <ThemeIcon mode={mode} />
+        {main && <span className="ml-0.5 max-w-32 truncate text-xs font-medium">{mode.name}</span>}
+      </span>
+    </Hint>
   )
 }
 

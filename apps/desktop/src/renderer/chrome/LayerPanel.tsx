@@ -44,6 +44,7 @@ import { spacingUnit, useTokenList } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { extractIntoComponent } from "./components.ts"
 import { ChoiceInput, Field, SwitchInput, TextInput, ValueInput } from "./fields.tsx"
+import { Hint } from "./Hint.tsx"
 import { PanelSection } from "./PanelSection.tsx"
 import { PropsSection } from "./PropsSection.tsx"
 import { revealSelection } from "./reveal.ts"
@@ -232,16 +233,20 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
               >
                 Reset
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-6 flex-1 px-2 text-xs"
-                disabled={!own || !main}
-                title={own ? `Make this layer's overrides the default in every ${main?.container.name}` : undefined}
-                onClick={push}
+              <Hint
+                label={own ? `Make this layer's overrides the default in every ${main?.container.name}` : undefined}
+                wait
               >
-                Push to main
-              </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-6 flex-1 px-2 text-xs"
+                  disabled={!own || !main}
+                  onClick={push}
+                >
+                  Push to main
+                </Button>
+              </Hint>
             </div>
           </div>
         ) : (
@@ -485,18 +490,19 @@ function InstanceSection({
     <PanelSection
       title="Instance"
       action={
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-6 px-2 text-xs"
-          title={`Go to ${component.container.name}`}
-          onClick={() => {
-            selection.set({ design: component.key })
-            revealSelection(session)
-          }}
-        >
-          <Diamond style={{ color: kindColors.component }} /> {component.container.name}
-        </Button>
+        <Hint label={`Go to ${component.container.name}`} wait>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-xs"
+            onClick={() => {
+              selection.set({ design: component.key })
+              revealSelection(session)
+            }}
+          >
+            <Diamond style={{ color: kindColors.component }} /> {component.container.name}
+          </Button>
+        </Hint>
       }
     >
       <div className="flex flex-col gap-1">
@@ -586,15 +592,16 @@ function InstanceSection({
                   ))}
               </SelectContent>
             </Select>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 px-2 text-xs"
-              title="Turn this copy into plain layers, no longer linked to the component"
-              onClick={() => replace("Detach instance", (container) => detachInstance(container, node.id, library))}
-            >
-              <Unlink /> Detach
-            </Button>
+            <Hint label="Turn this copy into plain layers, no longer linked to the component" wait>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => replace("Detach instance", (container) => detachInstance(container, node.id, library))}
+              >
+                <Unlink /> Detach
+              </Button>
+            </Hint>
           </div>
         </div>
       )}

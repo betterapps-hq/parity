@@ -32,6 +32,7 @@ import { Toggle } from "@/components/ui/toggle"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { kindColors } from "../canvas/kinds.tsx"
 import { ChoiceInput, Field, NumberInput, TokenInput, useMixed } from "./fields.tsx"
+import { Hint } from "./Hint.tsx"
 import { PanelSection } from "./PanelSection.tsx"
 
 /** Reads and writes one node's style in the state being edited. */
@@ -116,28 +117,35 @@ function LayoutSection({ editor }: SectionProps) {
                 else set({ display: undefined, direction: value as "row" | "column" }, "Change direction")
               }}
             >
-              <ToggleGroupItem value="column" aria-label="Vertical" title="Vertical auto layout" className="h-7 px-2">
-                <ArrowDown />
-              </ToggleGroupItem>
-              <ToggleGroupItem value="row" aria-label="Horizontal" title="Horizontal auto layout" className="h-7 px-2">
-                <ArrowRight />
-              </ToggleGroupItem>
-              <ToggleGroupItem value="grid" aria-label="Grid" title="Grid" className="h-7 px-2">
-                <Grid3x3 />
-              </ToggleGroupItem>
+              <Hint label="Vertical auto layout">
+                <ToggleGroupItem value="column" aria-label="Vertical" className="h-7 px-2 aria-checked:bg-muted">
+                  <ArrowDown />
+                </ToggleGroupItem>
+              </Hint>
+              <Hint label="Horizontal auto layout">
+                <ToggleGroupItem value="row" aria-label="Horizontal" className="h-7 px-2 aria-checked:bg-muted">
+                  <ArrowRight />
+                </ToggleGroupItem>
+              </Hint>
+              <Hint label="Grid">
+                <ToggleGroupItem value="grid" aria-label="Grid" className="h-7 px-2 aria-checked:bg-muted">
+                  <Grid3x3 />
+                </ToggleGroupItem>
+              </Hint>
             </ToggleGroup>
             {!grid && (
-              <Toggle
-                variant="outline"
-                size="sm"
-                className="h-7 px-2"
-                aria-label="Wrap"
-                title="Wrap onto new lines"
-                pressed={style.wrap ?? false}
-                onPressedChange={(wrap) => set({ wrap: wrap || undefined }, "Toggle wrap")}
-              >
-                <WrapText />
-              </Toggle>
+              <Hint label="Wrap onto new lines">
+                <Toggle
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2"
+                  aria-label="Wrap"
+                  pressed={style.wrap ?? false}
+                  onPressedChange={(wrap) => set({ wrap: wrap || undefined }, "Toggle wrap")}
+                >
+                  <WrapText />
+                </Toggle>
+              </Hint>
             )}
           </div>
         </Field>
@@ -246,21 +254,25 @@ function AlignmentGrid({
           const cross = direction === "column" ? column : row
           const active = (distributed || justify === main) && align === cross
           return (
-            <button
+            <Hint
               key={`${row}-${column}`}
-              type="button"
-              aria-label={`Align ${row} ${column}`}
-              title={`${labels[main]} on the main axis, ${labels[cross].toLowerCase()} across`}
-              onClick={() =>
-                onChange(distributed ? { align: cross } : { justify: main, align: cross }, "Change alignment")
-              }
-              className="group grid place-items-center rounded-sm hover:bg-accent"
+              label={`${labels[main]} on the main axis, ${labels[cross].toLowerCase()} across`}
+              wait
             >
-              <span
-                className={`block rounded-full ${active ? "size-2" : "size-1 bg-muted-foreground/50 group-hover:bg-muted-foreground"}`}
-                style={active ? { background: kindColors.layer } : undefined}
-              />
-            </button>
+              <button
+                type="button"
+                aria-label={`Align ${row} ${column}`}
+                onClick={() =>
+                  onChange(distributed ? { align: cross } : { justify: main, align: cross }, "Change alignment")
+                }
+                className="group grid place-items-center rounded-sm hover:bg-accent"
+              >
+                <span
+                  className={`block rounded-full ${active ? "size-2" : "size-1 bg-muted-foreground/50 group-hover:bg-muted-foreground"}`}
+                  style={active ? { background: kindColors.layer } : undefined}
+                />
+              </button>
+            </Hint>
           )
         })
       )}
@@ -327,16 +339,17 @@ function SidesField({ editor, name, label }: { editor: StyleEditor; name: "paddi
             />
           </div>
         )}
-        <Toggle
-          size="sm"
-          className="size-7 min-w-7 shrink-0 self-start p-0"
-          aria-label={`${label} per side`}
-          title={`${label} per side`}
-          pressed={perSide}
-          onPressedChange={setPerSide}
-        >
-          <SquareDashed />
-        </Toggle>
+        <Hint label={`${label} per side`}>
+          <Toggle
+            size="sm"
+            className="size-7 min-w-7 shrink-0 self-start p-0"
+            aria-label={`${label} per side`}
+            pressed={perSide}
+            onPressedChange={setPerSide}
+          >
+            <SquareDashed />
+          </Toggle>
+        </Hint>
       </div>
     </Field>
   )
@@ -807,9 +820,11 @@ function TextSection({ editor, node }: SectionProps) {
             }
           >
             {textAlignOptions.map(({ value, label, Icon }) => (
-              <ToggleGroupItem key={value} value={value} aria-label={label} title={label} className="h-7 px-2">
-                <Icon />
-              </ToggleGroupItem>
+              <Hint key={value} label={label}>
+                <ToggleGroupItem value={value} aria-label={label} className="h-7 px-2 aria-checked:bg-muted">
+                  <Icon />
+                </ToggleGroupItem>
+              </Hint>
             ))}
           </ToggleGroup>
         </Field>
@@ -820,39 +835,42 @@ function TextSection({ editor, node }: SectionProps) {
           onReset={() => (reset("italic"), reset("decoration"))}
         >
           <div className="flex gap-1">
-            <Toggle
-              variant="outline"
-              size="sm"
-              className="h-7 px-2"
-              aria-label="Italic"
-              title="Italic"
-              pressed={style.italic ?? false}
-              onPressedChange={(italic) => set({ italic: italic || undefined }, "Toggle italic")}
-            >
-              <Italic />
-            </Toggle>
-            <Toggle
-              variant="outline"
-              size="sm"
-              className="h-7 px-2"
-              aria-label="Underline"
-              title="Underline"
-              pressed={style.decoration === "underline"}
-              onPressedChange={(on) => set({ decoration: on ? "underline" : undefined }, "Toggle underline")}
-            >
-              <Underline />
-            </Toggle>
-            <Toggle
-              variant="outline"
-              size="sm"
-              className="h-7 px-2"
-              aria-label="Strikethrough"
-              title="Strikethrough"
-              pressed={style.decoration === "line-through"}
-              onPressedChange={(on) => set({ decoration: on ? "line-through" : undefined }, "Toggle strikethrough")}
-            >
-              <Strikethrough />
-            </Toggle>
+            <Hint label="Italic">
+              <Toggle
+                variant="outline"
+                size="sm"
+                className="h-7 px-2"
+                aria-label="Italic"
+                pressed={style.italic ?? false}
+                onPressedChange={(italic) => set({ italic: italic || undefined }, "Toggle italic")}
+              >
+                <Italic />
+              </Toggle>
+            </Hint>
+            <Hint label="Underline">
+              <Toggle
+                variant="outline"
+                size="sm"
+                className="h-7 px-2"
+                aria-label="Underline"
+                pressed={style.decoration === "underline"}
+                onPressedChange={(on) => set({ decoration: on ? "underline" : undefined }, "Toggle underline")}
+              >
+                <Underline />
+              </Toggle>
+            </Hint>
+            <Hint label="Strikethrough">
+              <Toggle
+                variant="outline"
+                size="sm"
+                className="h-7 px-2"
+                aria-label="Strikethrough"
+                pressed={style.decoration === "line-through"}
+                onPressedChange={(on) => set({ decoration: on ? "line-through" : undefined }, "Toggle strikethrough")}
+              >
+                <Strikethrough />
+              </Toggle>
+            </Hint>
           </div>
         </Field>
         <Field
@@ -922,88 +940,89 @@ export function LengthInput({
     if (token) onCommit(token.name)
   }
   return (
-    <div
-      title={`${title}${px ? `, ${px}` : ""}`}
-      className="flex h-7 min-w-0 items-center rounded-md border border-input shadow-xs focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 dark:bg-input/30"
-    >
-      {label && <span className="pointer-events-none shrink-0 pl-1.5 text-[10px] text-muted-foreground">{label}</span>}
-      <Input
-        key={shown}
-        aria-label={title}
-        defaultValue={shown}
-        placeholder={mixed && value === undefined ? "Mixed" : placeholder}
-        className={`h-6 min-w-0 flex-1 border-0 bg-transparent px-1.5 text-xs shadow-none focus-visible:ring-0 dark:bg-transparent ${
-          typeof value === "string" ? "font-mono" : "tabular-nums"
-        }`}
-        onBlur={(event) => commitText(event.currentTarget.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") event.currentTarget.blur()
-        }}
-      />
-      {px && <span className="pointer-events-none shrink-0 pr-0.5 text-[10px] text-muted-foreground">{px}</span>}
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            aria-label={`Pick a token for ${title.toLowerCase()}`}
-            className="grid h-full w-5 shrink-0 place-items-center rounded-r-md text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
-            <ChevronDown className="size-3" />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent className="w-60 p-0" align="end">
-          <Command>
-            <CommandInput placeholder="Search spacing" className="h-8 text-xs" />
-            <CommandList className="max-h-72">
-              <CommandEmpty>No length matches.</CommandEmpty>
-              {named.length > 0 && (
-                <CommandGroup heading="Project tokens">
-                  {named.map((token) => (
+    <Hint label={px ? `${title}, ${px}` : title} wait>
+      <div className="flex h-7 min-w-0 items-center rounded-md border border-input shadow-xs focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 dark:bg-input/30">
+        {label && (
+          <span className="pointer-events-none shrink-0 pl-1.5 text-[10px] text-muted-foreground">{label}</span>
+        )}
+        <Input
+          key={shown}
+          aria-label={title}
+          defaultValue={shown}
+          placeholder={mixed && value === undefined ? "Mixed" : placeholder}
+          className={`h-6 min-w-0 flex-1 border-0 bg-transparent px-1.5 text-xs shadow-none focus-visible:ring-0 dark:bg-transparent ${
+            typeof value === "string" ? "font-mono" : "tabular-nums"
+          }`}
+          onBlur={(event) => commitText(event.currentTarget.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") event.currentTarget.blur()
+          }}
+        />
+        {px && <span className="pointer-events-none shrink-0 pr-0.5 text-[10px] text-muted-foreground">{px}</span>}
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              aria-label={`Pick a token for ${title.toLowerCase()}`}
+              className="grid h-full w-5 shrink-0 place-items-center rounded-r-md text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <ChevronDown className="size-3" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-60 p-0" align="end">
+            <Command>
+              <CommandInput placeholder="Search spacing" className="h-8 text-xs" />
+              <CommandList className="max-h-72">
+                <CommandEmpty>No length matches.</CommandEmpty>
+                {named.length > 0 && (
+                  <CommandGroup heading="Project tokens">
+                    {named.map((token) => (
+                      <CommandItem
+                        key={token.name}
+                        value={token.name}
+                        onSelect={() => {
+                          onCommit(token.name)
+                          setOpen(false)
+                        }}
+                        className="gap-2 text-xs"
+                      >
+                        <span className="min-w-0 flex-1 truncate font-mono">{token.name}</span>
+                        <span className="max-w-20 truncate text-muted-foreground">{token.values.default}</span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
+                <CommandGroup heading="Spacing scale">
+                  {scale.map((token) => (
                     <CommandItem
                       key={token.name}
                       value={token.name}
                       onSelect={() => {
-                        onCommit(token.name)
+                        onCommit(token.derived!.factor)
                         setOpen(false)
                       }}
                       className="gap-2 text-xs"
                     >
+                      <span
+                        className="h-2 shrink-0 rounded-[2px]"
+                        style={{
+                          width: Math.max(1, Math.min(40, token.derived!.factor * unit)),
+                          background: kindColors.layer
+                        }}
+                      />
                       <span className="min-w-0 flex-1 truncate font-mono">{token.name}</span>
-                      <span className="max-w-20 truncate text-muted-foreground">{token.values.default}</span>
+                      <span className="text-muted-foreground tabular-nums">
+                        {formatPx(token.derived!.factor * unit)}px
+                      </span>
                     </CommandItem>
                   ))}
                 </CommandGroup>
-              )}
-              <CommandGroup heading="Spacing scale">
-                {scale.map((token) => (
-                  <CommandItem
-                    key={token.name}
-                    value={token.name}
-                    onSelect={() => {
-                      onCommit(token.derived!.factor)
-                      setOpen(false)
-                    }}
-                    className="gap-2 text-xs"
-                  >
-                    <span
-                      className="h-2 shrink-0 rounded-[2px]"
-                      style={{
-                        width: Math.max(1, Math.min(40, token.derived!.factor * unit)),
-                        background: kindColors.layer
-                      }}
-                    />
-                    <span className="min-w-0 flex-1 truncate font-mono">{token.name}</span>
-                    <span className="text-muted-foreground tabular-nums">
-                      {formatPx(token.derived!.factor * unit)}px
-                    </span>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
-    </div>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+      </div>
+    </Hint>
   )
 }
 

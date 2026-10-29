@@ -2,6 +2,7 @@ import { FileInput, FolderClosed, FolderOpen, type LucideIcon } from "lucide-rea
 import { Kbd } from "@/components/ui/kbd"
 import { useRecentProjects, workspace } from "../workspace.ts"
 import { openProjectFile, openProjectFolder } from "./commands.ts"
+import { Hint } from "./Hint.tsx"
 
 /** How many recent projects it lists; the File menu has them all. */
 const shown = 6
@@ -49,16 +50,17 @@ export function StartScreen() {
             <ul className="-mx-2 flex flex-col">
               {recent.slice(0, shown).map((root) => (
                 <li key={root}>
-                  <button
-                    type="button"
-                    title={root}
-                    className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                    onClick={() => void workspace.open(root)}
-                  >
-                    <FolderClosed className="size-4 shrink-0 text-muted-foreground" />
-                    <span className="max-w-[70%] shrink-0 truncate text-sm font-medium">{basename(root)}</span>
-                    <span className="min-w-0 truncate text-xs text-muted-foreground">{root}</span>
-                  </button>
+                  <Hint label={root} wait>
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                      onClick={() => void workspace.open(root)}
+                    >
+                      <FolderClosed className="size-4 shrink-0 text-muted-foreground" />
+                      <span className="max-w-[70%] shrink-0 truncate text-sm font-medium">{basename(root)}</span>
+                      <span className="min-w-0 truncate text-xs text-muted-foreground">{root}</span>
+                    </button>
+                  </Hint>
                 </li>
               ))}
             </ul>

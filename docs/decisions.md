@@ -98,8 +98,21 @@ still need your call.
 
 ## Canvas
 
-- **No tldraw licence for now.** You decided we won't get one anytime soon, so the "Get a license for production"
-  watermark stays and nothing waits on it.
+- **tldraw's licence key comes from the environment.** You said on 2026-10-29 that you mean to pay for a licence, and
+  until then the notice shouldn't get in the way. `VITE_TLDRAW_LICENSE_KEY` in `apps/desktop/.env.local` is passed to
+  tldraw (a free trial key works), and without it the "Get a license for production" notice shows as before. My call:
+  the canvas is a layer of its own, so the notice stays on the canvas and the app's menus, popovers and dialogs open
+  over it.
+- **Hints are shadcn tooltips, never the system's.** My call, from your note that they didn't look like shadcn: every
+  hint goes through `Hint` (`chrome/Hint.tsx`). A control's shows at once, as shadcn's do; a row's or a truncated name's
+  waits half a second, so moving down a list doesn't flash one per row. Menu items get none, since a tooltip opens on
+  focus and the arrow keys would open one per item. File > Open recent shows each project's folder under its name
+  instead.
+- **The status bar shows what Parity runs.** You chose on 2026-10-29 to list only the processes Parity runs or uses, and
+  each task's latest run. A button lists each open project's build server and Storybook and the tasks running, with
+  their state, time, address and Portless name, and stops, restarts or dismisses each. My calls: stopping asks first,
+  and each kind has an icon and a hue at least 25° from the others, using the canvas's own colours for the build server
+  and formatting.
 - **Snapping is on by default.** Designs lock to each other's edges and centres within 8 screen pixels. Hold Ctrl to
   move freely, or turn it off under View.
 - **Double-click drills in first, as in Figma.** It edits text only on a selected text layer that's the deepest thing
@@ -701,6 +714,13 @@ recommended answer to each of its questions.
   starts the project's own Storybook (with Electron's Node, so nothing else needs installing) and stops it when the tab
   closes. It uses the script's port, or 6006, so links people already use keep working, and a free port only when that
   one's taken. A component's docs page opens when it has one, else its first story, in your browser.
+- **Storybook opens at its Portless name when it has one.** You asked on 2026-10-29 that a project using Portless gets
+  the right address. My calls: a Storybook Portless routes to is reused when it serves the project's stories, and
+  stories open at its name (`https://storybook.shop.localhost`). A project with Buildkit's dev-domains has its Storybook
+  started through `dev-domains run`, so it gets its name there too; if that fails, Parity starts Storybook itself as
+  before. The service checks a server at `localhost`, since Node doesn't trust Portless's certificate, and only the
+  browser gets the name. Which route is Storybook comes from dev-domains' names (`stories`, `<package>-stories`) until
+  it says what each one is.
 - **How the two connect, and the rules that keep them apart, are in [storybook.md](storybook.md).**
 
 ## Accessibility

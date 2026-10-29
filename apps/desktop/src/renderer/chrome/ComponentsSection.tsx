@@ -18,6 +18,7 @@ import { focusOnMount, kindColors } from "../canvas/kinds.tsx"
 import type { ContainerEntry } from "../design-store.ts"
 import { extractIntoComponent, instancesOf } from "./components.ts"
 import { ChoiceInput, ValueInput } from "./fields.tsx"
+import { Hint } from "./Hint.tsx"
 import { PanelSection } from "./PanelSection.tsx"
 import { revealSelection } from "./reveal.ts"
 
@@ -86,13 +87,9 @@ function CandidateCard({
       {candidate.params.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-1">
           {candidate.params.map((param) => (
-            <code
-              key={param.name}
-              className="rounded bg-muted px-1.5 text-[11px] text-muted-foreground"
-              title={param.values.map(String).join(", ")}
-            >
-              {param.name}
-            </code>
+            <Hint key={param.name} label={param.values.map(String).join(", ")} wait>
+              <code className="rounded bg-muted px-1.5 text-[11px] text-muted-foreground">{param.name}</code>
+            </Hint>
           ))}
         </div>
       )}
@@ -149,9 +146,9 @@ export function ParamsSection({ entry }: { entry: ContainerEntry }) {
           <div className="flex flex-col gap-1">
             {params.map(([name, param]) => (
               <div key={name} className="grid grid-cols-[96px_1fr] items-center gap-2">
-                <span className="truncate font-mono text-xs" title={`${name}: ${param.type}`}>
-                  {name}
-                </span>
+                <Hint label={`${name}: ${param.type}`} wait>
+                  <span className="truncate font-mono text-xs">{name}</span>
+                </Hint>
                 <ValueInput
                   value={param.default ?? (param.type === "boolean" ? false : "")}
                   onCommit={(value) =>
@@ -258,15 +255,16 @@ function VariantsSection({ entry, variants }: { entry: ContainerEntry; variants:
           <div key={name} className="flex flex-col gap-1">
             <div className="flex items-center gap-2 px-1">
               <span className="flex-1 truncate font-mono text-xs">{name}</span>
-              <button
-                type="button"
-                aria-label={`Remove the ${name} variant`}
-                title={`Remove the ${name} variant and what its options change`}
-                className="grid size-5 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
-                onClick={() => update(`Remove ${name} variant`, (container) => removeParam(container, name))}
-              >
-                <Trash2 className="size-3" />
-              </button>
+              <Hint label={`Remove the ${name} variant and what its options change`}>
+                <button
+                  type="button"
+                  aria-label={`Remove the ${name} variant`}
+                  className="grid size-5 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
+                  onClick={() => update(`Remove ${name} variant`, (container) => removeParam(container, name))}
+                >
+                  <Trash2 className="size-3" />
+                </button>
+              </Hint>
             </div>
             <div className="grid grid-cols-[96px_1fr] items-center gap-2">
               <span className="px-1 text-xs text-muted-foreground">Default</span>

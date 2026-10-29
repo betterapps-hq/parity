@@ -269,6 +269,7 @@ export function CanvasEditor({ onEditor }: { onEditor(editor: Editor | undefined
   return (
     <Tldraw
       hideUi
+      licenseKey={import.meta.env.VITE_TLDRAW_LICENSE_KEY}
       shapeUtils={shapeUtils}
       overlayUtils={overlayUtils}
       components={components}

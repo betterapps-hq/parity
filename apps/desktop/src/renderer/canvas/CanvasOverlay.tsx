@@ -15,6 +15,7 @@ import {
   resolveModes
 } from "@parity/core"
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react"
+import { Hint } from "../chrome/Hint.tsx"
 import { editingState } from "../chrome/LayerPanel.tsx"
 import { getPreferences, subscribePreferences } from "../chrome/preferences.ts"
 import { findFrames, findNodeElement } from "../frame.ts"
@@ -863,27 +864,28 @@ function ResizeHandles({
         ? { left: box.x + square, top: y - strip / 2, width: Math.max(0, box.w - square * 2), height: strip }
         : { left: x - strip / 2, top: box.y + square, width: strip, height: Math.max(0, box.h - square * 2) }
     return (
-      <div
+      <Hint
         key={edge}
-        role="presentation"
-        className={`resize-handle pointer-events-auto absolute ${corner ? "z-10 shadow-sm" : ""}`}
-        style={{ ...style, cursor: cursors[edge] }}
-        title={
-          handles.kind === "frame"
-            ? "Drag to resize this frame. Double-click to reset."
-            : "Drag to resize. Double-click to reset."
-        }
-        onPointerDown={(event) => {
-          if (event.button !== 0) return
-          event.stopPropagation()
-          event.preventDefault()
-          onStart(edge, event)
-        }}
-        onDoubleClick={(event) => {
-          event.stopPropagation()
-          onReset(edge)
-        }}
-      />
+        label={handles.kind === "frame" ? "Drag to resize this frame" : "Drag to resize"}
+        detail="Double-click to reset."
+        wait
+      >
+        <div
+          role="presentation"
+          className={`resize-handle pointer-events-auto absolute ${corner ? "z-10 shadow-sm" : ""}`}
+          style={{ ...style, cursor: cursors[edge] }}
+          onPointerDown={(event) => {
+            if (event.button !== 0) return
+            event.stopPropagation()
+            event.preventDefault()
+            onStart(edge, event)
+          }}
+          onDoubleClick={(event) => {
+            event.stopPropagation()
+            onReset(edge)
+          }}
+        />
+      </Hint>
     )
   })
 }

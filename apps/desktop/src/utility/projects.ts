@@ -40,6 +40,7 @@ import { reactRenderer } from "@parity/renderer-react"
 import { tailwindStyles } from "@parity/styles-tailwind"
 import type { ProjectInfo, ServiceMethods, TokenChange, WindowMethods } from "../shared/protocol.ts"
 import { saveDetection, savedDetection } from "./detection-cache.ts"
+import { forgetProcess, forgetProject, trackProcess } from "./processes.ts"
 import { checkComponents, closeChecker, inferComponents } from "./props.ts"
 import { stopStorybook } from "./storybook.ts"
 
@@ -119,9 +120,14 @@ export async function closeProject(projectId: string): Promise<undefined> {
   projects.delete(projectId)
   closeChecker(projectId, projects.size === 0 && opening.size === 0)
   stopStorybook(projectId)
+  forgetProject(projectId)
   project?.watcher?.close()
   await project?.session.close()
   return undefined
+}
+
+function builderProcessId(root: string): string {
+  return `builder:${root}`
 }
 
 export function getProject(projectId: string): OpenProject {
@@ -171,6 +177,17 @@ async function start(root: string): Promise<ProjectInfo> {
     config.notes.push("components and props as the type checker found them last time, since then nothing has changed")
   }
 
+  // The build server runs inside the project service, so it stops when the project closes, not on its own.
+  const serving = trackProcess({
+    id: builderProcessId(root),
+    kind: "builder",
+    shape: "server",
+    name: builder.name,
+    projectId: root,
+    project: pkg.name ?? basename(root),
+    pid: process.pid,
+    status: "starting"
+  })
   const [session, styles] = await Promise.all([
     builder
       .start({
@@ -184,7 +201,11 @@ async function start(root: string): Promise<ProjectInfo> {
         throw new Error(explain(message(error)), { cause: error })
       }),
     loadStyles(root, config.styles, detection)
-  ])
+  ]).catch((error: unknown) => {
+    forgetProcess(builderProcessId(root))
+    throw error
+  })
+  serving.set("running", { url: new URL(session.guestUrl).origin })
   const info: ProjectInfo = {
     id: root,
     root,
@@ -440,17 +461,32 @@ function watchProjectFiles(project: OpenProject): FSWatcher | undefined {
 async function checkTypes(project: OpenProject, files: string[]): Promise<boolean> {
   const { root, id } = project.info
   if (files.length === 0) return true
+  const task = trackProcess(
+    {
+      id: `typecheck:${root}`,
+      kind: "typecheck",
+      shape: "task",
+      name: "Type check",
+      projectId: id,
+      project: project.info.name,
+      status: "running",
+      detail: files.length === 1 ? "Reading 1 component file" : `Reading ${files.length} component files`
+    },
+    { restart: () => checkTypes(project, files) }
+  )
   await project.components
   let checked: Awaited<ReturnType<typeof checkComponents>>
   try {
     checked = await checkComponents(root, files)
   } catch (error) {
     console.warn(`[service] the type checker couldn't read the components: ${message(error)}`)
+    task.set("failed", { summary: "Couldn't read the components", error: message(error) })
     return false
   }
   if (projects.get(root) !== project) return false
   const { added, confirmed, removed } = checkedChanges(project.sources, checked.components)
   project.info.leftOut = checked.leftOut
+  task.set("passed", { summary: typeCheckSummary(files.length, Object.keys(added).length, removed.length) })
   for (const name of removed) delete project.sources[name]
   Object.assign(project.sources, confirmed, added)
   applyCorrections(project)
@@ -477,6 +513,16 @@ async function checkTypes(project: OpenProject, files: string[]): Promise<boolea
     notifyComponents({ projectId: id, components, sources: project.sources, leftOut: checked.leftOut })
   }
   return true
+}
+
+/** What the type check changed, as "Read 12 files and found 2 more components". */
+function typeCheckSummary(files: number, added: number, removed: number): string {
+  const read = files === 1 ? "Read 1 file" : `Read ${files} files`
+  const changes = [
+    added > 0 && (added === 1 ? "found 1 more component" : `found ${added} more components`),
+    removed > 0 && (removed === 1 ? "left 1 out" : `left ${removed} out`)
+  ].filter(Boolean)
+  return changes.length > 0 ? `${read} and ${changes.join(" and ")}` : `${read}, no changes`
 }
 
 /**
