@@ -102,6 +102,26 @@ Dragging layers and designs, where they land, resize handles and duplicates.
 
 What the keys do on the canvas, and when they belong to a design or a field instead.
 
+### How shortcuts are shown
+
+Every shortcut is written once, in the keymap, as on Windows with a space between keys (`Ctrl Shift Z`), and shown
+through `formatKeys` so it reads as one chord:
+
+- **On Windows and Linux** keys are joined by `+`: `Ctrl+Shift+Z`, `Alt+F4`, `Shift+←`. A `+` or `-` key is named when
+  it's joined, `Ctrl+Plus` and `Ctrl+Minus`, as Windows's own apps write them, so it can't be read as the separator. A
+  single key stays as it is (`+`, `Del`).
+- **On a Mac** they're the Mac's symbols, modifiers first in the Mac's order, with nothing between: `⇧⌘Z`.
+- **Text that isn't keys,** such as `Hold Space`, is shown as written.
+- **Menus show shortcuts as plain text** at the end of each item (the menubar's, context menus' and Search actions'
+  Shortcut components), as Figma's and the system's menus do. Tooltips, the toolbar, the start screen and the Keyboard
+  shortcuts dialog show them as keycaps (`Kbd`). Both go through `formatKeys`.
+
+Code: `formatKeys` in `apps/desktop/src/renderer/chrome/keys.ts`, called by `components/ui/kbd.tsx`, `menubar.tsx`,
+`context-menu.tsx`, `dropdown-menu.tsx` and `command.tsx`.
+
+Tests: `chrome/keymap.test.ts`, `formatKeys`: joining with `+`, naming `+` and `-`, the Mac's symbols, text left alone,
+and every key in the keymap showing as one chord off a Mac.
+
 ### Keys stay out of designs outside Interact (CAN-54)
 
 With Move and select, Hand or Text, every frame on the canvas is inert, so the canvas keeps its keys. Tab from the

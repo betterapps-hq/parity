@@ -99,8 +99,24 @@ describe("shortcutFor", () => {
 })
 
 describe("formatKeys", () => {
-  it("leaves keys as written off a Mac", () => {
-    expect(formatKeys("Ctrl Shift Z", false)).toBe("Ctrl Shift Z")
+  it("joins keys with + off a Mac, so they don't read as separate presses", () => {
+    expect(formatKeys("Ctrl Shift Z", false)).toBe("Ctrl+Shift+Z")
+    expect(formatKeys("Ctrl Shift ?", false)).toBe("Ctrl+Shift+?")
+    expect(formatKeys("Alt F4", false)).toBe("Alt+F4")
+    expect(formatKeys("Shift ←", false)).toBe("Shift+←")
+    expect(formatKeys("Del", false)).toBe("Del")
+  })
+
+  it("names + and - when they're joined, as Windows's own apps do", () => {
+    expect(formatKeys("Ctrl +", false)).toBe("Ctrl+Plus")
+    expect(formatKeys("Ctrl -", false)).toBe("Ctrl+Minus")
+    expect(formatKeys("+", false)).toBe("+")
+    expect(formatKeys("Ctrl +", true)).toBe("⌘+")
+  })
+
+  it("shows every chord in the keymap as one chord off a Mac", () => {
+    const chords = Object.values(keymap).flatMap((binding) => binding.keys.filter((keys) => keys.includes(" ")))
+    expect(chords.filter((keys) => formatKeys(keys, false).includes(" "))).toEqual([])
   })
 
   it("uses the Mac's symbols, modifiers first in its order", () => {
@@ -115,5 +131,6 @@ describe("formatKeys", () => {
 
   it("leaves text that isn't keys alone", () => {
     expect(formatKeys("Hold Space", true)).toBe("Hold Space")
+    expect(formatKeys("Hold Space", false)).toBe("Hold Space")
   })
 })

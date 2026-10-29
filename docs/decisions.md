@@ -61,7 +61,10 @@ still need your call.
   - **Exit is in File on Windows and Linux only;** on a Mac, Quit is in the Parity menu, as every app's is.
 - **Every shortcut is in one keymap,** `chrome/keymap.ts`. The menus, tooltips, the Keyboard shortcuts dialog and the
   key handlers all read it, so what's shown is what works, and a test fails if two commands share keys. Keys are written
-  as on Windows and show with the Mac's symbols on a Mac (`⇧⌘Z`).
+  as on Windows, with spaces, and shown joined by `+` on Windows and Linux (`Ctrl+Shift+Z`, and `Ctrl+Plus` for zoom)
+  and with the Mac's symbols on a Mac (`⇧⌘Z`). You found the spaced form unclear about whether a `+` was needed
+  (2026-10-29). Menus keep shadcn's plain-text shortcuts, as Figma's and the system's menus do; tooltips, the toolbar
+  and the Keyboard shortcuts dialog use keycaps (`Kbd`).
 - **tldraw's own shortcuts are off.** Its tool keys (E, D, R, A, L, F, N, K) switched to drawing tools behind Parity's
   toolbar, Ctrl+/ flipped the canvas to light mode, and Ctrl+. and Ctrl+' turned on modes Parity doesn't use. Space to
   pan stays, as it isn't a shortcut, and the arrows nudge through the keymap (CAN-39).
@@ -955,6 +958,15 @@ recommended answer to each of its questions.
   project's own dev server, often running alongside, re-optimized into the same folder, and each server then served
   stale dependencies ("Outdated Optimize Dep"). Opening Parity's own app as a project broke every offscreen render this
   way (PROJ-11).
+- **Dependencies are served without their source maps inlined,** by Parity's UI and each project's builder (CAN-85).
+  Vite inlines a map into every script it sends, prebundled dependencies included, and those maps cost the pages more
+  memory than the code: tldraw's 3.5 MB bundle arrived as 12.4 M characters. My call: a prebundled dependency ends with
+  a link to the map Vite wrote beside it, which Vite serves when DevTools asks, so DevTools still shows its source; any
+  other script from node_modules, such as Vite's client, comes without a map; and Parity's own code, workspace packages
+  and a project's own files keep their inline maps, so their stack traces point at their source. It's one plugin,
+  `@parity/builder-vite/dependency-maps`, which imports only Vite's types, since the builder runs it in the project's
+  own Vite. Vite counts plugin names in its dependency cache's key, so adding it re-optimizes dependencies once, and
+  pages can't reuse copies with maps from the HTTP cache.
 
 ## The app icon
 

@@ -4,8 +4,9 @@ import { matches } from "./keys.ts"
  * Every keyboard shortcut, in one place. The menus and tooltips show these keys, the Keyboard shortcuts dialog lists
  * them, and the key handlers match events against them, so what's shown is what works.
  *
- * Keys are written as on Windows, a space between each: `Ctrl Shift Z`. Ctrl is Cmd on a Mac, where `formatKeys` shows
- * them with the Mac's symbols. The first keys are the ones shown; the rest do the same, as Figma's do.
+ * Keys are written as on Windows, a space between each: `Ctrl Shift Z`. `formatKeys` shows them joined by `+` on
+ * Windows and Linux (`Ctrl+Shift+Z`), and with the Mac's symbols on a Mac, where Ctrl is Cmd. The first keys are the
+ * ones shown; the rest do the same, as Figma's do.
  */
 export interface Binding {
   label: string

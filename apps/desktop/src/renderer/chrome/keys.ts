@@ -75,17 +75,21 @@ const macSymbols: Record<string, string> = {
 }
 
 /**
- * Keys as the platform shows them: as written on Windows and Linux, and with the Mac's symbols, modifiers first in the
- * Mac's order, on a Mac (`Ctrl Shift Z` is `⇧⌘Z`). Text that isn't keys is left alone.
+ * Keys as the platform shows them: joined by `+` on Windows and Linux (`Ctrl+Shift+Z`), with a `+` or `-` key named
+ * when it's joined (`Ctrl+Plus`), as Windows's own apps write them; and with the Mac's symbols, modifiers first in the
+ * Mac's order, on a Mac (`⇧⌘Z`). Text that isn't keys is left alone.
  */
 export function formatKeys(keys: string, mac = isMac()): string {
-  if (!mac) return keys
   const parts = keys.split(" ")
   if (!parts.every(isKeyName)) return keys
+  if (!mac) return parts.length === 1 ? keys : parts.map((part) => joinedNames[part] ?? part).join("+")
   const held = ["Alt", "Shift", "Ctrl"].filter((modifier) => parts.includes(modifier)).map((part) => macSymbols[part])
   const rest = parts.filter((part) => !modifierNames.includes(part)).map((part) => macSymbols[part] ?? part)
   return [...held, ...rest].join("")
 }
+
+/** Keys that would read as the separator once keys are joined by `+`. */
+const joinedNames: Record<string, string> = { "+": "Plus", "-": "Minus" }
 
 const modifierNames = ["Ctrl", "Alt", "Shift"]
 const keyNames = ["Space", "Home", "End", "PageUp", "PageDown"]
