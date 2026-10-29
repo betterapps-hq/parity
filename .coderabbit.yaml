@@ -1,0 +1,97 @@
+# CodeRabbit reviews every pull request to main. Its `CodeRabbit` status is a required check, and its threads must be
+# resolved before merging, so what it finds is fixed or answered first. Lint, format, types, tests and change files are
+# CI's, so the linters it would run again with other settings are off. Schema:
+# https://coderabbit.ai/integrations/schema.v2.json
+language: en-GB
+tone_instructions: >-
+  Be direct and brief: say what's wrong, why it matters and the fix. Skip praise, and don't restate what the code does.
+reviews:
+  profile: assertive
+  # Requests changes for what blocks, and approves once its threads are resolved.
+  auto_approvals:
+    enabled: true
+  # A review that stops on an error fails its status rather than passing unreviewed. `@coderabbitai review` reruns it.
+  fail_commit_status: true
+  high_level_summary: true
+  poem: false
+  in_progress_fortune: false
+  sequence_diagrams: false
+  suggested_labels: false
+  suggested_reviewers: false
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches: ["main"]
+  path_filters:
+    # Generated: pnpm writes the lockfile and `parity lib` the registry's libraries.
+    - "!pnpm-lock.yaml"
+    - "!packages/registry/libraries/*.lib.par"
+  path_instructions:
+    - path: "change/*.json"
+      instructions: >-
+        A Beachball change file. Its comment is a line in the changelog people read, so check it says what changed for
+        someone using Parity ("Snap layers to the spacing scale", not "Refactor snap.ts"), and that its type fits: minor
+        for a feature, patch for a fix, none for a change that doesn't ship.
+    - path: "**/CHANGELOG.{md,json}"
+      instructions: >-
+        Beachball writes these from change files in the release pull request. Their wording was reviewed in the change
+        files, so don't comment on it here.
+    - path: "packages/**"
+      instructions: >-
+        Packages take data and return data (docs/proposals/packages.md). Flag Electron, tldraw or React outside
+        renderer-react, and file writes in the reader packages (code, project, registry), which return changesets.
+    - path: "**/*.test.ts"
+      instructions: >-
+        Tests are held to the bar of the code they test. Prefer real collaborators to mocks, and flag a test that can't
+        fail or that only restates the implementation.
+    - path: ".github/workflows/**"
+      instructions: >-
+        Workflows call Fencing-Club/pipelines' templates at a release tag. Flag a third-party action not pinned to a
+        commit, and permissions wider than the job needs.
+  pre_merge_checks:
+    # CI checks the title's form with scripts/commits.ts, since squash merging makes it the commit's subject.
+    title:
+      mode: warning
+      requirements: >-
+        A conventional commit subject that says what changed for someone using Parity, such as "fix(desktop): draw the
+        icons larger", not how the code changed.
+    description:
+      mode: warning
+    docstrings:
+      mode: "off"
+    custom_checks:
+      - name: Editor features are documented
+        mode: warning
+        instructions: >-
+          Pass when the pull request adds or changes no editor feature. Otherwise pass only when docs/editor.md's
+          section for the feature changes in the same pull request and names the tests that cover it, as AGENTS.md asks.
+  tools:
+    # CI runs Parity's own oxlint and oxfmt settings, which live in vite.config.ts where these wouldn't find them.
+    oxc:
+      enabled: false
+    eslint:
+      enabled: false
+    biome:
+      enabled: false
+    stylelint:
+      enabled: false
+    # Docs follow docs/conventions.md, not a prose linter's rules.
+    markdownlint:
+      enabled: false
+    languagetool:
+      enabled: false
+    vale:
+      enabled: false
+    # actionlint and zizmor check the workflows; yamllint's defaults only argue with the formatter.
+    yamllint:
+      enabled: false
+chat:
+  auto_reply: true
+knowledge_base:
+  code_guidelines:
+    filePatterns:
+      - "AGENTS.md"
+      - "docs/conventions.md"
+  # Off for public repositories by default, which keeps Linear's issues out of public review comments.
+  linear:
+    usage: auto

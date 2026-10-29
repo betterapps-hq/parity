@@ -4,6 +4,7 @@
 // Usage:
 //   node scripts/commits.ts message <file>  checks a commit message (the commit-msg hook)
 //   node scripts/commits.ts push <remote>   checks the commits a push sends, from the refs git gives the pre-push hook
+//   node scripts/commits.ts title <title>   checks a pull request's title, which squash merging makes a subject (CI)
 import { execFileSync } from "node:child_process"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
@@ -90,7 +91,16 @@ function main(): void {
     process.exit(1)
   }
 
-  console.error("Usage: node scripts/commits.ts message <file> | push <remote>")
+  if (command === "title" && argument) {
+    const problem = subjectProblem(argument, true)
+    if (!problem) return
+    console.error(
+      `The pull request's title becomes the commit's subject when it merges, and it won't do, as ${problem}.`
+    )
+    process.exit(1)
+  }
+
+  console.error("Usage: node scripts/commits.ts message <file> | push <remote> | title <title>")
   process.exit(1)
 }
 
