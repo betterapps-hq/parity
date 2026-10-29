@@ -112,6 +112,7 @@ export const projects: StartProject[] = [
     editedBy: people.claude,
     people: [people.jonas, people.sam, me],
     starred: true,
+    open: true,
     live: { who: people.claude, doing: "Tighten the plan cards" },
     comments: 2
   },
@@ -531,7 +532,8 @@ export const templates: Template[] = [
     blurb: "Components, tokens and docs, published to npm",
     stack: "react-library",
     designs: [{ name: "Components", kind: "components" }],
-    look: starter(255, Boxes)
+    look: starter(255, Boxes),
+    adds: ["Storybook docs", "Design tokens"]
   },
   {
     id: "next-starter",
@@ -539,7 +541,8 @@ export const templates: Template[] = [
     blurb: "Pages, layouts and a landing page",
     stack: "nextjs",
     designs: [{ name: "Home", kind: "landing", mobile: true }],
-    look: { ...starter(0, ShoppingBag), mono: true }
+    look: { ...starter(0, ShoppingBag), mono: true },
+    adds: ["Server actions"]
   }
 ]
 
@@ -562,10 +565,32 @@ export const repositories: Record<"github" | "azure", { account: string; repos: 
   github: {
     account: "kestrel",
     repos: [
-      { name: "status-page", description: "Uptime and incidents for Kestrel Cloud", detected: "Vite and React", updated: "2 h ago" },
-      { name: "cloud-console", description: "The console customers run their apps from", detected: "TanStack Start", updated: "1 h ago", inParity: true },
-      { name: "website", description: "kestrel.dev", detected: "TanStack Start", updated: "12 min ago", inParity: true },
-      { name: "partner-portal", description: "Where resellers track their customers", detected: "Next.js", updated: "3 days ago" },
+      {
+        name: "status-page",
+        description: "Uptime and incidents for Kestrel Cloud",
+        detected: "Vite and React",
+        updated: "2 h ago"
+      },
+      {
+        name: "cloud-console",
+        description: "The console customers run their apps from",
+        detected: "TanStack Start",
+        updated: "1 h ago",
+        inParity: true
+      },
+      {
+        name: "website",
+        description: "kestrel.dev",
+        detected: "TanStack Start",
+        updated: "12 min ago",
+        inParity: true
+      },
+      {
+        name: "partner-portal",
+        description: "Where resellers track their customers",
+        detected: "Next.js",
+        updated: "3 days ago"
+      },
       { name: "edge-router", description: "Routes requests to the nearest region", updated: "Yesterday" },
       { name: "terraform", description: "Infrastructure for every environment", updated: "Last week" }
     ]
@@ -574,7 +599,12 @@ export const repositories: Record<"github" | "azure", { account: string; repos: 
     account: "kestrel / Platform",
     repos: [
       { name: "ui", description: "Kestrel UI", detected: "React library", updated: "3 days ago", inParity: true },
-      { name: "admin-portal", description: "Support tools for the platform team", detected: "Vite and React", updated: "5 days ago" },
+      {
+        name: "admin-portal",
+        description: "Support tools for the platform team",
+        detected: "Vite and React",
+        updated: "5 days ago"
+      },
       { name: "billing-service", description: "Invoices and usage metering", updated: "Yesterday" }
     ]
   }

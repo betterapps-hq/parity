@@ -91,7 +91,9 @@ export function Levels({ look }: { look: Look }) {
   return (
     <div
       className="relative size-full overflow-hidden"
-      style={{ background: `linear-gradient(180deg, oklch(0.2 0.06 ${h + 250}) 0%, oklch(0.24 0.08 ${h + 300}) 55%, oklch(0.35 0.14 ${h}) 100%)` }}
+      style={{
+        background: `linear-gradient(180deg, oklch(0.2 0.06 ${h + 250}) 0%, oklch(0.24 0.08 ${h + 300}) 55%, oklch(0.35 0.14 ${h}) 100%)`
+      }}
     >
       <svg width="1280" height="800" className="absolute inset-0">
         <defs>
@@ -224,7 +226,9 @@ function Tile({ kind, top, hue }: { kind: string; top: boolean; hue: number }) {
     return (
       <span
         className="absolute inset-x-0 top-0 h-7 rounded-md"
-        style={{ background: `linear-gradient(180deg, oklch(0.8 0.15 ${hue + 25}) 0 8px, oklch(0.45 0.06 ${hue + 300}) 8px)` }}
+        style={{
+          background: `linear-gradient(180deg, oklch(0.8 0.15 ${hue + 25}) 0 8px, oklch(0.45 0.06 ${hue + 300}) 8px)`
+        }}
       />
     )
   if (kind === "L")
@@ -276,7 +280,9 @@ export function Play({ look }: { look: Look }) {
   return (
     <div
       className="relative size-full overflow-hidden"
-      style={{ background: `linear-gradient(180deg, oklch(0.22 0.07 ${h + 260}) 0%, oklch(0.3 0.1 ${h + 310}) 60%, oklch(0.42 0.14 ${h}) 100%)` }}
+      style={{
+        background: `linear-gradient(180deg, oklch(0.22 0.07 ${h + 260}) 0%, oklch(0.3 0.1 ${h + 310}) 60%, oklch(0.42 0.14 ${h}) 100%)`
+      }}
     >
       <svg width="1280" height="800" className="absolute inset-0">
         <path
@@ -338,7 +344,9 @@ export function Arena({ look }: { look: Look }) {
   return (
     <div
       className="relative size-full overflow-hidden"
-      style={{ background: `linear-gradient(180deg, oklch(0.16 0.04 ${h + 40}) 0%, oklch(0.24 0.07 ${h}) 42%, ${floor} 42%)` }}
+      style={{
+        background: `linear-gradient(180deg, oklch(0.16 0.04 ${h + 40}) 0%, oklch(0.24 0.07 ${h}) 42%, ${floor} 42%)`
+      }}
     >
       <svg width="1280" height="800" className="absolute inset-0">
         <polygon points={`0,800 1280,800 1000,${horizon} 280,${horizon}`} fill={floor} />
@@ -366,7 +374,14 @@ export function Arena({ look }: { look: Look }) {
           { x: 760, y: 380, s: 36 }
         ].map((box) => (
           <g key={box.x}>
-            <ellipse cx={box.x} cy={box.y + box.s * 0.9} rx={box.s * 0.9} ry={box.s * 0.22} fill="black" opacity="0.3" />
+            <ellipse
+              cx={box.x}
+              cy={box.y + box.s * 0.9}
+              rx={box.s * 0.9}
+              ry={box.s * 0.22}
+              fill="black"
+              opacity="0.3"
+            />
             <polygon
               points={`${box.x - box.s},${box.y - box.s * 0.3} ${box.x},${box.y - box.s * 0.7} ${box.x + box.s},${box.y - box.s * 0.3} ${box.x},${box.y + box.s * 0.1}`}
               fill={`oklch(0.82 0.1 ${h + 30})`}
@@ -400,7 +415,14 @@ export function Arena({ look }: { look: Look }) {
           { x: 1010, y: 520, r: 34 }
         ].map((enemy) => (
           <g key={enemy.x}>
-            <ellipse cx={enemy.x} cy={enemy.y + enemy.r * 0.95} rx={enemy.r} ry={enemy.r * 0.25} fill="black" opacity="0.3" />
+            <ellipse
+              cx={enemy.x}
+              cy={enemy.y + enemy.r * 0.95}
+              rx={enemy.r}
+              ry={enemy.r * 0.25}
+              fill="black"
+              opacity="0.3"
+            />
             <circle cx={enemy.x} cy={enemy.y} r={enemy.r} fill="url(#arena-enemy)" />
           </g>
         ))}
@@ -531,7 +553,10 @@ export function Components({ look }: { look: Look }) {
           </div>
           <span className="flex w-fit gap-1 rounded-lg bg-(--r-raised) p-1 text-[13px]">
             {["Examples", "Props", "Accessibility"].map((tab, index) => (
-              <span key={tab} className={`rounded-md px-3 py-1 ${index === 0 ? "bg-(--r-card) font-medium shadow-sm" : "text-(--r-muted)"}`}>
+              <span
+                key={tab}
+                className={`rounded-md px-3 py-1 ${index === 0 ? "bg-(--r-card) font-medium shadow-sm" : "text-(--r-muted)"}`}
+              >
                 {tab}
               </span>
             ))}
@@ -708,19 +733,18 @@ function WalkMap() {
     <div className="relative w-[440px] shrink-0 overflow-hidden rounded-tl-2xl border-t border-l border-(--r-line) bg-[oklch(0.95_0.02_120)]">
       <svg width="440" height="700" className="absolute inset-0">
         <path d="M60,120 L230,90 L270,260 L120,300 Z" fill="oklch(0.88 0.08 145)" />
-        <path d="M-20,520 C120,470 220,560 330,500 S460,430 480,450 L480,560 C380,560 260,640 120,610 S-20,620 -20,600 Z" fill="oklch(0.84 0.07 230)" />
-        {[
-          "M0,200 L440,170",
-          "M0,380 L440,420",
-          "M150,0 L190,700",
-          "M330,0 L300,700",
-          "M0,60 L440,330"
-        ].map((street) => (
-          <g key={street}>
-            <path d={street} stroke="oklch(0.87 0.01 90)" strokeWidth="16" fill="none" />
-            <path d={street} stroke="white" strokeWidth="12" fill="none" />
-          </g>
-        ))}
+        <path
+          d="M-20,520 C120,470 220,560 330,500 S460,430 480,450 L480,560 C380,560 260,640 120,610 S-20,620 -20,600 Z"
+          fill="oklch(0.84 0.07 230)"
+        />
+        {["M0,200 L440,170", "M0,380 L440,420", "M150,0 L190,700", "M330,0 L300,700", "M0,60 L440,330"].map(
+          (street) => (
+            <g key={street}>
+              <path d={street} stroke="oklch(0.87 0.01 90)" strokeWidth="16" fill="none" />
+              <path d={street} stroke="white" strokeWidth="12" fill="none" />
+            </g>
+          )
+        )}
       </svg>
       {[
         { x: 90, y: 160, price: "£14", active: true },
@@ -754,6 +778,10 @@ export function MobileListings({ look }: { look: Look }) {
     <div className="flex size-full flex-col overflow-hidden bg-(--r-bg) text-[15px]">
       <PhoneStatus />
       <div className="flex flex-col gap-3 px-5 pt-2">
+        <span className="flex items-center justify-between">
+          <Brand look={look} size={26} />
+          <Face name="Andrew Craswell" hue={250} size={30} />
+        </span>
         <span className="flex items-center gap-3 rounded-full border border-(--r-line) bg-(--r-card) px-4 py-3 shadow-sm">
           <Search className="size-5" />
           <span className="flex flex-col">
@@ -843,8 +871,8 @@ export function Walker({ look }: { look: Look }) {
             </span>
           </div>
           <p className="max-w-[560px] leading-relaxed text-(--r-muted)">
-            I've walked dogs around Shoreditch for six years, from tiny puppies to very large lurchers. Every walk is
-            at least an hour, with photos along the way.
+            I've walked dogs around Shoreditch for six years, from tiny puppies to very large lurchers. Every walk is at
+            least an hour, with photos along the way.
           </p>
           <span className="flex gap-2">
             {["Puppies", "Big dogs", "First aid trained", "Insured"].map((chip) => (
@@ -879,7 +907,11 @@ export function Walker({ look }: { look: Look }) {
                 <span
                   key={index}
                   className={`mx-auto grid size-8 place-items-center rounded-full ${
-                    day === 28 ? "bg-(--r-brand) font-semibold text-(--r-brand-fg)" : day && day < 28 ? "text-(--r-faint)" : ""
+                    day === 28
+                      ? "bg-(--r-brand) font-semibold text-(--r-brand-fg)"
+                      : day && day < 28
+                        ? "text-(--r-faint)"
+                        : ""
                   }`}
                 >
                   {day}
@@ -966,7 +998,10 @@ export function Board({ look }: { look: Look }) {
         </span>
         <span className="flex items-center gap-1 rounded-lg bg-(--r-raised) p-1 text-[13px]">
           {["Board", "Notes", "Actions"].map((tab, index) => (
-            <span key={tab} className={`rounded-md px-3 py-1 ${index === 0 ? "bg-(--r-card) font-medium shadow-sm" : "text-(--r-muted)"}`}>
+            <span
+              key={tab}
+              className={`rounded-md px-3 py-1 ${index === 0 ? "bg-(--r-card) font-medium shadow-sm" : "text-(--r-muted)"}`}
+            >
               {tab}
             </span>
           ))}

@@ -217,13 +217,7 @@ export function Sparkline({
 }) {
   return (
     <svg width={width} height={height} className="overflow-visible">
-      <path
-        d={curve(plot(values, width, height))}
-        fill="none"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-      />
+      <path d={curve(plot(values, width, height))} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" />
     </svg>
   )
 }

@@ -3,6 +3,7 @@
  * contexts, so a person learns it once.
  */
 import {
+  AppWindow,
   ArrowRight,
   AtSign,
   ChevronDown,
@@ -34,7 +35,7 @@ import {
 import { Kbd } from "@/components/ui/kbd"
 import { agentPalettes } from "../../agent/agent-colors.ts"
 import { AgentBadge, AgentPointer } from "../../agent/AgentPointer.tsx"
-import { me, organization, people, type Person } from "../explore-data.ts"
+import { me, people, type Person } from "../explore-data.ts"
 import {
   accent,
   Avatar,
@@ -52,6 +53,7 @@ import {
   type ForYouKind,
   forYou,
   lastVisit,
+  organizations,
   project as findProject,
   projects,
   type Stack,
@@ -182,7 +184,7 @@ export function CanvasArt({
   const frame = "absolute overflow-visible rounded-[5px] shadow-[0_16px_40px_-10px_rgb(0_0_0/0.7)] ring-1 ring-white/10"
   return (
     <div
-      className={`relative overflow-hidden bg-[#0f0f12] ${className}`}
+      className={`${/\b(absolute|fixed)\b/.test(className) ? "" : "relative"} overflow-hidden bg-[#0f0f12] ${className}`}
       style={fill ? undefined : { aspectRatio: "16 / 10" }}
     >
       <div
@@ -191,30 +193,44 @@ export function CanvasArt({
           background: `radial-gradient(70% 60% at 30% 25%, oklch(0.55 0.14 ${look.hue} / 0.18), transparent 70%), radial-gradient(50% 50% at 90% 100%, oklch(0.55 0.12 ${look.hue + 60} / 0.1), transparent 70%)`
         }}
       />
-      <div className={frame} style={design.mobile ? { left: "6%", top: labels ? "15%" : "9%", width: "72%" } : { left: "8%", top: labels ? "12%" : "8%", width: "84%" }}>
-        {labels && <span className={label}>{design.name}</span>}
-        <DesignRender kind={design.kind} look={look} className="rounded-[5px]" />
-      </div>
-      {design.mobile && (
-        <div className={`${frame} rounded-[9px]`} style={{ right: "6%", top: labels ? "27%" : "22%", width: "19%" }}>
-          {labels && <span className={label}>{design.name}, phone</span>}
-          <DesignRender kind={design.kind} look={look} mobile className="rounded-[9px]" />
+      {/* The boards keep the canvas's proportions, centered when the box is taller. */}
+      <div className="absolute inset-x-0 top-1/2 aspect-[16/10] -translate-y-1/2">
+        <div
+          className={frame}
+          style={
+            design.mobile
+              ? { left: labels ? "5%" : "6%", top: labels ? "16%" : "9%", width: labels ? "69%" : "72%" }
+              : { left: "8%", top: labels ? "12%" : "8%", width: "84%" }
+          }
+        >
+          {labels && <span className={label}>{design.name}</span>}
+          <DesignRender kind={design.kind} look={look} className="rounded-[5px]" />
         </div>
-      )}
-      {pins && (
-        <>
-          <Pin person={people.maya} replies={2} style={{ left: "27%", top: "44%" }} />
-          <Pin person={people.jonas} replies={1} style={{ left: "60%", top: "70%" }} />
-        </>
-      )}
-      {live && project.live && (
-        <LiveCursor
-          who={project.live.who}
-          doing={project.live.doing}
-          small={!labels}
-          style={labels ? { left: "40%", top: "60%" } : { left: "46%", top: "52%" }}
-        />
-      )}
+        {/* With labels, the phone stands clear of the desktop frame so its name reads on the canvas. */}
+        {design.mobile && (
+          <div
+            className={`${frame} rounded-[9px]`}
+            style={{ right: labels ? "5%" : "6%", top: labels ? "18%" : "22%", width: "19%" }}
+          >
+            {labels && <span className={label}>Phone</span>}
+            <DesignRender kind={design.kind} look={look} mobile className="rounded-[9px]" />
+          </div>
+        )}
+        {pins && (
+          <>
+            <Pin person={people.maya} replies={2} style={{ left: "27%", top: "44%" }} />
+            <Pin person={people.jonas} replies={1} style={{ left: "60%", top: "70%" }} />
+          </>
+        )}
+        {live && project.live && (
+          <LiveCursor
+            who={project.live.who}
+            doing={project.live.doing}
+            small={!labels}
+            style={labels ? { left: "40%", top: "60%" } : { left: "46%", top: "52%" }}
+          />
+        )}
+      </div>
     </div>
   )
 }
@@ -279,24 +295,18 @@ export function ProjectCard({ project, showOrg }: { project: StartProject; showO
         style={{ ["--parity" as string]: parity }}
       >
         <CanvasArt project={project} design={design} />
-        <div className="absolute top-2.5 left-2.5 z-10 flex gap-1.5">
-          {project.live && (
-            <Chip>
-              <LiveDot person={project.live.who} />
-              {project.live.who.agent
-                ? `${project.live.who.name} is working`
-                : `${project.live.who.name.split(" ")[0]} is here`}
-            </Chip>
-          )}
-          {project.open && <Chip>Open in a tab</Chip>}
-        </div>
-        {!!project.comments && (
-          <span
-            className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1 rounded-full bg-[oklch(0.62_0.19_256)] px-1.5 py-0.5 text-[11px] font-semibold text-white shadow"
-            title={`${project.comments} new comments for you`}
-          >
-            <MessageSquare className="size-3" /> {project.comments}
-          </span>
+        {project.live && (
+          <Chip className="absolute top-2.5 left-2.5 z-10">
+            <LiveDot person={project.live.who} />
+            {project.live.who.agent
+              ? `${project.live.who.name} is working`
+              : `${project.live.who.name.split(" ")[0]} is here`}
+          </Chip>
+        )}
+        {project.open && (
+          <Chip className="absolute top-2.5 right-2.5 z-10">
+            <AppWindow className="size-3" /> In a tab
+          </Chip>
         )}
         {many && (
           <div
@@ -326,11 +336,19 @@ export function ProjectCard({ project, showOrg }: { project: StartProject; showO
               {project.name}
             </button>
             {project.starred && <Star className="size-3 shrink-0 fill-current text-muted-foreground" />}
+            {!!project.comments && (
+              <span
+                className="relative z-10 flex shrink-0 items-center gap-1 rounded-full bg-[oklch(0.62_0.19_256)] px-1.5 text-[11px] leading-4 font-semibold text-white"
+                title={`${project.comments} new ${project.comments === 1 ? "comment" : "comments"} for you`}
+              >
+                <MessageSquare className="size-2.5" /> {project.comments}
+              </span>
+            )}
           </h3>
           <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
             <SourceIcon type={project.source.type} className="size-3 shrink-0" />
             <span className="truncate">
-              {showOrg ? `${organization(project.org).name}, ` : ""}
+              {showOrg ? `${organizations[project.org].name}, ` : ""}
               {editedBy(project)}
             </span>
           </span>
@@ -366,8 +384,8 @@ export function ContinueCard() {
         <div className="flex flex-col gap-1.5">
           <span className="text-xs font-medium text-muted-foreground">Pick up where you left off</span>
           <h2 className="text-xl font-semibold tracking-tight">{project.name}</h2>
-          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-            You were on {lastVisit.design}, {lastVisit.when.toLowerCase()}.
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-pretty text-muted-foreground">
+            You were on {lastVisit.design} {lastVisit.when[0]!.toLowerCase() + lastVisit.when.slice(1)}.
             <span className="flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 font-mono text-[11px]">
               <GitBranch className="size-3" />
               {project.source.branch}
@@ -484,9 +502,9 @@ export function Segmented<T extends string>({
   value,
   onChange
 }: {
-  options: { id: T; label: ReactNode }[]
+  options: { id: NoInfer<T>; label: ReactNode }[]
   value: T
-  onChange(value: T): void
+  onChange(value: NoInfer<T>): void
 }) {
   return (
     <span className="flex items-center gap-0.5 rounded-lg bg-muted/50 p-0.5">
@@ -591,6 +609,7 @@ export function ExistingCard({ onPick }: { onPick?(): void }) {
     <button
       type="button"
       onClick={onPick}
+      aria-label="New project from an existing project"
       className="group/existing flex flex-col gap-2.5 text-left outline-none"
       style={{ ["--parity" as string]: parity }}
     >
@@ -623,7 +642,12 @@ export function ExistingCard({ onPick }: { onPick?(): void }) {
 /** A stack's blank app, for starting from nothing but the stack. */
 function BlankCard({ stack }: { stack: Stack }) {
   return (
-    <button type="button" className="group/blank flex flex-col gap-2.5 text-left outline-none" style={{ ["--parity" as string]: parity }}>
+    <button
+      type="button"
+      aria-label={`New blank ${stack.name} app`}
+      className="group/blank flex flex-col gap-2.5 text-left outline-none"
+      style={{ ["--parity" as string]: parity }}
+    >
       <span className="grid aspect-[16/10] place-items-center rounded-xl border border-white/[0.08] bg-white/[0.015] transition-colors group-hover/blank:border-(--parity)">
         <span className="flex flex-col items-center gap-2 text-muted-foreground">
           <StackMark stack={stack} size={30} />
@@ -672,7 +696,9 @@ export function StartNew({
           />
         </div>
         <button type="button" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-          {templatesOn(stackId).length > shown.length ? `All ${templatesOn(stackId).length} templates` : "All templates"}
+          {templatesOn(stackId).length > shown.length
+            ? `All ${templatesOn(stackId).length} templates`
+            : "All templates"}
           <ArrowRight className="size-3" />
         </button>
       </div>
@@ -699,7 +725,7 @@ export function SearchButton({ large, onOpen }: { large?: boolean; onOpen?(): vo
     >
       <Search className={large ? "size-[18px]" : "size-4"} />
       <span className="flex-1 truncate">
-        {large ? "Search projects, designs and people, or paste a repository URL" : "Search projects, designs, people"}
+        {large ? "Search projects, designs and people, or paste a repository URL" : "Search everything"}
       </span>
       <Kbd>Ctrl K</Kbd>
     </button>
@@ -744,7 +770,7 @@ export function NewProjectButton({ onClick, size = "lg" }: { onClick?(): void; s
 
 /** Which organization's projects the page shows, and the way to switch. */
 export function OrgSwitcher() {
-  const org = organization("buildkit")
+  const org = organizations.kestrel
   return (
     <button
       type="button"
@@ -844,7 +870,7 @@ export function HomePage({
         </header>
         <div className="grid grid-cols-[minmax(0,1fr)_360px] gap-5">
           <ContinueCard />
-          <ForYouPanel />
+          <ForYouPanel limit={3} />
         </div>
         <RecentProjects skip={lastVisit.project} rows={1} />
         <StartNew onPickTemplate={onPickTemplate} onPickExisting={onPickExisting} />

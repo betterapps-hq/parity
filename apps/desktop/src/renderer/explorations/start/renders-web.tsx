@@ -433,7 +433,9 @@ function AppShell({
 
 function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`rounded-xl border border-(--r-line) bg-(--r-card) shadow-[0_1px_2px_rgb(0_0_0/0.04)] ${className}`}>
+    <div
+      className={`rounded-xl border border-(--r-line) bg-(--r-card) shadow-[0_1px_2px_rgb(0_0_0/0.04)] ${className}`}
+    >
       {children}
     </div>
   )
@@ -570,7 +572,10 @@ export function Overview({ look }: { look: Look }) {
         <Card className="flex flex-col p-5">
           <span className="mb-3 font-semibold">Recent deploys</span>
           {deploys.map((deploy) => (
-            <span key={deploy.app} className="flex items-center gap-3 border-t border-(--r-line) py-2.5 first-of-type:border-t-0">
+            <span
+              key={deploy.app}
+              className="flex items-center gap-3 border-t border-(--r-line) py-2.5 first-of-type:border-t-0"
+            >
               <DeployStatus status={deploy.status} />
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="font-medium">{deploy.app}</span>
@@ -707,7 +712,8 @@ export function Billing({ look }: { look: Look }) {
           <span key={meter.label} className="flex flex-col gap-2">
             <span className="text-[13px] text-(--r-muted)">{meter.label}</span>
             <span className="text-[15px]">
-              <span className="font-semibold">{meter.used}</span> <span className="text-(--r-muted)">of {meter.of}</span>
+              <span className="font-semibold">{meter.used}</span>{" "}
+              <span className="text-(--r-muted)">of {meter.of}</span>
             </span>
             <Meter share={meter.share} warn={meter.share > 0.75} />
           </span>
@@ -715,10 +721,7 @@ export function Billing({ look }: { look: Look }) {
       </Card>
       <div className="grid grid-cols-3 gap-4">
         {billingPlans.map((plan) => (
-          <Card
-            key={plan.name}
-            className={`flex flex-col gap-3 p-5 ${plan.current ? "ring-2 ring-(--r-brand)" : ""}`}
-          >
+          <Card key={plan.name} className={`flex flex-col gap-3 p-5 ${plan.current ? "ring-2 ring-(--r-brand)" : ""}`}>
             <span className="flex items-center justify-between">
               <span className="font-semibold">{plan.name}</span>
               {plan.current && <CircleCheck className="size-5 text-(--r-brand)" />}
@@ -754,6 +757,9 @@ export function MobileBilling({ look }: { look: Look }) {
       <div className="flex h-12 items-center gap-2 px-4">
         <ChevronLeft className="size-6 text-(--r-brand)" />
         <span className="text-[17px] font-semibold">Billing</span>
+        <span className="ml-auto">
+          <BrandMark look={look} size={26} />
+        </span>
       </div>
       <div className="flex flex-col gap-4 px-4 pt-3">
         <Card className="flex flex-col gap-3 p-4">
@@ -913,7 +919,9 @@ export function Docs({ look }: { look: Look }) {
       <header className="flex h-14 shrink-0 items-center gap-6 border-b border-(--r-line) px-6">
         <span className="flex items-center gap-2.5">
           <Brand look={look} size={26} />
-          <span className="rounded-md bg-(--r-soft) px-1.5 py-0.5 text-[12px] font-semibold text-(--r-brand)">Docs</span>
+          <span className="rounded-md bg-(--r-soft) px-1.5 py-0.5 text-[12px] font-semibold text-(--r-brand)">
+            Docs
+          </span>
         </span>
         <span className="flex w-[340px] items-center gap-2 rounded-lg border border-(--r-line) bg-(--r-card) px-3 py-1.5 text-[13px] text-(--r-faint)">
           <Search className="size-3.5" /> Search the docs
@@ -975,11 +983,13 @@ export function Docs({ look }: { look: Look }) {
         </article>
         <aside className="flex w-[220px] shrink-0 flex-col gap-2 py-10 text-[13px] text-(--r-muted)">
           <span className="mb-1 font-semibold text-(--r-fg)">On this page</span>
-          {["Connect your repository", "Deploy", "Add a custom domain", "Roll back", "Next steps"].map((item, index) => (
-            <span key={item} className={index === 0 ? "font-medium text-(--r-brand)" : ""}>
-              {item}
-            </span>
-          ))}
+          {["Connect your repository", "Deploy", "Add a custom domain", "Roll back", "Next steps"].map(
+            (item, index) => (
+              <span key={item} className={index === 0 ? "font-medium text-(--r-brand)" : ""}>
+                {item}
+              </span>
+            )
+          )}
         </aside>
       </div>
     </div>
@@ -987,12 +997,52 @@ export function Docs({ look }: { look: Look }) {
 }
 
 const conversations = [
-  { name: "Maria Gonzalez", hue: 30, subject: "Lamp arrived cracked", snippet: "Can I get a replacement before Friday?", when: "9:41", tag: "Copilot drafted", active: true },
-  { name: "Kenji Watanabe", hue: 200, subject: "Change my plan", snippet: "We added four people and need seats", when: "9:12", tag: "Billing" },
-  { name: "Ola Nordmann", hue: 140, subject: "Invoice for October", snippet: "Our finance team needs a VAT number on it", when: "8:55" },
-  { name: "Priscila Santos", hue: 330, subject: "Can't sign in", snippet: "The code never arrives at my work email", when: "8:20", tag: "Copilot drafted" },
-  { name: "Theo Fischer", hue: 260, subject: "Export to CSV", snippet: "Is there a way to export every order?", when: "Yesterday" },
-  { name: "Amara Okeke", hue: 60, subject: "Thank you!", snippet: "Just wanted to say the new app is great", when: "Yesterday" }
+  {
+    name: "Maria Gonzalez",
+    hue: 30,
+    subject: "Lamp arrived cracked",
+    snippet: "Can I get a replacement before Friday?",
+    when: "9:41",
+    tag: "Copilot drafted",
+    active: true
+  },
+  {
+    name: "Kenji Watanabe",
+    hue: 200,
+    subject: "Change my plan",
+    snippet: "We added four people and need seats",
+    when: "9:12",
+    tag: "Billing"
+  },
+  {
+    name: "Ola Nordmann",
+    hue: 140,
+    subject: "Invoice for October",
+    snippet: "Our finance team needs a VAT number on it",
+    when: "8:55"
+  },
+  {
+    name: "Priscila Santos",
+    hue: 330,
+    subject: "Can't sign in",
+    snippet: "The code never arrives at my work email",
+    when: "8:20",
+    tag: "Copilot drafted"
+  },
+  {
+    name: "Theo Fischer",
+    hue: 260,
+    subject: "Export to CSV",
+    snippet: "Is there a way to export every order?",
+    when: "Yesterday"
+  },
+  {
+    name: "Amara Okeke",
+    hue: 60,
+    subject: "Thank you!",
+    snippet: "Just wanted to say the new app is great",
+    when: "Yesterday"
+  }
 ]
 
 /** A support inbox with an AI copilot drafting replies. */
@@ -1056,7 +1106,9 @@ export function Inbox({ look }: { look: Look }) {
         <header className="flex h-16 shrink-0 items-center gap-3 border-b border-(--r-line) px-6">
           <Face name="Maria Gonzalez" hue={30} size={32} />
           <span className="font-semibold">Maria Gonzalez</span>
-          <span className="rounded-md border border-(--r-line) px-2 py-0.5 text-[12px] text-(--r-muted)">Order #4821</span>
+          <span className="rounded-md border border-(--r-line) px-2 py-0.5 text-[12px] text-(--r-muted)">
+            Order #4821
+          </span>
           <span className="ml-auto flex items-center gap-2">
             <Ghost>Snooze</Ghost>
             <Primary>
@@ -1088,7 +1140,10 @@ export function Inbox({ look }: { look: Look }) {
             </p>
             <span className="flex gap-1.5 text-[12px]">
               {["Returns policy", "Order #4821", "Express shipping"].map((source) => (
-                <span key={source} className="rounded-full border border-(--r-line) bg-(--r-card) px-2.5 py-0.5 text-(--r-muted)">
+                <span
+                  key={source}
+                  className="rounded-full border border-(--r-line) bg-(--r-card) px-2.5 py-0.5 text-(--r-muted)"
+                >
                   {source}
                 </span>
               ))}
@@ -1131,7 +1186,10 @@ export function Inbox({ look }: { look: Look }) {
             ["#4821", "Ceramic lamp", "$129"],
             ["#4610", "Linen throw", "$64"]
           ].map(([id, item, price]) => (
-            <span key={id} className="flex items-center justify-between rounded-lg border border-(--r-line) px-3 py-2 text-[13px]">
+            <span
+              key={id}
+              className="flex items-center justify-between rounded-lg border border-(--r-line) px-3 py-2 text-[13px]"
+            >
               <span className="flex flex-col">
                 <span className="font-medium">{item}</span>
                 <span className="text-(--r-muted)">{id}</span>

@@ -38,21 +38,25 @@ function TemplateGallery({ onPickTemplate }: { onPickTemplate?(template: Templat
       <div className="flex items-center justify-between">
         <div className="flex flex-col gap-1">
           <h2 className="text-base font-semibold">Start from a template</h2>
-          <p className="text-sm text-muted-foreground">Pick a stack, then what you're building. You can change any of it later.</p>
+          <p className="text-sm text-muted-foreground">
+            Pick a stack, then what you're building. You can change any of it later.
+          </p>
         </div>
       </div>
-      <Segmented
-        options={stacks.map((stack) => ({
-          id: stack.id,
-          label: (
-            <>
-              <StackMark stack={stack} size={16} /> {stack.name}
-            </>
-          )
-        }))}
-        value={stackId}
-        onChange={setStackId}
-      />
+      <div className="flex">
+        <Segmented
+          options={stacks.map((stack) => ({
+            id: stack.id,
+            label: (
+              <>
+                <StackMark stack={stack} size={16} /> {stack.name}
+              </>
+            )
+          }))}
+          value={stackId}
+          onChange={setStackId}
+        />
+      </div>
       <div className="grid grid-cols-3 gap-x-5 gap-y-6">
         {templatesOn(stackId)
           .slice(0, 6)
@@ -81,8 +85,8 @@ export function FirstRunPage({
           <div className="flex flex-col gap-2">
             <h1 className="text-[34px] leading-tight font-semibold tracking-tight">Welcome to Parity, Andrew</h1>
             <p className="mx-auto max-w-[580px] text-[15px] text-muted-foreground">
-              Design with your app's real components, beside your team and your agents. Start from a template, or
-              bring a project you already have.
+              Design with your app's real components, beside your team and your agents. Start from a template, or bring
+              a project you already have.
             </p>
           </div>
         </header>
@@ -92,11 +96,29 @@ export function FirstRunPage({
             <Panel title="Bring a project you have">
               <div className="flex flex-col gap-1">
                 {[
-                  { mark: <GitHubMark size={18} />, name: "GitHub", detail: "Repositories you can push to", action: "Connect" },
-                  { mark: <AzureDevOpsMark size={18} />, name: "Azure DevOps", detail: "Your organization's repositories", action: "Connect" },
-                  { mark: <FolderOpen className="size-[18px]" />, name: "A folder", detail: "A React app on this computer", action: "Choose" }
+                  {
+                    mark: <GitHubMark size={18} />,
+                    name: "GitHub",
+                    detail: "Repositories you can push to",
+                    action: "Connect"
+                  },
+                  {
+                    mark: <AzureDevOpsMark size={18} />,
+                    name: "Azure DevOps",
+                    detail: "Your team's repositories",
+                    action: "Connect"
+                  },
+                  {
+                    mark: <FolderOpen className="size-[18px]" />,
+                    name: "A folder",
+                    detail: "A React app on this computer",
+                    action: "Choose"
+                  }
                 ].map((source) => (
-                  <div key={source.name} className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-muted/40">
+                  <div
+                    key={source.name}
+                    className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-muted/40"
+                  >
                     <span className="grid size-9 place-items-center rounded-lg bg-muted/70">{source.mark}</span>
                     <span className="flex min-w-0 flex-1 flex-col">
                       <span className="text-sm font-medium">{source.name}</span>
