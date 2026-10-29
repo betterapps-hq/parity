@@ -1129,6 +1129,16 @@ to PAR-206 build it.
   Resting the pointer on a component for half a second opens its card, with a large picture, its variants and its
   source; the `/` picker shows the highlighted component's card beside its list.
 - **PAR-175 keeps the picker's speed and ranking; its previews moved to PAR-205,** so the two aren't built twice.
+- **A token's detail shows its value read-only, and Edit changes it.** You found on 2026-10-29 that Cancel seemed to do
+  nothing, that an erased value had no way back, and that you couldn't tell what would save. So editing is a mode:
+  nothing is written until Save, Cancel or Escape leaves without writing, and after a save the detail says where the
+  value went, with Undo.
+- **A value is checked before it can be saved:** brackets and quotes must close, each `var()` must name a token, and the
+  value with its references replaced must be the kind's value. You found `calc(var(--radius) * 2.6` saved without its
+  `)`; the browser closes it silently, and `CSS.supports` passes anything holding `var()`. Today's `validTokenValue` has
+  both holes, so PAR-140 replaces it.
+- **Spacing draws at its true size,** in rows and in the detail's scale, as you asked on 2026-10-29: rows widen to the
+  section's longest length, up to 128 pixels, and only a longer one is drawn cut, with a break in its bar.
 
 ## The app icon
 

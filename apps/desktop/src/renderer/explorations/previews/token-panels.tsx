@@ -1,11 +1,22 @@
-import { Check, ChevronsUpDown, CornerDownRight, LayoutGrid, List, Pause, Play, Search } from "lucide-react"
+import {
+  Check,
+  ChevronsUpDown,
+  CornerDownRight,
+  LayoutGrid,
+  List,
+  Pause,
+  Pencil,
+  Play,
+  Search,
+  Undo2
+} from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { Field } from "../../chrome/fields.tsx"
+import { Field, Swatch } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import {
@@ -17,7 +28,9 @@ import {
   ms,
   type PreviewKind,
   px,
+  references,
   type SampleToken,
+  substituted,
   token as tokenNamed,
   tokenSections,
   tokensOfKind,
@@ -30,11 +43,13 @@ import {
   onPaper,
   paper,
   rest,
+  SpacingBar,
   TokenArt,
   TokenGlyph,
   TokenTile,
   useReducedMotion,
-  valueLabel
+  valueLabel,
+  valueProblem
 } from "./token-art.tsx"
 
 /** Kinds that move, and so play while hovered, focused or open. */
@@ -55,8 +70,31 @@ function useHoverPlay(token: SampleToken, forced = false) {
   return { playing, handlers: { onPointerEnter: on, onPointerLeave: off, onFocus: on, onBlur: off } }
 }
 
+/** A token as edited: a changed value draws as typed, so its previews show what every frame now shows. */
+function edited(token: SampleToken, values: Record<string, string>): SampleToken {
+  if (Object.entries(values).every(([theme, value]) => token.values[theme] === value)) return token
+  const value = substituted(values.default ?? "")
+  // A length the token showed in pixels still comes to pixels, as the browser works it out.
+  const length = token.resolved?.endsWith("px") ? px(value) : Number.NaN
+  const resolved = Number.isFinite(length) ? `${Number(length.toFixed(2))}px` : value
+  return { ...token, values, resolved, via: references(values.default ?? "") }
+}
+
 /** A token's row in the panel: its preview, name and value. Clicking it opens its detail and editor. */
-export function TokenRow({ token, playing: forced, open }: { token: SampleToken; playing?: boolean; open?: boolean }) {
+export function TokenRow({
+  token: original,
+  playing: forced,
+  open,
+  slot
+}: {
+  token: SampleToken
+  playing?: boolean
+  open?: boolean
+  /** How wide the preview is, when its section's previews need more than the usual box. */
+  slot?: number
+}) {
+  const [values, setValues] = useState(original.values)
+  const token = edited(original, values)
   const { playing, handlers } = useHoverPlay(token, forced)
   const value = valueLabel(token)
   return (
@@ -68,7 +106,12 @@ export function TokenRow({ token, playing: forced, open }: { token: SampleToken;
             {...handlers}
             className="flex min-h-8 w-full min-w-0 items-center gap-2 rounded-md px-1.5 py-1 text-left text-xs hover:bg-accent/50 aria-expanded:bg-accent"
           >
-            <TokenGlyph token={token} playing={playing} themes={token.kind === "color" ? themesOf(token) : undefined} />
+            <TokenGlyph
+              token={token}
+              playing={playing}
+              themes={token.kind === "color" ? themesOf(token) : undefined}
+              width={slot}
+            />
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="truncate font-mono">{token.name}</span>
               {token.description && (
@@ -78,8 +121,8 @@ export function TokenRow({ token, playing: forced, open }: { token: SampleToken;
             {value && <span className="max-w-20 shrink-0 truncate text-muted-foreground tabular-nums">{value}</span>}
           </button>
         </PopoverTrigger>
-        <PopoverContent className="w-80 p-0" align="start" side="right" sideOffset={12}>
-          <TokenDetail token={token} />
+        <PopoverContent className="w-80 p-0" align="start" side="right" sideOffset={12} onEscapeKeyDown={keepEditing}>
+          <TokenDetail token={original} values={values} onValues={setValues} />
         </PopoverContent>
       </Popover>
     </li>
@@ -87,7 +130,9 @@ export function TokenRow({ token, playing: forced, open }: { token: SampleToken;
 }
 
 /** A token as a tile: a larger preview with its name and value under it. */
-function TokenTileButton({ token, playing: forced }: { token: SampleToken; playing?: boolean }) {
+function TokenTileButton({ token: original, playing: forced }: { token: SampleToken; playing?: boolean }) {
+  const [values, setValues] = useState(original.values)
+  const token = edited(original, values)
   const { playing, handlers } = useHoverPlay(token, forced)
   const value = valueLabel(token)
   return (
@@ -115,8 +160,8 @@ function TokenTileButton({ token, playing: forced }: { token: SampleToken; playi
           </span>
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="start" side="right" sideOffset={12}>
-        <TokenDetail token={token} />
+      <PopoverContent className="w-80 p-0" align="start" side="right" sideOffset={12} onEscapeKeyDown={keepEditing}>
+        <TokenDetail token={original} values={values} onValues={setValues} />
       </PopoverContent>
     </Popover>
   )
@@ -304,13 +349,33 @@ function TokenList({
       </div>
     )
   }
+  const slot = spacingSlot(tokens)
   return (
     <ul className="flex flex-col">
       {tokens.map((token) => (
-        <TokenRow key={token.name} token={token} playing={token.name === playing} open={token.name === open} />
+        <TokenRow
+          key={token.name}
+          token={token}
+          playing={token.name === playing}
+          open={token.name === open}
+          slot={token.kind === "spacing" ? slot : undefined}
+        />
       ))}
     </ul>
   )
+}
+
+/** The longest length a spacing row draws at its true size; a longer one is drawn cut, with a break in its bar. */
+const longestBar = 128
+
+/**
+ * How wide spacing rows' previews are: as wide as the section's longest length, so every bar is its true size, up to
+ * `longestBar`. Names still line up within the section.
+ */
+function spacingSlot(tokens: SampleToken[]): number | undefined {
+  const lengths = tokens.filter((token) => token.kind === "spacing").map((token) => px(drawn(token)))
+  const longest = Math.max(0, ...lengths.filter(Number.isFinite))
+  return lengths.length > 0 ? Math.min(longestBar + 4, Math.max(40, Math.ceil(longest) + 6)) : undefined
 }
 
 /** Where a token's value comes from: each token it goes through, then what it comes to. */
@@ -343,17 +408,48 @@ function origin(token: SampleToken): string {
 }
 
 /**
- * A token's detail, opened from its row: a large preview, what it's from and what it comes to, then its editor. Motion
- * plays while the detail is open, with a button to stop it; with reduced motion it waits for Play.
+ * A token's detail, opened from its row: a large preview, what it's from and what it comes to, and its value, which is
+ * read-only until Edit. Editing checks each value as it's typed and writes nothing until Save; Cancel or Escape leaves
+ * without writing. After a save the detail says where it went, with Undo to write the old value back. Motion plays while
+ * the detail is open, with a button to stop it; with reduced motion it waits for Play.
  */
-export function TokenDetail({ token, editor = true }: { token: SampleToken; editor?: boolean }) {
+export function TokenDetail({
+  token,
+  editor = true,
+  values: given,
+  onValues,
+  draft: initialDraft
+}: {
+  token: SampleToken
+  editor?: boolean
+  /** Its saved values, when what opened it shows them too; otherwise the detail keeps its own. */
+  values?: Record<string, string>
+  onValues?(values: Record<string, string>): void
+  /** Opens it already editing, with these values typed, for a story. */
+  draft?: Record<string, string>
+}) {
   const reduced = useReducedMotion()
   const [play, setPlay] = useState<boolean>()
+  const [own, setOwn] = useState(token.values)
+  const saved = given ?? own
+  const save = onValues ?? setOwn
+  const [drafts, setDrafts] = useState(initialDraft)
+  // What the last save replaced, for Undo.
+  const [replaced, setReplaced] = useState<Record<string, string>>()
+  const themes = themesOf(token)
+  const problems: Record<string, string | undefined> = Object.fromEntries(
+    themes.map((theme) => [theme, drafts ? valueProblem(token.kind, drafts[theme] ?? "") : undefined])
+  )
+  const valid = themes.every((theme) => !problems[theme])
+  const changed = drafts !== undefined && themes.some((theme) => (drafts[theme] ?? "").trim() !== saved[theme])
+  // While editing, the preview follows what's typed, as long as it's a value it can draw.
+  const shown = edited(token, drafts && valid ? trimmed(drafts) : saved)
   const playing = moving.has(token.kind) && (play ?? !reduced)
+  const cancel = () => setDrafts(undefined)
   return (
     <div className="flex flex-col">
       <div className="p-3 pb-2">
-        <DetailPreview token={token} playing={playing} />
+        <DetailPreview token={shown} playing={playing} />
       </div>
       <div className="flex flex-col gap-1.5 px-3 pb-3">
         <div className="flex items-center gap-2">
@@ -368,33 +464,125 @@ export function TokenDetail({ token, editor = true }: { token: SampleToken; edit
           )}
         </div>
         {token.description && <p className="text-xs">{token.description}</p>}
-        <References token={token} />
+        <References token={shown} />
         {token.uses !== undefined && (
           <p className="text-[11px] text-muted-foreground">
             {token.uses === 0 ? "No design uses it yet." : `Used by ${token.uses} layers across the project's designs.`}
           </p>
         )}
       </div>
-      {editor && (
-        <div className="flex flex-col gap-2 border-t p-3">
-          {themesOf(token).map((theme) => (
+      {editor && !drafts && (
+        <div className="flex flex-col gap-1.5 border-t p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium">Value</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-xs"
+              onClick={() => {
+                setDrafts(saved)
+                setReplaced(undefined)
+              }}
+            >
+              <Pencil /> Edit
+            </Button>
+          </div>
+          {themes.map((theme) => (
+            <div key={theme} className="flex items-baseline gap-2 text-xs">
+              <span className="w-20 shrink-0 text-muted-foreground">{themeLabel(theme)}</span>
+              <code className="min-w-0 flex-1 font-mono break-all">{saved[theme]}</code>
+            </div>
+          ))}
+          {replaced && (
+            <div className="mt-1 flex items-center gap-2 rounded-md bg-muted/60 py-1 pr-1 pl-2 text-[11px]">
+              <Check className="size-3.5 shrink-0 text-(--process-running)" />
+              <span className="min-w-0 flex-1 text-muted-foreground">Saved to {stylesheet}.</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs"
+                onClick={() => {
+                  save(replaced)
+                  setReplaced(undefined)
+                }}
+              >
+                <Undo2 /> Undo
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+      {editor && drafts && (
+        <form
+          data-token-editing
+          className="flex flex-col gap-2 border-t p-3"
+          onSubmit={(event) => {
+            event.preventDefault()
+            if (!changed || !valid) return
+            setReplaced(saved)
+            save(trimmed(drafts))
+            setDrafts(undefined)
+          }}
+        >
+          {themes.map((theme, index) => (
             <label key={theme} className="flex flex-col gap-1">
-              <span className="text-xs text-muted-foreground">
-                {theme === "default" ? "Light (root)" : `Theme .${theme}`}
+              <span className="text-xs text-muted-foreground">{themeLabel(theme)}</span>
+              <span className="flex items-center gap-2">
+                {token.kind === "color" && !problems[theme] && (
+                  <Swatch value={drafts[theme] ?? ""} className="size-7" />
+                )}
+                <Input
+                  value={drafts[theme] ?? ""}
+                  // The form opens because Edit was pressed, so its first field takes the keyboard.
+                  // oxlint-disable-next-line jsx-a11y/no-autofocus
+                  autoFocus={index === 0}
+                  aria-invalid={problems[theme] ? true : undefined}
+                  onChange={(event) => setDrafts({ ...drafts, [theme]: event.currentTarget.value })}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") cancel()
+                  }}
+                  className="h-8 font-mono text-xs"
+                />
               </span>
-              <Input defaultValue={token.values[theme] ?? ""} className="h-8 font-mono text-xs" />
+              {problems[theme] && <span className="text-[11px] text-destructive">{problems[theme]}</span>}
             </label>
           ))}
+          <p className="text-[11px] text-muted-foreground">
+            {!valid
+              ? "Fix the value to save it."
+              : changed
+                ? `Not saved yet. Save writes it to ${stylesheet}.`
+                : "Nothing is written until you save."}
+          </p>
           <div className="flex justify-end gap-2">
-            <Button variant="ghost" size="sm">
+            <Button type="button" variant="ghost" size="sm" onClick={cancel}>
               Cancel
             </Button>
-            <Button size="sm">Save to stylesheet</Button>
+            <Button type="submit" size="sm" disabled={!changed || !valid}>
+              Save
+            </Button>
           </div>
-        </div>
+        </form>
       )}
     </div>
   )
+}
+
+/** Where the example's tokens are written. */
+const stylesheet = "src/index.css"
+
+const themeLabel = (theme: string) => (theme === "default" ? "Light (root)" : `Theme .${theme}`)
+
+function trimmed(values: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(Object.entries(values).map(([theme, value]) => [theme, value.trim()]))
+}
+
+/**
+ * Escape in a field being edited leaves editing, which the field handles, rather than closing the detail. From the
+ * buttons, Escape closes the detail, which writes nothing either.
+ */
+function keepEditing(event: KeyboardEvent): void {
+  if (event.target instanceof Element && event.target.matches("[data-token-editing] input")) event.preventDefault()
 }
 
 /** The detail's large preview: the tile for most kinds, and for a few, the token among the rest of its scale. */
@@ -417,6 +605,8 @@ function DetailPreview({ token, playing }: { token: SampleToken; playing: boolea
           ))}
         </div>
       )
+    case "spacing":
+      return <SpacingScale token={token} width={width} />
     case "duration":
       return <DurationRace token={token} playing={playing} width={width} />
     case "easing":
@@ -449,6 +639,33 @@ function DetailPreview({ token, playing }: { token: SampleToken; playing: boolea
     default:
       return <TokenTile token={token} width={width} height={120} playing={playing} />
   }
+}
+
+/**
+ * Every step of the spacing scale at its true size, as the rows draw them, with this one marked, so its length reads
+ * against the rest. While editing, its bar follows what's typed.
+ */
+function SpacingScale({ token, width }: { token: SampleToken; width: number }) {
+  const steps = tokensOfKind("spacing").filter((step) => step.library === token.library)
+  const scale = steps.some((step) => step.name === token.name) ? steps : [token]
+  return (
+    <div className="flex flex-col gap-0.5 rounded-md border bg-muted/40 px-3 py-2">
+      {scale.map((step) => {
+        const current = step.name === token.name
+        const length = px(drawn(current ? token : step))
+        return (
+          <div key={step.name} className="flex h-4 items-center gap-2">
+            <span
+              className={`w-24 shrink-0 truncate font-mono text-[10px] ${current ? "font-medium text-foreground" : "text-muted-foreground"}`}
+            >
+              {step.name}
+            </span>
+            <SpacingBar length={length} room={width - 26 - 104} dim={!current} />
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 /** Every duration in the scale side by side, setting off together, so this one's speed reads against the others. */

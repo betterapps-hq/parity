@@ -9,7 +9,16 @@ import {
   useRef,
   useState
 } from "react"
-import { drawn, ms, type PreviewKind, px, type SampleToken } from "./preview-data.ts"
+import {
+  allTokens,
+  drawn,
+  ms,
+  type PreviewKind,
+  px,
+  references,
+  type SampleToken,
+  substituted
+} from "./preview-data.ts"
 
 /**
  * The project's own light theme, which designs draw on. Previews of how something looks on a design (shadows, blur,
@@ -440,27 +449,12 @@ export function TokenArt({
         </span>
       )
     }
-    case "spacing": {
-      const length = px(value)
-      const room = width - 6
-      const shown = Math.max(1, Math.min(room, length))
+    case "spacing":
       return (
-        <span className="flex size-full items-center text-muted-foreground">
-          <span className="relative flex items-center" style={{ width: shown, height: Math.min(10, height) }}>
-            <span className="absolute inset-y-0 left-0 w-px bg-current" />
-            <span
-              className="absolute inset-x-0 h-1/2 rounded-[1px]"
-              style={{ background: "var(--canvas-layer)", opacity: 0.85 }}
-            />
-            <span className="absolute inset-y-0 right-0 w-px bg-current" />
-          </span>
-          {/* Longer than the box: it runs on past the edge. */}
-          {length > room && (
-            <span className="ml-0.5 h-1/2 w-1 bg-gradient-to-r from-(--canvas-layer) to-transparent opacity-60" />
-          )}
+        <span className={`flex size-full items-center ${large ? "px-2" : "px-0.5"}`}>
+          <SpacingBar length={px(value)} room={width - (large ? 16 : 4)} />
         </span>
       )
-    }
     case "radius": {
       const radius = px(value)
       const corner = small - 4
@@ -786,6 +780,103 @@ function LayersArt({ token, width, height }: { token: SampleToken; width: number
 }
 
 /**
+ * A length at its true size, as a bar between two ticks. Only a length longer than `room` is cut, and the cut is drawn
+ * as a break, so a cut bar never passes for its true size.
+ */
+export function SpacingBar({ length, room, dim = false }: { length: number; room: number; dim?: boolean }) {
+  const fits = length <= room
+  const shown = fits ? Math.max(1, length) : Math.max(1, room - 14)
+  const fill = { background: dim ? "currentColor" : "var(--canvas-layer)", opacity: dim ? 0.35 : 0.85 }
+  return (
+    <span className="flex h-2.5 shrink-0 items-center text-muted-foreground">
+      <span className="relative h-full" style={{ width: shown }}>
+        <span className="absolute inset-y-0 left-0 w-px bg-current" />
+        <span className="absolute inset-x-0 top-1/4 h-1/2 rounded-[1px]" style={fill} />
+        {fits && <span className="absolute inset-y-0 right-0 w-px bg-current" />}
+      </span>
+      {!fits && (
+        <>
+          <svg width="9" height="10" viewBox="0 0 9 10" className="shrink-0" aria-hidden>
+            <path d="M1.5 9.5 L4 0.5 M5 9.5 L7.5 0.5" stroke="currentColor" strokeWidth="1" />
+          </svg>
+          <span className="relative h-full w-[5px]">
+            <span className="absolute inset-x-0 top-1/4 h-1/2 rounded-[1px]" style={fill} />
+            <span className="absolute inset-y-0 right-0 w-px bg-current" />
+          </span>
+        </>
+      )}
+    </span>
+  )
+}
+
+const valueChecks: Partial<
+  Record<PreviewKind, [property: string, noun: string, example: string, wrap?: (value: string) => string]>
+> = {
+  color: ["color", "color", "oklch(0.6 0.2 250) or #2563eb"],
+  spacing: ["width", "length", "1rem or 16px"],
+  radius: ["border-radius", "radius", "0.5rem or 8px"],
+  "border-width": ["border-width", "border width", "1px"],
+  border: ["border", "border", "1px solid"],
+  shadow: ["box-shadow", "shadow", "0 4px 6px rgb(0 0 0 / 0.1)"],
+  "inset-shadow": ["box-shadow", "shadow", "inset 0 2px 4px rgb(0 0 0 / 0.05)"],
+  "drop-shadow": ["filter", "drop shadow", "0 4px 4px rgb(0 0 0 / 0.15)", (value) => `drop-shadow(${value})`],
+  "text-shadow": ["text-shadow", "text shadow", "0 1px 2px rgb(0 0 0 / 0.2)"],
+  font: ["font-family", "list of fonts", "'Inter', sans-serif"],
+  "font-size": ["font-size", "font size", "1rem or 16px"],
+  "font-weight": ["font-weight", "font weight", "400 or 600"],
+  leading: ["line-height", "line height", "1.5"],
+  tracking: ["letter-spacing", "letter spacing", "-0.025em"],
+  opacity: ["opacity", "opacity", "0.5"],
+  blur: ["filter", "blur", "8px", (value) => `blur(${value})`],
+  "backdrop-blur": ["filter", "blur", "8px", (value) => `blur(${value})`],
+  perspective: ["perspective", "perspective", "500px"],
+  aspect: ["aspect-ratio", "ratio", "16 / 9"],
+  duration: ["transition-duration", "duration", "200ms"],
+  easing: ["transition-timing-function", "easing", "cubic-bezier(0.4, 0, 0.2, 1)"],
+  animation: ["animation", "animation", "fade-in 150ms ease-out"],
+  "z-index": ["z-index", "whole number", "1400"],
+  breakpoint: ["width", "length", "48rem"],
+  container: ["width", "length", "28rem"],
+  cursor: ["cursor", "cursor", "pointer"]
+}
+
+/**
+ * Why a value can't be this kind of token, in words, or nothing when it can. `CSS.supports` alone isn't enough: the
+ * browser closes whatever is left open at the end of a value, so it takes `calc(var(--radius) * 2.6` as complete, and
+ * any value holding `var()` passes, since a variable can't be checked until it's known. So brackets and quotes are
+ * checked here, each `var()` must name a token, and the value is checked with every reference replaced by its value.
+ */
+export function valueProblem(kind: PreviewKind, value: string): string | undefined {
+  const text = value.trim()
+  if (!text) return "Enter a value."
+  const open = unclosed(text)
+  if (open) return open
+  const missing = references(text).find((name) => !allTokens.some((token) => token.name === name))
+  if (missing) return `There's no token named --${missing}.`
+  const check = valueChecks[kind]
+  if (!check) return undefined
+  const [property, noun, example, wrap] = check
+  const resolved = substituted(text)
+  return CSS.supports(property, wrap ? wrap(resolved) : resolved) ? undefined : `That isn't a ${noun}. Try ${example}.`
+}
+
+/** What a value leaves open or closes twice: a bracket or a quote, in words. */
+function unclosed(text: string): string | undefined {
+  const closers: string[] = []
+  let quote: string | undefined
+  for (const char of text) {
+    if (quote) {
+      if (char === quote) quote = undefined
+    } else if (char === '"' || char === "'") quote = char
+    else if (char === "(" || char === "[") closers.push(char === "(" ? ")" : "]")
+    else if ((char === ")" || char === "]") && closers.pop() !== char) return `There's a ${char} with nothing to close.`
+  }
+  if (quote) return "A quote isn't closed."
+  if (closers.length > 0) return `A bracket isn't closed. Add ${closers.reverse().join("")} at the end.`
+  return undefined
+}
+
+/**
  * What a row shows beside the name: the value in the unit people think in (pixels, milliseconds, percent), or nothing
  * where the preview says it all.
  */
@@ -834,12 +925,15 @@ export function valueLabel(token: SampleToken): string | undefined {
 export function TokenGlyph({
   token,
   playing = false,
-  themes = ["default"]
+  themes = ["default"],
+  width = 40
 }: {
   token: SampleToken
   playing?: boolean
   /** Colors show a swatch for each theme. */
   themes?: string[]
+  /** Wider for spacing, so each bar is its length's true size. */
+  width?: number
 }) {
   if (token.kind === "color") {
     return (
@@ -854,12 +948,13 @@ export function TokenGlyph({
   }
   return (
     <span
-      className="relative h-6 w-10 shrink-0 overflow-hidden rounded-[4px]"
-      style={
-        onPaper.has(token.kind) ? { background: paper.sheet, boxShadow: `inset 0 0 0 1px ${paper.edge}` } : undefined
-      }
+      className="relative h-6 shrink-0 overflow-hidden rounded-[4px]"
+      style={{
+        width,
+        ...(onPaper.has(token.kind) ? { background: paper.sheet, boxShadow: `inset 0 0 0 1px ${paper.edge}` } : {})
+      }}
     >
-      <TokenArt token={token} width={40} height={24} playing={playing} />
+      <TokenArt token={token} width={width} height={24} playing={playing} />
     </span>
   )
 }

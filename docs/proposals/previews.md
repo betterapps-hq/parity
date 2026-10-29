@@ -1,7 +1,7 @@
 # Proposal: token and component previews
 
-Status: designed as Storybook explorations on 2026-10-29; nothing is built. The builds are TOK-6 to TOK-8 and CAN-97 to
-CAN-99 in [backlog.md](../backlog.md).
+Status: designed as Storybook explorations on 2026-10-29; nothing is built. The builds are PAR-138 to PAR-140 and
+PAR-204 to PAR-206 in Linear.
 
 ## In one line
 
@@ -19,7 +19,9 @@ In Parity's Storybook, under Parity/Explorations/Previews. Drawings stand in for
 | Tokens: Every Kind                              | One preview per kind, as a tile and as a row, and which kinds are under Other or Effects today                 |
 | Tokens: Panel Rows, Panel Tiles, Panel Shadows  | The Tokens tab with a preview on every row in one fixed box, a Tiles view, and sections by what a token is for |
 | Tokens: Panel Motion, Motion Details            | Motion holds still until hovered; a duration races its scale, an easing draws over the project's others        |
-| Tokens: Detail From Row, Details                | A token's detail above its editor: large preview, the tokens its value goes through, what it comes to, uses    |
+| Tokens: Detail From Row, Details                | A token's detail: large preview, the tokens its value goes through, what it comes to, uses, its value          |
+| Tokens: Detail Editing, Detail Saved            | Edit, the checks a value must pass before Save, and what the detail says once it's written                     |
+| Tokens: Panel Spacing                           | Spacing at its true size in the rows and in the detail's scale; a length too long for a row drawn cut          |
 | Tokens: Reduced Motion On                       | With reduced motion nothing plays by itself; Play runs it once asked                                           |
 | Tokens: Inspector Fields, three Picker stories  | Previews in the inspector's token buttons and pickers, with a larger one for the highlighted option            |
 | Components: States                              | Every state a preview can be in, in a list row, a grid tile and on the card                                    |
@@ -46,7 +48,8 @@ picker can ask for them; the rest stay finer kinds inside a category.
 | Kind                                      | Row preview                                         | Larger preview                                 |
 | ----------------------------------------- | --------------------------------------------------- | ---------------------------------------------- |
 | Color                                     | A swatch per theme, over a checkerboard for alpha   | Both themes side by side with their values     |
-| Spacing, radius, border width             | A bar, a corner, a line, at real size               | The same, larger; a rounded card for radius    |
+| Spacing                                   | A bar at its true size, up to 128px                 | The scale at true size, this step marked       |
+| Radius, border width                      | A corner, a line, at real size                      | The same, larger; a rounded card for radius    |
 | Box and inset shadow                      | A card's corner at three quarters size              | A card on the design's soft grey, at full size |
 | Drop and text shadow, blur, perspective   | The real effect, scaled down as a whole             | The same at full size                          |
 | Font, size, weight, line height, tracking | "Ag", "Aa", "ABC" or lines of text in the value     | A specimen in the project's type               |
@@ -71,11 +74,30 @@ Animations keyframes), since those keyframes live in the frames' shadow roots. W
 resting picture and Play runs them once. Idle cost is nothing: with nothing hovered, `document.getAnimations()` holds
 none of them, which a test can check.
 
+**Spacing at its true size.** A spacing bar is as long as its length, in a row and in the detail, so 48, 64 and 96
+pixels look it. Spacing rows widen their preview to the section's longest length, up to 128 pixels; a longer one, such
+as a sidebar's 16rem, is drawn cut with a break in its bar, and its value gives the length. The detail lists the whole
+scale at true size with this step marked, so a step reads against its neighbours.
+
+**The detail shows the value; Edit changes it.** A token's detail opens with its value read-only. Edit turns it into a
+field per theme, checked as it's typed, and the preview follows while the value is one it can draw. Nothing is written
+until Save, which writes the project's stylesheet; Cancel, or Escape in a field, leaves editing and writes nothing.
+After a save the detail says where the value went, with Undo to write the old one back. A value must pass three checks:
+
+1. Brackets and quotes close. The browser closes whatever is left open at the end of a value, so `CSS.supports` takes
+   `calc(var(--radius) * 2.6` as complete.
+2. Each `var()` names a token the project has.
+3. The value, with each reference replaced by what it comes to, is a value of the kind: a length for spacing, a duration
+   for a duration. `CSS.supports` passes any value holding `var()`, so it's asked only after the replacing.
+
+Each failure says what's wrong in words ("A bracket isn't closed. Add ) at the end.") and Save stays off. Today's
+`validTokenValue` in `chrome/TokensPanel.tsx` misses the first two, so these checks replace it.
+
 ## Component previews
 
 **What's pictured is what inserting places.** The preview tree is the node `insertAtSelection` would build: the
 component with its `.lib.par` sample and the parents a part needs (`withLibraryContext`), or a story's args when it has
-stories, in the project's default mode with its decorators once DECO-4 and DECO-6 land. A component design's picture is
+stories, in the project's default mode with its decorators once PAR-98 and PAR-100 land. A component design's picture is
 its board's bitmap, which the canvas already takes. Pages render at 1280 wide and show from the top, like a screenshot;
 components render at their own size, capped at 640 wide.
 
@@ -87,7 +109,7 @@ components on one page and cropping each from one capture is worth measuring onc
 
 **When they're made.**
 
-1. Never while a project is opening: not before the canvas is usable and its own bitmaps are taken (CAN-65).
+1. Never while a project is opening: not before the canvas is usable and its own bitmaps are taken (PAR-176).
 2. Ones in view first: a row or picker item on screen asks for its picture, still behind canvas and agent jobs.
 3. The rest in an idle pass: after two seconds with no pointer, key, drag or agent edit, one job at a time, stopping
    before the next job as soon as the person works. The pass ends, and the offscreen renderer's idle close
@@ -99,7 +121,7 @@ under a minute of background work, once.
 
 **Kept on disk, keyed by content.** Each picture's key is a hash of the preview tree, the mode, the content of the
 component's file and everything it imports (from the builder's module graph), the project's compiled CSS and Parity's
-renderer version. Files go in the disk store CAN-28 makes for the canvas's frame bitmaps,
+renderer version. Files go in the disk store PAR-155 makes for the canvas's frame bitmaps,
 `<userData>/previews/<project>/<key>.png`, with an index of each component's current key, size and state. The renderer
 gets them through a `parity-preview:` protocol as plain `<img>`s, so Chromium decodes only what's on screen and nothing
 sits in JavaScript as data URLs, as `frame-bitmaps.ts` keeps today's.
@@ -114,9 +136,9 @@ rendering anything.
 **Memory and disk.** Two files per picture: a thumbnail at 240 by 152 pixels (the grid tile at 2x, also used for list
 rows and picker rows) of about 5 to 10 KB, and a large one at 608 by 352 (the card at 2x) of about 25 to 40 KB, since
 flat interface pictures compress well. 200 components come to about 10 MB on disk, capped per project (50 MB, least
-recently shown first) and removed with the project from recents (CAN-74). In memory, decoded thumbnails are about 150 KB
-each, so a panel showing 30 holds about 4.5 MB, plus under 1 MB for an open card. The renderer keeps only the index, a
-few dozen bytes per component.
+recently shown first) and removed with the project from recents (PAR-185). In memory, decoded thumbnails are about 150
+KB each, so a panel showing 30 holds about 4.5 MB, plus under 1 MB for an open card. The renderer keeps only the index,
+a few dozen bytes per component.
 
 **States**, as the States story shows them: waiting its turn, being made, made, updating after an edit, fails to draw
 (the error on the card), needs props (a required prop with no value, from the props reader), needs a provider (from
@@ -126,7 +148,7 @@ passes for a picture.
 
 ## Where the logic goes
 
-Following [packages.md](packages.md): `previewKind`, easing curves and value labels go in `@parity/tokens` (PKG-8), or
+Following [packages.md](packages.md): `previewKind`, easing curves and value labels go in `@parity/tokens` (PAR-35), or
 `@parity/core` until it exists. Preview keys, invalidation from a changed-file set and the job order are pure and go in
 `@parity/core` beside `builder-process.ts`, tested without Electron. The disk store, the protocol and the queue's wiring
 stay in the main process; the views stay in the app.
@@ -136,4 +158,4 @@ stay in the main process; the views stay in the app.
 Recorded in [decisions.md](../decisions.md) under Previews: tokens drawn not rendered; preview kinds and the sections
 they give; motion only while looked at; component pictures as bitmaps of what inserting places, on disk by content;
 stale pictures shown dimmed; the Components tab's three views with List as the default; the hover card and the picker's
-card; and CAN-64's preview clause moving to CAN-98.
+card; and PAR-175's preview clause moving to PAR-205.

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { expect, userEvent, within } from "storybook/test"
+import { expect, fireEvent, userEvent, within } from "storybook/test"
 import { CanvasBeside, Labeled, LeftPanelFrame, Stage } from "./frame.tsx"
 import { token } from "./preview-data.ts"
 import { ReducedMotion } from "./token-art.tsx"
@@ -79,8 +79,21 @@ export const PanelMotion: Story = {
 }
 
 /**
- * A token's detail, opened by clicking its row: a large preview, what it's from, the tokens its value goes through
- * and how many layers use it, above the editor the panel already has.
+ * Spacing at its true size: each bar is as long as its length, in the rows and in the detail, which lists the scale
+ * with this step marked. A length longer than a row can hold, past 128px, is drawn cut, with a break in its bar, and
+ * its value says how long it is.
+ */
+export const PanelSpacing: Story = {
+  render: () => <Panel view="list" only={["Spacing"]} open="spacing-24" />,
+  play: async () => {
+    const dialog = await within(document.body).findByRole("dialog")
+    await expect(within(dialog).getByText("--spacing-24")).toBeInTheDocument()
+  }
+}
+
+/**
+ * A token's detail, opened by clicking its row: a large preview, what it's from, the tokens its value goes through and
+ * how many layers use it, then its value, which can't be changed until Edit. Clicking away or Escape closes it.
  */
 export const DetailFromRow: Story = {
   render: () => <Panel view="list" query="radius" open="radius-md" />,
@@ -88,6 +101,42 @@ export const DetailFromRow: Story = {
     const dialog = await within(document.body).findByRole("dialog")
     await expect(within(dialog).getByText("--radius-md")).toBeInTheDocument()
     await expect(within(dialog).getByText(/Comes to/)).toBeInTheDocument()
+    await expect(within(dialog).getByRole("button", { name: "Edit" })).toBeInTheDocument()
+  }
+}
+
+/**
+ * Editing checks each value as it's typed. Here the closing bracket of `calc(var(--radius) * 2.6)` is gone: the
+ * browser would close it without a word, so the check says so, Save stays off and the preview keeps the last value it
+ * could draw. Nothing is written until Save; Cancel or Escape leaves editing and writes nothing.
+ */
+export const DetailEditing: Story = {
+  render: () => <Panel view="list" query="radius" open="radius-4xl" />,
+  play: async () => {
+    const dialog = await within(document.body).findByRole("dialog")
+    await userEvent.click(within(dialog).getByRole("button", { name: "Edit" }))
+    const field = within(dialog).getByDisplayValue("calc(var(--radius) * 2.6)")
+    await fireEvent.input(field, { target: { value: "calc(var(--radius) * 2.6" } })
+    await expect(within(dialog).getByText(/A bracket isn't closed/)).toBeInTheDocument()
+    await expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled()
+  }
+}
+
+/**
+ * After Save the detail shows the value again and says where it was written, with Undo to write the old value back.
+ * The row shows the new value too.
+ */
+export const DetailSaved: Story = {
+  render: () => <Panel view="list" query="radius" open="radius" />,
+  play: async () => {
+    const dialog = await within(document.body).findByRole("dialog")
+    await userEvent.click(within(dialog).getByRole("button", { name: "Edit" }))
+    const field = within(dialog).getByDisplayValue("0.625rem")
+    await fireEvent.input(field, { target: { value: "0.75rem" } })
+    await expect(within(dialog).getByText(/Not saved yet/)).toBeInTheDocument()
+    await userEvent.click(within(dialog).getByRole("button", { name: "Save" }))
+    await expect(within(dialog).getByText(/Saved to src\/index.css/)).toBeInTheDocument()
+    await expect(within(dialog).getByRole("button", { name: "Undo" })).toBeInTheDocument()
   }
 }
 

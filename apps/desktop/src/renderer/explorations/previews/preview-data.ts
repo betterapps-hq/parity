@@ -127,7 +127,17 @@ export const spacing: SampleToken[] = [
     values: { default: `calc(var(--spacing) * ${step})` },
     resolved: `${step * 4}px`,
     via: ["spacing"]
-  }))
+  })),
+  // Longer than a row can draw at its true size.
+  {
+    name: "spacing-sidebar",
+    kind: "spacing",
+    category: "spacing",
+    source: "theme",
+    values: { default: "16rem" },
+    description: "The sidebar's width.",
+    uses: 3
+  }
 ]
 
 /** The example's radius scale, built on its `--radius`. */
@@ -523,11 +533,45 @@ export function drawn(token: SampleToken, themeName = "default"): string {
   return themeName === "default" ? (token.resolved ?? token.values.default!) : (token.values[themeName] ?? "")
 }
 
-/** A length in pixels, from px, rem or em. */
+const reference = /var\(\s*--([\w-]+)\s*(?:,([^()]*))?\)/g
+
+/** The tokens a value refers to with `var()`, in order. */
+export function references(value: string): string[] {
+  return [...value.matchAll(reference)].map((match) => match[1]!)
+}
+
+/**
+ * A value with each `var()` replaced by what its token comes to, as the browser would: `calc(var(--radius) * 0.8)`
+ * becomes `calc(0.625rem * 0.8)`. A reference to no token takes its fallback, or stays as written.
+ */
+export function substituted(value: string): string {
+  return value.replace(reference, (whole, name: string, fallback?: string) => {
+    const found = allTokens.find((candidate) => candidate.name === name)
+    return found ? drawn(found) : (fallback?.trim() ?? whole)
+  })
+}
+
+/** A length in pixels, from px, rem or em, or from anything else the browser can work out, such as `calc()`. */
 export function px(value: string): number {
   const match = /^(-?[\d.]+)(px|rem|em)?$/.exec(value.trim())
-  if (!match) return Number.NaN
+  if (!match) return measured(value)
   return Number(match[1]) * (match[2] === "rem" || match[2] === "em" ? 16 : 1)
+}
+
+const lengths = new Map<string, number>()
+
+/** A length the browser works out, by laying out an element that wide once; NaN when it isn't a length. */
+function measured(value: string): number {
+  const known = lengths.get(value)
+  if (known !== undefined) return known
+  if (typeof document === "undefined" || !CSS.supports("width", value)) return Number.NaN
+  const probe = document.createElement("div")
+  probe.style.cssText = `position: absolute; visibility: hidden; width: ${value}`
+  document.body.append(probe)
+  const length = probe.getBoundingClientRect().width
+  probe.remove()
+  lengths.set(value, length)
+  return length
 }
 
 /** A duration in milliseconds, from ms or s. */
