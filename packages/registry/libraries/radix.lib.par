@@ -755,7 +755,8 @@
           "children": [
             "Strikethrough",
             {
-              "component": "ContextMenu.ItemIndicator"
+              "component": "ContextMenu.ItemIndicator",
+              "children": []
             }
           ]
         },
@@ -825,7 +826,8 @@
                           "component": "ContextMenu.Separator"
                         },
                         {
-                          "component": "ContextMenu.Sub"
+                          "component": "ContextMenu.Sub",
+                          "children": []
                         }
                       ]
                     }
@@ -893,9 +895,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "disabled": true
-          },
           "children": [
             "Cut"
           ]
@@ -980,7 +979,8 @@
                       "children": [
                         "Blue",
                         {
-                          "component": "ContextMenu.ItemIndicator"
+                          "component": "ContextMenu.ItemIndicator",
+                          "children": []
                         }
                       ]
                     },
@@ -992,7 +992,8 @@
                       "children": [
                         "Red",
                         {
-                          "component": "ContextMenu.ItemIndicator"
+                          "component": "ContextMenu.ItemIndicator",
+                          "children": []
                         }
                       ]
                     }
@@ -1006,7 +1007,8 @@
                   "children": [
                     "Fade",
                     {
-                      "component": "ContextMenu.ItemIndicator"
+                      "component": "ContextMenu.ItemIndicator",
+                      "children": []
                     }
                   ]
                 }
@@ -1042,7 +1044,8 @@
               "children": [
                 "README.md",
                 {
-                  "component": "ContextMenu.ItemIndicator"
+                  "component": "ContextMenu.ItemIndicator",
+                  "children": []
                 }
               ]
             },
@@ -1054,7 +1057,8 @@
               "children": [
                 "index.js",
                 {
-                  "component": "ContextMenu.ItemIndicator"
+                  "component": "ContextMenu.ItemIndicator",
+                  "children": []
                 }
               ]
             },
@@ -1066,7 +1070,8 @@
               "children": [
                 "page.css",
                 {
-                  "component": "ContextMenu.ItemIndicator"
+                  "component": "ContextMenu.ItemIndicator",
+                  "children": []
                 }
               ]
             }
@@ -1095,7 +1100,8 @@
           "children": [
             "README.md",
             {
-              "component": "ContextMenu.ItemIndicator"
+              "component": "ContextMenu.ItemIndicator",
+              "children": []
             }
           ]
         },
@@ -1130,7 +1136,8 @@
                           "component": "ContextMenu.Content",
                           "props": {
                             "alignOffset": -5
-                          }
+                          },
+                          "children": []
                         }
                       ]
                     }
@@ -1244,7 +1251,8 @@
                           "component": "ContextMenu.SubTrigger"
                         },
                         {
-                          "component": "ContextMenu.Portal"
+                          "component": "ContextMenu.Portal",
+                          "children": []
                         }
                       ]
                     }
@@ -1737,12 +1745,6 @@
           "DropdownMenu.Content"
         ],
         "parentsFrom": "example",
-        "sample": {
-          "props": {
-            "width": 20,
-            "height": 10
-          }
-        },
         "fingerprint": "efd83dfe",
         "props": {
           "asChild?": "31e5d9"
@@ -1838,7 +1840,8 @@
                           "component": "DropdownMenu.Sub",
                           "props": {
                             "open": true
-                          }
+                          },
+                          "children": []
                         }
                       ]
                     }
@@ -1898,7 +1901,8 @@
               "children": [
                 "Crows",
                 {
-                  "component": "DropdownMenu.ItemIndicator"
+                  "component": "DropdownMenu.ItemIndicator",
+                  "children": []
                 }
               ]
             },
@@ -1907,7 +1911,8 @@
               "children": [
                 "Ravens",
                 {
-                  "component": "DropdownMenu.ItemIndicator"
+                  "component": "DropdownMenu.ItemIndicator",
+                  "children": []
                 }
               ]
             },
@@ -1916,7 +1921,8 @@
               "children": [
                 "Magpies",
                 {
-                  "component": "DropdownMenu.ItemIndicator"
+                  "component": "DropdownMenu.ItemIndicator",
+                  "children": []
                 }
               ]
             }
@@ -1936,9 +1942,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "disabled": true
-          },
           "children": [
             "Cut"
           ]
@@ -2018,7 +2021,8 @@
                       "children": [
                         "Crows",
                         {
-                          "component": "DropdownMenu.ItemIndicator"
+                          "component": "DropdownMenu.ItemIndicator",
+                          "children": []
                         }
                       ]
                     },
@@ -2027,7 +2031,8 @@
                       "children": [
                         "Ravens",
                         {
-                          "component": "DropdownMenu.ItemIndicator"
+                          "component": "DropdownMenu.ItemIndicator",
+                          "children": []
                         }
                       ]
                     },
@@ -2036,7 +2041,8 @@
                       "children": [
                         "Magpies",
                         {
-                          "component": "DropdownMenu.ItemIndicator"
+                          "component": "DropdownMenu.ItemIndicator",
+                          "children": []
                         }
                       ]
                     }
@@ -2077,7 +2083,8 @@
               "children": [
                 "README.md",
                 {
-                  "component": "DropdownMenu.ItemIndicator"
+                  "component": "DropdownMenu.ItemIndicator",
+                  "children": []
                 }
               ]
             },
@@ -2089,7 +2096,8 @@
               "children": [
                 "index.js",
                 {
-                  "component": "DropdownMenu.ItemIndicator"
+                  "component": "DropdownMenu.ItemIndicator",
+                  "children": []
                 }
               ]
             },
@@ -2101,7 +2109,8 @@
               "children": [
                 "page.css",
                 {
-                  "component": "DropdownMenu.ItemIndicator"
+                  "component": "DropdownMenu.ItemIndicator",
+                  "children": []
                 }
               ]
             }
@@ -2130,7 +2139,8 @@
           "children": [
             "README.md",
             {
-              "component": "DropdownMenu.ItemIndicator"
+              "component": "DropdownMenu.ItemIndicator",
+              "children": []
             }
           ]
         },
@@ -2183,7 +2193,8 @@
                           "component": "DropdownMenu.SubTrigger"
                         },
                         {
-                          "component": "DropdownMenu.Portal"
+                          "component": "DropdownMenu.Portal",
+                          "children": []
                         }
                       ]
                     }
@@ -2281,7 +2292,8 @@
                           "component": "DropdownMenu.SubTrigger"
                         },
                         {
-                          "component": "DropdownMenu.Portal"
+                          "component": "DropdownMenu.Portal",
+                          "children": []
                         }
                       ]
                     }
@@ -2900,7 +2912,8 @@
                             "side": "bottom",
                             "align": "start",
                             "sideOffset": 5
-                          }
+                          },
+                          "children": []
                         }
                       ]
                     }
@@ -2960,7 +2973,8 @@
                           }
                         },
                         {
-                          "component": "HoverCard.Portal"
+                          "component": "HoverCard.Portal",
+                          "children": []
                         }
                       ]
                     }
@@ -3037,7 +3051,8 @@
           "children": [
             "Always Show Bookmarks Bar",
             {
-              "component": "Menubar.ItemIndicator"
+              "component": "Menubar.ItemIndicator",
+              "children": []
             }
           ]
         },
@@ -3187,9 +3202,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "disabled": true
-          },
           "children": [
             "Undo"
           ]
@@ -3277,7 +3289,8 @@
                       "children": [
                         "Always Show Bookmarks Bar",
                         {
-                          "component": "Menubar.ItemIndicator"
+                          "component": "Menubar.ItemIndicator",
+                          "children": []
                         }
                       ]
                     },
@@ -3286,7 +3299,8 @@
                       "children": [
                         "Always Show Toolbar in Fullscreen",
                         {
-                          "component": "Menubar.ItemIndicator"
+                          "component": "Menubar.ItemIndicator",
+                          "children": []
                         }
                       ]
                     },
@@ -3295,7 +3309,8 @@
                       "children": [
                         "Always Show Full URLs",
                         {
-                          "component": "Menubar.ItemIndicator"
+                          "component": "Menubar.ItemIndicator",
+                          "children": []
                         }
                       ]
                     },
@@ -3380,7 +3395,8 @@
                             "sideOffset": 10,
                             "alignOffset": -6,
                             "avoidCollisions": false
-                          }
+                          },
+                          "children": []
                         }
                       ]
                     }
@@ -3419,7 +3435,8 @@
               "children": [
                 "Andy",
                 {
-                  "component": "Menubar.ItemIndicator"
+                  "component": "Menubar.ItemIndicator",
+                  "children": []
                 }
               ]
             },
@@ -3431,7 +3448,8 @@
               "children": [
                 "Benoît",
                 {
-                  "component": "Menubar.ItemIndicator"
+                  "component": "Menubar.ItemIndicator",
+                  "children": []
                 }
               ]
             },
@@ -3443,7 +3461,8 @@
               "children": [
                 "Colm",
                 {
-                  "component": "Menubar.ItemIndicator"
+                  "component": "Menubar.ItemIndicator",
+                  "children": []
                 }
               ]
             }
@@ -3473,7 +3492,8 @@
           "children": [
             "Andy",
             {
-              "component": "Menubar.ItemIndicator"
+              "component": "Menubar.ItemIndicator",
+              "children": []
             }
           ]
         },
@@ -3558,7 +3578,8 @@
                           "component": "Menubar.Separator"
                         },
                         {
-                          "component": "Menubar.Sub"
+                          "component": "Menubar.Sub",
+                          "children": []
                         }
                       ]
                     }
@@ -3585,13 +3606,16 @@
                       },
                       "children": [
                         {
-                          "component": "Menubar.CheckboxItem"
+                          "component": "Menubar.CheckboxItem",
+                          "children": []
                         },
                         {
-                          "component": "Menubar.CheckboxItem"
+                          "component": "Menubar.CheckboxItem",
+                          "children": []
                         },
                         {
-                          "component": "Menubar.CheckboxItem"
+                          "component": "Menubar.CheckboxItem",
+                          "children": []
                         },
                         {
                           "component": "Menubar.Separator"
@@ -3873,7 +3897,8 @@
                           "component": "NavigationMenu.Trigger"
                         },
                         {
-                          "component": "NavigationMenu.Content"
+                          "component": "NavigationMenu.Content",
+                          "children": []
                         }
                       ]
                     },
@@ -3887,7 +3912,8 @@
                           "component": "NavigationMenu.Trigger"
                         },
                         {
-                          "component": "NavigationMenu.Content"
+                          "component": "NavigationMenu.Content",
+                          "children": []
                         }
                       ]
                     },
@@ -3901,7 +3927,8 @@
                           "component": "NavigationMenu.Trigger"
                         },
                         {
-                          "component": "NavigationMenu.Content"
+                          "component": "NavigationMenu.Content",
+                          "children": []
                         }
                       ]
                     },
@@ -3954,12 +3981,19 @@
         "as": "forwardRef",
         "group": "NavigationMenu",
         "parents": [
-          "NavigationMenu.Root"
+          "NavigationMenu.Root",
+          "NavigationMenu.List"
         ],
-        "parentsFrom": "namespace",
+        "parentsFrom": "example",
+        "parentParts": true,
         "sample": {
           "children": [
-            "Company",
+            {
+              "component": "NavigationMenu.Trigger",
+              "children": [
+                "Company"
+              ]
+            },
             {
               "component": "NavigationMenu.Content",
               "children": [
@@ -3977,19 +4011,22 @@
                           "component": "NavigationMenu.Item",
                           "props": {
                             "value": "customers"
-                          }
+                          },
+                          "children": []
                         },
                         {
                           "component": "NavigationMenu.Item",
                           "props": {
                             "value": "partners"
-                          }
+                          },
+                          "children": []
                         },
                         {
                           "component": "NavigationMenu.Item",
                           "props": {
                             "value": "enterprise"
-                          }
+                          },
+                          "children": []
                         },
                         {
                           "component": "NavigationMenu.Indicator"
@@ -4055,7 +4092,12 @@
             {
               "component": "NavigationMenu.Item",
               "children": [
-                "Products",
+                {
+                  "component": "NavigationMenu.Trigger",
+                  "children": [
+                    "Products"
+                  ]
+                },
                 {
                   "component": "NavigationMenu.Content",
                   "children": [
@@ -4066,7 +4108,8 @@
                       },
                       "children": [
                         {
-                          "component": "NavigationMenu.List"
+                          "component": "NavigationMenu.List",
+                          "children": []
                         },
                         {
                           "component": "NavigationMenu.Viewport"
@@ -4080,7 +4123,12 @@
             {
               "component": "NavigationMenu.Item",
               "children": [
-                "Company",
+                {
+                  "component": "NavigationMenu.Trigger",
+                  "children": [
+                    "Company"
+                  ]
+                },
                 {
                   "component": "NavigationMenu.Content",
                   "children": [
@@ -4092,7 +4140,8 @@
                       },
                       "children": [
                         {
-                          "component": "NavigationMenu.List"
+                          "component": "NavigationMenu.List",
+                          "children": []
                         },
                         {
                           "component": "NavigationMenu.Viewport"
@@ -4106,9 +4155,15 @@
             {
               "component": "NavigationMenu.Item",
               "children": [
-                "Developers",
                 {
-                  "component": "NavigationMenu.Content"
+                  "component": "NavigationMenu.Trigger",
+                  "children": [
+                    "Developers"
+                  ]
+                },
+                {
+                  "component": "NavigationMenu.Content",
+                  "children": []
                 }
               ]
             },
@@ -4144,7 +4199,12 @@
                 {
                   "component": "NavigationMenu.Item",
                   "children": [
-                    "Products",
+                    {
+                      "component": "NavigationMenu.Trigger",
+                      "children": [
+                        "Products"
+                      ]
+                    },
                     {
                       "component": "NavigationMenu.Content",
                       "children": [
@@ -4152,7 +4212,8 @@
                           "component": "NavigationMenu.Sub",
                           "props": {
                             "defaultValue": "extensibility"
-                          }
+                          },
+                          "children": []
                         }
                       ]
                     }
@@ -4161,7 +4222,12 @@
                 {
                   "component": "NavigationMenu.Item",
                   "children": [
-                    "Company",
+                    {
+                      "component": "NavigationMenu.Trigger",
+                      "children": [
+                        "Company"
+                      ]
+                    },
                     {
                       "component": "NavigationMenu.Content",
                       "children": [
@@ -4170,7 +4236,8 @@
                           "props": {
                             "orientation": "vertical",
                             "defaultValue": "customers"
-                          }
+                          },
+                          "children": []
                         }
                       ]
                     }
@@ -4179,9 +4246,15 @@
                 {
                   "component": "NavigationMenu.Item",
                   "children": [
-                    "Developers",
                     {
-                      "component": "NavigationMenu.Content"
+                      "component": "NavigationMenu.Trigger",
+                      "children": [
+                        "Developers"
+                      ]
+                    },
+                    {
+                      "component": "NavigationMenu.Content",
+                      "children": []
                     }
                   ]
                 },
@@ -4251,7 +4324,8 @@
                       ]
                     },
                     {
-                      "component": "NavigationMenu.Content"
+                      "component": "NavigationMenu.Content",
+                      "children": []
                     }
                   ]
                 },
@@ -4268,7 +4342,8 @@
                       ]
                     },
                     {
-                      "component": "NavigationMenu.Content"
+                      "component": "NavigationMenu.Content",
+                      "children": []
                     }
                   ]
                 },
@@ -4285,7 +4360,8 @@
                       ]
                     },
                     {
-                      "component": "NavigationMenu.Content"
+                      "component": "NavigationMenu.Content",
+                      "children": []
                     }
                   ]
                 },
@@ -4315,12 +4391,14 @@
         "group": "NavigationMenu",
         "parents": [
           "NavigationMenu.Root",
+          "NavigationMenu.List",
           "NavigationMenu.Item"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
+        "parentParts": true,
         "sample": {
           "children": [
-            "Extensibility"
+            "Products"
           ]
         },
         "fingerprint": "efd83dfe",
@@ -4543,7 +4621,8 @@
                             "side": "top",
                             "align": "center",
                             "sideOffset": 5
-                          }
+                          },
+                          "children": []
                         }
                       ]
                     }
@@ -4659,6 +4738,11 @@
           "Popover.Root"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "open"
+          ]
+        },
         "fingerprint": "efd83dfe",
         "props": {
           "asChild?": "31e5d9"
@@ -5020,7 +5104,8 @@
                       ]
                     },
                     {
-                      "component": "Select.ItemIndicator"
+                      "component": "Select.ItemIndicator",
+                      "children": []
                     }
                   ]
                 },
@@ -5037,7 +5122,8 @@
                       ]
                     },
                     {
-                      "component": "Select.ItemIndicator"
+                      "component": "Select.ItemIndicator",
+                      "children": []
                     }
                   ]
                 },
@@ -5054,7 +5140,8 @@
                       ]
                     },
                     {
-                      "component": "Select.ItemIndicator"
+                      "component": "Select.ItemIndicator",
+                      "children": []
                     }
                   ]
                 },
@@ -5071,7 +5158,8 @@
                       ]
                     },
                     {
-                      "component": "Select.ItemIndicator"
+                      "component": "Select.ItemIndicator",
+                      "children": []
                     }
                   ]
                 }
@@ -5124,7 +5212,8 @@
                   "component": "Select.ItemText"
                 },
                 {
-                  "component": "Select.ItemIndicator"
+                  "component": "Select.ItemIndicator",
+                  "children": []
                 }
               ]
             }
@@ -5170,7 +5259,8 @@
               ]
             },
             {
-              "component": "Select.ItemIndicator"
+              "component": "Select.ItemIndicator",
+              "children": []
             }
           ]
         },
@@ -5261,7 +5351,8 @@
                           "component": "Select.ItemText"
                         },
                         {
-                          "component": "Select.ItemIndicator"
+                          "component": "Select.ItemIndicator",
+                          "children": []
                         }
                       ]
                     },
@@ -5275,7 +5366,8 @@
                           "component": "Select.ItemText"
                         },
                         {
-                          "component": "Select.ItemIndicator"
+                          "component": "Select.ItemIndicator",
+                          "children": []
                         }
                       ]
                     },
@@ -5289,7 +5381,8 @@
                           "component": "Select.ItemText"
                         },
                         {
-                          "component": "Select.ItemIndicator"
+                          "component": "Select.ItemIndicator",
+                          "children": []
                         }
                       ]
                     },
@@ -5303,7 +5396,8 @@
                           "component": "Select.ItemText"
                         },
                         {
-                          "component": "Select.ItemIndicator"
+                          "component": "Select.ItemIndicator",
+                          "children": []
                         }
                       ]
                     }
@@ -5361,25 +5455,29 @@
                           "component": "Select.Item",
                           "props": {
                             "value": ""
-                          }
+                          },
+                          "children": []
                         },
                         {
                           "component": "Select.Item",
                           "props": {
                             "value": "one"
-                          }
+                          },
+                          "children": []
                         },
                         {
                           "component": "Select.Item",
                           "props": {
                             "value": "two"
-                          }
+                          },
+                          "children": []
                         },
                         {
                           "component": "Select.Item",
                           "props": {
                             "value": "three"
-                          }
+                          },
+                          "children": []
                         }
                       ]
                     },
@@ -5526,7 +5624,8 @@
                   ]
                 },
                 {
-                  "component": "Select.ItemIndicator"
+                  "component": "Select.ItemIndicator",
+                  "children": []
                 }
               ]
             },
@@ -5543,7 +5642,8 @@
                   ]
                 },
                 {
-                  "component": "Select.ItemIndicator"
+                  "component": "Select.ItemIndicator",
+                  "children": []
                 }
               ]
             },
@@ -5560,7 +5660,8 @@
                   ]
                 },
                 {
-                  "component": "Select.ItemIndicator"
+                  "component": "Select.ItemIndicator",
+                  "children": []
                 }
               ]
             },
@@ -5577,7 +5678,8 @@
                   ]
                 },
                 {
-                  "component": "Select.ItemIndicator"
+                  "component": "Select.ItemIndicator",
+                  "children": []
                 }
               ]
             }
@@ -6666,6 +6768,9 @@
           "children": [
             {
               "component": "Tooltip.Content",
+              "props": {
+                "sideOffset": 5
+              },
               "children": [
                 "View in",
                 "WorkOS",

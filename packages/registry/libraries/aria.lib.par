@@ -16,8 +16,7 @@
         "group": "Autocomplete",
         "sample": {
           "props": {
-            "children": "Text",
-            "inputValue": ""
+            "children": "Text"
           },
           "children": [
             "Test Please select an option below."
@@ -131,25 +130,18 @@
         "declaration": "dist/types/src/Breadcrumbs.d.ts",
         "group": "Breadcrumbs",
         "sample": {
-          "props": {
-            "items": [
-              {
-                "id": "Home",
-                "url": "/"
-              },
-              {
-                "id": "React Aria",
-                "url": "/react-aria"
-              },
-              {
-                "id": "Breadcrumbs",
-                "url": "/react-aria/breadcrumbs"
-              }
-            ]
-          },
           "children": [
             {
-              "component": "Breadcrumb"
+              "component": "Breadcrumb",
+              "children": []
+            },
+            {
+              "component": "Breadcrumb",
+              "children": []
+            },
+            {
+              "component": "Breadcrumb",
+              "children": []
             }
           ]
         },
@@ -246,9 +238,6 @@
         "declaration": "dist/types/src/Button.d.ts",
         "group": "Button",
         "sample": {
-          "props": {
-            "slot": "trigger"
-          },
           "children": [
             "⬇️",
             "This is a disclosure header"
@@ -1041,6 +1030,18 @@
         "as": "function",
         "declaration": "dist/types/src/Table.d.ts",
         "group": "Table",
+        "parents": [
+          "Table",
+          "TableBody",
+          "Row"
+        ],
+        "parentsFrom": "example",
+        "parentParts": true,
+        "sample": {
+          "children": [
+            "Span 2"
+          ]
+        },
         "fingerprint": "7a1ccdad",
         "props": {
           "allowsArrowNavigation?": "31e5d9",
@@ -1128,14 +1129,7 @@
         "as": "function",
         "declaration": "dist/types/src/Checkbox.d.ts",
         "group": "Checkbox",
-        "parents": [
-          "CheckboxGroup"
-        ],
-        "parentsFrom": "example",
         "sample": {
-          "props": {
-            "isSelected": false
-          },
           "children": [
             "Favorite"
           ]
@@ -1260,7 +1254,6 @@
         "declaration": "dist/types/src/Checkbox.d.ts",
         "group": "Checkbox",
         "parents": [
-          "CheckboxGroup",
           "Checkbox"
         ],
         "parentsFrom": "prefix",
@@ -1603,15 +1596,6 @@
         "as": "function",
         "declaration": "node_modules/react-aria/dist/types/src/collections/CollectionBuilder.d.ts",
         "group": "CollectionBuilder",
-        "sample": {
-          "children": [
-            {
-              "$render": [
-                "≡"
-              ]
-            }
-          ]
-        },
         "fingerprint": "a5f42da7",
         "props": {
           "addIdAndValue?": "31e5d9",
@@ -1629,12 +1613,6 @@
           "Collection"
         ],
         "parentsFrom": "prefix",
-        "sample": {
-          "props": {
-            "content": "Text",
-            "children": "Text"
-          }
-        },
         "fingerprint": "73e5322a",
         "props": {
           "children": "90d984",
@@ -1887,8 +1865,32 @@
           },
           "children": [
             {
-              "$render": [
-                "rgb hsl hsb"
+              "component": "ColorField",
+              "props": {
+                "colorSpace": "hex"
+              }
+            },
+            {
+              "component": "ColorSwatchPicker",
+              "children": [
+                {
+                  "component": "ColorSwatchPickerItem",
+                  "props": {
+                    "color": "#f00"
+                  }
+                },
+                {
+                  "component": "ColorSwatchPickerItem",
+                  "props": {
+                    "color": "#ff0"
+                  }
+                },
+                {
+                  "component": "ColorSwatchPickerItem",
+                  "props": {
+                    "color": "#0ff"
+                  }
+                }
               ]
             }
           ]
@@ -2594,16 +2596,13 @@
         "declaration": "dist/types/src/Table.d.ts",
         "group": "Table",
         "parents": [
-          "Table"
+          "Table",
+          "TableHeader"
         ],
         "parentsFrom": "example",
         "sample": {
           "children": [
-            {
-              "$render": [
-                "Resize ↔"
-              ]
-            }
+            "Id"
           ]
         },
         "fingerprint": "1ba8b1dc",
@@ -2797,8 +2796,6 @@
         "group": "ComboBox",
         "sample": {
           "props": {
-            "menuTrigger": "focus",
-            "autoFocus": true,
             "name": "combo-box-example",
             "data-testid": "combo-box-example",
             "allowsEmptyCollection": true
@@ -3090,7 +3087,6 @@
         "sample": {
           "props": {
             "children": "Text",
-            "data-testid": "date-range-picker-date-input",
             "slot": "start"
           },
           "children": [
@@ -3637,8 +3633,7 @@
         "group": "Dialog",
         "sample": {
           "props": {
-            "children": "Text",
-            "isOpen": false
+            "children": "Text"
           },
           "children": [
             {
@@ -4451,9 +4446,24 @@
                     "Section 1"
                   ]
                 },
-                "1,1 Actions",
-                "1,2 Actions",
-                "1,3 Actions"
+                {
+                  "component": "GridListItem",
+                  "children": [
+                    "1,1"
+                  ]
+                },
+                {
+                  "component": "GridListItem",
+                  "children": [
+                    "1,2"
+                  ]
+                },
+                {
+                  "component": "GridListItem",
+                  "children": [
+                    "1,3"
+                  ]
+                }
               ]
             },
             {
@@ -4465,9 +4475,24 @@
                     "Section 2"
                   ]
                 },
-                "2,1 Actions",
-                "2,2 Actions",
-                "2,3 Actions"
+                {
+                  "component": "GridListItem",
+                  "children": [
+                    "2,1"
+                  ]
+                },
+                {
+                  "component": "GridListItem",
+                  "children": [
+                    "2,2"
+                  ]
+                },
+                {
+                  "component": "GridListItem",
+                  "children": [
+                    "2,3"
+                  ]
+                }
               ]
             },
             {
@@ -4479,9 +4504,24 @@
                     "Section 3"
                   ]
                 },
-                "3,1 Actions",
-                "3,2 Actions",
-                "3,3 Actions"
+                {
+                  "component": "GridListItem",
+                  "children": [
+                    "3,1"
+                  ]
+                },
+                {
+                  "component": "GridListItem",
+                  "children": [
+                    "3,2"
+                  ]
+                },
+                {
+                  "component": "GridListItem",
+                  "children": [
+                    "3,3"
+                  ]
+                }
               ]
             }
           ]
@@ -4692,6 +4732,15 @@
           "GridList"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "textValue": "TextField + Button"
+          },
+          "children": [
+            "TextField + Button",
+            " "
+          ]
+        },
         "fingerprint": "3b3f5d27",
         "props": {
           "allowsArrowNavigation?": "31e5d9",
@@ -4800,7 +4849,8 @@
         "parents": [
           "GridList"
         ],
-        "parentsFrom": "prefix",
+        "parentsFrom": "example",
+        "parentParts": true,
         "fingerprint": "7e773f93",
         "props": {
           "children?": "75c961",
@@ -4898,9 +4948,24 @@
                 "Section 1"
               ]
             },
-            "Foo Actions",
-            "Bar Actions",
-            "Baz Actions"
+            {
+              "component": "GridListItem",
+              "children": [
+                "1,1"
+              ]
+            },
+            {
+              "component": "GridListItem",
+              "children": [
+                "1,2"
+              ]
+            },
+            {
+              "component": "GridListItem",
+              "children": [
+                "1,3"
+              ]
+            }
           ]
         },
         "fingerprint": "9ad6baba",
@@ -5069,14 +5134,6 @@
         "as": "function",
         "declaration": "dist/types/src/Input.d.ts",
         "group": "Input",
-        "sample": {
-          "props": {
-            "name": "name",
-            "type": "text",
-            "id": "name",
-            "autoComplete": "name"
-          }
-        },
         "fingerprint": "6f70bb1b",
         "props": {
           "className?": "45b1e9",
@@ -5123,10 +5180,7 @@
         "group": "Link",
         "sample": {
           "props": {
-            "data-testid": "link-example",
-            "href": "https://www.imdb.com/title/tt6348138/",
-            "hrefLang": "en",
-            "target": "_blank"
+            "href": "https://www.imdb.com/title/tt6348138/"
           },
           "children": [
             "The missing link"
@@ -5246,8 +5300,6 @@
         "group": "ListBox",
         "sample": {
           "props": {
-            "selectionMode": "multiple",
-            "selectionBehavior": "replace",
             "aria-label": "test listbox with section"
           },
           "children": [
@@ -5503,7 +5555,8 @@
         "parents": [
           "ListBox"
         ],
-        "parentsFrom": "prefix",
+        "parentsFrom": "example",
+        "parentParts": true,
         "fingerprint": "7e773f93",
         "props": {
           "children?": "75c961",
@@ -5695,9 +5748,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "selectionMode": "multiple"
-          },
           "children": [
             {
               "component": "MenuItem",
@@ -5846,11 +5896,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "target": "blank",
-            "rel": "noopener noreferrer",
-            "aria-label": "X"
-          },
           "children": [
             "X…"
           ]
@@ -5967,7 +6012,7 @@
           "MenuTrigger",
           "Menu"
         ],
-        "parentsFrom": "prefix",
+        "parentsFrom": "example",
         "fingerprint": "7e773f93",
         "props": {
           "children?": "75c961",
@@ -6062,9 +6107,6 @@
           "MenuTrigger"
         ],
         "sample": {
-          "props": {
-            "aria-label": "Section 1"
-          },
           "children": [
             "Foo",
             "Bar",
@@ -6429,7 +6471,6 @@
         "group": "Modal",
         "sample": {
           "props": {
-            "isOpen": true,
             "isDismissable": true
           },
           "children": [
@@ -6538,7 +6579,54 @@
         "sample": {
           "props": {
             "aria-label": "Example"
-          }
+          },
+          "children": [
+            {
+              "component": "NavigationTreeItem",
+              "children": [
+                {
+                  "component": "NavigationTreeItemContent",
+                  "children": [
+                    {
+                      "$render": [
+                        "▶ Other"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "NavigationTreeItem",
+              "children": [
+                {
+                  "component": "NavigationTreeItemContent",
+                  "children": [
+                    {
+                      "$render": [
+                        "▶ Other"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "NavigationTreeItem",
+              "children": [
+                {
+                  "component": "NavigationTreeItemContent",
+                  "children": [
+                    {
+                      "$render": [
+                        "▶ Other"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
         },
         "fingerprint": "08083873",
         "props": {
@@ -6719,11 +6807,27 @@
         "as": "function",
         "declaration": "dist/types/src/NavigationTree.d.ts",
         "group": "NavigationTree",
+        "parents": [
+          "NavigationTree"
+        ],
+        "parentsFrom": "example",
         "sample": {
           "props": {
             "children": "Text",
             "textValue": "Text"
-          }
+          },
+          "children": [
+            {
+              "component": "NavigationTreeItemContent",
+              "children": [
+                {
+                  "$render": [
+                    "▶ Other"
+                  ]
+                }
+              ]
+            }
+          ]
         },
         "fingerprint": "7a05ae5e",
         "props": {
@@ -6830,9 +6934,22 @@
         "declaration": "dist/types/src/NavigationTree.d.ts",
         "group": "NavigationTree",
         "parents": [
+          "NavigationTree",
           "NavigationTreeItem"
         ],
-        "parentsFrom": "prefix",
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "children": "Text"
+          },
+          "children": [
+            {
+              "$render": [
+                "▶ Other"
+              ]
+            }
+          ]
+        },
         "fingerprint": "259fd367",
         "props": {
           "children": "1fa9dd"
@@ -7068,9 +7185,11 @@
           },
           "children": [
             {
-              "$render": [
-                "Test Please select an option below. Section 1 Foo Bar Baz Go"
-              ]
+              "component": "Virtualizer",
+              "props": {
+                "children": "Text",
+                "layoutOptions": {}
+              }
             }
           ]
         },
@@ -7674,8 +7793,7 @@
         "group": "RadioGroup",
         "sample": {
           "props": {
-            "data-testid": "radio-group-example",
-            "value": null
+            "data-testid": "radio-group-example"
           },
           "children": [
             {
@@ -8035,11 +8153,11 @@
         "as": "function",
         "declaration": "dist/types/src/Table.d.ts",
         "group": "Table",
-        "sample": {
-          "props": {
-            "id": "1"
-          }
-        },
+        "parents": [
+          "Table",
+          "TableBody"
+        ],
+        "parentsFrom": "example",
         "fingerprint": "8c2026ae",
         "props": {
           "children?": "f63982",
@@ -8147,13 +8265,6 @@
         "as": "function",
         "declaration": "dist/types/src/SearchField.d.ts",
         "group": "SearchField",
-        "sample": {
-          "props": {
-            "aria-label": "Search plants",
-            "placeholder": "Search plants",
-            "value": ""
-          }
-        },
         "fingerprint": "d4641ec5",
         "props": {
           "aria-activedescendant?": "0bf956",
@@ -8373,7 +8484,6 @@
         "group": "Select",
         "sample": {
           "props": {
-            "label": "Sunlight",
             "name": "sunlight",
             "isRequired": true
           },
@@ -8533,11 +8643,6 @@
         "as": "function",
         "declaration": "dist/types/src/Separator.d.ts",
         "group": "Separator",
-        "sample": {
-          "props": {
-            "orientation": "vertical"
-          }
-        },
         "fingerprint": "5e721744",
         "props": {
           "aria-describedby?": "0bf956",
@@ -8659,7 +8764,10 @@
               "component": "SelectionIndicator"
             },
             {
-              "component": "SharedElement"
+              "component": "SharedElement",
+              "props": {
+                "name": "Text"
+              }
             }
           ]
         },
@@ -9217,8 +9325,14 @@
             {
               "component": "SliderTrack",
               "children": [
-                "A",
-                "B"
+                {
+                  "component": "SliderThumb",
+                  "children": []
+                },
+                {
+                  "component": "SliderThumb",
+                  "children": []
+                }
               ]
             }
           ]
@@ -9613,8 +9727,14 @@
         "parentsFrom": "example",
         "sample": {
           "children": [
-            "A",
-            "B"
+            {
+              "component": "SliderThumb",
+              "children": []
+            },
+            {
+              "component": "SliderThumb",
+              "children": []
+            }
           ]
         },
         "fingerprint": "348c7796",
@@ -10063,9 +10183,19 @@
         "declaration": "dist/types/src/Tabs.d.ts",
         "group": "Tabs",
         "parents": [
-          "TabPanel"
+          "Tabs",
+          "TabList"
         ],
-        "parentsFrom": "prefix",
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "id": "/FoR",
+            "href": "/FoR"
+          },
+          "children": [
+            "Founding of Rome"
+          ]
+        },
         "fingerprint": "420f7de6",
         "props": {
           "aria-describedby?": "0bf956",
@@ -10176,20 +10306,162 @@
         "sample": {
           "props": {
             "aria-label": "Files",
-            "selectionMode": "multiple",
-            "treeColumn": "name"
+            "selectionMode": "multiple"
           },
           "children": [
             {
               "component": "TableHeader",
-              "children": []
+              "children": [
+                {
+                  "component": "Column",
+                  "children": []
+                },
+                {
+                  "component": "Column",
+                  "props": {
+                    "isRowHeader": true
+                  },
+                  "children": [
+                    "Name"
+                  ]
+                },
+                {
+                  "component": "Column",
+                  "children": [
+                    "Type"
+                  ]
+                },
+                {
+                  "component": "Column",
+                  "children": [
+                    "Date Modified"
+                  ]
+                }
+              ]
             },
             {
               "component": "TableBody",
               "children": [
-                "Games File folder 6/7/2020 Pokemon File 2/3/2025",
-                "Program Files File folder 4/7/2021",
-                "bootmgr System file 11/20/2010"
+                {
+                  "component": "Row",
+                  "props": {
+                    "id": "1"
+                  },
+                  "children": [
+                    {
+                      "component": "Cell",
+                      "children": []
+                    },
+                    {
+                      "component": "Cell",
+                      "children": [
+                        "Games"
+                      ]
+                    },
+                    {
+                      "component": "Cell",
+                      "children": [
+                        "File folder"
+                      ]
+                    },
+                    {
+                      "component": "Cell",
+                      "children": [
+                        "6/7/2020"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "Row",
+                  "props": {
+                    "id": "2"
+                  },
+                  "children": [
+                    {
+                      "component": "Cell",
+                      "children": []
+                    },
+                    {
+                      "component": "Cell",
+                      "children": [
+                        "Program Files"
+                      ]
+                    },
+                    {
+                      "component": "Cell",
+                      "children": [
+                        "File folder"
+                      ]
+                    },
+                    {
+                      "component": "Cell",
+                      "children": [
+                        "4/7/2021"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "Row",
+                  "props": {
+                    "id": "3"
+                  },
+                  "children": [
+                    {
+                      "component": "Cell",
+                      "children": []
+                    },
+                    {
+                      "component": "Cell",
+                      "children": [
+                        "bootmgr"
+                      ]
+                    },
+                    {
+                      "component": "Cell",
+                      "children": [
+                        "System file"
+                      ]
+                    },
+                    {
+                      "component": "Cell",
+                      "children": [
+                        "11/20/2010"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "Row",
+                  "props": {
+                    "id": "4"
+                  },
+                  "children": [
+                    {
+                      "component": "Cell",
+                      "children": []
+                    },
+                    {
+                      "component": "Cell",
+                      "children": [
+                        "log.txt"
+                      ]
+                    },
+                    {
+                      "component": "Cell",
+                      "children": [
+                        "Text Document"
+                      ]
+                    },
+                    {
+                      "component": "Cell",
+                      "children": [
+                        "1/18/2016"
+                      ]
+                    }
+                  ]
+                }
               ]
             }
           ]
@@ -10306,9 +10578,12 @@
         "parentsFrom": "example",
         "sample": {
           "children": [
-            "Games File folder 6/7/2020 Pokemon File 2/3/2025",
-            "Program Files File folder 4/7/2021",
-            "bootmgr System file 11/20/2010"
+            {
+              "component": "Row"
+            },
+            {
+              "component": "TableLoadMoreItem"
+            }
           ]
         },
         "fingerprint": "21156e12",
@@ -10400,11 +10675,6 @@
           "Table"
         ],
         "parentsFrom": "example",
-        "sample": {
-          "children": [
-            "Total:"
-          ]
-        },
         "fingerprint": "15f2d297",
         "props": {
           "children?": "23799c",
@@ -10494,9 +10764,43 @@
         "parentsFrom": "example",
         "sample": {
           "children": [
-            "Name",
-            "Type",
-            "Date Modified"
+            {
+              "component": "Column",
+              "props": {
+                "id": "name",
+                "isRowHeader": true
+              },
+              "children": [
+                "Name"
+              ]
+            },
+            {
+              "component": "Column",
+              "props": {
+                "id": "height"
+              },
+              "children": [
+                "Height"
+              ]
+            },
+            {
+              "component": "Column",
+              "props": {
+                "id": "mass"
+              },
+              "children": [
+                "Mass"
+              ]
+            },
+            {
+              "component": "Column",
+              "props": {
+                "id": "birth_year"
+              },
+              "children": [
+                "Birth Year"
+              ]
+            }
           ]
         },
         "fingerprint": "d34b76cc",
@@ -10677,14 +10981,42 @@
         "as": "function",
         "declaration": "dist/types/src/Tabs.d.ts",
         "group": "Tabs",
+        "parents": [
+          "Tabs"
+        ],
+        "parentsFrom": "example",
         "sample": {
           "props": {
             "aria-label": "History of Ancient Rome"
           },
           "children": [
-            "Founding of Rome",
-            "Monarchy and Republic",
-            "Empire"
+            {
+              "component": "Tab",
+              "props": {
+                "id": "FoR"
+              },
+              "children": [
+                "Founding of Rome"
+              ]
+            },
+            {
+              "component": "Tab",
+              "props": {
+                "id": "MaR"
+              },
+              "children": [
+                "Monarchy and Republic"
+              ]
+            },
+            {
+              "component": "Tab",
+              "props": {
+                "id": "Emp"
+              },
+              "children": [
+                "Empire"
+              ]
+            }
           ]
         },
         "fingerprint": "c35ca1df",
@@ -10781,10 +11113,55 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "id": "/FoR"
+            "id": "foo"
           },
           "children": [
-            "Arma virumque cano, Troiae qui primus ab oris."
+            {
+              "component": "Tabs",
+              "children": [
+                {
+                  "component": "TabList",
+                  "children": [
+                    {
+                      "component": "Tab",
+                      "props": {
+                        "id": "one"
+                      },
+                      "children": [
+                        "One"
+                      ]
+                    },
+                    {
+                      "component": "Tab",
+                      "props": {
+                        "id": "two"
+                      },
+                      "children": [
+                        "Two"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "TabPanel",
+                  "props": {
+                    "id": "one"
+                  },
+                  "children": [
+                    "One"
+                  ]
+                },
+                {
+                  "component": "TabPanel",
+                  "props": {
+                    "id": "two"
+                  },
+                  "children": [
+                    "Two"
+                  ]
+                }
+              ]
+            }
           ]
         },
         "fingerprint": "1a9c1306",
@@ -10876,7 +11253,7 @@
         "declaration": "dist/types/src/Tabs.d.ts",
         "group": "Tabs",
         "parents": [
-          "Tab"
+          "Tabs"
         ],
         "parentsFrom": "prefix",
         "fingerprint": "721def1b",
@@ -10964,13 +11341,85 @@
         "declaration": "dist/types/src/Tabs.d.ts",
         "group": "Tabs",
         "sample": {
-          "props": {
-            "orientation": "vertical"
-          },
           "children": [
             {
-              "$render": [
-                "Founding of Rome Monarchy and Republic Empire Arma virumque "
+              "component": "TabList",
+              "children": [
+                {
+                  "component": "Tab",
+                  "props": {
+                    "id": "foo"
+                  },
+                  "children": [
+                    "Foo"
+                  ]
+                },
+                {
+                  "component": "Tab",
+                  "props": {
+                    "id": "bar"
+                  },
+                  "children": [
+                    "Bar"
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "TabPanel",
+              "props": {
+                "id": "foo"
+              },
+              "children": [
+                {
+                  "component": "Tabs",
+                  "children": [
+                    {
+                      "component": "TabList",
+                      "children": [
+                        {
+                          "component": "Tab",
+                          "props": {
+                            "id": "one"
+                          }
+                        },
+                        {
+                          "component": "Tab",
+                          "props": {
+                            "id": "two"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "component": "TabPanel",
+                      "props": {
+                        "id": "one"
+                      },
+                      "children": [
+                        "One"
+                      ]
+                    },
+                    {
+                      "component": "TabPanel",
+                      "props": {
+                        "id": "two"
+                      },
+                      "children": [
+                        "Two"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "TabPanel",
+              "props": {
+                "id": "bar"
+              },
+              "children": [
+                "Bar"
               ]
             }
           ]
@@ -11197,20 +11646,23 @@
               "children": [
                 {
                   "component": "Tag",
+                  "props": {
+                    "href": "https://nytimes.com"
+                  },
                   "children": [
-                    "Tag 1"
+                    "News"
                   ]
                 },
                 {
                   "component": "Tag",
                   "children": [
-                    "Tag 2"
+                    "Travel"
                   ]
                 },
                 {
                   "component": "Tag",
                   "children": [
-                    "Tag 3"
+                    "Gaming"
                   ]
                 }
               ]
@@ -11324,20 +11776,23 @@
           "children": [
             {
               "component": "Tag",
+              "props": {
+                "href": "https://nytimes.com"
+              },
               "children": [
-                "Tag 1"
+                "News"
               ]
             },
             {
               "component": "Tag",
               "children": [
-                "Tag 2"
+                "Travel"
               ]
             },
             {
               "component": "Tag",
               "children": [
-                "Tag 3"
+                "Gaming"
               ]
             }
           ]
@@ -12531,8 +12986,26 @@
                     "Photo Header"
                   ]
                 },
-                "Photos",
-                "Edited Photos"
+                {
+                  "component": "TreeItem",
+                  "props": {
+                    "id": "Photos",
+                    "textValue": "Photos"
+                  },
+                  "children": [
+                    "Photos"
+                  ]
+                },
+                {
+                  "component": "TreeItem",
+                  "props": {
+                    "id": "edited photos",
+                    "textValue": "Edited photos"
+                  },
+                  "children": [
+                    "Edited Photos"
+                  ]
+                }
               ]
             },
             {
@@ -12544,8 +13017,63 @@
                     "Project Header"
                   ]
                 },
-                "Projects-1A Projects-2 Projects-3",
-                "Project-4"
+                {
+                  "component": "TreeItem",
+                  "props": {
+                    "id": "projects",
+                    "textValue": "Projects",
+                    "title": "Projects"
+                  },
+                  "children": [
+                    {
+                      "component": "TreeItem",
+                      "props": {
+                        "id": "projects-1",
+                        "textValue": "Projects-1",
+                        "title": "Projects-1"
+                      },
+                      "children": [
+                        {
+                          "component": "TreeItem",
+                          "props": {
+                            "id": "projects-1A",
+                            "textValue": "Projects-1A"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "component": "TreeItem",
+                      "props": {
+                        "id": "projects-2",
+                        "textValue": "Projects-2"
+                      },
+                      "children": [
+                        "Projects-2"
+                      ]
+                    },
+                    {
+                      "component": "TreeItem",
+                      "props": {
+                        "id": "projects-3",
+                        "textValue": "Projects-3"
+                      },
+                      "children": [
+                        "Projects-3"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "TreeItem",
+                  "props": {
+                    "id": "projects-4",
+                    "textValue": "Projects-4"
+                  },
+                  "children": [
+                    "Project-4"
+                  ]
+                }
               ]
             },
             {
@@ -12770,15 +13298,178 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "textValue": "All Photos",
+            "textValue": "row 1",
             "children": "Text",
-            "id": "library"
+            "id": "row1"
           },
           "children": [
             {
-              "component": "TreeItemContent",
+              "component": "TreeItem",
+              "props": {
+                "id": "group1-textfield-button",
+                "textValue": "TextField and Button",
+                "interactive": {
+                  "$element": [
+                    {
+                      "component": "TextField",
+                      "props": {
+                        "aria-label": "Search"
+                      },
+                      "children": [
+                        {
+                          "component": "Input"
+                        }
+                      ]
+                    },
+                    {
+                      "component": "Button",
+                      "children": [
+                        "Go"
+                      ]
+                    }
+                  ]
+                }
+              },
               "children": [
-                "All Photos"
+                "TextField + Button"
+              ]
+            },
+            {
+              "component": "TreeItem",
+              "props": {
+                "id": "group1-toolbar",
+                "textValue": "Toolbar",
+                "interactive": {
+                  "$element": [
+                    {
+                      "component": "Toolbar",
+                      "props": {
+                        "aria-label": "Text formatting"
+                      },
+                      "children": [
+                        {
+                          "component": "Button",
+                          "children": [
+                            "Bold"
+                          ]
+                        },
+                        {
+                          "component": "Button",
+                          "children": [
+                            "Italic"
+                          ]
+                        },
+                        {
+                          "component": "Button",
+                          "children": [
+                            "Underline"
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              "children": [
+                "Toolbar"
+              ]
+            },
+            {
+              "component": "TreeItem",
+              "props": {
+                "id": "group1-nested",
+                "textValue": "Nested Group",
+                "title": "Nested Group"
+              },
+              "children": [
+                {
+                  "component": "TreeItem",
+                  "props": {
+                    "id": "group1-nested-1",
+                    "textValue": "Nested child 1",
+                    "interactive": {
+                      "$element": [
+                        {
+                          "component": "ComboBox",
+                          "props": {
+                            "aria-label": "combobox",
+                            "allowsEmptyCollection": true
+                          },
+                          "children": [
+                            "▼",
+                            {
+                              "component": "Popover",
+                              "children": [
+                                {
+                                  "component": "ListBox",
+                                  "props": {
+                                    "data-testid": "combo-box-list-box"
+                                  },
+                                  "children": [
+                                    "Foo",
+                                    "Bar",
+                                    "Baz",
+                                    "Google"
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  "children": [
+                    "Nested child 1"
+                  ]
+                },
+                {
+                  "component": "TreeItem",
+                  "props": {
+                    "id": "group1-nested-2",
+                    "textValue": "Nested child 2",
+                    "interactive": {
+                      "$element": [
+                        {
+                          "component": "MenuTrigger",
+                          "children": [
+                            {
+                              "component": "Button",
+                              "props": {
+                                "aria-label": "Options"
+                              },
+                              "children": [
+                                "▾"
+                              ]
+                            },
+                            {
+                              "component": "Popover",
+                              "children": [
+                                {
+                                  "component": "Menu",
+                                  "children": [
+                                    {
+                                      "component": "MenuItem"
+                                    },
+                                    {
+                                      "component": "MenuItem"
+                                    },
+                                    {
+                                      "component": "MenuItem"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  "children": [
+                    "Nested child 2"
+                  ]
+                }
               ]
             }
           ]
@@ -12895,10 +13586,6 @@
           "TreeItem"
         ],
         "parentsFrom": "example",
-        "optionalParents": [
-          "TreeItem",
-          "Tree"
-        ],
         "sample": {
           "props": {
             "children": "Text"
@@ -12921,9 +13608,13 @@
         "declaration": "dist/types/src/Tree.d.ts",
         "group": "Tree",
         "parents": [
-          "Tree"
+          "Tree",
+          "TreeItem"
         ],
-        "parentsFrom": "prefix",
+        "parentsFrom": "example",
+        "optionalParents": [
+          "TreeItem"
+        ],
         "fingerprint": "2e428153",
         "props": {
           "children?": "7287f9",
@@ -12948,11 +13639,69 @@
             {
               "component": "TreeHeader",
               "children": [
-                "Photo Header"
+                "Project Header"
               ]
             },
-            "Photos",
-            "Edited Photos"
+            {
+              "component": "TreeItem",
+              "props": {
+                "id": "projects",
+                "textValue": "Projects",
+                "title": "Projects"
+              },
+              "children": [
+                {
+                  "component": "TreeItem",
+                  "props": {
+                    "id": "projects-1",
+                    "textValue": "Projects-1",
+                    "title": "Projects-1"
+                  },
+                  "children": [
+                    {
+                      "component": "TreeItem",
+                      "props": {
+                        "id": "projects-1A",
+                        "textValue": "Projects-1A"
+                      },
+                      "children": [
+                        "Projects-1A"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "TreeItem",
+                  "props": {
+                    "id": "projects-2",
+                    "textValue": "Projects-2"
+                  },
+                  "children": [
+                    "Projects-2"
+                  ]
+                },
+                {
+                  "component": "TreeItem",
+                  "props": {
+                    "id": "projects-3",
+                    "textValue": "Projects-3"
+                  },
+                  "children": [
+                    "Projects-3"
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "TreeItem",
+              "props": {
+                "id": "projects-4",
+                "textValue": "Projects-4"
+              },
+              "children": [
+                "Project-4"
+              ]
+            }
           ]
         },
         "fingerprint": "9ad6baba",

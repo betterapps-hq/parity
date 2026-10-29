@@ -6319,9 +6319,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "icon": "🍎"
-          },
           "children": [
             "Apples"
           ]
@@ -6889,9 +6886,6 @@
         "group": "ActionIcon",
         "sample": {
           "props": {
-            "component": "a",
-            "href": "https://mantine.dev",
-            "data-disabled": true,
             "size": "xl",
             "aria-label": "Open in a new tab"
           }
@@ -6994,7 +6988,8 @@
                 "variant": "default",
                 "size": "lg",
                 "aria-label": "Decrement value"
-              }
+              },
+              "children": []
             },
             {
               "component": "ActionIconGroupSection",
@@ -7011,7 +7006,8 @@
                 "variant": "default",
                 "size": "lg",
                 "aria-label": "Increment value"
-              }
+              },
+              "children": []
             }
           ]
         },
@@ -7475,13 +7471,6 @@
         "group": "Anchor",
         "sample": {
           "props": {
-            "variant": "gradient",
-            "gradient": {
-              "from": "pink",
-              "to": "yellow"
-            },
-            "fw": 500,
-            "fz": "lg",
             "href": "#text-props"
           },
           "children": [
@@ -7580,7 +7569,6 @@
           "props": {
             "aria-label": "Angle slider",
             "size": 100,
-            "restrictToMarks": true,
             "marks": [
               {
                 "value": 0
@@ -8318,7 +8306,16 @@
             "maw": 400,
             "mx": "auto",
             "pos": "relative"
-          }
+          },
+          "children": [
+            {
+              "component": "Overlay",
+              "props": {
+                "color": "#000",
+                "backgroundOpacity": 0.35
+              }
+            }
+          ]
         },
         "fingerprint": "5acc4d38",
         "props": {
@@ -8402,14 +8399,8 @@
         "group": "Autocomplete",
         "sample": {
           "props": {
-            "dropdownOpened": true,
-            "withAsterisk": true,
             "label": "Autocomplete",
-            "description": "Description",
             "placeholder": "Autocomplete",
-            "comboboxProps": {
-              "hideDetached": false
-            },
             "data": [
               {
                 "group": "Frontend",
@@ -8569,9 +8560,7 @@
         "group": "Avatar",
         "sample": {
           "props": {
-            "size": "xl",
-            "variant": "gradient",
-            "gradient": {}
+            "size": "xl"
           },
           "children": [
             "GR"
@@ -9043,11 +9032,6 @@
         "declaration": "lib/core/Box/Box.d.ts",
         "group": "Box",
         "sample": {
-          "props": {
-            "data-breakout": true,
-            "bg": "var(--mantine-color-indigo-light)",
-            "mt": "xs"
-          },
           "children": [
             "Breakout",
             {
@@ -9324,9 +9308,6 @@
         "declaration": "lib/components/Button/Button.d.ts",
         "group": "Button",
         "sample": {
-          "props": {
-            "mt": "sm"
-          },
           "children": [
             "Rerendered",
             "0",
@@ -9846,8 +9827,6 @@
             "data": [],
             "label": "Location",
             "placeholder": "Pick location",
-            "clearable": true,
-            "clearSectionMode": "clear",
             "defaultValue": [
               "asia",
               "jp",
@@ -10012,9 +9991,7 @@
         "group": "Center",
         "sample": {
           "props": {
-            "maw": 400,
-            "h": 100,
-            "bg": "var(--mantine-color-gray-light)"
+            "h": 100
           }
         },
         "fingerprint": "a60dcfcd",
@@ -10100,11 +10077,7 @@
         "group": "Checkbox",
         "sample": {
           "props": {
-            "autoContrast": true,
-            "checked": true,
-            "label": "autoContrast checkbox",
-            "size": "lg",
-            "color": "lime.4"
+            "label": "autoContrast checkbox"
           }
         },
         "fingerprint": "6d899548",
@@ -10295,7 +10268,6 @@
         "sample": {
           "props": {
             "children": "Text",
-            "disabled": true,
             "label": "Select your favorite frameworks/libraries",
             "description": "This is anonymous"
           }
@@ -10407,8 +10379,7 @@
         "group": "CheckboxIndicator",
         "sample": {
           "props": {
-            "disabled": true,
-            "checked": true
+            "disabled": true
           }
         },
         "fingerprint": "6acf2eeb",
@@ -10501,8 +10472,6 @@
         "group": "CheckIcon",
         "sample": {
           "props": {
-            "color": "currentColor",
-            "opacity": 0.6,
             "size": 18
           }
         },
@@ -10522,9 +10491,7 @@
         "sample": {
           "props": {
             "children": "Text",
-            "color": "red",
-            "variant": "filled",
-            "defaultChecked": true
+            "variant": "filled"
           },
           "children": [
             "Forbidden"
@@ -10630,6 +10597,10 @@
           "children": [
             {
               "component": "Chip",
+              "props": {
+                "children": "Text",
+                "variant": "filled"
+              },
               "children": [
                 "Forbidden"
               ]
@@ -10747,10 +10718,6 @@
         "declaration": "lib/components/Code/Code.d.ts",
         "group": "Code",
         "sample": {
-          "props": {
-            "color": "blue.9",
-            "c": "white"
-          },
           "children": [
             "React.createElement()"
           ]
@@ -10838,9 +10805,7 @@
         "group": "Collapse",
         "sample": {
           "props": {
-            "expanded": true,
-            "transitionDuration": 1000,
-            "transitionTimingFunction": "linear"
+            "expanded": true
           }
         },
         "fingerprint": "4d2773cb",
@@ -10927,23 +10892,8 @@
         "group": "ColorInput",
         "sample": {
           "props": {
-            "maw": 320,
-            "mx": "auto",
             "placeholder": "Pick color",
-            "label": "Your favorite color",
-            "disallowInput": true,
-            "withPicker": false,
-            "withEyeDropper": false,
-            "swatches": [
-              "#2e2e2e",
-              "#868e96",
-              "#fa5252",
-              "#e64980",
-              "#be4bdb",
-              "#7950f2",
-              "#4c6ef5",
-              "#228be6"
-            ]
+            "label": "Your favorite color"
           }
         },
         "fingerprint": "86b6abab",
@@ -11081,9 +11031,7 @@
         "sample": {
           "props": {
             "format": "hex",
-            "value": "#fff",
-            "withPicker": false,
-            "fullWidth": true
+            "value": "#fff"
           }
         },
         "fingerprint": "6f6acbc3",
@@ -11383,6 +11331,9 @@
             },
             {
               "component": "ComboboxDropdownTarget",
+              "props": {
+                "children": "Text"
+              },
               "children": [
                 {
                   "component": "span",
@@ -11394,6 +11345,9 @@
             },
             {
               "component": "ComboboxEventsTarget",
+              "props": {
+                "children": "Text"
+              },
               "children": [
                 {
                   "component": "span",
@@ -12508,6 +12462,9 @@
           "children": [
             {
               "component": "ComboboxPopoverTarget",
+              "props": {
+                "children": "Text"
+              },
               "children": [
                 {
                   "component": "span",
@@ -12755,7 +12712,6 @@
         "group": "Container",
         "sample": {
           "props": {
-            "px": 0,
             "size": 480,
             "bg": "var(--mantine-color-blue-light)",
             "h": 50,
@@ -13399,22 +13355,7 @@
         "group": "Divider",
         "sample": {
           "props": {
-            "my": "xs",
-            "variant": "dashed",
-            "labelPosition": "center",
-            "label": {
-              "$element": [
-                {
-                  "component": "Box",
-                  "props": {
-                    "ml": 5
-                  },
-                  "children": [
-                    "Search results"
-                  ]
-                }
-              ]
-            }
+            "my": "xs"
           }
         },
         "fingerprint": "a9d0a7e2",
@@ -13503,10 +13444,7 @@
         "group": "Drawer",
         "sample": {
           "props": {
-            "opened": false,
-            "padding": "md",
-            "position": "top",
-            "withCloseButton": false
+            "opened": true
           },
           "children": [
             "Press escape to close the drawer"
@@ -14372,7 +14310,8 @@
         "sample": {
           "children": [
             {
-              "component": "EmptyStateIndicator"
+              "component": "EmptyStateIndicator",
+              "children": []
             },
             {
               "component": "EmptyStateTitle",
@@ -14927,10 +14866,7 @@
         "sample": {
           "props": {
             "label": "Label",
-            "placeholder": "FileInput",
-            "description": "Description",
-            "error": "Error",
-            "withAsterisk": true
+            "placeholder": "FileInput"
           }
         },
         "fingerprint": "29b70917",
@@ -15309,7 +15245,6 @@
               "top": 300,
               "left": 30
             },
-            "constrainToViewport": true,
             "constrainOffset": 30
           }
         },
@@ -15432,11 +15367,6 @@
         "declaration": "lib/components/Grid/Grid.d.ts",
         "group": "Grid",
         "sample": {
-          "props": {
-            "gap": "md",
-            "rowGap": "xl",
-            "columnGap": "sm"
-          },
           "children": [
             "1",
             "2",
@@ -15628,8 +15558,7 @@
         "group": "Group",
         "sample": {
           "props": {
-            "justify": "space-between",
-            "mb": "md"
+            "justify": "space-between"
           },
           "children": [
             {
@@ -15747,12 +15676,7 @@
         "sample": {
           "props": {
             "highlight": "mantine",
-            "children": "Text",
-            "component": "a",
-            "href": "https://mantine.dev",
-            "target": "_blank",
-            "fw": 500,
-            "c": "var(--mantine-color-anchor)"
+            "children": "Text"
           },
           "children": [
             "Mantine website"
@@ -15860,6 +15784,9 @@
             },
             {
               "component": "HoverCardTarget",
+              "props": {
+                "children": "Text"
+              },
               "children": [
                 {
                   "component": "span",
@@ -16154,8 +16081,6 @@
           "props": {
             "radius": "md",
             "h": 200,
-            "w": "auto",
-            "fit": "contain",
             "src": "https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/images/bg-9.png"
           }
         },
@@ -16247,10 +16172,7 @@
           "props": {
             "inline": true,
             "size": 16,
-            "offset": 7,
-            "position": "bottom-end",
-            "color": "red",
-            "withBorder": true
+            "color": "red"
           }
         },
         "fingerprint": "57fd2c26",
@@ -16365,17 +16287,6 @@
         "as": "function",
         "declaration": "lib/components/Input/Input.d.ts",
         "group": "Input",
-        "sample": {
-          "props": {
-            "component": "select",
-            "pointer": true,
-            "mt": "md"
-          },
-          "children": [
-            "1",
-            "2"
-          ]
-        },
         "fingerprint": "2c3ccfb4",
         "props": {
           "__bottomSection?": "75c961",
@@ -16490,9 +16401,7 @@
         "group": "InputBase",
         "sample": {
           "props": {
-            "label": "Custom native select",
-            "component": "select",
-            "mt": "md"
+            "component": "select"
           },
           "children": [
             "React",
@@ -17275,11 +17184,8 @@
         "group": "JsonInput",
         "sample": {
           "props": {
-            "maw": 400,
-            "mx": "auto",
             "label": "Your package.json",
             "placeholder": "Textarea will autosize to fit the content",
-            "validationError": "Invalid JSON",
             "formatOnBlur": true,
             "autosize": true,
             "minRows": 4
@@ -17555,7 +17461,8 @@
                           "props": {
                             "withPadding": true,
                             "listStyleType": "disc"
-                          }
+                          },
+                          "children": []
                         }
                       ]
                     },
@@ -18129,9 +18036,7 @@
         "group": "Marquee",
         "sample": {
           "props": {
-            "children": "Text",
-            "mah": 200,
-            "maw": 400
+            "children": "Text"
           }
         },
         "fingerprint": "d2b46e54",
@@ -18227,8 +18132,7 @@
           "props": {
             "mask": "#hhhhhh",
             "label": "Hex color",
-            "placeholder": "#______",
-            "tokens": {}
+            "placeholder": "#______"
           }
         },
         "fingerprint": "99d58bbf",
@@ -18363,6 +18267,9 @@
           "children": [
             {
               "component": "MenuContextMenu",
+              "props": {
+                "children": "Text"
+              },
               "children": [
                 {
                   "component": "span",
@@ -18449,6 +18356,9 @@
             },
             {
               "component": "MenuTarget",
+              "props": {
+                "children": "Text"
+              },
               "children": [
                 {
                   "component": "span",
@@ -18526,9 +18436,6 @@
         "declaration": "lib/components/Menubar/Menubar.d.ts",
         "group": "Menubar",
         "sample": {
-          "props": {
-            "trigger": "hover"
-          },
           "children": [
             {
               "component": "MenubarMenu",
@@ -18927,8 +18834,7 @@
         ],
         "sample": {
           "props": {
-            "checked": false,
-            "checkIcon": "✦"
+            "checked": false
           },
           "children": [
             "Archived"
@@ -19299,11 +19205,6 @@
           "MenuDropdown"
         ],
         "sample": {
-          "props": {
-            "component": "a",
-            "href": "https://mantine.dev",
-            "target": "_blank"
-          },
           "children": [
             "External link"
           ]
@@ -20141,7 +20042,7 @@
         "group": "Modal",
         "sample": {
           "props": {
-            "opened": false,
+            "opened": true,
             "title": "Please consider this",
             "transitionProps": {
               "transition": "rotate-left"
@@ -20278,7 +20179,10 @@
               "component": "ModalBaseCloseButton"
             },
             {
-              "component": "ModalBaseContent"
+              "component": "ModalBaseContent",
+              "props": {
+                "innerProps": "Text"
+              }
             }
           ]
         },
@@ -21612,18 +21516,8 @@
         "group": "MultiSelect",
         "sample": {
           "props": {
-            "dropdownOpened": true,
-            "withAsterisk": true,
             "label": "MultiSelect",
-            "description": "Description",
             "placeholder": "MultiSelect",
-            "defaultValue": [
-              "React",
-              "Angular"
-            ],
-            "comboboxProps": {
-              "hideDetached": false
-            },
             "data": [
               {
                 "group": "Frontend",
@@ -22190,7 +22084,6 @@
         "sample": {
           "props": {
             "thousandSeparator": ".",
-            "decimalSeparator": ",",
             "value": 1000000
           }
         },
@@ -22214,11 +22107,7 @@
         "sample": {
           "props": {
             "label": "Click buttons to change value",
-            "placeholder": "Click the buttons",
-            "step": 2,
-            "min": 10,
-            "max": 20,
-            "defaultValue": 15
+            "placeholder": "Click the buttons"
           }
         },
         "fingerprint": "805e9e0d",
@@ -22451,8 +22340,7 @@
                 }
               ]
             },
-            "gap": 4,
-            "collapseFrom": "start"
+            "gap": 4
           }
         },
         "fingerprint": "f9942db5",
@@ -22636,9 +22524,7 @@
         "group": "Pagination",
         "sample": {
           "props": {
-            "total": 10,
-            "autoContrast": true,
-            "color": "lime.4"
+            "total": 10
           }
         },
         "fingerprint": "26d3509a",
@@ -23361,7 +23247,11 @@
               "component": "PaginationDots"
             },
             {
-              "component": "PaginationFirst"
+              "component": "PaginationFirst",
+              "props": {
+                "component": "a",
+                "href": "#page-0"
+              }
             }
           ]
         },
@@ -23466,11 +23356,7 @@
           "props": {
             "shadow": "md",
             "p": "xl",
-            "h": 120,
-            "pos": "absolute",
-            "top": 0,
-            "left": 0,
-            "right": 0
+            "pos": "absolute"
           },
           "children": [
             "Dropdown"
@@ -23561,10 +23447,7 @@
         "sample": {
           "props": {
             "label": "Label",
-            "placeholder": "PasswordInput",
-            "description": "Description",
-            "error": "Error",
-            "withAsterisk": true
+            "placeholder": "PasswordInput"
           }
         },
         "fingerprint": "054d6e0a",
@@ -23688,9 +23571,13 @@
         "declaration": "lib/components/Pill/Pill.d.ts",
         "group": "Pill",
         "parents": [
+          "PillsInput",
           "PillGroup"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "PillsInput"
+        ],
         "sample": {
           "props": {
             "withRemoveButton": true
@@ -23784,6 +23671,10 @@
         "as": "exotic",
         "declaration": "lib/components/Pill/PillGroup/PillGroup.d.ts",
         "group": "PillGroup",
+        "parents": [
+          "PillsInput"
+        ],
+        "parentsFrom": "example",
         "sample": {
           "children": [
             {
@@ -23803,6 +23694,12 @@
               "children": [
                 "Svelte"
               ]
+            },
+            {
+              "component": "PillsInputField",
+              "props": {
+                "placeholder": "Enter tags"
+              }
             }
           ]
         },
@@ -23890,12 +23787,37 @@
         "group": "PillsInput",
         "sample": {
           "props": {
-            "label": "Enter items",
-            "loading": true
+            "label": "PillsInput"
           },
           "children": [
             {
-              "component": "PillsInputField"
+              "component": "PillGroup",
+              "children": [
+                {
+                  "component": "Pill",
+                  "children": [
+                    "React"
+                  ]
+                },
+                {
+                  "component": "Pill",
+                  "children": [
+                    "Vue"
+                  ]
+                },
+                {
+                  "component": "Pill",
+                  "children": [
+                    "Svelte"
+                  ]
+                },
+                {
+                  "component": "PillsInputField",
+                  "props": {
+                    "placeholder": "Enter tags"
+                  }
+                }
+              ]
             }
           ]
         },
@@ -24017,12 +23939,12 @@
         "declaration": "lib/components/PillsInput/PillsInputField/PillsInputField.d.ts",
         "group": "PillsInputField",
         "parents": [
-          "PillsInput"
+          "PillsInput",
+          "PillGroup"
         ],
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "value": "",
             "placeholder": "Search values"
           }
         },
@@ -24107,12 +24029,6 @@
         "as": "exotic",
         "declaration": "lib/components/PinInput/PinInput.d.ts",
         "group": "PinInput",
-        "sample": {
-          "props": {
-            "inputType": "tel",
-            "inputMode": "numeric"
-          }
-        },
         "fingerprint": "bdde5fff",
         "props": {
           "__size?": "0bf956",
@@ -24224,6 +24140,9 @@
           "children": [
             {
               "component": "PopoverContextMenu",
+              "props": {
+                "children": "Text"
+              },
               "children": [
                 {
                   "component": "span",
@@ -24241,6 +24160,9 @@
             },
             {
               "component": "PopoverTarget",
+              "props": {
+                "children": "Text"
+              },
               "children": [
                 {
                   "component": "span",
@@ -24473,11 +24395,7 @@
         "sample": {
           "props": {
             "value": 60,
-            "color": "orange",
-            "size": "xl",
-            "orientation": "vertical",
-            "h": 200,
-            "animated": true
+            "size": "xl"
           }
         },
         "fingerprint": "bb0a836b",
@@ -24896,10 +24814,7 @@
         "group": "Radio",
         "sample": {
           "props": {
-            "iconColor": "dark.8",
-            "color": "lime.4",
             "label": "Custom icon color",
-            "name": "check",
             "value": "check",
             "defaultChecked": true
           }
@@ -25002,7 +24917,11 @@
           },
           "children": [
             {
-              "component": "RadioIndicator"
+              "component": "RadioIndicator",
+              "props": {
+                "disabled": true,
+                "checked": true
+              }
             }
           ]
         },
@@ -25316,15 +25235,6 @@
         "group": "RangeSlider",
         "sample": {
           "props": {
-            "value": [
-              25,
-              75
-            ],
-            "min": 0,
-            "max": 100,
-            "step": 1,
-            "minRange": 10,
-            "restrictToMarks": true,
             "marks": [
               {
                 "value": 0,
@@ -25472,9 +25382,7 @@
         "group": "Rating",
         "sample": {
           "props": {
-            "value": 3.5,
-            "fractions": 2,
-            "readOnly": true
+            "fractions": 2
           }
         },
         "fingerprint": "b69476e7",
@@ -25605,9 +25513,6 @@
                 "color": "blue"
               }
             ],
-            "roundCaps": true,
-            "thickness": 6,
-            "size": 150,
             "label": {
               "$element": [
                 "% Completed"
@@ -25808,9 +25713,7 @@
           "props": {
             "w": 300,
             "h": 200,
-            "type": "always",
-            "scrollbarSize": 6,
-            "offsetScrollbars": "y"
+            "type": "always"
           }
         },
         "fingerprint": "cda16521",
@@ -26011,8 +25914,7 @@
         "group": "Scroller",
         "sample": {
           "props": {
-            "children": "Text",
-            "controlSize": "xl"
+            "children": "Text"
           }
         },
         "fingerprint": "e419fbc8",
@@ -26113,9 +26015,7 @@
               "Angular",
               "Vue",
               "Svelte"
-            ],
-            "color": "lime.4",
-            "autoContrast": true
+            ]
           }
         },
         "fingerprint": "72019b37",
@@ -26214,17 +26114,13 @@
         "sample": {
           "props": {
             "label": "Option can be deselected",
-            "description": "This is default behavior, click 'React' in the dropdown",
             "placeholder": "Pick value",
             "data": [
               "React",
               "Angular",
               "Vue",
               "Svelte"
-            ],
-            "defaultValue": "React",
-            "allowDeselect": true,
-            "mt": "md"
+            ]
           }
         },
         "fingerprint": "fd414e03",
@@ -26381,8 +26277,7 @@
             "value": 75,
             "label": "75%",
             "labelPosition": "center",
-            "size": 200,
-            "thickness": 12
+            "size": 200
           }
         },
         "fingerprint": "be852c59",
@@ -26476,7 +26371,6 @@
         "group": "SimpleGrid",
         "sample": {
           "props": {
-            "type": "container",
             "cols": {
               "base": 1,
               "300px": 2,
@@ -26669,14 +26563,9 @@
         "group": "Slider",
         "sample": {
           "props": {
-            "domain": [
-              0,
-              100
-            ],
             "min": 10,
             "max": 90,
             "defaultValue": 25,
-            "mb": 40,
             "marks": [
               {
                 "value": 10,
@@ -27356,8 +27245,7 @@
         "sample": {
           "props": {
             "children": "Text",
-            "active": 1,
-            "allowNextStepsSelect": false
+            "active": 1
           },
           "children": [
             {
@@ -27523,8 +27411,7 @@
         "sample": {
           "props": {
             "label": "First step",
-            "description": "Create an account",
-            "loading": true
+            "description": "Create an account"
           },
           "children": [
             "Step 1 content: Create an account"
@@ -27625,8 +27512,6 @@
         "group": "Switch",
         "sample": {
           "props": {
-            "checked": true,
-            "disabled": true,
             "value": "value",
             "label": "Disabled checked switch"
           }
@@ -27838,9 +27723,6 @@
         "declaration": "lib/components/Table/Table.d.ts",
         "group": "Table",
         "sample": {
-          "props": {
-            "id": "complex-table"
-          },
           "children": [
             {
               "component": "TableThead",
@@ -28245,8 +28127,7 @@
         "sample": {
           "props": {
             "minWidth": 760,
-            "maxHeight": 400,
-            "scrollAreaProps": {}
+            "maxHeight": 400
           },
           "children": [
             {
@@ -28742,9 +28623,6 @@
           "TableThead"
         ],
         "sample": {
-          "props": {
-            "w": 160
-          },
           "children": [
             "Epic name"
           ]
@@ -29069,8 +28947,7 @@
         "group": "Tabs",
         "sample": {
           "props": {
-            "defaultValue": "chat",
-            "allowTabDeactivation": true
+            "defaultValue": "chat"
           },
           "children": [
             {
@@ -29461,8 +29338,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "value": "second",
-            "color": "blue"
+            "value": "second"
           },
           "children": [
             "Blue tab"
@@ -29556,18 +29432,12 @@
         "group": "TagsInput",
         "sample": {
           "props": {
-            "dropdownOpened": true,
-            "withAsterisk": true,
             "label": "TagsInput",
-            "description": "Description",
             "placeholder": "TagsInput",
             "defaultValue": [
               "First",
               "Second"
             ],
-            "comboboxProps": {
-              "hideDetached": false
-            },
             "data": [
               {
                 "group": "Frontend",
@@ -29855,9 +29725,7 @@
             "label": "Autosize with 4 rows max",
             "placeholder": "Autosize with 4 rows max",
             "autosize": true,
-            "minRows": 2,
-            "maxRows": 4,
-            "mt": "md"
+            "minRows": 2
           }
         },
         "fingerprint": "5491bf09",
@@ -29986,10 +29854,7 @@
           "props": {
             "mt": "md",
             "placeholder": "Without error styles on input",
-            "label": "Without error styles on input",
-            "error": "Something went wrong",
-            "withErrorStyles": false,
-            "rightSectionPointerEvents": "none"
+            "label": "Without error styles on input"
           }
         },
         "fingerprint": "7b9ec01d",
@@ -30110,9 +29975,7 @@
         "sample": {
           "props": {
             "variant": "gradient",
-            "size": "xl",
-            "aria-label": "Gradient action icon",
-            "gradient": {}
+            "size": "xl"
           }
         },
         "fingerprint": "c0432937",
@@ -30689,7 +30552,6 @@
         "sample": {
           "props": {
             "children": "Text",
-            "autoContrast": true,
             "variant": "filled",
             "color": "lime.4"
           },
@@ -30708,21 +30570,24 @@
                   "props": {
                     "value": "bold",
                     "aria-label": "Bold"
-                  }
+                  },
+                  "children": []
                 },
                 {
                   "component": "ToolbarToggleItem",
                   "props": {
                     "value": "italic",
                     "aria-label": "Italic"
-                  }
+                  },
+                  "children": []
                 },
                 {
                   "component": "ToolbarToggleItem",
                   "props": {
                     "value": "underline",
                     "aria-label": "Underline"
-                  }
+                  },
+                  "children": []
                 }
               ]
             },
@@ -30741,21 +30606,24 @@
                   "props": {
                     "value": "left",
                     "aria-label": "Align left"
-                  }
+                  },
+                  "children": []
                 },
                 {
                   "component": "ToolbarToggleItem",
                   "props": {
                     "value": "center",
                     "aria-label": "Align center"
-                  }
+                  },
+                  "children": []
                 },
                 {
                   "component": "ToolbarToggleItem",
                   "props": {
                     "value": "right",
                     "aria-label": "Align right"
-                  }
+                  },
+                  "children": []
                 }
               ]
             }
@@ -31111,8 +30979,7 @@
           "props": {
             "type": "single",
             "children": "Text",
-            "defaultValue": "left",
-            "disabled": true
+            "defaultValue": "left"
           },
           "children": [
             {
@@ -31120,21 +30987,24 @@
               "props": {
                 "value": "left",
                 "aria-label": "Align left"
-              }
+              },
+              "children": []
             },
             {
               "component": "ToolbarToggleItem",
               "props": {
                 "value": "center",
                 "aria-label": "Align center"
-              }
+              },
+              "children": []
             },
             {
               "component": "ToolbarToggleItem",
               "props": {
                 "value": "right",
                 "aria-label": "Align right"
-              }
+              },
+              "children": []
             }
           ]
         },
@@ -31229,8 +31099,7 @@
         "sample": {
           "props": {
             "value": "italic",
-            "aria-label": "Italic",
-            "disabled": true
+            "aria-label": "Italic"
           }
         },
         "fingerprint": "e84756fe",
@@ -31317,6 +31186,9 @@
           "children": [
             {
               "component": "TooltipFloating",
+              "props": {
+                "label": "Text"
+              },
               "children": [
                 {
                   "component": "span",
@@ -32119,8 +31991,7 @@
           "props": {
             "target": "#complex-table",
             "title": "Activity feed",
-            "position": "top",
-            "spotlightPadding": 16
+            "position": "top"
           },
           "children": [
             "The activity table shows recent actions by your team members"
@@ -32395,10 +32266,18 @@
         "sample": {
           "props": {
             "data": [],
-            "classNames": {},
             "withLines": true,
-            "selectOnClick": true,
-            "clearSelectionOnOutsideClick": true
+            "renderNode": {
+              "$render": [
+                {
+                  "component": "Group",
+                  "props": {
+                    "search": ""
+                  }
+                }
+              ],
+              "spread": true
+            }
           }
         },
         "fingerprint": "f0ca77cd",
@@ -32498,14 +32377,8 @@
         "sample": {
           "props": {
             "data": [],
-            "mode": "checkbox",
-            "checkedStrategy": "parent",
             "label": "Categories",
             "placeholder": "Pick categories",
-            "defaultValue": [
-              "phones",
-              "headphones"
-            ],
             "defaultExpandAll": true
           }
         },
@@ -32782,14 +32655,6 @@
         "as": "function",
         "declaration": "lib/components/UnstyledButton/UnstyledButton.d.ts",
         "group": "UnstyledButton",
-        "sample": {
-          "props": {
-            "data-list-item": true,
-            "display": "block",
-            "w": "100%",
-            "p": 5
-          }
-        },
         "fingerprint": "f2c7c383",
         "props": {
           "__size?": "0bf956",

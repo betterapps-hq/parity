@@ -369,6 +369,57 @@ describe("families", () => {
     expect(familyOf("Dialog.Title")).toBe("Dialog")
     expect(familyOf("DropdownMenuSubTrigger")).toBe("Dropdown")
     expect(familyOf("Select")).toBe("Select")
+    // A plural is its singular's family; a word that ends in "ss" isn't a plural.
+    expect(familyOf("Tabs")).toBe(familyOf("TabList"))
+    expect(familyOf("ProgressBar")).toBe("Progress")
+  })
+
+  it("takes in the parts the examples only place inside a family, so its sample keeps them", () => {
+    const table = `<Table><TableHeader><Column>Name</Column></TableHeader><TableBody><Row><Cell>Ada</Cell></Row></TableBody></Table>`
+    const files = ["a", "b"].map((path) => ({ path: `${path}.tsx`, text: table }))
+    const uses = readExamples(files, ["Table", "TableHeader", "TableBody", "Column", "Row", "Cell"])
+    expect(uses.get("Table")?.sample).toEqual({
+      children: [
+        { component: "TableHeader", children: [{ component: "Column", children: ["Name"] }] },
+        {
+          component: "TableBody",
+          children: [{ component: "Row", children: [{ component: "Cell", children: ["Ada"] }] }]
+        }
+      ]
+    })
+  })
+
+  it("leaves out a sample prop only one of a part's many uses sets", () => {
+    const cells = [
+      `<Cell colSpan={2}>Wide cell text</Cell>`,
+      ...[1, 2, 3, 4].map((n) => `<Cell id="c${n}">Cell</Cell>`)
+    ]
+    const files = cells.map((text, index) => ({ path: `${index}.tsx`, text: `<Row>${text}</Row>` }))
+    const uses = readExamples(files, ["Row", "Cell"])
+    expect(uses.get("Cell")?.sample).toEqual({ children: ["Wide cell text"] })
+  })
+
+  it("places the library's part where the example places its own wrapper of it", () => {
+    const text = `
+      const CustomTab = (props) => <Tab {...props} />
+      function Item({ title }) { return <TreeItem textValue={title}><TreeItemContent>Leaf</TreeItemContent></TreeItem> }
+      export const Example = () => (
+        <Tabs><TabList><CustomTab id="a">Alpha</CustomTab></TabList><Tree><Item title="Docs" /></Tree></Tabs>
+      )`
+    const uses = readExamples(
+      [{ path: "a.tsx", text }],
+      ["Tabs", "TabList", "Tab", "Tree", "TreeItem", "TreeItemContent"]
+    )
+    expect(uses.get("Tab")?.paths).toEqual([["TabList", "Tabs"]])
+    expect(uses.get("Tab")?.topLevel).toBe(0)
+    expect(uses.get("TabList")?.sample).toEqual({
+      children: [{ component: "Tab", props: { id: "a" }, children: ["Alpha"] }]
+    })
+    // One that doesn't hand its props on is sampled from its own element.
+    expect(uses.get("TreeItem")?.paths).toEqual([["Tree", "Tabs"]])
+    expect(uses.get("Tree")?.sample).toEqual({
+      children: [{ component: "TreeItem", children: [{ component: "TreeItemContent", children: ["Leaf"] }] }]
+    })
   })
 
   it("turns other families' components in a sample into nothing, keeping text", () => {

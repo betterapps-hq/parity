@@ -322,6 +322,7 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
         group: component.group,
         ...(relation?.parents ? { parents: relation.parents, parentsFrom: relation.parentsFrom ?? "prefix" } : {}),
         ...(relation?.optionalParents ? { optionalParents: relation.optionalParents } : {}),
+        ...(relation?.parentParts ? { parentParts: true } : {}),
         ...(relation?.visual === false ? { visual: false } : {}),
         ...(internal.has(component.name) ? { internal: true } : {}),
         ...(relation?.sample ? { sample: relation.sample } : {}),

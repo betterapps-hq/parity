@@ -262,6 +262,10 @@ export interface ExampleUse {
    * library hands the app, so a person doesn't place it.
    */
   fromHook: boolean
+  /** The family the examples place it in when that isn't its name's (`Table` for React Aria's `Row`). */
+  family?: string
+  /** Props the sample's use set that only it set, left out of the sample, for a part that can't draw without them. */
+  rare?: Record<string, unknown>
 }
 
 /**
@@ -275,32 +279,85 @@ export function readExamples(files: ExampleFile[], names: string[]): Map<string,
   const flat = new Map(names.map((name) => [name.replaceAll(".", ""), name]))
   const resolve = (tag: string) => (known.has(tag) ? tag : flat.get(tag.replaceAll(".", "")))
   const uses = new Map<string, ExampleUse>()
-  for (const file of files) {
-    // A quick look first: most files in a large repository use none of these components.
-    if (!names.some((name) => file.text.includes(name.split(".").at(-1)!))) continue
-    const source = ts.createSourceFile(file.path, file.text, ts.ScriptTarget.Latest, false, ts.ScriptKind.TSX)
-    const context: Context = { source, resolve, scope: declarations(source), env: new Map() }
-    const placedHere = new Set<string>()
-    const hooked = hookResults(source)
-    const drawnFromHook = mappedComponents(source, hooked, resolve)
-    context.hooked = hooked
-    context.hookItem = hookItem(source, hooked, context)
-    const drawnWith = drawnProps(source, drawnFromHook, context)
-    const visit = (node: ts.Node, around: string[], mapped: boolean, env: Map<string, unknown>) => {
-      let here = around
-      if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
-        const opening = ts.isJsxElement(node) ? node.openingElement : node
-        const name = resolve(opening.tagName.getText(source))
-        if (name) {
-          const use: ExampleUse = uses.get(name) ?? {
-            count: 0,
-            topLevel: 0,
-            parents: new Map(),
-            paths: [],
-            usePaths: [],
-            sampleSize: -1,
-            fromHook: true
-          }
+  const sources = new Map<ExampleFile, ts.SourceFile>()
+  /** How many uses of each part set each prop. */
+  const setBy = new Map<string, Map<string, number>>()
+  let kin = new Map<string, string>()
+  // Twice: where each part is placed first, then its samples, which keep the parts of its family, and a family takes in
+  // the parts the examples only ever place inside it (a table's `Row`, `Cell` and `Column`).
+  for (const sampling of [false, true]) {
+    if (sampling) kin = kinOf(uses)
+    const family = (name: string) => kin.get(name) ?? familyOf(name)
+    for (const file of files) {
+      // A quick look first: most files in a large repository use none of these components.
+      if (!sampling && !names.some((name) => file.text.includes(name.split(".").at(-1)!))) continue
+      if (sampling && !sources.has(file)) continue
+      const source =
+        sources.get(file) ?? ts.createSourceFile(file.path, file.text, ts.ScriptTarget.Latest, false, ts.ScriptKind.TSX)
+      sources.set(file, source)
+      readSource(source, uses, resolve, sampling ? family : undefined, setBy)
+    }
+  }
+  // A part's sample props are its defaults wherever it's drawn, so one that only a single use, or under a quarter of
+  // them, sets (React Aria's `colSpan` on two of a dozen `Cell`s) is left out.
+  for (const [name, family] of kin) {
+    const use = uses.get(name)
+    if (use) use.family = family
+  }
+  for (const [name, use] of uses) {
+    const props = use.sample?.props
+    if (!props || use.count < 5) continue
+    for (const prop of Object.keys(props)) {
+      const set = setBy.get(name)?.get(prop) ?? 0
+      if (set >= 2 && set * 4 >= use.usePaths.length) continue
+      use.rare = { ...use.rare, [prop]: props[prop] }
+      delete props[prop]
+    }
+    if (Object.keys(props).length === 0) delete use.sample!.props
+  }
+  return uses
+}
+
+/**
+ * Reads one file's uses: where each part is placed, or with `family`, only the samples, each keeping its own family's
+ * parts.
+ */
+function readSource(
+  source: ts.SourceFile,
+  uses: Map<string, ExampleUse>,
+  base: (tag: string) => string | undefined,
+  family?: (name: string) => string,
+  setBy?: Map<string, Map<string, number>>
+): void {
+  const wrapping = wrappers(source, base)
+  // The example's own wrapper of a part (`<CustomTab>`) is that part where the example places it.
+  const resolve = (tag: string) => base(tag) ?? wrapping.get(tag)?.name
+  const wrapped = new Set([...wrapping.values()].map((wrapper) => wrapper.root))
+  const context: Context = { source, resolve, scope: declarations(source), env: new Map(), wrapping }
+  const placedHere = new Set<string>()
+  const hooked = hookResults(source)
+  const drawnFromHook = mappedComponents(source, hooked, base)
+  context.hooked = hooked
+  context.hookItem = hookItem(source, hooked, context)
+  const drawnWith = drawnProps(source, drawnFromHook, context)
+  const visit = (node: ts.Node, around: string[], mapped: boolean, env: Map<string, unknown>) => {
+    let here = around
+    if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
+      const opening = ts.isJsxElement(node) ? node.openingElement : node
+      const tag = opening.tagName.getText(source)
+      const name = resolve(tag)
+      if (name) {
+        const use: ExampleUse = uses.get(name) ?? {
+          count: 0,
+          topLevel: 0,
+          parents: new Map(),
+          paths: [],
+          usePaths: [],
+          sampleSize: -1,
+          fromHook: true
+        }
+        // A wrapper's own element is placed wherever the wrapper is, which its uses count.
+        if (!family && !wrapped.has(node)) {
           if (!mapped) use.fromHook = false
           // Each way a file places a component counts once, so one long demo can't outweigh ten short ones.
           const path = [...new Set(around)].filter((parent) => parent !== name)
@@ -314,42 +371,128 @@ export function readExamples(files: ExampleFile[], names: string[]): Map<string,
             else use.topLevel++
             if (use.paths.length < 300) use.paths.push(path)
           }
-          const sample = familySample(sampleOf(node, { ...context, env }, 0), familyOf(name))
+        }
+        if (family) {
+          const sample = familySample(usedSample(node, { ...context, env }, 0), family(name), family)
+          const counts = setBy?.get(name) ?? new Map<string, number>()
+          for (const prop of Object.keys(sample.props ?? {})) counts.set(prop, (counts.get(prop) ?? 0) + 1)
+          setBy?.set(name, counts)
           const size = sampleWeight(sample)
           if (size > use.sampleSize) {
             use.sample = sample
             use.sampleSize = size
           }
-          uses.set(name, use)
-          here = [name, ...around]
         }
+        uses.set(name, use)
+        here = [name, ...around]
       }
-      const declared = declaredName(node)
-      const inList = mapped || hookMapped(node, hooked, source) || drawnFromHook.has(declared ?? "")
-      // A hook's list items are the sample item inside the callback that maps them, and in the example's own
-      // component they're drawn with.
-      let inner = env
-      const callback = mapCallback(node)
-      const mappedList = callback && ((node as ts.CallExpression).expression as ts.PropertyAccessExpression).expression
-      const listed = mappedList ? listOf(mappedList, { ...context, env }) : undefined
-      if (callback && Array.isArray(listed) && listed[0] !== undefined) {
-        // A list the file spells out: its first item, for the parts drawn for each.
-        inner = new Map(env)
-        bind(callback.parameters[0]?.name, listed[0], inner)
-      } else if (callback && hookMapped(node, hooked, source) && context.hookItem) {
-        inner = new Map(env)
-        bind(callback.parameters[0]?.name, itemFor(callback, context.hookItem, source), inner)
-      } else if (declared && drawnWith.has(declared)) {
-        inner = new Map(env)
-        bind(firstParameter(node), drawnWith.get(declared), inner)
-      }
-      // JSX passed in a prop (`content={<ChartTooltipContent />}`) is rendered wherever that component puts it, so
-      // it isn't placed in the element whose prop it is.
-      ts.forEachChild(node, (child) => visit(child, ts.isJsxAttributes(child) ? [] : here, inList, inner))
     }
-    visit(source, [], false, new Map())
+    const declared = declaredName(node)
+    const inList = mapped || hookMapped(node, hooked, source) || drawnFromHook.has(declared ?? "")
+    // A hook's list items are the sample item inside the callback that maps them, and in the example's own
+    // component they're drawn with.
+    let inner = env
+    const callback = mapCallback(node)
+    const mappedList = callback && ((node as ts.CallExpression).expression as ts.PropertyAccessExpression).expression
+    const listed = mappedList ? listOf(mappedList, { ...context, env }) : undefined
+    if (callback && Array.isArray(listed) && listed[0] !== undefined) {
+      // A list the file spells out: its first item, for the parts drawn for each.
+      inner = new Map(env)
+      bind(callback.parameters[0]?.name, listed[0], inner)
+    } else if (callback && hookMapped(node, hooked, source) && context.hookItem) {
+      inner = new Map(env)
+      bind(callback.parameters[0]?.name, itemFor(callback, context.hookItem, source), inner)
+    } else if (declared && drawnWith.has(declared)) {
+      inner = new Map(env)
+      bind(firstParameter(node), drawnWith.get(declared), inner)
+    }
+    // JSX passed in a prop (`content={<ChartTooltipContent />}`) is rendered wherever that component puts it, so
+    // it isn't placed in the element whose prop it is.
+    ts.forEachChild(node, (child) => visit(child, ts.isJsxAttributes(child) ? [] : here, inList, inner))
   }
-  return uses
+  visit(source, [], false, new Map())
+}
+
+/**
+ * The family each part joins beyond its name's: one the examples nearly always place, and place directly inside one
+ * family, belongs to it (`Row` and `Cell` to `Table`), so a table's sample keeps its rows and columns. Not when its own
+ * family is usually around it too, or into a layout box that holds every family.
+ */
+function kinOf(uses: Map<string, ExampleUse>): Map<string, string> {
+  const kin = new Map<string, string>()
+  // A layout box (`Group`, `Stack`) holds every family, so it takes in none.
+  const holds = new Map<string, Set<string>>()
+  for (const [name, use] of uses) {
+    for (const parent of use.parents.keys()) {
+      if (familyOf(parent) === familyOf(name)) continue
+      holds.set(familyOf(parent), (holds.get(familyOf(parent)) ?? new Set()).add(familyOf(name)))
+    }
+  }
+  const generic = (family: string) => (holds.get(family)?.size ?? 0) > 8
+  for (let round = 0; round < 4; round++) {
+    let changed = false
+    for (const [name, use] of uses) {
+      if (use.count < 2 || use.topLevel * 10 > use.count) continue
+      // One whose own family is around it (`Toggle.Indicator` in a `Button` in `Toggle.Root`) stays in its own.
+      const own = use.paths.filter((path) => path.some((parent) => familyOf(parent) === familyOf(name))).length
+      if (own * 2 >= use.paths.length) continue
+      const families = new Map<string, number>()
+      let placed = 0
+      for (const [parent, count] of use.parents) {
+        const family = kin.get(parent) ?? familyOf(parent)
+        families.set(family, (families.get(family) ?? 0) + count)
+        placed += count
+      }
+      const [family, count] = [...families].sort((a, b) => b[1] - a[1])[0] ?? []
+      if (!family || !count || count < placed * 0.75 || family === familyOf(name) || kin.get(name) === family) continue
+      if (generic(family)) continue
+      kin.set(name, family)
+      changed = true
+    }
+    if (!changed) break
+  }
+  return kin
+}
+
+/**
+ * The example's own components that return one of the library's parts and no other element (`const CustomTab = (props)
+ * => <Tab {...props} />`), each with the part, its element, and whether it hands its props on. Only those the file places.
+ */
+function wrappers(
+  source: ts.SourceFile,
+  resolve: (tag: string) => string | undefined
+): Map<string, { name: string; root: ts.Node; spread: boolean }> {
+  const found = new Map<string, { name: string; root: ts.Node; spread: boolean }>()
+  const tags = new Set<string>()
+  const visit = (node: ts.Node) => {
+    if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) tags.add(node.tagName.getText(source))
+    const declared = declaredName(node)
+    if (declared && !resolve(declared)) {
+      let fn: ts.Node | undefined = ts.isVariableDeclaration(node) ? node.initializer && unwrap(node.initializer) : node
+      if (fn && ts.isCallExpression(fn)) fn = fn.arguments.find((argument) => ts.isFunctionLike(argument))
+      const body =
+        fn && (ts.isArrowFunction(fn) || ts.isFunctionExpression(fn) || ts.isFunctionDeclaration(fn))
+          ? returned(fn)
+          : undefined
+      // A fragment counts when the part is its only element (`<><Row {...props} />{loading && <Loader />}</>`).
+      const elements =
+        body && ts.isJsxFragment(body)
+          ? body.children.filter((child) => ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child))
+          : []
+      const root = elements.length === 1 ? elements[0] : body
+      const opening =
+        root && (ts.isJsxElement(root) ? root.openingElement : ts.isJsxSelfClosingElement(root) ? root : undefined)
+      const name = opening && resolve(opening.tagName.getText(source))
+      if (root && opening && name) {
+        const spread = opening.attributes.properties.some(ts.isJsxSpreadAttribute)
+        found.set(declared, { name, root, spread })
+      }
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(source)
+  for (const declared of found.keys()) if (!tags.has(declared)) found.delete(declared)
+  return found
 }
 
 interface Context {
@@ -362,6 +505,8 @@ interface Context {
   /** Names bound to what a library hook returns, and a sample item for the lists among them. */
   hooked?: Set<string>
   hookItem?: Record<string, unknown>
+  /** The example's own wrappers of the library's parts, by name. */
+  wrapping?: Map<string, { name: string; root: ts.Node; spread: boolean }>
 }
 
 function sampleOf(node: ts.JsxElement | ts.JsxSelfClosingElement, context: Context, depth: number): ComponentSample {
@@ -387,6 +532,26 @@ function sampleOf(node: ts.JsxElement | ts.JsxSelfClosingElement, context: Conte
   return {
     ...(Object.keys(props).length > 0 ? { props } : {}),
     ...(children.length > 0 ? { children } : {})
+  }
+}
+
+/**
+ * An element's sample. The example's own wrapper that doesn't hand its props on (`<Item title="Docs">`) shows its own
+ * element's props, and the children it's given when that element has none of its own.
+ */
+function usedSample(
+  element: ts.JsxElement | ts.JsxSelfClosingElement,
+  context: Context,
+  depth: number
+): ComponentSample {
+  const tag = (ts.isJsxElement(element) ? element.openingElement : element).tagName.getText(context.source)
+  const wrapper = context.wrapping?.get(tag)
+  const here = sampleOf(element, context, depth)
+  if (!wrapper || wrapper.spread) return here
+  const own = sampleOf(wrapper.root as ts.JsxElement | ts.JsxSelfClosingElement, context, depth)
+  return {
+    ...(own.props ? { props: own.props } : {}),
+    ...((own.children ?? here.children) ? { children: own.children ?? here.children } : {})
   }
 }
 
@@ -417,8 +582,15 @@ function pushElement(
 ): void {
   const tag = (ts.isJsxElement(element) ? element.openingElement : element).tagName.getText(context.source)
   const name = context.resolve(tag)
-  if (name) children.push({ component: name, ...sampleOf(element, context, depth + 1) })
-  else {
+  if (name) {
+    const sample = usedSample(element, context, depth + 1)
+    // One the example gave an element this can't show (the demo's own checkbox) still isn't bare, so it doesn't take
+    // its own sample's props where it's inserted. Text it can't read is still shown with its own sample's.
+    const filled =
+      ts.isJsxElement(element) &&
+      element.children.some((child) => ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child))
+    children.push({ component: name, ...sample, ...(filled && !sample.children ? { children: [] } : {}) })
+  } else {
     // An HTML element or the example's own component: its text still says what goes there.
     const text = textIn(element)
     if (text) children.push(text)
@@ -510,7 +682,10 @@ function renderOf(
 }
 
 /** The JSX a callback returns, from an expression body or its first `return`. */
-function returned(callback: ts.ArrowFunction | ts.FunctionExpression): ts.Expression | undefined {
+function returned(
+  callback: ts.ArrowFunction | ts.FunctionExpression | ts.FunctionDeclaration
+): ts.Expression | undefined {
+  if (!callback.body) return undefined
   if (!ts.isBlock(callback.body)) return unwrap(callback.body)
   const found = callback.body.statements.find(ts.isReturnStatement)
   return found?.expression ? unwrap(found.expression) : undefined
@@ -930,7 +1105,10 @@ function sampleWeight(sample: ComponentSample): number {
 /** A component's family: its namespace (`Dialog` for `Dialog.Title`), else the first word of its name. */
 export function familyOf(name: string): string {
   const dot = name.lastIndexOf(".")
-  return dot === -1 ? (/^[A-Z][a-z0-9]*/.exec(name)?.[0] ?? name) : name.slice(0, dot)
+  if (dot !== -1) return name.slice(0, dot)
+  // A plural is its singular's family (`Tabs` with `TabList` and `Tab`).
+  const word = /^[A-Z][a-z0-9]*/.exec(name)?.[0] ?? name
+  return /[^s]s$/.test(word) ? word.slice(0, -1) : word
 }
 
 /**
@@ -1008,7 +1186,11 @@ export function exampleLevels(
 }
 
 /** A sample with only its own family's components in it, as text where others were. */
-export function familySample(sample: ComponentSample, family: string): ComponentSample {
+export function familySample(
+  sample: ComponentSample,
+  family: string,
+  familyIn: (name: string) => string = familyOf
+): ComponentSample {
   const keep = (child: SampleChild): SampleChild | undefined =>
     typeof child === "string"
       ? child
@@ -1017,7 +1199,7 @@ export function familySample(sample: ComponentSample, family: string): Component
             const inner = child.$render.flatMap((item) => keep(item) ?? [])
             return inner.length > 0 ? { ...child, $render: inner } : undefined
           })()
-        : familyOf(child.component) === family
+        : familyIn(child.component) === family
           ? { ...child, ...(child.children ? { children: child.children.flatMap((inner) => keep(inner) ?? []) } : {}) }
           : undefined
   const children = (sample.children ?? []).flatMap((child) => keep(child) ?? [])

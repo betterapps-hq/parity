@@ -88,6 +88,8 @@ export interface ComponentSource {
   parents?: string[]
   /** Those of `parents` left out when the ones outside them are already there, by component id. */
   optionalParents?: string[]
+  /** Its parents are inserted with the other parts their samples hold, which it needs to draw. */
+  parentParts?: true
   /** A part its library renders inside its own components, listed apart in the Components panel. */
   internal?: true
   /** What a library component is inserted with: sample props, and children by component id or as text. */

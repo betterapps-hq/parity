@@ -69,6 +69,66 @@ describe("inserting a library part", () => {
     })
   })
 
+  it("brings the parts a part needs around it, in place of the first like it", () => {
+    const table = {
+      "acme/Table": source({
+        sample: {
+          children: [
+            { component: "acme/TableHeader", children: [{ component: "acme/Column", children: ["Name"] }] },
+            { component: "acme/TableBody" }
+          ]
+        }
+      }),
+      "acme/TableBody": source({ parents: ["acme/Table"], sample: { children: ["Rows"] } }),
+      "acme/Row": source({ parents: ["acme/Table", "acme/TableBody"], parentParts: true })
+    }
+    const row: DesignNode = { type: "component", id: "r", component: "acme/Row" }
+    expect(shape(withLibraryContext(row, table, [], new Set(["r"])))).toEqual({
+      Table: [{ TableHeader: [{ Column: ["Name"] }] }, { TableBody: ["Row"] }]
+    })
+    // Without the flag, only the part.
+    const { parentParts: _, ...plain } = table["acme/Row"]
+    expect(shape(withLibraryContext(row, { ...table, "acme/Row": plain }, [], new Set(["r"])))).toEqual({
+      Table: [{ TableBody: ["Row"] }]
+    })
+  })
+
+  it("puts a part that needs what's around it into the outermost parent's whole sample", () => {
+    const table = {
+      "acme/Table": source({
+        sample: {
+          children: [
+            { component: "acme/TableHeader", children: [{ component: "acme/Column", children: ["A"] }] },
+            {
+              component: "acme/TableBody",
+              children: [
+                { component: "acme/Row", children: [{ component: "acme/Cell", children: ["Ada"] }, "Lovelace"] }
+              ]
+            }
+          ]
+        }
+      }),
+      "acme/Cell": source({ parents: ["acme/Table", "acme/TableBody", "acme/Row"], parentParts: true })
+    }
+    const cell: DesignNode = { type: "component", id: "c", component: "acme/Cell" }
+    expect(shape(withLibraryContext(cell, table, [], new Set(["c"])))).toEqual({
+      Table: [{ TableHeader: [{ Column: ["A"] }] }, { TableBody: [{ Row: ["Cell", "Lovelace"] }] }]
+    })
+  })
+
+  it("takes a sample's spelled-out children as written, and gives only bare ones their own sample's props", () => {
+    const table = {
+      "acme/Row": source({
+        sample: { children: [{ component: "acme/Cell", children: ["Ada"] }, { component: "acme/Cell" }] }
+      }),
+      "acme/Cell": source({ sample: { props: { colSpan: 2 }, children: ["Wide"] } })
+    }
+    const row: DesignNode = { type: "component", id: "r", component: "acme/Row" }
+    const placed = withLibraryContext(row, table, [], new Set(["r"]))
+    const cells = placed.type === "component" ? (placed.slots?.children ?? []) : []
+    expect(cells.map((cell) => (cell.type === "component" ? cell.props : null))).toEqual([undefined, { colSpan: 2 }])
+  })
+
   it("keeps render functions as $render slots, and gives a part to a parent that calls its children", () => {
     const dates = {
       "acme/DateInput": source({

@@ -183,6 +183,7 @@ export async function findLibraries(
           ...(component.optionalParents
             ? { optionalParents: component.optionalParents.map((parent) => `${definition.id}/${parent}`) }
             : {}),
+          ...(component.parentParts ? { parentParts: true as const } : {}),
           ...(component.sample ? { sample: sampleIds(component.sample, definition.id) } : {})
         }
       }

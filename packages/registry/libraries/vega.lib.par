@@ -1304,7 +1304,6 @@
         "group": "Accordion",
         "sample": {
           "props": {
-            "multiple": true,
             "defaultValue": [
               "notifications"
             ]
@@ -1421,8 +1420,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "value": "item-2",
-            "disabled": true
+            "value": "item-2"
           },
           "children": [
             {
@@ -1559,7 +1557,8 @@
                   "component": "AlertDialogHeader",
                   "children": [
                     {
-                      "component": "AlertDialogMedia"
+                      "component": "AlertDialogMedia",
+                      "children": []
                     },
                     {
                       "component": "AlertDialogTitle",
@@ -1629,9 +1628,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "variant": "destructive"
-          },
           "children": [
             "Delete"
           ]
@@ -1658,9 +1654,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "variant": "outline"
-          },
           "children": [
             "Cancel"
           ]
@@ -1692,7 +1685,8 @@
               "component": "AlertDialogHeader",
               "children": [
                 {
-                  "component": "AlertDialogMedia"
+                  "component": "AlertDialogMedia",
+                  "children": []
                 },
                 {
                   "component": "AlertDialogTitle",
@@ -1816,7 +1810,8 @@
         "sample": {
           "children": [
             {
-              "component": "AlertDialogMedia"
+              "component": "AlertDialogMedia",
+              "children": []
             },
             {
               "component": "AlertDialogTitle",
@@ -1976,15 +1971,13 @@
         "declaration": "dist/ui/attachment.d.ts",
         "group": "Attachment",
         "sample": {
-          "props": {
-            "orientation": "vertical"
-          },
           "children": [
             {
               "component": "AttachmentMedia",
               "props": {
                 "variant": "image"
-              }
+              },
+              "children": []
             },
             {
               "component": "AttachmentContent",
@@ -2010,7 +2003,8 @@
                   "component": "AttachmentAction",
                   "props": {
                     "aria-label": "Remove workspace.png"
-                  }
+                  },
+                  "children": []
                 }
               ]
             },
@@ -2037,11 +2031,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "type": "button",
-            "title": "Download",
-            "aria-label": "Download",
-            "size": "icon-sm",
-            "variant": "secondary"
+            "aria-label": "Download"
           }
         },
         "fingerprint": "a2d002f1",
@@ -2073,7 +2063,8 @@
                 "aria-label": "Download",
                 "size": "icon-sm",
                 "variant": "secondary"
-              }
+              },
+              "children": []
             }
           ]
         },
@@ -2137,7 +2128,8 @@
                   "component": "AttachmentMedia",
                   "props": {
                     "variant": "image"
-                  }
+                  },
+                  "children": []
                 },
                 {
                   "component": "AttachmentContent",
@@ -2163,7 +2155,8 @@
                       "component": "AttachmentAction",
                       "props": {
                         "aria-label": "Remove workspace.png"
-                      }
+                      },
+                      "children": []
                     }
                   ]
                 },
@@ -2182,7 +2175,8 @@
                   "component": "AttachmentMedia",
                   "props": {
                     "variant": "image"
-                  }
+                  },
+                  "children": []
                 },
                 {
                   "component": "AttachmentContent",
@@ -2208,7 +2202,8 @@
                       "component": "AttachmentAction",
                       "props": {
                         "aria-label": "Remove desk-reference.jpg"
-                      }
+                      },
+                      "children": []
                     }
                   ]
                 },
@@ -2227,7 +2222,8 @@
                   "component": "AttachmentMedia",
                   "props": {
                     "variant": "image"
-                  }
+                  },
+                  "children": []
                 },
                 {
                   "component": "AttachmentContent",
@@ -2253,7 +2249,8 @@
                       "component": "AttachmentAction",
                       "props": {
                         "aria-label": "Remove office-reference.jpg"
-                      }
+                      },
+                      "children": []
                     }
                   ]
                 },
@@ -2274,11 +2271,6 @@
           "Attachment"
         ],
         "parentsFrom": "example",
-        "sample": {
-          "props": {
-            "variant": "image"
-          }
-        },
         "fingerprint": "42113506",
         "props": {
           "variant?": "401776"
@@ -2339,7 +2331,8 @@
               ]
             },
             {
-              "component": "AvatarBadge"
+              "component": "AvatarBadge",
+              "children": []
             }
           ]
         },
@@ -2604,9 +2597,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "href": "#"
-          },
           "children": [
             "Home"
           ]
@@ -2874,7 +2864,8 @@
                     "variant": "outline",
                     "size": "icon",
                     "aria-label": "Go Back"
-                  }
+                  },
+                  "children": []
                 }
               ]
             },
@@ -2975,11 +2966,7 @@
         "sample": {
           "props": {
             "mode": "range",
-            "selected": {},
-            "numberOfMonths": 1,
-            "captionLayout": "dropdown",
-            "formatters": {},
-            "components": {}
+            "captionLayout": "dropdown"
           },
           "children": [
             {
@@ -3223,15 +3210,15 @@
           "props": {
             "opts": {
               "align": "start"
-            },
-            "orientation": "vertical"
+            }
           },
           "children": [
             {
               "component": "CarouselContent",
               "children": [
                 {
-                  "component": "CarouselItem"
+                  "component": "CarouselItem",
+                  "children": []
                 }
               ]
             },
@@ -3341,13 +3328,32 @@
           },
           "children": [
             {
-              "component": "ChartLegend"
+              "component": "ChartLegend",
+              "props": {
+                "content": {
+                  "$element": [
+                    {
+                      "component": "ChartLegendContent"
+                    }
+                  ]
+                }
+              }
             },
             {
               "component": "ChartLegendContent"
             },
             {
-              "component": "ChartTooltip"
+              "component": "ChartTooltip",
+              "props": {
+                "content": {
+                  "$element": [
+                    {
+                      "component": "ChartTooltipContent"
+                    }
+                  ]
+                },
+                "labelClassName": "w-32"
+              }
             }
           ]
         },
@@ -3835,8 +3841,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "wrap": false,
-            "lineNumbers": true
+            "wrap": false
           },
           "children": [
             {
@@ -4435,8 +4440,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "placeholder": "Select a framework",
-            "showClear": true
+            "placeholder": "Select a framework"
           }
         },
         "fingerprint": "e90370d1",
@@ -5426,13 +5430,15 @@
                       "component": "ContextMenuSubContent",
                       "children": [
                         {
-                          "component": "ContextMenuGroup"
+                          "component": "ContextMenuGroup",
+                          "children": []
                         },
                         {
                           "component": "ContextMenuSeparator"
                         },
                         {
-                          "component": "ContextMenuGroup"
+                          "component": "ContextMenuGroup",
+                          "children": []
                         },
                         {
                           "component": "ContextMenuSeparator"
@@ -5600,9 +5606,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "disabled": true
-          },
           "children": [
             "Forward",
             {
@@ -6448,7 +6451,8 @@
                           }
                         },
                         {
-                          "component": "DrawerContent"
+                          "component": "DrawerContent",
+                          "children": []
                         }
                       ]
                     },
@@ -6588,10 +6592,12 @@
                       "component": "DrawerContent",
                       "children": [
                         {
-                          "component": "DrawerHeader"
+                          "component": "DrawerHeader",
+                          "children": []
                         },
                         {
-                          "component": "DrawerFooter"
+                          "component": "DrawerFooter",
+                          "children": []
                         }
                       ]
                     }
@@ -6700,7 +6706,8 @@
                       "component": "DrawerFooter",
                       "children": [
                         {
-                          "component": "Drawer"
+                          "component": "Drawer",
+                          "children": []
                         },
                         {
                           "component": "DrawerClose",
@@ -6930,10 +6937,12 @@
                       "component": "DropdownMenuSub",
                       "children": [
                         {
-                          "component": "DropdownMenuSubTrigger"
+                          "component": "DropdownMenuSubTrigger",
+                          "children": []
                         },
                         {
-                          "component": "DropdownMenuPortal"
+                          "component": "DropdownMenuPortal",
+                          "children": []
                         }
                       ]
                     }
@@ -6973,10 +6982,12 @@
                       "component": "DropdownMenuSub",
                       "children": [
                         {
-                          "component": "DropdownMenuSubTrigger"
+                          "component": "DropdownMenuSubTrigger",
+                          "children": []
                         },
                         {
-                          "component": "DropdownMenuPortal"
+                          "component": "DropdownMenuPortal",
+                          "children": []
                         }
                       ]
                     }
@@ -7021,8 +7032,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "checked": false,
-            "disabled": true
+            "checked": false
           },
           "children": [
             "Activity Bar"
@@ -7101,7 +7111,8 @@
                       "component": "DropdownMenuPortal",
                       "children": [
                         {
-                          "component": "DropdownMenuSubContent"
+                          "component": "DropdownMenuSubContent",
+                          "children": []
                         }
                       ]
                     }
@@ -7152,7 +7163,8 @@
                       "component": "DropdownMenuPortal",
                       "children": [
                         {
-                          "component": "DropdownMenuSubContent"
+                          "component": "DropdownMenuSubContent",
+                          "children": []
                         }
                       ]
                     }
@@ -7236,13 +7248,15 @@
                       "component": "DropdownMenuSubContent",
                       "children": [
                         {
-                          "component": "DropdownMenuGroup"
+                          "component": "DropdownMenuGroup",
+                          "children": []
                         },
                         {
                           "component": "DropdownMenuSeparator"
                         },
                         {
-                          "component": "DropdownMenuGroup"
+                          "component": "DropdownMenuGroup",
+                          "children": []
                         }
                       ]
                     }
@@ -7274,9 +7288,6 @@
           "DropdownMenuGroup"
         ],
         "sample": {
-          "props": {
-            "variant": "destructive"
-          },
           "children": [
             "Sign Out",
             {
@@ -7366,10 +7377,12 @@
                       "component": "DropdownMenuSub",
                       "children": [
                         {
-                          "component": "DropdownMenuSubTrigger"
+                          "component": "DropdownMenuSubTrigger",
+                          "children": []
                         },
                         {
-                          "component": "DropdownMenuPortal"
+                          "component": "DropdownMenuPortal",
+                          "children": []
                         }
                       ]
                     }
@@ -7477,8 +7490,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "value": "gpt-5",
-            "closeOnClick": true
+            "value": "gpt-5"
           },
           "children": [
             "GPT-5"
@@ -7657,7 +7669,8 @@
                       "component": "DropdownMenuPortal",
                       "children": [
                         {
-                          "component": "DropdownMenuSubContent"
+                          "component": "DropdownMenuSubContent",
+                          "children": []
                         }
                       ]
                     }
@@ -8463,8 +8476,7 @@
           "props": {
             "id": "email",
             "type": "email",
-            "placeholder": "m@example.com",
-            "required": true
+            "placeholder": "m@example.com"
           }
         },
         "fingerprint": "c218e39e"
@@ -8522,14 +8534,16 @@
                   "component": "InputGroupButton",
                   "props": {
                     "size": "icon-xs"
-                  }
+                  },
+                  "children": []
                 },
                 {
                   "component": "InputGroupButton",
                   "props": {
                     "variant": "ghost",
                     "size": "icon-xs"
-                  }
+                  },
+                  "children": []
                 }
               ]
             }
@@ -8618,10 +8632,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "id": "time-from",
-            "type": "time",
-            "step": "1",
-            "defaultValue": "10:30:00"
+            "id": "time-from"
           }
         },
         "fingerprint": "c218e39e"
@@ -8652,9 +8663,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "aria-label": "Next predefined message",
-            "placeholder": "No messages queued. Reset the conversation.",
-            "readOnly": true
+            "placeholder": "No messages queued. Reset the conversation."
           }
         },
         "fingerprint": "c218e39e"
@@ -8667,7 +8676,6 @@
           "props": {
             "maxLength": 6,
             "id": "disabled",
-            "disabled": true,
             "value": "123456"
           },
           "children": [
@@ -8796,8 +8804,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "index": 0,
-            "aria-invalid": true
+            "index": 0
           }
         },
         "fingerprint": "fc457099",
@@ -8811,15 +8818,15 @@
         "group": "Item",
         "sample": {
           "props": {
-            "variant": "outline",
-            "role": "listitem"
+            "variant": "outline"
           },
           "children": [
             {
               "component": "ItemMedia",
               "props": {
                 "variant": "image"
-              }
+              },
+              "children": []
             },
             {
               "component": "ItemContent",
@@ -8938,7 +8945,8 @@
                   "component": "ItemMedia",
                   "props": {
                     "variant": "image"
-                  }
+                  },
+                  "children": []
                 },
                 {
                   "component": "ItemContent",
@@ -8983,7 +8991,8 @@
                   "component": "ItemMedia",
                   "props": {
                     "variant": "image"
-                  }
+                  },
+                  "children": []
                 },
                 {
                   "component": "ItemContent",
@@ -9028,7 +9037,8 @@
                   "component": "ItemMedia",
                   "props": {
                     "variant": "image"
-                  }
+                  },
+                  "children": []
                 },
                 {
                   "component": "ItemContent",
@@ -9134,9 +9144,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "data-icon": "inline-end"
-          },
           "children": [
             "⏎"
           ]
@@ -9267,10 +9274,12 @@
                       "component": "MenubarGroup",
                       "children": [
                         {
-                          "component": "MenubarItem"
+                          "component": "MenubarItem",
+                          "children": []
                         },
                         {
-                          "component": "MenubarItem"
+                          "component": "MenubarItem",
+                          "children": []
                         },
                         {
                           "component": "MenubarItem",
@@ -9287,7 +9296,8 @@
                       "component": "MenubarGroup",
                       "children": [
                         {
-                          "component": "MenubarSub"
+                          "component": "MenubarSub",
+                          "children": []
                         }
                       ]
                     },
@@ -9314,10 +9324,12 @@
                       "component": "MenubarGroup",
                       "children": [
                         {
-                          "component": "MenubarItem"
+                          "component": "MenubarItem",
+                          "children": []
                         },
                         {
-                          "component": "MenubarItem"
+                          "component": "MenubarItem",
+                          "children": []
                         }
                       ]
                     },
@@ -9328,7 +9340,8 @@
                       "component": "MenubarGroup",
                       "children": [
                         {
-                          "component": "MenubarSub"
+                          "component": "MenubarSub",
+                          "children": []
                         }
                       ]
                     },
@@ -9375,14 +9388,16 @@
                           "component": "MenubarItem",
                           "props": {
                             "inset": true
-                          }
+                          },
+                          "children": []
                         },
                         {
                           "component": "MenubarItem",
                           "props": {
                             "disabled": true,
                             "inset": true
-                          }
+                          },
+                          "children": []
                         }
                       ]
                     },
@@ -9572,7 +9587,8 @@
                       "component": "MenubarSubContent",
                       "children": [
                         {
-                          "component": "MenubarGroup"
+                          "component": "MenubarGroup",
+                          "children": []
                         }
                       ]
                     }
@@ -9677,10 +9693,6 @@
           "MenubarGroup"
         ],
         "sample": {
-          "props": {
-            "disabled": true,
-            "inset": true
-          },
           "children": [
             "Force Reload",
             {
@@ -10302,18 +10314,11 @@
         "declaration": "dist/ui/message.d.ts",
         "group": "Message",
         "parents": [
-          "MessageScrollerProvider",
-          "MessageScroller",
-          "MessageScrollerViewport",
-          "MessageScrollerContent",
-          "MessageScrollerItem",
           "Message",
           "MessageContent"
         ],
         "parentsFrom": "example",
-        "optionalParents": [
-          "MessageScrollerItem"
-        ],
+        "parentParts": true,
         "sample": {
           "children": [
             "Olivia"
@@ -10344,7 +10349,8 @@
                       },
                       "children": [
                         {
-                          "component": "Message"
+                          "component": "Message",
+                          "children": []
                         }
                       ]
                     },
@@ -10355,7 +10361,8 @@
                       },
                       "children": [
                         {
-                          "component": "Message"
+                          "component": "Message",
+                          "children": []
                         }
                       ]
                     },
@@ -10366,7 +10373,8 @@
                       },
                       "children": [
                         {
-                          "component": "Message"
+                          "component": "Message",
+                          "children": []
                         }
                       ]
                     }
@@ -10509,9 +10517,6 @@
         "group": "MessageScroller",
         "visual": false,
         "sample": {
-          "props": {
-            "defaultScrollPosition": "start"
-          },
           "children": [
             {
               "component": "MessageScroller",
@@ -10523,7 +10528,25 @@
                       "component": "MessageScrollerContent",
                       "children": [
                         {
-                          "component": "MessageScrollerItem"
+                          "component": "MessageScrollerItem",
+                          "props": {
+                            "messageId": "open-1"
+                          },
+                          "children": []
+                        },
+                        {
+                          "component": "MessageScrollerItem",
+                          "props": {
+                            "messageId": "open-2"
+                          },
+                          "children": []
+                        },
+                        {
+                          "component": "MessageScrollerItem",
+                          "props": {
+                            "messageId": "open-3"
+                          },
+                          "children": []
                         }
                       ]
                     }
@@ -10570,7 +10593,8 @@
                       "component": "Message",
                       "children": [
                         {
-                          "component": "MessageContent"
+                          "component": "MessageContent",
+                          "children": []
                         }
                       ]
                     }
@@ -10586,7 +10610,8 @@
                       "component": "Message",
                       "children": [
                         {
-                          "component": "MessageContent"
+                          "component": "MessageContent",
+                          "children": []
                         }
                       ]
                     }
@@ -10602,7 +10627,8 @@
                       "component": "Message",
                       "children": [
                         {
-                          "component": "MessageContent"
+                          "component": "MessageContent",
+                          "children": []
                         }
                       ]
                     }
@@ -10842,7 +10868,8 @@
                       ]
                     },
                     {
-                      "component": "NavigationMenuContent"
+                      "component": "NavigationMenuContent",
+                      "children": []
                     }
                   ]
                 },
@@ -11032,7 +11059,8 @@
                   ]
                 },
                 {
-                  "component": "NavigationMenuContent"
+                  "component": "NavigationMenuContent",
+                  "children": []
                 }
               ]
             },
@@ -11961,8 +11989,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "value": "incremental",
-            "defaultChecked": true
+            "value": "incremental"
           },
           "children": [
             "Incremental migration"
@@ -12047,15 +12074,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "render": {
-              "$element": [
-                {
-                  "component": "CardDescription"
-                }
-              ]
-            }
-          },
           "children": [
             "Choose the task that should be handled next."
           ]
@@ -12115,7 +12133,6 @@
         "sample": {
           "props": {
             "name": "context",
-            "multiple": true,
             "required": true
           },
           "children": [
@@ -12196,9 +12213,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "variant": "secondary"
-          },
           "children": [
             "Next"
           ]
@@ -12286,15 +12300,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "render": {
-              "$element": [
-                {
-                  "component": "CardTitle"
-                }
-              ]
-            }
-          },
           "children": [
             "What should the agent work on?"
           ]
@@ -12345,8 +12350,7 @@
         "sample": {
           "props": {
             "value": "invalid1",
-            "id": "radio-invalid-1",
-            "aria-invalid": true
+            "id": "radio-invalid-1"
           }
         },
         "fingerprint": "43ca6c7f",
@@ -13351,9 +13355,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "side": "top"
-          },
           "children": [
             {
               "component": "SheetHeader",
@@ -13564,10 +13565,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "collapsible": "icon",
-            "variant": "floating"
-          },
           "children": [
             {
               "component": "SidebarHeader",
@@ -13582,7 +13579,8 @@
                           "component": "SidebarMenuButton",
                           "props": {
                             "size": "lg"
-                          }
+                          },
+                          "children": []
                         }
                       ]
                     }
@@ -13615,16 +13613,20 @@
                       "component": "SidebarMenu",
                       "children": [
                         {
-                          "component": "SidebarMenuItem"
+                          "component": "SidebarMenuItem",
+                          "children": []
                         },
                         {
-                          "component": "SidebarMenuItem"
+                          "component": "SidebarMenuItem",
+                          "children": []
                         },
                         {
-                          "component": "SidebarMenuItem"
+                          "component": "SidebarMenuItem",
+                          "children": []
                         },
                         {
-                          "component": "SidebarMenuItem"
+                          "component": "SidebarMenuItem",
+                          "children": []
                         }
                       ]
                     }
@@ -13694,7 +13696,8 @@
                       "component": "SidebarMenuItem",
                       "children": [
                         {
-                          "component": "SidebarMenuButton"
+                          "component": "SidebarMenuButton",
+                          "children": []
                         }
                       ]
                     },
@@ -13702,7 +13705,8 @@
                       "component": "SidebarMenuItem",
                       "children": [
                         {
-                          "component": "SidebarMenuButton"
+                          "component": "SidebarMenuButton",
+                          "children": []
                         }
                       ]
                     },
@@ -13710,7 +13714,8 @@
                       "component": "SidebarMenuItem",
                       "children": [
                         {
-                          "component": "SidebarMenuButton"
+                          "component": "SidebarMenuButton",
+                          "children": []
                         }
                       ]
                     },
@@ -13718,7 +13723,8 @@
                       "component": "SidebarMenuItem",
                       "children": [
                         {
-                          "component": "SidebarMenuButton"
+                          "component": "SidebarMenuButton",
+                          "children": []
                         }
                       ]
                     }
@@ -13782,7 +13788,8 @@
                       "component": "SidebarMenuItem",
                       "children": [
                         {
-                          "component": "SidebarMenuButton"
+                          "component": "SidebarMenuButton",
+                          "children": []
                         },
                         {
                           "component": "SidebarMenuBadge"
@@ -13793,7 +13800,8 @@
                       "component": "SidebarMenuItem",
                       "children": [
                         {
-                          "component": "SidebarMenuButton"
+                          "component": "SidebarMenuButton",
+                          "children": []
                         },
                         {
                           "component": "SidebarMenuBadge"
@@ -13804,7 +13812,8 @@
                       "component": "SidebarMenuItem",
                       "children": [
                         {
-                          "component": "SidebarMenuButton"
+                          "component": "SidebarMenuButton",
+                          "children": []
                         },
                         {
                           "component": "SidebarMenuBadge"
@@ -13863,16 +13872,19 @@
                   "component": "SidebarMenuItem",
                   "children": [
                     {
-                      "component": "SidebarMenuButton"
+                      "component": "SidebarMenuButton",
+                      "children": []
                     },
                     {
                       "component": "SidebarMenuSub",
                       "children": [
                         {
-                          "component": "SidebarMenuSubItem"
+                          "component": "SidebarMenuSubItem",
+                          "children": []
                         },
                         {
-                          "component": "SidebarMenuSubItem"
+                          "component": "SidebarMenuSubItem",
+                          "children": []
                         }
                       ]
                     }
@@ -13882,19 +13894,23 @@
                   "component": "SidebarMenuItem",
                   "children": [
                     {
-                      "component": "SidebarMenuButton"
+                      "component": "SidebarMenuButton",
+                      "children": []
                     },
                     {
                       "component": "SidebarMenuSub",
                       "children": [
                         {
-                          "component": "SidebarMenuSubItem"
+                          "component": "SidebarMenuSubItem",
+                          "children": []
                         },
                         {
-                          "component": "SidebarMenuSubItem"
+                          "component": "SidebarMenuSubItem",
+                          "children": []
                         },
                         {
-                          "component": "SidebarMenuSubItem"
+                          "component": "SidebarMenuSubItem",
+                          "children": []
                         }
                       ]
                     }
@@ -13904,19 +13920,23 @@
                   "component": "SidebarMenuItem",
                   "children": [
                     {
-                      "component": "SidebarMenuButton"
+                      "component": "SidebarMenuButton",
+                      "children": []
                     },
                     {
                       "component": "SidebarMenuSub",
                       "children": [
                         {
-                          "component": "SidebarMenuSubItem"
+                          "component": "SidebarMenuSubItem",
+                          "children": []
                         },
                         {
-                          "component": "SidebarMenuSubItem"
+                          "component": "SidebarMenuSubItem",
+                          "children": []
                         },
                         {
-                          "component": "SidebarMenuSubItem"
+                          "component": "SidebarMenuSubItem",
+                          "children": []
                         }
                       ]
                     }
@@ -13939,6 +13959,11 @@
           "SidebarGroup"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "Help"
+          ]
+        },
         "fingerprint": "fa1c0092",
         "props": {
           "render?": "002b9d"
@@ -13965,7 +13990,8 @@
                       "component": "SidebarMenuButton",
                       "props": {
                         "size": "lg"
-                      }
+                      },
+                      "children": []
                     }
                   ]
                 }
@@ -14019,7 +14045,8 @@
               "component": "SidebarMenuItem",
               "children": [
                 {
-                  "component": "SidebarMenuButton"
+                  "component": "SidebarMenuButton",
+                  "children": []
                 },
                 {
                   "component": "SidebarMenuSub",
@@ -14028,7 +14055,8 @@
                       "component": "SidebarMenuSubItem",
                       "children": [
                         {
-                          "component": "SidebarMenuSubButton"
+                          "component": "SidebarMenuSubButton",
+                          "children": []
                         }
                       ]
                     },
@@ -14036,7 +14064,8 @@
                       "component": "SidebarMenuSubItem",
                       "children": [
                         {
-                          "component": "SidebarMenuSubButton"
+                          "component": "SidebarMenuSubButton",
+                          "children": []
                         }
                       ]
                     }
@@ -14048,7 +14077,8 @@
               "component": "SidebarMenuItem",
               "children": [
                 {
-                  "component": "SidebarMenuButton"
+                  "component": "SidebarMenuButton",
+                  "children": []
                 },
                 {
                   "component": "SidebarMenuSub",
@@ -14057,7 +14087,8 @@
                       "component": "SidebarMenuSubItem",
                       "children": [
                         {
-                          "component": "SidebarMenuSubButton"
+                          "component": "SidebarMenuSubButton",
+                          "children": []
                         }
                       ]
                     },
@@ -14065,7 +14096,8 @@
                       "component": "SidebarMenuSubItem",
                       "children": [
                         {
-                          "component": "SidebarMenuSubButton"
+                          "component": "SidebarMenuSubButton",
+                          "children": []
                         }
                       ]
                     },
@@ -14073,7 +14105,8 @@
                       "component": "SidebarMenuSubItem",
                       "children": [
                         {
-                          "component": "SidebarMenuSubButton"
+                          "component": "SidebarMenuSubButton",
+                          "children": []
                         }
                       ]
                     }
@@ -14085,7 +14118,8 @@
               "component": "SidebarMenuItem",
               "children": [
                 {
-                  "component": "SidebarMenuButton"
+                  "component": "SidebarMenuButton",
+                  "children": []
                 },
                 {
                   "component": "SidebarMenuSub",
@@ -14094,7 +14128,8 @@
                       "component": "SidebarMenuSubItem",
                       "children": [
                         {
-                          "component": "SidebarMenuSubButton"
+                          "component": "SidebarMenuSubButton",
+                          "children": []
                         }
                       ]
                     },
@@ -14102,7 +14137,8 @@
                       "component": "SidebarMenuSubItem",
                       "children": [
                         {
-                          "component": "SidebarMenuSubButton"
+                          "component": "SidebarMenuSubButton",
+                          "children": []
                         }
                       ]
                     },
@@ -14110,7 +14146,8 @@
                       "component": "SidebarMenuSubItem",
                       "children": [
                         {
-                          "component": "SidebarMenuSubButton"
+                          "component": "SidebarMenuSubButton",
+                          "children": []
                         }
                       ]
                     }
@@ -14213,7 +14250,8 @@
         "sample": {
           "children": [
             {
-              "component": "SidebarMenuButton"
+              "component": "SidebarMenuButton",
+              "children": []
             },
             {
               "component": "SidebarMenuSub",
@@ -14222,7 +14260,8 @@
                   "component": "SidebarMenuSubItem",
                   "children": [
                     {
-                      "component": "SidebarMenuSubButton"
+                      "component": "SidebarMenuSubButton",
+                      "children": []
                     }
                   ]
                 },
@@ -14230,7 +14269,8 @@
                   "component": "SidebarMenuSubItem",
                   "children": [
                     {
-                      "component": "SidebarMenuSubButton"
+                      "component": "SidebarMenuSubButton",
+                      "children": []
                     }
                   ]
                 }
@@ -14285,7 +14325,8 @@
               "component": "SidebarMenuSubItem",
               "children": [
                 {
-                  "component": "SidebarMenuSubButton"
+                  "component": "SidebarMenuSubButton",
+                  "children": []
                 }
               ]
             },
@@ -14293,7 +14334,8 @@
               "component": "SidebarMenuSubItem",
               "children": [
                 {
-                  "component": "SidebarMenuSubButton"
+                  "component": "SidebarMenuSubButton",
+                  "children": []
                 }
               ]
             },
@@ -14301,7 +14343,8 @@
               "component": "SidebarMenuSubItem",
               "children": [
                 {
-                  "component": "SidebarMenuSubButton"
+                  "component": "SidebarMenuSubButton",
+                  "children": []
                 }
               ]
             }
@@ -14361,7 +14404,8 @@
         "sample": {
           "children": [
             {
-              "component": "SidebarMenuSubButton"
+              "component": "SidebarMenuSubButton",
+              "children": []
             }
           ]
         },
@@ -14373,13 +14417,27 @@
         "group": "Sidebar",
         "visual": false,
         "sample": {
-          "props": {
-            "open": true
-          },
           "children": [
             {
               "component": "Sidebar",
+              "props": {
+                "collapsible": "icon"
+              },
               "children": [
+                {
+                  "component": "SidebarHeader",
+                  "children": [
+                    {
+                      "component": "SidebarMenu",
+                      "children": [
+                        {
+                          "component": "SidebarMenuItem",
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                },
                 {
                   "component": "SidebarContent",
                   "children": [
@@ -14390,19 +14448,46 @@
                           "component": "SidebarGroupLabel"
                         },
                         {
-                          "component": "SidebarGroupContent"
+                          "component": "SidebarMenu"
+                        }
+                      ]
+                    },
+                    {
+                      "component": "SidebarGroup",
+                      "children": [
+                        {
+                          "component": "SidebarGroupLabel"
+                        },
+                        {
+                          "component": "SidebarMenu",
+                          "children": []
                         }
                       ]
                     }
                   ]
+                },
+                {
+                  "component": "SidebarFooter",
+                  "children": [
+                    {
+                      "component": "SidebarMenu",
+                      "children": [
+                        {
+                          "component": "SidebarMenuItem",
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "SidebarRail"
                 }
               ]
             },
             {
               "component": "SidebarInset",
-              "children": [
-                "Sidebar"
-              ]
+              "children": []
             }
           ]
         },
@@ -14474,8 +14559,7 @@
             ],
             "max": 1000,
             "min": 0,
-            "step": 10,
-            "aria-label": "Price Range"
+            "step": 10
           }
         },
         "fingerprint": "b0d10ef0",
@@ -14547,8 +14631,7 @@
         "group": "Switch",
         "sample": {
           "props": {
-            "id": "align-item",
-            "checked": true
+            "id": "align-item"
           }
         },
         "fingerprint": "8784e26e",
@@ -14869,9 +14952,6 @@
           "TableBody"
         ],
         "sample": {
-          "props": {
-            "colSpan": 3
-          },
           "children": [
             "Total"
           ]
@@ -15189,8 +15269,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "value": "settings",
-            "disabled": true
+            "value": "settings"
           },
           "children": [
             "Disabled"
@@ -15213,8 +15292,7 @@
         "sample": {
           "props": {
             "id": "feedback",
-            "placeholder": "Your feedback helps us improve...",
-            "rows": 4
+            "placeholder": "Your feedback helps us improve..."
           }
         },
         "fingerprint": "c218e39e"
@@ -15382,6 +15460,16 @@
           "children": [
             {
               "component": "Toast",
+              "props": {
+                "toast": {
+                  "id": "1",
+                  "title": "Event created",
+                  "description": "Sunday, December 3 at 9:00 AM",
+                  "actionProps": {
+                    "children": "Undo"
+                  }
+                }
+              },
               "children": [
                 {
                   "component": "ToastContent",
@@ -15725,7 +15813,8 @@
                       "component": "TraceLine",
                       "children": [
                         {
-                          "component": "TraceIcon"
+                          "component": "TraceIcon",
+                          "children": []
                         },
                         {
                           "component": "TraceTitle"
@@ -15741,7 +15830,18 @@
                   },
                   "children": [
                     {
-                      "component": "Trace"
+                      "component": "Trace",
+                      "children": [
+                        {
+                          "component": "TraceLine"
+                        },
+                        {
+                          "component": "TraceLine"
+                        },
+                        {
+                          "component": "TraceLine"
+                        }
+                      ]
                     }
                   ]
                 }
@@ -15757,7 +15857,8 @@
                       "component": "TraceLine",
                       "children": [
                         {
-                          "component": "TraceIcon"
+                          "component": "TraceIcon",
+                          "children": []
                         },
                         {
                           "component": "TraceTitle"
@@ -15773,7 +15874,18 @@
                   },
                   "children": [
                     {
-                      "component": "Trace"
+                      "component": "Trace",
+                      "children": [
+                        {
+                          "component": "TraceLine"
+                        },
+                        {
+                          "component": "TraceLine"
+                        },
+                        {
+                          "component": "TraceLine"
+                        }
+                      ]
                     }
                   ]
                 }
@@ -15789,7 +15901,8 @@
                       "component": "TraceLine",
                       "children": [
                         {
-                          "component": "TraceIcon"
+                          "component": "TraceIcon",
+                          "children": []
                         },
                         {
                           "component": "TraceTitle"
@@ -15805,7 +15918,15 @@
                   },
                   "children": [
                     {
-                      "component": "Trace"
+                      "component": "Trace",
+                      "children": [
+                        {
+                          "component": "TraceLine"
+                        },
+                        {
+                          "component": "TraceLine"
+                        }
+                      ]
                     }
                   ]
                 }
@@ -15835,7 +15956,8 @@
                   "component": "TraceLine",
                   "children": [
                     {
-                      "component": "TraceIcon"
+                      "component": "TraceIcon",
+                      "children": []
                     },
                     {
                       "component": "TraceTitle",
@@ -15939,7 +16061,8 @@
                       "component": "TraceCollapsibleTrigger",
                       "children": [
                         {
-                          "component": "TraceLine"
+                          "component": "TraceLine",
+                          "children": []
                         }
                       ]
                     },
@@ -15963,7 +16086,8 @@
                       "component": "TraceCollapsibleTrigger",
                       "children": [
                         {
-                          "component": "TraceLine"
+                          "component": "TraceLine",
+                          "children": []
                         }
                       ]
                     },
@@ -15987,7 +16111,8 @@
                       "component": "TraceCollapsibleTrigger",
                       "children": [
                         {
-                          "component": "TraceLine"
+                          "component": "TraceLine",
+                          "children": []
                         }
                       ]
                     },
@@ -16038,7 +16163,8 @@
               },
               "children": [
                 {
-                  "component": "TraceIcon"
+                  "component": "TraceIcon",
+                  "children": []
                 },
                 {
                   "component": "TraceTitle",
@@ -16146,7 +16272,8 @@
               ]
             },
             {
-              "component": "TraceIcon"
+              "component": "TraceIcon",
+              "children": []
             }
           ]
         },

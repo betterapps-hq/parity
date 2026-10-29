@@ -6377,8 +6377,6 @@
         "sample": {
           "props": {
             "bg": "bg/80",
-            "backdropFilter": "blur(2px)",
-            "rounded": "md",
             "p": "4"
           }
         },
@@ -7267,7 +7265,8 @@
               },
               "children": [
                 {
-                  "component": "Accordion.ItemIndicator"
+                  "component": "Accordion.ItemIndicator",
+                  "children": []
                 }
               ]
             },
@@ -10746,15 +10745,10 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "display": "flex",
-            "cursor": "pointer",
-            "justifyContent": "space-between",
-            "alignItems": "center"
-          },
           "children": [
             {
-              "component": "Accordion.ItemIndicator"
+              "component": "Accordion.ItemIndicator",
+              "children": []
             }
           ]
         },
@@ -16098,8 +16092,7 @@
         "sample": {
           "props": {
             "children": "Text",
-            "open": false,
-            "placement": "bottom"
+            "open": false
           },
           "children": [
             {
@@ -17917,9 +17910,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "color": "fg"
-          },
           "children": [
             {
               "component": "Alert.Title",
@@ -20506,12 +20496,12 @@
         "group": "Alert",
         "sample": {
           "props": {
-            "title": "Success",
             "status": "success"
           },
           "children": [
             {
-              "component": "Alert.Indicator"
+              "component": "Alert.Indicator",
+              "children": []
             },
             {
               "component": "Alert.Content",
@@ -21397,9 +21387,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "textStyle": "sm"
-          },
           "children": [
             "Heads up: Black Friday Sale (20% off)"
           ]
@@ -24865,8 +24852,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "src": "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=100",
-            "alt": "Jessica Jones"
+            "src": "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=100"
           }
         },
         "fingerprint": "44deb6b9",
@@ -25728,7 +25714,6 @@
         "group": "Avatar",
         "sample": {
           "props": {
-            "shape": "rounded",
             "size": "2xs"
           },
           "children": [
@@ -28430,12 +28415,6 @@
         "declaration": "dist/types/components/badge/badge.d.ts",
         "group": "Badge",
         "sample": {
-          "props": {
-            "pos": "absolute",
-            "top": "2",
-            "insetStart": "2",
-            "size": "sm"
-          },
           "children": [
             "Guest favorite"
           ]
@@ -32776,10 +32755,6 @@
         "as": "forwardRef",
         "group": "Blockquote",
         "sample": {
-          "props": {
-            "colorPalette": "blue",
-            "ps": "8"
-          },
           "children": [
             {
               "component": "Blockquote.Content",
@@ -40630,11 +40605,7 @@
         "group": "Button",
         "sample": {
           "props": {
-            "size": "md",
-            "height": "48px",
-            "width": "200px",
-            "border": "2px solid",
-            "borderColor": "green.500"
+            "size": "md"
           },
           "children": [
             "Button"
@@ -42419,10 +42390,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "gap": "3",
-            "px": "4",
-            "pt": "4",
-            "pb": "4"
+            "gap": "3"
           },
           "children": [
             {
@@ -43301,11 +43269,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "color": "fg.muted",
-            "textStyle": "md",
-            "minH": "16"
-          },
           "children": [
             "\"",
             "\""
@@ -44169,10 +44132,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "justifyContent": "flex-end",
-            "gap": "2",
-            "px": "4",
-            "pb": "4"
+            "justifyContent": "flex-end"
           }
         },
         "fingerprint": "ca28c419",
@@ -45911,9 +45871,7 @@
         "group": "Card",
         "sample": {
           "props": {
-            "width": "320px",
-            "borderWidth": "1px",
-            "rounded": "md"
+            "width": "320px"
           },
           "children": [
             {
@@ -46828,9 +46786,6 @@
           "Card.Body"
         ],
         "sample": {
-          "props": {
-            "mt": "2"
-          },
           "children": [
             "Nue Camp"
           ]
@@ -47719,7 +47674,11 @@
           },
           "children": [
             {
-              "component": "Carousel.AutoplayIndicator"
+              "component": "Carousel.AutoplayIndicator",
+              "props": {
+                "play": "Text",
+                "paused": "Text"
+              }
             }
           ]
         },
@@ -48595,7 +48554,6 @@
         "sample": {
           "props": {
             "justifyContent": "center",
-            "px": "4",
             "gap": "4"
           },
           "children": [
@@ -51266,19 +51224,6 @@
           "Carousel.Control"
         ],
         "parentsFrom": "example",
-        "sample": {
-          "props": {
-            "transition": "width 0.2s ease-in-out",
-            "transformOrigin": "center",
-            "opacity": "0.5",
-            "boxSize": "2",
-            "_current": {
-              "width": "10",
-              "bg": "colorPalette.subtle",
-              "opacity": 1
-            }
-          }
-        },
         "fingerprint": "6196b275",
         "props": {
           "_active?": "c3f29d",
@@ -52139,9 +52084,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "index": 1,
-            "snapAlign": "center",
-            "width": "auto"
+            "index": 1
           }
         },
         "fingerprint": "6ad46c9e",
@@ -58320,15 +58263,6 @@
         "declaration": "dist/types/components/center/center.d.ts",
         "group": "Center",
         "sample": {
-          "props": {
-            "width": "240px",
-            "height": "240px",
-            "animationDuration": "slowest",
-            "bg": "bg",
-            "data-placement": "bottom",
-            "borderWidth": "1px",
-            "p": "4"
-          },
           "children": [
             "Animation"
           ]
@@ -59215,11 +59149,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "id": "checkbox",
-            "type": "checkbox",
-            "defaultChecked": true
-          },
           "children": [
             {
               "component": "Checkbox.Indicator"
@@ -60086,9 +60015,7 @@
           "props": {
             "defaultValue": [
               "terms"
-            ],
-            "gap": "4",
-            "flexDirection": "column"
+            ]
           },
           "children": [
             {
@@ -62774,9 +62701,6 @@
         "as": "forwardRef",
         "group": "Checkbox",
         "sample": {
-          "props": {
-            "value": "terms"
-          },
           "children": [
             {
               "component": "Checkbox.HiddenInput"
@@ -63665,7 +63589,6 @@
         "as": "forwardRef",
         "group": "Checkbox",
         "parents": [
-          "Checkbox.Group",
           "Checkbox.Root"
         ],
         "parentsFrom": "namespace",
@@ -67169,10 +67092,6 @@
           "CheckboxCard.Content"
         ],
         "sample": {
-          "props": {
-            "fontSize": "sm",
-            "color": "fg.muted"
-          },
           "children": [
             "A React framework for building web apps."
           ]
@@ -68906,9 +68825,6 @@
           "CheckboxCard.Content"
         ],
         "sample": {
-          "props": {
-            "fontWeight": "medium"
-          },
           "children": [
             "Next.js"
           ]
@@ -69768,16 +69684,7 @@
         "sample": {
           "props": {
             "defaultChecked": true,
-            "maxW": "280px",
-            "border": "none",
-            "shadow": "none",
-            "rounded": "lg",
-            "px": "3",
-            "py": "2",
-            "_checked": {
-              "border": "1px solid",
-              "borderColor": "fg.subtle"
-            }
+            "maxW": "280px"
           },
           "children": [
             {
@@ -70685,8 +70592,11 @@
         "as": "forwardRef",
         "group": "CheckboxCard",
         "parents": [
-          "CheckboxCard.Root",
-          "CheckboxCard.Content"
+          "Checkbox.Group",
+          "For",
+          "Stack",
+          "CheckboxCard.Content",
+          "CheckboxCard.Root"
         ],
         "parentsFrom": "error",
         "visual": false,
@@ -75042,11 +74952,6 @@
           "Clipboard.Trigger"
         ],
         "parentsFrom": "example",
-        "sample": {
-          "props": {
-            "ml": "2"
-          }
-        },
         "fingerprint": "dacfeb34",
         "props": {
           "_active?": "c3f29d",
@@ -81096,12 +81001,7 @@
         "group": "CloseButton",
         "sample": {
           "props": {
-            "me": "-1",
-            "size": "xs",
-            "variant": "plain",
-            "focusVisibleRing": "inside",
-            "focusRingWidth": "2px",
-            "pointerEvents": "auto"
+            "size": "xs"
           }
         },
         "fingerprint": "07123366",
@@ -81965,9 +81865,6 @@
         "declaration": "dist/types/components/code/code.d.ts",
         "group": "Code",
         "sample": {
-          "props": {
-            "color": "fg.muted"
-          },
           "children": [
             "Panel A:",
             "% | Panel B:",
@@ -82849,9 +82746,6 @@
         ],
         "parentsFrom": "error",
         "sample": {
-          "props": {
-            "pe": "10"
-          },
           "children": [
             {
               "component": "CodeBlock.CodeText",
@@ -83716,11 +83610,6 @@
           "CodeBlock.Root"
         ],
         "parentsFrom": "error",
-        "sample": {
-          "props": {
-            "display": "inline-block"
-          }
-        },
         "fingerprint": "ab3ee309",
         "props": {
           "_active?": "c3f29d",
@@ -94994,14 +94883,6 @@
           "Collapsible.Root"
         ],
         "parentsFrom": "example",
-        "sample": {
-          "props": {
-            "_closed": {
-              "shadow": "inset 0 -12px 12px -12px var(--shadow-color)",
-              "shadowColor": "blackAlpha.500"
-            }
-          }
-        },
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",
@@ -96744,9 +96625,6 @@
         "as": "forwardRef",
         "group": "Collapsible",
         "sample": {
-          "props": {
-            "defaultOpen": true
-          },
           "children": [
             {
               "component": "Collapsible.Trigger",
@@ -96764,7 +96642,8 @@
                     "_open": {
                       "transform": "rotate(90deg)"
                     }
-                  }
+                  },
+                  "children": []
                 },
                 "Toggle"
               ]
@@ -98506,10 +98385,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "paddingY": "3",
-            "display": "flex",
-            "gap": "2",
-            "alignItems": "center"
+            "paddingY": "3"
           },
           "children": [
             {
@@ -98519,7 +98395,8 @@
                 "_open": {
                   "transform": "rotate(90deg)"
                 }
-              }
+              },
+              "children": []
             },
             "Toggle"
           ]
@@ -99383,9 +99260,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "maxH": "150px"
-          },
           "children": [
             {
               "component": "ColorPicker.AreaBackground"
@@ -101969,9 +101843,9 @@
         "group": "ColorPicker",
         "parents": [
           "ColorPicker.Root",
-          "ColorPicker.View",
           "ColorPicker.Positioner",
-          "ColorPicker.Content"
+          "ColorPicker.Content",
+          "ColorPicker.View"
         ],
         "parentsFrom": "example",
         "optionalParents": [
@@ -102842,6 +102716,8 @@
         "group": "ColorPicker",
         "parents": [
           "ColorPicker.Root",
+          "ColorPicker.Positioner",
+          "ColorPicker.Content",
           "ColorPicker.View",
           "For"
         ],
@@ -103718,6 +103594,8 @@
         "group": "ColorPicker",
         "parents": [
           "ColorPicker.Root",
+          "ColorPicker.Positioner",
+          "ColorPicker.Content",
           "ColorPicker.View",
           "For",
           "ColorPicker.ChannelSlider"
@@ -104577,6 +104455,8 @@
         "group": "ColorPicker",
         "parents": [
           "ColorPicker.Root",
+          "ColorPicker.Positioner",
+          "ColorPicker.Content",
           "ColorPicker.View",
           "For",
           "ColorPicker.ChannelSlider"
@@ -105436,6 +105316,8 @@
         "group": "ColorPicker",
         "parents": [
           "ColorPicker.Root",
+          "ColorPicker.Positioner",
+          "ColorPicker.Content",
           "ColorPicker.View",
           "For",
           "ColorPicker.ChannelSlider"
@@ -106295,6 +106177,8 @@
         "group": "ColorPicker",
         "parents": [
           "ColorPicker.Root",
+          "ColorPicker.Positioner",
+          "ColorPicker.Content",
           "ColorPicker.View",
           "For",
           "ColorPicker.ChannelSlider"
@@ -107154,6 +107038,8 @@
         "group": "ColorPicker",
         "parents": [
           "ColorPicker.Root",
+          "ColorPicker.Positioner",
+          "ColorPicker.Content",
           "ColorPicker.View"
         ],
         "parentsFrom": "example",
@@ -108041,7 +107927,8 @@
                       },
                       "children": [
                         {
-                          "component": "ColorPicker.SwatchIndicator"
+                          "component": "ColorPicker.SwatchIndicator",
+                          "children": []
                         }
                       ]
                     }
@@ -108061,7 +107948,8 @@
                       },
                       "children": [
                         {
-                          "component": "ColorPicker.SwatchIndicator"
+                          "component": "ColorPicker.SwatchIndicator",
+                          "children": []
                         }
                       ]
                     }
@@ -108081,7 +107969,8 @@
                       },
                       "children": [
                         {
-                          "component": "ColorPicker.SwatchIndicator"
+                          "component": "ColorPicker.SwatchIndicator",
+                          "children": []
                         }
                       ]
                     }
@@ -108979,7 +108868,8 @@
                       },
                       "children": [
                         {
-                          "component": "ColorPicker.SwatchIndicator"
+                          "component": "ColorPicker.SwatchIndicator",
+                          "children": []
                         }
                       ]
                     }
@@ -108998,7 +108888,8 @@
                       },
                       "children": [
                         {
-                          "component": "ColorPicker.SwatchIndicator"
+                          "component": "ColorPicker.SwatchIndicator",
+                          "children": []
                         }
                       ]
                     }
@@ -109017,7 +108908,8 @@
                       },
                       "children": [
                         {
-                          "component": "ColorPicker.SwatchIndicator"
+                          "component": "ColorPicker.SwatchIndicator",
+                          "children": []
                         }
                       ]
                     }
@@ -115107,7 +114999,8 @@
                           "props": {
                             "value": "red",
                             "boxSize": "4.5"
-                          }
+                          },
+                          "children": []
                         }
                       ]
                     },
@@ -115122,7 +115015,8 @@
                           "props": {
                             "value": "blue",
                             "boxSize": "4.5"
-                          }
+                          },
+                          "children": []
                         }
                       ]
                     },
@@ -115137,7 +115031,8 @@
                           "props": {
                             "value": "green",
                             "boxSize": "4.5"
-                          }
+                          },
+                          "children": []
                         }
                       ]
                     }
@@ -116010,9 +115905,6 @@
         "as": "forwardRef",
         "group": "ColorPicker",
         "sample": {
-          "props": {
-            "alignItems": "flex-start"
-          },
           "children": [
             {
               "component": "ColorPicker.HiddenInput"
@@ -117866,11 +117758,6 @@
           "ColorPicker.Content"
         ],
         "parentsFrom": "example",
-        "sample": {
-          "props": {
-            "maxH": "120px"
-          }
-        },
         "fingerprint": "cb4146f5",
         "props": {
           "_active?": "c3f29d",
@@ -120540,12 +120427,6 @@
           "ColorPicker.Swatch"
         ],
         "parentsFrom": "error",
-        "sample": {
-          "props": {
-            "boxSize": "3",
-            "bg": "white"
-          }
-        },
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",
@@ -123142,9 +123023,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "px": "2"
-          },
           "children": [
             {
               "component": "ColorPicker.ValueSwatch",
@@ -125747,16 +125625,31 @@
         "as": "forwardRef",
         "group": "ColorPicker",
         "parents": [
-          "ColorPicker.Root"
+          "ColorPicker.Root",
+          "ColorPicker.Positioner",
+          "ColorPicker.Content"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
         "sample": {
           "props": {
             "format": "rgba"
           },
           "children": [
             {
-              "component": "ColorPicker.ChannelText"
+              "component": "ColorPicker.ChannelInput",
+              "props": {
+                "channel": "css",
+                "px": "0",
+                "height": "7",
+                "textStyle": "xs",
+                "textAlign": "center"
+              }
+            },
+            {
+              "component": "ColorPicker.ChannelText",
+              "props": {
+                "minW": "5ch"
+              }
             }
           ]
         },
@@ -126616,8 +126509,7 @@
         "group": "ColorSwatch",
         "sample": {
           "props": {
-            "value": "#ff0000",
-            "size": "2xl"
+            "value": "#ff0000"
           }
         },
         "fingerprint": "8881d3ac",
@@ -128355,11 +128247,6 @@
           "Combobox.IndicatorGroup"
         ],
         "parentsFrom": "example",
-        "sample": {
-          "props": {
-            "aria-label": "Clear input"
-          }
-        },
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",
@@ -129218,9 +129105,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "px": "0"
-          },
           "children": [
             {
               "component": "Combobox.Input",
@@ -133625,11 +133509,6 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "mt": "-1",
-            "minH": "8",
-            "px": "3",
-            "border": "none",
-            "outline": "none",
             "placeholder": "Search status"
           }
         },
@@ -135389,11 +135268,6 @@
           "Combobox.Positioner"
         ],
         "sample": {
-          "props": {
-            "borderTopWidth": "1px",
-            "pt": "1",
-            "px": "1"
-          },
           "children": [
             {
               "component": "Combobox.Item",
@@ -138028,10 +137902,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "mb": "2",
-            "fontWeight": "medium"
-          },
           "children": [
             "Select framework"
           ]
@@ -140680,20 +140550,7 @@
         "as": "function",
         "group": "Combobox",
         "sample": {
-          "props": {
-            "open": true
-          },
           "children": [
-            {
-              "component": "Combobox.Label",
-              "props": {
-                "mb": "2",
-                "fontWeight": "medium"
-              },
-              "children": [
-                "Select framework"
-              ]
-            },
             {
               "component": "Combobox.Control",
               "children": [
@@ -140720,42 +140577,13 @@
               ]
             },
             {
-              "component": "Combobox.Positioner",
+              "component": "Combobox.Label",
               "children": [
-                {
-                  "component": "Combobox.Content",
-                  "children": [
-                    {
-                      "component": "Combobox.Empty",
-                      "children": [
-                        "No items found"
-                      ]
-                    },
-                    {
-                      "component": "Combobox.ItemGroup",
-                      "children": [
-                        {
-                          "component": "Combobox.ItemGroupLabel"
-                        },
-                        {
-                          "component": "Combobox.Item"
-                        }
-                      ]
-                    },
-                    {
-                      "component": "Combobox.ItemGroup",
-                      "children": [
-                        {
-                          "component": "Combobox.ItemGroupLabel"
-                        },
-                        {
-                          "component": "Combobox.Item"
-                        }
-                      ]
-                    }
-                  ]
-                }
+                "Select framework"
               ]
+            },
+            {
+              "component": "Combobox.List"
             }
           ]
         },
@@ -142541,12 +142369,6 @@
           "Combobox.IndicatorGroup"
         ],
         "parentsFrom": "example",
-        "sample": {
-          "props": {
-            "focusable": true,
-            "asChild": true
-          }
-        },
         "fingerprint": "808e09a4",
         "props": {
           "_active?": "c3f29d",
@@ -147814,9 +147636,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "gap": "4"
-          },
           "children": [
             {
               "component": "DateInput.Segments",
@@ -148688,11 +148507,6 @@
           "DateInput.Root"
         ],
         "parentsFrom": "example",
-        "sample": {
-          "props": {
-            "index": 0
-          }
-        },
         "fingerprint": "a177cc90",
         "props": {
           "_active?": "c3f29d",
@@ -150421,7 +150235,6 @@
         "group": "DateInput",
         "sample": {
           "props": {
-            "selectionMode": "range",
             "maxW": "sm"
           },
           "children": [
@@ -153933,11 +153746,6 @@
           "DateInput.Control"
         ],
         "parentsFrom": "example",
-        "sample": {
-          "props": {
-            "index": 0
-          }
-        },
         "fingerprint": "74eb54ba",
         "props": {
           "_active?": "c3f29d",
@@ -156613,33 +156421,6 @@
         ],
         "parentsFrom": "error",
         "visual": false,
-        "sample": {
-          "props": {
-            "children": "Text"
-          },
-          "children": [
-            {
-              "$render": [
-                {
-                  "component": "DatePicker.PresetTrigger",
-                  "props": {
-                    "height": "10",
-                    "display": "flex",
-                    "justifyContent": "space-between",
-                    "alignItems": "center",
-                    "px": "4",
-                    "textStyle": "sm",
-                    "gap": "1",
-                    "_selected": {
-                      "layerStyle": "fill.subtle"
-                    }
-                  },
-                  "children": []
-                }
-              ]
-            }
-          ]
-        },
         "fingerprint": "b160a760",
         "props": {
           "children": "2d398d"
@@ -156670,7 +156451,8 @@
               "component": "DatePicker.IndicatorGroup",
               "children": [
                 {
-                  "component": "DatePicker.Trigger"
+                  "component": "DatePicker.Trigger",
+                  "children": []
                 }
               ]
             }
@@ -157532,11 +157314,6 @@
           "DatePicker.Root"
         ],
         "parentsFrom": "error",
-        "sample": {
-          "props": {
-            "offset": 1
-          }
-        },
         "fingerprint": "b1956ba3",
         "props": {
           "_active?": "c3f29d",
@@ -159263,7 +159040,8 @@
               "component": "DatePicker.ClearTrigger"
             },
             {
-              "component": "DatePicker.Trigger"
+              "component": "DatePicker.Trigger",
+              "children": []
             }
           ]
         },
@@ -160124,11 +159902,6 @@
           "DatePicker.Control"
         ],
         "parentsFrom": "example",
-        "sample": {
-          "props": {
-            "required": true
-          }
-        },
         "fingerprint": "f3050808",
         "props": {
           "_active?": "c3f29d",
@@ -164454,7 +164227,8 @@
                           "component": "DatePicker.PrevTrigger"
                         },
                         {
-                          "component": "DatePicker.ViewTrigger"
+                          "component": "DatePicker.ViewTrigger",
+                          "children": []
                         },
                         {
                           "component": "DatePicker.NextTrigger"
@@ -164479,7 +164253,8 @@
                           "component": "DatePicker.PrevTrigger"
                         },
                         {
-                          "component": "DatePicker.ViewTrigger"
+                          "component": "DatePicker.ViewTrigger",
+                          "children": []
                         },
                         {
                           "component": "DatePicker.NextTrigger"
@@ -164504,7 +164279,8 @@
                           "component": "DatePicker.PrevTrigger"
                         },
                         {
-                          "component": "DatePicker.ViewTrigger"
+                          "component": "DatePicker.ViewTrigger",
+                          "children": []
                         },
                         {
                           "component": "DatePicker.NextTrigger"
@@ -168021,7 +167797,8 @@
                       "component": "DatePicker.ClearTrigger"
                     },
                     {
-                      "component": "DatePicker.Trigger"
+                      "component": "DatePicker.Trigger",
+                      "children": []
                     }
                   ]
                 }
@@ -168040,7 +167817,8 @@
                       },
                       "children": [
                         {
-                          "component": "DatePicker.ViewControl"
+                          "component": "DatePicker.ViewControl",
+                          "children": []
                         },
                         {
                           "component": "DatePicker.DayTable"
@@ -168054,7 +167832,8 @@
                       },
                       "children": [
                         {
-                          "component": "DatePicker.ViewControl"
+                          "component": "DatePicker.ViewControl",
+                          "children": []
                         },
                         {
                           "component": "DatePicker.MonthTable"
@@ -168068,7 +167847,8 @@
                       },
                       "children": [
                         {
-                          "component": "DatePicker.ViewControl"
+                          "component": "DatePicker.ViewControl",
+                          "children": []
                         },
                         {
                           "component": "DatePicker.YearTable"
@@ -175881,13 +175661,12 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "asChild": true,
-            "unstyled": true
-          },
           "children": [
             {
-              "component": "DatePicker.ValueText"
+              "component": "DatePicker.ValueText",
+              "props": {
+                "placeholder": "Select dates..."
+              }
             }
           ]
         },
@@ -176749,6 +176528,9 @@
           "DatePicker.Trigger"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "DatePicker.Trigger"
+        ],
         "sample": {
           "props": {
             "placeholder": "Select dates..."
@@ -185409,13 +185191,6 @@
           "Dialog.Root"
         ],
         "parentsFrom": "example",
-        "sample": {
-          "props": {
-            "backdropFilter": "auto",
-            "backdropBlur": "md",
-            "bg": "blackAlpha.600"
-          }
-        },
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",
@@ -186275,10 +186050,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "pt": "4",
-            "spaceY": "4"
-          },
           "children": [
             {
               "component": "Dialog.Title",
@@ -187154,8 +186925,6 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "top": "0",
-            "insetEnd": "-12",
             "asChild": true
           }
         },
@@ -192498,10 +192267,7 @@
         "group": "Dialog",
         "sample": {
           "props": {
-            "children": "Text",
-            "size": "cover",
-            "placement": "center",
-            "motionPreset": "slide-in-bottom"
+            "children": "Text"
           },
           "children": [
             {
@@ -196060,12 +195826,6 @@
           "Drawer.Root"
         ],
         "parentsFrom": "example",
-        "sample": {
-          "props": {
-            "pos": "absolute",
-            "boxSize": "full"
-          }
-        },
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",
@@ -196925,10 +196685,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "pt": "6",
-            "spaceY": "3"
-          },
           "children": [
             "Drawer is open:",
             "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed",
@@ -197795,8 +197551,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "asChild": true,
-            "pos": "initial"
+            "asChild": true
           }
         },
         "fingerprint": "ca28c419",
@@ -203098,9 +202853,7 @@
         "group": "Drawer",
         "sample": {
           "props": {
-            "children": "Text",
-            "closeOnInteractOutside": false,
-            "modal": false
+            "children": "Text"
           },
           "children": [
             {
@@ -203210,9 +202963,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "flex": "1"
-          },
           "children": [
             "Drawer Title"
           ]
@@ -208424,12 +208174,6 @@
           "Editable.Root"
         ],
         "parentsFrom": "example",
-        "sample": {
-          "props": {
-            "p": "2",
-            "mt": "1"
-          }
-        },
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",
@@ -210139,13 +209883,6 @@
           "Editable.Root"
         ],
         "parentsFrom": "example",
-        "sample": {
-          "props": {
-            "minH": "48px",
-            "alignItems": "flex-start",
-            "width": "full"
-          }
-        },
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",
@@ -215378,7 +215115,8 @@
         "sample": {
           "children": [
             {
-              "component": "EmptyState.Indicator"
+              "component": "EmptyState.Indicator",
+              "children": []
             }
           ]
         },
@@ -217966,7 +217704,8 @@
               "component": "EmptyState.Content",
               "children": [
                 {
-                  "component": "EmptyState.Indicator"
+                  "component": "EmptyState.Indicator",
+                  "children": []
                 }
               ]
             }
@@ -220573,9 +220312,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "width": "full"
-          },
           "children": [
             {
               "component": "Field.ErrorIcon"
@@ -223208,24 +222944,6 @@
           "Field.Label"
         ],
         "parentsFrom": "example",
-        "sample": {
-          "props": {
-            "fallback": {
-              "$element": [
-                {
-                  "component": "Badge",
-                  "props": {
-                    "size": "xs",
-                    "variant": "surface"
-                  },
-                  "children": [
-                    "Optional"
-                  ]
-                }
-              ]
-            }
-          }
-        },
         "fingerprint": "ca3b3f1a",
         "props": {
           "_active?": "c3f29d",
@@ -224079,10 +223797,6 @@
         "as": "forwardRef",
         "group": "Field",
         "sample": {
-          "props": {
-            "required": true,
-            "invalid": true
-          },
           "children": [
             {
               "component": "Field.Label",
@@ -227565,10 +227279,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "fontSize": "sm",
-            "mb": "2"
-          },
           "children": [
             "Select framework"
           ]
@@ -228427,8 +228137,7 @@
         "group": "Fieldset",
         "sample": {
           "props": {
-            "size": "lg",
-            "invalid": true
+            "size": "lg"
           },
           "children": [
             {
@@ -230185,9 +229894,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "width": "full"
-          },
           "children": [
             {
               "component": "FileUpload.DropzoneContent",
@@ -241380,12 +241086,6 @@
           "FileUpload.Root"
         ],
         "parentsFrom": "example",
-        "sample": {
-          "props": {
-            "showSize": true,
-            "clearable": true
-          }
-        },
         "fingerprint": "ad939d84",
         "props": {
           "clearable?": "31e5d9",
@@ -241409,7 +241109,10 @@
         "sample": {
           "children": [
             {
-              "component": "FileUpload.ClearTrigger"
+              "component": "FileUpload.ClearTrigger",
+              "props": {
+                "asChild": true
+              }
             },
             {
               "component": "FileUpload.Dropzone",
@@ -244032,7 +243735,6 @@
         "group": "Flex",
         "sample": {
           "props": {
-            "direction": "column",
             "gap": "8"
           },
           "children": [
@@ -244939,9 +244641,7 @@
         "group": "Float",
         "sample": {
           "props": {
-            "placement": "bottom-end",
-            "offsetX": "1",
-            "offsetY": "1"
+            "placement": "bottom-end"
           }
         },
         "fingerprint": "dd90a01a",
@@ -251171,27 +250871,31 @@
                           "props": {
                             "stage": "minimized",
                             "asChild": true
-                          }
+                          },
+                          "children": []
                         },
                         {
                           "component": "FloatingPanel.StageTrigger",
                           "props": {
                             "stage": "maximized",
                             "asChild": true
-                          }
+                          },
+                          "children": []
                         },
                         {
                           "component": "FloatingPanel.StageTrigger",
                           "props": {
                             "stage": "default",
                             "asChild": true
-                          }
+                          },
+                          "children": []
                         },
                         {
                           "component": "FloatingPanel.CloseTrigger",
                           "props": {
                             "asChild": true
-                          }
+                          },
+                          "children": []
                         }
                       ]
                     }
@@ -252940,15 +252644,6 @@
           "FloatingPanel.Content"
         ],
         "parentsFrom": "example",
-        "sample": {
-          "props": {
-            "axes": [
-              "s",
-              "e",
-              "se"
-            ]
-          }
-        },
         "fingerprint": "bae84e11",
         "props": {
           "_active?": "c3f29d",
@@ -253804,12 +253499,7 @@
         "group": "FloatingPanel",
         "sample": {
           "props": {
-            "id": "notes",
             "persistRect": true,
-            "defaultPosition": {
-              "x": 80,
-              "y": 80
-            },
             "defaultSize": {
               "width": 280,
               "height": 200
@@ -257417,9 +257107,7 @@
         "group": "Format",
         "sample": {
           "props": {
-            "value": 1500000,
-            "notation": "compact",
-            "compactDisplay": "short"
+            "value": 1500000
           }
         },
         "fingerprint": "6ac21005",
@@ -257433,8 +257121,7 @@
         "group": "Grid",
         "sample": {
           "props": {
-            "gap": "4",
-            "templateAreas": "\n      \"one one two three\"\n      \"four five five three\"\n    "
+            "gap": "4"
           },
           "children": [
             {
@@ -259214,10 +258901,7 @@
         "group": "Group",
         "sample": {
           "props": {
-            "attached": true,
-            "width": "full",
-            "maxW": "sm",
-            "grow": true
+            "attached": true
           }
         },
         "fingerprint": "431657fb",
@@ -260081,12 +259765,6 @@
         "declaration": "dist/types/components/heading/index.d.ts",
         "group": "Heading",
         "sample": {
-          "props": {
-            "bgGradient": "to-l",
-            "gradientFrom": "red.500",
-            "gradientTo": "blue.500",
-            "bgClip": "text"
-          },
           "children": [
             "The quick brown fox jumps over the lazy dog"
           ]
@@ -264457,8 +264135,7 @@
         "sample": {
           "props": {
             "children": "Text",
-            "size": "sm",
-            "open": true
+            "size": "sm"
           },
           "children": [
             {
@@ -264548,9 +264225,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "cursor": "pointer"
-          },
           "children": [
             "@chakra_ui"
           ]
@@ -265410,9 +265084,6 @@
         "declaration": "dist/types/components/stack/h-stack.d.ts",
         "group": "HStack",
         "sample": {
-          "props": {
-            "color": "fg.muted"
-          },
           "children": [
             "$435",
             "•",
@@ -267143,11 +266814,7 @@
         "sample": {
           "props": {
             "size": "xs",
-            "variant": "outline",
-            "rounded": "full",
-            "position": "absolute",
-            "zIndex": "1",
-            "bg": "bg"
+            "variant": "outline"
           }
         },
         "fingerprint": "07123366",
@@ -268021,13 +267688,7 @@
           "props": {
             "src": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=160&h=160&fit=crop",
             "alt": "Euphoric Echoes",
-            "bg": "bg.subtle",
-            "objectFit": "cover",
-            "aspectRatio": "1",
-            "borderRadius": "l2",
-            "flexShrink": "0",
-            "height": "150px",
-            "minWidth": "150px"
+            "objectFit": "cover"
           }
         },
         "fingerprint": "db9b2a4a",
@@ -268886,11 +268547,7 @@
         "group": "Input",
         "sample": {
           "props": {
-            "placeholder": "Enter URL",
-            "value": "",
-            "size": "sm",
-            "mb": "3",
-            "autoFocus": true
+            "placeholder": "Enter URL"
           }
         },
         "fingerprint": "bfb6d7c8",
@@ -271461,10 +271118,52 @@
         "as": "forwardRef",
         "declaration": "dist/types/components/input-group/input-group.d.ts",
         "group": "InputGroup",
-        "parents": [
-          "Input"
-        ],
-        "parentsFrom": "prefix",
+        "sample": {
+          "props": {
+            "children": "Text",
+            "startElement": "https://",
+            "endElement": {
+              "$element": [
+                {
+                  "component": "NativeSelect.Root",
+                  "props": {
+                    "size": "xs",
+                    "variant": "plain",
+                    "width": "auto",
+                    "me": "-1"
+                  },
+                  "children": [
+                    {
+                      "component": "NativeSelect.Field",
+                      "props": {
+                        "defaultValue": ".com",
+                        "fontSize": "sm"
+                      },
+                      "children": [
+                        ".com",
+                        ".org",
+                        ".net"
+                      ]
+                    },
+                    {
+                      "component": "NativeSelect.Indicator"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "children": [
+            {
+              "component": "Input",
+              "props": {
+                "ps": "4.75em",
+                "pe": "0",
+                "placeholder": "yoursite.com"
+              }
+            }
+          ]
+        },
         "fingerprint": "c95d9119",
         "props": {
           "_active?": "c3f29d",
@@ -272336,9 +272035,6 @@
         "declaration": "dist/types/components/kbd/kbd.d.ts",
         "group": "Kbd",
         "sample": {
-          "props": {
-            "size": "sm"
-          },
           "children": [
             "Shift + Tab"
           ]
@@ -273201,9 +272897,7 @@
         "group": "Link",
         "sample": {
           "props": {
-            "href": "#inner-link",
-            "variant": "underline",
-            "colorPalette": "teal"
+            "href": "#inner-link"
           },
           "children": [
             "Inner Link"
@@ -280307,11 +280001,7 @@
         "sample": {
           "props": {
             "minH": "10",
-            "px": "3",
-            "roundedTop": "l2",
-            "bg": "transparent",
-            "outline": "0",
-            "value": ""
+            "outline": "0"
           }
         },
         "fingerprint": "6f94c5b9",
@@ -281180,11 +280870,7 @@
               "title": "Euphoric Echoes",
               "artist": "Luna Solstice",
               "image": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=160&h=160&fit=crop"
-            },
-            "flexDirection": "column",
-            "alignItems": "flex-start",
-            "gap": "2",
-            "position": "relative"
+            }
           },
           "children": [
             {
@@ -282077,18 +281763,10 @@
         "sample": {
           "children": [
             {
-              "component": "Listbox.ItemGroupLabel"
-            },
-            {
-              "component": "Listbox.Item",
-              "children": [
-                {
-                  "component": "Listbox.ItemText"
-                },
-                {
-                  "component": "Listbox.ItemIndicator"
-                }
-              ]
+              "component": "Listbox.ItemGroupLabel",
+              "props": {
+                "textTransform": "capitalize"
+              }
             }
           ]
         },
@@ -283813,16 +283491,6 @@
           "Listbox.Item"
         ],
         "parentsFrom": "example",
-        "sample": {
-          "props": {
-            "position": "absolute",
-            "top": "4",
-            "right": "4",
-            "layerStyle": "fill.solid",
-            "borderWidth": "2px",
-            "borderColor": "fg.inverted"
-          }
-        },
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",
@@ -286413,7 +286081,6 @@
         "group": "Listbox",
         "sample": {
           "props": {
-            "orientation": "horizontal",
             "maxW": "640px"
           },
           "children": [
@@ -291729,8 +291396,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "children": "Text",
-            "textStyle": "sm"
+            "children": "Text"
           },
           "children": [
             {
@@ -294345,10 +294011,6 @@
         "as": "forwardRef",
         "group": "Marquee",
         "sample": {
-          "props": {
-            "pauseOnInteraction": true,
-            "py": "10"
-          },
           "children": [
             {
               "component": "Marquee.Edge",
@@ -294366,19 +294028,22 @@
                       "component": "Marquee.Item",
                       "props": {
                         "px": "1rem"
-                      }
+                      },
+                      "children": []
                     },
                     {
                       "component": "Marquee.Item",
                       "props": {
                         "px": "1rem"
-                      }
+                      },
+                      "children": []
                     },
                     {
                       "component": "Marquee.Item",
                       "props": {
                         "px": "1rem"
-                      }
+                      },
+                      "children": []
                     }
                   ]
                 }
@@ -309386,8 +309051,7 @@
         "group": "Menu",
         "sample": {
           "props": {
-            "children": "Text",
-            "open": true
+            "children": "Text"
           },
           "children": [
             {
@@ -310394,12 +310058,6 @@
           "Menu.Root"
         ],
         "parentsFrom": "example",
-        "sample": {
-          "props": {
-            "rounded": "full",
-            "focusRing": "outside"
-          }
-        },
         "fingerprint": "b82fd55d",
         "props": {
           "_active?": "c3f29d",
@@ -312127,8 +311785,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "placeholder": "Select option",
-            "value": ""
+            "placeholder": "Select option"
           },
           "children": [
             "React",
@@ -313859,9 +313516,7 @@
         "sample": {
           "props": {
             "size": "xs",
-            "variant": "plain",
-            "width": "auto",
-            "me": "-1"
+            "width": "auto"
           },
           "children": [
             {
@@ -317351,11 +317006,6 @@
           "NumberInput.Root"
         ],
         "parentsFrom": "example",
-        "sample": {
-          "props": {
-            "pl": "10"
-          }
-        },
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",
@@ -319087,9 +318737,7 @@
         "sample": {
           "props": {
             "width": "200px",
-            "defaultValue": "10",
-            "min": 5,
-            "max": 50
+            "defaultValue": "10"
           },
           "children": [
             {
@@ -324320,11 +323968,8 @@
                   "component": "IconButton",
                   "props": {
                     "variant": {
-                      "base": "outline",
-                      "_selected": "solid"
-                    },
-                    "zIndex": {
-                      "_selected": "1"
+                      "base": "ghost",
+                      "_selected": "outline"
                     }
                   }
                 }
@@ -326939,18 +326584,39 @@
           "props": {
             "count": 50,
             "pageSize": 5,
-            "defaultPage": 1,
-            "maxW": "240px"
+            "defaultPage": 1
           },
           "children": [
             {
-              "component": "Pagination.Ellipsis"
+              "component": "Pagination.Ellipsis",
+              "props": {
+                "index": 1
+              }
             },
             {
-              "component": "Pagination.Item"
+              "component": "Pagination.Item",
+              "props": {
+                "type": "page",
+                "value": 1
+              }
             },
             {
-              "component": "Pagination.Items"
+              "component": "Pagination.Items",
+              "props": {
+                "render": {
+                  "$render": [
+                    {
+                      "component": "IconButton",
+                      "props": {
+                        "variant": {
+                          "base": "ghost",
+                          "_selected": "outline"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
             }
           ]
         },
@@ -331323,9 +330989,6 @@
         "as": "forwardRef",
         "group": "PinInput",
         "sample": {
-          "props": {
-            "type": "alphanumeric"
-          },
           "children": [
             {
               "component": "PinInput.HiddenInput"
@@ -342854,8 +342517,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "asChild": true,
-            "value": "profile"
+            "asChild": true
           }
         },
         "fingerprint": "b82fd55d",
@@ -343728,9 +343390,6 @@
         "group": "Presence",
         "sample": {
           "props": {
-            "position": "fixed",
-            "bottom": "0",
-            "insetX": "0",
             "animationName": {
               "_open": "slide-from-bottom-full",
               "_closed": "slide-to-bottom-full"
@@ -344599,8 +344258,8 @@
         "as": "function",
         "group": "Progress",
         "parents": [
-          "Stack",
           "For",
+          "Stack",
           "Progress.Root"
         ],
         "parentsFrom": "error",
@@ -344623,9 +344282,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "mb": "2"
-          },
           "children": [
             "Uploading",
             "Uploading document to the server"
@@ -346352,9 +346008,7 @@
         "group": "Progress",
         "sample": {
           "props": {
-            "value": 60,
-            "max": 100,
-            "width": "240px"
+            "value": 60
           },
           "children": [
             {
@@ -347246,8 +346900,8 @@
         "as": "forwardRef",
         "group": "Progress",
         "parents": [
-          "Stack",
           "For",
+          "Stack",
           "Progress.Root"
         ],
         "parentsFrom": "namespace",
@@ -348116,9 +347770,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "mt": "2"
-          },
           "children": [
             {
               "component": "Progress.Range"
@@ -362017,8 +361668,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "value": "next",
-            "flex": "1"
+            "value": "next"
           },
           "children": [
             {
@@ -365598,10 +365248,6 @@
           "RadioCard.ItemContent"
         ],
         "sample": {
-          "props": {
-            "fontSize": "sm",
-            "color": "gray.600"
-          },
           "children": [
             "Great for full-stack React apps"
           ]
@@ -366477,12 +366123,6 @@
           "RadioCard.ItemControl"
         ],
         "parentsFrom": "example",
-        "sample": {
-          "props": {
-            "borderWidth": "0",
-            "color": "green.500"
-          }
-        },
         "fingerprint": "83c2b1ff",
         "props": {
           "_active?": "c3f29d",
@@ -367342,9 +366982,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "fontWeight": "medium"
-          },
           "children": [
             "Next.js"
           ]
@@ -369075,9 +368712,7 @@
         "group": "RadioCard",
         "sample": {
           "props": {
-            "orientation": "horizontal",
             "align": "center",
-            "justify": "center",
             "maxW": "lg",
             "defaultValue": "paypal"
           },
@@ -370850,8 +370485,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "value": "react",
-            "minW": "120px"
+            "value": "react"
           },
           "children": [
             {
@@ -375205,8 +374839,7 @@
         "group": "RadioGroup",
         "sample": {
           "props": {
-            "defaultValue": "react",
-            "spaceX": "8"
+            "defaultValue": "react"
           },
           "children": [
             {
@@ -377006,7 +376639,6 @@
         "sample": {
           "props": {
             "variant": "outline",
-            "filled": true,
             "checked": true
           }
         },
@@ -377890,6 +377522,7 @@
             {
               "component": "RatingGroup.Item",
               "props": {
+                "index": 1,
                 "minW": "9",
                 "filter": {
                   "base": "grayscale(1)",
@@ -377899,7 +377532,12 @@
                 "_hover": {
                   "scale": "1.1"
                 }
-              }
+              },
+              "children": [
+                {
+                  "component": "RatingGroup.ItemIndicator"
+                }
+              ]
             }
           ]
         },
@@ -382248,8 +381886,7 @@
           "props": {
             "count": 5,
             "defaultValue": 3,
-            "size": "sm",
-            "gap": "4"
+            "size": "sm"
           },
           "children": [
             {
@@ -384019,7 +383656,6 @@
         "sample": {
           "props": {
             "spaceY": "4",
-            "w": "40rem",
             "textStyle": "sm"
           }
         },
@@ -385764,8 +385400,7 @@
           "props": {
             "height": "12rem",
             "width": "lg",
-            "size": "xs",
-            "p": "2"
+            "size": "xs"
           },
           "children": [
             {
@@ -385777,7 +385412,8 @@
                     "spaceY": "4",
                     "w": "40rem",
                     "textStyle": "sm"
-                  }
+                  },
+                  "children": []
                 }
               ]
             },
@@ -387525,9 +387161,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "bg": "red.subtle"
-          },
           "children": [
             {
               "component": "ScrollArea.Thumb",
@@ -389264,7 +388897,8 @@
                 "spaceY": "4",
                 "w": "40rem",
                 "textStyle": "sm"
-              }
+              },
+              "children": []
             }
           ]
         },
@@ -393655,8 +393289,7 @@
         "group": "SegmentGroup",
         "sample": {
           "props": {
-            "size": "sm",
-            "value": "bottom"
+            "size": "sm"
           },
           "children": [
             {
@@ -396276,6 +395909,13 @@
           "children": [
             {
               "component": "Select.Item",
+              "props": {
+                "item": {
+                  "name": "Jessica Jones",
+                  "id": "jessica_jones",
+                  "avatar": "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=100"
+                }
+              },
               "children": [
                 "Jessica Jones",
                 {
@@ -396298,17 +395938,6 @@
                   },
                   "children": [
                     "Popular"
-                  ]
-                },
-                {
-                  "component": "Select.Item",
-                  "children": [
-                    {
-                      "component": "Select.ItemText"
-                    },
-                    {
-                      "component": "Select.ItemIndicator"
-                    }
                   ]
                 }
               ]
@@ -398086,11 +397715,6 @@
           "Select.IndicatorGroup"
         ],
         "parentsFrom": "example",
-        "sample": {
-          "props": {
-            "color": "colorPalette.fg"
-          }
-        },
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",
@@ -399821,8 +399445,7 @@
               "name": "Jessica Jones",
               "id": "jessica_jones",
               "avatar": "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=100"
-            },
-            "justifyContent": "flex-start"
+            }
           },
           "children": [
             "Jessica Jones",
@@ -400720,17 +400343,6 @@
               },
               "children": [
                 "Popular"
-              ]
-            },
-            {
-              "component": "Select.Item",
-              "children": [
-                {
-                  "component": "Select.ItemText"
-                },
-                {
-                  "component": "Select.ItemIndicator"
-                }
               ]
             }
           ]
@@ -405909,32 +405521,18 @@
               "component": "Select.Content",
               "children": [
                 {
-                  "component": "Select.ItemGroup",
+                  "component": "Select.Item",
+                  "props": {
+                    "item": {
+                      "name": "Jessica Jones",
+                      "id": "jessica_jones",
+                      "avatar": "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=100"
+                    }
+                  },
                   "children": [
+                    "Jessica Jones",
                     {
-                      "component": "Select.ItemGroupLabel",
-                      "props": {
-                        "px": "2",
-                        "py": "1",
-                        "fontSize": "xs",
-                        "fontWeight": "semibold",
-                        "textTransform": "uppercase",
-                        "color": "fg.muted"
-                      },
-                      "children": [
-                        "Popular"
-                      ]
-                    },
-                    {
-                      "component": "Select.Item",
-                      "children": [
-                        {
-                          "component": "Select.ItemText"
-                        },
-                        {
-                          "component": "Select.ItemIndicator"
-                        }
-                      ]
+                      "component": "Select.ItemIndicator"
                     }
                   ]
                 },
@@ -405952,18 +405550,7 @@
                         "color": "fg.muted"
                       },
                       "children": [
-                        "Others"
-                      ]
-                    },
-                    {
-                      "component": "Select.Item",
-                      "children": [
-                        {
-                          "component": "Select.ItemText"
-                        },
-                        {
-                          "component": "Select.ItemIndicator"
-                        }
+                        "Popular"
                       ]
                     }
                   ]
@@ -406837,8 +406424,7 @@
         "sample": {
           "props": {
             "size": "sm",
-            "width": "320px",
-            "open": true
+            "width": "240px"
           },
           "children": [
             {
@@ -406847,7 +406433,7 @@
             {
               "component": "Select.Label",
               "children": [
-                "Select framework"
+                "Select member"
               ]
             },
             {
@@ -406859,8 +406445,9 @@
                     {
                       "component": "Select.ValueText",
                       "props": {
-                        "placeholder": "Select framework"
-                      }
+                        "placeholder": "Select member"
+                      },
+                      "children": []
                     }
                   ]
                 },
@@ -406881,40 +406468,53 @@
                   "component": "Select.Content",
                   "children": [
                     {
-                      "component": "Select.ItemGroup",
-                      "children": [
-                        {
-                          "component": "Select.ItemGroupLabel",
-                          "props": {
-                            "px": "2",
-                            "py": "1",
-                            "fontSize": "xs",
-                            "fontWeight": "semibold",
-                            "textTransform": "uppercase",
-                            "color": "fg.muted"
-                          }
+                      "component": "Select.Item",
+                      "props": {
+                        "item": {
+                          "name": "Jessica Jones",
+                          "id": "jessica_jones",
+                          "avatar": "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=100"
                         },
+                        "justifyContent": "flex-start"
+                      },
+                      "children": [
+                        "Jessica Jones",
                         {
-                          "component": "Select.Item"
+                          "component": "Select.ItemIndicator"
                         }
                       ]
                     },
                     {
-                      "component": "Select.ItemGroup",
-                      "children": [
-                        {
-                          "component": "Select.ItemGroupLabel",
-                          "props": {
-                            "px": "2",
-                            "py": "1",
-                            "fontSize": "xs",
-                            "fontWeight": "semibold",
-                            "textTransform": "uppercase",
-                            "color": "fg.muted"
-                          }
+                      "component": "Select.Item",
+                      "props": {
+                        "item": {
+                          "name": "Kenneth Johnson",
+                          "id": "kenneth_johnson",
+                          "avatar": "https://images.unsplash.com/photo-1523477800337-966dbabe060b?w=100"
                         },
+                        "justifyContent": "flex-start"
+                      },
+                      "children": [
+                        "Kenneth Johnson",
                         {
-                          "component": "Select.Item"
+                          "component": "Select.ItemIndicator"
+                        }
+                      ]
+                    },
+                    {
+                      "component": "Select.Item",
+                      "props": {
+                        "item": {
+                          "name": "Kate Wilson",
+                          "id": "kate_wilson",
+                          "avatar": "https://images.unsplash.com/photo-1609712409631-dbbb050746d1?w=100"
+                        },
+                        "justifyContent": "flex-start"
+                      },
+                      "children": [
+                        "Kate Wilson",
+                        {
+                          "component": "Select.ItemIndicator"
                         }
                       ]
                     }
@@ -410428,12 +410028,6 @@
         "as": "forwardRef",
         "declaration": "dist/types/components/separator/separator.d.ts",
         "group": "Separator",
-        "sample": {
-          "props": {
-            "orientation": "vertical",
-            "height": "4"
-          }
-        },
         "fingerprint": "042ffccf",
         "props": {
           "_active?": "c3f29d",
@@ -411300,8 +410894,7 @@
         "group": "Show",
         "sample": {
           "props": {
-            "children": "Text",
-            "when": 10
+            "children": "Text"
           },
           "children": [
             {
@@ -411324,9 +410917,7 @@
         "group": "SimpleGrid",
         "sample": {
           "props": {
-            "columns": 2,
-            "columnGap": "2",
-            "rowGap": "4"
+            "columns": 2
           }
         },
         "fingerprint": "00d6de30",
@@ -412195,11 +411786,7 @@
           "props": {
             "variant": "shine",
             "width": "full",
-            "height": "5",
-            "css": {
-              "--start-color": "colors.pink.500",
-              "--end-color": "colors.orange.500"
-            }
+            "height": "5"
           }
         },
         "fingerprint": "b33476f9",
@@ -416536,11 +416123,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "height": "6",
-            "display": "flex",
-            "alignItems": "center"
-          },
           "children": [
             {
               "component": "Slider.Track",
@@ -418348,10 +417930,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "mb": "2",
-            "fontWeight": "medium"
-          },
           "children": [
             "Volume"
           ]
@@ -423571,12 +423149,6 @@
           "Slider.Track"
         ],
         "parentsFrom": "example",
-        "sample": {
-          "props": {
-            "bg": "blue.500",
-            "rounded": "full"
-          }
-        },
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",
@@ -424433,8 +424005,7 @@
           "props": {
             "defaultValue": [
               40
-            ],
-            "orientation": "horizontal"
+            ]
           },
           "children": [
             {
@@ -427180,11 +426751,6 @@
           "Slider.Control"
         ],
         "parentsFrom": "example",
-        "sample": {
-          "props": {
-            "rounded": "l1"
-          }
-        },
         "fingerprint": "a4c5776c",
         "props": {
           "_active?": "c3f29d",
@@ -428044,11 +427610,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "bg": "gray.200",
-            "rounded": "full",
-            "height": "2"
-          },
           "children": [
             {
               "component": "Slider.Range",
@@ -431497,7 +431058,6 @@
         "sample": {
           "props": {
             "size": "xs",
-            "borderWidth": "1.5px",
             "color": "fg.muted"
           }
         },
@@ -432428,7 +431988,8 @@
                   "component": "Splitter.Panel",
                   "props": {
                     "id": "editor"
-                  }
+                  },
+                  "children": []
                 },
                 {
                   "component": "Splitter.ResizeTrigger",
@@ -432440,7 +432001,8 @@
                   "component": "Splitter.Panel",
                   "props": {
                     "id": "terminal"
-                  }
+                  },
+                  "children": []
                 }
               ]
             }
@@ -435910,8 +435472,7 @@
               80
             ],
             "borderWidth": "1px",
-            "minH": "600px",
-            "colorPalette": "gray"
+            "minH": "600px"
           },
           "children": [
             {
@@ -435962,7 +435523,8 @@
                       "component": "Splitter.Panel",
                       "props": {
                         "id": "editor"
-                      }
+                      },
+                      "children": []
                     },
                     {
                       "component": "Splitter.ResizeTrigger",
@@ -435974,7 +435536,8 @@
                       "component": "Splitter.Panel",
                       "props": {
                         "id": "terminal"
-                      }
+                      },
+                      "children": []
                     }
                   ]
                 }
@@ -438572,10 +438135,6 @@
         "declaration": "dist/types/components/stack/stack.d.ts",
         "group": "Stack",
         "sample": {
-          "props": {
-            "minW": "240px",
-            "flex": "1"
-          },
           "children": [
             {
               "component": "Stack",
@@ -438591,6 +438150,18 @@
                     "px": "5",
                     "pt": "5",
                     "pb": "3"
+                  },
+                  "children": []
+                },
+                {
+                  "component": "Stack",
+                  "props": {
+                    "gap": "2",
+                    "px": "4",
+                    "pb": "4",
+                    "flex": "1",
+                    "overflowY": "auto",
+                    "maxH": "380px"
                   },
                   "children": []
                 }
@@ -442052,11 +441623,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "fontSize": "sm",
-            "color": "gray.600",
-            "mb": "1"
-          },
           "children": [
             "Unique visitors"
           ]
@@ -444681,12 +444247,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "as": "span",
-            "fontSize": "2xl",
-            "fontWeight": "bold",
-            "lineHeight": "1"
-          },
           "children": [
             "192.1",
             {
@@ -452546,11 +452106,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "index": 1,
-            "flex": "1!",
-            "flexDir": "column",
-            "alignItems": "flex-start",
-            "gap": "2"
+            "index": 1
           },
           "children": [
             {
@@ -453449,9 +453005,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "gap": "4"
-          },
           "children": [
             {
               "component": "Steps.Item",
@@ -458852,14 +458405,6 @@
           "Steps.Item"
         ],
         "parentsFrom": "example",
-        "sample": {
-          "props": {
-            "h": "3px",
-            "flex": "unset",
-            "display": "initial!",
-            "mx": "0!"
-          }
-        },
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",
@@ -459742,9 +459287,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "fontWeight": "semibold"
-          },
           "children": [
             "Create Account"
           ]
@@ -463221,7 +462763,8 @@
               "component": "Switch.Thumb",
               "children": [
                 {
-                  "component": "Switch.ThumbIndicator"
+                  "component": "Switch.ThumbIndicator",
+                  "children": []
                 }
               ]
             }
@@ -465832,7 +465375,8 @@
                   "component": "Switch.Thumb",
                   "children": [
                     {
-                      "component": "Switch.ThumbIndicator"
+                      "component": "Switch.ThumbIndicator",
+                      "children": []
                     }
                   ]
                 }
@@ -467590,7 +467134,8 @@
         "sample": {
           "children": [
             {
-              "component": "Switch.ThumbIndicator"
+              "component": "Switch.ThumbIndicator",
+              "children": []
             }
           ]
         },
@@ -471144,9 +470689,7 @@
         ],
         "sample": {
           "props": {
-            "colSpan": 2,
-            "textAlign": "end",
-            "fontWeight": "bold"
+            "textAlign": "end"
           },
           "children": [
             "Total"
@@ -473748,11 +473291,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "data-sticky": "end",
-            "minW": "160px",
-            "left": "0"
-          },
           "children": [
             "Product"
           ]
@@ -482051,11 +481589,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "w": "full",
-            "border": "0",
-            "ms": "-1"
-          },
           "children": [
             {
               "component": "Tabs.Trigger",
@@ -482956,9 +482489,7 @@
         "group": "Tabs",
         "sample": {
           "props": {
-            "defaultValue": "one",
-            "aria-label": "Custom tabs",
-            "maxW": "xl"
+            "defaultValue": "one"
           },
           "children": [
             {
@@ -484854,9 +484385,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "value": "npm",
-            "colorPalette": "teal",
-            "textStyle": "xs"
+            "value": "npm"
           },
           "children": [
             "npm"
@@ -488298,11 +487827,6 @@
         "as": "forwardRef",
         "group": "Tag",
         "sample": {
-          "props": {
-            "size": "sm",
-            "colorPalette": "blue",
-            "maxW": "200px"
-          },
           "children": [
             {
               "component": "Tag.Label",
@@ -498739,7 +498263,6 @@
         "group": "TagsInput",
         "sample": {
           "props": {
-            "editable": true,
             "defaultValue": [
               "React",
               "Chakra"
@@ -500525,8 +500048,7 @@
         "group": "Text",
         "sample": {
           "props": {
-            "textStyle": "sm",
-            "mb": "3"
+            "textStyle": "sm"
           },
           "children": [
             "Control the panel from inside the body using",
@@ -501391,8 +500913,6 @@
         "group": "Textarea",
         "sample": {
           "props": {
-            "unstyled": true,
-            "minW": "320px",
             "placeholder": "Placeholder"
           }
         },
@@ -505743,12 +505263,6 @@
           "Timeline.Connector"
         ],
         "parentsFrom": "example",
-        "sample": {
-          "props": {
-            "bg": "teal.solid",
-            "color": "teal.contrast"
-          }
-        },
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",
@@ -517090,6 +516604,9 @@
           "children": [
             {
               "component": "Toggle.Indicator",
+              "props": {
+                "fallback": "Mute"
+              },
               "children": [
                 "Unmute"
               ]
@@ -531006,10 +530523,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "mb": "2",
-            "fontWeight": "medium"
-          },
           "children": [
             "Project Explorer"
           ]
@@ -532809,12 +532322,7 @@
         "group": "TreeView",
         "sample": {
           "props": {
-            "maxW": "sm",
-            "size": "sm",
-            "colorPalette": "teal",
-            "defaultSelectedValue": [
-              "node_modules"
-            ]
+            "maxW": "sm"
           },
           "children": [
             {
@@ -536319,8 +535827,7 @@
         "sample": {
           "props": {
             "align": "stretch",
-            "gap": 0,
-            "h": "full"
+            "gap": 0
           },
           "children": [
             {
@@ -537194,17 +536701,7 @@
         "group": "Wrap",
         "sample": {
           "props": {
-            "gap": "2",
-            "borderWidth": "1px",
-            "minH": "10",
-            "display": "flex",
-            "alignItems": "center",
-            "width": "full",
-            "borderRadius": "l2",
-            "textStyle": "sm",
-            "py": "1.5",
-            "ps": "2.5",
-            "pe": "8"
+            "gap": "2"
           },
           "children": [
             {

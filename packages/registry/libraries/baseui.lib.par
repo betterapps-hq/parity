@@ -336,8 +336,6 @@
         "group": "Autocomplete",
         "sample": {
           "props": {
-            "grid": true,
-            "open": false,
             "value": ""
           },
           "children": [
@@ -579,7 +577,8 @@
           },
           "children": [
             {
-              "component": "Checkbox.Indicator"
+              "component": "Checkbox.Indicator",
+              "children": []
             }
           ]
         },
@@ -770,7 +769,8 @@
           },
           "children": [
             {
-              "component": "Combobox.ChipRemove"
+              "component": "Combobox.ChipRemove",
+              "children": []
             }
           ]
         },
@@ -818,7 +818,8 @@
               },
               "children": [
                 {
-                  "component": "Combobox.ChipRemove"
+                  "component": "Combobox.ChipRemove",
+                  "children": []
                 }
               ]
             },
@@ -880,7 +881,8 @@
                   "component": "Combobox.Item",
                   "children": [
                     {
-                      "component": "Combobox.ItemIndicator"
+                      "component": "Combobox.ItemIndicator",
+                      "children": []
                     }
                   ]
                 }
@@ -943,7 +945,8 @@
                       "component": "Combobox.Item",
                       "children": [
                         {
-                          "component": "Combobox.ItemIndicator"
+                          "component": "Combobox.ItemIndicator",
+                          "children": []
                         }
                       ]
                     }
@@ -1046,7 +1049,8 @@
                           },
                           "children": [
                             {
-                              "component": "Combobox.ChipRemove"
+                              "component": "Combobox.ChipRemove",
+                              "children": []
                             }
                           ]
                         },
@@ -1082,7 +1086,8 @@
         "sample": {
           "children": [
             {
-              "component": "Combobox.ItemIndicator"
+              "component": "Combobox.ItemIndicator",
+              "children": []
             },
             "@"
           ]
@@ -1169,7 +1174,8 @@
                               "component": "Combobox.Item",
                               "children": [
                                 {
-                                  "component": "Combobox.ItemIndicator"
+                                  "component": "Combobox.ItemIndicator",
+                                  "children": []
                                 }
                               ]
                             }
@@ -1228,7 +1234,8 @@
                             {
                               "$render": [
                                 {
-                                  "component": "Combobox.Item"
+                                  "component": "Combobox.Item",
+                                  "children": []
                                 }
                               ],
                               "pass": [
@@ -1284,7 +1291,8 @@
                         {
                           "$render": [
                             {
-                              "component": "Combobox.Item"
+                              "component": "Combobox.Item",
+                              "children": []
                             }
                           ]
                         }
@@ -1443,7 +1451,8 @@
                   }
                 },
                 {
-                  "component": "Combobox.Icon"
+                  "component": "Combobox.Icon",
+                  "children": []
                 }
               ]
             },
@@ -1586,7 +1595,8 @@
               }
             },
             {
-              "component": "Combobox.Icon"
+              "component": "Combobox.Icon",
+              "children": []
             }
           ]
         },
@@ -1624,7 +1634,8 @@
                       },
                       "children": [
                         {
-                          "component": "Combobox.ChipRemove"
+                          "component": "Combobox.ChipRemove",
+                          "children": []
                         }
                       ]
                     },
@@ -1943,10 +1954,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "id": "trigger-1",
-            "payload": 1
-          },
           "children": [
             "Open 1"
           ]
@@ -2243,8 +2250,7 @@
         "group": "Drawer",
         "sample": {
           "props": {
-            "swipeDirection": "right",
-            "modal": false
+            "swipeDirection": "right"
           },
           "children": [
             {
@@ -2270,7 +2276,8 @@
                       "component": "Drawer.Popup",
                       "children": [
                         {
-                          "component": "Drawer.Content"
+                          "component": "Drawer.Content",
+                          "children": []
                         }
                       ]
                     }
@@ -2438,7 +2445,8 @@
                       "children": [
                         "Cancel Delivery details Save",
                         {
-                          "component": "Drawer.Content"
+                          "component": "Drawer.Content",
+                          "children": []
                         },
                         "Delivery note"
                       ]
@@ -2463,10 +2471,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "type": "text",
-            "autoComplete": "username",
             "required": true,
-            "defaultValue": "admin",
             "placeholder": "e.g. alice132"
           }
         },
@@ -2506,9 +2511,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "match": "valueMissing"
-          },
           "children": [
             "Please enter your name"
           ]
@@ -2554,9 +2556,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "nativeLabel": false
-          },
           "children": [
             "Produce"
           ]
@@ -2791,7 +2790,8 @@
           },
           "children": [
             {
-              "component": "Menu.CheckboxItemIndicator"
+              "component": "Menu.CheckboxItemIndicator",
+              "children": []
             },
             "Minimap"
           ]
@@ -2890,9 +2890,14 @@
         "as": "function",
         "group": "Menu",
         "parents": [
-          "Menu.Root"
+          "Menu.Root",
+          "Menu.Portal",
+          "Menu.Positioner",
+          "Menu.Popup",
+          "Menu.List",
+          "Menu.Group"
         ],
-        "parentsFrom": "namespace",
+        "parentsFrom": "example",
         "visual": false,
         "sample": {
           "children": [
@@ -2916,7 +2921,8 @@
                       },
                       "children": [
                         {
-                          "component": "Menu.Popup"
+                          "component": "Menu.Popup",
+                          "children": []
                         }
                       ]
                     }
@@ -2965,6 +2971,29 @@
               ]
             },
             {
+              "component": "Menu.FilterProvider",
+              "children": [
+                {
+                  "component": "Menu.SubmenuRoot",
+                  "children": [
+                    {
+                      "component": "Menu.SubmenuTrigger",
+                      "children": []
+                    },
+                    {
+                      "component": "Menu.Portal",
+                      "children": [
+                        {
+                          "component": "Menu.Positioner",
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
               "component": "Menu.SubmenuRoot",
               "children": [
                 {
@@ -2980,7 +3009,8 @@
                       "component": "Menu.Positioner",
                       "children": [
                         {
-                          "component": "Menu.Popup"
+                          "component": "Menu.Popup",
+                          "children": []
                         }
                       ]
                     }
@@ -2989,15 +3019,26 @@
               ]
             },
             {
-              "component": "Menu.Item",
+              "component": "Menu.FilterProvider",
               "children": [
-                "Download a copy"
-              ]
-            },
-            {
-              "component": "Menu.Item",
-              "children": [
-                "Delete"
+                {
+                  "component": "Menu.SubmenuRoot",
+                  "children": [
+                    {
+                      "component": "Menu.SubmenuTrigger",
+                      "children": []
+                    },
+                    {
+                      "component": "Menu.Portal",
+                      "children": [
+                        {
+                          "component": "Menu.Positioner",
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                }
               ]
             }
           ]
@@ -3175,6 +3216,24 @@
                   ]
                 },
                 {
+                  "component": "Menu.FilterProvider",
+                  "children": [
+                    {
+                      "component": "Menu.SubmenuRoot",
+                      "children": [
+                        {
+                          "component": "Menu.SubmenuTrigger",
+                          "children": []
+                        },
+                        {
+                          "component": "Menu.Portal",
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
                   "component": "Menu.SubmenuRoot",
                   "children": [
                     {
@@ -3187,22 +3246,29 @@
                       "component": "Menu.Portal",
                       "children": [
                         {
-                          "component": "Menu.Positioner"
+                          "component": "Menu.Positioner",
+                          "children": []
                         }
                       ]
                     }
                   ]
                 },
                 {
-                  "component": "Menu.Item",
+                  "component": "Menu.FilterProvider",
                   "children": [
-                    "Download a copy"
-                  ]
-                },
-                {
-                  "component": "Menu.Item",
-                  "children": [
-                    "Delete"
+                    {
+                      "component": "Menu.SubmenuRoot",
+                      "children": [
+                        {
+                          "component": "Menu.SubmenuTrigger",
+                          "children": []
+                        },
+                        {
+                          "component": "Menu.Portal",
+                          "children": []
+                        }
+                      ]
+                    }
                   ]
                 }
               ]
@@ -3227,7 +3293,8 @@
                   },
                   "children": [
                     {
-                      "component": "Menu.RadioItemIndicator"
+                      "component": "Menu.RadioItemIndicator",
+                      "children": []
                     }
                   ]
                 },
@@ -3238,7 +3305,8 @@
                   },
                   "children": [
                     {
-                      "component": "Menu.RadioItemIndicator"
+                      "component": "Menu.RadioItemIndicator",
+                      "children": []
                     }
                   ]
                 },
@@ -3249,7 +3317,8 @@
                   },
                   "children": [
                     {
-                      "component": "Menu.RadioItemIndicator"
+                      "component": "Menu.RadioItemIndicator",
+                      "children": []
                     }
                   ]
                 }
@@ -3274,7 +3343,8 @@
                   },
                   "children": [
                     {
-                      "component": "Menu.CheckboxItemIndicator"
+                      "component": "Menu.CheckboxItemIndicator",
+                      "children": []
                     },
                     "Show details"
                   ]
@@ -3283,7 +3353,8 @@
                   "component": "Menu.CheckboxItem",
                   "children": [
                     {
-                      "component": "Menu.CheckboxItemIndicator"
+                      "component": "Menu.CheckboxItemIndicator",
+                      "children": []
                     },
                     "Show sidebar"
                   ]
@@ -3292,7 +3363,8 @@
                   "component": "Menu.CheckboxItem",
                   "children": [
                     {
-                      "component": "Menu.CheckboxItemIndicator"
+                      "component": "Menu.CheckboxItemIndicator",
+                      "children": []
                     },
                     "Keep available offline"
                   ]
@@ -3373,26 +3445,34 @@
                       ]
                     },
                     {
-                      "component": "Menu.SubmenuRoot",
+                      "component": "Menu.FilterProvider",
                       "children": [
                         {
-                          "component": "Menu.SubmenuTrigger"
-                        },
-                        {
-                          "component": "Menu.Portal"
+                          "component": "Menu.SubmenuRoot",
+                          "children": []
                         }
                       ]
                     },
                     {
-                      "component": "Menu.Item",
+                      "component": "Menu.SubmenuRoot",
                       "children": [
-                        "Download a copy"
+                        {
+                          "component": "Menu.SubmenuTrigger",
+                          "children": []
+                        },
+                        {
+                          "component": "Menu.Portal",
+                          "children": []
+                        }
                       ]
                     },
                     {
-                      "component": "Menu.Item",
+                      "component": "Menu.FilterProvider",
                       "children": [
-                        "Delete"
+                        {
+                          "component": "Menu.SubmenuRoot",
+                          "children": []
+                        }
                       ]
                     }
                   ]
@@ -3417,7 +3497,8 @@
                       },
                       "children": [
                         {
-                          "component": "Menu.RadioItemIndicator"
+                          "component": "Menu.RadioItemIndicator",
+                          "children": []
                         }
                       ]
                     },
@@ -3428,7 +3509,8 @@
                       },
                       "children": [
                         {
-                          "component": "Menu.RadioItemIndicator"
+                          "component": "Menu.RadioItemIndicator",
+                          "children": []
                         }
                       ]
                     },
@@ -3439,7 +3521,8 @@
                       },
                       "children": [
                         {
-                          "component": "Menu.RadioItemIndicator"
+                          "component": "Menu.RadioItemIndicator",
+                          "children": []
                         }
                       ]
                     }
@@ -3464,7 +3547,8 @@
                       },
                       "children": [
                         {
-                          "component": "Menu.CheckboxItemIndicator"
+                          "component": "Menu.CheckboxItemIndicator",
+                          "children": []
                         },
                         "Show details"
                       ]
@@ -3473,7 +3557,8 @@
                       "component": "Menu.CheckboxItem",
                       "children": [
                         {
-                          "component": "Menu.CheckboxItemIndicator"
+                          "component": "Menu.CheckboxItemIndicator",
+                          "children": []
                         },
                         "Show sidebar"
                       ]
@@ -3482,7 +3567,8 @@
                       "component": "Menu.CheckboxItem",
                       "children": [
                         {
-                          "component": "Menu.CheckboxItemIndicator"
+                          "component": "Menu.CheckboxItemIndicator",
+                          "children": []
                         },
                         "Keep available offline"
                       ]
@@ -3535,19 +3621,22 @@
                           "component": "Menu.RadioItem",
                           "props": {
                             "value": "date"
-                          }
+                          },
+                          "children": []
                         },
                         {
                           "component": "Menu.RadioItem",
                           "props": {
                             "value": "name"
-                          }
+                          },
+                          "children": []
                         },
                         {
                           "component": "Menu.RadioItem",
                           "props": {
                             "value": "type"
-                          }
+                          },
+                          "children": []
                         }
                       ]
                     },
@@ -3561,19 +3650,22 @@
                           "component": "Menu.CheckboxItem",
                           "props": {
                             "checked": true
-                          }
+                          },
+                          "children": []
                         },
                         {
                           "component": "Menu.CheckboxItem",
                           "props": {
                             "checked": true
-                          }
+                          },
+                          "children": []
                         },
                         {
                           "component": "Menu.CheckboxItem",
                           "props": {
                             "checked": false
-                          }
+                          },
+                          "children": []
                         }
                       ]
                     }
@@ -3648,13 +3740,14 @@
                           "component": "Menu.GroupLabel"
                         },
                         {
-                          "component": "Menu.SubmenuRoot"
+                          "component": "Menu.FilterProvider"
                         },
                         {
-                          "component": "Menu.Item"
+                          "component": "Menu.SubmenuRoot",
+                          "children": []
                         },
                         {
-                          "component": "Menu.Item"
+                          "component": "Menu.FilterProvider"
                         }
                       ]
                     },
@@ -3672,19 +3765,22 @@
                           "component": "Menu.RadioItem",
                           "props": {
                             "value": "date"
-                          }
+                          },
+                          "children": []
                         },
                         {
                           "component": "Menu.RadioItem",
                           "props": {
                             "value": "name"
-                          }
+                          },
+                          "children": []
                         },
                         {
                           "component": "Menu.RadioItem",
                           "props": {
                             "value": "size"
-                          }
+                          },
+                          "children": []
                         }
                       ]
                     },
@@ -3701,13 +3797,16 @@
                           "component": "Menu.CheckboxItem",
                           "props": {
                             "defaultChecked": true
-                          }
+                          },
+                          "children": []
                         },
                         {
-                          "component": "Menu.CheckboxItem"
+                          "component": "Menu.CheckboxItem",
+                          "children": []
                         },
                         {
-                          "component": "Menu.CheckboxItem"
+                          "component": "Menu.CheckboxItem",
+                          "children": []
                         }
                       ]
                     }
@@ -3764,7 +3863,8 @@
               },
               "children": [
                 {
-                  "component": "Menu.RadioItemIndicator"
+                  "component": "Menu.RadioItemIndicator",
+                  "children": []
                 },
                 "Date"
               ]
@@ -3776,7 +3876,8 @@
               },
               "children": [
                 {
-                  "component": "Menu.RadioItemIndicator"
+                  "component": "Menu.RadioItemIndicator",
+                  "children": []
                 },
                 "Name"
               ]
@@ -3788,7 +3889,8 @@
               },
               "children": [
                 {
-                  "component": "Menu.RadioItemIndicator"
+                  "component": "Menu.RadioItemIndicator",
+                  "children": []
                 },
                 "Type"
               ]
@@ -3824,7 +3926,8 @@
           },
           "children": [
             {
-              "component": "Menu.RadioItemIndicator"
+              "component": "Menu.RadioItemIndicator",
+              "children": []
             },
             "Date"
           ]
@@ -3891,19 +3994,22 @@
                           "component": "Menu.CheckboxItem",
                           "props": {
                             "checked": true
-                          }
+                          },
+                          "children": []
                         },
                         {
                           "component": "Menu.CheckboxItem",
                           "props": {
                             "checked": true
-                          }
+                          },
+                          "children": []
                         },
                         {
                           "component": "Menu.CheckboxItem",
                           "props": {
                             "checked": false
-                          }
+                          },
+                          "children": []
                         }
                       ]
                     }
@@ -4049,7 +4155,6 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "id": "menu-trigger-1",
             "payload": "library"
           },
           "children": [
@@ -4261,7 +4366,8 @@
               "component": "NavigationMenu.Root",
               "props": {
                 "defaultValue": "developers"
-              }
+              },
+              "children": []
             }
           ]
         },
@@ -4305,7 +4411,8 @@
               "children": [
                 "Product",
                 {
-                  "component": "NavigationMenu.Icon"
+                  "component": "NavigationMenu.Icon",
+                  "children": []
                 }
               ]
             },
@@ -4316,7 +4423,8 @@
                   "component": "NavigationMenu.Root",
                   "props": {
                     "defaultValue": "developers"
-                  }
+                  },
+                  "children": []
                 }
               ]
             }
@@ -4339,7 +4447,18 @@
           "NavigationMenu.Item",
           "NavigationMenu.Content"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
+        "optionalParents": [
+          "NavigationMenu.Content"
+        ],
+        "sample": {
+          "props": {
+            "href": "https://github.com/mui/base-ui"
+          },
+          "children": [
+            "GitHub"
+          ]
+        },
         "fingerprint": "f7ec0836",
         "props": {
           "active?": "31e5d9",
@@ -4366,7 +4485,8 @@
                   "children": [
                     "Product",
                     {
-                      "component": "NavigationMenu.Icon"
+                      "component": "NavigationMenu.Icon",
+                      "children": []
                     }
                   ]
                 },
@@ -4377,7 +4497,8 @@
                       "component": "NavigationMenu.Root",
                       "props": {
                         "defaultValue": "developers"
-                      }
+                      },
+                      "children": []
                     }
                   ]
                 }
@@ -4391,25 +4512,43 @@
                   "children": [
                     "Learn",
                     {
-                      "component": "NavigationMenu.Icon"
+                      "component": "NavigationMenu.Icon",
+                      "children": []
                     }
                   ]
                 },
                 {
-                  "component": "NavigationMenu.Content"
+                  "component": "NavigationMenu.Content",
+                  "children": []
                 }
               ]
             },
             {
               "component": "NavigationMenu.Item",
               "children": [
-                "Releases"
+                {
+                  "component": "NavigationMenu.Link",
+                  "props": {
+                    "href": "/react/overview/releases"
+                  },
+                  "children": [
+                    "Releases"
+                  ]
+                }
               ]
             },
             {
               "component": "NavigationMenu.Item",
               "children": [
-                "GitHub"
+                {
+                  "component": "NavigationMenu.Link",
+                  "props": {
+                    "href": "https://github.com/mui/base-ui"
+                  },
+                  "children": [
+                    "GitHub"
+                  ]
+                }
               ]
             }
           ]
@@ -4565,7 +4704,8 @@
                       "children": [
                         "Product",
                         {
-                          "component": "NavigationMenu.Icon"
+                          "component": "NavigationMenu.Icon",
+                          "children": []
                         }
                       ]
                     },
@@ -4576,7 +4716,8 @@
                           "component": "NavigationMenu.Root",
                           "props": {
                             "defaultValue": "developers"
-                          }
+                          },
+                          "children": []
                         }
                       ]
                     }
@@ -4590,25 +4731,43 @@
                       "children": [
                         "Learn",
                         {
-                          "component": "NavigationMenu.Icon"
+                          "component": "NavigationMenu.Icon",
+                          "children": []
                         }
                       ]
                     },
                     {
-                      "component": "NavigationMenu.Content"
+                      "component": "NavigationMenu.Content",
+                      "children": []
                     }
                   ]
                 },
                 {
                   "component": "NavigationMenu.Item",
                   "children": [
-                    "Releases"
+                    {
+                      "component": "NavigationMenu.Link",
+                      "props": {
+                        "href": "/react/overview/releases"
+                      },
+                      "children": [
+                        "Releases"
+                      ]
+                    }
                   ]
                 },
                 {
                   "component": "NavigationMenu.Item",
                   "children": [
-                    "GitHub"
+                    {
+                      "component": "NavigationMenu.Link",
+                      "props": {
+                        "href": "https://github.com/mui/base-ui"
+                      },
+                      "children": [
+                        "GitHub"
+                      ]
+                    }
                   ]
                 }
               ]
@@ -4677,7 +4836,8 @@
             "Handbook",
             "How to use Base UI effectively.",
             {
-              "component": "NavigationMenu.Icon"
+              "component": "NavigationMenu.Icon",
+              "children": []
             }
           ]
         },
@@ -4738,13 +4898,15 @@
         "sample": {
           "children": [
             {
-              "component": "NumberField.Decrement"
+              "component": "NumberField.Decrement",
+              "children": []
             },
             {
               "component": "NumberField.Input"
             },
             {
-              "component": "NumberField.Increment"
+              "component": "NumberField.Increment",
+              "children": []
             }
           ]
         },
@@ -4800,7 +4962,8 @@
               "children": [
                 "Amount",
                 {
-                  "component": "NumberField.ScrubAreaCursor"
+                  "component": "NumberField.ScrubAreaCursor",
+                  "children": []
                 }
               ]
             },
@@ -4808,13 +4971,15 @@
               "component": "NumberField.Group",
               "children": [
                 {
-                  "component": "NumberField.Decrement"
+                  "component": "NumberField.Decrement",
+                  "children": []
                 },
                 {
                   "component": "NumberField.Input"
                 },
                 {
-                  "component": "NumberField.Increment"
+                  "component": "NumberField.Increment",
+                  "children": []
                 }
               ]
             }
@@ -4859,7 +5024,8 @@
           "children": [
             "Amount",
             {
-              "component": "NumberField.ScrubAreaCursor"
+              "component": "NumberField.ScrubAreaCursor",
+              "children": []
             }
           ]
         },
@@ -4895,11 +5061,6 @@
           "OTPField.Root"
         ],
         "parentsFrom": "example",
-        "sample": {
-          "props": {
-            "placeholder": "•"
-          }
-        },
         "fingerprint": "2b99fc45",
         "props": {
           "className?": "549e3a",
@@ -5748,7 +5909,8 @@
               "component": "ScrollArea.Viewport",
               "children": [
                 {
-                  "component": "ScrollArea.Content"
+                  "component": "ScrollArea.Content",
+                  "children": []
                 }
               ]
             },
@@ -5792,9 +5954,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "orientation": "horizontal"
-          },
           "children": [
             {
               "component": "ScrollArea.Thumb"
@@ -5904,7 +6063,8 @@
               },
               "children": [
                 {
-                  "component": "Select.ItemIndicator"
+                  "component": "Select.ItemIndicator",
+                  "children": []
                 },
                 {
                   "component": "Select.ItemText",
@@ -5921,7 +6081,8 @@
               },
               "children": [
                 {
-                  "component": "Select.ItemIndicator"
+                  "component": "Select.ItemIndicator",
+                  "children": []
                 },
                 {
                   "component": "Select.ItemText",
@@ -5938,7 +6099,8 @@
               },
               "children": [
                 {
-                  "component": "Select.ItemIndicator"
+                  "component": "Select.ItemIndicator",
+                  "children": []
                 },
                 {
                   "component": "Select.ItemText",
@@ -6017,7 +6179,8 @@
           },
           "children": [
             {
-              "component": "Select.ItemIndicator"
+              "component": "Select.ItemIndicator",
+              "children": []
             },
             {
               "component": "Select.ItemText",
@@ -6125,7 +6288,8 @@
               },
               "children": [
                 {
-                  "component": "Select.ItemIndicator"
+                  "component": "Select.ItemIndicator",
+                  "children": []
                 },
                 {
                   "component": "Select.ItemText",
@@ -6142,7 +6306,8 @@
               },
               "children": [
                 {
-                  "component": "Select.ItemIndicator"
+                  "component": "Select.ItemIndicator",
+                  "children": []
                 },
                 {
                   "component": "Select.ItemText",
@@ -6159,7 +6324,8 @@
               },
               "children": [
                 {
-                  "component": "Select.ItemIndicator"
+                  "component": "Select.ItemIndicator",
+                  "children": []
                 },
                 {
                   "component": "Select.ItemText",
@@ -6189,7 +6355,8 @@
         "sample": {
           "children": [
             {
-              "component": "Select.ScrollUpArrow"
+              "component": "Select.ScrollUpArrow",
+              "children": []
             },
             {
               "component": "Select.List",
@@ -6201,7 +6368,8 @@
                   },
                   "children": [
                     {
-                      "component": "Select.ItemIndicator"
+                      "component": "Select.ItemIndicator",
+                      "children": []
                     },
                     {
                       "component": "Select.ItemText",
@@ -6218,7 +6386,8 @@
                   },
                   "children": [
                     {
-                      "component": "Select.ItemIndicator"
+                      "component": "Select.ItemIndicator",
+                      "children": []
                     },
                     {
                       "component": "Select.ItemText",
@@ -6235,7 +6404,8 @@
                   },
                   "children": [
                     {
-                      "component": "Select.ItemIndicator"
+                      "component": "Select.ItemIndicator",
+                      "children": []
                     },
                     {
                       "component": "Select.ItemText",
@@ -6248,7 +6418,8 @@
               ]
             },
             {
-              "component": "Select.ScrollDownArrow"
+              "component": "Select.ScrollDownArrow",
+              "children": []
             }
           ]
         },
@@ -6280,7 +6451,8 @@
                   "component": "Select.Popup",
                   "children": [
                     {
-                      "component": "Select.ScrollUpArrow"
+                      "component": "Select.ScrollUpArrow",
+                      "children": []
                     },
                     {
                       "component": "Select.List",
@@ -6289,24 +6461,28 @@
                           "component": "Select.Item",
                           "props": {
                             "value": "gala"
-                          }
+                          },
+                          "children": []
                         },
                         {
                           "component": "Select.Item",
                           "props": {
                             "value": "fuji"
-                          }
+                          },
+                          "children": []
                         },
                         {
                           "component": "Select.Item",
                           "props": {
                             "value": "honeycrisp"
-                          }
+                          },
+                          "children": []
                         }
                       ]
                     },
                     {
-                      "component": "Select.ScrollDownArrow"
+                      "component": "Select.ScrollDownArrow",
+                      "children": []
                     }
                   ]
                 }
@@ -6338,7 +6514,8 @@
               "component": "Select.Popup",
               "children": [
                 {
-                  "component": "Select.ScrollUpArrow"
+                  "component": "Select.ScrollUpArrow",
+                  "children": []
                 },
                 {
                   "component": "Select.List",
@@ -6350,7 +6527,8 @@
                       },
                       "children": [
                         {
-                          "component": "Select.ItemIndicator"
+                          "component": "Select.ItemIndicator",
+                          "children": []
                         },
                         {
                           "component": "Select.ItemText"
@@ -6364,7 +6542,8 @@
                       },
                       "children": [
                         {
-                          "component": "Select.ItemIndicator"
+                          "component": "Select.ItemIndicator",
+                          "children": []
                         },
                         {
                           "component": "Select.ItemText"
@@ -6378,7 +6557,8 @@
                       },
                       "children": [
                         {
-                          "component": "Select.ItemIndicator"
+                          "component": "Select.ItemIndicator",
+                          "children": []
                         },
                         {
                           "component": "Select.ItemText"
@@ -6388,7 +6568,8 @@
                   ]
                 },
                 {
-                  "component": "Select.ScrollDownArrow"
+                  "component": "Select.ScrollDownArrow",
+                  "children": []
                 }
               ]
             }
@@ -6447,7 +6628,8 @@
                   ]
                 },
                 {
-                  "component": "Select.Icon"
+                  "component": "Select.Icon",
+                  "children": []
                 }
               ]
             },
@@ -6464,13 +6646,15 @@
                       "component": "Select.Popup",
                       "children": [
                         {
-                          "component": "Select.ScrollUpArrow"
+                          "component": "Select.ScrollUpArrow",
+                          "children": []
                         },
                         {
                           "component": "Select.List"
                         },
                         {
-                          "component": "Select.ScrollDownArrow"
+                          "component": "Select.ScrollDownArrow",
+                          "children": []
                         }
                       ]
                     }
@@ -6580,7 +6764,8 @@
               ]
             },
             {
-              "component": "Select.Icon"
+              "component": "Select.Icon",
+              "children": []
             }
           ]
         },
@@ -6723,8 +6908,7 @@
             "defaultValue": 400,
             "min": 100,
             "max": 900,
-            "step": 100,
-            "largeStep": 200
+            "step": 100
           },
           "children": [
             {
@@ -7160,7 +7344,8 @@
               "component": "Toast.Close",
               "props": {
                 "aria-label": "Close"
-              }
+              },
+              "children": []
             }
           ]
         },
@@ -7332,15 +7517,43 @@
         "group": "Toast",
         "visual": false,
         "sample": {
-          "props": {
-            "limit": 1
-          },
           "children": [
             {
               "component": "Toast.Portal",
               "children": [
                 {
-                  "component": "Toast.Viewport"
+                  "component": "Toast.Viewport",
+                  "children": [
+                    {
+                      "component": "Toast.Positioner",
+                      "props": {
+                        "toast": {
+                          "id": "1",
+                          "description": "Copied",
+                          "positionerProps": {
+                            "sideOffset": 10
+                          },
+                          "timeout": 1500
+                        }
+                      },
+                      "children": [
+                        {
+                          "component": "Toast.Root",
+                          "props": {
+                            "toast": {
+                              "id": "1",
+                              "description": "Copied",
+                              "positionerProps": {
+                                "sideOffset": 10
+                              },
+                              "timeout": 1500
+                            }
+                          },
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
                 }
               ]
             }
@@ -7516,21 +7729,24 @@
               "props": {
                 "aria-label": "Bold",
                 "value": "bold"
-              }
+              },
+              "children": []
             },
             {
               "component": "Toggle",
               "props": {
                 "aria-label": "Italic",
                 "value": "italic"
-              }
+              },
+              "children": []
             },
             {
               "component": "Toggle",
               "props": {
                 "aria-label": "Underline",
                 "value": "underline"
-              }
+              },
+              "children": []
             }
           ]
         },
@@ -7885,7 +8101,8 @@
                       },
                       "children": [
                         {
-                          "component": "Tooltip.Popup"
+                          "component": "Tooltip.Popup",
+                          "children": []
                         }
                       ]
                     }
@@ -7983,19 +8200,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "closeOnClick": false,
-            "aria-label": "Copy to clipboard",
-            "render": {
-              "$element": [
-                {
-                  "component": "Button",
-                  "props": {
-                    "disabled": false,
-                    "focusableWhenDisabled": true
-                  }
-                }
-              ]
-            }
+            "aria-label": "Copy to clipboard"
           }
         },
         "fingerprint": "2458b0cf",

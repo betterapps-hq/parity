@@ -186,7 +186,9 @@ export function withLibraryContext(
       const text = child.children?.find((item): item is string => typeof item === "string") ?? "Text"
       return { type: "text", id: id(), text }
     }
-    return component(child.component, child.props, child.children)
+    // A child its sample spells out (with props or children) is as written; only a bare one takes its own sample's
+    // props, so one `Cell` example's `colSpan` doesn't reach every cell of a table.
+    return component(child.component, child.props, child.children, !child.props && !child.children)
   }
   const nodes = (children: SampleChild[]) => children.flatMap((child) => (isSampleRender(child) ? [] : [build(child)]))
   /**
@@ -213,8 +215,13 @@ export function withLibraryContext(
     if (rest.length > 0) slots.children = rest
     return { props: plain, slots }
   }
-  const component = (name: string, props?: Record<string, unknown>, children?: SampleChild[]): DesignNode => {
-    const { props: merged, slots } = held({ ...sources[name]?.sample?.props, ...props }, children)
+  const component = (
+    name: string,
+    props?: Record<string, unknown>,
+    children?: SampleChild[],
+    defaults = true
+  ): DesignNode => {
+    const { props: merged, slots } = held({ ...(defaults ? sources[name]?.sample?.props : {}), ...props }, children)
     return {
       type: "component",
       id: id(),
@@ -243,6 +250,8 @@ export function withLibraryContext(
   const added = missing.filter(
     (parent, index) => !optional.has(parent) || missing.slice(0, index).some((outer) => !optional.has(outer))
   )
+  const calling = added.some((parent) => sources[parent]?.sample?.children?.some(isSampleRender))
+  if (source.parentParts && added.length > 0 && !calling) return inOuterSample(added, placed)
   for (const parent of added.reverse()) {
     const wrapper = component(parent)
     // A parent that calls its children gets the part in a render slot, as its sample's own children are.
@@ -251,6 +260,32 @@ export function withLibraryContext(
     placed = wrapper.type === "component" ? { ...wrapper, slots: { [slot]: [placed] } } : placed
   }
   return placed
+
+  /**
+   * A part that needs what's around it (a table's header beside the body a row is in) goes into the outermost
+   * parent's whole sample, each level in place of the first like it there and the part in place of the first like it
+   * at the bottom, so the row it's in keeps its other cells. A level the sample doesn't hold comes alone.
+   */
+  function inOuterSample(chain: string[], part: DesignNode): DesignNode {
+    const inside = (level: number, given: SampleChild[] | undefined): DesignNode[] => {
+      const name = level < chain.length ? chain[level]! : part.type === "component" ? part.component : ""
+      const items = (given ?? []).filter((item): item is Exclude<SampleChild, SampleRender> => !isSampleRender(item))
+      const at = items.findIndex((item) => typeof item === "object" && item.component === name)
+      const found = at === -1 ? undefined : (items[at] as Exclude<SampleChild, string | SampleRender>)
+      let here = part
+      if (level < chain.length) {
+        // A bare level takes its own sample, as any bare child does.
+        const written = found && (found.props || found.children)
+        const wrapper = component(name, found?.props, undefined, !written)
+        const children = inside(level + 1, written ? found.children : sources[name]?.sample?.children)
+        here = wrapper.type === "component" ? { ...wrapper, slots: { ...wrapper.slots, children } } : wrapper
+      }
+      return at === -1 ? [here] : items.map((item, index) => (index === at ? here : build(item)))
+    }
+    const outer = component(chain[0]!)
+    const children = inside(1, sources[chain[0]!]?.sample?.children)
+    return outer.type === "component" ? { ...outer, slots: { ...outer.slots, children } } : outer
+  }
 }
 
 /**

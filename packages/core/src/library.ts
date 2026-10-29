@@ -94,6 +94,11 @@ export interface LibraryComponent {
    * where the parents outside them are already leaves them out.
    */
   optionalParents?: string[]
+  /**
+   * `true` when its parents need the other parts their samples hold around it to draw (a table's header beside the
+   * body a row is in): inserting it alone puts it in its outermost parent's whole sample, in place of the first like it.
+   */
+  parentParts?: boolean
   /** `false` for exports that draw nothing of their own, such as a context's consumer or a `RootProvider`. */
   visual?: boolean
   /**
@@ -336,6 +341,7 @@ const componentKeys = [
   "parents",
   "parentsFrom",
   "optionalParents",
+  "parentParts",
   "visual",
   "internal",
   "sample"
@@ -353,6 +359,10 @@ function parseComponentFields(component: Record<string, unknown>, at: string): L
     optionalParents: optional(component.optionalParents, (v) =>
       expectArray(v, `${at}/optionalParents`).map((name, index) => expectString(name, `${at}/optionalParents/${index}`))
     ),
+    parentParts: optional(component.parentParts, (v) => {
+      if (typeof v !== "boolean") throw new TypeError(`${at}/parentParts: expected a boolean`)
+      return v
+    }),
     visual: optional(component.visual, (v) => {
       if (typeof v !== "boolean") throw new TypeError(`${at}/visual: expected a boolean`)
       return v

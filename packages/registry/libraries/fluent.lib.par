@@ -24521,9 +24521,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "expandIconPosition": "end"
-          },
           "children": [
             "Accordion Header 1"
           ]
@@ -24550,7 +24547,6 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "disabled": true,
             "value": "1"
           },
           "children": [
@@ -24592,11 +24588,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "collapseMotion": {
-              "duration": 600
-            }
-          },
           "children": [
             "Expand/collapse timing controlled by duration"
           ]
@@ -24626,10 +24617,7 @@
               "s": 0.7,
               "v": 0.8,
               "a": 0.75
-            },
-            "input": {},
-            "rail": {},
-            "thumb": {}
+            }
           }
         },
         "fingerprint": "62c18c49",
@@ -24715,7 +24703,6 @@
         "group": "Avatar",
         "sample": {
           "props": {
-            "active": "inactive",
             "name": "Isaac Fielder",
             "badge": {
               "status": "away"
@@ -24799,13 +24786,6 @@
         "optionalParents": [
           "AvatarGroupPopover"
         ],
-        "sample": {
-          "props": {
-            "root": {},
-            "avatar": {},
-            "overflowLabel": {}
-          }
-        },
         "fingerprint": "a469f9d7",
         "props": {
           "active?": "6328de",
@@ -24834,14 +24814,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "children": "Text",
-            "triggerButton": {},
-            "content": {},
-            "popoverSurface": {},
-            "tooltip": {
-              "content": {},
-              "relationship": "label"
-            }
+            "children": "Text"
           },
           "children": [
             {
@@ -24896,7 +24869,6 @@
         "sample": {
           "props": {
             "color": "severe",
-            "shape": "rounded",
             "appearance": "tint"
           },
           "children": [
@@ -25069,10 +25041,6 @@
           "Breadcrumb"
         ],
         "sample": {
-          "props": {
-            "href": "https://www.bing.com/",
-            "current": true
-          },
           "children": [
             "Item 4"
           ]
@@ -25142,8 +25110,6 @@
         "group": "Button",
         "sample": {
           "props": {
-            "size": "small",
-            "shape": "square",
             "appearance": "primary"
           },
           "children": [
@@ -25167,9 +25133,6 @@
         "as": "function",
         "group": "Text",
         "sample": {
-          "props": {
-            "block": true
-          },
           "children": [
             "Donut chocolate bar oat cake. Dragée tiramisu lollipop bear "
           ]
@@ -25277,7 +25240,8 @@
         "sample": {
           "children": [
             {
-              "component": "CardPreview"
+              "component": "CardPreview",
+              "children": []
             },
             {
               "component": "CardHeader",
@@ -25351,10 +25315,6 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "image": {
-              "as": "img",
-              "alt": "PowerPoint app logo"
-            },
             "header": {
               "$element": [
                 {
@@ -25628,9 +25588,6 @@
           "CarouselNavContainer"
         ],
         "sample": {
-          "props": {
-            "appearance": "brand"
-          },
           "children": [
             {
               "$render": [
@@ -25765,9 +25722,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "cardFocus": true
-          },
           "children": [
             {
               "component": "CarouselCard",
@@ -25890,10 +25844,7 @@
         "group": "Checkbox",
         "sample": {
           "props": {
-            "value": "open",
-            "name": "state",
             "label": "open",
-            "capture": "user",
             "checked": false
           }
         },
@@ -25923,20 +25874,12 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "aria-label": "Saturation and value",
-            "color": {
-              "h": 320,
-              "s": 0.7,
-              "v": 0.8,
-              "a": 0.75
-            },
             "inputX": {
               "aria-label": "Saturation"
             },
             "inputY": {
               "aria-label": "Value"
-            },
-            "thumb": {}
+            }
           }
         },
         "fingerprint": "f7174add",
@@ -25958,7 +25901,6 @@
         "group": "ColorPicker",
         "sample": {
           "props": {
-            "aria-label": "Color controls",
             "color": {
               "h": 320,
               "s": 0.7,
@@ -26017,11 +25959,7 @@
               "s": 0.7,
               "v": 0.8,
               "a": 0.75
-            },
-            "vertical": true,
-            "input": {},
-            "rail": {},
-            "thumb": {}
+            }
           }
         },
         "fingerprint": "1e730585",
@@ -26087,13 +26025,7 @@
             "listbox": {},
             "id": "combobox-controlled",
             "placeholder": "Select an animal",
-            "clearable": true,
-            "value": "Dog",
-            "selectedOptions": [
-              "Dog"
-            ],
-            "expandIcon": {},
-            "clearIcon": {}
+            "expandIcon": {}
           }
         },
         "fingerprint": "56bf4cd2",
@@ -26136,7 +26068,6 @@
         "sample": {
           "props": {
             "appearance": "primary",
-            "disabled": true,
             "secondaryContent": "Secondary content"
           },
           "children": [
@@ -26164,7 +26095,6 @@
         "sample": {
           "props": {
             "appearance": "filled",
-            "color": "brand",
             "count": 5
           }
         },
@@ -26258,8 +26188,7 @@
             ],
             "columns": [],
             "sortable": true,
-            "selectionMode": "multiselect",
-            "focusMode": "composite"
+            "selectionMode": "multiselect"
           },
           "children": [
             {
@@ -26556,10 +26485,12 @@
                           "component": "DialogSurface",
                           "children": [
                             {
-                              "component": "DialogBody"
+                              "component": "DialogBody",
+                              "children": []
                             },
                             {
-                              "component": "DialogActions"
+                              "component": "DialogActions",
+                              "children": []
                             }
                           ]
                         }
@@ -26634,7 +26565,8 @@
                           "component": "DialogContent"
                         },
                         {
-                          "component": "DialogActions"
+                          "component": "DialogActions",
+                          "children": []
                         }
                       ]
                     }
@@ -26705,7 +26637,8 @@
                           "component": "DialogTrigger",
                           "props": {
                             "action": "close"
-                          }
+                          },
+                          "children": []
                         }
                       ]
                     }
@@ -26784,10 +26717,12 @@
                       "component": "DialogSurface",
                       "children": [
                         {
-                          "component": "DialogBody"
+                          "component": "DialogBody",
+                          "children": []
                         },
                         {
-                          "component": "DialogActions"
+                          "component": "DialogActions",
+                          "children": []
                         }
                       ]
                     }
@@ -26831,9 +26766,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "action": null
-          },
           "children": [
             "Dialog Title"
           ]
@@ -26860,9 +26792,6 @@
           "DialogSurface"
         ],
         "sample": {
-          "props": {
-            "action": "close"
-          },
           "children": [
             "Cancel"
           ]
@@ -27119,17 +27048,7 @@
         "group": "Combobox",
         "sample": {
           "props": {
-            "button": {},
-            "listbox": {},
-            "id": "dropdown-controlled",
-            "placeholder": "Select an animal",
-            "clearable": true,
-            "value": "Dog",
-            "selectedOptions": [
-              "Dog"
-            ],
-            "expandIcon": {},
-            "clearButton": {}
+            "placeholder": "Select an animal"
           }
         },
         "fingerprint": "a163b979",
@@ -27185,12 +27104,7 @@
           "props": {
             "label": {
               "children": "Username"
-            },
-            "validationState": "error",
-            "validationMessage": {
-              "children": "This username is already taken."
-            },
-            "validationMessageIcon": {}
+            }
           }
         },
         "fingerprint": "b8e60573",
@@ -27320,10 +27234,6 @@
         "group": "Provider",
         "visual": false,
         "sample": {
-          "props": {
-            "dir": "rtl",
-            "lang": "ar"
-          },
           "children": [
             "نص من اليمين إلى اليسار"
           ]
@@ -27379,11 +27289,7 @@
         "sample": {
           "props": {
             "alt": "Amanda's avatar",
-            "bordered": true,
-            "shape": "rounded",
-            "src": "https://fabricweb.azureedge.net/fabric-website/assets/images/avatar/AmandaBrady.jpg",
-            "height": 200,
-            "width": 200
+            "src": "https://fabricweb.azureedge.net/fabric-website/assets/images/avatar/AmandaBrady.jpg"
           }
         },
         "fingerprint": "d8fc8688",
@@ -27438,10 +27344,7 @@
         "sample": {
           "props": {
             "info": {},
-            "infoButton": {},
-            "required": {
-              "children": "*"
-            }
+            "infoButton": {}
           },
           "children": [
             "Example label"
@@ -27467,7 +27370,6 @@
         "group": "Drawer",
         "sample": {
           "props": {
-            "surfaceMotion": {},
             "separator": true,
             "open": false
           }
@@ -27488,13 +27390,6 @@
       "Input": {
         "as": "forwardRef",
         "group": "Input",
-        "sample": {
-          "props": {
-            "type": "number",
-            "min": "1000",
-            "step": "1000"
-          }
-        },
         "fingerprint": "420e56fe",
         "props": {
           "appearance?": "9424de",
@@ -27516,10 +27411,6 @@
         "as": "forwardRef",
         "group": "Tags",
         "sample": {
-          "props": {
-            "disabled": true,
-            "appearance": "outline"
-          },
           "children": [
             {
               "component": "InteractionTagPrimary",
@@ -27561,7 +27452,6 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "icon": {},
             "hasSecondaryAction": true
           },
           "children": [
@@ -27647,9 +27537,6 @@
         "group": "Link",
         "sample": {
           "props": {
-            "inline": true,
-            "disabled": true,
-            "disabledFocusable": true,
             "href": "https://www.bing.com"
           },
           "children": [
@@ -27672,81 +27559,68 @@
         "group": "List",
         "sample": {
           "props": {
-            "navigable": true,
-            "truncateHeader": true,
-            "truncateContent": true
+            "navigationMode": "composite",
+            "selectionMode": "multiselect"
           },
           "children": [
             {
               "component": "ListItem",
               "props": {
-                "value": "robert",
-                "media": {
-                  "$element": [
-                    {
-                      "component": "Image",
-                      "props": {
-                        "src": "https://fabricweb.azureedge.net/fabric-website/assets/images/avatar/RobertTolbert.jpg",
-                        "alt": "",
-                        "shape": "circular",
-                        "width": 32
-                      }
-                    }
-                  ]
-                },
-                "header": "Robert Tolbert",
-                "headerMedia": "7:26:56 AM"
+                "checkmark": {
+                  "root": {
+                    "role": "gridcell"
+                  }
+                }
               },
               "children": [
-                "Program the sensor to the SAS alarm through the haptic SQL c"
+                "You created 53m ago",
+                "Install",
+                "About Uninstall Block"
               ]
             },
             {
               "component": "ListItem",
               "props": {
-                "value": "celeste",
-                "media": {
-                  "$element": [
-                    {
-                      "component": "Image",
-                      "props": {
-                        "src": "https://fabricweb.azureedge.net/fabric-website/assets/images/avatar/CelesteBurton.jpg",
-                        "alt": "",
-                        "shape": "circular",
-                        "width": 32
-                      }
-                    }
-                  ]
-                },
-                "header": "Celeste Burton",
-                "headerMedia": "11:30:17 PM"
+                "checkmark": {
+                  "root": {
+                    "role": "gridcell"
+                  }
+                }
               },
               "children": [
-                "Use the online FTP application to input the multi-byte appli"
+                "You created 53m ago",
+                "Install",
+                "About Uninstall Block"
               ]
             },
             {
               "component": "ListItem",
               "props": {
-                "value": "cecil",
-                "media": {
-                  "$element": [
-                    {
-                      "component": "Image",
-                      "props": {
-                        "src": "https://fabricweb.azureedge.net/fabric-website/assets/images/avatar/CecilFolk.jpg",
-                        "alt": "",
-                        "shape": "circular",
-                        "width": 32
-                      }
-                    }
-                  ]
-                },
-                "header": "Cecil Folk",
-                "headerMedia": "5:22:40 PM"
+                "checkmark": {
+                  "root": {
+                    "role": "gridcell"
+                  }
+                }
               },
               "children": [
-                "The GB pixel is down, navigate the virtual interface!"
+                "You created 53m ago",
+                "Install",
+                "About Uninstall Block"
+              ]
+            },
+            {
+              "component": "ListItem",
+              "props": {
+                "checkmark": {
+                  "root": {
+                    "role": "gridcell"
+                  }
+                }
+              },
+              "children": [
+                "You created 53m ago",
+                "Install",
+                "About Uninstall Block"
               ]
             }
           ]
@@ -28075,10 +27949,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "subText": "Edit file",
-            "disabled": true
-          },
           "children": [
             "Edit"
           ]
@@ -28116,11 +27986,7 @@
         "sample": {
           "props": {
             "name": "filters",
-            "value": "bold",
-            "checkmark": {
-              "aria-hidden": true,
-              "children": "✓"
-            }
+            "value": "bold"
           },
           "children": [
             "Bold"
@@ -28192,11 +28058,7 @@
         "sample": {
           "props": {
             "name": "sortBy",
-            "value": "name",
-            "checkmark": {
-              "aria-hidden": true,
-              "children": "●"
-            }
+            "value": "name"
           },
           "children": [
             "Name"
@@ -28513,20 +28375,43 @@
             {
               "component": "MenuItem",
               "children": [
-                "Open"
+                "Save"
               ]
             },
             {
-              "component": "MenuTrigger",
-              "props": {
-                "disableButtonEnhancement": true
-              },
+              "component": "Menu",
               "children": [
                 {
-                  "component": "MenuItem",
-                  "props": {
-                    "aria-label": "Open on platform"
-                  }
+                  "component": "MenuTrigger",
+                  "children": [
+                    {
+                      "component": "MenuItem",
+                      "props": {
+                        "hasSubmenu": true,
+                        "submenuIndicator": {
+                          "$element": [
+                            "›"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "component": "MenuPopover",
+                  "children": [
+                    {
+                      "component": "MenuList",
+                      "children": [
+                        {
+                          "component": "MenuItem"
+                        },
+                        {
+                          "component": "MenuItem"
+                        }
+                      ]
+                    }
+                  ]
                 }
               ]
             }
@@ -28581,9 +28466,6 @@
         "as": "forwardRef",
         "group": "MessageBar",
         "sample": {
-          "props": {
-            "icon": {}
-          },
           "children": [
             {
               "component": "MessageBarBody",
@@ -28986,7 +28868,8 @@
           },
           "children": [
             {
-              "component": "NavDrawerHeader"
+              "component": "NavDrawerHeader",
+              "children": []
             },
             {
               "component": "NavDrawerBody",
@@ -29146,8 +29029,7 @@
         ],
         "sample": {
           "props": {
-            "value": "19",
-            "target": "_blank"
+            "value": "19"
           },
           "children": [
             "Workforce Data"
@@ -29280,10 +29162,6 @@
         "as": "forwardRef",
         "group": "Combobox",
         "sample": {
-          "props": {
-            "text": "1",
-            "value": "1"
-          },
           "children": [
             "1"
           ]
@@ -29434,14 +29312,11 @@
         "group": "Persona",
         "sample": {
           "props": {
-            "textAlignment": "start",
             "name": "Kevin Sturgis",
             "presence": {
               "status": "available"
             },
-            "secondaryText": "Available",
-            "tertiaryText": "Software Engineer",
-            "quaternaryText": "Microsoft"
+            "secondaryText": "Available"
           }
         },
         "fingerprint": "9f0da0bd",
@@ -29467,21 +29342,63 @@
         "group": "Popover",
         "sample": {
           "props": {
-            "children": "Text"
+            "children": "Text",
+            "trapFocus": true
           },
           "children": [
             {
-              "component": "PopoverSurface",
-              "children": [
-                "First panel",
-                "Popover content can change while the popover is open. When n",
-                "Revealed content with a focusable link ."
-              ]
+              "component": "PopoverTrigger",
+              "props": {
+                "disableButtonEnhancement": true
+              },
+              "children": []
             },
             {
-              "component": "PopoverTrigger",
+              "component": "PopoverSurface",
               "children": [
-                "Click me"
+                "Popover content This is some popover content",
+                {
+                  "component": "Popover",
+                  "props": {
+                    "trapFocus": true
+                  },
+                  "children": [
+                    {
+                      "component": "PopoverTrigger",
+                      "props": {
+                        "disableButtonEnhancement": true
+                      },
+                      "children": []
+                    },
+                    {
+                      "component": "PopoverSurface",
+                      "children": [
+                        "Popover content This is some popover content"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "Popover",
+                  "props": {
+                    "trapFocus": true
+                  },
+                  "children": [
+                    {
+                      "component": "PopoverTrigger",
+                      "props": {
+                        "disableButtonEnhancement": true
+                      },
+                      "children": []
+                    },
+                    {
+                      "component": "PopoverSurface",
+                      "children": [
+                        "Popover content This is some popover content"
+                      ]
+                    }
+                  ]
+                }
               ]
             }
           ]
@@ -29525,9 +29442,66 @@
         "parentsFrom": "example",
         "sample": {
           "children": [
-            "First panel",
-            "Popover content can change while the popover is open. When n",
-            "Revealed content with a focusable link ."
+            "Popover content This is some popover content",
+            {
+              "component": "Popover",
+              "props": {
+                "trapFocus": true
+              },
+              "children": [
+                {
+                  "component": "PopoverTrigger",
+                  "props": {
+                    "disableButtonEnhancement": true
+                  },
+                  "children": []
+                },
+                {
+                  "component": "PopoverSurface",
+                  "children": [
+                    "Popover content This is some popover content",
+                    {
+                      "component": "Popover",
+                      "props": {
+                        "trapFocus": true
+                      },
+                      "children": [
+                        {
+                          "component": "PopoverTrigger",
+                          "props": {
+                            "disableButtonEnhancement": true
+                          },
+                          "children": []
+                        },
+                        {
+                          "component": "PopoverSurface",
+                          "children": []
+                        }
+                      ]
+                    },
+                    {
+                      "component": "Popover",
+                      "props": {
+                        "trapFocus": true
+                      },
+                      "children": [
+                        {
+                          "component": "PopoverTrigger",
+                          "props": {
+                            "disableButtonEnhancement": true
+                          },
+                          "children": []
+                        },
+                        {
+                          "component": "PopoverSurface",
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
           ]
         },
         "fingerprint": "d8ef4867",
@@ -29627,7 +29601,6 @@
         "group": "Progress",
         "sample": {
           "props": {
-            "shape": "rounded",
             "thickness": "large",
             "value": 0.5
           }
@@ -29655,9 +29628,7 @@
         "sample": {
           "props": {
             "value": "free",
-            "label": {},
-            "input": {},
-            "indicator": {}
+            "label": {}
           }
         },
         "fingerprint": "323daf4e",
@@ -29677,9 +29648,6 @@
         "as": "forwardRef",
         "group": "Radio",
         "sample": {
-          "props": {
-            "defaultValue": "standard"
-          },
           "children": [
             {
               "component": "Radio",
@@ -29733,13 +29701,12 @@
         "as": "forwardRef",
         "group": "Rating",
         "sample": {
-          "props": {
-            "max": 5,
-            "value": 3
-          },
           "children": [
             {
-              "component": "RatingItem"
+              "component": "RatingItem",
+              "props": {
+                "fullValueInput": {}
+              }
             }
           ]
         },
@@ -29764,12 +29731,7 @@
         "group": "Rating",
         "sample": {
           "props": {
-            "value": 2.5,
-            "max": 5,
-            "valueText": {},
-            "countText": {
-              "children": "(248)"
-            }
+            "value": 2.5
           }
         },
         "fingerprint": "7e02cedc",
@@ -29836,14 +29798,6 @@
       "SearchBox": {
         "as": "forwardRef",
         "group": "Search",
-        "sample": {
-          "props": {
-            "aria-autocomplete": "list",
-            "placeholder": "Search...",
-            "value": "",
-            "root": {}
-          }
-        },
         "fingerprint": "d7d715de",
         "props": {
           "appearance?": "9424de",
@@ -29866,11 +29820,6 @@
         "as": "forwardRef",
         "group": "Select",
         "sample": {
-          "props": {
-            "id": "color-select",
-            "select": {},
-            "icon": {}
-          },
           "children": [
             "Red",
             "Green",
@@ -29969,13 +29918,9 @@
         "group": "Slider",
         "sample": {
           "props": {
-            "id": "custom-slider",
             "min": 0,
             "max": 100,
-            "value": 42,
-            "input": {},
-            "rail": {},
-            "thumb": {}
+            "value": 42
           }
         },
         "fingerprint": "56b48ce0",
@@ -29998,17 +29943,6 @@
       "SpinButton": {
         "as": "forwardRef",
         "group": "Spinbutton",
-        "sample": {
-          "props": {
-            "id": "quantity-spinbutton",
-            "defaultValue": 1,
-            "min": 0,
-            "max": 99,
-            "input": {},
-            "incrementButton": {},
-            "decrementButton": {}
-          }
-        },
         "fingerprint": "0f7ad41e",
         "props": {
           "appearance?": "5955d2",
@@ -30034,8 +29968,7 @@
         "sample": {
           "props": {
             "label": "Saving changes",
-            "labelPosition": "below",
-            "spinnerTail": {}
+            "labelPosition": "below"
           }
         },
         "fingerprint": "a68f3a77",
@@ -30056,10 +29989,6 @@
         "as": "forwardRef",
         "group": "Button",
         "sample": {
-          "props": {
-            "primaryActionButton": {},
-            "menuButton": {}
-          },
           "children": [
             "Send"
           ]
@@ -30126,7 +30055,10 @@
           "props": {
             "as": "h4",
             "block": true
-          }
+          },
+          "children": [
+            "'vertical' (Default)"
+          ]
         },
         "fingerprint": "b22e6c5b",
         "props": {
@@ -30197,11 +30129,61 @@
           "children": [
             {
               "component": "SwatchPickerRow",
-              "children": []
+              "children": [
+                {
+                  "component": "ColorSwatch",
+                  "props": {
+                    "color": "#e11d48",
+                    "value": "#e11d48",
+                    "aria-label": "Red"
+                  }
+                },
+                {
+                  "component": "ColorSwatch",
+                  "props": {
+                    "color": "#f97316",
+                    "value": "#f97316",
+                    "aria-label": "Orange"
+                  }
+                },
+                {
+                  "component": "ColorSwatch",
+                  "props": {
+                    "color": "#84cc16",
+                    "value": "#84cc16",
+                    "aria-label": "Green"
+                  }
+                }
+              ]
             },
             {
               "component": "SwatchPickerRow",
-              "children": []
+              "children": [
+                {
+                  "component": "ColorSwatch",
+                  "props": {
+                    "color": "#06b6d4",
+                    "value": "#06b6d4",
+                    "aria-label": "Cyan"
+                  }
+                },
+                {
+                  "component": "ColorSwatch",
+                  "props": {
+                    "color": "#2563eb",
+                    "value": "#2563eb",
+                    "aria-label": "Blue"
+                  }
+                },
+                {
+                  "component": "ColorSwatch",
+                  "props": {
+                    "color": "#9333ea",
+                    "value": "#9333ea",
+                    "aria-label": "Purple"
+                  }
+                }
+              ]
             }
           ]
         },
@@ -30233,6 +30215,34 @@
           "SwatchPicker"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "component": "ColorSwatch",
+              "props": {
+                "color": "#e11d48",
+                "value": "#e11d48",
+                "aria-label": "Red"
+              }
+            },
+            {
+              "component": "ColorSwatch",
+              "props": {
+                "color": "#f97316",
+                "value": "#f97316",
+                "aria-label": "Orange"
+              }
+            },
+            {
+              "component": "ColorSwatch",
+              "props": {
+                "color": "#84cc16",
+                "value": "#84cc16",
+                "aria-label": "Green"
+              }
+            }
+          ]
+        },
         "fingerprint": "d8ef4867",
         "props": {
           "as?": "ba2d6a",
@@ -30245,10 +30255,7 @@
         "group": "Switch",
         "sample": {
           "props": {
-            "defaultChecked": true,
-            "label": {},
-            "input": {},
-            "indicator": {}
+            "label": {}
           }
         },
         "fingerprint": "cb31ee40",
@@ -30277,7 +30284,6 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "disabled": true,
             "value": "tab2"
           },
           "children": [
@@ -30299,9 +30305,7 @@
         "group": "Table",
         "sample": {
           "props": {
-            "role": "grid",
-            "aria-label": "Table with grid keyboard navigation",
-            "noNativeElements": true
+            "aria-label": "Table with grid keyboard navigation"
           },
           "children": [
             {
@@ -30886,10 +30890,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "description": "My Organization",
-            "appearance": "primary"
-          },
           "children": [
             "Meeting notes"
           ]
@@ -30973,9 +30973,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "tabIndex": 0
-          },
           "children": [
             "File"
           ]
@@ -31025,9 +31022,6 @@
           "TableHeader"
         ],
         "sample": {
-          "props": {
-            "tabIndex": 0
-          },
           "children": [
             {
               "component": "TableCell",
@@ -31136,7 +31130,6 @@
         ],
         "sample": {
           "props": {
-            "role": "checkbox",
             "checkboxIndicator": {
               "aria-label": "Select all rows "
             }
@@ -31253,10 +31246,7 @@
                   }
                 }
               ]
-            },
-            "value": "John Doe",
-            "title": "John Doe",
-            "primaryText": {}
+            }
           },
           "children": [
             "John Doe"
@@ -31463,7 +31453,8 @@
                         }
                       ]
                     }
-                  }
+                  },
+                  "children": []
                 }
               ]
             }
@@ -31718,8 +31709,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "aria-labelledby": "tag-picker-filtering-label",
-            "value": ""
+            "aria-label": "Select Employees"
           }
         },
         "fingerprint": "2654ce3f",
@@ -31824,8 +31814,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "value": "no-options",
-            "disabled": true
+            "value": "no-options"
           },
           "children": [
             "No options available"
@@ -31932,7 +31921,8 @@
                                 }
                               ]
                             }
-                          }
+                          },
+                          "children": []
                         }
                       ]
                     },
@@ -31957,7 +31947,8 @@
                                 }
                               ]
                             }
-                          }
+                          },
+                          "children": []
                         }
                       ]
                     },
@@ -31982,7 +31973,8 @@
                                 }
                               ]
                             }
-                          }
+                          },
+                          "children": []
                         }
                       ]
                     },
@@ -32662,7 +32654,6 @@
         "group": "Textarea",
         "sample": {
           "props": {
-            "rows": 4,
             "placeholder": "Type your message…",
             "textarea": {}
           }
@@ -32825,14 +32816,6 @@
       "Toaster": {
         "as": "function",
         "group": "Toast",
-        "sample": {
-          "props": {
-            "position": "top-end",
-            "pauseOnHover": true,
-            "pauseOnWindowBlur": true,
-            "timeout": 1000
-          }
-        },
         "fingerprint": "63ccf762",
         "props": {
           "announce?": "2f676f",
@@ -32908,7 +32891,6 @@
         "group": "Button",
         "sample": {
           "props": {
-            "disabledFocusable": true,
             "checked": false
           },
           "children": [
@@ -33019,7 +33001,6 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "vertical": true,
             "appearance": "primary"
           },
           "children": [
@@ -33142,7 +33123,8 @@
                 "name": "align",
                 "value": "left",
                 "aria-label": "Align left"
-              }
+              },
+              "children": []
             },
             {
               "component": "ToolbarRadioButton",
@@ -33150,7 +33132,8 @@
                 "name": "align",
                 "value": "center",
                 "aria-label": "Align center"
-              }
+              },
+              "children": []
             },
             {
               "component": "ToolbarRadioButton",
@@ -33158,7 +33141,8 @@
                 "name": "align",
                 "value": "right",
                 "aria-label": "Align right"
-              }
+              },
+              "children": []
             }
           ]
         },
@@ -33308,7 +33292,8 @@
                           "component": "TreeItemLayout"
                         },
                         {
-                          "component": "Tree"
+                          "component": "Tree",
+                          "children": []
                         }
                       ]
                     }

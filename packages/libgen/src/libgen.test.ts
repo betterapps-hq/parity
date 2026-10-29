@@ -234,6 +234,51 @@ describe("parts", () => {
     expect(relations.get("Badge")?.parents).toBeUndefined()
   })
 
+  it("places a part that needs the parts around it, and a collection's item that only draws a placeholder alone", async () => {
+    const React = (await load("react")) as unknown as ReactLike
+    const TableContext = React.createContext(false)
+    // Like React Aria: an item outside its collection draws a placeholder, and a body needs a header beside it.
+    const library = {
+      Table: ({ children }: { children?: unknown[] }) => {
+        const header = ([] as unknown[])
+          .concat(children)
+          .some((child) => (child as { type?: unknown })?.type === library.TableHeader)
+        return React.createElement(TableContext.Provider, { value: header }, children)
+      },
+      TableHeader: ({ children }: { children?: unknown }) => React.createElement("thead", null, children),
+      TableBody: ({ children }: { children?: unknown }) => {
+        if (!React.useContext(TableContext)) throw new Error("Cannot read properties of undefined (reading 'key')")
+        return React.createElement("tbody", null, children)
+      },
+      Column: () => React.createElement("th", null, "Name"),
+      Row: ({ children }: { children?: unknown }) =>
+        React.useContext(TableContext) ? React.createElement("tr", null, children) : React.createElement("item", null)
+    }
+    const names = Object.keys(library)
+    const table = `<Table><TableHeader><Column>Name</Column></TableHeader><TableBody><Row>Ada</Row></TableBody></Table>`
+    const uses = readExamples(
+      ["a", "b"].map((path) => ({ path: `${path}.tsx`, text: table })),
+      names
+    )
+    const { relations } = await relateParts(
+      async (specifier) => (specifier === "demo" ? library : load(specifier)),
+      "demo",
+      names.map(
+        (name) => ({ name, export: name, samples: {} }) as unknown as Parameters<typeof relateParts>[2][number]
+      ),
+      [],
+      {},
+      uses
+    )
+    expect(relations.get("Row")).toMatchObject({
+      parents: ["Table", "TableBody"],
+      parentsFrom: "example",
+      parentParts: true,
+      alone: expect.stringMatching(/placeholder/)
+    })
+    expect(relations.get("Row")?.inside).toBeUndefined()
+  })
+
   it("marks levels some examples leave out, and it renders without, as optional", async () => {
     const React = (await load("react")) as unknown as ReactLike
     const MenuContext = React.createContext(false)
@@ -436,6 +481,7 @@ describe("parts", () => {
     const names = ["Dialog.Root", "Dialog.Title", "Card", "CardHeader", "Tabs", "Tab"]
     expect(guessParent("Dialog.Title", names)).toEqual(["Dialog.Root", "namespace"])
     expect(guessParent("CardHeader", names)).toEqual(["Card", "prefix"])
+    expect(guessParent("TabPanels", ["Tab", "Tabs", "TabPanels"])).toEqual(["Tabs", "prefix"])
     expect(guessParent("Tab", names)).toEqual(["Tabs", "prefix"])
     expect(guessParent("Card", names)).toEqual([undefined, undefined])
   })
