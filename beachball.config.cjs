@@ -8,10 +8,13 @@ const { execFileSync } = require("node:child_process")
  * to npm the packages whose package.json has a `publishConfig`, which the CLI gets with its npm name (PAR-13).
  */
 
-/** Changes count from GitHub's main once the repository has a remote, and from the local main before that. */
-function hasOrigin() {
+/**
+ * Changes count from GitHub's main once a clone has fetched it, and from the local main before that, so a remote that
+ * hasn't been fetched yet doesn't leave the hooks comparing with a branch that isn't there.
+ */
+function hasOriginMain() {
   try {
-    execFileSync("git", ["remote", "get-url", "origin"], { stdio: "ignore" })
+    execFileSync("git", ["rev-parse", "--verify", "--quiet", "refs/remotes/origin/main"], { stdio: "ignore" })
     return true
   } catch {
     return false
@@ -21,7 +24,7 @@ function hasOrigin() {
 /** @type {import("beachball").BeachballConfig} */
 module.exports = {
   // A name with a slash is used as written; without one, Beachball would add the remote.
-  branch: hasOrigin() ? "origin/main" : "refs/heads/main",
+  branch: hasOriginMain() ? "origin/main" : "refs/heads/main",
   // `pnpm changefile` runs Beachball locally, which shouldn't wait on the network. CI fetches when it checks out.
   fetch: false,
   publish: false,

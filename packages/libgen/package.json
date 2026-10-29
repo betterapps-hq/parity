@@ -1,6 +1,7 @@
 {
   "name": "@parity/libgen",
   "version": "0.0.0",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "description": "Writes a .lib.par by inspecting a component library, an icon set or an app.",

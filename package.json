@@ -1,7 +1,7 @@
 {
   "name": "parity",
+  "license": "MIT",
   "private": true,
-  "license": "UNLICENSED",
   "type": "module",
   "packageManager": "pnpm@12.10.1",
   "engines": {
