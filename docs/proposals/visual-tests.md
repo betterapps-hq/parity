@@ -221,8 +221,12 @@ Nothing to set up: Parity's pinned browser downloads itself the first time, as i
 
 - **Local results compare with local renders,** never with committed baselines, since Windows and macOS draw text
   differently from CI's Linux. Parity works out each case's state at HEAD from git, and keeps a cache of this machine's
-  renders. A changed case is compared with this machine's render of the same case at HEAD. That render comes from the
-  cache, or is rendered once from a temporary copy of HEAD's files that links the installed packages.
+  renders. A changed case is compared with this machine's render of the same case at HEAD, or at the branch's merge base
+  with main to see everything the branch changes, as CI will. That render comes from the cache, or is rendered once from
+  a temporary copy of those files that links the installed packages.
+- **What it can't do** is compare with the baselines CI promotes on merge. Only the same hardware draws the same pixels,
+  so that waits for Parity's own runners, a follow-up (see Later). Until then, a developer's machine says what changed,
+  and CI says whether it matches the baselines.
 - **Watch mode in the app** keeps that cache warm. Saving a file re-renders only the cases whose traces read it, and
   changing a design re-renders only its cases.
 - **CI's verdict shows in the app too,** for the open branch, so the person reviews and accepts CI's captures without
@@ -250,6 +254,8 @@ What Chromatic does better, for fairness:
 - **A hosted review** that people without the app can open from a pull request, with history.
 - **Several browsers at scale.** Parity starts with Chromium only.
 - **Nothing to run yourself.** Parity runs on the project's own CI runners.
+- **Uniform hardware.** Chromatic captures on machines it controls, so its pixels never depend on which CPU a runner
+  got. Parity's own runners would close this gap, and are a follow-up.
 
 ## What Refracto taught us
 
@@ -443,6 +449,13 @@ These are targets to measure, not claims. A benchmark like `pnpm perf` records t
   SSIM modes. Benchmark the two on Parity's frames before settling. Frames are whole screens, bigger than Storybook's
   component crops, so the diff's speed matters more here. Check both packages' licences and upkeep first.
 - **A shared cache across machines,** as Turborepo's remote cache does for builds, if CI caches prove too short-lived.
+- **Parity's own runners,** a follow-up engineering effort with a proposal of its own (VIS-26). Your direction
+  (2026-10-29) is that baselines eventually come from hardware Parity controls. That makes captures byte-identical every
+  time, and lets a developer's machine check its changes against the baselines CI promotes on merge, as Chromatic's
+  addon does. One approach for that proposal to weigh: the project's CI or a developer's machine renders each case as
+  now, recording every response its page received by content hash; Parity's runners receive only the responses they
+  don't already have, replay them and capture. That needs no build, and avoids the latency that made Refracto's remote
+  browsers about 10× slower.
 
 ## Order
 
@@ -479,7 +492,8 @@ canvas-against-page layout check.
 These are my calls, open to change. They go into decisions.md once you agree with this proposal.
 
 - **Where baselines come from:** CI makes every committed baseline. Developers' machines compare with their own renders
-  of HEAD, and nobody needs Docker.
+  of HEAD or the merge base, and nobody needs Docker. Eventually, Parity's own runners make them (your direction,
+  2026-10-29), designed as a follow-up.
 - **Where CI runs:** any Linux runner, with Parity's pinned browser, fonts and settings. A container is optional, for CI
   only.
 - **How cases are skipped:** CI plans from traces before installing. A case's committed record keeps only the trace of
