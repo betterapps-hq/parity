@@ -216,13 +216,18 @@ app.on("before-quit", () => {
 /**
  * The window's menus are drawn by the app itself, in its title bar. The application menu only keeps what the system
  * expects: clipboard and window commands on macOS, and developer tools everywhere. Electron's default menu would
- * otherwise close the window on Ctrl+W and reload it on Ctrl+R.
+ * otherwise close the window on Ctrl+W and reload it on Ctrl+R. Its keys aren't registered: the window's own keymap
+ * opens developer tools (Ctrl+Shift+I), the same on every system, and Ctrl+R renames, as in Figma.
  */
 function applicationMenu(): Menu {
   const developer: Electron.MenuItemConstructorOptions = {
     label: "Developer",
-    submenu: [{ role: "toggleDevTools" }, { role: "reload" }]
+    submenu: [
+      { role: "toggleDevTools", registerAccelerator: false },
+      { role: "reload", registerAccelerator: false }
+    ]
   }
+  app.setAboutPanelOptions({ applicationName: "Parity", applicationVersion: app.getVersion() })
   if (process.platform !== "darwin") return Menu.buildFromTemplate([developer])
   return Menu.buildFromTemplate([
     { role: "appMenu" },
@@ -267,6 +272,8 @@ ipcMain.handle("canvas:save-dialog", async (event, options: SaveDialogOptions) =
 ipcMain.handle("canvas:show-item", (_event, path: string) => shell.showItemInFolder(path))
 
 ipcMain.handle("canvas:quit", () => app.quit())
+
+ipcMain.handle("canvas:toggle-dev-tools", (event) => event.sender.toggleDevTools())
 
 ipcMain.handle("canvas:set-theme", (_event, theme: ThemeSource) => {
   if (!["light", "dark", "system"].includes(theme) || nativeTheme.themeSource === theme) return

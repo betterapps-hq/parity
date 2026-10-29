@@ -87,6 +87,7 @@ export function installHost(): void {
     ...cancelled,
     showItem: () => Promise.resolve(),
     quit: () => Promise.resolve(),
+    toggleDevTools: () => Promise.resolve(),
     setTheme: () => Promise.resolve(),
     onClosing: () => undefined,
     // A typical reading from the desktop app, for the performance stats.

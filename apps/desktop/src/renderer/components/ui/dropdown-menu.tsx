@@ -2,6 +2,7 @@ import { cn } from "cn"
 import { CheckIcon, ChevronRightIcon } from "lucide-react"
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui"
 import * as React from "react"
+import { formatKeys } from "@/chrome/keys.ts"
 
 function DropdownMenu({ ...props }: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
   return <DropdownMenuPrimitive.Root data-slot="dropdown-menu" {...props} />
@@ -159,7 +160,7 @@ function DropdownMenuSeparator({ className, ...props }: React.ComponentProps<typ
   )
 }
 
-function DropdownMenuShortcut({ className, ...props }: React.ComponentProps<"span">) {
+function DropdownMenuShortcut({ className, children, ...props }: React.ComponentProps<"span">) {
   return (
     <span
       data-slot="dropdown-menu-shortcut"
@@ -168,7 +169,9 @@ function DropdownMenuShortcut({ className, ...props }: React.ComponentProps<"spa
         className
       )}
       {...props}
-    />
+    >
+      {typeof children === "string" ? formatKeys(children) : children}
+    </span>
   )
 }
 

@@ -1,6 +1,7 @@
 import { cn } from "cn"
+import { formatKeys } from "@/chrome/keys.ts"
 
-function Kbd({ className, ...props }: React.ComponentProps<"kbd">) {
+function Kbd({ className, children, ...props }: React.ComponentProps<"kbd">) {
   return (
     <kbd
       data-slot="kbd"
@@ -9,7 +10,9 @@ function Kbd({ className, ...props }: React.ComponentProps<"kbd">) {
         className
       )}
       {...props}
-    />
+    >
+      {typeof children === "string" ? formatKeys(children) : children}
+    </kbd>
   )
 }
 

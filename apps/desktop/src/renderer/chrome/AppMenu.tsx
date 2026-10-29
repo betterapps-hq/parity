@@ -7,41 +7,47 @@ import {
   AlignStartHorizontal,
   AlignStartVertical,
   AlignVerticalSpaceAround,
+  BringToFront,
   ClipboardPaste,
+  Code,
   Copy,
-  Download,
+  Diamond,
+  EyeOff,
+  FileInput,
+  FolderOpen,
   Gauge,
   Grid3x3,
   Group,
-  Paintbrush,
-  Scissors,
-  SquareDashed,
-  SquarePlus,
-  TextSelect,
-  Ungroup,
-  FileInput,
-  FolderOpen,
   History,
   Images,
+  Info,
+  Keyboard,
   LogOut,
   Magnet,
   Maximize,
-  Monitor,
-  Moon,
+  Paintbrush,
   PanelsLeftRight,
   PenLine,
   Redo2,
   Save,
   SaveAll,
   Scan,
-  Settings2,
-  Sun,
+  Scissors,
+  Search,
+  SendToBack,
+  Settings,
+  SquareDashed,
+  SquarePlus,
+  TextSelect,
   Trash2,
   Undo2,
+  Ungroup,
+  Unlink,
   X,
   ZoomIn,
   ZoomOut
 } from "lucide-react"
+import type { ReactNode } from "react"
 import {
   Menubar,
   MenubarCheckboxItem,
@@ -49,8 +55,6 @@ import {
   MenubarItem,
   MenubarLabel,
   MenubarMenu,
-  MenubarRadioGroup,
-  MenubarRadioItem,
   MenubarSeparator,
   MenubarShortcut,
   MenubarSub,
@@ -59,96 +63,84 @@ import {
   MenubarTrigger
 } from "@/components/ui/menubar"
 import { useActiveTabId, useRecentProjects, workspace } from "../workspace.ts"
-import type { Alignment } from "./arrange.ts"
-import {
-  activeSession,
-  alignSelection,
-  closeTab,
-  copy,
-  copySelectionStyle,
-  cut,
-  deleteSelection,
-  distributeSelection,
-  duplicateSelection,
-  exit,
-  exportImages,
-  openProjectFile,
-  openProjectFolder,
-  paste,
-  pasteSelectionStyle,
-  redo,
-  renameSelection,
-  save,
-  saveCopy,
-  selectEverything,
-  undo,
-  unwrapSelection,
-  wrapSelection,
-  zoomToSelection
-} from "./commands.ts"
+import { actions } from "./actions.ts"
+import { openDialog } from "./app-dialogs.ts"
+import { activeSession, exit, exportImages, selectedDesign, selectedInstance } from "./commands.ts"
+import { type Command, keymap } from "./keymap.ts"
+import { isMac } from "./keys.ts"
 import { setLayout, useLayout } from "./layout.ts"
-import { type Preferences, setPreferences, type ThemePreference, usePreferences } from "./preferences.ts"
-import { openQuickInsert } from "./QuickInsert.tsx"
+import { setPreferences, usePreferences } from "./preferences.ts"
 
-const themes: { value: ThemePreference; label: string; icon: typeof Sun }[] = [
-  { value: "light", label: "Light", icon: Sun },
-  { value: "dark", label: "Dark", icon: Moon },
-  { value: "system", label: "System", icon: Monitor }
-]
-
-const mac = navigator.userAgent.includes("Mac")
+const mac = isMac()
 
 /**
- * File, Edit and View, in the title bar, like a desktop app's menus. Each menu reads the active tab when it opens, so
- * what it offers matches what's selected.
+ * File, Edit, View, Object, Arrange and Help, in the title bar, like a desktop app's menus, named and ordered as
+ * Figma's are. Each menu reads the active tab when it opens, so what it offers matches what's selected. Every item's
+ * keys, and whether it applies, come from the keymap and its actions, the same ones the shortcuts run.
  */
 export function AppMenu() {
   // Re-renders the bar when the active tab changes; the menus read the rest when they open.
   useActiveTabId()
+  const menus: [string, () => ReactNode][] = [
+    ["File", FileItems],
+    ["Edit", EditItems],
+    ["View", ViewItems],
+    ["Object", ObjectItems],
+    ["Arrange", ArrangeItems],
+    ["Help", HelpItems]
+  ]
   return (
     <Menubar className="mr-2 mb-1.5 shrink-0 [-webkit-app-region:no-drag]" aria-label="Application">
-      <MenubarMenu>
-        <MenubarTrigger>File</MenubarTrigger>
-        <MenubarContent>
-          <FileItems />
-        </MenubarContent>
-      </MenubarMenu>
-      <MenubarMenu>
-        <MenubarTrigger>Edit</MenubarTrigger>
-        <MenubarContent>
-          <EditItems />
-        </MenubarContent>
-      </MenubarMenu>
-      <MenubarMenu>
-        <MenubarTrigger>View</MenubarTrigger>
-        <MenubarContent>
-          <ViewItems />
-        </MenubarContent>
-      </MenubarMenu>
-      <MenubarMenu>
-        <MenubarTrigger>Arrange</MenubarTrigger>
-        <MenubarContent>
-          <ArrangeItems />
-        </MenubarContent>
-      </MenubarMenu>
+      {menus.map(([name, Items]) => (
+        <MenubarMenu key={name}>
+          <MenubarTrigger>{name}</MenubarTrigger>
+          <MenubarContent>
+            <Items />
+          </MenubarContent>
+        </MenubarMenu>
+      ))}
     </Menubar>
+  )
+}
+
+/** A command's menu item: its action, its keys, and unavailable when the action doesn't apply. */
+function Item({
+  command,
+  icon: Icon,
+  variant,
+  children
+}: {
+  command: Command
+  icon?: typeof Save
+  variant?: "destructive"
+  children?: ReactNode
+}) {
+  const action = actions[command]
+  return (
+    <MenubarItem
+      variant={variant}
+      inset={!Icon}
+      disabled={action.available?.() === false}
+      onSelect={() => void action.run()}
+    >
+      {Icon && <Icon />} {children ?? keymap[command].label}
+      <MenubarShortcut>{keymap[command].keys[0]}</MenubarShortcut>
+    </MenubarItem>
   )
 }
 
 function FileItems() {
   const session = activeSession()
   const recent = useRecentProjects()
-  const preferences = usePreferences()
-  const selected = session?.selection.get().design
   const designs = session?.store.getEntries().length ?? 0
   return (
     <>
-      <MenubarItem onSelect={() => void openProjectFolder()}>
-        <FolderOpen /> Open project folder… <MenubarShortcut>Ctrl O</MenubarShortcut>
-      </MenubarItem>
-      <MenubarItem onSelect={() => void openProjectFile()}>
-        <FileInput /> Open project file… <MenubarShortcut>Ctrl Shift O</MenubarShortcut>
-      </MenubarItem>
+      <Item command="openFolder" icon={FolderOpen}>
+        Open project folder…
+      </Item>
+      <Item command="openFile" icon={FileInput}>
+        Open project file…
+      </Item>
       <MenubarSub>
         <MenubarSubTrigger>
           <History /> Open recent
@@ -156,9 +148,9 @@ function FileItems() {
         <MenubarSubContent className="max-w-96 min-w-64">
           {recent.length === 0 && <MenubarLabel>Nothing opened yet</MenubarLabel>}
           {recent.map((root) => (
-            <MenubarItem key={root} onSelect={() => void workspace.open(root)} title={root}>
-              <span className="shrink-0">{basename(root)}</span>
-              <span className="min-w-0 truncate text-xs text-muted-foreground">{root}</span>
+            <MenubarItem key={root} onSelect={() => void workspace.open(root)} className="flex-col items-start gap-0">
+              <span>{basename(root)}</span>
+              <span className="text-xs wrap-anywhere text-muted-foreground">{root}</span>
             </MenubarItem>
           ))}
           {recent.length > 0 && (
@@ -170,169 +162,85 @@ function FileItems() {
         </MenubarSubContent>
       </MenubarSub>
       <MenubarSeparator />
-      <MenubarItem disabled={!session} onSelect={() => void save()}>
-        <Save /> Save <MenubarShortcut>Ctrl S</MenubarShortcut>
-      </MenubarItem>
-      <MenubarItem disabled={!session} onSelect={() => void saveCopy()}>
-        <SaveAll /> Save a copy… <MenubarShortcut>Ctrl Shift S</MenubarShortcut>
-      </MenubarItem>
-      <MenubarSub>
-        <MenubarSubTrigger disabled={!session}>
-          <Download /> Export
-        </MenubarSubTrigger>
-        <MenubarSubContent className="min-w-60">
-          <MenubarItem disabled={!selected} onSelect={() => void exportImages("selection")}>
-            <Images /> Selected design as PNG… <MenubarShortcut>Ctrl Shift E</MenubarShortcut>
-          </MenubarItem>
-          <MenubarItem disabled={designs === 0} onSelect={() => void exportImages("all")}>
-            <Images /> All designs as PNG…
-          </MenubarItem>
-          <MenubarSeparator />
-          <MenubarLabel>Scale</MenubarLabel>
-          <MenubarRadioGroup
-            value={String(preferences.exportScale)}
-            onValueChange={(value) => setPreferences({ exportScale: Number(value) as Preferences["exportScale"] })}
-          >
-            {[1, 2, 3].map((scale) => (
-              <MenubarRadioItem key={scale} value={String(scale)} onSelect={(event) => event.preventDefault()}>
-                {scale}x
-              </MenubarRadioItem>
-            ))}
-          </MenubarRadioGroup>
-        </MenubarSubContent>
-      </MenubarSub>
+      <Item command="save" icon={Save} />
+      <Item command="saveCopy" icon={SaveAll}>
+        Save a copy…
+      </Item>
       <MenubarSeparator />
-      <MenubarSub>
-        <MenubarSubTrigger>
-          <Settings2 /> Preferences
-        </MenubarSubTrigger>
-        <MenubarSubContent className="min-w-44">
-          <MenubarLabel>Theme</MenubarLabel>
-          <MenubarRadioGroup
-            value={preferences.theme}
-            onValueChange={(theme) => setPreferences({ theme: theme as ThemePreference })}
-          >
-            {themes.map(({ value, label, icon: Icon }) => (
-              <MenubarRadioItem key={value} value={value} onSelect={(event) => event.preventDefault()}>
-                <Icon /> {label}
-              </MenubarRadioItem>
-            ))}
-          </MenubarRadioGroup>
-          <MenubarSeparator />
-          <MenubarCheckboxItem
-            checked={preferences.autosave}
-            onCheckedChange={(autosave) => {
-              setPreferences({ autosave })
-              // Turning it on saves what's waiting now, rather than at the next edit.
-              if (autosave) void workspace.flush().catch(() => undefined)
-            }}
-            onSelect={(event) => event.preventDefault()}
-          >
-            Save automatically
-          </MenubarCheckboxItem>
-        </MenubarSubContent>
-      </MenubarSub>
+      <MenubarItem disabled={!session?.selection.get().design} onSelect={() => void exportImages("selection")}>
+        <Images /> Export selected design…
+        <MenubarShortcut>{keymap.exportSelection.keys[0]}</MenubarShortcut>
+      </MenubarItem>
+      <MenubarItem disabled={designs === 0} onSelect={() => void exportImages("all")}>
+        <Images /> Export all designs…
+      </MenubarItem>
       <MenubarSeparator />
-      <MenubarItem disabled={!workspace.getActiveId()} onSelect={() => closeTab()}>
-        <X /> Close tab <MenubarShortcut>Ctrl W</MenubarShortcut>
-      </MenubarItem>
-      <MenubarItem onSelect={exit}>
-        <LogOut /> {mac ? "Quit Parity" : "Exit"} <MenubarShortcut>{mac ? "Cmd Q" : "Alt F4"}</MenubarShortcut>
-      </MenubarItem>
+      <Item command="closeTab" icon={X} />
+      {/* On a Mac, Quit is in the Parity menu, as every app's is. */}
+      {!mac && (
+        <MenubarItem onSelect={exit}>
+          <LogOut /> Exit <MenubarShortcut>Alt F4</MenubarShortcut>
+        </MenubarItem>
+      )}
     </>
   )
 }
 
 function EditItems() {
-  const session = activeSession()
-  const history = session?.store.getHistory()
-  const current = session?.selection.get() ?? {}
-  const something = !!current.design || !!current.note
+  const history = activeSession()?.store.getHistory()
   return (
     <>
-      <MenubarItem disabled={!history?.canUndo} onSelect={() => undo()}>
-        <Undo2 /> {history?.undoLabel ? `Undo ${history.undoLabel.toLowerCase()}` : "Undo"}
-        <MenubarShortcut>Ctrl Z</MenubarShortcut>
-      </MenubarItem>
-      <MenubarItem disabled={!history?.canRedo} onSelect={() => redo()}>
-        <Redo2 /> {history?.redoLabel ? `Redo ${history.redoLabel.toLowerCase()}` : "Redo"}
-        <MenubarShortcut>Ctrl Shift Z</MenubarShortcut>
-      </MenubarItem>
+      <Item command="undo" icon={Undo2}>
+        {history?.undoLabel ? `Undo ${history.undoLabel.toLowerCase()}` : "Undo"}
+      </Item>
+      <Item command="redo" icon={Redo2}>
+        {history?.redoLabel ? `Redo ${history.redoLabel.toLowerCase()}` : "Redo"}
+      </Item>
       <MenubarSeparator />
-      <MenubarItem disabled={!something} onSelect={() => void cut()}>
-        <Scissors /> Cut <MenubarShortcut>Ctrl X</MenubarShortcut>
-      </MenubarItem>
-      <MenubarItem disabled={!something} onSelect={() => void copy()}>
-        <Copy /> Copy <MenubarShortcut>Ctrl C</MenubarShortcut>
-      </MenubarItem>
-      <MenubarItem disabled={!session} onSelect={() => void paste()}>
-        <ClipboardPaste /> Paste <MenubarShortcut>Ctrl V</MenubarShortcut>
-      </MenubarItem>
-      <MenubarItem disabled={!current.node} onSelect={() => copySelectionStyle()}>
-        <Paintbrush /> Copy style <MenubarShortcut>Ctrl Alt C</MenubarShortcut>
-      </MenubarItem>
-      <MenubarItem disabled={!current.node} onSelect={() => pasteSelectionStyle()}>
-        <Paintbrush /> Paste style <MenubarShortcut>Ctrl Alt V</MenubarShortcut>
-      </MenubarItem>
+      <Item command="cut" icon={Scissors} />
+      <Item command="copy" icon={Copy} />
+      <Item command="paste" icon={ClipboardPaste} />
+      <Item command="duplicate" icon={Copy} />
+      <Item command="delete" icon={Trash2} variant="destructive" />
       <MenubarSeparator />
-      <MenubarItem disabled={!current.design} onSelect={() => openQuickInsert()}>
-        <SquarePlus /> Insert… <MenubarShortcut>/</MenubarShortcut>
-      </MenubarItem>
-      <MenubarItem disabled={!session} onSelect={() => selectEverything()}>
-        <TextSelect /> Select all <MenubarShortcut>Ctrl A</MenubarShortcut>
-      </MenubarItem>
-      <MenubarItem disabled={!current.design} onSelect={() => duplicateSelection()}>
-        <Copy /> Duplicate <MenubarShortcut>Ctrl D</MenubarShortcut>
-      </MenubarItem>
-      <MenubarItem disabled={!current.design} onSelect={() => renameSelection()}>
-        <PenLine /> Rename <MenubarShortcut>F2</MenubarShortcut>
-      </MenubarItem>
+      <Item command="copyStyle" icon={Paintbrush} />
+      <Item command="pasteStyle" icon={Paintbrush} />
       <MenubarSeparator />
-      <MenubarItem variant="destructive" disabled={!something} onSelect={() => deleteSelection()}>
-        <Trash2 /> Delete <MenubarShortcut>Del</MenubarShortcut>
-      </MenubarItem>
+      <Item command="selectAll" icon={TextSelect} />
+      <Item command="rename" icon={PenLine} />
+      <MenubarSeparator />
+      <Item command="settings" icon={Settings}>
+        Settings…
+      </Item>
     </>
   )
 }
 
 function ViewItems() {
-  const session = activeSession()
-  const editor = session?.editor
   const layout = useLayout()
   const preferences = usePreferences()
-  const current = session?.selection.get()
   return (
     <>
-      <MenubarItem disabled={!editor} onSelect={() => editor?.zoomIn()}>
-        <ZoomIn /> Zoom in <MenubarShortcut>Ctrl +</MenubarShortcut>
-      </MenubarItem>
-      <MenubarItem disabled={!editor} onSelect={() => editor?.zoomOut()}>
-        <ZoomOut /> Zoom out <MenubarShortcut>Ctrl −</MenubarShortcut>
-      </MenubarItem>
-      <MenubarItem disabled={!editor} onSelect={() => editor?.resetZoom()} inset>
-        Zoom to 100% <MenubarShortcut>Shift 0</MenubarShortcut>
-      </MenubarItem>
-      <MenubarItem disabled={!editor} onSelect={() => editor?.zoomToFit({ animation: { duration: 200 } })}>
-        <Maximize /> Zoom to fit <MenubarShortcut>Shift 1</MenubarShortcut>
-      </MenubarItem>
-      <MenubarItem disabled={!current?.design && !current?.note} onSelect={() => zoomToSelection()}>
-        <Scan /> Zoom to selection <MenubarShortcut>Shift 2</MenubarShortcut>
-      </MenubarItem>
+      <Item command="zoomIn" icon={ZoomIn} />
+      <Item command="zoomOut" icon={ZoomOut} />
+      <Item command="zoomTo100" />
+      <Item command="zoomToFit" icon={Maximize} />
+      <Item command="zoomToSelection" icon={Scan} />
       <MenubarSeparator />
       <MenubarCheckboxItem
         checked={layout.left || layout.right}
         onCheckedChange={(open) => setLayout({ left: open, right: open })}
       >
-        <PanelsLeftRight /> Panels <MenubarShortcut>Ctrl \</MenubarShortcut>
-      </MenubarCheckboxItem>
-      <MenubarCheckboxItem checked={preferences.snapping} onCheckedChange={(snapping) => setPreferences({ snapping })}>
-        <Magnet /> Snap to designs
+        <PanelsLeftRight /> Panels <MenubarShortcut>{keymap.panels.keys[0]}</MenubarShortcut>
       </MenubarCheckboxItem>
       <MenubarCheckboxItem
         checked={preferences.layoutGrid}
         onCheckedChange={(layoutGrid) => setPreferences({ layoutGrid })}
       >
-        <Grid3x3 /> Layout grid <MenubarShortcut>Shift G</MenubarShortcut>
+        <Grid3x3 /> Layout grid <MenubarShortcut>{keymap.layoutGrid.keys[0]}</MenubarShortcut>
+      </MenubarCheckboxItem>
+      <MenubarCheckboxItem checked={preferences.snapping} onCheckedChange={(snapping) => setPreferences({ snapping })}>
+        <Magnet /> Snap to designs
       </MenubarCheckboxItem>
       <MenubarCheckboxItem
         checked={preferences.performanceStats}
@@ -344,48 +252,96 @@ function ViewItems() {
   )
 }
 
-const alignItems: { value: Alignment; label: string; shortcut: string; icon: typeof AlignStartVertical }[] = [
-  { value: "left", label: "Align left", shortcut: "Alt A", icon: AlignStartVertical },
-  { value: "center", label: "Align horizontal centers", shortcut: "Alt H", icon: AlignCenterVertical },
-  { value: "right", label: "Align right", shortcut: "Alt D", icon: AlignEndVertical },
-  { value: "top", label: "Align top", shortcut: "Alt W", icon: AlignStartHorizontal },
-  { value: "middle", label: "Align vertical centers", shortcut: "Alt V", icon: AlignCenterHorizontal },
-  { value: "bottom", label: "Align bottom", shortcut: "Alt S", icon: AlignEndHorizontal }
+function ObjectItems() {
+  const design = selectedDesign()
+  const instance = selectedInstance()
+  const current = activeSession()?.selection.get() ?? {}
+  return (
+    <>
+      <Item command="insert" icon={SquarePlus}>
+        Insert…
+      </Item>
+      <MenubarSeparator />
+      <Item command="wrap" icon={Group} />
+      <Item command="unwrap" icon={Ungroup} />
+      <MenubarSeparator />
+      <Item command="makeComponent" icon={Diamond}>
+        {design?.container.kind === "component" ? "Make it a screen" : "Make it a component"}
+      </Item>
+      <Item command="goToMain" icon={Diamond}>
+        {instance ? `Go to ${mainName(instance.node.design)}` : "Go to the main component"}
+      </Item>
+      <Item command="detach" icon={Unlink} />
+      <MenubarSeparator />
+      <Item command="bringForward" />
+      <Item command="sendBackward" />
+      <Item command="bringToFront" icon={BringToFront} />
+      <Item command="sendToBack" icon={SendToBack} />
+      <MenubarSeparator />
+      <Item command="hide" icon={EyeOff} />
+      {!current.design && !current.note && <SelectionHint>Select layers or a design to act on them</SelectionHint>}
+    </>
+  )
+}
+
+const alignCommands: { command: Command; icon: typeof AlignStartVertical }[] = [
+  { command: "alignLeft", icon: AlignStartVertical },
+  { command: "alignCenter", icon: AlignCenterVertical },
+  { command: "alignRight", icon: AlignEndVertical },
+  { command: "alignTop", icon: AlignStartHorizontal },
+  { command: "alignMiddle", icon: AlignCenterHorizontal },
+  { command: "alignBottom", icon: AlignEndHorizontal }
 ]
 
 function ArrangeItems() {
-  const session = activeSession()
-  const current = session?.selection.get() ?? {}
-  const layers = current.nodes?.length ?? (current.node ? 1 : 0)
-  const designs = current.designs?.length ?? (current.design && !current.node ? 1 : 0)
-  const alignable = layers > 0 || designs > 1
+  const unavailable = actions.alignLeft.available?.() === false
   return (
     <>
-      <MenubarItem disabled={layers === 0} onSelect={() => wrapSelection()}>
-        <Group /> Wrap in layout <MenubarShortcut>Ctrl G</MenubarShortcut>
-      </MenubarItem>
-      <MenubarItem disabled={layers !== 1} onSelect={() => unwrapSelection()}>
-        <Ungroup /> Unwrap layout <MenubarShortcut>Ctrl Shift G</MenubarShortcut>
-      </MenubarItem>
-      <MenubarSeparator />
-      {alignItems.map(({ value, label, shortcut, icon: Icon }) => (
-        <MenubarItem key={value} disabled={!alignable} onSelect={() => alignSelection(value)}>
-          <Icon /> {label} <MenubarShortcut>{shortcut}</MenubarShortcut>
-        </MenubarItem>
+      {alignCommands.map(({ command, icon }) => (
+        <Item key={command} command={command} icon={icon} />
       ))}
       <MenubarSeparator />
-      <MenubarItem disabled={designs < 3} onSelect={() => distributeSelection("horizontal")}>
-        <AlignHorizontalSpaceAround /> Distribute horizontally <MenubarShortcut>Alt Shift H</MenubarShortcut>
-      </MenubarItem>
-      <MenubarItem disabled={designs < 3} onSelect={() => distributeSelection("vertical")}>
-        <AlignVerticalSpaceAround /> Distribute vertically <MenubarShortcut>Alt Shift V</MenubarShortcut>
-      </MenubarItem>
-      {layers === 0 && designs < 2 && (
-        <MenubarLabel className="flex items-center gap-1.5 font-normal">
-          <SquareDashed className="size-3.5" /> Select layers or designs to arrange them
-        </MenubarLabel>
-      )}
+      <Item command="distributeHorizontal" icon={AlignHorizontalSpaceAround} />
+      <Item command="distributeVertical" icon={AlignVerticalSpaceAround} />
+      {unavailable && <SelectionHint>Select layers or designs to arrange them</SelectionHint>}
     </>
+  )
+}
+
+function HelpItems() {
+  return (
+    <>
+      <Item command="actions" icon={Search}>
+        Search actions…
+      </Item>
+      <Item command="shortcuts" icon={Keyboard}>
+        Keyboard shortcuts
+      </Item>
+      <MenubarSeparator />
+      <Item command="developerTools" icon={Code} />
+      <MenubarSeparator />
+      <MenubarItem onSelect={() => openDialog("about")}>
+        <Info /> About Parity
+      </MenubarItem>
+    </>
+  )
+}
+
+/** Says what to select for a menu whose items all need a selection. */
+function SelectionHint({ children }: { children: ReactNode }) {
+  return (
+    <MenubarLabel className="flex items-center gap-1.5 font-normal">
+      <SquareDashed className="size-3.5" /> {children}
+    </MenubarLabel>
+  )
+}
+
+/** The name of the component design an instance copies. */
+function mainName(design: string): string {
+  return (
+    activeSession()
+      ?.store.getEntries()
+      .find((entry) => entry.container.id === design)?.container.name ?? "the main component"
   )
 }
 

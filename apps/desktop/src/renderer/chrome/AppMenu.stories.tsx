@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { expect, userEvent, within } from "storybook/test"
+import { expect, fireEvent, userEvent, within } from "storybook/test"
 import { AppWindow } from "../App.tsx"
 import { designsSelection, layersSelection } from "../selection.ts"
 import {
@@ -14,14 +14,15 @@ import {
   preferring
 } from "../stories/fixtures.tsx"
 import { workspace } from "../workspace.ts"
+import { openDialog } from "./app-dialogs.ts"
 import { AppMenu } from "./AppMenu.tsx"
 import { renameDesign, Window } from "./chrome-fixtures.tsx"
 import { setLayout } from "./layout.ts"
 import { setPreferences } from "./preferences.ts"
 
 /**
- * The File, Edit, View and Arrange menus in the title bar, opened over the whole window. Each reads the active tab
- * when it opens, so what it offers depends on what's selected.
+ * The File, Edit, View, Object, Arrange and Help menus in the title bar, and the dialogs they open, over the whole
+ * window. Each menu reads the active tab when it opens, so what it offers depends on what's selected.
  */
 const meta = {
   title: "Parity/Chrome/App menu",
@@ -42,6 +43,11 @@ async function openMenu(name: string): Promise<void> {
   await body().findByRole("menu")
 }
 
+/** Enters text in a field, as typing it would. `userEvent.type` changes the field without React's change handler. */
+async function enter(field: HTMLElement, text: string): Promise<void> {
+  await fireEvent.input(field, { target: { value: text } })
+}
+
 /** Opens a submenu of the open menu, as a click on it does. */
 async function openSubmenu(name: string): Promise<void> {
   await userEvent.click(body().getByRole("menuitem", { name }))
@@ -54,7 +60,7 @@ const pricingSelected = async () => {
   example().selection.set({ design: design("Pricing") })
 }
 
-/** File with a design selected: opening projects, saving, exporting, preferences, closing the tab and exiting. */
+/** File with a design selected: opening projects, saving, exporting it or every design, closing the tab and exiting. */
 export const File: Story = {
   loaders: [pricingSelected],
   play: async () => {
@@ -107,58 +113,12 @@ export const OpenRecentWhenNothingOpenedYet: Story = {
   }
 }
 
-/** File's Export with a design selected: it or every design as PNGs, and the scale, 2x by default. */
-export const Export: Story = {
-  loaders: [pricingSelected],
-  play: async () => {
-    await frameDesigns("Pricing")
-    await openMenu("File")
-    await openSubmenu("Export")
-  }
-}
-
-/** File's Export with nothing selected and the scale set to 3x: only every design can be exported. */
-export const ExportWithNothingSelected: Story = {
-  loaders: [
-    async () => {
-      await openProjects("example")
-      setPreferences({ exportScale: 3 })
-    }
-  ],
+/** File with nothing selected: every design can be exported, but not a selected one. */
+export const FileWithNothingSelected: Story = {
+  loaders: [() => openProjects("example")],
   play: async () => {
     await frameDesigns("Pricing", "Dashboard", "Sign in", "Settings")
     await openMenu("File")
-    await openSubmenu("Export")
-  }
-}
-
-/** File's Preferences as they start: the dark theme, saving only when asked. */
-export const Preferences: Story = {
-  loaders: [
-    async () => {
-      await openProjects("example")
-      preferring({ theme: "dark" })
-    }
-  ],
-  play: async () => {
-    await frameDesigns("Pricing", "Dashboard")
-    await openMenu("File")
-    await openSubmenu("Preferences")
-  }
-}
-
-/** File's Preferences changed: the theme following the system, and saving automatically. */
-export const PreferencesChanged: Story = {
-  loaders: [
-    async () => {
-      await openProjects("example")
-      preferring({ theme: "system", autosave: true })
-    }
-  ],
-  play: async () => {
-    await frameDesigns("Pricing", "Dashboard")
-    await openMenu("File")
-    await openSubmenu("Preferences")
   }
 }
 
@@ -241,6 +201,38 @@ export const ViewWithPanelsHidden: Story = {
   }
 }
 
+/** Object with nothing selected: everything but Insert unavailable, and a hint saying what to select. */
+export const ObjectWithNothingSelected: Story = {
+  loaders: [() => openProjects("example")],
+  play: async () => {
+    await frameDesigns("Pricing", "Dashboard", "Sign in", "Settings")
+    await openMenu("Object")
+  }
+}
+
+/** Object with a design selected on its own: inserting into it, and making it a component. */
+export const ObjectDesign: Story = {
+  loaders: [pricingSelected],
+  play: async () => {
+    await frameDesigns("Pricing")
+    await openMenu("Object")
+  }
+}
+
+/** Object with one layer selected: wrapping and unwrapping it, ordering it among its siblings, and hiding it. */
+export const ObjectOneLayer: Story = {
+  loaders: [
+    async () => {
+      await openProjects("example")
+      example().selection.set(layersSelection(design("Pricing"), [node("Pricing", "Hero")]))
+    }
+  ],
+  play: async () => {
+    await frameDesigns("Pricing")
+    await openMenu("Object")
+  }
+}
+
 /** Arrange with nothing selected: everything unavailable, and a hint saying what to select. */
 export const ArrangeWithNothingSelected: Story = {
   loaders: [() => openProjects("example")],
@@ -250,21 +242,7 @@ export const ArrangeWithNothingSelected: Story = {
   }
 }
 
-/** Arrange with one layout layer selected: wrapping, unwrapping and aligning, but not distributing. */
-export const ArrangeOneLayer: Story = {
-  loaders: [
-    async () => {
-      await openProjects("example")
-      example().selection.set(layersSelection(design("Pricing"), [node("Pricing", "Hero")]))
-    }
-  ],
-  play: async () => {
-    await frameDesigns("Pricing")
-    await openMenu("Arrange")
-  }
-}
-
-/** Arrange with three layers of a design selected: wrapping and aligning them, but not unwrapping or distributing. */
+/** Arrange with three layers of a design selected: aligning them, but not distributing them. */
 export const ArrangeSeveralLayers: Story = {
   loaders: [
     async () => {
@@ -285,7 +263,7 @@ export const ArrangeSeveralLayers: Story = {
   }
 }
 
-/** Arrange with three designs selected: aligning and distributing them, but not wrapping. */
+/** Arrange with three designs selected: aligning and distributing them. */
 export const ArrangeThreeDesigns: Story = {
   loaders: [
     async () => {
@@ -296,5 +274,87 @@ export const ArrangeThreeDesigns: Story = {
   play: async () => {
     await frameDesigns("Pricing", "Sign in", "Settings")
     await openMenu("Arrange")
+  }
+}
+
+/** Help: searching actions, the keyboard shortcuts, developer tools and About. */
+export const Help: Story = {
+  loaders: [() => openProjects("example")],
+  play: async () => {
+    await frameDesigns("Pricing", "Dashboard")
+    await openMenu("Help")
+  }
+}
+
+/** Edit > Settings as they start: the dark theme, saving only when asked, snapping on, and exporting at 2x. */
+export const Settings: Story = {
+  loaders: [
+    async () => {
+      await openProjects("example")
+      preferring({ theme: "dark", performanceStats: false })
+    }
+  ],
+  play: async () => {
+    await frameDesigns("Pricing", "Dashboard")
+    openDialog("settings")
+    await body().findByRole("dialog", { name: "Settings" })
+  }
+}
+
+/** Settings changed: the theme following the system, saving automatically, the layout grid on and 3x exports. */
+export const SettingsChanged: Story = {
+  loaders: [
+    async () => {
+      await openProjects("example")
+      preferring({ theme: "system", autosave: true, performanceStats: false })
+      setPreferences({ layoutGrid: true, exportScale: 3 })
+    }
+  ],
+  play: async () => {
+    await frameDesigns("Pricing", "Dashboard")
+    openDialog("settings")
+    await body().findByRole("dialog", { name: "Settings" })
+  }
+}
+
+/** Help > Keyboard shortcuts: every shortcut by group, with the keys held while dragging or clicking. */
+export const KeyboardShortcuts: Story = {
+  loaders: [() => openProjects("example")],
+  play: async () => {
+    await frameDesigns("Pricing", "Dashboard")
+    openDialog("shortcuts")
+    await body().findByRole("dialog", { name: "Keyboard shortcuts" })
+  }
+}
+
+/** The keyboard shortcuts searched for "layer": the selection keys and the ones that act on a layer. */
+export const KeyboardShortcutsSearched: Story = {
+  loaders: [() => openProjects("example")],
+  play: async () => {
+    await frameDesigns("Pricing", "Dashboard")
+    openDialog("shortcuts")
+    await enter(await body().findByRole("textbox", { name: "Search shortcuts" }), "layer")
+    await expect(body().getByText("Select the next layer")).toBeInTheDocument()
+    await expect(body().queryByText("Zoom in")).not.toBeInTheDocument()
+  }
+}
+
+/** Help > Search actions, searched for "zoom", with nothing selected, so zooming to the selection is unavailable. */
+export const SearchActions: Story = {
+  loaders: [() => openProjects("example")],
+  play: async () => {
+    await frameDesigns("Pricing", "Dashboard")
+    openDialog("actions")
+    await enter(await body().findByRole("combobox"), "zoom")
+  }
+}
+
+/** Help > About Parity: its version, the Electron and Chromium it runs on, and how it gets updates. */
+export const About: Story = {
+  loaders: [() => openProjects("example")],
+  play: async () => {
+    await frameDesigns("Pricing", "Dashboard")
+    openDialog("about")
+    await body().findByRole("dialog", { name: "Parity" })
   }
 }

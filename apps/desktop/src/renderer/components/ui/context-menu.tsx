@@ -4,6 +4,7 @@ import { cn } from "cn"
 import { ChevronRightIcon, CheckIcon } from "lucide-react"
 import { ContextMenu as ContextMenuPrimitive } from "radix-ui"
 import * as React from "react"
+import { formatKeys } from "@/chrome/keys.ts"
 
 function ContextMenu({ ...props }: React.ComponentProps<typeof ContextMenuPrimitive.Root>) {
   return <ContextMenuPrimitive.Root data-slot="context-menu" {...props} />
@@ -200,7 +201,7 @@ function ContextMenuSeparator({ className, ...props }: React.ComponentProps<type
   )
 }
 
-function ContextMenuShortcut({ className, ...props }: React.ComponentProps<"span">) {
+function ContextMenuShortcut({ className, children, ...props }: React.ComponentProps<"span">) {
   return (
     <span
       data-slot="context-menu-shortcut"
@@ -209,7 +210,9 @@ function ContextMenuShortcut({ className, ...props }: React.ComponentProps<"span
         className
       )}
       {...props}
-    />
+    >
+      {typeof children === "string" ? formatKeys(children) : children}
+    </span>
   )
 }
 

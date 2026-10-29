@@ -74,6 +74,27 @@ export function parentLayer(store: DesignStore, container: ContainerSpec, id: st
   return !parent || parent.id === inner.component.root.id ? holder : `${holder}/${parent.id}`
 }
 
+/**
+ * The layer after this one in its parent, or before it with a step of -1, going round from the last to the first: what
+ * Tab and Shift+Tab select. Inside instances too.
+ */
+export function siblingLayer(
+  store: DesignStore,
+  container: ContainerSpec,
+  id: string,
+  step: 1 | -1
+): string | undefined {
+  const inner = isInnerPath(id) ? locateInner(container, id, projectLibrary(store)) : undefined
+  const location = inner ? inner.location : locateNode(container.root, id)
+  const parent = location?.ancestors.at(-1)
+  if (!location || !parent) return undefined
+  const siblings = childNodes(parent)
+  const index = siblings.findIndex((node) => node.id === location.node.id)
+  const next = siblings[(index + step + siblings.length) % siblings.length]
+  if (!next || next.id === location.node.id) return undefined
+  return inner ? `${id.slice(0, id.lastIndexOf("/"))}/${next.id}` : next.id
+}
+
 /** The first layer inside a layer, going into instances too: what Enter selects. */
 export function firstChildLayer(store: DesignStore, container: ContainerSpec, id: string): string | undefined {
   const library = projectLibrary(store)

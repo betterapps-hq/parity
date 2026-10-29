@@ -70,6 +70,7 @@ const host: CanvasHost = {
   saveFile: (options) => ipcRenderer.invoke("canvas:save-dialog", options) as Promise<string | undefined>,
   showItem: (path) => ipcRenderer.invoke("canvas:show-item", path) as Promise<void>,
   quit: () => ipcRenderer.invoke("canvas:quit") as Promise<void>,
+  toggleDevTools: () => ipcRenderer.invoke("canvas:toggle-dev-tools") as Promise<void>,
   setTheme: (theme) => ipcRenderer.invoke("canvas:set-theme", theme) as Promise<void>,
   metrics: () => ipcRenderer.invoke("canvas:metrics") as Promise<ProcessUsage[]>,
   onClosing(listener) {

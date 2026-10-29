@@ -260,6 +260,8 @@ export interface CanvasHost {
   /** Shows a file in the system's file manager. */
   showItem(path: string): Promise<void>
   quit(): Promise<void>
+  /** Opens the window's developer tools, or closes them. */
+  toggleDevTools(): Promise<void>
   /** The app's theme, so the window's title bar buttons and system dialogs match it. */
   setTheme(theme: "light" | "dark" | "system"): Promise<void>
   /**

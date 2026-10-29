@@ -3,7 +3,11 @@ import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { serveAgents } from "./agent/handlers.ts"
 import { useAppShortcuts } from "./canvas/shortcuts.ts"
+import { AboutDialog } from "./chrome/AboutDialog.tsx"
+import { ActionsSearch } from "./chrome/ActionsSearch.tsx"
 import { QuickInsert } from "./chrome/QuickInsert.tsx"
+import { SettingsDialog } from "./chrome/SettingsDialog.tsx"
+import { ShortcutsDialog } from "./chrome/ShortcutsDialog.tsx"
 import { StartScreen } from "./chrome/StartScreen.tsx"
 import { TabBar } from "./chrome/TabBar.tsx"
 import { UnsavedPrompt } from "./chrome/UnsavedPrompt.tsx"
@@ -44,6 +48,10 @@ export function AppWindow() {
       </div>
       <Toaster position="bottom-right" offset={{ bottom: 40, right: 16 }} />
       <QuickInsert />
+      <ActionsSearch />
+      <SettingsDialog />
+      <ShortcutsDialog />
+      <AboutDialog />
       <UnsavedPrompt />
     </TooltipProvider>
   )

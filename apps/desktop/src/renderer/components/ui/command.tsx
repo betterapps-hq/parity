@@ -2,6 +2,7 @@ import { Command as CommandPrimitive } from "cmdk"
 import { cn } from "cn"
 import { SearchIcon, CheckIcon } from "lucide-react"
 import * as React from "react"
+import { formatKeys } from "@/chrome/keys.ts"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { InputGroup, InputGroupAddon } from "@/components/ui/input-group"
 
@@ -123,7 +124,7 @@ function CommandItem({ className, children, ...props }: React.ComponentProps<typ
   )
 }
 
-function CommandShortcut({ className, ...props }: React.ComponentProps<"span">) {
+function CommandShortcut({ className, children, ...props }: React.ComponentProps<"span">) {
   return (
     <span
       data-slot="command-shortcut"
@@ -132,7 +133,9 @@ function CommandShortcut({ className, ...props }: React.ComponentProps<"span">) 
         className
       )}
       {...props}
-    />
+    >
+      {typeof children === "string" ? formatKeys(children) : children}
+    </span>
   )
 }
 

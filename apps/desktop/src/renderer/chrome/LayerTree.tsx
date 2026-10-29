@@ -35,6 +35,7 @@ import {
 } from "../selection.ts"
 import { createDesign } from "./create.ts"
 import { IconButton } from "./IconButton.tsx"
+import { keymap } from "./keymap.ts"
 import { renameLayer } from "./LayerPanel.tsx"
 import { revealSelection } from "./reveal.ts"
 
@@ -504,7 +505,7 @@ function LayerRow({
       </ContextMenuTrigger>
       <ContextMenuContent className="w-52">
         <ContextMenuItem onSelect={onRename}>
-          Rename <ContextMenuShortcut>F2</ContextMenuShortcut>
+          Rename <ContextMenuShortcut>{keymap.rename.keys[0]}</ContextMenuShortcut>
         </ContextMenuItem>
         {row.node && (
           <>

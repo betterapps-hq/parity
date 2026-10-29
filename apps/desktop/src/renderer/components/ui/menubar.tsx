@@ -2,6 +2,7 @@ import { cn } from "cn"
 import { CheckIcon, ChevronRightIcon } from "lucide-react"
 import { Menubar as MenubarPrimitive } from "radix-ui"
 import * as React from "react"
+import { formatKeys } from "@/chrome/keys.ts"
 
 function Menubar({ className, ...props }: React.ComponentProps<typeof MenubarPrimitive.Root>) {
   return <MenubarPrimitive.Root data-slot="menubar" className={cn("flex items-center gap-0.5", className)} {...props} />
@@ -174,7 +175,7 @@ function MenubarSeparator({ className, ...props }: React.ComponentProps<typeof M
   )
 }
 
-function MenubarShortcut({ className, ...props }: React.ComponentProps<"span">) {
+function MenubarShortcut({ className, children, ...props }: React.ComponentProps<"span">) {
   return (
     <span
       data-slot="menubar-shortcut"
@@ -183,7 +184,9 @@ function MenubarShortcut({ className, ...props }: React.ComponentProps<"span">) 
         className
       )}
       {...props}
-    />
+    >
+      {typeof children === "string" ? formatKeys(children) : children}
+    </span>
   )
 }
 

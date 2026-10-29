@@ -10,12 +10,13 @@ import { useProject } from "../canvas/context.ts"
 import { useHistory } from "../design-store.ts"
 import { type Tool, useTool } from "../selection.ts"
 import { IconButton } from "./IconButton.tsx"
+import { keymap } from "./keymap.ts"
 
 const tools: { id: Tool; label: string; shortcut: string; icon: typeof Hand }[] = [
-  { id: "select", label: "Move and select", shortcut: "V", icon: MousePointer2 },
-  { id: "hand", label: "Hand", shortcut: "H", icon: Hand },
-  { id: "text", label: "Text", shortcut: "T", icon: Type },
-  { id: "interact", label: "Interact with designs", shortcut: "I", icon: Pointer }
+  { id: "select", label: "Move and select", shortcut: keymap.select.keys[0], icon: MousePointer2 },
+  { id: "hand", label: "Hand", shortcut: keymap.hand.keys[0], icon: Hand },
+  { id: "text", label: "Text", shortcut: keymap.text.keys[0], icon: Type },
+  { id: "interact", label: "Interact with designs", shortcut: keymap.interact.keys[0], icon: Pointer }
 ]
 
 /** A pill floating over the canvas. */
@@ -75,7 +76,7 @@ export function ViewControls() {
     <Floating className="top-3 right-3">
       <IconButton
         label={history.undoLabel ? `Undo ${history.undoLabel.toLowerCase()}` : "Undo"}
-        shortcut="Ctrl Z"
+        shortcut={keymap.undo.keys[0]}
         disabled={!history.canUndo}
         onClick={() => store.undo()}
       >
@@ -83,14 +84,19 @@ export function ViewControls() {
       </IconButton>
       <IconButton
         label={history.redoLabel ? `Redo ${history.redoLabel.toLowerCase()}` : "Redo"}
-        shortcut="Ctrl Shift Z"
+        shortcut={keymap.redo.keys[0]}
         disabled={!history.canRedo}
         onClick={() => store.redo()}
       >
         <Redo2 />
       </IconButton>
       <Separator orientation="vertical" className="mx-1 h-5" />
-      <IconButton label="Zoom out" shortcut="Ctrl −" disabled={!editor} onClick={() => editor?.zoomOut()}>
+      <IconButton
+        label="Zoom out"
+        shortcut={keymap.zoomOut.keys[0]}
+        disabled={!editor}
+        onClick={() => editor?.zoomOut()}
+      >
         <Minus />
       </IconButton>
       <Tooltip>
@@ -106,13 +112,18 @@ export function ViewControls() {
           </Button>
         </TooltipTrigger>
         <TooltipContent side="top">
-          Zoom to 100% <Kbd>Shift 0</Kbd>
+          Zoom to 100% <Kbd>{keymap.zoomTo100.keys[0]}</Kbd>
         </TooltipContent>
       </Tooltip>
-      <IconButton label="Zoom in" shortcut="Ctrl +" disabled={!editor} onClick={() => editor?.zoomIn()}>
+      <IconButton label="Zoom in" shortcut={keymap.zoomIn.keys[0]} disabled={!editor} onClick={() => editor?.zoomIn()}>
         <Plus />
       </IconButton>
-      <IconButton label="Zoom to fit" shortcut="Shift 1" disabled={!editor} onClick={() => editor?.zoomToFit()}>
+      <IconButton
+        label="Zoom to fit"
+        shortcut={keymap.zoomToFit.keys[0]}
+        disabled={!editor}
+        onClick={() => editor?.zoomToFit()}
+      >
         <Maximize />
       </IconButton>
     </Floating>

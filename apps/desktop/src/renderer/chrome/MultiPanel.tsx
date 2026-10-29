@@ -35,17 +35,28 @@ import { spacingUnit, useTokenList } from "../tokens-store.ts"
 import type { Alignment } from "./arrange.ts"
 import { alignSelection, deleteSelection, distributeSelection, duplicateSelection, wrapSelection } from "./commands.ts"
 import { IconButton } from "./IconButton.tsx"
+import { keymap } from "./keymap.ts"
 import { editingState } from "./LayerPanel.tsx"
 import { PanelSection } from "./PanelSection.tsx"
 import { type StyleEditor, StyleSections } from "./StyleSections.tsx"
 
 const alignments: { value: Alignment; label: string; shortcut: string; icon: typeof AlignStartVertical }[] = [
-  { value: "left", label: "Align left", shortcut: "Alt A", icon: AlignStartVertical },
-  { value: "center", label: "Align horizontal centers", shortcut: "Alt H", icon: AlignCenterVertical },
-  { value: "right", label: "Align right", shortcut: "Alt D", icon: AlignEndVertical },
-  { value: "top", label: "Align top", shortcut: "Alt W", icon: AlignStartHorizontal },
-  { value: "middle", label: "Align vertical centers", shortcut: "Alt V", icon: AlignCenterHorizontal },
-  { value: "bottom", label: "Align bottom", shortcut: "Alt S", icon: AlignEndHorizontal }
+  { value: "left", label: "Align left", shortcut: keymap.alignLeft.keys[0], icon: AlignStartVertical },
+  {
+    value: "center",
+    label: "Align horizontal centers",
+    shortcut: keymap.alignCenter.keys[0],
+    icon: AlignCenterVertical
+  },
+  { value: "right", label: "Align right", shortcut: keymap.alignRight.keys[0], icon: AlignEndVertical },
+  { value: "top", label: "Align top", shortcut: keymap.alignTop.keys[0], icon: AlignStartHorizontal },
+  {
+    value: "middle",
+    label: "Align vertical centers",
+    shortcut: keymap.alignMiddle.keys[0],
+    icon: AlignCenterHorizontal
+  },
+  { value: "bottom", label: "Align bottom", shortcut: keymap.alignBottom.keys[0], icon: AlignEndHorizontal }
 ]
 
 function AlignButtons({ distribute }: { distribute?: boolean }) {
@@ -61,14 +72,14 @@ function AlignButtons({ distribute }: { distribute?: boolean }) {
           <span className="mx-1 h-5 w-px bg-border" />
           <IconButton
             label="Distribute horizontal spacing"
-            shortcut="Alt Shift H"
+            shortcut={keymap.distributeHorizontal.keys[0]}
             onClick={() => distributeSelection("horizontal")}
           >
             <AlignHorizontalSpaceAround />
           </IconButton>
           <IconButton
             label="Distribute vertical spacing"
-            shortcut="Alt Shift V"
+            shortcut={keymap.distributeVertical.keys[0]}
             onClick={() => distributeSelection("vertical")}
           >
             <AlignVerticalSpaceAround />

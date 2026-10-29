@@ -18,6 +18,7 @@ import { bitmapScale } from "./frame-bitmaps.ts"
 import { designColor, kindColors } from "./kinds.tsx"
 import { NoteShapeUtil } from "./NoteShapeUtil.tsx"
 import { TitleLayer } from "./title-layer.tsx"
+import { withoutTldrawShortcuts } from "./tldraw-shortcuts.ts"
 
 const shapeUtils = [ContainerShapeUtil, NoteShapeUtil]
 
@@ -266,6 +267,13 @@ export function CanvasEditor({ onEditor }: { onEditor(editor: Editor | undefined
   )
 
   return (
-    <Tldraw hideUi shapeUtils={shapeUtils} overlayUtils={overlayUtils} components={components} onMount={handleMount} />
+    <Tldraw
+      hideUi
+      shapeUtils={shapeUtils}
+      overlayUtils={overlayUtils}
+      components={components}
+      overrides={withoutTldrawShortcuts}
+      onMount={handleMount}
+    />
   )
 }

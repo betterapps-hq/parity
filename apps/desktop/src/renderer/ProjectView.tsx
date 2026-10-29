@@ -54,7 +54,11 @@ function CanvasArea({ tabId }: { tabId: string }) {
   }, [session?.editor, tool])
 
   return (
-    <div className={`canvas-area relative min-w-0 flex-1 ${tool === "text" ? "cursor-text" : ""}`} data-tool={tool}>
+    // Isolated, so the canvas's floating controls and overlays, high up within it, stay below menus and dialogs.
+    <div
+      className={`canvas-area relative isolate min-w-0 flex-1 ${tool === "text" ? "cursor-text" : ""}`}
+      data-tool={tool}
+    >
       <CanvasEditor onEditor={onEditor} />
       <CanvasOverlay />
       <TabOrderOverlay />

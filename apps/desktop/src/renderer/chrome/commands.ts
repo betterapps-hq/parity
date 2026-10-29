@@ -1,6 +1,8 @@
+import { detachInstance, findNode } from "@parity/core"
 import { toast } from "sonner"
 import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
 import { copySelection, copyStyle, duplicateDesigns, pasteClipboard, pasteStyle } from "../canvas/clipboard.ts"
+import { firstChildLayer, parentLayer, projectLibrary, siblingLayer } from "../canvas/layers.ts"
 import { selectedDesigns } from "../selection.ts"
 import { type ProjectSession, saveFailureToast, workspace } from "../workspace.ts"
 import {
@@ -10,12 +12,17 @@ import {
   deleteLayers,
   distribute,
   duplicateLayers,
+  type Order,
+  orderLayer,
   selectAll,
+  toggleHiddenLayers,
   unwrapLayer,
   wrapLayers
 } from "./arrange.ts"
-import { duplicateDesign } from "./designs.ts"
-import { getPreferences } from "./preferences.ts"
+import { duplicateDesign, setDesignKind } from "./designs.ts"
+import { setLayout } from "./layout.ts"
+import { getPreferences, setPreferences } from "./preferences.ts"
+import { revealSelection } from "./reveal.ts"
 
 /** What the menus and their shortcuts do. Each acts on the active tab unless it says otherwise. */
 
@@ -200,6 +207,144 @@ export function zoomToSelection(session = activeSession()): void {
   const key = current?.note ?? current?.design
   const bounds = key ? session?.editor?.getShapePageBounds(shapeIdFor(key)) : undefined
   if (bounds) session?.editor?.zoomToBounds(bounds, { inset: 80, animation: { duration: 200 } })
+}
+
+export function zoomIn(session = activeSession()): void {
+  session?.editor?.zoomIn()
+}
+
+export function zoomOut(session = activeSession()): void {
+  session?.editor?.zoomOut()
+}
+
+export function zoomTo100(session = activeSession()): void {
+  session?.editor?.resetZoom()
+}
+
+export function zoomToFit(session = activeSession()): void {
+  session?.editor?.zoomToFit({ animation: { duration: 200 } })
+}
+
+export function toggleLayoutGrid(): void {
+  setPreferences({ layoutGrid: !getPreferences().layoutGrid })
+}
+
+/** Opens a side panel on one of its tabs, as Figma's Alt+1 opens Layers and Alt+2 Assets. */
+export function showPanelTab(tab: "layers" | "components"): void {
+  setLayout({ left: true, leftTab: tab })
+}
+
+/** The tab after the active one, or before it with a step of -1, going round. */
+export function switchTab(step: 1 | -1): void {
+  const tabs = workspace.getTabs()
+  const index = tabs.findIndex((tab) => tab.id === workspace.getActiveId())
+  const next = tabs[(index + step + tabs.length) % tabs.length]
+  if (next && tabs.length > 1) workspace.activate(next.id)
+}
+
+export function toggleDeveloperTools(): void {
+  void window.canvasHost.toggleDevTools()
+}
+
+/**
+ * Escape: stops editing text, then goes back to the select tool, then selects the parent, then nothing, one step a
+ * press.
+ */
+export function stepBack(session = activeSession()): void {
+  if (!session) return
+  const { selection } = session
+  if (selection.getEditing()) selection.setEditing(undefined)
+  else if (selection.getTool() !== "select") selection.setTool("select")
+  else if (selection.get().node) selectParent(session)
+  else selection.set({})
+}
+
+/** The layer the selected one sits in, or the design when it's at the top. */
+export function selectParent(session = activeSession()): void {
+  if (!session) return
+  const { store, selection } = session
+  const current = selection.get()
+  const entry = current.design ? store.getEntry(current.design) : undefined
+  if (!entry || !current.node) return
+  const parent = parentLayer(store, entry.container, current.node)
+  selection.set(
+    !parent || parent === entry.container.root.id
+      ? { design: entry.key }
+      : { design: entry.key, node: parent, mode: current.mode, state: current.state }
+  )
+}
+
+/** The first layer inside the selected layer, or inside the selected design. */
+export function selectChildren(session = activeSession()): void {
+  if (!session) return
+  const { store, selection } = session
+  const current = selection.get()
+  const entry = current.design ? store.getEntry(current.design) : undefined
+  if (!entry) return
+  const child = firstChildLayer(store, entry.container, current.node ?? entry.container.root.id)
+  if (child) selection.set({ design: entry.key, node: child, mode: current.mode, state: current.state })
+}
+
+/** The next layer beside the selected one, or the one before it with a step of -1. */
+export function selectSibling(step: 1 | -1, session = activeSession()): void {
+  if (!session) return
+  const { store, selection } = session
+  const current = selection.get()
+  const entry = current.design ? store.getEntry(current.design) : undefined
+  if (!entry || !current.node) return
+  const sibling = siblingLayer(store, entry.container, current.node, step)
+  if (sibling) selection.set({ design: entry.key, node: sibling, mode: current.mode, state: current.state })
+}
+
+export function orderSelection(order: Order, session = activeSession()): void {
+  if (session) orderLayer(session, order)
+}
+
+export function hideSelection(session = activeSession()): void {
+  if (session) toggleHiddenLayers(session)
+}
+
+/** The selected design, when it's selected on its own rather than one of its layers. */
+export function selectedDesign(session = activeSession()) {
+  const current = session?.selection.get()
+  return current?.design && !current.node && !current.designs?.length
+    ? session?.store.getEntry(current.design)
+    : undefined
+}
+
+/** Turns the selected design into a component, or a component back into a screen. */
+export function toggleComponent(session = activeSession()): void {
+  const entry = selectedDesign(session)
+  if (session && entry) setDesignKind(session, entry, entry.container.kind === "component" ? "screen" : "component")
+}
+
+/** The selected layer, when it's one instance of a component. */
+export function selectedInstance(session = activeSession()) {
+  const current = session?.selection.get()
+  const entry = current?.design ? session?.store.getEntry(current.design) : undefined
+  const node =
+    entry && current?.node && !current.nodes?.length ? findNode(entry.container.root, current.node) : undefined
+  return entry && node?.type === "instance" ? { entry, node } : undefined
+}
+
+/** Turns the selected instance into plain layers, unlinked from its component. */
+export function detachSelection(session = activeSession()): void {
+  const instance = selectedInstance(session)
+  if (!session || !instance) return
+  const library = projectLibrary(session.store)
+  session.store.updateContainer(instance.entry.key, "Detach instance", (container) =>
+    detachInstance(container, instance.node.id, library)
+  )
+}
+
+/** Selects the component the selected instance is a copy of, and shows it. */
+export function goToMainComponent(session = activeSession()): void {
+  const instance = selectedInstance(session)
+  if (!session || !instance) return
+  const main = session.store.getEntries().find((entry) => entry.container.id === instance.node.design)
+  if (!main) return
+  session.selection.set({ design: main.key })
+  revealSelection(session)
 }
 
 function message(error: unknown): string {

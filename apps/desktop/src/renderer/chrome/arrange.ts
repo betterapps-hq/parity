@@ -9,6 +9,7 @@ import {
   generateId,
   insertNode,
   locateNode,
+  moveNode,
   nodeIds,
   nodeInState,
   topmostNodes,
@@ -24,8 +25,8 @@ import type { ProjectSession } from "../workspace.ts"
 import { editingState } from "./LayerPanel.tsx"
 
 /**
- * What acts on several layers or designs at once: deleting, duplicating, selecting all, wrapping in a layout,
- * aligning and distributing. Each is one undo step, however many things it touches.
+ * What acts on several layers or designs at once: deleting, duplicating, selecting all, wrapping in a layout, ordering,
+ * hiding, aligning and distributing. Each is one undo step, however many things it touches.
  */
 
 export type Alignment = "left" | "center" | "right" | "top" | "middle" | "bottom"
@@ -176,6 +177,61 @@ export function unwrapLayer(session: ProjectSession): boolean {
       session.selection.get()
     )
   )
+  return true
+}
+
+export type Order = "forward" | "backward" | "front" | "back"
+
+const orderLabels: Record<Order, string> = {
+  forward: "Bring forward",
+  backward: "Send backward",
+  front: "Bring to front",
+  back: "Send to back"
+}
+
+/**
+ * Moves the selected layer among its siblings. Later in a layout paints in front, as in CSS, so bringing a layer
+ * forward moves it later in its layout, and down the Layers list.
+ */
+export function orderLayer(session: ProjectSession, order: Order): boolean {
+  const layers = selectedLayers(session)
+  if (!layers || layers.ids.length !== 1) return false
+  const { entry, ids } = layers
+  const location = locateNode(entry.container.root, ids[0]!)
+  const parent = location?.ancestors.at(-1)
+  const siblings = parent && childEntries(parent).find((candidate) => candidate.slot === location?.slot)?.nodes
+  if (!location || !parent || !siblings) return false
+  const last = siblings.length - 1
+  const index = {
+    forward: Math.min(location.index + 1, last),
+    backward: Math.max(location.index - 1, 0),
+    front: last,
+    back: 0
+  }[order]
+  if (index === location.index) return false
+  session.store.updateContainer(entry.key, orderLabels[order], (container) => ({
+    ...container,
+    // Moving later counts the siblings before the layer leaves its place.
+    root: moveNode(container.root, location.node.id, parent.id, {
+      index: index > location.index ? index + 1 : index,
+      slot: location.slot
+    })
+  }))
+  return true
+}
+
+/** Hides the selected layers in the state being edited, or shows them again when they're all hidden. */
+export function toggleHiddenLayers(session: ProjectSession): boolean {
+  const layers = selectedLayers(session)
+  if (!layers) return false
+  const { entry, ids } = layers
+  const state = editingState(entry.container, session.selection.get().state)
+  const hidden = (container: ContainerSpec, id: string) =>
+    state.overrides?.[id]?.hidden ?? findNode(container.root, id)?.hidden ?? false
+  session.store.updateContainer(entry.key, "Toggle visibility", (container) => {
+    const hide = !ids.every((id) => hidden(container, id))
+    return ids.reduce((next, id) => editNode(next, boardTarget(next, state.id), id, { hidden: hide }), container)
+  })
   return true
 }
 
