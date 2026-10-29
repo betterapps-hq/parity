@@ -28,7 +28,7 @@ import {
   swapInstance,
   targetPatches
 } from "@parity/core"
-import { BookOpen, Diamond, Sparkles, Unlink } from "lucide-react"
+import { BookOpen, Diamond, Group, Sparkles, Unlink } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -42,9 +42,11 @@ import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { useSelection } from "../selection.ts"
 import { spacingUnit, useTokenList } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
+import { wrapSelection } from "./commands.ts"
 import { extractIntoComponent } from "./components.ts"
 import { ChoiceInput, Field, SwitchInput, TextInput, ValueInput } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
+import { keymap } from "./keymap.ts"
 import { PanelSection } from "./PanelSection.tsx"
 import { PropsSection } from "./PropsSection.tsx"
 import { revealSelection } from "./reveal.ts"
@@ -395,8 +397,34 @@ function LayerSections({
         </div>
       )}
 
+      {node.type === "component" && components[node.component]?.takesStyle === false && (
+        <NoStyleNote component={node.component} wrap={!inner} />
+      )}
+
       <StyleSections editor={styleEditor} node={node} parent={parentLayout} />
     </>
+  )
+}
+
+/**
+ * Says that a component's props have no `style`, where the sizes and styles below would go, so they don't change it,
+ * and offers a layout around it to size instead. Inside an instance, that belongs in the component design.
+ */
+function NoStyleNote({ component, wrap }: { component: string; wrap: boolean }) {
+  const session = useProject()
+  return (
+    <div className="flex flex-col gap-2 border-b px-4 py-2.5">
+      <p className="text-xs text-muted-foreground">
+        {component} doesn't take a <code>style</code>, so the size and styles below don't change it.
+        {wrap ? " Wrap it in a layout and size that instead." : ""}
+      </p>
+      {wrap && (
+        <Button variant="outline" size="sm" onClick={() => wrapSelection(session)}>
+          <Group /> {keymap.wrap.label}{" "}
+          <span className="ml-auto text-xs text-muted-foreground">{keymap.wrap.keys[0]}</span>
+        </Button>
+      )}
+    </div>
   )
 }
 
@@ -669,11 +697,9 @@ export function measureNode(
 ): { width: number; height: number } | undefined {
   const area = session.editor?.getContainer().closest(".canvas-area")
   const host = area ? selectionFrame(area, design, picked) : undefined
-  const element =
-    host && area ? nodeInFrames(area, design, nodeId, host).find((item) => item.picked)?.element : undefined
-  if (!host || !element || !session.editor) return undefined
+  const rect = host && area ? nodeInFrames(area, design, nodeId, host).find((item) => item.picked)?.rect : undefined
+  if (!host || !rect || !session.editor) return undefined
   const scale = session.editor.getZoomLevel() * frameScale(host)
-  const rect = element.getBoundingClientRect()
   return { width: rect.width / scale, height: rect.height / scale }
 }
 

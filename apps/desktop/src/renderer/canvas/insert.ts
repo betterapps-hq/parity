@@ -14,7 +14,7 @@ import {
   type ContainerSpec
 } from "@parity/core"
 import type { ContainerEntry, DesignStore } from "../design-store.ts"
-import { findNodeElement } from "../frame.ts"
+import { findNodeElement, nodeBox } from "../frame.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { hitTest, type Point } from "./hit.ts"
 
@@ -106,7 +106,7 @@ export function dropTarget(area: ParentNode, store: DesignStore, point: Point): 
   const row = getComputedStyle(element).flexDirection.startsWith("row")
   const box = element.getBoundingClientRect()
   const children = layout.children
-    .map((child, index) => ({ index, rect: findNodeElement(hit.host, child.id)?.getBoundingClientRect() }))
+    .map((child, index) => ({ index, rect: nodeBox(hit.host, child.id) }))
     .filter((child): child is { index: number; rect: DOMRect } => !!child.rect)
   const after = children.find((child) =>
     row ? point.x < child.rect.left + child.rect.width / 2 : point.y < child.rect.top + child.rect.height / 2

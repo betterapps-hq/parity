@@ -3,6 +3,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { userEvent, within } from "storybook/test"
 import { layersSelection } from "../selection.ts"
 import { design, example, node } from "../stories/fixtures.tsx"
+import { answering } from "../stories/host.ts"
 import { DesignTab } from "./DesignPanel.tsx"
 import { inspecting, InspectorStage, slowly, typing } from "./inspector-stories.tsx"
 import { Inspector } from "./Inspector.tsx"
@@ -44,6 +45,30 @@ export const ComponentWithLayersInside: Story = { loaders: [pick("Sign in", "Sig
 
 /** An icon from Lucide: its props aren't read from source, so only the ones it sets show. */
 export const IconLayer: Story = { loaders: [pick("Plan card", "lucide/Check")] }
+
+/**
+ * A component whose props have no `style`, as an app's `MemberRow({ member })` hasn't, shown here as Pricing's badge:
+ * the panel says the size and styles don't change it, and Wrap in layout puts a layout around it to size instead.
+ */
+export const ComponentWithoutStyle: Story = {
+  loaders: [
+    async () => {
+      answering({
+        "project.components": async (_params, usual) => {
+          const components = await usual()
+          return { ...components, Badge: { ...components.Badge!, takesStyle: false } }
+        }
+      })
+      await pick("Pricing", "Badge")()
+    }
+  ],
+  play: async ({ canvasElement }) => {
+    const panel = within(canvasElement)
+    await panel.findByText(/doesn't take a/, undefined, slowly)
+    await userEvent.click(panel.getByRole("button", { name: /Wrap in layout/ }))
+    await panel.findByText(/layout in Pricing/, undefined, slowly)
+  }
+}
 
 /** A layout, Pricing's hero: no content section, and a Layout section first among its styles. */
 export const LayoutLayer: Story = { loaders: [pick("Pricing", "Hero")] }

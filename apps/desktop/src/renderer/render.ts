@@ -4,7 +4,7 @@ import type { AccessibilityIssue, ContrastDetail } from "@parity/agent"
 import { type RenderNode, screenHeightForWidth } from "@parity/core"
 import axe, { type NodeResult, type RunOptions } from "axe-core"
 import type { MeasuredNode, RenderedFrame, RenderJob } from "../shared/protocol.ts"
-import { prepareFrame } from "./frame.ts"
+import { drawnNodeIds, findNodeElement, nodeBox, nodeOfElement, prepareFrame, setDrawnNodes } from "./frame.ts"
 import { loadGuest, previewToken } from "./guest.ts"
 
 declare global {
@@ -46,11 +46,13 @@ window.canvasRender = async (job) => {
     const target = prepareFrame(host, loaded.sheet, { ...job.mode, viewport })
     const tree = job.tree as RenderNode[]
     if (job.components) loaded.guest.addComponents?.(job.components)
-    current = loaded.guest.mount(target, tree, {
+    const handle = loaded.guest.mount(target, tree, {
       viewport,
       onError: (error) => errors.push(error instanceof Error ? error.message : String(error)),
       ...(job.mode.globals ? { globals: job.mode.globals } : {})
     })
+    setDrawnNodes(host, handle.drawnNodes?.bind(handle))
+    current = handle
     // Let React commit, components that load on demand arrive, images and fonts load, and layout settle.
     await new Promise((resolve) => setTimeout(resolve, 30))
     await loaded.guest.loaded?.()
@@ -60,10 +62,13 @@ window.canvasRender = async (job) => {
     const body = host.shadowRoot!.firstElementChild as HTMLElement
     const origin = host.getBoundingClientRect()
     const nodes: MeasuredNode[] = []
-    for (const element of host.shadowRoot!.querySelectorAll<HTMLElement>("[data-canvas-node]")) {
-      const rect = element.getBoundingClientRect()
+    // Each node as the canvas finds it: from React's tree, so components that ignore their props are measured too.
+    for (const id of drawnNodeIds(host)) {
+      const element = findNodeElement(host, id)
+      const rect = nodeBox(host, id)
+      if (!element || !rect) continue
       const measured: MeasuredNode = {
-        id: element.dataset.canvasNode!,
+        id,
         x: round((rect.left - origin.left) / job.scale),
         y: round((rect.top - origin.top) / job.scale),
         width: round(rect.width / job.scale),
@@ -122,12 +127,13 @@ const auditOptions: RunOptions = {
  * an element inside a component counts as the component, once per rule.
  */
 window.canvasAudit = async () => {
-  if (!currentHost) return []
-  const results = await axe.run(currentHost, auditOptions)
+  const host = currentHost
+  if (!host) return []
+  const results = await axe.run(host, auditOptions)
   return results.violations.map((violation) => {
     const nodes = new Map<string, AccessibilityIssue["nodes"][number]>()
     for (const node of violation.nodes) {
-      const id = node.element?.closest<HTMLElement>("[data-canvas-node]")?.dataset.canvasNode ?? ""
+      const id = (node.element && nodeOfElement(host, node.element)) ?? ""
       if (!nodes.has(id)) nodes.set(id, { id, ...detailOf(node) })
     }
     return {

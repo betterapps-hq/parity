@@ -38,9 +38,18 @@ export function inferProps(
       variantsByFile.set(file.fileName, variants)
     }
     try {
-      const props = componentProps(checker, file, source.export, variants)
+      const read = componentProps(checker, file, source.export, variants)
       const from = importOf(source)
-      if (props) result[name] = { name, path: source.path, ...(from ? { import: from } : {}), props }
+      if (read) {
+        const { props, takesStyle } = read
+        result[name] = {
+          name,
+          path: source.path,
+          ...(from ? { import: from } : {}),
+          props,
+          ...(takesStyle === undefined ? {} : { takesStyle })
+        }
+      }
     } catch (error) {
       // One component the checker can't follow shouldn't cost the others their props.
       console.warn(`[props] ${name}: ${error instanceof Error ? error.message : String(error)}`)
@@ -100,7 +109,7 @@ function componentProps(
   file: ts.SourceFile,
   exportName: string,
   variants: Variants
-): ComponentProp[] | undefined {
+): { props: ComponentProp[]; takesStyle?: boolean } | undefined {
   const moduleSymbol = checker.getSymbolAtLocation(file)
   if (!moduleSymbol) return undefined
   let symbol = checker.getExportsOfModule(moduleSymbol).find((candidate) => candidate.name === exportName)
@@ -108,9 +117,11 @@ function componentProps(
   if (symbol.flags & ts.SymbolFlags.Alias) symbol = checker.getAliasedSymbol(symbol)
   const signature = checker.getTypeOfSymbolAtLocation(symbol, file).getCallSignatures()[0]
   const parameter = signature?.parameters[0]
-  if (!parameter) return []
+  // A component that takes no props takes no style either.
+  if (!parameter) return signature ? { props: [], takesStyle: false } : { props: [] }
   const propsType = checker.getTypeOfSymbolAtLocation(parameter, file)
   const defaults = destructuredDefaults(symbol)
+  const takesStyle = declaresStyle(checker, propsType)
 
   const props: ComponentProp[] = []
   for (const prop of checker.getPropertiesOfType(propsType)) {
@@ -145,12 +156,27 @@ function componentProps(
     }
     props.push(entry)
   }
-  return props.sort((a, b) => {
+  props.sort((a, b) => {
     const byGroup = groupOrder.indexOf(a.group) - groupOrder.indexOf(b.group)
     if (byGroup !== 0) return byGroup
     // Variants and own props keep the source's order; pass-through attributes are easier to find alphabetically.
     return a.group === "variant" || a.group === "own" ? 0 : a.name.localeCompare(b.name)
   })
+  return takesStyle === undefined ? { props } : { props, takesStyle }
+}
+
+/** Props types that could have any key: `any`, `unknown`, `object` and a type parameter. */
+const openTypes = ts.TypeFlags.Any | ts.TypeFlags.Unknown | ts.TypeFlags.NonPrimitive | ts.TypeFlags.TypeParameter
+
+/**
+ * Whether a props type has `style`, which is where the canvas puts the sizes and styles a design sets. Unknown for a
+ * type that could have any key, such as `any` or one with an index signature.
+ */
+function declaresStyle(checker: ts.TypeChecker, propsType: ts.Type): boolean | undefined {
+  const parts = propsType.isUnion() ? propsType.types : [propsType]
+  if (parts.some((part) => part.flags & openTypes)) return undefined
+  if (parts.some((part) => checker.getIndexInfosOfType(part).length > 0)) return undefined
+  return parts.some((part) => checker.getPropertyOfType(part, "style") !== undefined)
 }
 
 function classify(

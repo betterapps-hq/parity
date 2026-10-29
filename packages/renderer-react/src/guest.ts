@@ -1,6 +1,7 @@
 // Compiled by the customer's build tool, so `react` and `react-dom` here are the customer's copies.
 import type {
   ComponentRenderStatus,
+  DrawnNodes,
   Guest,
   GuestDecorators,
   GuestIconSet,
@@ -20,10 +21,12 @@ import {
   type ReactNode,
   useContext,
   useEffect,
+  useLayoutEffect,
   useState
 } from "react"
 import { flushSync } from "react-dom"
-import { createRoot } from "react-dom/client"
+import { createRoot, type Root } from "react-dom/client"
+import { currentRootFiber, type Fiber, indexDrawnNodes } from "./drawn-nodes.ts"
 import { type FrameWindow, frameWindow } from "./viewport.ts"
 
 type Props = Record<string, unknown>
@@ -67,12 +70,21 @@ interface BoundaryState {
   name?: string
 }
 
+interface BoundaryProps {
+  name: string
+  /** The design node it draws, which is how the canvas finds the component's DOM in React's tree. */
+  nodeId: string
+  report: RenderReport
+  children?: ReactNode
+}
+
 /**
  * Keeps one component's error to itself: it draws a marked box in its place, and the rest of the frame renders. React
  * still reports the error to the root, so the canvas and agents hear about it, and the guest's render status says
- * which components draw and which fail.
+ * which components draw and which fail. Every component node has one, so it also marks where the node is in React's
+ * tree, whatever the component does with its props.
  */
-class ComponentBoundary extends Component<{ name: string; report: RenderReport; children?: ReactNode }, BoundaryState> {
+class ComponentBoundary extends Component<BoundaryProps, BoundaryState> {
   override state: BoundaryState = {}
   static getDerivedStateFromError(error: unknown) {
     return { error: error instanceof Error ? error : new Error(String(error)) }
@@ -281,8 +293,14 @@ export function createGuest(init: GuestInit): Guest {
       case "component": {
         const component = lookup(node.component)
         if (!component) {
-          return createElement("div", { key, style: missingStyle }, `Unknown component "${node.component}"`)
+          return createElement(
+            "div",
+            { key, style: missingStyle, "data-canvas-node": node.nodeId },
+            `Unknown component "${node.component}"`
+          )
         }
+        // The canvas finds a component by its boundary, below, not by this prop: a component may not render it, or
+        // render it on an inner element. It still marks the DOM of components that pass it on, for scripts that look.
         const props: Props = { ...node.props, "data-canvas-node": node.nodeId }
         let children: ReactNode[] | undefined
         for (const [slot, nodes] of Object.entries(node.slots)) {
@@ -307,7 +325,7 @@ export function createGuest(init: GuestInit): Guest {
           else props[slot] = rendered.length === 1 ? rendered[0] : rendered
         }
         const element = children ? createElement(component, props, ...children) : createElement(component, props)
-        return createElement(ComponentBoundary, { key, name: node.component, report }, element)
+        return createElement(ComponentBoundary, { key, name: node.component, nodeId: node.nodeId, report }, element)
       }
     }
   }
@@ -367,20 +385,27 @@ export function createGuest(init: GuestInit): Guest {
         }
       })
       const own = options.viewport && frameWindow(target, options.viewport)
+      const drawn = watchDrawnNodes(root, target)
       const draw = (nodes: RenderNode[]) =>
         createElement(
           FrameWindowContext.Provider,
           { value: own },
-          decorate(nodes.map((node, index) => toReact(node, index)))
+          createElement(
+            Committed,
+            { onCommit: drawn.changed },
+            decorate(nodes.map((node, index) => toReact(node, index)))
+          )
         )
       if (!own) {
         root.render(draw(tree))
         return {
           update: (nodes) => root.render(draw(nodes)),
           unmount: () => {
+            drawn.dispose()
             root.unmount()
             frame.undo()
-          }
+          },
+          drawnNodes: drawn.read
         }
       }
 
@@ -408,13 +433,74 @@ export function createGuest(init: GuestInit): Guest {
         resize: (viewport) => soon(() => own.resize(viewport)),
         unmount: () => {
           unmounted = true
+          drawn.dispose()
           root.unmount()
           own.dispose()
           frame.undo()
-        }
+        },
+        drawnNodes: drawn.read
       }
     }
   }
+}
+
+/** Tells a frame's node index that React committed the frame, which can move a node's id to other DOM. */
+function Committed({ onCommit, children }: { onCommit: () => void; children?: ReactNode }) {
+  useLayoutEffect(onCommit)
+  return children
+}
+
+/**
+ * Where a frame's design nodes are drawn, worked out from React's tree when it's asked for after a change: a commit of
+ * the frame, or DOM added to or taken from it, as a component re-rendering itself does. Until then the last answer
+ * stands, so hovering asks without walking the tree each time.
+ */
+function watchDrawnNodes(root: Root, target: HTMLElement) {
+  const shadow = target.getRootNode()
+  const frame: Node = shadow instanceof ShadowRoot ? shadow : target
+  let stale = true
+  let drawn: DrawnNodes | undefined
+  const observer = new MutationObserver(() => {
+    stale = true
+  })
+  observer.observe(frame, { childList: true, subtree: true })
+  return {
+    read(): DrawnNodes | undefined {
+      if (observer.takeRecords().length > 0) stale = true
+      if (!stale) return drawn
+      stale = false
+      drawn = readDrawnNodes(root, target, frame)
+      return drawn
+    },
+    changed() {
+      stale = true
+    },
+    dispose() {
+      observer.disconnect()
+    }
+  }
+}
+
+/**
+ * The frame's design nodes as React's tree has them. A component node is the fiber of its boundary, and an element
+ * node the element the guest drew for it. Undefined when the tree isn't the shape React 19 gives it.
+ */
+function readDrawnNodes(root: Root, target: HTMLElement, frame: Node): DrawnNodes | undefined {
+  const fiber = currentRootFiber(root, target)
+  if (!fiber) return undefined
+  const drawn = indexDrawnNodes(fiber, { nodeOf: nodeOfFiber, inside: (element) => frame.contains(element) })
+  // An element the guest drew always carries its node's id. If the index puts it in another node, it's misreading
+  // React's tree, and the attribute is the better guide.
+  const marked = (frame as ParentNode).querySelector("[data-canvas-node]")
+  if (!drawn || (marked && drawn.nodeOf(marked) !== marked.getAttribute("data-canvas-node"))) return undefined
+  return drawn
+}
+
+function nodeOfFiber(fiber: Fiber): string | undefined {
+  if (fiber.stateNode instanceof ComponentBoundary) return fiber.stateNode.props.nodeId
+  if (typeof fiber.type !== "string") return undefined
+  const id = (fiber.memoizedProps as Record<string, unknown> | null)?.["data-canvas-node"]
+  return typeof id === "string" ? id : undefined
 }
 
 /** Every frame's stand-in body has this attribute (core's `bodyAttribute`), which the project's CSS is rewritten to. */

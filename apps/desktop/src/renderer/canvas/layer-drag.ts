@@ -17,7 +17,7 @@ import {
 } from "@parity/core"
 import { editingState } from "../chrome/LayerPanel.tsx"
 import { type ContainerEntry, containerKey } from "../design-store.ts"
-import { findFrames, findNodeElement } from "../frame.ts"
+import { findFrames, findNodeElement, findNodeElements, nodeBox } from "../frame.ts"
 import { layersSelection, selectedNodes } from "../selection.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
@@ -72,9 +72,10 @@ export function pressLayers(
     .filter((id) => id !== entry.container.root.id)
   if (ids.length === 0) return
   const host = findFrames(area, entry.key, { mode: current.mode, state: current.state })[0]
-  const elements = host ? ids.flatMap((id) => findNodeElement(host, id) ?? []) : []
+  // Everything each layer draws at its top level, so a component returning a fragment moves whole.
+  const elements = host ? ids.flatMap((id) => findNodeElements(host, id)) : []
   if (!host || elements.length === 0) return
-  const rects = elements.map((element) => element.getBoundingClientRect())
+  const rects = ids.flatMap((id) => nodeBox(host, id) ?? [])
   const union = {
     left: Math.min(...rects.map((rect) => rect.left)),
     top: Math.min(...rects.map((rect) => rect.top)),
@@ -189,7 +190,7 @@ export function moveTarget(
     .map((child, index) => ({
       index,
       id: child.id,
-      rect: findNodeElement(hit.host, child.id)?.getBoundingClientRect()
+      rect: nodeBox(hit.host, child.id)
     }))
     .filter(
       (child): child is { index: number; id: string; rect: DOMRect } =>

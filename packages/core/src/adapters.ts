@@ -188,6 +188,29 @@ export interface MountHandle {
   /** The frame's window changed size, as when its frame is resized. */
   resize?(viewport: FrameViewport): void
   unmount(): void
+  /**
+   * Where the frame's design nodes are drawn now, read from the framework's own tree, so a component is found even when
+   * it renders none of its props. The same object comes back while nothing in the frame has changed. Undefined when
+   * that tree can't be read, as when a framework release changes it: the canvas then finds nodes by their
+   * `data-canvas-node` attribute, which only components that pass their props to their DOM carry.
+   */
+  drawnNodes?(): DrawnNodes | undefined
+}
+
+/** The DOM each of a frame's design nodes draws. */
+export interface DrawnNodes {
+  /** Every node drawn, parents before their children. */
+  ids: readonly string[]
+  /**
+   * The elements a node draws at its top level, in order: one for most, several for a component that returns a
+   * fragment, the top-level elements of the nodes it draws without an element of its own around them, and none for a
+   * component that draws nothing.
+   */
+  elements(id: string): readonly Element[]
+  /** The node a node is drawn inside. */
+  parent(id: string): string | undefined
+  /** The node an element in the frame belongs to: the innermost one that draws it or an element around it. */
+  nodeOf(element: Element): string | undefined
 }
 
 /**

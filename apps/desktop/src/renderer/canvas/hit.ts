@@ -1,7 +1,7 @@
 import { type DesignNode, isInnerPath, locateNode } from "@parity/core"
 import type { Editor } from "tldraw"
 import type { ContainerEntry, DesignStore } from "../design-store.ts"
-import { findFrames, findNodeElement, nodeElements } from "../frame.ts"
+import { boxAround, findFrames, findNodeElements, nodeParent, nodesAt } from "../frame.ts"
 
 export interface Point {
   x: number
@@ -66,10 +66,8 @@ export function frameAt(
 
 /** Which of a frame's nodes are under a point. */
 export function hitInFrame(entry: ContainerEntry, host: HTMLElement, point: Point): Hit {
-  // Document order puts descendants after their ancestors, so the last box containing the point is the deepest.
-  const path = nodeElements(host)
-    .filter((element) => inside(element.getBoundingClientRect(), point))
-    .flatMap((element) => element.dataset.canvasNode ?? [])
+  // Parents come before their children, so the last box containing the point is the deepest.
+  const path = nodesAt(host, point)
   // Inside an instance, ids are `instance/inner`: the instance is the design's own node.
   const deepest = path.at(-1)?.split("/")[0]
   const location = deepest ? locateNode(entry.container.root, deepest) : undefined
@@ -87,8 +85,7 @@ export function pickNode(hit: Hit, selected: string | undefined, deep: boolean):
   if (deep) return chain.length > 1 ? path.at(-1) : undefined
   if (selected && isInnerPath(selected)) {
     // The rendered parent of the selected layer, whose children are the selected layer's siblings.
-    const element = findNodeElement(hit.host, selected)
-    const parent = element?.parentElement?.closest<HTMLElement>("[data-canvas-node]")?.dataset.canvasNode
+    const parent = nodeParent(hit.host, selected)
     const index = parent ? path.indexOf(parent) : -1
     if (index !== -1 && path[index + 1]) return path[index + 1]
   } else if (selected) {
@@ -128,11 +125,17 @@ export function selectionFrame(
   )
 }
 
-/** A node's element in each frame of its design, the picked frame first. */
+/**
+ * A node in each frame of its design, the picked frame first: its first element, and its box around everything it
+ * draws, which is what outlines and sizes show.
+ */
 export function nodeInFrames(area: ParentNode, design: string, node: string, picked: HTMLElement | undefined) {
   return findFrames(area, design)
-    .map((host) => ({ host, element: findNodeElement(host, node), picked: host === picked }))
-    .filter((entry): entry is { host: HTMLElement; element: HTMLElement; picked: boolean } => !!entry.element)
+    .flatMap((host) => {
+      const elements = findNodeElements(host, node)
+      const rect = boxAround(elements.map((element) => element.getBoundingClientRect()))
+      return elements[0] && rect ? [{ host, element: elements[0], rect, picked: host === picked }] : []
+    })
     .sort((a, b) => Number(b.picked) - Number(a.picked))
 }
 

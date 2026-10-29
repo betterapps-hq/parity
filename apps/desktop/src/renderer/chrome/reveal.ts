@@ -1,5 +1,5 @@
 import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
-import { findFrames, findNodeElement } from "../frame.ts"
+import { findFrames, nodeBox } from "../frame.ts"
 import type { ProjectSession } from "../workspace.ts"
 
 /**
@@ -17,9 +17,8 @@ export function revealSelection(session: ProjectSession): void {
 
   if (node && design) {
     const host = findFrames(editor.getContainer(), design).find((frame) => frame.dataset.primary === "true")
-    const element = host && findNodeElement(host, node)
-    if (element) {
-      const rect = element.getBoundingClientRect()
+    const rect = host && nodeBox(host, node)
+    if (rect) {
       const topLeft = editor.screenToPage({ x: rect.left, y: rect.top })
       const bottomRight = editor.screenToPage({ x: rect.right, y: rect.bottom })
       const inside =

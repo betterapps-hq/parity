@@ -1,5 +1,7 @@
-import { resolve } from "node:path"
-import { describe, expect, it } from "vitest"
+import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join, resolve } from "node:path"
+import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { inferProps } from "./index.ts"
 
 const example = resolve(import.meta.dirname, "../../../examples/shadcn-vite")
@@ -40,6 +42,10 @@ describe("inferProps", () => {
     expect(props.slice(0, 2).map((prop) => prop.group)).toEqual(["variant", "variant"])
   })
 
+  it("says a component passing its element's attributes takes a style", () => {
+    expect(components.Button?.takesStyle).toBe(true)
+  })
+
   it("follows components that wrap a library primitive", () => {
     expect(components.TabsTrigger?.props.find((prop) => prop.name === "value")).toMatchObject({
       kind: "string",
@@ -49,3 +55,34 @@ describe("inferProps", () => {
     expect(components.Badge?.props.find((prop) => prop.name === "variant")?.kind).toBe("enum")
   })
 }, 60_000)
+
+describe("whether a component takes a style", () => {
+  let root: string
+
+  beforeAll(async () => {
+    root = (await mkdtemp(join(tmpdir(), "canvas-props-"))).replaceAll("\\", "/")
+    await writeFile(
+      join(root, "components.tsx"),
+      [
+        "export function MemberRow({ member }: { member: { name: string } }) { return null }",
+        "export function Styled(props: { label: string; style?: { width?: string } }) { return null }",
+        "export function Logo() { return null }",
+        "export function Loose(props: any) { return null }",
+        "export function Open(props: Record<string, unknown>) { return null }"
+      ].join("\n")
+    )
+  })
+
+  afterAll(async () => {
+    await rm(root, { recursive: true, force: true })
+  })
+
+  it("is false when the props have no style, and unknown when they could have any key", () => {
+    const names = ["MemberRow", "Styled", "Logo", "Loose", "Open"]
+    const found = inferProps(
+      root,
+      Object.fromEntries(names.map((name) => [name, { path: "components.tsx", export: name }]))
+    )
+    expect(names.map((name) => found[name]?.takesStyle)).toEqual([false, true, false, undefined, undefined])
+  })
+})

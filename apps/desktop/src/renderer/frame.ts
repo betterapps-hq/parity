@@ -1,5 +1,6 @@
 import {
   bodyAttribute,
+  type DrawnNodes,
   type FrameViewport,
   rewriteSheetViewportUnits,
   rewriteViewportUnits,
@@ -143,14 +144,94 @@ export function frameBody(host: Element): HTMLElement | undefined {
   return (host.shadowRoot?.firstElementChild as HTMLElement | null) ?? undefined
 }
 
-export function findNodeElement(host: Element, nodeId: string): HTMLElement | undefined {
-  return (
-    (host.shadowRoot?.querySelector(`[data-canvas-node="${CSS.escape(nodeId)}"]`) as HTMLElement | null) ?? undefined
-  )
+/** How each frame's guest says where its design nodes are drawn, by the frame's host element. */
+const drawnBy = new WeakMap<Element, () => DrawnNodes | undefined>()
+
+/**
+ * Lets a frame's lookups go through its guest, which reads where each node is drawn from the framework's own tree. Set
+ * when a guest mounts in the frame, and cleared when it unmounts. Without one, or when it can't say, nodes are found by
+ * their `data-canvas-node` attribute, which a component that ignores its props never renders.
+ */
+export function setDrawnNodes(host: Element, drawnNodes: (() => DrawnNodes | undefined) | undefined): void {
+  if (drawnNodes) drawnBy.set(host, drawnNodes)
+  else drawnBy.delete(host)
 }
 
-/** Every element in a frame that stands for a design node, in document order. */
-export function nodeElements(host: Element): HTMLElement[] {
+function drawnNodes(host: Element): DrawnNodes | undefined {
+  return drawnBy.get(host)?.()
+}
+
+/** The elements a node draws at its top level, in order: several for a fragment, none when it draws nothing. */
+export function findNodeElements(host: Element, nodeId: string): HTMLElement[] {
+  const drawn = drawnNodes(host)
+  if (drawn) return drawn.elements(nodeId) as HTMLElement[]
+  const element = host.shadowRoot?.querySelector<HTMLElement>(`[data-canvas-node="${CSS.escape(nodeId)}"]`)
+  return element ? [element] : []
+}
+
+/** A node's first element, which sits where the node does among its siblings. */
+export function findNodeElement(host: Element, nodeId: string): HTMLElement | undefined {
+  return findNodeElements(host, nodeId)[0]
+}
+
+/**
+ * A node's box on screen: around everything it draws at its top level. An element that isn't drawn (display: none)
+ * has an empty box at the frame's corner, so it's left out unless nothing else is drawn.
+ */
+export function nodeBox(host: Element, nodeId: string): DOMRect | undefined {
+  return boxAround(findNodeElements(host, nodeId).map((element) => element.getBoundingClientRect()))
+}
+
+/** The box around a node's elements' boxes, leaving out empty ones unless they're all empty. */
+export function boxAround(rects: readonly DOMRect[]): DOMRect | undefined {
+  const drawn = rects.filter((rect) => rect.width > 0 || rect.height > 0)
+  if (drawn.length === 0) return rects[0]
+  if (drawn.length === 1) return drawn[0]
+  const left = Math.min(...drawn.map((rect) => rect.left))
+  const top = Math.min(...drawn.map((rect) => rect.top))
+  const right = Math.max(...drawn.map((rect) => rect.right))
+  const bottom = Math.max(...drawn.map((rect) => rect.bottom))
+  return new DOMRect(left, top, right - left, bottom - top)
+}
+
+/** Every node a frame draws, parents before their children. */
+export function drawnNodeIds(host: Element): string[] {
+  const drawn = drawnNodes(host)
+  if (drawn) return [...drawn.ids]
+  return attributeElements(host).map((element) => element.dataset.canvasNode!)
+}
+
+/** Every node whose box holds a point (client coordinates), outermost first. */
+export function nodesAt(host: Element, point: { x: number; y: number }): string[] {
+  const holds = (rect: DOMRect | undefined) =>
+    !!rect && point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom
+  const drawn = drawnNodes(host)
+  if (drawn) {
+    return drawn.ids.filter((id) =>
+      holds(boxAround(drawn.elements(id).map((element) => element.getBoundingClientRect())))
+    )
+  }
+  return attributeElements(host)
+    .filter((element) => holds(element.getBoundingClientRect()))
+    .map((element) => element.dataset.canvasNode!)
+}
+
+/** The node a node is drawn inside, in the frame. */
+export function nodeParent(host: Element, nodeId: string): string | undefined {
+  const drawn = drawnNodes(host)
+  if (drawn) return drawn.parent(nodeId)
+  return findNodeElement(host, nodeId)?.parentElement?.closest<HTMLElement>("[data-canvas-node]")?.dataset.canvasNode
+}
+
+/** The node an element in a frame belongs to: the innermost one drawing it or an element around it. */
+export function nodeOfElement(host: Element, element: Element): string | undefined {
+  const drawn = drawnNodes(host)
+  if (drawn) return drawn.nodeOf(element)
+  return element.closest<HTMLElement>("[data-canvas-node]")?.dataset.canvasNode
+}
+
+/** Every element in a frame marked with the node it stands for, in document order. */
+function attributeElements(host: Element): HTMLElement[] {
   return [...(host.shadowRoot?.querySelectorAll<HTMLElement>("[data-canvas-node]") ?? [])]
 }
 

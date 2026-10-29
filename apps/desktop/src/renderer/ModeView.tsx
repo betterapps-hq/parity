@@ -1,6 +1,6 @@
 import { frameViewport, type MountHandle, modeGlobals, type RenderNode, type ResolvedMode } from "@parity/core"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { prepareFrame, setFrameViewport } from "./frame.ts"
+import { prepareFrame, setDrawnNodes, setFrameViewport } from "./frame.ts"
 import type { LoadedGuest } from "./guest.ts"
 
 interface ModeViewProps {
@@ -104,7 +104,8 @@ export function ModeView({
       Record<string, string>
     ]
     const viewport = viewportRef.current
-    const target = prepareFrame(hostRef.current!, loaded.sheet, { classNames, attributes, viewport })
+    const host = hostRef.current!
+    const target = prepareFrame(host, loaded.sheet, { classNames, attributes, viewport })
     const handle = loaded.guest.mount(target, [], {
       globals,
       viewport,
@@ -112,8 +113,11 @@ export function ModeView({
         setError({ key: currentKey.current, message: reason instanceof Error ? reason.message : String(reason) })
     })
     handleRef.current = handle
+    // Selecting, outlining and measuring find the design's nodes through the guest, which reads them from React's tree.
+    setDrawnNodes(host, handle.drawnNodes?.bind(handle))
     return () => {
       handleRef.current = undefined
+      setDrawnNodes(host, undefined)
       handle.unmount()
     }
   }, [loaded, environmentKey, interactions])

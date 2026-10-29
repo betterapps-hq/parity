@@ -18,7 +18,7 @@ import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } f
 import { Hint } from "../chrome/Hint.tsx"
 import { editingState } from "../chrome/LayerPanel.tsx"
 import { getPreferences, subscribePreferences } from "../chrome/preferences.ts"
-import { findFrames, findNodeElement } from "../frame.ts"
+import { findFrames, findNodeElement, nodeBox } from "../frame.ts"
 import { selectedNodes, toggleLayer, useEditing } from "../selection.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
@@ -549,8 +549,7 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
     const node = findLayer(store, entry!.container, id)
     // Inside an instance everything is the component's, so it's drawn in the component's color.
     const color = isInnerPath(id) ? kindColors.component : node ? nodeColor(node) : kindColors.layer
-    for (const { host, element, picked: isPicked } of nodeInFrames(area, entry!.key, id, picked)) {
-      const rect = element.getBoundingClientRect()
+    for (const { host, rect, picked: isPicked } of nodeInFrames(area, entry!.key, id, picked)) {
       model.outlines.push({
         key: `sel:${id}:${host.dataset.mode}:${host.dataset.state}`,
         box: toBox(rect),
@@ -625,7 +624,7 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
     const frame = hover.design === current.design ? picked : selectionFrame(area, hover.design, {})
     const target = nodeInFrames(area, hover.design, hover.node, frame).find((item) => item.picked)
     if (target && node) {
-      const rect = target.element.getBoundingClientRect()
+      const { rect } = target
       const color = isInnerPath(hover.node) ? kindColors.component : nodeColor(node)
       model.outlines.push({ key: "hover", box: toBox(rect), color, dashed: false, thick: false })
       const scale = editor.getZoomLevel() * frameScale(target.host)
@@ -642,7 +641,7 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
       } else if (alt && !selectedRect && hoverEntry) {
         // Nothing selected to measure from: Alt shows the hovered layer's distances to the edges of its parent.
         const parent = locateNode(hoverEntry.container.root, hover.node)?.ancestors.at(-1)
-        const parentRect = parent && findNodeElement(target.host, parent.id)?.getBoundingClientRect()
+        const parentRect = parent && nodeBox(target.host, parent.id)
         if (parentRect) model.redlines = redlines(rect, parentRect, scale, unit).map(toArea)
       }
     }
@@ -965,15 +964,15 @@ function startResize(
   }
 
   const element = handles.node ? findNodeElement(host, handles.node) : undefined
+  const rect = handles.node ? nodeBox(host, handles.node) : undefined
   const location = handles.node ? locateNode(entry.container.root, handles.node) : undefined
-  if (!element || !location) return
+  if (!element || !rect || !location) return
   const state = editingState(entry.container, handles.state)
   const node = nodeInState(location.node, state)
   const parent = location.ancestors.at(-1)
   const parentDirection =
     parent?.type === "layout" ? (nodeInState(parent, state).style?.direction ?? "column") : undefined
   const unit = spacingUnit(tokens.get())
-  const rect = element.getBoundingClientRect()
   const inner = contentBox(element.parentElement, scale)
   const ratio = rect.width / Math.max(1, rect.height)
 

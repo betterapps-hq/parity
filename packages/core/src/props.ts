@@ -12,6 +12,11 @@ export interface ComponentInfo {
    */
   import?: string
   props: ComponentProp[]
+  /**
+   * Whether its props declare `style`, which is where the canvas puts the sizes and other styles a design gives it. False
+   * when they don't, so those do nothing; unset when it isn't known, as for props typed `any`.
+   */
+  takesStyle?: boolean
 }
 
 export interface ComponentProp {

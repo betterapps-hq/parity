@@ -69,14 +69,14 @@ at the end of this page are the plan for testing more. Four of them exist in `fi
 
 ### UI framework (renderer adapter)
 
-| Tool                 | Status | Notes                                                                |
-| -------------------- | ------ | -------------------------------------------------------------------- |
-| React 19             | ✅     | `packages/renderer-react`                                            |
-| React 18 and earlier | ❌     | Dropped: React 18 came out in March 2022. Untested, but not blocked. |
-| Vue, Svelte          | ⏳     | `RendererAdapter` is ready for them.                                 |
-| Solid, Preact        | ⏳     |                                                                      |
-| Angular              | ❌     | Not planned.                                                         |
-| React Native         | ❌     | Needs native frames, after the web.                                  |
+| Tool                 | Status | Notes                                                                                                                                                                            |
+| -------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| React 19             | ✅     | `packages/renderer-react`. Finds layers in React's tree, as React DevTools does, tested on 19.3; a release that changes the tree falls back to the `data-canvas-node` attribute. |
+| React 18 and earlier | ❌     | Dropped: React 18 came out in March 2022. Untested, but not blocked.                                                                                                             |
+| Vue, Svelte          | ⏳     | `RendererAdapter` is ready for them.                                                                                                                                             |
+| Solid, Preact        | ⏳     |                                                                                                                                                                                  |
+| Angular              | ❌     | Not planned.                                                                                                                                                                     |
+| React Native         | ❌     | Needs native frames, after the web.                                                                                                                                              |
 
 ### Build tool (builder adapter)
 
