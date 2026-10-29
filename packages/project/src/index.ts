@@ -1,19 +1,22 @@
 import { readdir, readFile } from "node:fs/promises"
 import { dirname, extname, join, relative } from "node:path"
 import {
+  type ComponentSource,
   type DescribedTokens,
+  type LibraryInfo,
   libraryManifestExtension,
   type PackageManifest,
   parseLibraryManifest,
   type ProjectConfig,
   type RendererAdapter
 } from "@parity/core"
-import { componentIds, findAppComponents } from "./components.ts"
+import { componentIds, count, findAppComponents } from "./components.ts"
 import { loadConfig } from "./configs.ts"
 import { parseJsonc } from "./jsonc.ts"
 import { describedTokens, findLibraries } from "./libraries.ts"
 import { findStorybook } from "./storybook.ts"
 import { type ProjectTsconfig, readTsconfig, resolvePathAlias } from "./tsconfig.ts"
+import { findWorkspace, workspaceDependencies, workspaceSection } from "./workspace.ts"
 
 export { type ConfigSource, findConfig, type FoundConfig, loadConfig } from "./configs.ts"
 export { type CheckedComponent, checkedChanges } from "./components.ts"
@@ -22,6 +25,7 @@ export { parseJsonc } from "./jsonc.ts"
 export { installedPackage, type LibraryDefinition, libraryCatalog } from "./libraries.ts"
 export { parseStoryFile } from "./storybook.ts"
 export { type ProjectTsconfig, readTsconfig, resolvePathAlias, type TsconfigFile } from "./tsconfig.ts"
+export { findWorkspace, type Workspace } from "./workspace.ts"
 
 export interface DiscoveredProject extends ProjectConfig {
   /** How each part was found, for the status bar and debugging. */
@@ -49,10 +53,11 @@ export async function discoverProject(
   const uiKit = await findUiKit(root, shadcn, tsconfig, renderer, notes)
   const app = await findAppComponents(root, renderer, tsconfig, uiKit, notes)
   notes.push(...libraries.notes)
+  await addWorkspacePackages(root, pkg, renderer, libraries, notes)
   const components = componentIds(app.found, new Set(Object.keys(libraries.components)))
   for (const library of libraries.libraries) {
-    const count = Object.values(libraries.components).filter((source) => source.library === library.id).length
-    notes.push(`${count} components from ${library.name} (${library.importName})`)
+    const found = Object.values(libraries.components).filter((source) => source.library === library.id).length
+    notes.push(`${count(found, "component")} from ${library.name} (${library.importName})`)
   }
   const documents = await findDocuments(root)
   notes.push(documents.length === 0 ? "no .par project file yet" : `designs in ${documents.join(", ")}`)
@@ -86,6 +91,35 @@ export async function discoverProject(
     notes,
     componentFiles: app.files
   }
+}
+
+/**
+ * In a monorepo, the workspace packages the app depends on that export components, each a section of its own as a
+ * library is. A package a library already describes is left to it.
+ */
+async function addWorkspacePackages(
+  root: string,
+  pkg: PackageManifest,
+  renderer: RendererAdapter,
+  found: { libraries: LibraryInfo[]; components: Record<string, ComponentSource> },
+  notes: string[]
+): Promise<void> {
+  const workspace = await findWorkspace(root)
+  if (!workspace) return
+  const described = new Set(found.libraries.flatMap((library) => [library.package, library.importName]))
+  const packages = workspaceDependencies(workspace, pkg, described)
+  const sections: string[] = []
+  for (const entry of packages) {
+    const section = await workspaceSection(root, entry, renderer, new Set(Object.keys(found.components)))
+    if (!section) continue
+    found.libraries.push(section.library)
+    Object.assign(found.components, section.components)
+    sections.push(entry.name)
+  }
+  const where = `a workspace at ${toPosix(relative(root, workspace.root))}`
+  if (packages.length === 0) notes.push(`${where}, though the app depends on none of its packages`)
+  else if (sections.length === 0) notes.push(`${where}, though none of the app's packages from it export components`)
+  else notes.push(`${where}, with components from ${sections.join(", ")}`)
 }
 
 async function findStyles(

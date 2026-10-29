@@ -57,6 +57,26 @@ describe("guestModuleSource", () => {
       '"OrdersPage": () => import("/src/app/orders/page.tsx").then((module) => module["default"], (error) => failed('
     )
   })
+
+  it("imports a workspace package by its name, keeping a failed load to its own components", () => {
+    const source = guestModuleSource({
+      styles: [],
+      components: { "ui/Button": { path: "@acme/ui", export: "Button", library: "ui" } },
+      documents: [],
+      libraries: [
+        {
+          id: "ui",
+          name: "@acme/ui",
+          package: "@acme/ui",
+          importName: "@acme/ui",
+          stylesImported: true,
+          workspace: "../../packages/ui"
+        }
+      ]
+    })
+    expect(source).toContain('import("@acme/ui").catch(')
+    expect(source).toContain('"ui/Button": modules[1].loadError ? failed(modules[1].loadError) : modules[1]["Button"]')
+  })
 })
 
 describe("guestModuleSource with libraries", () => {

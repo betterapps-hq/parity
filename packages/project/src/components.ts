@@ -218,7 +218,7 @@ async function walk(folder: string, extensions: string[]): Promise<string[]> {
   return files.flat()
 }
 
-function count(n: number, noun: string): string {
+export function count(n: number, noun: string): string {
   return `${n} ${noun}${n === 1 ? "" : "s"}`
 }
 

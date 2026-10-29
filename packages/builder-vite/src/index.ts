@@ -47,9 +47,14 @@ export const viteBuilder: BuilderAdapter = {
       },
       resolve: { dedupe: options.renderer.runtimePackages },
       optimizeDeps: {
+        // A workspace package is the app's own source, which Vite compiles as it does the app's files.
         include: [
           ...options.renderer.runtimeImports,
-          ...new Set(options.config.libraries.flatMap((library) => [library.importName, ...libraryImports(library)]))
+          ...new Set(
+            options.config.libraries
+              .filter((library) => !library.workspace)
+              .flatMap((library) => [library.importName, ...libraryImports(library)])
+          )
         ],
         entries: Object.values(options.config.components)
           .filter((component) => !component.library)
@@ -106,12 +111,16 @@ export function guestModuleSource(config: ProjectConfig): string {
   // that fails to load (a server import, a syntax error) only costs its own components, which then show why. The rest
   // of the app, pages included, loads a module the first time one of its components is drawn: importing it all at once
   // took copacker 14 seconds.
+  // A workspace package is the app's own code too, and may not build.
+  const workspaceLibraries = new Set(config.libraries.filter((library) => library.workspace).map(({ id }) => id))
   const entries = Object.entries(config.components)
   const componentRefs = entries
     .filter(([, source]) => !source.lazy)
     .map(([id, source]) => {
-      if (source.library) return `    ${JSON.stringify(id)}: ${ref(source.path)}${member(source.export)}`
-      const path = rootPath(source.path)
+      if (source.library && !workspaceLibraries.has(source.library)) {
+        return `    ${JSON.stringify(id)}: ${ref(source.path)}${member(source.export)}`
+      }
+      const path = source.library ? source.path : rootPath(source.path)
       optional.add(path)
       const module = ref(path)
       return `    ${JSON.stringify(id)}: ${module}.loadError ? failed(${module}.loadError) : ${module}${member(source.export)}`

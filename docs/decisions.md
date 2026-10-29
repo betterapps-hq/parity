@@ -222,6 +222,13 @@ recommended answer to each of its questions.
 - **Some folders are never read for components:** installed packages, build output, `__tests__`, `__mocks__`, `e2e`,
   `tmp` and `temp`, and also stories, tests, generated files and the entry file that mounts the app. My call: copacker's
   tsconfig includes a `tmp` folder of experiments that would have added 2,500 components.
+- **A workspace package is read from source, and only for exports the parse confirms.** My call: when its package.json
+  points at built output, as published packages do (`dist/index.js`), Parity reads `src/index` beside it, since the
+  app's dev server compiles the package's source too. Exports only the type checker could decide are left out, so a
+  package of hooks and helpers adds no section. Its section's id is its name without the scope (`@acme/ui` is `ui`).
+- **A workspace package is imported by its name and isn't pre-bundled.** My call: the app imports it that way, so the
+  canvas gets what the app gets, and Vite compiles it as the app's own code. A package that doesn't build costs only its
+  own components, as a project module does.
 
 ## Libraries, icons and images
 

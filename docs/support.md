@@ -128,7 +128,7 @@ at the end of this page are the plan for testing more. Four of them exist in `fi
 | Named and default exports                                          | ✅     | Found by parsing each file: copacker's 360 component files in about a quarter of a second, with no route objects or API handlers counted. A default export takes its declaration's name, else its file's.                                                                     |
 | Aliases, and components without JSX                                | ✅     | The type checker in the props worker adds what parsing can't see, such as `const Select = SelectPrimitive.Root` and components that return only `children`. On copacker it took about 13 seconds after opening, and the list matched the earlier measurement: 593 components. |
 | Two components with one name                                       | ✅     | The second gains its folder, as in `components/FieldError`.                                                                                                                                                                                                                   |
-| Workspace packages                                                 | 🔜     | Each one its own section, imported by its package name (FIND-4).                                                                                                                                                                                                              |
+| Workspace packages                                                 | ✅     | Each package the app depends on that exports components is its own section, imported by its package name and read from its source, even when its package.json points at `dist`. A package of hooks and helpers adds none. On Buildkit's site app: `shadcn-modals-manager`.    |
 
 ### Component libraries
 
@@ -167,7 +167,7 @@ at the end of this page are the plan for testing more. Four of them exist in `fi
 | Tool                     | Status | Notes                                                                                                                                                                                                                                                                    |
 | ------------------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | pnpm, npm, yarn, bun     | ✅     | Found by `package-manager-detector`: lockfiles, then the `packageManager` and `devEngines.packageManager` fields, from the project's folder up; npm when nothing says. Yarn Berry is told from Yarn classic by `packageManager`. Library installs use its command table. |
-| Monorepos and workspaces | ✅     | Packages found the way Node finds them; Vite's workspace root is used.                                                                                                                                                                                                   |
+| Monorepos and workspaces | ✅     | The workspace is found from `pnpm-workspace.yaml` or package.json `workspaces` (npm, Yarn, bun), with `!` exclusions. Packages are found the way Node finds them, and Vite's workspace root is used.                                                                     |
 
 ### Storybook
 

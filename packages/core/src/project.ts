@@ -100,6 +100,11 @@ export interface LibraryInfo {
   /** The name the project depends on it by, which can be an alias of the package. */
   importName: string
   version?: string
+  /**
+   * Its folder, relative to the project, for a package in the same workspace as the app: its components are read from
+   * source, and the app's own build compiles them, so the dev server doesn't pre-bundle it.
+   */
+  workspace?: string
   /** Its Tailwind entry, imported from the project's stylesheet so its classes and tokens are built. */
   tailwindEntry?: string
   /** Whether the project's stylesheet imports the library's styles yet. */
