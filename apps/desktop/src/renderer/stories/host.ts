@@ -3,8 +3,11 @@ import { type ComponentInfo, type ContainerSpec, defaultModeSettings, type Desig
 import discovered from "virtual:parity/example-project"
 import type { CanvasHost, ProjectInfo, ProjectProcess, ServiceMethod, ServiceMethods } from "../../shared/protocol.ts"
 
-/** What the service's `project.open` and `project.components` answer for the example; the guest URL is set here. */
-const example = discovered as { info: Omit<ProjectInfo, "guestUrl">; components: Record<string, ComponentInfo> }
+/**
+ * What the service's `project.open` and `project.components` answer for the example. Its guest URL is the module
+ * Storybook serves or builds for it, as the project's builder would serve it.
+ */
+const example = discovered as { info: ProjectInfo; components: Record<string, ComponentInfo> }
 
 /** Roots the stand-in service knows: the example, one that takes forever to open, and one that fails to. */
 export const roots = {
@@ -13,9 +16,6 @@ export const roots = {
   broken: "D:/projects/broken-app",
   empty: "D:/projects/blank-slate"
 } as const
-
-/** The guest module Storybook serves for the example, as its builder would. */
-const guestUrl = new URL("/@id/__x00__virtual:parity/example-guest", location.origin).href
 
 /** What the stand-in service has been asked to do, newest last, for stories that show a request's effect. */
 export const requests: { method: string; params: unknown }[] = []
@@ -122,11 +122,10 @@ export function projectInfo(root: string): ProjectInfo {
       documents: [],
       mainDocument: "blank-slate.par",
       modes: { settings: defaultModeSettings, custom: false },
-      notes: [...info.notes.filter((note) => !note.startsWith("designs in")), "no .par project file yet"],
-      guestUrl
+      notes: [...info.notes.filter((note) => !note.startsWith("designs in")), "no .par project file yet"]
     }
   }
-  return { ...info, guestUrl }
+  return info
 }
 
 /** A project's build server, as the service starts it when the project opens, a few seconds ago. */

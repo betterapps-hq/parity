@@ -26,13 +26,26 @@ const require = createRequire(import.meta.url)
  * Serves the example project to stories without its builder. `virtual:parity/example-project` is what the service's
  * `project.open` and `project.components` would answer, found by the same discovery, reading and inference; the guest
  * module the canvas imports is the one the project's builder would serve, compiled here with the project's own styles.
+ * The project's `guestUrl` points at that module: on the dev server under `storybook dev`, and at a chunk of its own
+ * under `storybook build`, which has no server to ask.
  */
 export function exampleProject(): Plugin {
   let found: ReturnType<typeof discover> | undefined
   const project = () => (found ??= discover())
+  let building = false
+  let guestChunk: string | undefined
   return {
     name: "parity:example-project",
     enforce: "pre",
+    configResolved(config) {
+      building = config.command === "build"
+    },
+    buildStart() {
+      // Vite drops an app's entry exports, and the canvas reads the guest from this one's.
+      if (building) {
+        guestChunk = this.emitFile({ type: "chunk", id: guestId, name: "example-guest", preserveSignature: "strict" })
+      }
+    },
     resolveId(source, importer) {
       if (source === projectId || source === guestId) return `\0${source}`
       if (importer !== `\0${guestId}`) return undefined
@@ -45,7 +58,14 @@ export function exampleProject(): Plugin {
       if (id === `\0${projectId}`) {
         const { info, components } = await project()
         this.addWatchFile(designs)
-        return `export default ${JSON.stringify({ info, components })}`
+        // The bundler writes the chunk's URL in, relative to the page or absolute as the build's base is; the canvas
+        // wants it absolute.
+        const url = guestChunk ? `import.meta.ROLLUP_FILE_URL_${guestChunk}` : JSON.stringify(`/@id/__x00__${guestId}`)
+        return [
+          `const project = ${JSON.stringify({ info, components })}`,
+          `project.info.guestUrl = new URL(${url}, location.href).href`,
+          "export default project"
+        ].join("\n")
       }
       if (id.split("?")[0] === `\0${guestId}`) return guestModuleSource((await project()).config)
       return undefined

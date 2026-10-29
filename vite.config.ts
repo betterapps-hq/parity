@@ -198,7 +198,12 @@ export default defineConfig({
     ]
   },
   test: {
-    include: ["packages/*/src/**/*.test.ts", "apps/*/src/**/*.test.ts", "scripts/*.test.ts"],
+    include: [
+      "packages/*/src/**/*.test.ts",
+      "apps/*/src/**/*.test.ts",
+      "apps/*/.storybook/*.test.ts",
+      "scripts/*.test.ts"
+    ],
     // CI's runners have four cores. Locally twelve, which Copacker's tests settled on for this machine.
     maxWorkers: process.env.CI ? 4 : 12
   },
