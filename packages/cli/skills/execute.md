@@ -218,8 +218,9 @@ ExtractComponent("team-members", rows.nodes, { name: "Member row", params: { [ro
 shared by every design.
 
 `SetTokens` changes token values in the project's stylesheets: `SetTokens({ primary: "oklch(0.55 0.2 260)" })` for every
-theme, or `SetTokens({ primary: { default: "…", dark: "…" } })` per theme. This edits the project's code, so do it only
-when the person asks to change the design system, not to style one design.
+theme, or `SetTokens({ primary: { default: "…", dark: "…" } })` per theme. Every frame shows the new values at once, and
+saving writes them into the project's code, so do it only when the person asks to change the design system, not to style
+one design. They're undone with the call's other changes.
 
 ## Checking
 

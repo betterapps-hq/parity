@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import type { TokenChange } from "../../shared/protocol.ts"
 import { useProject } from "../canvas/context.ts"
-import { resolveTokenValue, spacingUnit, useTokenList } from "../tokens-store.ts"
+import { resolveTokenValue, spacingUnit, useTokenFailure, useTokenList } from "../tokens-store.ts"
+import { save } from "./commands.ts"
 import { Swatch } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import { PanelError } from "./PanelError.tsx"
@@ -66,8 +68,11 @@ function matchDescribed(sources: DescribedTokens[] | undefined, tokens: Token[])
  * value can be edited; the change shows in every frame immediately and is written to the project's stylesheet.
  */
 export function TokensPanel() {
-  const { tokens: store, info } = useProject()
+  const session = useProject()
+  const { tokens: store, info } = session
   const tokens = useTokenList(store)
+  const failure = useTokenFailure(store)
+  const unwritten = new Set(failure?.tokens.map((change) => change.name))
   const [query, setQuery] = useState("")
   const [source, setSource] = useState<Source>("all")
   const needle = query.trim().toLowerCase()
@@ -115,6 +120,18 @@ export function TokensPanel() {
             </ToggleGroupItem>
           </Hint>
         </ToggleGroup>
+        {failure && (
+          <PanelError
+            title={`Couldn't write ${failedNames(failure.tokens)} to ${store.stylesheet}`}
+            action={
+              <Button variant="outline" size="sm" onClick={() => void save(session)}>
+                Try again
+              </Button>
+            }
+          >
+            {failure.error.replace(/[.\s]+$/, "")}. The canvas still shows the new values, unsaved.
+          </PanelError>
+        )}
         {info.styles?.error && <PanelError title="Some tokens may be missing">{info.styles.error}</PanelError>}
         {info.describedTokens
           ?.filter((source) => source.error)
@@ -142,6 +159,7 @@ export function TokensPanel() {
                         tokens={tokens}
                         themes={themes}
                         described={described.byName.get(token.name)}
+                        unwritten={unwritten.has(token.name)}
                       />
                     ))}
                   </ul>
@@ -149,7 +167,7 @@ export function TokensPanel() {
               )}
               {palette.length > 0 && (
                 <PanelSection title="Palette" count={palette.length}>
-                  <Palette tokens={palette} all={tokens} themes={themes} />
+                  <Palette tokens={palette} all={tokens} themes={themes} unwritten={unwritten} />
                 </PanelSection>
               )}
             </div>
@@ -165,6 +183,7 @@ export function TokensPanel() {
                   tokens={tokens}
                   themes={themes}
                   described={described.byName.get(token.name)}
+                  unwritten={unwritten.has(token.name)}
                 />
               ))}
             </ul>
@@ -195,13 +214,16 @@ function TokenRow({
   token,
   tokens,
   themes,
-  described
+  described,
+  unwritten = false
 }: {
   token: Token
   tokens: Token[]
   themes: string[]
   /** What a `.lib.par` says about this token. */
   described?: Described
+  /** Whether the last save couldn't write its value to the stylesheet. */
+  unwritten?: boolean
 }) {
   return (
     <li>
@@ -217,6 +239,7 @@ function TokenRow({
               {described?.description && (
                 <span className="truncate text-[11px] text-muted-foreground">{described.description}</span>
               )}
+              {unwritten && <span className="text-[11px] text-destructive">Not written to the stylesheet</span>}
             </span>
             {token.category === "spacing" ? (
               <Hint label={token.values.default} wait>
@@ -275,7 +298,18 @@ function DescribedRow({ token }: { token: Described }) {
 }
 
 /** Tailwind's palette as a grid: one row per hue, its shades across. */
-function Palette({ tokens, all, themes }: { tokens: Token[]; all: Token[]; themes: string[] }) {
+function Palette({
+  tokens,
+  all,
+  themes,
+  unwritten
+}: {
+  tokens: Token[]
+  all: Token[]
+  themes: string[]
+  /** Tokens whose values the last save couldn't write. */
+  unwritten: ReadonlySet<string>
+}) {
   const hues = Map.groupBy(tokens, (token) => /^color-([a-z]+)-\d+$/.exec(token.name)?.[1] ?? "")
   const loose = hues.get("") ?? []
   hues.delete("")
@@ -287,11 +321,15 @@ function Palette({ tokens, all, themes }: { tokens: Token[]; all: Token[]; theme
           <div className="flex flex-1 gap-px overflow-hidden rounded-sm">
             {shades.map((token) => (
               <TokenEditor key={token.name} token={token} tokens={all} themes={themes}>
-                <Hint label={`${token.name}: ${token.values.default}`}>
+                <Hint
+                  label={`${token.name}: ${token.values.default}${unwritten.has(token.name) ? ", not written to the stylesheet" : ""}`}
+                >
                   <button
                     type="button"
                     aria-label={token.name}
-                    className="h-5 flex-1 hover:outline-2 hover:outline-offset-1 hover:outline-foreground"
+                    className={`h-5 flex-1 hover:outline-2 hover:outline-offset-1 hover:outline-foreground ${
+                      unwritten.has(token.name) ? "outline-2 -outline-offset-2 outline-destructive" : ""
+                    }`}
                     style={{ background: resolveTokenValue(all, token.name) }}
                   />
                 </Hint>
@@ -303,7 +341,13 @@ function Palette({ tokens, all, themes }: { tokens: Token[]; all: Token[]; theme
       {loose.length > 0 && (
         <ul className="mt-2 flex flex-col">
           {loose.map((token) => (
-            <TokenRow key={token.name} token={token} tokens={all} themes={themes} />
+            <TokenRow
+              key={token.name}
+              token={token}
+              tokens={all}
+              themes={themes}
+              unwritten={unwritten.has(token.name)}
+            />
           ))}
         </ul>
       )}
@@ -433,9 +477,7 @@ function TokenEditor({
               return
             }
             setError(undefined)
-            store
-              .set(changes)
-              .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : String(reason)))
+            store.set(changes)
             setOpen(false)
           }}
         >
@@ -460,12 +502,15 @@ function TokenEditor({
             </label>
           ))}
           {error && <p className="text-xs text-destructive">{error}</p>}
+          <p className="text-xs text-muted-foreground">
+            Every frame shows it at once. Saving the project writes it to {store.stylesheet}, and Undo takes it back.
+          </p>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
               Cancel
             </Button>
             <Button type="submit" size="sm">
-              Save to stylesheet
+              Apply
             </Button>
           </div>
         </form>
@@ -480,6 +525,12 @@ function spacingPx(token: Token, tokens: Token[]): string {
   if (token.derived) return `${formatNumber(token.derived.factor * unit)}px`
   const match = /^([\d.]+)(rem|px)$/.exec(token.values.default?.trim() ?? "")
   return match ? `${formatNumber(Number(match[1]) * (match[2] === "rem" ? 16 : 1))}px` : (token.values.default ?? "")
+}
+
+/** The tokens a save couldn't write, by name: one, or how many. */
+function failedNames(changes: readonly TokenChange[]): string {
+  const names = [...new Set(changes.map((change) => change.name))]
+  return names.length === 1 ? `--${names[0]}` : `${names.length} tokens`
 }
 
 function formatNumber(value: number): string {

@@ -7,8 +7,9 @@ import { LeftPanel } from "./LeftPanel.tsx"
 import { TokensPanel } from "./TokensPanel.tsx"
 
 /**
- * The Tokens tab: the project's own variables and its styling framework's theme, by kind. Any value can be edited,
- * and the change is written to the project's stylesheet. Shown in the left panel, as the app shows it.
+ * The Tokens tab: the project's own variables and its styling framework's theme, by kind. Any value can be edited; the
+ * change is undoable, and saving the project writes it to the project's stylesheet. Shown in the left panel, as the app
+ * shows it.
  */
 const meta = {
   title: "Parity/Left panel/Tokens",
@@ -161,31 +162,36 @@ export const SpacingStep: Story = {
   }
 }
 
-/** A color token given something that isn't a color, refused before anything is saved. */
+/** A color token given something that isn't a color, refused before it changes anything. */
 export const InvalidValue: Story = {
   loaders: [openTokens],
   play: async ({ canvasElement }) => {
     const dialog = await edit(canvasElement, "primary")
     await retype(dialog, "default", "very dark blue")
-    await userEvent.click(within(dialog).getByRole("button", { name: "Save to stylesheet" }))
+    await userEvent.click(within(dialog).getByRole("button", { name: "Apply" }))
     await within(dialog).findByText(/isn't a valid color/)
   }
 }
 
-/** A color token set to another token: a reference is always allowed, whatever the other token holds. */
+/**
+ * A color token set to another token: a reference is always allowed, whatever the other token holds. The change is
+ * unsaved, like any edit, and Undo takes it back.
+ */
 export const ReferenceToAnotherToken: Story = {
   loaders: [openTokens],
   play: async ({ canvasElement }) => {
     const dialog = await edit(canvasElement, "primary")
     await retype(dialog, "default", "var(--chart-1)")
-    await userEvent.click(within(dialog).getByRole("button", { name: "Save to stylesheet" }))
+    await userEvent.click(within(dialog).getByRole("button", { name: "Apply" }))
     await waitFor(() => expect(dialog).toHaveAttribute("data-state", "closed"))
+    await expect(example().store.getHistory().undoLabel).toBe("Edit --primary")
+    await expect(example().store.hasUnsaved()).toBe(true)
   }
 }
 
 /**
- * Saving a color when the stylesheet can't be written. The editor closes on Save, so the error only shows when it is
- * opened again, and the swatch keeps the value that wasn't saved.
+ * Saving a color when the stylesheet can't be written: the panel says which token couldn't be written and why, with a
+ * way to try again, marks its row, and the canvas keeps the value, unsaved.
  */
 export const SaveFails: Story = {
   loaders: [
@@ -197,9 +203,14 @@ export const SaveFails: Story = {
   play: async ({ canvasElement }) => {
     const dialog = await edit(canvasElement, "primary")
     await retype(dialog, "default", "oklch(0.55 0.2 260)")
-    await userEvent.click(within(dialog).getByRole("button", { name: "Save to stylesheet" }))
-    const reopened = await edit(canvasElement, "primary")
-    await within(reopened).findByText(/EPERM/)
+    await userEvent.click(within(dialog).getByRole("button", { name: "Apply" }))
+    await example()
+      .store.flush()
+      .catch(() => undefined)
+    const canvas = within(canvasElement)
+    const title = await canvas.findByText(/^Couldn't write --primary to .+\.css$/)
+    await expect(title.closest('[role="alert"]')).toHaveTextContent(/EPERM/)
+    await canvas.findByText("Not written to the stylesheet")
   }
 }
 

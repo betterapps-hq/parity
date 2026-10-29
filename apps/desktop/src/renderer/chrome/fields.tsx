@@ -39,6 +39,7 @@ import {
   type Reading,
   reduceField
 } from "./number-field.ts"
+import { readValue, showValue, type ValueKind, valueKind } from "./prop-values.ts"
 
 interface FieldProps {
   label: string
@@ -577,51 +578,87 @@ export function SwitchInput({ value, onChange }: { value: boolean; onChange(valu
 /** Rules for a number a prop or param takes: any number, with maths. */
 export const numberRules: FieldRules = { kind: "number" }
 
-/** Any JSON value: booleans get a switch, numbers and strings an input, everything else JSON text. */
+/**
+ * A prop's or param's value, edited so it keeps its type: a switch for a boolean, a number field for a number, text
+ * for text, and JSON for the rest. `kind` says which, from what the value is declared to take (`valueKind`); without
+ * it, the value's own type decides.
+ */
 export function ValueInput({
   value,
   title = "Value",
+  kind = valueKind(value),
   onCommit
 }: {
   value: unknown
   title?: string
+  kind?: ValueKind
   onCommit(value: unknown): void
 }) {
-  if (typeof value === "boolean") return <SwitchInput value={value} onChange={onCommit} />
-  if (typeof value === "number")
+  if (kind === "boolean") return <SwitchInput value={value === true} onChange={onCommit} />
+  if (kind === "number") {
+    const current = typeof value === "number" ? value : undefined
     return (
       <NumberInput
-        value={value}
+        value={current}
         rules={numberRules}
         title={title}
-        onCommit={(update) => onCommit(update(value) ?? 0)}
+        onCommit={(update) => {
+          const next = update(current)
+          if (next !== current) onCommit(next)
+        }}
       />
     )
-  if (typeof value === "string") return <TextInput value={value} onCommit={onCommit} />
-  return (
-    <TextInput
-      mono
-      value={JSON.stringify(value)}
-      onCommit={(text) => {
-        try {
-          onCommit(JSON.parse(text))
-        } catch {
-          onCommit(text)
-        }
-      }}
-    />
-  )
+  }
+  if (kind === "text") {
+    return <TextInput value={value === undefined ? "" : String(value)} onCommit={onCommit} />
+  }
+  return <ParsedInput value={value} kind={kind} title={title} onCommit={onCommit} />
 }
 
-/** Parses what someone typed as a prop value: JSON when it is (true, 3, "x", [..]), otherwise a string. */
-export function parseLooseValue(text: string): unknown {
-  const trimmed = text.trim()
-  if (trimmed === "") return ""
-  try {
-    return JSON.parse(trimmed)
-  } catch {
-    return text
-  }
+/**
+ * JSON, or any value, typed as text. What doesn't parse stays in the field with the reason under it, and nothing is
+ * changed, so a value never turns into the string that was typed.
+ */
+function ParsedInput({
+  value,
+  kind,
+  title,
+  onCommit
+}: {
+  value: unknown
+  kind: "json" | "any"
+  title: string
+  onCommit(value: unknown): void
+}) {
+  const shown = showValue(value, kind)
+  const [error, setError] = useState<string>()
+  const id = useId()
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <Input
+        key={shown}
+        defaultValue={shown}
+        aria-label={title}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? id : undefined}
+        className="h-7 px-2 font-mono text-xs"
+        onBlur={(event) => {
+          const text = event.currentTarget.value
+          const read = text === shown ? undefined : readValue(text, kind)
+          setError(read && "error" in read ? read.error : undefined)
+          if (read && "value" in read) onCommit(read.value)
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") event.currentTarget.blur()
+        }}
+      />
+      {error && (
+        <p id={id} role="alert" className="text-[11px] leading-snug text-destructive">
+          {error}
+        </p>
+      )}
+    </div>
+  )
 }
 
 const groupTitles: Record<string, string> = { semantic: "Project tokens", theme: "Theme scale" }

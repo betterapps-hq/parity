@@ -719,6 +719,130 @@ mark and Plans gave 40px and 1208px. The stories' play functions weren't run in 
 since a prop change has to draw the component again; they take maths and are made on Enter, as before. In a 320px
 inspector, Width and Height show about three characters of what's typed (PAR-189).
 
+## Saving and undo
+
+What goes through Save and Undo, and where an edit lands when the board shows a state or a variant.
+
+### One history, saved together (PAR-164)
+
+Every change people or agents make goes into one history per project, and stays unsaved until Save (Ctrl+S), as
+decisions.md's "Saving is explicit" sets out.
+
+- **What's undoable:** every edit to a design or a text note, the modes, and token values. An agent's call is one step,
+  its designs and its tokens together. What a board shows (the state, Show every state, the modes beside it, the variant
+  picked in its title bar) isn't undoable, and Undo leaves it as it is, but it's saved in the `.par`, so changing it
+  marks the file unsaved.
+- **What Save writes:** each `.par` with changes, and the token values into the project's stylesheet (`src/index.css` in
+  the example), together. A token edit shows in every frame at once, since the stylesheet every frame shares is edited
+  in place, but nothing is written until Save. Don't save, when closing a tab or quitting, leaves the stylesheet as it
+  was. With Save automatically on, token values are written about 300ms after the edit, as files are.
+- **Undo after a save** puts the value back on the canvas, and the next Save writes the value the stylesheet had before.
+- **Clean again.** A file is clean whenever it's back to what was saved: by undoing, as before, and now also by changing
+  it back. Turning Show every state on and off again, or showing another state and then the base one, leaves the file
+  clean, also when the file wrote its view out in full (`"allStates": false`, the base state's id). A view is kept tidy:
+  what it says by default (every state off, no modes beside, the base state) isn't written.
+- **A failed write** to the stylesheet says where: the save notice and the status bar say which token and which file
+  ("Couldn't write --primary to src/index.css: EPERM…"), the Tokens panel shows the same at its top with Try again, and
+  the row of each token not written says "Not written to the stylesheet". The values stay on the canvas, unsaved. A
+  stylesheet changed since its values were read fails the same way, writing nothing.
+- **The token editor** says this before anything changes: "Every frame shows it at once. Saving the project writes it to
+  src/index.css, and Undo takes it back." Its button is Apply.
+
+Code: the history and what's unsaved are `apps/desktop/src/renderer/design-store.ts` (`changeTokens`, `writeTokensWith`,
+`getTokenFailure`, `applyDocuments` taking tokens, `updateView` tidying the view, and `adoptSaved`, which takes a file
+changed back to what's saved as saved); token values as data are `token-edits.ts` (`withTokenEdits`, which keeps the
+value each token had before its first edit, `tokenDifferences`, `tokenWrites`, `tokensWithEdits`); comparing files with
+views tidied is `document-equality.ts`. `tokens-store.ts` previews the history's token values in the shared stylesheet
+after each edit, undo or redo, and gives the design store its writer; `workspace.ts` makes one per guest, so a guest
+loaded again shows the unsaved values too. The agent's call is `agent/handlers.ts` (`apply`), the panel
+`chrome/TokensPanel.tsx`.
+
+Tests:
+
+- `apps/desktop/src/renderer/design-store.test.ts` (10 of its 16): token edits undone, redone and saved with a design;
+  nothing written when they're back at the stylesheet's value; the stylesheet's value written back after undoing past a
+  save; a failed write naming the token and the file and clearing on success; a stylesheet that changed since it was
+  read; saving automatically; an agent's call as one step; Show every state off again leaving the file clean; another
+  state and back from a file with its view written out in full; and a file that differs in more than its view staying
+  unsaved until undone.
+- `apps/desktop/src/renderer/token-edits.test.ts` (4): the first edit's original kept, what Save writes, a theme value
+  that wasn't there, and the token list with edits.
+- `apps/desktop/src/renderer/tokens-store.test.ts` (3), in Chrome: an edit previewed in the stylesheet in both themes,
+  undo and redo taking it back and forth, Save writing it; a theme value taken out again on undo; and a guest loaded
+  again showing, then saving, an unsaved edit.
+- `chrome/TokensPanel.stories.tsx`: ReferenceToAnotherToken (an edit is one undo step, unsaved) and SaveFails (the
+  panel's message and the marked row), both played in Storybook on 2026-10-29.
+
+### Edits in the state and variant shown (PAR-164)
+
+The inspector's Editing control says where edits go: in the base state ("Editing Monthly changes the design") they
+change the design; in another state, or with a variant other than the default shown on a component's board, they're kept
+as that state's or variant's changes ("changes only this state", "changes only the Large variant").
+
+- **Edits start from what the board shows.** The inspector, the text editor and Hide read a layer as the board draws it
+  in the state being edited: with the variant shown, the state's changes, and the params it binds. The text editor opens
+  on the state's text: in Pricing's Yearly state, the Pro plan's price opens as $19, not Monthly's $24. Hide or show
+  (Ctrl+Shift+H, or Hide in and Show in on a row in Layers) hides what the state shows and shows what it hides, so a
+  layer the state, the variant or a param hides counts as hidden, and Layers marks it so.
+- **A component's board shows its params' defaults,** as an instance that sets none of them does. The Stat card's board
+  shows only the rising trend icon, since `showFalling` is off, where it showed both. Changing a bound text, prop or
+  visibility on the board, in the base state, changes the param's default too, so the board and the instances that don't
+  set the param follow it: renaming the Stat card's Revenue label to Sales on the board makes `label` default to Sales.
+  A param without a default follows the layer's own value, as before, and variants are picked in the title bar.
+- **A state's change is kept against the board,** with the params bound: showing the Stat card's Falling icon in Loading
+  keeps `hidden: false` for Loading, which used to be dropped as matching the design.
+- **Edits that always change the design say so first.** An image's file, alt text and fit, and an instance's state,
+  Reset all, Swap and Detach can't differ by state. While the Editing control points at another state or a variant, a
+  note above them, tinted as the Editing control is, says so: "File, alt text and fit change the design in every state,
+  not only Yearly." or "Its state, Reset all, Swap and Detach change the design in every variant, not only Large." In
+  the base state there's nothing to say, so it doesn't show.
+- **Values keep their types.** A param's or prop's field is chosen by what it's declared to take, not by the value it
+  has: a number param with no value yet gets a number field, so typing 12 gives 12 and not "12"; a boolean gets a
+  switch; text gets text. An object prop takes JSON, and JSON that doesn't parse stays in the field with "Can't read
+  this as JSON: check its quotes, commas and brackets" under it, changing nothing, where it used to become a string. A
+  prop of any type reads JSON when what's typed is JSON, and text otherwise. The instance's params, a component design's
+  param defaults and component props all work this way.
+
+Code: in `packages/core`, `edit.ts` (`nodeOnBoard`, `toggleHidden`, `editNode` keeping the bound param's default in step
+and a state's patch against the board) and `render.ts` (`boardArgs`, which `resolveDesign` gives a board, and
+`paramDefaults`, shared with instances); `instances.ts` (`layerOnBoard`, for one of a design's own layers or one inside
+an instance). In the app, `canvas/CanvasOverlay.tsx` (`TextEditor`), `chrome/arrange.ts` (`toggleHiddenLayers`),
+`chrome/LayerTree.tsx` (the row's hidden mark and its Hide in menu item), `chrome/LayerPanel.tsx` (the layer as the
+board shows it, `BaseDesignNote` in the Image and Instance sections), `chrome/edit-scope.ts` (`baseDesignNote`, the
+note's words), `chrome/prop-values.ts` (`valueKind`, `readValue`) and `chrome/fields.tsx` (`ValueInput`), used by
+`PropsSection.tsx`, `LayerPanel.tsx`'s instance params and `ComponentsSection.tsx`'s defaults.
+
+Tests:
+
+- `packages/core/src/instances.test.ts` (7): the Stat card's board showing one trend icon as its instances do; a bound
+  text's default on the board, and an edit to it changing the default; a param without a default left to the layer's own
+  value; the board's layer in a state, inside an instance and with a variant shown; and hiding through a bound param, in
+  a state the param hides, and through the state's and the variant's changes. The five about the board and Hide fail
+  against the code before PAR-164.
+- `apps/desktop/src/renderer/chrome/edit-scope.test.ts` (3): no note in the base state, the state's name, the variant's.
+- `apps/desktop/src/renderer/chrome/prop-values.test.ts` (4): fields by declared type before there's a value, by the
+  value's own type, JSON refused rather than kept as text, and any value read as JSON or text.
+- `chrome/LayerPanel.stories.tsx`, InstanceChangedInAState: the note above the Pro plan's state, Swap and Detach in
+  Yearly.
+
+Gaps: the wiring has no automated DOM test (the text editor reading `layerOnBoard`, Layers' Hide in label, the notes in
+the inspector, the typed fields). All of it, and the history above, was checked in an isolated copy of the app on a copy
+of the example project on 2026-10-29: `--primary` edited in the Tokens panel showed in the frames with the file
+untouched, Ctrl+Z and Ctrl+Shift+Z took it back and forth, and Ctrl+S wrote it to `src/index.css`; with the stylesheet
+read-only, Save failed with the token and file named in the notice, the status bar and the Tokens panel, and Try again
+wrote it once it could; an edit closed with Don't save left the stylesheet as it was; `SetTokens` from `parity exec` was
+one unsaved step that Undo took back; Show every state on and off left Pricing clean; the Stat card showed one trend
+icon, and Ctrl+Shift+H on Falling showed it and turned `showFalling`'s default on; the text editor opened on $19 in
+Yearly and $24 in Monthly; the notes showed in Yearly and not in Monthly; and 12 typed in a number param with no default
+gave the number 12. Known limits:
+
+- A value given to a theme that had none (a dark `--radius`), saved, then undone, has nothing Save can write: the canvas
+  takes it out, but the stylesheet keeps it until it's removed by hand. Frames drawn offscreen (bitmaps, exports) keep
+  such a value until the project is reopened.
+- Clearing a prop in a state (a boolean switched back to its default, a text emptied) takes back the state's change
+  rather than setting the prop, so a prop the base design sets can't be turned off in one state.
+- The stylesheet changing on disk isn't read back into the tokens until the project reopens, as before.
+
 ## Opening and closing projects
 
 What opening a project loads into the windows, and what closing it gives back.

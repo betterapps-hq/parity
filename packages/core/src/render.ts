@@ -164,13 +164,32 @@ export function resolveDesign(
   variants: VariantView = {}
 ): RenderNode[] {
   const choices = variantChoices(variants.params, variants.choices)
-  // A variant bound to a prop passes its option on; other params show the design's own values on its board.
-  const args = Object.keys(choices).length > 0 ? choices : undefined
   return resolveTree(root, [...optionPatches(variants.params, choices), state?.overrides], viewportId, library, {
     prefix: "",
-    args,
+    args: boardArgs(variants.params, choices),
     stack: []
   })
+}
+
+/**
+ * What a component's board gives its params: each one's default, and the variant options it shows, so the board shows
+ * what an instance that sets none of them shows. A param without a default leaves the design's own value.
+ */
+export function boardArgs(
+  params: Record<string, ParamSpec> | undefined,
+  choices: Record<string, string>
+): Record<string, unknown> | undefined {
+  const args = { ...paramDefaults(params), ...choices }
+  return Object.keys(args).length > 0 ? args : undefined
+}
+
+/** Each param's default, by name, for the params that have one. */
+export function paramDefaults(params: Record<string, ParamSpec> | undefined): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(params ?? {}).flatMap(([name, param]) =>
+      param.default === undefined ? [] : [[name, param.default]]
+    )
+  )
 }
 
 /** The option each variant param shows: the chosen one when it exists, else the param's default, else its first. */
@@ -222,11 +241,7 @@ export function instanceScope(
   patch: NodePatch,
   layers: readonly PatchLayer[]
 ): { args: Record<string, unknown>; layers: PatchLayer[] } {
-  const defaults = Object.fromEntries(
-    Object.entries(component.params ?? {}).flatMap(([name, param]) =>
-      param.default === undefined ? [] : [[name, param.default]]
-    )
-  )
+  const defaults = paramDefaults(component.params)
   const given = { ...node.args, ...patch.props }
   const choices = variantChoices(component.params, given)
   const componentState = component.states.find((candidate) => candidate.id === node.state) ?? component.states[0]

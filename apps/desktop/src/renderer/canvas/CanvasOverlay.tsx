@@ -7,6 +7,7 @@ import {
   generateId,
   insertNode,
   isInnerPath,
+  layerOnBoard,
   locateNode,
   nodeIds,
   nodeInState,
@@ -420,7 +421,15 @@ function TextEditor() {
   useEffect(() => {
     const area = ref.current?.closest(".canvas-area")
     const entry = store.getEntry(editing.design)
-    const node = entry && findLayer(store, entry.container, editing.node)
+    // The text as the frame shows it: the state's and the variant's, or the param's default it's bound to.
+    const node =
+      entry &&
+      layerOnBoard(
+        entry.container,
+        editing.node,
+        store.getLibrary(entry.key),
+        editingState(entry.container, editing.state)
+      )
     const host = area && selectionFrame(area, editing.design, editing)
     const element = host && nodeInFrames(area, editing.design, editing.node, host).find((item) => item.picked)?.element
     const text = node && editableText(node)

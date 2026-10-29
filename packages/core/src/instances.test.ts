@@ -6,13 +6,17 @@ import {
   boardTarget,
   deleteNode,
   editNode,
+  findNode,
+  nodeOnBoard,
   removeVariantOption,
-  resetOverride
+  resetOverride,
+  toggleHidden
 } from "./edit.ts"
 import {
   detachInstance,
   editInner,
   innerChanges,
+  layerOnBoard,
   locateInner,
   overrideCount,
   pushOverrides,

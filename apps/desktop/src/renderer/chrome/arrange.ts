@@ -12,6 +12,7 @@ import {
   moveNode,
   nodeIds,
   nodeInState,
+  toggleHidden,
   topmostNodes,
   unwrapNode,
   withFreshIds,
@@ -225,13 +226,10 @@ export function toggleHiddenLayers(session: ProjectSession): boolean {
   const layers = selectedLayers(session)
   if (!layers) return false
   const { entry, ids } = layers
-  const state = editingState(entry.container, session.selection.get().state)
-  const hidden = (container: ContainerSpec, id: string) =>
-    state.overrides?.[id]?.hidden ?? findNode(container.root, id)?.hidden ?? false
-  session.store.updateContainer(entry.key, "Toggle visibility", (container) => {
-    const hide = !ids.every((id) => hidden(container, id))
-    return ids.reduce((next, id) => editNode(next, boardTarget(next, state.id), id, { hidden: hide }), container)
-  })
+  const picked = session.selection.get().state
+  session.store.updateContainer(entry.key, "Toggle visibility", (container) =>
+    toggleHidden(container, editingState(container, picked).id, ids)
+  )
   return true
 }
 

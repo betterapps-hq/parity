@@ -4,17 +4,9 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import {
-  ChoiceInput,
-  Field,
-  NumberInput,
-  numberRules,
-  parseLooseValue,
-  SwitchInput,
-  TextInput,
-  ValueInput
-} from "./fields.tsx"
+import { ChoiceInput, Field, NumberInput, numberRules, SwitchInput, TextInput, ValueInput } from "./fields.tsx"
 import { PanelSection } from "./PanelSection.tsx"
+import { parseLooseValue, valueKind } from "./prop-values.ts"
 
 interface PropsSectionProps {
   node: Extract<DesignNode, { type: "component" }>
@@ -174,7 +166,8 @@ function PropInput({ prop, value, onChange }: { prop: ComponentProp; value: unkn
         <span className="text-xs text-muted-foreground">Set in layers</span>
       )
     default:
-      return <ValueInput value={value ?? ""} onCommit={onChange} />
+      // An object prop takes JSON; one whose type isn't known takes whatever's typed, as JSON when it reads as JSON.
+      return <ValueInput value={value} kind={valueKind(value, prop.kind)} title={prop.name} onCommit={onChange} />
   }
 }
 

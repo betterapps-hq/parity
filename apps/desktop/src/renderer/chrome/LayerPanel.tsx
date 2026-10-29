@@ -15,6 +15,7 @@ import {
   mapNode,
   type NodeChange,
   nodeInState,
+  nodeOnBoard,
   type NodePatch,
   type NodeStyle,
   overrideCount,
@@ -28,7 +29,7 @@ import {
   swapInstance,
   targetPatches
 } from "@parity/core"
-import { BookOpen, Diamond, Group, Sparkles, Unlink } from "lucide-react"
+import { BookOpen, Diamond, Group, Info, Sparkles, Unlink } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -45,11 +46,13 @@ import { spacingUnit, useTokenList } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { wrapSelection } from "./commands.ts"
 import { extractIntoComponent } from "./components.ts"
+import { baseDesignNote } from "./edit-scope.ts"
 import { ChoiceInput, Field, SwitchInput, TextInput, ValueInput } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import { keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
 import { PanelSection } from "./PanelSection.tsx"
+import { valueKind } from "./prop-values.ts"
 import { PropsSection } from "./PropsSection.tsx"
 import { revealSelection } from "./reveal.ts"
 import { hasStories, openInStorybook } from "./storybook.ts"
@@ -91,7 +94,7 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
   const state = editingState(container, selected.state)
   const target = boardTarget(container, state.id)
   const variants = shownVariants(container)
-  const node = nodeInState(location.node, state, variants)
+  const node = nodeOnBoard(container, location.node, state)
   const override = targetPatches(container, target)?.[nodeId]
 
   const change = (label: string, value: NodeChange, field: string) =>
@@ -548,6 +551,7 @@ function InstanceSection({
         </Hint>
       }
     >
+      {own && <BaseDesignNote entry={entry} what="Its state, Reset all, Swap and Detach" />}
       <div className="flex flex-col gap-1">
         {own && (
           <Field label="State">
@@ -584,7 +588,9 @@ function InstanceSection({
           ) : (
             <Field key={name} label={name} changed={changed(name)} onReset={() => onReset(name)}>
               <ValueInput
-                value={node.args?.[name] ?? param.default ?? (param.type === "boolean" ? false : "")}
+                value={node.args?.[name] ?? param.default}
+                kind={valueKind(node.args?.[name] ?? param.default, param.type)}
+                title={name}
                 onCommit={(value) => onChange(name, value)}
               />
             </Field>
@@ -729,6 +735,27 @@ function describeNode(node: DesignNode, entries: readonly ContainerEntry[]): str
   return node.style?.direction === "row" ? "Row layout" : "Column layout"
 }
 
+/**
+ * Says, before anything is changed, that the controls it heads change the design itself, when the Editing control
+ * above sends other edits to a state or a variant: `what` can't differ from one state to another. It's tinted as that
+ * control is, so the two read together. Nothing shows while edits change the design anyway.
+ */
+function BaseDesignNote({ entry, what }: { entry: ContainerEntry; what: string }) {
+  const { selection } = useProject()
+  const selected = useSelection(selection)
+  const note = baseDesignNote(entry.container, editingState(entry.container, selected.state), what)
+  if (!note) return null
+  return (
+    <p
+      className="mb-2 flex items-start gap-1.5 rounded-md border px-2.5 py-1.5 text-xs"
+      style={{ borderColor: kindColors.agent, background: "color-mix(in oklch, var(--canvas-agent) 8%, transparent)" }}
+    >
+      <Info className="mt-px size-3.5 shrink-0" style={{ color: kindColors.agent }} aria-hidden />
+      <span>{note}</span>
+    </p>
+  )
+}
+
 /** An image's file, its description for screen readers, how it fills its box, and who to credit. */
 function ImageSection({ entry, node }: { entry: ContainerEntry; node: ImageNode }) {
   const { store } = useProject()
@@ -739,6 +766,7 @@ function ImageSection({ entry, node }: { entry: ContainerEntry; node: ImageNode 
     }))
   return (
     <PanelSection title="Image">
+      <BaseDesignNote entry={entry} what="File, alt text and fit" />
       <Field label="File">
         <TextInput value={node.src} onCommit={(src) => src && edit("Change image", (image) => ({ ...image, src }))} />
       </Field>

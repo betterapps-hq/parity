@@ -1,12 +1,12 @@
 import {
-  boardTarget,
   childNodes,
   deleteNode,
   type DesignNode,
-  editNode,
   insertNode,
   locateNode,
   nodeIds,
+  nodeOnBoard,
+  toggleHidden,
   withFreshIds
 } from "@parity/core"
 import { ChevronRight, EyeOff, FileWarning, Plus, MonitorSmartphone, PenLine, StickyNote } from "lucide-react"
@@ -400,6 +400,8 @@ function LayerRow({
   const label = row.node ? layerLabel(row.node, entries) : container.name
   const changed = row.node && state.overrides?.[row.node.id]
   const viewports = row.node ? Object.keys(row.node.responsive ?? {}) : []
+  // Whether the board hides it in the state it shows, as Hide and Show read it.
+  const hidden = row.node ? (nodeOnBoard(container, row.node, state).hidden ?? false) : false
 
   return (
     <ContextMenu>
@@ -424,7 +426,7 @@ function LayerRow({
           onPointerLeave={() => onHover(false)}
           className={`group relative flex h-7 cursor-default items-center gap-1.5 pr-2 ${
             selected ? "bg-accent text-accent-foreground" : hovered ? "bg-accent/40" : "hover:bg-accent/40"
-          } ${row.node?.hidden ? "text-muted-foreground/60" : ""} ${row.depth === 0 ? "font-medium" : ""}`}
+          } ${hidden ? "text-muted-foreground/60" : ""} ${row.depth === 0 ? "font-medium" : ""}`}
           style={{ paddingLeft: 8 + row.depth * 14 }}
         >
           {selected && <span className="absolute inset-y-0 left-0 w-0.5" style={{ background: color }} />}
@@ -495,7 +497,7 @@ function LayerRow({
             {viewports.length > 0 && (
               <MonitorSmartphone className="size-3" aria-label={`Changes on ${viewports.join(", ")}`} />
             )}
-            {row.node?.hidden && <EyeOff className="size-3" aria-label="Hidden" />}
+            {hidden && <EyeOff className="size-3" aria-label="Hidden" />}
             {row.depth === 0 && (
               <Hint label={container.states.length === 1 ? "1 state" : `${container.states.length} states`} wait>
                 <span className="text-xs tabular-nums opacity-70">{container.states.length}</span>
@@ -510,8 +512,8 @@ function LayerRow({
         </ContextMenuItem>
         {row.node && (
           <>
-            <ContextMenuItem onSelect={() => toggleHidden(session, row)}>
-              {row.node.hidden ? "Show" : "Hide"} in {state.name}
+            <ContextMenuItem onSelect={() => toggleHiddenRow(session, row)}>
+              {hidden ? "Show" : "Hide"} in {state.name}
             </ContextMenuItem>
             {row.depth > 1 && <ContextMenuItem onSelect={() => duplicate(session, row)}>Duplicate</ContextMenuItem>}
           </>
@@ -544,14 +546,12 @@ function rename(session: Session, row: Row, name: string): void {
   session.store.updateContainer(row.design.key, "Rename layer", (container) => renameLayer(container, nodeId, name))
 }
 
-function toggleHidden(session: Session, row: Row): void {
+function toggleHiddenRow(session: Session, row: Row): void {
   if (!row.node) return
   const nodeId = row.node.id
-  session.store.updateContainer(row.design.key, "Toggle visibility", (container) => {
-    const state = activeState(container)
-    const current = state.overrides?.[nodeId]?.hidden ?? row.node!.hidden ?? false
-    return editNode(container, boardTarget(container, state.id), nodeId, { hidden: !current })
-  })
+  session.store.updateContainer(row.design.key, "Toggle visibility", (container) =>
+    toggleHidden(container, activeState(container).id, [nodeId])
+  )
 }
 
 export function duplicate(session: Session, row: { design: ContainerEntry; node?: DesignNode }): void {

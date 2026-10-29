@@ -13,6 +13,7 @@ import {
   type NodeChange,
   type NodeLocation,
   nodeIds,
+  nodeOnBoard,
   type PatchField,
   patchSize,
   patchWith,
@@ -55,6 +56,24 @@ export interface InnerNode {
 /** Whether a selected node id points inside an instance rather than at one of the design's own nodes. */
 export function isInnerPath(id: string): boolean {
   return id.includes("/")
+}
+
+/**
+ * A layer as a design's board shows it in a state: one of the design's own nodes with the variant options the board
+ * shows, the state's changes and the params it binds, or a node inside an instance as that copy shows it there. What
+ * the text editor opens on.
+ */
+export function layerOnBoard(
+  container: ContainerSpec,
+  id: string,
+  library: ComponentLibrary,
+  state?: StateSpec
+): DesignNode | undefined {
+  if (!isInnerPath(id)) {
+    const node = findNode(container.root, id)
+    return node && nodeOnBoard(container, node, state)
+  }
+  return locateInner(container, id, library, { state, variants: container.view?.variants })?.shown
 }
 
 /**

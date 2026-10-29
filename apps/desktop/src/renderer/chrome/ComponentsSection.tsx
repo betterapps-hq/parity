@@ -20,6 +20,7 @@ import { extractIntoComponent, instancesOf } from "./components.ts"
 import { ChoiceInput, ValueInput } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import { PanelSection } from "./PanelSection.tsx"
+import { valueKind } from "./prop-values.ts"
 import { revealSelection } from "./reveal.ts"
 
 /**
@@ -150,7 +151,9 @@ export function ParamsSection({ entry }: { entry: ContainerEntry }) {
                   <span className="truncate font-mono text-xs">{name}</span>
                 </Hint>
                 <ValueInput
-                  value={param.default ?? (param.type === "boolean" ? false : "")}
+                  value={param.default}
+                  kind={valueKind(param.default, param.type)}
+                  title={`${name} default`}
                   onCommit={(value) =>
                     session.store.updateContainer(entry.key, `Change ${name} default`, (container) => ({
                       ...container,

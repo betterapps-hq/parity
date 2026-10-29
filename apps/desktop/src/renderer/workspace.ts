@@ -208,7 +208,7 @@ export class Workspace {
           const before = current.session.info.guestUrl
           this.replace(id, {
             ...current,
-            session: { ...current.session, info, loaded, tokens: tokenStore(info, loaded) }
+            session: { ...current.session, info, loaded, tokens: tokenStore(info, loaded, current.session.store) }
           })
           if (before !== info.guestUrl) releaseGuest(before)
         } catch (error) {
@@ -232,7 +232,7 @@ export class Workspace {
       const before = current.session.info.guestUrl
       this.replace(tab.id, {
         ...current,
-        session: { ...current.session, info, loaded, tokens: tokenStore(info, loaded) }
+        session: { ...current.session, info, loaded, tokens: tokenStore(info, loaded, current.session.store) }
       })
       releaseGuest(before)
     } catch (error) {
@@ -429,7 +429,7 @@ async function createSession(info: ProjectInfo): Promise<ProjectSession> {
     store,
     components,
     selection: new SelectionStore(),
-    tokens: tokenStore(info, loaded),
+    tokens: tokenStore(info, loaded, store),
     errors: info.documents.flatMap(({ path, error }) => (error ? [{ path, error }] : []))
   }
   sayWhenSavesFail(session)
@@ -463,9 +463,14 @@ function inferComponents(info: ProjectInfo, components: ComponentStore): void {
     .catch((error: unknown) => console.warn("Component props couldn't be inferred", error))
 }
 
-function tokenStore(info: ProjectInfo, loaded: LoadedGuest): TokenStore {
-  return new TokenStore(loaded.tokens, loaded.sheet, (changes) =>
-    window.canvasHost.request("tokens.save", { projectId: info.id, changes })
+/** A project's tokens, edited through its design store's history and written to its stylesheet when it's saved. */
+function tokenStore(info: ProjectInfo, loaded: LoadedGuest, store: DesignStore): TokenStore {
+  return new TokenStore(
+    loaded.tokens,
+    loaded.sheet,
+    (changes) => window.canvasHost.request("tokens.save", { projectId: info.id, changes }),
+    store,
+    info.styles?.stylesheet
   )
 }
 
