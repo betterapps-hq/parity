@@ -16,6 +16,7 @@ import {
   scriptRunning
 } from "@parity/core"
 import type * as Vite from "vite"
+import { dependencySourceMaps } from "./dependency-maps.ts"
 
 /** Only used to explain a miss: the config itself is found by the project's own Vite. */
 const configPattern = /^vite\.config\.[cm]?[jt]s$/
@@ -66,7 +67,7 @@ export const viteBuilder: BuilderAdapter = {
           .filter((component) => !component.library)
           .map((component) => component.path)
       },
-      plugins: [guestPlugin(options, vite.normalizePath(options.rendererGuestPath))]
+      plugins: [guestPlugin(options, vite.normalizePath(options.rendererGuestPath)), dependencySourceMaps()]
     })
     await server.listen()
     const origin = server.resolvedUrls?.local[0]

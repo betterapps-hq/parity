@@ -1,4 +1,5 @@
 import { resolve } from "node:path"
+import { dependencySourceMaps } from "@parity/builder-vite/dependency-maps"
 import tailwindcss from "@tailwindcss/vite"
 import react from "@vitejs/plugin-react"
 import { defineConfig } from "vite"
@@ -17,7 +18,8 @@ export default defineConfig({
   // Settings such as the tldraw license key come from `.env.local` beside this file, for the app and Storybook alike.
   envDir: import.meta.dirname,
   base: "./",
-  plugins: [react(), tailwindcss()],
+  // Dependencies come without their source maps inlined, which cost the window more memory than their code.
+  plugins: [react(), tailwindcss(), dependencySourceMaps()],
   resolve: {
     alias: { "@": resolve(import.meta.dirname, "src/renderer") }
   },

@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./dependency-maps": "./src/dependency-maps.ts"
   },
   "dependencies": {
     "@parity/core": "workspace:*"
