@@ -2,7 +2,10 @@ import {
   type ComponentInfo,
   type ComponentSource,
   type DesignNode,
+  isSampleElement,
+  isSampleRender,
   type SampleChild,
+  type SampleRender,
   type ImageCredit,
   generateId,
   insertNode,
@@ -176,7 +179,7 @@ export function withLibraryContext(
     taken.add(next)
     return next
   }
-  const build = (child: SampleChild): DesignNode => {
+  const build = (child: Exclude<SampleChild, SampleRender>): DesignNode => {
     if (typeof child === "string") return { type: "text", id: id(), text: child }
     // An HTML element in a sample stands for any single element a part clones: text is one.
     if (!child.component.includes("/")) {
@@ -185,33 +188,67 @@ export function withLibraryContext(
     }
     return component(child.component, child.props, child.children)
   }
+  const nodes = (children: SampleChild[]) => children.flatMap((child) => (isSampleRender(child) ? [] : [build(child)]))
+  /**
+   * Props and children as a node holds them. A render function (`renderInput`, function children) is a `$render:`
+   * slot of the nodes it returns, `$renderWith:` when what it's called with is spread onto them, so its nodes can be
+   * edited like any others.
+   */
+  const held = (props: Record<string, unknown>, children: SampleChild[] = []) => {
+    const plain: Record<string, unknown> = {}
+    const slots: Record<string, DesignNode[]> = {}
+    const renderSlot = (prop: string, render: SampleRender) => {
+      const pass = render.pass ? `?pass=${render.pass.join(",")}` : ""
+      slots[`${render.spread ? "$renderWith" : "$render"}:${prop}${pass}`] = nodes(render.$render)
+    }
+    for (const [key, value] of Object.entries(props)) {
+      if (isSampleRender(value)) renderSlot(key, value)
+      // Elements as a prop's value go in a slot of that name, which the canvas passes as the prop.
+      else if (isSampleElement(value)) slots[key] = nodes(value.$element)
+      else plain[key] = value
+    }
+    const render = children.find(isSampleRender)
+    if (render) renderSlot("children", render)
+    const rest = nodes(children)
+    if (rest.length > 0) slots.children = rest
+    return { props: plain, slots }
+  }
   const component = (name: string, props?: Record<string, unknown>, children?: SampleChild[]): DesignNode => {
-    const merged = { ...sources[name]?.sample?.props, ...props }
+    const { props: merged, slots } = held({ ...sources[name]?.sample?.props, ...props }, children)
     return {
       type: "component",
       id: id(),
       component: name,
       ...(Object.keys(merged).length > 0 ? { props: merged } : {}),
-      ...(children?.length ? { slots: { children: children.map(build) } } : {})
+      ...(Object.keys(slots).length > 0 ? { slots } : {})
     }
   }
   let placed: DesignNode = node
   const sample = source.sample
   if (sample) {
-    const props: Record<string, unknown> = { ...sample.props, ...node.props }
+    const { props, slots } = held({ ...sample.props, ...node.props }, sample.children)
     if (sample.children?.length) delete props.children
     const { props: _label, ...rest } = node
     placed = {
       ...rest,
       ...(Object.keys(props).length > 0 ? { props } : {}),
-      ...(sample.children?.length ? { slots: { ...node.slots, children: sample.children.map(build) } } : {})
+      ...(Object.keys(slots).length > 0 ? { slots: { ...node.slots, ...slots } } : {})
     }
   }
   const parents = source.parents ?? []
   const nearest = parents.findLastIndex((parent) => around.includes(parent))
-  for (const parent of parents.slice(nearest + 1).reverse()) {
+  // An optional level (`DropdownMenuGroup`) comes only with a missing parent outside it, when the structure is new.
+  const optional = new Set(source.optionalParents ?? [])
+  const missing = parents.slice(nearest + 1)
+  const added = missing.filter(
+    (parent, index) => !optional.has(parent) || missing.slice(0, index).some((outer) => !optional.has(outer))
+  )
+  for (const parent of added.reverse()) {
     const wrapper = component(parent)
-    placed = wrapper.type === "component" ? { ...wrapper, slots: { children: [placed] } } : placed
+    // A parent that calls its children gets the part in a render slot, as its sample's own children are.
+    const calls = sources[parent]?.sample?.children?.find(isSampleRender)
+    const slot = calls ? `$render:children${calls.pass ? `?pass=${calls.pass.join(",")}` : ""}` : "children"
+    placed = wrapper.type === "component" ? { ...wrapper, slots: { [slot]: [placed] } } : placed
   }
   return placed
 }

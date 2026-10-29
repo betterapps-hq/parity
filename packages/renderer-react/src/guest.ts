@@ -10,11 +10,13 @@ import type {
   RenderNode
 } from "@parity/core"
 import {
+  cloneElement,
   Component,
   type ComponentType,
   createContext,
   createElement,
   Fragment,
+  isValidElement,
   type ReactNode,
   useContext,
   useEffect,
@@ -273,6 +275,21 @@ export function createGuest(init: GuestInit): Guest {
         let children: ReactNode[] | undefined
         for (const [slot, nodes] of Object.entries(node.slots)) {
           const rendered = nodes.map((child, index) => toReact(child, index))
+          // A `$render:` slot is a function the component calls (`renderInput`, function children); `$renderWith:`
+          // spreads what it's called with onto the one element it returns, and `?pass=a,b` gives it to those props.
+          const render = /^\$render(With)?:([^?]+)(?:\?pass=(.+))?$/.exec(slot)
+          if (render) {
+            const [, spread, prop, pass] = render
+            const only = rendered.length === 1 && isValidElement(rendered[0]) ? rendered[0] : undefined
+            props[prop!] = (argument: unknown) => {
+              if (only && pass)
+                return cloneElement(only, Object.fromEntries(pass.split(",").map((name) => [name, argument])))
+              if (only && spread && typeof argument === "object" && argument)
+                return cloneElement(only, argument as Props)
+              return only ?? rendered
+            }
+            continue
+          }
           // The default slot becomes children; any other slot is a node-valued prop.
           if (slot === "children") children = rendered
           else props[slot] = rendered.length === 1 ? rendered[0] : rendered

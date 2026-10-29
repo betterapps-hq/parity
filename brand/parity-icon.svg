@@ -1,38 +1,47 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" fill="none">
   <title>Parity</title>
   <!--
-    Code's angle brackets closing into the diamond design tools mark components with, around the component itself:
-    in Parity, a component in your code is the one you design with. Drawn for 48 pixels and up;
-    parity-icon-small.svg is drawn for 16 to 32.
+    An equals sign in a designer's terms. The top bar is a design on the canvas, selected, with its resize handles.
+    The bottom bar is the same shape built and running. The design is a translucent copy of it, because in Parity
+    they're the same thing. Drawn for 48 pixels and up; parity-icon-small.svg is drawn for 16 to 32.
   -->
   <defs>
-    <linearGradient id="tile" x1="96" y1="48" x2="928" y2="976" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#8A74FF"/>
-      <stop offset="0.5" stop-color="#5432E6"/>
-      <stop offset="1" stop-color="#2C129E"/>
+    <linearGradient id="tile" x1="512" y1="0" x2="512" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2C2858"/>
+      <stop offset="1" stop-color="#0D0B22"/>
     </linearGradient>
-    <radialGradient id="sheen" cx="0.25" cy="0" r="0.85">
-      <stop stop-color="#FFFFFF" stop-opacity="0.24"/>
-      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    <radialGradient id="sheen" cx="0.28" cy="0" r="0.9">
+      <stop stop-color="#8B7CFF" stop-opacity="0.26"/>
+      <stop offset="1" stop-color="#8B7CFF" stop-opacity="0"/>
     </radialGradient>
-    <linearGradient id="glow" x1="425" y1="425" x2="599" y2="599" gradientUnits="userSpaceOnUse">
+    <linearGradient id="built" x1="212" y1="0" x2="812" y2="0" gradientUnits="userSpaceOnUse">
       <stop stop-color="#54D8F4"/>
       <stop offset="0.5" stop-color="#7A7EFF"/>
       <stop offset="1" stop-color="#D85CE1"/>
     </linearGradient>
-    <filter id="halo" x="0" y="0" width="1024" height="1024" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-      <feGaussianBlur stdDeviation="46"/>
+    <linearGradient id="gloss" x1="0" y1="572" x2="0" y2="724" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.32"/>
+      <stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="glow" x="0" y="0" width="1024" height="1024" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="40"/>
     </filter>
+    <clipPath id="beside-handles">
+      <path clip-rule="evenodd" d="M0 0H1024V1024H0ZM172 260h80v80h-80ZM772 260h80v80h-80ZM172 412h80v80h-80ZM772 412h80v80h-80Z"/>
+    </clipPath>
   </defs>
 
   <rect width="1024" height="1024" rx="232" fill="url(#tile)"/>
   <rect width="1024" height="1024" rx="232" fill="url(#sheen)"/>
-  <rect x="2" y="2" width="1020" height="1020" rx="230" stroke="#FFFFFF" stroke-opacity="0.14" stroke-width="4"/>
+  <rect x="2" y="2" width="1020" height="1020" rx="230" stroke="#FFFFFF" stroke-opacity="0.09" stroke-width="4"/>
 
-  <!-- The brackets, < and >, nearly closed. -->
-  <path d="M468 266L222 512L468 758M556 266L802 512L556 758" stroke="#FFFFFF" stroke-width="60" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- The design: a copy of the shape below, selected on the canvas. -->
+  <rect x="212" y="300" width="600" height="152" rx="48" fill="url(#built)" fill-opacity="0.32" clip-path="url(#beside-handles)"/>
+  <path d="M252 300H772M252 452H772M212 340V412M812 340V412" stroke="#F5F4FF" stroke-width="22"/>
+  <path fill="#F5F4FF" fill-rule="evenodd" d="M172 260h80v80h-80ZM194 282v36h36v-36ZM772 260h80v80h-80ZM794 282v36h36v-36ZM172 412h80v80h-80ZM194 434v36h36v-36ZM772 412h80v80h-80ZM794 434v36h36v-36Z"/>
 
-  <!-- The component, lit in Parity's colors. -->
-  <path d="M512 425L599 512L512 599L425 512Z" fill="url(#glow)" stroke="url(#glow)" stroke-width="72" stroke-linejoin="round" opacity="0.9" filter="url(#halo)"/>
-  <path d="M512 425L599 512L512 599L425 512Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="42" stroke-linejoin="round"/>
+  <!-- The code: the shape, built and running. -->
+  <rect x="212" y="594" width="600" height="152" rx="48" fill="url(#built)" opacity="0.5" filter="url(#glow)"/>
+  <rect x="212" y="572" width="600" height="152" rx="48" fill="url(#built)"/>
+  <rect x="212" y="572" width="600" height="152" rx="48" fill="url(#gloss)"/>
 </svg>

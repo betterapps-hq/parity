@@ -201,11 +201,19 @@ export function componentSources(info: ProjectInfo, entries: readonly ContainerE
   }
   list.push(...ownSources(info, all))
   for (const library of info.libraries.filter((candidate) => candidate.kind !== "icons")) {
+    const own = all.filter(([, source]) => source.library === library.id)
+    // Parts the library renders inside its own components come last, apart, so the list leads with what's placed.
+    const internal = own.filter(([, source]) => source.internal)
     list.push({
       id: library.id,
       title: library.name,
       icon: <Library className="size-3.5 text-muted-foreground" />,
-      families: families(all.filter(([, source]) => source.library === library.id)),
+      families: [
+        ...families(own.filter(([, source]) => !source.internal)),
+        ...(internal.length > 0
+          ? [{ name: "Internal parts", items: families(internal).flatMap((family) => family.items) }]
+          : [])
+      ],
       library
     })
   }

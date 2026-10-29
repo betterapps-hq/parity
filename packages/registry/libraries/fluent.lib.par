@@ -24592,8 +24592,13 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "collapseMotion": {
+              "duration": 600
+            }
+          },
           "children": [
-            "Accordion Panel 1"
+            "Expand/collapse timing controlled by duration"
           ]
         },
         "fingerprint": "6c108eb3",
@@ -24615,9 +24620,16 @@
         "group": "ColorPicker",
         "sample": {
           "props": {
-            "aria-label": "Vertical alpha",
-            "transparency": true,
-            "vertical": true
+            "aria-label": "Opacity",
+            "color": {
+              "h": 320,
+              "s": 0.7,
+              "v": 0.8,
+              "a": 0.75
+            },
+            "input": {},
+            "rail": {},
+            "thumb": {}
           }
         },
         "fingerprint": "62c18c49",
@@ -24703,9 +24715,11 @@
         "group": "Avatar",
         "sample": {
           "props": {
-            "active": "active",
-            "activeAppearance": "ring",
-            "name": "Ring"
+            "active": "inactive",
+            "name": "Isaac Fielder",
+            "badge": {
+              "status": "away"
+            }
           }
         },
         "fingerprint": "a72598f0",
@@ -24731,14 +24745,37 @@
         "group": "Avatar",
         "sample": {
           "props": {
-            "layout": "spread"
+            "layout": "stack"
           },
           "children": [
             {
-              "component": "AvatarGroupItem"
+              "component": "AvatarGroupItem",
+              "props": {
+                "root": {},
+                "avatar": {}
+              }
             },
             {
-              "component": "AvatarGroupPopover"
+              "component": "AvatarGroupPopover",
+              "props": {
+                "triggerButton": {},
+                "content": {},
+                "popoverSurface": {},
+                "tooltip": {
+                  "content": {},
+                  "relationship": "label"
+                }
+              },
+              "children": [
+                {
+                  "component": "AvatarGroupItem",
+                  "props": {
+                    "root": {},
+                    "avatar": {},
+                    "overflowLabel": {}
+                  }
+                }
+              ]
             }
           ]
         },
@@ -24755,9 +24792,20 @@
         "as": "forwardRef",
         "group": "Avatar",
         "parents": [
-          "AvatarGroup"
+          "AvatarGroup",
+          "AvatarGroupPopover"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "AvatarGroupPopover"
+        ],
+        "sample": {
+          "props": {
+            "root": {},
+            "avatar": {},
+            "overflowLabel": {}
+          }
+        },
         "fingerprint": "a469f9d7",
         "props": {
           "active?": "6328de",
@@ -24787,8 +24835,24 @@
         "sample": {
           "props": {
             "children": "Text",
-            "indicator": "count"
-          }
+            "triggerButton": {},
+            "content": {},
+            "popoverSurface": {},
+            "tooltip": {
+              "content": {},
+              "relationship": "label"
+            }
+          },
+          "children": [
+            {
+              "component": "AvatarGroupItem",
+              "props": {
+                "root": {},
+                "avatar": {},
+                "overflowLabel": {}
+              }
+            }
+          ]
         },
         "fingerprint": "9c903a38",
         "props": {
@@ -24944,8 +25008,7 @@
         "group": "Breadcrumb",
         "sample": {
           "props": {
-            "aria-label": "Small breadcrumb example with buttons",
-            "size": "small"
+            "aria-label": "Breadcrumb default example"
           },
           "children": [
             {
@@ -24953,6 +25016,9 @@
               "children": [
                 {
                   "component": "BreadcrumbButton",
+                  "props": {
+                    "href": "https://www.bing.com/"
+                  },
                   "children": [
                     "Item 1"
                   ]
@@ -24967,6 +25033,9 @@
               "children": [
                 {
                   "component": "BreadcrumbButton",
+                  "props": {
+                    "href": "https://www.bing.com/"
+                  },
                   "children": [
                     "Item 2"
                   ]
@@ -24996,8 +25065,12 @@
           "BreadcrumbItem"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Breadcrumb"
+        ],
         "sample": {
           "props": {
+            "href": "https://www.bing.com/",
             "current": true
           },
           "children": [
@@ -25041,6 +25114,7 @@
             {
               "component": "BreadcrumbButton",
               "props": {
+                "href": "https://www.bing.com/",
                 "current": true
               },
               "children": [
@@ -25206,7 +25280,19 @@
               "component": "CardPreview"
             },
             {
-              "component": "CardHeader"
+              "component": "CardHeader",
+              "props": {
+                "header": {
+                  "$element": [
+                    "App Name"
+                  ]
+                },
+                "description": {
+                  "$element": [
+                    "Developer"
+                  ]
+                }
+              }
             },
             "Donut chocolate bar oat cake. Dragée tiramisu lollipop bear ",
             {
@@ -25263,6 +25349,48 @@
           "Card"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "image": {
+              "as": "img",
+              "alt": "PowerPoint app logo"
+            },
+            "header": {
+              "$element": [
+                {
+                  "component": "Text",
+                  "props": {
+                    "weight": "semibold"
+                  },
+                  "children": [
+                    "Team Offsite 2020"
+                  ]
+                }
+              ]
+            },
+            "description": {
+              "$element": [
+                {
+                  "component": "Caption1",
+                  "children": [
+                    "OneDrive &gt; Presentations"
+                  ]
+                }
+              ]
+            },
+            "action": {
+              "$element": [
+                {
+                  "component": "Button",
+                  "props": {
+                    "appearance": "transparent",
+                    "aria-label": "More actions"
+                  }
+                }
+              ]
+            }
+          }
+        },
         "fingerprint": "c3013934",
         "props": {
           "action?": "783c3e",
@@ -25296,7 +25424,8 @@
           "props": {
             "groupSize": 1,
             "circular": true,
-            "draggable": true
+            "draggable": true,
+            "activeIndex": 0
           },
           "children": [
             {
@@ -25355,11 +25484,29 @@
             {
               "component": "CarouselNavContainer",
               "props": {
-                "layout": "inline"
+                "layout": "inline",
+                "next": {
+                  "aria-label": "go to next"
+                },
+                "prev": {
+                  "aria-label": "go to prev"
+                },
+                "autoplay": {
+                  "aria-label": "Carousel autoplay"
+                }
               },
               "children": [
                 {
-                  "component": "CarouselNav"
+                  "component": "CarouselNav",
+                  "children": [
+                    {
+                      "$render": [
+                        {
+                          "component": "CarouselNavButton"
+                        }
+                      ]
+                    }
+                  ]
                 }
               ]
             }
@@ -25414,6 +25561,10 @@
       "CarouselButton": {
         "as": "forwardRef",
         "group": "Carousel",
+        "parents": [
+          "Carousel"
+        ],
+        "parentsFrom": "example",
         "sample": {
           "props": {
             "navType": "prev",
@@ -25468,13 +25619,20 @@
           "CarouselNavContainer"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "CarouselNavContainer"
+        ],
         "sample": {
+          "props": {
+            "appearance": "brand"
+          },
           "children": [
             {
-              "component": "CarouselNavButton"
-            },
-            {
-              "component": "CarouselNavImageButton"
+              "$render": [
+                {
+                  "component": "CarouselNavButton"
+                }
+              ]
             }
           ]
         },
@@ -25496,6 +25654,10 @@
           "CarouselNav"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "CarouselNavContainer",
+          "Carousel"
+        ],
         "fingerprint": "8e8ebe9d",
         "props": {
           "as?": "00874d",
@@ -25513,11 +25675,32 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "layout": "inline"
+            "layout": "inline",
+            "autoplayTooltip": {
+              "content": "Autoplay",
+              "relationship": "label"
+            },
+            "nextTooltip": {
+              "content": "Go to next",
+              "relationship": "label"
+            },
+            "prevTooltip": {
+              "content": "Go to prev",
+              "relationship": "label"
+            }
           },
           "children": [
             {
-              "component": "CarouselNav"
+              "component": "CarouselNav",
+              "children": [
+                {
+                  "$render": [
+                    {
+                      "component": "CarouselNavButton"
+                    }
+                  ]
+                }
+              ]
             }
           ]
         },
@@ -25544,9 +25727,13 @@
           "CarouselNav"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "CarouselNavContainer",
+          "Carousel"
+        ],
         "sample": {
           "props": {
-            "image": "Text"
+            "image": {}
           }
         },
         "fingerprint": "0a1e1c70",
@@ -25701,7 +25888,8 @@
             "value": "open",
             "name": "state",
             "label": "open",
-            "capture": "user"
+            "capture": "user",
+            "checked": false
           }
         },
         "fingerprint": "1522d1a9",
@@ -25730,7 +25918,20 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "aria-label": "Saturation and value"
+            "aria-label": "Saturation and value",
+            "color": {
+              "h": 320,
+              "s": 0.7,
+              "v": 0.8,
+              "a": 0.75
+            },
+            "inputX": {
+              "aria-label": "Saturation"
+            },
+            "inputY": {
+              "aria-label": "Value"
+            },
+            "thumb": {}
           }
         },
         "fingerprint": "f7174add",
@@ -25752,20 +25953,36 @@
         "group": "ColorPicker",
         "sample": {
           "props": {
-            "aria-label": "Color controls"
+            "aria-label": "Color controls",
+            "color": {
+              "h": 320,
+              "s": 0.7,
+              "v": 0.8,
+              "a": 0.75
+            }
           },
           "children": [
             {
               "component": "ColorArea",
               "props": {
-                "aria-label": "Saturation and value"
+                "aria-label": "Saturation and value",
+                "inputX": {
+                  "aria-label": "Saturation"
+                },
+                "inputY": {
+                  "aria-label": "Value"
+                },
+                "thumb": {}
               }
             },
             {
               "component": "ColorSlider",
               "props": {
                 "aria-label": "Hue",
-                "channel": "hue"
+                "channel": "hue",
+                "input": {},
+                "rail": {},
+                "thumb": {}
               }
             }
           ]
@@ -25789,8 +26006,17 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
+            "aria-label": "Vertical hue slider",
+            "color": {
+              "h": 320,
+              "s": 0.7,
+              "v": 0.8,
+              "a": 0.75
+            },
             "vertical": true,
-            "aria-label": "Vertical Hue"
+            "input": {},
+            "rail": {},
+            "thumb": {}
           }
         },
         "fingerprint": "1e730585",
@@ -25851,9 +26077,18 @@
         "group": "Combobox",
         "sample": {
           "props": {
+            "root": {},
+            "input": {},
+            "listbox": {},
             "id": "combobox-controlled",
             "placeholder": "Select an animal",
-            "clearable": true
+            "clearable": true,
+            "value": "Dog",
+            "selectedOptions": [
+              "Dog"
+            ],
+            "expandIcon": {},
+            "clearIcon": {}
           }
         },
         "fingerprint": "56bf4cd2",
@@ -25950,7 +26185,72 @@
         "group": "Table",
         "sample": {
           "props": {
-            "items": [],
+            "items": [
+              {
+                "file": {
+                  "label": "Meeting notes"
+                },
+                "author": {
+                  "label": "Max Mustermann",
+                  "status": "available"
+                },
+                "lastUpdated": {
+                  "label": "7h ago",
+                  "timestamp": 1
+                },
+                "lastUpdate": {
+                  "label": "You edited this"
+                }
+              },
+              {
+                "file": {
+                  "label": "Thursday presentation"
+                },
+                "author": {
+                  "label": "Erika Mustermann",
+                  "status": "busy"
+                },
+                "lastUpdated": {
+                  "label": "Yesterday at 1:45 PM",
+                  "timestamp": 2
+                },
+                "lastUpdate": {
+                  "label": "You recently opened this"
+                }
+              },
+              {
+                "file": {
+                  "label": "Training recording"
+                },
+                "author": {
+                  "label": "John Doe",
+                  "status": "away"
+                },
+                "lastUpdated": {
+                  "label": "Yesterday at 1:45 PM",
+                  "timestamp": 2
+                },
+                "lastUpdate": {
+                  "label": "You recently opened this"
+                }
+              },
+              {
+                "file": {
+                  "label": "Purchase order"
+                },
+                "author": {
+                  "label": "Jane Doe",
+                  "status": "offline"
+                },
+                "lastUpdated": {
+                  "label": "Tue at 9:30 AM",
+                  "timestamp": 3
+                },
+                "lastUpdate": {
+                  "label": "You shared this in a Teams chat"
+                }
+              }
+            ],
             "columns": [],
             "sortable": true,
             "selectionMode": "multiselect",
@@ -25961,12 +26261,53 @@
               "component": "DataGridHeader",
               "children": [
                 {
-                  "component": "DataGridRow"
+                  "component": "DataGridRow",
+                  "props": {
+                    "selectionCell": {
+                      "checkboxIndicator": {
+                        "aria-label": "Select all rows"
+                      }
+                    }
+                  },
+                  "children": [
+                    {
+                      "$render": [
+                        {
+                          "component": "DataGridHeaderCell"
+                        }
+                      ]
+                    }
+                  ]
                 }
               ]
             },
             {
-              "component": "DataGridBody"
+              "component": "DataGridBody",
+              "children": [
+                {
+                  "$render": [
+                    {
+                      "component": "DataGridRow",
+                      "props": {
+                        "selectionCell": {
+                          "checkboxIndicator": {
+                            "aria-label": "Select row"
+                          }
+                        }
+                      },
+                      "children": [
+                        {
+                          "$render": [
+                            {
+                              "component": "DataGridCell"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
             }
           ]
         },
@@ -26005,6 +26346,33 @@
           "DataGrid"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "$render": [
+                {
+                  "component": "DataGridRow",
+                  "props": {
+                    "selectionCell": {
+                      "checkboxIndicator": {
+                        "aria-label": "Select row"
+                      }
+                    }
+                  },
+                  "children": [
+                    {
+                      "$render": [
+                        {
+                          "component": "DataGridCell"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
         "fingerprint": "e71bf7b8",
         "props": {
           "as?": "693d0a",
@@ -26017,7 +26385,7 @@
         "group": "Table",
         "parents": [
           "DataGrid",
-          "DataGridHeader",
+          "DataGridBody",
           "DataGridRow"
         ],
         "parentsFrom": "example",
@@ -26045,7 +26413,23 @@
         "sample": {
           "children": [
             {
-              "component": "DataGridRow"
+              "component": "DataGridRow",
+              "props": {
+                "selectionCell": {
+                  "checkboxIndicator": {
+                    "aria-label": "Select all rows"
+                  }
+                }
+              },
+              "children": [
+                {
+                  "$render": [
+                    {
+                      "component": "DataGridHeaderCell"
+                    }
+                  ]
+                }
+              ]
             }
           ]
         },
@@ -26082,16 +26466,29 @@
         "group": "Table",
         "parents": [
           "DataGrid",
-          "DataGridHeader"
+          "DataGridHeader",
+          "DataGridBody"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "DataGridBody",
+          "DataGridHeader"
+        ],
         "sample": {
+          "props": {
+            "selectionCell": {
+              "checkboxIndicator": {
+                "aria-label": "Select all rows"
+              }
+            }
+          },
           "children": [
             {
-              "component": "DataGridCell"
-            },
-            {
-              "component": "DataGridHeaderCell"
+              "$render": [
+                {
+                  "component": "DataGridHeaderCell"
+                }
+              ]
             }
           ]
         },
@@ -26204,6 +26601,9 @@
           "DialogBody"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "DialogBody"
+        ],
         "sample": {
           "children": [
             {
@@ -26426,8 +26826,11 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "action": null
+          },
           "children": [
-            "Delete this campaign?"
+            "Dialog Title"
           ]
         },
         "fingerprint": "4e03703d",
@@ -26442,12 +26845,15 @@
         "as": "function",
         "group": "Dialog",
         "parents": [
-          "Dialog",
           "DialogSurface",
-          "DialogBody",
+          "Dialog",
           "DialogActions"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "DialogActions",
+          "DialogSurface"
+        ],
         "sample": {
           "props": {
             "action": "close"
@@ -26511,7 +26917,9 @@
         "group": "Drawer",
         "sample": {
           "props": {
+            "type": "overlay",
             "separator": true,
+            "open": false,
             "unmountOnClose": false
           },
           "children": [
@@ -26520,6 +26928,19 @@
               "children": [
                 {
                   "component": "DrawerHeaderTitle",
+                  "props": {
+                    "action": {
+                      "$element": [
+                        {
+                          "component": "Button",
+                          "props": {
+                            "appearance": "subtle",
+                            "aria-label": "Close"
+                          }
+                        }
+                      ]
+                    }
+                  },
                   "children": [
                     "Default Drawer"
                   ]
@@ -26595,12 +27016,30 @@
             },
             {
               "component": "DrawerHeaderTitle",
+              "props": {
+                "heading": {
+                  "as": "h1"
+                }
+              },
               "children": [
                 "Drawer with custom tag"
               ]
             },
             {
               "component": "DrawerHeaderTitle",
+              "props": {
+                "action": {
+                  "$element": [
+                    {
+                      "component": "Button",
+                      "props": {
+                        "appearance": "subtle",
+                        "aria-label": "Close"
+                      }
+                    }
+                  ]
+                }
+              },
               "children": [
                 "Drawer with title and action"
               ]
@@ -26636,8 +27075,22 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "action": {
+              "$element": [
+                {
+                  "component": "Button",
+                  "props": {
+                    "appearance": "subtle",
+                    "aria-label": "Close"
+                  }
+                }
+              ]
+            }
+          },
           "children": [
             "Drawer with",
+            "600",
             "px size"
           ]
         },
@@ -26661,9 +27114,17 @@
         "group": "Combobox",
         "sample": {
           "props": {
+            "button": {},
+            "listbox": {},
             "id": "dropdown-controlled",
             "placeholder": "Select an animal",
-            "clearable": true
+            "clearable": true,
+            "value": "Dog",
+            "selectedOptions": [
+              "Dog"
+            ],
+            "expandIcon": {},
+            "clearButton": {}
           }
         },
         "fingerprint": "a163b979",
@@ -26717,9 +27178,14 @@
         "group": "Field",
         "sample": {
           "props": {
-            "label": "Best pet",
-            "required": true,
-            "hint": "Try picking 'Cat'"
+            "label": {
+              "children": "Username"
+            },
+            "validationState": "error",
+            "validationMessage": {
+              "children": "This username is already taken."
+            },
+            "validationMessageIcon": {}
           }
         },
         "fingerprint": "b8e60573",
@@ -26759,6 +27225,30 @@
                 "aria-setsize": 2,
                 "aria-posinset": 1,
                 "itemType": "branch"
+              },
+              "children": []
+            },
+            {
+              "component": "FlatTreeItem",
+              "props": {
+                "parentValue": "1",
+                "value": "1-1",
+                "aria-level": 2,
+                "aria-setsize": 2,
+                "aria-posinset": 1,
+                "itemType": "leaf"
+              },
+              "children": []
+            },
+            {
+              "component": "FlatTreeItem",
+              "props": {
+                "parentValue": "1",
+                "value": "1-2",
+                "aria-level": 2,
+                "aria-setsize": 2,
+                "aria-posinset": 2,
+                "itemType": "leaf"
               },
               "children": []
             },
@@ -26849,6 +27339,11 @@
       "Hamburger": {
         "as": "forwardRef",
         "group": "Nav",
+        "sample": {
+          "props": {
+            "aria-expanded": true
+          }
+        },
         "fingerprint": "908e487b",
         "props": {
           "appearance?": "cb10e9",
@@ -26936,11 +27431,14 @@
         "group": "Infolabel",
         "sample": {
           "props": {
-            "info": "Example info",
-            "required": true
+            "info": {},
+            "infoButton": {},
+            "required": {
+              "children": "*"
+            }
           },
           "children": [
-            "Required label"
+            "Example label"
           ]
         },
         "fingerprint": "beaa196d",
@@ -26963,8 +27461,9 @@
         "group": "Drawer",
         "sample": {
           "props": {
+            "surfaceMotion": {},
             "separator": true,
-            "open": true
+            "open": false
           }
         },
         "fingerprint": "f09268ea",
@@ -27056,7 +27555,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "secondaryText": "appearance=filled",
+            "icon": {},
             "hasSecondaryAction": true
           },
           "children": [
@@ -27100,8 +27599,9 @@
         "sample": {
           "children": [
             "Controlled Range Slider [ Start:",
+            "25",
             "/ End:",
-            "]"
+            "75"
           ]
         },
         "fingerprint": "0a73b970",
@@ -27165,22 +27665,83 @@
         "as": "forwardRef",
         "group": "List",
         "sample": {
+          "props": {
+            "navigable": true,
+            "truncateHeader": true,
+            "truncateContent": true
+          },
           "children": [
             {
               "component": "ListItem",
-              "children": []
+              "props": {
+                "value": "robert",
+                "media": {
+                  "$element": [
+                    {
+                      "component": "Image",
+                      "props": {
+                        "src": "https://fabricweb.azureedge.net/fabric-website/assets/images/avatar/RobertTolbert.jpg",
+                        "alt": "",
+                        "shape": "circular",
+                        "width": 32
+                      }
+                    }
+                  ]
+                },
+                "header": "Robert Tolbert",
+                "headerMedia": "7:26:56 AM"
+              },
+              "children": [
+                "Program the sensor to the SAS alarm through the haptic SQL c"
+              ]
             },
             {
               "component": "ListItem",
-              "children": []
+              "props": {
+                "value": "celeste",
+                "media": {
+                  "$element": [
+                    {
+                      "component": "Image",
+                      "props": {
+                        "src": "https://fabricweb.azureedge.net/fabric-website/assets/images/avatar/CelesteBurton.jpg",
+                        "alt": "",
+                        "shape": "circular",
+                        "width": 32
+                      }
+                    }
+                  ]
+                },
+                "header": "Celeste Burton",
+                "headerMedia": "11:30:17 PM"
+              },
+              "children": [
+                "Use the online FTP application to input the multi-byte appli"
+              ]
             },
             {
               "component": "ListItem",
-              "children": []
-            },
-            {
-              "component": "ListItem",
-              "children": []
+              "props": {
+                "value": "cecil",
+                "media": {
+                  "$element": [
+                    {
+                      "component": "Image",
+                      "props": {
+                        "src": "https://fabricweb.azureedge.net/fabric-website/assets/images/avatar/CecilFolk.jpg",
+                        "alt": "",
+                        "shape": "circular",
+                        "width": 32
+                      }
+                    }
+                  ]
+                },
+                "header": "Cecil Folk",
+                "headerMedia": "5:22:40 PM"
+              },
+              "children": [
+                "The GB pixel is down, navigate the virtual interface!"
+              ]
             }
           ]
         },
@@ -27225,6 +27786,13 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "checkmark": {
+              "root": {
+                "role": "gridcell"
+              }
+            }
+          },
           "children": [
             "You created 53m ago",
             "Install",
@@ -27475,6 +28043,10 @@
           "MenuGroup"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "MenuGroup",
+          "MenuList"
+        ],
         "sample": {
           "children": [
             "Document"
@@ -27531,14 +28103,21 @@
           "MenuList"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "MenuPopover",
+          "Menu"
+        ],
         "sample": {
           "props": {
-            "name": "edit",
-            "value": "cut",
-            "secondaryContent": "Ctrl+N"
+            "name": "filters",
+            "value": "bold",
+            "checkmark": {
+              "aria-hidden": true,
+              "children": "✓"
+            }
           },
           "children": [
-            "Show Menu Bar"
+            "Bold"
           ]
         },
         "fingerprint": "0ec372c7",
@@ -27600,14 +28179,21 @@
           "MenuList"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "MenuPopover",
+          "Menu"
+        ],
         "sample": {
           "props": {
-            "name": "font",
-            "value": "segoe",
-            "secondaryContent": "Ctrl+N"
+            "name": "sortBy",
+            "value": "name",
+            "checkmark": {
+              "aria-hidden": true,
+              "children": "●"
+            }
           },
           "children": [
-            "Segoe"
+            "Name"
           ]
         },
         "fingerprint": "0ec372c7",
@@ -27641,7 +28227,10 @@
         "sample": {
           "props": {
             "name": "show",
-            "value": "grid"
+            "value": "grid",
+            "switchIndicator": {
+              "aria-hidden": true
+            }
           },
           "children": [
             "Grid view"
@@ -27908,8 +28497,8 @@
         "as": "forwardRef",
         "group": "Menu",
         "parents": [
-          "Menu",
           "MenuPopover",
+          "Menu",
           "MenuList"
         ],
         "parentsFrom": "example",
@@ -27986,6 +28575,9 @@
         "as": "forwardRef",
         "group": "MessageBar",
         "sample": {
+          "props": {
+            "icon": {}
+          },
           "children": [
             {
               "component": "MessageBarBody",
@@ -27996,7 +28588,8 @@
                     "Descriptive title"
                   ]
                 },
-                "Message providing information to the user with actionable in"
+                "Message providing information to the user with actionable in",
+                " "
               ]
             },
             {
@@ -28055,7 +28648,8 @@
                 "Descriptive title"
               ]
             },
-            "Message providing information to the user with actionable in"
+            "Message providing information to the user with actionable in",
+            " "
           ]
         },
         "fingerprint": "d8ef4867",
@@ -28074,6 +28668,46 @@
       "MessageBarGroup": {
         "as": "forwardRef",
         "group": "MessageBar",
+        "sample": {
+          "props": {
+            "animate": "both"
+          },
+          "children": [
+            {
+              "component": "MessageBar",
+              "children": [
+                {
+                  "component": "MessageBarBody",
+                  "children": [
+                    {
+                      "component": "MessageBarTitle",
+                      "children": [
+                        "Descriptive title"
+                      ]
+                    },
+                    "Message providing information to the user with actionable in"
+                  ]
+                },
+                {
+                  "component": "MessageBarActions",
+                  "props": {
+                    "containerAction": {
+                      "$element": [
+                        {
+                          "component": "Button",
+                          "props": {
+                            "aria-label": "dismiss",
+                            "appearance": "transparent"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
         "fingerprint": "b84a7f40",
         "props": {
           "animate?": "00da22",
@@ -28107,7 +28741,10 @@
         "group": "Nav",
         "sample": {
           "props": {
-            "defaultSelectedValue": "overview"
+            "defaultSelectedValue": "overview",
+            "defaultOpenCategories": [
+              "components"
+            ]
           },
           "children": [
             {
@@ -28136,6 +28773,9 @@
               "children": [
                 {
                   "component": "NavCategoryItem",
+                  "props": {
+                    "expandIcon": {}
+                  },
                   "children": [
                     "Components"
                   ]
@@ -28208,6 +28848,9 @@
           "children": [
             {
               "component": "NavCategoryItem",
+              "props": {
+                "expandIcon": {}
+              },
               "children": [
                 "Components"
               ]
@@ -28262,12 +28905,16 @@
           "NavCategory"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "NavDrawerBody",
+          "NavDrawer"
+        ],
         "sample": {
           "props": {
-            "value": "12"
+            "expandIcon": {}
           },
           "children": [
-            "Retirement"
+            "Job Postings"
           ]
         },
         "fingerprint": "0a9394cf",
@@ -28300,6 +28947,10 @@
           "NavDrawerBody"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "NavDrawerBody",
+          "NavDrawer"
+        ],
         "fingerprint": "f64c6255",
         "props": {
           "alignContent?": "363f7e",
@@ -28317,15 +28968,18 @@
         "group": "Nav",
         "sample": {
           "props": {
-            "defaultSelectedValue": "7",
-            "defaultSelectedCategoryValue": "6",
-            "open": true,
-            "type": "inline"
+            "openCategories": [
+              "6",
+              "11"
+            ],
+            "selectedValue": "7",
+            "selectedCategoryValue": "6",
+            "type": "inline",
+            "open": true
           },
           "children": [
             {
-              "component": "NavDrawerHeader",
-              "children": []
+              "component": "NavDrawerHeader"
             },
             {
               "component": "NavDrawerBody",
@@ -28479,6 +29133,10 @@
           "NavDrawerBody"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "NavDrawerBody",
+          "NavDrawer"
+        ],
         "sample": {
           "props": {
             "value": "19",
@@ -28512,6 +29170,10 @@
           "NavDrawerBody"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "NavDrawerBody",
+          "NavDrawer"
+        ],
         "sample": {
           "children": [
             "Getting Started"
@@ -28534,6 +29196,10 @@
           "NavSubItemGroup"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "NavDrawerBody",
+          "NavDrawer"
+        ],
         "sample": {
           "props": {
             "value": "7"
@@ -28560,6 +29226,10 @@
           "NavCategory"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "NavDrawerBody",
+          "NavDrawer"
+        ],
         "sample": {
           "children": [
             {
@@ -28624,8 +29294,39 @@
         "group": "Combobox",
         "sample": {
           "props": {
-            "label": "Land"
-          }
+            "label": {
+              "children": "Land"
+            }
+          },
+          "children": [
+            {
+              "component": "Option",
+              "props": {
+                "checkIcon": {}
+              },
+              "children": [
+                "Cat"
+              ]
+            },
+            {
+              "component": "Option",
+              "props": {
+                "checkIcon": {}
+              },
+              "children": [
+                "Dog"
+              ]
+            },
+            {
+              "component": "Option",
+              "props": {
+                "checkIcon": {}
+              },
+              "children": [
+                "Ferret"
+              ]
+            }
+          ]
         },
         "fingerprint": "54c8c1bd",
         "props": {
@@ -28668,7 +29369,7 @@
         "parents": [
           "Overflow"
         ],
-        "parentsFrom": "example",
+        "parentsFrom": "prefix",
         "fingerprint": "8a4aeb3e",
         "props": {
           "children": "f98e6c",
@@ -28692,7 +29393,8 @@
         "group": "Drawer",
         "sample": {
           "props": {
-            "position": "start"
+            "position": "start",
+            "open": false
           },
           "children": [
             "Level 1 title Level 1 content Level 2 title Level 2 content"
@@ -28724,6 +29426,9 @@
           "props": {
             "textAlignment": "start",
             "name": "Kevin Sturgis",
+            "presence": {
+              "status": "available"
+            },
             "secondaryText": "Available",
             "tertiaryText": "Software Engineer",
             "quaternaryText": "Microsoft"
@@ -28758,9 +29463,9 @@
             {
               "component": "PopoverSurface",
               "children": [
-                "Popover content",
-                "This is some popover content.",
-                "Second nested button"
+                "First panel",
+                "Popover content can change while the popover is open. When n",
+                "Revealed content with a focusable link ."
               ]
             },
             {
@@ -28810,9 +29515,9 @@
         "parentsFrom": "example",
         "sample": {
           "children": [
-            "Popover content",
-            "This is some popover content.",
-            "Second nested button"
+            "First panel",
+            "Popover content can change while the popover is open. When n",
+            "Revealed content with a focusable link ."
           ]
         },
         "fingerprint": "d8ef4867",
@@ -28844,6 +29549,9 @@
         "as": "function",
         "group": "Portal",
         "sample": {
+          "props": {
+            "mountNode": null
+          },
           "children": [
             "Portal content"
           ]
@@ -28936,9 +29644,9 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "value": "banana",
-            "label": "Banana",
-            "disabled": true
+            "label": {},
+            "input": {},
+            "indicator": {}
           }
         },
         "fingerprint": "323daf4e",
@@ -28959,36 +29667,34 @@
         "group": "Radio",
         "sample": {
           "props": {
-            "defaultValue": "apple",
-            "disabled": true
+            "defaultValue": "standard"
           },
           "children": [
             {
               "component": "Radio",
               "props": {
-                "value": "apple",
-                "label": "Apple"
+                "value": "free",
+                "label": {},
+                "input": {},
+                "indicator": {}
               }
             },
             {
               "component": "Radio",
               "props": {
-                "value": "pear",
-                "label": "Pear"
+                "value": "standard",
+                "label": {},
+                "input": {},
+                "indicator": {}
               }
             },
             {
               "component": "Radio",
               "props": {
-                "value": "banana",
-                "label": "Banana"
-              }
-            },
-            {
-              "component": "Radio",
-              "props": {
-                "value": "orange",
-                "label": "Orange"
+                "value": "pro",
+                "label": {},
+                "input": {},
+                "indicator": {}
               }
             }
           ]
@@ -29017,8 +29723,8 @@
         "group": "Rating",
         "sample": {
           "props": {
-            "color": "brand",
-            "defaultValue": 3
+            "max": 5,
+            "value": 3
           },
           "children": [
             {
@@ -29047,9 +29753,12 @@
         "group": "Rating",
         "sample": {
           "props": {
-            "compact": true,
-            "value": 3,
-            "count": 1160
+            "value": 2.5,
+            "max": 5,
+            "valueText": {},
+            "countText": {
+              "children": "(248)"
+            }
           }
         },
         "fingerprint": "7e02cedc",
@@ -29074,6 +29783,11 @@
           "Rating"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "fullValueInput": {}
+          }
+        },
         "fingerprint": "56342f3e",
         "props": {
           "as?": "d528bd",
@@ -29113,8 +29827,10 @@
         "group": "Search",
         "sample": {
           "props": {
-            "disabled": true,
-            "defaultValue": "disabled value"
+            "aria-autocomplete": "list",
+            "placeholder": "Search...",
+            "value": "",
+            "root": {}
           }
         },
         "fingerprint": "d7d715de",
@@ -29140,7 +29856,9 @@
         "group": "Select",
         "sample": {
           "props": {
-            "id": "color-select"
+            "id": "color-select",
+            "select": {},
+            "icon": {}
           },
           "children": [
             "Red",
@@ -29240,11 +29958,13 @@
         "group": "Slider",
         "sample": {
           "props": {
-            "vertical": true,
-            "step": 2,
-            "defaultValue": 6,
+            "id": "custom-slider",
             "min": 0,
-            "max": 10
+            "max": 100,
+            "value": 42,
+            "input": {},
+            "rail": {},
+            "thumb": {}
           }
         },
         "fingerprint": "56b48ce0",
@@ -29272,7 +29992,10 @@
             "id": "quantity-spinbutton",
             "defaultValue": 1,
             "min": 0,
-            "max": 99
+            "max": 99,
+            "input": {},
+            "incrementButton": {},
+            "decrementButton": {}
           }
         },
         "fingerprint": "0f7ad41e",
@@ -29299,9 +30022,9 @@
         "group": "Spinner",
         "sample": {
           "props": {
-            "size": "tiny",
-            "label": "Loading results…",
-            "labelPosition": "after"
+            "label": "Saving changes",
+            "labelPosition": "below",
+            "spinnerTail": {}
           }
         },
         "fingerprint": "a68f3a77",
@@ -29323,10 +30046,11 @@
         "group": "Button",
         "sample": {
           "props": {
-            "appearance": "primary"
+            "primaryActionButton": {},
+            "menuButton": {}
           },
           "children": [
-            "Primary"
+            "Send"
           ]
         },
         "fingerprint": "01af5be1",
@@ -29348,6 +30072,14 @@
       "SplitNavItem": {
         "as": "forwardRef",
         "group": "Nav",
+        "sample": {
+          "props": {
+            "menuButtonTooltip": {
+              "content": "More options",
+              "relationship": "label"
+            }
+          }
+        },
         "fingerprint": "30c45937",
         "props": {
           "actionButton?": "a38692",
@@ -29448,13 +30180,17 @@
         "group": "SwatchPicker",
         "sample": {
           "props": {
-            "aria-label": "Colors",
-            "focusMode": "arrow",
-            "layout": "row"
+            "aria-label": "Grid of colors",
+            "layout": "grid"
           },
           "children": [
             {
-              "component": "SwatchPickerRow"
+              "component": "SwatchPickerRow",
+              "children": []
+            },
+            {
+              "component": "SwatchPickerRow",
+              "children": []
             }
           ]
         },
@@ -29498,9 +30234,10 @@
         "group": "Switch",
         "sample": {
           "props": {
-            "checked": true,
-            "disabled": true,
-            "label": "Checked and disabled"
+            "defaultChecked": true,
+            "label": {},
+            "input": {},
+            "indicator": {}
           }
         },
         "fingerprint": "cb31ee40",
@@ -29523,6 +30260,10 @@
       "Tab": {
         "as": "forwardRef",
         "group": "Tabs",
+        "parents": [
+          "TabList"
+        ],
+        "parentsFrom": "example",
         "sample": {
           "props": {
             "disabled": true,
@@ -29548,8 +30289,8 @@
         "sample": {
           "props": {
             "role": "grid",
-            "sortable": true,
-            "aria-label": "DataGrid implementation with Table primitives"
+            "aria-label": "Table with grid keyboard navigation",
+            "noNativeElements": true
           },
           "children": [
             {
@@ -29559,25 +30300,28 @@
                   "component": "TableRow",
                   "children": [
                     {
-                      "component": "TableSelectionCell",
-                      "props": {
-                        "role": "checkbox"
-                      }
-                    },
-                    {
                       "component": "TableHeaderCell",
+                      "props": {
+                        "tabIndex": 0
+                      },
                       "children": [
                         "File"
                       ]
                     },
                     {
                       "component": "TableHeaderCell",
+                      "props": {
+                        "tabIndex": 0
+                      },
                       "children": [
                         "Author"
                       ]
                     },
                     {
                       "component": "TableHeaderCell",
+                      "props": {
+                        "tabIndex": 0
+                      },
                       "children": [
                         "Last updated"
                       ]
@@ -29587,7 +30331,219 @@
               ]
             },
             {
-              "component": "TableBody"
+              "component": "TableBody",
+              "children": [
+                {
+                  "component": "TableRow",
+                  "props": {
+                    "tabIndex": 0
+                  },
+                  "children": [
+                    {
+                      "component": "TableCell",
+                      "props": {
+                        "tabIndex": 0,
+                        "role": "gridcell"
+                      },
+                      "children": [
+                        {
+                          "component": "TableCellLayout"
+                        }
+                      ]
+                    },
+                    {
+                      "component": "TableCell",
+                      "props": {
+                        "tabIndex": 0,
+                        "role": "gridcell"
+                      },
+                      "children": [
+                        {
+                          "component": "TableCellLayout",
+                          "props": {
+                            "media": {
+                              "$element": [
+                                {
+                                  "component": "Avatar",
+                                  "props": {
+                                    "aria-label": "Max Mustermann",
+                                    "name": "Max Mustermann",
+                                    "badge": {
+                                      "status": "available"
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "component": "TableCell",
+                      "props": {
+                        "tabIndex": 0,
+                        "role": "gridcell"
+                      },
+                      "children": [
+                        "7h ago"
+                      ]
+                    },
+                    {
+                      "component": "TableCell",
+                      "props": {
+                        "tabIndex": 0,
+                        "role": "gridcell"
+                      },
+                      "children": [
+                        {
+                          "component": "TableCellLayout"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "TableRow",
+                  "props": {
+                    "tabIndex": 0
+                  },
+                  "children": [
+                    {
+                      "component": "TableCell",
+                      "props": {
+                        "tabIndex": 0,
+                        "role": "gridcell"
+                      },
+                      "children": [
+                        {
+                          "component": "TableCellLayout"
+                        }
+                      ]
+                    },
+                    {
+                      "component": "TableCell",
+                      "props": {
+                        "tabIndex": 0,
+                        "role": "gridcell"
+                      },
+                      "children": [
+                        {
+                          "component": "TableCellLayout",
+                          "props": {
+                            "media": {
+                              "$element": [
+                                {
+                                  "component": "Avatar",
+                                  "props": {
+                                    "aria-label": "Erika Mustermann",
+                                    "name": "Erika Mustermann",
+                                    "badge": {
+                                      "status": "busy"
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "component": "TableCell",
+                      "props": {
+                        "tabIndex": 0,
+                        "role": "gridcell"
+                      },
+                      "children": [
+                        "Yesterday at 1:45 PM"
+                      ]
+                    },
+                    {
+                      "component": "TableCell",
+                      "props": {
+                        "tabIndex": 0,
+                        "role": "gridcell"
+                      },
+                      "children": [
+                        {
+                          "component": "TableCellLayout"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "TableRow",
+                  "props": {
+                    "tabIndex": 0
+                  },
+                  "children": [
+                    {
+                      "component": "TableCell",
+                      "props": {
+                        "tabIndex": 0,
+                        "role": "gridcell"
+                      },
+                      "children": [
+                        {
+                          "component": "TableCellLayout"
+                        }
+                      ]
+                    },
+                    {
+                      "component": "TableCell",
+                      "props": {
+                        "tabIndex": 0,
+                        "role": "gridcell"
+                      },
+                      "children": [
+                        {
+                          "component": "TableCellLayout",
+                          "props": {
+                            "media": {
+                              "$element": [
+                                {
+                                  "component": "Avatar",
+                                  "props": {
+                                    "aria-label": "John Doe",
+                                    "name": "John Doe",
+                                    "badge": {
+                                      "status": "away"
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "component": "TableCell",
+                      "props": {
+                        "tabIndex": 0,
+                        "role": "gridcell"
+                      },
+                      "children": [
+                        "Yesterday at 1:45 PM"
+                      ]
+                    },
+                    {
+                      "component": "TableCell",
+                      "props": {
+                        "tabIndex": 0,
+                        "role": "gridcell"
+                      },
+                      "children": [
+                        {
+                          "component": "TableCellLayout"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
             }
           ]
         },
@@ -29612,12 +30568,238 @@
           "children": [
             {
               "component": "TableRow",
+              "props": {
+                "tabIndex": 0
+              },
               "children": [
                 {
-                  "component": "TableCell"
+                  "component": "TableCell",
+                  "props": {
+                    "tabIndex": 0,
+                    "role": "gridcell"
+                  },
+                  "children": [
+                    {
+                      "component": "TableCellLayout",
+                      "children": [
+                        "Meeting notes"
+                      ]
+                    }
+                  ]
                 },
                 {
-                  "component": "TableCell"
+                  "component": "TableCell",
+                  "props": {
+                    "tabIndex": 0,
+                    "role": "gridcell"
+                  },
+                  "children": [
+                    {
+                      "component": "TableCellLayout",
+                      "props": {
+                        "media": {
+                          "$element": [
+                            {
+                              "component": "Avatar",
+                              "props": {
+                                "aria-label": "Max Mustermann",
+                                "name": "Max Mustermann",
+                                "badge": {
+                                  "status": "available"
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      "children": [
+                        "Max Mustermann"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "TableCell",
+                  "props": {
+                    "tabIndex": 0,
+                    "role": "gridcell"
+                  },
+                  "children": [
+                    "7h ago"
+                  ]
+                },
+                {
+                  "component": "TableCell",
+                  "props": {
+                    "tabIndex": 0,
+                    "role": "gridcell"
+                  },
+                  "children": [
+                    {
+                      "component": "TableCellLayout",
+                      "children": [
+                        "You edited this"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "TableRow",
+              "props": {
+                "tabIndex": 0
+              },
+              "children": [
+                {
+                  "component": "TableCell",
+                  "props": {
+                    "tabIndex": 0,
+                    "role": "gridcell"
+                  },
+                  "children": [
+                    {
+                      "component": "TableCellLayout",
+                      "children": [
+                        "Thursday presentation"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "TableCell",
+                  "props": {
+                    "tabIndex": 0,
+                    "role": "gridcell"
+                  },
+                  "children": [
+                    {
+                      "component": "TableCellLayout",
+                      "props": {
+                        "media": {
+                          "$element": [
+                            {
+                              "component": "Avatar",
+                              "props": {
+                                "aria-label": "Erika Mustermann",
+                                "name": "Erika Mustermann",
+                                "badge": {
+                                  "status": "busy"
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      "children": [
+                        "Erika Mustermann"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "TableCell",
+                  "props": {
+                    "tabIndex": 0,
+                    "role": "gridcell"
+                  },
+                  "children": [
+                    "Yesterday at 1:45 PM"
+                  ]
+                },
+                {
+                  "component": "TableCell",
+                  "props": {
+                    "tabIndex": 0,
+                    "role": "gridcell"
+                  },
+                  "children": [
+                    {
+                      "component": "TableCellLayout",
+                      "children": [
+                        "You recently opened this"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "TableRow",
+              "props": {
+                "tabIndex": 0
+              },
+              "children": [
+                {
+                  "component": "TableCell",
+                  "props": {
+                    "tabIndex": 0,
+                    "role": "gridcell"
+                  },
+                  "children": [
+                    {
+                      "component": "TableCellLayout",
+                      "children": [
+                        "Training recording"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "TableCell",
+                  "props": {
+                    "tabIndex": 0,
+                    "role": "gridcell"
+                  },
+                  "children": [
+                    {
+                      "component": "TableCellLayout",
+                      "props": {
+                        "media": {
+                          "$element": [
+                            {
+                              "component": "Avatar",
+                              "props": {
+                                "aria-label": "John Doe",
+                                "name": "John Doe",
+                                "badge": {
+                                  "status": "away"
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      "children": [
+                        "John Doe"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "TableCell",
+                  "props": {
+                    "tabIndex": 0,
+                    "role": "gridcell"
+                  },
+                  "children": [
+                    "Yesterday at 1:45 PM"
+                  ]
+                },
+                {
+                  "component": "TableCell",
+                  "props": {
+                    "tabIndex": 0,
+                    "role": "gridcell"
+                  },
+                  "children": [
+                    {
+                      "component": "TableCellLayout",
+                      "children": [
+                        "You recently opened this"
+                      ]
+                    }
+                  ]
                 }
               ]
             }
@@ -29635,7 +30817,7 @@
         "group": "Table",
         "parents": [
           "Table",
-          "TableHeader",
+          "TableBody",
           "TableRow"
         ],
         "parentsFrom": "example",
@@ -29666,7 +30848,7 @@
         "group": "Table",
         "parents": [
           "Table",
-          "TableHeader",
+          "TableBody",
           "TableRow",
           "TableCell"
         ],
@@ -29684,15 +30866,24 @@
         "group": "Table",
         "parents": [
           "Table",
-          "TableHeader",
+          "TableBody",
           "TableRow",
           "TableCell"
         ],
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "description": "My Organization",
-            "appearance": "primary"
+            "truncate": true,
+            "media": {
+              "$element": [
+                {
+                  "component": "Avatar",
+                  "props": {
+                    "badge": {}
+                  }
+                }
+              ]
+            }
           }
         },
         "fingerprint": "6cb00292",
@@ -29729,8 +30920,10 @@
                 {
                   "component": "TableSelectionCell",
                   "props": {
-                    "type": "radio",
-                    "invisible": true
+                    "role": "checkbox",
+                    "checkboxIndicator": {
+                      "aria-label": "Select all rows "
+                    }
                   }
                 },
                 {
@@ -29817,6 +31010,9 @@
           "TableHeader"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "TableHeader"
+        ],
         "sample": {
           "props": {
             "tabIndex": 0
@@ -29842,7 +31038,19 @@
               },
               "children": [
                 {
-                  "component": "TableCellLayout"
+                  "component": "TableCellLayout",
+                  "props": {
+                    "media": {
+                      "$element": [
+                        {
+                          "component": "Avatar",
+                          "props": {
+                            "badge": {}
+                          }
+                        }
+                      ]
+                    }
+                  }
                 }
               ]
             },
@@ -29895,10 +31103,16 @@
           "TableRow"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "TableHeader",
+          "Table"
+        ],
         "sample": {
           "props": {
-            "type": "radio",
-            "invisible": true
+            "role": "checkbox",
+            "checkboxIndicator": {
+              "aria-label": "Select all rows "
+            }
           }
         },
         "fingerprint": "6785f695",
@@ -29987,12 +31201,26 @@
       "Tag": {
         "as": "forwardRef",
         "group": "Tags",
+        "parents": [
+          "TagPicker",
+          "TagPickerControl",
+          "TagPickerGroup"
+        ],
+        "parentsFrom": "example",
+        "optionalParents": [
+          "TagPickerGroup",
+          "TagPickerControl",
+          "TagPicker"
+        ],
         "sample": {
           "props": {
             "disabled": true,
             "secondaryText": "appearance=outline",
             "appearance": "outline",
-            "dismissible": true
+            "dismissible": true,
+            "dismissIcon": {
+              "aria-label": "remove"
+            }
           },
           "children": [
             "Disabled"
@@ -30020,15 +31248,17 @@
         "group": "Tags",
         "sample": {
           "props": {
-            "disabled": true,
-            "aria-label": "Disabled tag group with Tag",
-            "role": "list"
+            "aria-label": "Dismiss example with Tag"
           },
           "children": [
             {
               "component": "Tag",
               "props": {
-                "role": "listitem"
+                "value": "1",
+                "dismissible": true,
+                "dismissIcon": {
+                  "aria-label": "remove"
+                }
               },
               "children": [
                 "Tag 1"
@@ -30037,7 +31267,11 @@
             {
               "component": "Tag",
               "props": {
-                "role": "listitem"
+                "value": "2",
+                "dismissible": true,
+                "dismissIcon": {
+                  "aria-label": "remove"
+                }
               },
               "children": [
                 "Tag 2"
@@ -30046,7 +31280,11 @@
             {
               "component": "Tag",
               "props": {
-                "role": "listitem"
+                "value": "3",
+                "dismissible": true,
+                "dismissIcon": {
+                  "aria-label": "remove"
+                }
               },
               "children": [
                 "Tag 3"
@@ -30074,8 +31312,7 @@
         "group": "TagPicker",
         "sample": {
           "props": {
-            "children": "Text",
-            "disabled": true
+            "children": "Text"
           },
           "children": [
             {
@@ -30085,7 +31322,81 @@
                   "component": "TagPickerGroup",
                   "props": {
                     "aria-label": "Selected Employees"
-                  }
+                  },
+                  "children": [
+                    {
+                      "component": "Tag",
+                      "props": {
+                        "shape": "rounded",
+                        "media": {
+                          "$element": [
+                            {
+                              "component": "Avatar",
+                              "props": {
+                                "aria-hidden": true,
+                                "name": "John Doe",
+                                "color": "colorful"
+                              }
+                            }
+                          ]
+                        },
+                        "value": "John Doe",
+                        "title": "John Doe",
+                        "primaryText": {}
+                      },
+                      "children": [
+                        "John Doe"
+                      ]
+                    },
+                    {
+                      "component": "Tag",
+                      "props": {
+                        "shape": "rounded",
+                        "media": {
+                          "$element": [
+                            {
+                              "component": "Avatar",
+                              "props": {
+                                "aria-hidden": true,
+                                "name": "Jane Doe",
+                                "color": "colorful"
+                              }
+                            }
+                          ]
+                        },
+                        "value": "Jane Doe",
+                        "title": "Jane Doe",
+                        "primaryText": {}
+                      },
+                      "children": [
+                        "Jane Doe"
+                      ]
+                    },
+                    {
+                      "component": "Tag",
+                      "props": {
+                        "shape": "rounded",
+                        "media": {
+                          "$element": [
+                            {
+                              "component": "Avatar",
+                              "props": {
+                                "aria-hidden": true,
+                                "name": "Max Mustermann",
+                                "color": "colorful"
+                              }
+                            }
+                          ]
+                        },
+                        "value": "Max Mustermann",
+                        "title": "Max Mustermann",
+                        "primaryText": {}
+                      },
+                      "children": [
+                        "Max Mustermann"
+                      ]
+                    }
+                  ]
                 },
                 {
                   "component": "TagPickerInput",
@@ -30096,7 +31407,29 @@
               ]
             },
             {
-              "component": "TagPickerList"
+              "component": "TagPickerList",
+              "children": [
+                {
+                  "component": "TagPickerOption",
+                  "props": {
+                    "secondaryContent": {
+                      "children": "Microsoft FTE"
+                    },
+                    "media": {
+                      "$element": [
+                        {
+                          "component": "Avatar",
+                          "props": {
+                            "shape": "square",
+                            "aria-hidden": true,
+                            "color": "colorful"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
             }
           ]
         },
@@ -30151,13 +31484,87 @@
             {
               "component": "TagPickerGroup",
               "props": {
-                "aria-label": "Selected employees"
-              }
+                "aria-label": "Selected Employees"
+              },
+              "children": [
+                {
+                  "component": "Tag",
+                  "props": {
+                    "shape": "rounded",
+                    "media": {
+                      "$element": [
+                        {
+                          "component": "Avatar",
+                          "props": {
+                            "aria-hidden": true,
+                            "name": "John Doe",
+                            "color": "colorful"
+                          }
+                        }
+                      ]
+                    },
+                    "value": "John Doe",
+                    "title": "John Doe",
+                    "primaryText": {}
+                  },
+                  "children": [
+                    "John Doe"
+                  ]
+                },
+                {
+                  "component": "Tag",
+                  "props": {
+                    "shape": "rounded",
+                    "media": {
+                      "$element": [
+                        {
+                          "component": "Avatar",
+                          "props": {
+                            "aria-hidden": true,
+                            "name": "Jane Doe",
+                            "color": "colorful"
+                          }
+                        }
+                      ]
+                    },
+                    "value": "Jane Doe",
+                    "title": "Jane Doe",
+                    "primaryText": {}
+                  },
+                  "children": [
+                    "Jane Doe"
+                  ]
+                },
+                {
+                  "component": "Tag",
+                  "props": {
+                    "shape": "rounded",
+                    "media": {
+                      "$element": [
+                        {
+                          "component": "Avatar",
+                          "props": {
+                            "aria-hidden": true,
+                            "name": "Max Mustermann",
+                            "color": "colorful"
+                          }
+                        }
+                      ]
+                    },
+                    "value": "Max Mustermann",
+                    "title": "Max Mustermann",
+                    "primaryText": {}
+                  },
+                  "children": [
+                    "Max Mustermann"
+                  ]
+                }
+              ]
             },
             {
               "component": "TagPickerInput",
               "props": {
-                "aria-labelledby": "tag-picker-default-label"
+                "aria-label": "Select Employees"
               }
             }
           ]
@@ -30187,8 +31594,74 @@
             {
               "component": "Tag",
               "props": {
-                "shape": "rounded"
-              }
+                "shape": "rounded",
+                "media": {
+                  "$element": [
+                    {
+                      "component": "Avatar",
+                      "props": {
+                        "aria-hidden": true,
+                        "name": "John Doe",
+                        "color": "colorful"
+                      }
+                    }
+                  ]
+                },
+                "value": "John Doe",
+                "title": "John Doe",
+                "primaryText": {}
+              },
+              "children": [
+                "John Doe"
+              ]
+            },
+            {
+              "component": "Tag",
+              "props": {
+                "shape": "rounded",
+                "media": {
+                  "$element": [
+                    {
+                      "component": "Avatar",
+                      "props": {
+                        "aria-hidden": true,
+                        "name": "Jane Doe",
+                        "color": "colorful"
+                      }
+                    }
+                  ]
+                },
+                "value": "Jane Doe",
+                "title": "Jane Doe",
+                "primaryText": {}
+              },
+              "children": [
+                "Jane Doe"
+              ]
+            },
+            {
+              "component": "Tag",
+              "props": {
+                "shape": "rounded",
+                "media": {
+                  "$element": [
+                    {
+                      "component": "Avatar",
+                      "props": {
+                        "aria-hidden": true,
+                        "name": "Max Mustermann",
+                        "color": "colorful"
+                      }
+                    }
+                  ]
+                },
+                "value": "Max Mustermann",
+                "title": "Max Mustermann",
+                "primaryText": {}
+              },
+              "children": [
+                "Max Mustermann"
+              ]
             }
           ]
         },
@@ -30209,7 +31682,8 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "aria-labelledby": "tag-picker-default-label"
+            "aria-labelledby": "tag-picker-filtering-label",
+            "value": ""
           }
         },
         "fingerprint": "2654ce3f",
@@ -30231,12 +31705,64 @@
           "children": [
             {
               "component": "TagPickerOption",
+              "props": {
+                "value": "no-options"
+              },
               "children": [
                 "No options available"
               ]
             },
             {
-              "component": "TagPickerOptionGroup"
+              "component": "TagPickerOptionGroup",
+              "props": {
+                "label": "Managers"
+              },
+              "children": [
+                {
+                  "component": "TagPickerOption",
+                  "props": {
+                    "secondaryContent": "Microsoft FTE",
+                    "media": {
+                      "$element": [
+                        {
+                          "component": "Avatar",
+                          "props": {
+                            "shape": "square",
+                            "aria-hidden": true,
+                            "color": "colorful"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "component": "TagPickerOptionGroup",
+              "props": {
+                "label": "Devs"
+              },
+              "children": [
+                {
+                  "component": "TagPickerOption",
+                  "props": {
+                    "secondaryContent": "Microsoft FTE",
+                    "media": {
+                      "$element": [
+                        {
+                          "component": "Avatar",
+                          "props": {
+                            "shape": "square",
+                            "aria-hidden": true,
+                            "color": "colorful"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
             }
           ]
         },
@@ -30291,7 +31817,27 @@
         "sample": {
           "props": {
             "label": "Managers"
-          }
+          },
+          "children": [
+            {
+              "component": "TagPickerOption",
+              "props": {
+                "secondaryContent": "Microsoft FTE",
+                "media": {
+                  "$element": [
+                    {
+                      "component": "Avatar",
+                      "props": {
+                        "shape": "square",
+                        "aria-hidden": true,
+                        "color": "colorful"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          ]
         },
         "fingerprint": "54c8c1bd",
         "props": {
@@ -30336,7 +31882,21 @@
                       },
                       "children": [
                         {
-                          "component": "TeachingPopoverBody"
+                          "component": "TeachingPopoverBody",
+                          "props": {
+                            "media": {
+                              "$element": [
+                                {
+                                  "component": "Image",
+                                  "props": {
+                                    "alt": "test image",
+                                    "fit": "cover",
+                                    "src": "https://fabricweb.azureedge.net/fabric-website/assets/images/wireframe/image-square.png"
+                                  }
+                                }
+                              ]
+                            }
+                          }
                         }
                       ]
                     },
@@ -30347,7 +31907,21 @@
                       },
                       "children": [
                         {
-                          "component": "TeachingPopoverBody"
+                          "component": "TeachingPopoverBody",
+                          "props": {
+                            "media": {
+                              "$element": [
+                                {
+                                  "component": "Image",
+                                  "props": {
+                                    "alt": "test image",
+                                    "fit": "cover",
+                                    "src": "https://fabricweb.azureedge.net/fabric-website/assets/images/wireframe/image-square.png"
+                                  }
+                                }
+                              ]
+                            }
+                          }
                         }
                       ]
                     },
@@ -30358,7 +31932,21 @@
                       },
                       "children": [
                         {
-                          "component": "TeachingPopoverBody"
+                          "component": "TeachingPopoverBody",
+                          "props": {
+                            "media": {
+                              "$element": [
+                                {
+                                  "component": "Image",
+                                  "props": {
+                                    "alt": "test image",
+                                    "fit": "cover",
+                                    "src": "https://fabricweb.azureedge.net/fabric-website/assets/images/wireframe/image-square.png"
+                                  }
+                                }
+                              ]
+                            }
+                          }
                         }
                       ]
                     },
@@ -30416,7 +32004,14 @@
           "TeachingPopoverCarouselCard"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "TeachingPopoverCarouselCard",
+          "TeachingPopoverCarousel"
+        ],
         "sample": {
+          "props": {
+            "media": {}
+          },
           "children": [
             {
               "component": "TeachingPopoverTitle",
@@ -30457,6 +32052,20 @@
               "children": [
                 {
                   "component": "TeachingPopoverBody",
+                  "props": {
+                    "media": {
+                      "$element": [
+                        {
+                          "component": "Image",
+                          "props": {
+                            "alt": "test image",
+                            "fit": "cover",
+                            "src": "https://fabricweb.azureedge.net/fabric-website/assets/images/wireframe/image-square.png"
+                          }
+                        }
+                      ]
+                    }
+                  },
                   "children": [
                     {
                       "component": "TeachingPopoverTitle",
@@ -30477,6 +32086,20 @@
               "children": [
                 {
                   "component": "TeachingPopoverBody",
+                  "props": {
+                    "media": {
+                      "$element": [
+                        {
+                          "component": "Image",
+                          "props": {
+                            "alt": "test image",
+                            "fit": "cover",
+                            "src": "https://fabricweb.azureedge.net/fabric-website/assets/images/wireframe/image-square.png"
+                          }
+                        }
+                      ]
+                    }
+                  },
                   "children": [
                     {
                       "component": "TeachingPopoverTitle",
@@ -30497,6 +32120,20 @@
               "children": [
                 {
                   "component": "TeachingPopoverBody",
+                  "props": {
+                    "media": {
+                      "$element": [
+                        {
+                          "component": "Image",
+                          "props": {
+                            "alt": "test image",
+                            "fit": "cover",
+                            "src": "https://fabricweb.azureedge.net/fabric-website/assets/images/wireframe/image-square.png"
+                          }
+                        }
+                      ]
+                    }
+                  },
                   "children": [
                     {
                       "component": "TeachingPopoverTitle",
@@ -30519,7 +32156,16 @@
               },
               "children": [
                 {
-                  "component": "TeachingPopoverCarouselNav"
+                  "component": "TeachingPopoverCarouselNav",
+                  "children": [
+                    {
+                      "$render": [
+                        {
+                          "component": "TeachingPopoverCarouselNavButton"
+                        }
+                      ]
+                    }
+                  ]
                 }
               ]
             }
@@ -30551,7 +32197,11 @@
           },
           "children": [
             {
-              "component": "TeachingPopoverHeader"
+              "component": "TeachingPopoverHeader",
+              "props": {
+                "icon": {},
+                "dismissButton": {}
+              }
             },
             {
               "component": "TeachingPopoverBody",
@@ -30586,14 +32236,34 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "next": "Next",
-            "initialStepText": "Close",
-            "finalStepText": "Finish",
-            "previous": "Previous"
+            "next": {
+              "navType": "next",
+              "altText": "Done",
+              "children": "Next"
+            },
+            "initialStepText": "Text",
+            "finalStepText": "Text",
+            "previous": {
+              "navType": "prev",
+              "altText": "Back",
+              "children": "Back"
+            }
           },
           "children": [
             {
-              "component": "TeachingPopoverCarouselNav"
+              "component": "TeachingPopoverCarouselNav",
+              "children": [
+                {
+                  "$render": [
+                    {
+                      "component": "TeachingPopoverCarouselNavButton"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "TeachingPopoverCarouselPageCount"
             }
           ]
         },
@@ -30622,7 +32292,11 @@
         "sample": {
           "children": [
             {
-              "component": "TeachingPopoverCarouselNavButton"
+              "$render": [
+                {
+                  "component": "TeachingPopoverCarouselNavButton"
+                }
+              ]
             }
           ]
         },
@@ -30705,6 +32379,10 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "icon": {},
+            "dismissButton": {}
+          },
           "children": [
             "Tips"
           ]
@@ -30747,6 +32425,20 @@
                   "children": [
                     {
                       "component": "TeachingPopoverBody",
+                      "props": {
+                        "media": {
+                          "$element": [
+                            {
+                              "component": "Image",
+                              "props": {
+                                "alt": "test image",
+                                "fit": "cover",
+                                "src": "https://fabricweb.azureedge.net/fabric-website/assets/images/wireframe/image-square.png"
+                              }
+                            }
+                          ]
+                        }
+                      },
                       "children": [
                         {
                           "component": "TeachingPopoverTitle"
@@ -30764,6 +32456,20 @@
                   "children": [
                     {
                       "component": "TeachingPopoverBody",
+                      "props": {
+                        "media": {
+                          "$element": [
+                            {
+                              "component": "Image",
+                              "props": {
+                                "alt": "test image",
+                                "fit": "cover",
+                                "src": "https://fabricweb.azureedge.net/fabric-website/assets/images/wireframe/image-square.png"
+                              }
+                            }
+                          ]
+                        }
+                      },
                       "children": [
                         {
                           "component": "TeachingPopoverTitle"
@@ -30781,6 +32487,20 @@
                   "children": [
                     {
                       "component": "TeachingPopoverBody",
+                      "props": {
+                        "media": {
+                          "$element": [
+                            {
+                              "component": "Image",
+                              "props": {
+                                "alt": "test image",
+                                "fit": "cover",
+                                "src": "https://fabricweb.azureedge.net/fabric-website/assets/images/wireframe/image-square.png"
+                              }
+                            }
+                          ]
+                        }
+                      },
                       "children": [
                         {
                           "component": "TeachingPopoverTitle"
@@ -30800,7 +32520,16 @@
                   },
                   "children": [
                     {
-                      "component": "TeachingPopoverCarouselNav"
+                      "component": "TeachingPopoverCarouselNav",
+                      "children": [
+                        {
+                          "$render": [
+                            {
+                              "component": "TeachingPopoverCarouselNavButton"
+                            }
+                          ]
+                        }
+                      ]
                     }
                   ]
                 }
@@ -30826,6 +32555,10 @@
           "TeachingPopoverBody"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "TeachingPopoverCarouselCard",
+          "TeachingPopoverCarousel"
+        ],
         "sample": {
           "children": [
             "Teaching Bubble Title"
@@ -30862,12 +32595,13 @@
         "group": "Text",
         "sample": {
           "props": {
-            "weight": "semibold"
+            "weight": "bold"
           },
           "children": [
-            "Dialog (",
-            "surfaceMotion",
-            ")"
+            "{",
+            "type:",
+            ", index:",
+            "}"
           ]
         },
         "fingerprint": "f9c36dc6",
@@ -30892,9 +32626,9 @@
         "group": "Textarea",
         "sample": {
           "props": {
-            "appearance": "outline",
-            "placeholder": "type here...",
-            "resize": "both"
+            "rows": 4,
+            "placeholder": "Type your message…",
+            "textarea": {}
           }
         },
         "fingerprint": "059e9f63",
@@ -30988,12 +32722,24 @@
           "children": [
             {
               "component": "ToastTitle",
+              "props": {
+                "action": {
+                  "$element": [
+                    "Undo"
+                  ]
+                }
+              },
               "children": [
                 "Email sent"
               ]
             },
             {
               "component": "ToastBody",
+              "props": {
+                "subtitle": {
+                  "children": "Subtitle"
+                }
+              },
               "children": [
                 "This is a toast body"
               ]
@@ -31024,7 +32770,9 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "subtitle": "Subtitle"
+            "subtitle": {
+              "children": "Subtitle"
+            }
           },
           "children": [
             "This is a toast body"
@@ -31096,7 +32844,9 @@
         "sample": {
           "children": [
             "Offset:",
-            ","
+            "20",
+            ",",
+            "16"
           ]
         },
         "fingerprint": "0376a7d0",
@@ -31122,11 +32872,12 @@
         "group": "Button",
         "sample": {
           "props": {
-            "appearance": "primary",
-            "isAccessible": true
+            "disabledFocusable": true,
+            "checked": false
           },
           "children": [
-            "Primary"
+            "Play",
+            "toast"
           ]
         },
         "fingerprint": "94960043",
@@ -31345,29 +33096,32 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "aria-label": "Alignment"
+          },
           "children": [
             {
               "component": "ToolbarRadioButton",
               "props": {
-                "aria-label": "Align left",
-                "name": "textOptions",
-                "value": "left"
+                "name": "align",
+                "value": "left",
+                "aria-label": "Align left"
               }
             },
             {
               "component": "ToolbarRadioButton",
               "props": {
-                "aria-label": "Align Center",
-                "name": "textOptions",
-                "value": "center"
+                "name": "align",
+                "value": "center",
+                "aria-label": "Align center"
               }
             },
             {
               "component": "ToolbarRadioButton",
               "props": {
-                "aria-label": "Align Right",
-                "name": "textOptions",
-                "value": "right"
+                "name": "align",
+                "value": "right",
+                "aria-label": "Align right"
               }
             }
           ]
@@ -31573,9 +33327,23 @@
           },
           "children": [
             {
-              "component": "TreeItemLayout",
+              "component": "TreeItemPersonaLayout",
+              "props": {
+                "media": {
+                  "$element": [
+                    {
+                      "component": "Avatar",
+                      "props": {
+                        "image": {
+                          "alt": "avatar"
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
               "children": [
-                "Small size tree"
+                "Tree using TreeItemPersonaLayout"
               ]
             },
             {
@@ -31584,24 +33352,28 @@
                 {
                   "component": "TreeItem",
                   "props": {
-                    "itemType": "branch"
+                    "itemType": "leaf"
                   },
                   "children": [
                     {
-                      "component": "TreeItemLayout",
+                      "component": "TreeItemPersonaLayout",
+                      "props": {
+                        "media": {
+                          "$element": [
+                            {
+                              "component": "Avatar",
+                              "props": {
+                                "image": {
+                                  "alt": "avatar"
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        "description": "with description"
+                      },
                       "children": [
                         "level 2, item 1"
-                      ]
-                    },
-                    {
-                      "component": "Tree",
-                      "children": [
-                        {
-                          "component": "TreeItem",
-                          "props": {
-                            "itemType": "leaf"
-                          }
-                        }
                       ]
                     }
                   ]
@@ -31613,7 +33385,23 @@
                   },
                   "children": [
                     {
-                      "component": "TreeItemLayout",
+                      "component": "TreeItemPersonaLayout",
+                      "props": {
+                        "media": {
+                          "$element": [
+                            {
+                              "component": "Avatar",
+                              "props": {
+                                "image": {
+                                  "alt": "avatar"
+                                },
+                                "shape": "square"
+                              }
+                            }
+                          ]
+                        },
+                        "description": "square shape media"
+                      },
                       "children": [
                         "level 2, item 2"
                       ]
@@ -31627,7 +33415,10 @@
                   },
                   "children": [
                     {
-                      "component": "TreeItemLayout",
+                      "component": "TreeItemPersonaLayout",
+                      "props": {
+                        "description": "without media"
+                      },
                       "children": [
                         "level 2, item 3"
                       ]
@@ -31686,6 +33477,18 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
+            "media": {
+              "$element": [
+                {
+                  "component": "Avatar",
+                  "props": {
+                    "image": {
+                      "alt": "avatar"
+                    }
+                  }
+                }
+              ]
+            },
             "description": "with description"
           },
           "children": [

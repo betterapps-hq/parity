@@ -1,17 +1,3 @@
 {
-  "components": {
-    "SelectScrollUpButton": { "parents": ["Select", "SelectContent"] },
-    "SelectScrollDownButton": { "parents": ["Select", "SelectContent"] },
-    "ChartContainer": { "sample": { "props": { "config": {} } } },
-    "ChartStyle": { "sample": { "props": { "id": "chart", "config": {} } } },
-    "MessageScrollerItem": { "parents": ["MessageScrollerProvider", "MessageScroller", "MessageScrollerContent"] },
-    "ComboboxCollection": { "visual": false },
-    "Toast": { "visual": false },
-    "ToastAction": { "visual": false },
-    "ToastClose": { "visual": false },
-    "ToastContent": { "visual": false },
-    "ToastDescription": { "visual": false },
-    "ToastTitle": { "visual": false },
-    "ToastViewport": { "visual": false }
-  }
+  "components": {}
 }

@@ -78,7 +78,7 @@ const buildkit = Object.fromEntries(
         name: `Buildkit ${style}`,
         description: `Every shadcn component on Base UI, in the ${style} style, kept in step with upstream.`,
         styles: "tailwind.css",
-        examples: { paths: ["apps/v4/examples/base/"] },
+        examples: { paths: ["apps/v4/examples/base/"], anatomy: ["apps/v4/content/docs/components/base/"] },
         decorators: [
           { wrap: { import: name, component: "TooltipProvider" } },
           { add: { import: name, component: "Toaster" } }
@@ -106,7 +106,7 @@ export const presets: Record<string, Preset> = {
     ]
   },
   "@base-ui/react": {
-    examples: { paths: ["docs/"] },
+    examples: { paths: ["docs/"], anatomy: ["docs/src/app/(docs)/react/components/"] },
     id: "baseui",
     name: "Base UI",
     description: "Unstyled components from the makers of Radix, Floating UI and Material UI.",
@@ -223,7 +223,7 @@ export const presets: Record<string, Preset> = {
     }
   },
   "@chakra-ui/react": {
-    examples: { paths: ["apps/compositions/"] },
+    examples: { paths: ["apps/compositions/"], anatomy: ["apps/www/content/docs/components/"] },
     id: "chakra",
     name: "Chakra UI",
     description: "Accessible components with style props, on Emotion.",

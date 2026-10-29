@@ -107,8 +107,25 @@ export function describeReport(report: Report): string {
   }
   if (report.examples) {
     const { repo, commit, how, files, used } = report.examples
-    const matched = { upstream: "the revision it records", gitHead: "npm's gitHead", tag: "its tag", date: "its publish date" }[how]
-    lines.push(`  Examples: ${files} files from ${repo} at ${commit.slice(0, 10)} (by ${matched}), using ${used} of its components`)
+    const matched = {
+      upstream: "the revision it records",
+      gitHead: "npm's gitHead",
+      tag: "its tag",
+      date: "its publish date"
+    }[how]
+    lines.push(
+      `  Examples: ${files} files from ${repo} at ${commit.slice(0, 10)} (by ${matched}), using ${used} of its components`
+    )
+  }
+  if (report.anatomy) {
+    const { parts, placed, complete, differ } = report.anatomy
+    lines.push(
+      `  Anatomy: of ${parts} parts its docs nest, ${placed} are placed as they show and ${complete} have every level`
+    )
+    for (const entry of differ.slice(0, 10)) {
+      lines.push(`    ${entry.name}: docs ${entry.docs.join(" > ")}; file ${entry.file.join(" > ") || "no parents"}`)
+    }
+    if (differ.length > 10) lines.push(`    and ${differ.length - 10} more (--json lists them)`)
   }
   if (report.parts) {
     const parts = report.parts

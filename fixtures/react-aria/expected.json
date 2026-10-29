@@ -142,7 +142,7 @@
       "package": "react-aria-components",
       "version": "1.22.1",
       "stylesImported": true,
-      "components": 155
+      "components": 151
     }
   ],
   "icons": [
@@ -186,7 +186,7 @@
     "4 components in 5 files from tsconfig.app.json",
     "not read, since they mount the app: src/main.tsx",
     "0 components from Hugeicons (@hugeicons/core-free-icons)",
-    "155 components from React Aria Components (react-aria-components)",
+    "151 components from React Aria Components (react-aria-components)",
     "no .par project file yet",
     "Storybook in .storybook, with stories for 2 components"
   ]

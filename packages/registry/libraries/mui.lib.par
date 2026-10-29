@@ -3570,6 +3570,28 @@
       "Accordion": {
         "as": "function",
         "group": "Accordion",
+        "sample": {
+          "props": {
+            "children": "Text",
+            "defaultExpanded": true
+          },
+          "children": [
+            {
+              "component": "AccordionSummary",
+              "children": []
+            },
+            {
+              "component": "AccordionDetails",
+              "children": [
+                "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sus"
+              ]
+            },
+            {
+              "component": "AccordionActions",
+              "children": []
+            }
+          ]
+        },
         "fingerprint": "f6801bb9",
         "props": {
           "children": "9908d4",
@@ -3740,9 +3762,12 @@
         "group": "AppBar",
         "sample": {
           "props": {
-            "position": "static",
+            "position": "fixed",
             "color": "primary",
-            "enableColorOnDark": true
+            "sx": {
+              "top": "auto",
+              "bottom": 0
+            }
           }
         },
         "fingerprint": "a7629d1e",
@@ -3764,6 +3789,65 @@
       "Autocomplete": {
         "as": "function",
         "group": "Autocomplete",
+        "sample": {
+          "props": {
+            "renderInput": {
+              "$render": [
+                {
+                  "component": "TextField",
+                  "props": {
+                    "label": "Free solo with text demo"
+                  }
+                }
+              ],
+              "spread": true
+            },
+            "options": [
+              {
+                "title": "The Shawshank Redemption",
+                "year": 1994
+              },
+              {
+                "title": "The Godfather",
+                "year": 1972
+              },
+              {
+                "title": "The Godfather: Part II",
+                "year": 1974
+              },
+              {
+                "title": "The Dark Knight",
+                "year": 2008
+              },
+              {
+                "title": "12 Angry Men",
+                "year": 1957
+              },
+              {
+                "title": "Schindler's List",
+                "year": 1993
+              },
+              {
+                "title": "Pulp Fiction",
+                "year": 1994
+              },
+              {
+                "title": "The Lord of the Rings: The Return of the King",
+                "year": 2003
+              }
+            ],
+            "value": null,
+            "selectOnFocus": true,
+            "clearOnBlur": true,
+            "handleHomeEndKeys": true,
+            "id": "free-solo-with-text-demo",
+            "sx": {
+              "width": 300
+            },
+            "freeSolo": true,
+            "resetHighlightOnMouseLeave": true
+          }
+        },
         "fingerprint": "e5b222a0",
         "props": {
           "autoComplete?": "31e5d9",
@@ -3838,6 +3922,7 @@
         "group": "Avatar",
         "sample": {
           "props": {
+            "sx": {},
             "alt": "Remy Sharp",
             "src": "/broken-image.jpg"
           },
@@ -3867,6 +3952,11 @@
         "group": "AvatarGroup",
         "sample": {
           "props": {
+            "renderSurplus": {
+              "$render": [
+                "+ k"
+              ]
+            },
             "total": 4251
           },
           "children": [
@@ -3920,7 +4010,7 @@
         "group": "Backdrop",
         "sample": {
           "props": {
-            "open": true
+            "open": false
           }
         },
         "fingerprint": "d407133a",
@@ -3957,10 +4047,7 @@
         "as": "function",
         "declaration": "Backdrop/Backdrop.d.mts",
         "group": "Backdrop",
-        "parents": [
-          "Backdrop"
-        ],
-        "parentsFrom": "prefix",
+        "visual": false,
         "fingerprint": "c218e39e"
       },
       "Badge": {
@@ -3969,6 +4056,10 @@
         "sample": {
           "props": {
             "overlap": "circular",
+            "anchorOrigin": {
+              "vertical": "bottom",
+              "horizontal": "right"
+            },
             "badgeContent": 2,
             "color": "primary"
           }
@@ -3997,26 +4088,26 @@
         "as": "function",
         "declaration": "Badge/Badge.d.mts",
         "group": "Badge",
-        "parents": [
-          "Badge"
-        ],
-        "parentsFrom": "prefix",
+        "visual": false,
         "fingerprint": "c218e39e"
       },
       "BadgeRoot": {
         "as": "function",
         "declaration": "Badge/Badge.d.mts",
         "group": "Badge",
-        "parents": [
-          "Badge"
-        ],
-        "parentsFrom": "prefix",
+        "visual": false,
         "fingerprint": "c218e39e"
       },
       "BottomNavigation": {
         "as": "function",
         "group": "BottomNavigation",
         "sample": {
+          "props": {
+            "sx": {
+              "width": 500
+            },
+            "value": "recents"
+          },
           "children": [
             {
               "component": "BottomNavigationAction",
@@ -4111,13 +4202,47 @@
         "group": "Box",
         "sample": {
           "props": {
-            "component": "ul",
-            "aria-labelledby": "category-a"
+            "sx": {
+              "width": "100%"
+            }
           },
           "children": [
-            "Link 1.1",
-            "Link 1.2",
-            "Link 1.3"
+            {
+              "component": "Box",
+              "props": {
+                "sx": {
+                  "bgcolor": "#fff"
+                }
+              },
+              "children": [
+                {
+                  "component": "Box",
+                  "props": {
+                    "sx": {
+                      "p": 3
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "component": "Box",
+              "props": {
+                "sx": {
+                  "bgcolor": "#2e1534"
+                }
+              },
+              "children": [
+                {
+                  "component": "Box",
+                  "props": {
+                    "sx": {
+                      "p": 3
+                    }
+                  }
+                }
+              ]
+            }
           ]
         },
         "fingerprint": "4058cf65",
@@ -4162,13 +4287,14 @@
         "sample": {
           "props": {
             "href": "#",
-            "fullWidth": true,
+            "size": "small",
+            "color": "secondary",
             "loading": true,
             "loadingPosition": "start",
-            "variant": "outlined"
+            "variant": "contained"
           },
           "children": [
-            "Full width"
+            "Save"
           ]
         },
         "fingerprint": "5705a96a",
@@ -4213,7 +4339,15 @@
           "props": {
             "href": "#",
             "component": "label",
-            "aria-label": "Avatar image"
+            "tabIndex": -1,
+            "aria-label": "Avatar image",
+            "sx": {
+              "borderRadius": "40px",
+              "&:has(:focus-visible)": {
+                "outline": "2px solid",
+                "outlineOffset": "2px"
+              }
+            }
           }
         },
         "fingerprint": "9d5c8087",
@@ -4296,10 +4430,39 @@
         "as": "function",
         "group": "Card",
         "sample": {
+          "props": {
+            "sx": {
+              "maxWidth": 345
+            }
+          },
           "children": [
             {
               "component": "CardHeader",
               "props": {
+                "avatar": {
+                  "$element": [
+                    {
+                      "component": "Avatar",
+                      "props": {
+                        "sx": {},
+                        "aria-label": "recipe"
+                      },
+                      "children": [
+                        "R"
+                      ]
+                    }
+                  ]
+                },
+                "action": {
+                  "$element": [
+                    {
+                      "component": "IconButton",
+                      "props": {
+                        "aria-label": "settings"
+                      }
+                    }
+                  ]
+                },
                 "title": "Shrimp and Chorizo Paella",
                 "subheader": "September 14, 2016"
               }
@@ -4421,6 +4584,13 @@
           "Card"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "sx": {
+              "flex": "1 0 auto"
+            }
+          }
+        },
         "fingerprint": "544af8b0",
         "props": {
           "children?": "75c961",
@@ -4440,6 +4610,30 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
+            "avatar": {
+              "$element": [
+                {
+                  "component": "Avatar",
+                  "props": {
+                    "sx": {},
+                    "aria-label": "recipe"
+                  },
+                  "children": [
+                    "R"
+                  ]
+                }
+              ]
+            },
+            "action": {
+              "$element": [
+                {
+                  "component": "IconButton",
+                  "props": {
+                    "aria-label": "settings"
+                  }
+                }
+              ]
+            },
             "title": "Shrimp and Chorizo Paella",
             "subheader": "September 14, 2016"
           }
@@ -4492,8 +4686,18 @@
         "group": "Checkbox",
         "sample": {
           "props": {
-            "disabled": true,
-            "checked": true
+            "sx": {
+              "&:hover": {
+                "bgcolor": "transparent"
+              }
+            },
+            "disableRipple": true,
+            "color": "default",
+            "slotProps": {
+              "input": {
+                "aria-label": "Checkbox demo"
+              }
+            }
           }
         },
         "fingerprint": "a601edae",
@@ -4621,6 +4825,7 @@
         "sample": {
           "props": {
             "component": "li",
+            "in": true,
             "timeout": "auto",
             "unmountOnExit": true
           }
@@ -4660,7 +4865,10 @@
         "group": "Container",
         "sample": {
           "props": {
-            "maxWidth": "xl"
+            "component": "main",
+            "sx": {
+              "pt": 3
+            }
           }
         },
         "fingerprint": "6233bc78",
@@ -4691,6 +4899,7 @@
         "declaration": "styles/ThemeProviderWithVars.d.mts",
         "group": "ThemeProviderWithVars",
         "visual": false,
+        "internal": true,
         "fingerprint": "5b6ebc5c",
         "props": {
           "attribute?": "0bf956",
@@ -4714,18 +4923,19 @@
         "group": "Dialog",
         "sample": {
           "props": {
-            "open": true,
-            "aria-labelledby": "snackbar-dialog-title",
-            "aria-describedby": "snackbar-dialog-description"
+            "open": false,
+            "aria-labelledby": "alert-dialog-title",
+            "aria-describedby": "alert-dialog-description",
+            "role": "alertdialog"
           },
           "children": [
             {
               "component": "DialogTitle",
               "props": {
-                "id": "snackbar-dialog-title"
+                "id": "alert-dialog-title"
               },
               "children": [
-                "Snackbar in a dialog"
+                "Use Google's location service?"
               ]
             },
             {
@@ -4734,10 +4944,10 @@
                 {
                   "component": "DialogContentText",
                   "props": {
-                    "id": "snackbar-dialog-description"
+                    "id": "alert-dialog-description"
                   },
                   "children": [
-                    "Show the snackbar, then press Escape to close it. Press Esca"
+                    "Let Google help apps determine location. This means sending "
                   ]
                 }
               ]
@@ -4868,6 +5078,10 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
+            "sx": {
+              "m": 0,
+              "p": 2
+            },
             "id": "customized-dialog-title"
           },
           "children": [
@@ -4921,8 +5135,21 @@
         "group": "Drawer",
         "sample": {
           "props": {
-            "variant": "permanent",
-            "anchor": "left"
+            "variant": "temporary",
+            "open": false,
+            "ModalProps": {
+              "keepMounted": true
+            },
+            "sx": {
+              "display": {
+                "xs": "block",
+                "sm": "none"
+              },
+              "& .MuiDrawer-paper": {
+                "boxSizing": "border-box",
+                "width": 240
+              }
+            }
           }
         },
         "fingerprint": "600e4ab2",
@@ -5013,7 +5240,8 @@
         "sample": {
           "props": {
             "children": "Text",
-            "appear": false
+            "appear": false,
+            "in": true
           }
         },
         "fingerprint": "da65a249",
@@ -5043,7 +5271,22 @@
         "group": "FilledInput",
         "sample": {
           "props": {
-            "defaultValue": "Composed TextField"
+            "endAdornment": {
+              "$element": [
+                {
+                  "component": "InputAdornment",
+                  "props": {
+                    "position": "end"
+                  },
+                  "children": [
+                    "kg"
+                  ]
+                }
+              ]
+            },
+            "inputProps": {
+              "aria-label": "weight"
+            }
           }
         },
         "fingerprint": "2a0b1a87",
@@ -5097,20 +5340,81 @@
         "as": "function",
         "group": "FormControl",
         "sample": {
+          "props": {
+            "required": true,
+            "component": "fieldset",
+            "sx": {
+              "m": 3
+            },
+            "variant": "standard"
+          },
           "children": [
             {
-              "component": "FormGroup"
+              "component": "FormLabel",
+              "props": {
+                "component": "legend"
+              },
+              "children": [
+                "Pick two"
+              ]
+            },
+            {
+              "component": "FormGroup",
+              "children": [
+                {
+                  "component": "FormControlLabel",
+                  "props": {
+                    "control": {
+                      "$element": [
+                        {
+                          "component": "Checkbox",
+                          "props": {
+                            "name": "gilad"
+                          }
+                        }
+                      ]
+                    },
+                    "label": "Gilad Gray"
+                  }
+                },
+                {
+                  "component": "FormControlLabel",
+                  "props": {
+                    "control": {
+                      "$element": [
+                        {
+                          "component": "Checkbox",
+                          "props": {
+                            "name": "jason"
+                          }
+                        }
+                      ]
+                    },
+                    "label": "Jason Killian"
+                  }
+                },
+                {
+                  "component": "FormControlLabel",
+                  "props": {
+                    "control": {
+                      "$element": [
+                        {
+                          "component": "Checkbox",
+                          "props": {
+                            "name": "antoine"
+                          }
+                        }
+                      ]
+                    },
+                    "label": "Antoine Llorca"
+                  }
+                }
+              ]
             },
             {
               "component": "FormHelperText",
               "children": [
-                "Be careful"
-              ]
-            },
-            {
-              "component": "FormLabel",
-              "children": [
-                "Vertical"
+                "You can display an error"
               ]
             }
           ]
@@ -5141,7 +5445,21 @@
         "parents": [
           "FormControl"
         ],
-        "parentsFrom": "example",
+        "parentsFrom": "prefix",
+        "sample": {
+          "props": {
+            "control": {
+              "$element": [
+                {
+                  "component": "Checkbox"
+                }
+              ]
+            },
+            "label": "Bottom",
+            "value": "bottom",
+            "labelPlacement": "bottom"
+          }
+        },
         "fingerprint": "b487ea54",
         "props": {
           "checked?": "31e5d9",
@@ -5168,6 +5486,54 @@
           "FormControl"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "component": "FormControlLabel",
+              "props": {
+                "control": {
+                  "$element": [
+                    {
+                      "component": "Checkbox",
+                      "props": {
+                        "defaultChecked": true
+                      }
+                    }
+                  ]
+                },
+                "label": "Label"
+              }
+            },
+            {
+              "component": "FormControlLabel",
+              "props": {
+                "required": true,
+                "control": {
+                  "$element": [
+                    {
+                      "component": "Checkbox"
+                    }
+                  ]
+                },
+                "label": "Required"
+              }
+            },
+            {
+              "component": "FormControlLabel",
+              "props": {
+                "disabled": true,
+                "control": {
+                  "$element": [
+                    {
+                      "component": "Checkbox"
+                    }
+                  ]
+                },
+                "label": "Disabled"
+              }
+            }
+          ]
+        },
         "fingerprint": "a8211432",
         "props": {
           "children?": "75c961",
@@ -5185,8 +5551,16 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "sx": {
+              "ml": 0,
+              "&:empty": {
+                "mt": 0
+              }
+            }
+          },
           "children": [
-            "Be careful"
+            "Enter value between 10 and 40"
           ]
         },
         "fingerprint": "87ea6b23",
@@ -5257,6 +5631,13 @@
           "children": [
             {
               "component": "Grid",
+              "props": {
+                "size": {
+                  "xs": 12,
+                  "md": 5,
+                  "lg": 4
+                }
+              },
               "children": [
                 "Email subscribe section"
               ]
@@ -5265,29 +5646,58 @@
               "component": "Grid",
               "props": {
                 "container": true,
-                "spacing": 4
+                "spacing": 4,
+                "size": {
+                  "xs": 12,
+                  "md": 7,
+                  "lg": 8
+                }
               },
               "children": [
                 {
                   "component": "Grid",
+                  "props": {
+                    "size": {
+                      "xs": 6,
+                      "lg": 3
+                    }
+                  },
                   "children": [
                     "Category A Link 1.1 Link 1.2 Link 1.3"
                   ]
                 },
                 {
                   "component": "Grid",
+                  "props": {
+                    "size": {
+                      "xs": 6,
+                      "lg": 3
+                    }
+                  },
                   "children": [
                     "Category B Link 2.1 Link 2.2 Link 2.3"
                   ]
                 },
                 {
                   "component": "Grid",
+                  "props": {
+                    "size": {
+                      "xs": 6,
+                      "lg": 3
+                    }
+                  },
                   "children": [
                     "Category C Link 3.1 Link 3.2 Link 3.3"
                   ]
                 },
                 {
                   "component": "Grid",
+                  "props": {
+                    "size": {
+                      "xs": 6,
+                      "lg": 3
+                    }
+                  },
                   "children": [
                     "Category D Link 4.1 Link 4.2 Link 4.3"
                   ]
@@ -5298,11 +5708,28 @@
               "component": "Grid",
               "props": {
                 "container": true,
+                "sx": {
+                  "justifyContent": "space-between",
+                  "alignItems": "center",
+                  "flexDirection": {
+                    "xs": "column",
+                    "sm": "row"
+                  },
+                  "fontSize": "12px"
+                },
                 "size": 12
               },
               "children": [
                 {
                   "component": "Grid",
+                  "props": {
+                    "sx": {
+                      "order": {
+                        "xs": 2,
+                        "sm": 1
+                      }
+                    }
+                  },
                   "children": [
                     "© Copyright"
                   ]
@@ -5311,7 +5738,13 @@
                   "component": "Grid",
                   "props": {
                     "container": true,
-                    "columnSpacing": 1
+                    "columnSpacing": 1,
+                    "sx": {
+                      "order": {
+                        "xs": 1,
+                        "sm": 2
+                      }
+                    }
                   },
                   "children": [
                     {
@@ -5364,7 +5797,8 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "children": "Text"
+            "children": "Text",
+            "in": false
           }
         },
         "fingerprint": "9247f9d9",
@@ -5420,8 +5854,9 @@
           "props": {
             "href": "#",
             "size": "large",
+            "edge": "end",
             "aria-label": "account of current user",
-            "aria-controls": "menu-appbar",
+            "aria-controls": "primary-search-account-menu",
             "aria-haspopup": "true",
             "color": "inherit"
           }
@@ -5462,9 +5897,13 @@
         "sample": {
           "props": {
             "children": "Text",
-            "variant": "masonry",
-            "cols": 3,
-            "gap": 8
+            "sx": {
+              "width": 500,
+              "height": 450,
+              "transform": "translateZ(0)"
+            },
+            "rowHeight": 200,
+            "gap": 1
           },
           "children": [
             {
@@ -5473,7 +5912,73 @@
                 {
                   "component": "ImageListItemBar",
                   "props": {
+                    "sx": {},
+                    "title": "Breakfast",
                     "position": "top",
+                    "actionIcon": {
+                      "$element": [
+                        {
+                          "component": "IconButton",
+                          "props": {
+                            "sx": {
+                              "color": "white"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    "actionPosition": "left"
+                  }
+                }
+              ]
+            },
+            {
+              "component": "ImageListItem",
+              "children": [
+                {
+                  "component": "ImageListItemBar",
+                  "props": {
+                    "sx": {},
+                    "title": "Burger",
+                    "position": "top",
+                    "actionIcon": {
+                      "$element": [
+                        {
+                          "component": "IconButton",
+                          "props": {
+                            "sx": {
+                              "color": "white"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    "actionPosition": "left"
+                  }
+                }
+              ]
+            },
+            {
+              "component": "ImageListItem",
+              "children": [
+                {
+                  "component": "ImageListItemBar",
+                  "props": {
+                    "sx": {},
+                    "title": "Camera",
+                    "position": "top",
+                    "actionIcon": {
+                      "$element": [
+                        {
+                          "component": "IconButton",
+                          "props": {
+                            "sx": {
+                              "color": "white"
+                            }
+                          }
+                        }
+                      ]
+                    },
                     "actionPosition": "left"
                   }
                 }
@@ -5507,7 +6012,20 @@
             {
               "component": "ImageListItemBar",
               "props": {
+                "sx": {},
                 "position": "top",
+                "actionIcon": {
+                  "$element": [
+                    {
+                      "component": "IconButton",
+                      "props": {
+                        "sx": {
+                          "color": "white"
+                        }
+                      }
+                    }
+                  ]
+                },
                 "actionPosition": "left"
               }
             }
@@ -5535,7 +6053,20 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
+            "sx": {},
             "position": "top",
+            "actionIcon": {
+              "$element": [
+                {
+                  "component": "IconButton",
+                  "props": {
+                    "sx": {
+                      "color": "white"
+                    }
+                  }
+                }
+              ]
+            },
             "actionPosition": "left"
           }
         },
@@ -5571,8 +6102,15 @@
         "group": "Input",
         "sample": {
           "props": {
-            "disabled": true,
-            "defaultValue": "Disabled"
+            "value": 30,
+            "size": "small",
+            "inputProps": {
+              "step": 10,
+              "min": 0,
+              "max": 100,
+              "type": "number",
+              "aria-labelledby": "input-slider"
+            }
           }
         },
         "fingerprint": "0a9d5678",
@@ -5626,10 +6164,14 @@
         "group": "InputAdornment",
         "sample": {
           "props": {
-            "position": "start"
+            "position": "end",
+            "sx": {
+              "opacity": 0,
+              "pointerEvents": "none"
+            }
           },
           "children": [
-            "kg"
+            "lbs"
           ]
         },
         "fingerprint": "47cb2132",
@@ -5651,7 +6193,14 @@
         "group": "InputBase",
         "sample": {
           "props": {
-            "placeholder": "Search Google Maps"
+            "sx": {
+              "ml": 1,
+              "flex": 1
+            },
+            "placeholder": "Search Google Maps",
+            "inputProps": {
+              "aria-label": "search google maps"
+            }
           }
         },
         "fingerprint": "f8f802e0",
@@ -5735,6 +6284,8 @@
         "sample": {
           "props": {
             "variant": "buffer",
+            "value": 0,
+            "valueBuffer": 10,
             "aria-label": "Loading…"
           }
         },
@@ -5757,11 +6308,14 @@
         "sample": {
           "props": {
             "underline": "hover",
-            "color": "inherit",
-            "href": "/"
+            "href": "/material-ui/react-breadcrumbs/",
+            "aria-current": "page",
+            "sx": {
+              "color": "text.primary"
+            }
           },
           "children": [
-            "MUI"
+            "Breadcrumbs"
           ]
         },
         "fingerprint": "a8f38199",
@@ -5786,56 +6340,127 @@
         "as": "function",
         "group": "List",
         "sample": {
-          "props": {
-            "component": "div",
-            "role": "group"
-          },
           "children": [
             {
-              "component": "ListItemButton",
+              "component": "ListItem",
               "props": {
-                "divider": true,
-                "disabled": true
+                "disablePadding": true,
+                "sx": {
+                  "display": "block"
+                }
               },
               "children": [
                 {
-                  "component": "ListItemText",
+                  "component": "ListItemButton",
                   "props": {
-                    "primary": "Interruptions"
-                  }
+                    "sx": [
+                      {
+                        "minHeight": 48,
+                        "px": 2.5
+                      }
+                    ]
+                  },
+                  "children": [
+                    {
+                      "component": "ListItemIcon",
+                      "props": {
+                        "sx": [
+                          {
+                            "minWidth": 0,
+                            "justifyContent": "center"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "component": "ListItemText",
+                      "props": {
+                        "primary": "Inbox"
+                      }
+                    }
+                  ]
                 }
               ]
             },
             {
-              "component": "ListItemButton",
+              "component": "ListItem",
               "props": {
-                "divider": true,
-                "aria-haspopup": "true",
-                "aria-controls": "ringtone-menu",
-                "aria-label": "phone ringtone"
+                "disablePadding": true,
+                "sx": {
+                  "display": "block"
+                }
               },
               "children": [
                 {
-                  "component": "ListItemText",
+                  "component": "ListItemButton",
                   "props": {
-                    "primary": "Phone ringtone"
-                  }
+                    "sx": [
+                      {
+                        "minHeight": 48,
+                        "px": 2.5
+                      }
+                    ]
+                  },
+                  "children": [
+                    {
+                      "component": "ListItemIcon",
+                      "props": {
+                        "sx": [
+                          {
+                            "minWidth": 0,
+                            "justifyContent": "center"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "component": "ListItemText",
+                      "props": {
+                        "primary": "Starred"
+                      }
+                    }
+                  ]
                 }
               ]
             },
             {
-              "component": "ListItemButton",
+              "component": "ListItem",
               "props": {
-                "divider": true,
-                "disabled": true
+                "disablePadding": true,
+                "sx": {
+                  "display": "block"
+                }
               },
               "children": [
                 {
-                  "component": "ListItemText",
+                  "component": "ListItemButton",
                   "props": {
-                    "primary": "Default notification ringtone",
-                    "secondary": "Tethys"
-                  }
+                    "sx": [
+                      {
+                        "minHeight": 48,
+                        "px": 2.5
+                      }
+                    ]
+                  },
+                  "children": [
+                    {
+                      "component": "ListItemIcon",
+                      "props": {
+                        "sx": [
+                          {
+                            "minWidth": 0,
+                            "justifyContent": "center"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "component": "ListItemText",
+                      "props": {
+                        "primary": "Send email"
+                      }
+                    }
+                  ]
                 }
               ]
             }
@@ -5863,23 +6488,34 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
+            "component": "div",
             "disablePadding": true
           },
           "children": [
             {
               "component": "ListItemButton",
               "props": {
-                "autoFocus": true
+                "sx": {
+                  "height": 56
+                }
               },
               "children": [
                 {
-                  "component": "ListItemAvatar",
-                  "children": []
+                  "component": "ListItemIcon"
                 },
                 {
                   "component": "ListItemText",
                   "props": {
-                    "primary": "Add account"
+                    "primary": "Project Overview",
+                    "slotProps": {
+                      "primary": {
+                        "color": "primary",
+                        "sx": {
+                          "fontWeight": "medium"
+                        },
+                        "variant": "body2"
+                      }
+                    }
                   }
                 }
               ]
@@ -5909,9 +6545,14 @@
         "group": "ListItemAvatar",
         "parents": [
           "List",
-          "ListItem"
+          "ListItem",
+          "ListItemButton"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "ListItemButton",
+          "ListItem"
+        ],
         "fingerprint": "1fe834ce",
         "props": {
           "children?": "75c961",
@@ -5928,6 +6569,9 @@
           "ListItem"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "ListItem"
+        ],
         "sample": {
           "props": {
             "href": "#customized-list",
@@ -5936,6 +6580,11 @@
           "children": [
             {
               "component": "ListItemIcon",
+              "props": {
+                "sx": {
+                  "fontSize": 20
+                }
+              },
               "children": [
                 "🔥"
               ]
@@ -5943,7 +6592,19 @@
             {
               "component": "ListItemText",
               "props": {
-                "primary": "Firebash"
+                "sx": {
+                  "my": 0
+                },
+                "primary": "Firebash",
+                "slotProps": {
+                  "primary": {
+                    "sx": {
+                      "fontSize": 20,
+                      "fontWeight": "medium",
+                      "letterSpacing": 0
+                    }
+                  }
+                }
               }
             }
           ]
@@ -5987,7 +6648,15 @@
           "ListItemButton"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "ListItem"
+        ],
         "sample": {
+          "props": {
+            "sx": {
+              "fontSize": 20
+            }
+          },
           "children": [
             "🔥"
           ]
@@ -6022,13 +6691,35 @@
           "ListItemButton"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "ListItemButton",
+          "ListItem"
+        ],
         "sample": {
           "props": {
-            "inset": true
-          },
-          "children": [
-            "Single"
-          ]
+            "primary": "Build",
+            "secondary": "Authentication, Firestore Database, Realtime Database, Storage, Hosting, Functions, and Machine Learning",
+            "slotProps": {
+              "primary": {
+                "sx": {
+                  "fontSize": 15,
+                  "fontWeight": "medium",
+                  "lineHeight": "20px",
+                  "mb": "2px"
+                }
+              },
+              "secondary": {
+                "noWrap": true,
+                "sx": {
+                  "fontSize": 12,
+                  "lineHeight": "16px"
+                }
+              }
+            },
+            "sx": {
+              "my": 0
+            }
+          }
         },
         "fingerprint": "70a06ba5",
         "props": {
@@ -6076,31 +6767,35 @@
         "sample": {
           "props": {
             "open": true,
-            "anchorReference": "anchorPosition"
+            "anchorEl": null,
+            "anchorOrigin": {
+              "vertical": "top",
+              "horizontal": "right"
+            },
+            "id": "primary-search-account-menu-mobile",
+            "keepMounted": true,
+            "transformOrigin": {
+              "vertical": "top",
+              "horizontal": "right"
+            }
           },
           "children": [
             {
               "component": "MenuItem",
               "children": [
-                "Copy"
+                "Messages"
               ]
             },
             {
               "component": "MenuItem",
               "children": [
-                "Print"
+                "Notifications"
               ]
             },
             {
               "component": "MenuItem",
               "children": [
-                "Highlight"
-              ]
-            },
-            {
-              "component": "MenuItem",
-              "children": [
-                "Email"
+                "Profile"
               ]
             }
           ]
@@ -6193,6 +6888,7 @@
         "group": "MenuList",
         "sample": {
           "props": {
+            "autoFocusItem": false,
             "id": "composition-menu",
             "aria-labelledby": "composition-button"
           },
@@ -6239,10 +6935,7 @@
         "as": "function",
         "declaration": "Menu/Menu.d.mts",
         "group": "Menu",
-        "parents": [
-          "Menu"
-        ],
-        "parentsFrom": "prefix",
+        "visual": false,
         "fingerprint": "562f516f",
         "props": {
           "children?": "75c961",
@@ -6261,11 +6954,45 @@
         "group": "MobileStepper",
         "sample": {
           "props": {
-            "backButton": "Text",
-            "nextButton": "Text",
+            "backButton": {
+              "$element": [
+                {
+                  "component": "Button",
+                  "props": {
+                    "size": "small"
+                  },
+                  "children": [
+                    "Back"
+                  ]
+                }
+              ]
+            },
+            "nextButton": {
+              "$element": [
+                {
+                  "component": "Button",
+                  "props": {
+                    "size": "small"
+                  },
+                  "children": [
+                    "Next"
+                  ]
+                }
+              ]
+            },
             "steps": 6,
-            "variant": "progress",
-            "position": "static"
+            "variant": "dots",
+            "position": "static",
+            "activeStep": 0,
+            "sx": {
+              "maxWidth": 400,
+              "flexGrow": 1
+            },
+            "slotProps": {
+              "progress": {
+                "aria-label": "stepper dotted progress"
+              }
+            }
           }
         },
         "fingerprint": "423990be",
@@ -6319,10 +7046,7 @@
         "as": "function",
         "declaration": "Modal/Modal.d.mts",
         "group": "Modal",
-        "parents": [
-          "Modal"
-        ],
-        "parentsFrom": "prefix",
+        "visual": false,
         "fingerprint": "c218e39e"
       },
       "NativeSelect": {
@@ -6330,7 +7054,10 @@
         "group": "NativeSelect",
         "sample": {
           "props": {
-            "defaultValue": 30
+            "defaultValue": 30,
+            "inputProps": {
+              "name": "age"
+            }
           },
           "children": [
             "Ten",
@@ -6392,6 +7119,9 @@
         "as": "function",
         "group": "NoSsr",
         "sample": {
+          "props": {
+            "defer": false
+          },
           "children": [
             ".....Inside NoSsr"
           ]
@@ -6408,8 +7138,33 @@
         "group": "OutlinedInput",
         "sample": {
           "props": {
-            "id": "select-multiple-chip",
-            "label": "Chip"
+            "slotProps": {},
+            "endAdornment": {
+              "$element": [
+                {
+                  "component": "InputAdornment",
+                  "props": {
+                    "position": "end",
+                    "sx": {
+                      "flexDirection": "column",
+                      "maxHeight": "unset",
+                      "alignSelf": "stretch",
+                      "borderLeft": "1px solid",
+                      "borderColor": "divider",
+                      "ml": 0,
+                      "& button": {
+                        "py": 0,
+                        "flex": 1,
+                        "borderRadius": 0.5
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "sx": {
+              "pr": 0
+            }
           }
         },
         "fingerprint": "d57d5dea",
@@ -6497,6 +7252,11 @@
       "PaginationItem": {
         "as": "function",
         "group": "PaginationItem",
+        "sample": {
+          "props": {
+            "slots": {}
+          }
+        },
         "fingerprint": "ea6fbca5",
         "props": {
           "classes?": "9ad6bd",
@@ -6526,7 +7286,18 @@
             "aria-modal": "false",
             "aria-label": "Cookie banner",
             "square": true,
-            "variant": "outlined"
+            "variant": "outlined",
+            "tabIndex": -1,
+            "sx": {
+              "position": "fixed",
+              "bottom": 0,
+              "left": 0,
+              "right": 0,
+              "m": 0,
+              "p": 2,
+              "borderWidth": 0,
+              "borderTopWidth": 1
+            }
           }
         },
         "fingerprint": "302d2b33",
@@ -6549,6 +7320,18 @@
           "props": {
             "open": true,
             "id": "mouse-over-popover",
+            "sx": {
+              "pointerEvents": "none"
+            },
+            "anchorEl": null,
+            "anchorOrigin": {
+              "vertical": "bottom",
+              "horizontal": "left"
+            },
+            "transformOrigin": {
+              "vertical": "top",
+              "horizontal": "left"
+            },
             "disableRestoreFocus": true
           },
           "children": [
@@ -6611,11 +7394,21 @@
         "group": "Popper",
         "sample": {
           "props": {
-            "open": true,
-            "placement": "bottom-start",
+            "open": false,
+            "sx": {
+              "zIndex": 1
+            },
             "transition": true,
             "disablePortal": true
-          }
+          },
+          "children": [
+            {
+              "component": "Fade"
+            },
+            {
+              "component": "Grow"
+            }
+          ]
         },
         "fingerprint": "2998823a",
         "props": {
@@ -6656,8 +7449,13 @@
         "group": "Radio",
         "sample": {
           "props": {
-            "disableRipple": true,
-            "color": "default"
+            "value": "a",
+            "name": "radio-buttons",
+            "slotProps": {
+              "input": {
+                "aria-label": "A"
+              }
+            }
           }
         },
         "fingerprint": "72d7b3d5",
@@ -6705,7 +7503,8 @@
           "props": {
             "row": true,
             "name": "direction",
-            "aria-label": "direction"
+            "aria-label": "direction",
+            "value": "row"
           }
         },
         "fingerprint": "12bb7861",
@@ -6777,7 +7576,18 @@
         "group": "Select",
         "sample": {
           "props": {
-            "native": true
+            "native": true,
+            "value": "",
+            "input": {
+              "$element": [
+                {
+                  "component": "OutlinedInput",
+                  "props": {
+                    "label": "Age"
+                  }
+                }
+              ]
+            }
           },
           "children": [
             "Ten",
@@ -6887,6 +7697,15 @@
       "Slide": {
         "as": "function",
         "group": "Slide",
+        "sample": {
+          "props": {
+            "children": "Text",
+            "direction": "up",
+            "in": false,
+            "mountOnEnter": true,
+            "unmountOnExit": true
+          }
+        },
         "fingerprint": "3def2717",
         "props": {
           "addEndListener?": "628183",
@@ -7034,7 +7853,27 @@
           "props": {
             "open": true,
             "autoHideDuration": 6000,
-            "message": "Archived"
+            "message": "Archived",
+            "action": {
+              "$element": [
+                {
+                  "component": "Button",
+                  "props": {
+                    "color": "inherit",
+                    "size": "small"
+                  },
+                  "children": [
+                    "Undo"
+                  ]
+                }
+              ]
+            },
+            "sx": {
+              "bottom": {
+                "xs": 90,
+                "sm": 0
+              }
+            }
           }
         },
         "fingerprint": "2ac53d4f",
@@ -7085,11 +7924,51 @@
         "group": "SpeedDial",
         "sample": {
           "props": {
-            "ariaLabel": "SpeedDial basic example"
+            "ariaLabel": "SpeedDial controlled open example",
+            "sx": {
+              "position": "absolute",
+              "bottom": 16,
+              "right": 16
+            },
+            "icon": {
+              "$element": [
+                {
+                  "component": "SpeedDialIcon"
+                }
+              ]
+            },
+            "open": false
           },
           "children": [
             {
-              "component": "SpeedDialAction"
+              "component": "SpeedDialAction",
+              "props": {
+                "slotProps": {
+                  "tooltip": {
+                    "title": "Copy"
+                  }
+                }
+              }
+            },
+            {
+              "component": "SpeedDialAction",
+              "props": {
+                "slotProps": {
+                  "tooltip": {
+                    "title": "Save"
+                  }
+                }
+              }
+            },
+            {
+              "component": "SpeedDialAction",
+              "props": {
+                "slotProps": {
+                  "tooltip": {
+                    "title": "Print"
+                  }
+                }
+              }
             }
           ]
         },
@@ -7120,6 +7999,13 @@
           "SpeedDial"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "slotProps": {
+              "tooltip": {}
+            }
+          }
+        },
         "fingerprint": "1daf18ee",
         "props": {
           "arrow?": "31e5d9",
@@ -7167,14 +8053,17 @@
         "group": "Stack",
         "sample": {
           "props": {
-            "spacing": 2
+            "spacing": 1,
+            "sx": {
+              "alignItems": "center"
+            }
           },
           "children": [
             {
               "component": "Stack",
               "props": {
                 "direction": "row",
-                "spacing": 2
+                "spacing": 1
               },
               "children": []
             },
@@ -7182,7 +8071,7 @@
               "component": "Stack",
               "props": {
                 "direction": "row",
-                "spacing": 2
+                "spacing": 1
               },
               "children": []
             }
@@ -7208,11 +8097,16 @@
         "sample": {
           "children": [
             {
-              "component": "StepButton",
+              "component": "StepLabel"
+            },
+            {
+              "component": "StepContent",
               "props": {
-                "aria-controls": "stepper-content",
-                "color": "inherit"
-              }
+                "sx": {
+                  "textAlign": "right"
+                }
+              },
+              "children": []
             }
           ]
         },
@@ -7289,6 +8183,13 @@
           "Step"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "sx": {
+              "textAlign": "right"
+            }
+          }
+        },
         "fingerprint": "b230603f",
         "props": {
           "children?": "75c961",
@@ -7333,6 +8234,11 @@
           "Step"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "slots": {}
+          }
+        },
         "fingerprint": "4a19d2fd",
         "props": {
           "children?": "75c961",
@@ -7351,8 +8257,9 @@
         "group": "Stepper",
         "sample": {
           "props": {
-            "alternativeLabel": true,
-            "activeStep": 1
+            "activeStep": 0,
+            "orientation": "vertical",
+            "alternativeLabel": true
           }
         },
         "fingerprint": "ea7e50c9",
@@ -7409,6 +8316,7 @@
         "group": "Switch",
         "sample": {
           "props": {
+            "checked": true,
             "name": "loading",
             "color": "primary"
           }
@@ -7506,6 +8414,9 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
+            "sx": {
+              "minWidth": 700
+            },
             "aria-label": "spanning table"
           },
           "children": [
@@ -7579,6 +8490,36 @@
             {
               "component": "TableBody",
               "children": [
+                {
+                  "component": "TableRow",
+                  "children": [
+                    {
+                      "component": "TableCell",
+                      "props": {
+                        "component": "th",
+                        "scope": "row"
+                      }
+                    },
+                    {
+                      "component": "TableCell",
+                      "props": {
+                        "align": "right"
+                      }
+                    },
+                    {
+                      "component": "TableCell",
+                      "props": {
+                        "align": "right"
+                      }
+                    },
+                    {
+                      "component": "TableCell",
+                      "props": {
+                        "align": "right"
+                      }
+                    }
+                  ]
+                },
                 {
                   "component": "TableRow",
                   "children": [
@@ -7689,6 +8630,36 @@
                 {
                   "component": "TableCell",
                   "props": {
+                    "component": "th",
+                    "scope": "row"
+                  }
+                },
+                {
+                  "component": "TableCell",
+                  "props": {
+                    "align": "right"
+                  }
+                },
+                {
+                  "component": "TableCell",
+                  "props": {
+                    "align": "right"
+                  }
+                },
+                {
+                  "component": "TableCell",
+                  "props": {
+                    "align": "right"
+                  }
+                }
+              ]
+            },
+            {
+              "component": "TableRow",
+              "children": [
+                {
+                  "component": "TableCell",
+                  "props": {
                     "rowSpan": 3
                   }
                 },
@@ -7778,10 +8749,13 @@
         "parents": [
           "TableContainer",
           "Table",
-          "TableBody",
           "TableRow"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Table",
+          "TableContainer"
+        ],
         "sample": {
           "props": {
             "component": "th",
@@ -7815,6 +8789,9 @@
             {
               "component": "Table",
               "props": {
+                "sx": {
+                  "minWidth": 700
+                },
                 "aria-label": "spanning table"
               },
               "children": [
@@ -7870,6 +8847,36 @@
                 {
                   "component": "TableBody",
                   "children": [
+                    {
+                      "component": "TableRow",
+                      "children": [
+                        {
+                          "component": "TableCell",
+                          "props": {
+                            "component": "th",
+                            "scope": "row"
+                          }
+                        },
+                        {
+                          "component": "TableCell",
+                          "props": {
+                            "align": "right"
+                          }
+                        },
+                        {
+                          "component": "TableCell",
+                          "props": {
+                            "align": "right"
+                          }
+                        },
+                        {
+                          "component": "TableCell",
+                          "props": {
+                            "align": "right"
+                          }
+                        }
+                      ]
+                    },
                     {
                       "component": "TableRow",
                       "children": [
@@ -7970,7 +8977,26 @@
                 {
                   "component": "TablePagination",
                   "props": {
-                    "colSpan": 3
+                    "rowsPerPageOptions": [
+                      5,
+                      10,
+                      25,
+                      {
+                        "label": "All",
+                        "value": -1
+                      }
+                    ],
+                    "colSpan": 3,
+                    "rowsPerPage": 5,
+                    "page": 0,
+                    "slotProps": {
+                      "select": {
+                        "inputProps": {
+                          "aria-label": "rows per page"
+                        },
+                        "native": true
+                      }
+                    }
                   }
                 }
               ]
@@ -7995,6 +9021,9 @@
           "Table"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "TableContainer"
+        ],
         "sample": {
           "children": [
             {
@@ -8076,11 +9105,28 @@
         "group": "TablePagination",
         "sample": {
           "props": {
-            "count": 100,
+            "count": 1,
             "onPageChange": "Text",
-            "page": 1,
-            "rowsPerPage": 1,
-            "component": "div"
+            "page": 0,
+            "rowsPerPage": 5,
+            "rowsPerPageOptions": [
+              5,
+              10,
+              25,
+              {
+                "label": "All",
+                "value": -1
+              }
+            ],
+            "colSpan": 3,
+            "slotProps": {
+              "select": {
+                "inputProps": {
+                  "aria-label": "rows per page"
+                },
+                "native": true
+              }
+            }
           }
         },
         "fingerprint": "cea17e28",
@@ -8118,42 +9164,55 @@
         "parents": [
           "TableContainer",
           "Table",
+          "TableHead",
           "TableBody"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "TableBody",
+          "TableHead",
+          "TableContainer"
+        ],
         "sample": {
           "children": [
             {
               "component": "TableCell",
+              "props": {
+                "padding": "checkbox"
+              },
+              "children": []
+            },
+            {
+              "component": "TableCell",
               "children": [
-                "Dessert (100g serving)"
+                {
+                  "component": "TableSortLabel",
+                  "children": [
+                    "Dessert (100g serving)"
+                  ]
+                }
               ]
             },
             {
               "component": "TableCell",
-              "props": {
-                "align": "right"
-              },
               "children": [
-                "Calories"
+                {
+                  "component": "TableSortLabel",
+                  "children": [
+                    "Calories"
+                  ]
+                }
               ]
             },
             {
               "component": "TableCell",
-              "props": {
-                "align": "right"
-              },
               "children": [
-                "Fat&nbsp;(g)"
-              ]
-            },
-            {
-              "component": "TableCell",
-              "props": {
-                "align": "right"
-              },
-              "children": [
-                "Carbs&nbsp;(g)"
+                {
+                  "component": "TableSortLabel",
+                  "children": [
+                    "Fat (g)"
+                  ]
+                }
               ]
             }
           ]
@@ -8174,9 +9233,7 @@
         "as": "function",
         "group": "TableSortLabel",
         "parents": [
-          "TableContainer",
-          "Table",
-          "TableBody",
+          "TableHead",
           "TableRow",
           "TableCell"
         ],
@@ -8221,6 +9278,7 @@
         "group": "Tabs",
         "sample": {
           "props": {
+            "value": 0,
             "indicatorColor": "primary",
             "textColor": "primary",
             "variant": "fullWidth",
@@ -8320,7 +9378,16 @@
             "select": true,
             "label": "Native",
             "defaultValue": 20,
-            "variant": "filled"
+            "variant": "filled",
+            "sx": {
+              "m": 1,
+              "width": "25ch"
+            },
+            "slotProps": {
+              "select": {
+                "native": true
+              }
+            }
           },
           "children": [
             "Ten",
@@ -8373,6 +9440,18 @@
         "as": "function",
         "group": "ThemeProvider",
         "visual": false,
+        "sample": {
+          "props": {
+            "theme": {
+              "palette": {
+                "primary": {
+                  "main": "#007FFF",
+                  "dark": "#0066CC"
+                }
+              }
+            }
+          }
+        },
         "fingerprint": "3e0bccb3",
         "props": {
           "children?": "75c961",
@@ -8390,6 +9469,10 @@
       "ToggleButton": {
         "as": "function",
         "group": "ToggleButton",
+        "parents": [
+          "ToggleButtonGroup"
+        ],
+        "parentsFrom": "example",
         "sample": {
           "props": {
             "href": "#",
@@ -8436,6 +9519,7 @@
         "group": "ToggleButtonGroup",
         "sample": {
           "props": {
+            "value": "left",
             "exclusive": true,
             "aria-label": "text alignment"
           },
@@ -8491,9 +9575,9 @@
         "as": "function",
         "group": "Toolbar",
         "sample": {
-          "props": {
-            "id": "back-to-top-anchor"
-          }
+          "children": [
+            "Profile My account"
+          ]
         },
         "fingerprint": "bc29271c",
         "props": {
@@ -8515,9 +9599,15 @@
             "children": "Text",
             "title": "Add",
             "describeChild": true,
+            "open": false,
             "disableFocusListener": true,
             "disableHoverListener": true,
-            "disableTouchListener": true
+            "disableTouchListener": true,
+            "slotProps": {
+              "popper": {
+                "disablePortal": true
+              }
+            }
           }
         },
         "fingerprint": "bd579448",
@@ -8596,6 +9686,13 @@
       "Zoom": {
         "as": "function",
         "group": "Zoom",
+        "sample": {
+          "props": {
+            "children": "Text",
+            "timeout": {},
+            "unmountOnExit": true
+          }
+        },
         "fingerprint": "da65a249",
         "props": {
           "addEndListener?": "628183",

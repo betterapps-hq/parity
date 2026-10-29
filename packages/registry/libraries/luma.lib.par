@@ -1303,23 +1303,29 @@
         "declaration": "dist/ui/accordion.d.ts",
         "group": "Accordion",
         "sample": {
+          "props": {
+            "multiple": true,
+            "defaultValue": [
+              "notifications"
+            ]
+          },
           "children": [
             {
               "component": "AccordionItem",
               "props": {
-                "value": "item-1"
+                "value": "notifications"
               },
               "children": [
                 {
                   "component": "AccordionTrigger",
                   "children": [
-                    "Can I access my account history?"
+                    "Notification Settings"
                   ]
                 },
                 {
                   "component": "AccordionContent",
                   "children": [
-                    "Yes, you can view your complete account history including al"
+                    "Manage how you receive notifications. You can enable email a"
                   ]
                 }
               ]
@@ -1327,20 +1333,19 @@
             {
               "component": "AccordionItem",
               "props": {
-                "value": "item-2",
-                "disabled": true
+                "value": "privacy"
               },
               "children": [
                 {
                   "component": "AccordionTrigger",
                   "children": [
-                    "Premium feature information"
+                    "Privacy & Security"
                   ]
                 },
                 {
                   "component": "AccordionContent",
                   "children": [
-                    "This section contains information about premium features. Up"
+                    "Control your privacy settings and security preferences. Enab"
                   ]
                 }
               ]
@@ -1348,19 +1353,19 @@
             {
               "component": "AccordionItem",
               "props": {
-                "value": "item-3"
+                "value": "billing"
               },
               "children": [
                 {
                   "component": "AccordionTrigger",
                   "children": [
-                    "How do I update my email address?"
+                    "Billing & Subscription"
                   ]
                 },
                 {
                   "component": "AccordionContent",
                   "children": [
-                    "You can update your email address in your account settings. "
+                    "View your current plan, payment history, and upcoming invoic"
                   ]
                 }
               ]
@@ -1527,7 +1532,22 @@
         "sample": {
           "children": [
             {
-              "component": "AlertDialogTrigger"
+              "component": "AlertDialogTrigger",
+              "props": {
+                "render": {
+                  "$element": [
+                    {
+                      "component": "Button",
+                      "props": {
+                        "variant": "destructive"
+                      },
+                      "children": [
+                        "Delete Chat"
+                      ]
+                    }
+                  ]
+                }
+              }
             },
             {
               "component": "AlertDialogContent",
@@ -1551,6 +1571,7 @@
                       "component": "AlertDialogDescription",
                       "children": [
                         "This will permanently delete this chat conversation. View",
+                        " ",
                         "Settings",
                         "delete any memories saved during this chat."
                       ]
@@ -1683,6 +1704,7 @@
                   "component": "AlertDialogDescription",
                   "children": [
                     "This will permanently delete this chat conversation. View",
+                    " ",
                     "Settings",
                     "delete any memories saved during this chat."
                   ]
@@ -1737,6 +1759,7 @@
         "sample": {
           "children": [
             "This will permanently delete this chat conversation. View",
+            " ",
             "Settings",
             "delete any memories saved during this chat."
           ]
@@ -1805,6 +1828,7 @@
               "component": "AlertDialogDescription",
               "children": [
                 "This will permanently delete this chat conversation. View",
+                " ",
                 "Settings",
                 "delete any memories saved during this chat."
               ]
@@ -1833,6 +1857,7 @@
           "AlertDialog"
         ],
         "parentsFrom": "error",
+        "internal": true,
         "fingerprint": "188b0ffe",
         "props": {
           "className?": "c86627",
@@ -1849,6 +1874,7 @@
           "AlertDialog"
         ],
         "parentsFrom": "error",
+        "internal": true,
         "fingerprint": "9eafd0c2",
         "props": {
           "className?": "352531",
@@ -1889,6 +1915,18 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "render": {
+              "$element": [
+                {
+                  "component": "Button",
+                  "props": {
+                    "variant": "outline"
+                  }
+                }
+              ]
+            }
+          },
           "children": [
             "Show Dialog"
           ]
@@ -2087,6 +2125,136 @@
         "as": "function",
         "declaration": "dist/ui/attachment.d.ts",
         "group": "Attachment",
+        "sample": {
+          "children": [
+            {
+              "component": "Attachment",
+              "props": {
+                "orientation": "vertical"
+              },
+              "children": [
+                {
+                  "component": "AttachmentMedia",
+                  "props": {
+                    "variant": "image"
+                  }
+                },
+                {
+                  "component": "AttachmentContent",
+                  "children": [
+                    {
+                      "component": "AttachmentTitle",
+                      "children": [
+                        "workspace.png"
+                      ]
+                    },
+                    {
+                      "component": "AttachmentDescription",
+                      "children": [
+                        "PNG · 820 KB"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "AttachmentActions",
+                  "children": [
+                    {
+                      "component": "AttachmentAction"
+                    }
+                  ]
+                },
+                {
+                  "component": "AttachmentTrigger"
+                }
+              ]
+            },
+            {
+              "component": "Attachment",
+              "props": {
+                "orientation": "vertical"
+              },
+              "children": [
+                {
+                  "component": "AttachmentMedia",
+                  "props": {
+                    "variant": "image"
+                  }
+                },
+                {
+                  "component": "AttachmentContent",
+                  "children": [
+                    {
+                      "component": "AttachmentTitle",
+                      "children": [
+                        "desk-reference.jpg"
+                      ]
+                    },
+                    {
+                      "component": "AttachmentDescription",
+                      "children": [
+                        "JPG · 1.1 MB"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "AttachmentActions",
+                  "children": [
+                    {
+                      "component": "AttachmentAction"
+                    }
+                  ]
+                },
+                {
+                  "component": "AttachmentTrigger"
+                }
+              ]
+            },
+            {
+              "component": "Attachment",
+              "props": {
+                "orientation": "vertical"
+              },
+              "children": [
+                {
+                  "component": "AttachmentMedia",
+                  "props": {
+                    "variant": "image"
+                  }
+                },
+                {
+                  "component": "AttachmentContent",
+                  "children": [
+                    {
+                      "component": "AttachmentTitle",
+                      "children": [
+                        "office-reference.jpg"
+                      ]
+                    },
+                    {
+                      "component": "AttachmentDescription",
+                      "children": [
+                        "JPG · 940 KB"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "AttachmentActions",
+                  "children": [
+                    {
+                      "component": "AttachmentAction"
+                    }
+                  ]
+                },
+                {
+                  "component": "AttachmentTrigger"
+                }
+              ]
+            }
+          ]
+        },
         "fingerprint": "c218e39e"
       },
       "AttachmentMedia": {
@@ -2128,6 +2296,7 @@
         "declaration": "dist/ui/attachment.d.ts",
         "group": "Attachment",
         "parents": [
+          "AttachmentGroup",
           "Attachment"
         ],
         "parentsFrom": "example",
@@ -2662,12 +2831,12 @@
         "group": "Button",
         "sample": {
           "props": {
-            "variant": "link",
-            "size": "sm",
-            "nativeButton": false
+            "variant": "outline",
+            "size": "sm"
           },
           "children": [
-            "Learn More"
+            "Hide",
+            "the pnpm output"
           ]
         },
         "fingerprint": "a2d002f1",
@@ -2769,6 +2938,18 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "render": {
+              "$element": [
+                {
+                  "component": "Label",
+                  "props": {
+                    "htmlFor": "url"
+                  }
+                }
+              ]
+            }
+          },
           "children": [
             "https://"
           ]
@@ -2785,8 +2966,11 @@
         "sample": {
           "props": {
             "mode": "range",
+            "selected": {},
             "numberOfMonths": 1,
-            "captionLayout": "dropdown"
+            "captionLayout": "dropdown",
+            "formatters": {},
+            "components": {}
           },
           "children": [
             {
@@ -2888,29 +3072,27 @@
                 {
                   "component": "CardTitle",
                   "children": [
-                    "New Chat"
+                    "Verify your login"
                   ]
                 },
                 {
                   "component": "CardDescription",
                   "children": [
-                    "How can I help you today?"
+                    "Enter the verification code we sent to your email address:",
+                    " ",
+                    "m@example.com",
+                    "."
                   ]
-                },
-                {
-                  "component": "CardAction",
-                  "children": []
                 }
               ]
             },
             {
-              "component": "CardContent"
+              "component": "CardContent",
+              "children": []
             },
             {
               "component": "CardFooter",
-              "children": [
-                "Add Photos & Files Create Image Deep Research Web Search Sen"
-              ]
+              "children": []
             }
           ]
         },
@@ -2957,6 +3139,7 @@
         "sample": {
           "children": [
             "Enter the verification code we sent to your email address:",
+            " ",
             "m@example.com",
             "."
           ]
@@ -2998,6 +3181,7 @@
               "component": "CardDescription",
               "children": [
                 "Enter the verification code we sent to your email address:",
+                " ",
                 "m@example.com",
                 "."
               ]
@@ -3028,11 +3212,19 @@
         "group": "Carousel",
         "sample": {
           "props": {
+            "opts": {
+              "align": "start"
+            },
             "orientation": "vertical"
           },
           "children": [
             {
-              "component": "CarouselContent"
+              "component": "CarouselContent",
+              "children": [
+                {
+                  "component": "CarouselItem"
+                }
+              ]
             },
             {
               "component": "CarouselPrevious"
@@ -3061,7 +3253,8 @@
         "sample": {
           "children": [
             {
-              "component": "CarouselItem"
+              "component": "CarouselItem",
+              "children": []
             }
           ]
         },
@@ -3122,7 +3315,20 @@
         "group": "Chart",
         "sample": {
           "props": {
-            "children": "Text"
+            "children": "Text",
+            "config": {
+              "views": {
+                "label": "Page Views"
+              },
+              "desktop": {
+                "label": "Desktop",
+                "color": "var(--chart-2)"
+              },
+              "mobile": {
+                "label": "Mobile",
+                "color": "var(--chart-1)"
+              }
+            }
           },
           "children": [
             {
@@ -3150,6 +3356,17 @@
           "ChartContainer"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "content": {
+              "$element": [
+                {
+                  "component": "ChartLegendContent"
+                }
+              ]
+            }
+          }
+        },
         "fingerprint": "d002b42d",
         "props": {
           "align?": "08828a",
@@ -3363,9 +3580,23 @@
         "as": "function",
         "declaration": "dist/ui/chart.d.ts",
         "group": "Chart",
+        "internal": true,
         "sample": {
           "props": {
-            "id": "Text"
+            "id": "Text",
+            "config": {
+              "views": {
+                "label": "Page Views"
+              },
+              "desktop": {
+                "label": "Desktop",
+                "color": "var(--chart-2)"
+              },
+              "mobile": {
+                "label": "Mobile",
+                "color": "var(--chart-1)"
+              }
+            }
           }
         },
         "fingerprint": "e78a4392",
@@ -3384,6 +3615,13 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
+            "content": {
+              "$element": [
+                {
+                  "component": "ChartTooltipContent"
+                }
+              ]
+            },
             "labelClassName": "w-32"
           }
         },
@@ -3525,7 +3763,10 @@
                   "component": "CodeBlockActions",
                   "children": [
                     {
-                      "component": "CodeBlockCopyButton"
+                      "component": "CodeBlockCopyButton",
+                      "props": {
+                        "value": "\"use client\"\n\nimport * as React from \"react\"\nimport { useChat } from \"@ai-sdk/react\"\n\nimport { Button } from \"@/components/ui/button\"\nimport { Input } from \"@/components/ui/input\"\n\nexport function Cha"
+                      }
                     }
                   ]
                 }
@@ -3535,7 +3776,12 @@
               "component": "CodeBlockContent",
               "props": {
                 "lineNumbers": true
-              }
+              },
+              "children": [
+                {
+                  "component": "CodeBlockLine"
+                }
+              ]
             },
             {
               "component": "CodeBlockFooter",
@@ -3561,7 +3807,10 @@
         "sample": {
           "children": [
             {
-              "component": "CodeBlockCopyButton"
+              "component": "CodeBlockCopyButton",
+              "props": {
+                "value": "$ pnpm lint\napps/web/components/message-list.tsx\n  18:22  error  'messages' is possibly 'undefined'. Add a guard before calling map  @typescript-eslint/no-unsafe-call\n  42:7   warning  React Hook Reac"
+              }
             }
           ]
         },
@@ -3577,10 +3826,13 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "wrap": true
+            "wrap": false,
+            "lineNumbers": true
           },
           "children": [
-            "Command timed out after 120 seconds."
+            {
+              "component": "CodeBlockLine"
+            }
           ]
         },
         "fingerprint": "00e6aaa7",
@@ -3602,7 +3854,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "value": "Text"
+            "value": "$ pnpm lint\napps/web/components/message-list.tsx\n  18:22  error  'messages' is possibly 'undefined'. Add a guard before calling map  @typescript-eslint/no-unsafe-call\n  42:7   warning  React Hook Reac"
           }
         },
         "fingerprint": "a2d002f1",
@@ -3646,7 +3898,10 @@
               "component": "CodeBlockActions",
               "children": [
                 {
-                  "component": "CodeBlockCopyButton"
+                  "component": "CodeBlockCopyButton",
+                  "props": {
+                    "value": "$ pnpm lint\napps/web/components/message-list.tsx\n  18:22  error  'messages' is possibly 'undefined'. Add a guard before calling map  @typescript-eslint/no-unsafe-call\n  42:7   warning  React Hook Reac"
+                  }
                 }
               ]
             }
@@ -3663,6 +3918,9 @@
           "CodeBlockContent"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "CodeBlock"
+        ],
         "fingerprint": "6b573e63",
         "props": {
           "variant?": "40ab32"
@@ -3689,6 +3947,9 @@
         "declaration": "dist/ui/collapsible.d.ts",
         "group": "Collapsible",
         "sample": {
+          "props": {
+            "open": false
+          },
           "children": [
             "Order #4189 Toggle details",
             "Status Shipped",
@@ -3744,8 +4005,20 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "render": {
+              "$element": [
+                {
+                  "component": "Button",
+                  "props": {
+                    "variant": "link"
+                  }
+                }
+              ]
+            }
+          },
           "children": [
-            "Product details"
+            "Show less"
           ]
         },
         "fingerprint": "939a7172",
@@ -3761,9 +4034,79 @@
         "declaration": "dist/ui/combobox.d.ts",
         "group": "Combobox",
         "sample": {
+          "props": {
+            "items": [
+              {
+                "code": "",
+                "value": "",
+                "continent": "",
+                "label": "Select country"
+              },
+              {
+                "code": "ar",
+                "value": "argentina",
+                "label": "Argentina",
+                "continent": "South America"
+              },
+              {
+                "code": "au",
+                "value": "australia",
+                "label": "Australia",
+                "continent": "Oceania"
+              },
+              {
+                "code": "br",
+                "value": "brazil",
+                "label": "Brazil",
+                "continent": "South America"
+              },
+              {
+                "code": "ca",
+                "value": "canada",
+                "label": "Canada",
+                "continent": "North America"
+              },
+              {
+                "code": "cn",
+                "value": "china",
+                "label": "China",
+                "continent": "Asia"
+              },
+              {
+                "code": "co",
+                "value": "colombia",
+                "label": "Colombia",
+                "continent": "South America"
+              },
+              {
+                "code": "eg",
+                "value": "egypt",
+                "label": "Egypt",
+                "continent": "Africa"
+              }
+            ],
+            "defaultValue": {
+              "code": "",
+              "value": "",
+              "continent": "",
+              "label": "Select country"
+            }
+          },
           "children": [
             {
               "component": "ComboboxTrigger",
+              "props": {
+                "render": {
+                  "$element": [
+                    {
+                      "component": "Button",
+                      "props": {
+                        "variant": "outline"
+                      }
+                    }
+                  ]
+                }
+              },
               "children": [
                 {
                   "component": "ComboboxValue"
@@ -3787,7 +4130,19 @@
                   ]
                 },
                 {
-                  "component": "ComboboxList"
+                  "component": "ComboboxList",
+                  "children": [
+                    {
+                      "$render": [
+                        {
+                          "component": "ComboboxItem"
+                        }
+                      ],
+                      "pass": [
+                        "value"
+                      ]
+                    }
+                  ]
                 }
               ]
             }
@@ -3905,11 +4260,23 @@
           "ComboboxGroup"
         ],
         "parentsFrom": "example",
-        "visual": false,
         "sample": {
           "props": {
             "children": "Text"
-          }
+          },
+          "children": [
+            {
+              "$render": [
+                {
+                  "component": "ComboboxItem"
+                }
+              ],
+              "pass": [
+                "key",
+                "value"
+              ]
+            }
+          ]
         },
         "fingerprint": "0ce182c5",
         "props": {
@@ -3927,20 +4294,46 @@
         "sample": {
           "children": [
             {
-              "component": "ComboboxInput",
-              "props": {
-                "showTrigger": false,
-                "placeholder": "Search"
-              }
-            },
-            {
               "component": "ComboboxEmpty",
               "children": [
-                "No items found."
+                "No timezones found."
               ]
             },
             {
-              "component": "ComboboxList"
+              "component": "ComboboxList",
+              "children": [
+                {
+                  "$render": [
+                    {
+                      "component": "ComboboxGroup",
+                      "children": [
+                        {
+                          "component": "ComboboxLabel"
+                        },
+                        {
+                          "component": "ComboboxCollection",
+                          "children": [
+                            {
+                              "$render": [
+                                {
+                                  "component": "ComboboxItem"
+                                }
+                              ],
+                              "pass": [
+                                "key",
+                                "value"
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "component": "ComboboxSeparator"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
             }
           ]
         },
@@ -3995,7 +4388,23 @@
               "component": "ComboboxLabel"
             },
             {
-              "component": "ComboboxCollection"
+              "component": "ComboboxCollection",
+              "children": [
+                {
+                  "$render": [
+                    {
+                      "component": "ComboboxItem"
+                    }
+                  ],
+                  "pass": [
+                    "key",
+                    "value"
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "ComboboxSeparator"
             }
           ]
         },
@@ -4084,18 +4493,35 @@
         "sample": {
           "children": [
             {
-              "component": "ComboboxGroup",
-              "children": [
+              "$render": [
                 {
-                  "component": "ComboboxLabel"
-                },
-                {
-                  "component": "ComboboxCollection"
+                  "component": "ComboboxGroup",
+                  "children": [
+                    {
+                      "component": "ComboboxLabel"
+                    },
+                    {
+                      "component": "ComboboxCollection",
+                      "children": [
+                        {
+                          "$render": [
+                            {
+                              "component": "ComboboxItem"
+                            }
+                          ],
+                          "pass": [
+                            "key",
+                            "value"
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "component": "ComboboxSeparator"
+                    }
+                  ]
                 }
               ]
-            },
-            {
-              "component": "ComboboxItem"
             }
           ]
         },
@@ -4135,6 +4561,18 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "render": {
+              "$element": [
+                {
+                  "component": "Button",
+                  "props": {
+                    "variant": "outline"
+                  }
+                }
+              ]
+            }
+          },
           "children": [
             {
               "component": "ComboboxValue"
@@ -4159,6 +4597,9 @@
           "ComboboxChips"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "ComboboxChips"
+        ],
         "sample": {
           "children": [
             {
@@ -4315,7 +4756,8 @@
         "group": "Command",
         "sample": {
           "props": {
-            "children": "Text"
+            "children": "Text",
+            "open": false
           },
           "children": [
             {
@@ -4430,6 +4872,9 @@
           "CommandList"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Command"
+        ],
         "sample": {
           "children": [
             "No results found."
@@ -4451,6 +4896,9 @@
           "CommandList"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Command"
+        ],
         "sample": {
           "props": {
             "heading": "Navigation"
@@ -4524,6 +4972,9 @@
           "Command"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Command"
+        ],
         "sample": {
           "props": {
             "placeholder": "Type a command or search..."
@@ -4547,6 +4998,9 @@
           "CommandGroup"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Command"
+        ],
         "sample": {
           "children": [
             "Profile",
@@ -4578,6 +5032,9 @@
           "Command"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Command"
+        ],
         "sample": {
           "children": [
             {
@@ -4720,6 +5177,9 @@
           "CommandList"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Command"
+        ],
         "fingerprint": "2f36ced1",
         "props": {
           "alwaysRender?": "31e5d9",
@@ -4738,6 +5198,9 @@
           "CommandItem"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "CommandDialog"
+        ],
         "sample": {
           "children": [
             "⌘P"
@@ -5163,9 +5626,13 @@
         "parents": [
           "ContextMenu",
           "ContextMenuContent",
-          "ContextMenuGroup"
+          "ContextMenuGroup",
+          "ContextMenuRadioGroup"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "ContextMenuRadioGroup"
+        ],
         "sample": {
           "children": [
             "People"
@@ -5208,31 +5675,34 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "value": "pedro"
+            "value": "light"
           },
           "children": [
             {
-              "component": "ContextMenuLabel",
+              "component": "ContextMenuRadioItem",
+              "props": {
+                "value": "light"
+              },
               "children": [
-                "People"
+                "Light"
               ]
             },
             {
               "component": "ContextMenuRadioItem",
               "props": {
-                "value": "pedro"
+                "value": "dark"
               },
               "children": [
-                "Pedro Duarte"
+                "Dark"
               ]
             },
             {
               "component": "ContextMenuRadioItem",
               "props": {
-                "value": "colm"
+                "value": "system"
               },
               "children": [
-                "Colm Tuite"
+                "System"
               ]
             }
           ]
@@ -5328,6 +5798,9 @@
           "ContextMenuGroup"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "ContextMenuGroup"
+        ],
         "sample": {
           "children": [
             {
@@ -5410,6 +5883,9 @@
           "ContextMenuSub"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "ContextMenuGroup"
+        ],
         "sample": {
           "children": [
             {
@@ -5479,6 +5955,9 @@
           "ContextMenuSub"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "ContextMenuGroup"
+        ],
         "sample": {
           "children": [
             "More Tools"
@@ -5529,6 +6008,18 @@
           "children": [
             {
               "component": "DialogTrigger",
+              "props": {
+                "render": {
+                  "$element": [
+                    {
+                      "component": "Button",
+                      "props": {
+                        "variant": "outline"
+                      }
+                    }
+                  ]
+                }
+              },
               "children": [
                 "Share"
               ]
@@ -5559,6 +6050,18 @@
                   "children": [
                     {
                       "component": "DialogClose",
+                      "props": {
+                        "render": {
+                          "$element": [
+                            {
+                              "component": "Button",
+                              "props": {
+                                "type": "button"
+                              }
+                            }
+                          ]
+                        }
+                      },
                       "children": [
                         "Close"
                       ]
@@ -5595,6 +6098,18 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "render": {
+              "$element": [
+                {
+                  "component": "Button",
+                  "props": {
+                    "type": "button"
+                  }
+                }
+              ]
+            }
+          },
           "children": [
             "Close"
           ]
@@ -5640,6 +6155,18 @@
               "children": [
                 {
                   "component": "DialogClose",
+                  "props": {
+                    "render": {
+                      "$element": [
+                        {
+                          "component": "Button",
+                          "props": {
+                            "type": "button"
+                          }
+                        }
+                      ]
+                    }
+                  },
                   "children": [
                     "Close"
                   ]
@@ -5693,6 +6220,18 @@
           "children": [
             {
               "component": "DialogClose",
+              "props": {
+                "render": {
+                  "$element": [
+                    {
+                      "component": "Button",
+                      "props": {
+                        "type": "button"
+                      }
+                    }
+                  ]
+                }
+              },
               "children": [
                 "Close"
               ]
@@ -5739,6 +6278,7 @@
           "Dialog"
         ],
         "parentsFrom": "error",
+        "internal": true,
         "fingerprint": "188b0ffe",
         "props": {
           "className?": "c86627",
@@ -5755,6 +6295,7 @@
           "Dialog"
         ],
         "parentsFrom": "error",
+        "internal": true,
         "fingerprint": "9eafd0c2",
         "props": {
           "className?": "352531",
@@ -5795,6 +6336,18 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "render": {
+              "$element": [
+                {
+                  "component": "Button",
+                  "props": {
+                    "variant": "outline"
+                  }
+                }
+              ]
+            }
+          },
           "children": [
             "Share"
           ]
@@ -5828,6 +6381,18 @@
           "children": [
             {
               "component": "DrawerTrigger",
+              "props": {
+                "render": {
+                  "$element": [
+                    {
+                      "component": "Button",
+                      "props": {
+                        "variant": "secondary"
+                      }
+                    }
+                  ]
+                }
+              },
               "children": [
                 "Open Drawer"
               ]
@@ -5859,7 +6424,19 @@
                       "component": "Drawer",
                       "children": [
                         {
-                          "component": "DrawerTrigger"
+                          "component": "DrawerTrigger",
+                          "props": {
+                            "render": {
+                              "$element": [
+                                {
+                                  "component": "Button",
+                                  "props": {
+                                    "variant": "outline"
+                                  }
+                                }
+                              ]
+                            }
+                          }
                         },
                         {
                           "component": "DrawerContent"
@@ -5868,6 +6445,18 @@
                     },
                     {
                       "component": "DrawerClose",
+                      "props": {
+                        "render": {
+                          "$element": [
+                            {
+                              "component": "Button",
+                              "props": {
+                                "variant": "outline"
+                              }
+                            }
+                          ]
+                        }
+                      },
                       "children": [
                         "Close"
                       ]
@@ -5911,6 +6500,18 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "render": {
+              "$element": [
+                {
+                  "component": "Button",
+                  "props": {
+                    "variant": "outline"
+                  }
+                }
+              ]
+            }
+          },
           "children": [
             "Cancel"
           ]
@@ -5958,6 +6559,18 @@
                   "children": [
                     {
                       "component": "DrawerTrigger",
+                      "props": {
+                        "render": {
+                          "$element": [
+                            {
+                              "component": "Button",
+                              "props": {
+                                "variant": "outline"
+                              }
+                            }
+                          ]
+                        }
+                      },
                       "children": [
                         "Open Nested Drawer"
                       ]
@@ -5977,6 +6590,18 @@
                 },
                 {
                   "component": "DrawerClose",
+                  "props": {
+                    "render": {
+                      "$element": [
+                        {
+                          "component": "Button",
+                          "props": {
+                            "variant": "outline"
+                          }
+                        }
+                      ]
+                    }
+                  },
                   "children": [
                     "Close"
                   ]
@@ -6032,6 +6657,18 @@
               "children": [
                 {
                   "component": "DrawerTrigger",
+                  "props": {
+                    "render": {
+                      "$element": [
+                        {
+                          "component": "Button",
+                          "props": {
+                            "variant": "outline"
+                          }
+                        }
+                      ]
+                    }
+                  },
                   "children": [
                     "Open Nested Drawer"
                   ]
@@ -6057,7 +6694,19 @@
                           "component": "Drawer"
                         },
                         {
-                          "component": "DrawerClose"
+                          "component": "DrawerClose",
+                          "props": {
+                            "render": {
+                              "$element": [
+                                {
+                                  "component": "Button",
+                                  "props": {
+                                    "variant": "outline"
+                                  }
+                                }
+                              ]
+                            }
+                          }
                         }
                       ]
                     }
@@ -6067,6 +6716,18 @@
             },
             {
               "component": "DrawerClose",
+              "props": {
+                "render": {
+                  "$element": [
+                    {
+                      "component": "Button",
+                      "props": {
+                        "variant": "outline"
+                      }
+                    }
+                  ]
+                }
+              },
               "children": [
                 "Close"
               ]
@@ -6110,6 +6771,7 @@
           "Drawer"
         ],
         "parentsFrom": "error",
+        "internal": true,
         "fingerprint": "e2572d7d",
         "props": {
           "className?": "d248e8",
@@ -6126,6 +6788,7 @@
           "Drawer"
         ],
         "parentsFrom": "error",
+        "internal": true,
         "fingerprint": "cf81dc1c",
         "props": {
           "className?": "419818",
@@ -6139,6 +6802,7 @@
         "as": "function",
         "declaration": "dist/ui/drawer.d.ts",
         "group": "Drawer",
+        "internal": true,
         "fingerprint": "c218e39e"
       },
       "DrawerTitle": {
@@ -6172,6 +6836,18 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "render": {
+              "$element": [
+                {
+                  "component": "Button",
+                  "props": {
+                    "variant": "secondary"
+                  }
+                }
+              ]
+            }
+          },
           "children": [
             "Open Drawer"
           ]
@@ -6195,6 +6871,18 @@
           "children": [
             {
               "component": "DropdownMenuTrigger",
+              "props": {
+                "render": {
+                  "$element": [
+                    {
+                      "component": "Button",
+                      "props": {
+                        "variant": "outline"
+                      }
+                    }
+                  ]
+                }
+              },
               "children": [
                 "Complex Menu"
               ]
@@ -6256,12 +6944,18 @@
                     },
                     {
                       "component": "DropdownMenuCheckboxItem",
+                      "props": {
+                        "checked": true
+                      },
                       "children": [
                         "Show Sidebar"
                       ]
                     },
                     {
                       "component": "DropdownMenuCheckboxItem",
+                      "props": {
+                        "checked": false
+                      },
                       "children": [
                         "Show Status Bar"
                       ]
@@ -6318,6 +7012,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
+            "checked": false,
             "disabled": true
           },
           "children": [
@@ -6419,12 +7114,18 @@
                 },
                 {
                   "component": "DropdownMenuCheckboxItem",
+                  "props": {
+                    "checked": true
+                  },
                   "children": [
                     "Show Sidebar"
                   ]
                 },
                 {
                   "component": "DropdownMenuCheckboxItem",
+                  "props": {
+                    "checked": false
+                  },
                   "children": [
                     "Show Status Bar"
                   ]
@@ -6560,6 +7261,9 @@
           "DropdownMenuGroup"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "DropdownMenuGroup"
+        ],
         "sample": {
           "props": {
             "variant": "destructive"
@@ -6699,33 +7403,42 @@
           "DropdownMenuGroup"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "DropdownMenuGroup"
+        ],
         "sample": {
+          "props": {
+            "value": "medium"
+          },
           "children": [
             {
               "component": "DropdownMenuRadioItem",
               "props": {
-                "value": "personal"
+                "value": "low",
+                "closeOnClick": true
               },
               "children": [
-                "Personal"
+                "Low"
               ]
             },
             {
               "component": "DropdownMenuRadioItem",
               "props": {
-                "value": "work"
+                "value": "medium",
+                "closeOnClick": true
               },
               "children": [
-                "Work"
+                "Medium"
               ]
             },
             {
               "component": "DropdownMenuRadioItem",
               "props": {
-                "value": "other"
+                "value": "high",
+                "closeOnClick": true
               },
               "children": [
-                "Other"
+                "High"
               ]
             }
           ]
@@ -6826,41 +7539,43 @@
             {
               "component": "DropdownMenuSubTrigger",
               "children": [
-                "Open Recent"
+                "Label As..."
               ]
             },
             {
-              "component": "DropdownMenuPortal",
+              "component": "DropdownMenuSubContent",
               "children": [
                 {
-                  "component": "DropdownMenuSubContent",
+                  "component": "DropdownMenuRadioGroup",
+                  "props": {
+                    "value": "personal"
+                  },
                   "children": [
                     {
-                      "component": "DropdownMenuGroup",
+                      "component": "DropdownMenuRadioItem",
+                      "props": {
+                        "value": "personal"
+                      },
                       "children": [
-                        {
-                          "component": "DropdownMenuLabel"
-                        },
-                        {
-                          "component": "DropdownMenuItem"
-                        },
-                        {
-                          "component": "DropdownMenuItem"
-                        },
-                        {
-                          "component": "DropdownMenuSub"
-                        }
+                        "Personal"
                       ]
                     },
                     {
-                      "component": "DropdownMenuSeparator"
+                      "component": "DropdownMenuRadioItem",
+                      "props": {
+                        "value": "work"
+                      },
+                      "children": [
+                        "Work"
+                      ]
                     },
                     {
-                      "component": "DropdownMenuGroup",
+                      "component": "DropdownMenuRadioItem",
+                      "props": {
+                        "value": "other"
+                      },
                       "children": [
-                        {
-                          "component": "DropdownMenuItem"
-                        }
+                        "Other"
                       ]
                     }
                   ]
@@ -6893,8 +7608,7 @@
           "DropdownMenu",
           "DropdownMenuContent",
           "DropdownMenuGroup",
-          "DropdownMenuSub",
-          "DropdownMenuPortal"
+          "DropdownMenuSub"
         ],
         "parentsFrom": "example",
         "sample": {
@@ -7012,6 +7726,19 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "render": {
+              "$element": [
+                {
+                  "component": "Button",
+                  "props": {
+                    "size": "icon-sm",
+                    "variant": "ghost"
+                  }
+                }
+              ]
+            }
+          },
           "children": [
             "Toggle menu"
           ]
@@ -7184,29 +7911,20 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "orientation": "horizontal",
-            "data-invalid": true
-          },
           "children": [
             {
-              "component": "FieldContent",
+              "component": "FieldTitle",
               "children": [
-                {
-                  "component": "FieldLabel",
-                  "props": {
-                    "htmlFor": "switch-terms"
-                  },
-                  "children": [
-                    "Accept terms and conditions"
-                  ]
-                },
-                {
-                  "component": "FieldDescription",
-                  "children": [
-                    "You must accept the terms and conditions to continue."
-                  ]
-                }
+                "Price Range"
+              ]
+            },
+            {
+              "component": "FieldDescription",
+              "children": [
+                "Set your budget range ($",
+                "-",
+                " ",
+                ")."
               ]
             }
           ]
@@ -7225,6 +7943,9 @@
           "Field"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "FieldGroup"
+        ],
         "sample": {
           "children": [
             {
@@ -7250,10 +7971,20 @@
         "as": "function",
         "declaration": "dist/ui/field.d.ts",
         "group": "Field",
+        "parents": [
+          "FieldGroup",
+          "Field"
+        ],
+        "parentsFrom": "example",
+        "optionalParents": [
+          "Field",
+          "FieldGroup"
+        ],
         "sample": {
           "children": [
             "Set your budget range ($",
             "-",
+            " ",
             ")."
           ]
         },
@@ -7264,7 +7995,6 @@
         "declaration": "dist/ui/field.d.ts",
         "group": "Field",
         "parents": [
-          "FieldGroup",
           "Field"
         ],
         "parentsFrom": "example",
@@ -7405,6 +8135,9 @@
           "Field"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "FieldGroup"
+        ],
         "sample": {
           "props": {
             "htmlFor": "kubernetes-r2h"
@@ -7448,6 +8181,9 @@
           "FieldSet"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "FieldGroup"
+        ],
         "sample": {
           "props": {
             "variant": "label"
@@ -7580,10 +8316,14 @@
         "group": "Field",
         "parents": [
           "FieldGroup",
+          "FieldLabel",
           "Field",
           "FieldContent"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "FieldGroup"
+        ],
         "sample": {
           "children": [
             "Enable notifications"
@@ -7601,7 +8341,17 @@
               "component": "HoverCardTrigger",
               "props": {
                 "delay": 10,
-                "closeDelay": 100
+                "closeDelay": 100,
+                "render": {
+                  "$element": [
+                    {
+                      "component": "Button",
+                      "props": {
+                        "variant": "link"
+                      }
+                    }
+                  ]
+                }
               },
               "children": [
                 "Hover Here"
@@ -7667,7 +8417,18 @@
         "sample": {
           "props": {
             "delay": 10,
-            "closeDelay": 100
+            "closeDelay": 100,
+            "render": {
+              "$element": [
+                {
+                  "component": "Button",
+                  "props": {
+                    "variant": "outline",
+                    "size": "sm"
+                  }
+                }
+              ]
+            }
           },
           "children": [
             "% context"
@@ -8150,13 +8911,14 @@
             {
               "component": "Item",
               "props": {
-                "variant": "outline"
+                "variant": "outline",
+                "role": "listitem"
               },
               "children": [
                 {
                   "component": "ItemMedia",
                   "props": {
-                    "variant": "icon"
+                    "variant": "image"
                   }
                 },
                 {
@@ -8165,13 +8927,26 @@
                     {
                       "component": "ItemTitle",
                       "children": [
-                        "Item 1"
+                        "Midnight City Lights",
+                        "-",
+                        " "
                       ]
                     },
                     {
                       "component": "ItemDescription",
                       "children": [
-                        "First item with icon."
+                        "Neon Dreams"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "ItemContent",
+                  "children": [
+                    {
+                      "component": "ItemDescription",
+                      "children": [
+                        "3:45"
                       ]
                     }
                   ]
@@ -8181,13 +8956,14 @@
             {
               "component": "Item",
               "props": {
-                "variant": "outline"
+                "variant": "outline",
+                "role": "listitem"
               },
               "children": [
                 {
                   "component": "ItemMedia",
                   "props": {
-                    "variant": "icon"
+                    "variant": "image"
                   }
                 },
                 {
@@ -8196,13 +8972,26 @@
                     {
                       "component": "ItemTitle",
                       "children": [
-                        "Item 2"
+                        "Coffee Shop Conversations",
+                        "-",
+                        " "
                       ]
                     },
                     {
                       "component": "ItemDescription",
                       "children": [
-                        "Second item with icon."
+                        "The Morning Brew"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "ItemContent",
+                  "children": [
+                    {
+                      "component": "ItemDescription",
+                      "children": [
+                        "4:05"
                       ]
                     }
                   ]
@@ -8212,13 +9001,14 @@
             {
               "component": "Item",
               "props": {
-                "variant": "outline"
+                "variant": "outline",
+                "role": "listitem"
               },
               "children": [
                 {
                   "component": "ItemMedia",
                   "props": {
-                    "variant": "icon"
+                    "variant": "image"
                   }
                 },
                 {
@@ -8227,13 +9017,26 @@
                     {
                       "component": "ItemTitle",
                       "children": [
-                        "Item 3"
+                        "Digital Rain",
+                        "-",
+                        " "
                       ]
                     },
                     {
                       "component": "ItemDescription",
                       "children": [
-                        "Third item with icon."
+                        "Cyber Symphony"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "ItemContent",
+                  "children": [
+                    {
+                      "component": "ItemDescription",
+                      "children": [
+                        "3:30"
                       ]
                     }
                   ]
@@ -8249,6 +9052,7 @@
         "declaration": "dist/ui/item.d.ts",
         "group": "Item",
         "parents": [
+          "ItemGroup",
           "Item"
         ],
         "parentsFrom": "example",
@@ -8648,9 +9452,13 @@
         "parents": [
           "Menubar",
           "MenubarMenu",
-          "MenubarContent"
+          "MenubarContent",
+          "MenubarGroup"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "MenubarGroup"
+        ],
         "sample": {
           "props": {
             "checked": true
@@ -8845,6 +9653,9 @@
           "MenubarGroup"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "MenubarGroup"
+        ],
         "sample": {
           "props": {
             "disabled": true,
@@ -9131,6 +9942,9 @@
           "MenubarItem"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "MenubarGroup"
+        ],
         "sample": {
           "children": [
             "⌘R"
@@ -9149,6 +9963,9 @@
           "MenubarGroup"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "MenubarGroup"
+        ],
         "sample": {
           "children": [
             {
@@ -9229,6 +10046,9 @@
           "MenubarSub"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "MenubarGroup"
+        ],
         "sample": {
           "children": [
             {
@@ -9296,6 +10116,9 @@
           "MenubarSub"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "MenubarGroup"
+        ],
         "sample": {
           "children": [
             "Share"
@@ -9459,10 +10282,18 @@
         "declaration": "dist/ui/message.d.ts",
         "group": "Message",
         "parents": [
+          "MessageScrollerProvider",
+          "MessageScroller",
+          "MessageScrollerViewport",
+          "MessageScrollerContent",
+          "MessageScrollerItem",
           "Message",
           "MessageContent"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "MessageScrollerItem"
+        ],
         "sample": {
           "children": [
             "Olivia"
@@ -9489,9 +10320,35 @@
                     {
                       "component": "MessageScrollerItem",
                       "props": {
-                        "scrollAnchor": false
+                        "messageId": "open-1"
                       },
-                      "children": []
+                      "children": [
+                        {
+                          "component": "Message"
+                        }
+                      ]
+                    },
+                    {
+                      "component": "MessageScrollerItem",
+                      "props": {
+                        "messageId": "open-2"
+                      },
+                      "children": [
+                        {
+                          "component": "Message"
+                        }
+                      ]
+                    },
+                    {
+                      "component": "MessageScrollerItem",
+                      "props": {
+                        "messageId": "open-3"
+                      },
+                      "children": [
+                        {
+                          "component": "Message"
+                        }
+                      ]
                     }
                   ]
                 }
@@ -9512,7 +10369,7 @@
           "MessageScrollerProvider",
           "MessageScroller"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
         "fingerprint": "dbbf18ed",
         "props": {
           "behavior?": "bbcb86",
@@ -9528,17 +10385,62 @@
         "group": "MessageScroller",
         "parents": [
           "MessageScrollerProvider",
-          "MessageScroller"
+          "MessageScroller",
+          "MessageScrollerViewport"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
         "sample": {
           "children": [
             {
               "component": "MessageScrollerItem",
               "props": {
-                "scrollAnchor": false
+                "messageId": "open-1"
               },
-              "children": []
+              "children": [
+                {
+                  "component": "Message",
+                  "children": [
+                    {
+                      "component": "MessageContent",
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "MessageScrollerItem",
+              "props": {
+                "messageId": "open-2"
+              },
+              "children": [
+                {
+                  "component": "Message",
+                  "children": [
+                    {
+                      "component": "MessageContent",
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "MessageScrollerItem",
+              "props": {
+                "messageId": "open-3"
+              },
+              "children": [
+                {
+                  "component": "Message",
+                  "children": [
+                    {
+                      "component": "MessageContent",
+                      "children": []
+                    }
+                  ]
+                }
+              ]
             }
           ]
         },
@@ -9554,16 +10456,22 @@
         "parents": [
           "MessageScrollerProvider",
           "MessageScroller",
+          "MessageScrollerViewport",
           "MessageScrollerContent"
         ],
-        "parentsFrom": "edit",
+        "parentsFrom": "example",
         "sample": {
           "children": [
             {
               "component": "Message",
               "children": [
                 {
-                  "component": "MessageContent"
+                  "component": "MessageContent",
+                  "children": [
+                    {
+                      "component": "MessageHeader"
+                    }
+                  ]
                 }
               ]
             }
@@ -9592,7 +10500,12 @@
                   "component": "MessageScrollerViewport",
                   "children": [
                     {
-                      "component": "MessageScrollerContent"
+                      "component": "MessageScrollerContent",
+                      "children": [
+                        {
+                          "component": "MessageScrollerItem"
+                        }
+                      ]
                     }
                   ]
                 },
@@ -9621,7 +10534,7 @@
           "MessageScrollerProvider",
           "MessageScroller"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
         "sample": {
           "children": [
             {
@@ -9630,9 +10543,50 @@
                 {
                   "component": "MessageScrollerItem",
                   "props": {
-                    "scrollAnchor": false
+                    "messageId": "open-1"
                   },
-                  "children": []
+                  "children": [
+                    {
+                      "component": "Message",
+                      "children": [
+                        {
+                          "component": "MessageContent"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "MessageScrollerItem",
+                  "props": {
+                    "messageId": "open-2"
+                  },
+                  "children": [
+                    {
+                      "component": "Message",
+                      "children": [
+                        {
+                          "component": "MessageContent"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "MessageScrollerItem",
+                  "props": {
+                    "messageId": "open-3"
+                  },
+                  "children": [
+                    {
+                      "component": "Message",
+                      "children": [
+                        {
+                          "component": "MessageContent"
+                        }
+                      ]
+                    }
+                  ]
                 }
               ]
             }
@@ -10004,6 +10958,9 @@
           "NavigationMenuContent"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "NavigationMenuContent"
+        ],
         "sample": {
           "children": [
             "Backlog"
@@ -10104,6 +11061,7 @@
           "NavigationMenu"
         ],
         "parentsFrom": "error",
+        "internal": true,
         "fingerprint": "7841fd44",
         "props": {
           "align?": "ddc1fb",
@@ -10404,6 +11362,18 @@
           "children": [
             {
               "component": "PopoverTrigger",
+              "props": {
+                "render": {
+                  "$element": [
+                    {
+                      "component": "Button",
+                      "props": {
+                        "variant": "outline"
+                      }
+                    }
+                  ]
+                }
+              },
               "children": [
                 "Open Popover"
               ]
@@ -10574,8 +11544,22 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "render": {
+              "$element": [
+                {
+                  "component": "Button",
+                  "props": {
+                    "variant": "outline",
+                    "id": "date-picker-range"
+                  }
+                }
+              ]
+            }
+          },
           "children": [
-            "Select date"
+            "-",
+            " "
           ]
         },
         "fingerprint": "898ad379",
@@ -10601,13 +11585,17 @@
           },
           "children": [
             {
-              "component": "ProgressLabel",
-              "children": [
-                "Upload progress"
-              ]
+              "component": "ProgressLabel"
             },
             {
-              "component": "ProgressValue"
+              "component": "ProgressValue",
+              "children": [
+                {
+                  "$render": [
+                    "%"
+                  ]
+                }
+              ]
             }
           ]
         },
@@ -10633,6 +11621,7 @@
           "Progress"
         ],
         "parentsFrom": "error",
+        "internal": true,
         "fingerprint": "f34caff2",
         "props": {
           "className?": "0035b0",
@@ -10668,6 +11657,7 @@
           "Progress"
         ],
         "parentsFrom": "error",
+        "internal": true,
         "fingerprint": "9f671053",
         "props": {
           "className?": "f6266d",
@@ -10683,6 +11673,15 @@
           "Progress"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "$render": [
+                "%"
+              ]
+            }
+          ]
+        },
         "fingerprint": "8ea51e1d",
         "props": {
           "children?": "c686f0",
@@ -10697,7 +11696,20 @@
         "group": "Questionnaire",
         "sample": {
           "props": {
-            "defaultItem": "task"
+            "defaultItem": "task",
+            "items": [
+              {
+                "name": "task",
+                "required": true
+              },
+              {
+                "name": "constraints"
+              },
+              {
+                "name": "review",
+                "required": true
+              }
+            ]
           },
           "children": [
             {
@@ -11015,8 +12027,17 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "render": {
+              "$element": [
+                {
+                  "component": "CardDescription"
+                }
+              ]
+            }
+          },
           "children": [
-            "Choose the task for this run."
+            "Choose the task that should be handled next."
           ]
         },
         "fingerprint": "65b491b6",
@@ -11048,6 +12069,9 @@
           "QuestionnaireChoices"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "QuestionnaireChoices"
+        ],
         "sample": {
           "props": {
             "aria-label": "Another refactoring approach",
@@ -11242,8 +12266,17 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "render": {
+              "$element": [
+                {
+                  "component": "CardTitle"
+                }
+              ]
+            }
+          },
           "children": [
-            "What should the agent do?"
+            "What should the agent work on?"
           ]
         },
         "fingerprint": "65b491b6",
@@ -11285,6 +12318,10 @@
         "as": "function",
         "declaration": "dist/ui/radio-group.d.ts",
         "group": "RadioGroup",
+        "parents": [
+          "RadioGroup"
+        ],
+        "parentsFrom": "example",
         "sample": {
           "props": {
             "value": "invalid1",
@@ -11520,14 +12557,16 @@
         "group": "Select",
         "sample": {
           "props": {
-            "defaultValue": "25"
+            "items": [
+              {
+                "label": "Select a timezone",
+                "value": null
+              }
+            ]
           },
           "children": [
             {
               "component": "SelectTrigger",
-              "props": {
-                "id": "select-rows-per-page"
-              },
               "children": [
                 {
                   "component": "SelectValue"
@@ -11536,47 +12575,155 @@
             },
             {
               "component": "SelectContent",
-              "props": {
-                "align": "start"
-              },
               "children": [
                 {
                   "component": "SelectGroup",
                   "children": [
                     {
-                      "component": "SelectItem",
-                      "props": {
-                        "value": "10"
-                      },
+                      "component": "SelectLabel",
                       "children": [
-                        "10"
+                        "North America"
                       ]
                     },
                     {
                       "component": "SelectItem",
                       "props": {
-                        "value": "25"
+                        "value": "est"
                       },
                       "children": [
-                        "25"
+                        "Eastern Standard Time"
                       ]
                     },
                     {
                       "component": "SelectItem",
                       "props": {
-                        "value": "50"
+                        "value": "cst"
                       },
                       "children": [
-                        "50"
+                        "Central Standard Time"
                       ]
                     },
                     {
                       "component": "SelectItem",
                       "props": {
-                        "value": "100"
+                        "value": "mst"
                       },
                       "children": [
-                        "100"
+                        "Mountain Standard Time"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "SelectGroup",
+                  "children": [
+                    {
+                      "component": "SelectLabel",
+                      "children": [
+                        "Europe & Africa"
+                      ]
+                    },
+                    {
+                      "component": "SelectItem",
+                      "props": {
+                        "value": "gmt"
+                      },
+                      "children": [
+                        "Greenwich Mean Time"
+                      ]
+                    },
+                    {
+                      "component": "SelectItem",
+                      "props": {
+                        "value": "cet"
+                      },
+                      "children": [
+                        "Central European Time"
+                      ]
+                    },
+                    {
+                      "component": "SelectItem",
+                      "props": {
+                        "value": "eet"
+                      },
+                      "children": [
+                        "Eastern European Time"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "SelectGroup",
+                  "children": [
+                    {
+                      "component": "SelectLabel",
+                      "children": [
+                        "Asia"
+                      ]
+                    },
+                    {
+                      "component": "SelectItem",
+                      "props": {
+                        "value": "msk"
+                      },
+                      "children": [
+                        "Moscow Time"
+                      ]
+                    },
+                    {
+                      "component": "SelectItem",
+                      "props": {
+                        "value": "ist"
+                      },
+                      "children": [
+                        "India Standard Time"
+                      ]
+                    },
+                    {
+                      "component": "SelectItem",
+                      "props": {
+                        "value": "cst_china"
+                      },
+                      "children": [
+                        "China Standard Time"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "SelectGroup",
+                  "children": [
+                    {
+                      "component": "SelectLabel",
+                      "children": [
+                        "Australia & Pacific"
+                      ]
+                    },
+                    {
+                      "component": "SelectItem",
+                      "props": {
+                        "value": "awst"
+                      },
+                      "children": [
+                        "Australian Western Standard Time"
+                      ]
+                    },
+                    {
+                      "component": "SelectItem",
+                      "props": {
+                        "value": "acst"
+                      },
+                      "children": [
+                        "Australian Central Standard Time"
+                      ]
+                    },
+                    {
+                      "component": "SelectItem",
+                      "props": {
+                        "value": "aest"
+                      },
+                      "children": [
+                        "Australian Eastern Standard Time"
                       ]
                     }
                   ]
@@ -11631,6 +12778,33 @@
                   "children": [
                     "North America"
                   ]
+                },
+                {
+                  "component": "SelectItem",
+                  "props": {
+                    "value": "est"
+                  },
+                  "children": [
+                    "Eastern Standard Time"
+                  ]
+                },
+                {
+                  "component": "SelectItem",
+                  "props": {
+                    "value": "cst"
+                  },
+                  "children": [
+                    "Central Standard Time"
+                  ]
+                },
+                {
+                  "component": "SelectItem",
+                  "props": {
+                    "value": "mst"
+                  },
+                  "children": [
+                    "Mountain Standard Time"
+                  ]
                 }
               ]
             },
@@ -11641,6 +12815,33 @@
                   "component": "SelectLabel",
                   "children": [
                     "Europe & Africa"
+                  ]
+                },
+                {
+                  "component": "SelectItem",
+                  "props": {
+                    "value": "gmt"
+                  },
+                  "children": [
+                    "Greenwich Mean Time"
+                  ]
+                },
+                {
+                  "component": "SelectItem",
+                  "props": {
+                    "value": "cet"
+                  },
+                  "children": [
+                    "Central European Time"
+                  ]
+                },
+                {
+                  "component": "SelectItem",
+                  "props": {
+                    "value": "eet"
+                  },
+                  "children": [
+                    "Eastern European Time"
                   ]
                 }
               ]
@@ -11653,6 +12854,33 @@
                   "children": [
                     "Asia"
                   ]
+                },
+                {
+                  "component": "SelectItem",
+                  "props": {
+                    "value": "msk"
+                  },
+                  "children": [
+                    "Moscow Time"
+                  ]
+                },
+                {
+                  "component": "SelectItem",
+                  "props": {
+                    "value": "ist"
+                  },
+                  "children": [
+                    "India Standard Time"
+                  ]
+                },
+                {
+                  "component": "SelectItem",
+                  "props": {
+                    "value": "cst_china"
+                  },
+                  "children": [
+                    "China Standard Time"
+                  ]
                 }
               ]
             },
@@ -11663,6 +12891,33 @@
                   "component": "SelectLabel",
                   "children": [
                     "Australia & Pacific"
+                  ]
+                },
+                {
+                  "component": "SelectItem",
+                  "props": {
+                    "value": "awst"
+                  },
+                  "children": [
+                    "Australian Western Standard Time"
+                  ]
+                },
+                {
+                  "component": "SelectItem",
+                  "props": {
+                    "value": "acst"
+                  },
+                  "children": [
+                    "Australian Central Standard Time"
+                  ]
+                },
+                {
+                  "component": "SelectItem",
+                  "props": {
+                    "value": "aest"
+                  },
+                  "children": [
+                    "Australian Eastern Standard Time"
                   ]
                 }
               ]
@@ -11697,37 +12952,31 @@
             {
               "component": "SelectItem",
               "props": {
-                "value": "10"
+                "value": "$"
               },
               "children": [
-                "10"
+                "$",
+                " "
               ]
             },
             {
               "component": "SelectItem",
               "props": {
-                "value": "25"
+                "value": "€"
               },
               "children": [
-                "25"
+                "€",
+                " "
               ]
             },
             {
               "component": "SelectItem",
               "props": {
-                "value": "50"
+                "value": "£"
               },
               "children": [
-                "50"
-              ]
-            },
-            {
-              "component": "SelectItem",
-              "props": {
-                "value": "100"
-              },
-              "children": [
-                "100"
+                "£",
+                " "
               ]
             }
           ]
@@ -11799,7 +13048,8 @@
           "Select",
           "SelectContent"
         ],
-        "parentsFrom": "edit",
+        "parentsFrom": "source",
+        "internal": true,
         "fingerprint": "453e884f",
         "props": {
           "className?": "72d63a",
@@ -11816,7 +13066,8 @@
           "Select",
           "SelectContent"
         ],
-        "parentsFrom": "edit",
+        "parentsFrom": "source",
+        "internal": true,
         "fingerprint": "593454ac",
         "props": {
           "className?": "0c8bce",
@@ -11925,6 +13176,18 @@
           "children": [
             {
               "component": "SheetTrigger",
+              "props": {
+                "render": {
+                  "$element": [
+                    {
+                      "component": "Button",
+                      "props": {
+                        "variant": "outline"
+                      }
+                    }
+                  ]
+                }
+              },
               "children": [
                 "Open"
               ]
@@ -11955,6 +13218,18 @@
                   "children": [
                     {
                       "component": "SheetClose",
+                      "props": {
+                        "render": {
+                          "$element": [
+                            {
+                              "component": "Button",
+                              "props": {
+                                "variant": "outline"
+                              }
+                            }
+                          ]
+                        }
+                      },
                       "children": [
                         "Close"
                       ]
@@ -11991,6 +13266,18 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "render": {
+              "$element": [
+                {
+                  "component": "Button",
+                  "props": {
+                    "variant": "outline"
+                  }
+                }
+              ]
+            }
+          },
           "children": [
             "Close"
           ]
@@ -12036,6 +13323,18 @@
               "children": [
                 {
                   "component": "SheetClose",
+                  "props": {
+                    "render": {
+                      "$element": [
+                        {
+                          "component": "Button",
+                          "props": {
+                            "variant": "outline"
+                          }
+                        }
+                      ]
+                    }
+                  },
                   "children": [
                     "Close"
                   ]
@@ -12091,6 +13390,18 @@
           "children": [
             {
               "component": "SheetClose",
+              "props": {
+                "render": {
+                  "$element": [
+                    {
+                      "component": "Button",
+                      "props": {
+                        "variant": "outline"
+                      }
+                    }
+                  ]
+                }
+              },
               "children": [
                 "Close"
               ]
@@ -12157,6 +13468,18 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "render": {
+              "$element": [
+                {
+                  "component": "Button",
+                  "props": {
+                    "variant": "outline"
+                  }
+                }
+              ]
+            }
+          },
           "children": [
             "Open"
           ]
@@ -12217,7 +13540,8 @@
                       "component": "SidebarGroupLabel"
                     },
                     {
-                      "component": "SidebarMenu"
+                      "component": "SidebarMenu",
+                      "children": []
                     }
                   ]
                 },
@@ -12230,6 +13554,15 @@
                     {
                       "component": "SidebarMenu",
                       "children": [
+                        {
+                          "component": "SidebarMenuItem"
+                        },
+                        {
+                          "component": "SidebarMenuItem"
+                        },
+                        {
+                          "component": "SidebarMenuItem"
+                        },
                         {
                           "component": "SidebarMenuItem"
                         }
@@ -12280,34 +13613,52 @@
               "component": "SidebarGroup",
               "children": [
                 {
-                  "component": "SidebarGroupLabel",
-                  "children": [
-                    "Projects"
-                  ]
+                  "component": "SidebarGroupLabel"
                 },
                 {
-                  "component": "SidebarGroupAction",
-                  "props": {
-                    "title": "Add Project"
-                  },
-                  "children": [
-                    "Add Project"
-                  ]
+                  "component": "SidebarMenu",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "component": "SidebarGroup",
+              "children": [
+                {
+                  "component": "SidebarGroupLabel"
                 },
                 {
-                  "component": "SidebarGroupContent",
+                  "component": "SidebarMenu",
                   "children": [
                     {
-                      "component": "SidebarMenu",
+                      "component": "SidebarMenuItem",
                       "children": [
                         {
-                          "component": "SidebarMenuItem"
-                        },
+                          "component": "SidebarMenuButton"
+                        }
+                      ]
+                    },
+                    {
+                      "component": "SidebarMenuItem",
+                      "children": [
                         {
-                          "component": "SidebarMenuItem"
-                        },
+                          "component": "SidebarMenuButton"
+                        }
+                      ]
+                    },
+                    {
+                      "component": "SidebarMenuItem",
+                      "children": [
                         {
-                          "component": "SidebarMenuItem"
+                          "component": "SidebarMenuButton"
+                        }
+                      ]
+                    },
+                    {
+                      "component": "SidebarMenuItem",
+                      "children": [
+                        {
+                          "component": "SidebarMenuButton"
                         }
                       ]
                     }
@@ -12362,15 +13713,6 @@
               ]
             },
             {
-              "component": "SidebarGroupAction",
-              "props": {
-                "title": "Add Project"
-              },
-              "children": [
-                "Add Project"
-              ]
-            },
-            {
               "component": "SidebarGroupContent",
               "children": [
                 {
@@ -12381,6 +13723,9 @@
                       "children": [
                         {
                           "component": "SidebarMenuButton"
+                        },
+                        {
+                          "component": "SidebarMenuBadge"
                         }
                       ]
                     },
@@ -12389,6 +13734,9 @@
                       "children": [
                         {
                           "component": "SidebarMenuButton"
+                        },
+                        {
+                          "component": "SidebarMenuBadge"
                         }
                       ]
                     },
@@ -12397,6 +13745,9 @@
                       "children": [
                         {
                           "component": "SidebarMenuButton"
+                        },
+                        {
+                          "component": "SidebarMenuBadge"
                         }
                       ]
                     }
@@ -12452,9 +13803,17 @@
                   "component": "SidebarMenuItem",
                   "children": [
                     {
-                      "component": "SidebarMenuButton",
+                      "component": "SidebarMenuButton"
+                    },
+                    {
+                      "component": "SidebarMenuSub",
                       "children": [
-                        "Design Engineering"
+                        {
+                          "component": "SidebarMenuSubItem"
+                        },
+                        {
+                          "component": "SidebarMenuSubItem"
+                        }
                       ]
                     }
                   ]
@@ -12463,9 +13822,20 @@
                   "component": "SidebarMenuItem",
                   "children": [
                     {
-                      "component": "SidebarMenuButton",
+                      "component": "SidebarMenuButton"
+                    },
+                    {
+                      "component": "SidebarMenuSub",
                       "children": [
-                        "Sales & Marketing"
+                        {
+                          "component": "SidebarMenuSubItem"
+                        },
+                        {
+                          "component": "SidebarMenuSubItem"
+                        },
+                        {
+                          "component": "SidebarMenuSubItem"
+                        }
                       ]
                     }
                   ]
@@ -12474,9 +13844,20 @@
                   "component": "SidebarMenuItem",
                   "children": [
                     {
-                      "component": "SidebarMenuButton",
+                      "component": "SidebarMenuButton"
+                    },
+                    {
+                      "component": "SidebarMenuSub",
                       "children": [
-                        "Travel"
+                        {
+                          "component": "SidebarMenuSubItem"
+                        },
+                        {
+                          "component": "SidebarMenuSubItem"
+                        },
+                        {
+                          "component": "SidebarMenuSubItem"
+                        }
                       ]
                     }
                   ]
@@ -12498,11 +13879,6 @@
           "SidebarGroup"
         ],
         "parentsFrom": "example",
-        "sample": {
-          "children": [
-            "Projects"
-          ]
-        },
         "fingerprint": "fa1c0092",
         "props": {
           "render?": "002b9d"
@@ -12572,15 +13948,38 @@
           "SidebarGroupContent"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "SidebarGroupContent",
+          "SidebarGroup",
+          "SidebarContent"
+        ],
         "sample": {
           "children": [
             {
               "component": "SidebarMenuItem",
               "children": [
                 {
-                  "component": "SidebarMenuButton",
+                  "component": "SidebarMenuButton"
+                },
+                {
+                  "component": "SidebarMenuSub",
                   "children": [
-                    "Design Engineering"
+                    {
+                      "component": "SidebarMenuSubItem",
+                      "children": [
+                        {
+                          "component": "SidebarMenuSubButton"
+                        }
+                      ]
+                    },
+                    {
+                      "component": "SidebarMenuSubItem",
+                      "children": [
+                        {
+                          "component": "SidebarMenuSubButton"
+                        }
+                      ]
+                    }
                   ]
                 }
               ]
@@ -12589,9 +13988,35 @@
               "component": "SidebarMenuItem",
               "children": [
                 {
-                  "component": "SidebarMenuButton",
+                  "component": "SidebarMenuButton"
+                },
+                {
+                  "component": "SidebarMenuSub",
                   "children": [
-                    "Sales & Marketing"
+                    {
+                      "component": "SidebarMenuSubItem",
+                      "children": [
+                        {
+                          "component": "SidebarMenuSubButton"
+                        }
+                      ]
+                    },
+                    {
+                      "component": "SidebarMenuSubItem",
+                      "children": [
+                        {
+                          "component": "SidebarMenuSubButton"
+                        }
+                      ]
+                    },
+                    {
+                      "component": "SidebarMenuSubItem",
+                      "children": [
+                        {
+                          "component": "SidebarMenuSubButton"
+                        }
+                      ]
+                    }
                   ]
                 }
               ]
@@ -12600,9 +14025,35 @@
               "component": "SidebarMenuItem",
               "children": [
                 {
-                  "component": "SidebarMenuButton",
+                  "component": "SidebarMenuButton"
+                },
+                {
+                  "component": "SidebarMenuSub",
                   "children": [
-                    "Travel"
+                    {
+                      "component": "SidebarMenuSubItem",
+                      "children": [
+                        {
+                          "component": "SidebarMenuSubButton"
+                        }
+                      ]
+                    },
+                    {
+                      "component": "SidebarMenuSubItem",
+                      "children": [
+                        {
+                          "component": "SidebarMenuSubButton"
+                        }
+                      ]
+                    },
+                    {
+                      "component": "SidebarMenuSubItem",
+                      "children": [
+                        {
+                          "component": "SidebarMenuSubButton"
+                        }
+                      ]
+                    }
                   ]
                 }
               ]
@@ -12631,6 +14082,8 @@
         "declaration": "dist/ui/sidebar.d.ts",
         "group": "Sidebar",
         "parents": [
+          "SidebarProvider",
+          "Sidebar",
           "SidebarContent",
           "SidebarGroup",
           "SidebarGroupContent",
@@ -12646,6 +14099,7 @@
         "group": "Sidebar",
         "parents": [
           "SidebarProvider",
+          "Sidebar",
           "SidebarContent",
           "SidebarGroup",
           "SidebarGroupContent",
@@ -12653,6 +14107,12 @@
           "SidebarMenuItem"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "SidebarGroupContent",
+          "SidebarGroup",
+          "SidebarContent",
+          "Sidebar"
+        ],
         "sample": {
           "children": [
             "More"
@@ -12676,16 +14136,31 @@
           "Sidebar",
           "SidebarContent",
           "SidebarGroup",
-          "SidebarGroupContent",
           "SidebarMenu"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "SidebarGroup",
+          "SidebarContent",
+          "Sidebar",
+          "SidebarProvider"
+        ],
         "sample": {
           "children": [
             {
-              "component": "SidebarMenuButton",
+              "component": "SidebarMenuButton"
+            },
+            {
+              "component": "SidebarMenuSub",
               "children": [
-                "More"
+                {
+                  "component": "SidebarMenuSubItem",
+                  "children": [
+                    {
+                      "component": "SidebarMenuSubButton"
+                    }
+                  ]
+                }
               ]
             }
           ]
@@ -12697,9 +14172,6 @@
         "declaration": "dist/ui/sidebar.d.ts",
         "group": "Sidebar",
         "parents": [
-          "SidebarContent",
-          "SidebarGroup",
-          "SidebarGroupContent",
           "SidebarMenu",
           "SidebarMenuItem"
         ],
@@ -12718,6 +14190,22 @@
         "as": "function",
         "declaration": "dist/ui/sidebar.d.ts",
         "group": "Sidebar",
+        "parents": [
+          "SidebarProvider",
+          "Sidebar",
+          "SidebarContent",
+          "SidebarGroup",
+          "SidebarGroupContent",
+          "SidebarMenu",
+          "SidebarMenuItem"
+        ],
+        "parentsFrom": "example",
+        "optionalParents": [
+          "SidebarGroupContent",
+          "SidebarContent",
+          "Sidebar",
+          "SidebarProvider"
+        ],
         "sample": {
           "children": [
             {
@@ -12737,10 +14225,22 @@
         "declaration": "dist/ui/sidebar.d.ts",
         "group": "Sidebar",
         "parents": [
+          "SidebarProvider",
+          "Sidebar",
+          "SidebarContent",
+          "SidebarGroup",
+          "SidebarGroupContent",
+          "SidebarMenu",
+          "SidebarMenuItem",
           "SidebarMenuSub",
           "SidebarMenuSubItem"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "SidebarGroupContent",
+          "SidebarContent",
+          "Sidebar"
+        ],
         "fingerprint": "db05c88c",
         "props": {
           "isActive?": "31e5d9",
@@ -12753,9 +14253,22 @@
         "declaration": "dist/ui/sidebar.d.ts",
         "group": "Sidebar",
         "parents": [
+          "SidebarProvider",
+          "Sidebar",
+          "SidebarContent",
+          "SidebarGroup",
+          "SidebarGroupContent",
+          "SidebarMenu",
+          "SidebarMenuItem",
           "SidebarMenuSub"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "SidebarGroupContent",
+          "SidebarContent",
+          "Sidebar",
+          "SidebarProvider"
+        ],
         "sample": {
           "children": [
             {
@@ -12771,6 +14284,9 @@
         "group": "Sidebar",
         "visual": false,
         "sample": {
+          "props": {
+            "open": true
+          },
           "children": [
             {
               "component": "Sidebar",
@@ -12863,6 +14379,10 @@
         "group": "Slider",
         "sample": {
           "props": {
+            "value": [
+              200,
+              800
+            ],
             "max": 1000,
             "min": 0,
             "step": 10,
@@ -12938,8 +14458,8 @@
         "group": "Switch",
         "sample": {
           "props": {
-            "id": "switch-notifications",
-            "defaultChecked": true
+            "id": "align-item",
+            "checked": true
           }
         },
         "fingerprint": "8784e26e",
@@ -12970,6 +14490,12 @@
         "sample": {
           "children": [
             {
+              "component": "TableCaption",
+              "children": [
+                "A list of your recent invoices."
+              ]
+            },
+            {
               "component": "TableHeader",
               "children": [
                 {
@@ -12978,19 +14504,25 @@
                     {
                       "component": "TableHead",
                       "children": [
-                        "Product"
+                        "Invoice"
                       ]
                     },
                     {
                       "component": "TableHead",
                       "children": [
-                        "Price"
+                        "Status"
                       ]
                     },
                     {
                       "component": "TableHead",
                       "children": [
-                        "Actions"
+                        "Method"
+                      ]
+                    },
+                    {
+                      "component": "TableHead",
+                      "children": [
+                        "Amount"
                       ]
                     }
                   ]
@@ -13006,18 +14538,26 @@
                     {
                       "component": "TableCell",
                       "children": [
-                        "Wireless Mouse"
+                        "INV001"
                       ]
                     },
                     {
                       "component": "TableCell",
                       "children": [
-                        "$29.99"
+                        "Paid"
                       ]
                     },
                     {
                       "component": "TableCell",
-                      "children": []
+                      "children": [
+                        "Credit Card"
+                      ]
+                    },
+                    {
+                      "component": "TableCell",
+                      "children": [
+                        "$250.00"
+                      ]
                     }
                   ]
                 },
@@ -13027,18 +14567,26 @@
                     {
                       "component": "TableCell",
                       "children": [
-                        "Mechanical Keyboard"
+                        "INV002"
                       ]
                     },
                     {
                       "component": "TableCell",
                       "children": [
-                        "$129.99"
+                        "Pending"
                       ]
                     },
                     {
                       "component": "TableCell",
-                      "children": []
+                      "children": [
+                        "PayPal"
+                      ]
+                    },
+                    {
+                      "component": "TableCell",
+                      "children": [
+                        "$150.00"
+                      ]
                     }
                   ]
                 },
@@ -13048,18 +14596,51 @@
                     {
                       "component": "TableCell",
                       "children": [
-                        "USB-C Hub"
+                        "INV003"
                       ]
                     },
                     {
                       "component": "TableCell",
                       "children": [
-                        "$49.99"
+                        "Unpaid"
                       ]
                     },
                     {
                       "component": "TableCell",
-                      "children": []
+                      "children": [
+                        "Bank Transfer"
+                      ]
+                    },
+                    {
+                      "component": "TableCell",
+                      "children": [
+                        "$350.00"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "TableFooter",
+              "children": [
+                {
+                  "component": "TableRow",
+                  "children": [
+                    {
+                      "component": "TableCell",
+                      "props": {
+                        "colSpan": 3
+                      },
+                      "children": [
+                        "Total"
+                      ]
+                    },
+                    {
+                      "component": "TableCell",
+                      "children": [
+                        "$2,500.00"
+                      ]
                     }
                   ]
                 }
@@ -13085,18 +14666,26 @@
                 {
                   "component": "TableCell",
                   "children": [
-                    "Wireless Mouse"
+                    "INV001"
                   ]
                 },
                 {
                   "component": "TableCell",
                   "children": [
-                    "$29.99"
+                    "Paid"
                   ]
                 },
                 {
                   "component": "TableCell",
-                  "children": []
+                  "children": [
+                    "Credit Card"
+                  ]
+                },
+                {
+                  "component": "TableCell",
+                  "children": [
+                    "$250.00"
+                  ]
                 }
               ]
             },
@@ -13106,18 +14695,26 @@
                 {
                   "component": "TableCell",
                   "children": [
-                    "Mechanical Keyboard"
+                    "INV002"
                   ]
                 },
                 {
                   "component": "TableCell",
                   "children": [
-                    "$129.99"
+                    "Pending"
                   ]
                 },
                 {
                   "component": "TableCell",
-                  "children": []
+                  "children": [
+                    "PayPal"
+                  ]
+                },
+                {
+                  "component": "TableCell",
+                  "children": [
+                    "$150.00"
+                  ]
                 }
               ]
             },
@@ -13127,18 +14724,26 @@
                 {
                   "component": "TableCell",
                   "children": [
-                    "USB-C Hub"
+                    "INV003"
                   ]
                 },
                 {
                   "component": "TableCell",
                   "children": [
-                    "$49.99"
+                    "Unpaid"
                   ]
                 },
                 {
                   "component": "TableCell",
-                  "children": []
+                  "children": [
+                    "Bank Transfer"
+                  ]
+                },
+                {
+                  "component": "TableCell",
+                  "children": [
+                    "$350.00"
+                  ]
                 }
               ]
             }
@@ -13171,6 +14776,9 @@
           "TableRow"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "TableBody"
+        ],
         "sample": {
           "props": {
             "colSpan": 3
@@ -13221,7 +14829,7 @@
         "group": "Table",
         "parents": [
           "Table",
-          "TableBody",
+          "TableHeader",
           "TableRow"
         ],
         "parentsFrom": "example",
@@ -13284,6 +14892,9 @@
           "TableBody"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "TableBody"
+        ],
         "sample": {
           "children": [
             {
@@ -13605,8 +15216,16 @@
         "group": "Toast",
         "sample": {
           "props": {
-            "position": "bottom-left"
-          }
+            "position": "bottom-left",
+            "toastOptions": {
+              "className": "ml-[160px]"
+            }
+          },
+          "children": [
+            {
+              "component": "ToastViewport"
+            }
+          ]
         },
         "fingerprint": "17741906",
         "props": {
@@ -13620,6 +15239,8 @@
         "as": "function",
         "declaration": "dist/ui/toast.d.ts",
         "group": "Toast",
+        "visual": false,
+        "internal": true,
         "fingerprint": "a5780b89",
         "props": {
           "className?": "e9ca96",
@@ -13633,6 +15254,7 @@
         "declaration": "dist/ui/toast.d.ts",
         "group": "Toast",
         "visual": false,
+        "internal": true,
         "fingerprint": "17741906",
         "props": {
           "children?": "75c961",
@@ -13662,10 +15284,11 @@
         "declaration": "dist/ui/toast.d.ts",
         "group": "Toast",
         "parents": [
-          "Toast"
+          "Toaster"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "source",
         "visual": false,
+        "internal": true,
         "fingerprint": "a6c53108",
         "props": {
           "className?": "c56a4a",
@@ -13708,6 +15331,9 @@
         "group": "ToggleGroup",
         "sample": {
           "props": {
+            "value": [
+              "normal"
+            ],
             "variant": "outline",
             "spacing": 2,
             "size": "lg"
@@ -13817,14 +15443,27 @@
           "children": [
             {
               "component": "TooltipTrigger",
+              "props": {
+                "render": {
+                  "$element": [
+                    {
+                      "component": "Button",
+                      "props": {
+                        "variant": "outline"
+                      }
+                    }
+                  ]
+                }
+              },
               "children": [
-                "Save"
+                "Print"
               ]
             },
             {
               "component": "TooltipContent",
               "children": [
-                "Save Changes"
+                "Print Document",
+                " "
               ]
             }
           ]
@@ -13854,11 +15493,9 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "side": "left"
-          },
           "children": [
-            "Click for help with API keys"
+            "Print Document",
+            " "
           ]
         },
         "fingerprint": "7f4de423",
@@ -13894,6 +15531,18 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "render": {
+              "$element": [
+                {
+                  "component": "Button",
+                  "props": {
+                    "variant": "outline"
+                  }
+                }
+              ]
+            }
+          },
           "children": [
             "Save"
           ]
@@ -13938,7 +15587,14 @@
                 },
                 {
                   "component": "TraceCollapsibleContent",
-                  "children": []
+                  "props": {
+                    "keepMounted": true
+                  },
+                  "children": [
+                    {
+                      "component": "Trace"
+                    }
+                  ]
                 }
               ]
             },
@@ -13950,9 +15606,6 @@
                   "children": [
                     {
                       "component": "TraceLine",
-                      "props": {
-                        "status": "error"
-                      },
                       "children": [
                         {
                           "component": "TraceIcon"
@@ -13966,37 +15619,45 @@
                 },
                 {
                   "component": "TraceCollapsibleContent",
-                  "children": []
-                }
-              ]
-            },
-            {
-              "component": "TraceLine",
-              "children": [
-                {
-                  "component": "TraceIcon"
-                },
-                {
-                  "component": "TraceTitle",
+                  "props": {
+                    "keepMounted": true
+                  },
                   "children": [
-                    "Denied rm -rf dist"
+                    {
+                      "component": "Trace"
+                    }
                   ]
                 }
               ]
             },
             {
-              "component": "TraceLine",
-              "props": {
-                "status": "running"
-              },
+              "component": "TraceCollapsible",
               "children": [
                 {
-                  "component": "TraceIcon"
+                  "component": "TraceCollapsibleTrigger",
+                  "children": [
+                    {
+                      "component": "TraceLine",
+                      "children": [
+                        {
+                          "component": "TraceIcon"
+                        },
+                        {
+                          "component": "TraceTitle"
+                        }
+                      ]
+                    }
+                  ]
                 },
                 {
-                  "component": "TraceTitle",
+                  "component": "TraceCollapsibleContent",
+                  "props": {
+                    "keepMounted": true
+                  },
                   "children": [
-                    "Running pnpm test"
+                    {
+                      "component": "Trace"
+                    }
                   ]
                 }
               ]
@@ -14030,13 +15691,15 @@
                     {
                       "component": "TraceTitle",
                       "children": [
-                        "Ran the research agent"
+                        "Plan: add dark mode"
                       ]
                     },
                     {
                       "component": "TraceDescription",
                       "children": [
-                        "48s"
+                        "1 of",
+                        "4",
+                        "done"
                       ]
                     }
                   ]
@@ -14045,12 +15708,8 @@
             },
             {
               "component": "TraceCollapsibleContent",
-              "props": {
-                "keepMounted": true
-              },
               "children": [
-                "anthropic/claude-sonnet-4.5 runCommand",
-                "Find out why image optimization reruns on every deploy.",
+                "Store the theme in a cookie so the server renders the right ",
                 {
                   "component": "Trace",
                   "children": [
@@ -14075,10 +15734,20 @@
                           "component": "TraceTitle"
                         }
                       ]
+                    },
+                    {
+                      "component": "TraceLine",
+                      "children": [
+                        {
+                          "component": "TraceIcon"
+                        },
+                        {
+                          "component": "TraceTitle"
+                        }
+                      ]
                     }
                   ]
-                },
-                "The cache is keyed on the commit SHA."
+                }
               ]
             }
           ]
@@ -14103,6 +15772,9 @@
           "TraceCollapsible"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Trace"
+        ],
         "sample": {
           "props": {
             "keepMounted": true
@@ -14124,26 +15796,49 @@
                     },
                     {
                       "component": "TraceCollapsibleContent",
+                      "props": {
+                        "keepMounted": true
+                      },
                       "children": [
-                        "I should check which package managers are installed before I"
+                        {
+                          "component": "Trace"
+                        }
                       ]
                     }
                   ]
                 },
                 {
                   "component": "TraceCollapsible",
-                  "props": {
-                    "defaultOpen": true
-                  },
                   "children": [
                     {
                       "component": "TraceCollapsibleTrigger",
                       "children": [
                         {
-                          "component": "TraceLine",
-                          "props": {
-                            "status": "error"
-                          }
+                          "component": "TraceLine"
+                        }
+                      ]
+                    },
+                    {
+                      "component": "TraceCollapsibleContent",
+                      "props": {
+                        "keepMounted": true
+                      },
+                      "children": [
+                        {
+                          "component": "Trace"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "TraceCollapsible",
+                  "children": [
+                    {
+                      "component": "TraceCollapsibleTrigger",
+                      "children": [
+                        {
+                          "component": "TraceLine"
                         }
                       ]
                     },
@@ -14160,13 +15855,6 @@
                     }
                   ]
                 }
-              ]
-            },
-            "Node is installed and pnpm is not. Reading the docs config.",
-            {
-              "component": "Trace",
-              "children": [
-                "Read apps/v4/lib/docs.ts"
               ]
             }
           ]
@@ -14189,6 +15877,9 @@
           "TraceCollapsible"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Trace"
+        ],
         "sample": {
           "children": [
             {
@@ -14210,6 +15901,7 @@
                   "component": "TraceDescription",
                   "children": [
                     "of",
+                    "5",
                     "done"
                   ]
                 }
@@ -14230,15 +15922,20 @@
         "declaration": "dist/ui/trace.d.ts",
         "group": "Trace",
         "parents": [
-          "Trace",
           "TraceCollapsible",
+          "Trace",
           "TraceCollapsibleTrigger",
           "TraceLine"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "TraceCollapsibleTrigger",
+          "TraceCollapsible"
+        ],
         "sample": {
           "children": [
             "of",
+            "5",
             "done"
           ]
         },
@@ -14249,12 +15946,17 @@
         "declaration": "dist/ui/trace.d.ts",
         "group": "Trace",
         "parents": [
-          "Trace",
           "TraceCollapsible",
+          "Trace",
           "TraceCollapsibleTrigger",
           "TraceLine"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "TraceCollapsibleTrigger",
+          "Trace",
+          "TraceCollapsible"
+        ],
         "fingerprint": "c218e39e"
       },
       "TraceLine": {
@@ -14262,11 +15964,16 @@
         "declaration": "dist/ui/trace.d.ts",
         "group": "Trace",
         "parents": [
-          "Trace",
           "TraceCollapsible",
+          "Trace",
           "TraceCollapsibleTrigger"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "TraceCollapsibleTrigger",
+          "Trace",
+          "TraceCollapsible"
+        ],
         "sample": {
           "props": {
             "status": "running"
@@ -14285,6 +15992,7 @@
               "component": "TraceDescription",
               "children": [
                 "of",
+                "5",
                 "done"
               ]
             }
@@ -14300,15 +16008,21 @@
         "declaration": "dist/ui/trace.d.ts",
         "group": "Trace",
         "parents": [
-          "Trace",
           "TraceCollapsible",
+          "Trace",
           "TraceCollapsibleTrigger",
           "TraceLine"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "TraceCollapsibleTrigger",
+          "Trace",
+          "TraceCollapsible"
+        ],
         "sample": {
           "children": [
             "Ran",
+            "5",
             "tests,",
             "failed"
           ]

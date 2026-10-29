@@ -16,7 +16,8 @@
         "group": "Autocomplete",
         "sample": {
           "props": {
-            "children": "Text"
+            "children": "Text",
+            "inputValue": ""
           },
           "children": [
             "Test Please select an option below."
@@ -130,6 +131,22 @@
         "declaration": "dist/types/src/Breadcrumbs.d.ts",
         "group": "Breadcrumbs",
         "sample": {
+          "props": {
+            "items": [
+              {
+                "id": "Home",
+                "url": "/"
+              },
+              {
+                "id": "React Aria",
+                "url": "/react-aria"
+              },
+              {
+                "id": "Breadcrumbs",
+                "url": "/react-aria/breadcrumbs"
+              }
+            ]
+          },
           "children": [
             {
               "component": "Breadcrumb"
@@ -230,11 +247,11 @@
         "group": "Button",
         "sample": {
           "props": {
-            "slot": "chevron",
-            "aria-label": "expand"
+            "slot": "trigger"
           },
           "children": [
-            "▶"
+            "⬇️",
+            "This is a disclosure header"
           ]
         },
         "fingerprint": "1fcab990",
@@ -362,7 +379,19 @@
           "children": [
             "&lt; &gt;",
             {
-              "component": "CalendarGrid"
+              "component": "CalendarGrid",
+              "children": [
+                {
+                  "$render": [
+                    {
+                      "component": "CalendarCell"
+                    }
+                  ],
+                  "pass": [
+                    "date"
+                  ]
+                }
+              ]
             }
           ]
         },
@@ -475,7 +504,6 @@
         "declaration": "dist/types/src/Calendar.d.ts",
         "group": "Calendar",
         "parents": [
-          "Popover",
           "Calendar",
           "CalendarGrid"
         ],
@@ -570,6 +598,25 @@
           "Calendar"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "offset": {
+              "months": 1
+            }
+          },
+          "children": [
+            {
+              "$render": [
+                {
+                  "component": "CalendarCell"
+                }
+              ],
+              "pass": [
+                "date"
+              ]
+            }
+          ]
+        },
         "fingerprint": "1f79a9a0",
         "props": {
           "children?": "6d0166",
@@ -655,10 +702,19 @@
         "declaration": "dist/types/src/Calendar.d.ts",
         "group": "Calendar",
         "parents": [
+          "DatePicker",
+          "Popover",
+          "Dialog",
           "Calendar",
+          "RangeCalendar",
           "CalendarGrid"
         ],
         "parentsFrom": "prefix",
+        "sample": {
+          "props": {
+            "children": "Text"
+          }
+        },
         "fingerprint": "08deeb64",
         "props": {
           "children": "8f7275",
@@ -742,10 +798,19 @@
         "declaration": "dist/types/src/Calendar.d.ts",
         "group": "Calendar",
         "parents": [
+          "DatePicker",
+          "Popover",
+          "Dialog",
           "Calendar",
+          "RangeCalendar",
           "CalendarGrid"
         ],
         "parentsFrom": "prefix",
+        "sample": {
+          "props": {
+            "children": "Text"
+          }
+        },
         "fingerprint": "5b976e24",
         "props": {
           "children": "0997c9",
@@ -915,6 +980,13 @@
           "Calendar"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "offset": {
+              "months": 1
+            }
+          }
+        },
         "fingerprint": "536a6ad0",
         "props": {
           "className?": "0bf956",
@@ -1062,10 +1134,10 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "value": "soccer"
+            "isSelected": false
           },
           "children": [
-            "Soccer"
+            "Favorite"
           ]
         },
         "fingerprint": "c7ce391c",
@@ -1531,6 +1603,15 @@
         "as": "function",
         "declaration": "node_modules/react-aria/dist/types/src/collections/CollectionBuilder.d.ts",
         "group": "CollectionBuilder",
+        "sample": {
+          "children": [
+            {
+              "$render": [
+                "≡"
+              ]
+            }
+          ]
+        },
         "fingerprint": "a5f42da7",
         "props": {
           "addIdAndValue?": "31e5d9",
@@ -1548,6 +1629,12 @@
           "Collection"
         ],
         "parentsFrom": "prefix",
+        "sample": {
+          "props": {
+            "content": "Text",
+            "children": "Text"
+          }
+        },
         "fingerprint": "73e5322a",
         "props": {
           "children": "90d984",
@@ -1669,6 +1756,11 @@
           "ColorPicker"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "colorSpace": "hex"
+          }
+        },
         "fingerprint": "a42bb66b",
         "props": {
           "aria-describedby?": "0bf956",
@@ -1794,7 +1886,11 @@
             "defaultValue": "rgb(255, 0, 0)"
           },
           "children": [
-            "hex rgb hsl hsb Hex"
+            {
+              "$render": [
+                "rgb hsl hsb"
+              ]
+            }
           ]
         },
         "fingerprint": "daf6dd0d",
@@ -2001,6 +2097,28 @@
           "ColorPicker"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "component": "ColorSwatchPickerItem",
+              "props": {
+                "color": "#f00"
+              }
+            },
+            {
+              "component": "ColorSwatchPickerItem",
+              "props": {
+                "color": "#ff0"
+              }
+            },
+            {
+              "component": "ColorSwatchPickerItem",
+              "props": {
+                "color": "#0ff"
+              }
+            }
+          ]
+        },
         "fingerprint": "f6a9bd34",
         "props": {
           "aria-describedby?": "0bf956",
@@ -2092,11 +2210,16 @@
         "declaration": "dist/types/src/ColorSwatchPicker.d.ts",
         "group": "ColorSwatchPicker",
         "parents": [
-          "Text",
           "ColorPicker",
-          "ColorSwatchPicker"
+          "ColorSwatchPicker",
+          "Text"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "color": "Text"
+          }
+        },
         "fingerprint": "f94ca789",
         "props": {
           "children?": "df79c4",
@@ -2276,7 +2399,7 @@
         "group": "ColorWheel",
         "sample": {
           "props": {
-            "outerRadius": 1,
+            "outerRadius": 100,
             "innerRadius": 1
           },
           "children": [
@@ -2475,12 +2598,12 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "id": "name",
-            "isRowHeader": true
-          },
           "children": [
-            "Name"
+            {
+              "$render": [
+                "Resize ↔"
+              ]
+            }
           ]
         },
         "fingerprint": "1ba8b1dc",
@@ -2823,6 +2946,33 @@
         "as": "function",
         "declaration": "dist/types/src/DateField.d.ts",
         "group": "DateField",
+        "sample": {
+          "props": {
+            "name": "bday",
+            "autoComplete": "bday",
+            "data-testid": "date-field-example"
+          },
+          "children": [
+            {
+              "component": "DateInput",
+              "props": {
+                "data-testid2": "date-input"
+              },
+              "children": [
+                {
+                  "$render": [
+                    {
+                      "component": "DateSegment"
+                    }
+                  ],
+                  "pass": [
+                    "segment"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
         "fingerprint": "d79fb49f",
         "props": {
           "aria-describedby?": "0bf956",
@@ -2937,6 +3087,25 @@
         "as": "function",
         "declaration": "dist/types/src/DateField.d.ts",
         "group": "DateField",
+        "sample": {
+          "props": {
+            "children": "Text",
+            "data-testid": "date-range-picker-date-input",
+            "slot": "start"
+          },
+          "children": [
+            {
+              "$render": [
+                {
+                  "component": "DateSegment"
+                }
+              ],
+              "pass": [
+                "segment"
+              ]
+            }
+          ]
+        },
         "fingerprint": "f5caf3a3",
         "props": {
           "children": "4e8650",
@@ -3363,9 +3532,17 @@
         "as": "function",
         "declaration": "dist/types/src/Dialog.d.ts",
         "group": "Dialog",
+        "parents": [
+          "DialogTrigger"
+        ],
+        "parentsFrom": "example",
         "sample": {
           "children": [
-            "Favorite Annual Perennial Full Sun Part Sun Part Shade Frequ"
+            {
+              "$render": [
+                "Sign up First Name: Last Name: Submit"
+              ]
+            }
           ]
         },
         "fingerprint": "b205a481",
@@ -3461,8 +3638,20 @@
         "sample": {
           "props": {
             "children": "Text",
-            "defaultOpen": true
-          }
+            "isOpen": false
+          },
+          "children": [
+            {
+              "component": "Dialog",
+              "children": [
+                {
+                  "$render": [
+                    "Sign up First Name: Last Name: Submit"
+                  ]
+                }
+              ]
+            }
+          ]
         },
         "fingerprint": "a8c3148b",
         "props": {
@@ -3481,11 +3670,18 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "isExpanded": false
+          },
           "children": [
             {
-              "component": "DisclosurePanel",
-              "children": [
-                "This is the content of the disclosure panel."
+              "$render": [
+                {
+                  "component": "DisclosurePanel",
+                  "children": [
+                    "This is the content of the disclosure panel."
+                  ]
+                }
               ]
             }
           ]
@@ -3581,10 +3777,40 @@
         "sample": {
           "children": [
             {
-              "component": "Disclosure"
+              "component": "Disclosure",
+              "props": {
+                "isDisabled": false
+              },
+              "children": [
+                {
+                  "$render": [
+                    {
+                      "component": "DisclosurePanel",
+                      "children": [
+                        "This is the content of the disclosure panel."
+                      ]
+                    }
+                  ]
+                }
+              ]
             },
             {
-              "component": "Disclosure"
+              "component": "Disclosure",
+              "props": {
+                "isDisabled": false
+              },
+              "children": [
+                {
+                  "$render": [
+                    {
+                      "component": "DisclosurePanel",
+                      "children": [
+                        "This is the content of the disclosure panel."
+                      ]
+                    }
+                  ]
+                }
+              ]
             }
           ]
         },
@@ -3681,6 +3907,9 @@
           "Disclosure"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "DisclosureGroup"
+        ],
         "sample": {
           "props": {
             "children": "Text"
@@ -3793,10 +4022,13 @@
         "declaration": "dist/types/src/DropZone.d.ts",
         "group": "DropZone",
         "sample": {
-          "props": {
-            "aria-label": "testing aria-label",
-            "data-testid": "drop-zone-example-with-file-trigger-link"
-          }
+          "children": [
+            {
+              "$render": [
+                "DropzoneArea isHovered: isFocused: isFocusVisible: isDropTar"
+              ]
+            }
+          ]
         },
         "fingerprint": "ba3e369c",
         "props": {
@@ -3981,7 +4213,9 @@
         "group": "FileTrigger",
         "sample": {
           "props": {
-            "defaultCamera": "environment"
+            "acceptedFileTypes": [
+              "image/png"
+            ]
           }
         },
         "fingerprint": "1f0ce0a7",
@@ -5456,6 +5690,10 @@
         "as": "function",
         "declaration": "dist/types/src/Menu.d.ts",
         "group": "Menu",
+        "parents": [
+          "MenuTrigger"
+        ],
+        "parentsFrom": "example",
         "sample": {
           "props": {
             "selectionMode": "multiple"
@@ -5603,6 +5841,7 @@
         "declaration": "dist/types/src/Menu.d.ts",
         "group": "Menu",
         "parents": [
+          "MenuTrigger",
           "Menu"
         ],
         "parentsFrom": "example",
@@ -5725,6 +5964,7 @@
         "declaration": "dist/types/src/Menu.d.ts",
         "group": "Menu",
         "parents": [
+          "MenuTrigger",
           "Menu"
         ],
         "parentsFrom": "prefix",
@@ -5814,9 +6054,13 @@
         "declaration": "dist/types/src/Menu.d.ts",
         "group": "Menu",
         "parents": [
+          "MenuTrigger",
           "Menu"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "MenuTrigger"
+        ],
         "sample": {
           "props": {
             "aria-label": "Section 1"
@@ -6185,6 +6429,7 @@
         "group": "Modal",
         "sample": {
           "props": {
+            "isOpen": true,
             "isDismissable": true
           },
           "children": [
@@ -6587,7 +6832,7 @@
         "parents": [
           "NavigationTreeItem"
         ],
-        "parentsFrom": "example",
+        "parentsFrom": "prefix",
         "fingerprint": "259fd367",
         "props": {
           "children": "1fa9dd"
@@ -6819,11 +7064,15 @@
         "group": "Popover",
         "sample": {
           "props": {
-            "isNonModal": true,
-            "hideArrow": true,
-            "placement": "bottom start",
-            "trigger": "MenuTrigger"
-          }
+            "placement": "bottom start"
+          },
+          "children": [
+            {
+              "$render": [
+                "Test Please select an option below. Section 1 Foo Bar Baz Go"
+              ]
+            }
+          ]
         },
         "fingerprint": "ec2cf211",
         "props": {
@@ -7426,7 +7675,7 @@
         "sample": {
           "props": {
             "data-testid": "radio-group-example",
-            "isRequired": true
+            "value": null
           },
           "children": [
             {
@@ -7564,6 +7813,12 @@
         "declaration": "dist/types/src/Calendar.d.ts",
         "group": "Calendar",
         "sample": {
+          "props": {
+            "visibleDuration": {
+              "months": 3
+            },
+            "defaultValue": {}
+          },
           "children": [
             "&lt; &gt;"
           ]
@@ -7895,7 +8150,8 @@
         "sample": {
           "props": {
             "aria-label": "Search plants",
-            "placeholder": "Search plants"
+            "placeholder": "Search plants",
+            "value": ""
           }
         },
         "fingerprint": "d4641ec5",
@@ -8264,7 +8520,7 @@
         "parents": [
           "Select"
         ],
-        "parentsFrom": "prefix",
+        "parentsFrom": "example",
         "fingerprint": "80a73e8f",
         "props": {
           "children?": "7a8b88",
@@ -8421,15 +8677,27 @@
           "SheetOverlay"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "SheetTrigger"
+        ],
         "sample": {
           "props": {
             "overscrollPadding": true,
             "swipeAnimation": "radius",
-            "stackAnimation": "scaleBack"
+            "swipeAnimationRange": {
+              "end": 0
+            }
           },
           "children": [
             {
-              "component": "SheetContent"
+              "component": "SheetContent",
+              "children": [
+                {
+                  "$render": [
+                    "Details Drag the handle up to expand this sheet to full heig"
+                  ]
+                }
+              ]
             }
           ]
         },
@@ -8528,9 +8796,15 @@
           "SheetOverlay"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "SheetTrigger"
+        ],
         "sample": {
           "props": {
-            "swipeAnimation": "backdropAnimation"
+            "swipeAnimation": "backdropAnimation",
+            "swipeAnimationRange": {
+              "start": 0
+            }
           }
         },
         "fingerprint": "4dad7223",
@@ -8623,6 +8897,18 @@
           "Sheet"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "SheetTrigger"
+        ],
+        "sample": {
+          "children": [
+            {
+              "$render": [
+                "Sign up First Name: Last Name: Submit In an iPhone app, cons"
+              ]
+            }
+          ]
+        },
         "fingerprint": "4d78e23b",
         "props": {
           "aria-describedby?": "0bf956",
@@ -8718,13 +9004,19 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "position": "bottom"
+            "position": "bottom",
+            "snapPoints": [
+              "180px"
+            ]
           },
           "children": [
             {
               "component": "SheetBackdrop",
               "props": {
-                "swipeAnimation": "backdropAnimation"
+                "swipeAnimation": "backdropAnimation",
+                "swipeAnimationRange": {
+                  "start": 0
+                }
               }
             },
             {
@@ -8732,11 +9024,20 @@
               "props": {
                 "overscrollPadding": true,
                 "swipeAnimation": "radius",
-                "stackAnimation": "scaleBack"
+                "swipeAnimationRange": {
+                  "end": 0
+                }
               },
               "children": [
                 {
-                  "component": "SheetContent"
+                  "component": "SheetContent",
+                  "children": [
+                    {
+                      "$render": [
+                        "Details Drag the handle up to expand this sheet to full heig"
+                      ]
+                    }
+                  ]
                 }
               ]
             }
@@ -8836,6 +9137,12 @@
         "as": "function",
         "declaration": "dist/types/src/Sheet.d.ts",
         "group": "Sheet",
+        "parents": [
+          "SheetOverlay",
+          "Sheet",
+          "SheetContent"
+        ],
+        "parentsFrom": "example",
         "sample": {
           "props": {
             "children": "Text"
@@ -8844,24 +9151,40 @@
             {
               "component": "SheetOverlay",
               "props": {
-                "position": "bottom"
+                "position": "bottom",
+                "snapPoints": [
+                  "180px"
+                ]
               },
               "children": [
                 {
                   "component": "SheetBackdrop",
                   "props": {
-                    "swipeAnimation": "backdropAnimation"
+                    "swipeAnimation": "backdropAnimation",
+                    "swipeAnimationRange": {
+                      "start": 0
+                    }
                   }
                 },
                 {
                   "component": "Sheet",
                   "props": {
                     "overscrollPadding": true,
-                    "swipeAnimation": "radius"
+                    "swipeAnimation": "radius",
+                    "swipeAnimationRange": {
+                      "end": 0
+                    }
                   },
                   "children": [
                     {
-                      "component": "SheetContent"
+                      "component": "SheetContent",
+                      "children": [
+                        {
+                          "$render": [
+                            "Details Drag the handle up to expand this sheet to full heig"
+                          ]
+                        }
+                      ]
                     }
                   ]
                 }
@@ -8883,7 +9206,11 @@
         "group": "Slider",
         "sample": {
           "props": {
-            "data-testid": "slider-example"
+            "data-testid": "slider-example",
+            "value": [
+              30,
+              60
+            ]
           },
           "children": [
             "Test",
@@ -9735,6 +10062,10 @@
         "as": "function",
         "declaration": "dist/types/src/Tabs.d.ts",
         "group": "Tabs",
+        "parents": [
+          "TabPanel"
+        ],
+        "parentsFrom": "prefix",
         "fingerprint": "420f7de6",
         "props": {
           "aria-describedby?": "0bf956",
@@ -10633,11 +10964,13 @@
         "declaration": "dist/types/src/Tabs.d.ts",
         "group": "Tabs",
         "sample": {
+          "props": {
+            "orientation": "vertical"
+          },
           "children": [
             {
-              "component": "TabPanel",
-              "children": [
-                "Arma virumque cano, Troiae qui primus ab oris."
+              "$render": [
+                "Founding of Rome Monarchy and Republic Empire Arma virumque "
               ]
             }
           ]
@@ -10738,9 +11071,20 @@
         "declaration": "dist/types/src/TagGroup.d.ts",
         "group": "TagGroup",
         "parents": [
-          "TagGroup"
+          "TagGroup",
+          "TagList"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "id": "Annual",
+            "color": "green",
+            "textValue": "Annual"
+          },
+          "children": [
+            "Annual"
+          ]
+        },
         "fingerprint": "f92b8544",
         "props": {
           "children?": "317cd0",
@@ -11692,7 +12036,16 @@
           },
           "children": [
             {
-              "component": "TokenInput"
+              "component": "TokenInput",
+              "children": [
+                {
+                  "$render": [
+                    {
+                      "component": "Token"
+                    }
+                  ]
+                }
+              ]
             }
           ]
         },
@@ -11810,7 +12163,11 @@
           },
           "children": [
             {
-              "component": "Token"
+              "$render": [
+                {
+                  "component": "Token"
+                }
+              ]
             }
           ]
         },
@@ -12199,7 +12556,8 @@
               },
               "children": [
                 {
-                  "component": "TreeItemContent"
+                  "component": "TreeItemContent",
+                  "children": []
                 }
               ]
             }
@@ -12537,12 +12895,20 @@
           "TreeItem"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "TreeItem",
+          "Tree"
+        ],
         "sample": {
           "props": {
             "children": "Text"
           },
           "children": [
-            "All Photos"
+            {
+              "$render": [
+                "ⓘ ☰ Foo Bar Baz"
+              ]
+            }
           ]
         },
         "fingerprint": "312e1114",
@@ -12953,6 +13319,16 @@
         "as": "function",
         "declaration": "dist/types/src/Virtualizer.d.ts",
         "group": "Virtualizer",
+        "parents": [
+          "Popover"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "children": "Text",
+            "layoutOptions": {}
+          }
+        },
         "fingerprint": "1a634cb1",
         "props": {
           "children": "75c961",

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   applyLibraryEdits,
+  isSampleRender,
   libraryImports,
   parseLibraryEdits,
   parseLibraryManifest,
@@ -152,6 +153,7 @@ describe("parts, samples and hand edits", () => {
           as: "forwardRef",
           parents: ["Menu"],
           parentsFrom: "error",
+          optionalParents: ["Menu"],
           fingerprint: "1a2b3c4d",
           props: { "inset?": "aa11bb" }
         },
@@ -165,6 +167,7 @@ describe("parts, samples and hand edits", () => {
     expect(generated.components?.list.MenuItem).toMatchObject({
       parents: ["Menu"],
       parentsFrom: "error",
+      optionalParents: ["Menu"],
       fingerprint: "1a2b3c4d"
     })
     expect(() =>
@@ -174,6 +177,30 @@ describe("parts, samples and hand edits", () => {
         components: { list: { A: { as: "function", parentsFrom: "guess" } } }
       })
     ).toThrow(/\/components\/list\/A\/parentsFrom/)
+  })
+
+  it("reads render functions in samples", () => {
+    const manifest = parseLibraryManifest({
+      version: 3,
+      name: "x",
+      components: {
+        list: {
+          DateInput: {
+            as: "function",
+            sample: { children: [{ $render: [{ component: "DateSegment" }], pass: ["segment"] }] }
+          }
+        }
+      }
+    })
+    const child = manifest.components?.list.DateInput?.sample?.children?.[0]
+    expect(isSampleRender(child) && child.pass).toEqual(["segment"])
+    expect(() =>
+      parseLibraryManifest({
+        version: 3,
+        name: "x",
+        components: { list: { A: { as: "function", sample: { children: [{ $render: [], spread: false }] } } } }
+      })
+    ).toThrow(/\/sample\/children\/0\/spread/)
   })
 
   it("merges edits over what was generated, marks edited parents, and reports edits whose export has gone", () => {
@@ -191,6 +218,8 @@ describe("parts, samples and hand edits", () => {
       parentsFrom: "edit",
       fingerprint: "1a2b3c4d"
     })
+    // Edited parents replace which generated ones were optional too.
+    expect(manifest.components?.list.MenuItem?.optionalParents).toBeUndefined()
     expect(manifest.components?.list.MenuContext).toBeUndefined()
     expect(manifest.components?.list.Added).toEqual({ as: "function", group: "Menu" })
     expect(orphans).toEqual(["Gone"])

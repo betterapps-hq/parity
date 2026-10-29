@@ -270,7 +270,10 @@
         "parentsFrom": "error",
         "sample": {
           "props": {
-            "id": "alert-trigger-1"
+            "id": "alert-trigger-1",
+            "payload": {
+              "message": "Discard draft?"
+            }
           },
           "children": [
             "Discard"
@@ -333,16 +336,21 @@
         "group": "Autocomplete",
         "sample": {
           "props": {
-            "open": true,
-            "inline": true,
-            "autoHighlight": "always",
-            "keepHighlight": true
+            "grid": true,
+            "open": false,
+            "value": ""
           },
           "children": [
             {
-              "component": "Autocomplete.InputGroup"
+              "component": "Autocomplete.Trigger",
+              "props": {
+                "aria-label": "Choose emoji"
+              },
+              "children": [
+                "😀"
+              ]
             },
-            "Use Enter to activate the highlighted item. Activate Enter"
+            "No emojis found"
           ]
         },
         "fingerprint": "4b6116b3",
@@ -426,9 +434,13 @@
         "as": "function",
         "group": "Autocomplete",
         "parents": [
-          "Autocomplete.Root"
+          "Autocomplete.Root",
+          "Autocomplete.Item"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Autocomplete.Item"
+        ],
         "fingerprint": "2e6530cb",
         "props": {
           "children?": "a68235"
@@ -518,6 +530,7 @@
         "sample": {
           "props": {
             "type": "submit",
+            "disabled": false,
             "focusableWhenDisabled": true
           },
           "children": [
@@ -541,6 +554,9 @@
           "Checkbox.Root"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "CheckboxGroup"
+        ],
         "fingerprint": "3a92acfe",
         "props": {
           "className?": "d2c064",
@@ -594,6 +610,13 @@
         "declaration": "checkbox-group/CheckboxGroup.d.mts",
         "group": "CheckboxGroup",
         "sample": {
+          "props": {
+            "allValues": [
+              "view-dashboard",
+              "manage-users",
+              "access-reports"
+            ]
+          },
           "children": [
             "User Permissions",
             "View Dashboard",
@@ -601,7 +624,13 @@
             {
               "component": "CheckboxGroup",
               "props": {
-                "aria-labelledby": "manage-users-caption"
+                "aria-labelledby": "manage-users-caption",
+                "allValues": [
+                  "create-user",
+                  "edit-user",
+                  "delete-user",
+                  "assign-roles"
+                ]
               },
               "children": [
                 "Manage Users",
@@ -783,6 +812,17 @@
         "sample": {
           "children": [
             {
+              "component": "Combobox.Chip",
+              "props": {
+                "aria-description": "Press Backspace or Delete to remove"
+              },
+              "children": [
+                {
+                  "component": "Combobox.ChipRemove"
+                }
+              ]
+            },
+            {
               "component": "Combobox.Input"
             }
           ]
@@ -832,7 +872,24 @@
         "sample": {
           "props": {
             "children": "Text"
-          }
+          },
+          "children": [
+            {
+              "$render": [
+                {
+                  "component": "Combobox.Item",
+                  "children": [
+                    {
+                      "component": "Combobox.ItemIndicator"
+                    }
+                  ]
+                }
+              ],
+              "pass": [
+                "value"
+              ]
+            }
+          ]
         },
         "fingerprint": "0ce182c5",
         "props": {
@@ -878,7 +935,24 @@
               "component": "Combobox.GroupLabel"
             },
             {
-              "component": "Combobox.Collection"
+              "component": "Combobox.Collection",
+              "children": [
+                {
+                  "$render": [
+                    {
+                      "component": "Combobox.Item",
+                      "children": [
+                        {
+                          "component": "Combobox.ItemIndicator"
+                        }
+                      ]
+                    }
+                  ],
+                  "pass": [
+                    "value"
+                  ]
+                }
+              ]
             }
           ]
         },
@@ -914,7 +988,6 @@
         "group": "Autocomplete",
         "parents": [
           "Combobox.Root",
-          "Combobox.InputGroup",
           "Combobox.Trigger"
         ],
         "parentsFrom": "example",
@@ -933,6 +1006,9 @@
           "Combobox.InputGroup"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Combobox.InputGroup"
+        ],
         "sample": {
           "props": {
             "placeholder": "e.g. Michael"
@@ -956,10 +1032,32 @@
         "sample": {
           "children": [
             {
-              "component": "Combobox.Input",
-              "props": {
-                "placeholder": "e.g. Michael"
-              }
+              "component": "Combobox.Value",
+              "children": [
+                {
+                  "$render": [
+                    {
+                      "component": "Combobox.Chips",
+                      "children": [
+                        {
+                          "component": "Combobox.Chip",
+                          "props": {
+                            "aria-description": "Press Backspace or Delete to remove"
+                          },
+                          "children": [
+                            {
+                              "component": "Combobox.ChipRemove"
+                            }
+                          ]
+                        },
+                        {
+                          "component": "Combobox.Input"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
             }
           ]
         },
@@ -1055,23 +1153,35 @@
         "sample": {
           "children": [
             {
-              "component": "Combobox.Group",
-              "children": [
+              "$render": [
                 {
-                  "component": "Combobox.GroupLabel"
-                },
-                {
-                  "component": "Combobox.Collection"
+                  "component": "Combobox.Group",
+                  "children": [
+                    {
+                      "component": "Combobox.GroupLabel"
+                    },
+                    {
+                      "component": "Combobox.Collection",
+                      "children": [
+                        {
+                          "$render": [
+                            {
+                              "component": "Combobox.Item",
+                              "children": [
+                                {
+                                  "component": "Combobox.ItemIndicator"
+                                }
+                              ]
+                            }
+                          ],
+                          "pass": [
+                            "value"
+                          ]
+                        }
+                      ]
+                    }
+                  ]
                 }
-              ]
-            },
-            {
-              "component": "Combobox.Item",
-              "children": [
-                {
-                  "component": "Combobox.ItemIndicator"
-                },
-                "@"
               ]
             }
           ]
@@ -1098,11 +1208,40 @@
             {
               "component": "Combobox.Empty",
               "children": [
-                "No labels found."
+                "No produce found."
               ]
             },
             {
-              "component": "Combobox.List"
+              "component": "Combobox.List",
+              "children": [
+                {
+                  "$render": [
+                    {
+                      "component": "Combobox.Group",
+                      "children": [
+                        {
+                          "component": "Combobox.GroupLabel"
+                        },
+                        {
+                          "component": "Combobox.Collection",
+                          "children": [
+                            {
+                              "$render": [
+                                {
+                                  "component": "Combobox.Item"
+                                }
+                              ],
+                              "pass": [
+                                "value"
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
             }
           ]
         },
@@ -1127,23 +1266,30 @@
             {
               "component": "Combobox.Positioner",
               "props": {
-                "align": "start",
                 "sideOffset": 4
               },
               "children": [
                 {
                   "component": "Combobox.Popup",
-                  "props": {
-                    "aria-label": "Select country"
-                  },
                   "children": [
                     {
-                      "component": "Combobox.Input",
-                      "props": {
-                        "placeholder": "e.g. United Kingdom"
-                      }
+                      "component": "Combobox.Empty",
+                      "children": [
+                        "No fruits found."
+                      ]
                     },
-                    "No countries found."
+                    {
+                      "component": "Combobox.List",
+                      "children": [
+                        {
+                          "$render": [
+                            {
+                              "component": "Combobox.Item"
+                            }
+                          ]
+                        }
+                      ]
+                    }
                   ]
                 }
               ]
@@ -1169,23 +1315,38 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "align": "start",
             "sideOffset": 4
           },
           "children": [
             {
               "component": "Combobox.Popup",
-              "props": {
-                "aria-label": "Select country"
-              },
               "children": [
                 {
-                  "component": "Combobox.Input",
-                  "props": {
-                    "placeholder": "e.g. United Kingdom"
-                  }
+                  "component": "Combobox.Empty",
+                  "children": [
+                    "No produce found."
+                  ]
                 },
-                "No countries found."
+                {
+                  "component": "Combobox.List",
+                  "children": [
+                    {
+                      "$render": [
+                        {
+                          "component": "Combobox.Group",
+                          "children": [
+                            {
+                              "component": "Combobox.GroupLabel"
+                            },
+                            {
+                              "component": "Combobox.Collection"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
               ]
             }
           ]
@@ -1213,6 +1374,58 @@
         "as": "function",
         "group": "Combobox",
         "sample": {
+          "props": {
+            "items": [
+              {
+                "code": "af",
+                "value": "afghanistan",
+                "label": "Afghanistan",
+                "continent": "Asia"
+              },
+              {
+                "code": "al",
+                "value": "albania",
+                "label": "Albania",
+                "continent": "Europe"
+              },
+              {
+                "code": "dz",
+                "value": "algeria",
+                "label": "Algeria",
+                "continent": "Africa"
+              },
+              {
+                "code": "ad",
+                "value": "andorra",
+                "label": "Andorra",
+                "continent": "Europe"
+              },
+              {
+                "code": "ao",
+                "value": "angola",
+                "label": "Angola",
+                "continent": "Africa"
+              },
+              {
+                "code": "ar",
+                "value": "argentina",
+                "label": "Argentina",
+                "continent": "South America"
+              },
+              {
+                "code": "am",
+                "value": "armenia",
+                "label": "Armenia",
+                "continent": "Asia"
+              },
+              {
+                "code": "au",
+                "value": "australia",
+                "label": "Australia",
+                "continent": "Oceania"
+              }
+            ]
+          },
           "children": [
             {
               "component": "Combobox.Label",
@@ -1361,6 +1574,9 @@
           "Combobox.InputGroup"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Combobox.InputGroup"
+        ],
         "sample": {
           "children": [
             {
@@ -1391,16 +1607,31 @@
           "Combobox.InputGroup"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Combobox.InputGroup"
+        ],
         "sample": {
-          "props": {
-            "placeholder": "Select country"
-          },
           "children": [
             {
-              "component": "Combobox.Chips",
-              "children": [
+              "$render": [
                 {
-                  "component": "Combobox.Input"
+                  "component": "Combobox.Chips",
+                  "children": [
+                    {
+                      "component": "Combobox.Chip",
+                      "props": {
+                        "aria-description": "Press Backspace or Delete to remove"
+                      },
+                      "children": [
+                        {
+                          "component": "Combobox.ChipRemove"
+                        }
+                      ]
+                    },
+                    {
+                      "component": "Combobox.Input"
+                    }
+                  ]
                 }
               ]
             }
@@ -1418,7 +1649,7 @@
         "parents": [
           "ContextMenu.Root"
         ],
-        "parentsFrom": "example",
+        "parentsFrom": "error",
         "fingerprint": "7177807f",
         "props": {
           "align?": "ddc1fb",
@@ -1503,8 +1734,7 @@
         "as": "forwardRef",
         "group": "AlertDialog",
         "parents": [
-          "Dialog.Root",
-          "Dialog.Portal"
+          "Dialog.Root"
         ],
         "parentsFrom": "example",
         "fingerprint": "1e03ec43",
@@ -1637,6 +1867,9 @@
         "as": "function",
         "group": "Dialog",
         "sample": {
+          "props": {
+            "open": false
+          },
           "children": [
             {
               "component": "Dialog.Portal",
@@ -1775,8 +2008,7 @@
         "as": "forwardRef",
         "group": "Drawer",
         "parents": [
-          "Drawer.Root",
-          "Drawer.Portal"
+          "Drawer.Root"
         ],
         "parentsFrom": "example",
         "fingerprint": "d5e30df7",
@@ -1798,6 +2030,9 @@
           "Drawer.Content"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Drawer.Content"
+        ],
         "sample": {
           "children": [
             "Cancel"
@@ -2021,6 +2256,9 @@
             "Swipe from the right edge to open the drawer.",
             {
               "component": "Drawer.Portal",
+              "props": {
+                "container": null
+              },
               "children": [
                 {
                   "component": "Drawer.Backdrop"
@@ -2095,6 +2333,9 @@
           "Drawer.Content"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Drawer.Content"
+        ],
         "sample": {
           "children": [
             "New tweet"
@@ -2414,11 +2655,35 @@
         "as": "forwardRef",
         "group": "Fieldset",
         "sample": {
+          "props": {
+            "render": {
+              "$element": [
+                {
+                  "component": "Slider.Root",
+                  "props": {
+                    "defaultValue": [
+                      0.2,
+                      0.8
+                    ],
+                    "thumbAlignment": "edge",
+                    "min": 0,
+                    "max": 1,
+                    "step": 0.01,
+                    "format": {
+                      "style": "percent",
+                      "minimumFractionDigits": 0,
+                      "maximumFractionDigits": 0
+                    }
+                  }
+                }
+              ]
+            }
+          },
           "children": [
             {
               "component": "Fieldset.Legend",
               "children": [
-                "Billing details"
+                "Scaling threshold"
               ]
             }
           ]
@@ -2514,19 +2779,21 @@
           "Menu.Portal",
           "Menu.Positioner",
           "Menu.Popup",
-          "Menu.List",
           "Menu.Group"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Menu.Group"
+        ],
         "sample": {
           "props": {
-            "defaultChecked": true
+            "checked": true
           },
           "children": [
             {
               "component": "Menu.CheckboxItemIndicator"
             },
-            "Show details"
+            "Minimap"
           ]
         },
         "fingerprint": "e13b942f",
@@ -2553,11 +2820,13 @@
           "Menu.Portal",
           "Menu.Positioner",
           "Menu.Popup",
-          "Menu.List",
           "Menu.Group",
           "Menu.CheckboxItem"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Menu.Group"
+        ],
         "fingerprint": "e9e6bdfb",
         "props": {
           "className?": "f638cf",
@@ -2570,12 +2839,17 @@
         "as": "forwardRef",
         "group": "Menu",
         "parents": [
+          "Menu.FilterProvider",
           "Menu.Root",
+          "Menu.SubmenuRoot",
           "Menu.Portal",
           "Menu.Positioner",
           "Menu.Popup"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Menu.SubmenuRoot"
+        ],
         "fingerprint": "1747aced",
         "props": {
           "className?": "578104",
@@ -2589,12 +2863,17 @@
         "as": "forwardRef",
         "group": "Menu",
         "parents": [
+          "Menu.FilterProvider",
           "Menu.Root",
+          "Menu.SubmenuRoot",
           "Menu.Portal",
           "Menu.Positioner",
           "Menu.Popup"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Menu.SubmenuRoot"
+        ],
         "sample": {
           "children": [
             "No actions found."
@@ -2662,6 +2941,7 @@
         "as": "forwardRef",
         "group": "ContextMenu",
         "parents": [
+          "Menu.FilterProvider",
           "Menu.Root",
           "Menu.Portal",
           "Menu.Positioner",
@@ -2669,6 +2949,10 @@
           "Menu.List"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Menu.List",
+          "Menu.FilterProvider"
+        ],
         "sample": {
           "props": {
             "data-filter-section": true
@@ -2730,6 +3014,7 @@
         "as": "forwardRef",
         "group": "ContextMenu",
         "parents": [
+          "Menu.FilterProvider",
           "Menu.Root",
           "Menu.Portal",
           "Menu.Positioner",
@@ -2738,6 +3023,11 @@
           "Menu.Group"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Menu.Group",
+          "Menu.List",
+          "Menu.FilterProvider"
+        ],
         "sample": {
           "children": [
             "File"
@@ -2754,12 +3044,17 @@
         "as": "forwardRef",
         "group": "Menu",
         "parents": [
+          "Menu.FilterProvider",
           "Menu.Root",
+          "Menu.SubmenuRoot",
           "Menu.Portal",
           "Menu.Positioner",
           "Menu.Popup"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Menu.SubmenuRoot"
+        ],
         "sample": {
           "props": {
             "aria-label": "Filter actions",
@@ -2822,12 +3117,17 @@
         "as": "forwardRef",
         "group": "Menu",
         "parents": [
+          "Menu.FilterProvider",
           "Menu.Root",
+          "Menu.SubmenuRoot",
           "Menu.Portal",
           "Menu.Positioner",
           "Menu.Popup"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Menu.SubmenuRoot"
+        ],
         "sample": {
           "children": [
             {
@@ -2918,6 +3218,39 @@
                   "component": "Menu.GroupLabel",
                   "children": [
                     "Sort by"
+                  ]
+                },
+                {
+                  "component": "Menu.RadioItem",
+                  "props": {
+                    "value": "date"
+                  },
+                  "children": [
+                    {
+                      "component": "Menu.RadioItemIndicator"
+                    }
+                  ]
+                },
+                {
+                  "component": "Menu.RadioItem",
+                  "props": {
+                    "value": "name"
+                  },
+                  "children": [
+                    {
+                      "component": "Menu.RadioItemIndicator"
+                    }
+                  ]
+                },
+                {
+                  "component": "Menu.RadioItem",
+                  "props": {
+                    "value": "size"
+                  },
+                  "children": [
+                    {
+                      "component": "Menu.RadioItemIndicator"
+                    }
                   ]
                 }
               ]
@@ -3076,6 +3409,39 @@
                       "children": [
                         "Sort by"
                       ]
+                    },
+                    {
+                      "component": "Menu.RadioItem",
+                      "props": {
+                        "value": "date"
+                      },
+                      "children": [
+                        {
+                          "component": "Menu.RadioItemIndicator"
+                        }
+                      ]
+                    },
+                    {
+                      "component": "Menu.RadioItem",
+                      "props": {
+                        "value": "name"
+                      },
+                      "children": [
+                        {
+                          "component": "Menu.RadioItemIndicator"
+                        }
+                      ]
+                    },
+                    {
+                      "component": "Menu.RadioItem",
+                      "props": {
+                        "value": "size"
+                      },
+                      "children": [
+                        {
+                          "component": "Menu.RadioItemIndicator"
+                        }
+                      ]
                     }
                   ]
                 },
@@ -3158,6 +3524,9 @@
                   "children": [
                     {
                       "component": "Menu.RadioGroup",
+                      "props": {
+                        "value": "date"
+                      },
                       "children": [
                         {
                           "component": "Menu.GroupLabel"
@@ -3189,13 +3558,22 @@
                           "component": "Menu.GroupLabel"
                         },
                         {
-                          "component": "Menu.CheckboxItem"
+                          "component": "Menu.CheckboxItem",
+                          "props": {
+                            "checked": true
+                          }
                         },
                         {
-                          "component": "Menu.CheckboxItem"
+                          "component": "Menu.CheckboxItem",
+                          "props": {
+                            "checked": true
+                          }
                         },
                         {
-                          "component": "Menu.CheckboxItem"
+                          "component": "Menu.CheckboxItem",
+                          "props": {
+                            "checked": false
+                          }
                         }
                       ]
                     }
@@ -3232,86 +3610,105 @@
               "component": "Menu.Popup",
               "children": [
                 {
-                  "component": "Menu.RadioGroup",
+                  "component": "Menu.Empty",
                   "children": [
-                    {
-                      "component": "Menu.GroupLabel",
-                      "children": [
-                        "Sort"
-                      ]
-                    },
-                    {
-                      "component": "Menu.RadioItem",
-                      "props": {
-                        "value": "date"
-                      },
-                      "children": [
-                        {
-                          "component": "Menu.RadioItemIndicator"
-                        },
-                        "Date"
-                      ]
-                    },
-                    {
-                      "component": "Menu.RadioItem",
-                      "props": {
-                        "value": "name"
-                      },
-                      "children": [
-                        {
-                          "component": "Menu.RadioItemIndicator"
-                        },
-                        "Name"
-                      ]
-                    },
-                    {
-                      "component": "Menu.RadioItem",
-                      "props": {
-                        "value": "type"
-                      },
-                      "children": [
-                        {
-                          "component": "Menu.RadioItemIndicator"
-                        },
-                        "Type"
-                      ]
-                    }
+                    "No actions found."
                   ]
                 },
                 {
-                  "component": "Menu.Group",
+                  "component": "Menu.List",
                   "children": [
                     {
-                      "component": "Menu.GroupLabel",
+                      "component": "Menu.Group",
+                      "props": {
+                        "data-filter-section": true
+                      },
                       "children": [
-                        "Workspace"
+                        {
+                          "component": "Menu.GroupLabel"
+                        },
+                        {
+                          "component": "Menu.Item"
+                        },
+                        {
+                          "component": "Menu.Item"
+                        },
+                        {
+                          "component": "Menu.Item"
+                        }
                       ]
                     },
                     {
-                      "component": "Menu.CheckboxItem",
+                      "component": "Menu.Group",
+                      "props": {
+                        "data-filter-section": true
+                      },
                       "children": [
                         {
-                          "component": "Menu.CheckboxItemIndicator"
+                          "component": "Menu.GroupLabel"
                         },
-                        "Minimap"
+                        {
+                          "component": "Menu.SubmenuRoot"
+                        },
+                        {
+                          "component": "Menu.Item"
+                        },
+                        {
+                          "component": "Menu.Item"
+                        }
                       ]
                     },
                     {
-                      "component": "Menu.CheckboxItem",
+                      "component": "Menu.RadioGroup",
+                      "props": {
+                        "data-filter-section": true,
+                        "defaultValue": "date"
+                      },
                       "children": [
                         {
-                          "component": "Menu.CheckboxItemIndicator"
+                          "component": "Menu.GroupLabel"
                         },
-                        "Search"
+                        {
+                          "component": "Menu.RadioItem",
+                          "props": {
+                            "value": "date"
+                          }
+                        },
+                        {
+                          "component": "Menu.RadioItem",
+                          "props": {
+                            "value": "name"
+                          }
+                        },
+                        {
+                          "component": "Menu.RadioItem",
+                          "props": {
+                            "value": "size"
+                          }
+                        }
                       ]
                     },
                     {
-                      "component": "Menu.CheckboxItem",
+                      "component": "Menu.Group",
+                      "props": {
+                        "data-filter-section": true
+                      },
                       "children": [
                         {
-                          "component": "Menu.CheckboxItemIndicator"
+                          "component": "Menu.GroupLabel"
                         },
-                        "Sidebar"
+                        {
+                          "component": "Menu.CheckboxItem",
+                          "props": {
+                            "defaultChecked": true
+                          }
+                        },
+                        {
+                          "component": "Menu.CheckboxItem"
+                        },
+                        {
+                          "component": "Menu.CheckboxItem"
+                        }
                       ]
                     }
                   ]
@@ -3350,6 +3747,9 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "value": "date"
+          },
           "children": [
             {
               "component": "Menu.GroupLabel",
@@ -3470,11 +3870,8 @@
           "children": [
             {
               "component": "Menu.Trigger",
-              "props": {
-                "openOnHover": true
-              },
               "children": [
-                "Add to playlist"
+                "Workspace"
               ]
             },
             {
@@ -3491,16 +3888,22 @@
                       "component": "Menu.Popup",
                       "children": [
                         {
-                          "component": "Menu.Item"
+                          "component": "Menu.CheckboxItem",
+                          "props": {
+                            "checked": true
+                          }
                         },
                         {
-                          "component": "Menu.Item"
+                          "component": "Menu.CheckboxItem",
+                          "props": {
+                            "checked": true
+                          }
                         },
                         {
-                          "component": "Menu.Item"
-                        },
-                        {
-                          "component": "Menu.Item"
+                          "component": "Menu.CheckboxItem",
+                          "props": {
+                            "checked": false
+                          }
                         }
                       ]
                     }
@@ -3535,11 +3938,18 @@
         "group": "ContextMenu",
         "parents": [
           "Menu.Root",
+          "Menu.FilterProvider",
           "Menu.Portal",
           "Menu.Positioner",
           "Menu.Popup"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Menu.Popup",
+          "Menu.Positioner",
+          "Menu.Portal",
+          "Menu.FilterProvider"
+        ],
         "sample": {
           "children": [
             {
@@ -3598,12 +4008,18 @@
         "group": "ContextMenu",
         "parents": [
           "Menu.Root",
+          "Menu.FilterProvider",
           "Menu.Portal",
           "Menu.Positioner",
           "Menu.Popup",
           "Menu.SubmenuRoot"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Menu.Popup",
+          "Menu.Positioner",
+          "Menu.FilterProvider"
+        ],
         "sample": {
           "children": [
             "Share"
@@ -4043,7 +4459,16 @@
             {
               "component": "NavigationMenu.Positioner",
               "props": {
-                "sideOffset": 10
+                "sideOffset": 10,
+                "collisionPadding": {
+                  "top": 5,
+                  "bottom": 5,
+                  "left": 20,
+                  "right": 20
+                },
+                "collisionAvoidance": {
+                  "side": "none"
+                }
               },
               "children": [
                 {
@@ -4080,7 +4505,16 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "sideOffset": 10
+            "sideOffset": 10,
+            "collisionPadding": {
+              "top": 5,
+              "bottom": 5,
+              "left": 20,
+              "right": 20
+            },
+            "collisionAvoidance": {
+              "side": "none"
+            }
           },
           "children": [
             {
@@ -4185,7 +4619,16 @@
                 {
                   "component": "NavigationMenu.Positioner",
                   "props": {
-                    "sideOffset": 10
+                    "sideOffset": 10,
+                    "collisionPadding": {
+                      "top": 5,
+                      "bottom": 5,
+                      "left": 20,
+                      "right": 20
+                    },
+                    "collisionAvoidance": {
+                      "side": "none"
+                    }
                   },
                   "children": [
                     {
@@ -4257,6 +4700,11 @@
           "NavigationMenu.Popup"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "NavigationMenu.Popup",
+          "NavigationMenu.Positioner",
+          "NavigationMenu.Portal"
+        ],
         "fingerprint": "f29e9d3d",
         "props": {
           "className?": "f93c3b",
@@ -4464,7 +4912,7 @@
         "group": "OTPField",
         "sample": {
           "props": {
-            "length": 1,
+            "length": 6,
             "validationType": "alphanumeric"
           },
           "children": [
@@ -4790,7 +5238,7 @@
         "parents": [
           "Popover.Root"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
         "sample": {
           "props": {
             "id": "trigger-1"
@@ -4975,24 +5423,30 @@
         "as": "function",
         "group": "PreviewCard",
         "sample": {
+          "props": {
+            "open": false,
+            "triggerId": null
+          },
           "children": [
-            "The principles of good typography remain in the digital age.",
             {
-              "component": "PreviewCard.Portal",
-              "children": [
+              "$render": [
                 {
-                  "component": "PreviewCard.Positioner",
-                  "props": {
-                    "sideOffset": 8
-                  },
+                  "component": "PreviewCard.Portal",
                   "children": [
                     {
-                      "component": "PreviewCard.Popup",
+                      "component": "PreviewCard.Positioner",
+                      "props": {
+                        "sideOffset": 8
+                      },
                       "children": [
                         {
-                          "component": "PreviewCard.Arrow"
-                        },
-                        "Typography is the art and science of arranging type to make "
+                          "component": "PreviewCard.Popup",
+                          "children": [
+                            {
+                              "component": "PreviewCard.Arrow"
+                            }
+                          ]
+                        }
                       ]
                     }
                   ]
@@ -5098,7 +5552,7 @@
         "group": "Progress",
         "sample": {
           "props": {
-            "value": 1
+            "value": 20
           },
           "children": [
             {
@@ -5178,6 +5632,9 @@
           "Radio.Root"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "RadioGroup"
+        ],
         "fingerprint": "90b24bb2",
         "props": {
           "className?": "704e45",
@@ -5398,7 +5855,6 @@
         "group": "Select",
         "parents": [
           "Select.Root",
-          "Select.Portal",
           "Select.Positioner"
         ],
         "parentsFrom": "error",
@@ -5428,7 +5884,6 @@
         "group": "Select",
         "parents": [
           "Select.Root",
-          "Select.Portal",
           "Select.Positioner",
           "Select.Popup",
           "Select.List"
@@ -5438,6 +5893,17 @@
           "children": [
             {
               "component": "Select.GroupLabel"
+            },
+            {
+              "component": "Select.Item",
+              "children": [
+                {
+                  "component": "Select.ItemIndicator"
+                },
+                {
+                  "component": "Select.ItemText"
+                }
+              ]
             }
           ]
         },
@@ -5453,7 +5919,6 @@
         "group": "Select",
         "parents": [
           "Select.Root",
-          "Select.Portal",
           "Select.Positioner",
           "Select.Popup",
           "Select.List",
@@ -5475,6 +5940,9 @@
           "Select.Trigger"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Select.Trigger"
+        ],
         "fingerprint": "1da7355d",
         "props": {
           "className?": "ebff80",
@@ -5487,12 +5955,14 @@
         "group": "Select",
         "parents": [
           "Select.Root",
-          "Select.Portal",
           "Select.Positioner",
           "Select.Popup",
           "Select.List"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Select.List"
+        ],
         "sample": {
           "props": {
             "value": "Helvetica"
@@ -5526,13 +5996,15 @@
         "group": "Select",
         "parents": [
           "Select.Root",
-          "Select.Portal",
           "Select.Positioner",
           "Select.Popup",
           "Select.List",
           "Select.Item"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Select.List"
+        ],
         "fingerprint": "dd3ea2d8",
         "props": {
           "children?": "75c961",
@@ -5547,13 +6019,15 @@
         "group": "Select",
         "parents": [
           "Select.Root",
-          "Select.Portal",
           "Select.Positioner",
           "Select.Popup",
           "Select.List",
           "Select.Item"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Select.List"
+        ],
         "sample": {
           "children": [
             "( )"
@@ -5590,7 +6064,6 @@
         "group": "Select",
         "parents": [
           "Select.Root",
-          "Select.Portal",
           "Select.Positioner",
           "Select.Popup"
         ],
@@ -5598,15 +6071,10 @@
         "sample": {
           "children": [
             {
-              "component": "Select.Group",
-              "children": [
-                {
-                  "component": "Select.GroupLabel"
-                }
-              ]
-            },
-            {
               "component": "Select.Item",
+              "props": {
+                "value": "gala"
+              },
               "children": [
                 {
                   "component": "Select.ItemIndicator"
@@ -5614,13 +6082,44 @@
                 {
                   "component": "Select.ItemText",
                   "children": [
-                    "Helvetica"
+                    "Gala"
                   ]
                 }
               ]
             },
             {
-              "component": "Select.Separator"
+              "component": "Select.Item",
+              "props": {
+                "value": "fuji"
+              },
+              "children": [
+                {
+                  "component": "Select.ItemIndicator"
+                },
+                {
+                  "component": "Select.ItemText",
+                  "children": [
+                    "Fuji"
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "Select.Item",
+              "props": {
+                "value": "honeycrisp"
+              },
+              "children": [
+                {
+                  "component": "Select.ItemIndicator"
+                },
+                {
+                  "component": "Select.ItemText",
+                  "children": [
+                    "Honeycrisp"
+                  ]
+                }
+              ]
             }
           ]
         },
@@ -5636,45 +6135,72 @@
         "group": "Select",
         "parents": [
           "Select.Root",
-          "Select.Portal",
           "Select.Positioner"
         ],
         "parentsFrom": "example",
         "sample": {
           "children": [
             {
-              "component": "Select.Item",
-              "props": {
-                "value": "Helvetica"
-              },
+              "component": "Select.ScrollUpArrow"
+            },
+            {
+              "component": "Select.List",
               "children": [
                 {
-                  "component": "Select.ItemIndicator"
+                  "component": "Select.Item",
+                  "props": {
+                    "value": "gala"
+                  },
+                  "children": [
+                    {
+                      "component": "Select.ItemIndicator"
+                    },
+                    {
+                      "component": "Select.ItemText",
+                      "children": [
+                        "Gala"
+                      ]
+                    }
+                  ]
                 },
                 {
-                  "component": "Select.ItemText",
+                  "component": "Select.Item",
+                  "props": {
+                    "value": "fuji"
+                  },
                   "children": [
-                    "Helvetica"
+                    {
+                      "component": "Select.ItemIndicator"
+                    },
+                    {
+                      "component": "Select.ItemText",
+                      "children": [
+                        "Fuji"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "Select.Item",
+                  "props": {
+                    "value": "honeycrisp"
+                  },
+                  "children": [
+                    {
+                      "component": "Select.ItemIndicator"
+                    },
+                    {
+                      "component": "Select.ItemText",
+                      "children": [
+                        "Honeycrisp"
+                      ]
+                    }
                   ]
                 }
               ]
             },
             {
-              "component": "Select.Item",
-              "props": {
-                "value": "Arial"
-              },
-              "children": [
-                {
-                  "component": "Select.ItemIndicator"
-                },
-                {
-                  "component": "Select.ItemText",
-                  "children": [
-                    "Arial"
-                  ]
-                }
-              ]
+              "component": "Select.ScrollDownArrow"
             }
           ]
         },
@@ -5699,40 +6225,40 @@
             {
               "component": "Select.Positioner",
               "props": {
-                "sideOffset": 4,
-                "alignItemWithTrigger": false
+                "sideOffset": 4
               },
               "children": [
                 {
                   "component": "Select.Popup",
                   "children": [
                     {
-                      "component": "Select.Item",
-                      "props": {
-                        "value": "Helvetica"
-                      },
+                      "component": "Select.ScrollUpArrow"
+                    },
+                    {
+                      "component": "Select.List",
                       "children": [
                         {
-                          "component": "Select.ItemIndicator"
+                          "component": "Select.Item",
+                          "props": {
+                            "value": "gala"
+                          }
                         },
                         {
-                          "component": "Select.ItemText"
+                          "component": "Select.Item",
+                          "props": {
+                            "value": "fuji"
+                          }
+                        },
+                        {
+                          "component": "Select.Item",
+                          "props": {
+                            "value": "honeycrisp"
+                          }
                         }
                       ]
                     },
                     {
-                      "component": "Select.Item",
-                      "props": {
-                        "value": "Arial"
-                      },
-                      "children": [
-                        {
-                          "component": "Select.ItemIndicator"
-                        },
-                        {
-                          "component": "Select.ItemText"
-                        }
-                      ]
+                      "component": "Select.ScrollDownArrow"
                     }
                   ]
                 }
@@ -5752,52 +6278,69 @@
         "as": "forwardRef",
         "group": "Select",
         "parents": [
-          "Select.Root",
-          "Select.Portal"
+          "Select.Root"
         ],
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "sideOffset": 4,
-            "alignItemWithTrigger": false
+            "sideOffset": 4
           },
           "children": [
             {
               "component": "Select.Popup",
               "children": [
                 {
-                  "component": "Select.Item",
-                  "props": {
-                    "value": "Helvetica"
-                  },
+                  "component": "Select.ScrollUpArrow"
+                },
+                {
+                  "component": "Select.List",
                   "children": [
                     {
-                      "component": "Select.ItemIndicator"
+                      "component": "Select.Item",
+                      "props": {
+                        "value": "gala"
+                      },
+                      "children": [
+                        {
+                          "component": "Select.ItemIndicator"
+                        },
+                        {
+                          "component": "Select.ItemText"
+                        }
+                      ]
                     },
                     {
-                      "component": "Select.ItemText",
+                      "component": "Select.Item",
+                      "props": {
+                        "value": "fuji"
+                      },
                       "children": [
-                        "Helvetica"
+                        {
+                          "component": "Select.ItemIndicator"
+                        },
+                        {
+                          "component": "Select.ItemText"
+                        }
+                      ]
+                    },
+                    {
+                      "component": "Select.Item",
+                      "props": {
+                        "value": "honeycrisp"
+                      },
+                      "children": [
+                        {
+                          "component": "Select.ItemIndicator"
+                        },
+                        {
+                          "component": "Select.ItemText"
+                        }
                       ]
                     }
                   ]
                 },
                 {
-                  "component": "Select.Item",
-                  "props": {
-                    "value": "Arial"
-                  },
-                  "children": [
-                    {
-                      "component": "Select.ItemIndicator"
-                    },
-                    {
-                      "component": "Select.ItemText",
-                      "children": [
-                        "Arial"
-                      ]
-                    }
-                  ]
+                  "component": "Select.ScrollDownArrow"
                 }
               ]
             }
@@ -5827,11 +6370,19 @@
         "as": "function",
         "group": "Select",
         "sample": {
+          "props": {
+            "defaultValue": {
+              "id": "standard",
+              "name": "Standard",
+              "duration": "Delivers in 4-6 business days",
+              "price": "$4.99"
+            }
+          },
           "children": [
             {
               "component": "Select.Label",
               "children": [
-                "Apple"
+                "Shipping method"
               ]
             },
             {
@@ -5839,9 +6390,13 @@
               "children": [
                 {
                   "component": "Select.Value",
-                  "props": {
-                    "placeholder": "Select apple"
-                  }
+                  "children": [
+                    {
+                      "$render": [
+                        "( )"
+                      ]
+                    }
+                  ]
                 },
                 {
                   "component": "Select.Icon"
@@ -5910,7 +6465,6 @@
         "group": "Select",
         "parents": [
           "Select.Root",
-          "Select.Portal",
           "Select.Positioner",
           "Select.Popup"
         ],
@@ -5928,7 +6482,6 @@
         "group": "Select",
         "parents": [
           "Select.Root",
-          "Select.Portal",
           "Select.Positioner",
           "Select.Popup"
         ],
@@ -5946,7 +6499,6 @@
         "group": "Select",
         "parents": [
           "Select.Root",
-          "Select.Portal",
           "Select.Positioner",
           "Select.Popup",
           "Select.List"
@@ -5971,9 +6523,13 @@
           "children": [
             {
               "component": "Select.Value",
-              "props": {
-                "placeholder": "Select produce"
-              }
+              "children": [
+                {
+                  "$render": [
+                    "( )"
+                  ]
+                }
+              ]
             },
             {
               "component": "Select.Icon"
@@ -5998,10 +6554,17 @@
           "Select.Trigger"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Select.Trigger"
+        ],
         "sample": {
-          "props": {
-            "placeholder": "Select produce"
-          }
+          "children": [
+            {
+              "$render": [
+                "( )"
+              ]
+            }
+          ]
         },
         "fingerprint": "8b055167",
         "props": {
@@ -6474,10 +7037,13 @@
         "as": "forwardRef",
         "group": "Toast",
         "parents": [
+          "Toast.Portal",
+          "Toast.Viewport",
           "Toast.Root",
           "Toast.Content"
         ],
-        "parentsFrom": "example",
+        "parentsFrom": "error",
+        "visual": false,
         "fingerprint": "ad545b3d",
         "props": {
           "className?": "0f3b71",
@@ -6492,9 +7058,11 @@
         "parents": [
           "Toast.Portal",
           "Toast.Viewport",
-          "Toast.Positioner"
+          "Toast.Positioner",
+          "Toast.Root"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
+        "visual": false,
         "fingerprint": "68ce6363",
         "props": {
           "className?": "a3bfd3",
@@ -6506,10 +7074,18 @@
         "as": "forwardRef",
         "group": "Toast",
         "parents": [
+          "Toast.Portal",
+          "Toast.Viewport",
           "Toast.Root",
           "Toast.Content"
         ],
-        "parentsFrom": "example",
+        "parentsFrom": "error",
+        "visual": false,
+        "sample": {
+          "children": [
+            "Dismiss"
+          ]
+        },
         "fingerprint": "8ed6343b",
         "props": {
           "className?": "e457d5",
@@ -6522,9 +7098,28 @@
         "as": "forwardRef",
         "group": "Toast",
         "parents": [
+          "Toast.Portal",
+          "Toast.Viewport",
           "Toast.Root"
         ],
         "parentsFrom": "example",
+        "visual": false,
+        "sample": {
+          "children": [
+            {
+              "component": "Toast.Title"
+            },
+            {
+              "component": "Toast.Description"
+            },
+            {
+              "component": "Toast.Close",
+              "props": {
+                "aria-label": "Close"
+              }
+            }
+          ]
+        },
         "fingerprint": "46bd5efd",
         "props": {
           "className?": "2d0ada",
@@ -6536,10 +7131,18 @@
         "as": "forwardRef",
         "group": "Toast",
         "parents": [
+          "Toast.Portal",
+          "Toast.Viewport",
           "Toast.Root",
           "Toast.Content"
         ],
         "parentsFrom": "example",
+        "visual": false,
+        "sample": {
+          "children": [
+            "data.userId is"
+          ]
+        },
         "fingerprint": "6286ff0e",
         "props": {
           "className?": "5e0d00",
@@ -6570,6 +7173,7 @@
           "Toast.Viewport"
         ],
         "parentsFrom": "example",
+        "visual": false,
         "sample": {
           "children": [
             {
@@ -6640,6 +7244,7 @@
       "Toast.Root": {
         "as": "forwardRef",
         "group": "Toast",
+        "visual": false,
         "fingerprint": "e920d6a9",
         "props": {
           "className?": "28eeab",
@@ -6653,10 +7258,13 @@
         "as": "forwardRef",
         "group": "Toast",
         "parents": [
+          "Toast.Portal",
+          "Toast.Viewport",
           "Toast.Root",
           "Toast.Content"
         ],
-        "parentsFrom": "example",
+        "parentsFrom": "error",
+        "visual": false,
         "fingerprint": "57370510",
         "props": {
           "className?": "5d6ca5",
@@ -6737,6 +7345,10 @@
         "sample": {
           "props": {
             "multiple": true,
+            "defaultValue": [
+              "bold",
+              "italic"
+            ],
             "aria-label": "Text formatting options"
           },
           "children": [
@@ -6783,9 +7395,16 @@
         "parents": [
           "Toolbar.Root"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
         "sample": {
           "props": {
+            "render": {
+              "$element": [
+                {
+                  "component": "Toggle"
+                }
+              ]
+            },
             "aria-label": "Align left",
             "value": "align-left"
           },
@@ -6957,6 +7576,9 @@
           "Tooltip.Popup"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Tooltip.Provider"
+        ],
         "fingerprint": "4bfec2ec",
         "props": {
           "className?": "dacc13",
@@ -6974,6 +7596,9 @@
           "Tooltip.Positioner"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Tooltip.Provider"
+        ],
         "sample": {
           "children": [
             {
@@ -6997,6 +7622,9 @@
           "Tooltip.Root"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Tooltip.Provider"
+        ],
         "sample": {
           "children": [
             {
@@ -7036,6 +7664,9 @@
           "Tooltip.Portal"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "Tooltip.Provider"
+        ],
         "sample": {
           "props": {
             "sideOffset": 10
@@ -7077,33 +7708,25 @@
         "visual": false,
         "sample": {
           "children": [
+            "Open programmatically",
             {
               "component": "Tooltip.Root",
+              "props": {
+                "open": false,
+                "triggerId": null
+              },
               "children": [
-                {
-                  "component": "Tooltip.Trigger",
-                  "props": {
-                    "closeOnClick": false,
-                    "aria-label": "Copy to clipboard"
-                  }
-                },
                 {
                   "component": "Tooltip.Portal",
                   "children": [
                     {
                       "component": "Tooltip.Positioner",
                       "props": {
-                        "sideOffset": 10
+                        "sideOffset": 11
                       },
                       "children": [
                         {
-                          "component": "Tooltip.Popup",
-                          "children": [
-                            {
-                              "component": "Tooltip.Arrow"
-                            },
-                            "Copy"
-                          ]
+                          "component": "Tooltip.Popup"
                         }
                       ]
                     }
@@ -7129,12 +7752,26 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "disabled": false
+          },
           "children": [
             {
               "component": "Tooltip.Trigger",
               "props": {
                 "closeOnClick": false,
-                "aria-label": "Copy to clipboard"
+                "aria-label": "Copy to clipboard",
+                "render": {
+                  "$element": [
+                    {
+                      "component": "Button",
+                      "props": {
+                        "disabled": false,
+                        "focusableWhenDisabled": true
+                      }
+                    }
+                  ]
+                }
               }
             },
             {
@@ -7188,7 +7825,18 @@
         "sample": {
           "props": {
             "closeOnClick": false,
-            "aria-label": "Copy to clipboard"
+            "aria-label": "Copy to clipboard",
+            "render": {
+              "$element": [
+                {
+                  "component": "Button",
+                  "props": {
+                    "disabled": false,
+                    "focusableWhenDisabled": true
+                  }
+                }
+              ]
+            }
           }
         },
         "fingerprint": "2458b0cf",

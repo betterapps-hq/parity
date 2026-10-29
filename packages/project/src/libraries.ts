@@ -8,6 +8,8 @@ import {
   type LibraryInfo,
   type LibraryManifest,
   libraryManifestExtension,
+  isSampleElement,
+  isSampleRender,
   type PackageManifest,
   parseLibraryEdits,
   parseLibraryManifest,
@@ -177,6 +179,10 @@ export async function findLibraries(
           declaration: posix.normalize(relative(root, declaration).replaceAll("\\", "/")),
           ...(component.group ? { group: component.group } : {}),
           ...(component.parents ? { parents: component.parents.map((parent) => `${definition.id}/${parent}`) } : {}),
+          ...(component.internal ? { internal: true as const } : {}),
+          ...(component.optionalParents
+            ? { optionalParents: component.optionalParents.map((parent) => `${definition.id}/${parent}`) }
+            : {}),
           ...(component.sample ? { sample: sampleIds(component.sample, definition.id) } : {})
         }
       }
@@ -199,12 +205,31 @@ function sampleIds(sample: ComponentSample, library: string): ComponentSample {
   const child = (node: SampleChild): SampleChild =>
     typeof node === "string"
       ? node
-      : {
-          ...node,
-          component: /^[a-z]/.test(node.component) ? node.component : `${library}/${node.component}`,
-          ...(node.children ? { children: node.children.map(child) } : {})
-        }
-  return { ...sample, ...(sample.children ? { children: sample.children.map(child) } : {}) }
+      : isSampleRender(node)
+        ? { ...node, $render: node.$render.map(child) }
+        : {
+            ...node,
+            component: /^[a-z]/.test(node.component) ? node.component : `${library}/${node.component}`,
+            ...(node.props ? { props: propIds(node.props) } : {}),
+            ...(node.children ? { children: node.children.map(child) } : {})
+          }
+  // A render function in a prop (`renderInput`) names components too.
+  const propIds = (props: Record<string, unknown>) =>
+    Object.fromEntries(
+      Object.entries(props).map(([key, item]) => [
+        key,
+        isSampleRender(item)
+          ? { ...item, $render: item.$render.map(child) }
+          : isSampleElement(item)
+            ? { $element: item.$element.map(child) }
+            : item
+      ])
+    )
+  return {
+    ...sample,
+    ...(sample.props ? { props: propIds(sample.props) } : {}),
+    ...(sample.children ? { children: sample.children.map(child) } : {})
+  }
 }
 
 /** A library file with its hand edits merged over it, read from its `edits` or the shared file it names. */

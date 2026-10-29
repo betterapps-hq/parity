@@ -86,6 +86,10 @@ export interface ComponentSource {
   included?: true
   /** A library part's parents by component id, outermost first: inserting it alone places it inside them. */
   parents?: string[]
+  /** Those of `parents` left out when the ones outside them are already there, by component id. */
+  optionalParents?: string[]
+  /** A part its library renders inside its own components, listed apart in the Components panel. */
+  internal?: true
   /** What a library component is inserted with: sample props, and children by component id or as text. */
   sample?: ComponentSample
 }

@@ -18,8 +18,10 @@ import {
 } from "@parity/core"
 import { installedPackage, parseJsonc } from "@parity/project"
 import ts from "typescript"
+import { type AnatomyCheck, checkAnatomy, readAnatomy } from "./anatomy.ts"
 import { type ComponentReport, findComponents, relativePath } from "./components.ts"
 import { type ExampleSource, type ExampleUse, fetchExamples, readExamples } from "./examples.ts"
+import { hostedParts, type RenderCall, readRenders, renderedIn } from "./hosts.ts"
 import { type PartRelation, relateParts } from "./parts.ts"
 import { type Load, type Preset, presets } from "./presets.ts"
 import { breakpointsOf, type CollectedToken, cssTokens, pairLineHeights, toDtcg } from "./tokens.ts"
@@ -81,6 +83,8 @@ export interface GenerateReport {
   orphanEdits?: string[]
   /** Where the examples parts were read from, and how many of its components they use. */
   examples?: ExampleSource & { used: number }
+  /** How the chains compare with the anatomy the library's docs show, when its preset names them. */
+  anatomy?: AnatomyCheck
 }
 
 export interface PartsSummary {
@@ -211,24 +215,57 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
   } else {
     const providers = (preset?.decorators ?? []).flatMap((decorator) => (decorator.wrap ? [decorator.wrap] : []))
     let uses = new Map<string, ExampleUse>()
+    let anatomy = new Map<string, string[][]>()
     if (options.examples !== false) {
       const fetched = await fetchExamples(pkg, dir, preset?.examples)
       if (fetched.note) notes.push(fetched.note)
-      uses = readExamples(
-        fetched.files,
-        scan.components.map((component) => component.name)
-      )
+      const componentNames = scan.components.map((component) => component.name)
+      uses = readExamples(fetched.files, componentNames)
+      anatomy = readAnatomy(fetched.docs ?? [], componentNames)
       if (fetched.source) report.examples = { ...fetched.source, used: uses.size }
     }
+    // What the package's own components render, for parts no example shows and for what only a host renders.
+    const names = scan.components.map((component) => component.name)
+    const calls = new Map<string, RenderCall[]>()
+    const renders = await readRenders(dir, names, calls)
     const parts = await relateParts(
       loader(root, dir),
       componentImport ?? name,
       scan.components,
       providers,
       options.trialEdits?.components,
-      uses
+      uses,
+      renderedIn(renders),
+      calls
     )
     if (parts.note) notes.push(parts.note)
+    // Parts only a host the decorators add renders, and no example places, aren't for placing.
+    const hosts = (preset?.decorators ?? []).flatMap((decorator) =>
+      decorator.add && !decorator.add.component.includes(".") ? [decorator.add.component] : []
+    )
+    if (hosts.length > 0) {
+      for (const hosted of hostedParts(renders, hosts, names)) {
+        if (uses.has(hosted)) continue
+        parts.relations.set(hosted, { ...parts.relations.get(hosted), visual: false })
+      }
+    }
+    // Parts every example draws from a list a hook returns (toasts from the toast manager) are runtime data.
+    for (const [part, use] of uses) {
+      if (use.fromHook) parts.relations.set(part, { ...parts.relations.get(part), visual: false })
+    }
+    // Parts the package renders inside its own components, and that no example or docs page places, are internal.
+    const owners = renderedIn(renders)
+    const internal = new Set(
+      names.filter(
+        (part) =>
+          // Only when examples were read: without them nothing is known to be placed.
+          uses.size > 0 &&
+          !uses.has(part) &&
+          !anatomy.has(part) &&
+          !hosts.includes(part) &&
+          (owners.get(part) ?? []).some((owner) => owner !== part && names.includes(owner))
+      )
+    )
     const list: Record<string, LibraryComponent> = {}
     for (const component of scan.components) {
       const inside = component.file.startsWith(dir.replaceAll(sep, "/")) || component.file.startsWith(dir)
@@ -240,13 +277,17 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
           : {}),
         group: component.group,
         ...(relation?.parents ? { parents: relation.parents, parentsFrom: relation.parentsFrom ?? "prefix" } : {}),
+        ...(relation?.optionalParents ? { optionalParents: relation.optionalParents } : {}),
         ...(relation?.visual === false ? { visual: false } : {}),
+        ...(internal.has(component.name) ? { internal: true } : {}),
         ...(relation?.sample ? { sample: relation.sample } : {}),
         fingerprint: component.fingerprint,
         ...(Object.keys(component.props).length > 0 ? { props: component.props } : {})
       }
     }
     if (parts.tried) report.parts = summarizeParts(parts.relations)
+    // The docs' own anatomy, as a check on every chain each time the file is made.
+    if (anatomy.size > 0) report.anatomy = checkAnatomy(anatomy, list)
     if (Object.keys(list).length > 0) {
       manifest.components = { ...(componentImport ? { import: componentImport } : {}), list }
     }

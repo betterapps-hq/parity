@@ -89,8 +89,19 @@ export interface LibraryComponent {
    */
   parents?: string[]
   parentsFrom?: ParentSignal
+  /**
+   * Parents most examples show but it renders without (`DropdownMenuGroup`), a subset of `parents`: inserting it
+   * where the parents outside them are already leaves them out.
+   */
+  optionalParents?: string[]
   /** `false` for exports that draw nothing of their own, such as a context's consumer or a `RootProvider`. */
   visual?: boolean
+  /**
+   * `true` for a part the package renders inside its own components and that no example or docs page places
+   * (`ChartStyle` in `ChartContainer`, a Select's scroll buttons). It can still be placed; the Components panel lists
+   * it apart.
+   */
+  internal?: boolean
   /** What it needs to draw something: props with sample values, and children, as for a collection's items. */
   sample?: ComponentSample
   /** A hash of what it was found as and its own props, to tell what changed when the file is regenerated. */
@@ -104,7 +115,7 @@ export interface LibraryComponent {
  * (`Accordion.Item`), the error it throws alone ("must be used within `Accordion`"), a shared name prefix
  * (`AccordionItem` under `Accordion`), or a hand edit.
  */
-export const parentSignals = ["example", "namespace", "error", "prefix", "edit"] as const
+export const parentSignals = ["example", "source", "namespace", "error", "prefix", "edit"] as const
 export type ParentSignal = (typeof parentSignals)[number]
 
 export interface ComponentSample {
@@ -112,8 +123,43 @@ export interface ComponentSample {
   children?: SampleChild[]
 }
 
-/** Text, or a component of the same library by its name in `components.list`. */
-export type SampleChild = string | { component: string; props?: Record<string, unknown>; children?: SampleChild[] }
+/**
+ * Text, a component of the same library by its name in `components.list`, or a render function: what a part calls to
+ * draw, as children (`Field.Validity`) or as a prop's value (`renderInput`).
+ */
+export type SampleChild =
+  | string
+  | { component: string; props?: Record<string, unknown>; children?: SampleChild[] }
+  | SampleRender
+
+/**
+ * A function returning these children. With `spread`, the object it's called with is spread onto the one element it
+ * returns, as MUI's `renderInput={(params) => <TextField {...params} />}`; `pass` names props of that element that take
+ * it whole, as React Aria's `{(segment) => <DateSegment segment={segment} />}`.
+ */
+export interface SampleRender {
+  $render: SampleChild[]
+  spread?: true
+  pass?: string[]
+}
+
+/**
+ * A prop whose value is elements, as MUI's `control={<Checkbox />}` or an `icon`: inserted as a named slot of that
+ * prop, which the canvas passes as the prop's value.
+ */
+export interface SampleElement {
+  $element: SampleChild[]
+}
+
+/** Whether a sample's prop value is elements. */
+export function isSampleElement(value: unknown): value is SampleElement {
+  return typeof value === "object" && value !== null && Array.isArray((value as Record<string, unknown>).$element)
+}
+
+/** Whether a sample's child or prop value is a render function. */
+export function isSampleRender(value: unknown): value is SampleRender {
+  return typeof value === "object" && value !== null && Array.isArray((value as Record<string, unknown>).$render)
+}
 
 /**
  * Hand edits to a library file, kept apart from what `parity lib` generates so regenerating keeps them. Components are
@@ -276,7 +322,17 @@ function parseComponents(value: unknown): LibraryComponents {
   return compact({ import: optional(components.import, (v) => expectString(v, "/components/import")), list })
 }
 
-const componentKeys = ["as", "declaration", "group", "parents", "parentsFrom", "visual", "sample"]
+const componentKeys = [
+  "as",
+  "declaration",
+  "group",
+  "parents",
+  "parentsFrom",
+  "optionalParents",
+  "visual",
+  "internal",
+  "sample"
+]
 
 function parseComponentFields(component: Record<string, unknown>, at: string): LibraryComponentEdit {
   return compact({
@@ -287,8 +343,15 @@ function parseComponentFields(component: Record<string, unknown>, at: string): L
       expectArray(v, `${at}/parents`).map((name, index) => expectString(name, `${at}/parents/${index}`))
     ),
     parentsFrom: optional(component.parentsFrom, (v) => expectOneOf(v, parentSignals, `${at}/parentsFrom`)),
+    optionalParents: optional(component.optionalParents, (v) =>
+      expectArray(v, `${at}/optionalParents`).map((name, index) => expectString(name, `${at}/optionalParents/${index}`))
+    ),
     visual: optional(component.visual, (v) => {
       if (typeof v !== "boolean") throw new TypeError(`${at}/visual: expected a boolean`)
+      return v
+    }),
+    internal: optional(component.internal, (v) => {
+      if (typeof v !== "boolean") throw new TypeError(`${at}/internal: expected a boolean`)
       return v
     }),
     sample: optional(component.sample, (v) => parseSample(v, `${at}/sample`))
@@ -309,6 +372,18 @@ function parseSampleChildren(value: unknown, at: string): SampleChild[] {
     const here = `${at}/${index}`
     if (typeof item === "string") return item
     const child = expectObject(item, here)
+    if ("$render" in child) {
+      expectKnownKeys(child, ["$render", "spread", "pass"], here)
+      if (child.spread !== undefined && child.spread !== true) throw new TypeError(`${here}/spread: expected true`)
+      const render: SampleRender = { $render: parseSampleChildren(child.$render, `${here}/$render`) }
+      if (child.spread) render.spread = true
+      if (child.pass !== undefined) {
+        render.pass = expectArray(child.pass, `${here}/pass`).map((prop, index) =>
+          expectString(prop, `${here}/pass/${index}`)
+        )
+      }
+      return render
+    }
     expectKnownKeys(child, ["component", "props", "children"], here)
     return compact({
       component: expectString(child.component, `${here}/component`),
@@ -367,6 +442,8 @@ export function applyLibraryEdits(
       }
       const merged = { ...generated, ...edit } as LibraryComponent
       if (edit.parents && !edit.parentsFrom) merged.parentsFrom = "edit"
+      // Hand-edited parents replace the generated ones, and which of those were optional with them.
+      if (edit.parents && !edit.optionalParents) delete merged.optionalParents
       list[name] = merged
     }
     components = { ...components, list }

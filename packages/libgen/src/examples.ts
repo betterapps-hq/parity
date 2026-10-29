@@ -4,7 +4,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join } from "node:path"
 import { promisify } from "node:util"
-import type { ComponentSample, SampleChild } from "@parity/core"
+import { type ComponentSample, isSampleRender, type SampleChild, type SampleRender } from "@parity/core"
 import ts from "typescript"
 
 const run = promisify(execFile)
@@ -17,6 +17,8 @@ export interface ExampleHints {
   paths?: string[]
   /** Folders where every JSX file is an example, whatever it's called (MUI's `docs/data` demos). */
   demos?: string[]
+  /** Folders of docs pages whose Anatomy or Usage blocks show how parts nest, to check the chains against. */
+  anatomy?: string[]
 }
 
 /** The commit examples were read at, and how it was matched to the installed version. */
@@ -55,7 +57,7 @@ export async function fetchExamples(
   packageDir: string,
   hints: ExampleHints = {},
   cacheRoot = join(homedir(), ".parity", "cache", "examples")
-): Promise<{ files: ExampleFile[]; source?: ExampleSource; note?: string }> {
+): Promise<{ files: ExampleFile[]; docs?: ExampleFile[]; source?: ExampleSource; note?: string }> {
   const upstream = await readUpstream(packageDir)
   const repo = normalizeRepo(hints.repo ?? upstream?.repository ?? repositoryOf(pkg))
   if (!repo) return { files: [], note: "No repository is named, so no examples were read." }
@@ -63,8 +65,10 @@ export async function fetchExamples(
     const found = await findCommit(repo, pkg, upstream?.revision, cacheRoot)
     if (!found) return { files: [], note: `No commit of ${repo} could be matched to ${pkg.name} ${pkg.version}.` }
     const dir = join(cacheRoot, `${slug(repo)}-${found.commit.slice(0, 12)}`)
-    const files = await checkoutExamples(dir, repo, found.commit, hints)
-    return { files, source: { repo, commit: found.commit, how: found.how, files: files.length } }
+    const checkedOut = await checkoutExamples(dir, repo, found.commit, hints)
+    const files = checkedOut.filter((file) => !/\.mdx?$/.test(file.path))
+    const docs = checkedOut.filter((file) => /\.mdx?$/.test(file.path))
+    return { files, docs, source: { repo, commit: found.commit, how: found.how, files: files.length } }
   } catch (error) {
     return { files: [], note: `Examples weren't read from ${repo}: ${message(error)}` }
   }
@@ -72,7 +76,10 @@ export async function fetchExamples(
 
 async function readUpstream(packageDir: string): Promise<{ repository?: string; revision?: string } | undefined> {
   try {
-    return JSON.parse(await readFile(join(packageDir, "upstream.json"), "utf8")) as { repository?: string; revision?: string }
+    return JSON.parse(await readFile(join(packageDir, "upstream.json"), "utf8")) as {
+      repository?: string
+      revision?: string
+    }
   } catch {
     return undefined
   }
@@ -140,7 +147,10 @@ async function npmVersion(pkg: PackageJson): Promise<{ gitHead?: string; time?: 
       time?: Record<string, string>
     }
     const gitHead = packument.versions?.[pkg.version]?.gitHead
-    return { ...(gitHead ? { gitHead } : {}), ...(packument.time?.[pkg.version] ? { time: packument.time[pkg.version] } : {}) }
+    return {
+      ...(gitHead ? { gitHead } : {}),
+      ...(packument.time?.[pkg.version] ? { time: packument.time[pkg.version] } : {})
+    }
   } catch {
     return undefined
   }
@@ -154,10 +164,15 @@ async function checkoutExamples(
   dir: string,
   repo: string,
   commit: string,
-  { paths, demos = [] }: ExampleHints
+  { paths, demos = [], anatomy = [] }: ExampleHints
 ): Promise<ExampleFile[]> {
   const done = join(dir, ".parity-examples")
-  const key = [commit, ...(paths ?? []), ...demos.map((demo) => `demos:${demo}`)].join("\n")
+  const key = [
+    commit,
+    ...(paths ?? []),
+    ...demos.map((demo) => `demos:${demo}`),
+    ...anatomy.map((folder) => `anatomy:${folder}`)
+  ].join("\n")
   const cached = await readFile(done, "utf8").catch(() => undefined)
   if (cached !== key) {
     await rm(dir, { recursive: true, force: true })
@@ -172,12 +187,18 @@ async function checkoutExamples(
       .filter(
         (path) =>
           (examplePath.test(path) && (!paths || paths.some((prefix) => path.startsWith(prefix)))) ||
-          (/\.[jt]sx$/.test(path) && demos.some((prefix) => path.startsWith(prefix)))
+          (/\.[jt]sx$/.test(path) && demos.some((prefix) => path.startsWith(prefix))) ||
+          (/\.mdx?$/.test(path) && anatomy.some((prefix) => path.startsWith(prefix)))
       )
       .slice(0, 5000)
     await writeFile(join(dir, ".parity-wanted"), wanted.join("\n"))
     if (wanted.length > 0) {
-      await git(["sparse-checkout", "set", "--no-cone", "--stdin"], dir, 60_000, wanted.map((path) => `/${path}`).join("\n"))
+      await git(
+        ["sparse-checkout", "set", "--no-cone", "--stdin"],
+        dir,
+        60_000,
+        wanted.map((path) => `/${path}`).join("\n")
+      )
       await git(["checkout", "-q", "FETCH_HEAD"], dir, 600_000)
     }
     await writeFile(done, key)
@@ -217,15 +238,25 @@ export interface ExampleUse {
   topLevel: number
   /** Its nearest library ancestor in each use, counted. */
   parents: Map<string, number>
-  /** The fullest use, as a sample: literal props, text, and the library's components inside it. */
+  /** Every library ancestor of each way a file places it, nearest first, for the chain at any depth (up to 300). */
+  paths: string[][]
+  /** The same for every use, however many times a file repeats one (up to 300). */
+  usePaths: string[][]
+  /** The fullest use, as a sample: its props, text, and the library's components inside it. */
   sample?: ComponentSample
   sampleSize: number
+  /**
+   * Every use draws an item of a list a hook returns (`toasts.map(...)` from `useToastManager()`): runtime data the
+   * library hands the app, so a person doesn't place it.
+   */
+  fromHook: boolean
 }
 
 /**
  * Reads how a library's components are used in its examples: each element whose tag is one of its components (as
- * written, `Dialog.Content`, or with the dot left out, `Menu.Item` for `MenuItem`), the nearest such element around
- * it, and its literal props and children.
+ * written, `Dialog.Content`, or with the dot left out, `Menu.Item` for `MenuItem`), every such element around it, and
+ * its props and children. Props are worked out where the file says what they are: literals, names it declares
+ * (`config={chartConfig}`), `useState`'s first value, and the items a list maps into elements.
  */
 export function readExamples(files: ExampleFile[], names: string[]): Map<string, ExampleUse> {
   const known = new Set(names)
@@ -236,84 +267,426 @@ export function readExamples(files: ExampleFile[], names: string[]): Map<string,
     // A quick look first: most files in a large repository use none of these components.
     if (!names.some((name) => file.text.includes(name.split(".").at(-1)!))) continue
     const source = ts.createSourceFile(file.path, file.text, ts.ScriptTarget.Latest, false, ts.ScriptKind.TSX)
-    const visit = (node: ts.Node, around: string | undefined) => {
+    const context: Context = { source, resolve, scope: declarations(source), env: new Map() }
+    const placedHere = new Set<string>()
+    const hooked = hookResults(source)
+    const drawnFromHook = mappedComponents(source, hooked, resolve)
+    const visit = (node: ts.Node, around: string[], mapped: boolean) => {
       let here = around
       if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
         const opening = ts.isJsxElement(node) ? node.openingElement : node
         const name = resolve(opening.tagName.getText(source))
         if (name) {
-          const use: ExampleUse = uses.get(name) ?? { count: 0, topLevel: 0, parents: new Map(), sampleSize: -1 }
-          use.count++
-          if (around) use.parents.set(around, (use.parents.get(around) ?? 0) + 1)
-          else use.topLevel++
-          const sample = familySample(sampleOf(node, source, resolve, 0), familyOf(name))
+          const use: ExampleUse = uses.get(name) ?? {
+            count: 0,
+            topLevel: 0,
+            parents: new Map(),
+            paths: [],
+            usePaths: [],
+            sampleSize: -1,
+            fromHook: true
+          }
+          if (!mapped) use.fromHook = false
+          // Each way a file places a component counts once, so one long demo can't outweigh ten short ones.
+          const path = [...new Set(around)].filter((parent) => parent !== name)
+          if (use.usePaths.length < 300) use.usePaths.push(path)
+          const key = `${name}<${path.join("<")}`
+          if (!placedHere.has(key)) {
+            placedHere.add(key)
+            use.count++
+            const nearest = path[0]
+            if (nearest) use.parents.set(nearest, (use.parents.get(nearest) ?? 0) + 1)
+            else use.topLevel++
+            if (use.paths.length < 300) use.paths.push(path)
+          }
+          const sample = familySample(sampleOf(node, context, 0), familyOf(name))
           const size = sampleWeight(sample)
           if (size > use.sampleSize) {
             use.sample = sample
             use.sampleSize = size
           }
           uses.set(name, use)
-          here = name
+          here = [name, ...around]
         }
       }
+      const inList = mapped || hookMapped(node, hooked, source) || drawnFromHook.has(declaredName(node) ?? "")
       // JSX passed in a prop (`content={<ChartTooltipContent />}`) is rendered wherever that component puts it, so
       // it isn't placed in the element whose prop it is.
-      ts.forEachChild(node, (child) => visit(child, ts.isJsxAttributes(child) ? undefined : here))
+      ts.forEachChild(node, (child) => visit(child, ts.isJsxAttributes(child) ? [] : here, inList))
     }
-    visit(source, undefined)
+    visit(source, [], false)
   }
   return uses
 }
 
-function sampleOf(
-  node: ts.JsxElement | ts.JsxSelfClosingElement,
-  source: ts.SourceFile,
-  resolve: (tag: string) => string | undefined,
-  depth: number
-): ComponentSample {
+interface Context {
+  source: ts.SourceFile
+  resolve: (tag: string) => string | undefined
+  /** What each name the file declares is set to; `useState`'s first value for its state. */
+  scope: Map<string, ts.Expression>
+  /** Names bound while mapping a list: the callback's parameters, as each item. */
+  env: Map<string, unknown>
+}
+
+function sampleOf(node: ts.JsxElement | ts.JsxSelfClosingElement, context: Context, depth: number): ComponentSample {
   const opening = ts.isJsxElement(node) ? node.openingElement : node
   const props: Record<string, unknown> = {}
   for (const attribute of opening.attributes.properties) {
     if (!ts.isJsxAttribute(attribute)) continue
-    const name = attribute.name.getText(source)
+    const name = attribute.name.getText(context.source)
     if (name === "key" || name === "className" || name === "style" || name.startsWith("on")) continue
-    const value = literal(attribute.initializer)
+    const value = attributeValue(attribute.initializer, context)
     if (value !== undefined) props[name] = value
   }
   const children: SampleChild[] = []
-  if (ts.isJsxElement(node) && depth < 4) {
-    for (const child of node.children) {
-      if (children.length >= 4) break
-      if (ts.isJsxText(child)) {
-        const text = child.text.replace(/\s+/g, " ").trim()
-        if (text) children.push(text.slice(0, 60))
-      } else if (ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child)) {
-        const tag = (ts.isJsxElement(child) ? child.openingElement : child).tagName.getText(source)
-        const name = resolve(tag)
-        if (name) children.push({ component: name, ...sampleOf(child, source, resolve, depth + 1) })
-        else {
-          // An HTML element or the example's own component: its text still says what goes there.
-          const text = textIn(child)
-          if (text) children.push(text)
-        }
-      }
-    }
-  }
+  if (ts.isJsxElement(node) && depth < 4) collectChildren(node.children, context, depth, children)
   return {
     ...(Object.keys(props).length > 0 ? { props } : {}),
     ...(children.length > 0 ? { children } : {})
   }
 }
 
-function literal(initializer: ts.JsxAttributeValue | undefined): unknown {
+function collectChildren(
+  nodes: ts.NodeArray<ts.JsxChild>,
+  context: Context,
+  depth: number,
+  children: SampleChild[]
+): void {
+  for (const child of nodes) {
+    if (children.length >= 4) return
+    if (ts.isJsxText(child)) {
+      const text = child.text.replace(/\s+/g, " ").trim()
+      if (text) children.push(text.slice(0, 60))
+    } else if (ts.isJsxFragment(child)) collectChildren(child.children, context, depth, children)
+    else if (ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child)) pushElement(child, context, depth, children)
+    else if (ts.isJsxExpression(child) && child.expression) {
+      pushExpression(unwrap(child.expression), context, depth, children)
+    }
+  }
+}
+
+function pushElement(
+  element: ts.JsxElement | ts.JsxSelfClosingElement,
+  context: Context,
+  depth: number,
+  children: SampleChild[]
+): void {
+  const tag = (ts.isJsxElement(element) ? element.openingElement : element).tagName.getText(context.source)
+  const name = context.resolve(tag)
+  if (name) children.push({ component: name, ...sampleOf(element, context, depth + 1) })
+  else {
+    // An HTML element or the example's own component: its text still says what goes there.
+    const text = textIn(element)
+    if (text) children.push(text)
+  }
+}
+
+/** A `{...}` child: a list mapped into elements (a few of its items), a condition's element, or text. */
+function pushExpression(expression: ts.Expression, context: Context, depth: number, children: SampleChild[]): void {
+  if (ts.isArrowFunction(expression) || ts.isFunctionExpression(expression)) {
+    const render = renderOf(expression, context, depth)
+    if (render) children.push(render)
+    return
+  }
+  if (ts.isJsxElement(expression) || ts.isJsxSelfClosingElement(expression)) {
+    pushElement(expression, context, depth, children)
+    return
+  }
+  if (ts.isJsxFragment(expression)) {
+    collectChildren(expression.children, context, depth, children)
+    return
+  }
+  if (ts.isBinaryExpression(expression) && expression.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) {
+    pushExpression(unwrap(expression.right), context, depth, children)
+    return
+  }
+  if (ts.isConditionalExpression(expression)) {
+    pushExpression(unwrap(expression.whenTrue), context, depth, children)
+    return
+  }
+  if (
+    ts.isCallExpression(expression) &&
+    ts.isPropertyAccessExpression(expression.expression) &&
+    expression.expression.name.text === "map"
+  ) {
+    const callback = expression.arguments[0]
+    if (!callback || !(ts.isArrowFunction(callback) || ts.isFunctionExpression(callback))) return
+    const body = returned(callback)
+    if (!body) return
+    const list = evaluate(expression.expression.expression, context, 0)
+    // A list the file doesn't spell out still shows what goes in it, once.
+    const items = Array.isArray(list) ? list.slice(0, 3) : [undefined]
+    items.forEach((item, index) => {
+      const env = new Map(context.env)
+      if (item !== undefined) bind(callback.parameters[0]?.name, item, env)
+      const second = callback.parameters[1]?.name
+      if (second && ts.isIdentifier(second)) env.set(second.text, index)
+      pushExpression(body, { ...context, env }, depth, children)
+    })
+    return
+  }
+  const value = evaluate(expression, context, 0)
+  if (typeof value === "string" || typeof value === "number") children.push(String(value).slice(0, 60))
+}
+
+/**
+ * A function that returns elements, as a sample's render function: what it returns, and whether it spreads its first
+ * parameter onto them (`(params) => <TextField {...params} />`).
+ */
+function renderOf(
+  callback: ts.ArrowFunction | ts.FunctionExpression,
+  context: Context,
+  depth: number
+): SampleRender | undefined {
+  const body = returned(callback)
+  if (!body || !(ts.isJsxElement(body) || ts.isJsxSelfClosingElement(body) || ts.isJsxFragment(body))) return undefined
+  const inner: SampleChild[] = []
+  pushExpression(body, context, depth, inner)
+  if (inner.length === 0) return undefined
+  const first = callback.parameters[0]?.name
+  const opening = ts.isJsxElement(body) ? body.openingElement : ts.isJsxSelfClosingElement(body) ? body : undefined
+  const argument = first && ts.isIdentifier(first) ? first.text : undefined
+  const takes = (expression: ts.Expression | undefined) =>
+    !!argument && !!expression && ts.isIdentifier(expression) && expression.text === argument
+  const attributes = opening?.attributes.properties ?? []
+  const spread = attributes.some((attribute) => ts.isJsxSpreadAttribute(attribute) && takes(attribute.expression))
+  const pass = attributes.flatMap((attribute) =>
+    ts.isJsxAttribute(attribute) &&
+    attribute.initializer &&
+    ts.isJsxExpression(attribute.initializer) &&
+    takes(attribute.initializer.expression)
+      ? [attribute.name.getText(context.source)]
+      : []
+  )
+  return { $render: inner, ...(spread ? { spread: true as const } : {}), ...(pass.length > 0 ? { pass } : {}) }
+}
+
+/** The JSX a callback returns, from an expression body or its first `return`. */
+function returned(callback: ts.ArrowFunction | ts.FunctionExpression): ts.Expression | undefined {
+  if (!ts.isBlock(callback.body)) return unwrap(callback.body)
+  const found = callback.body.statements.find(ts.isReturnStatement)
+  return found?.expression ? unwrap(found.expression) : undefined
+}
+
+function bind(name: ts.BindingName | undefined, value: unknown, env: Map<string, unknown>): void {
+  if (!name) return
+  if (ts.isIdentifier(name)) env.set(name.text, value)
+  else if (ts.isObjectBindingPattern(name) && typeof value === "object" && value !== null) {
+    for (const element of name.elements) {
+      const key = element.propertyName ?? element.name
+      if (ts.isIdentifier(key) || ts.isStringLiteral(key))
+        bind(element.name, (value as Record<string, unknown>)[key.text], env)
+    }
+  } else if (ts.isArrayBindingPattern(name) && Array.isArray(value)) {
+    name.elements.forEach((element, index) => {
+      if (!ts.isOmittedExpression(element)) bind(element.name, value[index], env)
+    })
+  }
+}
+
+/** What each name a file declares is set to: `const x = ...`, and `const [x] = useState(...)`'s first value. */
+function declarations(source: ts.SourceFile): Map<string, ts.Expression> {
+  const scope = new Map<string, ts.Expression>()
+  const visit = (node: ts.Node) => {
+    if (ts.isVariableDeclaration(node) && node.initializer) {
+      const initializer = unwrap(node.initializer)
+      if (ts.isIdentifier(node.name) && !scope.has(node.name.text)) scope.set(node.name.text, initializer)
+      const state =
+        ts.isArrayBindingPattern(node.name) &&
+        ts.isCallExpression(initializer) &&
+        /(?:^|\.)use(?:State|Controllable\w*)$/.test(initializer.expression.getText(source))
+      const first = state ? (node.name as ts.ArrayBindingPattern).elements[0] : undefined
+      const argument = state ? (initializer as ts.CallExpression).arguments[0] : undefined
+      if (first && !ts.isOmittedExpression(first) && ts.isIdentifier(first.name) && argument) {
+        if (!scope.has(first.name.text)) scope.set(first.name.text, unwrap(argument))
+      }
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(source)
+  return scope
+}
+
+/** Hooks that hold the example's own values, not data the library hands it. */
+const ownValueHooks = /(?:^|\.)use(?:State|Reducer|Memo|Callback|Ref|DeferredValue|Transition|Controllable\w*)$/
+
+/** The names a file binds to what a library hook returns (`const { toasts } = Toast.useToastManager()`). */
+function hookResults(source: ts.SourceFile): Set<string> {
+  const names = new Set<string>()
+  const visit = (node: ts.Node) => {
+    if (ts.isVariableDeclaration(node) && node.initializer && isHookCall(unwrap(node.initializer), source)) {
+      if (ts.isIdentifier(node.name)) names.add(node.name.text)
+      else {
+        for (const element of node.name.elements) {
+          if (!ts.isOmittedExpression(element) && ts.isIdentifier(element.name)) names.add(element.name.text)
+        }
+      }
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(source)
+  return names
+}
+
+function isHookCall(expression: ts.Expression, source: ts.SourceFile): boolean {
+  if (!ts.isCallExpression(expression)) return false
+  const callee = expression.expression.getText(source)
+  return /(?:^|\.)use[A-Z]\w*$/.test(callee) && !ownValueHooks.test(callee)
+}
+
+/**
+ * The example's own components drawn only for a hook's list items (`toasts.map((toast) => <MyToast toast={toast} />)`),
+ * and those they draw in turn, so the library parts inside them count as mapped too.
+ */
+function mappedComponents(
+  source: ts.SourceFile,
+  hooked: Set<string>,
+  resolve: (tag: string) => string | undefined
+): Set<string> {
+  const bodies = new Map<string, ts.Node>()
+  const visit = (node: ts.Node) => {
+    const name = declaredName(node)
+    if (name) bodies.set(name, node)
+    ts.forEachChild(node, visit)
+  }
+  visit(source)
+  const tagsIn = (node: ts.Node, found: string[] = []) => {
+    if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
+      const tag = node.tagName.getText(source)
+      if (bodies.has(tag) && !resolve(tag)) found.push(tag)
+    }
+    ts.forEachChild(node, (child) => {
+      tagsIn(child, found)
+    })
+    return found
+  }
+  const found = new Set<string>()
+  const queue: string[] = []
+  const lists = (node: ts.Node) => {
+    if (hookMapped(node, hooked, source)) queue.push(...tagsIn(node))
+    else ts.forEachChild(node, lists)
+  }
+  lists(source)
+  while (queue.length > 0) {
+    const next = queue.pop()!
+    if (found.has(next)) continue
+    found.add(next)
+    queue.push(...tagsIn(bodies.get(next)!))
+  }
+  return found
+}
+
+/** The name of a component a file declares: `function Name()` or `const Name = ...`, capitalised. */
+function declaredName(node: ts.Node): string | undefined {
+  const name =
+    ts.isFunctionDeclaration(node) && node.name
+      ? node.name.text
+      : ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer
+        ? node.name.text
+        : undefined
+  return name && /^[A-Z]/.test(name) ? name : undefined
+}
+
+/** Whether a node is `list.map(...)` over a hook's result (`toasts.map`, `manager.toasts.map`, `useItems().map`). */
+function hookMapped(node: ts.Node, hooked: Set<string>, source: ts.SourceFile): boolean {
+  if (!ts.isCallExpression(node) || !ts.isPropertyAccessExpression(node.expression)) return false
+  if (node.expression.name.text !== "map") return false
+  let list = unwrap(node.expression.expression)
+  if (isHookCall(list, source)) return true
+  while (ts.isPropertyAccessExpression(list)) list = unwrap(list.expression)
+  return ts.isIdentifier(list) && hooked.has(list.text)
+}
+
+function unwrap(expression: ts.Expression): ts.Expression {
+  while (
+    ts.isParenthesizedExpression(expression) ||
+    ts.isAsExpression(expression) ||
+    ts.isSatisfiesExpression(expression) ||
+    ts.isNonNullExpression(expression) ||
+    ts.isTypeAssertionExpression(expression)
+  ) {
+    expression = expression.expression
+  }
+  return expression
+}
+
+function attributeValue(initializer: ts.JsxAttributeValue | undefined, context: Context): unknown {
   if (!initializer) return true
   if (ts.isStringLiteral(initializer)) return initializer.text
   if (ts.isJsxExpression(initializer) && initializer.expression) {
-    const expression = initializer.expression
-    if (ts.isStringLiteralLike(expression)) return expression.text
-    if (ts.isNumericLiteral(expression)) return Number(expression.text)
-    if (expression.kind === ts.SyntaxKind.TrueKeyword) return true
-    if (expression.kind === ts.SyntaxKind.FalseKeyword) return false
+    const expression = unwrap(initializer.expression)
+    // A render prop (`renderInput`), kept as the elements it returns.
+    if (ts.isArrowFunction(expression) || ts.isFunctionExpression(expression)) return renderOf(expression, context, 0)
+    // Elements as a prop's value (`control={<Checkbox />}`).
+    if (ts.isJsxElement(expression) || ts.isJsxSelfClosingElement(expression) || ts.isJsxFragment(expression)) {
+      const inner: SampleChild[] = []
+      pushExpression(expression, context, 0, inner)
+      return inner.length > 0 ? { $element: inner } : undefined
+    }
+    const value = evaluate(expression, context, 0)
+    // Values kept small: a sample shows the shape, not a whole dataset.
+    return value !== undefined && JSON.stringify(value).length <= 2000 ? value : undefined
+  }
+  return undefined
+}
+
+/**
+ * The value an expression has, when the file says: literals, arrays and objects of them, the names it declares, and
+ * a mapped item's fields. Anything else (calls, functions, imports) is undefined.
+ */
+function evaluate(expression: ts.Expression, context: Context, depth: number): unknown {
+  if (depth > 6) return undefined
+  expression = unwrap(expression)
+  if (ts.isStringLiteralLike(expression)) return expression.text.slice(0, 200)
+  if (ts.isNumericLiteral(expression)) return Number(expression.text)
+  if (expression.kind === ts.SyntaxKind.TrueKeyword) return true
+  if (expression.kind === ts.SyntaxKind.FalseKeyword) return false
+  if (expression.kind === ts.SyntaxKind.NullKeyword) return null
+  if (
+    ts.isPrefixUnaryExpression(expression) &&
+    expression.operator === ts.SyntaxKind.MinusToken &&
+    ts.isNumericLiteral(expression.operand)
+  ) {
+    return -Number(expression.operand.text)
+  }
+  if (ts.isIdentifier(expression)) {
+    if (context.env.has(expression.text)) return context.env.get(expression.text)
+    const declared = context.scope.get(expression.text)
+    return declared ? evaluate(declared, context, depth + 1) : undefined
+  }
+  if (ts.isArrayLiteralExpression(expression)) {
+    const items = expression.elements
+      .slice(0, 8)
+      .map((element) => evaluate(element, context, depth + 1))
+      .filter((item) => item !== undefined)
+    return items.length > 0 ? items : undefined
+  }
+  if (ts.isObjectLiteralExpression(expression)) {
+    const object: Record<string, unknown> = {}
+    for (const property of expression.properties) {
+      const key =
+        property.name && (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name))
+          ? property.name.text
+          : undefined
+      if (!key) continue
+      const value = ts.isPropertyAssignment(property)
+        ? evaluate(property.initializer, context, depth + 1)
+        : ts.isShorthandPropertyAssignment(property)
+          ? evaluate(property.name, context, depth + 1)
+          : undefined
+      if (value !== undefined) object[key] = value
+    }
+    return object
+  }
+  if (ts.isPropertyAccessExpression(expression) || ts.isElementAccessExpression(expression)) {
+    const object = evaluate(expression.expression, context, depth + 1)
+    const key = ts.isPropertyAccessExpression(expression)
+      ? expression.name.text
+      : evaluate(expression.argumentExpression, context, depth + 1)
+    if (typeof object !== "object" || object === null || (typeof key !== "string" && typeof key !== "number")) {
+      return undefined
+    }
+    return (object as Record<string | number, unknown>)[key]
   }
   return undefined
 }
@@ -333,7 +706,16 @@ function sampleWeight(sample: ComponentSample): number {
   return (
     children.length * 2 +
     Object.keys(sample.props ?? {}).length +
-    children.reduce((sum, child) => sum + (typeof child === "string" ? 0 : sampleWeight(child)), 0)
+    children.reduce(
+      (sum, child) =>
+        sum +
+        (typeof child === "string"
+          ? 0
+          : isSampleRender(child)
+            ? sampleWeight({ children: child.$render })
+            : sampleWeight(child)),
+      0
+    )
   )
 }
 
@@ -364,14 +746,72 @@ export function nearestParent(
   return { parent, share: count / use.count, uses: use.count }
 }
 
+/** A parent the examples put a part in, outermost first, and the share of its placed uses that have it. */
+export interface ExampleLevel {
+  parent: string
+  share: number
+}
+
+/**
+ * The parents the examples put a component in, at any depth, outermost first: every library ancestor at least half
+ * its placed uses have, in the order they're usually nested. A level some examples leave out (`DropdownMenuGroup`)
+ * is still here when most have it, with its share, so it can be marked optional. As with `nearestParent`, most uses
+ * must be placed at all, and `sameFamily` keeps only its own family's. `share` lowers the share a level needs, for a
+ * part that fails without a level fewer than half show (`Slider.Control`). Shares are counted per file, so one long
+ * demo can't outvote ten short ones, and per use, so a level most uses show isn't lost; a level either count keeps
+ * is kept, with the larger share.
+ */
+export function exampleLevels(
+  uses: Map<string, ExampleUse>,
+  name: string,
+  sameFamily: boolean,
+  share = 0.5
+): ExampleLevel[] | undefined {
+  const use = uses.get(name)
+  if (!use || use.paths.length === 0) return undefined
+  const family = familyOf(name)
+  const count = (all: string[][]) => {
+    const paths = all.map((path) => (sameFamily ? path.filter((parent) => familyOf(parent) === family) : path))
+    const placed = paths.filter((path) => path.length > 0)
+    if (placed.length * 2 < paths.length) return []
+    const seen = new Map<string, { count: number; depth: number }>()
+    for (const path of placed) {
+      path.forEach((parent, depth) => {
+        const entry = seen.get(parent) ?? { count: 0, depth: 0 }
+        entry.count++
+        entry.depth += depth
+        seen.set(parent, entry)
+      })
+    }
+    return [...seen]
+      .filter(([, entry]) => entry.count >= placed.length * share)
+      .map(([parent, entry]) => ({ parent, share: entry.count / placed.length, depth: entry.depth / entry.count }))
+  }
+  const merged = new Map<string, { parent: string; share: number; depth: number }>()
+  for (const level of [...count(use.paths), ...count(use.usePaths)]) {
+    const known = merged.get(level.parent)
+    if (!known || level.share > known.share) merged.set(level.parent, level)
+  }
+  const levels = [...merged.values()]
+    .sort((a, b) => b.depth - a.depth)
+    .slice(-8)
+    .map(({ parent, share }) => ({ parent, share }))
+  return levels.length > 0 ? levels : undefined
+}
+
 /** A sample with only its own family's components in it, as text where others were. */
 export function familySample(sample: ComponentSample, family: string): ComponentSample {
   const keep = (child: SampleChild): SampleChild | undefined =>
     typeof child === "string"
       ? child
-      : familyOf(child.component) === family
-        ? { ...child, ...(child.children ? { children: child.children.flatMap((inner) => keep(inner) ?? []) } : {}) }
-        : undefined
+      : isSampleRender(child)
+        ? (() => {
+            const inner = child.$render.flatMap((item) => keep(item) ?? [])
+            return inner.length > 0 ? { ...child, $render: inner } : undefined
+          })()
+        : familyOf(child.component) === family
+          ? { ...child, ...(child.children ? { children: child.children.flatMap((inner) => keep(inner) ?? []) } : {}) }
+          : undefined
   const children = (sample.children ?? []).flatMap((child) => keep(child) ?? [])
   return { ...(sample.props ? { props: sample.props } : {}), ...(children.length > 0 ? { children } : {}) }
 }

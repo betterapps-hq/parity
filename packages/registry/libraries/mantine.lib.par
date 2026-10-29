@@ -6303,6 +6303,7 @@
         "as": "function",
         "declaration": "lib/components/Accordion/AccordionChevron.d.ts",
         "group": "AccordionChevron",
+        "internal": true,
         "fingerprint": "f79424a6",
         "props": {
           "size?": "c232cc"
@@ -6598,14 +6599,20 @@
         "sample": {
           "props": {
             "opened": true,
-            "children": "Text"
+            "children": "Text",
+            "position": {
+              "bottom": 30,
+              "left": 30
+            },
+            "styles": {
+              "root": {
+                "marginInline": 0
+              }
+            }
           },
           "children": [
             {
-              "component": "ActionBarDivider"
-            },
-            {
-              "component": "ActionBarDivider"
+              "component": "ActionBarCloseButton"
             }
           ]
         },
@@ -7179,6 +7186,14 @@
         "as": "exotic",
         "declaration": "lib/components/Affix/Affix.d.ts",
         "group": "Affix",
+        "sample": {
+          "props": {
+            "position": {
+              "bottom": 20,
+              "left": 20
+            }
+          }
+        },
         "fingerprint": "ba341abf",
         "props": {
           "__size?": "0bf956",
@@ -7361,7 +7376,7 @@
         "sample": {
           "props": {
             "color": "#1c7ed6",
-            "value": 1
+            "value": 0.55
           }
         },
         "fingerprint": "c372cd6b",
@@ -7455,6 +7470,10 @@
         "sample": {
           "props": {
             "variant": "gradient",
+            "gradient": {
+              "from": "pink",
+              "to": "yellow"
+            },
             "fw": 500,
             "fz": "lg",
             "href": "#text-props"
@@ -7555,7 +7574,33 @@
           "props": {
             "aria-label": "Angle slider",
             "size": 100,
-            "restrictToMarks": true
+            "restrictToMarks": true,
+            "marks": [
+              {
+                "value": 0
+              },
+              {
+                "value": 45
+              },
+              {
+                "value": 90
+              },
+              {
+                "value": 135
+              },
+              {
+                "value": 180
+              },
+              {
+                "value": 225
+              },
+              {
+                "value": 270
+              },
+              {
+                "value": 315
+              }
+            ]
           }
         },
         "fingerprint": "ea9e70a9",
@@ -8351,11 +8396,30 @@
         "group": "Autocomplete",
         "sample": {
           "props": {
-            "label": "clearSectionMode='both' (default)",
-            "placeholder": "Pick value",
-            "defaultValue": "React",
-            "clearable": true,
-            "clearSectionMode": "both"
+            "dropdownOpened": true,
+            "withAsterisk": true,
+            "label": "Autocomplete",
+            "description": "Description",
+            "placeholder": "Autocomplete",
+            "comboboxProps": {
+              "hideDetached": false
+            },
+            "data": [
+              {
+                "group": "Frontend",
+                "items": [
+                  "React",
+                  "Angular"
+                ]
+              },
+              {
+                "group": "Backend",
+                "items": [
+                  "Node",
+                  "Django"
+                ]
+              }
+            ]
           }
         },
         "fingerprint": "a5784447",
@@ -8499,12 +8563,12 @@
         "group": "Avatar",
         "sample": {
           "props": {
-            "id": "complex-avatar",
-            "color": "blue",
-            "radius": "xl"
+            "size": "xl",
+            "variant": "gradient",
+            "gradient": {}
           },
           "children": [
-            "JD"
+            "GR"
           ]
         },
         "fingerprint": "cc0b271a",
@@ -8783,13 +8847,10 @@
         "declaration": "lib/components/Badge/Badge.d.ts",
         "group": "Badge",
         "sample": {
-          "props": {
-            "autoContrast": true,
-            "size": "lg",
-            "color": "lime.4"
-          },
           "children": [
-            "Auto contrast"
+            "↑ Scrolling UP",
+            "↓ Scrolling DOWN",
+            "Scroll to detect direction"
           ]
         },
         "fingerprint": "fe42ea3d",
@@ -9077,7 +9138,10 @@
             "children": "Text",
             "separator": "→",
             "mt": "xs",
-            "separatorMargin": "md"
+            "separatorMargin": "md",
+            "classNames": {
+              "separator": "mantine-rotate-rtl"
+            }
           }
         },
         "fingerprint": "e0377f7b",
@@ -9255,13 +9319,12 @@
         "group": "Button",
         "sample": {
           "props": {
-            "fullWidth": true,
-            "maw": 200,
-            "mx": "auto",
-            "mt": "xl"
+            "mt": "sm"
           },
           "children": [
-            "Toggle overlay"
+            "Rerendered",
+            "0",
+            "times, click to rerender"
           ]
         },
         "fingerprint": "9f98a677",
@@ -9775,11 +9838,15 @@
         "sample": {
           "props": {
             "data": [],
-            "withColumns": false,
-            "searchable": true,
             "label": "Location",
             "placeholder": "Pick location",
-            "nothingFoundMessage": "Nothing found..."
+            "clearable": true,
+            "clearSectionMode": "clear",
+            "defaultValue": [
+              "asia",
+              "jp",
+              "tokyo"
+            ]
           }
         },
         "fingerprint": "cc93d6bc",
@@ -10128,6 +10195,11 @@
         "as": "exotic",
         "declaration": "lib/components/Checkbox/CheckboxCard/CheckboxCard.d.ts",
         "group": "CheckboxCard",
+        "sample": {
+          "props": {
+            "checked": false
+          }
+        },
         "fingerprint": "1d3f5212",
         "props": {
           "__size?": "0bf956",
@@ -10436,6 +10508,10 @@
         "as": "exotic",
         "declaration": "lib/components/Chip/Chip.d.ts",
         "group": "Chip",
+        "parents": [
+          "ChipGroup"
+        ],
+        "parentsFrom": "example",
         "sample": {
           "props": {
             "children": "Text",
@@ -10541,8 +10617,17 @@
         "group": "ChipGroup",
         "sample": {
           "props": {
-            "multiple": false
-          }
+            "multiple": false,
+            "value": "first"
+          },
+          "children": [
+            {
+              "component": "Chip",
+              "children": [
+                "Forbidden"
+              ]
+            }
+          ]
         },
         "fingerprint": "86645a88",
         "props": {
@@ -10644,6 +10729,7 @@
         "as": "function",
         "declaration": "lib/components/CloseButton/CloseIcon.d.ts",
         "group": "CloseIcon",
+        "internal": true,
         "fingerprint": "650dcff3",
         "props": {
           "size?": "0bf956"
@@ -10840,7 +10926,17 @@
             "label": "Your favorite color",
             "disallowInput": true,
             "withPicker": false,
-            "withEyeDropper": false
+            "withEyeDropper": false,
+            "swatches": [
+              "#2e2e2e",
+              "#868e96",
+              "#fa5252",
+              "#e64980",
+              "#be4bdb",
+              "#7950f2",
+              "#4c6ef5",
+              "#228be6"
+            ]
           }
         },
         "fingerprint": "86b6abab",
@@ -10977,9 +11073,10 @@
         "group": "ColorPicker",
         "sample": {
           "props": {
-            "fullWidth": true,
-            "size": "lg",
-            "format": "rgba"
+            "format": "hex",
+            "value": "#fff",
+            "withPicker": false,
+            "fullWidth": true
           }
         },
         "fingerprint": "6f6acbc3",
@@ -11289,9 +11386,14 @@
               ]
             },
             {
-              "component": "ComboboxOption",
+              "component": "ComboboxEventsTarget",
               "children": [
-                "🍎 Apples"
+                {
+                  "component": "span",
+                  "children": [
+                    "Text"
+                  ]
+                }
               ]
             }
           ]
@@ -11689,7 +11791,7 @@
         "parents": [
           "Combobox"
         ],
-        "parentsFrom": "example",
+        "parentsFrom": "error",
         "sample": {
           "children": [
             {
@@ -11804,6 +11906,23 @@
         "as": "exotic",
         "declaration": "lib/components/Combobox/ComboboxEventsTarget/ComboboxEventsTarget.d.ts",
         "group": "ComboboxEventsTarget",
+        "parents": [
+          "Combobox"
+        ],
+        "parentsFrom": "prefix",
+        "sample": {
+          "children": [
+            {
+              "component": "span",
+              "children": [
+                "Text"
+              ]
+            }
+          ],
+          "props": {
+            "children": "Text"
+          }
+        },
         "fingerprint": "0876e2bb",
         "props": {
           "autoComplete?": "0bf956",
@@ -12442,7 +12561,7 @@
         "parents": [
           "ComboboxPopover"
         ],
-        "parentsFrom": "example",
+        "parentsFrom": "prefix",
         "sample": {
           "children": [
             {
@@ -12475,6 +12594,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
+            "value": "",
             "placeholder": "Search groceries"
           }
         },
@@ -12595,7 +12715,7 @@
         "parents": [
           "Combobox"
         ],
-        "parentsFrom": "example",
+        "parentsFrom": "prefix",
         "sample": {
           "children": [
             {
@@ -13151,7 +13271,11 @@
           "props": {
             "opened": true,
             "withCloseButton": true,
-            "size": "lg"
+            "size": "lg",
+            "position": {
+              "bottom": 20,
+              "left": 20
+            }
           }
         },
         "fingerprint": "87ed869f",
@@ -13267,8 +13391,21 @@
         "sample": {
           "props": {
             "my": "xs",
-            "label": "Label on the left",
-            "labelPosition": "left"
+            "variant": "dashed",
+            "labelPosition": "center",
+            "label": {
+              "$element": [
+                {
+                  "component": "Box",
+                  "props": {
+                    "ml": 5
+                  },
+                  "children": [
+                    "Search results"
+                  ]
+                }
+              ]
+            }
           }
         },
         "fingerprint": "a9d0a7e2",
@@ -13357,8 +13494,9 @@
         "group": "Drawer",
         "sample": {
           "props": {
-            "opened": true,
+            "opened": false,
             "padding": "md",
+            "position": "top",
             "withCloseButton": false
           },
           "children": [
@@ -15032,6 +15170,7 @@
         "as": "function",
         "declaration": "lib/utils/Floating/FloatingArrow/FloatingArrow.d.ts",
         "group": "FloatingArrow",
+        "internal": true,
         "sample": {
           "props": {
             "position": "top",
@@ -15063,7 +15202,7 @@
         "sample": {
           "props": {
             "target": "Text",
-            "parent": "Text"
+            "parent": null
           }
         },
         "fingerprint": "54903950",
@@ -15157,6 +15296,10 @@
             "p": "md",
             "withBorder": true,
             "excludeDragHandleSelector": "button",
+            "initialPosition": {
+              "top": 300,
+              "left": 30
+            },
             "constrainToViewport": true,
             "constrainOffset": 30
           }
@@ -15385,6 +15528,14 @@
           "Grid"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "span": {
+              "base": 12,
+              "sm": 3
+            }
+          }
+        },
         "fingerprint": "3b9b31e9",
         "props": {
           "__size?": "0bf956",
@@ -15872,7 +16023,7 @@
         "parents": [
           "HoverCard"
         ],
-        "parentsFrom": "example",
+        "parentsFrom": "prefix",
         "sample": {
           "children": [
             {
@@ -15900,7 +16051,7 @@
         "group": "HueSlider",
         "sample": {
           "props": {
-            "value": 1
+            "value": 250
           }
         },
         "fingerprint": "dc984b8c",
@@ -16186,6 +16337,7 @@
         "as": "function",
         "declaration": "lib/core/InlineStyles/InlineStyles.d.ts",
         "group": "InlineStyles",
+        "internal": true,
         "sample": {
           "props": {
             "selector": "Text"
@@ -16836,11 +16988,6 @@
           "InputBase"
         ],
         "parentsFrom": "example",
-        "sample": {
-          "children": [
-            "Pick value"
-          ]
-        },
         "fingerprint": "f5d065e4",
         "props": {
           "__size?": "0bf956",
@@ -16922,6 +17069,7 @@
         "as": "exotic",
         "declaration": "lib/components/Input/InputSuccess/InputSuccess.d.ts",
         "group": "InputSuccess",
+        "internal": true,
         "fingerprint": "7b48c667",
         "props": {
           "__inheritStyles?": "31e5d9",
@@ -17259,8 +17407,14 @@
         "declaration": "lib/components/Kbd/Kbd.d.ts",
         "group": "Kbd",
         "sample": {
+          "props": {
+            "fz": {
+              "base": 16,
+              "sm": 20
+            }
+          },
           "children": [
-            "Shift"
+            "Ctrl"
           ]
         },
         "fingerprint": "7117c774",
@@ -17730,7 +17884,15 @@
         "group": "LoadingOverlay",
         "sample": {
           "props": {
-            "zIndex": 1000
+            "zIndex": 1000,
+            "overlayProps": {
+              "radius": "sm",
+              "blur": 2
+            },
+            "loaderProps": {
+              "color": "pink",
+              "type": "bars"
+            }
           }
         },
         "fingerprint": "5c07face",
@@ -17824,7 +17986,8 @@
         "visual": false,
         "sample": {
           "props": {
-            "cssVariablesSelector": "#primary-color-demo-root"
+            "cssVariablesSelector": "#primary-color-demo-root",
+            "theme": {}
           }
         },
         "fingerprint": "0b0f98a0",
@@ -18053,10 +18216,10 @@
         "group": "MaskInput",
         "sample": {
           "props": {
-            "mask": "(999) 999-9999",
-            "label": "Phone number",
-            "placeholder": "(___) ___-____",
-            "disabled": true
+            "mask": "#hhhhhh",
+            "label": "Hex color",
+            "placeholder": "#______",
+            "tokens": {}
           }
         },
         "fingerprint": "99d58bbf",
@@ -18212,7 +18375,11 @@
                 {
                   "component": "MenuSub",
                   "props": {
-                    "offset": 16
+                    "offset": 16,
+                    "safeAreaPolygon": {
+                      "buffer": 16,
+                      "requireIntent": false
+                    }
                   },
                   "children": [
                     {
@@ -18272,9 +18439,14 @@
               ]
             },
             {
-              "component": "MenuItem",
+              "component": "MenuTarget",
               "children": [
-                "External link"
+                {
+                  "component": "span",
+                  "children": [
+                    "Text"
+                  ]
+                }
               ]
             }
           ]
@@ -18679,6 +18851,12 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "value": [
+              "name",
+              "email"
+            ]
+          },
           "children": [
             {
               "component": "MenuCheckboxItem",
@@ -18735,12 +18913,16 @@
           "MenuDropdown"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "MenuDropdown"
+        ],
         "sample": {
           "props": {
-            "defaultChecked": true
+            "checked": false,
+            "checkIcon": "✦"
           },
           "children": [
-            "Pinned"
+            "Archived"
           ]
         },
         "fingerprint": "d66ccb90",
@@ -18834,7 +19016,7 @@
         "parents": [
           "Menu"
         ],
-        "parentsFrom": "example",
+        "parentsFrom": "prefix",
         "sample": {
           "children": [
             {
@@ -18864,6 +19046,9 @@
           "MenuDropdown"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "MenuDropdown"
+        ],
         "fingerprint": "a8d338d8",
         "props": {
           "__size?": "0bf956",
@@ -18956,7 +19141,11 @@
             {
               "component": "MenuSub",
               "props": {
-                "offset": 16
+                "offset": 16,
+                "safeAreaPolygon": {
+                  "buffer": 16,
+                  "requireIntent": false
+                }
               },
               "children": [
                 {
@@ -19093,9 +19282,13 @@
         "declaration": "lib/components/Menu/MenuItem/MenuItem.d.ts",
         "group": "MenuItem",
         "parents": [
-          "Menu"
+          "Menu",
+          "MenuDropdown"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
+        "optionalParents": [
+          "MenuDropdown"
+        ],
         "sample": {
           "props": {
             "component": "a",
@@ -19283,6 +19476,9 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "value": "newest"
+          },
           "children": [
             {
               "component": "MenuRadioItem",
@@ -19340,6 +19536,9 @@
           "MenuRadioGroup"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "MenuDropdown"
+        ],
         "sample": {
           "props": {
             "value": "newest"
@@ -19442,6 +19641,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
+            "value": "",
             "placeholder": "Search items"
           }
         },
@@ -19563,10 +19763,17 @@
           "MenuDropdown"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "MenuDropdown"
+        ],
         "sample": {
           "props": {
             "children": "Text",
-            "offset": 16
+            "offset": 16,
+            "safeAreaPolygon": {
+              "buffer": 16,
+              "requireIntent": false
+            }
           },
           "children": [
             {
@@ -19660,6 +19867,9 @@
           "MenuSub"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "MenuDropdown"
+        ],
         "sample": {
           "children": [
             {
@@ -19772,6 +19982,9 @@
           "MenuSubTarget"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "MenuDropdown"
+        ],
         "sample": {
           "children": [
             "Products"
@@ -19893,7 +20106,7 @@
         "parents": [
           "Menu"
         ],
-        "parentsFrom": "example",
+        "parentsFrom": "prefix",
         "sample": {
           "children": [
             {
@@ -19919,11 +20132,15 @@
         "group": "Modal",
         "sample": {
           "props": {
-            "opened": true,
-            "title": "This is a fullscreen modal",
-            "fullScreen": true,
-            "radius": 0
-          }
+            "opened": false,
+            "title": "Please consider this",
+            "transitionProps": {
+              "transition": "rotate-left"
+            }
+          },
+          "children": [
+            "rotate-left transition"
+          ]
         },
         "fingerprint": "3a68fa89",
         "props": {
@@ -20039,6 +20256,7 @@
         "as": "function",
         "declaration": "lib/components/ModalBase/ModalBase.d.ts",
         "group": "ModalBase",
+        "internal": true,
         "sample": {
           "props": {
             "opened": true
@@ -20153,6 +20371,7 @@
           "ModalBase"
         ],
         "parentsFrom": "error",
+        "internal": true,
         "fingerprint": "6c604d63",
         "props": {
           "__size?": "0bf956",
@@ -20228,6 +20447,7 @@
           "ModalBase"
         ],
         "parentsFrom": "error",
+        "internal": true,
         "fingerprint": "27a1785e",
         "props": {
           "__size?": "0bf956",
@@ -20310,6 +20530,7 @@
           "ModalBase"
         ],
         "parentsFrom": "error",
+        "internal": true,
         "sample": {
           "props": {
             "innerProps": "Text"
@@ -20394,6 +20615,7 @@
           "ModalBase"
         ],
         "parentsFrom": "error",
+        "internal": true,
         "fingerprint": "6c604d63",
         "props": {
           "__size?": "0bf956",
@@ -20469,6 +20691,7 @@
           "ModalBase"
         ],
         "parentsFrom": "error",
+        "internal": true,
         "fingerprint": "0ba6ae19",
         "props": {
           "__size?": "0bf956",
@@ -20557,6 +20780,7 @@
           "ModalBase"
         ],
         "parentsFrom": "error",
+        "internal": true,
         "fingerprint": "6c604d63",
         "props": {
           "__size?": "0bf956",
@@ -21379,11 +21603,34 @@
         "group": "MultiSelect",
         "sample": {
           "props": {
-            "maxDropdownHeight": 300,
-            "label": "Employees of the month",
-            "placeholder": "Search for employee",
-            "hidePickedOptions": true,
-            "searchable": true
+            "dropdownOpened": true,
+            "withAsterisk": true,
+            "label": "MultiSelect",
+            "description": "Description",
+            "placeholder": "MultiSelect",
+            "defaultValue": [
+              "React",
+              "Angular"
+            ],
+            "comboboxProps": {
+              "hideDetached": false
+            },
+            "data": [
+              {
+                "group": "Frontend",
+                "items": [
+                  "React",
+                  "Angular"
+                ]
+              },
+              {
+                "group": "Backend",
+                "items": [
+                  "Node",
+                  "Django"
+                ]
+              }
+            ]
           }
         },
         "fingerprint": "0759033f",
@@ -22109,6 +22356,7 @@
         "as": "exotic",
         "declaration": "lib/components/Portal/OptionalPortal.d.ts",
         "group": "OptionalPortal",
+        "internal": true,
         "sample": {
           "props": {
             "children": "Text"
@@ -22132,6 +22380,7 @@
           "Combobox"
         ],
         "parentsFrom": "error",
+        "internal": true,
         "sample": {
           "props": {
             "data": [],
@@ -22175,8 +22424,24 @@
         "sample": {
           "props": {
             "data": [],
-            "renderItem": "Text",
-            "renderOverflow": "Text",
+            "renderItem": {
+              "$render": [
+                {
+                  "component": "Badge"
+                }
+              ]
+            },
+            "renderOverflow": {
+              "$render": [
+                {
+                  "component": "Badge",
+                  "children": [
+                    "+",
+                    "more"
+                  ]
+                }
+              ]
+            },
             "gap": 4,
             "collapseFrom": "start"
           }
@@ -22480,6 +22745,7 @@
           "PaginationRoot"
         ],
         "parentsFrom": "error",
+        "internal": true,
         "fingerprint": "578cccde",
         "props": {
           "__size?": "0bf956",
@@ -22563,6 +22829,7 @@
           "PaginationRoot"
         ],
         "parentsFrom": "error",
+        "internal": true,
         "fingerprint": "870dd04d",
         "props": {
           "__size?": "0bf956",
@@ -22742,6 +23009,7 @@
           "PaginationRoot"
         ],
         "parentsFrom": "error",
+        "internal": true,
         "fingerprint": "5adf5b1e",
         "props": {
           "__size?": "0bf956",
@@ -23615,7 +23883,12 @@
           "props": {
             "label": "Enter items",
             "loading": true
-          }
+          },
+          "children": [
+            {
+              "component": "PillsInputField"
+            }
+          ]
         },
         "fingerprint": "4681680c",
         "props": {
@@ -23734,9 +24007,14 @@
         "as": "exotic",
         "declaration": "lib/components/PillsInput/PillsInputField/PillsInputField.d.ts",
         "group": "PillsInputField",
+        "parents": [
+          "PillsInput"
+        ],
+        "parentsFrom": "example",
         "sample": {
           "props": {
-            "type": "hidden"
+            "value": "",
+            "placeholder": "Search values"
           }
         },
         "fingerprint": "ab0db764",
@@ -24024,7 +24302,7 @@
         "parents": [
           "Popover"
         ],
-        "parentsFrom": "example",
+        "parentsFrom": "prefix",
         "sample": {
           "children": [
             {
@@ -24138,7 +24416,7 @@
         "parents": [
           "Popover"
         ],
-        "parentsFrom": "example",
+        "parentsFrom": "prefix",
         "sample": {
           "children": [
             {
@@ -24709,6 +24987,16 @@
         "as": "exotic",
         "declaration": "lib/components/Radio/RadioCard/RadioCard.d.ts",
         "group": "RadioCard",
+        "sample": {
+          "props": {
+            "checked": false
+          },
+          "children": [
+            {
+              "component": "RadioIndicator"
+            }
+          ]
+        },
         "fingerprint": "78402668",
         "props": {
           "__size?": "0bf956",
@@ -24910,6 +25198,7 @@
         "as": "function",
         "declaration": "lib/components/Radio/RadioIcon.d.ts",
         "group": "RadioIcon",
+        "internal": true,
         "fingerprint": "f79424a6",
         "props": {
           "size?": "c232cc"
@@ -24919,6 +25208,10 @@
         "as": "exotic",
         "declaration": "lib/components/Radio/RadioIndicator/RadioIndicator.d.ts",
         "group": "RadioIndicator",
+        "parents": [
+          "RadioCard"
+        ],
+        "parentsFrom": "example",
         "sample": {
           "props": {
             "disabled": true,
@@ -25014,11 +25307,45 @@
         "group": "RangeSlider",
         "sample": {
           "props": {
+            "value": [
+              25,
+              75
+            ],
             "min": 0,
             "max": 100,
             "step": 1,
             "minRange": 10,
-            "restrictToMarks": true
+            "restrictToMarks": true,
+            "marks": [
+              {
+                "value": 0,
+                "label": "0%"
+              },
+              {
+                "value": 20,
+                "hidden": true
+              },
+              {
+                "value": 40,
+                "hidden": true
+              },
+              {
+                "value": 50,
+                "label": "50%"
+              },
+              {
+                "value": 60,
+                "hidden": true
+              },
+              {
+                "value": 80,
+                "hidden": true
+              },
+              {
+                "value": 100,
+                "label": "100%"
+              }
+            ]
           }
         },
         "fingerprint": "bafc055e",
@@ -25234,6 +25561,7 @@
       "RemoveScroll": {
         "as": "exotic",
         "group": "Combination",
+        "internal": true,
         "sample": {
           "props": {
             "children": "Text"
@@ -25263,10 +25591,19 @@
         "group": "RingProgress",
         "sample": {
           "props": {
-            "sections": [],
+            "sections": [
+              {
+                "color": "blue"
+              }
+            ],
             "roundCaps": true,
             "thickness": 6,
-            "size": 150
+            "size": 150,
+            "label": {
+              "$element": [
+                "% Completed"
+              ]
+            }
           }
         },
         "fingerprint": "49b6c3cc",
@@ -25359,7 +25696,7 @@
         "group": "RollingNumber",
         "sample": {
           "props": {
-            "value": 1,
+            "value": 99.99,
             "prefix": "$ ",
             "suffix": " USD",
             "decimalScale": 2,
@@ -25762,7 +26099,12 @@
         "group": "SegmentedControl",
         "sample": {
           "props": {
-            "data": [],
+            "data": [
+              "React",
+              "Angular",
+              "Vue",
+              "Svelte"
+            ],
             "color": "lime.4",
             "autoContrast": true
           }
@@ -25865,6 +26207,12 @@
             "label": "Option can be deselected",
             "description": "This is default behavior, click 'React' in the dropdown",
             "placeholder": "Pick value",
+            "data": [
+              "React",
+              "Angular",
+              "Vue",
+              "Svelte"
+            ],
             "defaultValue": "React",
             "allowDeselect": true,
             "mt": "md"
@@ -26119,8 +26467,16 @@
         "group": "SimpleGrid",
         "sample": {
           "props": {
-            "minColWidth": "200px",
-            "autoFlow": "auto-fill"
+            "type": "container",
+            "cols": {
+              "base": 1,
+              "300px": 2,
+              "500px": 5
+            },
+            "spacing": {
+              "base": 10,
+              "300px": "xl"
+            }
           }
         },
         "fingerprint": "014e4558",
@@ -26304,11 +26660,24 @@
         "group": "Slider",
         "sample": {
           "props": {
-            "step": 1,
-            "min": 2,
-            "max": 30,
-            "labelAlwaysOn": true,
-            "defaultValue": 10
+            "domain": [
+              0,
+              100
+            ],
+            "min": 10,
+            "max": 90,
+            "defaultValue": 25,
+            "mb": 40,
+            "marks": [
+              {
+                "value": 10,
+                "label": "min"
+              },
+              {
+                "value": 90,
+                "label": "max"
+              }
+            ]
           }
         },
         "fingerprint": "1fa1e8fa",
@@ -26975,6 +27344,51 @@
         "as": "exotic",
         "declaration": "lib/components/Stepper/Stepper.d.ts",
         "group": "Stepper",
+        "sample": {
+          "props": {
+            "children": "Text",
+            "active": 1,
+            "allowNextStepsSelect": false
+          },
+          "children": [
+            {
+              "component": "StepperStep",
+              "props": {
+                "label": "First step",
+                "description": "Create an account"
+              },
+              "children": [
+                "Step 1 content: Create an account"
+              ]
+            },
+            {
+              "component": "StepperStep",
+              "props": {
+                "label": "Second step",
+                "description": "Verify email"
+              },
+              "children": [
+                "Step 2 content: Verify email"
+              ]
+            },
+            {
+              "component": "StepperStep",
+              "props": {
+                "label": "Final step",
+                "description": "Get full access"
+              },
+              "children": [
+                "Step 3 content: Get full access"
+              ]
+            },
+            {
+              "component": "StepperCompleted",
+              "children": [
+                "Completed, click back button to get to previous step"
+              ]
+            }
+          ]
+        },
         "fingerprint": "b0879bdb",
         "props": {
           "__size?": "0bf956",
@@ -27724,7 +28138,10 @@
             "size": "sm",
             "variant": "none",
             "minDepthToOffset": 0,
-            "depthOffset": 40
+            "depthOffset": 40,
+            "scrollSpyOptions": {
+              "selector": "h1, h2, h3, h4, h5, h6"
+            }
           }
         },
         "fingerprint": "57cd91a2",
@@ -27819,7 +28236,8 @@
         "sample": {
           "props": {
             "minWidth": 760,
-            "maxHeight": 400
+            "maxHeight": 400,
+            "scrollAreaProps": {}
           },
           "children": [
             {
@@ -27858,7 +28276,26 @@
                   ]
                 },
                 {
-                  "component": "TableTbody"
+                  "component": "TableTbody",
+                  "children": [
+                    {
+                      "component": "TableTr",
+                      "children": [
+                        {
+                          "component": "TableTd"
+                        },
+                        {
+                          "component": "TableTd"
+                        },
+                        {
+                          "component": "TableTd"
+                        },
+                        {
+                          "component": "TableTd"
+                        }
+                      ]
+                    }
+                  ]
                 }
               ]
             }
@@ -28118,6 +28555,7 @@
         "group": "TableComponents",
         "parents": [
           "Table",
+          "TableThead",
           "TableTbody",
           "TableTr"
         ],
@@ -28287,10 +28725,13 @@
         "group": "TableComponents",
         "parents": [
           "Table",
-          "TableTbody",
+          "TableThead",
           "TableTr"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "TableThead"
+        ],
         "sample": {
           "props": {
             "w": 160
@@ -28498,9 +28939,14 @@
         "group": "TableComponents",
         "parents": [
           "Table",
+          "TableThead",
           "TableTbody"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "TableTbody",
+          "TableThead"
+        ],
         "sample": {
           "children": [
             {
@@ -29105,7 +29551,30 @@
             "withAsterisk": true,
             "label": "TagsInput",
             "description": "Description",
-            "placeholder": "TagsInput"
+            "placeholder": "TagsInput",
+            "defaultValue": [
+              "First",
+              "Second"
+            ],
+            "comboboxProps": {
+              "hideDetached": false
+            },
+            "data": [
+              {
+                "group": "Frontend",
+                "items": [
+                  "React",
+                  "Angular"
+                ]
+              },
+              {
+                "group": "Backend",
+                "items": [
+                  "Node",
+                  "Django"
+                ]
+              }
+            ]
           }
         },
         "fingerprint": "7a8c39c4",
@@ -29269,6 +29738,7 @@
           },
           "children": [
             "You&apos;ve created new branch",
+            " ",
             {
               "component": "Text",
               "props": {
@@ -29280,7 +29750,7 @@
                 "fix-notifications"
               ]
             },
-            "from master"
+            " "
           ]
         },
         "fingerprint": "b6dfcd90",
@@ -29630,9 +30100,10 @@
         "group": "ThemeIcon",
         "sample": {
           "props": {
-            "color": "teal",
-            "size": 24,
-            "radius": "xl"
+            "variant": "gradient",
+            "size": "xl",
+            "aria-label": "Gradient action icon",
+            "gradient": {}
           }
         },
         "fingerprint": "c0432937",
@@ -29730,7 +30201,21 @@
             {
               "component": "TimelineItem",
               "props": {
-                "title": "New branch"
+                "title": "New branch",
+                "opposite": {
+                  "$element": [
+                    {
+                      "component": "Text",
+                      "props": {
+                        "size": "sm",
+                        "c": "dimmed"
+                      },
+                      "children": [
+                        "2 hours ago"
+                      ]
+                    }
+                  ]
+                }
               },
               "children": []
             },
@@ -29738,6 +30223,20 @@
               "component": "TimelineItem",
               "props": {
                 "title": "Commits",
+                "opposite": {
+                  "$element": [
+                    {
+                      "component": "Text",
+                      "props": {
+                        "size": "sm",
+                        "c": "dimmed"
+                      },
+                      "children": [
+                        "52 minutes ago"
+                      ]
+                    }
+                  ]
+                },
                 "alternate": true
               },
               "children": []
@@ -29746,7 +30245,21 @@
               "component": "TimelineItem",
               "props": {
                 "title": "Pull request",
-                "lineVariant": "dashed"
+                "lineVariant": "dashed",
+                "opposite": {
+                  "$element": [
+                    {
+                      "component": "Text",
+                      "props": {
+                        "size": "sm",
+                        "c": "dimmed"
+                      },
+                      "children": [
+                        "34 minutes ago"
+                      ]
+                    }
+                  ]
+                }
               },
               "children": []
             },
@@ -29754,6 +30267,20 @@
               "component": "TimelineItem",
               "props": {
                 "title": "Code review",
+                "opposite": {
+                  "$element": [
+                    {
+                      "component": "Text",
+                      "props": {
+                        "size": "sm",
+                        "c": "dimmed"
+                      },
+                      "children": [
+                        "12 minutes ago"
+                      ]
+                    }
+                  ]
+                },
                 "alternate": true
               },
               "children": []
@@ -29855,6 +30382,20 @@
         "sample": {
           "props": {
             "title": "Commits",
+            "opposite": {
+              "$element": [
+                {
+                  "component": "Text",
+                  "props": {
+                    "size": "sm",
+                    "c": "dimmed"
+                  },
+                  "children": [
+                    "52 minutes ago"
+                  ]
+                }
+              ]
+            },
             "alternate": true
           }
         },
@@ -29952,7 +30493,8 @@
           },
           "children": [
             "Title in which you want to",
-            "something"
+            " ",
+            " "
           ]
         },
         "fingerprint": "e99c5003",
@@ -30146,7 +30688,10 @@
             {
               "component": "ToolbarToggleGroup",
               "props": {
-                "type": "multiple"
+                "type": "multiple",
+                "defaultValue": [
+                  "bold"
+                ]
               },
               "children": [
                 {
@@ -31017,6 +31562,10 @@
         "declaration": "lib/components/Tour/Tour.d.ts",
         "group": "Tour",
         "sample": {
+          "props": {
+            "active": false,
+            "step": 0
+          },
           "children": [
             {
               "component": "TourStep",
@@ -31260,6 +31809,11 @@
           "TourTooltip"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "Click here to get started with the app."
+          ]
+        },
         "fingerprint": "b49c2499",
         "props": {
           "__size?": "0bf956",
@@ -31376,6 +31930,11 @@
           "TourRoot"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "targetRect": null
+          }
+        },
         "fingerprint": "93bc4b3d",
         "props": {
           "color?": "0bf956",
@@ -31389,6 +31948,7 @@
         "declaration": "lib/components/Tour/Tour.context.d.ts",
         "group": "TourContext",
         "visual": false,
+        "internal": true,
         "fingerprint": "5d52443f"
       },
       "TourRoot": {
@@ -31397,23 +31957,39 @@
         "group": "TourRoot",
         "sample": {
           "props": {
-            "stepsCount": 1
+            "stepsCount": 2,
+            "active": false,
+            "step": 0
           },
           "children": [
             {
-              "component": "TourOverlay"
+              "component": "TourOverlay",
+              "props": {
+                "targetRect": null
+              }
             },
             {
               "component": "TourTooltip",
+              "props": {
+                "targetElement": null,
+                "position": "bottom",
+                "mounted": false
+              },
               "children": [
                 {
                   "component": "TourCloseButton"
                 },
                 {
-                  "component": "TourTitle"
+                  "component": "TourTitle",
+                  "children": [
+                    "Welcome"
+                  ]
                 },
                 {
-                  "component": "TourBody"
+                  "component": "TourBody",
+                  "children": [
+                    "Click here to get started with the app."
+                  ]
                 },
                 {
                   "component": "TourNavigation"
@@ -31564,6 +32140,11 @@
           "TourTooltip"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "Welcome"
+          ]
+        },
         "fingerprint": "8defca49",
         "props": {
           "__size?": "0bf956",
@@ -31646,15 +32227,26 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "targetElement": null,
+            "position": "bottom",
+            "mounted": false
+          },
           "children": [
             {
               "component": "TourCloseButton"
             },
             {
-              "component": "TourTitle"
+              "component": "TourTitle",
+              "children": [
+                "Welcome"
+              ]
             },
             {
-              "component": "TourBody"
+              "component": "TourBody",
+              "children": [
+                "Click here to get started with the app."
+              ]
             },
             {
               "component": "TourNavigation"
@@ -31742,6 +32334,33 @@
         "as": "function",
         "declaration": "lib/components/Transition/Transition.d.ts",
         "group": "Transition",
+        "parents": [
+          "ActionBar"
+        ],
+        "parentsFrom": "source",
+        "sample": {
+          "props": {
+            "mounted": false,
+            "children": "Text",
+            "transition": {
+              "in": {
+                "opacity": 1,
+                "transform": "scaleY(1)"
+              },
+              "out": {
+                "opacity": 0,
+                "transform": "scaleY(0)"
+              },
+              "common": {
+                "transformOrigin": "top"
+              },
+              "transitionProperty": "transform, opacity"
+            },
+            "duration": 200,
+            "timingFunction": "ease",
+            "keepMounted": true
+          }
+        },
         "fingerprint": "62f4f969",
         "props": {
           "children": "52dfa8",
@@ -31767,9 +32386,10 @@
         "sample": {
           "props": {
             "data": [],
-            "levelOffset": 23,
-            "expandOnClick": false,
-            "withLines": true
+            "classNames": {},
+            "withLines": true,
+            "selectOnClick": true,
+            "clearSelectionOnOutsideClick": true
           }
         },
         "fingerprint": "f0ca77cd",
@@ -31869,10 +32489,14 @@
         "sample": {
           "props": {
             "data": [],
-            "label": "Select items",
-            "placeholder": "Pick values",
             "mode": "checkbox",
-            "checkStrictly": true,
+            "checkedStrategy": "parent",
+            "label": "Categories",
+            "placeholder": "Pick categories",
+            "defaultValue": [
+              "phones",
+              "headphones"
+            ],
             "defaultExpandAll": true
           }
         },
@@ -32036,6 +32660,7 @@
           "TreeSelect"
         ],
         "parentsFrom": "prefix",
+        "internal": true,
         "fingerprint": "0d6d9dad",
         "props": {
           "checked": "486474",

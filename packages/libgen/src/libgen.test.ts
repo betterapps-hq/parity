@@ -1,11 +1,15 @@
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { createRequire } from "node:module"
+import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { pathToFileURL } from "node:url"
 import { describedCategories, describedTokenCss, readDesignTokens } from "@parity/core"
 import { describe, expect, it } from "vitest"
+import { checkAnatomy, readAnatomy } from "./anatomy.ts"
 import { findComponents } from "./components.ts"
-import { compareComponents, selectComponents } from "./index.ts"
 import { readExamples } from "./examples.ts"
+import { hostedParts, type RenderCall, readRenders, renderedIn } from "./hosts.ts"
+import { compareComponents, selectComponents } from "./index.ts"
 import { guessParent, relateParts } from "./parts.ts"
 import { categorizeVar, cssTokens, pairLineHeights, toDtcg } from "./tokens.ts"
 
@@ -191,7 +195,8 @@ describe("parts", () => {
       throw new Error("Context is missing.")
     }
     const library = {
-      Menu: ({ children }: { children?: unknown }) => React.createElement(MenuContext.Provider, { value: true }, children),
+      Menu: ({ children }: { children?: unknown }) =>
+        React.createElement(MenuContext.Provider, { value: true }, children),
       MenuContent: ({ children }: { children?: unknown }) => (React.useContext(MenuContext) ? children : missing()),
       MenuSub: ({ children }: { children?: unknown }) =>
         React.useContext(MenuContext) ? React.createElement(SubContext.Provider, { value: true }, children) : missing(),
@@ -213,7 +218,9 @@ describe("parts", () => {
     const { relations } = await relateParts(
       async (specifier) => (specifier === "demo" ? library : load(specifier)),
       "demo",
-      names.map((name) => ({ name, export: name, samples: {} }) as unknown as Parameters<typeof relateParts>[2][number]),
+      names.map(
+        (name) => ({ name, export: name, samples: {} }) as unknown as Parameters<typeof relateParts>[2][number]
+      ),
       [],
       {},
       uses
@@ -225,6 +232,181 @@ describe("parts", () => {
     expect(relations.get("MenuSubTrigger")?.inside).toBeUndefined()
     // Badge draws alone, so the cards the examples put it in aren't its parents.
     expect(relations.get("Badge")?.parents).toBeUndefined()
+  })
+
+  it("marks levels some examples leave out, and it renders without, as optional", async () => {
+    const React = (await load("react")) as unknown as ReactLike
+    const MenuContext = React.createContext(false)
+    const ContentContext = React.createContext(false)
+    const library = {
+      Menu: ({ children }: { children?: unknown }) =>
+        React.createElement(MenuContext.Provider, { value: true }, children),
+      MenuContent: ({ children }: { children?: unknown }) => {
+        if (!React.useContext(MenuContext)) throw new Error("Context is missing.")
+        return React.createElement(ContentContext.Provider, { value: true }, children)
+      },
+      MenuGroup: ({ children }: { children?: unknown }) => React.createElement("div", null, children),
+      MenuItem: () => {
+        if (!React.useContext(ContentContext)) throw new Error("Context is missing.")
+        return React.createElement("div", null, "Copy")
+      }
+    }
+    const names = Object.keys(library)
+    const menu = (inner: string) => `<Menu><MenuContent>${inner}</MenuContent></Menu>`
+    const uses = readExamples(
+      [
+        { path: "a.tsx", text: menu(`<MenuGroup><MenuItem>Copy</MenuItem></MenuGroup>`) },
+        { path: "b.tsx", text: menu(`<MenuGroup><MenuItem>Paste</MenuItem></MenuGroup>`) },
+        { path: "c.tsx", text: menu(`<MenuItem>Cut</MenuItem>`) }
+      ],
+      names
+    )
+    const { relations } = await relateParts(
+      async (specifier) => (specifier === "demo" ? library : load(specifier)),
+      "demo",
+      names.map(
+        (name) => ({ name, export: name, samples: {} }) as unknown as Parameters<typeof relateParts>[2][number]
+      ),
+      [],
+      {},
+      uses
+    )
+    expect(relations.get("MenuItem")).toMatchObject({
+      parents: ["Menu", "MenuContent", "MenuGroup"],
+      optionalParents: ["MenuGroup"],
+      parentsFrom: "example"
+    })
+  })
+
+  it("places a part no example shows where the package renders it, and calls a parent's function children", async () => {
+    const React = (await load("react")) as unknown as ReactLike & { createContext: ReactLike["createContext"] }
+    const Positioner = React.createContext(false)
+    const Segments = React.createContext(false)
+    const library = {
+      Select: ({ children }: { children?: unknown }) => React.createElement("div", null, children),
+      SelectContent: ({ children }: { children?: unknown }) =>
+        React.createElement(Positioner.Provider, { value: true }, children),
+      SelectScrollUpButton: () => {
+        if (!React.useContext(Positioner)) throw new Error("Context is missing.")
+        return React.createElement("button", null, "Up")
+      },
+      DateInput: ({ children }: { children?: unknown }) => {
+        if (typeof children !== "function") throw new Error("children is not a function")
+        return React.createElement(
+          Segments.Provider,
+          { value: true },
+          (children as (segment: string) => unknown)("day")
+        )
+      },
+      DateSegment: ({ segment }: { segment?: string }) => {
+        if (!React.useContext(Segments) || !segment) throw new Error("DateSegment needs a segment")
+        return React.createElement("span", null, segment)
+      }
+    }
+    const names = Object.keys(library)
+    const uses = readExamples(
+      [{ path: "date.tsx", text: `<DateInput>{(segment) => <DateSegment segment={segment} />}</DateInput>` }],
+      names
+    )
+    const { relations } = await relateParts(
+      async (specifier) => (specifier === "demo" ? library : load(specifier)),
+      "demo",
+      names.map(
+        (name) => ({ name, export: name, samples: {} }) as unknown as Parameters<typeof relateParts>[2][number]
+      ),
+      [],
+      {},
+      uses,
+      new Map([["SelectScrollUpButton", ["SelectContent"]]])
+    )
+    expect(relations.get("SelectScrollUpButton")).toMatchObject({ parents: ["SelectContent"], parentsFrom: "source" })
+    expect(relations.get("SelectScrollUpButton")?.inside).toBeUndefined()
+    expect(relations.get("DateInput")?.sample?.children).toEqual([
+      { $render: [{ component: "DateSegment" }], pass: ["segment"] }
+    ])
+    expect(relations.get("DateSegment")).toMatchObject({ parents: ["DateInput"], parentsFrom: "example" })
+    expect(relations.get("DateSegment")?.inside).toBeUndefined()
+  })
+
+  it("checks chains against the docs' anatomy", () => {
+    const docs = [
+      {
+        path: "menu.mdx",
+        text: [
+          "# Menu",
+          "## Anatomy",
+          "```jsx",
+          'import { Menu } from "lib"',
+          "<Menu.Root><Menu.Portal><Menu.Popup><Menu.Item /><Menu.Group><Menu.GroupLabel /></Menu.Group></Menu.Popup></Menu.Portal></Menu.Root>",
+          "```",
+          "## Examples",
+          "```jsx",
+          "<Card><Menu.Item /></Card>",
+          "```"
+        ].join("\n")
+      }
+    ]
+    const names = ["Card", "Menu.Root", "Menu.Portal", "Menu.Popup", "Menu.Item", "Menu.Group", "Menu.GroupLabel"]
+    const anatomy = readAnatomy(docs, names)
+    expect(anatomy.get("Menu.Item")).toEqual([["Menu.Popup", "Menu.Portal", "Menu.Root"]])
+    const check = checkAnatomy(anatomy, {
+      "Menu.Root": {},
+      "Menu.Portal": { parents: ["Menu.Root"] },
+      "Menu.Popup": { parents: ["Menu.Root", "Menu.Portal"] },
+      "Menu.Item": { parents: ["Menu.Root", "Menu.Popup"] },
+      "Menu.Group": { parents: ["Menu.Root", "Menu.Item"] },
+      "Menu.GroupLabel": { parents: ["Menu.Root", "Menu.Portal", "Menu.Popup", "Menu.Group"] }
+    })
+    // Portals aren't counted either way: chains leave them out on purpose.
+    expect(check).toMatchObject({ parts: 5, placed: 4, complete: 4 })
+    expect(check.differ).toEqual([
+      { name: "Menu.Group", docs: ["Menu.Root", "Menu.Popup"], file: ["Menu.Root", "Menu.Item"] }
+    ])
+  })
+
+  it("finds the parts only a decorator's host renders", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "parity-hosts-"))
+    await mkdir(join(dir, "dist"))
+    await writeFile(
+      join(dir, "dist", "toast.js"),
+      `import { jsx as _jsx } from "react/jsx-runtime"
+      function Toast(props) { return _jsx(Primitive.Root, props) }
+      function ToastTitle(props) { return _jsx(Primitive.Title, props) }
+      function Button(props) { return _jsx("button", props) }
+      function ToastList() { return toasts.map((t) => _jsx(Toast, { children: [_jsx(ToastTitle, {}), _jsx(Button, {})] })) }
+      function Toaster() { return _jsx(ToastList, {}) }
+      function Card() { return _jsx(Button, {}) }
+      export { Toast, ToastTitle, Button, ToastList, Toaster, Card }`
+    )
+    try {
+      const names = ["Toast", "ToastTitle", "Button", "ToastList", "Toaster", "Card"]
+      const renders = await readRenders(dir, names)
+      // Button is rendered by a Card too, so people place it.
+      expect(hostedParts(renders, ["Toaster"], names)).toEqual(["Toast", "ToastTitle", "ToastList"])
+      expect(renderedIn(renders).get("Button")).toEqual(["ToastList", "Card"])
+      // What each render passes: the owner's own props by name, values, and what's worked out.
+      await writeFile(
+        join(dir, "dist", "chart.js"),
+        `function ChartContainer({ id, config, ...props }) { const chartId = id ?? "x"; return _jsx(ChartStyle, { id: chartId, config, size: 2, theme: props.theme }) }
+        function ChartStyle({ id, config }) { return _jsx("style", {}) }
+        export { ChartContainer, ChartStyle }`
+      )
+      const calls = new Map<string, RenderCall[]>()
+      await readRenders(dir, ["ChartContainer", "ChartStyle"], calls)
+      expect(calls.get("ChartStyle")).toEqual([
+        {
+          owner: "ChartContainer",
+          props: {
+            id: { computed: true },
+            config: { forward: "config" },
+            size: { value: 2 },
+            theme: { forward: "theme" }
+          }
+        }
+      ])
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
   })
 
   it("guesses a parent from a namespace, a shared prefix or a plural", () => {
