@@ -93,3 +93,33 @@ export const InstallingLucide: Story = {
     await waitFor(() => expect(within(document.body).getByText("Installing Lucide…")).toBeVisible())
   }
 }
+
+/** Adding an icon set: the catalog lists the icon sets that can be installed, with Lucide marked as added. */
+export const AddingAnIconSet: Story = {
+  loaders: [openIcons],
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole("button", { name: "Add an icon set" }))
+    await within(document.body).findByText("Tabler Icons")
+  }
+}
+
+/** An icon set installing with the project's package manager, after Add was clicked in the catalog. */
+export const InstallingAnIconSet: Story = {
+  loaders: [openIcons],
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole("button", { name: "Add an icon set" }))
+    const tabler = await within(document.body).findByText("Tabler Icons")
+    service.latency = 24 * 60 * 60 * 1000
+    await userEvent.click(within(tabler.closest("li")!).getByRole("button", { name: "Add" }))
+    await waitFor(() => expect(within(document.body).getByText("Installing Tabler Icons…")).toBeVisible())
+  }
+}
+
+/** A project without an icon library, choosing a set other than Lucide. */
+export const ChoosingAnotherSet: Story = {
+  loaders: [openWithoutIcons],
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole("button", { name: "Choose another" }))
+    await within(document.body).findByText("Phosphor")
+  }
+}

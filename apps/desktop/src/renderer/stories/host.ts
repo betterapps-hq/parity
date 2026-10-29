@@ -244,6 +244,46 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
           package: "@radix-ui/themes",
           kind: "components",
           installed: false
+        },
+        {
+          id: "tabler",
+          name: "Tabler Icons",
+          description: "Over 5,000 outline and filled icons on a 24px grid.",
+          package: "@tabler/icons-react",
+          kind: "icons",
+          installed: false
+        },
+        {
+          id: "phosphor",
+          name: "Phosphor",
+          description: "A flexible icon family with six weights, picked with the weight prop.",
+          package: "@phosphor-icons/react",
+          kind: "icons",
+          installed: false
+        },
+        {
+          id: "hugeicons",
+          name: "Hugeicons",
+          description: "Thousands of free icons as data, drawn by Hugeicons' React component.",
+          package: "@hugeicons/core-free-icons",
+          kind: "icons",
+          installed: false
+        },
+        {
+          id: "heroicons",
+          name: "Heroicons",
+          description: "Hand-crafted SVG icons from the makers of Tailwind CSS, in the 24px outline style.",
+          package: "@heroicons/react",
+          kind: "icons",
+          installed: false
+        },
+        {
+          id: "fluent-icons",
+          name: "Fluent icons",
+          description: "Microsoft's Fluent System Icons, in Regular and Filled styles, some with a size in the name.",
+          package: "@fluentui/react-icons",
+          kind: "icons",
+          installed: false
         }
       ]
     case "library.add":
