@@ -18,6 +18,7 @@ import {
 import type { ProcessUsage, RenderedFrame, RenderJob, SaveDialogOptions } from "../shared/protocol.ts"
 import type { MainMessage, ServiceMessage } from "../shared/service.ts"
 import { readConsole, recordConsole } from "./console-log.ts"
+import { idleClose } from "./idle-close.ts"
 import { privateMemory } from "./private-memory.ts"
 
 const rendererUrl = process.env.PARITY_RENDERER_URL
@@ -204,7 +205,7 @@ function createWindow(): void {
     return { action: "deny" }
   })
   // The hidden render window would otherwise keep the app running.
-  window.on("closed", () => renderWindow?.destroy())
+  window.on("closed", closeRenderWindow)
   void window.loadURL(rendererUrl!)
 }
 
@@ -332,6 +333,17 @@ ipcMain.handle("canvas:metrics", async (event): Promise<ProcessUsage[]> => {
 let renderWindow: BrowserWindow | undefined
 let renderLoaded: Promise<void> | undefined
 let renderQueue: Promise<unknown> = Promise.resolve()
+// The window holds its page and every project module graph it imported, which only closing it returns, so it closes a
+// minute after its last job and the next job opens it again.
+const renderIdle = idleClose(60_000, closeRenderWindow)
+
+function closeRenderWindow(): void {
+  renderIdle.cancel()
+  const window = renderWindow
+  renderWindow = undefined
+  renderLoaded = undefined
+  if (window && !window.isDestroyed()) window.destroy()
+}
 
 function ensureRenderWindow(): Promise<BrowserWindow> {
   if (!renderWindow || renderWindow.isDestroyed()) {
@@ -349,6 +361,8 @@ function ensureRenderWindow(): Promise<BrowserWindow> {
 }
 
 function renderFrame(job: RenderJob, capture: boolean): Promise<{ frame?: RenderedFrame; png?: string }> {
+  // Held from the moment it's queued, so the window never closes under a job or with one waiting.
+  const done = renderIdle.use()
   const run = async () => {
     const window = await ensureRenderWindow()
     const width = Math.max(1, Math.ceil(job.mode.width * job.scale))
@@ -372,7 +386,7 @@ function renderFrame(job: RenderJob, capture: boolean): Promise<{ frame?: Render
     const image = await window.webContents.capturePage({ x: 0, y: 0, width, height })
     return { frame, png: image.toPNG().toString("base64") }
   }
-  const result = renderQueue.then(run, run)
+  const result = renderQueue.then(run, run).finally(done)
   renderQueue = result.catch(() => undefined)
   return result
 }

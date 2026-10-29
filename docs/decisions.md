@@ -850,6 +850,12 @@ recommended answer to each of its questions.
   to CAN-33. A gap in the canvas's isolation then shows up as a failure, not as a wrong baseline.
 
 - **Agents render offscreen,** in a hidden window, so their work never moves your camera. Export uses the same renderer.
+- **The offscreen renderer closes when it's idle,** a minute after its last job, and the next job opens it again
+  (CAN-83). Its page holds every module graph the project's guest imported, which a page can't unload, so it held 115 to
+  215 MB for the whole session and grew each time a project reopened (452 MB after five). A job counts from when it's
+  queued until it ends (`main/idle-close.ts`), so it never closes during a job or with one waiting. The first job after
+  it opens again waits for the page and the project's modules to load, 0.4 to 0.9 s more than a capture's usual 133 ms
+  on the example project; bitmaps are kept in the canvas, so a canvas that's settled rarely asks again.
 - **Prop inference uses the TypeScript 6 compiler in a worker thread,** from cva variants, destructured defaults and the
   component's own props type.
 - **The CLI and MCP check accessibility:** `parity a11y <design>` and the `check_accessibility` tool, in every state and
