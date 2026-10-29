@@ -1040,9 +1040,9 @@ recommended answer to each of its questions.
   - **The builder that takes the address carries the log on,** since the pages still hold what the last one served. One
     started again from the processes list takes its port whenever it's free; if it can't, the windows are told
     (`project.guestMoved`) and load the guest from the new one.
-  - **A reopen after a code change still loads every module again,** about 130 MB in the window for the example project,
-    which a page can't give back. Only picking up code edits live (PAR-165) or a separate realm per project would avoid
-    that.
+  - **A reopen after a code change still loads every module again,** the example project's 33 scripts and 6.9 M
+    characters, which a page can't give back. Only picking up code edits live (PAR-165) or a separate realm per project
+    would avoid that.
 - **Closing a project lets go of its guest in the window:** its `loadGuest` entry and the stylesheet the document
   adopted for it (PAR-195), so the next open makes its stylesheets anew, without the last session's token previews. The
   offscreen renderer lets go of a project's last guest when its jobs come with a new address, since it doesn't hear of
