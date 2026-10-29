@@ -69,6 +69,31 @@ export async function repositoryFiles(
   return files
 }
 
+/**
+ * The scripts a web page loads from its own site, as it serves them now, with the day it served them: a page has no
+ * versions, so the day says which one was read. Scripts from other sites are left alone.
+ */
+export async function pageScripts(url: string): Promise<{ served: string; scripts: { path: string; text: string }[] }> {
+  const response = await fetch(url)
+  if (!response.ok) throw new Error(`${url} answered ${response.status}`)
+  const html = await response.text()
+  const date = new Date(response.headers.get("date") ?? Date.now())
+  const origin = new URL(url).origin
+  const sources = new Set<string>()
+  for (const match of html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/g)) {
+    const source = new URL(match[1]!.replaceAll("&amp;", "&"), url)
+    if (source.origin === origin) sources.add(source.href)
+  }
+  const scripts = await Promise.all(
+    [...sources].map(async (source) => {
+      const script = await fetch(source)
+      if (!script.ok) throw new Error(`${source} answered ${script.status}`)
+      return { path: decodeURIComponent(new URL(source).pathname), text: await script.text() }
+    })
+  )
+  return { served: date.toISOString().slice(0, 10), scripts }
+}
+
 async function git(args: string[], cwd: string, timeout = 60_000, input?: string): Promise<{ stdout: string }> {
   const child = run("git", args, { cwd, timeout, maxBuffer: 256 * 1024 * 1024, windowsHide: true })
   if (input !== undefined) {

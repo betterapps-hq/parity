@@ -161,17 +161,17 @@ at the end of this page are the plan for testing more. Four of them exist in `fi
 
 ### Icons and images
 
-| Source                                 | Status | Notes                                                                                                                                                  |
-| -------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Lucide (`lucide-react`)                | ✅     | Names come from the project's own copy. Searched by tags from lucide-static, and by its older names.                                                   |
-| Hugeicons                              | ✅     | Icons are data, drawn by `HugeiconsIcon`. Searched by name and the synonyms it exports (Gear, Cog); it publishes no tags outside its website (Q5).     |
-| Fluent icons (`@fluentui/react-icons`) | ✅     | Regular, Filled, Color and Light as styles; sized copies left out of the panel. Searched by the metaphors in its repository, for 2,543 of 2,902 icons. |
-| Phosphor, Tabler                       | ✅     | Phosphor's weights and Tabler's Filled icons as styles. Searched by tags and categories from @phosphor-icons/core and @tabler/icons.                   |
-| Heroicons                              | ✅     | The outline set. Searched by name only, as Heroicons publishes no tags (Q4).                                                                           |
-| Searching icons                        | ✅     | Words in any order, by name, every alias and the set's tags, ranked, with small typos forgiven.                                                        |
-| Pexels                                 | ⏳     | Removed for now: Pexels isn't taking new customers. The Images tab says it's coming soon.                                                              |
-| Unsplash                               | 🔜     | The first stock source, through a service of Parity's that holds the key.                                                                              |
-| Pasted or imported images              | ✅     | PNG, JPEG, GIF, WebP and SVG up to 20 MB, saved to `public/images/`.                                                                                   |
+| Source                                 | Status | Notes                                                                                                                                                            |
+| -------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lucide (`lucide-react`)                | ✅     | Names come from the project's own copy. Searched by tags from lucide-static, and by its older names.                                                             |
+| Hugeicons                              | ✅     | Icons are data, drawn by `HugeiconsIcon`. Searched by name and the synonyms it exports (Gear, Cog); its tags are only on its web API, which Parity doesn't read. |
+| Fluent icons (`@fluentui/react-icons`) | ✅     | Regular, Filled, Color and Light as styles; sized copies left out of the panel. Searched by the metaphors in its repository, for 2,543 of 2,902 icons.           |
+| Phosphor, Tabler                       | ✅     | Phosphor's weights and Tabler's Filled icons as styles. Searched by tags and categories from @phosphor-icons/core and @tabler/icons.                             |
+| Heroicons                              | ✅     | The outline set. Searched by name, and by the keywords heroicons.com's search has, for 190 of 324 icons.                                                         |
+| Searching icons                        | ✅     | Words in any order, by name, every alias and the set's tags, ranked, with small typos forgiven.                                                                  |
+| Pexels                                 | ⏳     | Removed for now: Pexels isn't taking new customers. The Images tab says it's coming soon.                                                                        |
+| Unsplash                               | 🔜     | The first stock source, through a service of Parity's that holds the key.                                                                                        |
+| Pasted or imported images              | ✅     | PNG, JPEG, GIF, WebP and SVG up to 20 MB, saved to `public/images/`.                                                                                             |
 
 ### Package managers and repos
 

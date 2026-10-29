@@ -13,6 +13,10 @@ function fake(answers: Partial<TagFetchers>, asked: string[] = []): TagFetchers 
     repositoryFiles: async (repo, commit, matches) => {
       asked.push(`${repo}@${commit} ${matches.source}`)
       return (await answers.repositoryFiles?.(repo, commit, matches)) ?? []
+    },
+    pageScripts: async (url) => {
+      asked.push(url)
+      return (await answers.pageScripts?.(url)) ?? { served: "2026-10-29", scripts: [] }
     }
   }
 }
@@ -108,6 +112,36 @@ describe("readIconTags", () => {
         fake({})
       )
     ).rejects.toThrow(/which commit a@1.0.0 came from/)
+  })
+
+  it("reads a website's scripts for a set that publishes no tags, saying the day they were served", async () => {
+    const asked: string[] = []
+    const found = await readIconTags(
+      {
+        page: "https://heroicons.com",
+        readScripts: (scripts) => JSON.parse(scripts.find((script) => script.path.endsWith("page.js"))!.text)
+      },
+      { name: "@heroicons/react", version: "2.2.0" },
+      [
+        { label: "Cog6Tooth", names: ["Cog6ToothIcon"] },
+        { label: "XMark", names: ["XMarkIcon"] }
+      ],
+      fake(
+        {
+          pageScripts: async () => ({
+            served: "2026-10-29",
+            scripts: [
+              { path: "/_next/static/chunks/main.js", text: "" },
+              { path: "/_next/static/chunks/page.js", text: JSON.stringify({ "cog-6-tooth": ["gear", "settings"] }) }
+            ]
+          })
+        },
+        asked
+      )
+    )
+    expect(asked).toEqual(["https://heroicons.com"])
+    expect(found.tags).toEqual({ Cog6Tooth: ["gear", "settings"] })
+    expect(found.source).toBe("heroicons.com as served on 2026-10-29")
   })
 })
 

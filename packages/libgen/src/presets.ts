@@ -1,7 +1,7 @@
 import type { LibraryDecorator, LibraryIcons } from "@parity/core"
 import type { ExampleHints } from "./examples.ts"
 import type { IconTagSource } from "./icon-tags.ts"
-import { moduleData } from "./js-data.ts"
+import { moduleData, wordLists } from "./js-data.ts"
 import type { CollectedToken } from "./tokens.ts"
 
 /** Loads a module the way the project would: from the project's own `node_modules`. */
@@ -419,7 +419,25 @@ export const presets: Record<string, Preset> = {
     name: "Heroicons",
     description: "Hand-crafted SVG icons from the makers of Tailwind CSS, in the 24px outline style.",
     icons: { import: "@heroicons/react/24/outline", render: "export" },
-    notes: ["Solid, 20px and 16px styles are separate modules (`@heroicons/react/24/solid`); this file covers outline."]
+    notes: [
+      "Solid, 20px and 16px styles are separate modules (`@heroicons/react/24/solid`); this file covers outline."
+    ],
+    // Heroicons publishes no tags. Its website's search has keywords for most icons, in an object of word lists by
+    // icon (`"cog-6-tooth": ["gear", …]`) that the site's scripts carry, under names that change with each deploy.
+    tags: {
+      page: "https://heroicons.com",
+      readScripts: (scripts) => {
+        const lists = scripts
+          .filter((script) => /"[a-z0-9-]+":\["/.test(script.text))
+          .flatMap((script) => wordLists(script.text))
+        const keywords = lists.reduce<Record<string, string[]> | undefined>(
+          (largest, list) => (Object.keys(list).length > Object.keys(largest ?? {}).length ? list : largest),
+          undefined
+        )
+        if (!keywords || Object.keys(keywords).length < 50) throw new Error("its keyword list wasn't found")
+        return keywords
+      }
+    }
   },
   "@phosphor-icons/react": {
     id: "phosphor",

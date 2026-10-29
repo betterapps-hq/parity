@@ -1,11 +1,11 @@
-import { packageFile, publishedCommit, publishedVersions, repositoryFiles } from "./published.ts"
+import { packageFile, pageScripts, publishedCommit, publishedVersions, repositoryFiles } from "./published.ts"
 
 /**
  * Where an icon set publishes the words its icons are found by, and how to read them. Parity never types tags in: each
  * set's own metadata is read when its file is generated, at the version the icons are: from npm, or from the set's
  * repository at the commit npm says the version was published from. Each reader gives words by the set's own key for
  * each icon (`circle-alert`, `IconArrowDown`), categories included; a key is matched to icons by its letters and digits
- * alone.
+ * alone. A set that publishes none can be read from its website's own scripts, as served the day the file is generated.
  */
 export type IconTagSource =
   | {
@@ -22,6 +22,11 @@ export type IconTagSource =
       files: string
       readFiles(files: { path: string; text: string }[]): Record<string, readonly unknown[]>
     }
+  | {
+      /** The web page whose own scripts have them, as its search does. */
+      page: string
+      readScripts(scripts: { path: string; text: string }[]): Record<string, readonly unknown[]>
+    }
 
 /** How tags are fetched; tests give their own. */
 export interface TagFetchers {
@@ -29,9 +34,10 @@ export interface TagFetchers {
   publishedVersions: typeof publishedVersions
   publishedCommit: typeof publishedCommit
   repositoryFiles: typeof repositoryFiles
+  pageScripts: typeof pageScripts
 }
 
-const published: TagFetchers = { packageFile, publishedVersions, publishedCommit, repositoryFiles }
+const published: TagFetchers = { packageFile, publishedVersions, publishedCommit, repositoryFiles, pageScripts }
 
 /** Tags for each icon by label, and where they came from. */
 export interface IconTags {
@@ -65,6 +71,10 @@ export async function readIconTags(
     if (!commit) throw new Error(`npm doesn't say which commit ${iconPackage.name}@${iconPackage.version} came from`)
     read = source.readFiles(await fetchers.repositoryFiles(source.repository, commit, glob(source.files)))
     from = `${source.repository.replace(/^https:\/\//, "")}@${commit.slice(0, 12)}/${source.files}`
+  } else if ("page" in source) {
+    const { served, scripts } = await fetchers.pageScripts(source.page)
+    read = source.readScripts(scripts)
+    from = `${source.page.replace(/^https:\/\//, "")} as served on ${served}`
   } else {
     const name = source.package ?? iconPackage.name
     const version =
