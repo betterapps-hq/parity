@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { repositoryUrl, tarEntry } from "./published.ts"
+import { installedVersion, publishedVersion, repositoryUrl, tarEntry } from "./published.ts"
 
 /** A tar entry as npm writes one: a ustar header, then the body padded to 512 bytes. */
 function entry(name: string, body: string, type = "0"): Buffer {
@@ -47,5 +47,39 @@ describe("repositoryUrl", () => {
     expect(repositoryUrl("git@github.com:microsoft/fluentui-system-icons.git")).toBe(fluent)
     expect(repositoryUrl("github:microsoft/fluentui-system-icons")).toBe(fluent)
     expect(repositoryUrl("microsoft/fluentui-system-icons")).toBe(fluent)
+  })
+})
+
+describe("publishedVersion", () => {
+  it("takes a version npm has, or the one a tag points to", async () => {
+    const usual = globalThis.fetch
+    globalThis.fetch = (async () =>
+      Response.json({ versions: { "1.62.0": {}, "1.63.0": {} }, "dist-tags": { latest: "1.63.0" } })) as typeof fetch
+    try {
+      expect(await publishedVersion("lucide-react", "1.62.0")).toBe("1.62.0")
+      expect(await publishedVersion("lucide-react", "latest")).toBe("1.63.0")
+      await expect(publishedVersion("lucide-react", "9.9.9")).rejects.toThrow(/npm has no lucide-react@9.9.9/)
+    } finally {
+      globalThis.fetch = usual
+    }
+  })
+})
+
+describe("installedVersion", () => {
+  it("keeps each version once installed, and takes only names npm could publish", async () => {
+    const { mkdtemp, mkdir, rm, writeFile } = await import("node:fs/promises")
+    const { tmpdir } = await import("node:os")
+    const { join } = await import("node:path")
+    const cache = await mkdtemp(join(tmpdir(), "parity-packages-"))
+    try {
+      const dir = join(cache, "@tabler+icons-react@3.50.0")
+      await mkdir(dir, { recursive: true })
+      await writeFile(join(dir, ".parity-installed"), "@tabler/icons-react@3.50.0\n")
+      expect(await installedVersion("@tabler/icons-react", "3.50.0", cache)).toBe(dir)
+      await expect(installedVersion("x && calc", "1.0.0", cache)).rejects.toThrow(/isn't a package name/)
+      await expect(installedVersion("x", "1.0.0 | calc", cache)).rejects.toThrow(/isn't a package name/)
+    } finally {
+      await rm(cache, { recursive: true, force: true })
+    }
   })
 })

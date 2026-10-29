@@ -29,8 +29,22 @@ export async function runLib(packageName: string | undefined, options: LibOption
   // Loaded only here, so the other commands don't load TypeScript.
   const { appManifestPath, generateLibrary, manifestText, mergeManifest, reviseLibrary } =
     await import("@parity/libgen")
-  const { registryDir } = await import("@parity/registry")
-  const root = resolve(options.root ?? ".")
+  const { covers, registryDir, registryEntries } = await import("@parity/registry")
+  const spec = packageName === undefined ? undefined : packageSpec(packageName)
+  let root = resolve(options.root ?? ".")
+  // A package named with a version, or one written into the registry with no project given, is installed on its own at
+  // that version, so describing it needs no project that has it. Regenerating a registry file reads the version it
+  // covers; one new to the registry reads npm's latest.
+  if (spec && (spec.version !== undefined || (options.registry && !options.root))) {
+    const { installedVersion, publishedVersion } = await import("@parity/libgen/published")
+    const listed = (await registryEntries()).filter((entry) => entry.manifest.package?.name === spec.name)
+    if (spec.version === undefined && listed.length > 1) {
+      throw new Error(`The registry has ${listed.length} files for ${spec.name}; name a version, as ${spec.name}@1.2.3`)
+    }
+    const version = await publishedVersion(spec.name, spec.version ?? listed[0]?.manifest.package?.version ?? "latest")
+    console.error(`Installing ${spec.name} ${version} on its own…`)
+    root = await installedVersion(spec.name, version)
+  }
   const { parseLibraryEdits } = await import("@parity/libgen")
   const trialEdits = options.edits
     ? parseLibraryEdits(JSON.parse(await readFile(resolve(options.edits), "utf8")))
@@ -40,7 +54,7 @@ export async function runLib(packageName: string | undefined, options: LibOption
     ...(trialEdits ? { trialEdits } : {}),
     ...(options.noExamples ? { examples: false } : {}),
     ...(options.noTags ? { tags: false } : {}),
-    ...(packageName ? { package: packageName } : {}),
+    ...(spec ? { package: spec.name } : {}),
     ...(options.id ? { id: options.id } : {}),
     ...(options.name ? { name: options.name } : {}),
     ...(options.description ? { description: options.description } : {}),
@@ -64,6 +78,15 @@ export async function runLib(packageName: string | undefined, options: LibOption
         () => undefined
       )
     : undefined
+  if (!options.range) {
+    const read = generated.manifest.package as PackageVersions | undefined
+    const range =
+      read &&
+      keptRange(existing, read, (versions) =>
+        covers({ package: versions } as Parameters<typeof covers>[0], read.version)
+      )
+    if (range) generated.manifest.package = { ...read, range }
+  }
   const only =
     !options.only || options.only === "all" ? "all" : options.only === "new" ? "new" : options.only.split(",")
   const edits = options.edits && relative(dirname(target ?? resolve(".")), resolve(options.edits)).replaceAll("\\", "/")
@@ -85,6 +108,32 @@ export async function runLib(packageName: string | undefined, options: LibOption
   await writeFile(target, manifestText(written))
   if (options.json) console.log(JSON.stringify({ path: target, report }, null, 2))
   else console.log(`Wrote ${relative(process.cwd(), target) || target}\n${describeReport(report)}`)
+}
+
+interface PackageVersions {
+  name: string
+  version: string
+  range: string
+}
+
+/**
+ * The range a file being written over keeps: its own, while it still covers the version just read, so a range widened
+ * by hand (Lucide's, from 0.400) survives regenerating. Undefined when the new range stands.
+ */
+export function keptRange(
+  existing: unknown,
+  read: PackageVersions,
+  covers: (versions: PackageVersions) => boolean
+): string | undefined {
+  const range = (existing as { package?: { range?: unknown } } | undefined)?.package?.range
+  if (typeof range !== "string" || range === read.range) return undefined
+  return covers({ ...read, range }) ? range : undefined
+}
+
+/** A package as `parity lib` is given it: a name, with a version or tag after an `@` (`@tabler/icons-react@3.50.0`). */
+export function packageSpec(text: string): { name: string; version?: string } {
+  const at = text.lastIndexOf("@")
+  return at > 0 ? { name: text.slice(0, at), version: text.slice(at + 1) } : { name: text }
 }
 
 /** The report in plain words: what was found, then what couldn't be decided. */

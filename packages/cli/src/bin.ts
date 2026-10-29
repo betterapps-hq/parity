@@ -59,7 +59,12 @@ const usage = `parity: drive the Parity app from a terminal or an agent
                                             fetched from its repository at the commit the installed version was
                                             published from (cached under ~/.parity/cache); --no-examples skips them.
                                             An icon set's tags are read from its published metadata on npm at the
-                                            same version; --no-tags skips them
+                                            same version; --no-tags skips them. A package named with a version or
+                                            tag (lucide-react@1.63.0, lucide-react@latest) is installed on its own at
+                                            that version, under ~/.parity/cache, rather than read from a project;
+                                            so is one written with --registry and no --root, at the version its
+                                            registry file covers. A file written over keeps its range while it
+                                            covers the version read
   parity open <folder>                      open a project in a new tab
   parity skill [file]                       print the design skill, or one of its files
   parity mcp                                serve these as MCP tools on stdio

@@ -492,6 +492,13 @@ recommended answer to each of its questions.
   than guessed. Tokens come from wherever the library keeps them: CSS custom properties, Tailwind `@theme`, DTCG files,
   or a JavaScript theme (MUI, Chakra, Fluent). Decorators come from a preset per known library, since no package says
   which providers it needs. An app's file is written at its root, keeping its designs.
+- **`parity lib` installs a library on its own to describe it, so no project has to have it.** The user's call
+  (2026-10-29), so updating hundreds of libraries takes no projects set up by hand. Naming a version or tag
+  (`lucide-react@1.63.0`, `@latest`), or writing into the registry without `--root`, installs that version with npm
+  under `~/.parity/cache/packages`, once per version, with its peers and without install scripts. A React package also
+  gets React DOM at its React's version and React's types, as an app that uses it would have them. Regenerating a
+  registry file reads the version it covers, and a file keeps its range while that covers the version, so a range
+  widened by hand survives. Every icon set's file and Radix's came out the same as from the fixture projects.
 - **Every Buildkit Base UI style gets a registry file,** at your request: luma, lyra, maia, mira, nova, rhea, sera and
   vega. They share one set of hand edits (`buildkit-baseui.edits.json` in the registry), since only their styles differ,
   and the Radix styles still aren't published.

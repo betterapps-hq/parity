@@ -4,7 +4,8 @@
   "type": "module",
   "description": "Writes a .lib.par by inspecting a component library, an icon set or an app.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./published": "./src/published.ts"
   },
   "dependencies": {
     "@parity/code": "workspace:*",

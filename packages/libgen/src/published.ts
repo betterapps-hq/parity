@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process"
+import { exec, execFile } from "node:child_process"
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
@@ -7,15 +7,84 @@ import { gunzipSync } from "node:zlib"
 
 const registry = "https://registry.npmjs.org"
 const run = promisify(execFile)
+const shell = promisify(exec)
 
 /** The versions npm has published of a package. */
 export async function publishedVersions(name: string): Promise<string[]> {
+  return Object.keys((await packument(name)).versions ?? {})
+}
+
+/**
+ * The version of a package that `wanted` names: that version when npm has published it, or the one a tag such as
+ * `latest` points to.
+ */
+export async function publishedVersion(name: string, wanted: string): Promise<string> {
+  const { versions, "dist-tags": tags } = await packument(name)
+  if (versions?.[wanted]) return wanted
+  const tagged = tags?.[wanted]
+  if (tagged) return tagged
+  throw new Error(`npm has no ${name}@${wanted}: give a version it has published, or a tag such as latest`)
+}
+
+async function packument(
+  name: string
+): Promise<{ versions?: Record<string, unknown>; "dist-tags"?: Record<string, string> }> {
   const response = await fetch(`${registry}/${name.replace("/", "%2F")}`, {
     headers: { accept: "application/vnd.npm.install-v1+json" }
   })
   if (!response.ok) throw new Error(`npm has no ${name} (${response.status})`)
-  const packument = (await response.json()) as { versions?: Record<string, unknown> }
-  return Object.keys(packument.versions ?? {})
+  return (await response.json()) as { versions?: Record<string, unknown>; "dist-tags"?: Record<string, string> }
+}
+
+/**
+ * A folder with one version of a package installed, and what it depends on, so a library can be described without a
+ * project that has it. npm installs it with its peers, such as React, and without running anyone's install scripts. A
+ * version never changes, so each is installed once and kept.
+ */
+export async function installedVersion(
+  name: string,
+  version: string,
+  cacheRoot = join(homedir(), ".parity", "cache", "packages")
+): Promise<string> {
+  if (!/^(?:@[\w.~-]+\/)?[\w.~-]+$/.test(name) || !/^[\w.+-]+$/.test(version)) {
+    throw new Error(`${name}@${version} isn't a package name and version npm could have published`)
+  }
+  const dir = join(cacheRoot, `${name.replace("/", "+")}@${version}`)
+  const installed = join(dir, ".parity-installed")
+  if (
+    await readFile(installed, "utf8").then(
+      () => true,
+      () => false
+    )
+  )
+    return dir
+  await rm(dir, { recursive: true, force: true })
+  await mkdir(dir, { recursive: true })
+  await writeFile(
+    join(dir, "package.json"),
+    `${JSON.stringify({ name: "parity-library", private: true, dependencies: { [name]: version } }, null, 2)}\n`
+  )
+  const npm = (args = "") =>
+    shell(`npm install --ignore-scripts --no-audit --no-fund --loglevel=error${args}`, {
+      cwd: dir,
+      timeout: 600_000,
+      maxBuffer: 64 * 1024 * 1024,
+      windowsHide: true
+    })
+  // The package is named only in package.json, so the shell npm needs on Windows sees nothing from outside.
+  await npm()
+  // A React package, one that brought React, is read as an app that uses it would have it: with React DOM at the same
+  // version, which rendering its parts needs, and React's types, without which each component's type reads as `any`.
+  const react = await readFile(join(dir, "node_modules", "react", "package.json"), "utf8").then(
+    (text) => (JSON.parse(text) as { version?: string }).version,
+    () => undefined
+  )
+  if (react && /^\d+\.\d+\.\d+$/.test(react)) {
+    const major = react.split(".")[0]!
+    await npm(` --save-exact react@${react} react-dom@${react} @types/react@${major} @types/react-dom@${major}`)
+  }
+  await writeFile(installed, `${name}@${version}\n`)
+  return dir
 }
 
 /**
