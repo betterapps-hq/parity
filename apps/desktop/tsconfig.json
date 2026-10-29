@@ -5,5 +5,5 @@
       "@/*": ["./src/renderer/*"]
     }
   },
-  "include": ["src", "scripts", "*.ts"]
+  "include": ["src", "scripts", ".storybook/*.ts", "*.ts"]
 }

@@ -53,6 +53,7 @@
     "react-dom": "^19.3.1",
     "storybook": "10.6.5",
     "tailwindcss": "4.3.3",
-    "vite": "^8.3.5"
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
   }
 }

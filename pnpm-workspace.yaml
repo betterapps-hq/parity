@@ -18,3 +18,21 @@ minimumReleaseAgeExclude:
   - "@tldraw/validate@5.5.4"
   - tldraw@5.5.4
   - shadcn@4.23.0
+verifyDepsBeforeRun: error
+catalogMode: prefer
+# Versions set once for the workspace. Reference them with "catalog:".
+catalog:
+  vite: npm:@voidzero-dev/vite-plus-core@1.4.0
+  vite-plus: 1.4.0
+  vitest: 5.0.5
+# Vite+ runs on its own core, so every package's Vite is that core, apart from two that stand in for or drive a
+# customer's project and keep stock Vite: the example project, and builder-vite, whose tests start a stock Vite server.
+overrides:
+  vite@*: "catalog:"
+  shadcn-vite>vite: ^8.3.5
+  "@parity/builder-vite>vite": ^8.3.5
+peerDependencyRules:
+  allowAny:
+    - vite
+  allowedVersions:
+    vite: "*"

@@ -34,7 +34,7 @@ import {
   stopProcess,
   useNow,
   useProcesses
-} from "./processes.ts"
+} from "./process-store.ts"
 
 /**
  * Each kind's icon, the color its tile is tinted, and what it is, for a process with no address to show. Each hue sits at

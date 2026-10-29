@@ -22,5 +22,12 @@
       "@/*": ["./apps/desktop/src/renderer/*"]
     }
   },
-  "include": ["apps/*/src", "apps/*/scripts", "apps/*/*.ts", "packages/*/src", "vitest.config.ts"]
+  "include": [
+    "apps/*/src",
+    "apps/*/scripts",
+    "apps/*/.storybook/*.ts",
+    "apps/*/*.ts",
+    "packages/*/src",
+    "vite.config.ts"
+  ]
 }

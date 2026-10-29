@@ -13,18 +13,15 @@
     "inspect": "pnpm --filter @parity/desktop inspect",
     "perf": "pnpm --filter @parity/desktop perf",
     "storybook": "pnpm --filter @parity/desktop storybook",
-    "format": "oxfmt",
-    "check:format": "oxfmt --check",
-    "check:lint": "oxlint",
-    "check:types": "tsc -p tsconfig.json",
-    "test": "vitest run",
-    "verify": "pnpm check:format && pnpm check:lint && pnpm check:types && pnpm test"
+    "format": "vp fmt",
+    "check": "vp check",
+    "test": "vp test run",
+    "verify": "vp check && vp test run"
   },
   "devDependencies": {
     "@types/node": "^24.12.0",
-    "oxfmt": "^0.75.0",
-    "oxlint": "^1.90.0",
     "typescript": "7.0.2",
-    "vitest": "^5.0.5"
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
   }
 }
