@@ -5,8 +5,8 @@ their own machine, and a code change under an unchanged design must be caught, i
 design. Nothing is built. It builds on two decisions already made: visual tests draw each frame as a page of its own
 (VAL-18), and the render sweep compares those pages with baselines (VAL-1). The items are the VIS stream in the
 [backlog](../backlog.md), at Later: you've put visual tests after the core. One question for you is in Waiting on you.
-You've settled two others: when to build this (after the core), and that `@parity/cli` will be public on npm, so CI runs
-it with `npx`.
+You've settled two others: when to build this (after the core), and that the CLI will be public on npm, so CI runs it
+with `npx`. Its package name is Q7, since the `@parity` scope on npm belongs to Parity Technologies.
 
 ## In one line
 
@@ -180,8 +180,8 @@ jobs:
         with: { name: parity-visual, path: .parity/visual/out }
 ```
 
-A sharded version adds a plan job whose output is the render jobs' matrix. VIS-13 writes both, and the Azure DevOps
-equivalents.
+`@parity/cli` stands in for the CLI's npm package, whose name is Q7. A sharded version adds a plan job whose output is
+the render jobs' matrix. VIS-13 writes both, and the Azure DevOps equivalents.
 
 ## When code changes under a design
 
@@ -420,7 +420,7 @@ parity test changes --since <ref>  cases whose baselines changed, with before an
 ```
 
 `parity test` runs without the app, unlike most of the CLI's commands, which call the running app. CI gets it with
-`npx @parity/cli`, since the CLI will be public on npm (your call, 2026-10-29).
+`npx`, since the CLI will be public on npm (your call, 2026-10-29), under the name Q7 settles.
 
 ## Targets
 
@@ -513,4 +513,5 @@ These are my calls, open to change. They go into decisions.md once you agree wit
 - **A fresh page per case in a shared context (Q2),** rather than a context per case, to keep the HTTP cache warm. This
   changes the wording of the VAL-18 decision. Each case still gets its own window, document, modules and storage.
 
-Settled on 2026-10-29: visual tests come after the core (Q1), and `@parity/cli` will be public on npm (Q3).
+Settled on 2026-10-29: visual tests come after the core (Q1), and the CLI will be public on npm (Q3), under the name Q7
+settles.
