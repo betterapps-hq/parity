@@ -4,6 +4,7 @@ import type {
   ComponentInfo,
   ComponentSource,
   DescribedTokens,
+  DetectionCorrections,
   LeftOutExport,
   LibraryInfo,
   ModeSettings,
@@ -20,6 +21,11 @@ export interface ServiceMethods {
   "project.close": { params: { projectId: string }; result: undefined }
   /** The project's components and their props, once inferred from source. */
   "project.components": { params: { projectId: string }; result: Record<string, ComponentInfo> }
+  /**
+   * The person's corrections to which exports are components, whenever the main project file's change: the component
+   * list follows them, though they're saved only when the file is.
+   */
+  "project.correctComponents": { params: { projectId: string; corrections?: DetectionCorrections }; result: undefined }
   /** Libraries that can be added, and the ones the project has. */
   "library.catalog": {
     params: { projectId: string }

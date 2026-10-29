@@ -1,8 +1,12 @@
 import {
+  type CanvasDocument,
+  type ComponentRef,
   type ComponentRole,
   type ComponentSource,
   componentRole,
+  correctDetection,
   describeEvidence,
+  type DetectionCorrections,
   groupComponents,
   type LeftOutExport,
   type LibraryInfo
@@ -21,9 +25,10 @@ import {
   Search,
   Smile
 } from "lucide-react"
-import { type DragEvent, type ReactNode, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { type DragEvent, type ReactNode, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import type { ProjectInfo } from "../../shared/protocol.ts"
@@ -42,6 +47,32 @@ function addAtSelection(session: ProjectSession, item: InsertItem): void {
     return
   }
   if (!insertAtSelection(session, item)) toast.info("Select a layout, or a layer to add it after")
+}
+
+/** The main project file's corrections to the component list, as the canvas has it now. */
+function useCorrections(session: ProjectSession): DetectionCorrections | undefined {
+  const { store } = session
+  return useSyncExternalStore(
+    store.subscribe,
+    () => store.getDocuments().find((entry) => entry.path === store.mainPath)?.document.detection
+  )
+}
+
+/**
+ * Puts an export on the component list, or takes a component off it, as an undoable change to the main project file,
+ * saved with it. The list follows straight away.
+ */
+function correct(session: ProjectSession, change: "include" | "exclude", target: ComponentRef, name: string): void {
+  const { store } = session
+  const ref = { path: target.path, export: target.export }
+  const main: CanvasDocument = store.getDocuments().find((entry) => entry.path === store.mainPath)?.document ?? {
+    version: 3,
+    containers: []
+  }
+  const { detection: _, ...rest } = main
+  const detection = correctDetection(main.detection, change, ref)
+  const label = change === "include" ? `List ${name} as a component` : `Take ${name} off the component list`
+  store.applyDocuments(label, [{ path: store.mainPath, document: detection ? { ...rest, detection } : rest }])
 }
 
 function dragItem(item: InsertItem) {
@@ -98,7 +129,9 @@ export interface Source {
  * rest of the app, by folder or page route.
  */
 function families(sources: [string, ComponentSource][], by: "file" | "folder" | "route" = "file"): Family[] {
-  const evidence = new Map(sources.map(([key, source]) => [key, source.as && describeEvidence(source.as)]))
+  const evidence = new Map(
+    sources.map(([key, source]) => [key, source.included ? "listed by hand" : source.as && describeEvidence(source.as)])
+  )
   return groupComponents(sources, by).map((group) => ({
     name: group.name,
     items: group.ids.map((key) => ({
@@ -190,7 +223,10 @@ export function ComponentsPanel() {
         .filter((family) => family.items.length > 0)
     }))
     .filter((source) => source.families.length > 0 || (!needle && source.library))
-  const leftOut = needle ? (info.leftOut ?? []).filter((entry) => entry.name.toLowerCase().includes(needle)) : []
+  const corrections = useCorrections(session)
+  const leftOut = needle
+    ? notListed(info, corrections).filter((entry) => entry.name.toLowerCase().includes(needle))
+    : []
 
   return (
     <>
@@ -219,21 +255,61 @@ export function ComponentsPanel() {
   )
 }
 
-/** The app's exports a search matches that aren't listed as components, with why, so looking for one explains itself. */
-function NotListed({ entries }: { entries: LeftOutExport[] }) {
+/** An export that isn't listed as a component, with why; `excluded` when the person took it off the list. */
+type NotListedEntry = LeftOutExport & { excluded?: true }
+
+/**
+ * The app's exports that aren't listed as components: what the type checker left out, less what the person listed,
+ * and what the person took off the list.
+ */
+function notListed(info: ProjectInfo, corrections: DetectionCorrections | undefined): NotListedEntry[] {
+  const key = (ref: ComponentRef) => `${ref.path}#${ref.export}`
+  const listed = new Set(Object.values(info.sources).map(key))
+  const excluded = (corrections?.exclude ?? [])
+    .filter((ref) => !listed.has(key(ref)))
+    .map((ref) => ({
+      name: ref.export === "default" ? (ref.path.split("/").at(-1) ?? ref.path) : ref.export,
+      ...ref,
+      reason: "taken off the list by hand",
+      excluded: true as const
+    }))
+  const taken = new Set(excluded.map(key))
+  return [...(info.leftOut ?? []).filter((entry) => !listed.has(key(entry)) && !taken.has(key(entry))), ...excluded]
+}
+
+/**
+ * The app's exports a search matches that aren't listed as components, with why, so looking for one explains itself.
+ * Each can be listed by hand, which the main project file keeps.
+ */
+function NotListed({ entries }: { entries: NotListedEntry[] }) {
+  const session = useProject()
   return (
     <section className="mt-2 border-t pt-2" aria-label="Not listed as components">
       <div className="flex h-7 items-center px-4 text-xs font-medium text-muted-foreground">Not listed</div>
       {entries.map((entry) => (
-        <div key={`${entry.path} ${entry.name}`} className="px-8 py-1 text-muted-foreground">
-          <div className="truncate" title={entry.path}>
-            {entry.name}
+        <div
+          key={`${entry.path} ${entry.export}`}
+          className="flex items-start gap-2 py-1 pr-2 pl-8 text-muted-foreground"
+        >
+          <div className="min-w-0 flex-1">
+            <div className="truncate" title={entry.path}>
+              {entry.name}
+            </div>
+            <div className="text-[11px] leading-snug">
+              {entry.undecided
+                ? `Can't tell: ${entry.reason}`
+                : `${entry.reason.charAt(0).toUpperCase()}${entry.reason.slice(1)}`}
+            </div>
           </div>
-          <div className="text-[11px] leading-snug">
-            {entry.undecided
-              ? `Can't tell: ${entry.reason}`
-              : `${entry.reason.charAt(0).toUpperCase()}${entry.reason.slice(1)}`}
-          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 shrink-0 px-2 text-[11px]"
+            title="List it as a component, in the project file"
+            onClick={() => correct(session, "include", entry, entry.name)}
+          >
+            {entry.excluded ? "List it again" : "List it"}
+          </Button>
         </div>
       ))}
     </section>
@@ -268,22 +344,38 @@ function SourceSection({ source, open }: { source: Source; open: boolean }) {
             )}
             {family.items.map((entry) => {
               const stories = entry.item.kind === "component" && hasStories(session, entry.key)
+              // The project's own components can be taken off the list, which the main project file keeps.
+              const own = entry.item.kind === "component" ? session.info.sources[entry.key] : undefined
+              const row = (
+                <button
+                  type="button"
+                  {...dragItem(entry.item)}
+                  onClick={() => addAtSelection(session, entry.item)}
+                  title={`${entry.key}${entry.evidence ? `, ${entry.evidence}` : ""}. Drag onto a design, or click to add it to the selection.`}
+                  className="flex h-7 w-full cursor-grab items-center gap-2 rounded-md pr-8 pl-8 text-left hover:bg-accent active:cursor-grabbing"
+                >
+                  {entry.item.kind === "instance" ? (
+                    <Diamond className="size-3.5 shrink-0" style={{ color: kindColors.component }} />
+                  ) : (
+                    <Component className="size-3.5 shrink-0" style={{ color: kindColors.component }} />
+                  )}
+                  <span className="truncate">{entry.label}</span>
+                </button>
+              )
               return (
                 <div key={entry.key} className="group/asset relative">
-                  <button
-                    type="button"
-                    {...dragItem(entry.item)}
-                    onClick={() => addAtSelection(session, entry.item)}
-                    title={`${entry.key}${entry.evidence ? `, ${entry.evidence}` : ""}. Drag onto a design, or click to add it to the selection.`}
-                    className="flex h-7 w-full cursor-grab items-center gap-2 rounded-md pr-8 pl-8 text-left hover:bg-accent active:cursor-grabbing"
-                  >
-                    {entry.item.kind === "instance" ? (
-                      <Diamond className="size-3.5 shrink-0" style={{ color: kindColors.component }} />
-                    ) : (
-                      <Component className="size-3.5 shrink-0" style={{ color: kindColors.component }} />
-                    )}
-                    <span className="truncate">{entry.label}</span>
-                  </button>
+                  {own && !own.library ? (
+                    <ContextMenu>
+                      <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
+                      <ContextMenuContent className="w-52">
+                        <ContextMenuItem onSelect={() => correct(session, "exclude", own, entry.key)}>
+                          Not a component
+                        </ContextMenuItem>
+                      </ContextMenuContent>
+                    </ContextMenu>
+                  ) : (
+                    row
+                  )}
                   {stories && (
                     <button
                       type="button"

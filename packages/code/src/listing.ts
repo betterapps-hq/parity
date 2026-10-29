@@ -1,6 +1,13 @@
 import { readdir, readFile } from "node:fs/promises"
 import { extname, join, posix, relative } from "node:path"
-import type { ComponentEvidence, ComponentSource, LeftOutExport, RendererAdapter } from "@parity/core"
+import type {
+  ComponentEvidence,
+  ComponentRef,
+  ComponentSource,
+  DetectionCorrections,
+  LeftOutExport,
+  RendererAdapter
+} from "@parity/core"
 import { type ProjectTsconfig, resolvePathAlias } from "./tsconfig.ts"
 
 /** A component found in the app's source, before it has an id. */
@@ -235,7 +242,7 @@ export function checkedChanges(
   for (const [id, source] of Object.entries(sources)) {
     if (source.library) continue
     listed.add(key(source.path, source.export))
-    if (source.as || (files && !files.has(source.path))) continue
+    if (source.as || source.included || (files && !files.has(source.path))) continue
     const found = byKey.get(key(source.path, source.export))
     if (found) confirmed[id] = { ...source, as: found.as }
     else removed.push(id)
@@ -245,6 +252,42 @@ export function checkedChanges(
     .map((component) => ({ ...component, uiKit: false }))
   const added = componentIds(missed, new Set(Object.keys(sources).filter((id) => !removed.includes(id))))
   return { added, confirmed, removed }
+}
+
+/**
+ * The list with the person's corrections: the components they took off it are dropped, and the exports they put on it
+ * are added, marked `included` and loading as they're drawn, with ids that don't clash. Libraries' components aren't
+ * touched. Applied after each pass of detection, so the corrections outlast files changing.
+ */
+export function correctedSources(
+  sources: Record<string, ComponentSource>,
+  corrections: DetectionCorrections | undefined
+): Record<string, ComponentSource> {
+  if (!corrections?.include && !corrections?.exclude) return sources
+  const key = (ref: ComponentRef) => `${ref.path}#${ref.export}`
+  const excluded = new Set((corrections.exclude ?? []).map(key))
+  const next = Object.fromEntries(
+    Object.entries(sources).filter(([, source]) => source.library || !excluded.has(key(source)))
+  )
+  const listed = new Set(Object.values(next).map(key))
+  const missing = (corrections.include ?? []).filter((ref) => !listed.has(key(ref)) && !excluded.has(key(ref)))
+  const added = componentIds(
+    missing.map((ref) => ({ name: refName(ref), path: ref.path, export: ref.export, uiKit: false })),
+    new Set(Object.keys(next))
+  )
+  for (const [id, source] of Object.entries(added)) next[id] = { ...source, included: true }
+  return next
+}
+
+/** What an export is called: its name, or for a default export, its file's (`user-card.tsx` is `UserCard`). */
+function refName(ref: ComponentRef): string {
+  if (ref.export !== "default") return ref.export
+  const base = posix.basename(ref.path).replace(/\.[cm]?[jt]sx?$/, "")
+  return (base === "index" ? posix.basename(posix.dirname(ref.path)) : base)
+    .split(/[^A-Za-z0-9_$]+/)
+    .filter(Boolean)
+    .map((part) => part[0]!.toUpperCase() + part.slice(1))
+    .join("")
 }
 
 /**

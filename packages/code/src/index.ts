@@ -17,6 +17,7 @@ export {
   checkedChanges,
   type CheckResult,
   componentIds,
+  correctedSources,
   filesChanged,
   findAppComponents,
   importersOf,

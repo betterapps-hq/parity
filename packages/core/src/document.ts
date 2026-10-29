@@ -22,6 +22,38 @@ export interface CanvasDocument {
   modes?: ModeSettings
   /** Text placed on the canvas itself, outside any design: annotations, flow labels, explanations. */
   notes?: NoteSpec[]
+  /** Where the person corrected which exports are components. Unset while detection gets them right. */
+  detection?: DetectionCorrections
+}
+
+/** One of the app's exports, by its file relative to the project root and its export name (`default` for a default). */
+export interface ComponentRef {
+  path: string
+  export: string
+}
+
+/** Exports the person put on the component list, and components they took off it, which detection then respects. */
+export interface DetectionCorrections {
+  include?: ComponentRef[]
+  exclude?: ComponentRef[]
+}
+
+/**
+ * The corrections after putting an export on the component list (`include`) or taking one off it (`exclude`). Doing the
+ * opposite of an earlier correction removes it, so detection decides again. Unset when nothing is left to correct.
+ */
+export function correctDetection(
+  corrections: DetectionCorrections | undefined,
+  change: "include" | "exclude",
+  ref: ComponentRef
+): DetectionCorrections | undefined {
+  const same = (other: ComponentRef) => other.path === ref.path && other.export === ref.export
+  const opposite = change === "include" ? "exclude" : "include"
+  const next: DetectionCorrections = { ...corrections }
+  if (next[opposite]?.some(same)) next[opposite] = next[opposite].filter((other) => !same(other))
+  else if (!next[change]?.some(same)) next[change] = [...(next[change] ?? []), ref]
+  for (const kind of ["include", "exclude"] as const) if (next[kind]?.length === 0) delete next[kind]
+  return next.include || next.exclude ? next : undefined
 }
 
 export interface NoteSpec {
@@ -350,7 +382,7 @@ export function walkNodes(node: DesignNode, visit: (node: DesignNode, depth: num
 export function parseCanvasDocument(value: unknown): CanvasDocument {
   const document = expectObject(value, "")
   if (document.version !== 3) throw new TypeError("/version: expected 3")
-  expectKnownKeys(document, ["version", "containers", "notes", "modes"], "")
+  expectKnownKeys(document, ["version", "containers", "notes", "modes", "detection"], "")
   return compact({
     version: 3 as const,
     containers: expectArray(document.containers, "/containers").map((item, index) =>
@@ -359,7 +391,26 @@ export function parseCanvasDocument(value: unknown): CanvasDocument {
     modes: optional(document.modes, (value) => parseModeSettings(value)),
     notes: optional(document.notes, (value) =>
       expectArray(value, "/notes").map((item, index) => parseNote(item, `/notes/${index}`))
-    )
+    ),
+    detection: optional(document.detection, (value) => parseDetection(value, "/detection"))
+  })
+}
+
+function parseDetection(value: unknown, path: string): DetectionCorrections {
+  const detection = expectObject(value, path)
+  expectKnownKeys(detection, ["include", "exclude"], path)
+  const refs = (list: unknown, at: string) =>
+    expectArray(list, at).map((item, index) => {
+      const ref = expectObject(item, `${at}/${index}`)
+      expectKnownKeys(ref, ["path", "export"], `${at}/${index}`)
+      return {
+        path: expectString(ref.path, `${at}/${index}/path`),
+        export: expectString(ref.export, `${at}/${index}/export`)
+      }
+    })
+  return compact({
+    include: optional(detection.include, (list) => refs(list, `${path}/include`)),
+    exclude: optional(detection.exclude, (list) => refs(list, `${path}/exclude`))
   })
 }
 

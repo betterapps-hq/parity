@@ -6,6 +6,8 @@ export interface LeftOutExport {
   name: string
   /** Its file, relative to the project root. */
   path: string
+  /** Its name in that file: `default` for a default export. */
+  export: string
   reason: string
   /** Whether its types couldn't say either way, rather than saying it isn't one. */
   undecided?: true

@@ -271,6 +271,11 @@ recommended answer to each of its questions.
   checker left out lists them under Not listed with its reason ("takes 2 arguments, not one props object"). Agents get
   the same list from `parity components`. Only capitalised exports are listed, as lowercase helpers and types aren't
   candidates.
+- **Corrections name an export by its file and export name, and live in the main project file.** My call: `detection`
+  holds `include` and `exclude` lists of `{ path, export }`, so a correction outlasts ids changing on a clash. A
+  correction is an ordinary, undoable change to the file, saved when the file is, and the list follows it straight away.
+  Doing the opposite of a correction removes it rather than adding another, so detection decides again, and the field
+  goes once it's empty. Only the project's own components can be corrected; a library's list is its `.lib.par`'s.
 
 ## Libraries, icons and images
 

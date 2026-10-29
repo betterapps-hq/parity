@@ -7,6 +7,7 @@ import { importImage } from "./images.ts"
 import { addLibrary, catalogFor, importStyles } from "./libraries.ts"
 import {
   closeProject,
+  correctComponents,
   message,
   onFileChange,
   openProject,
@@ -35,6 +36,7 @@ const handlers: Handlers = {
   },
   "accessibility.check": (params) => checkAccessibility(editorWindow(), params),
   "project.components": projectComponents,
+  "project.correctComponents": correctComponents,
   "library.catalog": catalogFor,
   "library.add": addLibrary,
   "library.importStyles": importStyles,

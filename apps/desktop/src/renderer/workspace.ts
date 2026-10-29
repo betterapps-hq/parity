@@ -403,7 +403,26 @@ async function createSession(info: ProjectInfo): Promise<ProjectSession> {
     errors: info.documents.flatMap(({ path, error }) => (error ? [{ path, error }] : []))
   }
   sayWhenSavesFail(session)
+  followCorrections(session)
   return session
+}
+
+/**
+ * Tells the service when the main project file's corrections to the component list change, by an edit, an undo or the
+ * file changing on disk, so the list follows them before they're saved.
+ */
+function followCorrections(session: ProjectSession): void {
+  const { store } = session
+  const corrections = () => store.getDocuments().find((entry) => entry.path === store.mainPath)?.document.detection
+  let sent = corrections()
+  store.subscribe(() => {
+    const next = corrections()
+    if (next === sent) return
+    sent = next
+    window.canvasHost
+      .request("project.correctComponents", { projectId: session.id, ...(next ? { corrections: next } : {}) })
+      .catch((error: unknown) => console.warn("The component list couldn't take the correction", error))
+  })
 }
 
 /** Fills in each component's props once the service has inferred them, after the tab opens. */

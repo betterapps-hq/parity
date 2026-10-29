@@ -82,6 +82,8 @@ export interface ComponentSource {
   lazy?: boolean
   /** How the project's own component was recognised. Unset when only the type checker can say it's one. */
   as?: ComponentEvidence
+  /** The person put it on the list, though detection left it out, so detection doesn't take it off. */
+  included?: true
   /** A library part's parents by component id, outermost first: inserting it alone places it inside them. */
   parents?: string[]
   /** What a library component is inserted with: sample props, and children by component id or as text. */

@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import {
   checkedChanges,
   componentIds,
+  correctedSources,
   filesChanged,
   findAppComponents,
   importersOf,
@@ -207,19 +208,52 @@ describe("checkedChanges", () => {
 
 describe("leftOutChanges", () => {
   it("replaces what the checker left out of the files it read again, and keeps the rest", () => {
+    const entry = (name: string, path: string, reason: string) => ({ name, path, export: name, reason })
     const before = [
-      {
-        name: "Theme",
-        path: "src/theme.tsx",
-        reason: "a context, which passes a value down rather than drawing anything"
-      },
-      { name: "Format", path: "src/format.ts", reason: "not a function" }
+      entry("Theme", "src/theme.tsx", "a context, which passes a value down rather than drawing anything"),
+      entry("Format", "src/format.ts", "not a function")
     ]
-    const checked = [{ name: "Helper", path: "src/format.ts", reason: "its type is any", undecided: true as const }]
-    expect(leftOutChanges(before, new Set(["src/format.ts"]), checked)).toEqual([
-      { name: "Helper", path: "src/format.ts", reason: "its type is any", undecided: true },
-      before[0]
-    ])
+    const helper = { ...entry("Helper", "src/format.ts", "its type is any"), undecided: true as const }
+    expect(leftOutChanges(before, new Set(["src/format.ts"]), [helper])).toEqual([helper, before[0]])
+  })
+})
+
+describe("correctedSources", () => {
+  const sources = {
+    Button: { path: "src/components/ui/button.tsx", export: "Button", as: "function" as const },
+    Toaster: { path: "src/components/ui/sonner.tsx", export: "Toaster", as: "function" as const },
+    "nova/Card": { path: "@acme/nova", export: "Card", library: "nova" }
+  }
+
+  it("drops what the person took off the list, and adds what they put on it, loading as it's drawn", () => {
+    const corrected = correctedSources(sources, {
+      exclude: [{ path: "src/components/ui/sonner.tsx", export: "Toaster" }],
+      include: [
+        { path: "src/promo.tsx", export: "PromoPrice" },
+        { path: "src/pages/user-card.tsx", export: "default" },
+        { path: "src/components/button.tsx", export: "Button" }
+      ]
+    })
+    expect(corrected).toEqual({
+      Button: sources.Button,
+      "nova/Card": sources["nova/Card"],
+      PromoPrice: { path: "src/promo.tsx", export: "PromoPrice", lazy: true, included: true },
+      UserCard: { path: "src/pages/user-card.tsx", export: "default", lazy: true, included: true },
+      "components/Button": { path: "src/components/button.tsx", export: "Button", lazy: true, included: true }
+    })
+  })
+
+  it("leaves the list alone without corrections, and an included component isn't added twice", () => {
+    expect(correctedSources(sources, undefined)).toBe(sources)
+    const once = correctedSources(sources, { include: [{ path: "src/promo.tsx", export: "PromoPrice" }] })
+    expect(correctedSources(once, { include: [{ path: "src/promo.tsx", export: "PromoPrice" }] })).toEqual(once)
+  })
+
+  it("keeps an included component through the type checker, which doesn't confirm it", () => {
+    const included = {
+      PromoPrice: { path: "src/promo.tsx", export: "PromoPrice", lazy: true, included: true as const }
+    }
+    expect(checkedChanges(included, []).removed).toEqual([])
   })
 })
 

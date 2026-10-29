@@ -341,16 +341,18 @@ export class DesignStore {
     if (failure) throw new Error(failure)
   }
 
-  /** The documents and modes as one project file, as Save a copy writes it. */
+  /** The documents, modes and component list corrections as one project file, as Save a copy writes it. */
   merged(): CanvasDocument {
     const all = [...this.documents.values()]
     const notes = all.flatMap((document) => document.notes ?? [])
     const custom = JSON.stringify(this.modes) !== JSON.stringify(defaultModeSettings)
+    const detection = this.documents.get(this.mainPath)?.detection
     return {
       version: 3,
       containers: all.flatMap((document) => document.containers),
       ...(notes.length > 0 ? { notes } : {}),
-      ...(custom ? { modes: this.modes } : {})
+      ...(custom ? { modes: this.modes } : {}),
+      ...(detection ? { detection } : {})
     }
   }
 

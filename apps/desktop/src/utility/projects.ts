@@ -3,7 +3,7 @@ import { readFile, writeFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { basename, dirname, isAbsolute, join, normalize, resolve } from "node:path"
 import { viteBuilder } from "@parity/builder-vite"
-import { leftOutChanges } from "@parity/code"
+import { correctedSources, leftOutChanges } from "@parity/code"
 import {
   type BuilderAdapter,
   type BuilderDetection,
@@ -11,7 +11,9 @@ import {
   type ComponentInfo,
   type ComponentSource,
   type CanvasDocument,
+  type ComponentRef,
   defaultModeSettings,
+  type DetectionCorrections,
   libraryCanvas,
   libraryManifestExtension,
   type PackageManifest,
@@ -62,6 +64,8 @@ interface OpenProject {
   /** What reads the app's files for components when they change, and the UI kit folder whose components load eagerly. */
   renderer: RendererAdapter
   uiKit?: string
+  /** The person's corrections to which exports are components, as the canvas has the main project file now. */
+  corrections?: DetectionCorrections
 }
 
 type FileChange = WindowMethods["project.fileChanged"]["params"]
@@ -141,15 +145,6 @@ async function start(root: string): Promise<ProjectInfo> {
   if (!found.builder) throw new Error(explain(`No builder supports ${root}.\n${found.misses.join("\n")}`))
   const { builder } = found
   const config = await discoverProject(root, renderer, pkg)
-  // What the type checker and props found last time, when nothing they read has changed since.
-  const discovered = { ...config.components }
-  const { fingerprint, saved } = await savedDetection(root, config)
-  if (saved) {
-    for (const id of Object.keys(config.components)) if (!(id in saved.sources)) delete config.components[id]
-    Object.assign(config.components, saved.sources)
-    config.notes.push("components and props as the type checker found them last time, since then nothing has changed")
-  }
-
   // One broken project file shouldn't hide the others; its error is shown instead.
   const known = new Map<string, string>()
   const documents = await Promise.all(
@@ -163,6 +158,19 @@ async function start(root: string): Promise<ProjectInfo> {
       }
     })
   )
+  const mainDocument = pickMainDocument(config.documents, pkg.name ?? basename(root))
+  const main = documents.find((entry) => entry.path === mainDocument)?.document
+  // The person's corrections come before what was saved, so changing them is a change the fingerprint sees.
+  config.components = correctedSources(config.components, main?.detection)
+  // What the type checker and props found last time, when nothing they read has changed since.
+  const discovered = { ...config.components }
+  const { fingerprint, saved } = await savedDetection(root, config)
+  if (saved) {
+    for (const id of Object.keys(config.components)) if (!(id in saved.sources)) delete config.components[id]
+    Object.assign(config.components, saved.sources)
+    config.notes.push("components and props as the type checker found them last time, since then nothing has changed")
+  }
+
   const [session, styles] = await Promise.all([
     builder
       .start({
@@ -177,8 +185,6 @@ async function start(root: string): Promise<ProjectInfo> {
       }),
     loadStyles(root, config.styles, detection)
   ])
-  const mainDocument = pickMainDocument(config.documents, pkg.name ?? basename(root))
-  const main = documents.find((entry) => entry.path === mainDocument)?.document
   const info: ProjectInfo = {
     id: root,
     root,
@@ -208,7 +214,8 @@ async function start(root: string): Promise<ProjectInfo> {
     sources: config.components,
     components: saved ? Promise.resolve(saved.props) : inferProps(root, config.components, config.componentFiles),
     renderer,
-    ...(config.uiKit ? { uiKit: config.uiKit } : {})
+    ...(config.uiKit ? { uiKit: config.uiKit } : {}),
+    ...(main?.detection ? { corrections: main.detection } : {})
   }
   project.watcher = watchProjectFiles(project)
   if (!saved) {
@@ -446,6 +453,7 @@ async function checkTypes(project: OpenProject, files: string[]): Promise<boolea
   project.info.leftOut = checked.leftOut
   for (const name of removed) delete project.sources[name]
   Object.assign(project.sources, confirmed, added)
+  applyCorrections(project)
   project.info.componentCount = Object.keys(project.sources).length
   console.log(
     `[service]   the type checker added ${Object.keys(added).length} components and left out ${removed.length}`
@@ -460,7 +468,8 @@ async function checkTypes(project: OpenProject, files: string[]): Promise<boolea
   const before = project.components
   project.components = Promise.all([before, inferProps(root, added)]).then(([known, more]) => {
     const all = { ...known, ...more }
-    for (const name of removed) delete all[name]
+    // What the checker left out, and what the person took off the list.
+    for (const name of Object.keys(all)) if (!(name in project.sources)) delete all[name]
     return all
   })
   const components = await project.components
@@ -483,7 +492,8 @@ async function rescanComponents(project: OpenProject, paths: string[]): Promise<
   const update = filesChanged(project.sources, read)
   const current = () => projects.get(root) === project
   if (!current()) return
-  const settle = async (next: Record<string, ComponentSource>, label: string, added: number, removed: number) => {
+  const settle = async (found: Record<string, ComponentSource>, label: string, added: number, removed: number) => {
+    const next = correctedSources(found, project.corrections)
     // In place, since the builder serves the guest from this list.
     for (const name of Object.keys(project.sources)) if (!(name in next)) delete project.sources[name]
     Object.assign(project.sources, next)
@@ -517,6 +527,39 @@ async function rescanComponents(project: OpenProject, paths: string[]): Promise<
   const next = { ...project.sources, ...confirmed, ...added }
   for (const name of removed) delete next[name]
   await settle(next, "the type checker", Object.keys(added).length, removed.length)
+}
+
+/**
+ * Takes the person's corrections to the component list, as the canvas has the main project file now. The files of the
+ * exports they changed are read again, so a correction undone leaves detection to decide.
+ */
+export async function correctComponents({
+  projectId,
+  corrections
+}: ServiceMethods["project.correctComponents"]["params"]): Promise<undefined> {
+  const project = getProject(projectId)
+  const before = project.corrections
+  project.corrections = corrections
+  const same = (a: ComponentRef, b: ComponentRef) => a.path === b.path && a.export === b.export
+  const changed = (kind: keyof DetectionCorrections) => {
+    const was = before?.[kind] ?? []
+    const now = corrections?.[kind] ?? []
+    return [
+      ...was.filter((ref) => !now.some((other) => same(ref, other))),
+      ...now.filter((ref) => !was.some((other) => same(ref, other)))
+    ]
+  }
+  const paths = [...new Set([...changed("include"), ...changed("exclude")].map((ref) => ref.path))]
+  if (paths.length > 0) await rescanComponents(project, paths)
+  return undefined
+}
+
+/** Applies the person's corrections to the list in place, since the builder serves the guest from it. */
+function applyCorrections(project: OpenProject): void {
+  const next = correctedSources(project.sources, project.corrections)
+  if (next === project.sources) return
+  for (const name of Object.keys(project.sources)) if (!(name in next)) delete project.sources[name]
+  Object.assign(project.sources, next)
 }
 
 /** Props inference that never fails the project: without it, panels fall back to free-form props. */

@@ -52,10 +52,16 @@ function check(root: string, files: string[]): CheckResult {
       as: component.as
     })),
     leftOut: [
-      ...report.rejected.map((entry) => ({ name: entry.name, path: pathOf(entry.entry ?? ""), reason: entry.reason })),
+      ...report.rejected.map((entry) => ({
+        name: entry.name,
+        path: pathOf(entry.entry ?? ""),
+        export: entry.export ?? entry.name,
+        reason: entry.reason
+      })),
       ...report.ambiguous.map((entry) => ({
         name: entry.name,
         path: pathOf(entry.entry ?? ""),
+        export: entry.export ?? entry.name,
         reason: entry.reason,
         undecided: true as const
       }))

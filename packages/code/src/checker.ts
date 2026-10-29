@@ -30,10 +30,10 @@ export interface FoundComponent {
 
 export interface ComponentReport {
   components: FoundComponent[]
-  /** Exports that may be components, but whose types can't say, with why; in an app, the file exporting them. */
-  ambiguous: { name: string; reason: string; entry?: string }[]
+  /** Exports that may be components, but whose types can't say, with why; in an app, the file and export they are. */
+  ambiguous: { name: string; reason: string; entry?: string; export?: string }[]
   /** Capitalised values that aren't components, with why. Types and lowercase helpers aren't listed. */
-  rejected: { name: string; reason: string; entry?: string }[]
+  rejected: { name: string; reason: string; entry?: string; export?: string }[]
   /** Whether React's types were found. Without them, return types are judged by their names. */
   reactTypes: boolean
 }
@@ -125,8 +125,8 @@ export function findComponents(scan: ComponentScan): ComponentReport {
       // Icon sets give thousands of exports one shared type; judging it once keeps them fast.
       if (!(type.flags & ts.TypeFlags.Any)) verdicts.set(type, verdict)
     }
-    // An app's left-out exports say which file they're in, so each file's can be looked up.
-    const where = scan.defaultExports ? { entry: from.entry } : {}
+    // An app's left-out exports say which file and export they are, so each file's can be looked up and corrected.
+    const where = scan.defaultExports ? from : {}
     if ("ambiguous" in verdict) return void report.ambiguous.push({ name, reason: verdict.ambiguous, ...where })
     if ("not" in verdict) return void report.rejected.push({ name, reason: verdict.not, ...where })
     const existing = seen.get(symbol)
