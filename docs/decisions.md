@@ -749,6 +749,10 @@ recommended answer to each of its questions.
     going into the outermost parent's whole sample when only that renders.
   - A function the library re-exports (Chakra's `parseDate`) is called from the library when an example imports it from
     elsewhere.
+- **A part that hands its children to an input gets no text label (PAR-418):** the canvas gives a part with a `children`
+  prop its own name as text, which an `<input>` can't hold (Mantine's `Cascader`, Nova's `ComboboxChipsInput`). The
+  generator tries each part with text inside; one that then fails as a void or self-closing element, but renders without
+  it, gets a sample of `children: []`. Inserting reads a sample's children, empty ones included, in place of the label.
 - **`parity lib` tries parts with React's server renderer,** from the project's own React, rather than in the app: it
   needs no window, runs in seconds, and still throws the context errors that name a part's parents. The library's
   decorator providers wrap each try, with their imports and calls made, a mode's default value, and no frame, so
@@ -1433,8 +1437,11 @@ the Repository, CI and releases stream in Linear.
     before merging, and a review that stops on an error fails rather than passing unreviewed.
   - **Merges squash,** so the title becomes the commit's subject, and CI checks it with `scripts/commits.ts title`.
   - **Nobody force-pushes to or deletes `main`,** and nobody bypasses the ruleset.
-  - **Terraform writes the ruleset,** as it writes the GitHub settings the pipelines read, from a shared module so
-    Buildkit, Better Apps and Copacker can take the same rules.
+  - **Terraform writes the ruleset,** as it writes the GitHub settings the pipelines read, from the pipelines'
+    `github-repository-rules` module (v1.2.0) so Buildkit, Better Apps and Copacker can take the same rules. Parity's
+    `infra/github` uses it. Its two rulesets were made by hand on 2026-10-29 to match the module, so `main` was
+    protected before Terraform could run here, and import blocks adopt them when `terraform-apply` first runs. The
+    required checks are `CI passes`, the gate over CI's jobs, and `CodeRabbit`.
   - **`.coderabbit.yaml` reviews assertively,** with AGENTS.md and conventions.md as its guidelines, and leaves lint,
     format, types, tests and change files to CI, so its own linters are off. Its Linear integration stays off, which
     keeps private issues out of public comments.
