@@ -132,8 +132,9 @@ export interface Guest {
   /** Whether a component, or an icon from one of its icon sets, exists. */
   hasComponent(name: string): boolean
   /**
-   * Adds the project's components found after the guest loaded, by the type checker, by id. Each loads the first time
-   * it's drawn. Ids the guest already has are left as they are.
+   * Adds the project's components found after the guest loaded, by the type checker or in files added since, by id.
+   * Each loads the first time it's drawn. An id the guest already has is drawn from its new file from then on, as when
+   * a component moves.
    */
   addComponents?(sources: Record<string, Pick<ComponentSource, "path" | "export">>): void
   /**

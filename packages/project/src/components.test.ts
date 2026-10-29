@@ -3,7 +3,14 @@ import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import type { RendererAdapter } from "@parity/core"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
-import { checkedChanges, componentIds, type FoundComponent } from "./components.ts"
+import {
+  checkedChanges,
+  componentIds,
+  filesChanged,
+  type FoundComponent,
+  importersOf,
+  readChangedFiles
+} from "./components.ts"
 import { discoverProject } from "./index.ts"
 import { readTsconfig, resolvePathAlias } from "./tsconfig.ts"
 
@@ -166,5 +173,110 @@ describe("checkedChanges", () => {
     expect(changes.added).toEqual({
       "components/ForAdmins": { path: "src/components/access.tsx", export: "ForAdmins", as: "function", lazy: true }
     })
+  })
+
+  it("settles only the files the checker read again", () => {
+    const sources = {
+      Select: { path: "src/components/ui/select.tsx", export: "Select" },
+      Tabs: { path: "src/components/ui/tabs.tsx", export: "Tabs" }
+    }
+    const changes = checkedChanges(sources, [], new Set(["src/components/ui/tabs.tsx"]))
+    expect(changes.removed).toEqual(["Tabs"])
+  })
+})
+
+describe("files changing", () => {
+  const own = (path: string, name: string, extra: Partial<FoundComponent> = {}): FoundComponent => ({
+    name,
+    path,
+    export: name,
+    as: "function",
+    uiKit: false,
+    ...extra
+  })
+
+  it("keeps ids, drops what's gone, and adds what's new", () => {
+    const sources = {
+      OrderTable: { path: "src/orders/table.tsx", export: "OrderTable", as: "function" as const, lazy: true },
+      OrderRow: { path: "src/orders/table.tsx", export: "OrderRow", as: "function" as const, lazy: true },
+      Old: { path: "src/old.tsx", export: "Old", as: "function" as const, lazy: true },
+      Button: { path: "src/components/ui/button.tsx", export: "Button", as: "function" as const }
+    }
+    const read = new Map([
+      ["src/orders/table.tsx", [own("src/orders/table.tsx", "OrderTable", { as: "memo" })]],
+      ["src/old.tsx", undefined],
+      ["src/orders/filters.tsx", [own("src/orders/filters.tsx", "Filters")]]
+    ])
+    const changes = filesChanged(sources, read)
+    expect(changes.removed).toEqual(["OrderRow", "Old"])
+    expect(changes.added).toEqual(["Filters"])
+    expect(changes.sources).toEqual({
+      OrderTable: { path: "src/orders/table.tsx", export: "OrderTable", as: "memo", lazy: true },
+      Button: sources.Button,
+      Filters: { path: "src/orders/filters.tsx", export: "Filters", as: "function", lazy: true }
+    })
+  })
+
+  it("follows a component moved to another file by its name, which keeps its id", () => {
+    const sources = { StatCard: { path: "src/stat-card.tsx", export: "StatCard", as: "function" as const, lazy: true } }
+    const read = new Map([
+      ["src/stat-card.tsx", undefined],
+      ["src/cards/stat-card.tsx", [own("src/cards/stat-card.tsx", "StatCard")]]
+    ])
+    expect(filesChanged(sources, read).sources).toEqual({
+      StatCard: { path: "src/cards/stat-card.tsx", export: "StatCard", as: "function", lazy: true }
+    })
+  })
+
+  it("leaves undecided exports to the type checker", () => {
+    const sources = {
+      ForAdmins: { path: "src/access.tsx", export: "ForAdmins", as: "exotic" as const, lazy: true }
+    }
+    const read = new Map([
+      [
+        "src/access.tsx",
+        [own("src/access.tsx", "ForAdmins", { as: undefined }), own("src/access.tsx", "IfCanOpen", { as: undefined })]
+      ],
+      ["src/components/ui/select.tsx", [own("src/components/ui/select.tsx", "Select", { as: undefined, uiKit: true })]]
+    ])
+    const changes = filesChanged(sources, read)
+    expect(changes.sources).toEqual({
+      ForAdmins: { path: "src/access.tsx", export: "ForAdmins", lazy: true },
+      Select: { path: "src/components/ui/select.tsx", export: "Select" }
+    })
+  })
+
+  it("reads changed files again, and treats ones no longer in the app as gone", async () => {
+    await write("src/orders/table.tsx", "export function OrderTable() {}\nexport const Row = Base.Row")
+    await write("src/main.tsx", "createRoot(root).render(<App />)\nexport function App() {}")
+    const read = await readChangedFiles(root, renderer, ["src/orders/table.tsx", "src/main.tsx"], undefined, [
+      "src/orders/table.tsx",
+      "src/main.tsx",
+      "src/deleted.tsx",
+      "src/orders/table.tsx"
+    ])
+    expect(read.get("src/orders/table.tsx")?.map((component) => [component.name, component.as])).toEqual([
+      ["OrderTable", "function"],
+      ["Row", undefined]
+    ])
+    expect(read.get("src/main.tsx")).toBeUndefined()
+    expect(read.has("src/deleted.tsx")).toBe(true)
+  })
+
+  it("finds the files that import a changed one, by path or alias", async () => {
+    await write("tsconfig.json", '{ "compilerOptions": { "paths": { "@/*": ["./src/*"] } }, "include": ["src"] }')
+    await write("src/components/ui/button.tsx", "export function Button() {}")
+    await write("src/a.tsx", 'import { Button } from "./components/ui/button"')
+    await write("src/b.tsx", 'import { Button } from "@/components/ui/button.js"')
+    await write("src/c.tsx", 'export { Button } from "./components/ui"')
+    await write("src/components/ui/index.ts", 'export * from "./button"')
+    await write("src/d.tsx", 'import { Card } from "./components/ui/card"')
+    const files = ["src/a.tsx", "src/b.tsx", "src/c.tsx", "src/d.tsx", "src/components/ui/button.tsx"]
+    const tsconfig = readTsconfig(root)
+    expect(await importersOf(root, files, ["src/components/ui/button.tsx"], tsconfig)).toEqual([
+      "src/a.tsx",
+      "src/b.tsx"
+    ])
+    expect(await importersOf(root, files, ["src/components/ui/index.ts"], tsconfig)).toEqual(["src/c.tsx"])
   })
 })

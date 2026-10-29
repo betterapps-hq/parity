@@ -1,7 +1,7 @@
 import { readdir, readFile } from "node:fs/promises"
 import { extname, join, posix, relative } from "node:path"
 import type { ComponentEvidence, ComponentSource, RendererAdapter } from "@parity/core"
-import type { ProjectTsconfig } from "./tsconfig.ts"
+import { type ProjectTsconfig, resolvePathAlias } from "./tsconfig.ts"
 
 /** A component found in the app's source, before it has an id. */
 export interface FoundComponent {
@@ -50,35 +50,145 @@ export async function findAppComponents(
   uiKit: string | undefined,
   notes: string[]
 ): Promise<{ found: FoundComponent[]; files: string[] }> {
-  const fromConfigs = tsconfig.configs.flatMap((config) => config.files)
-  const files = (fromConfigs.length > 0 ? fromConfigs : await walk(root, renderer.componentExtensions))
-    .map((file) => slashes(relative(root, file)))
-    .filter((path) => isCandidate(path, renderer.componentExtensions))
-  const unique = [...new Set(files)].sort()
+  const { files: unique, from } = await appFiles(root, renderer, tsconfig)
   const found: FoundComponent[] = []
   const entries: string[] = []
   const read: string[] = []
   await Promise.all(
     unique.map(async (path) => {
-      const source = await readFile(join(root, path), "utf8").catch(() => undefined)
-      if (source === undefined) return
-      if (mountsApp.test(source)) {
-        entries.push(path)
-        return
-      }
+      const parsed = await parseFile(root, renderer, path, uiKit)
+      if (parsed === "mounts") entries.push(path)
+      if (typeof parsed === "string") return
       read.push(path)
-      const inUiKit = uiKit !== undefined && posix.dirname(path) === uiKit
-      for (const component of renderer.findComponents(source, path)) {
-        if (!component.as && !inUiKit) continue
-        found.push({ ...component, path, uiKit: inUiKit })
-      }
+      found.push(...parsed.filter((component) => component.as || component.uiKit))
     })
   )
   found.sort((a, b) => (a.path === b.path ? a.name.localeCompare(b.name, "en") : a.path < b.path ? -1 : 1))
-  const source = fromConfigs.length > 0 ? (tsconfig.app?.path ?? tsconfig.configs[0]!.path) : "the project's files"
-  notes.push(`${count(found.length, "component")} in ${count(unique.length, "file")} from ${source}`)
+  notes.push(`${count(found.length, "component")} in ${count(unique.length, "file")} from ${from}`)
   if (entries.length > 0) notes.push(`not read, since they mount the app: ${entries.sort().join(", ")}`)
   return { found, files: read.sort() }
+}
+
+/** The app's files the parse reads, relative to the root: those its tsconfigs include, else every file under it. */
+export async function appFiles(
+  root: string,
+  renderer: RendererAdapter,
+  tsconfig: ProjectTsconfig
+): Promise<{ files: string[]; from: string }> {
+  const fromConfigs = tsconfig.configs.flatMap((config) => config.files)
+  const files = (fromConfigs.length > 0 ? fromConfigs : await walk(root, renderer.componentExtensions))
+    .map((file) => slashes(relative(root, file)))
+    .filter((path) => isCandidate(path, renderer.componentExtensions))
+  const from = fromConfigs.length > 0 ? (tsconfig.app?.path ?? tsconfig.configs[0]!.path) : "the project's files"
+  return { files: [...new Set(files)].sort(), from }
+}
+
+/** A file's exports the renderer recognises, decided or not; `mounts` for the app's entry, `gone` when it can't be read. */
+async function parseFile(
+  root: string,
+  renderer: RendererAdapter,
+  path: string,
+  uiKit: string | undefined
+): Promise<FoundComponent[] | "mounts" | "gone"> {
+  const source = await readFile(join(root, path), "utf8").catch(() => undefined)
+  if (source === undefined) return "gone"
+  if (mountsApp.test(source)) return "mounts"
+  const inUiKit = uiKit !== undefined && posix.dirname(path) === uiKit
+  return renderer.findComponents(source, path).map((component) => ({ ...component, path, uiKit: inUiKit }))
+}
+
+/**
+ * Changed files read again, for `filesChanged`: each one's exports the renderer recognises, or `undefined` for a file
+ * that's gone, is no longer one of the app's files, or now mounts the app. `files` are the app's files as they are now.
+ */
+export async function readChangedFiles(
+  root: string,
+  renderer: RendererAdapter,
+  files: readonly string[],
+  uiKit: string | undefined,
+  changed: Iterable<string>
+): Promise<Map<string, FoundComponent[] | undefined>> {
+  const inApp = new Set(files)
+  const read = new Map<string, FoundComponent[] | undefined>()
+  await Promise.all(
+    [...new Set(changed)].map(async (path) => {
+      const parsed = inApp.has(path) ? await parseFile(root, renderer, path, uiKit) : "gone"
+      read.set(path, typeof parsed === "string" ? undefined : parsed)
+    })
+  )
+  return read
+}
+
+/**
+ * The list after files changed, from what the parse reads in them now. A component still exported keeps its id, and one
+ * whose file is gone or no longer exports it is `removed`. New ones are `added`, with ids that don't clash, so a
+ * component moved to another file keeps its id while its name stays unique. An export the parse can no longer decide
+ * stays listed for the type checker to settle, as do new ones in the UI kit, and other new undecided exports wait for
+ * it. Libraries' components and other files' aren't touched.
+ */
+export function filesChanged(
+  sources: Record<string, ComponentSource>,
+  read: ReadonlyMap<string, FoundComponent[] | undefined>
+): { sources: Record<string, ComponentSource>; added: string[]; removed: string[] } {
+  const key = (path: string, name: string) => `${path}#${name}`
+  const next: Record<string, ComponentSource> = {}
+  const removed: string[] = []
+  const listed = new Set<string>()
+  for (const [id, source] of Object.entries(sources)) {
+    if (source.library || !read.has(source.path)) {
+      next[id] = source
+      continue
+    }
+    const now = read.get(source.path)?.find((component) => component.export === source.export)
+    if (!now) {
+      removed.push(id)
+      continue
+    }
+    listed.add(key(source.path, source.export))
+    const { as: _, ...undecided } = source
+    next[id] = now.as ? { ...source, as: now.as } : undecided
+  }
+  const fresh = [...read.values()]
+    .flatMap((found) => found ?? [])
+    .filter((component) => (component.as || component.uiKit) && !listed.has(key(component.path, component.export)))
+  const added = componentIds(fresh, new Set(Object.keys(next)))
+  return { sources: { ...next, ...added }, added: Object.keys(added), removed }
+}
+
+/**
+ * The app's files that import one of `changed`, by a relative path or a tsconfig alias. The type checker reads them
+ * again with the changed files, since what a file exports can depend on what it imports.
+ */
+export async function importersOf(
+  root: string,
+  files: readonly string[],
+  changed: Iterable<string>,
+  tsconfig: ProjectTsconfig
+): Promise<string[]> {
+  const targets = new Set([...changed].map(moduleId))
+  const found: string[] = []
+  await Promise.all(
+    files.map(async (path) => {
+      if (targets.has(moduleId(path))) return
+      const source = await readFile(join(root, path), "utf8").catch(() => "")
+      for (const match of source.matchAll(/(?:\bfrom|\bimport)\s*\(?\s*["']([^"']+)["']/g)) {
+        const specifier = match[1]!
+        const target = specifier.startsWith(".")
+          ? posix.join(posix.dirname(path), specifier)
+          : resolvePathAlias(root, tsconfig, specifier)
+        if (target && targets.has(moduleId(target))) {
+          found.push(path)
+          return
+        }
+      }
+    })
+  )
+  return found.sort()
+}
+
+/** A module by its path without extension or `/index`, as imports name it. */
+function moduleId(path: string): string {
+  return path.replace(/\.[cm]?[jt]sx?$/, "").replace(/\/index$/, "")
 }
 
 /** A component the type checker found, by the file it's exported from. */
@@ -93,10 +203,12 @@ export interface CheckedComponent {
  * What the type checker changes in the list the parse made. Components the parse recognised keep their ids. Exports
  * only the checker could decide are `added`, loading as they're drawn, with ids that don't clash with any given
  * already. The UI kit's undecided exports that it didn't confirm are `removed`. Libraries' components aren't touched.
+ * When the checker read only some `files`, only their components are settled.
  */
 export function checkedChanges(
   sources: Record<string, ComponentSource>,
-  checked: CheckedComponent[]
+  checked: CheckedComponent[],
+  files?: ReadonlySet<string>
 ): { added: Record<string, ComponentSource>; confirmed: Record<string, ComponentSource>; removed: string[] } {
   const key = (path: string, name: string) => `${path}#${name}`
   const byKey = new Map(checked.map((component) => [key(component.path, component.export), component]))
@@ -106,7 +218,7 @@ export function checkedChanges(
   for (const [id, source] of Object.entries(sources)) {
     if (source.library) continue
     listed.add(key(source.path, source.export))
-    if (source.as) continue
+    if (source.as || (files && !files.has(source.path))) continue
     const found = byKey.get(key(source.path, source.export))
     if (found) confirmed[id] = { ...source, as: found.as }
     else removed.push(id)

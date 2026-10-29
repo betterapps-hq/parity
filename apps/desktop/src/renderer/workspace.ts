@@ -234,16 +234,21 @@ export class Workspace {
   }
 
   /**
-   * The project's components once the type checker has read them. Ones the guest doesn't have yet are added to it, and
-   * load the first time they're drawn.
+   * The project's components once the type checker has read them, or after its files changed. Ones the guest doesn't
+   * have yet, or has from another file, are given to it, and load the first time they're drawn.
    */
   setSources(id: string, sources: ProjectInfo["sources"]): void {
     const tab = this.getTab(id)
     if (!tab?.session) return
-    tab.session.loaded.guest.addComponents?.(sources)
     const before = tab.session.info.sources
-    const added = { ...tab.session.added }
-    for (const [name, source] of Object.entries(sources)) if (!(name in before)) added[name] = source
+    const changed = Object.fromEntries(
+      Object.entries(sources).filter(
+        ([name, source]) => before[name]?.path !== source.path || before[name]?.export !== source.export
+      )
+    )
+    tab.session.loaded.guest.addComponents?.(changed)
+    const added = { ...tab.session.added, ...changed }
+    for (const name of Object.keys(added)) if (!(name in sources)) delete added[name]
     const info = { ...tab.session.info, sources, componentCount: Object.keys(sources).length }
     this.replace(id, { ...tab, session: { ...tab.session, info, added } })
   }

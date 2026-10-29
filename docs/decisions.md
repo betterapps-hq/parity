@@ -234,6 +234,10 @@ recommended answer to each of its questions.
   `app/` (`page`, `layout`, `template`, `error`, `not-found`, `loading`, `default`), and any component in a file in a
   `pages` or `routes` folder, other than files starting with `_` or `-` and `api` routes. Route modules' other exports,
   such as React Router's `ErrorBoundary`, are parts of the page too.
+- **Changed files are read again on their own, without reopening the project.** My call: the parse reads the changed
+  files about half a second after the last change, so added, renamed and deleted components show at once, and the type
+  checker then reads only those files and the files that import them, since an export's type can come from an import. A
+  component that moves keeps its id while its name is unique, and the canvas draws it from its new file.
 - **A workspace package is imported by its name and isn't pre-bundled.** My call: the app imports it that way, so the
   canvas gets what the app gets, and Vite compiles it as the app's own code. A package that doesn't build costs only its
   own components, as a project module does.

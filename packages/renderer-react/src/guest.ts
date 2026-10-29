@@ -222,14 +222,16 @@ export function createGuest(init: GuestInit): Guest {
     },
     addComponents(sources) {
       for (const [id, source] of Object.entries(sources)) {
-        if (components[id] || id in loaders) continue
         // The dev server builds any of the project's files when it's asked for one, as it does for the app.
         const url = new URL(`/${source.path.replace(/^\.?\//, "")}`, projectOrigin).href
         loaders[id] = () =>
           import(/* @vite-ignore */ url).then((module: Record<string, unknown>) =>
             source.export.split(".").reduce<unknown>((value, key) => (value as Record<string, unknown>)?.[key], module)
           )
-        names.push(id)
+        // One it had already has moved to another file, so it's drawn from there from now on.
+        delete components[id]
+        deferred.delete(id)
+        if (!names.includes(id)) names.push(id)
       }
     },
     iconNames: namesOf,

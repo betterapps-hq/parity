@@ -19,7 +19,15 @@ import { type ProjectTsconfig, readTsconfig, resolvePathAlias } from "./tsconfig
 import { findWorkspace, workspaceDependencies, workspaceSection } from "./workspace.ts"
 
 export { type ConfigSource, findConfig, type FoundConfig, loadConfig } from "./configs.ts"
-export { type CheckedComponent, checkedChanges } from "./components.ts"
+export {
+  appFiles,
+  type CheckedComponent,
+  checkedChanges,
+  filesChanged,
+  type FoundComponent,
+  importersOf,
+  readChangedFiles
+} from "./components.ts"
 export { addCommand, cutoff, detectPackageManager, detectProject } from "./detect.ts"
 export { parseJsonc } from "./jsonc.ts"
 export { installedPackage, type LibraryDefinition, libraryCatalog } from "./libraries.ts"
@@ -32,6 +40,8 @@ export interface DiscoveredProject extends ProjectConfig {
   notes: string[]
   /** The app's files read for components, relative to the root, for the type checker to read again. */
   componentFiles: string[]
+  /** The UI kit folder, relative to the root, when there is one. Its components load with the canvas. */
+  uiKit?: string
 }
 
 /**
@@ -89,7 +99,8 @@ export async function discoverProject(
     ...(storybook ? { storybook } : {}),
     ...(tokens.length > 0 ? { describedTokens: tokens } : {}),
     notes,
-    componentFiles: app.files
+    componentFiles: app.files,
+    ...(uiKit ? { uiKit } : {})
   }
 }
 

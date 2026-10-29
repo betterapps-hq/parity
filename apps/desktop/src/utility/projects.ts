@@ -23,7 +23,16 @@ import {
   type ThemeVariable,
   withLibraryCanvas
 } from "@parity/core"
-import { checkedChanges, detectProject, discoverProject } from "@parity/project"
+import {
+  appFiles,
+  checkedChanges,
+  detectProject,
+  discoverProject,
+  filesChanged,
+  importersOf,
+  readChangedFiles,
+  readTsconfig
+} from "@parity/project"
 import { reactRenderer } from "@parity/renderer-react"
 import { tailwindStyles } from "@parity/styles-tailwind"
 import type { ProjectInfo, ServiceMethods, TokenChange, WindowMethods } from "../shared/protocol.ts"
@@ -48,6 +57,9 @@ interface OpenProject {
   /** Where each component comes from, and the props inferred from its source (re-inferred when a source changes). */
   sources: Record<string, ComponentSource>
   components: Promise<Record<string, ComponentInfo>>
+  /** What reads the app's files for components when they change, and the UI kit folder whose components load eagerly. */
+  renderer: RendererAdapter
+  uiKit?: string
 }
 
 type FileChange = WindowMethods["project.fileChanged"]["params"]
@@ -182,7 +194,9 @@ async function start(root: string): Promise<ProjectInfo> {
     stylesheets: config.styles,
     known,
     sources: config.components,
-    components: inferProps(root, config.components)
+    components: inferProps(root, config.components),
+    renderer,
+    ...(config.uiKit ? { uiKit: config.uiKit } : {})
   }
   project.watcher = watchProjectFiles(project)
   void checkTypes(project, config.componentFiles)
@@ -328,17 +342,22 @@ function applyTokenChange(source: string, change: TokenChange, isTheme: boolean)
 
 /**
  * Watches the project's `.par` files, so edits made outside the canvas (by an agent, git, or a text editor) show up in
- * it. Writes from the canvas itself are recognized by their content and ignored.
+ * it. Writes from the canvas itself are recognized by their content and ignored. Its component files are read again
+ * when they're added, changed, renamed or deleted, a moment after the last change.
  */
 function watchProjectFiles(project: OpenProject): FSWatcher | undefined {
   const { root } = project.info
   const timers = new Map<string, ReturnType<typeof setTimeout>>()
-  const componentFiles = new Set(Object.values(project.sources).map((source) => source.path))
-  const reinfer = () => {
-    project.components = inferProps(root, project.sources)
-    void project.components.then((components) => {
-      if (projects.get(root) === project) notifyComponents({ projectId: project.info.id, components })
-    })
+  const changed = new Set<string>()
+  let rescanning: Promise<void> = Promise.resolve()
+  const rescan = () => {
+    const paths = [...changed]
+    changed.clear()
+    rescanning = rescanning
+      .then(() => rescanComponents(project, paths))
+      .catch((error: unknown) => {
+        console.warn(`[service] couldn't read the changed components: ${message(error)}`)
+      })
   }
   const reload = async (path: string) => {
     let text: string
@@ -364,12 +383,15 @@ function watchProjectFiles(project: OpenProject): FSWatcher | undefined {
   try {
     return watch(root, { recursive: true }, (_event, name) => {
       const path = name?.toString().replaceAll("\\", "/")
-      if (path && componentFiles.has(path)) {
+      if (!path || path.split("/").includes("node_modules")) return
+      if (project.renderer.componentExtensions.some((extension) => path.endsWith(extension))) {
+        if (path.split("/").some((part) => part.startsWith("."))) return
+        changed.add(path)
         clearTimeout(timers.get("components"))
-        timers.set("components", setTimeout(reinfer, 600))
+        timers.set("components", setTimeout(rescan, 400))
         return
       }
-      if (!path?.endsWith(".par") || path.split("/").includes("node_modules")) return
+      if (!path.endsWith(".par")) return
       // Only the project's own `.lib.par`, at its root, holds designs.
       if (path.endsWith(libraryManifestExtension) && path.includes("/")) return
       clearTimeout(timers.get(path))
@@ -406,7 +428,9 @@ async function checkTypes(project: OpenProject, files: string[]): Promise<void> 
   for (const name of removed) delete project.sources[name]
   Object.assign(project.sources, confirmed, added)
   project.info.componentCount = Object.keys(project.sources).length
-  console.log(`[service]   the type checker added ${Object.keys(added).length} components and left out ${removed.length}`)
+  console.log(
+    `[service]   the type checker added ${Object.keys(added).length} components and left out ${removed.length}`
+  )
   if (Object.keys(added).length === 0 && removed.length === 0) return
   const before = project.components
   project.components = Promise.all([before, inferProps(root, added)]).then(([known, more]) => {
@@ -416,6 +440,51 @@ async function checkTypes(project: OpenProject, files: string[]): Promise<void> 
   })
   const components = await project.components
   if (projects.get(root) === project) notifyComponents({ projectId: id, components, sources: project.sources })
+}
+
+/**
+ * Brings the component list up to date after files changed: the parse reads the changed files again, so added,
+ * renamed and deleted components show at once, and props are read again. The type checker then settles the changed
+ * files and the files that import them, which is all a change can affect.
+ */
+async function rescanComponents(project: OpenProject, paths: string[]): Promise<void> {
+  const { root, id } = project.info
+  const tsconfig = readTsconfig(root)
+  const { files } = await appFiles(root, project.renderer, tsconfig)
+  const read = await readChangedFiles(root, project.renderer, files, project.uiKit, paths)
+  const update = filesChanged(project.sources, read)
+  const current = () => projects.get(root) === project
+  if (!current()) return
+  const settle = async (next: Record<string, ComponentSource>, label: string, added: number, removed: number) => {
+    // In place, since the builder serves the guest from this list.
+    for (const name of Object.keys(project.sources)) if (!(name in next)) delete project.sources[name]
+    Object.assign(project.sources, next)
+    project.info.componentCount = Object.keys(project.sources).length
+    project.components = inferProps(root, project.sources)
+    const components = await project.components
+    if (added > 0 || removed > 0) console.log(`[service]   ${label}: ${added} components added, ${removed} left out`)
+    if (current()) notifyComponents({ projectId: id, components, sources: project.sources })
+  }
+  const what = paths.length === 1 ? paths[0] : `${paths.length} files`
+  await settle(update.sources, `${what} changed`, update.added.length, update.removed.length)
+
+  const inApp = new Set(files)
+  const reread = [...read.keys()].filter((path) => inApp.has(path) && read.get(path))
+  if (reread.length === 0) return
+  const toCheck = [...reread, ...(await importersOf(root, files, reread, tsconfig))]
+  let checked: Awaited<ReturnType<typeof checkComponents>>
+  try {
+    checked = await checkComponents(root, toCheck)
+  } catch (error) {
+    console.warn(`[service] the type checker couldn't read the changed components: ${message(error)}`)
+    return
+  }
+  if (!current()) return
+  const { added, confirmed, removed } = checkedChanges(project.sources, checked, new Set(toCheck))
+  if (Object.keys(added).length === 0 && removed.length === 0 && Object.keys(confirmed).length === 0) return
+  const next = { ...project.sources, ...confirmed, ...added }
+  for (const name of removed) delete next[name]
+  await settle(next, "the type checker", Object.keys(added).length, removed.length)
 }
 
 /** Props inference that never fails the project: without it, panels fall back to free-form props. */
