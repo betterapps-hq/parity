@@ -138,11 +138,14 @@ export class AgentWorkspace {
   /** Designs this call changed or moved, by key, whose overlaps it reports. */
   private readonly touched = new Set<string>()
 
-  constructor(
-    private readonly snapshot: AgentSnapshot,
-    private readonly hooks: AgentHooks,
-    private readonly label: string
-  ) {
+  private readonly snapshot: AgentSnapshot
+  private readonly hooks: AgentHooks
+  private readonly label: string
+
+  constructor(snapshot: AgentSnapshot, hooks: AgentHooks, label: string) {
+    this.snapshot = snapshot
+    this.hooks = hooks
+    this.label = label
     this.documents = new Map(snapshot.documents.map(({ path, document }) => [path, structuredClone(document)]))
     this.modes = snapshot.modes
   }

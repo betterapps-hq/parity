@@ -25,6 +25,13 @@
   },
   "overrides": [
     {
+      "files": ["packages/**", "apps/*/scripts/**"],
+      "rules": {
+        "typescript/parameter-properties": "error",
+        "typescript/no-namespace": "error"
+      }
+    },
+    {
       "files": ["apps/desktop/src/renderer/components/ui/**"],
       "rules": {
         "jsx-a11y/prefer-tag-over-role": "off",

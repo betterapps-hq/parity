@@ -291,8 +291,11 @@ function expects(rules: FieldRules): string {
 
 class Parser {
   private at = 0
+  private readonly lexemes: Lexeme[]
 
-  constructor(private readonly lexemes: Lexeme[]) {}
+  constructor(lexemes: Lexeme[]) {
+    this.lexemes = lexemes
+  }
 
   parse(): FieldExpression | { reason: string } {
     const expression = this.sum()
