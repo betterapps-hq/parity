@@ -3,10 +3,10 @@
  * first pass, so every exploration shares one cast.
  */
 import {
+  Bird,
   Boxes,
   Flame,
   Gamepad2,
-  Hammer,
   Layers,
   type LucideIcon,
   MessagesSquare,
@@ -19,7 +19,7 @@ import {
   Swords,
   Users
 } from "lucide-react"
-import { me, people, type Person } from "../explore-data.ts"
+import { me, type Organization, people, type Person } from "../explore-data.ts"
 
 /** How a project's own app looks: its brand, and whether it's dark. Renders of its designs use it. */
 export interface Look {
@@ -33,6 +33,8 @@ export interface Look {
   serif?: boolean
   /** Black and white, with no brand color. */
   mono?: boolean
+  /** The organization the app belongs to, as its own screens name it: the brand when left out. */
+  org?: string
 }
 
 /** The kinds of screen the renders can draw. */
@@ -61,10 +63,18 @@ export interface Design {
 
 export type StackId = "tanstack-start" | "spawnkit" | "nextjs" | "react-library"
 
+/** A made-up customer the samples belong to, as the portal's explorations use it, and your own projects. */
+export const organizations = {
+  kestrel: { id: "kestrel", name: "Kestrel", members: 8, hue: 200 },
+  personal: { id: "personal", name: "Personal", members: 1, hue: 162 }
+} satisfies Record<string, Organization>
+
+export type OrgId = keyof typeof organizations
+
 export interface StartProject {
   id: string
   name: string
-  org: "buildkit" | "personal"
+  org: OrgId
   look: Look
   stack: StackId
   /** Where it lives: a repository or a folder on this computer. */
@@ -85,16 +95,14 @@ export interface StartProject {
   comments?: number
 }
 
-const dashboardLook: Look = { hue: 158, brand: "Better Apps", icon: Layers }
-
 export const projects: StartProject[] = [
   {
     id: "dashboard",
-    name: "Better Apps dashboard",
-    org: "buildkit",
-    look: dashboardLook,
+    name: "Cloud console",
+    org: "kestrel",
+    look: { hue: 158, brand: "Kestrel Cloud", icon: Layers, org: "Kestrel" },
     stack: "tanstack-start",
-    source: { type: "github", path: "buildkitgg/better-apps", branch: "feat/billing" },
+    source: { type: "github", path: "kestrel/cloud-console", branch: "feat/billing" },
     designs: [
       { name: "Billing", kind: "billing", mobile: true },
       { name: "Overview", kind: "overview", mobile: true },
@@ -109,11 +117,11 @@ export const projects: StartProject[] = [
   },
   {
     id: "website",
-    name: "Buildkit website",
-    org: "buildkit",
-    look: { hue: 268, brand: "Buildkit", icon: Hammer },
+    name: "Kestrel website",
+    org: "kestrel",
+    look: { hue: 268, brand: "Kestrel", icon: Bird, org: "Kestrel" },
     stack: "tanstack-start",
-    source: { type: "github", path: "buildkitgg/website", branch: "main" },
+    source: { type: "github", path: "kestrel/website", branch: "main" },
     designs: [
       { name: "Home", kind: "landing", mobile: true },
       { name: "Pricing", kind: "pricing", mobile: true }
@@ -144,11 +152,11 @@ export const projects: StartProject[] = [
   },
   {
     id: "spawnkit",
-    name: "SpawnKit",
-    org: "buildkit",
+    name: "Ember Caves",
+    org: "kestrel",
     look: { hue: 34, brand: "Ember Caves", icon: Flame, dark: true },
     stack: "spawnkit",
-    source: { type: "github", path: "buildkitgg/spawnkit", branch: "tiles" },
+    source: { type: "github", path: "kestrel/ember-caves", branch: "tiles" },
     designs: [
       { name: "Level select", kind: "levels" },
       { name: "In game", kind: "play" }
@@ -160,11 +168,11 @@ export const projects: StartProject[] = [
   },
   {
     id: "docs",
-    name: "Parity docs",
-    org: "buildkit",
-    look: { hue: 276, brand: "Parity", icon: NotebookText, dark: true },
+    name: "Help center",
+    org: "kestrel",
+    look: { hue: 276, brand: "Kestrel Help", icon: NotebookText, dark: true, org: "Kestrel" },
     stack: "tanstack-start",
-    source: { type: "github", path: "buildkitgg/parity-docs", branch: "main" },
+    source: { type: "github", path: "kestrel/help-center", branch: "main" },
     designs: [{ name: "Docs home", kind: "docs" }],
     edited: "2 h ago",
     editedBy: people.priya,
@@ -172,11 +180,11 @@ export const projects: StartProject[] = [
   },
   {
     id: "copilot",
-    name: "AI support copilot",
-    org: "buildkit",
-    look: { hue: 312, brand: "Relay", icon: MessagesSquare, dark: true },
+    name: "Relay",
+    org: "kestrel",
+    look: { hue: 312, brand: "Relay", icon: MessagesSquare, dark: true, org: "Kestrel" },
     stack: "tanstack-start",
-    source: { type: "github", path: "buildkitgg/relay", branch: "main" },
+    source: { type: "github", path: "kestrel/relay", branch: "main" },
     designs: [
       { name: "Inbox", kind: "inbox" },
       { name: "Sign in", kind: "signin" }
@@ -188,11 +196,11 @@ export const projects: StartProject[] = [
   },
   {
     id: "library",
-    name: "Buildkit UI",
-    org: "buildkit",
-    look: { hue: 255, brand: "Buildkit UI", icon: Boxes },
+    name: "Kestrel UI",
+    org: "kestrel",
+    look: { hue: 255, brand: "Kestrel UI", icon: Boxes, org: "Kestrel" },
     stack: "react-library",
-    source: { type: "azure", path: "buildkit/ui", branch: "main" },
+    source: { type: "azure", path: "kestrel/ui", branch: "main" },
     designs: [{ name: "Components", kind: "components" }],
     edited: "3 days ago",
     editedBy: people.lena,
@@ -202,10 +210,10 @@ export const projects: StartProject[] = [
   {
     id: "standup",
     name: "Standup",
-    org: "buildkit",
-    look: { hue: 205, brand: "Standup", icon: Users },
+    org: "kestrel",
+    look: { hue: 205, brand: "Standup", icon: Users, org: "Kestrel" },
     stack: "tanstack-start",
-    source: { type: "github", path: "buildkitgg/standup", branch: "main" },
+    source: { type: "github", path: "kestrel/standup", branch: "main" },
     designs: [{ name: "Retro board", kind: "board" }],
     edited: "4 days ago",
     editedBy: people.priya,
@@ -277,7 +285,7 @@ export const forYou: ForYouItem[] = [
     who: people.maya,
     action: "mentioned you on",
     design: "Pricing",
-    project: "Buildkit website",
+    project: "Kestrel website",
     quote: "@Andrew can we drop the annual toggle? It fights with the plan cards.",
     when: "8 min ago",
     act: "Reply",
@@ -289,7 +297,7 @@ export const forYou: ForYouItem[] = [
     who: people.priya,
     action: "asked you to review",
     design: "Docs home",
-    project: "Parity docs",
+    project: "Help center",
     when: "2 h ago",
     act: "Review",
     unread: true
@@ -300,7 +308,7 @@ export const forYou: ForYouItem[] = [
     who: people.jonas,
     action: "replied on",
     design: "Level select",
-    project: "SpawnKit",
+    project: "Ember Caves",
     quote: "Pushed the new tiles. The locked state reads much better now.",
     when: "25 min ago",
     act: "Open"
@@ -310,7 +318,7 @@ export const forYou: ForYouItem[] = [
     kind: "invite",
     who: people.sam,
     action: "invited you to",
-    project: "AI support copilot",
+    project: "Relay",
     when: "Yesterday",
     act: "Join"
   }
@@ -552,20 +560,20 @@ export interface Repository {
 /** Repositories on the connected accounts. */
 export const repositories: Record<"github" | "azure", { account: string; repos: Repository[] }> = {
   github: {
-    account: "buildkitgg",
+    account: "kestrel",
     repos: [
-      { name: "shadcn-theme", description: "Themes for shadcn/ui, with a builder", detected: "React library", updated: "2 h ago" },
-      { name: "better-apps", description: "The Better Apps dashboard", detected: "TanStack Start", updated: "1 h ago", inParity: true },
-      { name: "website", description: "buildkit.gg", detected: "TanStack Start", updated: "12 min ago", inParity: true },
-      { name: "status-page", description: "Uptime and incidents for Better Apps", detected: "Vite and React", updated: "3 days ago" },
-      { name: "scaffolder", description: "The engine behind buildkit init", updated: "Yesterday" },
-      { name: "dev-domains", description: "Local HTTPS domains for every app", updated: "Last week" }
+      { name: "status-page", description: "Uptime and incidents for Kestrel Cloud", detected: "Vite and React", updated: "2 h ago" },
+      { name: "cloud-console", description: "The console customers run their apps from", detected: "TanStack Start", updated: "1 h ago", inParity: true },
+      { name: "website", description: "kestrel.dev", detected: "TanStack Start", updated: "12 min ago", inParity: true },
+      { name: "partner-portal", description: "Where resellers track their customers", detected: "Next.js", updated: "3 days ago" },
+      { name: "edge-router", description: "Routes requests to the nearest region", updated: "Yesterday" },
+      { name: "terraform", description: "Infrastructure for every environment", updated: "Last week" }
     ]
   },
   azure: {
-    account: "buildkit / Platform",
+    account: "kestrel / Platform",
     repos: [
-      { name: "ui", description: "Buildkit UI", detected: "React library", updated: "3 days ago", inParity: true },
+      { name: "ui", description: "Kestrel UI", detected: "React library", updated: "3 days ago", inParity: true },
       { name: "admin-portal", description: "Support tools for the platform team", detected: "Vite and React", updated: "5 days ago" },
       { name: "billing-service", description: "Invoices and usage metering", updated: "Yesterday" }
     ]

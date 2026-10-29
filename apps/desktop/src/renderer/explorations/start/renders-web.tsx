@@ -74,47 +74,48 @@ function Glow({ className = "" }: { className?: string }) {
 }
 
 const terminalLines: [string, string][] = [
-  ["Template", "SaaS dashboard"],
-  ["Who it's for", "Companies and their teams"],
-  ["Sign-in", "WorkOS"],
-  ["Database", "Cloudflare D1"],
-  ["Billing", "Stripe Billing"]
+  ["Branch", "main"],
+  ["Build", "214 files in 38s"],
+  ["Tests", "182 passed"],
+  ["Review", "Approved by 2 people"],
+  ["Regions", "Frankfurt, Virginia and Tokyo"]
 ]
 
-/** The Scaffolder at work, as the website shows it. */
-function Terminal({ compact }: { compact?: boolean }) {
+/** The product's command line, as its own website shows it off. */
+function Terminal({ look, compact }: { look: Look; compact?: boolean }) {
+  const command = cli(look)
   return (
     <div className="overflow-hidden rounded-2xl bg-[oklch(0.19_0.01_270)] text-[oklch(0.92_0_0)] shadow-[0_30px_80px_-20px_rgb(0_0_0/0.45)] ring-1 ring-black/10">
       <div className="flex h-10 items-center gap-2 border-b border-white/[0.06] px-4">
         {[0, 1, 2].map((light) => (
           <span key={light} className="size-3 rounded-full bg-white/15" />
         ))}
-        <span className="ml-3 text-[12px] text-white/40">acme</span>
+        <span className="ml-3 text-[12px] text-white/40">{command}</span>
       </div>
       <div className={`flex flex-col gap-1.5 p-5 font-mono ${compact ? "text-[12px]" : "text-[14px]"}`}>
         <span>
-          <span className="text-(--r-brand-2)">$</span> pnpm dlx buildkit init saas-app acme
+          <span className="text-(--r-brand-2)">$</span> {command} deploy
         </span>
         {terminalLines.slice(0, compact ? 3 : 5).map(([label, value]) => (
           <span key={label} className="flex gap-3 pl-4">
-            <span className="w-[120px] shrink-0 text-white/40">{label}</span>
+            <span className={`${compact ? "w-[72px]" : "w-[96px]"} shrink-0 text-white/40`}>{label}</span>
             {value}
           </span>
         ))}
         <span className="mt-1.5 flex items-center gap-2 text-[oklch(0.8_0.14_155)]">
-          <Check className="size-4" /> Planned 214 files, no conflicts
+          <Check className="size-4" /> Deployed to production in 42s
         </span>
-        {!compact && (
-          <span className="flex items-center gap-2 text-[oklch(0.8_0.14_155)]">
-            <Check className="size-4" /> Installed in 11s
-          </span>
-        )}
         <span className="flex items-center gap-2 text-[oklch(0.8_0.14_155)]">
-          <Check className="size-4" /> Opened acme in Parity
+          <Check className="size-4" /> Live at {command}.app
         </span>
       </div>
     </div>
   )
+}
+
+/** The product's command-line name: its brand's first word, in lower case. */
+function cli(look: Look): string {
+  return orgOf(look).split(" ")[0]!.toLowerCase()
 }
 
 const customers = [
@@ -137,17 +138,17 @@ export function Landing({ look }: { look: Look }) {
             <span className="rounded-full bg-(--r-brand) px-2 py-0.5 text-[12px] font-semibold text-(--r-brand-fg)">
               New
             </span>
-            The Scaffolder is here <ArrowRight className="size-3.5 text-(--r-muted)" />
+            A preview for every branch <ArrowRight className="size-3.5 text-(--r-muted)" />
           </span>
           <h1 className={`text-[64px] leading-[1.02] font-semibold tracking-[-0.035em] ${display}`}>
-            Start every app with a month of work done.
+            Ship on Friday. Sleep on Saturday.
           </h1>
           <p className="max-w-[500px] text-[19px] leading-relaxed text-(--r-muted)">
-            Templates on a real stack, components you own, and deploys on day one. Built for teams who ship.
+            {orgOf(look)} builds, tests and previews every branch, so production only gets what your team has seen.
           </p>
           <div className="flex gap-3 pt-1">
             <span className="flex items-center gap-2 rounded-full bg-(--r-brand) px-6 py-3 text-[16px] font-medium text-(--r-brand-fg) shadow-[0_8px_24px_-8px_var(--r-brand)]">
-              Start building <ArrowRight className="size-4" />
+              Start deploying <ArrowRight className="size-4" />
             </span>
             <span className="rounded-full border border-(--r-line) bg-(--r-card) px-6 py-3 text-[16px] font-medium">
               Read the docs
@@ -169,7 +170,7 @@ export function Landing({ look }: { look: Look }) {
             Used by 2,400 teams
           </div>
         </div>
-        <Terminal />
+        <Terminal look={look} />
       </section>
       <section className="mt-auto flex flex-col items-center gap-5 pb-12">
         <span className="text-[13px] text-(--r-faint)">Teams building with {look.brand}</span>
@@ -198,24 +199,24 @@ export function MobileLanding({ look }: { look: Look }) {
       <div className="relative flex flex-col gap-5 px-5 pt-8">
         <span className="flex w-fit items-center gap-2 rounded-full border border-(--r-line) bg-(--r-card) py-1 pr-3 pl-1 text-[12px] font-medium">
           <span className="rounded-full bg-(--r-brand) px-2 py-0.5 font-semibold text-(--r-brand-fg)">New</span>
-          The Scaffolder is here
+          A preview for every branch
         </span>
         <h1 className={`text-[40px] leading-[1.05] font-semibold tracking-[-0.03em] ${display}`}>
-          Start every app with a month of work done.
+          Ship on Friday. Sleep on Saturday.
         </h1>
         <p className="text-[17px] leading-relaxed text-(--r-muted)">
-          Templates on a real stack, components you own, and deploys on day one.
+          Every branch is built, tested and previewed before it reaches production.
         </p>
         <div className="flex flex-col gap-2.5">
           <span className="rounded-full bg-(--r-brand) py-3.5 text-center text-[16px] font-medium text-(--r-brand-fg)">
-            Start building
+            Start deploying
           </span>
           <span className="rounded-full border border-(--r-line) bg-(--r-card) py-3.5 text-center text-[16px] font-medium">
             Read the docs
           </span>
         </div>
         <div className="pt-3">
-          <Terminal compact />
+          <Terminal look={look} compact />
         </div>
       </div>
     </div>
@@ -358,6 +359,11 @@ const dashboardNav = [
   { label: "Settings", icon: Settings }
 ]
 
+/** The organization an app belongs to, as its screens name it: the brand, unless the look names one. */
+function orgOf(look: Look): string {
+  return look.org ?? look.brand
+}
+
 /** A dashboard's frame: the sidebar, the top bar and the page's own header. */
 function AppShell({
   look,
@@ -397,13 +403,13 @@ function AppShell({
           <Face name="Andrew Craswell" hue={250} size={30} />
           <span className="flex min-w-0 flex-col">
             <span className="text-[13px] font-medium">Andrew Craswell</span>
-            <span className="text-[12px] text-(--r-muted)">Buildkit</span>
+            <span className="text-[12px] text-(--r-muted)">{orgOf(look)}</span>
           </span>
         </div>
       </aside>
       <main className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 shrink-0 items-center gap-2 border-b border-(--r-line) px-8 text-[13px] text-(--r-muted)">
-          Buildkit <ChevronRight className="size-3.5" /> <span className="text-(--r-fg)">{active}</span>
+          {orgOf(look)} <ChevronRight className="size-3.5" /> <span className="text-(--r-fg)">{active}</span>
           <span className="ml-auto flex items-center gap-4">
             <span>Feedback</span>
             <Bell className="size-4" />
@@ -458,10 +464,10 @@ const kpis = [
 
 const deploys = [
   { app: "website", branch: "main", status: "Ready", when: "2m" },
-  { app: "better-apps", branch: "feat/billing", status: "Building", when: "4m" },
+  { app: "cloud-console", branch: "feat/billing", status: "Building", when: "4m" },
   { app: "relay", branch: "fix/stream-retry", status: "Ready", when: "18m" },
   { app: "standup", branch: "main", status: "Failed", when: "1h" },
-  { app: "spawnkit", branch: "tiles", status: "Ready", when: "2h" }
+  { app: "ember-caves", branch: "tiles", status: "Ready", when: "2h" }
 ]
 
 function DeployStatus({ status }: { status: string }) {
@@ -510,7 +516,7 @@ export function Overview({ look }: { look: Look }) {
     <AppShell
       look={look}
       active="Overview"
-      description="Everything running across Buildkit's apps."
+      description={`Everything running across ${orgOf(look)}'s apps.`}
       actions={
         <>
           <span className="flex items-center rounded-lg border border-(--r-line) bg-(--r-card) p-0.5 text-[13px]">
@@ -584,7 +590,7 @@ export function Overview({ look }: { look: Look }) {
           <span>Updated</span>
         </div>
         {[
-          ["Buildkit website", "Production", "Healthy", "2m ago"],
+          [`${orgOf(look)} website`, "Production", "Healthy", "2m ago"],
           ["Relay", "Production", "Healthy", "18m ago"],
           ["Standup", "Staging", "Degraded", "1h ago"]
         ].map(([app, environment, status, updated], index) => (
@@ -647,7 +653,7 @@ export function Billing({ look }: { look: Look }) {
     <AppShell
       look={look}
       active="Billing"
-      description="Your plan, usage and invoices for Buildkit."
+      description={`Your plan, usage and invoices for ${orgOf(look)}.`}
       actions={
         <>
           <Ghost>
@@ -894,10 +900,10 @@ export function SignIn({ look }: { look: Look }) {
 }
 
 const docsNav = [
-  { group: "Getting started", items: ["Introduction", "Install Parity", "Your first design", "Connect an agent"] },
-  { group: "Canvas", items: ["Designs and boards", "Modes", "States", "Components"] },
-  { group: "Lenses", items: ["Routes", "Database", "API"] },
-  { group: "Reference", items: ["CLI", "parity.config.ts", "MCP tools"] }
+  { group: "Getting started", items: ["Introduction", "Install the CLI", "Deploy your first app", "Custom domains"] },
+  { group: "Platform", items: ["Environments", "Secrets", "Logs", "Regions"] },
+  { group: "Billing", items: ["Plans", "Usage"] },
+  { group: "Reference", items: ["CLI", "REST API", "Webhooks"] }
 ]
 
 /** A docs site's guide page: navigation, the article and what's on the page. */
@@ -929,7 +935,7 @@ export function Docs({ look }: { look: Look }) {
                 <span
                   key={item}
                   className={`rounded-md px-2 py-1 ${
-                    item === "Your first design" ? "bg-(--r-soft) font-medium text-(--r-brand)" : "text-(--r-muted)"
+                    item === "Deploy your first app" ? "bg-(--r-soft) font-medium text-(--r-brand)" : "text-(--r-muted)"
                   }`}
                 >
                   {item}
@@ -940,37 +946,36 @@ export function Docs({ look }: { look: Look }) {
         </aside>
         <article className="flex max-w-[780px] flex-1 flex-col gap-5 px-14 py-10 leading-relaxed">
           <span className="flex items-center gap-1.5 text-[13px] text-(--r-muted)">
-            Getting started <ChevronRight className="size-3.5" /> Your first design
+            Getting started <ChevronRight className="size-3.5" /> Deploy your first app
           </span>
-          <h1 className={`text-[40px] leading-tight font-semibold tracking-tight ${display}`}>Your first design</h1>
+          <h1 className={`text-[40px] leading-tight font-semibold tracking-tight ${display}`}>Deploy your first app</h1>
           <p className="text-[18px] text-(--r-muted)">
-            Open a React app, put a component on the canvas, and give it states. It takes about five minutes.
+            Connect a repository, pick your regions and deploy. It takes about five minutes.
           </p>
-          <h2 className="pt-2 text-[22px] font-semibold tracking-tight">Open your app</h2>
+          <h2 className="pt-2 text-[22px] font-semibold tracking-tight">Connect your repository</h2>
           <p className="text-(--r-muted)">
-            Parity opens the folder that holds your package.json. It finds your components, your Tailwind theme and your
-            routes, and starts your dev server.
+            {orgOf(look)} reads your package.json, works out how to build the app, and sets up a preview for every
+            branch you push.
           </p>
           <div className="rounded-xl border border-(--r-line) bg-(--r-card) p-4 font-mono text-[13px] leading-loose">
             <div>
-              <span className="text-(--r-brand)">$</span> pnpm dlx parity open .
+              <span className="text-(--r-brand)">$</span> {cli(look)} deploy
             </div>
-            <div className="text-(--r-muted)">Found 48 components in src/components</div>
-            <div className="text-(--r-muted)">Started Vite on http://localhost:5173</div>
+            <div className="text-(--r-muted)">Built 214 files in 38s</div>
+            <div className="text-(--r-muted)">Live at https://{cli(look)}.app</div>
           </div>
           <div className="flex gap-3 rounded-xl border border-(--r-line) border-l-(--r-brand) bg-(--r-soft) p-4 text-[14px]">
             <Info className="mt-0.5 size-4 shrink-0 text-(--r-brand)" />
-            Parity never changes your code until you ask it to.
+            Deploys are atomic. A build that fails never replaces one that works.
           </div>
-          <h2 className="pt-2 text-[22px] font-semibold tracking-tight">Add a design</h2>
+          <h2 className="pt-2 text-[22px] font-semibold tracking-tight">Add a custom domain</h2>
           <p className="text-(--r-muted)">
-            Drag a component from the Components panel onto the canvas. It renders with your real code, so what you see
-            is what ships.
+            Point your domain's DNS at {orgOf(look)}, and its certificates renew on their own.
           </p>
         </article>
         <aside className="flex w-[220px] shrink-0 flex-col gap-2 py-10 text-[13px] text-(--r-muted)">
           <span className="mb-1 font-semibold text-(--r-fg)">On this page</span>
-          {["Open your app", "Add a design", "Give it states", "Show it on a phone", "Next steps"].map((item, index) => (
+          {["Connect your repository", "Deploy", "Add a custom domain", "Roll back", "Next steps"].map((item, index) => (
             <span key={item} className={index === 0 ? "font-medium text-(--r-brand)" : ""}>
               {item}
             </span>

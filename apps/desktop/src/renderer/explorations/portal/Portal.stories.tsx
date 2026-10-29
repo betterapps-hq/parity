@@ -1,16 +1,18 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { FolderOpen, LayoutGrid, List, UserPlus } from "lucide-react"
+import { LayoutGrid, List, UserPlus } from "lucide-react"
+import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { agentPalettes } from "../../agent/agent-colors.ts"
 import { AgentBadge } from "../../agent/AgentPointer.tsx"
-import { type Activity as ActivityItem, people } from "../explore-data.ts"
-import { AvatarStack } from "../parts.tsx"
+import { people } from "../explore-data.ts"
+import { AvatarStack, GitHubMark } from "../parts.tsx"
 import { ActivityRow, OrgBadge } from "../start-page-parts.tsx"
 import { CanvasArt, ProjectCard } from "../start/page.tsx"
 import { ActivityPage } from "./activity.tsx"
-import { AddSeatsPage, BillingPage, MembersPage, PlansPage } from "./admin.tsx"
+import { AddSeatsPage, BillingPage, MembersPage, PlansPage, SecurityPage } from "./admin.tsx"
 import { ChangesPage } from "./changes.tsx"
-import { orgProjects, portalProject, teams, type Whereabouts, workingNow } from "./data.ts"
+import { events, needsYou, orgProjects, portalProject, type PortalEvent, teams, workingNow } from "./data.ts"
+import { HandoffPage } from "./handoff.tsx"
 import { InboxPage } from "./inbox.tsx"
 import {
   DesignTile,
@@ -27,7 +29,7 @@ import {
 /**
  * The portal: Parity on the web, for a whole org. It's where people find what they've been tagged in, see what their
  * teammates and agents are doing, and open designs to see what changed. A project opens straight into its canvas.
- * The org is Kestrel, a made-up customer.
+ * The org is Kestrel, a made-up customer. Every screen draws from the same events (`data.ts`), so they agree.
  */
 const meta = {
   title: "Parity/Explorations/Portal",
@@ -37,41 +39,90 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-const { maya, jonas, priya, sam, lena, claude } = people
+/** Two buttons under a card: the one thing to do, and a way to put it off. */
+function Act({ children, later = "Later" }: { children: string; later?: string }) {
+  return (
+    <div className="flex gap-2">
+      <Button size="sm">{children}</Button>
+      <Button size="sm" variant="ghost">
+        {later}
+      </Button>
+    </div>
+  )
+}
 
-/** What happened in Kestrel lately, as activity rows. */
-const lately: ActivityItem[] = [
-  {
-    id: "jonas-reply",
-    kind: "comment",
-    who: jonas,
-    project: "Ember Caves",
-    design: "Level select",
-    action: "replied on",
-    quote: "Pushed the new tiles. The locked state reads much better now.",
-    when: "25 min ago",
-    day: "Today",
-    unread: true
-  },
-  {
-    id: "sam-merge",
-    kind: "merge",
-    who: sam,
-    project: "Cloud console",
-    action: "merged #142 Billing settings into main of",
-    when: "3 h ago",
-    day: "Today"
-  },
-  {
-    id: "lena-publish",
-    kind: "publish",
-    who: lena,
-    project: "Kestrel UI",
-    action: "published Button, Toggle and Menu in",
-    when: "Yesterday",
-    day: "Yesterday"
-  }
-]
+/** A reply box that isn't open yet. */
+function ReplyField({ placeholder, hint }: { placeholder: string; hint: string }) {
+  return (
+    <div className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2 text-sm text-muted-foreground">
+      <span className="flex-1">{placeholder}</span>
+      <span className="text-xs">{hint}</span>
+    </div>
+  )
+}
+
+/** The line at the top of a card: who, what they did, and where. */
+function Line({ item }: { item: PortalEvent }) {
+  return (
+    <>
+      <Name>{item.who.name}</Name> {item.action} {item.design && <Name>{item.design}</Name>}
+      {item.design ? " in " : " "}
+      <Name>{item.project}</Name>
+    </>
+  )
+}
+
+/** What each thing waiting on you shows: what it's about, and the one thing to do. */
+const needsYouBodies: Record<string, ReactNode> = {
+  "maya-mention": (
+    <div className="grid grid-cols-[minmax(0,1fr)_168px] gap-4">
+      <div className="flex flex-col gap-3">
+        <p className="text-sm">@Andrew can we drop the annual toggle here? It fights with the plan cards.</p>
+        <div className="mt-auto">
+          <ReplyField placeholder="Reply to Maya" hint="Open in Pricing" />
+        </div>
+      </div>
+      <DesignTile project="website" design="Pricing" />
+    </div>
+  ),
+  "cursor-question": (
+    <>
+      <p className="text-sm">Should search results open in a panel, or on their own page?</p>
+      <span className="text-xs text-muted-foreground">Cursor is working for you, and stopped to ask.</span>
+      <ReplyField placeholder="Answer Cursor" hint="It picks up where it stopped" />
+    </>
+  ),
+  "noah-seat": (
+    <>
+      <p className="text-sm">I'm picking up the Help center redesign with Priya.</p>
+      <span className="text-xs text-muted-foreground">
+        Kestrel has 2 open editor seats, so this costs nothing more.
+      </span>
+      <Act later="Deny">Approve</Act>
+    </>
+  ),
+  "claude-run": (
+    <>
+      <div>
+        <AgentBadge palette={agentPalettes[7]} agent="Claude Code" kind="write" label="Tighten the plan cards" />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <DesignTile project="dashboard" design="Billing" changed />
+        <DesignTile project="dashboard" design="Overview" changed />
+      </div>
+      <Act>See what changed</Act>
+    </>
+  ),
+  "priya-review": (
+    <div className="grid grid-cols-[minmax(0,1fr)_168px] items-end gap-4">
+      <Act>Review</Act>
+      <DesignTile project="docs" design="Docs home" />
+    </div>
+  )
+}
+
+/** Since you were last here: what happened in your projects that doesn't need you. */
+const since = events.filter((item) => !item.needsYou && item.ago < 24 * 60)
 
 /** For you: what needs you first, then what changed in your projects, with your teammates at the side. */
 function ForYou() {
@@ -83,81 +134,22 @@ function ForYou() {
             <div className="flex flex-col gap-1.5">
               <h1 className="text-[26px] leading-tight font-semibold tracking-tight">Good morning, Andrew</h1>
               <p className="text-sm text-muted-foreground">
-                Maya mentioned you, Claude Code wants your review, and 9 designs changed since you were last here.
+                {needsYou.length} things need you, and {since.length} things happened in your projects since you were
+                last here.
               </p>
             </div>
             <h2 className="text-sm font-semibold">Needs you</h2>
-            <FeedCard
-              who={maya}
-              line={
-                <>
-                  <Name>Maya Chen</Name> mentioned you on <Name>Pricing</Name> in <Name>Kestrel website</Name>
-                </>
-              }
-              when="8 min ago"
-            >
-              <div className="grid grid-cols-[minmax(0,1fr)_168px] gap-4">
-                <div className="flex flex-col gap-3">
-                  <p className="text-sm">@Andrew can we drop the annual toggle? It fights with the plan cards.</p>
-                  <div className="mt-auto flex items-center gap-2 rounded-lg border bg-background px-3 py-2 text-sm text-muted-foreground">
-                    <span className="flex-1">Reply to Maya</span>
-                    <span className="text-xs">Open in Pricing</span>
-                  </div>
-                </div>
-                <DesignTile project="website" design="Pricing" />
-              </div>
-            </FeedCard>
-            <FeedCard
-              who={claude}
-              line={
-                <>
-                  <Name>Claude Code</Name> changed 2 designs in <Name>Cloud console</Name> and asked for your review
-                </>
-              }
-              when="1 h ago"
-            >
-              <div>
-                <AgentBadge
-                  palette={agentPalettes[7]}
-                  agent="Claude Code"
-                  kind="write"
-                  label="Tighten the plan cards"
-                />
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <DesignTile project="dashboard" design="Billing" changed />
-                <DesignTile project="dashboard" design="Overview" changed />
-                <DesignTile project="dashboard" design="Sign in" />
-              </div>
-              <div className="flex gap-2">
-                <Button size="sm">See what changed</Button>
-                <Button size="sm" variant="ghost">
-                  Later
-                </Button>
-              </div>
-            </FeedCard>
-            <FeedCard
-              who={priya}
-              line={
-                <>
-                  <Name>Priya Raman</Name> asked you to review <Name>Docs home</Name> in <Name>Help center</Name>
-                </>
-              }
-              when="2 h ago"
-            >
-              <div className="flex gap-2">
-                <Button size="sm">Review</Button>
-                <Button size="sm" variant="ghost">
-                  Later
-                </Button>
-              </div>
-            </FeedCard>
+            {needsYou.map((item) => (
+              <FeedCard key={item.id} who={item.who} line={<Line item={item} />} when={item.when}>
+                {needsYouBodies[item.id]}
+              </FeedCard>
+            ))}
             <div className="flex items-center justify-between pt-2">
               <h2 className="text-sm font-semibold">Since you were last here</h2>
               <SeeAll>All activity</SeeAll>
             </div>
             <div className="-mx-3 flex flex-col gap-1">
-              {lately.map((item) => (
+              {since.map((item) => (
                 <ActivityRow key={item.id} item={item} />
               ))}
             </div>
@@ -205,8 +197,8 @@ function ForYou() {
 }
 
 /**
- * For you: mentions, reviews and agents waiting on you, each with the design it's about, then what changed since you
- * were last here. Down the side, who on your teams is working where, with Join.
+ * For you: mentions, reviews, agents and seat requests waiting on you, newest first, each with what it's about and
+ * the one thing to do. Then what happened since you were last here, and who on your teams is working where.
  */
 export const Home: Story = { render: () => <ForYou /> }
 
@@ -227,7 +219,7 @@ function Library() {
               </span>
             </div>
             <Button variant="outline" className="gap-1.5">
-              <FolderOpen /> Import
+              <GitHubMark /> From a repository
             </Button>
           </div>
         </PortalHeader>
@@ -243,17 +235,12 @@ function Library() {
 
 export const Recents: Story = { render: () => <Library /> }
 
-/** Your team's people and agents, each on the canvas they're in now. */
-const appsNow: Whereabouts[] = [
-  workingNow[2]!,
-  workingNow[1]!,
-  workingNow[3]!,
-  { who: lena, project: "library", design: "Components", doing: "", away: "yesterday" }
-]
-
 /** A team: who's working where right now, the team's projects, and its week. */
 function TeamPage() {
   const { apps } = teams
+  const here = workingNow.filter((where) => apps.projects.includes(where.project))
+  const away = { who: people.lena, project: "library", design: "Components", doing: "", away: "yesterday" }
+  const week = events.filter((item) => item.team === "apps")
   return (
     <PortalPage active="apps" path="kestrel/teams/apps">
       <div className="flex flex-col gap-8 px-8 py-7">
@@ -262,7 +249,7 @@ function TeamPage() {
           <div className="flex flex-col gap-1">
             <h1 className="text-xl font-semibold tracking-tight">Apps</h1>
             <span className="text-sm text-muted-foreground">
-              {apps.people.length} people and Claude Code, on {apps.projects.length} projects
+              {apps.people.length} people on {apps.projects.length} projects, and the agents they run
             </span>
           </div>
           <div className="ml-auto flex items-center gap-3">
@@ -276,94 +263,86 @@ function TeamPage() {
         <section className="flex flex-col gap-4">
           <div className="flex items-baseline gap-3">
             <h2 className="text-[15px] font-semibold">Working now</h2>
-            <span className="text-xs text-muted-foreground">3 here, 1 away</span>
+            <span className="text-xs text-muted-foreground">{here.length} here, 1 away</span>
           </div>
           <div className="grid grid-cols-4 gap-5">
-            {appsNow.map((where) => (
+            {[...here, away].map((where) => (
               <TeammateCard key={where.who.name} where={where} />
             ))}
           </div>
         </section>
-        <div className="grid grid-cols-[minmax(0,1fr)_380px] gap-8">
-          <section className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-[15px] font-semibold">Projects</h2>
-              <SeeAll>All 3</SeeAll>
-            </div>
-            <div className="grid grid-cols-2 gap-5">
-              {apps.projects.slice(0, 2).map((id) => (
-                <ProjectCard key={id} project={portalProject(id)} />
-              ))}
-            </div>
-          </section>
-          <section className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <h2 className="text-[15px] font-semibold">This week</h2>
-              <SeeAll>Activity</SeeAll>
-            </div>
-            <div className="-mx-3 flex flex-col">
-              {lately.slice(0, 2).map((item) => (
-                <ActivityRow key={item.id} item={item} compact />
-              ))}
-              <ActivityRow
-                compact
-                item={{
-                  id: "claude-run",
-                  kind: "agent",
-                  who: claude,
-                  project: "Cloud console",
-                  design: "Billing",
-                  action: "changed 2 designs in",
-                  when: "1 h ago",
-                  day: "Today"
-                }}
-              />
-            </div>
-          </section>
-        </div>
+        <section className="flex flex-col gap-4">
+          <h2 className="text-[15px] font-semibold">Projects</h2>
+          <div className="grid grid-cols-3 gap-5">
+            {apps.projects.map((id) => (
+              <ProjectCard key={id} project={portalProject(id)} />
+            ))}
+          </div>
+        </section>
+        <section className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-[15px] font-semibold">This week</h2>
+            <SeeAll>Activity</SeeAll>
+          </div>
+          <div className="-mx-3 grid grid-cols-2 gap-x-6">
+            {week.map((item) => (
+              <ActivityRow key={item.id} item={item} compact />
+            ))}
+          </div>
+        </section>
       </div>
     </PortalPage>
   )
 }
 
 /**
- * A team's page opens on Now: each teammate and agent on the canvas they're in, cursor and all, with Join to follow
- * them there. Then the team's projects and its week.
+ * A team's page opens on Now: each teammate and agent on the canvas they're in, cursor and all, with Join to follow a
+ * person there or Watch for an agent. Then all the team's projects and its week.
  */
 export const Team: Story = { render: () => <TeamPage /> }
 
 /**
- * The inbox: mentions, reviews, replies and agents waiting on you, across every project. The open one shows beside a
- * preview of its board, pins and all, with its thread, and opens on the canvas or in the desktop app.
+ * The inbox: mentions, reviews, agents and seat requests waiting on you, across every project. The open one shows
+ * beside a preview of its board, pins and all, with its thread, and opens on the canvas or in the desktop app.
  */
 export const Inbox: Story = { render: () => <InboxPage /> }
 
 /**
- * The org's activity: what every team, person and agent did, with the designs it touched, merges, published
- * components and new people. The week in numbers, the busiest projects and the teams down the side.
+ * The org's activity: what every team, person and agent did, newest first, with the designs it touched, merges,
+ * published components and new people. The week in numbers, the busiest projects and the teams down the side.
  */
 export const Activity: Story = { render: () => <ActivityPage /> }
 
 /**
- * What a notification or "See what changed" opens: the project's canvas in the browser, the changed boards before and
- * after, numbered where they changed, who changed what down the side, and the history along the bottom.
+ * Handoff, for developers: every board by where it stands between design and code. Ready to build first, with the
+ * components and tokens it uses and its branch, then what differs from main, what's in review and what matches.
+ */
+export const Handoff: Story = { render: () => <HandoffPage /> }
+
+/**
+ * What a notification or "See what changed" opens: the project's canvas in the browser, comparing two versions. The
+ * changed boards before and after, numbered where they changed, each change as code (the token, the components, the
+ * pull request), the review, and the versions along the bottom.
  */
 export const WhatChanged: Story = { render: () => <ChangesPage /> }
 
 /**
- * Members and seats: who has an editor seat, who views and comments for free, who asked for a seat, and pending
- * invites. Only editors pay, and agents are the customer's own.
+ * Members and seats: who has an editor seat, who views and comments for free, open seats, seat requests to approve or
+ * deny, and invites waiting for an admin. Only editors pay, and agents are the customer's own.
  */
 export const Members: Story = { render: () => <MembersPage /> }
 
-/** Billing: the Organization plan, seats used, the renewal, past invoices, the card and who can change it. */
+/** Billing: the Organization plan, open seats, the renewal and its invoice, past invoices and billing details. */
 export const Billing: Story = { render: () => <BillingPage /> }
 
-/** Adding seats mid-year: the rest of the year on the next quarterly invoice, then the renewal for every seat. */
+/** Adding seats beyond the open ones: the seats after, the prorated charge, the renewal, and the card it goes on. */
 export const AddSeats: Story = { render: () => <AddSeatsPage /> }
 
 /**
- * Plans: Figma's four, at half the price per editor seat, rounded up to the next .95. Only editors pay on every plan;
- * viewers, commenters and your own agents are free.
+ * Plans: Figma's four, at half the price per editor seat, rounded up to the next .95. Each builds on the one before.
+ * Only editors pay on every plan; viewers, commenters and your own agents are free.
  */
 export const Plans: Story = { render: () => <PlansPage /> }
+
+/** Security: sign-in, provisioning, who can invite and share, which agents can connect, and the audit log. */
+export const Security: Story = { render: () => <SecurityPage /> }

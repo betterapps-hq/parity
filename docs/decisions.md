@@ -485,22 +485,36 @@ recommended answer to each of its questions.
   and For you. A first pass drawn on the canvas from plain layouts and the UI kit read as a generic dashboard and was
   dropped (your call).
 - **Its sample org is Kestrel, a made-up customer,** with the explorations' cast and the start page's projects renamed
-  for it (`portal/data.ts`). Buildkit isn't shown: it has nothing to do with the app (your call).
+  for it (`portal/data.ts`). Buildkit isn't shown: it has nothing to do with the app (your call). The start page's
+  renders name the org a look belongs to (`Look.org`), so Kestrel's apps say Kestrel, and the rest still say Buildkit.
+- **Every screen draws from one list of events** (my call, after the design review): For you, the Inbox, Activity and
+  the team page all show the same things at the same times, so a count or a time never disagrees between screens.
 - **Its screens:** For you (what needs you, each with its design, then what changed, with who's working where at the
   side), Recents (the projects as a file browser), a team page that opens on who's working where now, each on the canvas
-  they're in, with Join; the Inbox (the open item beside its board, pins and all, with its thread); the org's Activity
-  (changes shown as the designs, merges, published components, new people, and the week in numbers); the canvas opened
-  on what changed (before and after side by side, numbered changes, who changed what, approve or ask for changes, and
-  the history along the bottom); and the admin pages Members, Billing, Add seats and Plans.
-- **Only editors pay; viewing and commenting are free, and agents don't take up seats** (your calls, 2026-10-29). Admins
-  approve a seat someone asks for, and billing admins are their own role.
+  they're in, with Join for people and Watch for agents; the Inbox (the open item beside its board, pins and all, with
+  its thread); the org's Activity (changes shown as the designs, merges, published components, new people, and the week
+  in numbers); Handoff; the canvas opened on what changed; and the admin pages Members, Billing, Add seats, Plans and
+  Security.
+- **Handoff is for developers: every board by where it stands between design and code** (my call, after the design
+  review). A board is In review, Ready to build, Matches main or Differs from main. Each names the components and tokens
+  it uses, its branch and pull request when there is one, and a change made after it was approved. Developers inspect
+  it, pick it up, or give it to their own agent.
+- **What changed compares two versions of a branch against main** (my call): the boards before and after side by side,
+  numbered where they changed, and each change as code down the side (the token diff, the components that follow it and
+  their files), with the pull request, approve or ask for changes, and the versions along the bottom. Its link names
+  both versions, so it can go in a pull request.
+- **Only editors pay; viewing and commenting are free, and agents don't take up seats** (your calls, 2026-10-29). A seat
+  request uses the open seats first, and buying more is offered only past them. Members can invite; an admin approves
+  each editor seat. Billing admin is a role of its own, and an admin can be one too.
+- **An agent can never do more than the person who runs it** (my call): a viewer's agent only comments. Security lists
+  which agents can connect, with sign-in, sharing, guests and an audit log of who changed what.
 - **Agents are the customer's own,** such as Claude Code and Cursor, connected to Parity through its MCP server. Parity
   doesn't run or pay for them, so it has no agent use to bill (your call).
 - **The plans are Figma's at half the price per editor seat, rounded up to the next .95** (your call, 2026-10-29,
   against Figma's Full seat prices that day): Starter free, Professional $8.95 a month billed yearly or $10.95 monthly,
   Organization $27.95 and Enterprise $45.95, both billed yearly. As on Figma, seats added mid-year on Organization and
-  Enterprise are prorated to the renewal and invoiced quarterly. Kestrel is on Organization. Each plan's features follow
-  Figma's tiers for now (the Plans story) and are still to be settled.
+  Enterprise are prorated to the renewal and invoiced quarterly. Kestrel is on Organization. Each plan builds on the one
+  before it, with features that follow Figma's tiers for now (the Plans story) and are still to be settled.
 
 ## Collaboration
 
@@ -526,6 +540,14 @@ recommended answer to each of its questions.
   shows a preview.
 - **A thread can become an issue in GitHub, Linear or Azure DevOps** (your call, 2026-10-29). The list offers only the
   trackers the org has added.
+- **Attachments are capped at 25 MB each, and deleting a thread's first comment deletes the thread** (my calls).
+  Pictures preview in the comment and open larger; anything too large stays out of what's sent and says why.
+- **A thread that lost its place says why under its header** (my call): a deleted layer leaves the pin where it was, a
+  layer moved to another design takes its threads along, a thread left on another frame is faded until you switch, and a
+  thread on a component shows on every use.
+- **Notifications default to threads you're in, desktop notifications on, and a daily email summary** (my call). The
+  inbox's For you holds mentions, replies, reviews, access requests and issue changes; agents' work has its own view. A
+  project can override the defaults. A toast comes only for mentions and replies, and you can reply from it.
 
 ## Storybook
 

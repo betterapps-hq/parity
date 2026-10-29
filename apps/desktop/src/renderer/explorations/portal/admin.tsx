@@ -1,20 +1,33 @@
 /**
- * The org's admin pages that charging per seat needs: members and their seats, billing and plans. Only editors pay;
- * viewing and commenting are free, and agents are the customer's own. The plans are Figma's at half the price.
+ * The org's admin pages that charging per seat needs: members and their seats, billing, plans and security. Only
+ * editors pay; viewing and commenting are free, and agents are the customer's own. The plans are Figma's at half the
+ * price. A seat request is approved against the open seats first; buying more is only offered past them.
  */
-import { Check, ChevronDown, CreditCard, Download, Minus, Plus, Search, Sparkles, UserPlus } from "lucide-react"
+import {
+  Check,
+  ChevronDown,
+  CreditCard,
+  Download,
+  Minus,
+  Plus,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  TriangleAlert,
+  UserPlus
+} from "lucide-react"
 import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { me, type Person, people } from "../explore-data.ts"
 import { Avatar } from "../parts.tsx"
 import { OrgBadge } from "../start-page-parts.tsx"
-import { teams } from "./data.ts"
+import { noah, teams } from "./data.ts"
 import { Pills, SettingsPage } from "./parts.tsx"
 
 const { maya, jonas, priya, sam, lena, claude, cursor } = people
-const noah = { name: "Noah Park", hue: 210 }
 const ivy = { name: "Ivy Lopez", hue: 20 }
 const seatPrice = 27.95
+const paidSeats = 8
 
 /** A figure about seats or money, with what it's out of and a bar when it fills up. */
 function Meter({
@@ -50,19 +63,19 @@ function Meter({
 /** A value that opens a menu, drawn shut. */
 function Picker({ children }: { children: ReactNode }) {
   return (
-    <span className="flex w-fit items-center gap-1 rounded-md border bg-background px-2 py-1 text-xs">
+    <span className="flex w-fit items-center gap-1 rounded-md border bg-background px-2 py-1 text-xs whitespace-nowrap">
       {children} <ChevronDown className="size-3 text-muted-foreground" />
     </span>
   )
 }
 
-type Seat = "Editor" | "Viewer"
-
 interface Member {
   person: Person
   email: string
-  role: "Admin" | "Member" | "Guest"
-  seat: Seat
+  role: "Admin" | "Billing admin" | "Member" | "Guest"
+  /** Billing as well as their role. */
+  billing?: boolean
+  seat: "Editor" | "Viewer"
   teams: (keyof typeof teams)[]
   active: string
   /** Asked an admin for an editor seat. */
@@ -70,8 +83,16 @@ interface Member {
 }
 
 const members: Member[] = [
-  { person: me, email: "andrew@kestrel.dev", role: "Admin", seat: "Editor", teams: ["apps", "web"], active: "Now" },
-  { person: sam, email: "sam@kestrel.dev", role: "Admin", seat: "Editor", teams: ["apps"], active: "Now" },
+  {
+    person: me,
+    email: "andrew@kestrel.dev",
+    role: "Admin",
+    billing: true,
+    seat: "Editor",
+    teams: ["apps", "web"],
+    active: "Now"
+  },
+  { person: sam, email: "sam@kestrel.dev", role: "Billing admin", seat: "Editor", teams: ["apps"], active: "Now" },
   { person: maya, email: "maya@kestrel.dev", role: "Member", seat: "Editor", teams: ["web", "system"], active: "Now" },
   { person: jonas, email: "jonas@kestrel.dev", role: "Member", seat: "Editor", teams: ["apps"], active: "Now" },
   { person: priya, email: "priya@kestrel.dev", role: "Member", seat: "Editor", teams: ["web"], active: "2 h ago" },
@@ -95,6 +116,9 @@ const members: Member[] = [
   { person: ivy, email: "ivy@studio-north.com", role: "Guest", seat: "Viewer", teams: [], active: "Last week" }
 ]
 
+const editors = members.filter((member) => member.seat === "Editor").length
+const openSeats = paidSeats - editors
+
 function MemberRow({ member }: { member: Member }) {
   return (
     <tr className="border-b last:border-0">
@@ -111,7 +135,7 @@ function MemberRow({ member }: { member: Member }) {
         </span>
       </td>
       <td className="py-2.5 pr-4">
-        <Picker>{member.role}</Picker>
+        <Picker>{member.billing ? `${member.role}, billing` : member.role}</Picker>
       </td>
       <td className="py-2.5 pr-4">
         {member.asked ? (
@@ -119,6 +143,9 @@ function MemberRow({ member }: { member: Member }) {
             <span className="text-xs text-muted-foreground">Asked for an editor seat</span>
             <Button size="sm" className="h-7 px-2.5 text-xs">
               Approve
+            </Button>
+            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs">
+              Deny
             </Button>
           </span>
         ) : (
@@ -132,7 +159,7 @@ function MemberRow({ member }: { member: Member }) {
               <OrgBadge org={teams[id].org} size={18} />
             </span>
           ))}
-          {member.teams.length === 0 && <span className="text-xs text-muted-foreground">No teams</span>}
+          {member.teams.length === 0 && <span className="text-xs text-muted-foreground">Invited to 1 project</span>}
         </span>
       </td>
       <td className="py-2.5 text-xs text-muted-foreground">{member.active}</td>
@@ -141,79 +168,84 @@ function MemberRow({ member }: { member: Member }) {
 }
 
 export function MembersPage() {
-  const editors = members.filter((member) => member.seat === "Editor").length
   return (
     <SettingsPage tab="Members">
-      <div className="flex flex-col">
-        <div className="flex min-w-0 flex-col gap-6">
-          <div className="grid grid-cols-3 gap-4">
-            <Meter label="Editor seats" value={`${editors}`} of={`of 8 paid`} filled={editors / 8}>
-              <span className="text-xs text-muted-foreground">1 asked for, 1 invited. Add seats in Billing.</span>
-            </Meter>
-            <Meter label="Viewers and commenters" value="2" of="free">
-              <span className="text-xs text-muted-foreground">
-                Only editors pay. Everyone else can open every design, comment and follow along.
-              </span>
-            </Meter>
-            <Meter label="Your agents" value="2" of="connected">
-              <span className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Avatar person={claude} size={18} />
-                <Avatar person={cursor} size={18} />
-                Your own, and free
-              </span>
-            </Meter>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-64 items-center gap-2 rounded-md border bg-background px-2.5 text-sm text-muted-foreground">
-              <Search className="size-3.5" /> Search members
-            </div>
-            <Pills options={["Everyone", "Editors", "Viewers", "Guests"]} />
-            <Button className="ml-auto gap-1.5">
-              <UserPlus /> Invite
-            </Button>
-          </div>
-          <div className="rounded-xl border px-4">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b text-xs text-muted-foreground">
-                  <th className="py-2.5 font-medium">Name</th>
-                  <th className="py-2.5 font-medium">Role</th>
-                  <th className="py-2.5 font-medium">Seat</th>
-                  <th className="py-2.5 font-medium">Teams</th>
-                  <th className="py-2.5 font-medium">Last active</th>
-                </tr>
-              </thead>
-              <tbody>
-                {members.map((member) => (
-                  <MemberRow key={member.email} member={member} />
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex items-center gap-3 rounded-xl border border-dashed px-4 py-3 text-sm">
-            <span className="grid size-7 place-items-center rounded-full bg-muted text-xs">R</span>
-            <span className="flex flex-col">
-              <span>ren@kestrel.dev</span>
-              <span className="text-xs text-muted-foreground">Invited by Priya Raman as an editor, 2 days ago</span>
-            </span>
-            <span className="ml-auto flex gap-2">
-              <Button size="sm" variant="ghost">
-                Revoke
-              </Button>
-              <Button size="sm" variant="outline">
-                Resend
-              </Button>
-            </span>
-          </div>
+      <div className="grid grid-cols-3 gap-4">
+        <Meter
+          label="Editor seats"
+          value={`${editors}`}
+          of={`of ${paidSeats} paid, ${openSeats} open`}
+          filled={editors / paidSeats}
+        >
+          <span className="text-xs text-muted-foreground">Enough for Noah's request and ren's invite.</span>
+        </Meter>
+        <Meter label="Viewers and commenters" value="2" of="free">
+          <span className="text-xs text-muted-foreground">
+            Only editors pay. Members view and comment on every project; guests only on what they're invited to.
+          </span>
+        </Meter>
+        <Meter label="Your agents" value="2" of="connected">
+          <span className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Avatar person={claude} size={18} />
+            <Avatar person={cursor} size={18} />
+            Your own, and free. Which can connect is in Security.
+          </span>
+        </Meter>
+      </div>
+      <div className="flex items-center gap-3">
+        <div className="flex h-8 w-64 items-center gap-2 rounded-md border bg-background px-2.5 text-sm text-muted-foreground">
+          <Search className="size-3.5" /> Search members
         </div>
+        <Pills options={["Everyone", "Editors", "Viewers", "Guests", "Requests"]} />
+        <Button className="ml-auto gap-1.5">
+          <UserPlus /> Invite
+        </Button>
+      </div>
+      <div className="rounded-xl border px-4">
+        <table className="w-full text-left">
+          <thead>
+            <tr className="border-b text-xs text-muted-foreground">
+              <th className="py-2.5 font-medium">Name</th>
+              <th className="py-2.5 font-medium">Role</th>
+              <th className="py-2.5 font-medium">Seat</th>
+              <th className="py-2.5 font-medium">Teams</th>
+              <th className="py-2.5 font-medium">Last active</th>
+            </tr>
+          </thead>
+          <tbody>
+            {members.map((member) => (
+              <MemberRow key={member.email} member={member} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex items-center gap-3 rounded-xl border border-dashed px-4 py-3 text-sm">
+        <span className="grid size-7 place-items-center rounded-full bg-muted text-xs">R</span>
+        <span className="flex flex-col">
+          <span>ren@kestrel.dev</span>
+          <span className="text-xs text-muted-foreground">
+            Priya Raman invited them as an editor 2 days ago. Members can invite; an admin approves the seat.
+          </span>
+        </span>
+        <span className="ml-auto flex gap-2">
+          <Button size="sm" variant="ghost">
+            Decline
+          </Button>
+          <Button size="sm">Approve and send</Button>
+        </span>
       </div>
     </SettingsPage>
   )
 }
 
 const invoices = [
-  { date: "Oct 1, 2026", detail: "Quarterly: 2 seats added Sep 18, for the rest of the year", amount: "$192.97" },
-  { date: "Jan 1, 2026", detail: "Organization, 6 editor seats for 2026", amount: "$2,012.40" }
+  {
+    number: "KST-2026-014",
+    date: "Oct 1, 2026",
+    detail: "Quarterly: 2 seats added Sep 18, to the end of 2026",
+    amount: "$192.97"
+  },
+  { number: "KST-2026-001", date: "Jan 1, 2026", detail: "Organization, 6 editor seats for 2026", amount: "$2,012.40" }
 ]
 
 /** A section of the billing page: a title, then a card. */
@@ -226,6 +258,16 @@ function Panel({ title, action, children }: { title: string; action?: ReactNode;
       </div>
       <div className="rounded-xl border bg-card p-4">{children}</div>
     </section>
+  )
+}
+
+/** A line of a money summary: what, and how much. */
+function Sum({ label, amount, strong }: { label: string; amount: string; strong?: boolean }) {
+  return (
+    <span className={`flex justify-between gap-4 ${strong ? "font-medium" : ""}`}>
+      <span className={strong ? "" : "text-muted-foreground"}>{label}</span>
+      <span className="tabular-nums">{amount}</span>
+    </span>
   )
 }
 
@@ -245,15 +287,26 @@ function BillingBody() {
             </span>
           </span>
           <Button variant="outline">Change plan</Button>
-          <Button className="gap-1.5">
+          <Button variant="outline" className="gap-1.5">
             <Plus /> Add seats
           </Button>
         </div>
         <div className="grid grid-cols-3 gap-4">
-          <Meter label="Editor seats" value="6" of="of 8 used" filled={6 / 8} />
+          <Meter label="Editor seats" value={`${editors}`} of={`of ${paidSeats} used`} filled={editors / paidSeats} />
+          <Meter label="Open seats" value={`${openSeats}`} of="enough for 2 waiting" />
           <Meter label="Renews" value="$2,683.20" of="on Jan 1, 2027" />
-          <Meter label="Waiting for a seat" value="2" of="asked or invited" />
         </div>
+        <Panel title="Next invoice" action={<span className="text-xs text-muted-foreground">January 1, 2027</span>}>
+          <div className="flex flex-col gap-2 text-sm">
+            <Sum
+              label={`Organization, ${paidSeats} editor seats for 2027, at $${seatPrice} a month`}
+              amount="$2,683.20"
+            />
+            <Sum label="Tax, worked out when it's issued" amount="Varies" />
+            <span className="my-1 border-t" />
+            <Sum label="Before tax" amount="$2,683.20" strong />
+          </div>
+        </Panel>
         <Panel
           title="Invoices"
           action={<span className="text-xs text-muted-foreground">Sent to billing@kestrel.dev</span>}
@@ -261,8 +314,9 @@ function BillingBody() {
           <table className="w-full text-left text-sm">
             <tbody>
               {invoices.map((invoice) => (
-                <tr key={invoice.date} className="border-b last:border-0">
+                <tr key={invoice.number} className="border-b last:border-0">
                   <td className="py-2.5 whitespace-nowrap">{invoice.date}</td>
+                  <td className="py-2.5 pl-4 font-mono text-xs text-muted-foreground">{invoice.number}</td>
                   <td className="py-2.5 pl-4 text-muted-foreground">{invoice.detail}</td>
                   <td className="py-2.5 text-right tabular-nums">{invoice.amount}</td>
                   <td className="py-2.5 pl-4 text-right">
@@ -280,16 +334,28 @@ function BillingBody() {
         </Panel>
       </div>
       <div className="flex flex-col gap-7">
-        <Panel title="Payment method" action={<span className="text-xs text-muted-foreground">Change</span>}>
-          <span className="flex items-center gap-3 text-sm">
-            <CreditCard className="size-5 text-muted-foreground" />
-            <span className="flex flex-col">
-              <span>Visa ending 4242</span>
-              <span className="text-xs text-muted-foreground">Expires 08/28</span>
+        <Panel title="Payment" action={<span className="text-xs text-muted-foreground">Change</span>}>
+          <div className="flex flex-col gap-3 text-sm">
+            <span className="flex items-center gap-3">
+              <CreditCard className="size-5 text-muted-foreground" />
+              <span className="flex flex-col">
+                <span>Mastercard ending 0417</span>
+                <span className="text-xs text-muted-foreground">Expires 03/29</span>
+              </span>
             </span>
-          </span>
+            <span className="text-xs text-muted-foreground">
+              Or pay by invoice, with a purchase order, on yearly plans.
+            </span>
+          </div>
         </Panel>
-        <Panel title="Billing admins" action={<span className="text-xs text-muted-foreground">Manage</span>}>
+        <Panel title="Billing details" action={<span className="text-xs text-muted-foreground">Edit</span>}>
+          <div className="flex flex-col gap-1 text-sm">
+            <span>Kestrel Labs, Inc.</span>
+            <span className="text-muted-foreground">410 Townsend Street, San Francisco, CA 94107, United States</span>
+            <span className="text-muted-foreground">Tax ID: add one to show it on invoices</span>
+          </div>
+        </Panel>
+        <Panel title="Billing admins" action={<span className="text-xs text-muted-foreground">Manage in Members</span>}>
           <div className="flex flex-col gap-3">
             {[me, sam].map((person) => (
               <span key={person.name} className="flex items-center gap-2.5 text-sm">
@@ -297,9 +363,7 @@ function BillingBody() {
                 {person.name}
               </span>
             ))}
-            <span className="text-xs text-muted-foreground">
-              They see invoices and change seats. Other admins can't.
-            </span>
+            <span className="text-xs text-muted-foreground">Only billing admins see invoices and change seats.</span>
           </div>
         </Panel>
       </div>
@@ -315,22 +379,31 @@ export function BillingPage() {
   )
 }
 
-/** Adding seats mid-year: how many, what the rest of the year costs on the next quarterly invoice, and the renewal. */
+/**
+ * Adding seats past the open ones, for people who aren't waiting yet: the seats after, what the rest of the year
+ * costs on the next quarterly invoice, the renewal, and the card it goes on.
+ */
 export function AddSeatsPage() {
   const adding = 2
   return (
     <SettingsPage tab="Billing">
       <BillingBody />
       <div className="absolute inset-0 z-30 grid place-items-center bg-black/50">
-        <div className="flex w-[440px] flex-col gap-5 rounded-2xl border bg-popover p-6 text-popover-foreground shadow-2xl">
+        <div className="flex w-[460px] flex-col gap-5 rounded-2xl border bg-popover p-6 text-popover-foreground shadow-2xl">
           <div className="flex flex-col gap-1">
             <h2 className="text-lg font-semibold">Add editor seats</h2>
             <span className="text-sm text-muted-foreground">
-              Kestrel has 8. Noah Park and ren@kestrel.dev are waiting for one.
+              Kestrel's {openSeats} open seats will go to Noah Park and ren@kestrel.dev. Add seats for editors joining
+              after them.
             </span>
           </div>
           <div className="flex items-center justify-between rounded-xl border p-3">
-            <span className="text-sm">Seats to add</span>
+            <span className="flex flex-col">
+              <span className="text-sm">Seats to add</span>
+              <span className="text-xs text-muted-foreground">
+                {paidSeats} now, {paidSeats + adding} after
+              </span>
+            </span>
             <span className="flex items-center gap-3">
               <span className="grid size-8 place-items-center rounded-md border">
                 <Minus className="size-4" />
@@ -342,13 +415,12 @@ export function AddSeatsPage() {
             </span>
           </div>
           <div className="flex flex-col gap-2 text-sm">
-            <span className="flex justify-between gap-4">
-              <span className="text-muted-foreground">The rest of 2026, on the January 1 quarterly invoice</span>
-              <span className="tabular-nums">$117.62</span>
-            </span>
-            <span className="flex justify-between gap-4">
-              <span className="text-muted-foreground">From January 1, 2027, for 10 seats</span>
-              <span className="tabular-nums">$3,354.00 a year</span>
+            <Sum label="The rest of 2026, 64 days of 2 seats" amount="$117.62" />
+            <Sum label={`2027, ${paidSeats + adding} seats at $${seatPrice} a month`} amount="$3,354.00" />
+            <span className="my-1 border-t" />
+            <Sum label="On the January 1 invoice, before tax" amount="$3,471.62" strong />
+            <span className="text-xs text-muted-foreground">
+              Nothing is charged today. It goes on Mastercard ending 0417 when the invoice is issued.
             </span>
           </div>
           <div className="flex justify-end gap-2">
@@ -361,29 +433,30 @@ export function AddSeatsPage() {
   )
 }
 
-/** Parity's plans: Figma's, at half the price per editor seat, rounded up to the next .95. */
+/** Parity's plans: Figma's, at half the price per editor seat, rounded up to the next .95. Each builds on the last. */
 const plans = [
   {
     name: "Starter",
     price: "Free",
     billing: "For trying Parity",
-    features: ["3 projects", "Every component and token from your code", "Comments and sharing"]
+    features: ["3 projects", "Every component and token from your code", "Comments and sharing"],
+    warning: `Kestrel has 7 projects. Starter keeps 3; the rest become read only.`
   },
   {
     name: "Professional",
     price: "$8.95",
     billing: "A seat a month, billed yearly, or $10.95 monthly",
-    features: ["Unlimited projects", "Teams and shared libraries", "Version history"]
+    features: ["Everything in Starter, and", "Unlimited projects", "Teams and shared libraries", "Version history"]
   },
   {
     name: "Organization",
     price: `$${seatPrice}`,
-    billing: "A seat a month, billed yearly",
+    billing: "A seat a month, billed yearly. Seats added mid-year are billed quarterly.",
     features: [
+      "Everything in Professional, and",
       "Libraries across the org",
-      "Admins, billing admins and seat requests",
-      "Single sign-on",
-      "Seats added mid-year billed quarterly"
+      "Seat requests and billing admins",
+      "Single sign-on"
     ],
     current: true
   },
@@ -391,11 +464,16 @@ const plans = [
     name: "Enterprise",
     price: "$45.95",
     billing: "A seat a month, billed yearly",
-    features: ["Several workspaces", "SCIM and an audit log", "Dedicated support"]
+    features: [
+      "Everything in Organization, and",
+      "Several workspaces",
+      "SCIM and an exportable audit log",
+      "Dedicated support"
+    ]
   }
 ]
 
-/** Changing plan: the four plans side by side, with the one Kestrel is on marked. */
+/** Changing plan: the four plans side by side, with the one Kestrel is on marked, and what a downgrade would cost. */
 export function PlansPage() {
   return (
     <SettingsPage tab="Billing">
@@ -424,13 +502,25 @@ export function PlansPage() {
               <span className="text-xs text-muted-foreground">{plan.billing}</span>
             </span>
             <ul className="flex flex-1 flex-col gap-2 text-sm">
-              {plan.features.map((feature) => (
-                <li key={feature} className="flex gap-2">
-                  <Check className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-                  {feature}
-                </li>
-              ))}
+              {plan.features.map((feature, index) =>
+                index === 0 && feature.startsWith("Everything") ? (
+                  <li key={feature} className="text-xs text-muted-foreground">
+                    {feature}
+                  </li>
+                ) : (
+                  <li key={feature} className="flex gap-2">
+                    <Check className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                    {feature}
+                  </li>
+                )
+              )}
             </ul>
+            {plan.warning && (
+              <span className="flex gap-2 rounded-lg bg-[oklch(0.8_0.15_80)]/10 p-2.5 text-xs text-[oklch(0.8_0.15_80)]">
+                <TriangleAlert className="mt-px size-3.5 shrink-0" />
+                {plan.warning}
+              </span>
+            )}
             {plan.current ? (
               <Button variant="outline" disabled>
                 Current plan
@@ -438,10 +528,115 @@ export function PlansPage() {
             ) : plan.name === "Enterprise" ? (
               <Button>Talk to us</Button>
             ) : (
-              <Button variant="outline">Switch to {plan.name}</Button>
+              <Button variant="ghost">Move to {plan.name}</Button>
             )}
           </div>
         ))}
+      </div>
+    </SettingsPage>
+  )
+}
+
+/** A setting: what it is, what it means, and its value or control. */
+function Setting({ title, detail, children }: { title: string; detail: string; children: ReactNode }) {
+  return (
+    <div className="flex items-center gap-6 border-b py-3.5 last:border-0">
+      <span className="flex flex-1 flex-col gap-0.5">
+        <span className="text-sm font-medium">{title}</span>
+        <span className="text-xs text-muted-foreground">{detail}</span>
+      </span>
+      {children}
+    </div>
+  )
+}
+
+/** A status that's on, in green. */
+function On({ children }: { children: string }) {
+  return (
+    <span className="flex items-center gap-1.5 text-xs whitespace-nowrap text-[oklch(0.75_0.17_162)]">
+      <ShieldCheck className="size-3.5" />
+      {children}
+    </span>
+  )
+}
+
+const audit = [
+  { who: priya, what: "invited", target: "ren@kestrel.dev as an editor", when: "Oct 27, 10:12 AM" },
+  { who: jonas, what: "connected the agent", target: "Cursor", when: "Oct 27, 9:40 AM" },
+  { who: sam, what: "changed the payment card to", target: "Mastercard ending 0417", when: "Oct 21, 4:55 PM" },
+  { who: me, what: "turned on", target: "Required single sign-on", when: "Oct 2, 11:30 AM" },
+  { who: me, what: "approved an editor seat for", target: "Lena Fischer", when: "Sep 18, 2:04 PM" }
+]
+
+/** Security: sign-in, provisioning, sharing, agents, and the audit log of who changed what. */
+export function SecurityPage() {
+  return (
+    <SettingsPage tab="Security">
+      <div className="grid grid-cols-[minmax(0,1fr)_400px] gap-8">
+        <div className="flex flex-col gap-7">
+          <Panel title="Sign in">
+            <Setting title="Single sign-on" detail="SAML through Okta, for everyone with a kestrel.dev address">
+              <On>Required</On>
+            </Setting>
+            <Setting title="Verified domains" detail="People who sign up with these join Kestrel as viewers">
+              <span className="font-mono text-xs">kestrel.dev</span>
+            </Setting>
+            <Setting title="Two-step sign-in" detail="For guests, who sign in without single sign-on">
+              <On>Required</On>
+            </Setting>
+          </Panel>
+          <Panel title="People and sharing">
+            <Setting title="Who can invite editors" detail="Members can invite; an admin approves each editor seat">
+              <Picker>Members, with approval</Picker>
+            </Setting>
+            <Setting title="Guests" detail="People outside kestrel.dev, on the projects they're invited to">
+              <Picker>Allowed, for 90 days</Picker>
+            </Setting>
+            <Setting title="Public links" detail="Links anyone can open without signing in">
+              <Picker>Off</Picker>
+            </Setting>
+            <Setting title="Provisioning with SCIM" detail="Add and remove people from your identity provider">
+              <span className="text-xs text-muted-foreground">On Enterprise</span>
+            </Setting>
+          </Panel>
+          <Panel title="Agents">
+            <Setting
+              title="Agents that can connect"
+              detail="Through Parity's MCP server, with the person who runs them"
+            >
+              <span className="flex items-center gap-1.5">
+                <Avatar person={claude} size={20} />
+                <Avatar person={cursor} size={20} />
+                <span className="text-xs text-muted-foreground">Claude Code, Cursor</span>
+              </span>
+            </Setting>
+            <Setting
+              title="What an agent can do"
+              detail="Never more than the person who runs it: a viewer's agent only comments"
+            >
+              <Picker>Same as its person</Picker>
+            </Setting>
+          </Panel>
+        </div>
+        <Panel title="Audit log" action={<span className="text-xs text-muted-foreground">Export</span>}>
+          <div className="flex flex-col gap-3.5">
+            {audit.map((entry) => (
+              <span key={entry.when} className="flex gap-2.5 text-sm">
+                <Avatar person={entry.who} size={22} />
+                <span className="flex flex-col gap-0.5">
+                  <span>
+                    <span className="font-medium">{entry.who === me ? "You" : entry.who.name}</span>{" "}
+                    <span className="text-muted-foreground">{entry.what}</span> {entry.target}
+                  </span>
+                  <span className="text-xs text-muted-foreground">{entry.when}</span>
+                </span>
+              </span>
+            ))}
+            <span className="text-xs text-muted-foreground">
+              Roles, seats, sharing, agents, sign-in and billing, kept for a year.
+            </span>
+          </div>
+        </Panel>
       </div>
     </SettingsPage>
   )
