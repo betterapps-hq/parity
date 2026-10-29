@@ -1,5 +1,6 @@
 import type { ComponentEvidence, LibraryDecorator } from "./library.ts"
 import type { ComponentSource, ProjectConfig } from "./project.ts"
+import type { ComponentRenderStatus } from "./render-status.ts"
 import type { RenderNode } from "./render.ts"
 import type { TokenCategory } from "./tokens.ts"
 
@@ -142,6 +143,14 @@ export interface Guest {
    * can wait for them.
    */
   loaded?(): Promise<void>
+  /**
+   * How each component drawn so far fares, by id: drawn, or failing in at least one frame now, with what it threw.
+   * `subscribe` hears when that changes.
+   */
+  renderStatus?: {
+    get(): Record<string, ComponentRenderStatus>
+    subscribe(listener: () => void): () => void
+  }
   /** The names of an icon set's icons, as in `Heart` for `lucide/Heart`. */
   iconNames?(library: string): string[]
   css: string

@@ -276,6 +276,11 @@ recommended answer to each of its questions.
   correction is an ordinary, undoable change to the file, saved when the file is, and the list follows it straight away.
   Doing the opposite of a correction removes it rather than adding another, so detection decides again, and the field
   goes once it's empty. Only the project's own components can be corrected; a library's list is its `.lib.par`'s.
+- **A component's render status is how it fares on the canvas now.** My call: it fails while any frame shows its error,
+  and otherwise draws once it has drawn somewhere, so fixing it or removing the design clears the warning. The status
+  comes from each component's error boundary in the guest, and a component loaded on demand only counts as drawn once
+  its module has loaded. The panel shows failures only, as a warning beside the name; the reason is read from the error:
+  a missing provider, server code, an async server component, or else the error itself.
 
 ## Libraries, icons and images
 

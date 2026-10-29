@@ -1,11 +1,13 @@
 import {
   type CanvasDocument,
   type ComponentRef,
+  type ComponentRenderStatus,
   type ComponentRole,
   type ComponentSource,
   componentRole,
   correctDetection,
   describeEvidence,
+  describeRenderStatus,
   type DetectionCorrections,
   groupComponents,
   type LeftOutExport,
@@ -15,6 +17,7 @@ import { useVirtualizer } from "@tanstack/react-virtual"
 import {
   BookOpen,
   ChevronRight,
+  CircleAlert,
   Component,
   Diamond,
   ImageIcon,
@@ -56,6 +59,15 @@ function useCorrections(session: ProjectSession): DetectionCorrections | undefin
     store.subscribe,
     () => store.getDocuments().find((entry) => entry.path === store.mainPath)?.document.detection
   )
+}
+
+const noStatus: Record<string, ComponentRenderStatus> = {}
+const noSubscription = () => () => undefined
+
+/** How each component drawn so far fares on the canvas, as the guest's boundaries saw it. */
+function useRenderStatus(session: ProjectSession): Record<string, ComponentRenderStatus> {
+  const status = session.loaded.guest.renderStatus
+  return useSyncExternalStore(status?.subscribe ?? noSubscription, status?.get ?? (() => noStatus))
 }
 
 /**
@@ -319,6 +331,7 @@ function NotListed({ entries }: { entries: NotListedEntry[] }) {
 /** A source's components, open to begin with when `open` says so; after that the person decides. */
 function SourceSection({ source, open }: { source: Source; open: boolean }) {
   const session = useProject()
+  const statuses = useRenderStatus(session)
   const [expanded, setExpanded] = useState<boolean>()
   const count = source.families.reduce((total, family) => total + family.items.length, 0)
   const isOpen = expanded ?? open
@@ -346,12 +359,15 @@ function SourceSection({ source, open }: { source: Source; open: boolean }) {
               const stories = entry.item.kind === "component" && hasStories(session, entry.key)
               // The project's own components can be taken off the list, which the main project file keeps.
               const own = entry.item.kind === "component" ? session.info.sources[entry.key] : undefined
+              // Known once it's drawn somewhere on the canvas.
+              const status = entry.item.kind === "component" ? statuses[entry.key] : undefined
+              const failing = status && "error" in status
               const row = (
                 <button
                   type="button"
                   {...dragItem(entry.item)}
                   onClick={() => addAtSelection(session, entry.item)}
-                  title={`${entry.key}${entry.evidence ? `, ${entry.evidence}` : ""}. Drag onto a design, or click to add it to the selection.`}
+                  title={`${entry.key}${entry.evidence ? `, ${entry.evidence}` : ""}.${status ? ` ${describeRenderStatus(status).replace(/\.$/, "")}.` : ""} Drag onto a design, or click to add it to the selection.`}
                   className="flex h-7 w-full cursor-grab items-center gap-2 rounded-md pr-8 pl-8 text-left hover:bg-accent active:cursor-grabbing"
                 >
                   {entry.item.kind === "instance" ? (
@@ -360,6 +376,7 @@ function SourceSection({ source, open }: { source: Source; open: boolean }) {
                     <Component className="size-3.5 shrink-0" style={{ color: kindColors.component }} />
                   )}
                   <span className="truncate">{entry.label}</span>
+                  {failing && <CircleAlert className="size-3.5 shrink-0 text-destructive" aria-label="Fails to draw" />}
                 </button>
               )
               return (

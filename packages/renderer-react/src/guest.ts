@@ -1,5 +1,6 @@
 // Compiled by the customer's build tool, so `react` and `react-dom` here are the customer's copies.
 import type {
+  ComponentRenderStatus,
   Guest,
   GuestDecorators,
   GuestIconSet,
@@ -52,18 +53,44 @@ function isComponent(value: unknown): value is ComponentType<Props> {
   return typeof value === "function" || (typeof value === "object" && value !== null && "$$typeof" in value)
 }
 
+/** What a component's boundaries tell the guest: it drew, it failed, or a boundary that failed no longer shows it. */
+interface RenderReport {
+  drawn(name: string): void
+  failed(name: string, error: Error): void
+  cleared(name: string): void
+}
+
+interface BoundaryState {
+  error?: Error
+  name?: string
+}
+
 /**
  * Keeps one component's error to itself: it draws a marked box in its place, and the rest of the frame renders. React
- * still reports the error to the root, so the canvas and agents hear about it.
+ * still reports the error to the root, so the canvas and agents hear about it, and the guest's render status says
+ * which components draw and which fail.
  */
-class ComponentBoundary extends Component<{ name: string; children?: ReactNode }, { error?: Error; name?: string }> {
-  override state: { error?: Error; name?: string } = {}
+class ComponentBoundary extends Component<{ name: string; report: RenderReport; children?: ReactNode }, BoundaryState> {
+  override state: BoundaryState = {}
   static getDerivedStateFromError(error: unknown) {
     return { error: error instanceof Error ? error : new Error(String(error)) }
   }
   // Boundaries are keyed by position, so one whose node was removed draws the next component: it starts over.
-  static getDerivedStateFromProps(props: { name: string }, state: { error?: Error; name?: string }) {
+  static getDerivedStateFromProps(props: { name: string }, state: BoundaryState) {
     return props.name === state.name ? null : { name: props.name, error: undefined }
+  }
+  override componentDidMount() {
+    if (!this.state.error) this.props.report.drawn(this.props.name)
+  }
+  override componentDidCatch(error: Error) {
+    this.props.report.failed(this.props.name, error)
+  }
+  override componentDidUpdate(_props: unknown, previous: BoundaryState) {
+    if (previous.error && previous.error !== this.state.error) this.props.report.cleared(previous.name!)
+    if (!this.state.error) this.props.report.drawn(this.props.name)
+  }
+  override componentWillUnmount() {
+    if (this.state.error) this.props.report.cleared(this.state.name!)
   }
   override render() {
     if (!this.state.error) return this.props.children
@@ -83,6 +110,48 @@ export function createGuest(init: GuestInit): Guest {
   const inFlight = new Set<Promise<unknown>>()
 
   /**
+   * Each drawn component's status: failing while any of its boundaries shows an error, with the latest, else drawn.
+   * Listeners hear about changes once per task, as a canvas draws many frames at once.
+   */
+  const drawnOnce = new Set<string>()
+  /** Components drawn on demand whose modules have loaded: until then, a boundary drawing one draws nothing. */
+  const loadedOnDemand = new Set<string>()
+  const failing = new Map<string, { count: number; error: string }>()
+  const listeners = new Set<() => void>()
+  let statuses: Record<string, ComponentRenderStatus> = {}
+  let pending = false
+  const changed = () => {
+    if (pending) return
+    pending = true
+    queueMicrotask(() => {
+      pending = false
+      statuses = Object.fromEntries([
+        ...[...drawnOnce].map((name) => [name, { drawn: true as const }]),
+        ...[...failing].map(([name, { error }]) => [name, { error }])
+      ])
+      for (const listener of listeners) listener()
+    })
+  }
+  const report: RenderReport = {
+    drawn(name) {
+      if (drawnOnce.has(name) || (name in loaders && !loadedOnDemand.has(name))) return
+      drawnOnce.add(name)
+      changed()
+    },
+    failed(name, error) {
+      failing.set(name, { count: (failing.get(name)?.count ?? 0) + 1, error: error.message })
+      changed()
+    },
+    cleared(name) {
+      const now = failing.get(name)
+      if (!now) return
+      if (now.count > 1) failing.set(name, { ...now, count: now.count - 1 })
+      else failing.delete(name)
+      changed()
+    }
+  }
+
+  /**
    * An app component whose module loads the first time it's drawn. It draws nothing until then, and the rest of the
    * frame doesn't wait. React's `lazy` would do this too, but holds back what was suspended for 300ms after it loads,
    * which an offscreen render waiting on `loaded()` would miss.
@@ -98,7 +167,10 @@ export function createGuest(init: GuestInit): Guest {
       const start = () => {
         if (loading) return loading
         loading = load().then(
-          (value) => void (ready = value as ComponentType<Props>),
+          (value) => {
+            ready = value as ComponentType<Props>
+            loadedOnDemand.add(name)
+          },
           (error: unknown) => void (failure = { error })
         )
         inFlight.add(loading)
@@ -117,6 +189,11 @@ export function createGuest(init: GuestInit): Guest {
             else again()
           })
         }, [own])
+        // Its boundary only hears it drew when the boundary draws, so once loaded it says so itself. A component that
+        // throws never gets here.
+        useEffect(() => {
+          if (ready) report.drawn(name)
+        })
         // Thrown while drawing, so the component's boundary shows why it couldn't load.
         if (failure) throw failure.error
         return ready ? createElement(ready, props) : null
@@ -201,7 +278,7 @@ export function createGuest(init: GuestInit): Guest {
           else props[slot] = rendered.length === 1 ? rendered[0] : rendered
         }
         const element = children ? createElement(component, props, ...children) : createElement(component, props)
-        return createElement(ComponentBoundary, { key, name: node.component }, element)
+        return createElement(ComponentBoundary, { key, name: node.component, report }, element)
       }
     }
   }
@@ -231,7 +308,15 @@ export function createGuest(init: GuestInit): Guest {
         // One it had already has moved to another file, so it's drawn from there from now on.
         delete components[id]
         deferred.delete(id)
+        loadedOnDemand.delete(id)
         if (!names.includes(id)) names.push(id)
+      }
+    },
+    renderStatus: {
+      get: () => statuses,
+      subscribe(listener) {
+        listeners.add(listener)
+        return () => listeners.delete(listener)
       }
     },
     iconNames: namesOf,
