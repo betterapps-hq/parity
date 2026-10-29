@@ -20,57 +20,106 @@ export interface MockTab {
 
 /**
  * The app window as the explorations need it: the title bar with its menus, tabs and window buttons, and whatever the
- * active tab shows. It isn't wired to the workspace, so any tabs can be drawn.
+ * active tab shows. It isn't wired to the workspace, so any tabs can be drawn; give it the handlers to make the tabs
+ * work.
  */
 export function ExploreWindow({
   tabs = [],
   active,
   actions,
+  menus,
+  onSelect,
+  onClose,
+  onNew,
   children
 }: {
   tabs?: MockTab[]
   active?: string
   /** At the end of the title bar, before the window buttons: account, inbox. */
   actions?: ReactNode
+  /** Working menus, in place of the drawn ones. */
+  menus?: ReactNode
+  onSelect?(id: string): void
+  onClose?(id: string): void
+  onNew?(): void
   children: ReactNode
 }) {
   return (
     <div className="flex h-screen min-h-[640px] flex-col bg-background text-foreground">
       <div className="flex h-10 shrink-0 items-end gap-0.5 border-b bg-neutral-100 pl-2 dark:bg-[#0a0a0a]">
         <div className="mb-1 flex items-center text-[13px] text-muted-foreground">
-          {["File", "Edit", "View", "Arrange"].map((menu) => (
-            <span key={menu} className="rounded-md px-2 py-1">
-              {menu}
-            </span>
-          ))}
+          {menus ??
+            ["File", "Edit", "View", "Arrange"].map((menu) => (
+              <span key={menu} className="rounded-md px-2 py-1">
+                {menu}
+              </span>
+            ))}
         </div>
         {tabs.map((tab) => {
           const selected = tab.id === active
+          const label = tab.home ? (
+            <House className="size-4" aria-label="Home" />
+          ) : (
+            <span className="min-w-0 flex-1 truncate">{tab.title}</span>
+          )
           return (
             <div
               key={tab.id}
               className={`relative flex h-8 items-center gap-2 rounded-t-lg border border-b-0 text-sm ${
                 tab.home ? "w-10 justify-center" : "max-w-56 min-w-32 px-3"
-              } ${selected ? "bg-background text-foreground" : "border-transparent text-muted-foreground"}`}
+              } ${selected ? "bg-background text-foreground" : "border-transparent text-muted-foreground"} ${
+                onSelect && !selected ? "hover:bg-black/5 hover:text-foreground dark:hover:bg-white/5" : ""
+              }`}
             >
-              {tab.home ? (
-                <House className="size-4" aria-label="Home" />
+              {onSelect ? (
+                <button
+                  type="button"
+                  onClick={() => onSelect(tab.id)}
+                  aria-label={tab.home ? "Home" : undefined}
+                  aria-current={selected ? "page" : undefined}
+                  className={`flex min-w-0 items-center self-stretch text-left outline-none after:absolute after:inset-0 after:rounded-t-lg focus-visible:after:ring-2 focus-visible:after:ring-ring ${
+                    tab.home ? "justify-center" : "flex-1"
+                  }`}
+                >
+                  {label}
+                </button>
               ) : (
-                <>
-                  <span className="min-w-0 flex-1 truncate">{tab.title}</span>
-                  <X className="size-3.5 opacity-60" />
-                </>
+                label
               )}
+              {!tab.home &&
+                (onClose ? (
+                  <button
+                    type="button"
+                    aria-label={`Close ${tab.title}`}
+                    onClick={() => onClose(tab.id)}
+                    className="relative z-10 grid size-5 place-items-center rounded-sm opacity-60 outline-none hover:bg-black/10 hover:opacity-100 focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-white/10"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                ) : (
+                  <X className="size-3.5 opacity-60" />
+                ))}
               {!!tab.badge && (
-                <span className="absolute top-1 right-1.5 size-2 rounded-full bg-[oklch(0.68_0.2_25)] ring-2 ring-neutral-100 dark:ring-[#0a0a0a]" />
+                <span className="pointer-events-none absolute top-1 right-1.5 size-2 rounded-full bg-[oklch(0.68_0.2_25)] ring-2 ring-neutral-100 dark:ring-[#0a0a0a]" />
               )}
               {selected && <span className="absolute inset-x-0 -bottom-px h-px bg-background" />}
             </div>
           )
         })}
-        <span className="mb-1 ml-1 grid size-7 place-items-center rounded-md text-muted-foreground">
-          <Plus className="size-4" />
-        </span>
+        {onNew ? (
+          <button
+            type="button"
+            aria-label="New tab"
+            onClick={onNew}
+            className="mb-1 ml-1 grid size-7 place-items-center rounded-md text-muted-foreground outline-none hover:bg-black/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-white/5"
+          >
+            <Plus className="size-4" />
+          </button>
+        ) : (
+          <span className="mb-1 ml-1 grid size-7 place-items-center rounded-md text-muted-foreground">
+            <Plus className="size-4" />
+          </span>
+        )}
         <div className="mb-1 ml-auto flex items-center gap-1 pr-2">{actions}</div>
         <div className="flex h-full items-center text-muted-foreground">
           {[Minus, Square, X].map((Glyph, index) => (

@@ -2,8 +2,20 @@
  * Making a new project: from a template on a stack, or from something that exists already. Templates come from the
  * Scaffolder's catalog, so each one starts from a stack and asks only what's left.
  */
-import { ArrowLeft, Check, Folder, FolderGit2, FolderOpen, LayoutGrid, Lock, Plus, Search } from "lucide-react"
-import { type ReactNode, useState } from "react"
+import {
+  ArrowLeft,
+  ArrowUpRight,
+  BookOpen,
+  Check,
+  Folder,
+  FolderGit2,
+  FolderOpen,
+  LayoutGrid,
+  Lock,
+  Plus,
+  Search
+} from "lucide-react"
+import { type ReactNode, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -13,6 +25,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { me } from "../explore-data.ts"
 import { AzureDevOpsMark, GitHubMark } from "../parts.tsx"
 import {
   type AudienceId,
@@ -26,11 +39,12 @@ import {
   stack as findStack,
   type StackId,
   stacks,
+  type StartProject,
   type Template,
   templates,
   templatesOn
 } from "./data.ts"
-import { CanvasArt, parity, Segmented, StackMark } from "./page.tsx"
+import { CanvasArt, parity, Segmented, StackMark, useStart } from "./page.tsx"
 import { DesignRender } from "./renders.tsx"
 
 export type ExistingSource = "projects" | "github" | "azure" | "folder"
@@ -88,14 +102,12 @@ export function NewProjectDialog({
 }
 
 /** A list's left column, as both flows have it: what to pick from. */
-function SideList({ label, note, children }: { label: string; note: ReactNode; children: ReactNode }) {
+function SideList({ label, footer, children }: { label: string; footer: ReactNode; children: ReactNode }) {
   return (
     <nav aria-label={label} className="flex w-[264px] shrink-0 flex-col gap-1 border-r p-3">
       <span className="px-2 pt-1 pb-1.5 text-xs font-medium text-muted-foreground">{label}</span>
       {children}
-      <p className="mt-auto rounded-lg border border-dashed p-3 text-xs leading-relaxed text-muted-foreground">
-        {note}
-      </p>
+      <div className="mt-auto">{footer}</div>
     </nav>
   )
 }
@@ -140,6 +152,11 @@ function Chip({ children }: { children: ReactNode }) {
   return <span className="rounded-md bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">{children}</span>
 }
 
+/** A project that didn't exist a moment ago, ready for the start page to open. */
+function made(fields: Pick<StartProject, "name" | "org" | "look" | "stack" | "source" | "designs">): StartProject {
+  return { id: `made-${slugOf(fields.name)}-${Date.now()}`, edited: "Just now", editedBy: me, people: [me], ...fields }
+}
+
 /** Nothing but the stack, set up: no designs to start from. */
 function blankOn(stack: Stack): Template {
   return {
@@ -166,7 +183,16 @@ function TemplateFlow({ initialStack, initialTemplate }: { initialStack?: StackI
     <div className="flex min-h-0 flex-1">
       <SideList
         label="Stacks"
-        note="Templates come from the Scaffolder's catalog. Each one starts from a stack and asks only what's left."
+        footer={
+          <button
+            type="button"
+            className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-[13px] text-muted-foreground outline-none hover:bg-muted/40 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <BookOpen className="size-4 shrink-0" />
+            <span className="flex-1">How to make a template</span>
+            <ArrowUpRight className="size-3.5 shrink-0" />
+          </button>
+        }
       >
         {stacks.map((candidate) => (
           <SideItem
@@ -408,6 +434,7 @@ function TemplateSetup({ template, onBack }: { template: Template; onBack(): voi
   const [physics, setPhysics] = useState(
     template.adds.includes("Rapier 3D") ? "Rapier 3D" : template.adds.includes("Arcade physics") ? "Arcade" : "None"
   )
+  const start = useStart()
   const chosen = audiences.find((candidate) => candidate.id === audience)!
   const owner = org === "kestrel" ? "kestrel" : "andrew-craswell"
   const adds = [
@@ -465,7 +492,22 @@ function TemplateSetup({ template, onBack }: { template: Template; onBack(): voi
           )}
         </div>
       </div>
-      <form className="flex min-w-0 flex-1 flex-col" onSubmit={(event) => event.preventDefault()}>
+      <form
+        className="flex min-w-0 flex-1 flex-col"
+        onSubmit={(event) => {
+          event.preventDefault()
+          start.create?.(
+            made({
+              name,
+              org,
+              look: { ...template.look, brand: name },
+              stack: template.stack,
+              source: { type: "github", path: `${owner}/${slugOf(name)}`, branch: "main" },
+              designs: template.designs
+            })
+          )
+        }}
+      >
         <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-6 py-5">
           <div className="flex items-start gap-3">
             <StackMark stack={stack} size={32} />
@@ -637,7 +679,11 @@ function ExistingFlow({ initialSource, initialProject }: { initialSource?: Exist
     <div className="flex min-h-0 flex-1">
       <SideList
         label="Start from"
-        note="Parity opens an app where it lives. Nothing changes in a repository until you commit."
+        footer={
+          <p className="rounded-lg border border-dashed p-3 text-xs leading-relaxed text-muted-foreground">
+            Parity opens an app where it lives. Nothing changes in a repository until you commit.
+          </p>
+        }
       >
         {sources.map((candidate) => (
           <SideItem
@@ -667,9 +713,28 @@ const bringAlong = [
 
 /** One of your projects as the starting point, and what comes with it. */
 function FromProject({ initial }: { initial: string }) {
+  const start = useStart()
+  const nameField = useRef<HTMLInputElement>(null)
   const [picked, setPicked] = useState(initial)
   const chosen = projects.find((candidate) => candidate.id === picked) ?? projects[0]!
   const stack = findStack(chosen.stack)
+  const create = () => {
+    const name = nameField.current?.value.trim() || `${chosen.name} copy`
+    const owner = chosen.source.path.split("/")[0]
+    start.create?.(
+      made({
+        name,
+        org: chosen.org,
+        look: { ...chosen.look, brand: name },
+        stack: chosen.stack,
+        source:
+          chosen.source.type === "local"
+            ? { type: "local", path: `D:\\code\\${slugOf(name)}` }
+            : { type: chosen.source.type, path: `${owner}/${slugOf(name)}`, branch: "main" },
+        designs: chosen.designs
+      })
+    )
+  }
   return (
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
@@ -717,7 +782,7 @@ function FromProject({ initial }: { initial: string }) {
             </span>
           </div>
           <Field label="Name" htmlFor="copy-name">
-            <Input id="copy-name" key={chosen.id} defaultValue={`${chosen.name} copy`} />
+            <Input id="copy-name" key={chosen.id} ref={nameField} defaultValue={`${chosen.name} copy`} />
           </Field>
           <fieldset className="flex flex-col">
             <legend className="mb-1 text-sm font-medium">Bring along</legend>
@@ -738,7 +803,7 @@ function FromProject({ initial }: { initial: string }) {
           </p>
         </div>
         <footer className="border-t p-4">
-          <Button size="lg" className="w-full">
+          <Button size="lg" className="w-full" onClick={create}>
             Create project
           </Button>
         </footer>
@@ -747,8 +812,31 @@ function FromProject({ initial }: { initial: string }) {
   )
 }
 
-function RepositoryRow({ repo }: { repo: Repository }) {
+/** The stack a repository's detected framework builds on, as near as the samples go. */
+const detectedStacks: Record<string, StackId> = {
+  "Next.js": "nextjs",
+  "React library": "react-library",
+  "TanStack Start": "tanstack-start"
+}
+
+function RepositoryRow({ repo, source, account }: { repo: Repository; source: "github" | "azure"; account: string }) {
+  const start = useStart()
   const usable = !!repo.detected
+  const path = `${account.split(" / ")[0]}/${repo.name}`
+  const existing = projects.find((candidate) => candidate.source.type === source && candidate.source.path === path)
+  const open = () =>
+    existing
+      ? start.openProject?.(existing.id)
+      : start.create?.(
+          made({
+            name: repo.name,
+            org: "kestrel",
+            look: { hue: 220, brand: repo.name, icon: FolderGit2 },
+            stack: detectedStacks[repo.detected ?? ""] ?? "tanstack-start",
+            source: { type: source, path, branch: "main" },
+            designs: []
+          })
+        )
   return (
     <li className={`flex items-center gap-4 rounded-lg px-3 py-3 ${usable ? "hover:bg-muted/40" : ""}`}>
       <FolderGit2 className={`size-5 shrink-0 ${usable ? "text-muted-foreground" : "text-muted-foreground/40"}`} />
@@ -773,11 +861,11 @@ function RepositoryRow({ repo }: { repo: Repository }) {
       <span className="w-[84px] shrink-0 text-xs text-muted-foreground">{repo.updated}</span>
       <span className="flex w-[124px] shrink-0 justify-end">
         {repo.inParity ? (
-          <Button size="sm" variant="ghost">
+          <Button size="sm" variant="ghost" onClick={open}>
             Open project
           </Button>
         ) : (
-          <Button size="sm" variant="outline" disabled={!usable}>
+          <Button size="sm" variant="outline" disabled={!usable} onClick={open}>
             Clone and open
           </Button>
         )}
@@ -816,7 +904,7 @@ function FromRepository({ source }: { source: "github" | "azure" }) {
       </div>
       <ul className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-3">
         {shown.map((repo) => (
-          <RepositoryRow key={repo.name} repo={repo} />
+          <RepositoryRow key={repo.name} repo={repo} source={source} account={account} />
         ))}
       </ul>
       <footer className="border-t px-6 py-3 text-xs text-muted-foreground">
@@ -834,6 +922,23 @@ const recentFolders = [
 
 /** A folder on this computer: choose one, or reopen a recent one. */
 function FromFolder() {
+  const start = useStart()
+  const open = (path: string) => {
+    const existing = projects.find((candidate) => candidate.source.path === path)
+    const name = path.split("\\").at(-1)!
+    if (existing) start.openProject?.(existing.id)
+    else
+      start.create?.(
+        made({
+          name,
+          org: "personal",
+          look: { hue: 30, brand: name, icon: Folder },
+          stack: "tanstack-start",
+          source: { type: "local", path },
+          designs: []
+        })
+      )
+  }
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-6 p-6">
       <div className="flex flex-col gap-1">
@@ -858,6 +963,7 @@ function FromFolder() {
           <button
             key={folder.path}
             type="button"
+            onClick={() => open(folder.path)}
             className="flex items-center gap-3 rounded-lg px-2 py-2 text-left outline-none hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring"
           >
             <Folder className="size-4 shrink-0 text-muted-foreground" />

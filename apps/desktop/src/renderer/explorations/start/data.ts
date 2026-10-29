@@ -7,6 +7,7 @@ import {
   Boxes,
   Flame,
   Gamepad2,
+  HeartPulse,
   Layers,
   type LucideIcon,
   MessagesSquare,
@@ -180,6 +181,18 @@ export const projects: StartProject[] = [
     people: [people.priya, me]
   },
   {
+    id: "status",
+    name: "Status page",
+    org: "kestrel",
+    look: { hue: 150, brand: "Kestrel Status", icon: HeartPulse, org: "Kestrel" },
+    stack: "tanstack-start",
+    source: { type: "github", path: "kestrel/status-page", branch: "incidents" },
+    designs: [{ name: "Status", kind: "overview", mobile: true }],
+    edited: "3 h ago",
+    editedBy: people.lena,
+    people: [people.lena, people.jonas, me]
+  },
+  {
     id: "copilot",
     name: "Relay",
     org: "kestrel",
@@ -222,6 +235,21 @@ export const projects: StartProject[] = [
     shared: true
   },
   {
+    id: "onboarding",
+    name: "Onboarding",
+    org: "kestrel",
+    look: { hue: 230, brand: "Kestrel Cloud", icon: Rocket, org: "Kestrel" },
+    stack: "tanstack-start",
+    source: { type: "github", path: "kestrel/onboarding", branch: "main" },
+    designs: [
+      { name: "Sign up", kind: "signin" },
+      { name: "Welcome", kind: "landing", mobile: true }
+    ],
+    edited: "5 days ago",
+    editedBy: people.sam,
+    people: [people.sam, people.priya, me]
+  },
+  {
     id: "arena",
     name: "Arena prototype",
     org: "personal",
@@ -239,16 +267,31 @@ export function project(id: string): StartProject {
   return projects.find((candidate) => candidate.id === id)!
 }
 
-/** Where you were when you last closed Parity, and what happened in that project since. */
-export const lastVisit = {
-  project: "dashboard",
-  design: "Billing",
-  when: "Yesterday at 6:40 PM",
-  since: [
-    { who: people.claude, text: "changed 4 designs", detail: "Tighten the plan cards" },
-    { who: people.maya, text: "left 2 comments on Billing" },
-    { who: people.jonas, text: "pushed 3 commits to feat/billing" }
-  ]
+/** Where you were last in an organization's projects, and what happened there since. */
+export interface Visit {
+  project: string
+  design: string
+  when: string
+  since: { who: Person; text: string }[]
+}
+
+export const lastVisits: Record<OrgId, Visit> = {
+  kestrel: {
+    project: "dashboard",
+    design: "Billing",
+    when: "Yesterday at 6:40 PM",
+    since: [
+      { who: people.claude, text: "changed 4 designs" },
+      { who: people.maya, text: "left 2 comments" },
+      { who: people.jonas, text: "pushed 3 commits" }
+    ]
+  },
+  personal: {
+    project: "walkies",
+    design: "Search",
+    when: "Today at 9:12 AM",
+    since: [{ who: people.cursor, text: "changed 2 designs" }]
+  }
 }
 
 export type ForYouKind = "agent" | "mention" | "review" | "reply" | "invite"
@@ -569,7 +612,8 @@ export const repositories: Record<"github" | "azure", { account: string; repos: 
         name: "status-page",
         description: "Uptime and incidents for Kestrel Cloud",
         detected: "Vite and React",
-        updated: "2 h ago"
+        updated: "2 h ago",
+        inParity: true
       },
       {
         name: "cloud-console",

@@ -1,90 +1,354 @@
 /**
  * The start page's parts: what Home, a new tab and the first run are built from. The design is one page in three
- * contexts, so a person learns it once.
+ * contexts, so a person learns it once. It stays quiet: a render of each project and a few words about it, with the
+ * rest a click away, and every control does what it says.
  */
 import {
   AppWindow,
   ArrowRight,
-  AtSign,
+  Bell,
+  BookOpen,
   ChevronDown,
   ChevronsUpDown,
-  CircleHelp,
+  CopyPlus,
   Ellipsis,
-  Eye,
   FileInput,
-  FolderGit2,
   FolderOpen,
-  GitBranch,
-  MessageSquare,
+  Keyboard,
+  Link,
+  LogOut,
   Plus,
-  Reply,
   Search,
+  Settings,
+  Sparkles,
   Star,
-  UserPlus
+  UserPlus,
+  X
 } from "lucide-react"
-import { type CSSProperties, type ReactNode, useRef, useState } from "react"
+import { createContext, type CSSProperties, type ReactNode, useContext, useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { Kbd } from "@/components/ui/kbd"
+import {
+  Menubar,
+  MenubarContent,
+  MenubarItem,
+  MenubarLabel,
+  MenubarMenu,
+  MenubarSeparator,
+  MenubarShortcut,
+  MenubarTrigger
+} from "@/components/ui/menubar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { agentPalettes } from "../../agent/agent-colors.ts"
 import { AgentBadge, AgentPointer } from "../../agent/AgentPointer.tsx"
 import { me, people, type Person } from "../explore-data.ts"
-import {
-  accent,
-  Avatar,
-  AvatarStack,
-  AzureDevOpsMark,
-  ExploreWindow,
-  GitHubMark,
-  type MockTab,
-  SourceIcon
-} from "../parts.tsx"
-import { OrgBadge, TitleBarActions } from "../start-page-parts.tsx"
+import { accent, Avatar, AzureDevOpsMark, ExploreWindow, GitHubMark, type MockTab } from "../parts.tsx"
+import { OrgBadge } from "../start-page-parts.tsx"
 import {
   type Design,
   type ForYouItem,
-  type ForYouKind,
   forYou,
-  lastVisit,
+  lastVisits,
   organizations,
+  type OrgId,
   project as findProject,
   projects,
   type Stack,
-  type StackId,
   type StartProject,
-  stacks,
   type Template,
-  templatesOn
+  type Visit
 } from "./data.ts"
+import type { NewProjectStart } from "./new-project.tsx"
 import { DesignRender } from "./renders.tsx"
 
 /** Parity's own accent, from its mark: hover rings, focus and the odd highlight. */
 export const parity = "oklch(0.7 0.16 275)"
 
-/** The window around a start page, with the inbox and account in the title bar. */
+/** What the start page's controls do. The stories wire them up; in the app, the workspace will. */
+export interface StartActions {
+  /** Open a project in a tab, or switch to the tab it's already in. */
+  openProject?(id: string): void
+  /** Open a project that was just made, cloned or opened from a folder. */
+  create?(project: StartProject): void
+  newProject?(start?: NewProjectStart): void
+  search?(): void
+  /** For you items already dealt with, and the way to deal with them. */
+  done?: readonly string[]
+  markDone?(...ids: string[]): void
+}
+
+const StartContext = createContext<StartActions>({})
+
+export const StartActionsProvider = StartContext.Provider
+
+export function useStart(): StartActions {
+  return useContext(StartContext)
+}
+
+/** The window around a start page: tabs and menus that work, and the inbox and your account in the title bar. */
 export function StartWindow({
   tabs,
   active,
-  unread = 3,
+  canvas,
+  inbox = true,
+  onSelect,
+  onClose,
+  onNew,
   children
 }: {
   tabs: MockTab[]
   active: string
-  unread?: number
+  /** The active tab is a project's canvas, so the canvas's menu items apply. */
+  canvas?: boolean
+  /** Show what's waiting in the inbox; off before there's anything to wait for. */
+  inbox?: boolean
+  onSelect?(id: string): void
+  onClose?(id: string): void
+  onNew?(): void
   children: ReactNode
 }) {
   return (
-    <ExploreWindow tabs={tabs} active={active} actions={<TitleBarActions unread={unread} />}>
+    <ExploreWindow
+      tabs={tabs}
+      active={active}
+      menus={
+        <StartMenus
+          canvas={canvas}
+          onNewTab={onNew}
+          onCloseTab={active === "home" ? undefined : () => onClose?.(active)}
+          onHome={() => onSelect?.("home")}
+        />
+      }
+      actions={
+        <>
+          <Inbox enabled={inbox} />
+          <AccountMenu />
+        </>
+      }
+      onSelect={onSelect}
+      onClose={onClose}
+      onNew={onNew}
+    >
       <style>{liveStyles}</style>
       {children}
     </ExploreWindow>
+  )
+}
+
+const menuTrigger =
+  "h-auto rounded-md px-2 py-1 text-[13px] font-normal text-muted-foreground focus:bg-black/5 data-[state=open]:bg-black/5 data-[state=open]:text-foreground dark:focus:bg-white/5 dark:data-[state=open]:bg-white/5"
+
+/** The app's menus, as far as the start page goes: what arranges boards waits for a project's canvas. */
+function StartMenus({
+  canvas,
+  onNewTab,
+  onCloseTab,
+  onHome
+}: {
+  canvas?: boolean
+  onNewTab?(): void
+  onCloseTab?(): void
+  onHome?(): void
+}) {
+  const start = useStart()
+  return (
+    <Menubar className="h-auto gap-0 rounded-none border-0 bg-transparent p-0 shadow-none">
+      <MenubarMenu>
+        <MenubarTrigger className={menuTrigger}>File</MenubarTrigger>
+        <MenubarContent className="w-60">
+          <MenubarItem onSelect={() => start.newProject?.()}>
+            New project <MenubarShortcut>Ctrl N</MenubarShortcut>
+          </MenubarItem>
+          <MenubarItem onSelect={onNewTab}>
+            New tab <MenubarShortcut>Ctrl T</MenubarShortcut>
+          </MenubarItem>
+          <MenubarSeparator />
+          <MenubarItem onSelect={() => start.newProject?.({ tab: "existing", source: "folder" })}>
+            Open a folder <MenubarShortcut>Ctrl O</MenubarShortcut>
+          </MenubarItem>
+          <MenubarItem onSelect={() => start.newProject?.({ tab: "existing", source: "github" })}>
+            Clone a repository
+          </MenubarItem>
+          <MenubarSeparator />
+          <MenubarItem disabled={!onCloseTab} onSelect={onCloseTab}>
+            Close tab <MenubarShortcut>Ctrl W</MenubarShortcut>
+          </MenubarItem>
+        </MenubarContent>
+      </MenubarMenu>
+      <MenubarMenu>
+        <MenubarTrigger className={menuTrigger}>Edit</MenubarTrigger>
+        <MenubarContent className="w-60">
+          <MenubarItem disabled={!canvas}>
+            Undo <MenubarShortcut>Ctrl Z</MenubarShortcut>
+          </MenubarItem>
+          <MenubarItem disabled={!canvas}>
+            Redo <MenubarShortcut>Ctrl Y</MenubarShortcut>
+          </MenubarItem>
+          <MenubarSeparator />
+          <MenubarItem onSelect={() => start.search?.()}>
+            Search <MenubarShortcut>Ctrl K</MenubarShortcut>
+          </MenubarItem>
+        </MenubarContent>
+      </MenubarMenu>
+      <MenubarMenu>
+        <MenubarTrigger className={menuTrigger}>View</MenubarTrigger>
+        <MenubarContent className="w-60">
+          <MenubarItem onSelect={onHome}>
+            Home <MenubarShortcut>Ctrl Shift H</MenubarShortcut>
+          </MenubarItem>
+          <MenubarSeparator />
+          <MenubarItem disabled={!canvas}>
+            Zoom in <MenubarShortcut>Ctrl =</MenubarShortcut>
+          </MenubarItem>
+          <MenubarItem disabled={!canvas}>
+            Zoom out <MenubarShortcut>Ctrl -</MenubarShortcut>
+          </MenubarItem>
+          <MenubarItem disabled={!canvas}>
+            Zoom to fit <MenubarShortcut>Shift 1</MenubarShortcut>
+          </MenubarItem>
+        </MenubarContent>
+      </MenubarMenu>
+      <MenubarMenu>
+        <MenubarTrigger className={menuTrigger}>Arrange</MenubarTrigger>
+        <MenubarContent className="w-60">
+          {!canvas && (
+            <MenubarLabel className="text-xs font-normal text-muted-foreground">
+              Open a project to arrange its boards
+            </MenubarLabel>
+          )}
+          <MenubarItem disabled={!canvas}>Bring to front</MenubarItem>
+          <MenubarItem disabled={!canvas}>Send to back</MenubarItem>
+          <MenubarSeparator />
+          <MenubarItem disabled={!canvas}>Align</MenubarItem>
+          <MenubarItem disabled={!canvas}>Distribute</MenubarItem>
+        </MenubarContent>
+      </MenubarMenu>
+    </Menubar>
+  )
+}
+
+/** The inbox in the title bar: everything waiting for you, across every project. */
+function Inbox({ enabled }: { enabled: boolean }) {
+  const start = useStart()
+  const [open, setOpen] = useState(false)
+  const waiting = enabled ? forYou.filter((item) => !start.done?.includes(item.id)) : []
+  const unread = waiting.filter((item) => item.unread).length
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={unread ? `Inbox, ${unread} unread` : "Inbox"}
+          className="relative grid size-7 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-accent data-[state=open]:text-foreground"
+        >
+          <Bell className="size-4" />
+          {unread > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-[oklch(0.65_0.21_25)] px-1 text-[9px] font-semibold text-white">
+              {unread}
+            </span>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" sideOffset={6} className="w-[380px] gap-0 p-0">
+        <header className="flex h-11 items-center justify-between border-b px-4">
+          <span className="text-sm font-semibold">Inbox</span>
+          {waiting.length > 0 && (
+            <button
+              type="button"
+              onClick={() => start.markDone?.(...waiting.map((item) => item.id))}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              Mark all done
+            </button>
+          )}
+        </header>
+        {waiting.length > 0 ? (
+          <ul className="flex flex-col px-3 py-2">
+            {waiting.map((item) => (
+              <ForYouRow key={item.id} item={item} onOpen={() => setOpen(false)} />
+            ))}
+          </ul>
+        ) : (
+          <p className="px-4 py-10 text-center text-sm text-muted-foreground">Nothing needs you right now.</p>
+        )}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+/** Your account: the agents that can work in your projects, settings and help. */
+function AccountMenu() {
+  const [connected, setConnected] = useState([people.claude.name, people.cursor.name])
+  const agents: Person[] = [people.claude, people.cursor, { name: "Codex", hue: 160, agent: true }]
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label="Your account"
+          className="ml-1 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Avatar person={me} size={24} />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-64">
+        <DropdownMenuLabel className="flex items-center gap-2.5 py-2 font-normal">
+          <Avatar person={me} size={28} />
+          <span className="flex flex-col">
+            <span className="text-sm font-medium text-foreground">{me.name}</span>
+            <span className="text-xs text-muted-foreground">Kestrel, editor</span>
+          </span>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Agents</DropdownMenuLabel>
+        {agents.map((agent) => {
+          const on = connected.includes(agent.name)
+          return (
+            <DropdownMenuItem
+              key={agent.name}
+              onSelect={(event) => {
+                if (on) return
+                event.preventDefault()
+                setConnected((current) => [...current, agent.name])
+              }}
+            >
+              <Avatar person={agent} size={18} /> {agent.name}
+              <span className={`ml-auto text-xs ${on ? "text-muted-foreground" : "font-medium text-foreground"}`}>
+                {on ? "Connected" : "Connect"}
+              </span>
+            </DropdownMenuItem>
+          )
+        })}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem>
+          <Settings /> Settings <DropdownMenuShortcut>Ctrl ,</DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuItem>
+          <Keyboard /> Keyboard shortcuts <DropdownMenuShortcut>Ctrl /</DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuItem>
+          <BookOpen /> Docs
+        </DropdownMenuItem>
+        <DropdownMenuItem>
+          <Sparkles /> What's new
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem>
+          <LogOut /> Sign out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -235,40 +499,124 @@ export function CanvasArt({
   )
 }
 
-function Chip({ children, className = "" }: { children: ReactNode; className?: string }) {
+/** A project's tab, standing in for its canvas: the board you were on, with whoever is there. */
+export function ProjectTab({ project }: { project: StartProject }) {
+  const visit = Object.values(lastVisits).find((candidate) => candidate.project === project.id)
+  const design = project.designs.find((item) => item.name === visit?.design) ?? project.designs[0]
+  if (!design)
+    return (
+      <div className="absolute inset-0 grid place-items-center bg-[#0f0f12] text-sm text-muted-foreground">
+        <p className="max-w-[340px] text-center text-pretty">
+          {project.name} has no boards yet. Parity found its components; drag one onto the canvas to start a design.
+        </p>
+      </div>
+    )
   return (
-    <span
-      className={`flex items-center gap-1.5 rounded-full bg-black/65 px-2 py-0.5 text-[11px] font-medium text-white ring-1 ring-white/10 backdrop-blur ${className}`}
-    >
-      {children}
-    </span>
+    <CanvasArt project={project} design={design} labels pins={!!project.comments} fill className="absolute inset-0" />
   )
 }
 
-function LiveDot({ person }: { person: Person }) {
-  return (
-    <span className="relative flex size-1.5">
-      <span
-        className="absolute inset-0 rounded-full motion-safe:animate-ping"
-        style={{ background: paletteFor(person).color }}
-      />
-      <span className="relative size-1.5 rounded-full" style={{ background: paletteFor(person).color }} />
-    </span>
-  )
+function firstName(person: Person): string {
+  return person.agent ? person.name : person.name.split(" ")[0]!
 }
 
 /** "Edited 12 min ago by Maya", or "edited yesterday by you". */
 function editedBy(project: StartProject): string {
-  const who = project.editedBy === me ? "you" : project.editedBy.name.split(" ")[0]
+  const who = project.editedBy === me ? "you" : firstName(project.editedBy)
   const when = /^\d/.test(project.edited) ? project.edited : project.edited.toLowerCase()
   return `Edited ${when} by ${who}`
 }
 
+/** "a, b and c". */
+function listed(items: string[]): string {
+  return items.length < 2 ? (items[0] ?? "") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`
+}
+
+/** Someone in a project right now: their avatar, with a dot. */
+function Here({ who, className = "" }: { who: Person; className?: string }) {
+  const label = who.agent ? `${who.name} is working here` : `${firstName(who)} is here`
+  return (
+    <span className={`relative flex ${className}`} title={label}>
+      <Avatar person={who} size={22} />
+      <span className="absolute -right-0.5 -bottom-0.5 size-2 rounded-full bg-[oklch(0.76_0.15_155)] ring-2 ring-background" />
+      <span className="sr-only">{label}</span>
+    </span>
+  )
+}
+
+/** What you can do with a project from the start page. */
+function ProjectMenu({
+  project,
+  starred,
+  onStar,
+  onRemove,
+  className = ""
+}: {
+  project: StartProject
+  starred?: boolean
+  onStar?(): void
+  onRemove?(): void
+  className?: string
+}) {
+  const start = useStart()
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon-sm" aria-label={`More for ${project.name}`} className={className}>
+          <Ellipsis />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuItem onSelect={() => start.openProject?.(project.id)}>
+          <AppWindow /> Open
+        </DropdownMenuItem>
+        {onStar && (
+          <DropdownMenuItem onSelect={onStar}>
+            <Star /> {starred ? "Unstar" : "Star"}
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem
+          onSelect={() => start.newProject?.({ tab: "existing", source: "projects", project: project.id })}
+        >
+          <CopyPlus /> New project from this
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={() => void navigator.clipboard?.writeText(`parity://${project.id}`).catch(() => {})}
+        >
+          <Link /> Copy link
+        </DropdownMenuItem>
+        {onRemove && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={onRemove}>
+              <X /> Remove from recent
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 /**
- * A project: a live render of its canvas, its name and who's been in it. Moving the pointer across the picture flips
- * through its designs.
+ * A project: a render of its canvas, its name and when it was last touched, and who's there right now. Moving the
+ * pointer across the picture flips through its designs.
  */
-export function ProjectCard({ project, showOrg }: { project: StartProject; showOrg?: boolean }) {
+export function ProjectCard({
+  project,
+  showOrg,
+  starred = project.starred,
+  onStar,
+  onRemove
+}: {
+  project: StartProject
+  showOrg?: boolean
+  starred?: boolean
+  onStar?(): void
+  /** Take it off the list it's on. */
+  onRemove?(): void
+}) {
+  const start = useStart()
   const art = useRef<HTMLDivElement>(null)
   const [index, setIndex] = useState(0)
   const [hovered, setHovered] = useState(false)
@@ -276,7 +624,7 @@ export function ProjectCard({ project, showOrg }: { project: StartProject; showO
   const many = project.designs.length > 1
   return (
     <article
-      className="group/card relative flex flex-col gap-3"
+      className="group/card relative flex flex-col gap-2.5"
       onPointerEnter={() => setHovered(true)}
       onPointerMove={(event) => {
         const box = art.current?.getBoundingClientRect()
@@ -291,26 +639,13 @@ export function ProjectCard({ project, showOrg }: { project: StartProject; showO
     >
       <div
         ref={art}
-        className="relative overflow-hidden rounded-xl ring-1 ring-white/[0.08] transition-shadow duration-150 group-hover/card:ring-2 group-hover/card:ring-(--parity)"
+        className="relative overflow-hidden rounded-lg ring-1 ring-white/[0.07] transition-shadow duration-150 group-hover/card:ring-2 group-hover/card:ring-(--parity)"
         style={{ ["--parity" as string]: parity }}
       >
-        <CanvasArt project={project} design={design} />
-        {project.live && (
-          <Chip className="absolute top-2.5 left-2.5 z-10">
-            <LiveDot person={project.live.who} />
-            {project.live.who.agent
-              ? `${project.live.who.name} is working`
-              : `${project.live.who.name.split(" ")[0]} is here`}
-          </Chip>
-        )}
-        {project.open && (
-          <Chip className="absolute top-2.5 right-2.5 z-10">
-            <AppWindow className="size-3" /> In a tab
-          </Chip>
-        )}
+        <CanvasArt project={project} design={design} live={false} />
         {many && (
           <div
-            className={`absolute inset-x-0 bottom-0 z-10 flex flex-col gap-2 bg-gradient-to-t from-black/70 to-transparent px-3 pt-6 pb-2.5 transition-opacity duration-150 ${
+            className={`absolute inset-x-0 bottom-0 flex flex-col gap-2 bg-gradient-to-t from-black/70 to-transparent px-3 pt-6 pb-2.5 transition-opacity duration-150 ${
               hovered ? "opacity-100" : "opacity-0"
             }`}
           >
@@ -326,177 +661,186 @@ export function ProjectCard({ project, showOrg }: { project: StartProject; showO
           </div>
         )}
       </div>
-      <div className="flex items-start gap-3">
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <h3 className="flex items-center gap-1.5 text-sm font-medium">
+      <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <h3 className="text-sm font-medium">
             <button
               type="button"
-              className="truncate text-left outline-none after:absolute after:inset-0 after:rounded-xl focus-visible:after:ring-2 focus-visible:after:ring-ring"
+              onClick={() => start.openProject?.(project.id)}
+              className="block max-w-full truncate text-left outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-ring"
             >
               {project.name}
             </button>
-            {project.starred && <Star className="size-3 shrink-0 fill-current text-muted-foreground" />}
-            {!!project.comments && (
-              <span
-                className="relative z-10 flex shrink-0 items-center gap-1 rounded-full bg-[oklch(0.62_0.19_256)] px-1.5 text-[11px] leading-4 font-semibold text-white"
-                title={`${project.comments} new ${project.comments === 1 ? "comment" : "comments"} for you`}
-              >
-                <MessageSquare className="size-2.5" /> {project.comments}
-              </span>
-            )}
           </h3>
-          <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-            <SourceIcon type={project.source.type} className="size-3 shrink-0" />
-            <span className="truncate">
-              {showOrg ? `${organizations[project.org].name}, ` : ""}
-              {editedBy(project)}
-            </span>
+          <span className="truncate text-xs text-muted-foreground">
+            {showOrg ? `${organizations[project.org].name}, ` : ""}
+            {editedBy(project)}
           </span>
         </div>
-        <span className="relative z-10 flex items-center gap-1">
-          <span className="transition-opacity group-hover/card:opacity-0">
-            <AvatarStack people={project.people} size={20} max={3} />
-          </span>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={`More for ${project.name}`}
-            className="absolute right-0 opacity-0 group-hover/card:opacity-100 focus-visible:opacity-100"
-          >
-            <Ellipsis />
-          </Button>
+        <span className="relative z-10 grid size-7 shrink-0 place-items-center">
+          {project.live && (
+            <Here
+              who={project.live.who}
+              className="transition-opacity group-hover/card:opacity-0 group-has-[[data-state=open]]/card:opacity-0"
+            />
+          )}
+          <ProjectMenu
+            project={project}
+            starred={starred}
+            onStar={onStar}
+            onRemove={onRemove}
+            className="absolute inset-0 opacity-0 group-hover/card:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+          />
         </span>
       </div>
     </article>
   )
 }
 
-/** The project you were last in, as you left it, and what happened there since. */
-export function ContinueCard() {
-  const project = findProject(lastVisit.project)
-  const design = project.designs.find((item) => item.name === lastVisit.design)!
+/** The project you were last in, as you left it, and what happened there since. Enter resumes it. */
+export function ContinueCard({ visit }: { visit: Visit }) {
+  const start = useStart()
+  const project = findProject(visit.project)
+  const design = project.designs.find((item) => item.name === visit.design) ?? project.designs[0]!
+  const resume = () => start.openProject?.(project.id)
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Enter" && event.target === document.body) resume()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  })
   return (
-    <section className="group/continue grid min-h-[300px] grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] overflow-hidden rounded-2xl border bg-card/40">
-      <div className="relative">
-        <CanvasArt project={project} design={design} labels pins fill className="absolute inset-0" />
+    <section
+      className="group/continue relative grid grid-cols-[minmax(0,400px)_minmax(0,1fr)] items-center gap-7"
+      style={{ ["--parity" as string]: parity }}
+    >
+      <div className="overflow-hidden rounded-lg ring-1 ring-white/[0.07] transition-shadow duration-150 group-hover/continue:ring-2 group-hover/continue:ring-(--parity)">
+        <CanvasArt project={project} design={design} labels live={false} />
       </div>
-      <div className="flex flex-col gap-5 p-6">
-        <div className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-muted-foreground">Pick up where you left off</span>
-          <h2 className="text-xl font-semibold tracking-tight">{project.name}</h2>
-          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-pretty text-muted-foreground">
-            You were on {lastVisit.design} {lastVisit.when[0]!.toLowerCase() + lastVisit.when.slice(1)}.
-            <span className="flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 font-mono text-[11px]">
-              <GitBranch className="size-3" />
-              {project.source.branch}
-            </span>
-          </p>
+      <div className="flex flex-col items-start gap-3">
+        <div className="flex flex-col gap-1">
+          <span className="text-xs text-muted-foreground">Continue where you left off</span>
+          <h2 className="flex items-center gap-2.5 text-lg font-semibold tracking-tight">
+            <button
+              type="button"
+              onClick={resume}
+              className="text-left outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-ring"
+            >
+              {project.name}
+            </button>
+            {project.live && <Here who={project.live.who} />}
+          </h2>
         </div>
-        <div className="flex flex-col gap-2.5">
-          <span className="text-xs font-medium text-muted-foreground">Since then</span>
-          {lastVisit.since.map((item) => (
-            <span key={item.text} className="flex items-start gap-2.5 text-[13px] leading-snug">
-              <Avatar person={item.who} size={20} className="mt-px" />
-              <span className="text-muted-foreground">
-                <span className="font-medium text-foreground">{item.who.name}</span> {item.text}
-                {item.detail && <span className="text-foreground">: {item.detail}</span>}
-              </span>
-            </span>
-          ))}
-        </div>
-        <div className="mt-auto flex items-center gap-2">
-          <Button size="lg" className="px-3">
-            Resume <Kbd className="bg-primary-foreground/10 text-primary-foreground/70">Enter</Kbd>
-          </Button>
-          <Button size="lg" variant="outline">
-            Review changes
-          </Button>
-        </div>
+        <p className="text-sm text-pretty text-muted-foreground">
+          You were on {visit.design} {visit.when[0]!.toLowerCase() + visit.when.slice(1)}.
+          {visit.since.length > 0 &&
+            ` Since then, ${listed(visit.since.map((item) => `${firstName(item.who)} ${item.text}`))}.`}
+        </p>
+        <Button onClick={resume} className="relative z-10 mt-1 gap-2">
+          Resume <Kbd className="bg-primary-foreground/10 text-primary-foreground/70">Enter</Kbd>
+        </Button>
       </div>
     </section>
   )
 }
 
-const forYouIcons: Record<ForYouKind, typeof AtSign> = {
-  agent: CircleHelp,
-  mention: AtSign,
-  review: Eye,
-  reply: Reply,
-  invite: UserPlus
-}
-
-function ForYouRow({ item }: { item: ForYouItem }) {
-  const Icon = forYouIcons[item.kind]
+/** One thing waiting for you. The row opens it; the button does the one thing it asks and clears it. */
+function ForYouRow({ item, onOpen }: { item: ForYouItem; onOpen?(): void }) {
+  const start = useStart()
+  const target = projects.find((candidate) => candidate.name === item.project)
+  const open = () => {
+    if (target) start.openProject?.(target.id)
+    onOpen?.()
+  }
   return (
-    <li className="group/row relative flex gap-3 rounded-xl px-3 py-2.5 hover:bg-muted/40">
-      <span className="relative h-fit shrink-0">
-        <Avatar person={item.who} size={28} />
-        <span className="absolute -right-1 -bottom-1 grid size-4 place-items-center rounded-full bg-background ring-1 ring-border">
-          <Icon className="size-2.5 text-muted-foreground" />
-        </span>
-      </span>
-      <div className="flex min-w-0 flex-1 flex-col gap-1 text-[13px] leading-snug text-muted-foreground">
-        <span>
-          <span className="font-medium text-foreground">{item.who.name}</span> {item.action}{" "}
+    <li className="group/row relative -mx-2 flex items-start gap-2.5 rounded-lg px-2 py-2 hover:bg-muted/40">
+      <Avatar person={item.who} size={22} className="shrink-0" />
+      <span className="min-w-0 flex-1 text-[13px] leading-snug text-muted-foreground">
+        <button
+          type="button"
+          onClick={open}
+          title={item.quote}
+          className="text-left outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-ring"
+        >
+          <span className="text-foreground">{item.who.name}</span> {item.action}{" "}
           {item.design && (
             <>
-              <span className="font-medium text-foreground">{item.design}</span> in{" "}
+              <span className="text-foreground">{item.design}</span> in{" "}
             </>
           )}
-          <span className="font-medium text-foreground">{item.project}</span>
-        </span>
-        {item.quote && <span className="line-clamp-1 border-l-2 pl-2 text-foreground/80">{item.quote}</span>}
-        <span className="text-xs">{item.when}</span>
-      </div>
-      <span className="flex shrink-0 flex-col items-end gap-2">
-        {item.unread && <span className="mt-1.5 size-2 rounded-full bg-[oklch(0.65_0.18_256)]" />}
-        <Button
-          size="xs"
-          variant={item.kind === "agent" ? "default" : "outline"}
-          className="opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"
-        >
-          {item.act}
-        </Button>
+          <span className="text-foreground">{item.project}</span>
+        </button>
       </span>
+      <span className="mt-0.5 shrink-0 text-xs text-muted-foreground group-focus-within/row:invisible group-hover/row:invisible">
+        {item.when.replace(" ago", "")}
+      </span>
+      <Button
+        size="xs"
+        variant="outline"
+        onClick={() => {
+          start.markDone?.(item.id)
+          open()
+        }}
+        className="absolute top-1.5 right-2 z-10 opacity-0 group-focus-within/row:opacity-100 group-hover/row:opacity-100"
+      >
+        {item.act}
+      </Button>
     </li>
   )
 }
 
-/** What needs you across every project: agents waiting, mentions, reviews and replies. */
+/** What needs you across every project: an agent waiting on an answer, a mention, a review. */
 export function ForYouPanel({ limit = 4 }: { limit?: number }) {
-  const unread = forYou.filter((item) => item.unread).length
+  const start = useStart()
+  const waiting = forYou.filter((item) => !start.done?.includes(item.id))
   return (
-    <section className="flex flex-col rounded-2xl border bg-card/40">
-      <header className="flex items-center justify-between px-5 pt-4 pb-1.5">
-        <h2 className="flex items-center gap-2 text-sm font-semibold">
-          For you
-          <span className="rounded-full bg-[oklch(0.62_0.19_256)] px-1.5 text-[11px] leading-4 font-semibold text-white">
-            {unread}
-          </span>
-        </h2>
-        <button type="button" className="text-xs text-muted-foreground hover:text-foreground">
-          Open inbox
-        </button>
-      </header>
-      <ul className="flex flex-col p-2 pt-0">
-        {forYou.slice(0, limit).map((item) => (
-          <ForYouRow key={item.id} item={item} />
-        ))}
-      </ul>
+    <section className="flex flex-col gap-1.5">
+      <h2 className="flex items-baseline gap-2 text-sm font-semibold">
+        For you
+        {waiting.length > 0 && <span className="font-normal text-muted-foreground">{waiting.length}</span>}
+      </h2>
+      {waiting.length > 0 ? (
+        <ul className="flex flex-col">
+          {waiting.slice(0, limit).map((item) => (
+            <ForYouRow key={item.id} item={item} />
+          ))}
+        </ul>
+      ) : (
+        <p className="py-2 text-sm text-muted-foreground">Nothing needs you right now.</p>
+      )}
     </section>
   )
 }
 
-type Scope = "recent" | "starred" | "shared" | "all"
+/** Tabs as words, for switching what a section lists. */
+export function TextTabs<T extends string>({
+  options,
+  value,
+  onChange
+}: {
+  options: { id: NoInfer<T>; label: ReactNode }[]
+  value: T
+  onChange(value: NoInfer<T>): void
+}) {
+  return (
+    <span className="flex items-center gap-4 text-sm">
+      {options.map((option) => (
+        <button
+          key={option.id}
+          type="button"
+          aria-pressed={option.id === value}
+          onClick={() => onChange(option.id)}
+          className="rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-pressed:font-medium aria-pressed:text-foreground"
+        >
+          {option.label}
+        </button>
+      ))}
+    </span>
+  )
+}
 
-const scopes: { id: Scope; label: string }[] = [
-  { id: "recent", label: "Recent" },
-  { id: "starred", label: "Starred" },
-  { id: "shared", label: "Shared with you" },
-  { id: "all", label: "All projects" }
-]
-
-/** Quiet tabs, for switching what a section lists. */
+/** Tabs on a muted track, for choices that sit inside a panel. */
 export function Segmented<T extends string>({
   options,
   value,
@@ -523,40 +867,78 @@ export function Segmented<T extends string>({
   )
 }
 
-/** Your projects, as renders: recent first, or starred, shared or everything. */
-export function RecentProjects({
-  skip,
-  rows = 2,
-  title = "Projects"
-}: {
-  /** A project shown elsewhere on the page already. */
-  skip?: string
-  rows?: number
-  title?: string
-}) {
+type Scope = "recent" | "starred" | "shared" | "all"
+
+const scopes: { id: Scope; label: string }[] = [
+  { id: "recent", label: "Recent" },
+  { id: "starred", label: "Starred" },
+  { id: "shared", label: "Shared with you" },
+  { id: "all", label: "All projects" }
+]
+
+const emptyScope: Record<Scope, string> = {
+  recent: "Projects you open show up here.",
+  starred: "Nothing starred yet. Star a project from its menu to keep it here.",
+  shared: "Nothing has been shared with you yet.",
+  all: "No projects yet."
+}
+
+/** Your projects, as renders: recent first, or starred, shared or all of them. */
+export function RecentProjects({ org, skip, rows = 1 }: { org?: OrgId; skip?: string; rows?: number }) {
   const [scope, setScope] = useState<Scope>("recent")
+  const [more, setMore] = useState(false)
+  const [starred, setStarred] = useState(() => projects.filter((project) => project.starred).map(({ id }) => id))
+  const [removed, setRemoved] = useState<string[]>([])
   const listed = projects.filter((project) => {
-    if (project.id === skip) return false
-    if (scope === "starred") return project.starred
-    if (scope === "shared") return project.shared
+    if (org && project.org !== org) return false
+    if (scope === "starred") return starred.includes(project.id)
+    if (scope === "shared") return !!project.shared
+    if (scope === "recent") return project.id !== skip && !removed.includes(project.id)
     return true
   })
+  const shown = more ? listed : listed.slice(0, rows * 4)
   return (
     <section className="flex flex-col gap-4">
+      <h2 className="sr-only">Projects</h2>
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <h2 className="text-[15px] font-semibold">{title}</h2>
-          <Segmented options={scopes} value={scope} onChange={setScope} />
+        <TextTabs
+          options={scopes}
+          value={scope}
+          onChange={(next) => {
+            setScope(next)
+            setMore(false)
+          }}
+        />
+        {listed.length > rows * 4 && (
+          <button
+            type="button"
+            onClick={() => setMore(!more)}
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            {more ? "Show less" : `Show ${listed.length - shown.length} more`}
+          </button>
+        )}
+      </div>
+      {shown.length > 0 ? (
+        <div className="grid grid-cols-4 gap-x-5 gap-y-7">
+          {shown.map((project) => (
+            <ProjectCard
+              key={project.id}
+              project={project}
+              showOrg={!org && scope === "shared"}
+              starred={starred.includes(project.id)}
+              onStar={() =>
+                setStarred((current) =>
+                  current.includes(project.id) ? current.filter((id) => id !== project.id) : [...current, project.id]
+                )
+              }
+              onRemove={scope === "recent" ? () => setRemoved((current) => [...current, project.id]) : undefined}
+            />
+          ))}
         </div>
-        <button type="button" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-          All {projects.length} projects <ArrowRight className="size-3" />
-        </button>
-      </div>
-      <div className="grid grid-cols-4 gap-x-5 gap-y-7">
-        {listed.slice(0, rows * 4).map((project) => (
-          <ProjectCard key={project.id} project={project} showOrg={scope === "all" || scope === "shared"} />
-        ))}
-      </div>
+      ) : (
+        <p className="py-8 text-sm text-muted-foreground">{emptyScope[scope]}</p>
+      )}
     </section>
   )
 }
@@ -582,14 +964,19 @@ export function StackMark({ stack, size = 20 }: { stack: Stack; size?: number })
 
 /** A template: its first design, drawn in the template's own look, then its name. */
 export function TemplateCard({ template, onPick }: { template: Template; onPick?(template: Template): void }) {
+  const start = useStart()
   return (
     <button
       type="button"
-      onClick={() => onPick?.(template)}
+      onClick={() =>
+        onPick
+          ? onPick(template)
+          : start.newProject?.({ tab: "template", stack: template.stack, template: template.id })
+      }
       className="group/template flex flex-col gap-2.5 text-left outline-none"
       style={{ ["--parity" as string]: parity }}
     >
-      <span className="relative block overflow-hidden rounded-xl ring-1 ring-white/[0.08] transition-shadow duration-150 group-hover/template:ring-2 group-hover/template:ring-(--parity) group-focus-visible/template:ring-2 group-focus-visible/template:ring-ring">
+      <span className="relative block overflow-hidden rounded-lg ring-1 ring-white/[0.07] transition-shadow duration-150 group-hover/template:ring-2 group-hover/template:ring-(--parity) group-focus-visible/template:ring-2 group-focus-visible/template:ring-ring">
         <DesignRender kind={template.designs[0]!.kind} look={template.look} />
         <span className="absolute right-2 bottom-2 flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[11px] font-medium text-white opacity-0 backdrop-blur transition-opacity group-hover/template:opacity-100">
           Use template <ArrowRight className="size-3" />
@@ -603,129 +990,22 @@ export function TemplateCard({ template, onPick }: { template: Template; onPick?
   )
 }
 
-/** Starting from what exists: a repository, a folder, or one of your projects. */
-export function ExistingCard({ onPick }: { onPick?(): void }) {
-  return (
-    <button
-      type="button"
-      onClick={onPick}
-      aria-label="New project from an existing project"
-      className="group/existing flex flex-col gap-2.5 text-left outline-none"
-      style={{ ["--parity" as string]: parity }}
-    >
-      <span className="relative grid aspect-[16/10] place-items-center overflow-hidden rounded-xl border border-dashed border-white/15 bg-white/[0.015] transition-colors group-hover/existing:border-(--parity) group-focus-visible/existing:border-ring">
-        <span className="flex items-center gap-2.5">
-          {[
-            <GitHubMark key="github" size={18} />,
-            <AzureDevOpsMark key="azure" size={18} />,
-            <FolderOpen key="folder" className="size-[18px]" />,
-            <FolderGit2 key="project" className="size-[18px]" />
-          ].map((mark, index) => (
-            <span
-              key={index}
-              className="grid size-10 place-items-center rounded-xl bg-muted/60 text-muted-foreground ring-1 ring-white/5 transition-transform group-hover/existing:-translate-y-0.5"
-              style={{ transitionDelay: `${index * 30}ms` }}
-            >
-              {mark}
-            </span>
-          ))}
-        </span>
-      </span>
-      <span className="flex flex-col gap-0.5">
-        <span className="text-sm font-medium">From an existing project</span>
-        <span className="text-xs text-muted-foreground">A repository, a folder or one of your projects</span>
-      </span>
-    </button>
-  )
-}
-
-/** A stack's blank app, for starting from nothing but the stack. */
-function BlankCard({ stack }: { stack: Stack }) {
-  return (
-    <button
-      type="button"
-      aria-label={`New blank ${stack.name} app`}
-      className="group/blank flex flex-col gap-2.5 text-left outline-none"
-      style={{ ["--parity" as string]: parity }}
-    >
-      <span className="grid aspect-[16/10] place-items-center rounded-xl border border-white/[0.08] bg-white/[0.015] transition-colors group-hover/blank:border-(--parity)">
-        <span className="flex flex-col items-center gap-2 text-muted-foreground">
-          <StackMark stack={stack} size={30} />
-          <Plus className="size-4" />
-        </span>
-      </span>
-      <span className="flex flex-col gap-0.5">
-        <span className="text-sm font-medium">Blank app</span>
-        <span className="text-xs text-muted-foreground">Just {stack.name}, set up</span>
-      </span>
-    </button>
-  )
-}
-
-/** Something new: templates on a stack, a blank app, or an existing project. */
-export function StartNew({
-  title = "Start something new",
-  columns = 5,
-  onPickTemplate,
-  onPickExisting
-}: {
-  title?: string
-  columns?: number
-  onPickTemplate?(template: Template): void
-  onPickExisting?(): void
-}) {
-  const [stackId, setStackId] = useState<StackId>("tanstack-start")
-  const stack = stacks.find((candidate) => candidate.id === stackId)!
-  const shown = templatesOn(stackId).slice(0, columns - 1)
-  return (
-    <section className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <h2 className="text-[15px] font-semibold">{title}</h2>
-          <Segmented
-            options={stacks.map((candidate) => ({
-              id: candidate.id,
-              label: (
-                <>
-                  <StackMark stack={candidate} size={16} /> {candidate.name}
-                </>
-              )
-            }))}
-            value={stackId}
-            onChange={setStackId}
-          />
-        </div>
-        <button type="button" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-          {templatesOn(stackId).length > shown.length
-            ? `All ${templatesOn(stackId).length} templates`
-            : "All templates"}
-          <ArrowRight className="size-3" />
-        </button>
-      </div>
-      <div className="grid gap-x-5 gap-y-7" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
-        {shown.map((template) => (
-          <TemplateCard key={template.id} template={template} onPick={onPickTemplate} />
-        ))}
-        {shown.length < columns - 1 && <BlankCard stack={stack} />}
-        <ExistingCard onPick={onPickExisting} />
-      </div>
-    </section>
-  )
-}
-
 /** Looks like a field, opens search: projects, designs, components, people and commands. */
 export function SearchButton({ large, onOpen }: { large?: boolean; onOpen?(): void }) {
+  const start = useStart()
   return (
     <button
       type="button"
-      onClick={onOpen}
-      className={`flex items-center gap-2.5 rounded-xl border bg-card/60 text-left text-muted-foreground outline-none hover:border-foreground/20 focus-visible:ring-2 focus-visible:ring-ring ${
-        large ? "h-12 w-full px-4 text-[15px] shadow-[0_8px_30px_-12px_rgb(0_0_0/0.6)]" : "h-9 w-[300px] px-3 text-sm"
+      onClick={onOpen ?? start.search}
+      className={`flex items-center gap-2.5 rounded-lg border bg-card/60 text-left text-muted-foreground outline-none hover:border-foreground/20 focus-visible:ring-2 focus-visible:ring-ring ${
+        large
+          ? "h-12 w-full rounded-xl px-4 text-[15px] shadow-[0_8px_30px_-12px_rgb(0_0_0/0.6)]"
+          : "h-9 w-[280px] px-3 text-sm"
       }`}
     >
       <Search className={large ? "size-[18px]" : "size-4"} />
       <span className="flex-1 truncate">
-        {large ? "Search projects, designs and people, or paste a repository URL" : "Search everything"}
+        {large ? "Search projects, designs and people, or paste a repository URL" : "Search"}
       </span>
       <Kbd>Ctrl K</Kbd>
     </button>
@@ -734,6 +1014,7 @@ export function SearchButton({ large, onOpen }: { large?: boolean; onOpen?(): vo
 
 /** Opening what's already there: a folder, a project file, or a repository to clone. */
 export function OpenMenu({ size = "lg" }: { size?: "lg" | "default" }) {
+  const start = useStart()
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -742,17 +1023,17 @@ export function OpenMenu({ size = "lg" }: { size?: "lg" | "default" }) {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
-        <DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => start.newProject?.({ tab: "existing", source: "folder" })}>
           <FolderOpen /> Open a folder <DropdownMenuShortcut>Ctrl O</DropdownMenuShortcut>
         </DropdownMenuItem>
-        <DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => start.newProject?.({ tab: "existing", source: "folder" })}>
           <FileInput /> Open a project file <DropdownMenuShortcut>Ctrl Shift O</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => start.newProject?.({ tab: "existing", source: "github" })}>
           <GitHubMark size={16} /> Clone from GitHub
         </DropdownMenuItem>
-        <DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => start.newProject?.({ tab: "existing", source: "azure" })}>
           <AzureDevOpsMark size={16} /> Clone from Azure DevOps
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -761,67 +1042,49 @@ export function OpenMenu({ size = "lg" }: { size?: "lg" | "default" }) {
 }
 
 export function NewProjectButton({ onClick, size = "lg" }: { onClick?(): void; size?: "lg" | "default" }) {
+  const start = useStart()
   return (
-    <Button size={size} onClick={onClick}>
+    <Button size={size} onClick={onClick ?? (() => start.newProject?.())}>
       <Plus /> New project
     </Button>
   )
 }
 
 /** Which organization's projects the page shows, and the way to switch. */
-export function OrgSwitcher() {
-  const org = organizations.kestrel
+export function OrgSwitcher({ value = "kestrel", onChange }: { value?: OrgId; onChange?(org: OrgId): void }) {
+  const org = organizations[value]
   return (
-    <button
-      type="button"
-      className="-ml-1.5 flex w-fit items-center gap-2 rounded-lg px-1.5 py-1 text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-    >
-      <OrgBadge org={org} size={18} />
-      <span className="font-medium text-foreground">{org.name}</span>
-      {org.members} members
-      <ChevronsUpDown className="size-3.5" />
-    </button>
-  )
-}
-
-const agents: { who: Person; connected: boolean }[] = [
-  { who: people.claude, connected: true },
-  { who: people.cursor, connected: true },
-  { who: { name: "Codex", hue: 160, agent: true }, connected: false }
-]
-
-/** What sits at the bottom, close by: which agents can work here, and help. */
-export function StartFooter() {
-  return (
-    <footer className="flex items-center justify-between border-t border-border/60 pt-5 text-xs text-muted-foreground">
-      <div className="flex items-center gap-5">
-        <span>Agents</span>
-        {agents.map(({ who, connected }) => (
-          <span key={who.name} className="flex items-center gap-1.5">
-            <Avatar person={who} size={18} />
-            <span className={connected ? "text-foreground/90" : ""}>{who.name}</span>
-            {connected ? (
-              <span className="size-1.5 rounded-full bg-[oklch(0.76_0.15_155)]" title="Connected" />
-            ) : (
-              <button type="button" className="font-medium text-foreground underline-offset-2 hover:underline">
-                Connect
-              </button>
-            )}
-          </span>
-        ))}
-      </div>
-      <div className="flex items-center gap-5">
-        <button type="button" className="hover:text-foreground">
-          What's new in Parity
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="-ml-1.5 flex w-fit items-center gap-2 rounded-lg px-1.5 py-1 text-sm outline-none hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted/50"
+        >
+          <OrgBadge org={org} size={20} />
+          <span className="font-medium">{org.name}</span>
+          <ChevronsUpDown className="size-3.5 text-muted-foreground" />
         </button>
-        <button type="button" className="hover:text-foreground">
-          Docs
-        </button>
-        <span className="flex items-center gap-1.5">
-          Shortcuts <Kbd>Ctrl /</Kbd>
-        </span>
-      </div>
-    </footer>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-60">
+        <DropdownMenuRadioGroup value={value} onValueChange={(next) => onChange?.(next as OrgId)}>
+          {Object.values(organizations).map((candidate) => (
+            <DropdownMenuRadioItem key={candidate.id} value={candidate.id}>
+              <OrgBadge org={candidate} size={18} /> {candidate.name}
+              <span className="ml-auto text-xs text-muted-foreground">
+                {candidate.members === 1 ? "Just you" : `${candidate.members} members`}
+              </span>
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem>
+          <UserPlus /> Invite people
+        </DropdownMenuItem>
+        <DropdownMenuItem>
+          <Plus /> New organization
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -838,74 +1101,44 @@ export function Backdrop({ strength = 1 }: { strength?: number }) {
   )
 }
 
-/** Home: what needs you, where you left off, your projects, and something new. */
-export function HomePage({
-  onNewProject,
-  onSearch,
-  onPickTemplate,
-  onPickExisting
-}: {
-  onNewProject?(): void
-  onSearch?(): void
-  onPickTemplate?(template: Template): void
-  onPickExisting?(): void
-}) {
+/** Home: where you left off and what needs you, then your projects. New project starts something new. */
+export function HomePage() {
+  const [org, setOrg] = useState<OrgId>("kestrel")
+  const visit = lastVisits[org]
   return (
-    <div className="relative h-full overflow-y-auto">
-      <Backdrop />
-      <div className="relative mx-auto flex max-w-[1180px] flex-col gap-10 px-10 pt-8 pb-12">
-        <header className="flex items-end justify-between gap-8">
-          <div className="flex flex-col gap-2.5">
-            <OrgSwitcher />
-            <h1 className="text-[30px] leading-none font-semibold tracking-tight">Good evening, Andrew</h1>
-            <p className="text-[15px] text-muted-foreground">
-              Cursor is waiting on you, Maya mentioned you, and Priya asked for a review.
-            </p>
-          </div>
+    <div className="h-full overflow-y-auto">
+      <div className="mx-auto flex max-w-[1120px] flex-col gap-11 px-10 pt-6 pb-14">
+        <header className="flex items-center justify-between gap-6">
+          <OrgSwitcher value={org} onChange={setOrg} />
           <div className="flex items-center gap-2">
-            <SearchButton onOpen={onSearch} />
-            <OpenMenu />
-            <NewProjectButton onClick={onNewProject} />
+            <SearchButton />
+            <OpenMenu size="default" />
+            <NewProjectButton size="default" />
           </div>
         </header>
-        <div className="grid grid-cols-[minmax(0,1fr)_360px] gap-5">
-          <ContinueCard />
-          <ForYouPanel limit={3} />
+        <div className="grid grid-cols-[minmax(0,1fr)_300px] gap-12">
+          <ContinueCard visit={visit} />
+          <ForYouPanel />
         </div>
-        <RecentProjects skip={lastVisit.project} rows={1} />
-        <StartNew onPickTemplate={onPickTemplate} onPickExisting={onPickExisting} />
-        <StartFooter />
+        <RecentProjects key={org} org={org} skip={visit.project} rows={2} />
       </div>
     </div>
   )
 }
 
-/** A new tab: one field to go anywhere, your projects, and something new. */
-export function NewTabPage({
-  onNewProject,
-  onSearch,
-  onPickTemplate,
-  onPickExisting
-}: {
-  onNewProject?(): void
-  onSearch?(): void
-  onPickTemplate?(template: Template): void
-  onPickExisting?(): void
-}) {
+/** A new tab: one field to go anywhere, then your projects. */
+export function NewTabPage() {
   return (
-    <div className="relative h-full overflow-y-auto">
-      <Backdrop strength={0.7} />
-      <div className="relative mx-auto flex max-w-[1180px] flex-col gap-11 px-10 pt-14 pb-12">
-        <div className="mx-auto flex w-full max-w-[680px] flex-col items-center gap-4">
-          <SearchButton large onOpen={onSearch} />
+    <div className="h-full overflow-y-auto">
+      <div className="mx-auto flex max-w-[1120px] flex-col gap-11 px-10 pt-16 pb-14">
+        <div className="mx-auto flex w-full max-w-[640px] flex-col items-center gap-3">
+          <SearchButton large />
           <div className="flex items-center gap-2">
-            <NewProjectButton onClick={onNewProject} size="default" />
+            <NewProjectButton size="default" />
             <OpenMenu size="default" />
           </div>
         </div>
         <RecentProjects rows={2} />
-        <StartNew onPickTemplate={onPickTemplate} onPickExisting={onPickExisting} />
-        <StartFooter />
       </div>
     </div>
   )

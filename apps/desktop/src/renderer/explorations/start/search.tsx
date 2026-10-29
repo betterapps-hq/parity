@@ -18,7 +18,8 @@ import { Kbd } from "@/components/ui/kbd"
 import { me, people } from "../explore-data.ts"
 import { Avatar, GitHubMark } from "../parts.tsx"
 import { projects, stack, templates } from "./data.ts"
-import { parity, StackMark } from "./page.tsx"
+import type { NewProjectStart } from "./new-project.tsx"
+import { parity, StackMark, useStart } from "./page.tsx"
 import { DesignRender } from "./renders.tsx"
 
 /** Components as the project's code names them, with the file each lives in. */
@@ -31,10 +32,10 @@ const components = [
   { name: "Button", path: "src/button/button.tsx", project: "library" }
 ]
 
-const commands: { label: string; icon: LucideIcon; shortcut?: string; mark?: boolean }[] = [
-  { label: "New project", icon: Plus, shortcut: "Ctrl N" },
-  { label: "Open a folder", icon: FolderOpen, shortcut: "Ctrl O" },
-  { label: "Clone a repository", icon: FolderOpen, mark: true },
+const commands: { label: string; icon: LucideIcon; shortcut?: string; mark?: boolean; starts?: NewProjectStart }[] = [
+  { label: "New project", icon: Plus, shortcut: "Ctrl N", starts: { tab: "template" } },
+  { label: "Open a folder", icon: FolderOpen, shortcut: "Ctrl O", starts: { tab: "existing", source: "folder" } },
+  { label: "Clone a repository", icon: FolderOpen, mark: true, starts: { tab: "existing", source: "github" } },
   { label: "Invite people to Kestrel", icon: UserPlus },
   { label: "Billing and seats", icon: CreditCard },
   { label: "Switch organization", icon: Users },
@@ -72,8 +73,14 @@ export function SearchPalette({
   onOpenChange?(open: boolean): void
   initialQuery?: string
 }) {
+  const start = useStart()
   const [query, setQuery] = useState(initialQuery)
   const searching = query.trim() !== ""
+  /** Does what a result says, then gets out of the way. */
+  const pick = (act?: () => void) => () => {
+    onOpenChange?.(false)
+    act?.()
+  }
   const designs = projects
     .flatMap((project) => project.designs.map((design) => ({ project, design })))
     .filter(({ project, design }) => matches(query, design.name, ...(searching ? [] : [project.name])))
@@ -107,6 +114,7 @@ export function SearchPalette({
                 <CommandItem
                   key={`${project.id}-${design.name}`}
                   value={`${project.id}-${design.name}`}
+                  onSelect={pick(() => start.openProject?.(project.id))}
                   className="gap-3"
                 >
                   <span className="w-[72px] shrink-0 overflow-hidden rounded-[3px] ring-1 ring-white/10">
@@ -136,7 +144,12 @@ export function SearchPalette({
           {projectHits.length > 0 && (
             <CommandGroup heading={searching ? "Projects" : "Recent projects"}>
               {projectHits.map((project) => (
-                <CommandItem key={project.id} value={`project-${project.id}`} className="gap-3">
+                <CommandItem
+                  key={project.id}
+                  value={`project-${project.id}`}
+                  onSelect={pick(() => start.openProject?.(project.id))}
+                  className="gap-3"
+                >
                   <StackMark stack={stack(project.stack)} size={20} />
                   <span className="flex-1 truncate">
                     <Highlight text={project.name} query={query} />
@@ -151,7 +164,12 @@ export function SearchPalette({
           {componentHits.length > 0 && (
             <CommandGroup heading="Components">
               {componentHits.map((component) => (
-                <CommandItem key={component.name} value={`component-${component.name}`} className="gap-3">
+                <CommandItem
+                  key={component.name}
+                  value={`component-${component.name}`}
+                  onSelect={pick(() => start.openProject?.(component.project))}
+                  className="gap-3"
+                >
                   <Component className="text-[oklch(0.7_0.2_304)]" />
                   <span className="flex min-w-0 flex-1 items-baseline gap-2">
                     <span className="shrink-0 font-mono text-[13px]">
@@ -169,7 +187,7 @@ export function SearchPalette({
           {peopleHits.length > 0 && (
             <CommandGroup heading="People and agents">
               {peopleHits.map((person) => (
-                <CommandItem key={person.name} value={`person-${person.name}`} className="gap-3">
+                <CommandItem key={person.name} value={`person-${person.name}`} onSelect={pick()} className="gap-3">
                   <Avatar person={person} size={20} />
                   <Highlight text={person.name} query={query} />
                 </CommandItem>
@@ -179,7 +197,14 @@ export function SearchPalette({
           {templateHits.length > 0 && (
             <CommandGroup heading="Templates">
               {templateHits.map((template) => (
-                <CommandItem key={template.id} value={`template-${template.id}`} className="gap-3">
+                <CommandItem
+                  key={template.id}
+                  value={`template-${template.id}`}
+                  onSelect={pick(() =>
+                    start.newProject?.({ tab: "template", stack: template.stack, template: template.id })
+                  )}
+                  className="gap-3"
+                >
                   <span className="w-[72px] shrink-0 overflow-hidden rounded-[3px] ring-1 ring-white/10">
                     <DesignRender kind={template.designs[0]!.kind} look={template.look} />
                   </span>
@@ -198,7 +223,12 @@ export function SearchPalette({
           {commandHits.length > 0 && (
             <CommandGroup heading="Commands">
               {commandHits.map((command) => (
-                <CommandItem key={command.label} value={`command-${command.label}`} className="gap-3">
+                <CommandItem
+                  key={command.label}
+                  value={`command-${command.label}`}
+                  onSelect={pick(command.starts && (() => start.newProject?.(command.starts)))}
+                  className="gap-3"
+                >
                   {command.mark ? <GitHubMark size={16} /> : <command.icon />}
                   <Highlight text={command.label} query={query} />
                   {command.shortcut && <CommandShortcut>{command.shortcut}</CommandShortcut>}
