@@ -15,4 +15,9 @@
   finished, with `pnpm verify` passing. Stage your own files by path, so other sessions' unfinished work stays out
   unless the user asks for a wholesale commit. Shared docs such as the backlog and decisions.md go in whole. Write
   conventional messages (`feat(core): …`, `fix(desktop): …`, `docs: …`). There's no remote, so nothing is pushed.
+- **Commits are checked by a pre-commit hook,** on the files they stage: lint with type checks and formatting, fixed
+  where it can be, then a change file for each versioned package the commit touches. After staging, run
+  `pnpm changefile --type patch --message "what changed, for the changelog"` (`minor` for a feature, `none` for a change
+  that shouldn't release) and the file it writes is staged too. It's `pnpm changefile`, not pnpm's own `pnpm change`.
+  Never bypass the hook with `--no-verify`; if it fails on something that isn't yours, tell the user.
 - Run `pnpm verify` before finishing.

@@ -14,6 +14,9 @@ from the agency monorepo's guidelines on 2026-10-29, keeping what fits Parity; w
 - **Reuse before building.** Check whether `@parity/core`, another package or an installed library already does it.
 - **A new dependency needs the user's agreement.** Ask before adding a library Parity doesn't already use, saying what
   it's for and what it replaces.
+- **A change to a versioned package carries a change file** in the same commit, written by `pnpm changefile`. Its
+  message is a line in the changelog people read, so say what changed for them: "Snap layers to the spacing scale", not
+  "Refactor snap.ts".
 
 ## Code
 
@@ -31,7 +34,7 @@ from the agency monorepo's guidelines on 2026-10-29, keeping what fits Parity; w
 - **Test code is held to the same bar** as the code it tests.
 - **Tests sit beside their source** as `*.test.ts`.
 - **Mock the least you can.** Prefer tests that use the real collaborators.
-- **Prose isn't tested.** The backlog, decisions and docs are checked by reading them, not by tests or validators.
+- **Prose isn't tested.** Issues, decisions and docs are checked by reading them, not by tests or validators.
 
 ## Checking a change in the app
 
