@@ -110,6 +110,34 @@ describe("guestModuleSource with libraries", () => {
     expect(source).toContain('import("@mui/material/styles").catch(')
     expect(source).toContain('"@mui/material/styles": modules[4]')
   })
+
+  it("imports each style an icon set keeps in a module of its own, by its path in the package", () => {
+    const source = guestModuleSource({
+      styles: [],
+      components: {},
+      documents: [],
+      libraries: [
+        {
+          id: "heroicons",
+          name: "Heroicons",
+          kind: "icons",
+          package: "@heroicons/react",
+          importName: "@heroicons/react",
+          stylesImported: true,
+          icons: {
+            import: "@heroicons/react/24/outline",
+            render: "export",
+            variants: {
+              modules: { "24 Outline": "@heroicons/react/24/outline", "16 Solid": "@heroicons/react/16/solid" },
+              default: { style: "24 Outline" }
+            }
+          }
+        }
+      ]
+    })
+    expect(source).toContain('import("@heroicons/react/16/solid")')
+    expect(source).toMatch(/"heroicons": \{ module: modules\[\d\], styles: \{ "16\/solid": modules\[\d\] \} \}/)
+  })
 })
 
 describe("guestModuleSource with values a package makes", () => {

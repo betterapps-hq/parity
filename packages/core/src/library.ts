@@ -247,6 +247,11 @@ export interface IconVariants {
   pattern?: string
   /** The prop that picks a style, for sets that take it as a prop (Phosphor's `weight`). */
   prop?: string
+  /**
+   * The module each style's icons are imported from, for sets that keep each style in a module of its own, as
+   * Heroicons does in `@heroicons/react/16/solid`. The default style's is the set's `import`.
+   */
+  modules?: Record<string, string>
   styles?: string[]
   sizes?: number[]
   /** What the picker shows first. An icon without a size in its name scales with the text. */
@@ -533,10 +538,11 @@ function parseIcons(value: unknown): LibraryIcons {
     ),
     variants: optional(icons.variants, (v) => {
       const variants = expectObject(v, "/icons/variants")
-      expectKnownKeys(variants, ["pattern", "prop", "styles", "sizes", "default"], "/icons/variants")
+      expectKnownKeys(variants, ["pattern", "prop", "modules", "styles", "sizes", "default"], "/icons/variants")
       return compact({
         pattern: optional(variants.pattern, (pattern) => expectPattern(pattern, "/icons/variants/pattern")),
         prop: optional(variants.prop, (prop) => expectString(prop, "/icons/variants/prop")),
+        modules: optional(variants.modules, (modules) => expectStringRecord(modules, "/icons/variants/modules")),
         styles: optional(variants.styles, (list) =>
           expectArray(list, "/icons/variants/styles").map((style, index) =>
             expectString(style, `/icons/variants/styles/${index}`)

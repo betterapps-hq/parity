@@ -416,9 +416,8 @@ export const presets: Record<string, Preset> = {
   "@heroicons/react": {
     id: "heroicons",
     name: "Heroicons",
-    description: "Hand-crafted SVG icons from the makers of Tailwind CSS, in the 24px outline style.",
-    icons: { import: "@heroicons/react/24/outline", render: "export" },
-    notes: ["Solid, 20px and 16px styles are separate modules (`@heroicons/react/24/solid`); this file covers outline."]
+    description: "Hand-crafted SVG icons from the makers of Tailwind CSS, outline and solid, at 24, 20 and 16px.",
+    icons: { import: "@heroicons/react/24/outline", render: "export" }
   },
   "@phosphor-icons/react": {
     id: "phosphor",

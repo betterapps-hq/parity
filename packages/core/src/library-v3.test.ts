@@ -82,6 +82,22 @@ describe("parseLibraryManifest, version 3", () => {
       size: "24",
       style: "Filled"
     })
+    const hero = parseLibraryManifest({
+      version: 3,
+      name: "Heroicons",
+      icons: {
+        import: "@heroicons/react/24/outline",
+        render: "export",
+        variants: {
+          modules: { "24 Outline": "@heroicons/react/24/outline", "24 Solid": "@heroicons/react/24/solid" },
+          default: { style: "24 Outline" }
+        }
+      }
+    })
+    expect(hero.icons?.variants?.modules?.["24 Solid"]).toBe("@heroicons/react/24/solid")
+    expect(() =>
+      parseLibraryManifest({ version: 3, name: "x", icons: { render: "export", variants: { modules: { Solid: 1 } } } })
+    ).toThrow(/\/icons\/variants\/modules\/Solid/)
   })
 
   it("reads the tags an icon set's metadata gives, with where they came from", () => {

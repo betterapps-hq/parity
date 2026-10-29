@@ -1,4 +1,4 @@
-import type { LibraryInfo, RenderNode } from "@parity/core"
+import { iconStyleModules, type LibraryInfo, type RenderNode } from "@parity/core"
 import {
   type IconIndex,
   iconIndex,
@@ -42,11 +42,14 @@ export interface IconCatalog {
 
 /**
  * A set's icons in one style, from the project's own copy of the package as its manifest describes it: each once and
- * unsized, with the style's prop set for sets that take one.
+ * unsized, with the style's prop set for sets that take one, and from the style's own module for sets that keep each
+ * style in one.
  */
 export function iconCatalog(loaded: LoadedGuest, library: LibraryInfo, style: string | undefined): IconCatalog {
-  const aliases = loaded.guest.iconAliases?.(library.id)
-  const listed = setEntries(loaded.guest.iconNames?.(library.id) ?? [], library.icons, style, aliases)
+  const key = iconStyleModules(library.icons, library.package).find((module) => module.style === style)?.key
+  const aliases = loaded.guest.iconAliases?.(library.id, key)
+  const listed = setEntries(loaded.guest.iconNames?.(library.id, key) ?? [], library.icons, style, aliases)
+  const prefix = key ? `${library.id}/${key}/` : `${library.id}/`
   const entries = new Map(
     listed.map((icon): [SetEntry, IconEntry] => [
       icon,
@@ -54,7 +57,7 @@ export function iconCatalog(loaded: LoadedGuest, library: LibraryInfo, style: st
         label: icon.label,
         item: {
           kind: "component",
-          component: `${library.id}/${icon.insert ?? icon.name}`,
+          component: `${prefix}${icon.insert ?? icon.name}`,
           ...(icon.props ? { props: icon.props } : {})
         }
       }

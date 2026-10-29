@@ -9,6 +9,7 @@ import {
   commandOption,
   describedCategories,
   describedTokenCss,
+  iconStyleModules,
   isMadeValue,
   type LibraryInfo,
   libraryImports,
@@ -68,7 +69,7 @@ export const viteBuilder: BuilderAdapter = {
           ...new Set(
             options.config.libraries
               .filter((library) => !library.workspace)
-              .flatMap((library) => [library.importName, ...libraryImports(library)])
+              .flatMap((library) => [library.importName, ...iconImports(library), ...libraryImports(library)])
           )
         ],
         entries: Object.values(options.config.components)
@@ -203,6 +204,11 @@ export function guestModuleSource(config: ProjectConfig): string {
     .map((library) => {
       const icons = library.icons
       const set = [`module: ${ref(importOf(library, icons?.import))}`]
+      // Its other styles' modules, by the key their icons' ids name them with (`heroicons/16/solid/CogIcon`).
+      const styles = iconStyleModules(icons, library.package).map(
+        (style) => `${JSON.stringify(style.key)}: ${ref(importOf(library, style.import))}`
+      )
+      if (styles.length > 0) set.push(`styles: { ${styles.join(", ")} }`)
       if (icons?.match) set.push(`match: ${JSON.stringify(icons.match)}`)
       if (icons?.exclude) set.push(`exclude: ${JSON.stringify(icons.exclude)}`)
       if (icons && icons.render !== "export") {
@@ -276,6 +282,14 @@ function member(path: string): string {
     .split(".")
     .map((part, index) => `${index === 0 ? "" : "?."}[${JSON.stringify(part)}]`)
     .join("")
+}
+
+/** The modules an icon set's icons are imported from: its own, and those of styles kept in modules of their own. */
+function iconImports(library: LibraryInfo): string[] {
+  if (library.kind !== "icons") return []
+  return [library.icons?.import, ...iconStyleModules(library.icons, library.package).map((style) => style.import)]
+    .filter((specifier) => specifier !== undefined)
+    .map((specifier) => importOf(library, specifier))
 }
 
 /** A library module by the name the project depends on it by, which can be an alias of the package. */

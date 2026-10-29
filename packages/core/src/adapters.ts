@@ -116,7 +116,10 @@ export interface GuestInit {
   components: Record<string, unknown>
   /** Components loaded the first time they're drawn: each resolves to the component, or one that shows why it can't. */
   lazyComponents?: Record<string, () => Promise<unknown>>
-  /** Icon packages by library id, whole: an icon is `lucide/Heart`, looked up by name when it's used. */
+  /**
+   * Icon packages by library id, whole: an icon is `lucide/Heart`, or `heroicons/16/solid/CogIcon` in a style kept in
+   * a module of its own, looked up by name when it's used.
+   */
   iconSets?: Record<string, GuestIconSet>
   /** The project's compiled styles, before canvas preparation. */
   css: string
@@ -135,6 +138,8 @@ export interface GuestInit {
 export interface GuestIconSet {
   /** The package's module: its exports are the icons, or the data a renderer draws. */
   module: Record<string, unknown>
+  /** The modules of styles it keeps in modules of their own, by the key its icons' ids name each with. */
+  styles?: Record<string, Record<string, unknown>>
   /** Exports that are icons, as a regular expression. Defaults to every export that can be one. */
   match?: string
   /** Exports that look like icons but aren't. */
@@ -174,10 +179,13 @@ export interface Guest {
     get(): Record<string, ComponentRenderStatus>
     subscribe(listener: () => void): () => void
   }
-  /** The names of an icon set's icons, as in `Heart` for `lucide/Heart`. */
-  iconNames?(library: string): string[]
+  /**
+   * The names of an icon set's icons, as in `Heart` for `lucide/Heart`; in a style it keeps in a module of its own,
+   * those that module exports, by the style's key (`16/solid` for `heroicons/16/solid/CogIcon`).
+   */
+  iconNames?(library: string, style?: string): string[]
   /** The other names an icon set exports its icons under, by the name `iconNames` gives, for search. */
-  iconAliases?(library: string): Record<string, string[]>
+  iconAliases?(library: string, style?: string): Record<string, string[]>
   css: string
   packageCss?: string
   tokenCategories?: Record<string, TokenCategory>

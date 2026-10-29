@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { iconVariants } from "./icon-names.ts"
+import { iconStyleModules, iconVariants } from "./icon-names.ts"
 
 const fluent = {
   pattern: "^(?<name>.+?)(?<size>\\d+)?(?<style>Regular|Filled|Color|Light)$",
@@ -45,5 +45,28 @@ describe("iconVariants", () => {
 
   it("leaves out exports the pattern doesn't match", () => {
     expect(iconVariants(["useIconContext"], fluent).size).toBe(0)
+  })
+})
+
+describe("iconStyleModules", () => {
+  it("names each style kept in a module of its own by its path in the package, leaving out the default", () => {
+    const icons = {
+      import: "@heroicons/react/24/outline",
+      render: "export" as const,
+      variants: {
+        modules: {
+          "16 Solid": "@heroicons/react/16/solid",
+          "24 Outline": "@heroicons/react/24/outline",
+          "24 Solid": "@heroicons/react/24/solid"
+        },
+        styles: ["16 Solid", "24 Outline", "24 Solid"],
+        default: { style: "24 Outline" }
+      }
+    }
+    expect(iconStyleModules(icons, "@heroicons/react")).toEqual([
+      { style: "16 Solid", import: "@heroicons/react/16/solid", key: "16/solid" },
+      { style: "24 Solid", import: "@heroicons/react/24/solid", key: "24/solid" }
+    ])
+    expect(iconStyleModules({ render: "export" }, "lucide-react")).toEqual([])
   })
 })

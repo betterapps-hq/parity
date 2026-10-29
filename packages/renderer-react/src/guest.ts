@@ -217,19 +217,28 @@ export function createGuest(init: GuestInit): Guest {
     return component
   }
 
-  /** A project component, a library's (`mui/Button`, `baseui/Dialog.Root`), or an icon such as `lucide/Heart`. */
+  /**
+   * A project component, a library's (`mui/Button`, `baseui/Dialog.Root`), or an icon such as `lucide/Heart`, or
+   * `heroicons/16/solid/CogIcon` in a style its set keeps in a module of its own.
+   */
   const lookup = (name: string): ComponentType<Props> | undefined => {
     if (components[name]) return components[name]
     if (name in loaders) return onDemand(name)
     const slash = name.indexOf("/")
     if (slash === -1) return undefined
     const set = iconSets[name.slice(0, slash)]
-    return set ? icon(set, name.slice(slash + 1)) : undefined
+    if (!set) return undefined
+    const rest = name.slice(slash + 1)
+    const last = rest.lastIndexOf("/")
+    return last === -1 ? icon(set, rest) : icon(set, rest.slice(last + 1), rest.slice(0, last))
   }
 
+  /** The module a set's icons in a style are drawn from: its own, or the style's. */
+  const moduleOf = (set: GuestIconSet, style: string | undefined) => (style ? set.styles?.[style] : set.module)
+
   /** An icon component; for a set of icon data, one that draws the data with the set's renderer. */
-  const icon = (set: GuestIconSet, name: string): ComponentType<Props> | undefined => {
-    const value = set.module[name]
+  const icon = (set: GuestIconSet, name: string, style?: string): ComponentType<Props> | undefined => {
+    const value = moduleOf(set, style)?.[name]
     if (!set.renderer) return isComponent(value) ? value : undefined
     if (value === undefined || isComponent(value) || !isComponent(set.renderer.component)) return undefined
     let component = drawn.get(value)
@@ -247,16 +256,18 @@ export function createGuest(init: GuestInit): Guest {
    * pattern matches, which keeps the others for search, as `TriangleAlert` keeps Lucide's older `AlertTriangle` and
    * Hugeicons' `Settings01Icon` keeps `Gear` and `Cog`, which its pattern leaves out of the list.
    */
-  const iconList = (library: string): { names: string[]; aliases: Record<string, string[]> } => {
+  const iconList = (library: string, style?: string): { names: string[]; aliases: Record<string, string[]> } => {
     const set = iconSets[library]
-    if (!set) return { names: [], aliases: {} }
-    let list = iconLists.get(library)
+    const module = set && moduleOf(set, style)
+    if (!module) return { names: [], aliases: {} }
+    const key = style ? `${library}/${style}` : library
+    let list = iconLists.get(key)
     if (list) return list
     const match = set.match ? new RegExp(set.match) : /^[A-Z]/
     const excluded = new Set(set.exclude)
     const byValue = new Map<unknown, string[]>()
-    for (const [name, value] of Object.entries(set.module)) {
-      if (!/^[A-Z]/.test(name) || excluded.has(name) || !icon(set, name)) continue
+    for (const [name, value] of Object.entries(module)) {
+      if (!/^[A-Z]/.test(name) || excluded.has(name) || !icon(set, name, style)) continue
       const group = byValue.get(value)
       if (group) group.push(name)
       else byValue.set(value, [name])
@@ -271,7 +282,7 @@ export function createGuest(init: GuestInit): Guest {
       if (others.length > 0) list.aliases[kept] = others
     }
     list.names.sort((a, b) => a.localeCompare(b, "en", { numeric: true }))
-    iconLists.set(library, list)
+    iconLists.set(key, list)
     return list
   }
 
@@ -392,8 +403,8 @@ export function createGuest(init: GuestInit): Guest {
         return () => listeners.delete(listener)
       }
     },
-    iconNames: (library) => iconList(library).names,
-    iconAliases: (library) => iconList(library).aliases,
+    iconNames: (library, style) => iconList(library, style).names,
+    iconAliases: (library, style) => iconList(library, style).aliases,
     css: init.css,
     ...(init.packageCss ? { packageCss: init.packageCss } : {}),
     ...(init.tokenCategories ? { tokenCategories: init.tokenCategories } : {}),

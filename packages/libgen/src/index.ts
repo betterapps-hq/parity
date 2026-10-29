@@ -31,6 +31,7 @@ import {
 } from "./examples.ts"
 import { hostedParts, type RenderCall, readRenders, renderedIn } from "./hosts.ts"
 import { preferredExports, typesFor } from "./icon-exports.ts"
+import { type DrawIcon, styleModules } from "./icon-styles.ts"
 import { type ExportedIcon, readIconTags } from "./icon-tags.ts"
 import { type PartRelation, relateParts } from "./parts.ts"
 import { type Load, type Preset, presets } from "./presets.ts"
@@ -223,6 +224,21 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
       if (notIcons.length > 0) icons.exclude = notIcons
     }
     if (preset?.icons?.variants) icons.variants = preset.icons.variants
+    if (!dataIcons) {
+      // Styles kept in modules of their own, as Heroicons keeps `16/solid` beside `24/outline`.
+      const load = loader(root, dir)
+      const entries = typeof pkg.exports === "object" && pkg.exports !== null ? Object.keys(pkg.exports) : []
+      const modules = await styleModules(name, entries, iconImport ?? name, load, await iconDrawer(load))
+      if (modules) {
+        const main = Object.keys(modules).find((style) => modules[style] === (iconImport ?? name))!
+        icons.variants = {
+          ...icons.variants,
+          modules,
+          styles: Object.keys(modules),
+          default: { ...icons.variants?.default, style: main }
+        }
+      }
+    }
     const exported = await exportedIcons(loader(root, dir), iconImport ?? name, icons)
     icons.count = exported.count
     // Where an icon has several names, the one its types say to insert (Phosphor's current `GearIcon`, not `Gear`).
@@ -744,6 +760,29 @@ async function exportedIcons(
     count: kept.length,
     icons: [...byLabel].map(([label, names]) => ({ label, names: [...names] })),
     groups: kept.map(({ names }) => names)
+  }
+}
+
+/** Draws an icon with the project's own React, to tell a set's styles apart; nothing draws where React can't load. */
+async function iconDrawer(load: Load): Promise<DrawIcon> {
+  try {
+    const React = await load("react")
+    const server = await load("react-dom/server")
+    const createElement = (React.createElement ?? (React.default as Record<string, unknown>)?.createElement) as (
+      type: unknown
+    ) => unknown
+    const renderToStaticMarkup = (server.renderToStaticMarkup ??
+      (server.default as Record<string, unknown>)?.renderToStaticMarkup) as (element: unknown) => string
+    if (typeof createElement !== "function" || typeof renderToStaticMarkup !== "function") return () => undefined
+    return (component) => {
+      try {
+        return renderToStaticMarkup(createElement(component))
+      } catch {
+        return undefined
+      }
+    }
+  } catch {
+    return () => undefined
   }
 }
 
