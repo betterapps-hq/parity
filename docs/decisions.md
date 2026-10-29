@@ -109,6 +109,18 @@ still need your call.
   in Settings). Files are named after the design, plus the state and mode when there's more than one. It exports the
   designs as they are on the canvas, saved or not, and doesn't save them.
 - **Recent projects:** the last 10 that opened successfully.
+- **The canvas's right-click menu follows Figma's order** (PAR-168): Select layer, then copying and pasting, ordering,
+  Wrap, Make component and Go to the main component, then Hide. Items that don't apply to what's selected are left out;
+  items that apply but can't act right now are greyed. Lock joins it with PAR-192, and Open in editor and Copy as JSX
+  with PAR-166. The empty canvas gets Paste here, Select all and Zoom to fit, a text note over a board gets the empty
+  canvas's menu, and Interact gets none.
+- **A right-click selects what a click would** (PAR-168), unless it lands inside the selection or on a selected layer's
+  resize handle. The menu reads the selection and its target when the right button goes down, because tldraw selects the
+  board on release.
+- **Paste here ignores the selection** (PAR-168): designs and notes go at the pointer, and layers go into the deepest
+  layout of the design under the pointer, in the slot there, or at the pointer in an absolutely placed one, in half
+  steps of the spacing scale. It never pastes into a layout inside an instance. Select layer lists the design first,
+  then every layer under the pointer, those inside instances included.
 
 ## Canvas
 
