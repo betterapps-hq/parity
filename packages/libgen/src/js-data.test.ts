@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { moduleData, wordLists } from "./js-data.ts"
+import { moduleData } from "./js-data.ts"
 
 describe("moduleData", () => {
   it("reads a published icon list with compiled enums, without running it", () => {
@@ -30,19 +30,5 @@ export { n as icons, t as IconStyle };`
     const data = moduleData(`const a = fetch("x"), b = { c: () => 1, d: "kept" }`)
     expect(data.has("a")).toBe(false)
     expect(data.get("b")).toEqual({ c: undefined, d: "kept" })
-  })
-})
-
-describe("wordLists", () => {
-  it("finds objects of word lists wherever a bundle put them, and nothing else", () => {
-    const text = `(self.webpackChunk = self.webpackChunk || []).push([[1], { 20161: function (a, b, c) {
-  var r = { "academic-cap": ["degree", "school"], "x-mark": ["close", "remove",] }, s = c(52951);
-  var notWords = { a: ["x", 1], b: "y" }, empty = {};
-  function v() { return { size: ["sm", "lg"] } }
-} }]);`
-    expect(wordLists(text)).toEqual([
-      { "academic-cap": ["degree", "school"], "x-mark": ["close", "remove"] },
-      { size: ["sm", "lg"] }
-    ])
   })
 })

@@ -1,7 +1,6 @@
 import type { LibraryDecorator, LibraryIcons } from "@parity/core"
 import type { ExampleHints } from "./examples.ts"
 import type { IconTagSource } from "./icon-tags.ts"
-import { moduleData, wordLists } from "./js-data.ts"
 import type { CollectedToken } from "./tokens.ts"
 
 /** Loads a module the way the project would: from the project's own `node_modules`. */
@@ -401,8 +400,8 @@ export const presets: Record<string, Preset> = {
     id: "lucide",
     name: "Lucide",
     description: "Over 1,600 consistent, open source icons; shadcn's default icon set.",
-    // lucide-static is released with lucide-react, its tags keyed by file name (`circle-alert`).
-    tags: { package: "lucide-static", file: "tags.json", read: (text) => JSON.parse(text) as Record<string, string[]> }
+    // lucide-static is released with lucide-react.
+    tags: { package: "lucide-static", file: "tags.json" }
   },
   "@hugeicons/core-free-icons": {
     id: "hugeicons",
@@ -419,25 +418,7 @@ export const presets: Record<string, Preset> = {
     name: "Heroicons",
     description: "Hand-crafted SVG icons from the makers of Tailwind CSS, in the 24px outline style.",
     icons: { import: "@heroicons/react/24/outline", render: "export" },
-    notes: [
-      "Solid, 20px and 16px styles are separate modules (`@heroicons/react/24/solid`); this file covers outline."
-    ],
-    // Heroicons publishes no tags. Its website's search has keywords for most icons, in an object of word lists by
-    // icon (`"cog-6-tooth": ["gear", …]`) that the site's scripts carry, under names that change with each deploy.
-    tags: {
-      page: "https://heroicons.com",
-      readScripts: (scripts) => {
-        const lists = scripts
-          .filter((script) => /"[a-z0-9-]+":\["/.test(script.text))
-          .flatMap((script) => wordLists(script.text))
-        const keywords = lists.reduce<Record<string, string[]> | undefined>(
-          (largest, list) => (Object.keys(list).length > Object.keys(largest ?? {}).length ? list : largest),
-          undefined
-        )
-        if (!keywords || Object.keys(keywords).length < 50) throw new Error("its keyword list wasn't found")
-        return keywords
-      }
-    }
+    notes: ["Solid, 20px and 16px styles are separate modules (`@heroicons/react/24/solid`); this file covers outline."]
   },
   "@phosphor-icons/react": {
     id: "phosphor",
@@ -451,25 +432,8 @@ export const presets: Record<string, Preset> = {
         default: { style: "regular" }
       }
     },
-    // Phosphor's catalog is a compiled module, read as data; it's released apart from the React package, less often.
-    tags: {
-      package: "@phosphor-icons/core",
-      file: "dist/index.mjs",
-      read: (text) => {
-        const list = [...moduleData(text).values()].find(
-          (value): value is { pascal_name: string; tags?: unknown[]; categories?: unknown[] }[] =>
-            Array.isArray(value) && typeof (value[0] as { pascal_name?: unknown } | undefined)?.pascal_name === "string"
-        )
-        if (!list) throw new Error("its icon list wasn't found")
-        // `*new*` and `*updated*` mark releases, not what an icon shows.
-        return Object.fromEntries(
-          list.map((icon) => [
-            icon.pascal_name,
-            [...(icon.tags ?? []).filter((tag) => !/^\*.*\*$/.test(String(tag))), ...(icon.categories ?? [])]
-          ])
-        )
-      }
-    }
+    // Phosphor's catalog is a compiled module, released apart from the React package, less often.
+    tags: { package: "@phosphor-icons/core", file: "dist/index.mjs" }
   },
   "@tabler/icons-react": {
     id: "tabler",
@@ -484,16 +448,7 @@ export const presets: Record<string, Preset> = {
       }
     },
     // The React package depends on @tabler/icons at its own version, which lists each icon's tags and category.
-    tags: {
-      package: "@tabler/icons",
-      file: "icons.json",
-      read: (text) =>
-        Object.fromEntries(
-          Object.entries(JSON.parse(text) as Record<string, { tags?: unknown[]; category?: string }>).map(
-            ([key, icon]) => [key, [...(icon.tags ?? []), ...(icon.category ? [icon.category] : [])]]
-          )
-        )
-    }
+    tags: { package: "@tabler/icons", file: "icons.json" }
   },
   "@fluentui/react-icons": {
     id: "fluent-icons",
@@ -509,21 +464,7 @@ export const presets: Record<string, Preset> = {
       }
     },
     // Each icon's metaphors are in its folder of the repository, at the commit npm says the version came from.
-    tags: {
-      repository: "https://github.com/microsoft/fluentui-system-icons",
-      files: "assets/*/metadata.json",
-      readFiles: (files) =>
-        Object.fromEntries(
-          files.flatMap(({ text }) => {
-            try {
-              const { name, metaphor } = JSON.parse(text) as { name?: string; metaphor?: unknown[] }
-              return name && metaphor ? [[name, metaphor]] : []
-            } catch {
-              return []
-            }
-          })
-        )
-    }
+    tags: { files: "assets/*/metadata.json" }
   }
 }
 

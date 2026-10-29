@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { closestVersion, manifestText, readIconTags, type TagFetchers } from "./icon-tags.ts"
+import { closestVersion, iconWords, manifestText, readIconTags, type TagFetchers } from "./icon-tags.ts"
 
 /** Fetchers that answer from data, recording what was asked. */
 function fake(answers: Partial<TagFetchers>, asked: string[] = []): TagFetchers {
@@ -9,16 +9,20 @@ function fake(answers: Partial<TagFetchers>, asked: string[] = []): TagFetchers 
       return (await answers.packageFile?.(name, version, file)) ?? ""
     },
     publishedVersions: answers.publishedVersions ?? (async () => []),
-    publishedCommit: answers.publishedCommit ?? (async () => undefined),
+    publishedSource: async (name, version) => {
+      asked.push(`npm ${name}@${version}`)
+      return (await answers.publishedSource?.(name, version)) ?? {}
+    },
     repositoryFiles: async (repo, commit, matches) => {
       asked.push(`${repo}@${commit} ${matches.source}`)
       return (await answers.repositoryFiles?.(repo, commit, matches)) ?? []
-    },
-    pageScripts: async (url) => {
-      asked.push(url)
-      return (await answers.pageScripts?.(url)) ?? { served: "2026-10-29", scripts: [] }
     }
   }
+}
+
+/** Icons named `Icon0` to `Icon<count - 1>`, as a set like Tabler's exports them. */
+function numbered(count: number): { label: string; names: string[] }[] {
+  return Array.from({ length: count }, (_, index) => ({ label: `Icon${index}`, names: [`Icon${index}`] }))
 }
 
 describe("readIconTags", () => {
@@ -31,7 +35,7 @@ describe("readIconTags", () => {
   it("keys a companion package's tags by each icon's label, through any name it's exported under", async () => {
     const asked: string[] = []
     const found = await readIconTags(
-      { package: "lucide-static", file: "tags.json", read: (text) => JSON.parse(text) as Record<string, string[]> },
+      { package: "lucide-static", file: "tags.json" },
       { name: "lucide-react", version: "1.63.0" },
       [
         { label: "AlertCircle", names: ["AlertCircle", "CircleAlert", "CircleAlertIcon"] },
@@ -49,99 +53,121 @@ describe("readIconTags", () => {
     expect(found.source).toBe("lucide-static@1.63.0/tags.json")
   })
 
-  it("matches keys without the Icon its exports add, or the Ltr of a mirrored copy, and reads number tags", async () => {
+  it("reads a module's declarations as data, without running it", async () => {
+    const module = `const e = ((i) => (i.NATURE = "nature", i.OFFICE = "office", i))(e || {});
+const n = [
+  { name: "acorn", pascal_name: "Acorn", categories: [e.NATURE], tags: ["*new*", "nut", "oak"], codepoint: 60314 },
+  { name: "gear", pascal_name: "Gear", categories: [e.OFFICE], tags: ["settings", "cog"], codepoint: 60315 }
+];
+globalThis.ran = true;
+export { n as icons };`
     const found = await readIconTags(
-      {
-        file: "icons.json",
-        read: () => ({ "arrow-down": ["south", 911], "arrow-down-01": ["down"], "text-indent": ["tab"] })
-      },
-      { name: "@tabler/icons-react", version: "3.50.0" },
+      { package: "@phosphor-icons/core", file: "dist/index.mjs" },
+      { name: "@phosphor-icons/react", version: "2.1.10" },
       [
-        { label: "IconArrowDown", names: ["IconArrowDown", "IconArrowDownFilled"] },
-        { label: "ArrowDown01Icon", names: ["ArrowDown01Icon"] },
-        { label: "TextIndentLtr", names: ["TextIndentLtrRegular"] }
+        { label: "Acorn", names: ["Acorn", "AcornIcon"] },
+        { label: "Gear", names: ["Gear", "GearIcon"] }
       ],
-      fake({})
+      fake({ packageFile: async () => module, publishedVersions: async () => ["2.1.1"] })
     )
-    expect(found.tags).toEqual({
-      IconArrowDown: ["south", "911"],
-      ArrowDown01Icon: ["down"],
-      TextIndentLtr: ["tab"]
-    })
+    // Tags tell icons apart more than categories do, so they come first; `*new*` marks a release, not the icon.
+    expect(found.tags).toEqual({ Acorn: ["nut", "oak", "nature"], Gear: ["settings", "cog", "office"] })
+    expect(found.source).toBe("@phosphor-icons/core@2.1.1/dist/index.mjs")
+    expect("ran" in globalThis).toBe(false)
   })
 
-  it("reads a repository's files at the commit npm says the version came from", async () => {
+  it("reads files about one icon each from the repository and commit npm records", async () => {
     const asked: string[] = []
+    const icons = Array.from({ length: 10 }, (_, index) => ({
+      label: `Shape${index}`,
+      names: [`Shape${index}Regular`, `Shape${index}24Filled`]
+    }))
     const found = await readIconTags(
-      {
-        repository: "https://github.com/microsoft/fluentui-system-icons",
-        files: "assets/*/metadata.json",
-        readFiles: (files) =>
-          Object.fromEntries(
-            files.map(({ text }) => {
-              const { name, metaphor } = JSON.parse(text) as { name: string; metaphor: string[] }
-              return [name, metaphor]
-            })
-          )
-      },
+      { files: "assets/*/metadata.json" },
       { name: "@fluentui/react-icons", version: "2.0.344" },
-      [{ label: "Settings", names: ["SettingsRegular", "Settings24Regular"] }],
+      icons,
       fake(
         {
-          publishedCommit: async () => "f1260014e8a4fcfa6777182fd6cf082fc5e952d8",
-          repositoryFiles: async () => [
-            { path: "assets/Settings/metadata.json", text: '{"name":"Settings","metaphor":["gear","cog"]}' }
-          ]
+          publishedSource: async () => ({
+            repository: "https://github.com/microsoft/fluentui-system-icons",
+            commit: "f1260014e8a4fcfa6777182fd6cf082fc5e952d8"
+          }),
+          repositoryFiles: async () =>
+            icons.map((_, index) => ({
+              path: `assets/Shape ${index}/metadata.json`,
+              text: JSON.stringify({
+                name: `Shape ${index}`,
+                size: [20, 24],
+                style: ["Regular", "Filled"],
+                keyword: "fluent-icon",
+                metaphor: [`metaphor ${index}`]
+              })
+            }))
         },
         asked
       )
     )
     expect(asked).toEqual([
+      "npm @fluentui/react-icons@2.0.344",
       "https://github.com/microsoft/fluentui-system-icons@f1260014e8a4fcfa6777182fd6cf082fc5e952d8 ^assets\\/[^/]+\\/metadata\\.json$"
     ])
-    expect(found.tags).toEqual({ Settings: ["gear", "cog"] })
+    // Every icon comes in both styles and has the same keyword, so neither says anything about one.
+    expect(found.tags.Shape3).toEqual(["metaphor 3"])
+    expect(found.matched).toBe(10)
     expect(found.source).toBe("github.com/microsoft/fluentui-system-icons@f1260014e8a4/assets/*/metadata.json")
   })
 
-  it("says so when npm doesn't record the commit", async () => {
-    await expect(
-      readIconTags(
-        { repository: "https://github.com/a/b", files: "*.json", readFiles: () => ({}) },
-        { name: "a", version: "1.0.0" },
-        [],
-        fake({})
-      )
-    ).rejects.toThrow(/which commit a@1.0.0 came from/)
+  it("says so when npm doesn't record the repository or commit", async () => {
+    await expect(readIconTags({ files: "*.json" }, { name: "a", version: "1.0.0" }, [], fake({}))).rejects.toThrow(
+      /which repository and commit a@1.0.0 came from/
+    )
+  })
+})
+
+describe("iconWords", () => {
+  it("matches keys without the Icon its exports add, or the Ltr of a mirrored copy, and reads number tags", () => {
+    const words = iconWords(
+      [{ "arrow-down": ["south", 911], "arrow-down-01": ["down"], "text-indent": ["tab"] }],
+      [
+        { label: "IconArrowDown", names: ["IconArrowDown", "IconArrowDownFilled"] },
+        { label: "ArrowDown01Icon", names: ["ArrowDown01Icon"] },
+        { label: "TextIndentLtr", names: ["TextIndentLtrRegular"] }
+      ]
+    )
+    expect(words).toEqual({ IconArrowDown: ["south", "911"], ArrowDown01Icon: ["down"], TextIndentLtr: ["tab"] })
   })
 
-  it("reads a website's scripts for a set that publishes no tags, saying the day they were served", async () => {
-    const asked: string[] = []
-    const found = await readIconTags(
-      {
-        page: "https://heroicons.com",
-        readScripts: (scripts) => JSON.parse(scripts.find((script) => script.path.endsWith("page.js"))!.text)
-      },
-      { name: "@heroicons/react", version: "2.2.0" },
-      [
-        { label: "Cog6Tooth", names: ["Cog6ToothIcon"] },
-        { label: "XMark", names: ["XMarkIcon"] }
-      ],
-      fake(
+  it("takes a record's lists and the fields that group icons, but not its names, codes or versions", () => {
+    const table = Object.fromEntries(
+      numbered(100).map((_, index) => [
+        `icon-${index}`,
         {
-          pageScripts: async () => ({
-            served: "2026-10-29",
-            scripts: [
-              { path: "/_next/static/chunks/main.js", text: "" },
-              { path: "/_next/static/chunks/page.js", text: JSON.stringify({ "cog-6-tooth": ["gear", "settings"] }) }
-            ]
-          })
-        },
-        asked
-      )
+          name: `icon-${index}`,
+          category: `Group ${index % 5}`,
+          tags: [`word${index}`],
+          unicode: `e${index}`,
+          version: "1.0"
+        }
+      ])
     )
-    expect(asked).toEqual(["https://heroicons.com"])
-    expect(found.tags).toEqual({ Cog6Tooth: ["gear", "settings"] })
-    expect(found.source).toBe("heroicons.com as served on 2026-10-29")
+    const words = iconWords([table], numbered(100))
+    expect(words.Icon7).toEqual(["word7", "group 2"])
+  })
+
+  it("finds the table that names the set's icons, wherever it is", () => {
+    const icons = numbered(30)
+    const data = {
+      meta: { version: "1.0", styles: { a: ["x"], b: ["y"] } },
+      list: { icons: icons.map((_, index) => ({ id: `icon-${index}`, keywords: [`word${index}`] })) }
+    }
+    expect(iconWords([data], icons).Icon12).toEqual(["word12"])
+    expect(iconWords([{ unrelated: ["x"] }], icons)).toEqual({})
+  })
+
+  it("leaves out words most of a set's icons have", () => {
+    const icons = numbered(20)
+    const table = Object.fromEntries(icons.map((_, index) => [`icon-${index}`, ["icon", `word${index}`]]))
+    expect(iconWords([table], icons).Icon4).toEqual(["word4"])
   })
 })
 

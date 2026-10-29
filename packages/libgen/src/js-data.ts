@@ -20,37 +20,6 @@ export function moduleData(text: string): Map<string, unknown> {
   return declared
 }
 
-/**
- * Every object in a script whose properties are all lists of strings, such as a website's keywords for each icon
- * (`{"academic-cap": ["degree", "school"]}`), wherever the bundler put it. Read with the TypeScript parser, not run.
- */
-export function wordLists(text: string): Record<string, string[]>[] {
-  const source = ts.createSourceFile("script.js", text, ts.ScriptTarget.Latest, false, ts.ScriptKind.JS)
-  const found: Record<string, string[]>[] = []
-  const visit = (node: ts.Node): void => {
-    if (ts.isObjectLiteralExpression(node) && node.properties.length > 0) {
-      const lists: Record<string, string[]> = {}
-      const all = node.properties.every((property) => {
-        if (!ts.isPropertyAssignment(property)) return false
-        const { name, initializer } = property
-        if (!(ts.isIdentifier(name) || ts.isStringLiteral(name)) || !ts.isArrayLiteralExpression(initializer)) {
-          return false
-        }
-        if (!initializer.elements.every(ts.isStringLiteral)) return false
-        lists[name.text] = initializer.elements.map((element) => (element as ts.StringLiteral).text)
-        return true
-      })
-      if (all) {
-        found.push(lists)
-        return
-      }
-    }
-    ts.forEachChild(node, visit)
-  }
-  visit(source)
-  return found
-}
-
 /** An enum as esbuild compiles it: an arrow that assigns each member to its parameter, called at once. */
 function compiledEnum(node: ts.Expression): Record<string, unknown> | undefined {
   const call = unwrap(node)

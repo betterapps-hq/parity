@@ -18,12 +18,37 @@ export async function publishedVersions(name: string): Promise<string[]> {
   return Object.keys(packument.versions ?? {})
 }
 
-/** The commit a package's version was published from, as npm records it, when it does. */
-export async function publishedCommit(name: string, version: string): Promise<string | undefined> {
+/**
+ * The repository a package's version was published from and its commit, as npm records them, when it does. The
+ * repository is the URL git fetches, whichever way the package wrote it (`git+https://….git`, `github:owner/name`).
+ */
+export async function publishedSource(
+  name: string,
+  version: string
+): Promise<{ repository?: string; commit?: string }> {
   const response = await fetch(`${registry}/${name.replace("/", "%2F")}/${version}`)
   if (!response.ok) throw new Error(`npm has no ${name}@${version} (${response.status})`)
-  const gitHead = ((await response.json()) as { gitHead?: string }).gitHead
-  return gitHead && /^[0-9a-f]{40}$/.test(gitHead) ? gitHead : undefined
+  const { gitHead, repository } = (await response.json()) as {
+    gitHead?: string
+    repository?: string | { url?: string }
+  }
+  const url = typeof repository === "string" ? repository : repository?.url
+  return {
+    ...(url ? { repository: repositoryUrl(url) } : {}),
+    ...(gitHead && /^[0-9a-f]{40}$/.test(gitHead) ? { commit: gitHead } : {})
+  }
+}
+
+/** A repository as npm may record it, as the https URL git fetches. */
+export function repositoryUrl(recorded: string): string {
+  const shorthand = /^(?:github:)?([\w.-]+\/[\w.-]+)$/.exec(recorded)
+  if (shorthand) return `https://github.com/${shorthand[1]!.replace(/\.git$/, "")}`
+  return recorded
+    .replace(/^git\+/, "")
+    .replace(/^git:\/\//, "https://")
+    .replace(/^ssh:\/\/git@/, "https://")
+    .replace(/^git@([^:]+):/, "https://$1/")
+    .replace(/\.git$/, "")
 }
 
 /**
@@ -67,31 +92,6 @@ export async function repositoryFiles(
     if (text !== undefined) files.push({ path, text })
   }
   return files
-}
-
-/**
- * The scripts a web page loads from its own site, as it serves them now, with the day it served them: a page has no
- * versions, so the day says which one was read. Scripts from other sites are left alone.
- */
-export async function pageScripts(url: string): Promise<{ served: string; scripts: { path: string; text: string }[] }> {
-  const response = await fetch(url)
-  if (!response.ok) throw new Error(`${url} answered ${response.status}`)
-  const html = await response.text()
-  const date = new Date(response.headers.get("date") ?? Date.now())
-  const origin = new URL(url).origin
-  const sources = new Set<string>()
-  for (const match of html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/g)) {
-    const source = new URL(match[1]!.replaceAll("&amp;", "&"), url)
-    if (source.origin === origin) sources.add(source.href)
-  }
-  const scripts = await Promise.all(
-    [...sources].map(async (source) => {
-      const script = await fetch(source)
-      if (!script.ok) throw new Error(`${source} answered ${script.status}`)
-      return { path: decodeURIComponent(new URL(source).pathname), text: await script.text() }
-    })
-  )
-  return { served: date.toISOString().slice(0, 10), scripts }
 }
 
 async function git(args: string[], cwd: string, timeout = 60_000, input?: string): Promise<{ stdout: string }> {
