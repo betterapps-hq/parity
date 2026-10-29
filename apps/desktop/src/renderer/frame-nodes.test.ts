@@ -15,6 +15,7 @@ export { prepareFrame, setDrawnNodes, findNodeElement, findNodeElements, nodeBox
   drawnNodeIds } from "./frame.ts"
 export { createGuest } from "@parity/renderer-react/guest"
 import { createElement, Fragment, useState } from "react"
+import { Slot } from "radix-ui"
 
 // Takes the props it needs and renders none of the rest, data-canvas-node included.
 export function MemberRow({ member }) {
@@ -56,6 +57,25 @@ export function Grows() {
   return createElement(Fragment, null,
     createElement("button", { className: "grow", style: { height: "20px" }, onClick: () => setMore(true) }, "More"),
     more ? createElement("div", { className: "extra", style: { height: "50px" } }) : null)
+}
+
+// Lends its class and attributes to its child with asChild, as shadcn's Button does through Radix's Slot.
+export function SlotButton({ asChild, ...props }) {
+  return createElement(asChild ? Slot.Root : "button", { className: "slot-button", "data-slot": "button", ...props })
+}
+
+export function Link({ className, ...props }) {
+  return createElement("a", { href: "#", ...props, className: ["link", className].filter(Boolean).join(" ") })
+}
+
+// Draws its item twice, handing each copy props through renderItem, as a list does.
+export function Repeat({ renderItem }) {
+  return createElement("ul", { className: "repeat" },
+    [0, 1].map((index) => renderItem({ key: index, className: "given", "data-index": String(index) })))
+}
+
+export function Tag(props) {
+  return createElement("li", { ...props, className: ["tag", props.className].filter(Boolean).join(" ") }, "Tag")
 }
 `
 
@@ -145,8 +165,17 @@ async function mount(tree: Node[]) {
   await page.evaluate((tree) => {
     const host = document.querySelector("#host")!
     // @ts-expect-error The bundle's global.
-    const { createGuest, prepareFrame, setDrawnNodes, MemberRow, Pair, Field, Card, Group, Nothing, Grows } = frame
-    const guest = createGuest({ components: { MemberRow, Pair, Field, Card, Group, Nothing, Grows }, css: "" })
+    const bundle = frame as Record<string, unknown>
+    const { createGuest, prepareFrame, setDrawnNodes } = bundle as unknown as {
+      createGuest(init: unknown): {
+        mount(target: unknown, tree: unknown, options: unknown): { drawnNodes?(): unknown }
+      }
+      prepareFrame(host: Element, sheet: CSSStyleSheet, environment: unknown): HTMLElement
+      setDrawnNodes(host: Element, read: unknown): void
+    }
+    // The bundle's components are its exports named in capitals.
+    const components = Object.fromEntries(Object.entries(bundle).filter(([name]) => /^[A-Z]/.test(name)))
+    const guest = createGuest({ components, css: "" })
     const viewport = { width: 390, height: 844 }
     const target = prepareFrame(host, new CSSStyleSheet(), { classNames: [], attributes: {}, viewport })
     const handle = guest.mount(target, tree, { viewport })
@@ -305,5 +334,91 @@ describe("finding a design node's DOM", () => {
     // As before the canvas read React's tree: the field is found by the input its props reach, MemberRow not at all.
     expect(fallback.ids).not.toContain("member")
     expect(fallback.email).toBe("input")
+  })
+})
+
+/**
+ * A component handing props to what's in its slot: Radix's Slot merging a button's onto its asChild child, and a
+ * `$renderWith:` slot spreading what the component calls it with. Both clone the slot's element, so they reach an
+ * element layer. A component layer is drawn inside the guest's error boundary, so the clone is of the boundary, which
+ * draws its child as it was: the props are lost. That has been so since `$renderWith:` came in (7c9c8c3); the boundary
+ * is from the first commit. The failing cases are kept as `it.fails` until it's fixed.
+ */
+describe("props a component hands to its slot", () => {
+  const slots: Node[] = [
+    {
+      kind: "element",
+      nodeId: "slots",
+      tag: "div",
+      style: { display: "flex", flexDirection: "column" },
+      children: [
+        component(
+          "button-element",
+          "SlotButton",
+          { asChild: true },
+          {
+            children: [
+              { kind: "element", nodeId: "link-element", tag: "a", style: {}, children: [{ kind: "text", text: "A" }] }
+            ]
+          }
+        ),
+        component(
+          "button-component",
+          "SlotButton",
+          { asChild: true },
+          {
+            children: [component("link-component", "Link", { children: "B" })]
+          }
+        ),
+        component(
+          "repeat-element",
+          "Repeat",
+          {},
+          {
+            "$renderWith:renderItem": [
+              { kind: "element", nodeId: "item-element", tag: "li", style: {}, children: [{ kind: "text", text: "C" }] }
+            ]
+          }
+        ),
+        component("repeat-component", "Repeat", {}, { "$renderWith:renderItem": [component("item-component", "Tag")] })
+      ]
+    }
+  ]
+
+  /** The class and `data-` attributes of the elements a selector picks in the frame. */
+  async function drawn(selector: string) {
+    await mount(slots)
+    return page.evaluate((selector) => {
+      const elements = [...document.querySelector("#host")!.shadowRoot!.querySelectorAll<HTMLElement>(selector)]
+      return elements.map((element) => ({
+        className: element.className,
+        slot: element.dataset.slot,
+        index: element.dataset.index
+      }))
+    }, selector)
+  }
+
+  it("gives an element in an asChild slot the button's class and attributes", async () => {
+    expect(await drawn("a[data-canvas-node=link-element]")).toEqual([
+      { className: "slot-button", slot: "button", index: undefined }
+    ])
+  })
+
+  it.fails("gives a component in an asChild slot the button's class and attributes", async () => {
+    expect(await drawn("a.link")).toEqual([{ className: "link slot-button", slot: "button", index: undefined }])
+  })
+
+  it("gives an element in a $renderWith: slot what the component renders it with", async () => {
+    expect(await drawn("ul.repeat > li:not(.tag)")).toEqual([
+      { className: "given", slot: undefined, index: "0" },
+      { className: "given", slot: undefined, index: "1" }
+    ])
+  })
+
+  it.fails("gives a component in a $renderWith: slot what the component renders it with", async () => {
+    expect(await drawn("ul.repeat > li.tag")).toEqual([
+      { className: "tag given", slot: undefined, index: "0" },
+      { className: "tag given", slot: undefined, index: "1" }
+    ])
   })
 })

@@ -77,8 +77,9 @@ Tests:
   portals in and out of the frame, a slot drawn twice, and giving up on a tree that isn't one.
 - `apps/desktop/src/renderer/frame-nodes.test.ts`: the same cases on React itself in Chrome, through the canvas's
   lookups: each layer found, its box measured and resolved from a point, DOM a component adds by itself, ids React moves
-  to other DOM without adding any, and the fallback to the attribute. Seven of its eight fail with the attribute alone,
-  the prop-ignoring row first.
+  to other DOM without adding any, and the fallback to the attribute. Seven of these eight fail with the attribute
+  alone, the prop-ignoring row first. It also renders slots that hand their layers props, Radix's `asChild` and a
+  `$renderWith:` slot, and keeps the two cases below that don't work yet as `it.fails`.
 - `packages/code/src/props.test.ts`: whether a component's props take a `style`.
 - `chrome/LayerPanel.stories.tsx`, ComponentWithoutStyle: the note, and wrapping the component from it.
 
@@ -86,7 +87,12 @@ Gaps: no automated test drives the canvas's pointer handling over such a compone
 the outline and size label, dragging to reorder, the inspector's note and its Wrap in layout were checked in an isolated
 copy of the app, on a copy of the example with a `MemberRow({ member })`, a fragment and an email field added, on
 2026-10-29. A component that declares `style` but puts it on an inner element, as a field passing it to its input, is
-outlined around the field but sized at the input, and the note doesn't say so.
+outlined around the field but sized at the input, and the note doesn't say so. A component layer in a slot doesn't get
+the props its parent hands it: a `Button asChild` around a `Link` layer leaves the link without the button's class,
+attributes and handlers, and a `$renderWith:` slot's component layer without what it's rendered with. Both clone the
+slot's element, which for a component layer is the guest's error boundary around it, and the boundary drops them. An
+element layer gets them. This is older than CAN-45: the boundary dates from the first commit and `$renderWith:` from
+7c9c8c3.
 
 ## Moving, reordering and resizing
 

@@ -6,7 +6,8 @@ import type { DrawnNodes } from "@parity/core"
  *
  * This reads React's internals, as of React 19: a fiber's `child`, `sibling`, `stateNode` and `memoizedProps`, and
  * the root's `_internalRoot.current`. Anything missing makes it give up (undefined), and the canvas falls back to the
- * `data-canvas-node` attribute. `drawn-nodes.test.ts` checks the walk, and `frame.test.ts` checks it on React itself.
+ * `data-canvas-node` attribute. `drawn-nodes.test.ts` checks the walk, and `frame-nodes.test.ts` checks it on React
+ * itself.
  */
 
 /** The parts of a React fiber the walk reads. */
