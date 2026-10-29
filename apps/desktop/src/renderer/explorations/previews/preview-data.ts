@@ -584,8 +584,14 @@ const utilities: Partial<Record<PreviewKind, [namespace: string, utilities: stri
 }
 
 /**
- * What a person would paste to use a token: `var()` first, which works anywhere CSS does, then the Tailwind classes
- * that use it. A breakpoint is a variant (`md:`), as `var()` can't go in a media query.
+ * What copying a token gives: its name as CSS writes it, `--radius-md`. Parity's fields take it (the name with or
+ * without the dashes, never `var()`), and it reads as a token, not a class, in a message to the agent.
+ */
+export const cssName = (token: SampleToken) => `--${token.name}`
+
+/**
+ * The ways to write a token in code, for the detail's Copy for code menu: `var()`, which works anywhere CSS does, then
+ * the Tailwind classes that use it. A breakpoint is a variant (`md:`), as `var()` can't go in a media query.
  */
 export function codeFor(token: SampleToken): string[] {
   const css = `var(--${token.name})`

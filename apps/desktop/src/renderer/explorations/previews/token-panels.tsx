@@ -1,7 +1,7 @@
 import {
   Check,
+  ChevronDown,
   ChevronsUpDown,
-  Copy,
   CornerDownRight,
   LayoutGrid,
   List,
@@ -11,12 +11,20 @@ import {
   Search,
   Undo2
 } from "lucide-react"
-import { type KeyboardEvent as ReactKeyboardEvent, type ReactNode, useEffect, useState } from "react"
+import { type KeyboardEvent as ReactKeyboardEvent, type ReactNode, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { CopyButton, CopyOnClick, useCopy } from "../../chrome/Copy.tsx"
 import { Field, Swatch } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
@@ -24,6 +32,7 @@ import {
   allTokens,
   breakpoints,
   codeFor,
+  cssName,
   drawn,
   durations,
   easings,
@@ -82,22 +91,6 @@ function edited(token: SampleToken, values: Record<string, string>): SampleToken
   return { ...token, values, resolved, via: references(values.default ?? "") }
 }
 
-/** Copies text to the clipboard, and remembers what it copied for a moment, so the button can say so. */
-function useCopy() {
-  const [copied, setCopied] = useState<string>()
-  useEffect(() => {
-    if (copied === undefined) return
-    const timer = setTimeout(() => setCopied(undefined), 1500)
-    return () => clearTimeout(timer)
-  }, [copied])
-  const copy = (text: string) =>
-    void navigator.clipboard.writeText(text).then(
-      () => setCopied(text),
-      () => {}
-    )
-  return { copied, copy }
-}
-
 /** Ctrl+C, or Cmd+C on a Mac, on a token's row or tile copies it, as its copy button does. */
 function copyKey(copy: () => void) {
   return (event: ReactKeyboardEvent) => {
@@ -108,53 +101,45 @@ function copyKey(copy: () => void) {
   }
 }
 
-/**
- * The copy button on a row or tile: it shows while the row is hovered or has the keyboard, and stays a moment after
- * copying, its tooltip saying what was copied.
- */
-function CopyButton({
-  text,
-  copied,
-  onCopy,
-  className = ""
-}: {
-  text: string
-  copied: boolean
-  onCopy(): void
-  className?: string
-}) {
-  const [hint, setHint] = useState(false)
-  return (
-    <Hint label={copied ? `Copied ${text}` : `Copy ${text}`} open={hint || copied} onOpenChange={setHint}>
-      <button
-        type="button"
-        aria-label={`Copy ${text}`}
-        onClick={onCopy}
-        className={`grid size-6 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:opacity-100 ${copied ? "opacity-100" : "opacity-0 group-focus-within/token:opacity-100 group-hover/token:opacity-100"} ${className}`}
-      >
-        {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-      </button>
-    </Hint>
-  )
+/** A row's or tile's copy button shows while it's hovered or has the keyboard, and stays while it says how it went. */
+function revealed(copying: ReturnType<typeof useCopy>): string {
+  return copying.status
+    ? ""
+    : "opacity-0 group-focus-within/token:opacity-100 group-hover/token:opacity-100 focus-visible:opacity-100"
 }
 
-/** One way to write a token in code, in the detail, copied with a click. */
-function CopyChip({ text }: { text: string }) {
-  const { copied, copy } = useCopy()
-  const [hint, setHint] = useState(false)
+/**
+ * The detail's copy buttons: the name, as everywhere, and beside it a menu of the ways to write the token in code, for
+ * the times someone is in the code. Either way, the button's check says it copied.
+ */
+function DetailCopy({ token }: { token: SampleToken }) {
+  const copying = useCopy()
+  const name = cssName(token)
   return (
-    <Hint label={copied ? "Copied" : "Copy"} open={hint || copied !== undefined} onOpenChange={setHint}>
-      <Button
-        variant="outline"
-        size="sm"
-        aria-label={`Copy ${text}`}
-        onClick={() => copy(text)}
-        className="h-6 max-w-full gap-1 px-1.5 font-mono text-[11px] font-normal"
-      >
-        <span className="truncate">{text}</span>
-        {copied ? <Check className="size-3 text-(--process-running)" /> : <Copy className="size-3 opacity-60" />}
-      </Button>
-    </Hint>
+    <span className="flex shrink-0 items-center">
+      <CopyButton text={name} copying={copying} className="size-6" />
+      <DropdownMenu>
+        <Hint label="Copy for code">
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label="Copy for code"
+              className="grid h-6 w-4 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground aria-expanded:bg-accent"
+            >
+              <ChevronDown className="size-3" />
+            </button>
+          </DropdownMenuTrigger>
+        </Hint>
+        <DropdownMenuContent align="start" className="min-w-44">
+          <DropdownMenuLabel className="text-xs text-muted-foreground">Copy for code</DropdownMenuLabel>
+          {codeFor(token).map((text) => (
+            <DropdownMenuItem key={text} onSelect={() => copying.copy(text)} className="font-mono text-xs">
+              {text}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </span>
   )
 }
 
@@ -175,15 +160,15 @@ export function TokenRow({
   const token = edited(original, values)
   const { playing, handlers } = useHoverPlay(token, forced)
   const value = valueLabel(token)
-  const { copied, copy } = useCopy()
-  const code = codeFor(token)[0]!
+  const copying = useCopy()
+  const name = cssName(token)
   return (
     <li {...handlers} className="group/token relative flex items-center">
       <Popover defaultOpen={open}>
         <PopoverTrigger asChild>
           <button
             type="button"
-            onKeyDown={copyKey(() => copy(code))}
+            onKeyDown={copyKey(() => copying.copy(name))}
             className="flex min-h-8 w-full min-w-0 items-center gap-2 rounded-md py-1 pr-8 pl-1.5 text-left text-xs group-hover/token:bg-accent/50 aria-expanded:bg-accent"
           >
             <TokenGlyph
@@ -205,7 +190,7 @@ export function TokenRow({
           <TokenDetail token={original} values={values} onValues={setValues} />
         </PopoverContent>
       </Popover>
-      <CopyButton text={code} copied={copied === code} onCopy={() => copy(code)} className="absolute right-1" />
+      <CopyButton text={name} copying={copying} className={`absolute right-1 size-6 ${revealed(copying)}`} />
     </li>
   )
 }
@@ -216,15 +201,15 @@ function TokenTileButton({ token: original, playing: forced }: { token: SampleTo
   const token = edited(original, values)
   const { playing, handlers } = useHoverPlay(token, forced)
   const value = valueLabel(token)
-  const { copied, copy } = useCopy()
-  const code = codeFor(token)[0]!
+  const copying = useCopy()
+  const name = cssName(token)
   return (
     <div {...handlers} className="group/token relative flex min-w-0">
       <Popover>
         <PopoverTrigger asChild>
           <button
             type="button"
-            onKeyDown={copyKey(() => copy(code))}
+            onKeyDown={copyKey(() => copying.copy(name))}
             className="flex min-w-0 flex-1 flex-col gap-1 rounded-md p-1 text-left group-hover/token:bg-accent/50 aria-expanded:bg-accent"
           >
             {token.kind === "color" ? (
@@ -249,10 +234,9 @@ function TokenTileButton({ token: original, playing: forced }: { token: SampleTo
         </PopoverContent>
       </Popover>
       <CopyButton
-        text={code}
-        copied={copied === code}
-        onCopy={() => copy(code)}
-        className="absolute top-2 right-2 bg-popover/90 shadow-sm hover:bg-popover"
+        text={name}
+        copying={copying}
+        className={`absolute top-2 right-2 size-6 bg-popover/90 shadow-sm hover:bg-popover ${revealed(copying)}`}
       />
     </div>
   )
@@ -260,24 +244,16 @@ function TokenTileButton({ token: original, playing: forced }: { token: SampleTo
 
 /** A shade in the palette grid: a click copies it, as there's little else to do with one of 242. */
 function PaletteShade({ shade }: { shade: SampleToken }) {
-  const { copied, copy } = useCopy()
-  const [hint, setHint] = useState(false)
-  const code = codeFor(shade)[0]!
+  const name = cssName(shade)
   return (
-    <Hint
-      label={copied ? `Copied ${code}` : `${shade.name}: ${shade.values.default}`}
-      detail={copied ? undefined : "Click to copy"}
-      open={hint || copied !== undefined}
-      onOpenChange={setHint}
-    >
+    <CopyOnClick text={name} hint={`${shade.name}: ${shade.values.default}`} detail="Click to copy">
       <button
         type="button"
-        aria-label={`Copy ${code}`}
-        onClick={() => copy(code)}
+        aria-label={`Copy ${name}`}
         className="h-5 flex-1 hover:outline-2 hover:outline-offset-1 hover:outline-foreground"
         style={{ background: shade.values.default }}
       />
-    </Hint>
+    </CopyOnClick>
   )
 }
 
@@ -506,10 +482,11 @@ function References({ token }: { token: SampleToken }) {
 }
 
 /**
- * A token's detail, opened from its row: a large preview, the ways to write it in code, each copied with a click, what
- * it comes to, and its value, which is read-only until Edit. Editing checks each value as it's typed and writes nothing until Save; Cancel or Escape leaves
- * without writing. After a save the detail says where it went, with Undo to write the old value back. Motion plays while
- * the detail is open, with a button to stop it; with reduced motion it waits for Play.
+ * A token's detail, opened from its row: a large preview, its name with a copy button and a menu of the ways to write
+ * it in code, what it comes to, and its value, which is read-only until Edit. Editing checks each value as it's typed
+ * and writes nothing until Save; Cancel or Escape leaves without writing. After a save the detail says where it went,
+ * with Undo to write the old value back. Motion plays while the detail is open, with a button to stop it; with reduced
+ * motion it waits for Play.
  */
 export function TokenDetail({
   token,
@@ -552,7 +529,10 @@ export function TokenDetail({
       <div className="flex flex-col gap-1.5 px-3 pb-3">
         <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1">
-            <div className="truncate font-mono text-sm font-medium">--{token.name}</div>
+            <div className="flex min-w-0 items-center gap-1">
+              <span className="truncate font-mono text-sm font-medium">{cssName(token)}</span>
+              <DetailCopy token={token} />
+            </div>
             {/* The section and the preview already say what kind it is; a library is the one thing they don't. */}
             {token.library && <div className="text-xs text-muted-foreground">From {token.library}</div>}
           </div>
@@ -561,11 +541,6 @@ export function TokenDetail({
               {playing ? <Pause /> : <Play />} {playing ? "Pause" : "Play"}
             </Button>
           )}
-        </div>
-        <div className="flex flex-wrap gap-1">
-          {codeFor(token).map((text) => (
-            <CopyChip key={text} text={text} />
-          ))}
         </div>
         {token.description && <p className="text-xs">{token.description}</p>}
         <References token={shown} />
