@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  # pnpm verify on each system, through the shared template. A newer push to the same branch or pull request cancels
+  # the run before it.
+  verify:
+    uses: Fencing-Club/pipelines/.github/workflows/ci-verify.yml@569bd0725dcac69cff947c614a9be065a57a2d8a # v1.0.1
+    with:
+      os: '["ubuntu-latest", "windows-latest", "macos-latest"]'
+      # The detection tests need every project in fixtures/ installed, each with its own package manager. Their
+      # node_modules come back from the cache while their lockfiles are unchanged, and npm ci would delete them, so
+      # they're installed only when one is missing. Bun (for mantine) and Corepack (which brings react-aria's Yarn)
+      # come from npm at pinned versions, the same on every system. install-projects installs only the projects
+      # generate.ts makes; the others in fixtures/ are npm projects, installed from their lockfiles after it.
+      prepare: |
+        missing=
+        for project in fixtures/*/; do
+          if [ ! -d "${project}node_modules" ]; then missing=1; fi
+        done
+        if [ -n "$missing" ]; then
+          tools=$(mktemp -d)
+          npm install --prefix "$tools" --no-audit --no-fund bun@1.4.3 corepack@0.35.0
+          export PATH="$tools/node_modules/.bin:$PATH"
+          pnpm --filter @parity/fixtures install-projects
+          for project in fixtures/*/; do
+            if [ ! -d "${project}node_modules" ]; then (cd "$project" && npm ci --no-audit --no-fund); fi
+          done
+        else
+          echo "Every fixture project came from the cache."
+        fi
+      cache-path: fixtures/*/node_modules
+      cache-key-files: fixtures/*/*lock*
+      # A run that installs the fixture projects and caches their 2 GB can outlast the default 30 minutes on Windows.
+      timeout-minutes: 45
+      # Pull requests also run Beachball's check once PAR-4 lands, which makes pnpm verify run it. Set fetch-depth to 0
+      # then: Beachball compares the branch with origin/main, which a shallow checkout of a pull request doesn't have.
+      #
+      # Vite Task's cache (node_modules/.vite/task-cache) isn't kept between runs yet. pnpm verify runs vp check and
+      # vp test directly, not through vp run, so it doesn't use that cache, and keeping it needs a key that changes
+      # every run with a prefix to restore from, which ci-verify's one extra cache can't take.
