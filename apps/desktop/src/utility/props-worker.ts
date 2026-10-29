@@ -7,9 +7,20 @@ import { type CheckResult, componentOptions, reactFinder, reactProbe, readTsconf
 import type { ComponentSource } from "@parity/core"
 import ts from "typescript"
 
+/**
+ * What's asked of the worker. `known` comes with a project's first request to a worker started again after one that
+ * stopped while idle: the app's files that one's program had read, so this one's reads them too.
+ */
 type Request =
-  | { id: number; kind: "props"; root: string; components: Record<string, ComponentSource>; files?: string[] }
-  | { id: number; kind: "check"; root: string; files: string[] }
+  | {
+      id: number
+      kind: "props"
+      root: string
+      components: Record<string, ComponentSource>
+      files?: string[]
+      known?: string[]
+    }
+  | { id: number; kind: "check"; root: string; files: string[]; known?: string[] }
   | { id: number; kind: "close"; root: string }
 
 parentPort?.on("message", (request: Request) => {
@@ -18,8 +29,8 @@ parentPort?.on("message", (request: Request) => {
       request.kind === "close"
         ? void checkers.delete(request.root)
         : request.kind === "check"
-          ? check(request.root, request.files)
-          : props(request.root, request.components, request.files ?? [])
+          ? check(request.root, request.files, request.known ?? [])
+          : props(request.root, request.components, [...(request.files ?? []), ...(request.known ?? [])])
     parentPort?.postMessage({ id: request.id, result })
   } catch (error) {
     parentPort?.postMessage({ id: request.id, error: error instanceof Error ? error.message : String(error) })
@@ -34,13 +45,13 @@ const finder = reactFinder
  * written, so aliases such as `const Select = SelectPrimitive.Root` and components returning only `children` count.
  * The capitalised exports it leaves out come with why.
  */
-function check(root: string, files: string[]): CheckResult {
+function check(root: string, files: string[], known: string[]): CheckResult {
   return finder.check(
     root,
     files,
     programFor(
       root,
-      files.map((file) => resolve(root, file))
+      [...files, ...known].map((file) => resolve(root, file))
     )
   )
 }

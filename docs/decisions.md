@@ -320,6 +320,16 @@ recommended answer to each of its questions.
   checker share the program, which is kept for the two projects used last and let go when a tab closes; the worker stops
   when no project is open. It isn't built with under 1 GB of memory free, and the worker may use half the computer's
   memory at most. Either way the components stay as the parse found them.
+- **The type checker stops five minutes after its last answer,** and the next request starts it again (CAN-84). My call
+  on the delay, from the memory audit: after an open's props and check, only a change to the app's files asks the worker
+  anything, yet it held its programs for as long as the project was open, 118 MB of heap on the example project (the
+  service fell from 279 to 134 MB when it stopped) and 1.26 GB on Copacker. Starting again costs the next rescan about a
+  second on the example (props in 2.6 to 3.7 s against 1.5 to 2 s warm), and likely the 9 s an open's props take on
+  Copacker, so the delay is long enough that someone editing the app's code, saving every minute or two, keeps a warm
+  program, and short enough that one who has gone back to the canvas gets the memory back soon after. A project's first
+  request to a new worker carries the files the last one's program had read, so it builds the same program and finds the
+  same components; a request made while the old one is stopping goes to the new one, and the worker never stops with a
+  request waiting (`utility/worker-client.ts`).
 - **What the checker and props found is saved outside the project, by contents.** My call: in
   `~/.parity/cache/detection`, one file per project, under a fingerprint of every file they read, the tsconfigs,
   package.json, the lockfile, the list as discovered and Parity's own checker code. Results aren't saved when files
@@ -777,6 +787,26 @@ recommended answer to each of its questions.
   servers took 5173, one on IPv4 and one on IPv6, and a frame asking `localhost:5173` could reach the other instance's
   server and fail to load its guest. Portless doesn't replace this: it names servers by proxying to a port, so it would
   still need a free one behind it, and the guest server is internal to Parity, loaded only by its own frames.
+- **Each open project's builder runs in a process of its own, which closing the project ends** (CAN-81). My call, from
+  the memory audit: a closed Vite server isn't freed in the process that ran it, because Rolldown's native handles keep
+  closures from it, and through them its whole module graph, so each reopen of the example project kept about 160 MB in
+  the project service. The service starts the builder with Parity's own Node
+  ([builder-process.ts](../apps/desktop/src/utility/builder-process.ts), started by
+  [builders.ts](../apps/desktop/src/utility/builders.ts)), and they talk in the messages in `@parity/core`'s
+  [builder-process.ts](../packages/core/src/builder-process.ts): the start options as data, with the builder by id and
+  only the renderer's package lists (its code loads TypeScript, which a builder doesn't need), the components as the
+  type checker and changed files find them, usage readings, and close. Closing waits for the process to end, and ends it
+  outright after 5 seconds. A builder whose service ends, even killed outright, ends itself when its link to the service
+  closes, so none is left behind, on Windows too. Detecting the builder still happens in the service.
+- **A builder that stops by itself shows as crashed** in the status bar's processes, with the end of what it printed,
+  and can be started again from there. One that stops before its server answers fails the project's opening with that
+  error, as a builder that throws does.
+- **A reopened project gets its builder's last port back when it's free,** so its guest URL stays the same, which CAN-82
+  relies on; otherwise any free port, as before. The service remembers each project's port while it runs, and a reopen
+  waits for the closing builder's process to end first.
+- **The performance stats count each project's builder,** as "Vite for shop", since its memory used to count in the
+  service's: the service asks each builder for its CPU time, and the system reads its memory as it does Electron's own
+  processes'. Storybook and the other servers Parity starts still aren't counted.
 
 - **At 100% a frame is the size Chrome draws the same page,** checked element by element on all 36 frames of the
   example's screens, within 0.01px. A frame's root starts from what a browser gives a page's root (`all: initial` on
