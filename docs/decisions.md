@@ -234,6 +234,24 @@ still need your call.
 - **When a component's props have no `style`, the inspector says sizes and styles won't change it** and offers Wrap in
   layout (CAN-45). It's read from the props type, so it doesn't show for `any`, `object`, index signatures or type
   parameters.
+- **Length fields are typed and shown in pixels and stored as spacing steps** (CAN-48), at the project's step size, so
+  320 in Width is 320px (80 steps at 4px, 40 at MUI's 8px). Fields take px, rem (16px) and %, maths with `+ - * /` and
+  brackets, and token names. A leading `+`, `*` or `/` works from the current value, while a leading `-` is a negative
+  number, since insets can be negative. `%` is a share of the current value, as in Figma, except in Opacity, where it's
+  the unit. When maths needs a value that isn't set, padding, gaps and insets count as 0, opacity as 100, and Width and
+  Height as their measured size; limits, rows and max lines say there's no value to work from.
+- **Until CAN-80, a typed length lands on the nearest half step** (2px on a 4px scale), which is what dragging writes
+  and what Tailwind's scale lists below 4, and the field says so under its row. Values already off it show as they are
+  until edited.
+- **Up and Down move a length one spacing step, and Shift ten;** other numbers move by 1 and 10, and presses under a
+  second apart are one undo step. Dragging a label scrubs one step per 2px, or ten with Shift, and Escape cancels; the
+  row's label scrubs when the row has one field, otherwise each field's letter does.
+- **A field keeps input it can't read,** marked, with the reason under its row, even after it loses focus. Enter keeps
+  focus with the text selected, and Escape reverts and leaves. A value changing underneath doesn't touch what's being
+  typed.
+- **The canvas previews a field's edit as inline styles on the frames already drawn,** not through the store, so typing
+  shows in about 25 ms and commits as one undo step. Number props don't preview yet (CAN-93).
+- **The field parser is in `@parity/core`** until `@parity/editor` exists (PKG-4).
 
 ## Main components and instances
 
@@ -1003,6 +1021,10 @@ recommended answer to each of its questions.
   CAN-39, CAN-47 and CAN-48 that need design first moved to new items: Copy as PNG (CAN-76), find (CAN-77), lock
   (CAN-78), the finer gesture work (CAN-79) and lengths off the spacing scale (CAN-80). Until CAN-80, nudging moves an
   absolutely placed layer by one spacing step, or ten with Shift, since 1px would leave the scale.
+- **Packages and scripts use only TypeScript that Node can strip,** because the CLI and scripts run them with plain
+  `node`: no parameter properties, namespaces or enums. oxlint rejects the first two in `packages/**` and
+  `apps/*/scripts/**`; the app's bundled code may use them. The Library files session found CAN-48's parser had broken
+  the CLI this way, fixed in `f743864`.
 
 ## Packages
 
