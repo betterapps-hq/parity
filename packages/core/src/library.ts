@@ -220,6 +220,12 @@ export interface LibraryIcons {
   match?: string
   /** Exports that look like icons but aren't, such as Lucide's generic `Icon` and its provider. */
   exclude?: string[]
+  /**
+   * For icons exported under several names, the one to insert where it isn't the shortest: the name the set's types
+   * don't mark deprecated (Phosphor's `GearIcon`, not `Gear`), or the one an icon is declared under rather than an
+   * alias. Read from the types when the file is generated.
+   */
+  prefer?: string[]
   /** Styles and sizes written into icon names, as in Fluent's `Add24Regular`. */
   variants?: IconVariants
   /** How many icons it had when it was generated. */
@@ -499,7 +505,11 @@ export function applyLibraryEdits(
 
 function parseIcons(value: unknown): LibraryIcons {
   const icons = expectObject(value, "/icons")
-  expectKnownKeys(icons, ["import", "render", "match", "exclude", "variants", "count", "tags", "tagSource"], "/icons")
+  expectKnownKeys(
+    icons,
+    ["import", "render", "match", "exclude", "prefer", "variants", "count", "tags", "tagSource"],
+    "/icons"
+  )
   let render: LibraryIcons["render"]
   if (icons.render === "export") render = "export"
   else {
@@ -517,6 +527,9 @@ function parseIcons(value: unknown): LibraryIcons {
     match: optional(icons.match, (v) => expectPattern(v, "/icons/match")),
     exclude: optional(icons.exclude, (v) =>
       expectArray(v, "/icons/exclude").map((name, index) => expectString(name, `/icons/exclude/${index}`))
+    ),
+    prefer: optional(icons.prefer, (v) =>
+      expectArray(v, "/icons/prefer").map((name, index) => expectString(name, `/icons/prefer/${index}`))
     ),
     variants: optional(icons.variants, (v) => {
       const variants = expectObject(v, "/icons/variants")

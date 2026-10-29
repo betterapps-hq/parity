@@ -97,6 +97,18 @@ describe("parseLibraryManifest, version 3", () => {
     ).toThrow(/\/icons\/tags\/Settings/)
   })
 
+  it("reads the names an icon set prefers to insert", () => {
+    const phosphor = parseLibraryManifest({
+      version: 3,
+      name: "Phosphor",
+      icons: { render: "export", prefer: ["GearIcon"] }
+    })
+    expect(phosphor.icons?.prefer).toEqual(["GearIcon"])
+    expect(() => parseLibraryManifest({ version: 3, name: "x", icons: { render: "export", prefer: [1] } })).toThrow(
+      /\/icons\/prefer\/0/
+    )
+  })
+
   it("says where a decorator or icon set is wrong", () => {
     expect(() => parseLibraryManifest({ version: 3, name: "x", decorators: [{ when: { theme: "dark" } }] })).toThrow(
       /^\/decorators\/0: expected one of wrap/

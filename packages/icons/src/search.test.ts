@@ -121,6 +121,30 @@ describe("iconEntries", () => {
     expect(iconEntries(names, fluent, "Filled")).toEqual([{ label: "Add", name: "AddFilled" }])
   })
 
+  it("inserts the name a set prefers, shown by its short name", () => {
+    const phosphor = { render: "export" as const, prefer: ["GearIcon", "TriangleAlert"] }
+    const aliases = { Gear: ["GearIcon"], AlertTriangle: ["TriangleAlert", "TriangleAlertIcon"], Acorn: ["AcornIcon"] }
+    expect(iconEntries(["Gear", "AlertTriangle", "Acorn"], phosphor, undefined, aliases)).toEqual([
+      { label: "Gear", name: "Gear", insert: "GearIcon" },
+      { label: "TriangleAlert", name: "AlertTriangle", insert: "TriangleAlert" },
+      { label: "Acorn", name: "Acorn" }
+    ])
+  })
+
+  it("lists icons whose names end in a number, and icons that only come in fixed sizes", () => {
+    const fluent = {
+      render: "export" as const,
+      variants: {
+        pattern: "^(?<name>.+?)(?<size>\\d+)?(?<style>Regular|Filled)$",
+        styles: ["Regular", "Filled"],
+        sizes: [16, 20, 24],
+        default: { style: "Regular" }
+      }
+    }
+    const names = ["Battery10Regular", "Battery1020Regular", "AddRegular", "Add24Regular", "CodeCs16Regular"]
+    expect(iconEntries(names, fluent, "Regular").map((entry) => entry.label)).toEqual(["Battery10", "Add", "CodeCs"])
+  })
+
   it("sets the style prop for sets that take one", () => {
     const phosphor = {
       render: "export" as const,

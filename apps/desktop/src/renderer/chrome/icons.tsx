@@ -45,7 +45,8 @@ export interface IconCatalog {
  * unsized, with the style's prop set for sets that take one.
  */
 export function iconCatalog(loaded: LoadedGuest, library: LibraryInfo, style: string | undefined): IconCatalog {
-  const listed = setEntries(loaded.guest.iconNames?.(library.id) ?? [], library.icons, style)
+  const aliases = loaded.guest.iconAliases?.(library.id)
+  const listed = setEntries(loaded.guest.iconNames?.(library.id) ?? [], library.icons, style, aliases)
   const entries = new Map(
     listed.map((icon): [SetEntry, IconEntry] => [
       icon,
@@ -53,7 +54,7 @@ export function iconCatalog(loaded: LoadedGuest, library: LibraryInfo, style: st
         label: icon.label,
         item: {
           kind: "component",
-          component: `${library.id}/${icon.name}`,
+          component: `${library.id}/${icon.insert ?? icon.name}`,
           ...(icon.props ? { props: icon.props } : {})
         }
       }
@@ -64,7 +65,7 @@ export function iconCatalog(loaded: LoadedGuest, library: LibraryInfo, style: st
     entries: [...entries.values()],
     search(query) {
       // Indexed on the first search, so opening the panel stays quick.
-      index ??= iconIndex(listed, loaded.guest.iconAliases?.(library.id), library.icons?.tags)
+      index ??= iconIndex(listed, aliases, library.icons?.tags)
       return searchIcons(index, query).map((icon) => entries.get(icon)!)
     }
   }

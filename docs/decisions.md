@@ -467,6 +467,18 @@ recommended answer to each of its questions.
   A set that publishes no versioned metadata is searched by its names and the other names it exports. So Heroicons,
   whose keywords are only in heroicons.com's scripts, and Hugeicons, whose tags are only on its web API, are searched by
   name: neither source has a version, so the same release could read differently from one day to the next.
+- **Digits before an icon's style are a size only where the icon also comes without one (LIB-46).** My call, in
+  `iconVariants` in `@parity/core`, which the Icons panel and `parity lib` share: a number is a size when it's one of
+  the set's sizes and the name before it is an icon the set exports unsized, in any style (`CalendarDay32Color` is
+  CalendarDay at 32). Otherwise it's part of the name, so Fluent's Battery0 to Battery10, TextHeader1 and Wifi1 list. An
+  icon a set ships only at fixed sizes (`CodeCs16Regular`) is listed once per style, at the size nearest the set's
+  default. Fluent lists 2,992 icons, up from 2,902.
+- **An icon exported under several names inserts the one its types prefer (LIB-47).** My call: `parity lib` reads the
+  set's declaration files and records in `icons.prefer` the names to insert where it isn't the shortest, which is used
+  otherwise. A name not marked `@deprecated` comes first (Phosphor's `GearIcon`, not `Gear`), then the name an icon is
+  declared under rather than an alias (Lucide's `TriangleAlert`, not `AlertTriangle`; Tabler's `IconBrandKakaoTalk`, not
+  the misspelled `IconBrandKakoTalk`). The panel shows the inserted name without an `Icon` its other names don't have,
+  so Phosphor's icons still read as Gear.
 - **Icon search is Parity's own ranking, not Fuse.js or MiniSearch.** My call, from a benchmark of 50 queries people
   type ("gear", "close", "down arrow", "calender") over Lucide with its tags, checked against 50 more it wasn't tuned
   on. Parity's search put the icon meant first for 39 of the held-out 50 and in the first row for all 50, in about 5 ms;

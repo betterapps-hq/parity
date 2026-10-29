@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url"
 import { type ComponentReport, findComponents, relativePath } from "@parity/code"
 import {
   applyLibraryEdits,
+  iconVariants,
   type LibraryBreakpoint,
   type LibraryComponent,
   type LibraryIcons,
@@ -29,6 +30,7 @@ import {
   readExamples
 } from "./examples.ts"
 import { hostedParts, type RenderCall, readRenders, renderedIn } from "./hosts.ts"
+import { preferredExports, typesFor } from "./icon-exports.ts"
 import { type ExportedIcon, readIconTags } from "./icon-tags.ts"
 import { type PartRelation, relateParts } from "./parts.ts"
 import { type Load, type Preset, presets } from "./presets.ts"
@@ -223,6 +225,13 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
     if (preset?.icons?.variants) icons.variants = preset.icons.variants
     const exported = await exportedIcons(loader(root, dir), iconImport ?? name, icons)
     icons.count = exported.count
+    // Where an icon has several names, the one its types say to insert (Phosphor's current `GearIcon`, not `Gear`).
+    const typesFile = typesFor(iconImport ?? name, root)
+    if (typesFile) {
+      const usable = icons.match ? new RegExp(icons.match) : /^[A-Z]/
+      const prefer = preferredExports(typesFile, exported.groups, (candidate) => usable.test(candidate))
+      if (prefer.length > 0) icons.prefer = prefer
+    }
     if (preset?.tags && options.tags !== false) {
       try {
         const found = await readIconTags(preset.tags, { name, version }, exported.icons)
@@ -694,7 +703,7 @@ async function exportedIcons(
   load: Load,
   specifier: string,
   icons: LibraryIcons
-): Promise<{ count: number; icons: ExportedIcon[] }> {
+): Promise<{ count: number; icons: ExportedIcon[]; groups: string[][] }> {
   const module = await load(specifier).catch(() => ({}) as Record<string, unknown>)
   const pattern = icons.match ? new RegExp(icons.match) : /^[A-Z]/
   const excluded = new Set(icons.exclude)
@@ -712,21 +721,30 @@ async function exportedIcons(
   }
   // Labelled as the panel labels them: the shortest name the pattern matches, without a style or size for sets that
   // write those in.
-  const variants = icons.variants?.pattern ? new RegExp(icons.variants.pattern) : undefined
-  const byLabel = new Map<string, Set<string>>()
-  let count = 0
-  for (const names of byValue.values()) {
-    const kept = names
-      .filter((name) => pattern.test(name))
+  const kept = [...byValue.values()].flatMap((names) => {
+    const name = names
+      .filter((candidate) => pattern.test(candidate))
       .sort((a, b) => a.length - b.length || (a < b ? -1 : a > b ? 1 : 0))[0]
-    if (!kept) continue
-    count++
-    const label = variants?.exec(kept)?.groups?.name ?? kept
+    return name ? [{ name, names }] : []
+  })
+  const read = icons.variants?.pattern
+    ? iconVariants(
+        kept.map(({ name }) => name),
+        icons.variants
+      )
+    : undefined
+  const byLabel = new Map<string, Set<string>>()
+  for (const { name, names } of kept) {
+    const label = read?.get(name)?.label ?? name
     const all = byLabel.get(label) ?? new Set()
-    for (const name of names) all.add(name)
+    for (const each of names) all.add(each)
     byLabel.set(label, all)
   }
-  return { count, icons: [...byLabel].map(([label, names]) => ({ label, names: [...names] })) }
+  return {
+    count: kept.length,
+    icons: [...byLabel].map(([label, names]) => ({ label, names: [...names] })),
+    groups: kept.map(({ names }) => names)
+  }
 }
 
 /** Whether a declaration file exports a name directly, so the props reader can find it there. */
