@@ -15,7 +15,8 @@
 - **Commit your work when you judge it's ready,** without waiting to be asked: an issue done, a fix in, a doc finished,
   with `pnpm verify` passing. Stage your own files by path, so other sessions' unfinished work stays out unless the user
   asks for a wholesale commit. Shared docs such as decisions.md go in whole. Write conventional messages
-  (`feat(core): …`, `fix(desktop): …`, `docs: …`). There's no remote, so nothing is pushed.
+  (`feat(core): …`, `fix(desktop): …`, `docs: …`). `main` is on GitHub at betterapps-hq/parity; push only when the user
+  asks.
 - **Commits are checked by hooks.** A commit gets lint and formatting on the files it stages, fixed where they can be, a
   conventional subject of at most 100 characters that isn't work in progress, and a change file for each versioned
   package it touches. After staging, run `pnpm changefile --type patch --message "what changed, for the changelog"`
