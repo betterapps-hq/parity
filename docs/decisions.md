@@ -915,6 +915,14 @@ recommended answer to each of its questions.
 - **Sessions commit their own work when they judge it's ready.** You said: "I want it to commit when it thinks it
   should, not just when I ask." That's when a piece of work is done and `pnpm verify` passes. Each session stages its
   own files, so other sessions' unfinished work stays out unless you ask for a wholesale commit. AGENTS.md says how.
+- **Editor work lands with tests and a section in [editor.md](editor.md).** You asked on 2026-10-29 for "tests for each
+  piece of functionality, and documentation so we know it exists and don't lose it or regress". A feature's section says
+  what it does, where its code is and which tests cover it, and changes in the same commit as the feature. Features
+  built before then are DOC-2.
+- **The editor audit's tasks start with the ones that need no design,** as you asked on 2026-10-29. So the parts of
+  CAN-39, CAN-47 and CAN-48 that need design first moved to new items: Copy as PNG (CAN-76), find (CAN-77), lock
+  (CAN-78), the finer gesture work (CAN-79) and lengths off the spacing scale (CAN-80). Until CAN-80, nudging moves an
+  absolutely placed layer by one spacing step, or ten with Shift, since 1px would leave the scale.
 
 ## Packages
 

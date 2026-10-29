@@ -4,6 +4,8 @@
   and keep it true as you go, following its "How sessions use it" rules.
 - **What's decided is in [docs/decisions.md](docs/decisions.md)** and what works with which tools in
   [docs/support.md](docs/support.md). Designs still being decided are in [docs/proposals](docs/proposals).
+- **Editor features are described in [docs/editor.md](docs/editor.md),** each with the tests that cover it. When you add
+  or change one, add its tests and update its section in the same commit.
 - **Logic goes in packages that take data and return data,** with tests that run without Electron, as
   [docs/proposals/packages.md](docs/proposals/packages.md) sets out. The app keeps views, files, IPC and processes.
 - **Several sessions edit this folder at once.** Re-read a file just before changing it.
