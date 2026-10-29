@@ -40,6 +40,7 @@ module.exports = {
     "**/*.md",
     "**/tsconfig*.json",
     "apps/desktop/scripts/**",
+    "packages/cli/scripts/**",
     "apps/desktop/src/renderer/explorations/**"
   ]
 }

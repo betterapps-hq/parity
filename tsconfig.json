@@ -28,6 +28,8 @@
     "apps/*/.storybook/*.ts",
     "apps/*/*.ts",
     "packages/*/src",
+    "packages/*/scripts",
+    "packages/*/*.ts",
     "scripts",
     "vite.config.ts"
   ]

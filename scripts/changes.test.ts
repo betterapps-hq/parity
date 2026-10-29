@@ -3,7 +3,7 @@ import { bundledBy, releasesFor, type WorkspacePackage } from "./changes.ts"
 
 const workspace: WorkspacePackage[] = [
   { name: "@parity/desktop", dir: "apps/desktop", private: false, dependencies: ["@parity/core", "@parity/libgen"] },
-  { name: "@parity/cli", dir: "packages/cli", private: false, dependencies: ["@parity/libgen"] },
+  { name: "@parity-app/cli", dir: "packages/cli", private: false, dependencies: ["@parity/libgen"] },
   { name: "@parity/libgen", dir: "packages/libgen", private: true, dependencies: ["@parity/core"] },
   { name: "@parity/core", dir: "packages/core", private: true, dependencies: [] },
   { name: "@parity/fixtures", dir: "packages/fixtures", private: true, dependencies: ["@parity/core"] }
@@ -13,8 +13,8 @@ const ignored = ["**/*.test.ts", "**/*.md"]
 describe("bundledBy", () => {
   it("finds every released package that bundles a private one, through other private packages", () => {
     const bundlers = bundledBy(workspace)
-    expect(bundlers.get("@parity/core")).toEqual(["@parity/desktop", "@parity/cli"])
-    expect(bundlers.get("@parity/libgen")).toEqual(["@parity/desktop", "@parity/cli"])
+    expect(bundlers.get("@parity/core")).toEqual(["@parity/desktop", "@parity-app/cli"])
+    expect(bundlers.get("@parity/libgen")).toEqual(["@parity/desktop", "@parity-app/cli"])
   })
 
   it("leaves out a private package nothing released depends on", () => {
@@ -28,7 +28,10 @@ describe("releasesFor", () => {
   })
 
   it("asks for every released package that bundles a changed private package", () => {
-    expect(releasesFor(workspace, ["packages/core/src/index.ts"], ignored)).toEqual(["@parity/cli", "@parity/desktop"])
+    expect(releasesFor(workspace, ["packages/core/src/index.ts"], ignored)).toEqual([
+      "@parity-app/cli",
+      "@parity/desktop"
+    ])
   })
 
   it("asks for nothing when only ignored files change", () => {
