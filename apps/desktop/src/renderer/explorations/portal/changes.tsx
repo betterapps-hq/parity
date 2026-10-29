@@ -3,8 +3,10 @@
  * the edges so the changes are what you see: the changed boards before and after, each change marked and numbered,
  * and the same numbers down the side with what happened and where it lives in code. Hovering a change in either place
  * brings it forward and fades the rest. A notification or "See what changed" opens this; the link names both versions,
- * so it can go in a pull request. Two comparisons use it: Claude Code's token change across three Cloud console boards,
- * already in a pull request, and the versions Maya made of Pricing after you approved v12 and started building it.
+ * so it can go in a pull request. Each board has its own versions and is approved on its own, so a comparison shows
+ * each board from its last approved version. Three use it: Claude Code's token change across three Cloud console
+ * boards, already in a pull request; the versions Maya made of Pricing after you approved v12 and started building it;
+ * and In game, where the code moved away from its approved design.
  */
 import {
   Check,
@@ -36,7 +38,7 @@ import { type ConsolePart, consoleFiles, deliverable, type PullRequest } from ".
 import { claudeTask, designOf, event, portalProject } from "./data.ts"
 import { InGameAt } from "./ingame-render.tsx"
 import { PortalWindow } from "./parts.tsx"
-import { PricingAt } from "./pricing-render.tsx"
+import { PricingAt, PricingPhoneAt } from "./pricing-render.tsx"
 
 const { maya, sam, claude, jonas, priya } = people
 const violet = "oklch(0.7 0.16 275)"
@@ -79,6 +81,17 @@ interface Change {
   parts: Touched[]
   /** Open threads on it. */
   threads?: number
+  /** The same change on other boards: the same page at another size. */
+  elsewhere?: { board: string; areas: Area[]; was?: Area[] }[]
+  /** Put its number to the right of a small place, where the left would cover what changed. */
+  numberRight?: boolean
+}
+
+/** A change where it shows on one board. */
+interface Mark {
+  change: Change
+  areas: Area[]
+  was?: Area[]
 }
 
 interface Version {
@@ -96,8 +109,8 @@ interface Version {
  * moved away from the design, either side can give way.
  */
 type Viewer =
-  | { as: "reviewer"; threads: string; approves: ReactNode }
-  | { as: "builder"; building: number; reviewer: Person; designer: Person; threads: string }
+  | { as: "reviewer"; threads: string; approves: ReactNode; boards?: string[] }
+  | { as: "builder"; building: number; reviewer: Person; designer: Person; threads: string; yours: string }
   | { as: "drift"; builder: Person; note: ReactNode }
 
 /** One comparison: its project, versions, boards, changes, and what approving it does. */
@@ -115,7 +128,11 @@ export interface Comparison {
   /** What the view is called, and the end of its link, when it isn't two versions. */
   title?: string
   compare?: string
-  boards: { name: string; draw(version: number): ReactNode }[]
+  /**
+   * The boards, each drawn at a version. A comparison of several boards gives each its own versions, from the one last
+   * approved to the one ready for review; a phone board is drawn narrower.
+   */
+  boards: { name: string; from?: number; to?: number; narrow?: boolean; draw(version: number): ReactNode }[]
   changes: Change[]
   /** The sentence at the top of the side panel, for the changes shown. */
   summary(shown: Change[]): string
@@ -138,32 +155,33 @@ function fromConsole(name: ConsolePart): Touched {
 }
 
 const dashboard = portalProject("dashboard")
-/** The brand token changed in v43, so the boards were blue before it. */
-const brandChanged = 43
-const consoleLook = (n: number): Look => (n < brandChanged ? { ...dashboard.look, hue: 250 } : dashboard.look)
+/** Before Claude Code's version the brand token was blue. */
+const consoleLook = (n: number, to: number): Look => (n < to ? { ...dashboard.look, hue: 250 } : dashboard.look)
+const consoleBoards = (["Billing", "Overview", "Sign in"] as const).map((name) => deliverable("dashboard", name))
 
 /** Claude Code's change to the Cloud console, for Sam: one token, measured wherever the boards draw with it. */
 export const consoleComparison: Comparison = {
   project: "dashboard",
   slug: "cloud-console",
-  versions: [
-    { n: 43, who: claude, label: "Claude Code changed the brand token", when: event("claude-run").when },
-    { n: 42, who: jonas, label: "Jonas added a Members board", when: "Yesterday" },
-    { n: 41, who: sam, label: "Sam tidied the deploys table", when: "Yesterday" },
-    { n: 40, who: jonas, label: "Jonas renamed the Usage page", when: "2 days ago" }
-  ],
-  from: 41,
-  to: 43,
-  named: { 41: "when you were last here" },
-  boards: (["Billing", "Overview", "Sign in"] as const).map((name) => ({
-    name,
-    draw: (n: number) => <DesignRender kind={designOf(dashboard, name).kind} look={consoleLook(n)} />
+  compare: "approved...ready",
+  versions: [{ n: 1, who: claude, label: "Ready for review", when: event("claude-run").when }],
+  from: 0,
+  to: 1,
+  named: {},
+  sides: { before: "Each board as last approved", after: "Ready for review, from Claude Code" },
+  boards: consoleBoards.map((board) => ({
+    name: board.design,
+    from: board.approvedBefore,
+    to: board.version,
+    draw: (n: number) => (
+      <DesignRender kind={designOf(dashboard, board.design).kind} look={consoleLook(n, board.version)} />
+    )
   })),
   changes: [
     {
       n: 1,
       board: "Billing",
-      at: 43,
+      at: 1,
       who: claude,
       areas: [at(0.8, 1.6, 3.6, 5), at(0.4, 37.4, 17.2, 6.4)],
       where: "Navigation",
@@ -173,7 +191,7 @@ export const consoleComparison: Comparison = {
     {
       n: 2,
       board: "Billing",
-      at: 43,
+      at: 1,
       who: claude,
       areas: [at(88.6, 13.4, 9.6, 5.6)],
       where: "Change plan",
@@ -183,7 +201,7 @@ export const consoleComparison: Comparison = {
     {
       n: 3,
       board: "Billing",
-      at: 43,
+      at: 1,
       who: claude,
       areas: [at(21.8, 22.8, 39.2, 14.6), at(21.8, 57.8, 36.4, 3.8)],
       where: "Plan and usage",
@@ -193,7 +211,7 @@ export const consoleComparison: Comparison = {
     {
       n: 4,
       board: "Billing",
-      at: 43,
+      at: 1,
       who: claude,
       areas: [at(21.6, 64.6, 76.6, 23.2)],
       where: "Plans",
@@ -203,7 +221,7 @@ export const consoleComparison: Comparison = {
     {
       n: 5,
       board: "Overview",
-      at: 43,
+      at: 1,
       who: claude,
       areas: [at(0.8, 1.6, 3.6, 5), at(0.4, 13, 17.2, 6.4)],
       where: "Navigation",
@@ -213,7 +231,7 @@ export const consoleComparison: Comparison = {
     {
       n: 6,
       board: "Overview",
-      at: 43,
+      at: 1,
       who: claude,
       areas: [at(88.8, 13.5, 9.4, 5.6)],
       where: "New app",
@@ -223,7 +241,7 @@ export const consoleComparison: Comparison = {
     {
       n: 7,
       board: "Overview",
-      at: 43,
+      at: 1,
       who: claude,
       areas: [at(30.4, 27.4, 66.6, 5)],
       where: "Stats",
@@ -233,7 +251,7 @@ export const consoleComparison: Comparison = {
     {
       n: 8,
       board: "Overview",
-      at: 43,
+      at: 1,
       who: claude,
       areas: [at(21.8, 36.6, 41.6, 29.6)],
       where: "Usage chart",
@@ -243,7 +261,7 @@ export const consoleComparison: Comparison = {
     {
       n: 9,
       board: "Overview",
-      at: 43,
+      at: 1,
       who: claude,
       areas: [at(21.8, 94.4, 56.4, 5.4)],
       where: "Apps",
@@ -253,7 +271,7 @@ export const consoleComparison: Comparison = {
     {
       n: 10,
       board: "Sign in",
-      at: 43,
+      at: 1,
       who: claude,
       areas: [at(0.6, 1, 54.8, 98)],
       where: "Side panel",
@@ -263,7 +281,7 @@ export const consoleComparison: Comparison = {
     {
       n: 11,
       board: "Sign in",
-      at: 43,
+      at: 1,
       who: claude,
       areas: [at(63.4, 18.2, 4.4, 7), at(63.4, 70.2, 29.1, 6.5)],
       where: "Form",
@@ -288,19 +306,15 @@ export const consoleComparison: Comparison = {
     note: "Every component on these boards that uses it follows it. No component changed."
   },
   also: [
-    { at: 42, who: jonas, text: <>added a Members board. It's new, so there's nothing to compare.</> },
-    { at: 43, who: maya, text: <>commented on Billing: “{event("maya-comment").quote}”</> }
+    { at: 1, who: maya, text: <>commented on Billing: “{event("maya-comment").quote}”</> },
+    { at: 1, who: sam, text: <>commented on Billing: “{event("sam-comment").quote}”</> }
   ],
   code: { label: "Already in code", branch: "claude/green-brand", pr: { number: 148, state: "open" } },
   you: {
     as: "reviewer",
-    threads: "1 open thread, Maya's on Billing. Approving leaves it open.",
-    approves: (
-      <>
-        Claude Code asked you, for Sam, as one of the Apps team's reviewers. Its code is already in #148, so nobody
-        needs to pick it up: the 3 boards are Built once #148 merges on GitHub.
-      </>
-    )
+    threads: "2 open threads on Billing, Maya's and Sam's.",
+    approves: <>The code is already in #148, so each board you approve is Built when #148 merges.</>,
+    boards: consoleBoards.map((board) => `${board.design}, v${board.version}`)
   }
 }
 
@@ -308,13 +322,18 @@ const website = portalProject("website")
 const pricing = deliverable("website", "Pricing")
 const pricingFiles = Object.fromEntries(pricing.parts.map((part) => [part.name, part.file]))
 
+/** Where the changes sit on the phone board, measured from its render as the desktop ones are. */
+const phoneBadge = [at(11.6, 34.6, 21.7, 4.7)]
+const phoneSaving = [at(59.1, 28.5, 16.6, 3.7)]
+const phoneTeam = [at(4.1, 34.6, 91.7, 42.3)]
+
 /**
  * Maya's versions of Pricing after you approved v12 and started building it. Outlines are measured from the render:
  * `data-mark` elements, as shares of the 1280 by 800 board.
  */
 export const pricingComparison: Comparison = {
   project: "website",
-  slug: "kestrel-website",
+  slug: "kestrel-website/pricing",
   versions: [
     { n: 14, who: maya, label: "Maya made Team Most popular", when: event("maya-change").when },
     { n: 13, who: maya, label: "Maya moved Save 20% into the toggle", when: "40 min ago", draft: true },
@@ -324,7 +343,10 @@ export const pricingComparison: Comparison = {
   from: 12,
   to: 14,
   named: { 12: "you approved it", 14: "ready for review" },
-  boards: [{ name: "Pricing", draw: (n) => <PricingAt look={website.look} version={n} /> }],
+  boards: [
+    { name: "Pricing", draw: (n) => <PricingAt look={website.look} version={n} /> },
+    { name: "Pricing, phone", narrow: true, draw: (n) => <PricingPhoneAt look={website.look} version={n} /> }
+  ],
   changes: [
     {
       n: 1,
@@ -336,6 +358,8 @@ export const pricingComparison: Comparison = {
       areas: [at(52.6, 37, 5.5, 3.7)],
       where: "Save 20%",
       what: "From Team's card into the toggle's Yearly option",
+      numberRight: true,
+      elsewhere: [{ board: "Pricing, phone", was: phoneBadge, areas: phoneSaving }],
       parts: [
         { name: "PlanCard", file: pricingFiles.PlanCard!, diff: ['- badge="Save 20%"'] },
         { name: "BillingToggle", file: pricingFiles.BillingToggle!, diff: ['+ saving="20%"'] }
@@ -350,6 +374,7 @@ export const pricingComparison: Comparison = {
       areas: [at(36.6, 45.4, 26.8, 46.2)],
       where: "Team's card",
       what: "Most popular, with a ring, a glow and a filled button",
+      elsewhere: [{ board: "Pricing, phone", areas: phoneTeam }],
       parts: [{ name: "PlanCard", file: pricingFiles.PlanCard!, diff: ["+ popular"] }]
     },
     {
@@ -386,7 +411,8 @@ export const pricingComparison: Comparison = {
     building: 12,
     reviewer: priya,
     designer: maya,
-    threads: "1 open thread, Jonas's on the toggle"
+    threads: "1 open thread, Jonas's on the toggle",
+    yours: "#150 builds all 3 components this changes, and adds the ComparePlansLink v14 takes out."
   }
 }
 
@@ -398,7 +424,7 @@ const caves = portalProject("spawnkit")
  */
 export const inGameComparison: Comparison = {
   project: "spawnkit",
-  slug: "ember-caves",
+  slug: "ember-caves/in-game",
   title: "Code against design",
   compare: "v5...main",
   versions: [
@@ -455,12 +481,7 @@ export const inGameComparison: Comparison = {
   you: {
     as: "drift",
     builder: sam,
-    note: (
-      <>
-        Updating the design makes v6 from what main draws, so In game is Built again and Jonas, who approved v5, hears
-        about it. Asking Sam opens a thread on #139 for the code to go back to v5.
-      </>
-    )
+    note: <>Updating makes v6 from what main draws, for Jonas to approve. Asking Sam opens a thread on #139.</>
   }
 }
 
@@ -490,17 +511,17 @@ function Board({
 }: {
   children: ReactNode
   side: "before" | "after"
-  marks: Change[]
+  marks: Mark[]
   focus?: number
   onFocus(n: number | undefined): void
 }) {
   return (
     <div className="relative rounded-[5px] shadow-[0_16px_40px_-12px_rgb(0_0_0/0.6)] ring-1 ring-white/[0.06]">
       <div className="overflow-hidden rounded-[5px]">{children}</div>
-      {marks.flatMap((change) => {
+      {marks.flatMap(({ change, areas: now, was }) => {
         const active = focus === undefined ? undefined : focus === change.n
         const before = side === "before"
-        const areas = before ? (change.was ?? change.areas) : change.areas
+        const areas = before ? (was ?? now) : now
         // The before side marks only what isn't where it was: moves and removals, or the change you're looking at.
         const shown = before ? Boolean(change.kind) || active : true
         if (!shown) return []
@@ -528,7 +549,7 @@ function Board({
               {/* A small place gets its number beside it, so the number doesn't cover what changed. */}
               {index === 0 && (!before || change.kind) && (
                 <span
-                  className={`absolute ${parseFloat(area.width) < 15 ? "top-1/2 right-full mr-1 -translate-y-1/2" : "-top-2 -left-2"}`}
+                  className={`absolute ${change.numberRight ? "top-1/2 left-full ml-1 -translate-y-1/2" : parseFloat(area.width) >= 15 ? "-top-2 -left-2" : "top-1/2 right-full mr-1 -translate-y-1/2"}`}
                 >
                   <Number n={change.n} />
                 </span>
@@ -654,7 +675,10 @@ function TouchedPart({ part }: { part: Touched }) {
   return (
     <span className="flex min-w-0 flex-col gap-0.5 text-[11px]">
       <span className="font-mono text-foreground/80">{part.name}</span>
-      <span className="truncate font-mono text-muted-foreground/80">{part.file}</span>
+      <span className="flex min-w-0 items-center gap-1 font-mono text-muted-foreground/80">
+        <span className="truncate underline decoration-muted-foreground/40 underline-offset-2">{part.file}</span>
+        <ExternalLink className="size-3 shrink-0 opacity-60" aria-label="Opens on GitHub" />
+      </span>
       {part.diff?.map((line) => (
         <span
           key={line}
@@ -701,14 +725,24 @@ export function ChangesPage({ comparison }: { comparison: Comparison }) {
   const project = portalProject(comparison.project)
   const [from, setFrom] = useState(comparison.from)
   const [to, setTo] = useState(comparison.to)
-  const shown = comparison.changes.filter((change) => change.at > from && change.at <= to)
+  const shown = comparison.sides
+    ? comparison.changes
+    : comparison.changes.filter((change) => change.at > from && change.at <= to)
+  const marksOn = (board: string): Mark[] =>
+    shown.flatMap((change) =>
+      change.board === board
+        ? [{ change, areas: change.areas, was: change.was } as Mark]
+        : (change.elsewhere ?? [])
+            .filter((place) => place.board === board)
+            .map((place): Mark => ({ change, areas: place.areas, was: place.was }))
+    )
   const versionsShown = new Set(shown.map((change) => change.at)).size > 1
   const also = comparison.also.filter((item) => item.at > from && item.at <= to)
   const [view, setView] = useState<View>("both")
   const [focus, setFocus] = useState<number>()
   const [more, setMore] = useState(false)
   const [asking, setAsking] = useState(false)
-  const boards = comparison.boards.filter((board) => shown.some((change) => change.board === board.name))
+  const boards = comparison.boards.filter((board) => marksOn(board.name).length)
   const sides = view === "both" ? (["before", "after"] as const) : ([view] as const)
   return (
     <PortalWindow path={`kestrel/${comparison.slug}/compare/${comparison.compare ?? `v${from}...v${to}`}`}>
@@ -763,20 +797,24 @@ export function ChangesPage({ comparison }: { comparison: Comparison }) {
             <div className="flex flex-col gap-8 px-12 pb-10">
               {(boards.length ? boards : comparison.boards).map((board) => (
                 <section key={board.name} className="flex flex-col gap-2">
-                  <span className="text-xs font-medium text-white/55">{board.name}</span>
+                  <span className="text-xs font-medium text-white/55">
+                    {board.name}
+                    {board.from !== undefined && (
+                      <span className="font-normal text-white/40">
+                        {" "}
+                        v{board.from}, approved, and v{board.to}
+                      </span>
+                    )}
+                  </span>
                   <div
                     className={`grid gap-x-10 ${sides.length === 2 ? "grid-cols-2" : "mx-auto w-full max-w-3xl grid-cols-1"}`}
                   >
                     {sides.map((side) => (
-                      <Board
-                        key={side}
-                        side={side}
-                        marks={shown.filter((change) => change.board === board.name)}
-                        focus={focus}
-                        onFocus={setFocus}
-                      >
-                        {board.draw(side === "before" ? from : to)}
-                      </Board>
+                      <div key={side} className={board.narrow ? "mx-auto w-[200px]" : ""}>
+                        <Board side={side} marks={marksOn(board.name)} focus={focus} onFocus={setFocus}>
+                          {board.draw(side === "before" ? (board.from ?? from) : (board.to ?? to))}
+                        </Board>
+                      </div>
                     ))}
                   </div>
                 </section>
@@ -854,12 +892,13 @@ export function ChangesPage({ comparison }: { comparison: Comparison }) {
                     className="flex w-full items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
                   >
                     <ChevronRight className={`size-3.5 transition-transform ${more ? "rotate-90" : ""}`} />
-                    Also between v{from} and v{to}: {also.length === 1 ? "1 more" : `${also.length} more`}
+                    {comparison.sides ? "Also on these boards" : `Also between v${from} and v${to}`}:{" "}
+                    {also.length === 1 ? "1 more" : `${also.length} more`}
                   </button>
                   {more && (
                     <div className="flex flex-col pt-2 pl-5 motion-safe:animate-in motion-safe:fade-in-0">
                       {also.map((item) => (
-                        <Also key={item.at} who={item.who}>
+                        <Also key={item.who.name} who={item.who}>
                           <span className="text-foreground">{item.who.name.split(" ")[0]}</span> {item.text}
                         </Also>
                       ))}
@@ -914,6 +953,17 @@ function Foot({
           {you.as === "builder" ? `v${to} waits on ${you.reviewer.name}'s review, with ${you.threads}.` : you.threads}
         </span>
       )}
+      {you.as === "builder" && <span className="text-xs text-muted-foreground">{you.yours}</span>}
+      {you.as === "reviewer" && you.boards && !asking && (
+        <div className="flex flex-col gap-1">
+          {you.boards.map((board) => (
+            <label key={board} className="flex items-center gap-2 text-xs">
+              <input type="checkbox" defaultChecked className="size-3.5 accent-foreground" />
+              {board}
+            </label>
+          ))}
+        </div>
+      )}
       {asking ? (
         <>
           <textarea
@@ -935,7 +985,7 @@ function Foot({
           <Button size="sm" className="flex-1 gap-1.5">
             {you.as === "reviewer" ? (
               <>
-                <Check /> Approve v{to}
+                <Check /> {you.boards ? `Approve ${you.boards.length} boards` : `Approve v${to}`}
               </>
             ) : you.as === "builder" ? (
               `Keep building v${you.building}`
@@ -952,7 +1002,7 @@ function Foot({
         {you.as === "reviewer"
           ? you.approves
           : you.as === "builder"
-            ? `When ${first(you.reviewer)} approves v${to}, Handoff moves your build to it with these ${changes} changes, and you hear about it here and in your inbox. Until then, v${you.building} is still the approved version.`
+            ? `When ${first(you.reviewer)} approves v${to}, your build moves to it with these ${changes} changes. Until then, v${you.building} is the approved version.`
             : you.note}
       </span>
     </>

@@ -114,8 +114,8 @@ export function SearchPage() {
                 {
                   who: sam,
                   where: "Billing in Cloud console",
-                  text: "Should the plan badge pick up the new green too?",
-                  when: "50 min ago"
+                  text: event("sam-comment").quote!,
+                  when: event("sam-comment").when
                 }
               ].map((hit) => (
                 <div key={hit.text} className="flex items-start gap-3 rounded-lg px-2 py-2 hover:bg-muted/40">

@@ -136,6 +136,18 @@ export function InspectPage() {
         </header>
         <div className="flex min-h-0 flex-1">
           <aside className="flex w-60 shrink-0 flex-col gap-1 border-r bg-background p-3">
+            <div className="mb-3 flex flex-col gap-2 rounded-lg bg-muted/40 p-3 text-xs">
+              <span className="font-medium">What v{board.version} asks for</span>
+              <span className="text-muted-foreground">{board.asks}</span>
+              {board.notes && (
+                <span className="flex items-start gap-2 border-t pt-2">
+                  <Avatar person={board.notes.who} size={16} />
+                  <span className="text-muted-foreground">
+                    <span className="text-foreground">{board.notes.who.name.split(" ")[0]}:</span> {board.notes.text}
+                  </span>
+                </span>
+              )}
+            </div>
             <h3 className="px-2 pb-1 text-xs font-medium text-muted-foreground">Page</h3>
             <span className="px-2 pb-3">
               <FileLink file={board.page} />
@@ -271,19 +283,17 @@ export function InspectPage() {
             </Section>
             <Section title="States">
               <div className="flex flex-wrap gap-1.5">
-                {board.states.map((state, index) => (
+                {board.states.map((state) => (
                   <span
                     key={state}
-                    className={`flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs ${index === 0 ? "border-foreground/40 bg-muted" : "text-muted-foreground"}`}
+                    className={`flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs ${state === "Cleared" ? "border-foreground/40 bg-muted" : "text-muted-foreground"}`}
                   >
                     {state}
                     {state === "Locked" && <New />}
                   </span>
                 ))}
               </div>
-              <span className="text-xs text-muted-foreground">
-                Each state is a frame on the board, so you can see it before you build it.
-              </span>
+              <span className="text-xs text-muted-foreground">Level 4 has 3 stars, so it's Cleared.</span>
             </Section>
             <Section title="Text" action={<CopyButton label="Copy the classes" />}>
               <div className="flex flex-col gap-2 text-xs">
@@ -338,16 +348,6 @@ export function InspectPage() {
                 space between tiles comes from there, not from a class.
               </span>
             </Section>
-            {board.notes && (
-              <Section title="Notes">
-                <span className="flex items-start gap-2 text-xs">
-                  <Avatar person={board.notes.who} size={16} />
-                  <span className="text-muted-foreground">
-                    <span className="text-foreground">{board.notes.who.name.split(" ")[0]}:</span> {board.notes.text}
-                  </span>
-                </span>
-              </Section>
-            )}
             <Section title="Assets">
               <span className="text-xs text-muted-foreground">
                 Nothing to export. The lock and stars are lucide-react's <span className="font-mono">Lock</span> and{" "}

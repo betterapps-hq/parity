@@ -496,8 +496,8 @@ export function AddSeatsPage() {
           <div className="flex flex-col gap-1">
             <h2 className="text-lg font-semibold">Add editor seats</h2>
             <span className="text-sm text-muted-foreground">
-              Kestrel's {openSeats} open seats will go to Noah Park and ren@kestrel.dev. Add seats for editors joining
-              after them.
+              Noah Park's request and the invite for ren@kestrel.dev will take Kestrel's last {openSeats} open seats.
+              These are for the two designers joining Apps on Monday.
             </span>
           </div>
           <div className="flex items-center justify-between rounded-xl border p-3">
@@ -709,7 +709,7 @@ export function RemoveMemberPage() {
             </div>
             <div className="flex flex-col gap-4">
               <Consequence icon={<Armchair />}>
-                Jonas's editor seat opens today. Kestrel pays for it until the renewal on Jan 1, 2027, and it goes to
+                Jonas's editor seat will open. Kestrel pays for it until the renewal on Jan 1, 2027, and it goes to
                 whoever asks next.
               </Consequence>
               <Consequence icon={<FolderOpen />}>
@@ -718,14 +718,14 @@ export function RemoveMemberPage() {
                 <span className="text-xs text-muted-foreground">Requests for access go to the new owner.</span>
               </Consequence>
               <Consequence icon={<Bot />}>
-                Cursor, which Jonas connected, loses access now. What it made stays, under Jonas's name.
+                Cursor, which Jonas connected, will lose access. What it made stays, under Jonas's name.
               </Consequence>
               <Consequence icon={<History />}>
                 Jonas's versions, comments and approvals stay as they are, and in the audit log.
               </Consequence>
               <Consequence icon={<KeyRound />}>
-                Jonas is signed out everywhere now. Kestrel has no SCIM, so remove Jonas in Okta too, or the next
-                sign-in works again.
+                Jonas will be signed out everywhere. Kestrel has no SCIM, so remove Jonas in Okta too, or Jonas can sign
+                in again.
               </Consequence>
             </div>
             <div className="flex justify-end gap-2">

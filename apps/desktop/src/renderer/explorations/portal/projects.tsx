@@ -112,7 +112,8 @@ export function AllProjectsPage() {
                     <span className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
                       <Avatar person={shown.editedBy} size={20} />
                       <span className="truncate">
-                        {shown.edited} by {shown.editedBy.name.split(" ")[0]}
+                        {shown.edited} by{" "}
+                        {shown.editedBy.agent ? shown.editedBy.name : shown.editedBy.name.split(" ")[0]}
                       </span>
                     </span>
                     <Counts projects={[shown.id]} />

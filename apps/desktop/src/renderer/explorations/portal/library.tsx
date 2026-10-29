@@ -8,6 +8,7 @@ import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { people } from "../explore-data.ts"
 import { Avatar } from "../parts.tsx"
+import { deliverables } from "./boards.ts"
 import { event, portalProject } from "./data.ts"
 import { Pills, PortalPage, Tabs } from "./parts.tsx"
 
@@ -114,13 +115,23 @@ const components: { name: string; uses: number; changed?: string }[] = [
   { name: "Tooltip", uses: 47 }
 ]
 
-/** Which version of Toggle each project uses, and the boards it's on. */
-const toggleUses: { project: string; version: string; boards: string[] }[] = [
-  { project: "website", version: "2.4", boards: ["Pricing"] },
-  { project: "docs", version: "2.4", boards: ["Docs home"] },
-  { project: "dashboard", version: "2.3", boards: ["Billing", "Overview"] },
-  { project: "copilot", version: "2.3", boards: ["Inbox"] }
-]
+/**
+ * Which version of Toggle each project uses, and the boards it's on, from the same list of what each board is made of
+ * that Handoff reads. Pricing's BillingToggle is the website's own, so it isn't here.
+ */
+const toggleUses = Object.values(
+  Object.values(deliverables)
+    .flatMap((board) =>
+      board.parts
+        .filter((part) => part.name === "Toggle" && part.library)
+        .map((part) => ({ project: board.project, version: part.library!.split(" ").at(-1)!, board: board.design }))
+    )
+    .reduce<Record<string, { project: string; version: string; boards: string[] }>>((all, use) => {
+      const entry = (all[use.project] ??= { project: use.project, version: use.version, boards: [] })
+      entry.boards.push(use.board)
+      return all
+    }, {})
+).sort((a, b) => b.version.localeCompare(a.version))
 
 function ComponentCard({ name, uses, changed }: { name: string; uses: number; changed?: string }) {
   const picked = name === "Toggle"

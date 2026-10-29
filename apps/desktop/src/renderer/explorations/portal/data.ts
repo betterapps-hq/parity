@@ -248,6 +248,19 @@ export const events: PortalEvent[] = [
     team: "apps"
   },
   {
+    id: "sam-comment",
+    ago: 50,
+    kind: "comment",
+    who: sam,
+    project: "Cloud console",
+    design: "Billing",
+    action: "commented on",
+    quote: "The green plan badge reads lighter than the button. Is that on purpose?",
+    when: "50 min ago",
+    day: "Today",
+    team: "apps"
+  },
+  {
     id: "noah-seat",
     ago: 50,
     kind: "invite",
@@ -338,16 +351,18 @@ export const events: PortalEvent[] = [
     team: "web"
   },
   {
-    id: "sam-invite",
+    id: "sam-reply",
     ago: 2900,
-    kind: "invite",
+    kind: "comment",
     who: sam,
     project: "Relay",
-    action: "invited you to",
+    design: "Inbox",
+    action: "replied to your thread on",
+    quote: "Agreed: the reply box stays pinned, even with the keyboard open.",
     when: "2 days ago",
     day: "This week",
     team: "apps",
-    forTeam: { action: "invited Andrew Craswell to" }
+    forTeam: { action: "replied on", design: "Inbox" }
   }
 ]
 

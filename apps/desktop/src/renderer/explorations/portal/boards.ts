@@ -11,7 +11,10 @@ const { maya, sam, lena, claude, priya, jonas } = people
 /** A component on a board: its file, how often the board uses it, and how this version changes it. */
 export interface Part {
   name: string
+  /** Its file, or for a library's component, the package it comes from. */
   file: string
+  /** The library and version it comes from, when it isn't the project's own. */
+  library?: string
   uses?: number
   /** New in this version, given new props, or only looking different because a token it uses changed. */
   change?: "New" | "New props" | "Follows --brand"
@@ -60,8 +63,13 @@ export interface Code {
 export interface Deliverable {
   project: string
   design: string
-  /** The version this status is about: the one approved, being built, built, or asking for review. */
+  /**
+   * The version this status is about: the one approved, being built, built, or asking for review. Each board has its
+   * own versions, and is approved on its own.
+   */
   version: number
+  /** The version approved before this one, for a board in review. */
+  approvedBefore?: number
   /** Who approved this version. A board in review has `review` instead. */
   approved?: { who: Person; when: string }
   /** Who asked for a review of this version, while it's in review. */
@@ -169,7 +177,8 @@ export const deliverables: Record<string, Deliverable> = {
     parts: [
       { name: "ThreadRow", file: "src/inbox/ThreadRow.tsx", uses: 8, change: "New props" },
       { name: "Composer", file: "src/inbox/Composer.tsx", uses: 1 },
-      { name: "InboxList", file: "src/inbox/InboxList.tsx", uses: 1 }
+      { name: "InboxList", file: "src/inbox/InboxList.tsx", uses: 1 },
+      { name: "Toggle", file: "@kestrel/ui", library: "Kestrel UI 2.3", uses: 1 }
     ],
     tokens: [{ name: "--unread", value: "oklch(0.7 0.15 250)", added: true, usedBy: ["ThreadRow"] }],
     states: ["Default", "Unread", "Empty"],
@@ -218,6 +227,7 @@ export const deliverables: Record<string, Deliverable> = {
     page: "src/routes/play.tsx",
     parts: [
       { name: "HealthBar", file: "src/hud/HealthBar.tsx", uses: 1 },
+      { name: "GameHud", file: "src/hud/GameHud.tsx", uses: 1 },
       { name: "Hotbar", file: "src/hud/Hotbar.tsx", uses: 1 }
     ],
     tokens: [{ name: "--health", value: "oklch(0.68 0.22 25)", usedBy: ["HealthBar"] }],
@@ -228,17 +238,22 @@ export const deliverables: Record<string, Deliverable> = {
   "dashboard/Billing": {
     project: "dashboard",
     design: "Billing",
-    version: 43,
+    version: 19,
+    approvedBefore: 18,
     ...claudeReview,
     page: "src/routes/billing.tsx",
-    parts: following("Brand", "SidebarLink", "Button", "PlanBadge", "UsageMeter", "PlanCard"),
+    parts: [
+      ...following("Brand", "SidebarLink", "Button", "PlanBadge", "UsageMeter", "PlanCard"),
+      { name: "Toggle", file: "@kestrel/ui", library: "Kestrel UI 2.3", uses: 1 }
+    ],
     states: ["Default"],
     sizes: ["Desktop", "Phone"]
   },
   "dashboard/Overview": {
     project: "dashboard",
     design: "Overview",
-    version: 43,
+    version: 12,
+    approvedBefore: 11,
     ...claudeReview,
     page: "src/routes/overview.tsx",
     parts: following("Brand", "SidebarLink", "Button", "StatCard", "UsageChart", "AppRow"),
@@ -248,7 +263,8 @@ export const deliverables: Record<string, Deliverable> = {
   "dashboard/Sign in": {
     project: "dashboard",
     design: "Sign in",
-    version: 43,
+    version: 7,
+    approvedBefore: 6,
     ...claudeReview,
     page: "src/routes/sign-in.tsx",
     parts: following("SignInPanel", "Brand", "Button"),
@@ -265,7 +281,8 @@ export const deliverables: Record<string, Deliverable> = {
     parts: [
       { name: "SearchField", file: "src/search/SearchField.tsx", uses: 1, change: "New" },
       { name: "GuideCard", file: "src/guides/GuideCard.tsx", uses: 4, change: "New" },
-      { name: "DocsNav", file: "src/nav/DocsNav.tsx", uses: 1 }
+      { name: "DocsNav", file: "src/nav/DocsNav.tsx", uses: 1 },
+      { name: "Toggle", file: "@kestrel/ui", library: "Kestrel UI 2.4", uses: 1 }
     ],
     tokens: [],
     states: ["Default", "Searching", "No results"],

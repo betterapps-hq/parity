@@ -34,9 +34,9 @@ function Code({ children }: { children: ReactNode }) {
   return <span className="rounded-md border bg-background px-1.5 py-0.5 font-mono text-[11px]">{children}</span>
 }
 
-/** You, or someone's first name. */
-function who(person: { name: string }): string {
-  return person === me ? "you" : person.name.split(" ")[0]!
+/** You, someone's first name, or an agent's whole name. */
+function who(person: { name: string; agent?: boolean }): string {
+  return person === me ? "you" : person.agent ? person.name : person.name.split(" ")[0]!
 }
 
 function capital(text: string): string {
@@ -57,7 +57,7 @@ const order: Handoff[] = ["Ready to build", "Building", "Changed since approval"
 /** The board open at the side. */
 const picked = "website/Pricing"
 
-const columns = "grid grid-cols-[minmax(0,1fr)_150px_150px_140px] items-center gap-4"
+const columns = "grid grid-cols-[minmax(0,1fr)_160px_140px_140px] items-center gap-4"
 
 /** A cell of two lines: what it is, then when or where. */
 function Cell({ avatar, top, bottom }: { avatar?: { name: string; hue: number }; top: ReactNode; bottom: ReactNode }) {
@@ -82,7 +82,7 @@ function Approval({ board }: { board: Deliverable }) {
   return (
     <Cell
       avatar={asked.who}
-      top={`Asked by ${asked.who.name.split(" ")[0]}`}
+      top={`Asked by ${who(asked.who)}`}
       bottom={`${asked.for ? `for ${asked.for.name.split(" ")[0]}, ` : ""}${asked.when}`}
     />
   )
@@ -130,7 +130,10 @@ function BoardRow({ board, status }: { board: Deliverable; status: Handoff }) {
           </span>
           {now && (
             <span className="truncate text-[11px] text-muted-foreground/80">
-              {now.who.agent ? `${now.who.name}, for ${who(now.for!)},` : now.who.name.split(" ")[0]} is working on it
+              {now.who.agent
+                ? `${now.for === me ? "Your" : `${who(now.for!)}'s`} ${now.who.name}`
+                : now.who.name.split(" ")[0]}{" "}
+              is working on it
             </span>
           )}
         </span>
@@ -237,6 +240,7 @@ function Detail({ board }: { board: Deliverable }) {
               <span className="flex items-center gap-2">
                 <Code>{part.name}</Code>
                 {part.change && <span style={{ color: violet }}>{part.change.toLowerCase()}</span>}
+                {part.library && <span className="text-muted-foreground">from {part.library}</span>}
               </span>
               <span className="truncate font-mono text-[11px] text-muted-foreground">{part.file}</span>
             </span>
@@ -314,8 +318,7 @@ export function HandoffPage() {
             <div className="flex flex-col gap-1">
               <PortalHeader title="Handoff" />
               <span className="text-sm text-muted-foreground">
-                Every board by where it stands between design and code, at the version that was approved. Drafts don't
-                move a board; a version its designer marks ready does.
+                Every board at its approved version, by where it stands between design and code.
               </span>
             </div>
             <div className="flex items-center gap-3">

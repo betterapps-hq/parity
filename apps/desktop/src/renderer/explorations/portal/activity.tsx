@@ -98,6 +98,7 @@ export function ActivityPage() {
             <Row id="you-approve" />
             <Row id="jonas-reply" />
             <Row id="maya-comment" />
+            <Row id="sam-comment" />
             <Card
               item={event("claude-run")}
               line={
@@ -178,7 +179,7 @@ export function ActivityPage() {
             </div>
             <span className="-mt-2 text-xs text-muted-foreground">October 26 to November 1, up to today</span>
             <div className="grid grid-cols-2 gap-2">
-              <Tally value="54" label="Changes to designs" />
+              <Tally value="14" label="Versions made" />
               <Tally value="18" label="Threads resolved" />
               <Tally value={`${approvedThisWeek()}`} label="Designs approved" />
               <Tally value={`${readyToBuild}`} label="Ready to build" />
@@ -188,9 +189,9 @@ export function ActivityPage() {
             <h2 className="text-sm font-semibold">Busiest projects</h2>
             {(
               [
-                ["dashboard", "21 changes, 4 people"],
-                ["website", "14 changes, 3 people"],
-                ["spawnkit", "9 changes, 2 people"]
+                ["dashboard", "5 versions, 4 people"],
+                ["website", "4 versions, 3 people"],
+                ["spawnkit", "3 versions, 2 people"]
               ] as const
             ).map(([id, detail]) => {
               const shown = portalProject(id)
@@ -211,12 +212,12 @@ export function ActivityPage() {
             })}
           </section>
           <section className="flex flex-col gap-2.5">
-            <h2 className="text-sm font-semibold">Changes to designs, by team</h2>
+            <h2 className="text-sm font-semibold">Versions made, by team</h2>
             {(
               [
-                [teams.apps.org, 32],
-                [teams.web.org, 17],
-                [teams.system.org, 5]
+                [teams.apps.org, 8],
+                [teams.web.org, 5],
+                [teams.system.org, 1]
               ] as const
             ).map(([org, count]) => (
               <div key={org.id} className="flex items-center gap-2.5 text-sm">

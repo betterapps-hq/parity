@@ -14,7 +14,7 @@ import { Pills, PortalPage } from "./parts.tsx"
 const { maya, jonas, priya, lena } = people
 
 /** What's for you but doesn't need you, newest first: a reply, a resolved thread, an invite. */
-const earlier = ["jonas-reply", "lena-resolve", "sam-invite"].map(event)
+const earlier = ["jonas-reply", "lena-resolve", "sam-reply"].map(event)
 
 /** The thread Jonas mentioned you in, on Pricing as it is at v14, with Save 20% in the toggle. */
 const toggleThread: ThreadData = {
@@ -111,7 +111,7 @@ export function InboxPage() {
                   <div className="overflow-hidden rounded-[5px] shadow-[0_16px_40px_-10px_rgb(0_0_0/0.7)] ring-1 ring-white/10">
                     <DesignRender kind={pricing.kind} look={website.look} />
                   </div>
-                  <Pin left="58%" top="37%">
+                  <Pin left="61%" top="42%">
                     <CommentPin people={[jonas, maya]} state="selected" replies={1} />
                   </Pin>
                   <Pin left="40%" top="62%">

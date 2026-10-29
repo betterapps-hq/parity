@@ -49,7 +49,7 @@ function NeedsYouRow({ item }: { item: PortalEvent }) {
         </span>
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-[13px] leading-snug text-muted-foreground">
-        <span className="truncate">
+        <span className="line-clamp-2">
           <ActivityText item={item} />
         </span>
         {item.quote && <span className="line-clamp-2 text-foreground/80">{item.quote}</span>}

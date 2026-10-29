@@ -787,10 +787,10 @@ recommended answer to each of its questions.
 - **Its screens:** For you (what needs you, then what changed, with who's working where at the side), Recents (the
   projects as a file browser), a team page that opens on who's working where now, each on the canvas they're in, with
   Join for people and Watch for agents; the Inbox (the open item beside its board, pins and all, with its thread); the
-  org's Activity (changes shown as the designs, merges, published components, new people, and the week in numbers);
-  Handoff and Inspect; the canvas opened on what changed, or on how the code differs from the design; All projects, by
-  team; a library's page; sharing and asking for access; search results; and the admin pages Members (with removing
-  someone), Billing, Add seats, Plans and Security.
+  org's Activity (changes shown as the designs, merges, published components, new people, and the week in versions,
+  threads and approvals); Handoff and Inspect; the canvas opened on what changed, or on how the code differs from the
+  design; All projects, by team; a library's page; sharing and asking for access; search results; and the admin pages
+  Members (with removing someone), Billing, Add seats, Plans and Security.
 - **For you is a digest, as the start page's is** (my call, after the fourth review): each thing waiting on you is one
   line with what they said and its one or two actions (Reply, Approve, Let Ivy comment, See what changed), so most of it
   can be answered from there, and what happened since you were last here follows close under it. The inbox has the full
@@ -814,6 +814,15 @@ recommended answer to each of its questions.
   the fifth review). Marking a version ready asks one of the team's reviewers; the versions in between are drafts, and
   someone working on a board shows in Handoff as just that, without its status moving or anyone being told. So builders
   never hear about unfinished work.
+- **Each board has its own versions and is approved on its own, against its last approved version** (your call,
+  2026-10-29, after the sixth review). A comparison of several boards labels each with the version last approved and the
+  newer one, and the reviewer ticks which to approve, so one board can go ahead while another waits for changes.
+  Kestrel's example is Claude Code's token change to Billing v19, Overview v12 and Sign in v7.
+- **A comparison shows every size a change shows on** (my call, after the sixth review): Pricing compares desktop and
+  phone, marked on both, since Jonas's open question is about the toggle on phones.
+- **A library's components say which library and version they come from** (my call, after the sixth review): Handoff
+  tags them with it, and the library's Used in list is read from the same boards, so it names the boards on each version
+  and a project still on an older one.
 - **Whoever's building a board hears when a newer version is marked ready, as something that needs them** (my call,
   after the fourth review): For you and the inbox say which version they're building, what changed since in a sentence,
   and link the comparison and their pull request. Kestrel's example is you building Pricing v12 in #150 while Maya made
@@ -846,9 +855,10 @@ recommended answer to each of its questions.
 - **Inspect is Parity's Dev Mode** (my call): a board at its approved version, read-only, opened from Handoff and
   leading back to it. Picking anything shows its component and file, its props as code, its states, its text and size as
   the code writes them (classes, with pixels beside), its tokens, and hovering something else measures to it. New and
-  changed are against main. The board's page file, the designer's notes and what there is to export show too, files open
-  on GitHub, and Give to your agent hands the board to the developer's own coding agent. There's usually nothing to
-  export: icons come from the project's icon package and the rest is drawn in code.
+  changed are against main. What the version asks for and the designer's notes come first (my call, after the sixth
+  review); the board's page file and what there is to export show too, files open on GitHub, and Give to your agent
+  hands the board to the developer's own coding agent. There's usually nothing to export: icons come from the project's
+  icon package and the rest is drawn in code.
 - **What changed compares two of the project's versions** (my calls, after the design reviews). Parity records versions
   itself, and only a change makes one: a comment doesn't. Every place a change shows is marked, found from what the
   render draws with the changed token rather than placed by hand, so a token change marks every board that uses it. A
