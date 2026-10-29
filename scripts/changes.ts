@@ -1,10 +1,11 @@
 // Says which released packages a change needs a change file for, and writes or checks them. Beachball versions only the
 // packages that aren't private, the desktop app and the CLI, so on its own it would miss a change to a private package
-// they bundle, such as @parity/core. Like Beachball, it counts the branch's commits and what's staged, from where the
-// branch left the one beachball.config.cjs names.
+// they bundle, such as @parity/core. Like Beachball, it counts from where the branch left the one beachball.config.cjs
+// names. Unlike it, it reads only the index or the commits, never the working tree, which sessions share.
 // Usage:
 //   node scripts/changes.ts write --type patch --message "…"  writes the change files that are missing (pnpm changefile)
-//   node scripts/changes.ts check                             fails when one is missing (the pre-commit hook and CI)
+//   node scripts/changes.ts check                             fails when one is missing from what's staged (pre-commit)
+//   node scripts/changes.ts check --committed                 the same for the branch's commits (pre-push and CI)
 import { execFileSync } from "node:child_process"
 import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { createRequire } from "node:module"
@@ -96,15 +97,19 @@ function beachballConfig(): BeachballConfig {
 }
 
 /**
- * The files changed since the branch left Beachball's, staged ones included, and the packages that the change files
- * among them are for.
+ * The files changed since the branch left Beachball's, and the packages that the change files among them are for. It
+ * reads the index, so a commit counts what it stages and not the edits other sessions leave in a folder they share;
+ * `committed` reads only the branch's commits, as a push or CI checks them.
  */
-function changes(branch: string): { files: string[]; covered: Set<string> } {
+function changes(branch: string, committed: boolean): { files: string[]; covered: Set<string> } {
   const base = git("merge-base", branch, "HEAD").trim()
-  const files = lines(git("diff", "--cached", "--name-only", "--no-renames", base))
-  const changeFiles = lines(git("diff", "--cached", "--name-only", "--diff-filter=AM", base, "--", "change/"))
+  const range = committed ? [base, "HEAD"] : ["--cached", base]
+  const files = lines(git("diff", "--name-only", "--no-renames", ...range))
+  const changeFiles = lines(git("diff", "--name-only", "--diff-filter=AM", ...range, "--", "change/"))
   const covered = new Set(
-    changeFiles.map((file) => (JSON.parse(git("show", `:${file}`)) as { packageName: string }).packageName)
+    changeFiles.map(
+      (file) => (JSON.parse(git("show", `${committed ? "HEAD" : ""}:${file}`)) as { packageName: string }).packageName
+    )
   )
   return { files, covered }
 }
@@ -117,7 +122,7 @@ function option(name: string): string | undefined {
 function main(): void {
   const command = process.argv[2]
   const config = beachballConfig()
-  const { files, covered } = changes(config.branch)
+  const { files, covered } = changes(config.branch, process.argv.includes("--committed"))
   // Beachball's own ignore patterns, plus the change files and changelogs it ignores itself.
   const ignored = [...(config.ignorePatterns ?? []), "change/*.json", "**/CHANGELOG.md", "**/CHANGELOG.json"]
   const needed = releasesFor(readWorkspace(), files, ignored)
@@ -159,7 +164,7 @@ function main(): void {
     return
   }
 
-  console.error("Usage: node scripts/changes.ts write --type <type> --message <message> | check")
+  console.error("Usage: node scripts/changes.ts write --type <type> --message <message> | check [--committed]")
   process.exit(1)
 }
 

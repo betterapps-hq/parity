@@ -1,8 +1,5 @@
-# Format, lint and type errors in the staged files, fixing what can be fixed. Then a change file for each released
-# package the commit touches: Beachball checks the desktop app's and the CLI's own files, and scripts/changes.ts the
-# private packages they bundle. Never skip it with --no-verify.
+# Formatting and lint on the staged files, fixing what can be fixed, then a change file for each released package the
+# commit touches, in its own files or a private package it bundles. Both read only what's staged, so the edits other
+# sessions leave in a folder they share don't count. Never skip it with --no-verify.
 vp staged
-# Git hands hooks GIT_DIR, and with it set Beachball looks for a branch's committed change files in change/change/.
-unset GIT_DIR
-beachball check
 node scripts/changes.ts check

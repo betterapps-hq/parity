@@ -22,7 +22,7 @@ function hasOrigin() {
 module.exports = {
   // A name with a slash is used as written; without one, Beachball would add the remote.
   branch: hasOrigin() ? "origin/main" : "refs/heads/main",
-  // The pre-commit hook runs `beachball check`, which shouldn't wait on the network. CI fetches when it checks out.
+  // `pnpm changefile` runs Beachball locally, which shouldn't wait on the network. CI fetches when it checks out.
   fetch: false,
   publish: false,
   // Parity stays below 1.0 until the user says otherwise.

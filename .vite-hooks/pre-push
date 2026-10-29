@@ -1,9 +1,8 @@
 # What a pull request would otherwise show: the commits' messages, formatting, lint with the type-aware rules and type
-# errors, which commits don't check, and a change file for each released package the branch changes. It also catches
-# a commit that skipped its hooks. Never skip it with --no-verify.
-unset GIT_DIR
+# errors, which commits don't check, and a change file for each released package the branch's commits change. It also
+# catches a commit that skipped its hooks. Beachball's own check reads the working tree, so it runs in CI instead.
+# Never skip it with --no-verify.
 node scripts/commits.ts push "$1"
 vp check --no-lint
 vp lint --type-aware --type-check
-beachball check
-node scripts/changes.ts check
+node scripts/changes.ts check --committed
