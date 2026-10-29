@@ -33,6 +33,11 @@ export function serveAgents(): void {
         tab?.session?.components.set(components)
         return undefined
       }
+      case "project.guestMoved": {
+        const { projectId, guestUrl } = params as WindowMethods["project.guestMoved"]["params"]
+        await workspace.moveGuest(projectId, guestUrl)
+        return undefined
+      }
       case "project.fileChanged": {
         const { projectId, path, document } = params as WindowMethods["project.fileChanged"]["params"]
         const store = workspace.getTabs().find((tab) => tab.session?.id === projectId)?.session?.store

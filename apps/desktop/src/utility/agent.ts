@@ -280,6 +280,7 @@ function renderFor(snapshot: TabSnapshot): AgentHooks["render"] {
   return async ({ tree, mode, height, scale, capture, audit }) => {
     const { frame, png } = await renderOffscreen(
       {
+        projectId: snapshot.projectId,
         guestUrl: snapshot.guestUrl,
         ...(snapshot.addedComponents ? { components: snapshot.addedComponents } : {}),
         theme: snapshot.theme,

@@ -186,6 +186,8 @@ export interface WindowMethods {
     }
     result: undefined
   }
+  /** A project's builder, started again, couldn't have its port back, so the project's guest is at a new address. */
+  "project.guestMoved": { params: { projectId: string; guestUrl: string }; result: undefined }
 }
 
 export type ServiceMethod = keyof ServiceMethods
@@ -369,6 +371,8 @@ export interface SaveDialogOptions {
 
 /** A frame the offscreen render window draws, to measure it or capture it. */
 export interface RenderJob {
+  /** The project drawn, so the render window lets go of its last guest when the project's moves to a new address. */
+  projectId: string
   guestUrl: string
   /** Components the guest adds before drawing, since the type checker found them after it loaded. */
   components?: Record<string, Pick<ComponentSource, "path" | "export">>

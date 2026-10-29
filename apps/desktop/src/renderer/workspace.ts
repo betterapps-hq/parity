@@ -6,7 +6,7 @@ import { getPreferences } from "./chrome/preferences.ts"
 import { askAboutUnsaved } from "./chrome/unsaved.ts"
 import { ComponentStore } from "./components-store.ts"
 import { DesignStore } from "./design-store.ts"
-import { type LoadedGuest, loadGuest } from "./guest.ts"
+import { type LoadedGuest, loadGuest, releaseGuest } from "./guest.ts"
 import { SelectionStore } from "./selection.ts"
 import { TokenStore } from "./tokens-store.ts"
 
@@ -153,7 +153,10 @@ export class Workspace {
     const tab = this.tabs[index]!
     this.update(this.tabs.filter((candidate) => candidate !== tab))
     if (this.activeId === id) this.activeId = (this.tabs[index] ?? this.tabs[index - 1])?.id
-    if (tab.session) void window.canvasHost.request("project.close", { projectId: tab.session.id })
+    if (tab.session) {
+      void window.canvasHost.request("project.close", { projectId: tab.session.id })
+      releaseGuest(tab.session.info.guestUrl)
+    }
     this.save()
     this.notify()
   }
@@ -170,6 +173,9 @@ export class Workspace {
     this.replace(id, { id, title: tab.title, status: "loading" })
     this.setProgress(id, [step, "Loading its components"], 0)
     await window.canvasHost.request("project.close", { projectId: id }).catch(() => undefined)
+    // Its stylesheets are made anew, without the last session's token previews; its modules come back as they were
+    // when the project's code hasn't changed.
+    if (tab.session) releaseGuest(tab.session.info.guestUrl)
     try {
       const info = await window.canvasHost.request("project.open", { root: id })
       this.setProgress(id, [step, `Loading components from ${info.builder.name}`], 1)
@@ -199,10 +205,12 @@ export class Workspace {
           inferComponents(info, session.components)
           const current = this.getTab(id)
           if (!current?.session) return
+          const before = current.session.info.guestUrl
           this.replace(id, {
             ...current,
             session: { ...current.session, info, loaded, tokens: tokenStore(info, loaded) }
           })
+          if (before !== info.guestUrl) releaseGuest(before)
         } catch (error) {
           toast.error(`Couldn't reopen ${session.info.name}`, {
             description: error instanceof Error ? error.message : String(error)
@@ -210,6 +218,28 @@ export class Workspace {
         }
       })
     )
+  }
+
+  /** Draws a project's tab with its guest from a new address, once its builder started again on another port. */
+  async moveGuest(projectId: string, guestUrl: string): Promise<void> {
+    const tab = this.tabs.find((candidate) => candidate.session?.id === projectId)
+    if (!tab?.session || tab.session.info.guestUrl === guestUrl) return
+    try {
+      const info = { ...tab.session.info, guestUrl }
+      const loaded = await loadGuest(guestUrl, info.theme)
+      const current = this.getTab(tab.id)
+      if (!current?.session) return
+      const before = current.session.info.guestUrl
+      this.replace(tab.id, {
+        ...current,
+        session: { ...current.session, info, loaded, tokens: tokenStore(info, loaded) }
+      })
+      releaseGuest(before)
+    } catch (error) {
+      toast.error(`Couldn't load ${tab.session.info.name} from its restarted builder`, {
+        description: error instanceof Error ? error.message : String(error)
+      })
+    }
   }
 
   /** Saves every open project's unsaved changes. */
