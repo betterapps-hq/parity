@@ -14,7 +14,7 @@ import {
   type ExecRequest,
   type ExecResult
 } from "@parity/agent"
-import { modeGlobals, resolveModes } from "@parity/core"
+import { describeRenderStatus, modeGlobals, renderProblem, resolveModes } from "@parity/core"
 import type { ServiceMethods, TabSnapshot, WindowMethods } from "../shared/protocol.ts"
 import { readConsole } from "./console.ts"
 import { renderOffscreen } from "./render.ts"
@@ -158,15 +158,37 @@ async function call(
         const filter = { category: params.category, source: params.source, search: params.search }
         return api.GetTokens(filter as Parameters<ReadApi["GetTokens"]>[0])
       }
-      if (method === "components") {
-        return { components: api.Components(), iconLibraries: snapshot.iconLibraries, leftOut: snapshot.leftOut ?? [] }
-      }
+      if (method === "components") return componentsReport(snapshot, api.Components())
       return api.Props(String(params.component), { all: params.all === true })
     }
     default:
       throw new Error(
         `Unknown method ${method}. Methods: tabs, open, state, exec, screenshot, accessibility, problems, console, tokens, components, props`
       )
+  }
+}
+
+/**
+ * What `parity components` reports: the components, the exports the type checker left out and why, the components
+ * failing to draw on the canvas and why, and the person's corrections in the main project file, saved or not.
+ */
+function componentsReport(snapshot: TabSnapshot, components: string[]) {
+  const statuses = Object.entries(snapshot.renderStatus ?? {})
+  const failing = statuses.flatMap(([id, status]) =>
+    "error" in status ? [{ id, problem: renderProblem(status.error), reason: describeRenderStatus(status) }] : []
+  )
+  const main = snapshot.documents.find((entry) => entry.path === snapshot.mainDocument)?.document
+  const listed = main?.detection?.include ?? []
+  return {
+    components,
+    iconLibraries: snapshot.iconLibraries,
+    // Less what the person listed by hand, which are components now.
+    leftOut: (snapshot.leftOut ?? []).filter(
+      (entry) => !listed.some((ref) => ref.path === entry.path && ref.export === entry.export)
+    ),
+    drawn: statuses.length - failing.length,
+    failing,
+    corrections: main?.detection ?? {}
   }
 }
 

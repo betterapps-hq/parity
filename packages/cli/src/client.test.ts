@@ -63,6 +63,37 @@ describe("describeComponents", () => {
       ].join("\n")
     )
   })
+
+  it("says which components fail to draw and why, and what was corrected by hand", () => {
+    const text = describeComponents({
+      components: ["PromoGate", "PromoPrice"],
+      drawn: 12,
+      failing: [
+        {
+          id: "PromoGate",
+          problem: "provider",
+          reason: "Needs a provider, which a decorator can add: PromoGate must be used within a PromoProvider"
+        }
+      ],
+      corrections: {
+        include: [{ path: "src/promo.tsx", export: "PromoPrice" }],
+        exclude: [{ path: "src/pages/legacy.tsx", export: "default" }]
+      }
+    })
+    expect(text).toBe(
+      [
+        "The project's own:",
+        "  PromoGate, PromoPrice",
+        "",
+        "Failing to draw on the canvas, 1 of 13 drawn so far:",
+        "  PromoGate: Needs a provider, which a decorator can add: PromoGate must be used within a PromoProvider",
+        "",
+        "Corrected by hand in the project file:",
+        "  listed: PromoPrice, in src/promo.tsx",
+        "  taken off: the default export, in src/pages/legacy.tsx"
+      ].join("\n")
+    )
+  })
 })
 
 describe("describeAccessibility", () => {

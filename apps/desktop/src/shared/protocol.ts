@@ -2,6 +2,7 @@ import type { AccessibilityFinding, AccessibilityIssue, AgentEvent } from "@pari
 import type {
   CanvasDocument,
   ComponentInfo,
+  ComponentRenderStatus,
   ComponentSource,
   DescribedTokens,
   DetectionCorrections,
@@ -193,6 +194,8 @@ export interface TabSnapshot {
   addedComponents?: Record<string, Pick<ComponentSource, "path" | "export">>
   /** The app's exports the type checker left out, with why. */
   leftOut?: LeftOutExport[]
+  /** How each component drawn so far fares on the canvas: drawn, or failing with what it threw. */
+  renderStatus?: Record<string, ComponentRenderStatus>
   iconLibraries: string[]
   tokens: Token[]
   theme: ThemeVariable[]

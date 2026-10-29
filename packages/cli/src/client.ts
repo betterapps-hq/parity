@@ -235,10 +235,32 @@ export interface ComponentsResponse {
   iconLibraries?: string[]
   /** The app's capitalised exports the type checker left out, with why. */
   leftOut?: { name: string; path: string; reason: string; undecided?: true }[]
+  /** How many components have drawn on the canvas without errors so far. */
+  drawn?: number
+  /** Components failing to draw on the canvas now: why in words, and the kind of problem. */
+  failing?: { id: string; problem: "provider" | "server" | "async" | "error"; reason: string }[]
+  /** The person's corrections in the main project file, saved or not: exports listed by hand, and ones taken off. */
+  corrections?: { include?: ComponentRef[]; exclude?: ComponentRef[] }
 }
 
-/** The project's own components, then each library's, then the icon libraries, then the exports left out and why. */
-export function describeComponents({ components, iconLibraries = [], leftOut = [] }: ComponentsResponse): string {
+/** One of the app's exports, by its file and export name. */
+export interface ComponentRef {
+  path: string
+  export: string
+}
+
+/**
+ * The project's own components, then each library's, then the icon libraries, then the exports left out and why, the
+ * components failing to draw and why, and what the person corrected by hand.
+ */
+export function describeComponents({
+  components,
+  iconLibraries = [],
+  leftOut = [],
+  drawn = 0,
+  failing = [],
+  corrections = {}
+}: ComponentsResponse): string {
   const groups = new Map<string, string[]>()
   for (const component of components) {
     const slash = component.indexOf("/")
@@ -257,6 +279,19 @@ export function describeComponents({ components, iconLibraries = [], leftOut = [
     for (const entry of leftOut) {
       lines.push(`  ${entry.name}, in ${entry.path}: ${entry.undecided ? "can't tell, " : ""}${entry.reason}`)
     }
+    lines.push("")
+  }
+  if (failing.length > 0) {
+    lines.push(`Failing to draw on the canvas, ${failing.length} of ${failing.length + drawn} drawn so far:`)
+    for (const entry of failing) lines.push(`  ${entry.id}: ${entry.reason}`)
+    lines.push("")
+  }
+  const { include = [], exclude = [] } = corrections
+  if (include.length > 0 || exclude.length > 0) {
+    const name = (ref: ComponentRef) => (ref.export === "default" ? "the default export" : ref.export)
+    lines.push("Corrected by hand in the project file:")
+    for (const ref of include) lines.push(`  listed: ${name(ref)}, in ${ref.path}`)
+    for (const ref of exclude) lines.push(`  taken off: ${name(ref)}, in ${ref.path}`)
   }
   return lines.join("\n").trimEnd()
 }

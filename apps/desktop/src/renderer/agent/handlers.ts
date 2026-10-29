@@ -91,6 +91,7 @@ function snapshot(reference: string | undefined): TabSnapshot {
     components: session.loaded.guest.components.filter((name) => name in session.info.sources),
     ...(session.added ? { addedComponents: session.added } : {}),
     ...(session.info.leftOut ? { leftOut: session.info.leftOut } : {}),
+    ...(session.loaded.guest.renderStatus ? { renderStatus: session.loaded.guest.renderStatus.get() } : {}),
     iconLibraries: session.info.libraries.filter((library) => library.kind === "icons").map((library) => library.id),
     tokens: session.tokens.get(),
     theme: session.info.theme,

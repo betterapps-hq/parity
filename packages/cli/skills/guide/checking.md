@@ -14,7 +14,7 @@ small details.
 `find_problems`, or `Problems` in a snippet, lists what's wrong in each frame without looking at it:
 
 - **Render errors.** A component threw. Usually a prop with the wrong type, or a part used outside its parent (a
-  `TabsTrigger` without `Tabs`).
+  `TabsTrigger` without `Tabs`). `parity components` lists the components failing anywhere on the canvas, with why.
 - **Overflow.** Content wider than the frame, usually a row that needs to wrap or stack on mobile.
 - **Clipping.** A node cut off by a parent with `overflow: hidden` or a fixed size.
 - **Unknown components.** A name that isn't in `Components()`; it draws as a placeholder.

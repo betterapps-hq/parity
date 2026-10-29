@@ -38,7 +38,9 @@ active tab is the default.
 | `read_skill`          | `parity skill [file]`        | This skill.                                                                                                                                                |
 
 In a terminal, `parity tokens`, `parity components` and `parity props <Component>` read what designs can use without
-writing a snippet.
+writing a snippet. `parity components` also says which of the app's exports aren't components and why, which components
+fail to draw on the canvas and why (often a missing provider, which a decorator adds), and what the person listed or
+took off the list by hand.
 
 When a library's components, tokens or icons don't show, `parity lib <package> --root <project>` describes the package
 in a `.lib.par`: its components, tokens and the providers its frames need. It writes `./<id>.lib.par` in the current
