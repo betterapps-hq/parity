@@ -18,7 +18,7 @@ import { spacingUnit, useTokenList } from "../tokens-store.ts"
 import { editingState } from "./LayerPanel.tsx"
 import { setLayout } from "./layout.ts"
 import { PropsSection } from "./PropsSection.tsx"
-import { type StyleEditor, StyleSections } from "./StyleSections.tsx"
+import { type StyleEditor, StyleSections, styleValues } from "./StyleSections.tsx"
 
 /*
  * What the inspector's stories share: a stage that puts the panel where the app does, loaders that open the example
@@ -90,8 +90,10 @@ function useSelectedLayer() {
     style: node.style ?? {},
     changed: (name) => override?.style?.[name] !== undefined,
     reset: (name) => reset({ kind: "style", key: name }),
-    set: (values, label = "Change style") =>
-      change(label, { style: values as NodeStyle }, `style.${Object.keys(values).join(",")}`),
+    set: (edit, label = "Change style") => {
+      const values = styleValues(edit, node.style ?? {}) as NodeStyle
+      change(label, { style: values }, `style.${Object.keys(values).join(",")}`)
+    },
     tokens,
     unit: spacingUnit(tokens),
     measure: () => undefined

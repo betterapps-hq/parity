@@ -1,5 +1,6 @@
 import {
   type DesignNode,
+  type FieldRules,
   type Length,
   type NodeStyle,
   type Padding,
@@ -26,14 +27,33 @@ import {
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
-import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Toggle } from "@/components/ui/toggle"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { kindColors } from "../canvas/kinds.tsx"
-import { ChoiceInput, Field, NumberInput, TokenInput, useMixed } from "./fields.tsx"
+import {
+  ChoiceInput,
+  Field,
+  type FieldUpdate,
+  type FieldValue,
+  NumberField,
+  type NumberFieldProps,
+  NumberInput,
+  TokenInput
+} from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import { PanelSection } from "./PanelSection.tsx"
+
+/** Style properties to set; `undefined` clears one. */
+export type StyleValues = Partial<{ [K in keyof NodeStyle]: NodeStyle[K] | undefined }>
+
+/** Properties to set, or how to work them out from each selected layer's own style, as `Mixed+8` does. */
+export type StyleEdit = StyleValues | ((style: NodeStyle) => StyleValues)
+
+/** An edit's values for one layer, from its style as shown in the state being edited. */
+export function styleValues(edit: StyleEdit, style: NodeStyle): StyleValues {
+  return typeof edit === "function" ? edit(style) : edit
+}
 
 /** Reads and writes one node's style in the state being edited. */
 export interface StyleEditor {
@@ -41,7 +61,13 @@ export interface StyleEditor {
   changed(name: keyof NodeStyle): boolean
   reset(name: keyof NodeStyle): void
   /** Several properties as one undoable change. `undefined` clears a property. */
-  set(values: Partial<{ [K in keyof NodeStyle]: NodeStyle[K] | undefined }>, label?: string): void
+  set(values: StyleEdit, label?: string): void
+  /**
+   * Shows properties on the canvas at once, without changing the design, while a field is typed in or scrubbed:
+   * `set` then makes them, or `endPreview` takes them back.
+   */
+  preview?(values: StyleEdit): void
+  endPreview?(): void
   tokens: Token[]
   /** Pixels per spacing step. */
   unit: number
@@ -55,6 +81,37 @@ export interface StyleEditor {
 function mixedOf(editor: StyleEditor): (name: keyof NodeStyle) => boolean {
   return (name) => editor.mixed?.(name) ?? false
 }
+
+/**
+ * A number field's edits of a style: previewed while typed or scrubbed, then made, each worked out from every selected
+ * layer's own value (`read`) and written back into its style (`write`).
+ */
+function fieldEdits(
+  editor: StyleEditor,
+  label: string,
+  read: (style: NodeStyle) => FieldValue,
+  write: (value: FieldValue, style: NodeStyle) => StyleValues
+): Pick<NumberFieldProps, "onPreview" | "onCancel" | "onCommit"> {
+  const edit =
+    (update: FieldUpdate): StyleEdit =>
+    (style) =>
+      write(update(read(style)), style)
+  return {
+    onPreview: (update) => editor.preview?.(edit(update)),
+    onCancel: () => editor.endPreview?.(),
+    onCommit: (update) => editor.set(edit(update), label)
+  }
+}
+
+/** A field's value as a length: steps, or a token's name. */
+function asLength(value: FieldValue): Length | undefined {
+  return value
+}
+
+/** Unset padding, margin, gaps and insets count as 0 when an edit works from them. */
+const zero = () => 0
+
+const opacityRules: FieldRules = { kind: "percent", min: 0, max: 100, label: "Opacity" }
 
 /** The layout a node sits in, when it sits in one. */
 export interface ParentLayout {
@@ -159,15 +216,29 @@ function LayoutSection({ editor }: SectionProps) {
             <div className="grid grid-cols-2 gap-1">
               <CompactNumber
                 label="Cols"
+                title="Columns"
                 value={style.columns}
                 placeholder="2"
-                onCommit={(columns) => set({ columns: columns && Math.max(1, Math.round(columns)) }, "Change columns")}
+                // A grid without columns set has two.
+                blank={() => 2}
+                {...fieldEdits(
+                  editor,
+                  "Change columns",
+                  (style) => style.columns,
+                  (columns) => ({ columns: columns as number | undefined })
+                )}
               />
               <CompactNumber
                 label="Rows"
+                title="Rows"
                 value={style.rows}
                 placeholder="Auto"
-                onCommit={(rows) => set({ rows: rows && Math.max(1, Math.round(rows)) }, "Change rows")}
+                {...fieldEdits(
+                  editor,
+                  "Change rows",
+                  (style) => style.rows,
+                  (rows) => ({ rows: rows as number | undefined })
+                )}
               />
             </div>
           </Field>
@@ -208,18 +279,38 @@ function LayoutSection({ editor }: SectionProps) {
                 label={grid ? "Col" : "X"}
                 title="Gap between columns"
                 value={style.gap}
-                onCommit={(gap) => set({ gap }, "Change gap")}
+                {...fieldEdits(
+                  editor,
+                  "Change gap",
+                  (style) => style.gap,
+                  (gap) => ({ gap: asLength(gap) })
+                )}
               />
               <LengthInput
                 editor={editor}
                 label={grid ? "Row" : "Y"}
                 title="Gap between rows"
                 value={style.rowGap ?? style.gap}
-                onCommit={(rowGap) => set({ rowGap }, "Change row gap")}
+                {...fieldEdits(
+                  editor,
+                  "Change row gap",
+                  (style) => style.rowGap ?? style.gap,
+                  (rowGap) => ({ rowGap: asLength(rowGap) })
+                )}
               />
             </div>
           ) : (
-            <LengthInput editor={editor} title="Gap" value={style.gap} onCommit={(gap) => set({ gap }, "Change gap")} />
+            <LengthInput
+              editor={editor}
+              title="Gap"
+              value={style.gap}
+              {...fieldEdits(
+                editor,
+                "Change gap",
+                (style) => style.gap,
+                (gap) => ({ gap: asLength(gap) })
+              )}
+            />
           )}
         </Field>
       </div>
@@ -295,16 +386,22 @@ function SpacingSection({ editor }: SectionProps) {
 }
 
 function SidesField({ editor, name, label }: { editor: StyleEditor; name: "padding" | "margin"; label: string }) {
-  const { style, changed, reset, set } = editor
+  const { style, changed, reset } = editor
   const mixed = mixedOf(editor)
   const sides = sidesOf(style[name])
   const [perSide, setPerSide] = useState(Array.isArray(style[name]) && style[name].length === 4)
-  const commit = (next: SideValues) => set({ [name]: tidySides(next) }, `Change ${name}`)
-  const at = (index: number, value: Length | undefined): SideValues => {
-    const next = [...(sides ?? [0, 0, 0, 0])] as SideValues
-    next[index] = value ?? 0
-    return next
-  }
+  /** Edits of some sides, read from the first of them, in each layer's own padding or margin. */
+  const sideEdits = (indices: number[]) =>
+    fieldEdits(
+      editor,
+      `Change ${name}`,
+      (layer) => sidesOf(layer[name])?.[indices[0]!],
+      (value, layer) => {
+        const next = [...(sidesOf(layer[name]) ?? [0, 0, 0, 0])] as SideValues
+        for (const index of indices) next[index] = asLength(value) ?? 0
+        return { [name]: tidySides(next) }
+      }
+    )
   return (
     <Field label={label} changed={changed(name)} mixed={mixed(name)} onReset={() => reset(name)}>
       <div className="flex items-center gap-1">
@@ -317,7 +414,7 @@ function SidesField({ editor, name, label }: { editor: StyleEditor; name: "paddi
                 label={side[0]}
                 title={`${side} ${name}`}
                 value={sides?.[index]}
-                onCommit={(value) => commit(at(index, value))}
+                {...sideEdits([index])}
               />
             ))}
           </div>
@@ -328,14 +425,14 @@ function SidesField({ editor, name, label }: { editor: StyleEditor; name: "paddi
               label="V"
               title={`Top and bottom ${name}`}
               value={sides?.[0]}
-              onCommit={(value) => commit([value ?? 0, sides?.[1] ?? 0, value ?? 0, sides?.[3] ?? 0])}
+              {...sideEdits([0, 2])}
             />
             <LengthInput
               editor={editor}
               label="H"
               title={`Left and right ${name}`}
               value={sides?.[1]}
-              onCommit={(value) => commit([sides?.[0] ?? 0, value ?? 0, sides?.[2] ?? 0, value ?? 0])}
+              {...sideEdits([1, 3])}
             />
           </div>
         )}
@@ -362,19 +459,40 @@ function SizeSection({ editor, node, parent }: SectionProps) {
     [style.minWidth, style.maxWidth, style.minHeight, style.maxHeight].some((value) => value !== undefined)
   )
   // `grow` is the older way to fill along the parent's direction; it shows, and is replaced, as fill.
-  const grows = (axis: "width" | "height") =>
-    style.grow === true && (axis === "width") === (parent?.direction !== "column")
+  const grows = (axis: "width" | "height", layer: NodeStyle = style) =>
+    layer.grow === true && (axis === "width") === (parent?.direction !== "column")
+  const sizeOf = (axis: "width" | "height", layer: NodeStyle) => (grows(axis, layer) ? "fill" : layer[axis])
   const sizeField = (axis: "width" | "height", label: string) => (
     <Field label={label} changed={changed(axis)} mixed={mixed(axis)} onReset={() => reset(axis)}>
       <SizeInput
         editor={editor}
         axis={axis}
-        value={grows(axis) ? "fill" : style[axis]}
+        value={sizeOf(axis, style)}
         canFill={parent !== undefined || node.type === "layout"}
         onChange={(value) => set({ [axis]: value, ...(grows(axis) ? { grow: undefined } : {}) }, `Change ${axis}`)}
+        // A typed length makes a layer's size fixed; clearing it puts a fixed size back to auto and leaves fill or hug.
+        edits={fieldEdits(
+          editor,
+          `Change ${axis}`,
+          (layer) => fixedSize(sizeOf(axis, layer)),
+          (value, layer) => {
+            const size = sizeOf(axis, layer)
+            return {
+              [axis]: asLength(value) ?? (fixedSize(size) === undefined ? size : undefined),
+              ...(grows(axis, layer) ? { grow: undefined } : {})
+            }
+          }
+        )}
       />
     </Field>
   )
+  const lengthEdits = (name: "minWidth" | "minHeight" | "maxWidth" | "maxHeight", label: string) =>
+    fieldEdits(
+      editor,
+      label,
+      (layer) => layer[name],
+      (value) => ({ [name]: asLength(value) })
+    )
   return (
     <PanelSection
       title="Size"
@@ -406,14 +524,16 @@ function SizeSection({ editor, node, parent }: SectionProps) {
                   label="W"
                   title="Minimum width"
                   value={style.minWidth}
-                  onCommit={(minWidth) => set({ minWidth }, "Change minimum width")}
+                  blank={none}
+                  {...lengthEdits("minWidth", "Change minimum width")}
                 />
                 <LengthInput
                   editor={editor}
                   label="H"
                   title="Minimum height"
                   value={style.minHeight}
-                  onCommit={(minHeight) => set({ minHeight }, "Change minimum height")}
+                  blank={none}
+                  {...lengthEdits("minHeight", "Change minimum height")}
                 />
               </div>
             </Field>
@@ -429,14 +549,16 @@ function SizeSection({ editor, node, parent }: SectionProps) {
                   label="W"
                   title="Maximum width"
                   value={style.maxWidth}
-                  onCommit={(maxWidth) => set({ maxWidth }, "Change maximum width")}
+                  blank={none}
+                  {...lengthEdits("maxWidth", "Change maximum width")}
                 />
                 <LengthInput
                   editor={editor}
                   label="H"
                   title="Maximum height"
                   value={style.maxHeight}
-                  onCommit={(maxHeight) => set({ maxHeight }, "Change maximum height")}
+                  blank={none}
+                  {...lengthEdits("maxHeight", "Change maximum height")}
                 />
               </div>
             </Field>
@@ -462,15 +584,29 @@ function SizeSection({ editor, node, parent }: SectionProps) {
             <div className="grid grid-cols-2 gap-1">
               <CompactNumber
                 label="Cols"
+                title="Columns spanned"
                 value={style.colSpan}
                 placeholder="1"
-                onCommit={(colSpan) => set({ colSpan: colSpan && Math.max(1, Math.round(colSpan)) }, "Change span")}
+                blank={() => 1}
+                {...fieldEdits(
+                  editor,
+                  "Change span",
+                  (layer) => layer.colSpan,
+                  (colSpan) => ({ colSpan: colSpan as number | undefined })
+                )}
               />
               <CompactNumber
                 label="Rows"
+                title="Rows spanned"
                 value={style.rowSpan}
                 placeholder="1"
-                onCommit={(rowSpan) => set({ rowSpan: rowSpan && Math.max(1, Math.round(rowSpan)) }, "Change span")}
+                blank={() => 1}
+                {...fieldEdits(
+                  editor,
+                  "Change span",
+                  (layer) => layer.rowSpan,
+                  (rowSpan) => ({ rowSpan: rowSpan as number | undefined })
+                )}
               />
             </div>
           </Field>
@@ -480,30 +616,44 @@ function SizeSection({ editor, node, parent }: SectionProps) {
   )
 }
 
-/** Fixed (a length), fill or hug. Typing a length or picking a token makes it fixed. */
+/** A size's fixed length, or nothing when it's unset, fill or hug. */
+function fixedSize(size: Size | undefined): Length | undefined {
+  return size === "fill" || size === "hug" ? undefined : size
+}
+
+/** Unset limits have no value an edit can work from. */
+const none = () => undefined
+
+/**
+ * Fixed (a length), fill or hug. Typing a length or picking a token makes it fixed; maths that works from the size
+ * there starts from the layer's measured size when it isn't fixed, as Figma's always-numeric sizes do.
+ */
 function SizeInput({
   editor,
   axis,
   value,
   canFill,
-  onChange
+  onChange,
+  edits
 }: {
   editor: StyleEditor
   axis: "width" | "height"
   value: Size | undefined
   canFill: boolean
   onChange(value: Size | undefined): void
+  edits: Pick<NumberFieldProps, "onPreview" | "onCancel" | "onCommit">
 }) {
   const fixed = value !== undefined && value !== "fill" && value !== "hug"
   const mode = fixed ? "fixed" : (value ?? "auto")
   return (
-    <div className="grid grid-cols-[1fr_92px] gap-1">
+    <div className="grid grid-cols-[1fr_92px] items-start gap-1">
       <LengthInput
         editor={editor}
         title={axis === "width" ? "Width" : "Height"}
         value={fixed ? value : undefined}
         placeholder={mode === "auto" ? "Auto" : mode === "fill" ? "Fill" : "Hug"}
-        onCommit={(next) => onChange(next ?? (fixed ? undefined : value))}
+        blank={() => editor.measure(axis)}
+        {...edits}
       />
       <ChoiceInput
         value={mode === "auto" ? undefined : mode}
@@ -574,7 +724,14 @@ function PositionSection({ editor, parent }: SectionProps) {
                   label={side[0]!.toUpperCase()}
                   title={`Distance from the parent's ${side} edge`}
                   value={style[side]}
-                  onCommit={(value) => set({ [side]: value }, `Change ${side}`)}
+                  // An inset can be negative, past the parent's edge.
+                  min={-Infinity}
+                  {...fieldEdits(
+                    editor,
+                    `Change ${side}`,
+                    (layer) => layer[side],
+                    (value) => ({ [side]: asLength(value) })
+                  )}
                 />
               ))}
             </div>
@@ -623,14 +780,18 @@ function AppearanceSection({ editor }: SectionProps) {
         <Field label="Opacity" changed={changed("opacity")} mixed={mixed("opacity")} onReset={() => reset("opacity")}>
           <NumberInput
             value={style.opacity}
+            rules={opacityRules}
+            title="Opacity"
             placeholder="100"
             suffix="%"
-            onCommit={(opacity) =>
-              set(
-                { opacity: opacity === undefined ? undefined : Math.min(100, Math.max(0, opacity)) },
-                "Change opacity"
-              )
-            }
+            // Unset is fully opaque.
+            blank={() => 100}
+            {...fieldEdits(
+              editor,
+              "Change opacity",
+              (layer) => layer.opacity,
+              (opacity) => ({ opacity: opacity as number | undefined })
+            )}
           />
         </Field>
         <Field
@@ -890,8 +1051,15 @@ function TextSection({ editor, node }: SectionProps) {
           <Field label="Max lines" changed={changed("lines")} mixed={mixed("lines")} onReset={() => reset("lines")}>
             <NumberInput
               value={style.lines}
+              rules={linesRules}
+              title="Max lines"
               placeholder="No limit"
-              onCommit={(lines) => set({ lines: lines && Math.max(1, Math.round(lines)) }, "Change max lines")}
+              {...fieldEdits(
+                editor,
+                "Change max lines",
+                (layer) => layer.lines,
+                (lines) => ({ lines: lines as number | undefined })
+              )}
             />
           </Field>
         )}
@@ -901,8 +1069,8 @@ function TextSection({ editor, node }: SectionProps) {
 }
 
 /**
- * A length: type a step of the spacing scale (`4` is 16px with a 4px unit), or pick a step or one of the project's
- * length tokens from the list. Shows what it comes to in pixels.
+ * A length, typed and shown in pixels (320 is 320px) and kept as steps of the spacing scale, or one of the project's
+ * length tokens by name. The list beside it picks a step or a token. What it reads is in `@parity/core`'s fields.ts.
  */
 export function LengthInput({
   editor,
@@ -910,55 +1078,50 @@ export function LengthInput({
   label,
   title,
   placeholder = "0",
+  min = 0,
+  blank = zero,
+  onPreview,
+  onCancel,
   onCommit
 }: {
   editor: Pick<StyleEditor, "tokens" | "unit">
   value: Length | undefined
-  /** A letter or two inside the field, for rows of related lengths. */
+  /** A letter or two inside the field, for rows of related lengths. Dragging it scrubs. */
   label?: string
   title: string
   placeholder?: string
-  onCommit(value: Length | undefined): void
-}) {
+  /** The least it takes, in steps: 0, or `-Infinity` for an inset. */
+  min?: number
+  /** What an unset value counts as when an edit works from it. */
+  blank?: () => number | undefined
+} & Pick<NumberFieldProps, "onPreview" | "onCancel" | "onCommit">) {
   const { tokens, unit } = editor
-  const mixed = useMixed()
   const [open, setOpen] = useState(false)
   const lengthTokens = tokens.filter(
     (token) => (token.category === "spacing" || token.category === "container") && token.name !== "spacing"
   )
   const scale = lengthTokens.filter((token) => token.derived)
   const named = lengthTokens.filter((token) => !token.derived)
-  const shown = value === undefined ? "" : typeof value === "number" ? String(value) : value
-  const px = typeof value === "number" ? `${formatPx(value * unit)}px` : undefined
-  const commitText = (text: string) => {
-    const raw = text.trim()
-    if (raw === shown) return
-    if (raw === "") return onCommit(undefined)
-    const step = /^spacing-([\d.]+)$/.exec(raw)?.[1] ?? raw
-    if (Number.isFinite(Number(step))) return onCommit(Math.max(0, Number(step)))
-    const token = named.find((candidate) => candidate.name === raw.replace(/^--/, ""))
-    if (token) onCommit(token.name)
+  const rules: FieldRules = { kind: "length", unit, min, label: title }
+  const pick = (picked: Length) => {
+    onCommit(() => picked)
+    setOpen(false)
   }
   return (
-    <Hint label={px ? `${title}, ${px}` : title} wait>
-      <div className="flex h-7 min-w-0 items-center rounded-md border border-input shadow-xs focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 dark:bg-input/30">
-        {label && (
-          <span className="pointer-events-none shrink-0 pl-1.5 text-[10px] text-muted-foreground">{label}</span>
-        )}
-        <Input
-          key={shown}
-          aria-label={title}
-          defaultValue={shown}
-          placeholder={mixed && value === undefined ? "Mixed" : placeholder}
-          className={`h-6 min-w-0 flex-1 border-0 bg-transparent px-1.5 text-xs shadow-none focus-visible:ring-0 dark:bg-transparent ${
-            typeof value === "string" ? "font-mono" : "tabular-nums"
-          }`}
-          onBlur={(event) => commitText(event.currentTarget.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") event.currentTarget.blur()
-          }}
-        />
-        {px && <span className="pointer-events-none shrink-0 pr-0.5 text-[10px] text-muted-foreground">{px}</span>}
+    <NumberField
+      value={value}
+      rules={rules}
+      title={title}
+      tokens={named.map((token) => token.name)}
+      placeholder={placeholder}
+      blank={blank}
+      inner={label}
+      hint={typeof value === "number" ? `${title}, ${lengthLabel(value)}` : title}
+      suffix={typeof value === "number" ? "px" : undefined}
+      onPreview={onPreview}
+      onCancel={onCancel}
+      onCommit={onCommit}
+      after={
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <button
@@ -980,10 +1143,7 @@ export function LengthInput({
                       <CommandItem
                         key={token.name}
                         value={token.name}
-                        onSelect={() => {
-                          onCommit(token.name)
-                          setOpen(false)
-                        }}
+                        onSelect={() => pick(token.name)}
                         className="gap-2 text-xs"
                       >
                         <span className="min-w-0 flex-1 truncate font-mono">{token.name}</span>
@@ -997,10 +1157,7 @@ export function LengthInput({
                     <CommandItem
                       key={token.name}
                       value={token.name}
-                      onSelect={() => {
-                        onCommit(token.derived!.factor)
-                        setOpen(false)
-                      }}
+                      onSelect={() => pick(token.derived!.factor)}
                       className="gap-2 text-xs"
                     >
                       <span
@@ -1021,45 +1178,44 @@ export function LengthInput({
             </Command>
           </PopoverContent>
         </Popover>
-      </div>
-    </Hint>
+      }
+    />
   )
 }
 
-/** A whole number with a short label inside the field. */
+/** Whole numbers from 1: columns, rows and spans. */
+const countRules: FieldRules = { kind: "count", min: 1 }
+const linesRules: FieldRules = { kind: "count", min: 1, label: "Max lines" }
+
+/** A whole number with a short label inside the field, which scrubs it. */
 function CompactNumber({
   label,
+  title,
   value,
   placeholder,
+  blank,
+  onPreview,
+  onCancel,
   onCommit
 }: {
   label: string
+  title: string
   value: number | undefined
   placeholder: string
-  onCommit(value: number | undefined): void
-}) {
-  const mixed = useMixed()
+  blank?: () => number | undefined
+} & Pick<NumberFieldProps, "onPreview" | "onCancel" | "onCommit">) {
   return (
-    <label className="flex h-7 min-w-0 items-center gap-1 rounded-md border border-input px-1.5 shadow-xs focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 dark:bg-input/30">
-      <span className="shrink-0 text-[10px] text-muted-foreground">{label}</span>
-      <Input
-        key={value ?? ""}
-        type="number"
-        min={1}
-        aria-label={label}
-        defaultValue={value ?? ""}
-        placeholder={mixed && value === undefined ? "Mixed" : placeholder}
-        className="h-6 min-w-0 flex-1 border-0 bg-transparent p-0 text-xs tabular-nums shadow-none focus-visible:ring-0 dark:bg-transparent"
-        onBlur={(event) => {
-          const raw = event.currentTarget.value.trim()
-          const next = raw === "" ? undefined : Number(raw)
-          if (next !== value && (next === undefined || Number.isFinite(next))) onCommit(next)
-        }}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") event.currentTarget.blur()
-        }}
-      />
-    </label>
+    <NumberField
+      value={value}
+      rules={{ ...countRules, label: title }}
+      title={title}
+      inner={label}
+      placeholder={placeholder}
+      blank={blank}
+      onPreview={onPreview}
+      onCancel={onCancel}
+      onCommit={onCommit}
+    />
   )
 }
 

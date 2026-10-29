@@ -35,7 +35,10 @@ export function DesignTab() {
       </div>
     )
   }
-  if (selected.nodes && selected.nodes.length > 1) return <MultiLayerPanel entry={entry} ids={selected.nodes} />
+  if (selected.nodes && selected.nodes.length > 1) {
+    // Another set of layers starts its fields afresh, as another layer does, rather than keeping what was typed.
+    return <MultiLayerPanel key={selected.nodes.join(",")} entry={entry} ids={selected.nodes} />
+  }
   if (selected.designs && selected.designs.length > 1) return <ArrangePanel keys={selected.designs} />
   if (selected.node) return <LayerPanel key={selected.node} entry={entry} nodeId={selected.node} />
   return <DesignPanel entry={entry} />

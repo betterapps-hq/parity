@@ -4,7 +4,16 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { ChoiceInput, Field, NumberInput, parseLooseValue, SwitchInput, TextInput, ValueInput } from "./fields.tsx"
+import {
+  ChoiceInput,
+  Field,
+  NumberInput,
+  numberRules,
+  parseLooseValue,
+  SwitchInput,
+  TextInput,
+  ValueInput
+} from "./fields.tsx"
 import { PanelSection } from "./PanelSection.tsx"
 
 interface PropsSectionProps {
@@ -119,9 +128,12 @@ function PropInput({ prop, value, onChange }: { prop: ComponentProp; value: unkn
       return (
         <NumberInput
           value={typeof value === "number" ? value : undefined}
+          rules={numberRules}
+          title={prop.name}
           placeholder={fallback ?? ""}
-          min={-Infinity}
-          onCommit={onChange}
+          // Maths that works from the value there starts from the default when the prop isn't set.
+          blank={() => (typeof prop.default === "number" ? prop.default : undefined)}
+          onCommit={(update) => onChange(update(typeof value === "number" ? value : undefined))}
         />
       )
     case "string":

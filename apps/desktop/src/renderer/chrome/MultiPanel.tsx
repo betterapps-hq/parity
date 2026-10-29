@@ -1,5 +1,6 @@
 import {
   boardTarget,
+  type ContainerSpec,
   type DesignNode,
   editNode,
   findNode,
@@ -29,6 +30,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { useProject } from "../canvas/context.ts"
 import { designColor, kindColors } from "../canvas/kinds.tsx"
+import { useStylePreview } from "../canvas/style-preview.ts"
 import type { ContainerEntry } from "../design-store.ts"
 import { useSelection } from "../selection.ts"
 import { spacingUnit, useTokenList } from "../tokens-store.ts"
@@ -38,7 +40,7 @@ import { IconButton } from "./IconButton.tsx"
 import { keymap } from "./keymap.ts"
 import { editingState } from "./LayerPanel.tsx"
 import { PanelSection } from "./PanelSection.tsx"
-import { type StyleEditor, StyleSections } from "./StyleSections.tsx"
+import { type StyleEdit, type StyleEditor, StyleSections, styleValues } from "./StyleSections.tsx"
 
 const alignments: { value: Alignment; label: string; shortcut: string; icon: typeof AlignStartVertical }[] = [
   { value: "left", label: "Align left", shortcut: keymap.alignLeft.keys[0], icon: AlignStartVertical },
@@ -137,8 +139,19 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
   const variants = shownVariants(container)
   const present = ids.filter((id) => findNode(container.root, id))
   const nodes = present.map((id) => nodeInState(findNode(container.root, id)!, state, variants))
+  const preview = useStylePreview(session, key)
   const primary = nodes.at(-1)
   if (!primary) return <p className="p-4 text-sm text-muted-foreground">These layers no longer exist.</p>
+  /** An edit worked out for each layer from its own style, once, and how to apply it to the design. */
+  const edited = (edit: StyleEdit) => {
+    const values = nodes.map((node) => styleValues(edit, node.style ?? {}) as NodeStyle)
+    const apply = (current: ContainerSpec) =>
+      present.reduce(
+        (next, id, index) => editNode(next, boardTarget(next, state.id), id, { style: values[index] }),
+        current
+      )
+    return { apply, keys: Object.keys(values.at(-1) ?? {}) }
+  }
 
   const { common, mixed } = sharedStyle(nodes)
   const parents = new Set(present.map((id) => locateNode(container.root, id)?.ancestors.at(-1)?.id))
@@ -154,17 +167,15 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
           current
         )
       ),
-    set: (values, label = "Change style") =>
-      store.updateContainer(
-        key,
-        `${label} on ${present.length} layers`,
-        (current) =>
-          present.reduce(
-            (next, id) => editNode(next, boardTarget(next, state.id), id, { style: values as NodeStyle }),
-            current
-          ),
-        { group: `edit:${present.join(",")}:style.${Object.keys(values).join(",")}` }
-      ),
+    set: (edit, label = "Change style") => {
+      const { apply, keys } = edited(edit)
+      preview.settle(apply)
+      store.updateContainer(key, `${label} on ${present.length} layers`, apply, {
+        group: `edit:${present.join(",")}:style.${keys.join(",")}`
+      })
+    },
+    preview: (edit) => preview.show(edited(edit).apply),
+    endPreview: () => preview.cancel(),
     tokens,
     unit: spacingUnit(tokens),
     measure: () => undefined,

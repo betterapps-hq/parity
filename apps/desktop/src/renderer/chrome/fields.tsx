@@ -1,6 +1,28 @@
-import type { Token, TokenCategory } from "@parity/core"
+import {
+  applyFieldInput,
+  type FieldNote,
+  type FieldRules,
+  formatFieldValue,
+  readFieldInput,
+  scrubSteps,
+  stepFieldValue,
+  summarizeFieldNotes,
+  type Token,
+  type TokenCategory
+} from "@parity/core"
 import { Check, ChevronsUpDown, RotateCcw } from "lucide-react"
-import { createContext, type ReactNode, useContext, useState } from "react"
+import {
+  createContext,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState
+} from "react"
 import { Button } from "@/components/ui/button"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Input } from "@/components/ui/input"
@@ -9,6 +31,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { kindColors } from "../canvas/kinds.tsx"
 import { Hint } from "./Hint.tsx"
+import {
+  type FieldEffect,
+  type FieldEvent,
+  fieldText,
+  initialFieldState,
+  type Reading,
+  reduceField
+} from "./number-field.ts"
 
 interface FieldProps {
   label: string
@@ -29,24 +59,72 @@ export function useMixed(): boolean {
   return useContext(MixedContext)
 }
 
-/** One property row: label, control, and a reset button when a state overrides it. */
+/** Starts scrubbing a field from a pointer pressed on a label. */
+type Scrub = (event: ReactPointerEvent<HTMLElement>) => void
+
+/** Number fields in a row without a label of their own, which the row's label scrubs. */
+const ScrubContext = createContext<((scrub: Scrub) => () => void) | undefined>(undefined)
+
+/** What a field says under itself: why it can't read what's typed, or what it did with a value. */
+interface FieldMessage {
+  tone: "error" | "note"
+  text: string
+}
+
+/** Lets a row's fields say things under the whole row, where there's room, by the id each describes itself with. */
+const MessageContext = createContext<((id: string, message: FieldMessage | undefined) => void) | undefined>(undefined)
+
+/**
+ * One property row: label, control, and a reset button when a state overrides it. When the row holds one number field
+ * without a label of its own, dragging the row's label scrubs it, as Figma's labels do. What its fields say shows under
+ * the row.
+ */
 export function Field({ label, hint, changed, mixed = false, onReset, children }: FieldProps) {
+  const scrubs = useRef(new Set<Scrub>())
+  const [scrub, setScrub] = useState<Scrub>()
+  const register = useCallback((added: Scrub) => {
+    scrubs.current.add(added)
+    const only = () => setScrub(() => (scrubs.current.size === 1 ? [...scrubs.current][0] : undefined))
+    only()
+    return () => {
+      scrubs.current.delete(added)
+      only()
+    }
+  }, [])
+  const [messages, setMessages] = useState<ReadonlyMap<string, FieldMessage>>(new Map())
+  const say = useCallback((id: string, message: FieldMessage | undefined) => {
+    setMessages((current) => {
+      const was = current.get(id)
+      if (was?.text === message?.text && was?.tone === message?.tone) return current
+      const next = new Map(current)
+      if (message) next.set(id, message)
+      else next.delete(id)
+      return next
+    })
+  }, [])
   return (
     <div className="grid min-h-8 grid-cols-[88px_1fr_20px] items-center gap-2">
       <Hint
         label={changed ? `${label}: changed in this state` : label}
-        detail={[mixed && "Different across the selected layers", hint].filter(Boolean).join("\n")}
+        detail={[mixed && "Different across the selected layers", hint, scrub && "Drag to change it"]
+          .filter(Boolean)
+          .join("\n")}
         wait
       >
         <span
-          className="truncate text-xs text-muted-foreground"
+          className={`truncate text-xs text-muted-foreground ${scrub ? "cursor-ew-resize touch-none select-none" : ""}`}
           style={changed ? { color: kindColors.agent } : undefined}
+          onPointerDown={scrub}
         >
           {label}
         </span>
       </Hint>
       <div className="min-w-0">
-        <MixedContext value={mixed}>{children}</MixedContext>
+        <ScrubContext value={register}>
+          <MessageContext value={say}>
+            <MixedContext value={mixed}>{children}</MixedContext>
+          </MessageContext>
+        </ScrubContext>
       </div>
       {changed && onReset ? (
         <Hint label="Reset to the base design">
@@ -62,7 +140,27 @@ export function Field({ label, hint, changed, mixed = false, onReset, children }
       ) : (
         <span />
       )}
+      {messages.size > 0 && (
+        <div className="col-span-2 col-start-2 -mt-1 flex flex-col gap-0.5 pb-1">
+          {[...messages].map(([id, message]) => (
+            <FieldMessageLine key={id} id={id} message={message} />
+          ))}
+        </div>
+      )}
     </div>
+  )
+}
+
+function FieldMessageLine({ id, message }: { id: string; message: FieldMessage }) {
+  const error = message.tone === "error"
+  return (
+    <p
+      id={id}
+      role={error ? "alert" : "status"}
+      className={`text-[11px] leading-snug ${error ? "text-destructive" : "text-muted-foreground"}`}
+    >
+      {message.text}
+    </p>
   )
 }
 
@@ -114,41 +212,327 @@ export function TextInput({
   )
 }
 
-export function NumberInput({
-  value,
-  onCommit,
-  suffix,
-  placeholder,
-  min = 0
-}: {
-  value: number | undefined
-  onCommit(value: number | undefined): void
-  suffix?: string
+/** What a number or length field holds: a number in what it stores (steps for lengths), a token's name, or nothing. */
+export type FieldValue = number | string | undefined
+
+/**
+ * An edit from a number field, worked out from a layer's own value: the same for every layer unless what was typed
+ * uses the value there (`+8`, `Mixed*2`, `50%`, a step or a scrub). A value it can't work from stays as it is.
+ */
+export type FieldUpdate = (current: FieldValue) => FieldValue
+
+export interface NumberFieldProps {
+  /** What it holds; undefined when unset, or when the selected layers differ (then it shows Mixed). */
+  value: FieldValue
+  rules: FieldRules
+  /** Its accessible name. */
+  title: string
+  /** Length token names it takes as typed. */
+  tokens?: readonly string[]
   placeholder?: string
-  min?: number
-}) {
+  /** What an unset value counts as when an edit works from it: 0 for padding, a layer's measured width. */
+  blank?: () => number | undefined
+  /** A letter or two inside the field, which scrubs it when dragged. Without one, the row's label does. */
+  inner?: string
+  /** Inside the field, after the value. */
+  suffix?: ReactNode
+  /** Inside the field's border, at its end, such as a token picker. */
+  after?: ReactNode
+  /** Shows a token name in a code font. */
+  mono?: boolean
+  className?: string
+  /** Said on hovering the field, such as the step a length is. */
+  hint?: string
+  /** Shows an edit on the canvas while it's typed or scrubbed, without making it. */
+  onPreview?(update: FieldUpdate): void
+  /** Takes the preview back. */
+  onCancel?(): void
+  /** Makes the edit, as one undo step. */
+  onCommit(update: FieldUpdate): void
+}
+
+/**
+ * A number or length field that takes what people type: units, maths, the value there (`+8`, `Mixed+8`), Up and Down
+ * (Shift for ten), and dragging its label to scrub. The canvas previews while typing or scrubbing; Enter commits and
+ * keeps focus; input it can't read stays, with the reason under it; and what's typed survives the value changing
+ * underneath. The rules are in `@parity/core`'s fields.ts and the behaviour in number-field.ts.
+ */
+export function NumberField({
+  value,
+  rules,
+  title,
+  tokens,
+  placeholder,
+  blank,
+  inner,
+  suffix,
+  after,
+  mono = false,
+  className = "",
+  hint,
+  onPreview,
+  onCancel,
+  onCommit
+}: NumberFieldProps) {
   const mixed = useMixed()
-  return (
-    <div className="flex items-center gap-1.5">
+  const register = useContext(ScrubContext)
+  const say = useContext(MessageContext)
+  const input = useRef<HTMLInputElement>(null)
+  const messageId = useId()
+  const [state, setState] = useState(initialFieldState)
+  useEffect(() => say?.(messageId, state.message), [say, messageId, state.message])
+  useEffect(() => () => say?.(messageId, undefined), [say, messageId])
+  const current = useRef(state)
+  const previewing = useRef(false)
+  const [selecting, setSelecting] = useState(0)
+  const shown = mixed && value === undefined ? "Mixed" : formatFieldValue(value, rules)
+
+  /** A value as a number to work from: its own, or what unset counts as; a token has none. */
+  const numeric = (from: FieldValue) => (typeof from === "number" ? from : from === undefined ? blank?.() : undefined)
+
+  const read = (text: string): Reading => {
+    const typed = readFieldInput(text, rules, tokens)
+    if (typed.type === "unreadable") return { ok: false, reason: typed.reason }
+    // With layers that differ, what works from the value is worked out for each; it can't be checked against one.
+    if (mixed && value === undefined && typed.type === "maths" && typed.relative) return { ok: true }
+    const outcome = applyFieldInput(typed, numeric(value), rules)
+    return outcome.ok ? { ok: true } : { ok: false, reason: outcome.reason }
+  }
+
+  /**
+   * The edit for some text, then `step` steps from what it comes to, and what it did to values that didn't fit,
+   * gathered as it's worked out. Without text, it steps from the value there.
+   */
+  const editFor = (text: string | undefined, step = 0) => {
+    const typed = text === undefined ? undefined : readFieldInput(text, rules, tokens)
+    const notes: FieldNote[] = []
+    const kept: string[] = []
+    const update: FieldUpdate = (from) => {
+      if (!typed && step === 0) return from
+      let base = numeric(from)
+      if (typed) {
+        const outcome = applyFieldInput(typed, base, rules)
+        if (!outcome.ok) {
+          kept.push(outcome.reason)
+          return from
+        }
+        if (step === 0) {
+          if (outcome.note) notes.push(outcome.note)
+          return outcome.value
+        }
+        base = typeof outcome.value === "number" ? outcome.value : undefined
+      }
+      return base === undefined ? from : stepFieldValue(base, step, rules)
+    }
+    const summary = () => {
+      const note = summarizeFieldNotes(notes, rules)
+      const skipped =
+        kept.length > 0
+          ? `${kept.length === 1 ? "A layer" : `${kept.length} layers`} kept its value: ${kept[0]}`
+          : undefined
+      return [note, skipped].filter(Boolean).join(". ") || undefined
+    }
+    return { update, summary }
+  }
+
+  const run = (effect: FieldEffect) => {
+    switch (effect.type) {
+      case "preview":
+        previewing.current = true
+        onPreview?.(editFor(effect.text).update)
+        return
+      case "cancel":
+        if (previewing.current) onCancel?.()
+        previewing.current = false
+        return
+      case "commit": {
+        const { update, summary } = editFor(effect.text)
+        onCommit(update)
+        previewing.current = false
+        return dispatch({ type: "committed", note: summary() })
+      }
+      case "step": {
+        const { update, summary } = editFor(effect.from, effect.count)
+        onCommit(update)
+        previewing.current = false
+        return dispatch({ type: "committed", note: summary() })
+      }
+      case "select":
+        return setSelecting((count) => count + 1)
+      case "blur":
+        return input.current?.blur()
+    }
+  }
+
+  function dispatch(event: FieldEvent) {
+    const update = reduceField(current.current, event, read)
+    current.current = update.state
+    setState(update.state)
+    for (const effect of update.effects) run(effect)
+  }
+
+  // Enter keeps the field, with its text selected once the committed value shows.
+  useLayoutEffect(() => {
+    if (selecting > 0) input.current?.select()
+  }, [selecting])
+
+  // A preview doesn't outlive its field, as when the selection changes while typing.
+  const cancel = useRef(onCancel)
+  cancel.current = onCancel
+  useEffect(
+    () => () => {
+      if (previewing.current) cancel.current?.()
+    },
+    []
+  )
+
+  const scrub = (event: ReactPointerEvent<HTMLElement>) => {
+    if (event.button !== 0) return
+    event.preventDefault()
+    const handle = event.currentTarget
+    handle.setPointerCapture(event.pointerId)
+    const start = event.clientX
+    let steps = 0
+    let update: FieldUpdate | undefined
+    dispatch({ type: "scrubStart" })
+    const move = (moveEvent: PointerEvent) => {
+      const next = scrubSteps(moveEvent.clientX - start, moveEvent.shiftKey)
+      if (next === steps) return
+      steps = next
+      update = editFor(undefined, steps).update
+      previewing.current = true
+      onPreview?.(update)
+      const own = mixed && value === undefined ? undefined : update(value)
+      dispatch({ type: "scrubMove", text: own === undefined ? shown : formatFieldValue(own, rules) })
+    }
+    const stop = (commit: boolean) => {
+      handle.removeEventListener("pointermove", move)
+      handle.removeEventListener("pointerup", up)
+      handle.removeEventListener("pointercancel", cancelled)
+      window.removeEventListener("keydown", key, true)
+      dispatch({ type: "scrubEnd" })
+      if (commit && steps !== 0) {
+        const { update: final, summary } = editFor(undefined, steps)
+        onCommit(final)
+        previewing.current = false
+        dispatch({ type: "committed", note: summary() })
+      } else run({ type: "cancel" })
+      // A press without a drag is a click: on a label inside the field, it goes to the field.
+      if (steps === 0 && inner) input.current?.focus()
+    }
+    const up = () => stop(true)
+    const cancelled = () => stop(false)
+    const key = (keyEvent: KeyboardEvent) => {
+      if (keyEvent.key !== "Escape") return
+      keyEvent.preventDefault()
+      keyEvent.stopPropagation()
+      stop(false)
+    }
+    handle.addEventListener("pointermove", move)
+    handle.addEventListener("pointerup", up)
+    handle.addEventListener("pointercancel", cancelled)
+    window.addEventListener("keydown", key, true)
+  }
+
+  // Without a label of its own, the row's label scrubs it.
+  const latest = useRef(scrub)
+  latest.current = scrub
+  useEffect(() => (inner || !register ? undefined : register((event) => latest.current(event))), [inner, register])
+
+  const error = state.message?.tone === "error"
+  const box = (
+    <div
+      data-invalid={error ? "" : undefined}
+      className="group flex h-7 min-w-0 items-center rounded-md border border-input shadow-xs focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 data-[invalid]:border-destructive data-[invalid]:ring-destructive/20 dark:bg-input/30"
+    >
+      {inner && (
+        <span
+          className="shrink-0 cursor-ew-resize touch-none pl-1.5 text-[10px] text-muted-foreground select-none"
+          onPointerDown={scrub}
+        >
+          {inner}
+        </span>
+      )}
       <Input
-        key={value ?? ""}
-        type="number"
-        min={min}
-        step={0.5}
-        defaultValue={value ?? ""}
-        placeholder={mixed ? "Mixed" : placeholder}
-        className="h-7 w-16 px-2 text-xs tabular-nums"
-        onBlur={(event) => {
-          const raw = event.currentTarget.value.trim()
-          const next = raw === "" ? undefined : Number(raw)
-          if (next !== value && (next === undefined || Number.isFinite(next))) onCommit(next)
-        }}
+        ref={input}
+        aria-label={title}
+        aria-invalid={error || undefined}
+        aria-describedby={state.message ? messageId : undefined}
+        value={fieldText(state, shown)}
+        placeholder={placeholder}
+        spellCheck={false}
+        autoComplete="off"
+        className={`h-6 min-w-0 flex-1 border-0 bg-transparent px-1.5 text-xs shadow-none focus-visible:ring-0 aria-invalid:ring-0 dark:bg-transparent ${
+          mono || typeof value === "string" ? "font-mono" : "tabular-nums"
+        }`}
+        onChange={(event) => dispatch({ type: "type", text: event.currentTarget.value })}
+        onBlur={() => dispatch({ type: "blur" })}
         onKeyDown={(event) => {
-          if (event.key === "Enter") event.currentTarget.blur()
+          if (event.key === "Enter") {
+            event.preventDefault()
+            dispatch({ type: "enter" })
+          } else if (event.key === "Escape") {
+            event.preventDefault()
+            dispatch({ type: "escape" })
+          } else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+            event.preventDefault()
+            dispatch({ type: "step", count: (event.key === "ArrowUp" ? 1 : -1) * (event.shiftKey ? 10 : 1) })
+          }
         }}
       />
-      {suffix && <span className="truncate text-xs text-muted-foreground">{suffix}</span>}
+      {suffix && (
+        <span className="pointer-events-none shrink-0 pr-1.5 text-[10px] text-muted-foreground group-focus-within:hidden">
+          {suffix}
+        </span>
+      )}
+      {after}
     </div>
+  )
+  return (
+    <div className={`flex min-w-0 flex-col gap-0.5 ${className}`}>
+      {hint ? (
+        <Hint label={hint} wait>
+          {box}
+        </Hint>
+      ) : (
+        box
+      )}
+      {/* In a row, the row says it, under its whole width. */}
+      {state.message && !say && <FieldMessageLine id={messageId} message={state.message} />}
+    </div>
+  )
+}
+
+/** A number on its own, such as opacity or max lines, with what it's in after it (`%`). */
+export function NumberInput({
+  value,
+  rules,
+  title,
+  onCommit,
+  onPreview,
+  onCancel,
+  blank,
+  suffix,
+  placeholder
+}: Pick<
+  NumberFieldProps,
+  "value" | "rules" | "title" | "onCommit" | "onPreview" | "onCancel" | "blank" | "placeholder"
+> & {
+  suffix?: string
+}) {
+  return (
+    <NumberField
+      value={value}
+      rules={rules}
+      title={title}
+      placeholder={placeholder}
+      blank={blank}
+      suffix={suffix}
+      className="w-24"
+      onCommit={onCommit}
+      onPreview={onPreview}
+      onCancel={onCancel}
+    />
   )
 }
 
@@ -190,11 +574,29 @@ export function SwitchInput({ value, onChange }: { value: boolean; onChange(valu
   return <Switch size="sm" checked={value} onCheckedChange={onChange} />
 }
 
+/** Rules for a number a prop or param takes: any number, with maths. */
+export const numberRules: FieldRules = { kind: "number" }
+
 /** Any JSON value: booleans get a switch, numbers and strings an input, everything else JSON text. */
-export function ValueInput({ value, onCommit }: { value: unknown; onCommit(value: unknown): void }) {
+export function ValueInput({
+  value,
+  title = "Value",
+  onCommit
+}: {
+  value: unknown
+  title?: string
+  onCommit(value: unknown): void
+}) {
   if (typeof value === "boolean") return <SwitchInput value={value} onChange={onCommit} />
   if (typeof value === "number")
-    return <NumberInput value={value} min={-Infinity} onCommit={(next) => onCommit(next ?? 0)} />
+    return (
+      <NumberInput
+        value={value}
+        rules={numberRules}
+        title={title}
+        onCommit={(update) => onCommit(update(value) ?? 0)}
+      />
+    )
   if (typeof value === "string") return <TextInput value={value} onCommit={onCommit} />
   return (
     <TextInput

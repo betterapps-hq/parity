@@ -37,6 +37,7 @@ import { useProject } from "../canvas/context.ts"
 import { frameScale, nodeInFrames, selectionFrame } from "../canvas/hit.ts"
 import { focusOnMount, kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
 import { editLayer, projectLibrary, resetLayer } from "../canvas/layers.ts"
+import { useStylePreview } from "../canvas/style-preview.ts"
 import { useComponents } from "../components-store.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { useSelection } from "../selection.ts"
@@ -47,11 +48,12 @@ import { extractIntoComponent } from "./components.ts"
 import { ChoiceInput, Field, SwitchInput, TextInput, ValueInput } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import { keymap } from "./keymap.ts"
+import { formatKeys } from "./keys.ts"
 import { PanelSection } from "./PanelSection.tsx"
 import { PropsSection } from "./PropsSection.tsx"
 import { revealSelection } from "./reveal.ts"
 import { hasStories, openInStorybook } from "./storybook.ts"
-import { type StyleEditor, StyleSections } from "./StyleSections.tsx"
+import { type StyleEditor, StyleSections, styleValues } from "./StyleSections.tsx"
 
 /** The state edits go to: the one the layer was picked in, else the one the design shows. */
 export function editingState(container: ContainerSpec, picked: string | undefined): StateSpec {
@@ -325,12 +327,25 @@ function LayerSections({
   const parentLayout = parentStyle
     ? { direction: parentStyle.direction ?? "column", grid: parentStyle.display === "grid" }
     : undefined
+  // A field's edit previews on the canvas, applied as `change` would apply it, until it's made or taken back.
+  const preview = useStylePreview(session, entry.key)
+  const edited = (style: NodeStyle) => (current: ContainerSpec) => {
+    const target = boardTarget(current, editingState(current, selected.state).id)
+    return inner
+      ? editLayer(session.store, current, target, nodeId, { style })
+      : editNode(current, target, nodeId, { style })
+  }
   const styleEditor: StyleEditor = {
     style: node.style ?? {},
     changed: (name) => override?.style?.[name] !== undefined,
     reset: (name) => reset({ kind: "style", key: name }),
-    set: (values, label = "Change style") =>
-      change(label, { style: values as NodeStyle }, `style.${Object.keys(values).join(",")}`),
+    set: (edit, label = "Change style") => {
+      const values = styleValues(edit, node.style ?? {}) as NodeStyle
+      preview.settle(edited(values))
+      change(label, { style: values }, `style.${Object.keys(values).join(",")}`)
+    },
+    preview: (edit) => preview.show(edited(styleValues(edit, node.style ?? {}) as NodeStyle)),
+    endPreview: () => preview.cancel(),
     tokens,
     unit: spacingUnit(tokens),
     measure: (axis) => {
@@ -421,7 +436,7 @@ function NoStyleNote({ component, wrap }: { component: string; wrap: boolean }) 
       {wrap && (
         <Button variant="outline" size="sm" onClick={() => wrapSelection(session)}>
           <Group /> {keymap.wrap.label}{" "}
-          <span className="ml-auto text-xs text-muted-foreground">{keymap.wrap.keys[0]}</span>
+          <span className="ml-auto text-xs text-muted-foreground">{formatKeys(keymap.wrap.keys[0])}</span>
         </Button>
       )}
     </div>

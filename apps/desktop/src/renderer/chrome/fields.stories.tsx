@@ -1,15 +1,28 @@
+import type { FieldRules } from "@parity/core"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
-import { userEvent, within } from "storybook/test"
+import { expect, userEvent, within } from "storybook/test"
 import { useProject } from "../canvas/context.ts"
 import { useTokenList } from "../tokens-store.ts"
-import { ChoiceInput, Field, NumberInput, Swatch, SwitchInput, TextInput, TokenInput, ValueInput } from "./fields.tsx"
+import {
+  ChoiceInput,
+  Field,
+  NumberField,
+  NumberInput,
+  Swatch,
+  SwitchInput,
+  TextInput,
+  TokenInput,
+  ValueInput
+} from "./fields.tsx"
 import { InspectorStage, openInspector, PanelColumn, search, slowly, typing } from "./inspector-stories.tsx"
 import { PanelSection } from "./PanelSection.tsx"
 
 /**
  * The inspector's controls, one row each: a label, the control, and a reset button when a state changes the value.
- * Text and numbers commit on Enter or blur; choices, switches and tokens right away.
+ * Text and numbers commit on Enter or blur; choices, switches and tokens right away. Numbers and lengths read units and
+ * maths, step with Up and Down, scrub by their label, keep focus on Enter, and say under the row what they couldn't read
+ * or what they did with a value.
  */
 const meta = {
   title: "Parity/Inspector/Fields",
@@ -32,6 +45,10 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
+const percentRules: FieldRules = { kind: "percent", min: 0, max: 100, label: "Opacity" }
+const countRules: FieldRules = { kind: "count", min: 1, label: "Max lines" }
+const lengthRules: FieldRules = { kind: "length", unit: 4, min: 0, label: "Gap" }
+
 /** How the rows look: values set, changed in a state, different across selected layers, or not set at all. */
 type Look = "set" | "changed" | "mixed" | "unset"
 
@@ -41,6 +58,8 @@ const initial = {
   id: "plan-call-to-action",
   opacity: 80 as number | undefined,
   lines: undefined as number | undefined,
+  /** Steps of the spacing scale: 4 is 16px. */
+  gap: 4 as number | undefined,
   variant: "outline" as string | undefined,
   visible: true,
   json: { monthly: true, seats: [3, 10] } as unknown,
@@ -60,6 +79,7 @@ function EveryField({ look, labels }: { look: Look; labels?: Partial<Record<keyo
           description: "",
           id: "",
           opacity: undefined,
+          gap: undefined,
           json: "",
           variant: undefined,
           color: undefined,
@@ -92,12 +112,38 @@ function EveryField({ look, labels }: { look: Look; labels?: Partial<Record<keyo
         {row(
           "opacity",
           "Number",
-          <NumberInput value={values.opacity} placeholder="100" suffix="%" onCommit={(opacity) => set({ opacity })} />
+          <NumberInput
+            value={values.opacity}
+            rules={percentRules}
+            title="Number"
+            placeholder="100"
+            suffix="%"
+            blank={() => 100}
+            onCommit={(update) => set({ opacity: update(values.opacity) as number | undefined })}
+          />
         )}
         {row(
           "lines",
           "No number",
-          <NumberInput value={values.lines} placeholder="No limit" onCommit={(lines) => set({ lines })} />
+          <NumberInput
+            value={values.lines}
+            rules={countRules}
+            title="No number"
+            placeholder="No limit"
+            onCommit={(update) => set({ lines: update(values.lines) as number | undefined })}
+          />
+        )}
+        {row(
+          "gap",
+          "Length",
+          <NumberField
+            value={values.gap}
+            rules={lengthRules}
+            title="Length"
+            suffix={values.gap === undefined ? undefined : "px"}
+            blank={() => 0}
+            onCommit={(update) => set({ gap: update(values.gap) as number | undefined })}
+          />
         )}
         {row(
           "variant",
@@ -227,5 +273,55 @@ export const Typing: Story = {
     const input = within(canvasElement).getByDisplayValue("Get started")
     await userEvent.clear(input)
     await userEvent.type(input, "Start your free trial", typing)
+  }
+}
+
+/** Maths in a number field: 50-10 in the percentage gives 40, and Enter keeps the field, with its text selected. */
+export const TypingMaths: Story = {
+  play: async ({ canvasElement }) => {
+    const input = within(canvasElement).getByRole("textbox", { name: "Number" })
+    await userEvent.tripleClick(input)
+    await userEvent.keyboard("50-10{Enter}")
+    await expect(input).toHaveValue("40")
+    await expect(input).toHaveFocus()
+  }
+}
+
+/** A length typed in pixels lands on the nearest half step of the spacing scale, and the field says so. */
+export const SnappedToTheScale: Story = {
+  play: async ({ canvasElement }) => {
+    const input = within(canvasElement).getByRole("textbox", { name: "Length" })
+    await userEvent.tripleClick(input)
+    await userEvent.keyboard("281{Enter}")
+    await expect(input).toHaveValue("282")
+    await within(canvasElement).findByText("Snapped to 282px, the nearest step on the spacing scale")
+  }
+}
+
+/** Input a field can't read stays as typed, marked, with the reason under it. */
+export const CantRead: Story = {
+  play: async ({ canvasElement }) => {
+    const input = within(canvasElement).getByRole("textbox", { name: "Length" })
+    await userEvent.tripleClick(input)
+    await userEvent.keyboard("16em{Enter}")
+    await expect(input).toHaveValue("16em")
+    await expect(input).toHaveAttribute("aria-invalid", "true")
+    await within(canvasElement).findByText(`"em" isn't a unit Gap takes: type a number, px, rem or %`)
+  }
+}
+
+/** Up and Down step a value, Shift by ten: a length one step of the spacing scale, a number by 1. */
+export const Stepping: Story = {
+  play: async ({ canvasElement }) => {
+    const length = within(canvasElement).getByRole("textbox", { name: "Length" })
+    await userEvent.click(length)
+    await userEvent.keyboard("{ArrowUp}")
+    await expect(length).toHaveValue("20")
+    await userEvent.keyboard("{Shift>}{ArrowUp}{/Shift}")
+    await expect(length).toHaveValue("60")
+    const number = within(canvasElement).getByRole("textbox", { name: "Number" })
+    await userEvent.click(number)
+    await userEvent.keyboard("{ArrowDown}")
+    await expect(number).toHaveValue("79")
   }
 }
