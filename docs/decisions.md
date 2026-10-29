@@ -226,6 +226,14 @@ recommended answer to each of its questions.
   points at built output, as published packages do (`dist/index.js`), Parity reads `src/index` beside it, since the
   app's dev server compiles the package's source too. Exports only the type checker could decide are left out, so a
   package of hooks and helpers adds no section. Its section's id is its name without the scope (`@acme/ui` is `ui`).
+- **The Components panel lists the project's own components in three sections:** the UI kit under its files, the rest of
+  the app under its folders (less the folders they all share, such as `src`), and pages under their routes. The UI kit
+  opens with the panel and the other two start closed beside other sections. My call: the UI kit is what loads with the
+  canvas, so the three follow how the app's components are found and loaded.
+- **A page is told by its router's file names until the routes lens can name it.** My call: Next.js's route files under
+  `app/` (`page`, `layout`, `template`, `error`, `not-found`, `loading`, `default`), and any component in a file in a
+  `pages` or `routes` folder, other than files starting with `_` or `-` and `api` routes. Route modules' other exports,
+  such as React Router's `ErrorBoundary`, are parts of the page too.
 - **A workspace package is imported by its name and isn't pre-bundled.** My call: the app imports it that way, so the
   canvas gets what the app gets, and Vite compiles it as the app's own code. A package that doesn't build costs only its
   own components, as a project module does.
@@ -553,6 +561,24 @@ recommended answer to each of its questions.
   `useMediaQuery` in a phone and a laptop frame at once, clicks and resizes them, and checks Parity's own answers. After
   these changes, the 93 full-size frames in the example's Boards story still match Chrome element by element, within
   0.03px.
+
+- **Visual regression tests draw each frame as a page of its own, not as a canvas frame** (VAL-18). Canvas frames share
+  one window, one document, one origin and one copy of the project's code, so the canvas can draw dozens at once. The
+  rewrites and window answers above make them look right, and that's enough to design with. A baseline needs a
+  guarantee, and these frames still share more than a test should:
+  - the project's module state, such as a store two frames both read;
+  - the document's portals, focus, scroll lock and listeners;
+  - Parity's origin for storage, cookies and relative requests;
+  - Parity's root font size for `rem` (CAN-24) and its CSS variables (CAN-26);
+  - media queries other than width, the pixel ratio, the user agent and touch;
+  - the canvas's drawing: fractional positions, zoom and grayscale text.
+
+  So each design, state and mode is loaded as its own page on the project's dev server, in its own browser context. The
+  project's CSS is unchanged there, and its window, `html`, `body`, `rem`, media queries and modules are its own. The
+  mode's viewport, pixel ratio, color scheme, reduced motion and touch are emulated. Time is frozen, animations
+  finished, and fonts, images and components that load on demand awaited. The canvas is then held to those pages: the
+  sweep compares each canvas frame's layout with its page's, element by element (VAL-1), as was done by hand for CAN-23
+  to CAN-33. A gap in the canvas's isolation then shows up as a failure, not as a wrong baseline.
 
 - **Agents render offscreen,** in a hidden window, so their work never moves your camera. Export uses the same renderer.
 - **Prop inference uses the TypeScript 6 compiler in a worker thread,** from cva variants, destructured defaults and the

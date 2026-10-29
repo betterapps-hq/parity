@@ -128,6 +128,8 @@ at the end of this page are the plan for testing more. Four of them exist in `fi
 | Named and default exports                                          | ✅     | Found by parsing each file: copacker's 360 component files in about a quarter of a second, with no route objects or API handlers counted. A default export takes its declaration's name, else its file's.                                                                     |
 | Aliases, and components without JSX                                | ✅     | The type checker in the props worker adds what parsing can't see, such as `const Select = SelectPrimitive.Root` and components that return only `children`. On copacker it took about 13 seconds after opening, and the list matched the earlier measurement: 593 components. |
 | Two components with one name                                       | ✅     | The second gains its folder, as in `components/FieldError`.                                                                                                                                                                                                                   |
+| Grouping in the Components panel                                   | ✅     | The UI kit under its files, the rest of the app under its folders, and pages under their routes, each a section. On copacker: 206 in the UI kit under 36 files, 346 under 15 folders, and 39 pages under 36 routes.                                                           |
+| Pages                                                              | ◐      | Told by the router's file names until the routes lens names them: Next.js's `page`, `layout`, `error`, `not-found` and the like under `app/`, and files in a `pages` or `routes` folder (React Router, Remix, TanStack Router, Next's pages router).                          |
 | Workspace packages                                                 | ✅     | Each package the app depends on that exports components is its own section, imported by its package name and read from its source, even when its package.json points at `dist`. A package of hooks and helpers adds none. On Buildkit's site app: `shadcn-modals-manager`.    |
 
 ### Component libraries
@@ -477,8 +479,9 @@ The same checks run on every project, from fastest to slowest:
    components, libraries, icons, package manager, Storybook, and the lenses' sources. It runs in `pnpm test`, from
    `packages/fixtures/src/detection.test.ts`. Tokens come from the stylesheets' sources there, where the app reads the
    CSS Vite compiles from them.
-2. **Render sweep.** The offscreen renderer draws every component with its default props, and every design in every
-   state and mode. Any render error fails it, and screenshots are compared with the project's baseline.
+2. **Render sweep.** Every component with its default props, and every design in every state and mode, is drawn as a
+   page of its own on the project's dev server, isolated as a browser tab is. Any render error fails it, and screenshots
+   are compared with the project's baseline. Each canvas frame's layout is then checked against its page's.
 3. **Editor flows,** driven through the app as `scripts/drive.ts` does now:
    - insert a component, edit a prop, change a token, switch theme and breakpoint;
    - copy and paste, drag to reorder, undo and redo;

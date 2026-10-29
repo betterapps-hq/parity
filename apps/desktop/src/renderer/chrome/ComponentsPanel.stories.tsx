@@ -8,7 +8,8 @@ import { LeftPanel } from "./LeftPanel.tsx"
 
 /**
  * The Components tab: what can be dragged into designs, by source. The project's component designs, then its own
- * components, then each library's. Shown in the left panel, as the app shows it.
+ * components (its UI kit, the rest of the app, and its pages), then each library's. Shown in the left panel, as the app
+ * shows it.
  */
 const meta = {
   title: "Parity/Left panel/Components",
@@ -55,18 +56,48 @@ function source(canvasElement: HTMLElement, title: string): HTMLElement {
 }
 
 /**
- * Every source, as the tab first opens: the component designs and each library open, the project's own components
- * closed, since there are three sources or more.
+ * Every source, as the tab first opens: the component designs, the UI kit and each library open, the rest of the app's
+ * components closed, since there are three sources or more.
  */
 export const AllSources: Story = { loaders: [openComponents] }
 
-/** The project's own components, opened, grouped under the file that defines them, as Card and CardHeader are. */
+/**
+ * The project's own components, opened: the UI kit grouped under the file that defines them, as Card and CardHeader
+ * are, and the rest of the app under its folders.
+ */
 export const ProjectComponents: Story = {
   loaders: [openComponents],
   play: async ({ canvasElement }) => {
     await userEvent.click(source(canvasElement, "Component designs"))
     await userEvent.click(source(canvasElement, "shadcn-vite"))
     await waitFor(() => expect(source(canvasElement, "shadcn-vite")).toHaveAttribute("aria-expanded", "true"))
+  }
+}
+
+/**
+ * A Next.js app's pages, under their routes and apart from its other components, until the routes lens can name them.
+ * The example has none, so this story gives it four.
+ */
+export const Pages: Story = {
+  loaders: [
+    async () => {
+      await openComponents()
+      const { info } = example()
+      // A new list, so the example's own stays as it is for the next story.
+      info.sources = {
+        ...info.sources,
+        HomePage: { path: "src/app/page.tsx", export: "default", lazy: true },
+        OrdersPage: { path: "src/app/(shop)/orders/page.tsx", export: "default", lazy: true },
+        OrderPage: { path: "src/app/(shop)/orders/[id]/page.tsx", export: "default", lazy: true },
+        "(shop)/ErrorPage": { path: "src/app/(shop)/error.tsx", export: "default", lazy: true }
+      }
+    }
+  ],
+  play: async ({ canvasElement }) => {
+    await userEvent.click(source(canvasElement, "Component designs"))
+    await userEvent.click(source(canvasElement, "UI kit"))
+    await userEvent.click(source(canvasElement, "Pages"))
+    await waitFor(() => expect(source(canvasElement, "Pages")).toHaveAttribute("aria-expanded", "true"))
   }
 }
 
@@ -124,7 +155,6 @@ export const StorybookLink: Story = {
   ],
   play: async ({ canvasElement }) => {
     await userEvent.click(source(canvasElement, "Component designs"))
-    await userEvent.click(source(canvasElement, "shadcn-vite"))
   }
 }
 
@@ -134,7 +164,6 @@ export const OpeningStorybook: Story = {
   beforeEach: keepingLinks,
   play: async ({ canvasElement }) => {
     await userEvent.click(source(canvasElement, "Component designs"))
-    await userEvent.click(source(canvasElement, "shadcn-vite"))
     service.latency = forever
     await userEvent.click(within(canvasElement).getByRole("button", { name: "Open Button in Storybook" }))
     await within(document.body).findByText("Opening Storybook…")

@@ -1,4 +1,10 @@
-import type { ComponentSource, LibraryInfo } from "@parity/core"
+import {
+  type ComponentRole,
+  type ComponentSource,
+  componentRole,
+  groupComponents,
+  type LibraryInfo
+} from "@parity/core"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import {
   BookOpen,
@@ -8,6 +14,7 @@ import {
   ImageIcon,
   Library,
   LoaderCircle,
+  MonitorSmartphone,
   Plus,
   Search,
   Smile
@@ -71,6 +78,8 @@ function SearchField({
 export interface Family {
   name: string
   items: { key: string; label: string; item: InsertItem }[]
+  /** Its name is a folder or a route, shown over a single component too. */
+  heading?: true
 }
 
 export interface Source {
@@ -81,19 +90,34 @@ export interface Source {
   library?: LibraryInfo
 }
 
-/** Components grouped by the file that defines them, as shadcn groups Card, CardHeader and CardTitle. */
-function families(sources: [string, ComponentSource][]): Family[] {
-  const byFile = new Map<string, Family>()
-  for (const [key, source] of sources) {
-    const file = (source.declaration ?? source.path)
-      .split("/")
-      .at(-1)!
-      .replace(/(\.d)?\.[cm]?[jt]sx?$/, "")
-    const family = byFile.get(file) ?? { name: file, items: [] }
-    family.items.push({ key, label: componentLabel(key), item: { kind: "component", component: key } })
-    byFile.set(file, family)
-  }
-  return [...byFile.values()].sort((a, b) => a.name.localeCompare(b.name))
+/**
+ * Components under headings: by the file that defines them, as shadcn groups Card, CardHeader and CardTitle, or for the
+ * rest of the app, by folder or page route.
+ */
+function families(sources: [string, ComponentSource][], by: "file" | "folder" | "route" = "file"): Family[] {
+  return groupComponents(sources, by).map((group) => ({
+    name: group.name,
+    items: group.ids.map((key) => ({ key, label: componentLabel(key), item: { kind: "component", component: key } })),
+    ...(by === "file" ? {} : { heading: true as const })
+  }))
+}
+
+/** The project's own components by role: its UI kit, the rest of the app by folder, and its pages. */
+function ownSources(info: ProjectInfo, all: [string, ComponentSource][]): Source[] {
+  const icon = <Component className="size-3.5" style={{ color: kindColors.component }} />
+  const withRole = (role: ComponentRole) => all.filter(([, source]) => componentRole(source) === role)
+  const kit = withRole("kit")
+  const pages = withRole("page")
+  return [
+    ...(kit.length > 0 ? [{ id: "project:kit", title: "UI kit", icon, families: families(kit) }] : []),
+    { id: "project", title: info.name, icon, families: families(withRole("app"), "folder") },
+    {
+      id: "project:pages",
+      title: "Pages",
+      icon: <MonitorSmartphone className="size-3.5" style={{ color: kindColors.screen }} />,
+      families: families(pages, "route")
+    }
+  ]
 }
 
 /**
@@ -121,12 +145,7 @@ export function componentSources(info: ProjectInfo, entries: readonly ContainerE
       ]
     })
   }
-  list.push({
-    id: "project",
-    title: info.name,
-    icon: <Component className="size-3.5" style={{ color: kindColors.component }} />,
-    families: families(all.filter(([, source]) => !source.library))
-  })
+  list.push(...ownSources(info, all))
   for (const library of info.libraries.filter((candidate) => candidate.kind !== "icons")) {
     list.push({
       id: library.id,
@@ -177,7 +196,8 @@ export function ComponentsPanel() {
             // Starting or clearing a search resets what was collapsed by hand, so matches always show.
             key={`${source.id}${needle ? " search" : ""}`}
             source={source}
-            open={!!needle || source.id !== "project" || shown.length < 3}
+            // The app's components and pages can run to hundreds, so they start closed beside other sections.
+            open={!!needle || (source.id !== "project" && source.id !== "project:pages") || shown.length < 3}
           />
         ))}
         {shown.length === 0 && <p className="px-4 py-6 text-center text-xs text-muted-foreground">Nothing matches.</p>}
@@ -209,7 +229,7 @@ function SourceSection({ source, open }: { source: Source; open: boolean }) {
       {isOpen &&
         source.families.map((family) => (
           <div key={family.name} className="mb-1">
-            {family.name && family.items.length > 1 && (
+            {family.name && (family.items.length > 1 || family.heading) && (
               <div className="px-8 pt-1 text-[11px] text-muted-foreground">{family.name}</div>
             )}
             {family.items.map((entry) => {
