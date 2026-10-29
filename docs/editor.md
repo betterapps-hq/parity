@@ -98,6 +98,141 @@ element layer gets them. This is older than CAN-45: the boundary dates from the 
 
 Dragging layers and designs, where they land, resize handles and duplicates.
 
+### Where a dragged layer lands (CAN-47)
+
+Dragging a selected layer shows a faded copy where it would land, and the layouts around it reflow around the copy, as
+decisions.md describes. Where it lands follows the pointer:
+
+- **The slot under the pointer.** In a grid or a wrapping row, the line of children the pointer is on comes first (the
+  row it's over, or the nearer one in the gap between rows), then, along that line, the layer goes before the first
+  child whose middle is past the pointer, or after the line's last child. Below the last line it goes last. A row or
+  column that doesn't wrap goes by the middles along it, wherever the pointer is across it, as before. So in the
+  dashboard's four stat cards, Users dragged right past the middle of Open issues gives Revenue, Issues, Users, Uptime,
+  and Issues dragged left past the middle of Revenue gives Issues, Revenue, Users, Uptime. Grids that flow by columns,
+  and wrapping columns, work the same way turned on their side.
+- **Measured from the layout as it was when the drag began.** The dragged layer is hidden and its copy shown somewhere
+  else, so what's on screen moves under the pointer. Targets are found in the boxes measured just before the layer is
+  hidden: a neighbour that slid into the dragged layer's place isn't under the pointer, and the slots don't move when
+  the copy moves. Another frame, or another design, is measured the first time the pointer is over it, before a copy is
+  shown in it. Points are mapped back into each frame's first measure, so zooming or panning mid-drag still lands right.
+- **A layer stays in the layout it's dragged in while the pointer is over it.** It changes places with its neighbours
+  and never drops into one, or into anything inside one, even when the neighbour is a layout, as each of the dashboard's
+  revenue bars is. Outside its own layout it goes into the deepest layout under the pointer, as before, in this design
+  or another. To put a layer inside its neighbour, drag it there in Layers.
+- **Edge cases.** Children that aren't drawn (hidden in this state) aren't slots; a layer placed after them goes after
+  them. A move that leaves the order as it was changes nothing and adds no undo step. An absolutely placed layer doesn't
+  reorder; it moves by its insets (below).
+
+Code: `apps/desktop/src/renderer/canvas/drop-slot.ts` (`slotAt` and `flowOf`, geometry only), `canvas/drop-target.ts`
+(`DragLayouts` measures a frame's layers through `frame.ts`'s `nodeBox`, and `dropTargetAt` finds the layout and slot),
+and `canvas/layer-drag.ts` (`pressLayers` measures when the drag begins; `moveTarget` finds the frame under the pointer;
+`DropPreview` shows the copy).
+
+Tests:
+
+- `canvas/drop-slot.test.ts`: the stat cards in both directions and anywhere up or down their row, a card short of a
+  neighbour's middle staying put, two-row grids going up and down, the gap between rows, above and below every row, a
+  row that moving a card empties, wrapping rows of different widths and centred lines, one-line rows and columns, an
+  empty layout, and reading a flow from computed styles.
+- `canvas/drop-target.test.ts`, in Chrome: the stat cards laid out as a real grid, dragged right and left; the line
+  where the layout was, also after the camera zooms and pans; a card that stays in its own slot though its neighbour
+  slid there, against the same layout measured after the card was hidden (which jumps it past the neighbour, as before
+  CAN-47); a card dragged over neighbours that are layouts changing places with them; and a layout outside its own still
+  taking the drop.
+
+Gaps: the pointer handling in `pressLayers` (the threshold, Escape, the preview) has no automated test. It was checked
+in an isolated copy of the app on the example project on 2026-10-29: the stat cards in both directions, the header's
+Export past New project, and Feb among the revenue bars, nudged a little (no change) and past March (they swap, and
+March keeps its two children). Dropping a component from the Components panel (`canvas/insert.ts`, `dropTarget`) still
+goes by the older one-line rule, so it lands wrongly in a grid of more than one row.
+
+### Moving an absolutely placed layer by dragging (CAN-47)
+
+A layer placed absolutely moves by its insets, in half steps of the spacing scale, from where the pointer was pressed to
+where it's released.
+
+- **Both sides.** Along each axis it moves by the side it's placed from: the left (or top), unless only the right (or
+  bottom) is set. A layer stretched between both sides moves both, so it keeps its size: Calendar's Review slot, placed
+  at left 0 and right 0, dragged 24px right is left 6 and right -6.
+- **Negative and token insets.** A negative inset is kept, and an inset can go negative. A side set to a length token,
+  or left unset, moves from where the frame drew it when the drag began, so it doesn't jump to the parent's edge; once
+  moved it's a number of steps, since a token can't be offset. An axis the layer doesn't move along keeps what's
+  written, tokens included.
+
+This is the same rule nudging uses, one function for both. Code: `shiftInsets` in
+`apps/desktop/src/renderer/canvas/insets.ts`; `canvas/layer-drag.ts` (`nudgeAbsolute`) reads where the sides are drawn
+with `frameDrawn` (`canvas/nudge.ts`) and rounds the drag to half steps.
+
+Tests: `canvas/insets.test.ts`, moving: by the side it's placed from, both sides of a stretched layer (the Review slot),
+negative insets kept and going negative, half steps, tokens and unset sides from where they're drawn (a negative side
+with a token on the other), and an axis with a token that isn't drawn staying put.
+
+Gaps: dragging itself was checked in the app, on the Review slot as it is and with left -2 and both right and top set to
+the `spacing` token: dragged 16px right it became left 2 and right -3, with top still `spacing` and the width unchanged.
+
+### Resize handles (CAN-47)
+
+A selected layer has square handles on its corners and invisible strips along its sides, as in Figma, and a selected
+design has them on its frames' right and bottom.
+
+- **A handle changes only its own sizes.** The left and right handles change the width, the top and bottom ones the
+  height, and a corner both. Nothing changes until the pointer has moved four pixels along the handle's own axes, so a
+  click, a double-click or a side's handle dragged along its side changes nothing. Dragging the right handle of the
+  dashboard's New project button 50px right made it 196 by 32 with Height still Auto, where it used to set Height to
+  Fill.
+- **Fill.** A layer in a layout takes a size in whole spacing steps, or fill when its edge comes back to the inside of
+  its parent after leaving it. An edge that starts there, as New project's right edge does at the end of its row, gets a
+  fixed size until it has been away. Shift keeps the size fixed, and on a corner keeps the proportions.
+- **Absolutely placed layers** keep the opposite edge where it was. The left or top handle moves that inset with the
+  edge, so the right or bottom stays put; a layer stretched between both sides changes the dragged side's inset alone,
+  keeping both sides; a layer placed from the right or bottom alone moves that inset when its right or bottom handle is
+  dragged. Negative and token insets follow the moving rules above, and a side that doesn't move keeps its token. They
+  never fill.
+- **The hint** ("Drag to resize") closes when a handle is pressed and stays closed through the drag and after it, until
+  the pointer next rests on a handle.
+
+Code: `apps/desktop/src/renderer/canvas/resize.ts` (`edgeAxes`, and `resizeGesture`, which follows one drag and gives
+the style for each pointer position), `canvas/insets.ts` (`resizeInsets`), `canvas/ResizeHandles.tsx` (the handles and
+their hint, which `chrome/Hint.tsx` now lets a caller open and close), and `canvas/CanvasOverlay.tsx` (`startResize`
+measures the layer, its parent and its drawn insets, and writes the style).
+
+Tests:
+
+- `canvas/resize.test.ts`: which sizes each of the eight handles changes; the right handle changing only the width
+  however the pointer drifts; a side's handle dragged along its side changing nothing; the four-pixel start; an edge
+  that starts on the inside of its parent not filling at once, then filling when it comes back, and Shift keeping it
+  fixed; an edge reaching the inside filling; a corner with Shift; and an absolutely placed layer resized from the top
+  and the left, stretched or not, keeping a negative inset and a token it doesn't move, and never filling.
+- `canvas/insets.test.ts`, resizing: each anchoring (near side, far side, both, both with a size of its own), negative
+  and token insets, and a token kept when its side doesn't move.
+- `canvas/ResizeHandles.test.ts`, in Chrome: the hint opens on hover, closes on press and stays closed through a drag
+  into the hint itself and after release (this fails as the handles were before), opens again on the next hover, and a
+  double-click still resets.
+
+Gaps: a frame's own handles (a design's width and height) aren't covered by these tests. In the app on 2026-10-29, New
+project's right handle dragged 50px right gave a width of 49 steps and no height, with no hint during the drag; its top
+handle dragged sideways changed nothing; the Review slot's top handle dragged up 16px gave top 36 and height 20 with the
+bottom edge where it was, and its left handle dragged right gave left 3 with right still 0. A resize writes as the
+pointer moves, and in a development build those writes can be more than a second apart, so one drag can take several
+undos; one undo step per gesture is CAN-79.
+
+### Duplicating a design (CAN-47)
+
+Duplicate (Ctrl+D) on a selected design puts the copy to the right of the original, top-aligned with it, at the first
+place along that row where it keeps 160px clear of every design and note on the canvas, so it never covers the next
+design and their titles don't meet. Several selected designs move as one block, and pasting designs into the project
+they were copied from places them the same way.
+
+Code: `apps/desktop/src/renderer/canvas/free-space.ts` (`freeSpotBeside`, and `takenBounds`, which reads the canvas's
+shapes), used by `chrome/designs.ts` (`duplicateDesign`) and `canvas/clipboard.ts` (`pasteDesigns`).
+
+Tests: `canvas/free-space.test.ts`: the original alone, the example's Dashboard with Projects 176px to its right, a run
+of designs and gaps too narrow for the copy, a gap wide enough, designs well above or below the row, and one just inside
+the gap below it.
+
+Gaps: the Ctrl+D wiring was checked in the app on 2026-10-29: Dashboard's copy went to the end of its row, past Search,
+with nothing within 160px. The view doesn't follow a copy that lands off screen.
+
 ## Keyboard
 
 What the keys do on the canvas, and when they belong to a design or a field instead.
@@ -187,19 +322,20 @@ actions, since each needs to know which arrow was pressed.
   view.
 
 Code: `apps/desktop/src/renderer/canvas/nudge.ts` (the rules, which take data and return data, and `frameDrawn`, which
-reads a layout's direction and a layer's drawn insets from its frame), `chrome/commands.ts` (`nudge`),
-`chrome/actions.ts` (`byKey` keeps it out of Search actions), `chrome/keymap.ts` and `chrome/keys.ts` (the arrows are
-written `←`, `→`, `↑` and `↓`), and `canvas/shortcuts.ts`, which passes the key event to the action and keeps the other
-arrows from tldraw.
+reads a layout's direction and a layer's drawn insets from its frame), `canvas/insets.ts` (`shiftInsets`, which moves an
+absolutely placed layer's insets for dragging too), `chrome/commands.ts` (`nudge`), `chrome/actions.ts` (`byKey` keeps
+it out of Search actions), `chrome/keymap.ts` and `chrome/keys.ts` (the arrows are written `←`, `→`, `↑` and `↓`), and
+`canvas/shortcuts.ts`, which passes the key event to the action and keeps the other arrows from tldraw.
 
 Tests:
 
 - `apps/desktop/src/renderer/canvas/nudge.test.ts`: reading a flow from computed styles (rows, columns, reversed, right
   to left, grids as laid out or as written, blocks); how far each arrow moves in each; reordering a layer, a block, past
-  absolutely placed layers and down a grid; moving insets from each side, both sides, tokens and unset sides with and
-  without where they're drawn; nudging a design's layers in a state, following the frame's direction, and leaving
-  instances alone; and, with the real stores, a run of presses as one undo step, a pause or a new selection starting
-  another, designs moving together and a mode column and a note moving.
+  absolutely placed layers and down a grid; nudging a design's layers in a state, following the frame's direction, and
+  leaving instances alone; and, with the real stores, a run of presses as one undo step, a pause or a new selection
+  starting another, designs moving together and a mode column and a note moving.
+- `apps/desktop/src/renderer/canvas/insets.test.ts`: moving insets from each side, both sides, tokens and unset sides
+  with and without where they're drawn (`shiftInsets`, shared with dragging).
 - `apps/desktop/src/renderer/ModeView.test.ts`: `frameDrawn` reads a row, a column and a grid's columns from a design
   rendered as the canvas renders it, and an absolutely placed layer's insets in steps, at full size and at half scale.
 - `apps/desktop/src/renderer/chrome/keymap.test.ts`: the arrows match with and without Shift, and show as `⇧←` on a Mac.

@@ -15,7 +15,6 @@ import {
   resolveModes
 } from "@parity/core"
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react"
-import { Hint } from "../chrome/Hint.tsx"
 import { editingState } from "../chrome/LayerPanel.tsx"
 import { getPreferences, subscribePreferences } from "../chrome/preferences.ts"
 import { findFrames, findNodeElement, nodeBox } from "../frame.ts"
@@ -38,6 +37,9 @@ import {
 import { designColor, kindColors, layerLabel, nodeColor } from "./kinds.tsx"
 import { type DragView, getDragView, pressLayers } from "./layer-drag.ts"
 import { editLayer, findLayer } from "./layers.ts"
+import { frameDrawn } from "./nudge.ts"
+import { type Edge, edgeAxes, resizeGesture } from "./resize.ts"
+import { resizeCursors, ResizeHandles } from "./ResizeHandles.tsx"
 
 interface Box {
   x: number
@@ -56,9 +58,6 @@ interface Redline {
   /** The spacing step the distance comes to, when it's a whole or half step. */
   steps?: number
 }
-
-/** A side or corner a resize handle sits on. */
-type Edge = "n" | "e" | "s" | "w" | "ne" | "se" | "sw" | "nw"
 
 /** Resize handles around a selected layer, or around each frame of a selected design. */
 interface Handles {
@@ -821,74 +820,6 @@ export function redlines(a: DOMRect, b: DOMRect, scale: number, unit: number): R
   return lines
 }
 
-const cursors: Record<Edge, string> = {
-  n: "ns-resize",
-  s: "ns-resize",
-  e: "ew-resize",
-  w: "ew-resize",
-  ne: "nesw-resize",
-  sw: "nesw-resize",
-  nw: "nwse-resize",
-  se: "nwse-resize"
-}
-
-/** Square handles on the corners, and invisible strips along the sides, as in Figma. */
-function ResizeHandles({
-  handles,
-  onStart,
-  onReset
-}: {
-  handles: Handles
-  onStart(edge: Edge, event: ReactPointerEvent): void
-  onReset(edge: Edge): void
-}) {
-  const { box, color, edges } = handles
-  const strip = 8
-  const square = 8
-  return edges.map((edge) => {
-    const corner = edge.length === 2
-    const x = edge.includes("w") ? box.x : edge.includes("e") ? box.x + box.w : box.x + box.w / 2
-    const y = edge.includes("n") ? box.y : edge.includes("s") ? box.y + box.h : box.y + box.h / 2
-    const style: React.CSSProperties = corner
-      ? {
-          left: x - square / 2,
-          top: y - square / 2,
-          width: square,
-          height: square,
-          background: "white",
-          border: `1.5px solid ${color}`,
-          borderRadius: 2
-        }
-      : edge === "n" || edge === "s"
-        ? { left: box.x + square, top: y - strip / 2, width: Math.max(0, box.w - square * 2), height: strip }
-        : { left: x - strip / 2, top: box.y + square, width: strip, height: Math.max(0, box.h - square * 2) }
-    return (
-      <Hint
-        key={edge}
-        label={handles.kind === "frame" ? "Drag to resize this frame" : "Drag to resize"}
-        detail="Double-click to reset."
-        wait
-      >
-        <div
-          role="presentation"
-          className={`resize-handle pointer-events-auto absolute ${corner ? "z-10 shadow-sm" : ""}`}
-          style={{ ...style, cursor: cursors[edge] }}
-          onPointerDown={(event) => {
-            if (event.button !== 0) return
-            event.stopPropagation()
-            event.preventDefault()
-            onStart(edge, event)
-          }}
-          onDoubleClick={(event) => {
-            event.stopPropagation()
-            onReset(edge)
-          }}
-        />
-      </Hint>
-    )
-  })
-}
-
 /** Follows the pointer until it's released. */
 function drag(cursor: string, move: (event: PointerEvent) => void): void {
   const previous = document.body.style.cursor
@@ -913,8 +844,9 @@ const snapDistance = 6
 
 /**
  * Resizing by a handle. A frame takes a size in pixels for its viewport, snapping back to the viewport's width and the
- * content's height. A layer takes a fixed size in whole spacing steps, or fill when its edge meets the inside of its
- * parent; Shift on a corner keeps its proportions. A drag is one undo step.
+ * content's height. A layer takes a fixed size in whole spacing steps, or fill when its edge comes back to the inside
+ * of its parent, changing only the handle's own axes (see `resizeGesture`); an absolutely placed layer keeps its far
+ * edge where it was. Shift on a corner keeps its proportions. A drag is one undo step.
  */
 function startResize(
   session: ProjectSession,
@@ -929,8 +861,7 @@ function startResize(
   if (!entry || !editor || !host) return
   const scale = editor.getZoomLevel() * frameScale(host)
   const start = { x: event.clientX, y: event.clientY }
-  const horizontal = edge.includes("e") || edge.includes("w")
-  const vertical = edge.includes("n") || edge.includes("s")
+  const { width: horizontal, height: vertical } = edgeAxes(edge)
   let last = ""
 
   if (handles.kind === "frame") {
@@ -941,7 +872,7 @@ function startResize(
     // Starting from the content's height, coming back to it snaps to hugging it again.
     const content = size.height === undefined ? rect.height / scale : undefined
     const startHeight = size.height ?? rect.height / scale
-    drag(cursors[edge], (moveEvent) => {
+    drag(resizeCursors[edge], (moveEvent) => {
       const next: FrameSize = { ...entry.container.frames?.[mode.viewport] }
       if (horizontal) {
         const width = Math.round(size.width + (moveEvent.clientX - start.x) / scale)
@@ -973,37 +904,28 @@ function startResize(
   const parentDirection =
     parent?.type === "layout" ? (nodeInState(parent, state).style?.direction ?? "column") : undefined
   const unit = spacingUnit(tokens.get())
-  const inner = contentBox(element.parentElement, scale)
-  const ratio = rect.width / Math.max(1, rect.height)
+  // An absolutely placed layer resizes by its insets too, from where its sides are drawn.
+  const drawn =
+    node.style?.position === "absolute"
+      ? frameDrawn(area, handles.design, { mode: handles.mode, state: handles.state }, unit).insets(location.node.id)
+      : undefined
+  const gesture = resizeGesture({
+    edge,
+    rect,
+    inner: contentBox(element.parentElement, scale),
+    scale,
+    unit,
+    absolute: drawn ? { style: node.style ?? {}, drawn } : undefined
+  })
 
-  drag(cursors[edge], (moveEvent) => {
-    const dx = moveEvent.clientX - start.x
-    let dy = moveEvent.clientY - start.y
-    // Shift on a corner keeps the proportions, following the horizontal movement.
-    if (moveEvent.shiftKey && horizontal && vertical) {
-      const signX = edge.includes("w") ? -1 : 1
-      const signY = edge.includes("n") ? -1 : 1
-      dy = ((signX * dx) / ratio) * signY
-    }
-    const style: Partial<Record<keyof NodeStyle, unknown>> = {}
-    if (horizontal) {
-      const left = edge.includes("w") ? rect.left + dx : rect.left
-      const right = edge.includes("e") ? rect.right + dx : rect.right
-      const gap = edge.includes("e")
-        ? Math.abs(right - (inner?.right ?? Infinity))
-        : Math.abs(left - (inner?.left ?? -Infinity))
-      style.width =
-        gap < snapDistance && !moveEvent.shiftKey ? "fill" : Math.max(0, Math.round((right - left) / scale / unit))
-    }
-    if (vertical) {
-      const top = edge.includes("n") ? rect.top + dy : rect.top
-      const bottom = edge.includes("s") ? rect.bottom + dy : rect.bottom
-      const gap = edge.includes("s")
-        ? Math.abs(bottom - (inner?.bottom ?? Infinity))
-        : Math.abs(top - (inner?.top ?? -Infinity))
-      style.height =
-        gap < snapDistance && !moveEvent.shiftKey ? "fill" : Math.max(0, Math.round((bottom - top) / scale / unit))
-    }
+  drag(resizeCursors[edge], (moveEvent) => {
+    const change = gesture({
+      dx: moveEvent.clientX - start.x,
+      dy: moveEvent.clientY - start.y,
+      shift: moveEvent.shiftKey
+    })
+    if (!change) return
+    const style: Partial<Record<keyof NodeStyle, unknown>> = { ...change }
     // `grow` was the older way to fill along the parent's direction; a size on that axis replaces it.
     const mainAxis = parentDirection === "column" ? vertical : horizontal
     if (node.style?.grow && mainAxis) style.grow = undefined

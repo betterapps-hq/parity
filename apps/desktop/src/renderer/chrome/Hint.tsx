@@ -14,6 +14,9 @@ type HintProps = Omit<ComponentProps<typeof TooltipTrigger>, "children"> & {
   wait?: boolean
   /** Keeps it closed, as while the popover it would cover is open. */
   hidden?: boolean
+  /** Opens and closes it from outside, as hovering would, to close it when its element is pressed and dragged. */
+  open?: boolean
+  onOpenChange?(open: boolean): void
   children: ReactElement
 }
 
@@ -24,10 +27,10 @@ type HintProps = Omit<ComponentProps<typeof TooltipTrigger>, "children"> & {
  * The tooltip takes over the element's `data-state`, so what it wraps mustn't style by that: toggles style by
  * `aria-pressed` or `aria-checked`, and popover triggers by `aria-expanded`.
  */
-export function Hint({ label, detail, side, wait, hidden, children, ...trigger }: HintProps) {
+export function Hint({ label, detail, side, wait, hidden, open, onOpenChange, children, ...trigger }: HintProps) {
   const says = label !== undefined && label !== null && label !== false && label !== ""
   return (
-    <Tooltip delayDuration={wait ? 500 : undefined}>
+    <Tooltip delayDuration={wait ? 500 : undefined} open={open} onOpenChange={onOpenChange}>
       <TooltipTrigger asChild {...trigger}>
         {children}
       </TooltipTrigger>

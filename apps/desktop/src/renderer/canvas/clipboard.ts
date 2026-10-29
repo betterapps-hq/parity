@@ -24,6 +24,7 @@ import { containerKey } from "../design-store.ts"
 import { designsSelection, layersSelection, selectedDesigns, selectedNodes } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { shapeIdFor } from "./CanvasEditor.tsx"
+import { freeSpotBeside, takenBounds } from "./free-space.ts"
 import { nodeForItem } from "./insert.ts"
 import { designsAt, placeOver, replaceLayers } from "./paste-over.ts"
 
@@ -286,7 +287,7 @@ function base64(blob: Blob): Promise<string> {
   })
 }
 
-/** Copies the selected designs, placing the copies just to the right of the originals. */
+/** Copies the selected designs, placing the copies in the first free space to the right of the originals. */
 export function duplicateDesigns(session: ProjectSession): boolean {
   const designs = selectedDesigns(session.selection.get()).flatMap((key) => {
     const entry = session.store.getEntry(key)
@@ -475,17 +476,29 @@ function pasteAsNewDesign(session: ProjectSession, nodes: DesignNode[]): void {
 function pasteDesigns(session: ProjectSession, designs: ContainerSpec[], sameProject: boolean): void {
   const { store, selection, editor } = session
   const ids = store.getEntries().map((entry) => entry.container.id)
-  // Pasted into the project they came from, they sit just to the right of the originals; elsewhere, in the view.
+  // Pasted into the project they came from, they sit to the right of the originals, in the first free space along
+  // their row; elsewhere, in the view.
   const bounds = designs.map((design) => {
     const original = sameProject ? store.getEntries().find((entry) => entry.container.id === design.id) : undefined
     const box = original ? editor?.getShapePageBounds(shapeIdFor(original.key)) : undefined
-    return box ?? { minX: design.position.x, maxX: design.position.x + 1280, minY: design.position.y }
+    return (
+      box ?? {
+        minX: design.position.x,
+        maxX: design.position.x + 1280,
+        minY: design.position.y,
+        maxY: design.position.y + 800
+      }
+    )
   })
   const left = Math.min(...bounds.map((box) => box.minX))
   const right = Math.max(...bounds.map((box) => box.maxX))
   const top = Math.min(...bounds.map((box) => box.minY))
+  const bottom = Math.max(...bounds.map((box) => box.maxY))
   const center = viewCenter(session)
-  const shift = sameProject ? { x: right - left + 160, y: 0 } : { x: center.x - left, y: center.y - top }
+  const spot = sameProject
+    ? freeSpotBeside({ minX: left, minY: top, maxX: right, maxY: bottom }, editor ? takenBounds(editor) : bounds)
+    : undefined
+  const shift = spot ? { x: spot.x - left, y: 0 } : { x: center.x - left, y: center.y - top }
   const copies = designs.map((design) => {
     const id = uniqueId(design.name, ids)
     ids.push(id)

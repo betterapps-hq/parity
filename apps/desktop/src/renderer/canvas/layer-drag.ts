@@ -6,12 +6,10 @@ import {
   editNode,
   findNode,
   insertNode,
-  type Length,
   locateNode,
   moveNodes,
   nodeIds,
   nodeInState,
-  type NodeStyle,
   topmostNodes,
   withFreshIds
 } from "@parity/core"
@@ -21,8 +19,11 @@ import { findFrames, findNodeElement, findNodeElements, nodeBox } from "../frame
 import { layersSelection, selectedNodes } from "../selection.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
-import { frameScale, hitTest, type Point } from "./hit.ts"
+import { type DropAt, DragLayouts, dropTargetAt, type MoveTarget } from "./drop-target.ts"
+import { frameAt, frameScale, type Point } from "./hit.ts"
+import { type DrawnSteps, shiftInsets } from "./insets.ts"
 import { kindColors } from "./kinds.tsx"
+import { frameDrawn } from "./nudge.ts"
 
 /**
  * Moving layers by dragging them, on the canvas or in the Layers panel. In a layout they go wherever they're dropped,
@@ -30,14 +31,7 @@ import { kindColors } from "./kinds.tsx"
  * insets instead, in steps of the spacing scale.
  */
 
-export interface MoveTarget {
-  design: string
-  parent: string
-  /** Among the parent's children as they are before the move. */
-  index: number
-  /** The component slot, when the parent is a component. */
-  slot?: string
-}
+export type { MoveTarget } from "./drop-target.ts"
 
 /** What the canvas draws while layers are dragged: where they'd go, and an outline following the pointer. */
 export interface DragView {
@@ -91,6 +85,9 @@ export function pressLayers(
   let delta = { x: 0, y: 0 }
 
   let preview: DropPreview | undefined
+  // Targets are found in the layouts as they were when the drag began, not as the preview reflows them.
+  const layouts = new DragLayouts()
+  let drawn: DrawnSteps | undefined
 
   const restore = () => {
     for (const element of elements) element.style.opacity = ""
@@ -103,8 +100,13 @@ export function pressLayers(
       if (Math.hypot(delta.x, delta.y) < threshold) return
       dragging = true
       document.body.style.cursor = "grabbing"
-      if (absolute) for (const element of elements) element.style.opacity = "0.35"
-      else preview = new DropPreview(elements)
+      if (absolute) {
+        drawn = frameDrawn(area, entry.key, current, spacingUnit(session.tokens.get())).insets(ids[0]!)
+        for (const element of elements) element.style.opacity = "0.35"
+      } else {
+        layouts.measure(host, entry.container.root)
+        preview = new DropPreview(elements)
+      }
     }
     event.preventDefault()
     const ghost = {
@@ -117,7 +119,7 @@ export function pressLayers(
       view = { ghost }
       return
     }
-    const found = moveTarget(area, session, { x: event.clientX, y: event.clientY }, entry, ids)
+    const found = moveTarget(area, session, { x: event.clientX, y: event.clientY }, entry, ids, layouts)
     target = found?.target
     // The layouts reflow around a copy of the layers where they'd land; the line is only for when they can't.
     const shown = found ? preview!.show(found.host, found.target, found.siblings) : (preview!.clear(), false)
@@ -140,7 +142,7 @@ export function pressLayers(
     }
     if (!drop) return
     if (absolute)
-      nudgeAbsolute(session, entry, ids[0]!, delta, frameScale(host) * (session.editor?.getZoomLevel() ?? 1))
+      nudgeAbsolute(session, entry, ids[0]!, delta, frameScale(host) * (session.editor?.getZoomLevel() ?? 1), drawn)
     else if (target) moveLayers(session, entry, ids, target)
   }
   const onUp = () => finish(true)
@@ -156,72 +158,19 @@ export function pressLayers(
 }
 
 /**
- * Where layers dropped at a point would go: the deepest layout under it that isn't one of them or inside one, between
- * the children either side of the point along its direction. The line to draw is in client coordinates.
+ * Where layers dropped at a point would go: in the frame under it, the layout and the slot under the point, by the
+ * layouts as they were when the drag began (see `dropTargetAt`). The line to draw is in client coordinates.
  */
 export function moveTarget(
   area: ParentNode,
   session: ProjectSession,
   point: Point,
   source: ContainerEntry,
-  ids: readonly string[]
-):
-  | {
-      target: MoveTarget
-      line: { x: number; y: number; w: number; h: number }
-      /** The frame it lands in, and the layout's children there, in order. */
-      host: HTMLElement
-      siblings: string[]
-    }
-  | undefined {
-  const hit = hitTest(area, session.store, point, session.editor)
-  if (!hit) return undefined
-  const moving = new Set(ids)
-  const cut = hit.entry.key === source.key ? hit.chain.findIndex((node) => moving.has(node.id)) : -1
-  const usable = cut === -1 ? hit.chain : hit.chain.slice(0, cut)
-  const layout = usable.findLast((node) => node.type === "layout")
-  if (layout?.type !== "layout") return undefined
-  const element = findNodeElement(hit.host, layout.id)
-  if (!element) return undefined
-  const computed = getComputedStyle(element)
-  const row = computed.display.includes("grid") ? false : computed.flexDirection.startsWith("row")
-  const box = element.getBoundingClientRect()
-  const children = layout.children
-    .map((child, index) => ({
-      index,
-      id: child.id,
-      rect: nodeBox(hit.host, child.id)
-    }))
-    .filter(
-      (child): child is { index: number; id: string; rect: DOMRect } =>
-        !!child.rect && !(hit.entry.key === source.key && moving.has(child.id))
-    )
-  const before = children.find((child) =>
-    row ? point.x < child.rect.left + child.rect.width / 2 : point.y < child.rect.top + child.rect.height / 2
-  )
-  const last = children.at(-1)
-  const index = before?.index ?? layout.children.length
-  const edge = before
-    ? row
-      ? before.rect.left - 2
-      : before.rect.top - 2
-    : last
-      ? row
-        ? last.rect.right + 1
-        : last.rect.bottom + 1
-      : row
-        ? box.left + 4
-        : box.top + 4
-  const reference = before ?? last
-  const line = row
-    ? { x: edge, y: reference?.rect.top ?? box.top + 4, w: 2, h: reference?.rect.height ?? Math.max(8, box.height - 8) }
-    : { x: box.left + 4, y: edge, w: Math.max(8, box.width - 8), h: 2 }
-  return {
-    target: { design: hit.entry.key, parent: layout.id, index },
-    line,
-    host: hit.host,
-    siblings: layout.children.map((child) => child.id)
-  }
+  ids: readonly string[],
+  layouts: DragLayouts
+): DropAt | undefined {
+  const frame = frameAt(area, session.store, point, session.editor)
+  return frame && dropTargetAt(layouts, frame.entry, frame.host, point, source.key, ids)
 }
 
 /**
@@ -365,13 +314,18 @@ function shown(node: DesignNode, state: ReturnType<typeof editingState>): Design
   return next
 }
 
-/** Moves an absolutely placed layer by the inset it's placed with, rounded to half steps of the spacing scale. */
+/**
+ * Moves an absolutely placed layer by its insets, in half steps of the spacing scale, keeping both sides, negative
+ * insets and tokens, as nudging does (see `shiftInsets`). `delta` is in screen pixels, `scale` is screen pixels per
+ * layout pixel, and `drawn` is where its sides were drawn when the drag began.
+ */
 function nudgeAbsolute(
   session: ProjectSession,
   entry: ContainerEntry,
   id: string,
   delta: { x: number; y: number },
-  scale: number
+  scale: number,
+  drawn: DrawnSteps | undefined
 ): void {
   const unit = spacingUnit(session.tokens.get())
   const state = editingState(entry.container, session.selection.get().state)
@@ -379,19 +333,7 @@ function nudgeAbsolute(
   if (!location) return
   const style = nodeInState(location.node, state).style ?? {}
   const steps = (px: number) => Math.round((px / scale / unit) * 2) / 2
-  const shift = (value: Length | undefined, by: number): number =>
-    Math.max(0, (typeof value === "number" ? value : 0) + by)
-  const change: NodeStyle = {}
-  const dx = steps(delta.x)
-  const dy = steps(delta.y)
-  if (dx !== 0) {
-    if (style.left === undefined && style.right !== undefined) change.right = shift(style.right, -dx)
-    else change.left = shift(style.left, dx)
-  }
-  if (dy !== 0) {
-    if (style.top === undefined && style.bottom !== undefined) change.bottom = shift(style.bottom, -dy)
-    else change.top = shift(style.top, dy)
-  }
+  const { change } = shiftInsets(style, steps(delta.x), steps(delta.y), drawn)
   if (Object.keys(change).length === 0) return
   session.store.updateContainer(entry.key, "Move layer", (container) =>
     editNode(container, boardTarget(container, state.id), id, { style: change })

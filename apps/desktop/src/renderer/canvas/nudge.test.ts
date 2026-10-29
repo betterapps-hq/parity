@@ -18,8 +18,7 @@ import {
   nudgeLayers,
   nudgeSelection,
   reorder,
-  reorderStep,
-  shiftInsets
+  reorderStep
 } from "./nudge.ts"
 
 const row: Flow = { axis: "row", reversed: false }
@@ -128,29 +127,7 @@ describe("reordering", () => {
   })
 })
 
-describe("moving an absolutely placed layer", () => {
-  it("moves it by the sides it's placed from", () => {
-    expect(shiftInsets({ top: 4, left: 2 }, 1, 0)).toEqual({ change: { left: 3 } })
-    expect(shiftInsets({ top: 4, left: 2 }, 0, -10)).toEqual({ change: { top: -6 } })
-    expect(shiftInsets({ bottom: 4, right: 2 }, 1, 1)).toEqual({ change: { right: 1, bottom: 3 } })
-  })
-
-  it("moves both sides of a layer stretched between them, so it keeps its size", () => {
-    expect(shiftInsets({ left: 0, right: 0, top: 2 }, 1, 0)).toEqual({ change: { left: 1, right: -1 } })
-  })
-
-  it("moves a side set to a token, or not set, from where it's drawn", () => {
-    const drawn = { top: 10, right: 71.5, bottom: 40, left: 2 }
-    expect(shiftInsets({ top: "header", left: 2 }, 0, 1, drawn)).toEqual({ change: { top: 11 } })
-    expect(shiftInsets({}, 1, 0, drawn)).toEqual({ change: { left: 3 } })
-  })
-
-  it("keeps an axis with a token when it isn't drawn, and an axis it doesn't move along", () => {
-    expect(shiftInsets({ top: "header", left: 2 }, 0, 1)).toEqual({ change: {}, blocked: "top" })
-    expect(shiftInsets({ top: "header", left: 2 }, 1, 0)).toEqual({ change: { left: 3 } })
-    expect(shiftInsets({}, 1, 0)).toEqual({ change: { left: 1 } })
-  })
-})
+// Moving an absolutely placed layer by its insets is `shiftInsets`, tested in insets.test.ts.
 
 const text = (id: string, extra: { style?: NodeStyle } = {}): DesignNode => ({ type: "text", id, text: id, ...extra })
 

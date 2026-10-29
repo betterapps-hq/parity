@@ -8,7 +8,6 @@ import {
   locateNode,
   moveNode,
   nodeInState,
-  type NodeStyle,
   shownVariants,
   type StateSpec,
   topmostNodes
@@ -17,7 +16,10 @@ import type { DesignStore } from "../design-store.ts"
 import { findNodeElement } from "../frame.ts"
 import { selectedDesigns, selectedNodes, type Selection, type SelectionStore } from "../selection.ts"
 import { selectionFrame } from "./hit.ts"
+import { type DrawnSteps, type Side, shiftInsets } from "./insets.ts"
 import { activeState } from "./view.ts"
+
+export type { DrawnSteps, Side } from "./insets.ts"
 
 /**
  * The arrow keys, through the keymap, as Figma's: a layer in a layout moves one place earlier or later along the
@@ -143,54 +145,6 @@ export function reorder(
 
 function swap(list: string[], a: number, b: number): void {
   ;[list[a], list[b]] = [list[b]!, list[a]!]
-}
-
-export type Side = "top" | "right" | "bottom" | "left"
-
-/** Where a layer's sides are drawn, in steps of the spacing scale from its parent's edges. */
-export type DrawnSteps = Record<Side, number>
-
-/**
- * The insets that move an absolutely placed layer `dx` and `dy` steps of the spacing scale, as dragging it does. Along
- * each axis it moves by the side it's placed from (the left or top, unless only the right or bottom is set), or by both
- * when it's stretched between them, so it keeps its size. Each side moves from where it is: its number, negative too,
- * or, for a length token or a side left unset, where `drawn` says it's drawn. Without `drawn`, an unset side counts
- * from 0 and an axis with a token stays, named by `blocked`. An axis it doesn't move along keeps what's written.
- */
-export function shiftInsets(
-  style: NodeStyle,
-  dx: number,
-  dy: number,
-  drawn?: DrawnSteps
-): { change: NodeStyle; blocked?: Side } {
-  const change: NodeStyle = {}
-  let blocked: Side | undefined
-  for (const [start, end, by] of [
-    ["left", "right", dx],
-    ["top", "bottom", dy]
-  ] as const) {
-    if (by === 0) continue
-    const placed: Side[] =
-      style[start] === undefined
-        ? style[end] === undefined
-          ? [start]
-          : [end]
-        : style[end] === undefined
-          ? [start]
-          : [start, end]
-    const at = (side: Side): number | undefined => {
-      const value = style[side]
-      if (typeof value === "number") return value
-      return drawn?.[side] ?? (value === undefined ? 0 : undefined)
-    }
-    const token = placed.find((side) => at(side) === undefined)
-    if (token) {
-      blocked ??= token
-      continue
-    }
-    for (const side of placed) change[side] = at(side)! + (side === start ? by : -by)
-  }
-  return { change, ...(blocked ? { blocked } : {}) }
 }
 
 const deltas: Record<Arrow, { x: number; y: number }> = {
