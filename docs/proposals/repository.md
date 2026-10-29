@@ -102,13 +102,16 @@ This is how Buildkit and the agency monorepo already release, and you asked for 
   that bundles the workspace packages it uses, listed as `devDependencies` so they aren't installed separately, and
   ships its skills and registry files. Later, the extension SDK [extensions.md](extensions.md) describes would be a
   second.
-- **It can't be `@parity/cli`.** The `@parity` scope on npm belongs to Parity Technologies (`@parity/api`,
-  `@parity/abi`), so the published name is PAR-26. Its command can still be `parity`. Inside the repository the
-  workspace packages keep their `@parity/*` names, since they're never published.
+- **It's `@parity-app/cli`,** since the `@parity` scope on npm belongs to Parity Technologies (`@parity/api`,
+  `@parity/abi`). You created the `parity-app` organization on 2026-10-29 (PAR-26). Its command is still `parity`. It
+  has that name in the repository too, since `publishConfig` can't rename a package, while the private workspace
+  packages keep their `@parity/*` names, since they're never published.
 - **Publishing uses npm's trusted publishing,** with provenance and no token: `pnpm publish --provenance` from a job
   with `id-token: write` in a protected `npm` environment, as Buildkit's `publish.yml` does (PAR-14). npm checks the
   _top-level_ workflow's file name, not a reusable one it calls, so each repository registers its own `cd-npm.yml` on
-  npmjs.com.
+  npmjs.com. npm only trusts a workflow for a package that exists, so the first version is published by hand, then
+  `npm trust github @parity-app/cli --repo betterapps-hq/parity --file cd-npm.yml --env npm --allow-publish` hands it to
+  CI.
 - **Only packages with a `publishConfig` are published,** which the CLI gets with its npm name. The desktop app isn't
   private, since Beachball versions it, so `private` alone can't tell the publish step what goes to npm.
 
