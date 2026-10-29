@@ -34,13 +34,43 @@ export const EveryState: Story = onCanvas(["Button"], () =>
   example().store.updateView(design("Button"), (view) => ({ ...view, allStates: true }))
 )
 
+/**
+ * Every state, zoomed out to a third: the labels beside the states and the captions above the frames shrink with the
+ * canvas and fade, and are gone by a quarter, while the title shrinks but stays.
+ */
+export const EveryStateZoomedOut: Story = onCanvas(
+  ["Button"],
+  () => example().store.updateView(design("Button"), (view) => ({ ...view, allStates: true })),
+  () => {
+    const { editor } = example()
+    const bounds = editor?.getShapePageBounds(shapeIdFor(design("Button")))
+    if (editor && bounds) editor.zoomToBounds(bounds, { targetZoom: 1 / 3 })
+  }
+)
+
+/** Every state of a design with only one: a single frame, with no label beside it, since there's nothing to tell apart. */
+export const EveryStateOfOne: Story = onCanvas(["Plan card"], () =>
+  example().store.updateView(design("Plan card"), (view) => ({ ...view, allStates: true }))
+)
+
 /** A design showing one state, the one picked on its board, rather than all of them. */
 export const OneState: Story = onCanvas(["Sign in"], () =>
   example().store.updateView(design("Sign in"), (view) => ({ ...view, state: "wrong-password" }))
 )
 
-/** Zoomed far out: boards are small, and their titles shrink with them but stay above every board. */
-export const ZoomedOut: Story = onCanvas([], undefined, () => example().editor?.zoomToFit())
+/**
+ * Zoomed far out: boards are small, and their titles shrink with them but stay above every board. State labels and
+ * frame captions have faded out, even on boards showing every state, so they don't crowd the boards around them.
+ */
+export const ZoomedOut: Story = onCanvas(
+  [],
+  () => {
+    for (const name of ["Button", "Sign in"]) {
+      example().store.updateView(design(name), (view) => ({ ...view, allStates: true }))
+    }
+  },
+  () => example().editor?.zoomToFit()
+)
 
 /** Free text notes beside a design, for comments and to-dos on the canvas. */
 export const Notes: Story = onCanvas(["Pricing"], undefined, async () => {

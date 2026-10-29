@@ -50,9 +50,9 @@ import { useFrameBitmap } from "./frame-bitmaps.ts"
 import { useFrameSkeleton } from "./frame-skeletons.ts"
 import { FrameSkeleton } from "./FrameSkeleton.tsx"
 import { DesignIcon, designColor, kindColors } from "./kinds.tsx"
+import { useCanvasLabel } from "./labels.ts"
 import { ModesMenu } from "./ModesMenu.tsx"
 import { activeState, companionScale, containerModes, withShownModes } from "./view.ts"
-import { useZoomStyle } from "./zoom-style.ts"
 
 interface ContainerViewProps {
   ref?: Ref<HTMLDivElement>
@@ -134,7 +134,7 @@ export function ContainerView({ ref, entry, hovered, onTitlePointerDown, title }
             className={`state-row relative ${index > 0 ? "mt-12 border-t border-dashed pt-12" : ""}`}
             data-state={state.id}
           >
-            {allStates && (
+            {rows.length > 1 && (
               <StateLabel
                 state={state}
                 base={index === 0}
@@ -168,14 +168,14 @@ export function ContainerView({ ref, entry, hovered, onTitlePointerDown, title }
 }
 
 /**
- * Sits above the board at screen size, the canvas zoom scaled back to 1, until the canvas is zoomed far out: then it
- * shrinks too, down to 60%, so names don't swamp the boards they name. The name always shows; the controls only while
- * the board is hovered or selected, or one of their menus is open, and there's room for them, so a canvas of designs
- * stays quiet.
+ * Sits above the board, as wide on screen as the board, and follows the zoom as a name does (see labels.ts): at screen
+ * size up close, then shrinking down to 60%, so names don't swamp the boards they name. The name always shows; the
+ * controls only while the board is hovered or selected, or one of their menus is open, and there's room for them, so
+ * a canvas of designs stays quiet.
  */
 function TitleBar({ showControls, children }: { showControls: boolean; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
-  useZoomStyle(ref, titleZoom)
+  useCanvasLabel(ref, "name", { fit: true })
   return (
     <div
       ref={ref}
@@ -185,17 +185,6 @@ function TitleBar({ showControls, children }: { showControls: boolean; children:
       <div className="@container flex h-8 min-w-0 items-center gap-3">{children}</div>
     </div>
   )
-}
-
-/** As wide on screen as the board, drawn at screen size down to 60%. */
-function titleZoom(style: CSSStyleDeclaration, zoom: number): void {
-  const scale = Math.min(1, Math.max(0.6, zoom * 2.5))
-  style.width = `${(100 * zoom) / scale}%`
-  style.transform = `scale(${scale / zoom})`
-}
-
-function labelZoom(style: CSSStyleDeclaration, zoom: number): void {
-  style.transform = `scale(${1 / zoom})`
 }
 
 function TitleControls({ children }: { children: ReactNode }) {
@@ -398,7 +387,11 @@ function StateMenu({
   )
 }
 
-/** Names a row in the every-state grid, to the left of the board at screen size. */
+/**
+ * Names a row in the every-state grid, to the left of the board. It's detail (see labels.ts), so it fades out when
+ * zoomed far out instead of spilling onto the boards beside it. A design with one state has no label: its title and
+ * state menu already name the only state there is.
+ */
 function StateLabel({
   state,
   base,
@@ -412,7 +405,7 @@ function StateLabel({
 }) {
   const changes = changeCount(state)
   const ref = useRef<HTMLButtonElement>(null)
-  useZoomStyle(ref, labelZoom)
+  useCanvasLabel(ref, "detail")
   return (
     <button
       ref={ref}
@@ -428,6 +421,22 @@ function StateLabel({
         {base ? "Base state" : `${changes} change${changes === 1 ? "" : "s"}`}
       </span>
     </button>
+  )
+}
+
+/**
+ * Names a frame's mode above it. It's detail (see labels.ts): at screen size up close, as wide on screen as the frame,
+ * and fading out when zoomed far out. Its place in the board's layout stays the same at any zoom.
+ */
+function FrameCaption({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useCanvasLabel(ref, "detail", { fit: true })
+  return (
+    <figcaption className="relative mb-3 h-6">
+      <div ref={ref} className="absolute bottom-0 left-0 flex h-6 origin-bottom-left items-center gap-2 text-sm">
+        {children}
+      </div>
+    </figcaption>
   )
 }
 
@@ -492,7 +501,7 @@ const FrameTile = memo(function FrameTile({
       data-primary={primary}
     >
       {caption && (
-        <figcaption className="mb-3 flex h-6 items-center gap-2 text-sm">
+        <FrameCaption>
           <button
             type="button"
             onPointerDown={stopEventPropagation}
@@ -504,16 +513,16 @@ const FrameTile = memo(function FrameTile({
             <ModeViewportIcon of={mode} className="size-3.5 shrink-0 opacity-70" aria-hidden />
             <span className="truncate">{mode.name}</span>
           </button>
-          <span className="rounded bg-muted px-1.5 text-xs text-muted-foreground tabular-nums">
+          <span className="shrink-0 rounded bg-muted px-1.5 text-xs whitespace-nowrap text-muted-foreground tabular-nums">
             {size.width}
             {size.height !== undefined && ` × ${size.height}`}
           </span>
           {scale < 1 && (
-            <span className="rounded bg-muted px-1.5 text-xs text-muted-foreground tabular-nums">
+            <span className="shrink-0 rounded bg-muted px-1.5 text-xs text-muted-foreground tabular-nums">
               {Math.round(scale * 100)}%
             </span>
           )}
-        </figcaption>
+        </FrameCaption>
       )}
       <div
         ref={tile}
