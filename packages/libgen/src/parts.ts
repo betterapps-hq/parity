@@ -308,7 +308,10 @@ export async function relateParts(
     const grown = shown ? grow(name, depth, shown, "example") : undefined
     if (grown && !grown.error) return save(name, { chain: prune(grown.chain, name), from: grown.from ?? "example" })
     const fromErrors = grow(name, depth, [], undefined)
-    if (!fromErrors.error && fromErrors.chain.length > 0) {
+    // A part drawn from a list (a toast) renders with its sample item, so errors can put anything in it; only what the
+    // package puts inside it goes there.
+    const stray = fromErrors.chain.some((parent) => drawnParts.has(parent) && !drawnInside.get(parent)?.has(name))
+    if (!fromErrors.error && fromErrors.chain.length > 0 && !stray) {
       return save(name, { chain: fromErrors.chain, from: fromErrors.from ?? "prefix" })
     }
     // Last, a part no example places renders where the package's own code renders it (`SelectScrollUpButton` in
@@ -385,6 +388,8 @@ export async function relateParts(
   const missing: string[] = []
   /** Parts drawn from a list the library keeps that render with an item of it. */
   const drawnParts = new Set<string>()
+  /** What the package puts inside each of them. */
+  const drawnInside = new Map<string, Set<string>>()
   for (const component of components) {
     const relation: PartRelation = {}
     const short = component.name.slice(component.name.lastIndexOf(".") + 1)
@@ -502,6 +507,7 @@ export async function relateParts(
           drawnParts.add(component.name)
           // The package's own nesting beats children put together from the parts' parents.
           const own = exportedChildren(drawn.children ?? [], names)
+          drawnInside.set(component.name, new Set(componentsIn(own)))
           const children = own.length > 0 ? own : (relation.sample?.children ?? [])
           relation.sample = { props, ...(children.length > 0 ? { children } : {}) }
         }
@@ -559,15 +565,7 @@ export async function relateParts(
     if (!attempt(relation.parents ?? [], parent, children)) relation.sample = { ...relation.sample, children }
   }
   // The parts inside a drawn part's sample, so they're placed as part of it.
-  const drawnTree = new Set(drawnParts)
-  const addTree = (children: SampleChild[] = []) => {
-    for (const child of children) {
-      if (typeof child !== "object" || !("component" in child)) continue
-      drawnTree.add(child.component)
-      addTree(child.children)
-    }
-  }
-  for (const part of drawnParts) addTree(relations.get(part)?.sample?.children)
+  const drawnTree = new Set([...drawnParts, ...[...drawnInside.values()].flatMap((inside) => [...inside])])
   return {
     relations,
     tried: true,
@@ -699,4 +697,11 @@ function exportedChildren(children: RenderedChild[], names: string[]): SampleChi
     if (!names.includes(child.component)) return inner
     return [{ component: child.component, ...(inner.length > 0 ? { children: inner } : {}) }]
   })
+}
+
+/** Every component a sample's children name, at any depth. */
+function componentsIn(children: SampleChild[]): string[] {
+  return children.flatMap((child) =>
+    typeof child === "object" && "component" in child ? [child.component, ...componentsIn(child.children ?? [])] : []
+  )
 }

@@ -91,7 +91,7 @@ const buildkit = Object.fromEntries(
 export const presets: Record<string, Preset> = {
   ...buildkit,
   "radix-ui": {
-    examples: { paths: ["apps/storybook/stories/", "packages/react/"] },
+    examples: { paths: ["apps/storybook/stories/"] },
     id: "radix",
     name: "Radix Primitives",
     description: "Unstyled, accessible primitives; styles come from the project's CSS.",

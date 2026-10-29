@@ -30,8 +30,8 @@ still need your call.
 - **Saving is explicit, as in a document editor.** Edits stay unsaved until Save (Ctrl+S). The tab shows a dot (it turns
   into the close button on hover). The status bar only says when a save failed, and clicking that tries again: you asked
   to remove its "Saved" and "Unsaved changes", as the tab's dot already shows them. Undoing back to what was saved makes
-  the file clean again. File > Preferences > Save automatically turns on saving each edit about 300ms after it's made,
-  and is off by default.
+  the file clean again. Edit > Settings > Save automatically turns on saving each edit about 300ms after it's made, and
+  is off by default.
 - **Closing a tab or quitting with unsaved changes asks** Save, Don't save or Cancel, with Save focused so Enter does
   it. Quitting with several projects unsaved asks once, with Save all.
 - **Changes from outside reload as one undoable step.** That covers agents, git and text editors. A file with unsaved
@@ -43,17 +43,50 @@ still need your call.
 
 ## Menus and preferences
 
-- **File, Edit and View are drawn by the app, in the title bar.** That's the same on every system. On macOS the system
-  menu keeps only the app, clipboard, window and developer commands for now. **On macOS, File, Edit and View will also
-  be mirrored into the system menu bar,** which you chose on 2026-10-28, because Mac users look for commands there.
-- **Electron's default menu is replaced.** It closed the window on Ctrl+W and reloaded it on Ctrl+R. Developer tools
-  stay on Ctrl+Shift+I.
-- **The theme defaults to dark** (what the app looked like before), with light and system under File > Preferences. It
-  covers the app's chrome and canvas only; designs keep whatever theme their mode picks. The main process remembers it
-  too, so the window opens in the right theme without a flash.
+- **The menus are drawn by the app, in the title bar.** That's the same on every system. On macOS the system menu keeps
+  only the app, clipboard, window and developer commands for now. **On macOS, the menus will also be mirrored into the
+  system menu bar,** which you chose on 2026-10-28, because Mac users look for commands there (CAN-7).
+- **File, Edit, View, Object, Arrange and Help, named and filled as Figma's are** (your request, 2026-10-29, from the
+  menu audit). My calls:
+  - **Object** holds what acts on the selection: Insert, wrapping in a layout, making a component, going to the main
+    component, detaching an instance, ordering and hiding. **Arrange** keeps aligning and distributing.
+  - **Settings live in a dialog, Edit > Settings (Ctrl+,),** the design-app convention on Windows (Adobe, Affinity,
+    Inkscape), replacing the Preferences submenu in File. It holds every preference; View keeps the toggles flipped
+    while working (layout grid, snapping, performance stats).
+  - **Export is two items in File,** the selected design or every design. The scale moved to Settings.
+  - **Help** has Search actions (Ctrl+K or Ctrl+/, Figma's actions menu), Keyboard shortcuts (Ctrl+Shift+?, as in
+    Figma), developer tools and About Parity.
+  - **No Check for updates yet.** Parity has no releases, so there's nothing to check; About says so and shows the
+    version, Electron and Chromium, with a button to copy them. Updating comes with packaging (CAN-37, CAN-38).
+  - **Exit is in File on Windows and Linux only;** on a Mac, Quit is in the Parity menu, as every app's is.
+- **Every shortcut is in one keymap,** `chrome/keymap.ts`. The menus, tooltips, the Keyboard shortcuts dialog and the
+  key handlers all read it, so what's shown is what works, and a test fails if two commands share keys. Keys are written
+  as on Windows and show with the Mac's symbols on a Mac (`⇧⌘Z`).
+- **tldraw's own shortcuts are off.** Its tool keys (E, D, R, A, L, F, N, K) switched to drawing tools behind Parity's
+  toolbar, Ctrl+/ flipped the canvas to light mode, and Ctrl+. and Ctrl+' turned on modes Parity doesn't use. Space to
+  pan and arrows to nudge stay, as they aren't shortcuts.
+- **The keys are Figma's** (checked against Figma's help and several cheat sheets on 2026-10-29), with these
+  differences, my calls:
+  - **I is Interact,** where Figma's is the eyedropper, which Parity doesn't have.
+  - **/ inserts,** where Figma's starts cursor chat. Shift+I inserts too, as Figma's does.
+  - **F2 renames as well as Ctrl+R,** as Windows apps do. Ctrl+Y redoes as well as Ctrl+Shift+Z.
+  - **Ctrl+G, Ctrl+Alt+G and Shift+A all wrap in a layout,** Parity's one way to group, frame and add auto layout.
+    Ctrl+Shift+G, Alt+Shift+A and Ctrl+Backspace unwrap.
+  - **Bring forward moves a layer later in its layout,** which paints it in front, as CSS does, so it moves down the
+    Layers list, which lists layers in their layout's order.
+  - **Alt+1 and Alt+2 open Layers and Components,** Figma's Layers and Assets.
+  - Figma keys for things Parity doesn't do yet are CAN-39.
+- **Electron's default menu is replaced.** It closed the window on Ctrl+W and reloaded it on Ctrl+R. Its developer menu
+  registers no keys, so Ctrl+R is free for Rename; Ctrl+Shift+I opens developer tools through the keymap. Its keys never
+  worked on Windows anyway, where the menu isn't shown.
+- **The canvas area is its own stacking context,** so its floating toolbars and overlays stay below menus and dialogs
+  instead of covering their close buttons.
+- **The theme defaults to dark** (what the app looked like before), with light and system in Settings. It covers the
+  app's chrome and canvas only; designs keep whatever theme their mode picks. The main process remembers it too, so the
+  window opens in the right theme without a flash.
 - **Export renders every state, in the design's main mode and the modes shown beside it,** at 2x by default (1x and 3x
-  under File > Export). Files are named after the design, plus the state and mode when there's more than one. It exports
-  the designs as they are on the canvas, saved or not, and doesn't save them.
+  in Settings). Files are named after the design, plus the state and mode when there's more than one. It exports the
+  designs as they are on the canvas, saved or not, and doesn't save them.
 - **Recent projects:** the last 10 that opened successfully.
 
 ## Canvas
@@ -131,7 +164,7 @@ still need your call.
   where it would land, with a line only where they can't. Moving within a design keeps ids and state overrides. Moving
   to another design takes the shown state with it and gives new ids. Absolutely placed layers move by their insets,
   rounded to half a spacing step.
-- **Wrap in layout** is Ctrl+G or Shift+A and copies the parent's direction and gap; Ctrl+Shift+G unwraps.
+- **Wrap in layout** is Ctrl+G, Ctrl+Alt+G or Shift+A and copies the parent's direction and gap; Ctrl+Shift+G unwraps.
 - **Align and distribute use Figma's keys,** Alt with A, H or D across and W, V or S down, plus Alt+Shift+H or V to
   distribute. Inside auto layout, aligning across sets each layer's own alignment and aligning along sets the parent's
   justification. Designs on the canvas align by their bounds.
@@ -434,6 +467,21 @@ recommended answer to each of its questions.
   `ToastPortal` and `ToastViewport` stay hidden: they're the host's, not the toast's.
 - **Templates are values when every part is known:** `` `${kind} saved` `` is read when the file says what `kind` is;
   one with an unknown part is left out rather than guessed.
+- **Mapped lists bind their first item (LIB-43):** wherever an example maps a list it spells out, the parts drawn for
+  each item get its first item, not only for hook lists. A list read from what a library factory or hook was given
+  counts (`createListCollection({ items })`, `useListCollection({ initialItems })`, `initialItems` being what `items`
+  starts as), including names destructured from the call. Only lists are read this way: a prop given the collection
+  itself is still left out, as its options aren't the collection. Chakra's Select, Combobox and Listbox items now sample
+  `item={{ label, value }}`, and Chakra renders 444 of 473 on the server, up from 433.
+- **Spreads are read when the file spells them out (LIB-43):** `{...buttonProps}` on an element, `{ ...base, size }` and
+  `[...sizes, "lg"]`, later fields overriding earlier ones.
+- **A preset's example folder that holds nothing is reported (LIB-43):** it has usually moved upstream. Radix's
+  `packages/react/` was one; it's gone from the preset.
+- **Errors don't put a part inside a drawn part (LIB-43):** a toast renders with its sample item, so an error chain
+  could place anything in it (ToastViewport landed inside Toast). A chain through a drawn part is kept only for what the
+  package puts inside it; ToastViewport is back under Toaster, and the Toaster's sample holds it again.
+- **An anchored toast's Positioner renders unanchored:** Base UI's anchored demo anchors to a button's ref, which a
+  sample can't hold, so the Positioner sits at the frame's corner. Accepted rather than faked.
 - **The in-app backtest runs its own instance:** `PARITY_UI_PORT`, `PARITY_DEBUG_PORT`, `PARITY_AGENT_FILE` and
   `PARITY_USER_DATA` give it its own ports, CLI channel and settings, so it runs beside another session's Parity instead
   of driving it.

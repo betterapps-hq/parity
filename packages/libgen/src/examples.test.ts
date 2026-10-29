@@ -166,6 +166,41 @@ describe("lists a hook returns", () => {
 })
 
 describe("values in samples", () => {
+  it("binds each part to the first item of a list a factory or hook was given", () => {
+    const text = `
+      const frameworks = createListCollection({ items: [{ label: "React", value: "react" }] })
+      const Basic = () => <Select.Root collection={frameworks}>{frameworks.items.map((item) => <Select.Item item={item} key={item.value}>{item.label}</Select.Item>)}</Select.Root>
+      function Filtered() {
+        const { collection } = useListCollection({ initialItems: [{ label: "Vue", value: "vue" }] })
+        return collection.items.map((item) => <Combobox.Item item={item}>{item.label}</Combobox.Item>)
+      }`
+    const uses = readExamples([{ path: "a.tsx", text }], ["Select.Root", "Select.Item", "Combobox.Item"])
+    expect(uses.get("Select.Item")?.sample).toEqual({
+      props: { item: { label: "React", value: "react" } },
+      children: ["React"]
+    })
+    expect(uses.get("Combobox.Item")?.sample).toEqual({
+      props: { item: { label: "Vue", value: "vue" } },
+      children: ["Vue"]
+    })
+    // The collection itself isn't its options, so the prop given it is left out.
+    expect(uses.get("Select.Root")?.sample?.props).toBeUndefined()
+  })
+
+  it("reads spreads the file spells out", () => {
+    const text = `
+      const base = { size: "sm", tone: "muted" }
+      const sizes = ["sm", "md"]
+      const x = <Badge {...base} tone="loud" items={[...sizes, "lg"]} extra={{ ...base, size: "lg" }} />`
+    const uses = readExamples([{ path: "a.tsx", text }], ["Badge"])
+    expect(uses.get("Badge")?.sample?.props).toEqual({
+      size: "sm",
+      tone: "loud",
+      items: ["sm", "md", "lg"],
+      extra: { size: "lg", tone: "muted" }
+    })
+  })
+
   it("resolves names the file declares, useState's value and mapped lists", () => {
     const text = `
       const chartConfig = { desktop: { label: "Desktop", color: "var(--chart-1)", icon: Monitor } } satisfies ChartConfig

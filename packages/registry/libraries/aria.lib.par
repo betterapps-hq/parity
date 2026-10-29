@@ -2217,7 +2217,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "color": "Text"
+            "color": "#f00"
           }
         },
         "fingerprint": "f94ca789",

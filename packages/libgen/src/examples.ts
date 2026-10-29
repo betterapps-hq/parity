@@ -68,7 +68,19 @@ export async function fetchExamples(
     const checkedOut = await checkoutExamples(dir, repo, found.commit, hints)
     const files = checkedOut.filter((file) => !/\.mdx?$/.test(file.path))
     const docs = checkedOut.filter((file) => /\.mdx?$/.test(file.path))
-    return { files, docs, source: { repo, commit: found.commit, how: found.how, files: files.length } }
+    // A folder the preset names that holds nothing at this commit has usually moved upstream.
+    const folders = [...(hints.paths ?? []), ...(hints.demos ?? []), ...(hints.anatomy ?? [])]
+    const empty = folders.filter(
+      (folder) => !checkedOut.some((file) => file.path.replaceAll("\\", "/").includes(folder.replace(/\/$/, "")))
+    )
+    return {
+      files,
+      docs,
+      source: { repo, commit: found.commit, how: found.how, files: files.length },
+      ...(empty.length > 0
+        ? { note: `No examples in ${empty.join(", ")} at ${found.commit.slice(0, 10)}; the folder may have moved.` }
+        : {})
+    }
   } catch (error) {
     return { files: [], note: `Examples weren't read from ${repo}: ${message(error)}` }
   }
@@ -317,8 +329,14 @@ export function readExamples(files: ExampleFile[], names: string[]): Map<string,
       // A hook's list items are the sample item inside the callback that maps them, and in the example's own
       // component they're drawn with.
       let inner = env
-      const callback = hookMapped(node, hooked, source) ? (node as ts.CallExpression).arguments[0] : undefined
-      if (callback && (ts.isArrowFunction(callback) || ts.isFunctionExpression(callback)) && context.hookItem) {
+      const callback = mapCallback(node)
+      const mappedList = callback && ((node as ts.CallExpression).expression as ts.PropertyAccessExpression).expression
+      const listed = mappedList ? listOf(mappedList, { ...context, env }) : undefined
+      if (callback && Array.isArray(listed) && listed[0] !== undefined) {
+        // A list the file spells out: its first item, for the parts drawn for each.
+        inner = new Map(env)
+        bind(callback.parameters[0]?.name, listed[0], inner)
+      } else if (callback && hookMapped(node, hooked, source) && context.hookItem) {
         inner = new Map(env)
         bind(callback.parameters[0]?.name, itemFor(callback, context.hookItem, source), inner)
       } else if (declared && drawnWith.has(declared)) {
@@ -349,10 +367,18 @@ interface Context {
 function sampleOf(node: ts.JsxElement | ts.JsxSelfClosingElement, context: Context, depth: number): ComponentSample {
   const opening = ts.isJsxElement(node) ? node.openingElement : node
   const props: Record<string, unknown> = {}
+  const skipped = (name: string) => name === "key" || name === "className" || name === "style" || name.startsWith("on")
   for (const attribute of opening.attributes.properties) {
+    // Props spread from an object the file spells out (`{...buttonProps}`).
+    if (ts.isJsxSpreadAttribute(attribute)) {
+      const spread = evaluate(attribute.expression, context, 0)
+      if (typeof spread !== "object" || spread === null || Array.isArray(spread)) continue
+      for (const [name, value] of Object.entries(spread)) if (!skipped(name)) props[name] = value
+      continue
+    }
     if (!ts.isJsxAttribute(attribute)) continue
     const name = attribute.name.getText(context.source)
-    if (name === "key" || name === "className" || name === "style" || name.startsWith("on")) continue
+    if (skipped(name)) continue
     const value = attributeValue(attribute.initializer, context)
     if (value !== undefined) props[name] = value
   }
@@ -431,7 +457,7 @@ function pushExpression(expression: ts.Expression, context: Context, depth: numb
     if (!callback || !(ts.isArrowFunction(callback) || ts.isFunctionExpression(callback))) return
     const body = returned(callback)
     if (!body) return
-    const list = evaluate(expression.expression.expression, context, 0)
+    const list = listOf(expression.expression.expression, context)
     // A list the file doesn't spell out still shows what goes in it, once.
     const items = Array.isArray(list)
       ? list.slice(0, 3)
@@ -513,6 +539,13 @@ function declarations(source: ts.SourceFile): Map<string, ts.Expression> {
     if (ts.isVariableDeclaration(node) && node.initializer) {
       const initializer = unwrap(node.initializer)
       if (ts.isIdentifier(node.name) && !scope.has(node.name.text)) scope.set(node.name.text, initializer)
+      // Names taken from what a call returns (`const { collection } = useListCollection(...)`) point at the call, so a
+      // list read from them finds its options.
+      if (ts.isObjectBindingPattern(node.name) && ts.isCallExpression(initializer)) {
+        for (const element of node.name.elements) {
+          if (ts.isIdentifier(element.name) && !scope.has(element.name.text)) scope.set(element.name.text, initializer)
+        }
+      }
       const state =
         ts.isArrayBindingPattern(node.name) &&
         ts.isCallExpression(initializer) &&
@@ -709,6 +742,38 @@ function declaredName(node: ts.Node): string | undefined {
   return name && /^[A-Z]/.test(name) ? name : undefined
 }
 
+/** The callback of a `list.map(callback)` call. */
+function mapCallback(node: ts.Node): ts.ArrowFunction | ts.FunctionExpression | undefined {
+  if (!ts.isCallExpression(node) || !ts.isPropertyAccessExpression(node.expression)) return undefined
+  if (node.expression.name.text !== "map") return undefined
+  const callback = node.arguments[0]
+  return callback && (ts.isArrowFunction(callback) || ts.isFunctionExpression(callback)) ? callback : undefined
+}
+
+/**
+ * A list a file maps: its value, or a field of the options a library factory or hook was given
+ * (`createListCollection({ items })`, `useListCollection({ initialItems })`, where `initialItems` is what `items`
+ * starts as). Only lists are read this way, so a prop given the collection itself isn't mistaken for its options.
+ */
+function listOf(expression: ts.Expression, context: Context): unknown {
+  const value = evaluate(expression, context, 0)
+  if (value !== undefined) return value
+  expression = unwrap(expression)
+  if (!ts.isPropertyAccessExpression(expression)) return undefined
+  let made = unwrap(expression.expression)
+  if (ts.isIdentifier(made)) {
+    const declared = context.scope.get(made.text)
+    if (declared) made = unwrap(declared)
+  }
+  if (!ts.isCallExpression(made)) return undefined
+  if (!/(?:^|\.)(?:create|use)[A-Z]\w*$/.test(made.expression.getText(context.source))) return undefined
+  const argument = made.arguments[0] && unwrap(made.arguments[0])
+  if (!argument || !ts.isObjectLiteralExpression(argument)) return undefined
+  const options = evaluate(argument, context, 0) as Record<string, unknown> | undefined
+  const field = expression.name.text
+  return options?.[field] ?? options?.[`initial${field[0]!.toUpperCase()}${field.slice(1)}`]
+}
+
 /** Whether a node is `list.map(...)` over a hook's result (`toasts.map`, `manager.toasts.map`, `useItems().map`). */
 function hookMapped(node: ts.Node, hooked: Set<string>, source: ts.SourceFile): boolean {
   if (!ts.isCallExpression(node) || !ts.isPropertyAccessExpression(node.expression)) return false
@@ -788,14 +853,25 @@ function evaluate(expression: ts.Expression, context: Context, depth: number): u
   }
   if (ts.isArrayLiteralExpression(expression)) {
     const items = expression.elements
+      .flatMap((element) => {
+        // A spread list the file spells out (`[...defaults, extra]`) adds its items.
+        if (!ts.isSpreadElement(element)) return [evaluate(element, context, depth + 1)]
+        const spread = evaluate(element.expression, context, depth + 1)
+        return Array.isArray(spread) ? spread : []
+      })
       .slice(0, 8)
-      .map((element) => evaluate(element, context, depth + 1))
       .filter((item) => item !== undefined)
     return items.length > 0 ? items : undefined
   }
   if (ts.isObjectLiteralExpression(expression)) {
     const object: Record<string, unknown> = {}
     for (const property of expression.properties) {
+      // A spread object the file spells out (`{ ...defaults, size }`) adds its fields, which later ones override.
+      if (ts.isSpreadAssignment(property)) {
+        const spread = evaluate(property.expression, context, depth + 1)
+        if (typeof spread === "object" && spread !== null && !Array.isArray(spread)) Object.assign(object, spread)
+        continue
+      }
       const key =
         property.name && (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name))
           ? property.name.text

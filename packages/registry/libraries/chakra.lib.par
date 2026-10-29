@@ -7254,7 +7254,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "value": "Text"
+            "value": "info"
           },
           "children": [
             {
@@ -7275,7 +7275,10 @@
               "component": "Accordion.ItemContent",
               "children": [
                 {
-                  "component": "Accordion.ItemBody"
+                  "component": "Accordion.ItemBody",
+                  "children": [
+                    "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cur"
+                  ]
                 }
               ]
             }
@@ -8141,6 +8144,11 @@
           "Accordion.ItemContent"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "Some value 1..."
+          ]
+        },
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",
@@ -9001,7 +9009,10 @@
         "sample": {
           "children": [
             {
-              "component": "Accordion.ItemBody"
+              "component": "Accordion.ItemBody",
+              "children": [
+                "Some value 1..."
+              ]
             }
           ]
         },
@@ -24854,7 +24865,8 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "src": "https://bit.ly/sage-adebayo"
+            "src": "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=100",
+            "alt": "Jessica Jones"
           }
         },
         "fingerprint": "44deb6b9",
@@ -25716,20 +25728,21 @@
         "group": "Avatar",
         "sample": {
           "props": {
-            "shape": "square",
-            "size": "lg"
+            "shape": "rounded",
+            "size": "2xs"
           },
           "children": [
             {
-              "component": "Avatar.Fallback",
+              "component": "Avatar.Image",
               "props": {
-                "name": "Jane Smith"
+                "src": "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=100",
+                "alt": "Jessica Jones"
               }
             },
             {
-              "component": "Avatar.Image",
+              "component": "Avatar.Fallback",
               "props": {
-                "src": "https://i.pravatar.cc/150?img=12"
+                "name": "Jessica Jones"
               }
             }
           ]
@@ -118718,6 +118731,20 @@
           "ColorPicker.Content"
         ],
         "parentsFrom": "error",
+        "sample": {
+          "props": {
+            "value": "red"
+          },
+          "children": [
+            {
+              "component": "ColorPicker.SwatchIndicator",
+              "props": {
+                "boxSize": "3",
+                "bg": "white"
+              }
+            }
+          ]
+        },
         "fingerprint": "e7c84e4e",
         "props": {
           "_active?": "c3f29d",
@@ -120513,6 +120540,12 @@
           "ColorPicker.Swatch"
         ],
         "parentsFrom": "error",
+        "sample": {
+          "props": {
+            "boxSize": "3",
+            "bg": "white"
+          }
+        },
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",
@@ -121370,6 +121403,28 @@
           "ColorPicker.Content"
         ],
         "parentsFrom": "error",
+        "sample": {
+          "props": {
+            "value": "red"
+          },
+          "children": [
+            {
+              "component": "ColorPicker.Swatch",
+              "props": {
+                "value": "red"
+              },
+              "children": [
+                {
+                  "component": "ColorPicker.SwatchIndicator",
+                  "props": {
+                    "boxSize": "3",
+                    "bg": "white"
+                  }
+                }
+              ]
+            }
+          ]
+        },
         "fingerprint": "629958f1",
         "props": {
           "_active?": "c3f29d",
@@ -126561,8 +126616,8 @@
         "group": "ColorSwatch",
         "sample": {
           "props": {
-            "value": "#bada55",
-            "boxSize": "0.82em"
+            "value": "#ff0000",
+            "size": "2xl"
           }
         },
         "fingerprint": "8881d3ac",
@@ -129163,20 +129218,63 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "px": "0"
+          },
           "children": [
             {
-              "component": "Combobox.Empty",
-              "children": [
-                "No items found"
-              ]
+              "component": "Combobox.Input",
+              "props": {
+                "mt": "-1",
+                "minH": "8",
+                "px": "3",
+                "border": "none",
+                "outline": "none",
+                "placeholder": "Search status"
+              }
             },
             {
               "component": "Combobox.ItemGroup",
+              "props": {
+                "borderTopWidth": "1px",
+                "pt": "1",
+                "px": "1"
+              },
               "children": [
                 {
-                  "component": "Combobox.ItemGroupLabel",
+                  "component": "Combobox.Item",
+                  "props": {
+                    "item": {
+                      "label": "Todo",
+                      "value": "todo"
+                    }
+                  },
                   "children": [
-                    "Color"
+                    "Todo"
+                  ]
+                },
+                {
+                  "component": "Combobox.Item",
+                  "props": {
+                    "item": {
+                      "label": "In Progress",
+                      "value": "in-progress"
+                    }
+                  },
+                  "children": [
+                    "In Progress"
+                  ]
+                },
+                {
+                  "component": "Combobox.Item",
+                  "props": {
+                    "item": {
+                      "label": "Done",
+                      "value": "done"
+                    }
+                  },
+                  "children": [
+                    "Done"
                   ]
                 }
               ]
@@ -134392,6 +134490,26 @@
           "Combobox.Content"
         ],
         "parentsFrom": "error",
+        "sample": {
+          "props": {
+            "item": {
+              "value": "AD",
+              "label": "Andorra",
+              "emoji": "🇦🇩"
+            }
+          },
+          "children": [
+            {
+              "component": "Combobox.ItemText",
+              "props": {
+                "truncate": true
+              },
+              "children": [
+                "Andorra"
+              ]
+            }
+          ]
+        },
         "fingerprint": "defc2d94",
         "props": {
           "_active?": "c3f29d",
@@ -135271,11 +135389,46 @@
           "Combobox.Positioner"
         ],
         "sample": {
+          "props": {
+            "borderTopWidth": "1px",
+            "pt": "1",
+            "px": "1"
+          },
           "children": [
             {
-              "component": "Combobox.ItemGroupLabel",
+              "component": "Combobox.Item",
+              "props": {
+                "item": {
+                  "label": "Todo",
+                  "value": "todo"
+                }
+              },
               "children": [
-                "Color"
+                "Todo"
+              ]
+            },
+            {
+              "component": "Combobox.Item",
+              "props": {
+                "item": {
+                  "label": "In Progress",
+                  "value": "in-progress"
+                }
+              },
+              "children": [
+                "In Progress"
+              ]
+            },
+            {
+              "component": "Combobox.Item",
+              "props": {
+                "item": {
+                  "label": "Done",
+                  "value": "done"
+                }
+              },
+              "children": [
+                "Done"
               ]
             }
           ]
@@ -137001,10 +137154,23 @@
         "group": "Combobox",
         "parents": [
           "Combobox.Root",
+          "Combobox.Positioner",
           "Combobox.Content",
           "Combobox.Item"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
+        "optionalParents": [
+          "Combobox.Content",
+          "Combobox.Positioner"
+        ],
+        "sample": {
+          "props": {
+            "truncate": true
+          },
+          "children": [
+            "Andorra"
+          ]
+        },
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",
@@ -139586,20 +139752,63 @@
           "children": [
             {
               "component": "Combobox.Content",
+              "props": {
+                "px": "0"
+              },
               "children": [
                 {
-                  "component": "Combobox.Empty",
-                  "children": [
-                    "No items found"
-                  ]
+                  "component": "Combobox.Input",
+                  "props": {
+                    "mt": "-1",
+                    "minH": "8",
+                    "px": "3",
+                    "border": "none",
+                    "outline": "none",
+                    "placeholder": "Search status"
+                  }
                 },
                 {
                   "component": "Combobox.ItemGroup",
+                  "props": {
+                    "borderTopWidth": "1px",
+                    "pt": "1",
+                    "px": "1"
+                  },
                   "children": [
                     {
-                      "component": "Combobox.ItemGroupLabel",
+                      "component": "Combobox.Item",
+                      "props": {
+                        "item": {
+                          "label": "Todo",
+                          "value": "todo"
+                        }
+                      },
                       "children": [
-                        "Color"
+                        "Todo"
+                      ]
+                    },
+                    {
+                      "component": "Combobox.Item",
+                      "props": {
+                        "item": {
+                          "label": "In Progress",
+                          "value": "in-progress"
+                        }
+                      },
+                      "children": [
+                        "In Progress"
+                      ]
+                    },
+                    {
+                      "component": "Combobox.Item",
+                      "props": {
+                        "item": {
+                          "label": "Done",
+                          "value": "done"
+                        }
+                      },
+                      "children": [
+                        "Done"
                       ]
                     }
                   ]
@@ -140471,7 +140680,20 @@
         "as": "function",
         "group": "Combobox",
         "sample": {
+          "props": {
+            "open": true
+          },
           "children": [
+            {
+              "component": "Combobox.Label",
+              "props": {
+                "mb": "2",
+                "fontWeight": "medium"
+              },
+              "children": [
+                "Select framework"
+              ]
+            },
             {
               "component": "Combobox.Control",
               "children": [
@@ -140498,13 +140720,42 @@
               ]
             },
             {
-              "component": "Combobox.Label",
+              "component": "Combobox.Positioner",
               "children": [
-                "Select framework"
+                {
+                  "component": "Combobox.Content",
+                  "children": [
+                    {
+                      "component": "Combobox.Empty",
+                      "children": [
+                        "No items found"
+                      ]
+                    },
+                    {
+                      "component": "Combobox.ItemGroup",
+                      "children": [
+                        {
+                          "component": "Combobox.ItemGroupLabel"
+                        },
+                        {
+                          "component": "Combobox.Item"
+                        }
+                      ]
+                    },
+                    {
+                      "component": "Combobox.ItemGroup",
+                      "children": [
+                        {
+                          "component": "Combobox.ItemGroupLabel"
+                        },
+                        {
+                          "component": "Combobox.Item"
+                        }
+                      ]
+                    }
+                  ]
+                }
               ]
-            },
-            {
-              "component": "Combobox.List"
             }
           ]
         },
@@ -144029,13 +144280,14 @@
             {
               "component": "DataList.ItemLabel",
               "children": [
-                "Name"
+                "New Users",
+                "This is some info"
               ]
             },
             {
               "component": "DataList.ItemValue",
               "children": [
-                "John Doe"
+                "234"
               ]
             }
           ]
@@ -144899,7 +145151,8 @@
         "parentsFrom": "example",
         "sample": {
           "children": [
-            "Name"
+            "New Users",
+            "This is some info"
           ]
         },
         "fingerprint": "ca28c419",
@@ -145761,7 +146014,7 @@
         "parentsFrom": "example",
         "sample": {
           "children": [
-            "John Doe"
+            "234"
           ]
         },
         "fingerprint": "ca28c419",
@@ -253551,15 +253804,19 @@
         "group": "FloatingPanel",
         "sample": {
           "props": {
+            "id": "notes",
             "persistRect": true,
-            "allowOverflow": false,
+            "defaultPosition": {
+              "x": 80,
+              "y": 80
+            },
             "defaultSize": {
               "width": 280,
-              "height": 180
+              "height": 200
             },
             "minSize": {
-              "width": 280,
-              "height": 180
+              "width": 240,
+              "height": 160
             }
           },
           "children": [
@@ -260698,14 +260955,15 @@
         "group": "Highlight",
         "sample": {
           "props": {
-            "query": "with speed",
+            "query": "spot",
             "children": "Text",
+            "ignoreCase": true,
             "styles": {
-              "color": "teal.600"
+              "fontWeight": "semibold"
             }
           },
           "children": [
-            "Create accessible React apps with speed"
+            "Spotlight bulb"
           ]
         },
         "fingerprint": "6bdcac2a",
@@ -267761,6 +268019,8 @@
         "group": "Image",
         "sample": {
           "props": {
+            "src": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=160&h=160&fit=crop",
+            "alt": "Euphoric Echoes",
             "bg": "bg.subtle",
             "objectFit": "cover",
             "aspectRatio": "1",
@@ -278227,16 +278487,86 @@
         "sample": {
           "children": [
             {
-              "component": "Listbox.Empty",
+              "component": "Listbox.Item",
+              "props": {
+                "item": {
+                  "value": "euphoric-echoes",
+                  "title": "Euphoric Echoes",
+                  "artist": "Luna Solstice",
+                  "image": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=160&h=160&fit=crop"
+                },
+                "flexDirection": "column",
+                "alignItems": "flex-start",
+                "gap": "2",
+                "position": "relative"
+              },
               "children": [
-                "No results found"
+                {
+                  "component": "Listbox.ItemIndicator",
+                  "props": {
+                    "position": "absolute",
+                    "top": "4",
+                    "right": "4",
+                    "layerStyle": "fill.solid",
+                    "borderWidth": "2px",
+                    "borderColor": "fg.inverted"
+                  }
+                }
               ]
             },
             {
-              "component": "Listbox.ItemGroup",
+              "component": "Listbox.Item",
+              "props": {
+                "item": {
+                  "value": "neon-dreamscape",
+                  "title": "Neon Dreamscape",
+                  "artist": "Electra Skyline",
+                  "image": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=160&h=160&fit=crop"
+                },
+                "flexDirection": "column",
+                "alignItems": "flex-start",
+                "gap": "2",
+                "position": "relative"
+              },
               "children": [
                 {
-                  "component": "Listbox.ItemGroupLabel"
+                  "component": "Listbox.ItemIndicator",
+                  "props": {
+                    "position": "absolute",
+                    "top": "4",
+                    "right": "4",
+                    "layerStyle": "fill.solid",
+                    "borderWidth": "2px",
+                    "borderColor": "fg.inverted"
+                  }
+                }
+              ]
+            },
+            {
+              "component": "Listbox.Item",
+              "props": {
+                "item": {
+                  "value": "cosmic-serenade",
+                  "title": "Cosmic Serenade",
+                  "artist": "Orion's Symphony",
+                  "image": "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=160&h=160&fit=crop"
+                },
+                "flexDirection": "column",
+                "alignItems": "flex-start",
+                "gap": "2",
+                "position": "relative"
+              },
+              "children": [
+                {
+                  "component": "Listbox.ItemIndicator",
+                  "props": {
+                    "position": "absolute",
+                    "top": "4",
+                    "right": "4",
+                    "layerStyle": "fill.solid",
+                    "borderWidth": "2px",
+                    "borderColor": "fg.inverted"
+                  }
                 }
               ]
             }
@@ -280843,6 +281173,33 @@
           "Listbox.Content"
         ],
         "parentsFrom": "error",
+        "sample": {
+          "props": {
+            "item": {
+              "value": "euphoric-echoes",
+              "title": "Euphoric Echoes",
+              "artist": "Luna Solstice",
+              "image": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=160&h=160&fit=crop"
+            },
+            "flexDirection": "column",
+            "alignItems": "flex-start",
+            "gap": "2",
+            "position": "relative"
+          },
+          "children": [
+            {
+              "component": "Listbox.ItemIndicator",
+              "props": {
+                "position": "absolute",
+                "top": "4",
+                "right": "4",
+                "layerStyle": "fill.solid",
+                "borderWidth": "2px",
+                "borderColor": "fg.inverted"
+              }
+            }
+          ]
+        },
         "fingerprint": "d66fcc86",
         "props": {
           "_active?": "c3f29d",
@@ -281721,6 +282078,17 @@
           "children": [
             {
               "component": "Listbox.ItemGroupLabel"
+            },
+            {
+              "component": "Listbox.Item",
+              "children": [
+                {
+                  "component": "Listbox.ItemText"
+                },
+                {
+                  "component": "Listbox.ItemIndicator"
+                }
+              ]
             }
           ]
         },
@@ -283444,7 +283812,17 @@
           "Listbox.Content",
           "Listbox.Item"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "position": "absolute",
+            "top": "4",
+            "right": "4",
+            "layerStyle": "fill.solid",
+            "borderWidth": "2px",
+            "borderColor": "fg.inverted"
+          }
+        },
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",
@@ -284302,7 +284680,12 @@
           "Listbox.Content",
           "Listbox.Item"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "React.js"
+          ]
+        },
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",
@@ -286029,35 +286412,104 @@
         "as": "function",
         "group": "Listbox",
         "sample": {
+          "props": {
+            "orientation": "horizontal",
+            "maxW": "640px"
+          },
           "children": [
+            {
+              "component": "Listbox.Label",
+              "children": [
+                "Select Album"
+              ]
+            },
             {
               "component": "Listbox.Content",
               "children": [
                 {
-                  "component": "Listbox.Empty",
+                  "component": "Listbox.Item",
+                  "props": {
+                    "item": {
+                      "value": "euphoric-echoes",
+                      "title": "Euphoric Echoes",
+                      "artist": "Luna Solstice",
+                      "image": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=160&h=160&fit=crop"
+                    },
+                    "flexDirection": "column",
+                    "alignItems": "flex-start",
+                    "gap": "2",
+                    "position": "relative"
+                  },
                   "children": [
-                    "No results found"
+                    {
+                      "component": "Listbox.ItemIndicator",
+                      "props": {
+                        "position": "absolute",
+                        "top": "4",
+                        "right": "4",
+                        "layerStyle": "fill.solid",
+                        "borderWidth": "2px",
+                        "borderColor": "fg.inverted"
+                      }
+                    }
                   ]
                 },
                 {
-                  "component": "Listbox.ItemGroup",
+                  "component": "Listbox.Item",
+                  "props": {
+                    "item": {
+                      "value": "neon-dreamscape",
+                      "title": "Neon Dreamscape",
+                      "artist": "Electra Skyline",
+                      "image": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=160&h=160&fit=crop"
+                    },
+                    "flexDirection": "column",
+                    "alignItems": "flex-start",
+                    "gap": "2",
+                    "position": "relative"
+                  },
                   "children": [
                     {
-                      "component": "Listbox.ItemGroupLabel"
+                      "component": "Listbox.ItemIndicator",
+                      "props": {
+                        "position": "absolute",
+                        "top": "4",
+                        "right": "4",
+                        "layerStyle": "fill.solid",
+                        "borderWidth": "2px",
+                        "borderColor": "fg.inverted"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "component": "Listbox.Item",
+                  "props": {
+                    "item": {
+                      "value": "cosmic-serenade",
+                      "title": "Cosmic Serenade",
+                      "artist": "Orion's Symphony",
+                      "image": "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=160&h=160&fit=crop"
+                    },
+                    "flexDirection": "column",
+                    "alignItems": "flex-start",
+                    "gap": "2",
+                    "position": "relative"
+                  },
+                  "children": [
+                    {
+                      "component": "Listbox.ItemIndicator",
+                      "props": {
+                        "position": "absolute",
+                        "top": "4",
+                        "right": "4",
+                        "layerStyle": "fill.solid",
+                        "borderWidth": "2px",
+                        "borderColor": "fg.inverted"
+                      }
                     }
                   ]
                 }
-              ]
-            },
-            {
-              "component": "Listbox.Input"
-            },
-            {
-              "component": "Listbox.Label",
-              "children": [
-                "Select Country (",
-                "8",
-                "items)"
               ]
             }
           ]
@@ -297437,10 +297889,11 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "value": "Text",
+            "value": "autosave",
             "checked": true
           },
           "children": [
+            "Autosave",
             {
               "component": "Menu.ItemIndicator"
             }
@@ -307174,9 +307627,10 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "value": "Text"
+            "value": "asc"
           },
           "children": [
+            "Ascending",
             {
               "component": "Menu.ItemIndicator"
             }
@@ -361563,7 +362017,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "value": "Text",
+            "value": "next",
             "flex": "1"
           },
           "children": [
@@ -361580,14 +362034,20 @@
                       "component": "RadioCard.ItemText",
                       "props": {
                         "fontWeight": "medium"
-                      }
+                      },
+                      "children": [
+                        "Next.js"
+                      ]
                     },
                     {
                       "component": "RadioCard.ItemDescription",
                       "props": {
                         "fontSize": "sm",
                         "color": "gray.600"
-                      }
+                      },
+                      "children": [
+                        "Great for full-stack React apps"
+                      ]
                     }
                   ]
                 },
@@ -361605,7 +362065,10 @@
               "props": {
                 "fontSize": "xs",
                 "color": "gray.500"
-              }
+              },
+              "children": [
+                "Most popular"
+              ]
             }
           ]
         },
@@ -362473,7 +362936,10 @@
           "props": {
             "fontSize": "xs",
             "color": "gray.500"
-          }
+          },
+          "children": [
+            "Most popular"
+          ]
         },
         "fingerprint": "ca28c419",
         "props": {
@@ -363339,14 +363805,20 @@
               "component": "RadioCard.ItemText",
               "props": {
                 "fontWeight": "medium"
-              }
+              },
+              "children": [
+                "Next.js"
+              ]
             },
             {
               "component": "RadioCard.ItemDescription",
               "props": {
                 "fontSize": "sm",
                 "color": "gray.600"
-              }
+              },
+              "children": [
+                "Great for full-stack React apps"
+              ]
             }
           ]
         },
@@ -364238,14 +364710,20 @@
                   "component": "RadioCard.ItemText",
                   "props": {
                     "fontWeight": "medium"
-                  }
+                  },
+                  "children": [
+                    "Next.js"
+                  ]
                 },
                 {
                   "component": "RadioCard.ItemDescription",
                   "props": {
                     "fontSize": "sm",
                     "color": "gray.600"
-                  }
+                  },
+                  "children": [
+                    "Great for full-stack React apps"
+                  ]
                 }
               ]
             },
@@ -365123,7 +365601,10 @@
           "props": {
             "fontSize": "sm",
             "color": "gray.600"
-          }
+          },
+          "children": [
+            "Great for full-stack React apps"
+          ]
         },
         "fingerprint": "ca28c419",
         "props": {
@@ -366863,7 +367344,10 @@
         "sample": {
           "props": {
             "fontWeight": "medium"
-          }
+          },
+          "children": [
+            "Next.js"
+          ]
         },
         "fingerprint": "ca28c419",
         "props": {
@@ -395791,12 +396275,40 @@
         "sample": {
           "children": [
             {
+              "component": "Select.Item",
+              "children": [
+                "Jessica Jones",
+                {
+                  "component": "Select.ItemIndicator"
+                }
+              ]
+            },
+            {
               "component": "Select.ItemGroup",
               "children": [
                 {
                   "component": "Select.ItemGroupLabel",
+                  "props": {
+                    "px": "2",
+                    "py": "1",
+                    "fontSize": "xs",
+                    "fontWeight": "semibold",
+                    "textTransform": "uppercase",
+                    "color": "fg.muted"
+                  },
                   "children": [
                     "Popular"
+                  ]
+                },
+                {
+                  "component": "Select.Item",
+                  "children": [
+                    {
+                      "component": "Select.ItemText"
+                    },
+                    {
+                      "component": "Select.ItemIndicator"
+                    }
                   ]
                 }
               ]
@@ -399303,6 +399815,22 @@
           "Select.Content"
         ],
         "parentsFrom": "error",
+        "sample": {
+          "props": {
+            "item": {
+              "name": "Jessica Jones",
+              "id": "jessica_jones",
+              "avatar": "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=100"
+            },
+            "justifyContent": "flex-start"
+          },
+          "children": [
+            "Jessica Jones",
+            {
+              "component": "Select.ItemIndicator"
+            }
+          ]
+        },
         "fingerprint": "defc2d94",
         "props": {
           "_active?": "c3f29d",
@@ -400182,8 +400710,27 @@
           "children": [
             {
               "component": "Select.ItemGroupLabel",
+              "props": {
+                "px": "2",
+                "py": "1",
+                "fontSize": "xs",
+                "fontWeight": "semibold",
+                "textTransform": "uppercase",
+                "color": "fg.muted"
+              },
               "children": [
                 "Popular"
+              ]
+            },
+            {
+              "component": "Select.Item",
+              "children": [
+                {
+                  "component": "Select.ItemText"
+                },
+                {
+                  "component": "Select.ItemIndicator"
+                }
               ]
             }
           ]
@@ -401914,10 +402461,11 @@
         "group": "Select",
         "parents": [
           "Select.Root",
+          "Select.Positioner",
           "Select.Content",
           "Select.Item"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",
@@ -402772,10 +403320,16 @@
         "group": "Select",
         "parents": [
           "Select.Root",
+          "Select.Positioner",
           "Select.Content",
           "Select.Item"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "Basic Plan"
+          ]
+        },
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",
@@ -405359,8 +405913,57 @@
                   "children": [
                     {
                       "component": "Select.ItemGroupLabel",
+                      "props": {
+                        "px": "2",
+                        "py": "1",
+                        "fontSize": "xs",
+                        "fontWeight": "semibold",
+                        "textTransform": "uppercase",
+                        "color": "fg.muted"
+                      },
                       "children": [
                         "Popular"
+                      ]
+                    },
+                    {
+                      "component": "Select.Item",
+                      "children": [
+                        {
+                          "component": "Select.ItemText"
+                        },
+                        {
+                          "component": "Select.ItemIndicator"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "Select.ItemGroup",
+                  "children": [
+                    {
+                      "component": "Select.ItemGroupLabel",
+                      "props": {
+                        "px": "2",
+                        "py": "1",
+                        "fontSize": "xs",
+                        "fontWeight": "semibold",
+                        "textTransform": "uppercase",
+                        "color": "fg.muted"
+                      },
+                      "children": [
+                        "Others"
+                      ]
+                    },
+                    {
+                      "component": "Select.Item",
+                      "children": [
+                        {
+                          "component": "Select.ItemText"
+                        },
+                        {
+                          "component": "Select.ItemIndicator"
+                        }
                       ]
                     }
                   ]
@@ -406232,17 +406835,26 @@
         "as": "function",
         "group": "Select",
         "sample": {
+          "props": {
+            "size": "sm",
+            "width": "320px",
+            "open": true
+          },
           "children": [
+            {
+              "component": "Select.HiddenSelect"
+            },
+            {
+              "component": "Select.Label",
+              "children": [
+                "Select framework"
+              ]
+            },
             {
               "component": "Select.Control",
               "children": [
                 {
                   "component": "Select.Trigger",
-                  "props": {
-                    "borderColor": "colorPalette.muted",
-                    "bg": "colorPalette.subtle",
-                    "color": "colorPalette.fg"
-                  },
                   "children": [
                     {
                       "component": "Select.ValueText",
@@ -406256,22 +406868,58 @@
                   "component": "Select.IndicatorGroup",
                   "children": [
                     {
-                      "component": "Select.Indicator",
-                      "props": {
-                        "color": "colorPalette.fg"
-                      }
+                      "component": "Select.Indicator"
                     }
                   ]
                 }
               ]
             },
             {
-              "component": "Select.HiddenSelect"
-            },
-            {
-              "component": "Select.Label",
+              "component": "Select.Positioner",
               "children": [
-                "Select pokemon"
+                {
+                  "component": "Select.Content",
+                  "children": [
+                    {
+                      "component": "Select.ItemGroup",
+                      "children": [
+                        {
+                          "component": "Select.ItemGroupLabel",
+                          "props": {
+                            "px": "2",
+                            "py": "1",
+                            "fontSize": "xs",
+                            "fontWeight": "semibold",
+                            "textTransform": "uppercase",
+                            "color": "fg.muted"
+                          }
+                        },
+                        {
+                          "component": "Select.Item"
+                        }
+                      ]
+                    },
+                    {
+                      "component": "Select.ItemGroup",
+                      "children": [
+                        {
+                          "component": "Select.ItemGroupLabel",
+                          "props": {
+                            "px": "2",
+                            "py": "1",
+                            "fontSize": "xs",
+                            "fontWeight": "semibold",
+                            "textTransform": "uppercase",
+                            "color": "fg.muted"
+                          }
+                        },
+                        {
+                          "component": "Select.Item"
+                        }
+                      ]
+                    }
+                  ]
+                }
               ]
             }
           ]
@@ -449286,8 +449934,11 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "index": 3
-          }
+            "index": 1
+          },
+          "children": [
+            "Step 1 description"
+          ]
         },
         "fingerprint": "7d35c010",
         "props": {
@@ -450166,6 +450817,11 @@
         "optionalParents": [
           "Steps.Trigger"
         ],
+        "sample": {
+          "children": [
+            "This step"
+          ]
+        },
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",
@@ -451910,7 +452566,10 @@
               "component": "Steps.Trigger",
               "children": [
                 {
-                  "component": "Steps.Title"
+                  "component": "Steps.Title",
+                  "children": [
+                    "Step One"
+                  ]
                 }
               ]
             }
@@ -459085,7 +459744,10 @@
         "sample": {
           "props": {
             "fontWeight": "semibold"
-          }
+          },
+          "children": [
+            "Create Account"
+          ]
         },
         "fingerprint": "ca28c419",
         "props": {
@@ -459951,7 +460613,10 @@
               "component": "Steps.Indicator"
             },
             {
-              "component": "Steps.Title"
+              "component": "Steps.Title",
+              "children": [
+                "Step 1"
+              ]
             }
           ]
         },
@@ -484189,11 +484854,12 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "value": "projects",
-            "disabled": true
+            "value": "npm",
+            "colorPalette": "teal",
+            "textStyle": "xs"
           },
           "children": [
-            "Projects"
+            "npm"
           ]
         },
         "fingerprint": "df4cb3b2",

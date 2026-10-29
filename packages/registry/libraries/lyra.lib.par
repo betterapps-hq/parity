@@ -1399,7 +1399,7 @@
         "parentsFrom": "example",
         "sample": {
           "children": [
-            "We offer standard (5-7 days), express (2-3 days), and overni"
+            "Click on 'Forgot Password' on the login page, enter your ema"
           ]
         },
         "fingerprint": "dfce1c8e",
@@ -1460,7 +1460,7 @@
         "parentsFrom": "example",
         "sample": {
           "children": [
-            "What are your shipping options?"
+            "How do I reset my password?"
           ]
         },
         "fingerprint": "b7b780ef",
@@ -1977,11 +1977,14 @@
         "group": "Attachment",
         "sample": {
           "props": {
-            "state": "error"
+            "orientation": "vertical"
           },
           "children": [
             {
-              "component": "AttachmentMedia"
+              "component": "AttachmentMedia",
+              "props": {
+                "variant": "image"
+              }
             },
             {
               "component": "AttachmentContent",
@@ -1989,13 +1992,13 @@
                 {
                   "component": "AttachmentTitle",
                   "children": [
-                    "financial-model.xlsx"
+                    "workspace.png"
                   ]
                 },
                 {
                   "component": "AttachmentDescription",
                   "children": [
-                    "Upload failed. Try again."
+                    "PNG · 820 KB"
                   ]
                 }
               ]
@@ -2006,16 +2009,13 @@
                 {
                   "component": "AttachmentAction",
                   "props": {
-                    "aria-label": "Retry upload"
-                  }
-                },
-                {
-                  "component": "AttachmentAction",
-                  "props": {
-                    "aria-label": "Remove financial-model.xlsx"
+                    "aria-label": "Remove workspace.png"
                   }
                 }
               ]
+            },
+            {
+              "component": "AttachmentTrigger"
             }
           ]
         },
@@ -2092,13 +2092,13 @@
             {
               "component": "AttachmentTitle",
               "children": [
-                "sales-dashboard.pdf"
+                "workspace.png"
               ]
             },
             {
               "component": "AttachmentDescription",
               "children": [
-                "Uploading · 64%"
+                "PNG · 820 KB"
               ]
             }
           ]
@@ -2116,7 +2116,7 @@
         "parentsFrom": "example",
         "sample": {
           "children": [
-            "Uploading · 64%"
+            "PNG · 820 KB"
           ]
         },
         "fingerprint": "c218e39e"
@@ -2295,7 +2295,7 @@
         "parentsFrom": "example",
         "sample": {
           "children": [
-            "sales-dashboard.pdf"
+            "workspace.png"
           ]
         },
         "fingerprint": "c218e39e"
@@ -7477,10 +7477,11 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "value": "personal"
+            "value": "gpt-5",
+            "closeOnClick": true
           },
           "children": [
-            "Personal"
+            "GPT-5"
           ]
         },
         "fingerprint": "362d69fa",
@@ -8149,7 +8150,7 @@
         ],
         "sample": {
           "props": {
-            "htmlFor": "kubernetes-r2h"
+            "htmlFor": "delivery-asap"
           },
           "children": [
             {
@@ -8164,13 +8165,13 @@
                     {
                       "component": "FieldTitle",
                       "children": [
-                        "Kubernetes"
+                        "Standard delivery"
                       ]
                     },
                     {
                       "component": "FieldDescription",
                       "children": [
-                        "Run GPU workloads on a K8s cluster."
+                        "25–35 min · Driver assigned now"
                       ]
                     }
                   ]
@@ -8811,13 +8812,13 @@
         "sample": {
           "props": {
             "variant": "outline",
-            "size": "sm"
+            "role": "listitem"
           },
           "children": [
             {
               "component": "ItemMedia",
               "props": {
-                "variant": "icon"
+                "variant": "image"
               }
             },
             {
@@ -8826,21 +8827,29 @@
                 {
                   "component": "ItemTitle",
                   "children": [
-                    "Run",
-                    "?"
+                    "Midnight City Lights",
+                    "-",
+                    " "
                   ]
                 },
                 {
                   "component": "ItemDescription",
                   "children": [
-                    "The command runs in this project."
+                    "Neon Dreams"
                   ]
                 }
               ]
             },
             {
-              "component": "ItemActions",
-              "children": []
+              "component": "ItemContent",
+              "children": [
+                {
+                  "component": "ItemDescription",
+                  "children": [
+                    "3:45"
+                  ]
+                }
+              ]
             }
           ]
         },
@@ -8874,14 +8883,15 @@
             {
               "component": "ItemTitle",
               "children": [
-                "Run",
-                "?"
+                "Midnight City Lights",
+                "-",
+                " "
               ]
             },
             {
               "component": "ItemDescription",
               "children": [
-                "The command runs in this project."
+                "Neon Dreams"
               ]
             }
           ]
@@ -9108,8 +9118,9 @@
         "parentsFrom": "example",
         "sample": {
           "children": [
-            "Run",
-            "?"
+            "Midnight City Lights",
+            "-",
+            " "
           ]
         },
         "fingerprint": "c218e39e"
@@ -12083,8 +12094,8 @@
         ],
         "sample": {
           "props": {
-            "aria-label": "Another refactoring approach",
-            "placeholder": "Describe another approach…"
+            "aria-label": "Another agent feature",
+            "placeholder": "Describe another feature…"
           }
         },
         "fingerprint": "098bc024",
@@ -12570,6 +12581,34 @@
               {
                 "label": "Select a timezone",
                 "value": null
+              },
+              {
+                "label": "Eastern Standard Time",
+                "value": "est"
+              },
+              {
+                "label": "Central Standard Time",
+                "value": "cst"
+              },
+              {
+                "label": "Mountain Standard Time",
+                "value": "mst"
+              },
+              {
+                "label": "Pacific Standard Time",
+                "value": "pst"
+              },
+              {
+                "label": "Alaska Standard Time",
+                "value": "akst"
+              },
+              {
+                "label": "Hawaii Standard Time",
+                "value": "hst"
+              },
+              {
+                "label": "Greenwich Mean Time",
+                "value": "gmt"
               }
             ]
           },
@@ -13009,10 +13048,11 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "value": "10"
+            "value": "$"
           },
           "children": [
-            "10"
+            "$",
+            " "
           ]
         },
         "fingerprint": "a510711f",
@@ -13198,11 +13238,14 @@
                 }
               },
               "children": [
-                "Open"
+                "top"
               ]
             },
             {
               "component": "SheetContent",
+              "props": {
+                "side": "top"
+              },
               "children": [
                 {
                   "component": "SheetHeader",
@@ -13221,7 +13264,7 @@
                     }
                   ]
                 },
-                "Name Username",
+                "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed",
                 {
                   "component": "SheetFooter",
                   "children": [
@@ -13240,7 +13283,7 @@
                         }
                       },
                       "children": [
-                        "Close"
+                        "Cancel"
                       ]
                     }
                   ]
@@ -13308,6 +13351,9 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "side": "top"
+          },
           "children": [
             {
               "component": "SheetHeader",
@@ -13326,7 +13372,7 @@
                 }
               ]
             },
-            "Name Username",
+            "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed",
             {
               "component": "SheetFooter",
               "children": [
@@ -13345,7 +13391,7 @@
                     }
                   },
                   "children": [
-                    "Close"
+                    "Cancel"
                   ]
                 }
               ]
@@ -13375,7 +13421,9 @@
         "parentsFrom": "example",
         "sample": {
           "children": [
+            "2",
             "additions,",
+            "2",
             "deletions"
           ]
         },
@@ -13433,13 +13481,16 @@
             {
               "component": "SheetTitle",
               "children": [
-                "Edit profile"
+                "app/login/page.tsx"
               ]
             },
             {
               "component": "SheetDescription",
               "children": [
-                "Make changes to your profile here. Click save when you&apos;"
+                "2",
+                "additions,",
+                "2",
+                "deletions"
               ]
             }
           ]
@@ -14100,6 +14151,11 @@
           "SidebarMenuItem"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "24"
+          ]
+        },
         "fingerprint": "c218e39e"
       },
       "SidebarMenuButton": {
@@ -14169,6 +14225,14 @@
                       "component": "SidebarMenuSubButton"
                     }
                   ]
+                },
+                {
+                  "component": "SidebarMenuSubItem",
+                  "children": [
+                    {
+                      "component": "SidebarMenuSubButton"
+                    }
+                  ]
                 }
               ]
             }
@@ -14217,6 +14281,22 @@
         ],
         "sample": {
           "children": [
+            {
+              "component": "SidebarMenuSubItem",
+              "children": [
+                {
+                  "component": "SidebarMenuSubButton"
+                }
+              ]
+            },
+            {
+              "component": "SidebarMenuSubItem",
+              "children": [
+                {
+                  "component": "SidebarMenuSubButton"
+                }
+              ]
+            },
             {
               "component": "SidebarMenuSubItem",
               "children": [
@@ -15028,7 +15108,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "value": "overview"
+            "value": "route"
           }
         },
         "fingerprint": "1073d1e2",
@@ -15263,7 +15343,12 @@
             "toastOptions": {
               "className": "ml-[160px]"
             }
-          }
+          },
+          "children": [
+            {
+              "component": "ToastViewport"
+            }
+          ]
         },
         "fingerprint": "17741906",
         "props": {
@@ -15348,10 +15433,9 @@
         "declaration": "dist/ui/toast.d.ts",
         "group": "Toast",
         "parents": [
-          "ToastProvider",
-          "Toast"
+          "Toaster"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "source",
         "visual": false,
         "internal": true,
         "fingerprint": "a6c53108",
@@ -15999,9 +16083,10 @@
         ],
         "sample": {
           "children": [
-            "of",
-            "5",
-            "done"
+            "+",
+            "2",
+            "−",
+            "2"
           ]
         },
         "fingerprint": "c218e39e"
@@ -16040,9 +16125,6 @@
           "TraceCollapsible"
         ],
         "sample": {
-          "props": {
-            "status": "running"
-          },
           "children": [
             {
               "component": "TraceIcon"
@@ -16050,16 +16132,21 @@
             {
               "component": "TraceTitle",
               "children": [
-                "Plan: migrate to Base UI"
+                "Added",
+                "app/login/page.tsx"
               ]
             },
             {
               "component": "TraceDescription",
               "children": [
-                "of",
-                "5",
-                "done"
+                "+",
+                "2",
+                "−",
+                "2"
               ]
+            },
+            {
+              "component": "TraceIcon"
             }
           ]
         },

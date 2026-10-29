@@ -1090,10 +1090,10 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "value": "index.js"
+            "value": "README.md"
           },
           "children": [
-            "index.js",
+            "README.md",
             {
               "component": "ContextMenu.ItemIndicator"
             }
@@ -2125,10 +2125,10 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "value": "index.js"
+            "value": "README.md"
           },
           "children": [
-            "index.js",
+            "README.md",
             {
               "component": "DropdownMenu.ItemIndicator"
             }
@@ -3035,6 +3035,7 @@
         "parentsFrom": "example",
         "sample": {
           "children": [
+            "Always Show Bookmarks Bar",
             {
               "component": "Menubar.ItemIndicator"
             }
@@ -3467,10 +3468,10 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "value": "index.js"
+            "value": "Andy"
           },
           "children": [
-            "index.js",
+            "Andy",
             {
               "component": "Menubar.ItemIndicator"
             }

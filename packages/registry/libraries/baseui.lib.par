@@ -5892,16 +5892,59 @@
         "sample": {
           "children": [
             {
-              "component": "Select.GroupLabel"
+              "component": "Select.GroupLabel",
+              "children": [
+                "Fruits"
+              ]
             },
             {
               "component": "Select.Item",
+              "props": {
+                "value": "apple"
+              },
               "children": [
                 {
                   "component": "Select.ItemIndicator"
                 },
                 {
-                  "component": "Select.ItemText"
+                  "component": "Select.ItemText",
+                  "children": [
+                    "Apple"
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "Select.Item",
+              "props": {
+                "value": "banana"
+              },
+              "children": [
+                {
+                  "component": "Select.ItemIndicator"
+                },
+                {
+                  "component": "Select.ItemText",
+                  "children": [
+                    "Banana"
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "Select.Item",
+              "props": {
+                "value": "mango"
+              },
+              "children": [
+                {
+                  "component": "Select.ItemIndicator"
+                },
+                {
+                  "component": "Select.ItemText",
+                  "children": [
+                    "Mango"
+                  ]
                 }
               ]
             }
@@ -5925,6 +5968,11 @@
           "Select.Group"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "Fruits"
+          ]
+        },
         "fingerprint": "4a918df3",
         "props": {
           "className?": "09935a",
@@ -5965,7 +6013,7 @@
         ],
         "sample": {
           "props": {
-            "value": "Helvetica"
+            "value": "apple"
           },
           "children": [
             {
@@ -5974,7 +6022,7 @@
             {
               "component": "Select.ItemText",
               "children": [
-                "Helvetica"
+                "Apple"
               ]
             }
           ]
@@ -6030,7 +6078,7 @@
         ],
         "sample": {
           "children": [
-            "( )"
+            "Apple"
           ]
         },
         "fingerprint": "0ba95a0b",

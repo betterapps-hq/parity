@@ -25409,6 +25409,11 @@
           "Card"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "1"
+          ]
+        },
         "fingerprint": "ee4af951",
         "props": {
           "as?": "ba2d6a",
@@ -27398,8 +27403,9 @@
         "group": "SwatchPicker",
         "sample": {
           "props": {
-            "value": "Text",
-            "src": "#"
+            "value": "sea",
+            "src": "https://fabricweb.azureedge.net/fabric-website/assets/images/swatch-picker/sea-swatch.jpg",
+            "aria-label": "Sea"
           }
         },
         "fingerprint": "3cf48893",
@@ -28726,7 +28732,8 @@
         "parentsFrom": "example",
         "sample": {
           "children": [
-            "Descriptive title"
+            "Intent",
+            "info"
           ]
         },
         "fingerprint": "5a0c2458",
@@ -29273,9 +29280,12 @@
         "as": "forwardRef",
         "group": "Combobox",
         "sample": {
+          "props": {
+            "text": "1",
+            "value": "1"
+          },
           "children": [
-            "Search for \"",
-            "\""
+            "1"
           ]
         },
         "fingerprint": "e573b38a",
@@ -29644,6 +29654,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
+            "value": "free",
             "label": {},
             "input": {},
             "indicator": {}
@@ -30828,7 +30839,10 @@
               "props": {
                 "description": "My Organization",
                 "appearance": "primary"
-              }
+              },
+              "children": [
+                "Meeting notes"
+              ]
             },
             {
               "component": "TableCellActions",
@@ -30873,18 +30887,12 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "truncate": true,
-            "media": {
-              "$element": [
-                {
-                  "component": "Avatar",
-                  "props": {
-                    "badge": {}
-                  }
-                }
-              ]
-            }
-          }
+            "description": "My Organization",
+            "appearance": "primary"
+          },
+          "children": [
+            "Meeting notes"
+          ]
         },
         "fingerprint": "6cb00292",
         "props": {
@@ -30965,8 +30973,11 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "tabIndex": 0
+          },
           "children": [
-            "outRadius"
+            "File"
           ]
         },
         "fingerprint": "30b8c208",
@@ -31026,7 +31037,10 @@
               },
               "children": [
                 {
-                  "component": "TableCellLayout"
+                  "component": "TableCellLayout",
+                  "children": [
+                    "Meeting notes"
+                  ]
                 }
               ]
             },
@@ -31045,12 +31059,19 @@
                         {
                           "component": "Avatar",
                           "props": {
-                            "badge": {}
+                            "aria-label": "Max Mustermann",
+                            "name": "Max Mustermann",
+                            "badge": {
+                              "status": "available"
+                            }
                           }
                         }
                       ]
                     }
-                  }
+                  },
+                  "children": [
+                    "Max Mustermann"
+                  ]
                 }
               ]
             },
@@ -31059,7 +31080,10 @@
               "props": {
                 "tabIndex": 0,
                 "role": "gridcell"
-              }
+              },
+              "children": [
+                "7h ago"
+              ]
             },
             {
               "component": "TableCell",
@@ -31069,7 +31093,10 @@
               },
               "children": [
                 {
-                  "component": "TableCellLayout"
+                  "component": "TableCellLayout",
+                  "children": [
+                    "You edited this"
+                  ]
                 }
               ]
             }
@@ -31214,16 +31241,25 @@
         ],
         "sample": {
           "props": {
-            "disabled": true,
-            "secondaryText": "appearance=outline",
-            "appearance": "outline",
-            "dismissible": true,
-            "dismissIcon": {
-              "aria-label": "remove"
-            }
+            "shape": "rounded",
+            "media": {
+              "$element": [
+                {
+                  "component": "Avatar",
+                  "props": {
+                    "aria-hidden": true,
+                    "name": "John Doe",
+                    "color": "colorful"
+                  }
+                }
+              ]
+            },
+            "value": "John Doe",
+            "title": "John Doe",
+            "primaryText": {}
           },
           "children": [
-            "Disabled"
+            "John Doe"
           ]
         },
         "fingerprint": "6ce122c2",
@@ -33072,7 +33108,7 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "name": "textOptions",
+            "name": "align",
             "value": "left",
             "aria-label": "Align left"
           }

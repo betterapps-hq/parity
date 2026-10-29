@@ -6319,8 +6319,11 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "icon": "🍎"
+          },
           "children": [
-            "Recent photos"
+            "Apples"
           ]
         },
         "fingerprint": "859b9a2a",
@@ -6410,19 +6413,22 @@
         "parentsFrom": "error",
         "sample": {
           "props": {
-            "value": "photos"
+            "value": "Apples"
           },
           "children": [
             {
               "component": "AccordionControl",
+              "props": {
+                "icon": "🍎"
+              },
               "children": [
-                "Recent photos"
+                "Apples"
               ]
             },
             {
               "component": "AccordionPanel",
               "children": [
-                "Content"
+                "Crisp and refreshing fruit. Apples are known for their versa"
               ]
             }
           ]
@@ -10495,8 +10501,9 @@
         "group": "CheckIcon",
         "sample": {
           "props": {
-            "size": 12,
-            "weight": "bold"
+            "color": "currentColor",
+            "opacity": 0.6,
+            "size": 18
           }
         },
         "fingerprint": "f79424a6",
@@ -12748,12 +12755,14 @@
         "group": "Container",
         "sample": {
           "props": {
-            "fluid": true,
+            "px": 0,
+            "size": 480,
+            "bg": "var(--mantine-color-blue-light)",
             "h": 50,
-            "bg": "var(--mantine-color-blue-light)"
+            "mt": "md"
           },
           "children": [
-            "Fluid container has 100% max-width"
+            "480px Container without padding"
           ]
         },
         "fingerprint": "eddfa7a7",
@@ -28562,7 +28571,7 @@
         "parentsFrom": "example",
         "sample": {
           "children": [
-            "7.x migration"
+            "6"
           ]
         },
         "fingerprint": "e46b1a39",

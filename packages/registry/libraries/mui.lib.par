@@ -6016,6 +6016,7 @@
               "component": "ImageListItemBar",
               "props": {
                 "sx": {},
+                "title": "Breakfast",
                 "position": "top",
                 "actionIcon": {
                   "$element": [
@@ -6024,7 +6025,8 @@
                       "props": {
                         "sx": {
                           "color": "white"
-                        }
+                        },
+                        "aria-label": "star Breakfast"
                       }
                     }
                   ]
@@ -6057,6 +6059,7 @@
         "sample": {
           "props": {
             "sx": {},
+            "title": "Breakfast",
             "position": "top",
             "actionIcon": {
               "$element": [
@@ -6065,7 +6068,8 @@
                   "props": {
                     "sx": {
                       "color": "white"
-                    }
+                    },
+                    "aria-label": "star Breakfast"
                   }
                 }
               ]
@@ -6486,16 +6490,25 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "component": "div",
+            "secondaryAction": {
+              "$element": [
+                {
+                  "component": "IconButton",
+                  "props": {
+                    "edge": "end"
+                  }
+                }
+              ]
+            },
             "disablePadding": true
           },
           "children": [
             {
               "component": "ListItemButton",
               "props": {
-                "sx": {
-                  "height": 56
-                }
+                "role": "checkbox",
+                "aria-labelledby": "checkbox-list-label-0",
+                "dense": true
               },
               "children": [
                 {
@@ -6504,16 +6517,7 @@
                 {
                   "component": "ListItemText",
                   "props": {
-                    "primary": "Project Overview",
-                    "slotProps": {
-                      "primary": {
-                        "color": "primary",
-                        "sx": {
-                          "fontWeight": "medium"
-                        },
-                        "variant": "body2"
-                      }
-                    }
+                    "id": "checkbox-list-label-0"
                   }
                 }
               ]
@@ -8000,7 +8004,9 @@
         "sample": {
           "props": {
             "slotProps": {
-              "tooltip": {}
+              "tooltip": {
+                "title": "Copy"
+              }
             }
           }
         },
@@ -8095,7 +8101,10 @@
         "sample": {
           "children": [
             {
-              "component": "StepLabel"
+              "component": "StepLabel",
+              "children": [
+                "Select campaign settings"
+              ]
             },
             {
               "component": "StepContent",
@@ -8136,7 +8145,10 @@
             "href": "#",
             "aria-controls": "stepper-content",
             "color": "inherit"
-          }
+          },
+          "children": [
+            "Select campaign settings"
+          ]
         },
         "fingerprint": "50178945",
         "props": {
@@ -8235,7 +8247,10 @@
         "sample": {
           "props": {
             "slots": {}
-          }
+          },
+          "children": [
+            "Select campaign settings"
+          ]
         },
         "fingerprint": "4a19d2fd",
         "props": {
@@ -9239,7 +9254,10 @@
         "sample": {
           "props": {
             "href": "#"
-          }
+          },
+          "children": [
+            "Dessert (100g serving)"
+          ]
         },
         "fingerprint": "2162b5c7",
         "props": {
