@@ -1,5 +1,5 @@
 import { frameViewport, type MountHandle, modeGlobals, type RenderNode, type ResolvedMode } from "@parity/core"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { prepareFrame, setFrameViewport } from "./frame.ts"
 import type { LoadedGuest } from "./guest.ts"
 
@@ -55,7 +55,8 @@ export function ModeView({
   // The window the frame stands for, which the project's viewport units and window size checks measure.
   const { height: viewportHeight } = frameViewport({ width, height }, mode)
   const viewportRef = useRef({ width, height: viewportHeight })
-  const treeKey = JSON.stringify(tree)
+  // A whole screen's tree, so it's written out only when it's a different one.
+  const treeKey = useMemo(() => JSON.stringify(tree), [tree])
   const environmentKey = JSON.stringify([mode.classNames, mode.attributes, modeGlobals(mode)])
   const renderKey = `${environmentKey}|${treeKey}`
   // Errors belong to the render that raised them, so a changed design starts clean.

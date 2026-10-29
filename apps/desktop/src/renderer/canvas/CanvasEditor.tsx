@@ -1,11 +1,12 @@
 import { useCallback, useEffect } from "react"
 import {
+  atom,
   createShapeId,
   type Editor,
+  react,
   SelectionForegroundOverlayUtil,
   type TLComponents,
   Tldraw,
-  type TldrawOptions,
   type TLShapeId
 } from "tldraw"
 import { heldBoards } from "../agent/held-boards.ts"
@@ -13,6 +14,7 @@ import { designsSelection, selectedDesigns } from "../selection.ts"
 import { getResolvedTheme, useResolvedTheme } from "../theme.ts"
 import { ContainerShapeUtil, designDrag } from "./ContainerShapeUtil.tsx"
 import { useProject } from "./context.ts"
+import { bitmapScale } from "./frame-bitmaps.ts"
 import { designColor, kindColors } from "./kinds.tsx"
 import { NoteShapeUtil } from "./NoteShapeUtil.tsx"
 import { TitleLayer } from "./title-layer.tsx"
@@ -49,11 +51,90 @@ class SelectionBox extends SelectionForegroundOverlayUtil {
 const overlayUtils = [SelectionBox]
 
 /**
- * tldraw writes the zoom into a custom property on the canvas, which every element of every frame inherits, so each
- * change restyles them all: at 60 designs that was most of each frame while zooming. It writes it only once the camera
- * stops, as tldraw does on its own for 500 shapes or more; what must follow the zoom live uses `useZoomStyle`.
+ * tldraw draws outlines and handles on a canvas, in its theme's colors. Setting a custom property on the canvas
+ * instead changed none of them, yet restyled every element of every frame each time the color did.
  */
-const options: Partial<TldrawOptions> = { debouncedZoomThreshold: 0 }
+function setSelectionColor(editor: Editor, color: string): void {
+  const value = drawableColor(color)
+  const theme = editor.getCurrentTheme()
+  const { light, dark } = theme.colors
+  if (light.selectionStroke === value && dark.selectionStroke === value) return
+  editor.updateTheme({
+    ...theme,
+    colors: { ...theme.colors, light: { ...light, selectionStroke: value }, dark: { ...dark, selectionStroke: value } }
+  })
+}
+
+const drawable = new Map<string, string>()
+
+/** A color a canvas can draw with: the kinds' colors are custom properties, which only CSS resolves. */
+function drawableColor(color: string): string {
+  let value = drawable.get(color)
+  if (value === undefined) {
+    const property = /^var\((--[\w-]+)\)$/.exec(color)?.[1]
+    value = (property && getComputedStyle(document.documentElement).getPropertyValue(property).trim()) || color
+    drawable.set(color, value)
+  }
+  return value
+}
+
+/**
+ * Makes the zoom tldraw writes to the page's styles (as `--tl-zoom`) change only once the camera has been still for a
+ * few frames and a moment. Every element of every frame inherits it, so each change restyles them all: at 60 designs
+ * that was most of each frame while zooming. tldraw's own debounce only holds while frames are quick, since a slow frame
+ * outlasts its timeout and counts as the camera stopping. What has to follow the zoom live uses `useZoomStyle`.
+ */
+function settleZoom(editor: Editor): () => void {
+  const settled = atom("settled zoom", editor.getZoomLevel())
+  let last = { zoom: editor.getZoomLevel(), at: performance.now() }
+  let still = 0
+  let frame = 0
+  const check = (now: number) => {
+    const zoom = editor.getZoomLevel()
+    if (zoom !== last.zoom) {
+      last = { zoom, at: now }
+      still = 0
+    } else still++
+    if (still >= 3 && now - last.at >= 150) {
+      settled.set(zoom)
+      frame = 0
+    } else frame = requestAnimationFrame(check)
+  }
+  const stop = react("settle zoom", () => {
+    editor.getZoomLevel()
+    frame ||= requestAnimationFrame(check)
+  })
+  editor.getEfficientZoomLevel = () => settled.get()
+  return () => {
+    stop()
+    cancelAnimationFrame(frame)
+  }
+}
+
+/**
+ * Marks the canvas while it's zoomed far out: `data-far` once frames are drawn no larger than their bitmaps, so boards
+ * show those instead (see frame-bitmaps.ts), and `data-tiny` below about 5%, where boards and frames drop their
+ * shadows. Each mark lasts a little past its line zooming back in, so a camera resting near one doesn't flip.
+ */
+function markZoomedOut(editor: Editor): () => void {
+  const area = editor.getContainer().closest(".canvas-area")
+  if (!area) return () => undefined
+  const marks = [
+    ["data-far", bitmapScale],
+    ["data-tiny", 0.05]
+  ] as const
+  const stop = react("zoomed out", () => {
+    const drawn = editor.getZoomLevel() * window.devicePixelRatio
+    for (const [mark, line] of marks) {
+      const on = drawn <= (area.hasAttribute(mark) ? line * 1.15 : line)
+      if (area.hasAttribute(mark) !== on) area.toggleAttribute(mark, on)
+    }
+  })
+  return () => {
+    stop()
+    for (const [mark] of marks) area.removeAttribute(mark)
+  }
+}
 
 export function CanvasEditor({ onEditor }: { onEditor(editor: Editor | undefined): void }) {
   const { id: tab, store, selection, editor } = useProject()
@@ -70,6 +151,8 @@ export function CanvasEditor({ onEditor }: { onEditor(editor: Editor | undefined
       editor.user.updateUserPreferences({ colorScheme: getResolvedTheme(), isSnapMode: true })
       // Out to 1%, past tldraw's 5%, so a project with dozens of screens fits in view at once.
       editor.setCameraOptions({ zoomSteps: [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 4, 8] })
+      const stopZoom = settleZoom(editor)
+      const stopZoomedOut = markZoomedOut(editor)
 
       // Designs and notes come and go with undo and agents, so shapes follow the store rather than being made once.
       const sync = () => {
@@ -159,8 +242,7 @@ export function CanvasEditor({ onEditor }: { onEditor(editor: Editor | undefined
             : entry
               ? designColor(entry.container.kind)
               : kindColors.screen
-        editor.getContainer().style.setProperty("--tl-color-selection-stroke", color)
-        editor.getContainer().style.setProperty("--tl-color-selected", color)
+        setSelectionColor(editor, color)
       }
       const stopFollowing = selection.subscribe(followSelection)
       followSelection()
@@ -170,6 +252,8 @@ export function CanvasEditor({ onEditor }: { onEditor(editor: Editor | undefined
       onEditor(editor)
       return () => {
         clearTimeout(fit)
+        stopZoom()
+        stopZoomedOut()
         stopStore()
         stopHeld()
         stopMoves()
@@ -182,13 +266,6 @@ export function CanvasEditor({ onEditor }: { onEditor(editor: Editor | undefined
   )
 
   return (
-    <Tldraw
-      hideUi
-      options={options}
-      shapeUtils={shapeUtils}
-      overlayUtils={overlayUtils}
-      components={components}
-      onMount={handleMount}
-    />
+    <Tldraw hideUi shapeUtils={shapeUtils} overlayUtils={overlayUtils} components={components} onMount={handleMount} />
   )
 }

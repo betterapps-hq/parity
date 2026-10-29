@@ -16,13 +16,24 @@ import {
 } from "@parity/core"
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react"
 import { editingState } from "../chrome/LayerPanel.tsx"
-import { getPreferences } from "../chrome/preferences.ts"
+import { getPreferences, subscribePreferences } from "../chrome/preferences.ts"
 import { findFrames, findNodeElement } from "../frame.ts"
 import { selectedNodes, toggleLayer, useEditing } from "../selection.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { useProject } from "./context.ts"
-import { frameScale, type Hit, hitTest, nodeInFrames, pickDeeper, pickNode, type Point, selectionFrame } from "./hit.ts"
+import {
+  frameAt,
+  frameScale,
+  type Hit,
+  hitInFrame,
+  hitTest,
+  nodeInFrames,
+  pickDeeper,
+  pickNode,
+  type Point,
+  selectionFrame
+} from "./hit.ts"
 import { designColor, kindColors, layerLabel, nodeColor } from "./kinds.tsx"
 import { type DragView, getDragView, pressLayers } from "./layer-drag.ts"
 import { editLayer, findLayer } from "./layers.ts"
@@ -112,7 +123,7 @@ export function CanvasOverlay() {
       const tool = selection.getTool()
       // Interacting, the designs take the pointer themselves.
       if (tool === "hand" || tool === "interact") return
-      const hit = hitTest(area, store, point)
+      const hit = hitTest(area, store, point, session.editor)
       // Double-clicks belong to the canvas, not tldraw: inside a design they drill in (see onDoubleClick), and on empty
       // canvas tldraw would make a text shape of its own. Only free text notes keep tldraw's double-click, to edit.
       if (event.detail >= 2 && tool === "select" && !overNote(session, point)) {
@@ -150,7 +161,7 @@ export function CanvasOverlay() {
 
     const onDoubleClick = (event: MouseEvent) => {
       if (interactive(event.target) || selection.getTool() !== "select") return
-      const hit = hitTest(area, store, { x: event.clientX, y: event.clientY })
+      const hit = hitTest(area, store, { x: event.clientX, y: event.clientY }, session.editor)
       if (!hit) return
       const current = selection.get()
       const selected = current.design === hit.entry.key ? current.node : undefined
@@ -180,12 +191,14 @@ export function CanvasOverlay() {
         return
       }
       const current = selection.get()
-      const hit = hitTest(area, store, pointer.current.point!)
-      // Hovering another design highlights nothing, unless Ctrl reaches into it or Alt measures it.
-      if (!hit || (current.design !== hit.entry.key && !pointer.current.deep && !pointer.current.alt)) {
-        selection.setHover(hit && pointer.current.deep ? { design: hit.entry.key, node: hit.path.at(-1) } : undefined)
+      // Hovering another design highlights nothing, unless Ctrl reaches into it or Alt measures it, so its layers aren't
+      // measured.
+      const frame = frameAt(area, store, pointer.current.point!, session.editor)
+      if (!frame || (current.design !== frame.entry.key && !pointer.current.deep && !pointer.current.alt)) {
+        selection.setHover(undefined)
         return
       }
+      const hit = hitInFrame(frame.entry, frame.host, pointer.current.point!)
       const node = pointer.current.alt ? hit.path.at(-1) : pickNode(hit, current.node, pointer.current.deep)
       selection.setHover(node ? { design: hit.entry.key, node } : undefined)
     }
@@ -214,12 +227,17 @@ export function CanvasOverlay() {
     }
   }, [session])
 
-  // Outlines follow the camera, layout changes and animations, so they're measured every frame.
+  // Outlines follow the camera, layout changes and animations, so they're measured every frame while there are any:
+  // while something is selected or hovered, layers are dragged or the layout grid shows. Otherwise measuring rests
+  // until one of those changes.
   useEffect(() => {
+    const { selection } = session
     let frame = 0
     let last = ""
+    const drawing = () =>
+      !!selection.get().design || !!selection.getHover()?.node || !!getDragView() || getPreferences().layoutGrid
     const tick = () => {
-      frame = requestAnimationFrame(tick)
+      frame = drawing() ? requestAnimationFrame(tick) : 0
       const root = rootRef.current
       const area = root?.parentElement
       if (!root || !area || area.closest("[hidden]")) return
@@ -231,8 +249,17 @@ export function CanvasOverlay() {
         setModel(next)
       }
     }
-    frame = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(frame)
+    const wake = () => {
+      frame ||= requestAnimationFrame(tick)
+    }
+    const stopSelection = selection.subscribe(wake)
+    const stopPreferences = subscribePreferences(wake)
+    wake()
+    return () => {
+      cancelAnimationFrame(frame)
+      stopSelection()
+      stopPreferences()
+    }
   }, [session])
 
   return (

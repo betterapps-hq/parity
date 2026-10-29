@@ -78,7 +78,8 @@ function NoteContent({ shape }: { shape: NoteShape }) {
     if (!element) return undefined
     const observer = new ResizeObserver(() => {
       const current = editor.getShape(shape.id)
-      if (current?.type !== "canvas-note") return
+      // A note tldraw has culled, or in a tab that isn't showing, isn't drawn and has no size to give.
+      if (current?.type !== "canvas-note" || element.getClientRects().length === 0) return
       const w = Math.max(element.offsetWidth, 24)
       const h = Math.max(element.offsetHeight, 24)
       if (Math.abs(current.props.w - w) < 1 && Math.abs(current.props.h - h) < 1) return

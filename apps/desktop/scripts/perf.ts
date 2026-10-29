@@ -2,10 +2,12 @@
 // frame's time goes (style, layout, paint, raster), how long selecting a design takes to settle, and memory. It starts
 // its own copy of the app on its own ports and profile, so a copy already running is left alone, and stops it after.
 // Results go to .inspect/perf/<label>.json; --compare prints another run's numbers beside them.
-// Usage: pnpm perf [--label name] [--compare name] [--project root] [--seconds 4] [--css "rules"] [--profile] [--keep]
+// Usage: pnpm perf [--label name] [--compare name] [--project root] [--seconds 4] [--viewport 1439x901] [--css "rules"]
+//                  [--profile] [--keep]
+//   --viewport the page's size in CSS pixels, the same every run (the default is the first runs' window)
 //   --css      adds a stylesheet to the page before measuring, to try an idea without changing the code
 //   --profile  samples the page's JavaScript too, and lists the functions that took the most time in each run
-//   --keep     leaves the app running afterwards
+//   --keep     leaves the app running afterwards, until the script is stopped
 import { type ChildProcess, spawn } from "node:child_process"
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
@@ -34,14 +36,18 @@ const compare = option("compare")
 const project = resolve(option("project") ?? join(repoDir, "examples/shadcn-vite"))
 const seconds = Number(option("seconds") ?? 4)
 const css = option("css")
+const viewport = option("viewport") ?? "1439x901"
 const keep = args.includes("--keep")
 const profiling = args.includes("--profile")
+const second = resolve(option("second") ?? join(repoDir, "fixtures/vite7-js"))
 
 /** A function's own time over a run, with `--profile`. */
 interface Hot {
   at: string
   ms: number
 }
+
+type Motion = "zoom" | "pan" | "hover" | "idle" | "pan at 100%"
 
 interface Run {
   name: string
@@ -62,7 +68,22 @@ interface Result {
   census: Record<string, number>
   runs: Run[]
   select: { medianMs: number; maxMs: number; mainMsPerSelect: number; hot?: Hot[] }
+  /** Editing one design at a time; missing from runs made before it was measured. */
+  edit?: Result["select"]
   memoryMb: Record<string, number>
+  /** What the tab still holds while another is showing, and how long switching back takes to draw it. */
+  hidden?: {
+    nodesShown: number
+    nodesHidden: number
+    heapShownMb: number
+    heapHiddenMb: number
+    backMs: number
+    /** The longest frame while switching back, until every frame has drawn. */
+    backLongestMs: number
+    /** Boards whose size differs from before the switch, once their frames have drawn and a few seconds later. */
+    resizedDrawn: number
+    resizedLater: number
+  }
 }
 
 await mkdir(outDir, { recursive: true })
@@ -75,21 +96,29 @@ const runner = spawn(process.execPath, [join(appDir, "scripts/dev.ts"), project]
   env: {
     ...process.env,
     PARITY_UI_PORT: String(uiPort),
+    PARITY_UI_FROZEN: "1",
     PARITY_DEBUG_PORT: String(debugPort),
-    PARITY_USER_DATA: profileDir
+    PARITY_USER_DATA: profileDir,
+    // Agents find the app through this file. The copy keeps its own, so agents keep working with the person's app and
+    // can't change the copy while it's measured.
+    PARITY_AGENT_FILE: join(profileDir, "agent.json")
   },
   stdio: ["ignore", "ignore", "inherit"]
 })
 
+let page: Page | undefined
 try {
-  const page = await connect()
+  page = await connect()
   const result = await measure(page)
   await writeFile(join(outDir, `${label}.json`), JSON.stringify(result, null, 2))
   const previous = compare ? (JSON.parse(await readFile(join(outDir, `${compare}.json`), "utf8")) as Result) : undefined
   report(result, previous)
   console.log(`\nSaved ${join(outDir, `${label}.json`)}`)
 } finally {
-  if (!keep) stop(runner)
+  await page?.context().browser()?.close()
+  // The runner stops the app once this script ends, so a kept app lasts until this script is stopped.
+  if (keep) console.log(`The app keeps running, with DevTools on port ${debugPort}, until this script is stopped`)
+  else stop(runner)
 }
 
 async function connect(): Promise<Page> {
@@ -114,6 +143,13 @@ async function connect(): Promise<Page> {
 }
 
 async function measure(page: Page): Promise<Result> {
+  // The same size every run, whatever size the window opens at, since a larger one draws more.
+  const [width, height] = viewport.split("x").map(Number)
+  await page.setViewportSize({ width: width!, height: height! })
+  // The copy's window comes to the front and looks like the person's own, so its title says what it is.
+  await page.evaluate(() => {
+    document.title = "Parity (pnpm perf is measuring this copy, which closes by itself)"
+  })
   await page.waitForSelector(".container-view", { state: "attached", timeout: 180_000 })
   // Frames mount, load their lazy components and size themselves; wait until nothing more is drawn for a while.
   await page.evaluate(async () => {
@@ -132,10 +168,26 @@ async function measure(page: Page): Promise<Result> {
     }
     await document.fonts.ready
   })
-  // The app's own module instance, as Vite serves it to the page.
+  // Bitmaps for zooming far out are taken one frame at a time in the background; measure once they're all there.
+  const bitmapsReady = await page.evaluate(async () => {
+    const started = performance.now()
+    const frames = document.querySelectorAll("[data-frame]").length
+    let last = -1
+    let still = 0
+    while (still < 10) {
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      const now = document.querySelectorAll("[data-bitmap]").length
+      if (now >= frames) break
+      still = now === last ? still + 1 : 0
+      last = now
+    }
+    return { bitmaps: document.querySelectorAll("[data-bitmap]").length, seconds: (performance.now() - started) / 1000 }
+  })
+  // The app's own module instance, as Vite serves it to the page. Sessions are replaced as they change (the editor
+  // mounting, the type checker's results), so the open tab's is looked up each time.
   await page.evaluate(async (url) => {
     const { workspace } = (await import(url)) as { workspace: Workspace }
-    ;(window as unknown as { perfSession: unknown }).perfSession = workspace.getActive()?.session
+    Object.defineProperty(window, "perfSession", { get: () => workspace.getActive()?.session })
   }, "/workspace.ts")
   if (css) {
     await page.addStyleTag({ content: css })
@@ -154,18 +206,26 @@ async function measure(page: Page): Promise<Result> {
       pixelRatio: devicePixelRatio
     }
   })
+  Object.assign(census, { bitmaps: bitmapsReady.bitmaps, bitmapSeconds: Math.round(bitmapsReady.seconds) })
 
   const cdp = await page.context().newCDPSession(page)
   await cdp.send("Performance.enable")
   const runs: Run[] = []
-  for (const motion of ["zoom", "pan", "pan at 100%"] as const) {
+  for (const motion of ["zoom", "pan", "hover", "idle", "pan at 100%"] as const) {
     runs.push(await moveCamera(page, cdp, motion))
     // What the camera rests on afterwards, to check by eye that the canvas still draws as it should.
     await page.waitForTimeout(1500)
-    if (motion !== "pan") await page.screenshot({ path: join(outDir, `${label}-${motion.replace(/\W+/g, "-")}.png`) })
+    if (motion === "zoom" || motion === "pan at 100%")
+      await page.screenshot({ path: join(outDir, `${label}-${motion.replace(/\W+/g, "-")}.png`) })
   }
-  const select = await selectDesigns(page, cdp)
+  const select = await timeChanges(page, cdp, "select")
+  const edit = await timeChanges(page, cdp, "edit")
   const memoryMb = await memory(page, cdp)
+  // Last, since it opens another project in a second tab.
+  const hidden = await hiddenTab(page, cdp, census.frames!).catch((error: unknown) => {
+    console.error("The hidden tab wasn't measured:", error)
+    return undefined
+  })
   await cdp.detach()
   return {
     label,
@@ -175,12 +235,18 @@ async function measure(page: Page): Promise<Result> {
     census,
     runs,
     select,
-    memoryMb
+    edit,
+    memoryMb,
+    ...(hidden ? { hidden } : {})
   }
 }
 
-/** Moves the camera every frame for a few seconds, from the whole project in view or from 100% on the first design. */
-async function moveCamera(page: Page, cdp: CDPSession, motion: "zoom" | "pan" | "pan at 100%"): Promise<Run> {
+/**
+ * Moves the camera every frame for a few seconds, from the whole project in view or from 100% on the first design. With
+ * the whole project in view and nothing selected, `hover` moves the pointer across the canvas instead, and `idle` keeps
+ * still.
+ */
+async function moveCamera(page: Page, cdp: CDPSession, motion: Motion): Promise<Run> {
   await page.evaluate((motion) => {
     const editor = perfEditor()
     if (motion === "pan at 100%") {
@@ -190,6 +256,7 @@ async function moveCamera(page: Page, cdp: CDPSession, motion: "zoom" | "pan" | 
       editor.setCamera({ ...editor.getCamera(), z: 1 }, { immediate: true })
       if (bounds) editor.centerOnPoint(bounds.center, { animation: { duration: 0 } })
     } else editor.zoomToFit({ animation: { duration: 0 } })
+    if (motion === "hover" || motion === "idle") (window as unknown as PerfWindow).perfSession.selection.set({})
 
     function perfEditor() {
       return (window as unknown as PerfWindow).perfSession.editor!
@@ -215,7 +282,21 @@ async function moveCamera(page: Page, cdp: CDPSession, motion: "zoom" | "pan" | 
             const t = (now - first) / 1000
             if (t >= seconds) return resolve(times)
             const wave = Math.sin(t * Math.PI)
-            if (motion === "zoom") {
+            if (motion === "hover") {
+              const x = viewport.x + viewport.w * (0.5 + 0.45 * wave)
+              const y = viewport.y + viewport.h * 0.5
+              document.elementFromPoint(x, y)?.dispatchEvent(
+                new PointerEvent("pointermove", {
+                  clientX: x,
+                  clientY: y,
+                  bubbles: true,
+                  composed: true,
+                  pointerType: "mouse"
+                })
+              )
+            } else if (motion === "idle") {
+              // Nothing moves.
+            } else if (motion === "zoom") {
               const z = Math.max(0.01, start.z * (1 + 0.5 * wave))
               editor.setCamera(
                 { x: center.x / z - pageCenter.x, y: center.y / z - pageCenter.y, z },
@@ -266,8 +347,11 @@ async function moveCamera(page: Page, cdp: CDPSession, motion: "zoom" | "pan" | 
   }
 }
 
-/** Selects designs one after another, timing how long each takes to settle. */
-async function selectDesigns(page: Page, cdp: CDPSession): Promise<Result["select"]> {
+/**
+ * Selects designs one after another, or edits them, timing how long each change takes to settle. An edit adds a space
+ * to the design's name in memory, neither saved nor undoable, and takes it out again untimed.
+ */
+async function timeChanges(page: Page, cdp: CDPSession, change: "select" | "edit"): Promise<Result["select"]> {
   await page.evaluate(() => {
     const editor = (window as unknown as PerfWindow).perfSession.editor!
     editor.zoomToFit({ animation: { duration: 0 } })
@@ -278,24 +362,35 @@ async function selectDesigns(page: Page, cdp: CDPSession): Promise<Result["selec
     frames: times,
     hot
   } = await recorded(cdp, () =>
-    page.evaluate(async () => {
+    page.evaluate(async (change) => {
       const session = (window as unknown as PerfWindow).perfSession
       const keys = session.store
         .getEntries()
         .slice(0, 20)
         .map((entry) => entry.key)
+      const rename = (key: string, name: (name: string) => string) =>
+        session.store.updateContainer(key, "Rename", (container) => ({ ...container, name: name(container.name) }), {
+          history: false,
+          persist: false
+        })
+      // React renders a store change in a microtask; a timeout runs after it and its effects.
+      const settled = () => new Promise((resolve) => setTimeout(resolve, 0))
       const times: number[] = []
       for (const key of keys) {
         await new Promise((resolve) => requestAnimationFrame(resolve))
         const start = performance.now()
-        session.selection.set({ design: key })
-        // React renders a store change in a microtask; a timeout runs after it and its effects.
-        await new Promise((resolve) => setTimeout(resolve, 0))
+        if (change === "select") session.selection.set({ design: key })
+        else rename(key, (name) => `${name} `)
+        await settled()
         times.push(performance.now() - start)
+        if (change === "edit") {
+          rename(key, (name) => name.slice(0, -1))
+          await settled()
+        }
       }
       session.selection.set({})
       return times
-    })
+    }, change)
   )
   const sorted = [...times].sort((a, b) => a - b)
   return {
@@ -303,6 +398,83 @@ async function selectDesigns(page: Page, cdp: CDPSession): Promise<Result["selec
     maxMs: round(sorted.at(-1) ?? 0),
     mainMsPerSelect: round((metrics.TaskDuration! * 1000) / Math.max(1, times.length)),
     ...(hot ? { hot } : {})
+  }
+}
+
+/**
+ * Opens a second project so this one's tab is hidden, and counts what the hidden tab still holds after collecting
+ * garbage; then switches back and times how long until every frame has drawn its design again, and checks that the
+ * boards kept their sizes.
+ */
+async function hiddenTab(page: Page, cdp: CDPSession, frames: number): Promise<Result["hidden"]> {
+  const counts = async () => {
+    await cdp.send("HeapProfiler.collectGarbage")
+    const { metrics } = await cdp.send("Performance.getMetrics")
+    const value = (name: string) => metrics.find((metric) => metric.name === name)?.value ?? 0
+    return { nodes: value("Nodes"), heapMb: Math.round(value("JSHeapUsedSize") / 1048576) }
+  }
+  const shown = await counts()
+  const boards = () =>
+    page.evaluate(() => {
+      const editor = (window as unknown as PerfWindow).perfSession.editor!
+      return editor.getCurrentPageShapes().map((shape) => {
+        const box = editor.getShapePageBounds(shape)!
+        return `${shape.id} ${Math.round(box.w)}×${Math.round(box.h)}`
+      })
+    })
+  const sizes = await boards()
+  const resized = async () => {
+    const now = new Set(await boards())
+    return sizes.filter((size) => !now.has(size)).length
+  }
+  const first = await page.evaluate(
+    async ([url, root]) => {
+      const { workspace } = (await import(url)) as { workspace: Workspace }
+      const first = workspace.getActive()!.id
+      const tab = await workspace.open(root)
+      if (tab.status !== "ready") throw new Error(`${root} didn't open: ${tab.message ?? tab.status}`)
+      return first
+    },
+    ["/workspace.ts", second] as const
+  )
+  await page.waitForTimeout(5000)
+  const hidden = await counts()
+  const back = await page.evaluate(
+    async ([url, id, frames]) => {
+      const { workspace } = (await import(url)) as { workspace: Workspace }
+      const frame = () => new Promise((resolve) => requestAnimationFrame(resolve))
+      const drawn = () =>
+        [...document.querySelectorAll("[data-frame]")].filter(
+          (host) => !host.closest("[hidden]") && host.shadowRoot?.querySelector("[data-canvas-node]")
+        ).length
+      const started = performance.now()
+      let last = started
+      let longest = 0
+      workspace.activate(id)
+      while (drawn() < frames && performance.now() - started < 10_000) {
+        await frame()
+        longest = Math.max(longest, performance.now() - last)
+        last = performance.now()
+      }
+      await frame()
+      await frame()
+      return { ms: performance.now() - started, longest }
+    },
+    ["/workspace.ts", first, frames] as const
+  )
+  const resizedDrawn = await resized()
+  await page.waitForTimeout(3000)
+  const resizedLater = await resized()
+  await page.screenshot({ path: join(outDir, `${label}-back.png`) })
+  return {
+    nodesShown: shown.nodes,
+    nodesHidden: hidden.nodes,
+    heapShownMb: shown.heapMb,
+    heapHiddenMb: hidden.heapMb,
+    backMs: round(back.ms),
+    backLongestMs: round(back.longest),
+    resizedDrawn,
+    resizedLater
   }
 }
 
@@ -395,6 +567,9 @@ function report(result: Result, previous: Result | undefined): void {
     `${result.census.designs} designs, ${result.census.frames} frames, ${result.census.frameElements} elements in frames, ` +
       `${result.census.width}×${result.census.height} at ${result.census.pixelRatio}x`
   )
+  if (result.census.bitmaps) {
+    console.log(`${result.census.bitmaps} frames had bitmaps, ${result.census.bitmapSeconds}s after the frames settled`)
+  }
   if (previous && previous.census.frameElements !== result.census.frameElements) {
     console.log(
       `  (the earlier run had ${previous.census.designs} designs and ${previous.census.frameElements} elements)`
@@ -413,11 +588,28 @@ function report(result: Result, previous: Result | undefined): void {
     console.log(`  styled/frame      ${column(run.styledPerFrame, before?.styledPerFrame)}`)
     printHot(run.hot)
   }
-  console.log(`\nselect a design`)
-  console.log(`  median ms         ${column(result.select.medianMs, previous?.select.medianMs)}`)
-  console.log(`  max ms            ${column(result.select.maxMs, previous?.select.maxMs)}`)
-  console.log(`  main ms each      ${column(result.select.mainMsPerSelect, previous?.select.mainMsPerSelect)}`)
-  printHot(result.select.hot)
+  for (const [name, now, before] of [
+    ["select a design", result.select, previous?.select],
+    ["edit a design", result.edit, previous?.edit]
+  ] as const) {
+    if (!now) continue
+    console.log(`\n${name}`)
+    console.log(`  median ms         ${column(now.medianMs, before?.medianMs)}`)
+    console.log(`  max ms            ${column(now.maxMs, before?.maxMs)}`)
+    console.log(`  main ms each      ${column(now.mainMsPerSelect, before?.mainMsPerSelect)}`)
+    printHot(now.hot)
+  }
+  if (result.hidden) {
+    const before = previous?.hidden
+    console.log(`\nwith another tab showing`)
+    console.log(`  nodes shown       ${column(result.hidden.nodesShown, before?.nodesShown)}`)
+    console.log(`  nodes hidden      ${column(result.hidden.nodesHidden, before?.nodesHidden)}`)
+    console.log(`  heap shown MB     ${column(result.hidden.heapShownMb, before?.heapShownMb)}`)
+    console.log(`  heap hidden MB    ${column(result.hidden.heapHiddenMb, before?.heapHiddenMb)}`)
+    console.log(`  back drawn ms     ${column(result.hidden.backMs, before?.backMs)}`)
+    console.log(`  back longest ms   ${column(result.hidden.backLongestMs, before?.backLongestMs)}`)
+    console.log(`  boards resized    ${result.hidden.resizedDrawn} once drawn, ${result.hidden.resizedLater} after 3 s`)
+  }
   console.log(`\nmemory MB`)
   for (const [role, value] of Object.entries(result.memoryMb)) {
     console.log(`  ${role.padEnd(13)}${column(value, previous?.memoryMb[role])}`)

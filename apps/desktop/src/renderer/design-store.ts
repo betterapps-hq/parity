@@ -1,10 +1,13 @@
 import {
   type CanvasDocument,
+  type ComponentLibrary,
+  componentLibrary,
   type ContainerSpec,
   type ContainerViewSettings,
   defaultModeSettings,
   type ModeSettings,
-  type NoteSpec
+  type NoteSpec,
+  reachableLibrary
 } from "@parity/core"
 import { useSyncExternalStore } from "react"
 
@@ -64,6 +67,8 @@ export interface ChangeOptions {
 
 const saveDelay = 300
 const historyLimit = 200
+/** For a key with no design, so asking for its library gives the same empty one each time. */
+const noLibrary: ComponentLibrary = new Map()
 
 /**
  * The open designs and the project's modes, with undo. Changes stay here, unsaved, until Save writes them to their
@@ -75,6 +80,8 @@ export class DesignStore {
   private documents: ReadonlyMap<string, CanvasDocument>
   private modes: ModeSettings
   private entries: readonly ContainerEntry[] = []
+  private byKey: ReadonlyMap<string, ContainerEntry> = new Map()
+  private libraries: ReadonlyMap<string, ComponentLibrary> = new Map()
   private notes: readonly NoteEntry[] = []
   private past: HistoryEntry[] = []
   private future: HistoryEntry[] = []
@@ -108,7 +115,9 @@ export class DesignStore {
   }
 
   getEntries = () => this.entries
-  getEntry = (key: string) => this.entries.find((entry) => entry.key === key)
+  getEntry = (key: string) => this.byKey.get(key)
+  /** What a design's instances reach, for resolving it: the same library until one of those designs changes. */
+  getLibrary = (key: string): ComponentLibrary => this.libraries.get(key) ?? noLibrary
   getNotes = () => this.notes
   getModes = () => this.modes
   getHistory = () => this.history
@@ -393,9 +402,26 @@ export class DesignStore {
     return custom ? { ...base, modes } : base
   }
 
+  /**
+   * An entry whose design didn't change stays the same object, and so does each design's library while the designs
+   * its instances reach are unchanged, so each board on the canvas draws again only when something it shows changed.
+   */
   private index(): void {
+    const previous = this.byKey
     this.entries = [...this.documents].flatMap(([path, document]) =>
-      document.containers.map((container) => ({ key: containerKey(path, container.id), path, container }))
+      document.containers.map((container) => {
+        const key = containerKey(path, container.id)
+        const kept = previous.get(key)
+        return kept?.container === container && kept.path === path ? kept : { key, path, container }
+      })
+    )
+    this.byKey = new Map(this.entries.map((entry) => [entry.key, entry]))
+    const library = componentLibrary(this.entries.map((entry) => entry.container))
+    this.libraries = new Map(
+      this.entries.map((entry) => [
+        entry.key,
+        reachableLibrary(entry.container, library, this.libraries.get(entry.key))
+      ])
     )
     this.notes = [...this.documents].flatMap(([path, document]) =>
       (document.notes ?? []).map((note) => ({ key: containerKey(path, note.id), path, note }))
@@ -499,6 +525,11 @@ export function useContainerEntries(store: DesignStore): readonly ContainerEntry
 
 export function useContainerEntry(store: DesignStore, key: string | undefined): ContainerEntry | undefined {
   return useSyncExternalStore(store.subscribe, () => (key ? store.getEntry(key) : undefined))
+}
+
+/** The designs one design's instances reach, for resolving it. */
+export function useLibrary(store: DesignStore, key: string): ComponentLibrary {
+  return useSyncExternalStore(store.subscribe, () => store.getLibrary(key))
 }
 
 export function useNotes(store: DesignStore): readonly NoteEntry[] {

@@ -10,7 +10,12 @@ import { createServer } from "vite"
 
 const appDir = resolve(import.meta.dirname, "..")
 const repoDir = resolve(appDir, "../..")
-const outDir = join(appDir, "out")
+// A second copy of the app, such as the one `pnpm perf` starts, bundles into its own folder: Electron restarts the
+// service whenever the bundle beside it changes, and the other copy's builds would do that too.
+const uiPort = process.env.PARITY_UI_PORT ?? "5310"
+const outDir = uiPort === "5310" ? join(appDir, "out") : join(appDir, "out", uiPort)
+// Frozen, the bundles are built once, so edits made meanwhile can't restart a copy being measured.
+const frozen = process.env.PARITY_UI_FROZEN === "1"
 const project = resolve(process.argv[2] ?? process.env.PARITY_PROJECT ?? join(repoDir, "examples/shadcn-vite"))
 const debugPort = process.env.PARITY_DEBUG_PORT ?? "9333"
 const electronPath = (await import("electron")).default as unknown as string
@@ -102,7 +107,7 @@ function startElectron(): void {
   console.log(`[dev] canvas UI ${rendererUrl}`)
   console.log(`[dev] project ${project}`)
   console.log(`[dev] DevTools protocol on port ${debugPort}`)
-  electron = spawn(electronPath, [appDir], { stdio: "inherit", env })
+  electron = spawn(electronPath, [uiPort === "5310" ? appDir : join(outDir, "main.mjs")], { stdio: "inherit", env })
   electron.on("exit", () => {
     if (restarting) return
     void shutdown()
@@ -145,4 +150,4 @@ setInterval(() => {
   }
 }, 2000).unref()
 
-await Promise.all(builds.map((build) => build.watch()))
+await Promise.all(builds.map((build) => (frozen ? build.rebuild() : build.watch())))

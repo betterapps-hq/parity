@@ -166,6 +166,19 @@ export function useSelection(store: SelectionStore): Selection {
   return useSyncExternalStore(store.subscribe, store.get)
 }
 
+/**
+ * One design's part of the selection: whether it or any of its layers is selected, and the mode column selected on its
+ * own, if one is. Read as a plain string, so a board draws again only when its own part changes.
+ */
+export function useDesignSelection(store: SelectionStore, design: string): { selected: boolean; mode?: string } {
+  const part = useSyncExternalStore(store.subscribe, () => {
+    const selection = store.get()
+    if (selection.design !== design) return ""
+    return !selection.node && selection.mode ? `mode:${selection.mode}` : "design"
+  })
+  return part.startsWith("mode:") ? { selected: true, mode: part.slice("mode:".length) } : { selected: part !== "" }
+}
+
 export function useHover(store: SelectionStore): Hover | undefined {
   return useSyncExternalStore(store.subscribe, store.getHover)
 }

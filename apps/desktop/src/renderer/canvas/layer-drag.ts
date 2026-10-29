@@ -173,7 +173,7 @@ export function moveTarget(
       siblings: string[]
     }
   | undefined {
-  const hit = hitTest(area, session.store, point)
+  const hit = hitTest(area, session.store, point, session.editor)
   if (!hit) return undefined
   const moving = new Set(ids)
   const cut = hit.entry.key === source.key ? hit.chain.findIndex((node) => moving.has(node.id)) : -1

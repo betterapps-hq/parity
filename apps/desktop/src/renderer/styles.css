@@ -155,6 +155,54 @@ textarea,
   user-select: text;
 }
 
+/*
+ * The layer the camera moves is composited on its own, so panning moves what's already drawn instead of painting every
+ * frame again, and zooming scales it until the camera stops, when it's drawn sharp at the new zoom.
+ */
+.tl-html-layer {
+  will-change: transform;
+}
+
+/*
+ * A board well out of view skips drawing its frames but keeps their size, the size they last had when drawn, so
+ * nothing moves and coming back into view draws them without laying them out again (see ContainerShapeUtil).
+ */
+[data-frame] {
+  contain-intrinsic-size: auto none;
+}
+
+.container-view[data-away] [data-frame] {
+  content-visibility: hidden;
+}
+
+/*
+ * Zoomed far out, a frame shows its bitmap once it has one (see frame-bitmaps.ts), except on the selected board and
+ * while interacting, where the frames are the real thing.
+ */
+.frame-bitmap {
+  display: none;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.canvas-area[data-far]:not([data-tool="interact"]) .container-view:not([data-live]) [data-bitmap] {
+  & [data-frame] {
+    content-visibility: hidden;
+  }
+
+  & .frame-bitmap {
+    display: block;
+  }
+}
+
+/* Further out, boards and frames drop their shadows, which are the most costly part to draw and barely show. */
+.canvas-area[data-tiny] :is(.container-view, .mode-frame) {
+  --tw-shadow: 0 0 #0000;
+}
+
 /* Interacting, the designs take the pointer as in a browser, with their own cursors and text selection. */
 .canvas-area[data-tool="interact"] [data-frame] {
   pointer-events: auto;

@@ -1,5 +1,16 @@
-import { type PointerEvent as ReactPointerEvent, useLayoutEffect, useRef } from "react"
-import { HTMLContainer, Rectangle2d, type RecordProps, ShapeUtil, T, type TLShape, useEditor, useValue } from "tldraw"
+import { type PointerEvent as ReactPointerEvent, useLayoutEffect, useRef, useState } from "react"
+import {
+  Box,
+  HTMLContainer,
+  Rectangle2d,
+  type RecordProps,
+  react,
+  ShapeUtil,
+  T,
+  type TLShape,
+  useEditor,
+  useValue
+} from "tldraw"
 import { moveDesigns } from "../chrome/arrange.ts"
 import { useContainerEntry } from "../design-store.ts"
 import { designsSelection, selectedDesigns } from "../selection.ts"
@@ -48,6 +59,15 @@ export class ContainerShapeUtil extends ShapeUtil<ContainerShape> {
     return false
   }
 
+  /**
+   * tldraw culls a shape out of view with display: none, which throws its layout away: every frame inside it laid out
+   * again when it came back, and the board and its components' resize observers saw it shrink to nothing. Boards out
+   * of view skip drawing their frames instead (see ContainerContent), keeping their layout.
+   */
+  override canCull() {
+    return false
+  }
+
   override getGeometry(shape: ContainerShape) {
     return new Rectangle2d({ width: shape.props.w, height: shape.props.h, isFilled: true })
   }
@@ -79,13 +99,17 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
   const y = useValue("board y", () => editor.getShape(shape.id)?.y ?? 0, [editor, shape.id])
   const titleLayer = useTitleLayer(editor)
 
-  // Layout sizes are unaffected by the camera's scale, so they can be written straight to the shape.
+  const [drawn, setDrawn] = useState(false)
+
+  // Layout sizes are unaffected by the camera's scale, so they can be written straight to the shape. A board that isn't
+  // drawn at all, in a tab that isn't showing, has no size to give, rather than a size of nothing.
   useLayoutEffect(() => {
     const element = ref.current
     if (!element) return undefined
     const observer = new ResizeObserver(() => {
       const current = editor.getShape(shape.id)
-      if (current?.type !== "canvas-container") return
+      if (current?.type !== "canvas-container" || element.getClientRects().length === 0) return
+      setDrawn(true)
       const w = element.offsetWidth
       const h = element.offsetHeight
       if (Math.abs(current.props.w - w) < 1 && Math.abs(current.props.h - h) < 1) return
@@ -96,6 +120,29 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
     observer.observe(element)
     return () => observer.disconnect()
   }, [editor, shape.id])
+
+  // Out of view, with a margin so frames are drawn before they scroll in, a board skips drawing its frames. Only once
+  // they've been drawn, so they have a size to keep; and never the selected board, which outlines and panels measure,
+  // so it's also drawn live when zoomed far enough out for the others to show bitmaps.
+  const present = !!entry
+  useLayoutEffect(() => {
+    const element = ref.current
+    if (!element || !drawn) return undefined
+    const stop = react("board out of view", () => {
+      const bounds = editor.getShapePageBounds(shape.id)
+      const viewport = editor.getViewportPageBounds()
+      const near = Box.ExpandBy(viewport, Math.max(viewport.w, viewport.h) / 4)
+      const selected = editor.getSelectedShapeIds().includes(shape.id)
+      const away = !!bounds && !Box.Collides(near, bounds) && !selected
+      if (element.hasAttribute("data-away") !== away) element.toggleAttribute("data-away", away)
+      if (element.hasAttribute("data-live") !== selected) element.toggleAttribute("data-live", selected)
+    })
+    return () => {
+      stop()
+      element.removeAttribute("data-away")
+      element.removeAttribute("data-live")
+    }
+  }, [editor, shape.id, drawn, present])
 
   /**
    * Selects the design and drags it by its title, like a frame's name in Figma, along with every other selected

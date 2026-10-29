@@ -83,6 +83,53 @@ export function componentLibrary(designs: Iterable<ContainerSpec>): ComponentLib
   return new Map([...designs].map((design) => [design.id, design]))
 }
 
+/** Designs are replaced rather than changed, so what a design places is worked out once per design. */
+const placedBy = new WeakMap<ContainerSpec, readonly string[]>()
+
+/** The ids of the designs a design's instances place, anywhere in it: its tree, its states and its params. */
+export function placedDesigns(design: ContainerSpec): readonly string[] {
+  let placed = placedBy.get(design)
+  if (!placed) {
+    const found = new Set<string>()
+    const visit = (value: unknown): void => {
+      if (Array.isArray(value)) for (const item of value) visit(item)
+      else if (typeof value === "object" && value !== null) {
+        const node = value as Partial<InstanceNode>
+        if (node.type === "instance" && typeof node.design === "string") found.add(node.design)
+        for (const item of Object.values(value)) visit(item)
+      }
+    }
+    visit(design)
+    placed = [...found]
+    placedBy.set(design, placed)
+  }
+  return placed
+}
+
+/**
+ * The part of a library one design's instances reach, directly or through the designs they place: all it needs to be
+ * resolved. Given what it returned for the design last time, it returns that same library while none of those designs
+ * has changed, so a board on the canvas can tell that an edit to another design doesn't touch it.
+ */
+export function reachableLibrary(
+  design: ContainerSpec,
+  library: ComponentLibrary,
+  previous?: ComponentLibrary
+): ComponentLibrary {
+  const reached = new Map<string, ContainerSpec>()
+  const visit = (current: ContainerSpec) => {
+    for (const id of placedDesigns(current)) {
+      const placed = library.get(id)
+      if (!placed || reached.has(id)) continue
+      reached.set(id, placed)
+      visit(placed)
+    }
+  }
+  visit(design)
+  const same = previous?.size === reached.size && [...reached].every(([id, placed]) => previous.get(id) === placed)
+  return same ? previous : reached
+}
+
 interface Scope {
   /** Ids inside an instance are prefixed with the instance's, so every rendered node stays unique. */
   prefix: string

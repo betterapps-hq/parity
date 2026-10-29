@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
-import { type DesignNode, parseCanvasDocument } from "./document.ts"
+import { type ContainerSpec, type DesignNode, parseCanvasDocument } from "./document.ts"
 import { defaultModeSettings, resolveModes } from "./modes.ts"
-import { frameSize, frameViewport, resolveDesign } from "./render.ts"
+import { componentLibrary, frameSize, frameViewport, placedDesigns, reachableLibrary, resolveDesign } from "./render.ts"
 import { extractTokens } from "./tokens.ts"
 
 const root: DesignNode = {
@@ -245,5 +245,61 @@ describe("grid, margin and length tokens", () => {
     expect(card).toMatchObject({
       props: { style: { background: "var(--muted)", padding: "calc(var(--spacing) * 6)", color: "var(--primary)" } }
     })
+  })
+})
+
+describe("reachableLibrary", () => {
+  const design = (id: string, root: DesignNode): ContainerSpec => ({
+    id,
+    name: id,
+    position: { x: 0, y: 0 },
+    root,
+    states: [{ id: "base", name: "Base" }]
+  })
+  const button = design("button", { type: "text", id: "label", text: "Save" })
+  const card = design("card", {
+    type: "layout",
+    id: "card",
+    children: [{ type: "instance", id: "save", design: "button" }]
+  })
+  const screen = design("screen", {
+    type: "layout",
+    id: "page",
+    children: [{ type: "instance", id: "first", design: "card" }]
+  })
+  const other = design("other", { type: "text", id: "hello", text: "Hello" })
+  const all = (...designs: ContainerSpec[]) => componentLibrary(designs)
+
+  it("holds the designs a design's instances reach, through other designs too", () => {
+    const library = all(button, card, screen, other)
+    expect([...reachableLibrary(screen, library).keys()].sort()).toEqual(["button", "card"])
+    expect([...reachableLibrary(other, library).keys()]).toEqual([])
+    expect(placedDesigns(screen)).toEqual(["card"])
+  })
+
+  it("stops at a design that places itself", () => {
+    const loop = design("loop", { type: "instance", id: "again", design: "loop" })
+    expect([...reachableLibrary(loop, all(loop)).keys()]).toEqual(["loop"])
+  })
+
+  it("finds instances that a state adds", () => {
+    const stated = {
+      ...other,
+      states: [
+        { id: "base", name: "Base" },
+        { id: "busy", name: "Busy", added: [{ type: "instance", id: "spinner", design: "button" }] }
+      ]
+    } as unknown as ContainerSpec
+    expect(placedDesigns(stated)).toEqual(["button"])
+  })
+
+  it("stays the same library while the designs it holds are unchanged", () => {
+    const first = reachableLibrary(screen, all(button, card, screen, other))
+    const renamed = { ...other, name: "Renamed" }
+    expect(reachableLibrary(screen, all(button, card, screen, renamed), first)).toBe(first)
+    const edited = { ...button, name: "Edited" }
+    const next = reachableLibrary(screen, all(edited, card, screen, other), first)
+    expect(next).not.toBe(first)
+    expect(next.get("button")).toBe(edited)
   })
 })

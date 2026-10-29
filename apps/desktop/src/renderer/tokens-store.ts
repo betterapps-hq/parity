@@ -9,6 +9,7 @@ import { previewToken } from "./guest.ts"
  */
 export class TokenStore {
   private readonly listeners = new Set<() => void>()
+  private previewed: readonly TokenChange[] = []
 
   constructor(
     private tokens: Token[],
@@ -23,9 +24,18 @@ export class TokenStore {
 
   get = () => this.tokens
 
+  /**
+   * What the shared stylesheet previews so far, the latest value of each token in each theme, for frames drawn
+   * elsewhere to match it.
+   */
+  previews = () => this.previewed
+
   async set(changes: TokenChange[]): Promise<void> {
     if (changes.length === 0) return
     for (const change of changes) previewToken(this.sheet, change.name, change.theme, change.value)
+    const latest = new Map(this.previewed.map((change) => [`${change.name} ${change.theme}`, change]))
+    for (const change of changes) latest.set(`${change.name} ${change.theme}`, change)
+    this.previewed = [...latest.values()]
     this.tokens = this.tokens.map((token) => {
       const mine = changes.filter((change) => change.name === token.name)
       if (mine.length === 0) return token

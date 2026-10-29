@@ -16,7 +16,7 @@ import {
   saveDocumentCopy,
   saveTokens
 } from "./projects.ts"
-import { handleRenderResult } from "./render.ts"
+import { handleRenderResult, renderOffscreen } from "./render.ts"
 import { openStorybook } from "./storybook.ts"
 
 type Handlers = { [M in keyof ServiceMethods]: (params: ServiceMethods[M]["params"]) => Promise<unknown> }
@@ -29,6 +29,10 @@ const handlers: Handlers = {
   "images.import": importImage,
   "storybook.open": openStorybook,
   "designs.export": (params) => exportDesigns(editorWindow(), params),
+  "frames.capture": async ({ job }) => {
+    const { frame, png } = await renderOffscreen(job, true)
+    return frame.error ? {} : { png }
+  },
   "accessibility.check": (params) => checkAccessibility(editorWindow(), params),
   "project.components": projectComponents,
   "library.catalog": catalogFor,

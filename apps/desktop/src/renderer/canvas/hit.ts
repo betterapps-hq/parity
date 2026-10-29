@@ -1,4 +1,5 @@
 import { type DesignNode, isInnerPath, locateNode } from "@parity/core"
+import type { Editor } from "tldraw"
 import type { ContainerEntry, DesignStore } from "../design-store.ts"
 import { findFrames, findNodeElement, nodeElements } from "../frame.ts"
 
@@ -28,24 +29,52 @@ export function inside(rect: DOMRect, point: Point): boolean {
 
 /**
  * What's under a point (client coordinates): which frame of which design, and which of its nodes. Frames ignore
- * pointer events, so this goes by layout boxes rather than the browser's hit testing.
+ * pointer events, so this goes by layout boxes rather than the browser's hit testing. With the canvas's editor, only
+ * the frames of the board under the point are measured.
  */
-export function hitTest(area: ParentNode, store: DesignStore, point: Point): Hit | undefined {
-  for (const host of area.querySelectorAll<HTMLElement>("[data-frame]")) {
+export function hitTest(area: ParentNode, store: DesignStore, point: Point, editor?: Editor): Hit | undefined {
+  const frame = frameAt(area, store, point, editor)
+  return frame && hitInFrame(frame.entry, frame.host, point)
+}
+
+/**
+ * The frame under a point and its design, without measuring the nodes inside it. With the canvas's editor, the board
+ * comes from tldraw's index of shapes, so only its own frames are measured.
+ */
+export function frameAt(
+  area: ParentNode,
+  store: DesignStore,
+  point: Point,
+  editor?: Editor
+): { entry: ContainerEntry; host: HTMLElement } | undefined {
+  const board = editor?.getShapeAtPoint(editor.screenToPage(point), {
+    hitInside: true,
+    filter: (shape) => shape.type === "canvas-container"
+  })
+  const hosts = !editor
+    ? area.querySelectorAll<HTMLElement>("[data-frame]")
+    : board?.type === "canvas-container"
+      ? findFrames(area, board.props.key)
+      : []
+  for (const host of hosts) {
     if (!inside(host.getBoundingClientRect(), point)) continue
     const entry = store.getEntry(host.dataset.design ?? "")
-    if (!entry) continue
-    // Document order puts descendants after their ancestors, so the last box containing the point is the deepest.
-    const path = nodeElements(host)
-      .filter((element) => inside(element.getBoundingClientRect(), point))
-      .flatMap((element) => element.dataset.canvasNode ?? [])
-    // Inside an instance, ids are `instance/inner`: the instance is the design's own node.
-    const deepest = path.at(-1)?.split("/")[0]
-    const location = deepest ? locateNode(entry.container.root, deepest) : undefined
-    const chain = location ? [...location.ancestors, location.node] : [entry.container.root]
-    return { entry, host, mode: host.dataset.mode ?? "", state: host.dataset.state ?? "", chain, path }
+    if (entry) return { entry, host }
   }
   return undefined
+}
+
+/** Which of a frame's nodes are under a point. */
+export function hitInFrame(entry: ContainerEntry, host: HTMLElement, point: Point): Hit {
+  // Document order puts descendants after their ancestors, so the last box containing the point is the deepest.
+  const path = nodeElements(host)
+    .filter((element) => inside(element.getBoundingClientRect(), point))
+    .flatMap((element) => element.dataset.canvasNode ?? [])
+  // Inside an instance, ids are `instance/inner`: the instance is the design's own node.
+  const deepest = path.at(-1)?.split("/")[0]
+  const location = deepest ? locateNode(entry.container.root, deepest) : undefined
+  const chain = location ? [...location.ancestors, location.node] : [entry.container.root]
+  return { entry, host, mode: host.dataset.mode ?? "", state: host.dataset.state ?? "", chain, path }
 }
 
 /**

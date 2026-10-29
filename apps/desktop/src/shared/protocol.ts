@@ -62,6 +62,11 @@ export interface ServiceMethods {
     result: { files: string[]; warnings: string[] }
   }
   /**
+   * Draws one frame offscreen and captures it as a PNG, for the canvas to show in its place when zoomed far out. No
+   * PNG when the frame didn't render.
+   */
+  "frames.capture": { params: { job: RenderJob }; result: { png?: string } }
+  /**
    * Checks a design with axe-core in every state, in the modes it shows, offscreen. Automated checks find only some
    * issues, so none found isn't a pass.
    */
@@ -289,6 +294,8 @@ export interface RenderJob {
   scale: number
   /** Also check the frame with axe-core. */
   audit?: boolean
+  /** Token changes the canvas previews but the project's compiled CSS may not have yet, applied in order. */
+  previews?: TokenChange[]
 }
 
 export interface RenderedFrame {

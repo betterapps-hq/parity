@@ -2,7 +2,6 @@ import {
   boardRoot,
   changeCount,
   type ComponentLibrary,
-  componentLibrary,
   frameSize,
   type ParamSpec,
   type ResolvedMode,
@@ -11,7 +10,15 @@ import {
   variantChoices
 } from "@parity/core"
 import { ChevronDown, Crown, Rows3 } from "lucide-react"
-import { type PointerEvent as ReactPointerEvent, type ReactNode, type Ref, useMemo, useRef, useState } from "react"
+import {
+  memo,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+  type Ref,
+  useMemo,
+  useRef,
+  useState
+} from "react"
 import { createPortal } from "react-dom"
 import { stopEventPropagation } from "tldraw"
 import {
@@ -34,10 +41,11 @@ import {
 import { deleteDesign, duplicateDesign, renameDesign, setDesignKind } from "../chrome/designs.ts"
 import { ModeViewportIcon } from "../chrome/viewports.tsx"
 import type { ContainerEntry } from "../design-store.ts"
-import { useContainerEntries, useModeSettings } from "../design-store.ts"
+import { useLibrary, useModeSettings } from "../design-store.ts"
 import { ModeView } from "../ModeView.tsx"
-import { useInteractions, useRenameRequest, useSelection } from "../selection.ts"
+import { useDesignSelection, useInteractions, useRenameRequest } from "../selection.ts"
 import { useProject } from "./context.ts"
+import { useFrameBitmap } from "./frame-bitmaps.ts"
 import { DesignIcon, designColor, kindColors } from "./kinds.tsx"
 import { ModesMenu } from "./ModesMenu.tsx"
 import { activeState, companionScale, containerModes, withShownModes } from "./view.ts"
@@ -61,18 +69,16 @@ interface ContainerViewProps {
 export function ContainerView({ ref, entry, hovered, onTitlePointerDown, title }: ContainerViewProps) {
   const { store, loaded, selection } = useProject()
   const settings = useModeSettings(store)
-  const selected = useSelection(selection)
-  const entries = useContainerEntries(store)
-  const library = useMemo(() => componentLibrary(entries.map((candidate) => candidate.container)), [entries])
+  const { selected: isSelected, mode: selectedMode } = useDesignSelection(selection, entry.key)
+  const library = useLibrary(store, entry.key)
   const { container, key } = entry
-  const { primary, companions, all } = containerModes(settings, container)
+  // Kept while the modes and the design are, so frames that show nothing new aren't drawn again.
+  const { primary, companions, all } = useMemo(() => containerModes(settings, container), [settings, container])
   const active = activeState(container)
   const allStates = container.view?.allStates ?? false
   const rows = allStates ? container.states : [active]
   const columns = [primary, ...companions]
-  const isSelected = selected.design === key
   const color = designColor(container.kind)
-  const selectedMode = isSelected && !selected.node ? selected.mode : undefined
 
   const selectState = (state: string) => store.updateView(key, (view) => ({ ...view, state, allStates: false }))
   const showModes = (main: string, shown: string[]) =>
@@ -145,7 +151,6 @@ export function ContainerView({ ref, entry, hovered, onTitlePointerDown, title }
                   scale={column === 0 ? 1 : companionScale(frameSize(container, mode).width)}
                   caption={index === 0}
                   selected={selectedMode === mode.id}
-                  onSelect={() => selection.set({ design: key, mode: mode.id })}
                   divider={column === 1}
                   loaded={loaded}
                   library={library}
@@ -438,10 +443,13 @@ interface FrameTileProps {
   divider: boolean
   loaded: ReturnType<typeof useProject>["loaded"]
   library: ComponentLibrary
-  onSelect(): void
 }
 
-function FrameTile({
+/**
+ * One frame of a board. It draws again only when something it shows changes, and works its design out again only when
+ * the design, state, mode or the components it places do, since a board's frames hold whole screens.
+ */
+const FrameTile = memo(function FrameTile({
   entry,
   state,
   mode,
@@ -452,11 +460,23 @@ function FrameTile({
   selected,
   divider,
   loaded,
-  library,
-  onSelect
+  library
 }: FrameTileProps) {
+  const session = useProject()
+  const { selection } = session
   const size = frameSize(entry.container, mode)
-  const interactions = useInteractions(useProject().selection)
+  const interactions = useInteractions(selection)
+  const { container } = entry
+  const tree = useMemo(
+    () =>
+      resolveDesign(boardRoot(container), state, mode.viewport, library, {
+        params: container.params,
+        choices: container.view?.variants
+      }),
+    [container, state, mode.viewport, library]
+  )
+  const bitmap = useFrameBitmap(session, tree, mode, size.width, size.height, scale)
+  const onSelect = () => selection.set({ design: entry.key, mode: mode.id })
   return (
     <figure
       className={`mode-tile m-0 ${divider ? "ml-4 border-l border-dashed pl-12" : ""}`}
@@ -487,13 +507,14 @@ function FrameTile({
           )}
         </figcaption>
       )}
-      <div className="transition-shadow" style={selected ? { boxShadow: `0 0 0 3px ${kindColors.mode}` } : undefined}>
+      <div
+        className="relative transition-shadow"
+        style={selected ? { boxShadow: `0 0 0 3px ${kindColors.mode}` } : undefined}
+        data-bitmap={bitmap ? "" : undefined}
+      >
         <ModeView
           loaded={loaded}
-          tree={resolveDesign(boardRoot(entry.container), state, mode.viewport, library, {
-            params: entry.container.params,
-            choices: entry.container.view?.variants
-          })}
+          tree={tree}
           mode={mode}
           width={size.width}
           height={size.height}
@@ -503,7 +524,8 @@ function FrameTile({
           primary={primary}
           interactions={interactions}
         />
+        {bitmap && <img className="frame-bitmap" src={bitmap} alt="" decoding="async" draggable={false} />}
       </div>
     </figure>
   )
-}
+})
