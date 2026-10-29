@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useEffect, useRef, useState } from "react"
+import { people } from "../explore-data.ts"
 import type { MockTab } from "../parts.tsx"
-import { forYou, projects, type StartProject, type Template } from "./data.ts"
+import { forYou, projects, type StartProject } from "./data.ts"
 import { FirstRunPage } from "./first-run.tsx"
 import { NewProjectDialog, type NewProjectStart } from "./new-project.tsx"
 import { HomePage, NewTabPage, ProjectTab, StartActionsProvider, StartWindow } from "./page.tsx"
@@ -43,6 +44,7 @@ function StartStory({ context, dialog, search }: { context: Context; dialog?: Ne
   const [start, setStart] = useState(dialog)
   const [searching, setSearching] = useState(search !== undefined)
   const [done, setDone] = useState<string[]>([])
+  const [agents, setAgents] = useState(context === "first-run" ? [] : [people.claude.name, people.cursor.name])
   const opened = useRef(0)
   useEffect(() => {
     const open = (event: KeyboardEvent) => {
@@ -84,13 +86,15 @@ function StartStory({ context, dialog, search }: { context: Context; dialog?: Ne
       value={{
         openProject,
         create: (project) => {
-          setMade([...made, project])
+          if (!made.some((candidate) => candidate.id === project.id)) setMade([...made, project])
           openProject(project.id, [project])
         },
         newProject: (from) => setStart(from ?? { tab: "template" }),
         search: () => setSearching(true),
         done,
-        markDone: (...ids) => setDone((current) => [...current, ...ids])
+        markDone: (...ids) => setDone((current) => [...current, ...ids]),
+        agents,
+        connectAgent: (name) => setAgents((current) => [...current, name])
       }}
     >
       <StartWindow
@@ -102,18 +106,10 @@ function StartStory({ context, dialog, search }: { context: Context; dialog?: Ne
         onClose={closeTab}
         onNew={newTab}
       >
-        {active === "home" &&
-          (context === "first-run" ? (
-            <FirstRunPage
-              onPickTemplate={(template: Template) =>
-                setStart({ tab: "template", stack: template.stack, template: template.id })
-              }
-              onPickExisting={() => setStart({ tab: "existing" })}
-            />
-          ) : (
-            <HomePage />
-          ))}
-        {isNewTab(active) && <NewTabPage />}
+        {/* Until there are projects, Home and every new tab show the first run. */}
+        {(active === "home" || isNewTab(active)) && context === "first-run" && <FirstRunPage />}
+        {active === "home" && context !== "first-run" && <HomePage />}
+        {isNewTab(active) && context !== "first-run" && <NewTabPage />}
         {shown && <ProjectTab key={shown.id} project={shown} />}
         {start && (
           <NewProjectDialog
@@ -144,8 +140,9 @@ export const Home: Story = { render: () => <StartStory context="home" /> }
 export const NewTab: Story = { render: () => <StartStory context="new-tab" /> }
 
 /**
- * The first time, signed in with nothing yet: templates by stack are the main way in, with ways to bring a project you
- * have, a finished sample to look around, and your agents to connect.
+ * The first time, signed in with nothing yet, in Home's layout so nothing moves once there are projects. A finished
+ * sample sits where Continue will be, and opens in a tab. Beside it, the ways to bring a project you have and the
+ * agents to connect, which the account menu keeps in step. Then the first template on each stack.
  */
 export const FirstRun: Story = { render: () => <StartStory context="first-run" /> }
 

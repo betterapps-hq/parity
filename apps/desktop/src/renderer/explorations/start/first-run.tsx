@@ -1,13 +1,18 @@
-import { ArrowRight, FolderOpen, Layers } from "lucide-react"
-import { type ReactNode, useState } from "react"
+/**
+ * The first time, signed in with nothing yet. It keeps Home's layout, so nothing moves once there are projects: a
+ * finished sample where Continue will be, what to set up where For you will be, and templates where Recent will be.
+ */
+import { ArrowRight, Check, FolderOpen, Layers } from "lucide-react"
+import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { me, people } from "../explore-data.ts"
-import { Avatar, AzureDevOpsMark, GitHubMark, ParityMark } from "../parts.tsx"
-import { type StackId, stacks, type StartProject, type Template, templatesOn } from "./data.ts"
-import { Backdrop, CanvasArt, Segmented, StackMark, TemplateCard } from "./page.tsx"
+import { Avatar, AzureDevOpsMark, GitHubMark } from "../parts.tsx"
+import { stacks, type StartProject, templatesOn } from "./data.ts"
+import type { ExistingSource } from "./new-project.tsx"
+import { agentChoices, CanvasArt, NewProjectButton, OpenMenu, parity, TemplateCard, useStart } from "./page.tsx"
 
 /** A finished project to look around in, with designs, states, comments and an agent at work. */
-const sample: StartProject = {
+export const sample: StartProject = {
   id: "sample",
   name: "Acme dashboard",
   org: "personal",
@@ -18,148 +23,129 @@ const sample: StartProject = {
   edited: "Today",
   editedBy: me,
   people: [me],
-  live: { who: people.claude, doing: "Show me around" }
+  live: { who: people.claude, doing: "Show me around" },
+  comments: 2
 }
 
-function Panel({ title, children, className = "" }: { title: string; children: ReactNode; className?: string }) {
+const sources: { id: ExistingSource; mark: ReactNode; name: string }[] = [
+  { id: "github", mark: <GitHubMark size={16} />, name: "GitHub" },
+  { id: "azure", mark: <AzureDevOpsMark size={16} />, name: "Azure DevOps" },
+  { id: "folder", mark: <FolderOpen className="size-4" />, name: "A folder on this computer" }
+]
+
+function SideList({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className={`flex flex-col gap-4 rounded-2xl border bg-card/40 p-5 ${className}`}>
+    <section className="flex flex-col gap-1.5">
       <h2 className="text-sm font-semibold">{title}</h2>
-      {children}
+      <ul className="flex flex-col">{children}</ul>
     </section>
   )
 }
 
-/** Templates by stack, the main way in for someone with nothing yet. */
-function TemplateGallery({ onPickTemplate }: { onPickTemplate?(template: Template): void }) {
-  const [stackId, setStackId] = useState<StackId>("tanstack-start")
+/** The first time: a project to explore, what to bring and connect, and templates to start from. */
+export function FirstRunPage() {
+  const start = useStart()
+  const firsts = stacks.flatMap((stack) => templatesOn(stack.id).slice(0, 1))
+  const openSample = () => start.create?.(sample)
   return (
-    <section className="flex flex-col gap-5 rounded-2xl border bg-card/40 p-6">
-      <div className="flex items-center justify-between">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-base font-semibold">Start from a template</h2>
-          <p className="text-sm text-muted-foreground">
-            Pick a stack, then what you're building. You can change any of it later.
-          </p>
-        </div>
-      </div>
-      <div className="flex">
-        <Segmented
-          options={stacks.map((stack) => ({
-            id: stack.id,
-            label: (
-              <>
-                <StackMark stack={stack} size={16} /> {stack.name}
-              </>
-            )
-          }))}
-          value={stackId}
-          onChange={setStackId}
-        />
-      </div>
-      <div className="grid grid-cols-3 gap-x-5 gap-y-6">
-        {templatesOn(stackId)
-          .slice(0, 6)
-          .map((template) => (
-            <TemplateCard key={template.id} template={template} onPick={onPickTemplate} />
-          ))}
-      </div>
-    </section>
-  )
-}
-
-/** The first time: nothing to reopen yet, so the ways to start, and a project to explore. */
-export function FirstRunPage({
-  onPickTemplate,
-  onPickExisting
-}: {
-  onPickTemplate?(template: Template): void
-  onPickExisting?(): void
-}) {
-  return (
-    <div className="relative h-full overflow-y-auto">
-      <Backdrop strength={1.8} />
-      <div className="relative mx-auto flex max-w-[1180px] flex-col gap-9 px-10 pt-11 pb-12">
-        <header className="flex flex-col items-center gap-4 text-center">
-          <ParityMark size={52} />
-          <div className="flex flex-col gap-2">
-            <h1 className="text-[34px] leading-tight font-semibold tracking-tight">Welcome to Parity, Andrew</h1>
-            <p className="mx-auto max-w-[580px] text-[15px] text-muted-foreground">
-              Design with your app's real components, beside your team and your agents. Start from a template, or bring
-              a project you already have.
+    <div className="h-full overflow-y-auto">
+      <div className="mx-auto flex max-w-[1120px] flex-col gap-11 px-10 pt-7 pb-14">
+        <header className="flex items-end justify-between gap-6">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-2xl font-semibold tracking-tight">Welcome to Parity, Andrew</h1>
+            <p className="text-sm text-muted-foreground">
+              Design with your app's real components, beside your team and your agents.
             </p>
           </div>
+          <div className="flex items-center gap-2">
+            <OpenMenu size="default" />
+            <NewProjectButton size="default" />
+          </div>
         </header>
-        <div className="grid grid-cols-[minmax(0,1fr)_340px] items-start gap-6">
-          <TemplateGallery onPickTemplate={onPickTemplate} />
-          <div className="flex flex-col gap-4">
-            <Panel title="Bring a project you have">
+        <div className="grid grid-cols-[minmax(0,1fr)_300px] items-start gap-12">
+          <section
+            className="group/sample relative grid grid-cols-[minmax(0,400px)_minmax(0,1fr)] items-center gap-7"
+            style={{ ["--parity" as string]: parity }}
+          >
+            <div className="overflow-hidden rounded-lg ring-1 ring-white/[0.07] transition-shadow duration-150 group-hover/sample:ring-2 group-hover/sample:ring-(--parity)">
+              <CanvasArt project={sample} design={sample.designs[0]!} labels live={false} />
+            </div>
+            <div className="flex flex-col items-start gap-3">
               <div className="flex flex-col gap-1">
-                {[
-                  {
-                    mark: <GitHubMark size={18} />,
-                    name: "GitHub",
-                    detail: "Repositories you can push to",
-                    action: "Connect"
-                  },
-                  {
-                    mark: <AzureDevOpsMark size={18} />,
-                    name: "Azure DevOps",
-                    detail: "Your team's repositories",
-                    action: "Connect"
-                  },
-                  {
-                    mark: <FolderOpen className="size-[18px]" />,
-                    name: "A folder",
-                    detail: "A React app on this computer",
-                    action: "Choose"
-                  }
-                ].map((source) => (
-                  <div
-                    key={source.name}
-                    className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-muted/40"
+                <span className="text-xs text-muted-foreground">Look around first</span>
+                <h2 className="text-lg font-semibold tracking-tight">
+                  <button
+                    type="button"
+                    onClick={openSample}
+                    className="text-left outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-ring"
                   >
-                    <span className="grid size-9 place-items-center rounded-lg bg-muted/70">{source.mark}</span>
-                    <span className="flex min-w-0 flex-1 flex-col">
-                      <span className="text-sm font-medium">{source.name}</span>
-                      <span className="truncate text-xs text-muted-foreground">{source.detail}</span>
-                    </span>
-                    <Button size="sm" variant="outline" onClick={onPickExisting}>
-                      {source.action}
-                    </Button>
-                  </div>
-                ))}
+                    {sample.name}
+                  </button>
+                </h2>
               </div>
-            </Panel>
-            <Panel title="Look around first">
-              <div className="overflow-hidden rounded-xl ring-1 ring-white/[0.08]">
-                <CanvasArt project={sample} design={sample.designs[0]!} />
-              </div>
-              <p className="-mt-1 text-xs leading-relaxed text-muted-foreground">
+              <p className="text-sm text-pretty text-muted-foreground">
                 A finished sample with designs, states, comments and an agent at work. Nothing you do there can break.
               </p>
-              <Button variant="outline" className="w-full">
+              <Button onClick={openSample} className="relative z-10 mt-1">
                 Open the sample <ArrowRight />
               </Button>
-            </Panel>
-            <Panel title="Connect your agents">
-              <p className="-mt-2 text-xs leading-relaxed text-muted-foreground">
-                Agents read and change designs on the canvas beside you, with their own cursors.
-              </p>
-              <div className="flex flex-col gap-2.5">
-                {[people.claude, people.cursor, { name: "Codex", hue: 160, agent: true }].map((agent) => (
-                  <span key={agent.name} className="flex items-center gap-2.5 text-sm">
-                    <Avatar person={agent} size={24} />
+            </div>
+          </section>
+          <div className="flex flex-col gap-7">
+            <SideList title="Bring a project you have">
+              {sources.map((source) => (
+                <li key={source.id}>
+                  <button
+                    type="button"
+                    onClick={() => start.newProject?.({ tab: "existing", source: source.id })}
+                    className="group/source -mx-2 flex w-[calc(100%+16px)] items-center gap-2.5 rounded-lg px-2 py-2 text-left text-[13px] outline-none hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <span className="grid size-[22px] place-items-center text-muted-foreground">{source.mark}</span>
+                    <span className="flex-1">{source.name}</span>
+                    <ArrowRight className="size-3.5 text-muted-foreground opacity-0 transition-opacity group-hover/source:opacity-100" />
+                  </button>
+                </li>
+              ))}
+            </SideList>
+            <SideList title="Connect your agents">
+              {agentChoices.map((agent) => {
+                const on = !!start.agents?.includes(agent.name)
+                return (
+                  <li key={agent.name} className="flex items-center gap-2.5 py-1.5 text-[13px]">
+                    <Avatar person={agent} size={22} />
                     <span className="flex-1">{agent.name}</span>
-                    <Button size="xs" variant="ghost">
-                      Connect
-                    </Button>
-                  </span>
-                ))}
-              </div>
-            </Panel>
+                    {on ? (
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Check className="size-3.5" /> Connected
+                      </span>
+                    ) : (
+                      <Button size="xs" variant="outline" onClick={() => start.connectAgent?.(agent.name)}>
+                        Connect
+                      </Button>
+                    )}
+                  </li>
+                )
+              })}
+            </SideList>
           </div>
         </div>
+        <section className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-medium">Start from a template</h2>
+            <button
+              type="button"
+              onClick={() => start.newProject?.()}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+            >
+              All templates <ArrowRight className="size-3" />
+            </button>
+          </div>
+          <div className="grid grid-cols-4 gap-x-5 gap-y-7">
+            {firsts.map((template) => (
+              <TemplateCard key={template.id} template={template} />
+            ))}
+          </div>
+        </section>
       </div>
     </div>
   )

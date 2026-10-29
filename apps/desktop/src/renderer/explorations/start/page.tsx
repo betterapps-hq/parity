@@ -53,7 +53,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { agentPalettes } from "../../agent/agent-colors.ts"
 import { AgentBadge, AgentPointer } from "../../agent/AgentPointer.tsx"
 import { me, people, type Person } from "../explore-data.ts"
-import { accent, Avatar, AzureDevOpsMark, ExploreWindow, GitHubMark, type MockTab } from "../parts.tsx"
+import { Avatar, AzureDevOpsMark, ExploreWindow, GitHubMark, type MockTab } from "../parts.tsx"
 import { OrgBadge } from "../start-page-parts.tsx"
 import {
   type Design,
@@ -65,6 +65,7 @@ import {
   project as findProject,
   projects,
   type Stack,
+  stack as findStack,
   type StartProject,
   type Template,
   type Visit
@@ -86,7 +87,13 @@ export interface StartActions {
   /** For you items already dealt with, and the way to deal with them. */
   done?: readonly string[]
   markDone?(...ids: string[]): void
+  /** The agents connected to your account, by name, and the way to connect one. */
+  agents?: readonly string[]
+  connectAgent?(name: string): void
 }
+
+/** The agents Parity can connect to. */
+export const agentChoices: Person[] = [people.claude, people.cursor, { name: "Codex", hue: 160, agent: true }]
 
 const StartContext = createContext<StartActions>({})
 
@@ -289,8 +296,7 @@ function Inbox({ enabled }: { enabled: boolean }) {
 
 /** Your account: the agents that can work in your projects, settings and help. */
 function AccountMenu() {
-  const [connected, setConnected] = useState([people.claude.name, people.cursor.name])
-  const agents: Person[] = [people.claude, people.cursor, { name: "Codex", hue: 160, agent: true }]
+  const start = useStart()
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -312,15 +318,15 @@ function AccountMenu() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Agents</DropdownMenuLabel>
-        {agents.map((agent) => {
-          const on = connected.includes(agent.name)
+        {agentChoices.map((agent) => {
+          const on = !!start.agents?.includes(agent.name)
           return (
             <DropdownMenuItem
               key={agent.name}
               onSelect={(event) => {
                 if (on) return
                 event.preventDefault()
-                setConnected((current) => [...current, agent.name])
+                start.connectAgent?.(agent.name)
               }}
             >
               <Avatar person={agent} size={18} /> {agent.name}
@@ -962,7 +968,7 @@ export function StackMark({ stack, size = 20 }: { stack: Stack; size?: number })
   )
 }
 
-/** A template: its first design, drawn in the template's own look, then its name. */
+/** A template: its first design, drawn in the template's own look, then its name and the stack it's on. */
 export function TemplateCard({ template, onPick }: { template: Template; onPick?(template: Template): void }) {
   const start = useStart()
   return (
@@ -984,7 +990,7 @@ export function TemplateCard({ template, onPick }: { template: Template; onPick?
       </span>
       <span className="flex flex-col gap-0.5">
         <span className="text-sm font-medium">{template.name}</span>
-        <span className="text-xs text-muted-foreground">{template.blurb}</span>
+        <span className="text-xs text-muted-foreground">{findStack(template.stack).name}</span>
       </span>
     </button>
   )
@@ -1085,19 +1091,6 @@ export function OrgSwitcher({ value = "kestrel", onChange }: { value?: OrgId; on
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
-  )
-}
-
-/** A quiet wash of Parity's colors at the top of the page. */
-export function Backdrop({ strength = 1 }: { strength?: number }) {
-  return (
-    <div
-      className="pointer-events-none absolute inset-x-0 top-0 h-[520px]"
-      style={{
-        background: `radial-gradient(45% 60% at 22% 0%, ${accent(220, 0.6, 0.14)} 0%, transparent 70%), radial-gradient(40% 55% at 60% 0%, ${accent(285, 0.55, 0.18)} 0%, transparent 70%)`,
-        opacity: 0.11 * strength
-      }}
-    />
   )
 }
 
