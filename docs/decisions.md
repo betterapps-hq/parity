@@ -1130,7 +1130,10 @@ recommended answer to each of its questions.
   these in a snippet (`GetTokens`, `Components`, `Props`), so the MCP tool list stays short.
 - **Agents see what the Components panel shows** (your call, 2026-10-29): `parity components` lists the components that
   fail to draw on the canvas and why, and the person's corrections, saved or not, as well as the exports that aren't
-  components (`0004a01`).
+  components (`0004a01`). `Components()` in a snippet still returns names, which closes PAR-254: snippets use them to
+  build designs, an agent looks before it writes one, and whether a component draws changes as frames draw, so a status
+  read at the start of a snippet would be stale by the time its designs render. My call; change it if snippets need the
+  status too.
 - **The CLI will be public on npm** (your call, 2026-10-29), so a CI pipeline gets Parity with `npx` and nothing else to
   download. Visual tests in CI rely on it (PAR-236). It can't be published as `@parity/cli`, because the `@parity` scope
   on npm belongs to Parity Technologies, so its name is PAR-26.
