@@ -1140,6 +1140,12 @@ the REPO stream in the backlog.
 
 - **Parity will be a public repository under the Fencing Club organization on GitHub,** as you decided on 2026-10-29.
   Actions runners are free for public repositories, so CI tests on Windows, macOS and Linux.
+- **Parity is MIT-licensed** (your call, 2026-10-29, Q6), like the agency monorepo. REPO-8 adds the LICENSE and names it
+  in every package.json.
+- **Interface text isn't checked against Fluent's guidance.** You said on 2026-10-29 that this was a Microsoft practice
+  you no longer follow, so conventions.md keeps only the rule against dot separators.
+- **DOC-3, splitting the backlog, was dropped.** The backlog is moving to Linear, which solves its size. Its ID isn't
+  reused.
 - **Releases ship unsigned until signing is set up,** as you chose on 2026-10-29. Signing is REPO-13. Until then,
   Windows SmartScreen warns on first run, macOS blocks the app until it's allowed in System Settings, and macOS can't
   update in place, so CAN-38 waits for signing there.
