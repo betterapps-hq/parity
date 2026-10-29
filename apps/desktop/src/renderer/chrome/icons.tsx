@@ -1,4 +1,12 @@
 import type { LibraryInfo, RenderNode } from "@parity/core"
+import {
+  type IconIndex,
+  iconIndex,
+  type IconEntry as SetEntry,
+  iconEntries as setEntries,
+  iconStyles as setStyles,
+  searchIcons
+} from "@parity/icons"
 import { useEffect, useMemo, useRef } from "react"
 import type { InsertItem } from "../canvas/insert.ts"
 import type { LoadedGuest } from "../guest.ts"
@@ -22,38 +30,44 @@ export function iconsOf(library: LibraryInfo): string {
 
 /** The styles a set offers, such as Regular and Filled, with the one shown first. */
 export function iconStyles(library: LibraryInfo): { styles: string[]; initial?: string } {
-  const variants = library.icons?.variants
-  const styles = variants?.styles ?? []
-  return { styles, ...(variants?.default?.style ? { initial: variants.default.style } : {}) }
+  return setStyles(library.icons)
+}
+
+/** A set's icons in one style, and a search over them by name, alias and the tags the set publishes. */
+export interface IconCatalog {
+  entries: IconEntry[]
+  /** The icons a query finds, best first; every icon for an empty one. */
+  search(query: string): IconEntry[]
 }
 
 /**
- * A set's icons in one style, from the project's own copy of the package as its manifest describes it. Sets that write
- * the style and size into names (Fluent's `Add24Regular`) list each icon once, unsized, in that style; sets that take
- * the style as a prop (Phosphor's `weight`) insert with it set.
+ * A set's icons in one style, from the project's own copy of the package as its manifest describes it: each once and
+ * unsized, with the style's prop set for sets that take one.
  */
-export function iconEntries(loaded: LoadedGuest, library: LibraryInfo, style: string | undefined): IconEntry[] {
-  const names = loaded.guest.iconNames?.(library.id) ?? []
-  const variants = library.icons?.variants
-  const fallback = variants?.default?.style
-  const pattern = variants?.pattern ? new RegExp(variants.pattern) : undefined
-  const entries: IconEntry[] = []
-  for (const name of names) {
-    let label = name
-    if (pattern) {
-      const groups = pattern.exec(name)?.groups
-      if (!groups) continue
-      if (groups.size) continue
-      if ((groups.style ?? fallback) !== (style ?? fallback)) continue
-      label = groups.name ?? name
+export function iconCatalog(loaded: LoadedGuest, library: LibraryInfo, style: string | undefined): IconCatalog {
+  const listed = setEntries(loaded.guest.iconNames?.(library.id) ?? [], library.icons, style)
+  const entries = new Map(
+    listed.map((icon): [SetEntry, IconEntry] => [
+      icon,
+      {
+        label: icon.label,
+        item: {
+          kind: "component",
+          component: `${library.id}/${icon.name}`,
+          ...(icon.props ? { props: icon.props } : {})
+        }
+      }
+    ])
+  )
+  let index: IconIndex | undefined
+  return {
+    entries: [...entries.values()],
+    search(query) {
+      // Indexed on the first search, so opening the panel stays quick.
+      index ??= iconIndex(listed, loaded.guest.iconAliases?.(library.id), library.icons?.tags)
+      return searchIcons(index, query).map((icon) => entries.get(icon)!)
     }
-    const props = variants?.prop && style && style !== fallback ? { [variants.prop]: style } : undefined
-    entries.push({
-      label,
-      item: { kind: "component", component: `${library.id}/${name}`, ...(props ? { props } : {}) }
-    })
   }
-  return entries
 }
 
 /** Draws icons the size of text in the panel, whatever size the set draws them at. */

@@ -16,6 +16,8 @@ export interface LibOptions {
   edits?: string
   /** Set to skip reading the library's examples from its repository. */
   noExamples?: boolean
+  /** Set to skip reading an icon set's tags from its published metadata. */
+  noTags?: boolean
   json?: boolean
 }
 
@@ -25,7 +27,8 @@ export interface LibOptions {
  */
 export async function runLib(packageName: string | undefined, options: LibOptions): Promise<void> {
   // Loaded only here, so the other commands don't load TypeScript.
-  const { appManifestPath, generateLibrary, mergeManifest, reviseLibrary } = await import("@parity/libgen")
+  const { appManifestPath, generateLibrary, manifestText, mergeManifest, reviseLibrary } =
+    await import("@parity/libgen")
   const { registryDir } = await import("@parity/registry")
   const root = resolve(options.root ?? ".")
   const { parseLibraryEdits } = await import("@parity/libgen")
@@ -36,6 +39,7 @@ export async function runLib(packageName: string | undefined, options: LibOption
     root,
     ...(trialEdits ? { trialEdits } : {}),
     ...(options.noExamples ? { examples: false } : {}),
+    ...(options.noTags ? { tags: false } : {}),
     ...(packageName ? { package: packageName } : {}),
     ...(options.id ? { id: options.id } : {}),
     ...(options.name ? { name: options.name } : {}),
@@ -78,7 +82,7 @@ export async function runLib(packageName: string | undefined, options: LibOption
   // An app's own file keeps what its author wrote, such as its canvas of designs.
   const written = packageName ? manifest : mergeManifest(existing, manifest)
   await mkdir(dirname(target), { recursive: true })
-  await writeFile(target, `${JSON.stringify(written, null, 2)}\n`)
+  await writeFile(target, manifestText(written))
   if (options.json) console.log(JSON.stringify({ path: target, report }, null, 2))
   else console.log(`Wrote ${relative(process.cwd(), target) || target}\n${describeReport(report)}`)
 }
@@ -90,7 +94,10 @@ export function describeReport(report: Report): string {
   const kind = report.kind === "icons" ? "an icon set" : report.kind === "app" ? "an app" : "a component library"
   lines.push(`Described ${kind}${from}.`)
   if (report.kind === "icons") lines.push(`  ${report.icons ?? 0} icons`)
-  else lines.push(`  ${report.components} components`)
+  if (report.iconTags) {
+    const { matched, of, source } = report.iconTags
+    lines.push(`  Tags for ${matched} of ${of} icons, from ${source}`)
+  } else lines.push(`  ${report.components} components`)
   const tokens = Object.entries(report.tokens)
   const total = tokens.reduce((sum, [, count]) => sum + (count ?? 0), 0)
   if (total > 0) {

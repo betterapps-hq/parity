@@ -16,6 +16,7 @@
     "@parity/builder-vite": "workspace:*",
     "@parity/code": "workspace:*",
     "@parity/core": "workspace:*",
+    "@parity/icons": "workspace:*",
     "@parity/libgen": "workspace:*",
     "@parity/project": "workspace:*",
     "@parity/registry": "workspace:*",

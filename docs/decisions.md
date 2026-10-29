@@ -377,6 +377,23 @@ recommended answer to each of its questions.
   are either a prop (Phosphor's `weight`) or part of the name (`AddFilled`, `Add24Regular`), described by a pattern with
   `name`, `style` and `size` groups, so the panel shows one icon per name with a style picker and leaves sized copies
   out.
+- **Icon sets are added from the Icons tab,** with the same picker the Components tab has, listing the registry's icon
+  sets whatever the project already has. The tab opens on a set just added, and its set picker switches between them.
+- **An icon set's tags are read from what the set publishes, never typed in.** My call: `parity lib` reads them into the
+  set's `.lib.par` (`icons.tags`, by the icon's label, with `icons.tagSource` saying where from) from the set's own npm
+  package or the companion one released with it, at the same version or else the newest before it, matching keys to
+  every name each icon is exported under. Each icon's tags go on one line, so a set of thousands stays readable.
+  Regenerating a set's file is all it takes to update them.
+- **Icon search is Parity's own ranking, not Fuse.js or MiniSearch.** My call, from a benchmark of 50 queries people
+  type ("gear", "close", "down arrow", "calender") over Lucide with its tags, checked against 50 more it wasn't tuned
+  on. Parity's search put the icon meant first for 39 of the held-out 50 and in the first row for all 50, in about 5 ms;
+  Fuse.js managed 35 and 42 in about 30 ms, which grows with the 5,000 and more icons Tabler and Hugeicons have;
+  MiniSearch was quick but managed 23 and 42; matching the name's letters, as before, managed 19 and 29. Each word of a
+  query finds an icon in any order, by a word of its name, its other names (Lucide's older `AlertTriangle`) or its tags,
+  whole or by its start. A name's first word counts most, as it says what the icon is; a set's first tags count a little
+  more than its last; plainer names come first among equals. Small typos are forgiven, and icons only some words find
+  are added, only when the search finds less than a row. It lives in `@parity/icons`, which the Icons panel and the
+  insert picker both use.
 - **`.lib.par` version 3 describes a library whole,** so Parity needs no code per library: the package and version it
   was generated from with the range it covers (`package`), its components and what each was found as (`components`), its
   icons (`icons`) and its decorators (`decorators`), beside version 2's styles, breakpoints, tokens and canvas. Versions

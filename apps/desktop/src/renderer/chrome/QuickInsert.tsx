@@ -1,4 +1,5 @@
-import type { DesignNode } from "@parity/core"
+import type { DesignNode, LibraryInfo } from "@parity/core"
+import { defaultFilter } from "cmdk"
 import { Columns3, Rows3, Shapes, Type } from "lucide-react"
 import { useMemo, useState, useSyncExternalStore } from "react"
 import { toast } from "sonner"
@@ -17,7 +18,7 @@ import { useContainerEntries } from "../design-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { componentSources } from "./AssetsPanel.tsx"
 import { activeSession } from "./commands.ts"
-import { GuestIcon, iconEntries, iconLibraries, iconStyles, iconsOf } from "./icons.tsx"
+import { GuestIcon, type IconCatalog, iconCatalog, iconLibraries, iconStyles, iconsOf } from "./icons.tsx"
 
 let open = false
 const listeners = new Set<() => void>()
@@ -34,6 +35,35 @@ export function openQuickInsert(): void {
 
 /** The most icons the picker lists for a search; the Icons panel has them all. */
 const iconLimit = 48
+
+/** What starts an icon's value in the list, so its filter can tell icons from the rest. */
+const iconPrefix = "icon:"
+
+function iconValue(library: LibraryInfo, entry: { label: string }): string {
+  return `${iconPrefix}${library.id}/${entry.label}`
+}
+
+/**
+ * Each listed icon's place in the icon search's results, by its value in the list. The list scores items as soon as
+ * the search changes, before the picker renders again, so ranks come from the search the list gives, kept for the
+ * last one asked.
+ */
+function iconRanker(sets: { library: LibraryInfo; catalog: IconCatalog }[]): (typed: string) => Map<string, number> {
+  let last: { typed: string; ranks: Map<string, number> } | undefined
+  return (typed) => {
+    if (last?.typed !== typed) {
+      const ranks = new Map<string, number>()
+      for (const { library, catalog } of sets) {
+        catalog
+          .search(typed)
+          .slice(0, iconLimit)
+          .forEach((entry, rank) => ranks.set(iconValue(library, entry), rank))
+      }
+      last = { typed, ranks }
+    }
+    return last.ranks
+  }
+}
 
 /** Layers every design can use, whatever its components: text, and layouts in each direction. */
 const basics: { id: string; label: string; icon: typeof Type; node: () => DesignNode }[] = [
@@ -87,22 +117,30 @@ function InsertList({ session }: { session: ProjectSession }) {
     () =>
       iconLibraries(session.info.libraries).map((library) => ({
         library,
-        entries: iconEntries(session.loaded, library, iconStyles(library).initial)
+        catalog: iconCatalog(session.loaded, library, iconStyles(library).initial)
       })),
     [session.info.libraries, session.loaded]
   )
-  const iconCount = iconSets.reduce((sum, set) => sum + set.entries.length, 0)
+  const iconCount = iconSets.reduce((sum, set) => sum + set.catalog.entries.length, 0)
   const [query, setQuery] = useState("")
   const search = query.trim().toLowerCase()
-  const matchingIcons =
-    search.length >= 2
-      ? iconSets
-          .map(({ library, entries }) => ({
-            library,
-            entries: entries.filter((entry) => entry.label.toLowerCase().includes(search)).slice(0, iconLimit)
-          }))
-          .filter((set) => set.entries.length > 0)
-      : []
+  const matchingIcons = useMemo(
+    () =>
+      search.length >= 2
+        ? iconSets
+            .map(({ library, catalog }) => ({ library, entries: catalog.search(search).slice(0, iconLimit) }))
+            .filter((set) => set.entries.length > 0)
+        : [],
+    [iconSets, search]
+  )
+  // Icons are found by their tags and aliases too, which the list's own matching can't see, so they keep the order
+  // the icon search gives them, below close matches among the components.
+  const iconRanks = useMemo(() => iconRanker(iconSets), [iconSets])
+  const filter = (value: string, typed: string, keywords?: string[]) => {
+    if (!value.startsWith(iconPrefix)) return defaultFilter(value, typed, keywords)
+    const rank = iconRanks(typed).get(value)
+    return rank === undefined ? 0 : 0.6 - rank * 0.001
+  }
 
   const insert = (item: InsertItem) => {
     setOpen(false)
@@ -120,7 +158,7 @@ function InsertList({ session }: { session: ProjectSession }) {
   }
 
   return (
-    <Command loop>
+    <Command loop filter={filter}>
       <CommandInput value={query} onValueChange={setQuery} placeholder="Insert a layer, component or icon" />
       <CommandList className="max-h-96">
         <CommandEmpty>Nothing matches.</CommandEmpty>
@@ -155,7 +193,7 @@ function InsertList({ session }: { session: ProjectSession }) {
         {matchingIcons.map(({ library, entries }) => (
           <CommandGroup key={library.id} heading={iconsOf(library)}>
             {entries.map(({ label, item }) => (
-              <CommandItem key={item.component} value={`icon ${library.name} ${label}`} onSelect={() => insert(item)}>
+              <CommandItem key={item.component} value={iconValue(library, { label })} onSelect={() => insert(item)}>
                 <GuestIcon loaded={session.loaded} item={item} />
                 {label}
               </CommandItem>

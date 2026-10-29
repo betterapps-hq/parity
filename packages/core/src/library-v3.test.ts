@@ -84,6 +84,19 @@ describe("parseLibraryManifest, version 3", () => {
     })
   })
 
+  it("reads the tags an icon set's metadata gives, with where they came from", () => {
+    const lucide = parseLibraryManifest({
+      version: 3,
+      name: "Lucide",
+      icons: { render: "export", tags: { Settings: ["cog", "gear"] }, tagSource: "lucide-static@1.63.0/tags.json" }
+    })
+    expect(lucide.icons?.tags).toEqual({ Settings: ["cog", "gear"] })
+    expect(lucide.icons?.tagSource).toBe("lucide-static@1.63.0/tags.json")
+    expect(() =>
+      parseLibraryManifest({ version: 3, name: "x", icons: { render: "export", tags: { Settings: "gear" } } })
+    ).toThrow(/\/icons\/tags\/Settings/)
+  })
+
   it("says where a decorator or icon set is wrong", () => {
     expect(() => parseLibraryManifest({ version: 3, name: "x", decorators: [{ when: { theme: "dark" } }] })).toThrow(
       /^\/decorators\/0: expected one of wrap/

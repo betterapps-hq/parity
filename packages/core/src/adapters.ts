@@ -153,6 +153,8 @@ export interface Guest {
   }
   /** The names of an icon set's icons, as in `Heart` for `lucide/Heart`. */
   iconNames?(library: string): string[]
+  /** The other names an icon set exports its icons under, by the name `iconNames` gives, for search. */
+  iconAliases?(library: string): Record<string, string[]>
   css: string
   packageCss?: string
   tokenCategories?: Record<string, TokenCategory>

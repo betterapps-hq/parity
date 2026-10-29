@@ -45,7 +45,7 @@ const usage = `parity: drive the Parity app from a terminal or an agent
   parity props <Component> [--all] [--tab t]
                                             a component's props from its source; --all adds the attributes it passes on
   parity lib [package] [--root dir] [--out file|-] [--registry] [--id id] [--name n] [--range r] [--json]
-       [--only new|all|A,B] [--edits file] [--no-examples]
+       [--only new|all|A,B] [--edits file] [--no-examples] [--no-tags]
                                             write a .lib.par: a package's components, tokens, breakpoints, icons and
                                             decorators, found from its types and styles, with each part's parents and
                                             what it needs to render, tried with React's server renderer. Without a
@@ -57,7 +57,9 @@ const usage = `parity: drive the Parity app from a terminal or an agent
                                             file) are kept, and any whose export has gone are reported. Parts
                                             and samples come first from the library's own examples and stories,
                                             fetched from its repository at the commit the installed version was
-                                            published from (cached under ~/.parity/cache); --no-examples skips them
+                                            published from (cached under ~/.parity/cache); --no-examples skips them.
+                                            An icon set's tags are read from its published metadata on npm at the
+                                            same version; --no-tags skips them
   parity open <folder>                      open a project in a new tab
   parity skill [file]                       print the design skill, or one of its files
   parity mcp                                serve these as MCP tools on stdio
@@ -89,6 +91,7 @@ const { positionals, values } = parseArgs({
     range: { type: "string" },
     only: { type: "string" },
     "no-examples": { type: "boolean" },
+    "no-tags": { type: "boolean" },
     help: { type: "boolean", short: "h" }
   }
 })
@@ -132,6 +135,7 @@ async function main(): Promise<void> {
         ...(values.range ? { range: values.range } : {}),
         ...(values.only ? { only: values.only } : {}),
         ...(values["no-examples"] ? { noExamples: true } : {}),
+        ...(values["no-tags"] ? { noTags: true } : {}),
         ...(values.edits ? { edits: values.edits } : {}),
         ...(values.json ? { json: true } : {})
       })

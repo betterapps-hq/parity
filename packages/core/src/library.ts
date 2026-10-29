@@ -193,6 +193,13 @@ export interface LibraryIcons {
   variants?: IconVariants
   /** How many icons it had when it was generated. */
   count?: number
+  /**
+   * Words to find each icon by, from the set's own published metadata: its tags and categories, by the icon's name
+   * without a style or size (`Add` for Fluent's `Add24Regular`). Read when the file is generated, never typed by hand.
+   */
+  tags?: Record<string, string[]>
+  /** Where `tags` were read from, as `package@version/path`. */
+  tagSource?: string
 }
 
 export interface IconVariants {
@@ -456,7 +463,7 @@ export function applyLibraryEdits(
 
 function parseIcons(value: unknown): LibraryIcons {
   const icons = expectObject(value, "/icons")
-  expectKnownKeys(icons, ["import", "render", "match", "exclude", "variants", "count"], "/icons")
+  expectKnownKeys(icons, ["import", "render", "match", "exclude", "variants", "count", "tags", "tagSource"], "/icons")
   let render: LibraryIcons["render"]
   if (icons.render === "export") render = "export"
   else {
@@ -501,7 +508,18 @@ function parseIcons(value: unknown): LibraryIcons {
         })
       })
     }),
-    count: optional(icons.count, (v) => expectNumber(v, "/icons/count"))
+    count: optional(icons.count, (v) => expectNumber(v, "/icons/count")),
+    tags: optional(icons.tags, (v) =>
+      Object.fromEntries(
+        Object.entries(expectObject(v, "/icons/tags")).map(([name, list]) => [
+          name,
+          expectArray(list, `/icons/tags/${name}`).map((tag, index) =>
+            expectString(tag, `/icons/tags/${name}/${index}`)
+          )
+        ])
+      )
+    ),
+    tagSource: optional(icons.tagSource, (v) => expectString(v, "/icons/tagSource"))
   })
 }
 

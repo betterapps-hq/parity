@@ -199,6 +199,9 @@ importers:
       '@parity/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@parity/icons':
+        specifier: workspace:*
+        version: link:../../packages/icons
       '@parity/libgen':
         specifier: workspace:*
         version: link:../../packages/libgen
@@ -450,6 +453,12 @@ importers:
       '@parity/styles-tailwind':
         specifier: workspace:*
         version: link:../styles-tailwind
+
+  packages/icons:
+    dependencies:
+      '@parity/core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/libgen:
     dependencies:

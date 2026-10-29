@@ -41,7 +41,7 @@ import { kindColors } from "../canvas/kinds.tsx"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { type ProjectSession, workspace } from "../workspace.ts"
 import { Hint } from "./Hint.tsx"
-import { GuestIcon, iconEntries, iconLibraries, iconStyles, iconsOf } from "./icons.tsx"
+import { GuestIcon, iconCatalog, iconLibraries, iconStyles, iconsOf } from "./icons.tsx"
 import { hasStories, openInStorybook } from "./storybook.ts"
 
 /** Adds an item where the selection is, or says what to select first. */
@@ -448,7 +448,11 @@ async function installLibrary(session: ProjectSession, library: { id: string; na
   }
 }
 
-function AddLibrary({ kind }: { kind: "components" | "icons" }) {
+/** The icon set each project's Icons tab shows, kept while the tab reopens to load a set just added. */
+const shownIconSets = new Map<string, string>()
+
+/** The catalog's libraries of one kind, to add to the project; `trigger` replaces the plus button that opens it. */
+function AddLibrary({ kind, trigger }: { kind: "components" | "icons"; trigger?: ReactNode }) {
   const session = useProject()
   const [catalog, setCatalog] =
     useState<{ id: string; name: string; description: string; kind: "components" | "icons"; installed: boolean }[]>()
@@ -465,9 +469,16 @@ function AddLibrary({ kind }: { kind: "components" | "icons" }) {
       }}
     >
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon-sm" className="mt-2" aria-label="Add a library">
-          <Plus />
-        </Button>
+        {trigger ?? (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="mt-2"
+            aria-label={kind === "icons" ? "Add an icon set" : "Add a library"}
+          >
+            <Plus />
+          </Button>
+        )}
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 p-2">
         <p className="px-1 pb-2 text-xs text-muted-foreground">
@@ -488,7 +499,10 @@ function AddLibrary({ kind }: { kind: "components" | "icons" }) {
                   size="sm"
                   variant={library.installed ? "ghost" : "outline"}
                   disabled={library.installed}
-                  onClick={() => void installLibrary(session, library)}
+                  onClick={() => {
+                    if (kind === "icons") shownIconSets.set(session.id, library.id)
+                    void installLibrary(session, library)
+                  }}
                 >
                   {library.installed ? "Added" : "Add"}
                 </Button>
@@ -531,7 +545,7 @@ const iconCell = 40
 export function IconsPanel() {
   const session = useProject()
   const sets = iconLibraries(session.info.libraries)
-  const [chosen, setChosen] = useState<string>()
+  const [chosen, setChosen] = useState(() => shownIconSets.get(session.id))
   const library = sets.find((set) => set.id === chosen) ?? sets[0]
   const { styles, initial } = library ? iconStyles(library) : { styles: [] }
   const [pickedStyle, setStyle] = useState<string>()
@@ -550,15 +564,12 @@ export function IconsPanel() {
     return () => observer.disconnect()
   }, [library])
 
-  const all = useMemo(
-    () => (library ? iconEntries(session.loaded, library, style) : []),
+  const catalog = useMemo(
+    () => (library ? iconCatalog(session.loaded, library, style) : undefined),
     [session.loaded, library, style]
   )
-  const needle = query.trim().toLowerCase().replaceAll(/[\s-]/g, "")
-  const matches = useMemo(
-    () => (needle ? all.filter((entry) => entry.label.toLowerCase().includes(needle)) : all),
-    [all, needle]
-  )
+  const all = catalog?.entries ?? []
+  const matches = useMemo(() => (catalog ? catalog.search(query) : []), [catalog, query])
   // The app doesn't use the React Compiler, whose memoizing this rule guards against; the virtualizer is used here only.
   // oxlint-disable-next-line react/incompatible-library
   const virtualizer = useVirtualizer({
@@ -573,9 +584,19 @@ export function IconsPanel() {
       <div className="flex flex-col items-center gap-3 px-6 py-10 text-center text-sm text-muted-foreground">
         <Smile className="size-6" />
         <p>Add an icon library to drop icons into designs. They render with the project&apos;s own copy.</p>
-        <Button size="sm" onClick={() => void installLibrary(session, { id: "lucide", name: "Lucide" })}>
-          <Plus /> Add Lucide
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" onClick={() => void installLibrary(session, { id: "lucide", name: "Lucide" })}>
+            <Plus /> Add Lucide
+          </Button>
+          <AddLibrary
+            kind="icons"
+            trigger={
+              <Button size="sm" variant="outline">
+                Choose another
+              </Button>
+            }
+          />
+        </div>
       </div>
     )
   }
@@ -586,7 +607,11 @@ export function IconsPanel() {
           {sets.length > 1 && (
             <select
               value={library.id}
-              onChange={(event) => setChosen(event.currentTarget.value)}
+              onChange={(event) => {
+                const id = event.currentTarget.value
+                shownIconSets.set(session.id, id)
+                setChosen(id)
+              }}
               aria-label="Icon set"
               className="h-8 min-w-0 flex-1 rounded-md border bg-transparent px-2 text-xs"
             >
@@ -613,14 +638,19 @@ export function IconsPanel() {
           )}
         </div>
       )}
-      <SearchField
-        value={query}
-        onChange={(value) => {
-          setQuery(value)
-          scrollRef.current?.scrollTo({ top: 0 })
-        }}
-        placeholder={`Search ${all.length} ${iconsOf(library)}`}
-      />
+      <div className="flex items-center gap-1 pr-2">
+        <div className="flex-1">
+          <SearchField
+            value={query}
+            onChange={(value) => {
+              setQuery(value)
+              scrollRef.current?.scrollTo({ top: 0 })
+            }}
+            placeholder={`Search ${all.length} ${iconsOf(library)}`}
+          />
+        </div>
+        <AddLibrary kind="icons" />
+      </div>
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-2 pt-2">
         {matches.length === 0 && (
           <p className="py-6 text-center text-xs text-muted-foreground">

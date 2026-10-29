@@ -229,26 +229,38 @@ export function createGuest(init: GuestInit): Guest {
     return component
   }
 
-  const iconNames = new Map<string, string[]>()
-  /** An icon set's icons, each once: aliases of one icon (`Heart`, `HeartIcon`) keep the shortest name. */
-  const namesOf = (library: string): string[] => {
+  const iconLists = new Map<string, { names: string[]; aliases: Record<string, string[]> }>()
+  /**
+   * An icon set's icons, each once: aliases of one icon (`Heart`, `HeartIcon`) keep the shortest name the set's
+   * pattern matches, which keeps the others for search, as `TriangleAlert` keeps Lucide's older `AlertTriangle` and
+   * Hugeicons' `Settings01Icon` keeps `Gear` and `Cog`, which its pattern leaves out of the list.
+   */
+  const iconList = (library: string): { names: string[]; aliases: Record<string, string[]> } => {
     const set = iconSets[library]
-    if (!set) return []
-    let names = iconNames.get(library)
-    if (names) return names
+    if (!set) return { names: [], aliases: {} }
+    let list = iconLists.get(library)
+    if (list) return list
     const match = set.match ? new RegExp(set.match) : /^[A-Z]/
     const excluded = new Set(set.exclude)
-    const byValue = new Map<unknown, string>()
+    const byValue = new Map<unknown, string[]>()
     for (const [name, value] of Object.entries(set.module)) {
-      if (!match.test(name) || excluded.has(name) || !icon(set, name)) continue
-      const kept = byValue.get(value)
-      if (kept === undefined || name.length < kept.length || (name.length === kept.length && name < kept)) {
-        byValue.set(value, name)
-      }
+      if (!/^[A-Z]/.test(name) || excluded.has(name) || !icon(set, name)) continue
+      const group = byValue.get(value)
+      if (group) group.push(name)
+      else byValue.set(value, [name])
     }
-    names = [...byValue.values()].sort((a, b) => a.localeCompare(b, "en", { numeric: true }))
-    iconNames.set(library, names)
-    return names
+    list = { names: [], aliases: {} }
+    const shorter = (a: string, b: string) => a.length - b.length || (a < b ? -1 : a > b ? 1 : 0)
+    for (const group of byValue.values()) {
+      const kept = group.filter((name) => match.test(name)).sort(shorter)[0]
+      if (!kept) continue
+      const others = group.filter((name) => name !== kept).sort(shorter)
+      list.names.push(kept)
+      if (others.length > 0) list.aliases[kept] = others
+    }
+    list.names.sort((a, b) => a.localeCompare(b, "en", { numeric: true }))
+    iconLists.set(library, list)
+    return list
   }
 
   const toReact = (node: RenderNode, key?: number): ReactNode => {
@@ -336,7 +348,8 @@ export function createGuest(init: GuestInit): Guest {
         return () => listeners.delete(listener)
       }
     },
-    iconNames: namesOf,
+    iconNames: (library) => iconList(library).names,
+    iconAliases: (library) => iconList(library).aliases,
     css: init.css,
     ...(init.packageCss ? { packageCss: init.packageCss } : {}),
     ...(init.tokenCategories ? { tokenCategories: init.tokenCategories } : {}),

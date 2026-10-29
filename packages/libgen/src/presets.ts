@@ -1,5 +1,7 @@
 import type { LibraryDecorator, LibraryIcons } from "@parity/core"
 import type { ExampleHints } from "./examples.ts"
+import type { IconTagSource } from "./icon-tags.ts"
+import { moduleData } from "./js-data.ts"
 import type { CollectedToken } from "./tokens.ts"
 
 /** Loads a module the way the project would: from the project's own `node_modules`. */
@@ -28,6 +30,8 @@ export interface Preset {
   /** Reads the tokens of a theme object, for libraries that keep them in JavaScript. */
   theme?: (load: Load) => Promise<ThemeTokens>
   icons?: Partial<LibraryIcons>
+  /** Where an icon set publishes its tags, read into its file each time it's generated. */
+  tags?: IconTagSource
   /** Why something it needs isn't a decorator yet, for the report. */
   notes?: string[]
   /** Where its examples and stories are, when its repository has other components' too. */
@@ -396,7 +400,9 @@ export const presets: Record<string, Preset> = {
   "lucide-react": {
     id: "lucide",
     name: "Lucide",
-    description: "Over 1,600 consistent, open source icons; shadcn's default icon set."
+    description: "Over 1,600 consistent, open source icons; shadcn's default icon set.",
+    // lucide-static is released with lucide-react, its tags keyed by file name (`circle-alert`).
+    tags: { package: "lucide-static", file: "tags.json", read: (text) => JSON.parse(text) as Record<string, string[]> }
   },
   "@hugeicons/core-free-icons": {
     id: "hugeicons",
@@ -426,6 +432,25 @@ export const presets: Record<string, Preset> = {
         styles: ["thin", "light", "regular", "bold", "fill", "duotone"],
         default: { style: "regular" }
       }
+    },
+    // Phosphor's catalog is a compiled module, read as data; it's released apart from the React package, less often.
+    tags: {
+      package: "@phosphor-icons/core",
+      file: "dist/index.mjs",
+      read: (text) => {
+        const list = [...moduleData(text).values()].find(
+          (value): value is { pascal_name: string; tags?: unknown[]; categories?: unknown[] }[] =>
+            Array.isArray(value) && typeof (value[0] as { pascal_name?: unknown } | undefined)?.pascal_name === "string"
+        )
+        if (!list) throw new Error("its icon list wasn't found")
+        // `*new*` and `*updated*` mark releases, not what an icon shows.
+        return Object.fromEntries(
+          list.map((icon) => [
+            icon.pascal_name,
+            [...(icon.tags ?? []).filter((tag) => !/^\*.*\*$/.test(String(tag))), ...(icon.categories ?? [])]
+          ])
+        )
+      }
     }
   },
   "@tabler/icons-react": {
@@ -439,6 +464,17 @@ export const presets: Record<string, Preset> = {
         styles: ["Outline", "Filled"],
         default: { style: "Outline" }
       }
+    },
+    // The React package depends on @tabler/icons at its own version, which lists each icon's tags and category.
+    tags: {
+      package: "@tabler/icons",
+      file: "icons.json",
+      read: (text) =>
+        Object.fromEntries(
+          Object.entries(JSON.parse(text) as Record<string, { tags?: unknown[]; category?: string }>).map(
+            ([key, icon]) => [key, [...(icon.tags ?? []), ...(icon.category ? [icon.category] : [])]]
+          )
+        )
     }
   },
   "@fluentui/react-icons": {
@@ -453,6 +489,22 @@ export const presets: Record<string, Preset> = {
         sizes: [10, 12, 16, 20, 24, 28, 32, 48],
         default: { style: "Regular" }
       }
+    },
+    // Each icon's metaphors are in its folder of the repository, at the commit npm says the version came from.
+    tags: {
+      repository: "https://github.com/microsoft/fluentui-system-icons",
+      files: "assets/*/metadata.json",
+      readFiles: (files) =>
+        Object.fromEntries(
+          files.flatMap(({ text }) => {
+            try {
+              const { name, metaphor } = JSON.parse(text) as { name?: string; metaphor?: unknown[] }
+              return name && metaphor ? [[name, metaphor]] : []
+            } catch {
+              return []
+            }
+          })
+        )
     }
   }
 }

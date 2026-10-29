@@ -29,6 +29,7 @@ import {
   readExamples
 } from "./examples.ts"
 import { hostedParts, type RenderCall, readRenders, renderedIn } from "./hosts.ts"
+import { type ExportedIcon, readIconTags } from "./icon-tags.ts"
 import { type PartRelation, relateParts } from "./parts.ts"
 import { type Load, type Preset, presets } from "./presets.ts"
 import { breakpointsOf, type CollectedToken, cssTokens, pairLineHeights, toDtcg } from "./tokens.ts"
@@ -37,6 +38,7 @@ export { componentOptions, findComponents, reactProbe, withReactProbe } from "@p
 export { guessParent, relateParts } from "./parts.ts"
 export { familyOf, fetchExamples, nearestParent, normalizeRepo, readExamples } from "./examples.ts"
 export { parseLibraryEdits } from "@parity/core"
+export { manifestText } from "./icon-tags.ts"
 export { presets } from "./presets.ts"
 export { categorizeVar, cssTokens, toDtcg } from "./tokens.ts"
 
@@ -62,6 +64,8 @@ export interface GenerateOptions {
   trialEdits?: LibraryEdits
   /** Whether to read the library's examples from its repository, at the installed version. Defaults to yes. */
   examples?: boolean
+  /** Whether to read an icon set's tags from its published metadata, at the installed version. Defaults to yes. */
+  tags?: boolean
 }
 
 /** What generating found, for the person to check: counts, and what couldn't be decided. */
@@ -78,6 +82,8 @@ export interface GenerateReport {
   themes: string[]
   breakpoints: number
   icons?: number
+  /** How many icons got tags from the set's published metadata, of how many, and where they were read. */
+  iconTags?: { matched: number; of: number; source: string }
   decorators: string[]
   /** Exports named like providers or toast hosts, which decorators may need. */
   providers: string[]
@@ -215,7 +221,20 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
       if (notIcons.length > 0) icons.exclude = notIcons
     }
     if (preset?.icons?.variants) icons.variants = preset.icons.variants
-    icons.count = await countIcons(loader(root, dir), iconImport ?? name, icons)
+    const exported = await exportedIcons(loader(root, dir), iconImport ?? name, icons)
+    icons.count = exported.count
+    if (preset?.tags && options.tags !== false) {
+      try {
+        const found = await readIconTags(preset.tags, { name, version }, exported.icons)
+        if (found.matched > 0) {
+          icons.tags = found.tags
+          icons.tagSource = found.source
+        }
+        report.iconTags = { matched: found.matched, of: exported.icons.length, source: found.source }
+      } catch (error) {
+        notes.push(`Its tags weren't read: ${error instanceof Error ? error.message : String(error)}`)
+      }
+    }
     manifest.icons = icons
     report.icons = icons.count
     report.components = 0
@@ -666,10 +685,15 @@ function commonPrefix(names: string[]): string {
 }
 
 /**
- * How many icons a set holds, counted the way the Icons panel lists them: its matching exports, each alias of one icon
- * (Lucide's `Heart` and `HeartIcon`) once. The package is loaded to tell aliases apart, since types can't.
+ * A set's icons as the Icons panel lists them: its matching exports, each alias of one icon (Lucide's `Heart` and
+ * `HeartIcon`) once, counted, and grouped by label with every name each is exported under, for matching tags. The
+ * package is loaded to tell aliases apart, since types can't.
  */
-async function countIcons(load: Load, specifier: string, icons: LibraryIcons): Promise<number> {
+async function exportedIcons(
+  load: Load,
+  specifier: string,
+  icons: LibraryIcons
+): Promise<{ count: number; icons: ExportedIcon[] }> {
   const module = await load(specifier).catch(() => ({}) as Record<string, unknown>)
   const pattern = icons.match ? new RegExp(icons.match) : /^[A-Z]/
   const excluded = new Set(icons.exclude)
@@ -677,10 +701,31 @@ async function countIcons(load: Load, specifier: string, icons: LibraryIcons): P
     icons.render !== "export"
       ? value !== undefined && typeof value !== "function"
       : typeof value === "function" || (typeof value === "object" && value !== null && "$$typeof" in value)
-  const values = Object.entries(module)
-    .filter(([key, value]) => pattern.test(key) && !excluded.has(key) && drawable(value))
-    .map(([, value]) => value)
-  return new Set(values).size
+  // Every capitalised export of an icon, so aliases the pattern leaves out (Hugeicons' `Gear`) are known too.
+  const byValue = new Map<unknown, string[]>()
+  for (const [key, value] of Object.entries(module)) {
+    if (!/^[A-Z]/.test(key) || excluded.has(key) || !drawable(value)) continue
+    const names = byValue.get(value)
+    if (names) names.push(key)
+    else byValue.set(value, [key])
+  }
+  // Labelled as the panel labels them: the shortest name the pattern matches, without a style or size for sets that
+  // write those in.
+  const variants = icons.variants?.pattern ? new RegExp(icons.variants.pattern) : undefined
+  const byLabel = new Map<string, Set<string>>()
+  let count = 0
+  for (const names of byValue.values()) {
+    const kept = names
+      .filter((name) => pattern.test(name))
+      .sort((a, b) => a.length - b.length || (a < b ? -1 : a > b ? 1 : 0))[0]
+    if (!kept) continue
+    count++
+    const label = variants?.exec(kept)?.groups?.name ?? kept
+    const all = byLabel.get(label) ?? new Set()
+    for (const name of names) all.add(name)
+    byLabel.set(label, all)
+  }
+  return { count, icons: [...byLabel].map(([label, names]) => ({ label, names: [...names] })) }
 }
 
 /** Whether a declaration file exports a name directly, so the props reader can find it there. */
