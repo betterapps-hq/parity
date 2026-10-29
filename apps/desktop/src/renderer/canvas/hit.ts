@@ -1,7 +1,9 @@
 import { type DesignNode, isInnerPath, locateNode } from "@parity/core"
 import type { Editor } from "tldraw"
 import type { ContainerEntry, DesignStore } from "../design-store.ts"
-import { boxAround, findFrames, findNodeElements, nodeParent, nodesAt } from "../frame.ts"
+import { boxAround, elementBox, findFrames, findNodeElements, nodeParent, nodesAt } from "../frame.ts"
+import type { Selection } from "../selection.ts"
+import type { Selected, Under } from "./pick.ts"
 
 export interface Point {
   x: number
@@ -75,39 +77,22 @@ export function hitInFrame(entry: ContainerEntry, host: HTMLElement, point: Poin
   return { entry, host, mode: host.dataset.mode ?? "", state: host.dataset.state ?? "", chain, path }
 }
 
-/**
- * Which node a click selects, by id, Figma style. With a layer selected, clicks pick among its siblings (or leave the
- * group for the top level), inside an instance too; `deep` (Ctrl or Cmd) picks the deepest layer, inside instances as
- * well; otherwise the design's top-level child.
- */
-export function pickNode(hit: Hit, selected: string | undefined, deep: boolean): string | undefined {
-  const { chain, path } = hit
-  if (deep) return chain.length > 1 ? path.at(-1) : undefined
-  if (selected && isInnerPath(selected)) {
-    // The rendered parent of the selected layer, whose children are the selected layer's siblings.
-    const parent = nodeParent(hit.host, selected)
-    const index = parent ? path.indexOf(parent) : -1
-    if (index !== -1 && path[index + 1]) return path[index + 1]
-  } else if (selected) {
-    const location = locateNode(hit.entry.container.root, selected)
-    const parent = location?.ancestors.at(-1)
-    const index = parent ? chain.findIndex((node) => node.id === parent.id) : -1
-    if (index !== -1 && chain[index + 1]) return chain[index + 1]!.id
-  }
-  return chain[1]?.id
+/** What's under the point, by id, for the rules in pick.ts. */
+export function underPoint(hit: Hit): Under {
+  return { chain: hit.chain.map((node) => node.id), path: hit.path }
 }
 
 /**
- * One level deeper than the selection, under the point: what a double-click selects. Past an instance, that's the
- * layers inside it, as the component draws them.
+ * The layer picked last, when it's in the hit's design, with the layer it sits in: its parent in the design, or inside
+ * an instance, the layer the frame draws it in.
  */
-export function pickDeeper(hit: Hit, selected: string | undefined): string | undefined {
-  if (!selected) return hit.chain[1]?.id
-  const index = hit.chain.findIndex((node) => node.id === selected)
-  if (index !== -1 && hit.chain[index + 1]) return hit.chain[index + 1]!.id
-  const at = hit.path.indexOf(selected)
-  if (at !== -1) return hit.path[at + 1]
-  return pickNode(hit, selected, false)
+export function selectedIn(hit: Hit, current: Selection): Selected | undefined {
+  const node = current.design === hit.entry.key ? current.node : undefined
+  if (!node) return undefined
+  const parent = isInnerPath(node)
+    ? nodeParent(hit.host, node)
+    : locateNode(hit.entry.container.root, node)?.ancestors.at(-1)?.id
+  return { node, parent }
 }
 
 /** The frame a selection belongs to: the one it was picked in, else the design's primary frame. */
@@ -133,7 +118,7 @@ export function nodeInFrames(area: ParentNode, design: string, node: string, pic
   return findFrames(area, design)
     .flatMap((host) => {
       const elements = findNodeElements(host, node)
-      const rect = boxAround(elements.map((element) => element.getBoundingClientRect()))
+      const rect = boxAround(elements.map(elementBox))
       return elements[0] && rect ? [{ host, element: elements[0], rect, picked: host === picked }] : []
     })
     .sort((a, b) => Number(b.picked) - Number(a.picked))

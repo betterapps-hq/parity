@@ -29,7 +29,7 @@ export const keymap = {
   selectMatching: { group: "Selection", label: "Select matching layers", keys: ["Ctrl Alt A"] },
   nextDesign: { group: "Selection", label: "Next design", keys: ["N"] },
   previousDesign: { group: "Selection", label: "Previous design", keys: ["Shift N"] },
-  selectChildren: { group: "Selection", label: "Select the first layer inside", keys: ["Enter"] },
+  selectChildren: { group: "Selection", label: "Select the layers inside, or edit text", keys: ["Enter"] },
   selectParent: { group: "Selection", label: "Select the parent", keys: ["Shift Enter", "\\"] },
   selectNext: { group: "Selection", label: "Select the next layer", keys: ["Tab"] },
   selectPrevious: { group: "Selection", label: "Select the previous layer", keys: ["Shift Tab"] },

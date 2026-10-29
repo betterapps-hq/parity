@@ -22,6 +22,9 @@ export interface Selection {
 export interface Hover {
   design: string
   node?: string
+  /** The frame under the pointer, when the layer is hovered on the canvas rather than in Layers. */
+  mode?: string
+  state?: string
 }
 
 /** `interact` hands the pointer and keys to the designs' real components, to try them as in a browser. */
@@ -69,7 +72,14 @@ export class SelectionStore {
   }
 
   setHover(hover: Hover | undefined): void {
-    if (hover?.design === this.hover?.design && hover?.node === this.hover?.node) return
+    if (
+      hover?.design === this.hover?.design &&
+      hover?.node === this.hover?.node &&
+      hover?.mode === this.hover?.mode &&
+      hover?.state === this.hover?.state
+    ) {
+      return
+    }
     this.hover = hover
     this.notify()
   }

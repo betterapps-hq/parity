@@ -33,7 +33,8 @@ to pass on to its DOM.
 - **A layer's box** is the box around everything it draws at its top level. That's one element for most layers, each
   root of a component that returns a fragment, and for a component that draws only what it's given (a provider), the
   top-level elements of the layers inside it. An element that isn't drawn, such as one with `display: none`, is left out
-  unless nothing else is drawn.
+  unless nothing else is drawn, and so is one clipped to nothing, such as the hidden input a checkbox draws for forms
+  (PAR-163, below).
 - **A point belongs to the innermost layer** whose elements hold it. The layers under a point, outermost first, are the
   ones whose boxes hold it, as before. A field built around an inner input is outlined around the field: its props, and
   so the attribute, reach the input, but its box is its outer element, and the input belongs to it.
@@ -93,6 +94,87 @@ attributes and handlers, and a `$renderWith:` slot's component layer without wha
 slot's element, which for a component layer is the guest's error boundary around it, and the boundary drops them. An
 element layer gets them. This is older than CAN-45: the boundary dates from the first commit and `$renderWith:` from
 7c9c8c3.
+
+### Selecting what you point at (PAR-163)
+
+A board works as Figma's top-level frames do: a click inside it selects what's under the pointer, and the board itself
+is selected by its title or its background. The editor audit took four double-clicks and 2.3 s to reach a stat card in
+the example's dashboard.
+
+- **A click** inside a frame selects the top-level layer under the pointer, in any design, whatever was selected before.
+  In the dashboard a click on a stat card selects Main. The press never reaches tldraw, so it doesn't select or move the
+  board.
+- **The board** is selected by its title, by its background around the frames, which stays tldraw's (a drag there moves
+  the board), or by a click on a frame's background, where no layer is. Shift on a frame's background adds the board to
+  the selected designs or takes it out, as Shift on its title does.
+- **Further clicks** work as before. With a layer of the design selected, a click picks among its siblings under the
+  pointer, keeps it when the pointer is inside it, and goes back to the top level outside its group. Each double-click
+  goes one level deeper under the pointer: its first click selects what a click would, and the double-click the layer
+  inside that. A double-click edits text only on a selected text layer that's the deepest thing under the pointer. The
+  stat card takes three double-clicks (Content, Stats, then the card), where it took four.
+- **Ctrl-click** selects the deepest layer under the pointer, inside instances too. On a layer's own edge, where none of
+  the layers inside it are, that's the layer itself: Ctrl-clicking a stat card above its header selects the card.
+- **Shift-click** adds what a click would select to the selection, or takes it out, as before.
+- **Enter** on a text layer, or on a component whose child is text, starts editing it in place. Otherwise it selects
+  every layer inside the selected layers, or inside the selected design (the one picked last, when there are several),
+  in the frame they were picked in; with a mode column selected, in that mode's frame. Inside an instance those are the
+  component's layers. On a layer with nothing inside, Enter does nothing. Shift+Enter still selects the parent.
+- **Dragging a layer that isn't selected** selects it as it's pressed and moves it, as dragging a selected one does, and
+  never the board. Pressing a selected layer still keeps the whole selection, to drag all of it. A press drags what a
+  click would select, so a plain drag on a stat card moves Main, and Ctrl-dragging the card by its edge moves the card.
+- **A box drawn from a frame's background** selects the frame's top-level layers it touches, updating as it's drawn, as
+  Figma's and tldraw's boxes select what they touch. It's tldraw's own box. With Shift they're added to the layers of
+  the design already selected. A box that touches nothing selects nothing, and Escape puts back what was selected before
+  it. A layer that isn't drawn is never touched.
+- **Hovering** outlines what a click would select, Ctrl included, in the frame under the pointer, in any design, not
+  only in the one selected. Over a frame's background, and around the frames, no layer is outlined and tldraw outlines
+  the board; over a layer, the board isn't outlined as hovered. Alt still outlines the deepest layer and measures to it
+  from the selected layer, both as the hovered frame draws them. Hovering in Layers outlines in the frame the selection
+  was picked in, as before.
+- **Edge cases.** A free text note over a board keeps the press and the double-click, as before, and notes, the only
+  things on the canvas that aren't on a board, work as they did. A layer's box leaves out elements clipped to nothing,
+  such as the hidden input Base UI's checkbox draws at its frame's corner: that input stretched the checkbox's box over
+  the frame's top left, so a click on Sign in's background selected its card. Pressing near a selected layer's edge
+  grabs its resize handle, as before, so a double-click there goes no deeper.
+
+Code: the rules are in `apps/desktop/src/renderer/canvas/pick.ts`, which takes ids and returns what to select:
+`pickLayer` (a click and Ctrl), `pickDeeper` (a double-click), `pressTarget` (a press: select, keep, toggle or the
+background), `hoverTarget`, `boardClick`, `touchedBy` and `boxSelection` (a box), and `enterTarget`. `canvas/hit.ts`
+finds what's under the pointer and hands it over (`underPoint`, and `selectedIn` for the selected layer and the layer it
+sits in). `canvas/CanvasOverlay.tsx` handles the pointer ahead of tldraw and outlines the hover in its frame;
+`canvas/select-box.ts` (`pressBackground`) follows a press on a frame's background; `canvas/layer-drag.ts`
+(`pressLayers`) drags as before. `canvas/CanvasEditor.tsx` (`ShapeIndicators`) leaves out the board's hover outline
+while a layer is hovered. Enter is `selectChildren` in `chrome/commands.ts`, with `childLayers` in `canvas/layers.ts`,
+and the keymap calls it "Select the layers inside, or edit text". A hover carries its frame's mode and state
+(`selection.ts`), and `elementBox` in `frame.ts` leaves out clipped elements.
+
+Tests:
+
+- `canvas/pick.test.ts` (27): on the dashboard's layers, a click with nothing selected, the background, siblings of the
+  selected layer, keeping it, leaving its group, siblings inside an instance, Ctrl, Shift; double-clicks one level at a
+  time, into an instance, at the deepest layer, and the stat card in three or one Ctrl-click; hovering in an unselected
+  design, the background, Alt; what a box touches, what it selects, Shift, touching nothing; a click on the background
+  and Shift there; and Enter, with the real store, on a design, a mode column, a layout, an instance and a layout inside
+  one, several layers, text and a component with text, and a layer with nothing inside.
+- `canvas/CanvasOverlay.test.ts` (12), in Chrome: the overlay over two frames of a dashboard drawn by `ModeView` and the
+  React guest, with the real mouse, and an element standing in for tldraw's canvas. A click selects the top-level layer
+  and keeps the press from tldraw, a frame's background selects the board, a checkbox's hidden input doesn't stretch it
+  over the background, the board's own background reaches tldraw, double-clicks go a level deeper each, Ctrl and Shift,
+  dragging an unselected layer moves it, a box selects what it touches in its frame and Escape puts the selection back,
+  and hovering outlines what a click would in the frame under the pointer, and nothing over the background. All but
+  Ctrl's and the board's own background fail against the overlay as it was.
+
+Gaps: tldraw isn't in the Chrome test, so the board's hover outline, tldraw's box drawn as the box, the board moved by
+its background and title, and the Enter key itself were checked in an isolated copy of the app on the example project on
+2026-10-29. There, a click on a stat card selected Main; a box from Sign in's background over its card and terms
+selected both, with tldraw's box drawn and gone after; a click there selected the board and a drag on the board's own
+background moved it; Enter on Stats selected its four cards and on the greeting started editing it; Sign in's terms
+dragged above the card moved, and the Revenue card Ctrl-dragged past Issues moved, each with the board left where it
+was; hovering a card in the dark frame outlined Main there and not the board. Ctrl-clicking the stat card took 333 to
+497 ms from the press to the frame after the selection drew (two runs of five), and three double-clicks 1.3 to 2.1 s,
+sent as soon as each selection drew; the five selections the old way made, set one after another as fast as they drew,
+took 1.06 to 1.37 s, before counting the gestures. Ctrl doesn't change what a box selects, where Figma's selects the
+layers deeper inside. Right-click's Select layer, listing everything under the pointer, is PAR-168.
 
 ## Moving, reordering and resizing
 

@@ -1,10 +1,12 @@
 import { useCallback, useEffect } from "react"
 import {
+  type Atom,
   atom,
   createShapeId,
   type Editor,
   react,
   SelectionForegroundOverlayUtil,
+  ShapeIndicatorOverlayUtil,
   type TLComponents,
   Tldraw,
   type TLShapeId
@@ -49,7 +51,33 @@ class SelectionBox extends SelectionForegroundOverlayUtil {
   }
 }
 
-const overlayUtils = [SelectionBox]
+/** Whether the canvas is hovering a layer inside a design, by editor (see `ShapeIndicators`). */
+const hoveringLayer = new WeakMap<Editor, Atom<boolean>>()
+
+/**
+ * Hovering outlines only what a click would select. With the pointer on a layer inside a design, a click selects that
+ * layer, which the canvas's overlay outlines, so tldraw doesn't outline the board around it as hovered. Over the board's
+ * background, or a frame's, it does.
+ */
+class ShapeIndicators extends ShapeIndicatorOverlayUtil {
+  static override type = ShapeIndicatorOverlayUtil.type
+
+  override getOverlays() {
+    const overlays = super.getOverlays()
+    const hovered = this.editor.getHoveredShapeId()
+    if (!hovered || !hoveringLayer.get(this.editor)?.get() || this.editor.getSelectedShapeIds().includes(hovered)) {
+      return overlays
+    }
+    return overlays.flatMap((overlay) => {
+      const idsToDisplay = overlay.props.idsToDisplay.filter((id) => id !== hovered)
+      return idsToDisplay.length > 0 || overlay.props.hintingShapeIds.length > 0
+        ? [{ ...overlay, props: { ...overlay.props, idsToDisplay } }]
+        : []
+    })
+  }
+}
+
+const overlayUtils = [SelectionBox, ShapeIndicators]
 
 /**
  * tldraw draws outlines and handles on a canvas, in its theme's colors. Setting a custom property on the canvas
@@ -247,6 +275,9 @@ export function CanvasEditor({ onEditor }: { onEditor(editor: Editor | undefined
       }
       const stopFollowing = selection.subscribe(followSelection)
       followSelection()
+      const layerHovered = atom("hovering a layer", false)
+      hoveringLayer.set(editor, layerHovered)
+      const stopHover = selection.subscribe(() => layerHovered.set(!!selection.getHover()?.node))
 
       // Containers size themselves after their content renders, so fit once they have.
       const fit = setTimeout(() => editor.zoomToFit({ animation: { duration: 200 } }), 400)
@@ -260,6 +291,8 @@ export function CanvasEditor({ onEditor }: { onEditor(editor: Editor | undefined
         stopMoves()
         stopSelection()
         stopFollowing()
+        stopHover()
+        hoveringLayer.delete(editor)
         onEditor(undefined)
       }
     },
