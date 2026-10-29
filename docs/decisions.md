@@ -29,9 +29,15 @@ still need your call.
 - **Open:** Buildkit's nova `tokens.json`, which isn't DTCG yet.
 - **Saving is explicit, as in a document editor.** Edits stay unsaved until Save (Ctrl+S). The tab shows a dot (it turns
   into the close button on hover). The status bar only says when a save failed, and clicking that tries again: you asked
-  to remove its "Saved" and "Unsaved changes", as the tab's dot already shows them. Undoing back to what was saved makes
-  the file clean again. Edit > Settings > Save automatically turns on saving each edit about 300ms after it's made, and
-  is off by default.
+  to remove its "Saved" and "Unsaved changes", as the tab's dot already shows them. A file that's the same as what was
+  saved is clean, however it got there: undoing back, or turning Show every state on and off again (PAR-164), since
+  views are tidied as they're written, leaving out every-state off, no modes or variants beside, and the base state.
+  Edit > Settings > Save automatically turns on saving each edit about 300ms after it's made, and is off by default.
+- **Token edits are ordinary edits** (PAR-164): they undo and redo with the designs, and reach the project's stylesheet
+  only on Save (or autosave), an agent's `SetTokens` included, in the same undo step as its designs. The token editor's
+  button is Apply, with a line saying Save writes it to the stylesheet. Don't save writes nothing. A failed write names
+  the token and the file in the save notice, the status bar and the Tokens panel, where its row is marked and a banner
+  offers Try again; a stylesheet changed since it was read fails the same way.
 - **Closing a tab or quitting with unsaved changes asks** Save, Don't save or Cancel, with Save focused so Enter does
   it. Quitting with several projects unsaved asks once, with Save all.
 - **Changes from outside reload as one undoable step.** That covers agents, git and text editors. A file with unsaved
@@ -302,6 +308,17 @@ section has the details. The user asked for "variants, instance overrides and th
   adding an override.
 - **A component's board shows one combination of variants,** picked in its title bar. With a non-default option showing,
   base-state edits go to that option.
+- **A component's board shows each param's default,** as an instance with no args does (PAR-164, my call; it changes
+  what main boards show, which showed the design's own values). So the Stat card's board shows only the trend icon its
+  params select. Editing a bound text, prop or visibility on the board in the base state changes that default, which
+  matches the Params section's "Defaults show on this board".
+- **Edits that can't be per state or variant say so before they're made** (PAR-164): an image's file, alt text and fit,
+  and an instance's state, Reset all, Swap and Detach. A tinted note styled like the "Editing Monthly changes the
+  design" control reads, for example, "File, alt text and fit change the design in every state, not only Yearly", and
+  shows only while edits would otherwise go to a state or variant.
+- **Prop and param fields follow the declared type** (PAR-164), not the value's: a number param with no value takes a
+  number, JSON that doesn't parse is refused with the reason rather than saved as text, and an empty field clears the
+  value.
 - **The variant grid shows each variant on its own, plus combinations someone pins.** You chose this on 2026-10-28 over
   every combination, which multiplies fast.
 - **A component design in `.par` stays the source, linked to a real component file.** You set the direction on
@@ -1221,7 +1238,8 @@ recommended answer to each of its questions.
 - **The CLI will be public on npm** (your call, 2026-10-29), so a CI pipeline gets Parity with `npx` and nothing else to
   download. Visual tests in CI rely on it (PAR-239). It can't be published as `@parity/cli`, because the `@parity` scope
   on npm belongs to Parity Technologies, so it's `@parity-app/cli`, under the `parity-app` npm organization you created
-  on 2026-10-29 (PAR-26). Its command stays `parity`, and inside the repository it keeps its `@parity/cli` name.
+  on 2026-10-29 (PAR-26). Its command stays `parity`. It has that name inside the repository too, since pnpm's
+  `publishConfig` can't rename a package when it's packed (PAR-13).
 - **A project's Vite server keeps its own dependency cache,** `node_modules/.vite-parity`. With Vite's default, the
   project's own dev server, often running alongside, re-optimized into the same folder, and each server then served
   stale dependencies ("Outdated Optimize Dep"). Opening Parity's own app as a project broke every offscreen render this
@@ -1387,6 +1405,18 @@ the Repository, CI and releases stream in Linear.
     both that and `beachball check` on its clean checkout.
   - **npm gets the packages whose package.json has a `publishConfig`,** which the CLI gets with its npm name,
     `@parity-app/cli` (PAR-13).
+- **The CLI is packed for npm with `vp pack` (PAR-13).** My calls:
+  - **The private packages it uses are bundled in, and npm installs only semver and TypeScript,** its dependencies. The
+    build fails on any other package it would bundle, so a new one gets declared.
+  - **The registry's files and `in-app.json` ship in `dist`,** where @parity/registry looks before resolving its own
+    package, which the published CLI doesn't have.
+  - **pnpm's `publishConfig` points `bin` and `exports` at `dist` when it packs,** so the workspace still runs the CLI
+    from source.
+  - **It needs Node 24,** as the repository does.
+  - **Provenance comes from the CD workflow's `--provenance`, not `publishConfig`,** since npm only makes it in CI and
+    the first version is published by hand, which npm needs before it can trust the workflow.
+  - **`pnpm --filter @parity-app/cli try-packed` installs the packed tarball in an empty folder and runs it.** CI runs
+    it on each system. The packed tarball is 2.6 MB.
 - **Hooks keep what doesn't belong out of pull requests (PAR-3),** as you asked on 2026-10-29. My calls:
   - **A commit lints and formats its staged files, fixing what it can, and its subject must be conventional,** at most
     100 characters (4 of the last 400 were longer) and not work in progress. A fixup commit can be made but not pushed.
