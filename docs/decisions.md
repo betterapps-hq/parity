@@ -64,7 +64,7 @@ still need your call.
   as on Windows and show with the Mac's symbols on a Mac (`⇧⌘Z`).
 - **tldraw's own shortcuts are off.** Its tool keys (E, D, R, A, L, F, N, K) switched to drawing tools behind Parity's
   toolbar, Ctrl+/ flipped the canvas to light mode, and Ctrl+. and Ctrl+' turned on modes Parity doesn't use. Space to
-  pan and arrows to nudge stay, as they aren't shortcuts.
+  pan stays, as it isn't a shortcut, and the arrows nudge through the keymap (CAN-39).
 - **The keys are Figma's** (checked against Figma's help and several cheat sheets on 2026-10-29), with these
   differences, my calls:
   - **I is Interact,** where Figma's is the eyedropper, which Parity doesn't have.
@@ -77,7 +77,18 @@ still need your call.
   - **Alt+1 and Alt+2 open Layers and Components,** Figma's Layers and Assets.
   - **Ctrl+Alt+K makes a component of a design or a layer:** a design selected on its own becomes a component (or a
     screen again), and a selected layer is extracted into a new component named after it, as Figma's is.
-  - Figma keys for things Parity doesn't do yet are CAN-39.
+  - **N and Shift+N zoom to the next and previous design,** as Figma's do with frames, in the Layers panel's order
+    (components, then screens), wrapping round (CAN-39).
+  - **Paste over selection (Ctrl+Shift+V) and Paste to replace (Ctrl+Shift+R) are Figma's two,** after Paste in the Edit
+    menu (CAN-39). Paste over keeps the selection: the copies go once, just after the last selected layer, beside a
+    selected layout or component rather than inside it, at an absolutely placed layer's insets, and copied designs go at
+    the selected designs' top-left, drawn on top. Paste to replace swaps each selected layer for its own copy. A paste
+    that doesn't fit (layers over designs, designs over layers) says what to copy instead.
+  - **Select inverse (Ctrl+Shift+A) selects what Select all would, minus the selection;** Select matching layers
+    (Ctrl+Alt+A) selects, within the design, layers that are the same component, the same main component, or text with
+    the same tag, and styled the same apart from place and size. Content doesn't count. With designs selected, it
+    selects designs of the same kind (CAN-39).
+  - Figma keys for things Parity doesn't do yet are Copy as PNG, find and lock (CAN-76 to CAN-78).
 - **Enter, Tab and the arrows on a focused control are the control's** (found by the editor audit, 2026-10-29): a
   button, tab, Layers row or toggle presses, moves focus or moves within itself, so Tab moves through the inspector's
   fields instead of selecting the next layer. They act on the canvas when it, or nothing, has focus. A key the canvas
@@ -197,8 +208,29 @@ still need your call.
   a shortcut too; scrolling still pans. Outlines and handles hide while interacting. An Escape the design doesn't use
   steps out of it, and the next one goes back to Move and select. When interacting stops, every frame starts again from
   the design, so nothing you tried is left on the canvas, and the project isn't changed by it.
-- **Keys typed into a design are the design's in any tool,** found through the event's composed path, because shadow DOM
-  hands the canvas's listeners the frame instead of the field inside it.
+- **Keys reach a design only in Interact** (CAN-54). Outside it, frames are inert: Tab, clicks and a component's own
+  focus calls never reach a design's inputs or buttons, so the canvas's shortcuts keep working. Selecting, hovering and
+  measuring use layout boxes, never hit testing, so inert frames don't affect them. In Interact, keys typed into a
+  design are the design's, found through the event's composed path, because shadow DOM hands the canvas's listeners the
+  frame instead of the field inside it.
+- **The arrows nudge** (CAN-39). A layer in a layout moves one place along the direction its frame draws, stepping over
+  absolutely placed siblings and ones the state hides; in a grid, Up and Down move a whole row when there's one to move
+  to, and Shift still moves one place. An absolutely placed layer moves one spacing step, or ten with Shift, from where
+  it's drawn, since 1px would leave the scale until CAN-80. Designs and notes move 1px, or 10. Each run of presses on
+  one selection is one undo step.
+- **Layers are found from React's tree, as React DevTools does** (CAN-45), so a component that renders none of its props
+  can be hovered, selected, outlined and dragged. Component layers are marked by the guest's error boundary and the
+  others by their element. It reads React 19's internals and falls back to the `data-canvas-node` attribute, which the
+  guest still passes, when they're missing. The walk runs once after React commits a frame or its DOM changes, so
+  hovering only measures boxes.
+- **A layer's box is what it draws at its top level** (CAN-45): one element for most layers, each root of a fragment,
+  and for a provider, the top-level elements of the layers inside it. A point belongs to the innermost layer. Undrawn
+  (0×0) elements are left out unless every element is undrawn, content portaled out of the frame doesn't count, a slot
+  drawn twice is one layer covering every copy, and a component that draws nothing has no box and is selected from
+  Layers.
+- **When a component's props have no `style`, the inspector says sizes and styles won't change it** and offers Wrap in
+  layout (CAN-45). It's read from the props type, so it doesn't show for `any`, `object`, index signatures or type
+  parameters.
 
 ## Main components and instances
 
