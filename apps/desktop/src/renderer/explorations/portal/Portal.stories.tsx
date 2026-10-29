@@ -11,9 +11,20 @@ import { CanvasArt, ProjectCard } from "../start/page.tsx"
 import { ActivityPage } from "./activity.tsx"
 import { AddSeatsPage, BillingPage, MembersPage, PlansPage, SecurityPage } from "./admin.tsx"
 import { ChangesPage } from "./changes.tsx"
-import { events, needsYou, orgProjects, portalProject, type PortalEvent, teams, workingNow } from "./data.ts"
+import {
+  claudeTask,
+  event,
+  events,
+  needsYou,
+  orgProjects,
+  portalProject,
+  type PortalEvent,
+  teams,
+  workingNow
+} from "./data.ts"
 import { HandoffPage } from "./handoff.tsx"
 import { InboxPage } from "./inbox.tsx"
+import { InspectPage } from "./inspect.tsx"
 import {
   DesignTile,
   FeedCard,
@@ -102,20 +113,30 @@ const needsYouBodies: Record<string, ReactNode> = {
     </>
   ),
   "claude-run": (
-    <>
-      <div>
-        <AgentBadge palette={agentPalettes[7]} agent="Claude Code" kind="write" label="Tighten the plan cards" />
+    <div className="grid grid-cols-[minmax(0,1fr)_132px_132px] gap-3">
+      <div className="col-span-3">
+        <AgentBadge palette={agentPalettes[7]} agent="Claude Code" kind="write" label={claudeTask} />
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <DesignTile project="dashboard" design="Billing" changed />
-        <DesignTile project="dashboard" design="Overview" changed />
+      <div className="flex flex-col gap-3">
+        <span className="text-xs text-muted-foreground">
+          Sam Okafor asked for this. One token changed, so 3 boards look different.
+        </span>
+        <div className="mt-auto">
+          <Act>See what changed</Act>
+        </div>
       </div>
-      <Act>See what changed</Act>
-    </>
+      <DesignTile project="dashboard" design="Billing" changed />
+      <DesignTile project="dashboard" design="Overview" changed />
+    </div>
   ),
   "priya-review": (
-    <div className="grid grid-cols-[minmax(0,1fr)_168px] items-end gap-4">
-      <Act>Review</Act>
+    <div className="grid grid-cols-[minmax(0,1fr)_168px] gap-4">
+      <div className="flex flex-col gap-3">
+        <p className="text-sm">{event("priya-review").quote}</p>
+        <div className="mt-auto">
+          <Act>Review</Act>
+        </div>
+      </div>
       <DesignTile project="docs" design="Docs home" />
     </div>
   )
@@ -172,7 +193,7 @@ function ForYou() {
               <h2 className="text-sm font-semibold">Jump back in</h2>
               <SeeAll>Recents</SeeAll>
             </div>
-            {["website", "dashboard", "spawnkit"].map((id) => {
+            {["website", "spawnkit", "dashboard"].map((id) => {
               const shown = portalProject(id)
               return (
                 <div key={id} className="flex items-center gap-3">
@@ -314,10 +335,18 @@ export const Inbox: Story = { render: () => <InboxPage /> }
 export const Activity: Story = { render: () => <ActivityPage /> }
 
 /**
- * Handoff, for developers: every board by where it stands between design and code. Ready to build first, with the
- * components and tokens it uses and its branch, then what differs from main, what's in review and what matches.
+ * Handoff, for developers: every board by where it stands between design and code, from Parity's own versions, so it
+ * works without git. Ready to build first, then boards changed since they were approved, boards whose code has moved,
+ * and what's in review. Each names the version, its components and files, tokens, states and sizes, and who's building
+ * it, with the branch and pull request where there is one.
  */
 export const Handoff: Story = { render: () => <HandoffPage /> }
+
+/**
+ * Inspect, from Handoff: a board at its approved version, read-only. Pick anything to see its component and file, its
+ * props as code, its states, its tokens and its size, or give the board to your coding agent.
+ */
+export const Inspect: Story = { render: () => <InspectPage /> }
 
 /**
  * What a notification or "See what changed" opens: the project's canvas in the browser, comparing two versions, kept

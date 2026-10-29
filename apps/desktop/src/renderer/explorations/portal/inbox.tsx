@@ -13,7 +13,7 @@ import { Pills, PortalPage } from "./parts.tsx"
 
 const { maya, jonas, priya, lena, claude } = people
 
-/** What's for you but doesn't need you: replies, a resolved thread, an invite. */
+/** What's for you but doesn't need you, newest first: a reply, a resolved thread, an invite. */
 const earlier = ["jonas-reply", "lena-resolve", "sam-invite"].map(event)
 
 /** A pin on the preview, its point at a share of the design's width and height. */
@@ -47,10 +47,10 @@ export function InboxPage() {
               </div>
             ))}
           </div>
-          <h2 className="px-1 pt-1 text-xs font-medium text-muted-foreground">Earlier</h2>
+          <h2 className="px-1 pt-1 text-xs font-medium text-muted-foreground">Updates for you</h2>
           <div className="flex flex-col gap-1">
             {earlier.map((item) => (
-              <ActivityRow key={item.id} item={{ ...item, unread: false }} />
+              <ActivityRow key={item.id} item={item} />
             ))}
           </div>
         </div>
@@ -87,7 +87,7 @@ export function InboxPage() {
                   <div className="overflow-hidden rounded-[5px] shadow-[0_16px_40px_-10px_rgb(0_0_0/0.7)] ring-1 ring-white/10">
                     <DesignRender kind={pricing.kind} look={website.look} />
                   </div>
-                  <Pin left="66%" top="31%">
+                  <Pin left="62%" top="45%">
                     <CommentPin people={[maya, claude, jonas]} state="selected" replies={2} />
                   </Pin>
                   <Pin left="40%" top="62%">

@@ -18,9 +18,13 @@ const renamed: Record<string, { name: string; brand: string; first?: string }> =
   copilot: { name: "Relay", brand: "Relay" }
 }
 
-/** A start page project as the portal names it. Nothing is "open in a tab" on the web. */
+/**
+ * A start page project as the portal names it. Nothing is "open in a tab" on the web, and who's in it comes from
+ * where people are now, so a card never disagrees with Working now.
+ */
 export function portalProject(id: string): StartProject {
-  const shown = { ...project(id), open: false }
+  const here = workingNow.find((where) => where.project === id && !where.away)
+  const shown = { ...project(id), open: false, live: here && { who: here.who, doing: here.doing } }
   const names = renamed[id]
   if (!names) return shown
   const first = shown.designs.filter((design) => design.name === names.first)
@@ -32,11 +36,6 @@ export function portalProject(id: string): StartProject {
 export function designOf(shown: StartProject, name: string): Design {
   return shown.designs.find((design) => design.name === name) ?? shown.designs[0]!
 }
-
-/** Kestrel's projects, most recently edited first. */
-export const orgProjects = ["website", "dashboard", "spawnkit", "docs", "copilot", "library", "standup"].map(
-  portalProject
-)
 
 export interface Team {
   org: Organization
@@ -56,22 +55,29 @@ export const teams = {
 }
 
 /**
- * Where a board stands between design and code. In review: a designer asked for a review. Ready to build: approved,
- * not built yet. Matches main: the code on main draws it as designed. Differs from main: the code has moved since.
+ * Where a board stands between design and code, from Parity's own versions, so it works without git. In review:
+ * someone asked for a review. Ready to build: a version was approved and isn't built yet. Changed since approval:
+ * edited after the approved version, so it needs another look first. Built: the project's code draws the approved
+ * version as designed. Code differs: the code changed after it was built. Branches and pull requests show too, where a
+ * project has them.
  */
-export type Handoff = "In review" | "Ready to build" | "Matches main" | "Differs from main"
+export type Handoff = "In review" | "Ready to build" | "Changed since approval" | "Built" | "Code differs"
 
 export const handoff: Record<string, Handoff> = {
   "dashboard/Billing": "In review",
   "dashboard/Overview": "In review",
-  "dashboard/Sign in": "Matches main",
-  "website/Pricing": "Ready to build",
-  "website/Home": "Matches main",
+  "dashboard/Sign in": "In review",
+  "website/Pricing": "Changed since approval",
+  "website/Home": "Built",
   "spawnkit/Level select": "Ready to build",
-  "spawnkit/In game": "Differs from main",
+  "spawnkit/In game": "Code differs",
   "docs/Docs home": "In review",
-  "library/Components": "Matches main"
+  "copilot/Inbox": "Ready to build",
+  "library/Components": "Built"
 }
+
+/** How many boards are ready to build, as the nav and the week's numbers count them. */
+export const readyToBuild = Object.values(handoff).filter((status) => status === "Ready to build").length
 
 /** Where someone is right now: the project and design, and what they're doing there. */
 export interface Whereabouts {
@@ -89,11 +95,16 @@ export interface Whereabouts {
 export const workingNow: Whereabouts[] = [
   { who: people.maya, project: "website", design: "Pricing", doing: "Editing the plan cards" },
   { who: people.claude, project: "website", design: "Pricing", doing: "Try shorter plan names at 360", for: me },
-  { who: people.jonas, project: "spawnkit", design: "Level select", doing: "Drawing the locked tiles" },
+  { who: people.jonas, project: "spawnkit", design: "In game", doing: "Checking Cursor's tiles" },
   { who: people.cursor, project: "spawnkit", design: "In game", doing: "Place the new tiles", for: people.jonas },
   { who: people.sam, project: "dashboard", design: "Overview", doing: "Reviewing the usage chart" },
   { who: people.priya, project: "docs", design: "Docs home", doing: "Left a review", away: "2 h ago" }
 ]
+
+/** Kestrel's projects, most recently edited first. */
+export const orgProjects = ["website", "spawnkit", "dashboard", "docs", "copilot", "library", "standup"].map(
+  portalProject
+)
 
 /** Something that happened, as every list draws it. */
 export interface PortalEvent extends Activity {
@@ -107,6 +118,9 @@ export interface PortalEvent extends Activity {
 
 const { maya, jonas, priya, sam, lena, claude, cursor } = people
 export const noah = { name: "Noah Park", hue: 210 }
+
+/** What Sam asked Claude Code to do in the Cloud console, which it now wants reviewed. */
+export const claudeTask = "Move the console to the green brand"
 
 /** Everything that happened in Kestrel lately, newest first. */
 export const events: PortalEvent[] = [
@@ -200,7 +214,7 @@ export const events: PortalEvent[] = [
     project: "Cloud console",
     design: "Billing",
     action: "wants your review on",
-    quote: "Tighten the plan cards: the brand color changed, on 2 boards.",
+    quote: `${claudeTask}, for Sam Okafor: one token changed, on 3 boards.`,
     when: "1 h ago",
     day: "Today",
     unread: true,
@@ -215,6 +229,7 @@ export const events: PortalEvent[] = [
     project: "Help center",
     design: "Docs home",
     action: "asked you to review",
+    quote: "Can you check the new search field, and whether getting started reads in the right order?",
     when: "2 h ago",
     day: "Today",
     unread: true,

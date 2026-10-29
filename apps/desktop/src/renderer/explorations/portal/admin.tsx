@@ -8,6 +8,7 @@ import {
   ChevronDown,
   CreditCard,
   Download,
+  Lock,
   Minus,
   Plus,
   Search,
@@ -19,7 +20,7 @@ import {
 import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { me, type Person, people } from "../explore-data.ts"
-import { Avatar } from "../parts.tsx"
+import { Avatar, GitHubMark } from "../parts.tsx"
 import { OrgBadge } from "../start-page-parts.tsx"
 import { noah, teams } from "./data.ts"
 import { Pills, SettingsPage } from "./parts.tsx"
@@ -69,12 +70,39 @@ function Picker({ children }: { children: ReactNode }) {
   )
 }
 
+type Role = "Admin" | "Billing admin" | "Member" | "Guest"
+
+/**
+ * What each role can do. Admins can do everything, billing included; billing admins look after the plan, invoices and
+ * seats; members work on every project; guests only on what they're invited to. Nobody approves their own design, or
+ * their own agent's.
+ */
+const can: { what: string; roles: Record<Role, boolean | string> }[] = [
+  {
+    what: "Open, view and comment",
+    roles: { Admin: true, "Billing admin": true, Member: true, Guest: "Projects they're invited to" }
+  },
+  {
+    what: "Edit, with an editor seat",
+    roles: { Admin: true, "Billing admin": true, Member: true, Guest: "Projects they're invited to" }
+  },
+  {
+    what: "Approve a design",
+    roles: { Admin: "Not their own", "Billing admin": "Not their own", Member: "Not their own", Guest: false }
+  },
+  { what: "Invite people", roles: { Admin: true, "Billing admin": true, Member: "An admin approves", Guest: false } },
+  { what: "Approve editor seats", roles: { Admin: true, "Billing admin": true, Member: false, Guest: false } },
+  { what: "Plan, invoices and payment", roles: { Admin: true, "Billing admin": true, Member: false, Guest: false } },
+  {
+    what: "Teams, security and the audit log",
+    roles: { Admin: true, "Billing admin": false, Member: false, Guest: false }
+  }
+]
+
 interface Member {
   person: Person
   email: string
-  role: "Admin" | "Billing admin" | "Member" | "Guest"
-  /** Billing as well as their role. */
-  billing?: boolean
+  role: Role
   seat: "Editor" | "Viewer"
   teams: (keyof typeof teams)[]
   active: string
@@ -87,7 +115,6 @@ const members: Member[] = [
     person: me,
     email: "andrew@kestrel.dev",
     role: "Admin",
-    billing: true,
     seat: "Editor",
     teams: ["apps", "web"],
     active: "Now"
@@ -135,7 +162,7 @@ function MemberRow({ member }: { member: Member }) {
         </span>
       </td>
       <td className="py-2.5 pr-4">
-        <Picker>{member.billing ? `${member.role}, billing` : member.role}</Picker>
+        <Picker>{member.role}</Picker>
       </td>
       <td className="py-2.5 pr-4">
         {member.asked ? (
@@ -177,11 +204,14 @@ export function MembersPage() {
           of={`of ${paidSeats} paid, ${openSeats} open`}
           filled={editors / paidSeats}
         >
-          <span className="text-xs text-muted-foreground">Enough for Noah's request and ren's invite.</span>
+          <span className="text-xs text-muted-foreground">
+            Enough for Noah's request and the invite for ren@kestrel.dev. No editor has been idle for 60 days.
+          </span>
         </Meter>
         <Meter label="Viewers and commenters" value="2" of="free">
           <span className="text-xs text-muted-foreground">
-            Only editors pay. Members view and comment on every project; guests only on what they're invited to.
+            Only editors pay. Viewing, commenting and inspecting are free, so developers who build from designs don't
+            need a seat.
           </span>
         </Meter>
       </div>
@@ -190,9 +220,15 @@ export function MembersPage() {
           <Search className="size-3.5" /> Search members
         </div>
         <Pills options={["Everyone", "Editors", "Viewers", "Guests", "Requests"]} />
-        <Button className="ml-auto gap-1.5">
-          <UserPlus /> Invite
-        </Button>
+        <Picker>All teams</Picker>
+        <span className="ml-auto flex gap-2">
+          <Button variant="ghost" className="gap-1.5">
+            <Download /> Export
+          </Button>
+          <Button className="gap-1.5">
+            <UserPlus /> Invite
+          </Button>
+        </span>
       </div>
       <div className="rounded-xl border px-4">
         <table className="w-full text-left">
@@ -217,7 +253,8 @@ export function MembersPage() {
         <span className="flex flex-col">
           <span>ren@kestrel.dev</span>
           <span className="text-xs text-muted-foreground">
-            Priya Raman invited them as an editor 2 days ago. Members can invite; an admin approves the seat.
+            Priya Raman invited them as an editor 2 days ago. Members can invite; an admin or billing admin approves the
+            seat.
           </span>
         </span>
         <span className="ml-auto flex gap-2">
@@ -227,6 +264,46 @@ export function MembersPage() {
           <Button size="sm">Approve and send</Button>
         </span>
       </div>
+      <section className="flex flex-col gap-3">
+        <h2 className="text-[15px] font-semibold">What each role can do</h2>
+        <div className="rounded-xl border px-4">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b text-xs text-muted-foreground">
+                <th className="w-[30%] py-2.5 font-medium">
+                  <span className="sr-only">What they can do</span>
+                </th>
+                {(["Admin", "Billing admin", "Member", "Guest"] as const).map((role) => (
+                  <th key={role} className="py-2.5 font-medium">
+                    {role}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {can.map((row) => (
+                <tr key={row.what} className="border-b last:border-0">
+                  <td className="py-2.5 pr-4">{row.what}</td>
+                  {(["Admin", "Billing admin", "Member", "Guest"] as const).map((role) => {
+                    const value = row.roles[role]
+                    return (
+                      <td key={role} className="py-2.5 pr-4 text-xs text-muted-foreground">
+                        {value === true ? (
+                          <Check className="size-4 text-foreground" aria-label="Yes" />
+                        ) : value === false ? (
+                          <Minus className="size-4 opacity-40" aria-label="No" />
+                        ) : (
+                          value
+                        )}
+                      </td>
+                    )
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </SettingsPage>
   )
 }
@@ -347,15 +424,26 @@ function BillingBody() {
             <span className="text-muted-foreground">Tax ID: add one to show it on invoices</span>
           </div>
         </Panel>
-        <Panel title="Billing admins" action={<span className="text-xs text-muted-foreground">Manage in Members</span>}>
+        <Panel
+          title="Who manages billing"
+          action={<span className="text-xs text-muted-foreground">Manage in Members</span>}
+        >
           <div className="flex flex-col gap-3">
-            {[me, sam].map((person) => (
+            {(
+              [
+                [me, "Admin"],
+                [sam, "Billing admin"]
+              ] as const
+            ).map(([person, role]) => (
               <span key={person.name} className="flex items-center gap-2.5 text-sm">
                 <Avatar person={person} size={24} />
-                {person.name}
+                <span className="flex-1">{person.name}</span>
+                <span className="text-xs text-muted-foreground">{role}</span>
               </span>
             ))}
-            <span className="text-xs text-muted-foreground">Only billing admins see invoices and change seats.</span>
+            <span className="text-xs text-muted-foreground">
+              Admins and billing admins see invoices, change seats and approve seat requests.
+            </span>
           </div>
         </Panel>
       </div>
@@ -425,20 +513,33 @@ export function AddSeatsPage() {
   )
 }
 
-/** Parity's plans: Figma's, at half the price per editor seat, rounded up to the next .95. Each builds on the last. */
-const plans = [
+/**
+ * Parity's plans: Figma's, at half the price per editor seat, rounded up to the next .95. Each builds on the last, and
+ * moving down says what Kestrel would lose.
+ */
+const plans: {
+  name: string
+  price: string
+  billing: string
+  features: string[]
+  warning?: string
+  current?: boolean
+}[] = [
   {
     name: "Starter",
     price: "Free",
     billing: "For trying Parity",
     features: ["3 projects", "Every component and token from your code", "Comments and sharing"],
-    warning: `Kestrel has 7 projects. Starter keeps 3; the rest become read only.`
+    warning:
+      "Kestrel has 7 projects; Starter keeps 3 and the rest become read only. Single sign-on, the audit log and billing admins turn off."
   },
   {
     name: "Professional",
     price: "$8.95",
     billing: "A seat a month, billed yearly, or $10.95 monthly",
-    features: ["Everything in Starter, and", "Unlimited projects", "Teams and shared libraries", "Version history"]
+    features: ["Everything in Starter, and", "Unlimited projects", "Teams and shared libraries", "Version history"],
+    warning:
+      "Kestrel requires single sign-on and keeps an audit log. Professional has neither, so both turn off, and Sam Okafor stops being a billing admin."
   },
   {
     name: "Organization",
@@ -448,18 +549,20 @@ const plans = [
       "Everything in Professional, and",
       "Libraries across the org",
       "Seat requests and billing admins",
-      "Single sign-on"
+      "Single sign-on",
+      "An audit log you can export, kept for a year"
     ],
     current: true
   },
   {
     name: "Enterprise",
     price: "$45.95",
-    billing: "A seat a month, billed yearly",
+    billing: "A seat a month, billed yearly. Seats added mid-year are billed quarterly.",
     features: [
       "Everything in Organization, and",
+      "SCIM, to add and remove people from your identity provider",
+      "The audit log, kept as long as you need",
       "Several workspaces",
-      "SCIM and an exportable audit log",
       "Dedicated support"
     ]
   }
@@ -472,7 +575,7 @@ export function PlansPage() {
       <div className="flex flex-col gap-1">
         <h2 className="text-[15px] font-semibold">Plans</h2>
         <span className="text-sm text-muted-foreground">
-          Only editors pay. Viewers and commenters are free on every plan.
+          Only editors pay. Viewing, commenting and inspecting are free on every plan.
         </span>
       </div>
       <div className="grid grid-cols-4 gap-4">
@@ -552,12 +655,21 @@ function On({ children }: { children: string }) {
   )
 }
 
+/** Who changed what, newest first. The seats Sam added on Sep 18 are the 2 on that quarter's invoice. */
 const audit = [
+  { who: priya, what: "added", target: "Noah Park to Kestrel, as a viewer", when: "Yesterday, 4:20 PM" },
   { who: priya, what: "invited", target: "ren@kestrel.dev as an editor", when: "Oct 27, 10:12 AM" },
   { who: jonas, what: "connected the agent", target: "Cursor", when: "Oct 27, 9:40 AM" },
   { who: sam, what: "changed the payment card to", target: "Mastercard ending 0417", when: "Oct 21, 4:55 PM" },
   { who: me, what: "turned on", target: "Required single sign-on", when: "Oct 2, 11:30 AM" },
-  { who: me, what: "approved an editor seat for", target: "Lena Fischer", when: "Sep 18, 2:04 PM" }
+  { who: sam, what: "added", target: "2 editor seats", when: "Sep 18, 2:04 PM" }
+]
+
+/** The agents people in Kestrel have connected, and which the org allows. */
+const agents = [
+  { agent: claude, by: "Andrew Craswell and Sam Okafor", used: "Now", allowed: true },
+  { agent: cursor, by: "Jonas Weber", used: "Now", allowed: true },
+  { agent: { name: "Codex", hue: 150, agent: true }, by: "Nobody yet", used: "Never", allowed: false }
 ]
 
 /** Security: sign-in, provisioning, sharing, agents, and the audit log of who changed what. */
@@ -576,10 +688,25 @@ export function SecurityPage() {
             <Setting title="Two-step sign-in" detail="For guests, who sign in without single sign-on">
               <On>Required</On>
             </Setting>
+            <Setting title="Signing in without Okta" detail="So someone can still get in if Okta is down">
+              <span className="text-xs whitespace-nowrap">Andrew Craswell only</span>
+            </Setting>
+            <Setting title="Sessions" detail="How long until people sign in again">
+              <Picker>After 12 hours idle</Picker>
+            </Setting>
           </Panel>
           <Panel title="People and sharing">
-            <Setting title="Who can invite editors" detail="Members can invite; an admin approves each editor seat">
+            <Setting
+              title="Who can invite editors"
+              detail="Members can invite; an admin or billing admin approves each editor seat"
+            >
               <Picker>Members, with approval</Picker>
+            </Setting>
+            <Setting
+              title="Who approves a design"
+              detail="Anyone with an editor seat, except whoever made or asked for it"
+            >
+              <Picker>Not their own</Picker>
             </Setting>
             <Setting title="Guests" detail="People outside kestrel.dev, on the projects they're invited to">
               <Picker>Allowed, for 90 days</Picker>
@@ -588,29 +715,55 @@ export function SecurityPage() {
               <Picker>Off</Picker>
             </Setting>
             <Setting title="Provisioning with SCIM" detail="Add and remove people from your identity provider">
-              <span className="text-xs text-muted-foreground">On Enterprise</span>
+              <span className="flex items-center gap-1.5 text-xs whitespace-nowrap text-muted-foreground">
+                <Lock className="size-3.5" /> Enterprise
+              </span>
+            </Setting>
+          </Panel>
+          <Panel title="Code and repositories">
+            <Setting
+              title="Connected repositories"
+              detail="Through Parity's GitHub app, which reads code and opens pull requests"
+            >
+              <span className="flex items-center gap-1.5 text-xs whitespace-nowrap">
+                <GitHubMark /> 6 in kestrel
+              </span>
+            </Setting>
+            <Setting title="Who can connect a repository" detail="And so which code Parity can draw boards from">
+              <Picker>Admins</Picker>
             </Setting>
           </Panel>
           <Panel title="Agents">
             <Setting
-              title="Agents that can connect"
-              detail="Through Parity's MCP server, with the person who runs them"
-            >
-              <span className="flex items-center gap-1.5">
-                <Avatar person={claude} size={20} />
-                <Avatar person={cursor} size={20} />
-                <span className="text-xs text-muted-foreground">Claude Code, Cursor</span>
-              </span>
-            </Setting>
-            <Setting
               title="What an agent can do"
-              detail="Never more than the person who runs it: a viewer's agent only comments"
+              detail="Through Parity's MCP server, never more than the person who runs it: a viewer's agent only comments"
             >
               <Picker>Same as its person</Picker>
             </Setting>
+            {agents.map((row) => (
+              <div key={row.agent.name} className="flex items-center gap-3 border-b py-3 last:border-0">
+                <Avatar person={row.agent} size={24} />
+                <span className="flex flex-1 flex-col gap-0.5">
+                  <span className="text-sm font-medium">{row.agent.name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {row.allowed ? `Connected by ${row.by}, last used ${row.used.toLowerCase()}` : "Not allowed"}
+                  </span>
+                </span>
+                <Button size="sm" variant="ghost">
+                  {row.allowed ? "Turn off" : "Allow"}
+                </Button>
+              </div>
+            ))}
           </Panel>
         </div>
-        <Panel title="Audit log" action={<span className="text-xs text-muted-foreground">Export</span>}>
+        <Panel
+          title="Audit log"
+          action={
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Download className="size-3" /> Export
+            </span>
+          }
+        >
           <div className="flex flex-col gap-3.5">
             {audit.map((entry) => (
               <span key={entry.when} className="flex gap-2.5 text-sm">
@@ -625,7 +778,7 @@ export function SecurityPage() {
               </span>
             ))}
             <span className="text-xs text-muted-foreground">
-              Roles, seats, sharing, agents, sign-in and billing, kept for a year.
+              Roles, seats, sharing, repositories, agents, sign-in and billing, kept for a year on Organization.
             </span>
           </div>
         </Panel>

@@ -403,17 +403,29 @@ recommended answer to each of its questions.
   (`control={<Checkbox />}`), and inserted as a slot of that prop's name, which the canvas already passes as the prop.
 - **Components declared but missing when they run are left out (LIB-37):** MUI's types declare `BadgeRoot`, `ModalRoot`
   and others its build doesn't export; they're `visual: false`, and the report names them.
-- **Parts every example draws from a hook's list aren't visual (LIB-38):** when each use of a part sits inside
-  `list.map(...)` over what a library hook returns (`const { toasts } = Toast.useToastManager()`), the part is runtime
-  data the library hands the app, and it's `visual: false`, like hosted parts. An example's own component the list is
-  mapped into (`toasts.map((toast) => <MyToast toast={toast} />)`) counts as mapped too. Base UI's Toast.Root, Content,
-  Title, Description, Action, Close, Positioner and Arrow are the case; the Viewport they're mapped into stays
-  placeable. Hooks that hold the example's own values (`useState`, `useMemo`, `useReducer`, `useRef`,
-  `useControllable*`) don't count, and one use placed directly keeps the part visual. No other library's file changed.
-- **Toasts stay placeable, with a sample toast (your call, 2026-10-29).** Toasts are visible and people design them, so
-  Base UI's Toast parts get a sample toast to render with rather than being `visual: false`, and LIB-39 changes LIB-38
-  to match. The hook-list signal still finds the parts that need sample data. A decorator's hosted toast parts (LIB-35)
-  follow if the same sample makes them render.
+- **Parts every example draws from a hook's list are found, not hidden (LIB-38, changed by LIB-39):** when each use of a
+  part sits inside `list.map(...)` over what a library hook returns (`const { toasts } = Toast.useToastManager()`),
+  following an example's own component the list is mapped into, the part is flagged and the report names it. LIB-38
+  first made those parts `visual: false`; your call reversed that, so the flag now only says which parts need sample
+  data. Hooks that hold the example's own values (`useState`, `useMemo`, `useReducer`, `useRef`, `useControllable*`)
+  don't count.
+- **Toasts stay placeable, with a sample toast (LIB-39, your call, 2026-10-29).** Toasts are visible and people design
+  them. Inside the mapping callback, and in the example's own component it maps into, the list item is bound to the
+  fullest object the file hands the hook's or factory's result (`toastManager.add({ title, description })`, with
+  `Toast.createToastManager()` counting as well), plus an `id` when the callback keys by one. So Base UI's Toast.Root,
+  Positioner and the rest take `toast={{ id, title, description }}` as their sample, and Title and Description show its
+  text through Root. All eight render on the server and in the app.
+- **A decorator's hosted toast parts follow (LIB-39):** Buildkit's `Toaster` maps its list into `Toast` and the parts
+  inside it, and no example places them. Reading the package's source now records when a render passes a list item
+  (`toast: toastItem`), what it puts inside (`ToastContent` holding Title, Description, Action and Close, through the
+  HTML in between), and the values the package makes with a factory and exports (`toast`). The item is the fullest
+  object the examples hand one of those values (`toast.add({ title: "Event created", ... })`). A part drawn that way
+  renders with it, adding the parent its error names once it has one (`ToastProvider`, since frames aren't inside the
+  Toaster), and its sample is the item with the package's own nesting. So `Toast`, `ToastContent`, `ToastTitle`,
+  `ToastDescription`, `ToastAction` and `ToastClose` are placeable again in all eight styles. `ToastProvider`,
+  `ToastPortal` and `ToastViewport` stay hidden: they're the host's, not the toast's.
+- **Templates are values when every part is known:** `` `${kind} saved` `` is read when the file says what `kind` is;
+  one with an unknown part is left out rather than guessed.
 - **The in-app backtest runs its own instance:** `PARITY_UI_PORT`, `PARITY_DEBUG_PORT`, `PARITY_AGENT_FILE` and
   `PARITY_USER_DATA` give it its own ports, CLI channel and settings, so it runs beside another session's Parity instead
   of driving it.
@@ -527,21 +539,33 @@ recommended answer to each of its questions.
   side), Recents (the projects as a file browser), a team page that opens on who's working where now, each on the canvas
   they're in, with Join for people and Watch for agents; the Inbox (the open item beside its board, pins and all, with
   its thread); the org's Activity (changes shown as the designs, merges, published components, new people, and the week
-  in numbers); Handoff; the canvas opened on what changed; and the admin pages Members, Billing, Add seats, Plans and
-  Security.
-- **Handoff is for developers: every board by where it stands between design and code** (my call, after the design
-  review). A board is In review, Ready to build, Matches main or Differs from main. Each names the components and tokens
-  it uses, its branch and pull request when there is one, and a change made after it was approved. Developers inspect
-  it, pick it up, or give it to their own agent.
-- **What changed compares two versions of a branch against main** (my call): the boards before and after side by side,
-  numbered where they changed, and each change down the side (the token, the components that follow it), with approve or
-  ask for changes. Its link names both versions, so it can go in a pull request.
+  in numbers); Handoff and Inspect; the canvas opened on what changed; and the admin pages Members, Billing, Add seats,
+  Plans and Security.
+- **Handoff is for developers: every board by where it stands between design and code, from Parity's own versions** (my
+  calls, after the design reviews), so it works without git, as history does. A board is In review, Ready to build,
+  Changed since approval, Built, or Code differs. An approval is of one version, so an edit after it turns the board to
+  Changed since approval wherever its status shows, and the developer can build the approved version or look at what
+  changed. Each board names its version, its components and their files (new ones and new props marked), its tokens and
+  their values, its states and sizes, and who's building it; branches, pull requests and tracker issues show too where a
+  project has them. Whoever's building a board hears when it changes.
+- **Inspect is Parity's Dev Mode** (my call): a board at its approved version, read-only, where picking anything shows
+  its component and file, its props as code, its states, its tokens and its size, and Give to your agent hands the board
+  to the developer's own coding agent.
+- **What changed compares two of the project's versions** (my calls, after the design reviews). Parity records versions
+  itself, and only a change makes one: a comment doesn't. Every place a change shows is marked, found from what the
+  render draws with the changed token rather than placed by hand, so a token change marks every board that uses it. The
+  side says who made the change and why (the task someone gave their agent), and Approve approves the design at that
+  version and marks its boards ready to build; the pull request is still reviewed on GitHub. Its link names both
+  versions, so it can go in a pull request.
 - **What changed stays quiet so the changes are the focus** (your call, 2026-10-29). No glow, pills or rings on the
   boards; the branch, pull request and links sit in a menu; hovering a change brings it forward on both boards and in
   the list. There's no timeline: the version labels above the boards pick what's compared.
-- **Only editors pay; viewing and commenting are free** (your calls, 2026-10-29). A seat request uses the open seats
-  first, and buying more is offered only past them. Members can invite; an admin approves each editor seat. Billing
-  admin is a role of its own, and an admin can be one too.
+- **Only editors pay; viewing and commenting are free** (your calls, 2026-10-29). Inspecting is viewing, so developers
+  who build from designs don't need a seat. A seat request uses the open seats first, and buying more is offered only
+  past them.
+- **Four roles, each shown with what it can do** (my calls): admins can do everything; billing admins look after the
+  plan, invoices and seats; members work on every project; guests only on what they're invited to. Members can invite,
+  and an admin or billing admin approves each editor seat. Nobody approves their own design, or their own agent's.
 - **An agent can never do more than the person who runs it** (my call): a viewer's agent only comments. Security lists
   which agents can connect, with sign-in, sharing, guests and an audit log of who changed what.
 - **Agents aren't part of billing at all** (your call, 2026-10-29). Parity has no agents of its own: the ones people
@@ -551,7 +575,9 @@ recommended answer to each of its questions.
   against Figma's Full seat prices that day): Starter free, Professional $8.95 a month billed yearly or $10.95 monthly,
   Organization $27.95 and Enterprise $45.95, both billed yearly. As on Figma, seats added mid-year on Organization and
   Enterprise are prorated to the renewal and invoiced quarterly. Kestrel is on Organization. Each plan builds on the one
-  before it, with features that follow Figma's tiers for now (the Plans story) and are still to be settled.
+  before it, with features that follow Figma's tiers for now (the Plans story) and are still to be settled: single
+  sign-on and an audit log kept a year come with Organization, and Enterprise adds SCIM and keeps the log longer. Moving
+  to a smaller plan says what the org would lose first (my call).
 
 ## Collaboration
 

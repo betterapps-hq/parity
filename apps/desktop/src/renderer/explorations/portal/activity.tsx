@@ -11,7 +11,7 @@ import { AgentBadge } from "../../agent/AgentPointer.tsx"
 import { Avatar } from "../parts.tsx"
 import { ActivityRow, OrgBadge } from "../start-page-parts.tsx"
 import { CanvasArt } from "../start/page.tsx"
-import { event, handoff, noah, portalProject, type PortalEvent, teams } from "./data.ts"
+import { claudeTask, event, noah, portalProject, type PortalEvent, readyToBuild, teams } from "./data.ts"
 import { DesignTile, FeedCard, Name, Pills, PortalHeader, PortalPage, SeeAll } from "./parts.tsx"
 
 /** A count for the week, big, with what it counts under it. */
@@ -96,21 +96,17 @@ export function ActivityPage() {
               item={event("claude-run")}
               line={
                 <>
-                  <Name>Claude Code</Name> changed 2 designs in <Name>Cloud console</Name>, for you
+                  <Name>Claude Code</Name> changed 3 designs in <Name>Cloud console</Name>, for <Name>Sam Okafor</Name>
                 </>
               }
             >
               <div>
-                <AgentBadge
-                  palette={agentPalettes[7]}
-                  agent="Claude Code"
-                  kind="write"
-                  label="Tighten the plan cards"
-                />
+                <AgentBadge palette={agentPalettes[7]} agent="Claude Code" kind="write" label={claudeTask} />
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <DesignTile project="dashboard" design="Billing" changed />
                 <DesignTile project="dashboard" design="Overview" changed />
+                <DesignTile project="dashboard" design="Sign in" changed />
               </div>
             </Card>
             <Card item={event("sam-merge")}>
@@ -119,7 +115,7 @@ export function ActivityPage() {
                 <Tag>feat/billing</Tag>
                 <span className="text-muted-foreground">into</span>
                 <Tag>main</Tag>
-                <span className="ml-auto text-xs text-muted-foreground">Billing matched main when it merged</span>
+                <span className="ml-auto text-xs text-muted-foreground">Billing was built as designed</span>
               </div>
             </Card>
             <h2 className="pt-2 text-sm font-semibold">Yesterday</h2>
@@ -176,22 +172,19 @@ export function ActivityPage() {
             </div>
             <span className="-mt-2 text-xs text-muted-foreground">October 26 to November 1, up to today</span>
             <div className="grid grid-cols-2 gap-2">
-              <Tally value="46" label="Designs changed" />
+              <Tally value="54" label="Changes to designs" />
               <Tally value="18" label="Threads resolved" />
-              <Tally value="7" label="Merged to main" />
-              <Tally
-                value={`${Object.values(handoff).filter((status) => status === "Ready to build").length}`}
-                label="Ready to build"
-              />
+              <Tally value="7" label="Boards built" />
+              <Tally value={`${readyToBuild}`} label="Ready to build" />
             </div>
           </section>
           <section className="flex flex-col gap-3">
             <h2 className="text-sm font-semibold">Busiest projects</h2>
             {(
               [
-                ["dashboard", "21 designs changed, 4 people"],
-                ["website", "14 designs changed, 3 people"],
-                ["spawnkit", "9 designs changed, 2 people"]
+                ["dashboard", "21 changes, 4 people"],
+                ["website", "14 changes, 3 people"],
+                ["spawnkit", "9 changes, 2 people"]
               ] as const
             ).map(([id, detail]) => {
               const shown = portalProject(id)
@@ -212,12 +205,12 @@ export function ActivityPage() {
             })}
           </section>
           <section className="flex flex-col gap-2.5">
-            <h2 className="text-sm font-semibold">Designs changed, by team</h2>
+            <h2 className="text-sm font-semibold">Changes to designs, by team</h2>
             {(
               [
-                [teams.apps.org, 22],
-                [teams.web.org, 16],
-                [teams.system.org, 8]
+                [teams.apps.org, 32],
+                [teams.web.org, 17],
+                [teams.system.org, 5]
               ] as const
             ).map(([org, count]) => (
               <div key={org.id} className="flex items-center gap-2.5 text-sm">

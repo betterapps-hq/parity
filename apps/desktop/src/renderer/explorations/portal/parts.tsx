@@ -32,7 +32,17 @@ import { Avatar, ParityMark } from "../parts.tsx"
 import { OrgBadge, OrgSwitcher } from "../start-page-parts.tsx"
 import { CanvasArt } from "../start/page.tsx"
 import { DesignRender } from "../start/renders.tsx"
-import { designOf, type Handoff, handoff, kestrel, needsYou, portalProject, teams, type Whereabouts } from "./data.ts"
+import {
+  designOf,
+  type Handoff,
+  handoff,
+  kestrel,
+  needsYou,
+  portalProject,
+  readyToBuild,
+  teams,
+  type Whereabouts
+} from "./data.ts"
 
 /** The browser around the portal: one tab, the address, and the page. */
 export function PortalWindow({ path, children }: { path: string; children: ReactNode }) {
@@ -114,8 +124,6 @@ export type PortalPlace =
   | "web"
   | "settings"
 
-const readyToBuild = Object.values(handoff).filter((status) => status === "Ready to build").length
-
 /** The places down the side: you, the org's projects, your teams, the org's settings, and you. */
 export function PortalNav({ active }: { active: PortalPlace }) {
   return (
@@ -196,16 +204,16 @@ export function PortalHeader({ title, children }: { title: ReactNode; children?:
 /** Filters as pills, the first one picked. */
 export function Pills({ options, picked = 0 }: { options: string[]; picked?: number }) {
   return (
-    <div className="flex items-center gap-1 text-sm">
+    <span className="flex w-fit items-center gap-0.5 rounded-lg bg-muted/50 p-0.5">
       {options.map((option, index) => (
         <span
           key={option}
-          className={`rounded-full px-3 py-1 ${index === picked ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted"}`}
+          className={`rounded-md px-2.5 py-1 text-xs whitespace-nowrap ${index === picked ? "bg-background font-medium text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
         >
           {option}
         </span>
       ))}
-    </div>
+    </span>
   )
 }
 
@@ -286,9 +294,11 @@ export function TeammateCard({ where }: { where: Whereabouts }) {
 
 const handoffColors: Record<Handoff, string> = {
   "In review": "oklch(0.8 0.15 80)",
-  "Ready to build": "oklch(0.72 0.16 275)",
-  "Matches main": "oklch(0.75 0.17 162)",
-  "Differs from main": "oklch(0.7 0.19 30)"
+  "Ready to build": "oklch(0.74 0.13 230)",
+  // Violet, the color every screen marks a change with.
+  "Changed since approval": "oklch(0.72 0.16 290)",
+  Built: "oklch(0.75 0.17 162)",
+  "Code differs": "oklch(0.7 0.19 30)"
 }
 
 /** Where a board stands between design and code, as a small colored label. */
@@ -331,9 +341,10 @@ export function DesignTile({
       >
         <DesignRender kind={picked.kind} look={shown.look} mobile={mobile} />
       </div>
-      <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+      {/* A narrow tile puts its status under its name rather than cutting the name short. */}
+      <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-muted-foreground">
         {changed && <span className="size-1.5 rounded-full bg-[oklch(0.7_0.16_275)]" />}
-        <span className="min-w-0 flex-1 truncate">{mobile ? `${picked.name}, phone` : picked.name}</span>
+        <span className="mr-auto whitespace-nowrap">{mobile ? `${picked.name}, phone` : picked.name}</span>
         {status && !mobile && <HandoffPill status={status} />}
       </span>
     </div>
