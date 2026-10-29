@@ -38,6 +38,10 @@ jobs:
         fi
       cache-path: fixtures/*/node_modules
       cache-key-files: fixtures/*/*lock*
+      # Then the CLI's packed tarball, installed in an empty folder, has to run on each system (PAR-13).
+      command: |
+        pnpm verify
+        pnpm --filter @parity-app/cli try-packed
       # A run that installs the fixture projects and caches their 2 GB can outlast the default 30 minutes on Windows.
       timeout-minutes: 45
       # Vite Task's cache isn't kept between runs: pnpm verify runs vp check and vp test directly, not through vp run.
