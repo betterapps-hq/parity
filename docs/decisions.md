@@ -1237,6 +1237,24 @@ the Repository, CI and releases stream in Linear.
   beside the unsigned installers. My call: not the whole app as a web app, since the project service needs Node for
   files, each project's Vite and the agent, and Storybook already runs the real UI against a stand-in service. The work
   is PAR-111 and PAR-113.
+- **Storybook previews are a shared template, `preview-storybook`,** because you deploy them to Cloudflare often and
+  from many repositories (2026-10-29). My call: each pull request's Storybook is a Worker preview named for it, as the
+  HOA app's previews are, on one static-assets Worker per repository, deleted when the pull request closes.
+- **Cloud services come from Terraform, and the pipelines expect what it makes,** as you said on 2026-10-29. My calls:
+  - Each repository that needs one has a Terraform project in `infra/`, with its state in R2 and Terraform and the
+    Cloudflare provider at Copacker's versions.
+  - Shared modules live in `Fencing-Club/pipelines/terraform/`.
+  - Terraform also writes the GitHub variables and secrets the templates read, so a template only deploys, and skips
+    with a notice until they exist.
+- **`Fencing-Club/pipelines` started with the setup action and ci-verify (PAR-110).** My calls:
+  - The setup action checks out without keeping credentials, and on Windows turns off `core.autocrlf` first, since the
+    runners' CRLF made Vite+'s formatter fail every file.
+  - It picks Vite+ when the workspace names `vite-plus`, and plain pnpm otherwise.
+  - Templates name the repository's own actions at an exact release tag, never a moving `v1`, so a caller pinned to a
+    release's commit gets that release's actions too.
+  - A caller's extra steps before verifying, such as Parity's fixture installs, go in ci-verify's `prepare` input, with
+    their own cache.
+  - It's MIT licensed, as Parity is.
 - **Pipelines are shared across Parity, Buildkit, Better Apps and Copacker,** from one repository of templates, as you
   asked on 2026-10-29. Each repository has thin top-level pipelines, one per stage (CI, previews, the release PR, and CD
   split by what's delivered: npm packages, the desktop app, web apps), calling reusable workflows and composite actions
