@@ -1,18 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 1024 1024" fill="none">
   <title>Parity</title>
-  <!-- Drawn for 16 to 32 pixels, where selection handles would blur: the same equals, the design lighter than the code. -->
+  <!-- Drawn for 16 to 32 pixels: heavier brackets, kept apart so they still read as two, and no glow. -->
   <defs>
-    <linearGradient id="tile" x1="512" y1="0" x2="512" y2="1024" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#2C2858"/>
-      <stop offset="1" stop-color="#0D0B22"/>
-    </linearGradient>
-    <linearGradient id="built" x1="192" y1="0" x2="832" y2="0" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#54D8F4"/>
-      <stop offset="0.5" stop-color="#7A7EFF"/>
-      <stop offset="1" stop-color="#D85CE1"/>
+    <linearGradient id="tile" x1="96" y1="48" x2="928" y2="976" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8A74FF"/>
+      <stop offset="0.5" stop-color="#5432E6"/>
+      <stop offset="1" stop-color="#2C129E"/>
     </linearGradient>
   </defs>
   <rect width="1024" height="1024" rx="232" fill="url(#tile)"/>
-  <rect x="192" y="272" width="640" height="184" rx="60" fill="#F5F4FF" fill-opacity="0.66"/>
-  <rect x="192" y="568" width="640" height="184" rx="60" fill="url(#built)"/>
+  <path d="M432 306L226 512L432 718M592 306L798 512L592 718" stroke="#FFFFFF" stroke-width="112" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M512 448L576 512L512 576L448 512Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="56" stroke-linejoin="round"/>
 </svg>

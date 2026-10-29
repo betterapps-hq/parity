@@ -6,6 +6,7 @@
 import { type ChildProcess, spawn } from "node:child_process"
 import {
   copyFileSync,
+  cpSync,
   existsSync,
   linkSync,
   mkdirSync,
@@ -77,6 +78,9 @@ const shared: BuildOptions = {
   outdir: outDir,
   logLevel: "warning"
 }
+
+// The app's icons go beside the bundles, where every copy of the app finds them.
+cpSync(join(appDir, "resources"), join(outDir, "resources"), { recursive: true })
 
 const builds: BuildContext[] = [
   await context({
