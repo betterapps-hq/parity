@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
+import type { RendererAdapter } from "@parity/core"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { viteBuilder } from "./index.ts"
 
@@ -82,5 +83,32 @@ describe("viteBuilder.detect", () => {
   it("reports a config that fails to load", async () => {
     await fixture({ "vite.config.mjs": 'throw new Error("broken config")\n' })
     await expect(viteBuilder.detect(root)).rejects.toThrow(/couldn't load the project's config: .*broken config/)
+  })
+})
+
+describe("viteBuilder.start", () => {
+  it("gives each server its own port on 127.0.0.1, so a second one beside it serves its own guest", async () => {
+    await fixture({ "guest.js": "export function createGuest() {}\n" })
+    const options = {
+      root,
+      config: { styles: [], components: {}, documents: [], libraries: [] },
+      renderer: { runtimePackages: [], runtimeImports: [] } as unknown as RendererAdapter,
+      rendererGuestPath: join(root, "guest.js"),
+      allowedOrigins: []
+    }
+    const first = await viteBuilder.start(options)
+    const second = await viteBuilder.start(options)
+    try {
+      const urls = [new URL(first.guestUrl), new URL(second.guestUrl)]
+      expect(urls.map((url) => url.hostname)).toEqual(["127.0.0.1", "127.0.0.1"])
+      expect(urls[0].port).not.toBe(urls[1].port)
+      for (const url of urls) {
+        const response = await fetch(url)
+        expect(response.status).toBe(200)
+        expect(await response.text()).toContain("createGuest")
+      }
+    } finally {
+      await Promise.all([first.close(), second.close()])
+    }
   })
 })

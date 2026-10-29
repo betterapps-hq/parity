@@ -1,4 +1,5 @@
 import { readdir, readFile, realpath, stat } from "node:fs/promises"
+import { type AddressInfo, createServer as createNetServer } from "node:net"
 import { dirname, join, relative, resolve } from "node:path"
 import { pathToFileURL } from "node:url"
 import {
@@ -20,6 +21,7 @@ import type * as Vite from "vite"
 const configPattern = /^vite\.config\.[cm]?[jt]s$/
 const guestId = "virtual:canvas/guest"
 const rendererId = "virtual:canvas/renderer"
+const loopback = "127.0.0.1"
 
 /** Serves a project's components with the project's own Vite install and config. */
 export const viteBuilder: BuilderAdapter = {
@@ -29,6 +31,7 @@ export const viteBuilder: BuilderAdapter = {
   async start(options) {
     const vite = await loadProjectVite(options.root)
     const configFile = await scriptedConfig(options.root)
+    const port = await freePort()
     const server = await vite.createServer({
       root: options.root,
       ...(configFile ? { configFile } : {}),
@@ -37,8 +40,11 @@ export const viteBuilder: BuilderAdapter = {
       cacheDir: "node_modules/.vite-parity",
       clearScreen: false,
       server: {
-        port: 0,
-        strictPort: false,
+        // Vite reads port 0 as unset and starts at 5173, so two Parity instances both took it, one on IPv4 and one on
+        // IPv6, and `localhost` reached either. A port the system gave out, on 127.0.0.1 only, is this server's alone.
+        host: loopback,
+        port,
+        strictPort: true,
         // The guest never loads index.html, so there is no HMR client. This also turns off framework refresh
         // transforms (React Fast Refresh) that would otherwise expect that page's preamble.
         hmr: false,
@@ -74,6 +80,18 @@ export const viteBuilder: BuilderAdapter = {
       close: () => server.close()
     }
   }
+}
+
+/** A port nothing on 127.0.0.1 is using: the one the system gives a listener asking for any, closed again. */
+export function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const listener = createNetServer()
+    listener.once("error", reject)
+    listener.listen(0, loopback, () => {
+      const { port } = listener.address() as AddressInfo
+      listener.close(() => resolve(port))
+    })
+  })
 }
 
 function guestPlugin(options: BuilderStartOptions, rendererGuestPath: string): Vite.Plugin {
