@@ -1,0 +1,2 @@
+# Keep LF line endings on checkout whatever core.autocrlf says, so oxfmt's checks pass after git rewrites files.
+* text=auto eol=lf

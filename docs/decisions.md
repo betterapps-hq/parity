@@ -240,23 +240,22 @@ recommended answer to each of its questions.
 - **Parts are placed inside their parents,** from the library's own examples (below), then three signals: namespace
   exports (`Accordion.Item`), the "must be used within" error a part throws alone, and shared name prefixes
   (`AccordionItem` under `Accordion`), or a plural (`Tab` under `Tabs`). Each part records which signal placed it,
-  `example`, or `edit` for a hand edit. A part's missing
-  context is the nearest one, so a parent an error names goes innermost, with its own parents outside. Inserting a part
-  from the panel wraps it in the parents that aren't around the drop target already, and a family's root comes with its
-  sample parts in it.
+  `example`, or `edit` for a hand edit. A part's missing context is the nearest one, so a parent an error names goes
+  innermost, with its own parents outside. Inserting a part from the panel wraps it in the parents that aren't around
+  the drop target already, and a family's root comes with its sample parts in it.
 - **A library's own examples are the strongest signal after a hand edit (LIB-34),** so a library that releases often
   needs few edits. `parity lib` fetches the library's repository at the commit the installed version was published from,
   found in this order: the revision a kit records upstream (`upstream.json`), npm's `gitHead`, a version tag, then the
   last commit before npm's publish date. It checks out only the stories, demos and examples (a shallow, blob-filtered
   fetch and a sparse checkout, about 7 seconds for shadcn), cached under `~/.parity/cache/examples` per commit and
   folders. The TypeScript compiler reads their JSX: each component's nearest library parent, counted, and its fullest
-  use as a sample. A parent counts when at least half the uses are inside one and half of those agree; a part that
-  draws alone takes only its own family's (examples put everything in forms and cards), and the chain climbs while
-  the part still fails, then through its own family. JSX passed in a prop isn't placed in that element. Every chain
-  and sample is still tried: one that doesn't render is grown from the errors, the errors alone are tried if that
-  fails, and other families' parents a part renders without are dropped. `--no-examples` skips it, and the registry's
-  presets name each library's repository and folders. Buildkit's hand edits went from 30 to 13, of which 8 only mark
-  Toast parts non-visual.
+  use as a sample. A parent counts when at least half the uses are inside one and half of those agree; a part that draws
+  alone takes only its own family's (examples put everything in forms and cards), and the chain climbs while the part
+  still fails, then through its own family. JSX passed in a prop isn't placed in that element. Every chain and sample is
+  still tried: one that doesn't render is grown from the errors, the errors alone are tried if that fails, and other
+  families' parents a part renders without are dropped. `--no-examples` skips it, and the registry's presets name each
+  library's repository and folders. Buildkit's hand edits went from 30 to 13, of which 8 only mark Toast parts
+  non-visual.
 - **`parity lib` tries parts with React's server renderer,** from the project's own React, rather than in the app: it
   needs no window, runs in seconds, and still throws the context errors that name a part's parents. The library's
   decorator providers wrap each try, with their imports and calls made, a mode's default value, and no frame, so
@@ -389,6 +388,12 @@ recommended answer to each of its questions.
 
 ## Rendering and agents
 
+- **At 100% a frame is the size Chrome draws the same page,** checked element by element on all 36 frames of the
+  example's screens, within 0.01px. A frame's root starts from what a browser gives a page's root (`all: initial` on
+  `:host`, in a layer below the project's own CSS), not from the canvas around it. Before this, text without a size of
+  its own took the canvas's 12px and 18px line height instead of 16px. The frames beside the first column are drawn
+  smaller on purpose, and so aren't actual size at 100%. `frame.test.ts` lays a frame out in Chrome and checks its root
+  against a fresh page's, and the render sweep (VAL-1) is to compare whole frames with Chrome.
 - **Agents render offscreen,** in a hidden window, so their work never moves your camera. Export uses the same renderer.
 - **Prop inference uses the TypeScript 6 compiler in a worker thread,** from cva variants, destructured defaults and the
   component's own props type.
@@ -430,6 +435,27 @@ recommended answer to each of its questions.
 - **A dev runner left behind stops itself.** Stopping `pnpm dev` on Windows could leave `scripts/dev.ts` running, with
   an Electron that kept the debug port and old code. The runner now quits, closing Electron, once whatever started it is
   gone, and Electron quits once the runner is gone.
+- **The repository has its first commit,** `3dbc7fb`, everything as it stood, which you asked for on 2026-10-28 before
+  the package work starts. Sessions still commit only when you ask.
+
+## Packages
+
+How Parity's code is split, so the parts that change most are easy to find, replace and test. You asked for this on
+2026-10-28, expecting design-to-code and code-to-design to need a lot of iteration. The proposal is
+[proposals/packages.md](proposals/packages.md). These are my calls; change any of them.
+
+- **Logic lives in packages that take data and return data,** with no React, tldraw, Electron or `node:fs` in their
+  dependencies, and tests that run without Electron. The app's main and service processes do the files, IPC and
+  processes, and the renderer keeps the views. A lint rule per logic package keeps it that way (PKG-1).
+- **Design and code sync gets one package, `@parity/code`,** which also takes over the three component readers
+  (`project/components.ts`, `libgen/components.ts` and `@parity/props`), so one TypeScript program per project serves
+  them all. Generating component files, reading them back and the drift review are built there, with golden-file tests.
+- **Every write into a project goes through changesets** (PKG-2): edits built as data, shown as a diff, applied and
+  undone together. They come before the components work, so CMP-17 waits on them. Writing back from the lenses keeps its
+  place at the end of the lens order.
+- **Editor behaviour moves into `@parity/editor`,** one file at a time with tests: arranging and the clipboard first.
+- **Lenses and adapters never go in core.** Lens models are schemas in `@parity/models`, each lens is a package, and so
+  is each adapter, such as Drizzle or TanStack Router.
 
 ## What Parity supports
 
