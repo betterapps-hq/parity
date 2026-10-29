@@ -46,7 +46,7 @@ reviews:
         fail or that only restates the implementation.
     - path: ".github/workflows/**"
       instructions: >-
-        Workflows call Fencing-Club/pipelines' templates at a release tag. Flag a third-party action not pinned to a
+        Workflows call betterapps-hq/pipelines' templates at a release tag. Flag a third-party action not pinned to a
         commit, and permissions wider than the job needs.
   pre_merge_checks:
     # CI checks the title's form with scripts/commits.ts, since squash merging makes it the commit's subject.

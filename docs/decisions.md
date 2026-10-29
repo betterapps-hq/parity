@@ -1256,8 +1256,11 @@ to PAR-209 build it.
 How Parity goes public and ships. The proposal is [proposals/repository.md](proposals/repository.md), and the work is
 the Repository, CI and releases stream in Linear.
 
-- **Parity will be a public repository under the Fencing Club organization on GitHub,** as you decided on 2026-10-29.
+- **Parity will be a public repository under the Better Apps organization on GitHub,** as you decided on 2026-10-29.
   Actions runners are free for public repositories, so CI tests on Windows, macOS and Linux.
+- **The organization was Fencing Club, renamed Better Apps on 2026-10-29 at your request.** Its login is
+  `betterapps-hq`, because `better-apps` and `BetterApps` belong to other people, and its picture is Parity's icon.
+  GitHub redirects `Fencing-Club` only until someone claims that name, so nothing here should still use it.
 - **Parity is MIT-licensed** (your call, 2026-10-29, Q6), like the agency monorepo. PAR-397 adds the LICENSE and names
   it in every package.json.
 - **Interface text isn't checked against Fluent's guidance.** You said on 2026-10-29 that this was a Microsoft practice
@@ -1348,7 +1351,7 @@ the Repository, CI and releases stream in Linear.
 - **Cloud services come from Terraform, and the pipelines expect what it makes,** as you said on 2026-10-29. My calls:
   - Each repository that needs one has a Terraform project in `infra/`, with its state in R2 and Terraform and the
     Cloudflare provider at Copacker's versions.
-  - Shared modules live in `Fencing-Club/pipelines/terraform/`.
+  - Shared modules live in `betterapps-hq/pipelines/terraform/`.
   - Terraform also writes the GitHub variables and secrets the templates read, so a template only deploys, and skips
     with a notice until they exist.
 - **The `cloudflare-storybook` module (pipelines v1.1.0) has three limits Cloudflare and GitHub set.** My calls on each:
@@ -1367,7 +1370,7 @@ the Repository, CI and releases stream in Linear.
   - Vite Task's cache isn't kept yet: `pnpm verify` doesn't go through `vp run`, and ci-verify's extra cache can't
     restore from an older key. CI's `beachball check` and `scripts/changes.ts check --committed` (PAR-4) compare with
     `origin/main`, so they need `fetch-depth: 0`.
-- **`Fencing-Club/pipelines` started with the setup action and ci-verify (PAR-110).** My calls:
+- **`betterapps-hq/pipelines` started with the setup action and ci-verify (PAR-110).** My calls:
   - The setup action checks out without keeping credentials, and on Windows turns off `core.autocrlf` first, since the
     runners' CRLF made Vite+'s formatter fail every file.
   - It picks Vite+ when the workspace names `vite-plus`, and plain pnpm otherwise.
@@ -1379,10 +1382,10 @@ the Repository, CI and releases stream in Linear.
 - **Pipelines are shared across Parity, Buildkit, Better Apps and Copacker,** from one repository of templates, as you
   asked on 2026-10-29. Each repository has thin top-level pipelines, one per stage (CI, previews, the release PR, and CD
   split by what's delivered: npm packages, the desktop app, web apps), calling reusable workflows and composite actions
-  from it. My calls: the repository is public, because callers span `AndrewCraswell` and `Fencing-Club`; callers pin a
+  from it. My calls: the repository is public, because callers span `AndrewCraswell` and `betterapps-hq`; callers pin a
   full commit SHA that Dependabot moves; and CI is shared as far as `pnpm verify`, with each repository's extra jobs
   beside the call.
-- **The shared pipelines live in `Fencing-Club/pipelines`, with a folder per CI system** (your call, 2026-10-29, Q8):
+- **The shared pipelines live in `betterapps-hq/pipelines`, with a folder per CI system** (your call, 2026-10-29, Q8):
   `github/` holds the composite actions and their docs. Reusable workflows can't go there, because GitHub only calls
   them from a repository's own `.github/workflows/`, so they live there, named by stage.
 - **Conventions from the agency monorepo are in [conventions.md](conventions.md),** as you asked on 2026-10-29. My call

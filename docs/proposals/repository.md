@@ -5,10 +5,9 @@ Status: draft, 2026-10-29. The work is the Repository, CI and releases stream in
 
 ## In one line
 
-Parity moves to Vite+ and goes public under the Fencing Club organization. Beachball change files version the desktop
-app and the npm packages. Pipelines shared with Buildkit, Better Apps and Copacker run CI, previews, and delivery of the
-CLI to npm and of unsigned installers to GitHub Releases, as betas first and to everyone when promoted. Signing comes
-later.
+Parity moves to Vite+ and goes public under the Better Apps organization. Beachball change files version the desktop app
+and the npm packages. Pipelines shared with Buildkit, Better Apps and Copacker run CI, previews, and delivery of the CLI
+to npm and of unsigned installers to GitHub Releases, as betas first and to everyone when promoted. Signing comes later.
 
 ## Where things stand
 
@@ -68,7 +67,7 @@ with a type checker that runs on TypeScript 7. Its `vite:monorepo` template has 
   `node scripts/commits.ts title`.
 - **CodeRabbit reviews every pull request** from `.coderabbit.yaml`: assertively, against AGENTS.md and conventions.md,
   with notes on change files, packages, tests and workflows. Lint, format, types, tests and change files are CI's, so
-  its own linters are off. It needs the CodeRabbit app installed on Fencing-Club.
+  its own linters are off. It needs the CodeRabbit app installed on betterapps-hq.
 - **Force pushes to `main`, deleting it and bypassing the ruleset aren't allowed,** and GitHub's secret scanning and
   push protection stay on.
 
@@ -200,8 +199,8 @@ from discrete templates, with a pipeline per stage rather than one that does eve
 | `cd-desktop.yml`      | the desktop app's version changing, then a promotion | `cd-desktop-build` and `cd-desktop-release` for the beta, `cd-desktop-promote` for everyone   |
 | `cd-web.yml`          | `main`, then a promotion to production               | `cd-web-deploy` for staging, `cd-web-promote` for production, and `publish-storybook` to each |
 
-**`Fencing-Club/pipelines` holds the templates,** with a folder per CI system, as you said on 2026-10-29: `github/` now,
-and room for others such as Azure DevOps, which PAR-239's visual tests also target.
+**`betterapps-hq/pipelines` holds the templates,** with a folder per CI system, as you said on 2026-10-29: `github/`
+now, and room for others such as Azure DevOps, which PAR-239's visual tests also target.
 
 - **Composite actions** for steps several templates share, in `github/actions/<name>/action.yml`: `setup` (checkout,
   Node from `.nvmrc`, Vite+ or pnpm, a frozen install and caches), `publishable-packages` and `changed-versions`. Their
@@ -231,7 +230,7 @@ pipeline itself:
 
 - **Each repository that needs a cloud service has a Terraform project in `infra/`,** with its state in R2 and Terraform
   and the Cloudflare provider at Copacker's versions.
-- **`Fencing-Club/pipelines` holds the modules,** in `terraform/`, beside the templates that need them. The first,
+- **`betterapps-hq/pipelines` holds the modules,** in `terraform/`, beside the templates that need them. The first,
   `cloudflare-storybook`, makes a static-assets Worker for each environment a repository publishes Storybook to, with a
   custom domain where one is given, an API token that can deploy Workers, and each GitHub environment's variables and
   secret that `publish-storybook` reads.
@@ -240,7 +239,7 @@ pipeline itself:
 
 **Rules:**
 
-- **It's public.** Callers span `AndrewCraswell/*` and `Fencing-Club/*`, and a private repository's workflows can only
+- **It's public.** Callers span `AndrewCraswell/*` and `betterapps-hq/*`, and a private repository's workflows can only
   be called from its own owner.
 - **Callers pin a full commit SHA,** with the version in a comment, and Dependabot moves the pins. Buildkit already
   calls its merge workflow this way, so a pull request can never run a changed copy.
