@@ -512,7 +512,17 @@ recommended answer to each of its questions.
   else its viewport's screen height, else the height of the device nearest its width (844 for 390, 800 for 1280).
 - **Viewport units measure the frame's window** (CAN-23): `vw`, `vh`, their `s`, `l` and `d` forms, `vi`, `vb`, `vmin`
   and `vmax` in the project's stylesheets become `calc()`s of two custom properties each frame sets. A frame has no
-  browser bars, so `svh`, `lvh` and `dvh` are all its height. A component's inline styles aren't rewritten yet (CAN-33).
+  browser bars, so `svh`, `lvh` and `dvh` are all its height.
+- **So do the viewport units the project's code writes while it runs** (CAN-33).
+  - **Inline styles, and text in a frame's `<style>` elements:** each frame's MutationObserver rewrites inline styles,
+    however they're set, and text written into its `<style>` elements, as CSS-in-JS writes in development. This happens
+    before the frame is next drawn. Code that measures straight after, as a layout effect can, still sees Parity's
+    window at that moment. Chrome doesn't let JavaScript catch inline style properties as they're set. Doing it anyway
+    would take a proxy on every element's `style`, which would slow every style Parity sets.
+  - **Rules added to a stylesheet:** `insertRule`, `replace` and `replaceSync`, as CSS-in-JS uses in production, are
+    rewritten as rules are added, in any stylesheet. Outside a frame the custom properties aren't set, so the units
+    still measure Parity's window there.
+  - Only declarations are rewritten, so a selector such as `.h-[100vh]` still matches. Rewriting twice changes nothing.
 - **A frame's body has a browser's 8px margin,** in the lowest layer, so a reset such as Tailwind's preflight still
   removes it (CAN-25). The size container that the project's rewritten media queries ask is the frame's root rather than
   its body. A container lays out on its own, as a page's root does, so on the body it kept a first heading's margin from

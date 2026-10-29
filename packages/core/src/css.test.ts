@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { prepareCanvasCss, rewriteMedia } from "./css.ts"
+import { prepareCanvasCss, rewriteMedia, rewriteSheetViewportUnits, rewriteViewportUnits } from "./css.ts"
 
 const options = { baseUrl: "http://localhost:5555/" }
 
@@ -98,6 +98,25 @@ describe("prepareCanvasCss", () => {
     expect(prepareCanvasCss(css, options).scoped).toBe(
       '.h-\\[100vh\\] { content: "100vh"; background: url(http://localhost:5555/img-100vw.png); ' +
         "height: calc(50 * var(--canvas-vh, 1vh)); }"
+    )
+  })
+
+  it("rewrites a viewport length once, however often it's asked", () => {
+    const once = rewriteViewportUnits("calc(100vh - 2rem) 5vmax")
+    expect(rewriteViewportUnits(once)).toBe(once)
+    const style = "translate(10px, 2px) rotate(1turn)"
+    expect(rewriteViewportUnits(style)).toBe(style)
+  })
+
+  it("rewrites the declarations of rules added at run time, not their selectors", () => {
+    const css = ".h-\\[100vh\\]{height:50vh}@media (min-width: 40rem){.a:hover{min-height:100dvh;width:1vw}}"
+    expect(rewriteSheetViewportUnits(css)).toBe(
+      ".h-\\[100vh\\]{height:calc(50 * var(--canvas-vh, 1vh))}@media (min-width: 40rem){.a:hover{" +
+        "min-height:calc(100 * var(--canvas-vh, 1dvh));width:calc(1 * var(--canvas-vw, 1vw))}}"
+    )
+    expect(rewriteSheetViewportUnits(rewriteSheetViewportUnits(css))).toBe(rewriteSheetViewportUnits(css))
+    expect(rewriteSheetViewportUnits('.a { content: "{"; height: 10vh }')).toBe(
+      '.a { content: "{"; height: calc(10 * var(--canvas-vh, 1vh)) }'
     )
   })
 

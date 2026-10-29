@@ -1,6 +1,8 @@
 import {
   bodyAttribute,
   type FrameViewport,
+  rewriteSheetViewportUnits,
+  rewriteViewportUnits,
   viewportContainerName,
   viewportHeightProperty,
   viewportWidthProperty
@@ -48,7 +50,9 @@ function frameRootSheet(): CSSStyleSheet {
  * `<body>`. Returns the element a guest renders into.
  */
 export function prepareFrame(host: HTMLElement, sheet: CSSStyleSheet, environment: FrameEnvironment): HTMLElement {
+  rewriteAddedRules()
   const shadow = host.shadowRoot ?? host.attachShadow({ mode: "open" })
+  watchFrameStyles(shadow)
   shadow.adoptedStyleSheets = [frameRootSheet(), sheet]
   if (environment.viewport) setFrameViewport(host, environment.viewport)
   const body = document.createElement("div")
@@ -69,6 +73,70 @@ export function prepareFrame(host: HTMLElement, sheet: CSSStyleSheet, environmen
 export function setFrameViewport(host: HTMLElement, viewport: FrameViewport): void {
   host.style.setProperty(viewportWidthProperty, `${viewport.width / 100}px`)
   host.style.setProperty(viewportHeightProperty, `${viewport.height / 100}px`)
+}
+
+let rewritingRules = false
+
+/**
+ * Viewport units in rules the project's code adds to a stylesheet while it runs, as CSS-in-JS does in production,
+ * measure the frame's window too, as its stylesheets' do. They're rewritten as they're added, wherever that is. That
+ * changes nothing outside a frame, where the custom properties aren't set, so the units still measure Parity's window.
+ */
+function rewriteAddedRules(): void {
+  if (rewritingRules) return
+  rewritingRules = true
+  const { insertRule, replace, replaceSync } = CSSStyleSheet.prototype
+  CSSStyleSheet.prototype.insertRule = function (rule, index) {
+    return insertRule.call(this, rewriteSheetViewportUnits(rule), index)
+  }
+  CSSStyleSheet.prototype.replace = function (text) {
+    return replace.call(this, rewriteSheetViewportUnits(text))
+  }
+  CSSStyleSheet.prototype.replaceSync = function (text) {
+    replaceSync.call(this, rewriteSheetViewportUnits(text))
+  }
+}
+
+const watched = new WeakSet<ShadowRoot>()
+
+/**
+ * Viewport units the project's code writes into a frame while it runs measure the frame's window too: in inline styles
+ * (`style={{ minHeight: "100dvh" }}`, however they're set) and in text in its `<style>` elements, as CSS-in-JS writes
+ * in development. They're rewritten as soon as they're written, before the frame is next drawn, though code that
+ * measures straight after, as a layout effect can, still sees them measure Parity's window. A browser keeps inline style
+ * properties to itself, so they can't be caught as they're set without slowing every style Parity sets.
+ */
+function watchFrameStyles(shadow: ShadowRoot): void {
+  if (watched.has(shadow)) return
+  watched.add(shadow)
+  new MutationObserver((records) => {
+    for (const record of records) {
+      if (record.type === "attributes") rewriteStyleAttribute(record.target as Element)
+      else if (record.type === "characterData") rewriteStyleText(record.target)
+      else for (const node of record.addedNodes) rewriteAdded(node)
+    }
+  }).observe(shadow, { childList: true, characterData: true, attributeFilter: ["style"], subtree: true })
+}
+
+function rewriteAdded(node: Node): void {
+  if (!(node instanceof Element)) return rewriteStyleText(node)
+  for (const element of [node, ...node.querySelectorAll("[style], style")]) {
+    if (element.localName !== "style") rewriteStyleAttribute(element)
+    else for (const text of element.childNodes) rewriteStyleText(text)
+  }
+}
+
+function rewriteStyleAttribute(element: Element): void {
+  const style = element.getAttribute("style")
+  if (style === null) return
+  const rewritten = rewriteViewportUnits(style)
+  if (rewritten !== style) element.setAttribute("style", rewritten)
+}
+
+function rewriteStyleText(node: Node): void {
+  if (!(node instanceof Text) || node.parentElement?.localName !== "style") return
+  const rewritten = rewriteSheetViewportUnits(node.data)
+  if (rewritten !== node.data) node.data = rewritten
 }
 
 export function frameBody(host: Element): HTMLElement | undefined {

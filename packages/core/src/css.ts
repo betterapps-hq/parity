@@ -191,15 +191,21 @@ function rewriteSelector(selector: string): string {
 
 /** A number with a viewport unit, not inside a word (`img-100vw`) or another number. */
 const viewportLength = /(^|[^\w.-])(-?(?:\d+\.?\d*|\.\d+)(?:e-?\d+)?)([sld]?)(vw|vh|vi|vb|vmin|vmax)(?![\w-])/g
-/** Strings and urls, whose contents aren't lengths. */
-const literal = /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|url\([^)]*\)/g
+/** Text without this has no viewport length in it, as most of what styles are set to doesn't. */
+const maybeViewportLength = /\d[sld]?v/
+/** Strings, urls and lengths already rewritten, whose contents aren't lengths to rewrite. */
+const literal = new RegExp(
+  String.raw`"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|url\([^)]*\)|var\((?:${viewportWidthProperty}|${viewportHeightProperty}),[^)]*\)`,
+  "g"
+)
 
 /**
  * Rewrites viewport lengths in declarations to the frame's viewport, falling back to the real unit where a frame doesn't
  * set the properties: `100svh` becomes `calc(100 * var(--canvas-vh, 1svh))`. Inline and block units are taken as
- * horizontal writing, as almost every page is.
+ * horizontal writing, as almost every page is. Rewriting again changes nothing.
  */
 export function rewriteViewportUnits(text: string): string {
+  if (!maybeViewportLength.test(text)) return text
   let output = ""
   let last = 0
   for (const match of text.matchAll(literal)) {
@@ -207,6 +213,27 @@ export function rewriteViewportUnits(text: string): string {
     last = match.index + match[0].length
   }
   return output + rewriteLengths(text.slice(last))
+}
+
+/** Strings, comments and urls, inside which a brace or semicolon ends nothing, and what ends a selector or declaration. */
+const sheetToken = /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\/\*[\s\S]*?\*\/|url\([^)]*\)|[{};]/g
+
+/**
+ * Rewrites viewport lengths in a stylesheet's declarations, as {@link rewriteViewportUnits} does, and leaves its
+ * selectors and at-rules' preludes alone, so `.h-[100vh]` still matches. For rules added while the project runs, which
+ * aren't parsed as its stylesheets are.
+ */
+export function rewriteSheetViewportUnits(css: string): string {
+  if (!maybeViewportLength.test(css)) return css
+  let output = ""
+  let start = 0
+  for (const { 0: token, index } of css.matchAll(sheetToken)) {
+    if (token !== "{" && token !== "}" && token !== ";") continue
+    const text = css.slice(start, index)
+    output += (token === "{" ? text : rewriteViewportUnits(text)) + token
+    start = index + 1
+  }
+  return output + rewriteViewportUnits(css.slice(start))
 }
 
 function rewriteLengths(text: string): string {

@@ -64,6 +64,7 @@ export function Probe() {
       "data-resizes": String(useResizes()),
       "data-width": String(window.innerWidth),
       "data-clicks": String(clicks),
+      style: { minHeight: "10vh" },
       onClick: () => setClicks((count) => count + 1)
     },
     "Probe"
@@ -236,6 +237,81 @@ describe("a frame's viewport", () => {
   })
 })
 
+describe("styles written while the project runs", () => {
+  it("measure viewport units against the frame, however they're written", async () => {
+    await frameWith("", '<div class="h-[100vh]"></div><div style="height: 20vh"></div>')
+    const heights = await page.evaluate(async () => {
+      const shadow = document.querySelector("#host")!.shadowRoot!
+      const target = shadow.querySelector("[data-canvas-body] > div")!
+      const [selector, markup] = [...target.children] as HTMLElement[]
+      const add = (style: (element: HTMLElement) => void) => {
+        const element = document.createElement("div")
+        style(element)
+        target.append(element)
+        return element
+      }
+      const inline = {
+        property: add((element) => (element.style.height = "50vh")),
+        setProperty: add((element) => element.style.setProperty("height", "25dvh")),
+        attribute: add((element) => element.setAttribute("style", "height: 10vh")),
+        cssText: add((element) => (element.style.cssText = "height: 5vw")),
+        markup: markup!,
+        // As a re-render changes it.
+        changed: add((element) => (element.style.height = "1vh"))
+      }
+      inline.changed.style.height = "45vh"
+      // Rules CSS-in-JS adds: text in a <style>, as in development, and inserted rules, as in production.
+      const text = document.createElement("style")
+      text.textContent = ".text { height: 30vh } .h-\\[100vh\\] { height: 1vh }"
+      shadow.append(text)
+      text.append(document.createTextNode(".appended { height: 15vh }"))
+      const inserted = document.createElement("style")
+      shadow.append(inserted)
+      inserted.sheet!.insertRule(".inserted { height: 40vh }")
+      const constructed = new CSSStyleSheet()
+      constructed.replaceSync(".constructed { height: 35vh }")
+      shadow.adoptedStyleSheets = [...shadow.adoptedStyleSheets, constructed]
+      const rules = Object.fromEntries(
+        ["text", "appended", "inserted", "constructed"].map((name) => [
+          name,
+          add((element) => element.classList.add(name))
+        ])
+      )
+      await new Promise((resolve) => setTimeout(resolve))
+      const height = (element: Element) => Math.round(element.getBoundingClientRect().height * 10) / 10
+      return Object.fromEntries(
+        Object.entries({ ...inline, ...rules, selector: selector! }).map(([name, element]) => [name, height(element)])
+      )
+    })
+    expect(heights).toEqual({
+      property: 422,
+      setProperty: 211,
+      attribute: 84.4,
+      cssText: 19.5,
+      markup: 168.8,
+      changed: 379.8,
+      text: 253.2,
+      appended: 126.6,
+      inserted: 337.6,
+      constructed: 295.4,
+      selector: 8.4
+    })
+  })
+
+  it("leave Parity's own styles measuring Parity's window", async () => {
+    const heights = await page.evaluate(() => {
+      const element = document.createElement("div")
+      element.style.height = "50vh"
+      const other = document.createElement("div")
+      other.setAttribute("style", "height: 10vh")
+      document.body.append(element, other)
+      const height = (element: Element) => element.getBoundingClientRect().height
+      return [height(element), height(other)]
+    })
+    expect(heights).toEqual([350, 70])
+  })
+})
+
 describe("a frame's window", () => {
   type Viewport = { width: number; height: number }
 
@@ -266,14 +342,14 @@ describe("a frame's window", () => {
     await page.waitForTimeout(50)
     return page.evaluate((id) => {
       const button = document.querySelector(`#${id}`)!.shadowRoot!.querySelector("button")!
-      return { ...button.dataset }
+      return { ...button.dataset, height: String(Math.round(button.getBoundingClientRect().height * 10) / 10) }
     }, id)
   }
 
   it("answers each frame's size questions for it", async () => {
     await mount({ phone: { width: 390, height: 844 }, laptop: { width: 1280, height: 800 } })
-    expect(await probe("phone")).toMatchObject({ mobile: "true", wide: "false", width: "390" })
-    expect(await probe("laptop")).toMatchObject({ mobile: "false", wide: "true", width: "1280" })
+    expect(await probe("phone")).toMatchObject({ mobile: "true", wide: "false", width: "390", height: "84.4" })
+    expect(await probe("laptop")).toMatchObject({ mobile: "false", wide: "true", width: "1280", height: "80" })
     expect(errors).toEqual([])
   })
 
@@ -294,9 +370,19 @@ describe("a frame's window", () => {
   it("tells a frame's media queries and resize listeners when its window resizes", async () => {
     await page.evaluate(() => {
       const handles = (window as unknown as { handles: Record<string, { resize(viewport: Viewport): void }> }).handles
-      handles.phone!.resize({ width: 1280, height: 800 })
+      const viewport = { width: 1280, height: 800 }
+      // As ModeView does.
+      // @ts-expect-error The bundle's global.
+      frame.setFrameViewport(document.querySelector("#phone"), viewport)
+      handles.phone!.resize(viewport)
     })
-    expect(await probe("phone")).toMatchObject({ mobile: "false", wide: "true", resizes: "1", width: "1280" })
+    expect(await probe("phone")).toMatchObject({
+      mobile: "false",
+      wide: "true",
+      resizes: "1",
+      width: "1280",
+      height: "80"
+    })
     expect(await probe("laptop")).toMatchObject({ mobile: "false", wide: "true", resizes: "0" })
     expect(errors).toEqual([])
   })
