@@ -158,7 +158,9 @@ async function call(
         const filter = { category: params.category, source: params.source, search: params.search }
         return api.GetTokens(filter as Parameters<ReadApi["GetTokens"]>[0])
       }
-      if (method === "components") return { components: api.Components(), iconLibraries: snapshot.iconLibraries }
+      if (method === "components") {
+        return { components: api.Components(), iconLibraries: snapshot.iconLibraries, leftOut: snapshot.leftOut ?? [] }
+      }
       return api.Props(String(params.component), { all: params.all === true })
     }
     default:

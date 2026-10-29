@@ -80,13 +80,15 @@ still need your call.
   the stats show. Memory adds up each process's working set, which counts memory the processes share once for each of
   them, so it reads higher than Task Manager's private working set.
 - **`pnpm perf` measures the canvas** in its own copy of the app on the example project, in a window that opens at
-  1439×901 (the page is held at that size only if the window can't open at it, so a maximized copy still lays out like a
-  window), reading sizes from the DevTools protocol since evaluated code reads a frame's viewport: frames per second
-  zooming, panning and hovering, where each frame's time goes, selecting and editing a design, memory, and what a hidden
-  tab holds. Results go to `.inspect/perf`, and `--compare` sets a run beside an earlier one. The copy is kept apart
-  from the person's app and other sessions: its own ports, profile, bundle folder (`out/<port>`) and agent file, so
-  agents keep talking to the person's app; and it serves the code as it was when it started, so edits made meanwhile
-  can't reload what's measured. Its window says it's the measuring copy.
+  1439×901 in the middle of the main screen, so every run draws the same area at the same pixel ratio (the page is held
+  at that size only if the window can't open within a few pixels of it, so a maximized copy still lays out like a
+  window). The copy keeps drawing while other windows cover it, and a run made while it was minimized is marked as not
+  counting. Sizes are read from the DevTools protocol, since evaluated code reads a frame's viewport. It measures frames
+  per second zooming, panning and hovering, where each frame's time goes, selecting and editing a design, memory, and
+  what a hidden tab holds. Results go to `.inspect/perf`, and `--compare` sets a run beside an earlier one. The copy is
+  kept apart from the person's app and other sessions: its own ports, profile, bundle folder (`out/<port>`) and agent
+  file, so agents keep talking to the person's app; and it serves the code as it was when it started, so edits made
+  meanwhile can't reload what's measured. Its window says it's the measuring copy.
 - **Zoomed far out, frames show bitmaps.** Once a frame has stayed the same for a second, the offscreen renderer
   captures it at a quarter of its size, one frame at a time so agents' renders still get their turn. Wherever the canvas
   draws frames no larger than that (25% zoom on a 1x screen), each shows its bitmap, and its live frame stays mounted
@@ -264,6 +266,11 @@ recommended answer to each of its questions.
 - **A workspace package is imported by its name and isn't pre-bundled.** My call: the app imports it that way, so the
   canvas gets what the app gets, and Vite compiles it as the app's own code. A package that doesn't build costs only its
   own components, as a project module does.
+- **Why something is or isn't a component is shown where people look for it.** My call: each component's tooltip in the
+  Components panel says what it was recognised as ("made with forwardRef"), and a search that matches exports the type
+  checker left out lists them under Not listed with its reason ("takes 2 arguments, not one props object"). Agents get
+  the same list from `parity components`. Only capitalised exports are listed, as lowercase helpers and types aren't
+  candidates.
 
 ## Libraries, icons and images
 

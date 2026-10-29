@@ -9,6 +9,7 @@ import {
   filesChanged,
   findAppComponents,
   importersOf,
+  leftOutChanges,
   type ParsedComponent,
   readChangedFiles
 } from "./listing.ts"
@@ -201,6 +202,24 @@ describe("checkedChanges", () => {
     }
     const changes = checkedChanges(sources, [], new Set(["src/components/ui/tabs.tsx"]))
     expect(changes.removed).toEqual(["Tabs"])
+  })
+})
+
+describe("leftOutChanges", () => {
+  it("replaces what the checker left out of the files it read again, and keeps the rest", () => {
+    const before = [
+      {
+        name: "Theme",
+        path: "src/theme.tsx",
+        reason: "a context, which passes a value down rather than drawing anything"
+      },
+      { name: "Format", path: "src/format.ts", reason: "not a function" }
+    ]
+    const checked = [{ name: "Helper", path: "src/format.ts", reason: "its type is any", undecided: true as const }]
+    expect(leftOutChanges(before, new Set(["src/format.ts"]), checked)).toEqual([
+      { name: "Helper", path: "src/format.ts", reason: "its type is any", undecided: true },
+      before[0]
+    ])
   })
 })
 

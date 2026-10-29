@@ -4,7 +4,7 @@ import { freemem } from "node:os"
 import { relative, resolve } from "node:path"
 import { parentPort } from "node:worker_threads"
 import {
-  type CheckedComponent,
+  type CheckResult,
   componentOptions,
   findComponents,
   inferProps,
@@ -38,16 +38,29 @@ parentPort?.on("message", (request: Request) => {
 /**
  * The components the app's files export, as TypeScript's checker sees them: what each export's type is, not how it's
  * written, so aliases such as `const Select = SelectPrimitive.Root` and components returning only `children` count.
+ * The capitalised exports it leaves out come with why.
  */
-function check(root: string, files: string[]): CheckedComponent[] {
+function check(root: string, files: string[]): CheckResult {
   const entries = files.map((file) => resolve(root, file))
   const report = findComponents({ entries, root, defaultExports: true, program: programFor(root, entries) })
-  return report.components.map((component) => ({
-    name: component.name,
-    path: relative(root, component.entry).replaceAll("\\", "/"),
-    export: component.export,
-    as: component.as
-  }))
+  const pathOf = (entry: string) => relative(root, entry).replaceAll("\\", "/")
+  return {
+    components: report.components.map((component) => ({
+      name: component.name,
+      path: pathOf(component.entry),
+      export: component.export,
+      as: component.as
+    })),
+    leftOut: [
+      ...report.rejected.map((entry) => ({ name: entry.name, path: pathOf(entry.entry ?? ""), reason: entry.reason })),
+      ...report.ambiguous.map((entry) => ({
+        name: entry.name,
+        path: pathOf(entry.entry ?? ""),
+        reason: entry.reason,
+        undecided: true as const
+      }))
+    ].sort((a, b) => a.path.localeCompare(b.path, "en") || a.name.localeCompare(b.name, "en"))
+  }
 }
 
 /** Each component's props, from the project's program, which also gets the app's `files` the checker reads next. */

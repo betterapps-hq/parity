@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { componentRole, groupComponents, pageRoute } from "./grouping.ts"
+import { componentRole, describeEvidence, groupComponents, pageRoute } from "./grouping.ts"
 import type { ComponentSource } from "./project.ts"
 
 const own = (path: string, extra: Partial<ComponentSource> = {}): ComponentSource => ({
@@ -44,6 +44,11 @@ describe("component roles", () => {
     expect(pageRoute("src/app/(portal)/orders/[id]/page.tsx")).toBe("/(portal)/orders/[id]")
     expect(pageRoute("src/pages/orders/index.tsx")).toBe("/orders")
     expect(pageRoute("app/routes/orders.$id.tsx")).toBe("/orders.$id")
+  })
+
+  it("says in words why a component counts as one", () => {
+    expect(describeEvidence("memo")).toBe("made with memo")
+    expect(describeEvidence("exotic")).toMatch(/component object/)
   })
 })
 

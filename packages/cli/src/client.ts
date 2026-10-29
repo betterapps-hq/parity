@@ -233,10 +233,12 @@ export function describeTokens(tokens: TokenInfo[]): string {
 export interface ComponentsResponse {
   components: string[]
   iconLibraries?: string[]
+  /** The app's capitalised exports the type checker left out, with why. */
+  leftOut?: { name: string; path: string; reason: string; undecided?: true }[]
 }
 
-/** The project's own components, then each library's, then the icon libraries. */
-export function describeComponents({ components, iconLibraries = [] }: ComponentsResponse): string {
+/** The project's own components, then each library's, then the icon libraries, then the exports left out and why. */
+export function describeComponents({ components, iconLibraries = [], leftOut = [] }: ComponentsResponse): string {
   const groups = new Map<string, string[]>()
   for (const component of components) {
     const slash = component.indexOf("/")
@@ -248,7 +250,13 @@ export function describeComponents({ components, iconLibraries = [] }: Component
     lines.push(group ? `${group}, as ${group}/Name:` : "The project's own:", `  ${names.join(", ")}`, "")
   }
   if (iconLibraries.length > 0) {
-    lines.push(`Icons: ${iconLibraries.map((library) => `${library}, as ${library}/Name`).join("; ")}`)
+    lines.push(`Icons: ${iconLibraries.map((library) => `${library}, as ${library}/Name`).join("; ")}`, "")
+  }
+  if (leftOut.length > 0) {
+    lines.push("Not components:")
+    for (const entry of leftOut) {
+      lines.push(`  ${entry.name}, in ${entry.path}: ${entry.undecided ? "can't tell, " : ""}${entry.reason}`)
+    }
   }
   return lines.join("\n").trimEnd()
 }

@@ -38,4 +38,17 @@ describe("finding an app's components with the checker", () => {
       ["StatCard", "src/components/widgets/stat-card.tsx"]
     ])
   })
+
+  it("says why it left out each capitalised export, and which file exports it", async () => {
+    await write(
+      "src/format.tsx",
+      "export function Format(value: number, digits: number) { return value.toFixed(digits) }\nexport const Loose: any = () => null"
+    )
+    const report = findComponents({ entries: [`${root}/src/format.tsx`], root, defaultExports: true })
+    const file = (entry?: string) => entry?.slice(root.length + 1)
+    expect(report.rejected.map((entry) => [entry.name, entry.reason, file(entry.entry)])).toEqual([
+      ["Format", "takes 2 arguments, not one props object", "src/format.tsx"]
+    ])
+    expect(report.ambiguous.map((entry) => [entry.name, file(entry.entry)])).toEqual([["Loose", "src/format.tsx"]])
+  })
 })

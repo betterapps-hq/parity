@@ -15,10 +15,12 @@ export {
   appFiles,
   type CheckedComponent,
   checkedChanges,
+  type CheckResult,
   componentIds,
   filesChanged,
   findAppComponents,
   importersOf,
+  leftOutChanges,
   type ParsedComponent,
   readChangedFiles
 } from "./listing.ts"

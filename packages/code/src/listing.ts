@@ -1,6 +1,6 @@
 import { readdir, readFile } from "node:fs/promises"
 import { extname, join, posix, relative } from "node:path"
-import type { ComponentEvidence, ComponentSource, RendererAdapter } from "@parity/core"
+import type { ComponentEvidence, ComponentSource, LeftOutExport, RendererAdapter } from "@parity/core"
 import { type ProjectTsconfig, resolvePathAlias } from "./tsconfig.ts"
 
 /** A component found in the app's source, before it has an id. */
@@ -197,6 +197,23 @@ export interface CheckedComponent {
   path: string
   export: string
   as: ComponentEvidence
+}
+
+/** What the type checker read in some of the app's files: the components, and the exports it left out, with why. */
+export interface CheckResult {
+  components: CheckedComponent[]
+  leftOut: LeftOutExport[]
+}
+
+/** The left-out exports after the checker read `files` again: theirs replaced, the rest kept, in file order. */
+export function leftOutChanges(
+  before: readonly LeftOutExport[],
+  files: ReadonlySet<string>,
+  checked: readonly LeftOutExport[]
+): LeftOutExport[] {
+  return [...before.filter((entry) => !files.has(entry.path)), ...checked].sort(
+    (a, b) => a.path.localeCompare(b.path, "en") || a.name.localeCompare(b.name, "en")
+  )
 }
 
 /**

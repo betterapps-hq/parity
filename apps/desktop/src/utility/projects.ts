@@ -3,6 +3,7 @@ import { readFile, writeFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { basename, dirname, isAbsolute, join, normalize, resolve } from "node:path"
 import { viteBuilder } from "@parity/builder-vite"
+import { leftOutChanges } from "@parity/code"
 import {
   type BuilderAdapter,
   type BuilderDetection,
@@ -149,7 +150,6 @@ async function start(root: string): Promise<ProjectInfo> {
     config.notes.push("components and props as the type checker found them last time, since then nothing has changed")
   }
 
-
   // One broken project file shouldn't hide the others; its error is shown instead.
   const known = new Map<string, string>()
   const documents = await Promise.all(
@@ -197,7 +197,8 @@ async function start(root: string): Promise<ProjectInfo> {
     detection,
     documents,
     mainDocument,
-    modes: { settings: main?.modes ?? defaultModeSettings, custom: !!main?.modes }
+    modes: { settings: main?.modes ?? defaultModeSettings, custom: !!main?.modes },
+    ...(saved?.leftOut ? { leftOut: saved.leftOut } : {})
   }
   const project: OpenProject = {
     info,
@@ -213,7 +214,7 @@ async function start(root: string): Promise<ProjectInfo> {
   if (!saved) {
     void checkTypes(project, config.componentFiles).then(async (ran) => {
       if (!ran || projects.get(root) !== project) return
-      const found = { sources: project.sources, props: await project.components }
+      const found = { sources: project.sources, props: await project.components, leftOut: project.info.leftOut ?? [] }
       await saveDetection(root, config.componentFiles, discovered, fingerprint, found)
     })
   }
@@ -441,14 +442,21 @@ async function checkTypes(project: OpenProject, files: string[]): Promise<boolea
     return false
   }
   if (projects.get(root) !== project) return false
-  const { added, confirmed, removed } = checkedChanges(project.sources, checked)
+  const { added, confirmed, removed } = checkedChanges(project.sources, checked.components)
+  project.info.leftOut = checked.leftOut
   for (const name of removed) delete project.sources[name]
   Object.assign(project.sources, confirmed, added)
   project.info.componentCount = Object.keys(project.sources).length
   console.log(
     `[service]   the type checker added ${Object.keys(added).length} components and left out ${removed.length}`
   )
-  if (Object.keys(added).length === 0 && removed.length === 0) return true
+  if (Object.keys(added).length === 0 && removed.length === 0) {
+    const components = await project.components
+    if (projects.get(root) === project) {
+      notifyComponents({ projectId: id, components, sources: project.sources, leftOut: checked.leftOut })
+    }
+    return true
+  }
   const before = project.components
   project.components = Promise.all([before, inferProps(root, added)]).then(([known, more]) => {
     const all = { ...known, ...more }
@@ -456,7 +464,9 @@ async function checkTypes(project: OpenProject, files: string[]): Promise<boolea
     return all
   })
   const components = await project.components
-  if (projects.get(root) === project) notifyComponents({ projectId: id, components, sources: project.sources })
+  if (projects.get(root) === project) {
+    notifyComponents({ projectId: id, components, sources: project.sources, leftOut: checked.leftOut })
+  }
   return true
 }
 
@@ -481,7 +491,8 @@ async function rescanComponents(project: OpenProject, paths: string[]): Promise<
     project.components = inferProps(root, project.sources)
     const components = await project.components
     if (added > 0 || removed > 0) console.log(`[service]   ${label}: ${added} components added, ${removed} left out`)
-    if (current()) notifyComponents({ projectId: id, components, sources: project.sources })
+    const leftOut = project.info.leftOut ?? []
+    if (current()) notifyComponents({ projectId: id, components, sources: project.sources, leftOut })
   }
   const what = paths.length === 1 ? paths[0] : `${paths.length} files`
   await settle(update.sources, `${what} changed`, update.added.length, update.removed.length)
@@ -498,8 +509,11 @@ async function rescanComponents(project: OpenProject, paths: string[]): Promise<
     return
   }
   if (!current()) return
-  const { added, confirmed, removed } = checkedChanges(project.sources, checked, new Set(toCheck))
-  if (Object.keys(added).length === 0 && removed.length === 0 && Object.keys(confirmed).length === 0) return
+  const { added, confirmed, removed } = checkedChanges(project.sources, checked.components, new Set(toCheck))
+  const before = project.info.leftOut ?? []
+  project.info.leftOut = leftOutChanges(before, new Set(toCheck), checked.leftOut)
+  const unchanged = Object.keys(added).length === 0 && removed.length === 0 && Object.keys(confirmed).length === 0
+  if (unchanged && JSON.stringify(project.info.leftOut) === JSON.stringify(before)) return
   const next = { ...project.sources, ...confirmed, ...added }
   for (const name of removed) delete next[name]
   await settle(next, "the type checker", Object.keys(added).length, removed.length)

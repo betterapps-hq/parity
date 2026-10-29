@@ -25,8 +25,8 @@ const guests = new WeakMap<object, number>()
 let nextGuest = 1
 
 /**
- * A bitmap of a frame as it's drawn now, taken offscreen once the frame has stayed the same for a moment. Nothing
- * while it's being taken, or when the frame didn't render.
+ * A bitmap of a frame as it's drawn now, taken offscreen once the frame has stayed the same for a moment: nothing while
+ * it's being taken, or when the frame didn't render. `key` says what the frame shows, for its skeleton.
  */
 export function useFrameBitmap(
   session: ProjectSession,
@@ -35,7 +35,7 @@ export function useFrameBitmap(
   width: number,
   height: number | undefined,
   scale: number
-): string | undefined {
+): { key: string; bitmap?: string } {
   const previews = useSyncExternalStore(session.tokens.subscribe, session.tokens.previews)
   const treeKey = useMemo(() => JSON.stringify(tree), [tree])
   const { guestUrl, theme } = session.info
@@ -83,7 +83,7 @@ export function useFrameBitmap(
     }
   }, [key, job])
 
-  return shown?.key === key ? shown.src : undefined
+  return { key, ...(shown?.key === key && shown.src ? { bitmap: shown.src } : {}) }
 }
 
 function capture(key: string, job: RenderJob): Promise<string | undefined> {

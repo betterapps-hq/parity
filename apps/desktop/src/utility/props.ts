@@ -2,8 +2,8 @@ import { createHash } from "node:crypto"
 import { readFileSync } from "node:fs"
 import { totalmem } from "node:os"
 import { Worker } from "node:worker_threads"
+import type { CheckResult } from "@parity/code"
 import type { ComponentInfo, ComponentSource } from "@parity/core"
-import type { CheckedComponent } from "@parity/project"
 
 const workerUrl = new URL("./props-worker.mjs", import.meta.url)
 
@@ -33,10 +33,13 @@ export async function inferComponents(
   return result
 }
 
-/** Asks the type checker which of the app's files' exports are components, in the same worker as props. */
-export async function checkComponents(root: string, files: string[]): Promise<CheckedComponent[]> {
+/**
+ * Asks the type checker which of the app's files' exports are components, and why it left out the others, in the same
+ * worker as props.
+ */
+export async function checkComponents(root: string, files: string[]): Promise<CheckResult> {
   const started = Date.now()
-  const result = (await request({ kind: "check", root, files })) as CheckedComponent[]
+  const result = (await request({ kind: "check", root, files })) as CheckResult
   console.log(`[service] the type checker read ${files.length} files in ${Date.now() - started}ms`)
   return result
 }

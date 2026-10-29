@@ -2,7 +2,9 @@ import {
   type ComponentRole,
   type ComponentSource,
   componentRole,
+  describeEvidence,
   groupComponents,
+  type LeftOutExport,
   type LibraryInfo
 } from "@parity/core"
 import { useVirtualizer } from "@tanstack/react-virtual"
@@ -77,7 +79,8 @@ function SearchField({
 
 export interface Family {
   name: string
-  items: { key: string; label: string; item: InsertItem }[]
+  /** `evidence` is why it counts as a component, in words. */
+  items: { key: string; label: string; item: InsertItem; evidence?: string }[]
   /** Its name is a folder or a route, shown over a single component too. */
   heading?: true
 }
@@ -95,9 +98,15 @@ export interface Source {
  * rest of the app, by folder or page route.
  */
 function families(sources: [string, ComponentSource][], by: "file" | "folder" | "route" = "file"): Family[] {
+  const evidence = new Map(sources.map(([key, source]) => [key, source.as && describeEvidence(source.as)]))
   return groupComponents(sources, by).map((group) => ({
     name: group.name,
-    items: group.ids.map((key) => ({ key, label: componentLabel(key), item: { kind: "component", component: key } })),
+    items: group.ids.map((key) => ({
+      key,
+      label: componentLabel(key),
+      item: { kind: "component", component: key },
+      ...(evidence.get(key) ? { evidence: evidence.get(key) } : {})
+    })),
     ...(by === "file" ? {} : { heading: true as const })
   }))
 }
@@ -181,6 +190,7 @@ export function ComponentsPanel() {
         .filter((family) => family.items.length > 0)
     }))
     .filter((source) => source.families.length > 0 || (!needle && source.library))
+  const leftOut = needle ? (info.leftOut ?? []).filter((entry) => entry.name.toLowerCase().includes(needle)) : []
 
   return (
     <>
@@ -200,9 +210,33 @@ export function ComponentsPanel() {
             open={!!needle || (source.id !== "project" && source.id !== "project:pages") || shown.length < 3}
           />
         ))}
-        {shown.length === 0 && <p className="px-4 py-6 text-center text-xs text-muted-foreground">Nothing matches.</p>}
+        {leftOut.length > 0 && <NotListed entries={leftOut} />}
+        {shown.length === 0 && leftOut.length === 0 && (
+          <p className="px-4 py-6 text-center text-xs text-muted-foreground">Nothing matches.</p>
+        )}
       </div>
     </>
+  )
+}
+
+/** The app's exports a search matches that aren't listed as components, with why, so looking for one explains itself. */
+function NotListed({ entries }: { entries: LeftOutExport[] }) {
+  return (
+    <section className="mt-2 border-t pt-2" aria-label="Not listed as components">
+      <div className="flex h-7 items-center px-4 text-xs font-medium text-muted-foreground">Not listed</div>
+      {entries.map((entry) => (
+        <div key={`${entry.path} ${entry.name}`} className="px-8 py-1 text-muted-foreground">
+          <div className="truncate" title={entry.path}>
+            {entry.name}
+          </div>
+          <div className="text-[11px] leading-snug">
+            {entry.undecided
+              ? `Can't tell: ${entry.reason}`
+              : `${entry.reason.charAt(0).toUpperCase()}${entry.reason.slice(1)}`}
+          </div>
+        </div>
+      ))}
+    </section>
   )
 }
 
@@ -240,7 +274,7 @@ function SourceSection({ source, open }: { source: Source; open: boolean }) {
                     type="button"
                     {...dragItem(entry.item)}
                     onClick={() => addAtSelection(session, entry.item)}
-                    title={`${entry.key}. Drag onto a design, or click to add it to the selection.`}
+                    title={`${entry.key}${entry.evidence ? `, ${entry.evidence}` : ""}. Drag onto a design, or click to add it to the selection.`}
                     className="flex h-7 w-full cursor-grab items-center gap-2 rounded-md pr-8 pl-8 text-left hover:bg-accent active:cursor-grabbing"
                   >
                     {entry.item.kind === "instance" ? (

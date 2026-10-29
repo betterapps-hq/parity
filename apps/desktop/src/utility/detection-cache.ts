@@ -2,7 +2,7 @@ import { createHash } from "node:crypto"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join } from "node:path"
-import type { ComponentInfo, ComponentSource } from "@parity/core"
+import type { ComponentInfo, ComponentSource, LeftOutExport } from "@parity/core"
 import { type DiscoveredProject, detectionFingerprint, readTsconfig } from "@parity/project"
 import { checkerVersion } from "./props.ts"
 
@@ -15,6 +15,8 @@ export interface SavedDetection {
   /** The components once the checker had read them. */
   sources: Record<string, ComponentSource>
   props: Record<string, ComponentInfo>
+  /** The exports the checker left out, with why. */
+  leftOut?: LeftOutExport[]
 }
 
 const cacheDir = process.env.PARITY_CACHE_DIR ?? join(homedir(), ".parity", "cache", "detection")

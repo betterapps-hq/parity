@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest"
-import { type AccessibilityFinding, describeAccessibility, describeProblems, describeTokens } from "./client.ts"
+import {
+  type AccessibilityFinding,
+  describeAccessibility,
+  describeComponents,
+  describeProblems,
+  describeTokens
+} from "./client.ts"
 
 const tab = { id: "D:/app", name: "app" }
 
@@ -31,6 +37,31 @@ describe("describeProblems", () => {
   it("says when there's nothing to fix", () => {
     const text = describeProblems({ tab, design: { id: "home", name: "Home" }, frames: 1, warnings: [], problems: [] })
     expect(text).toBe("No problems found in Home (home), 1 frame.")
+  })
+})
+
+describe("describeComponents", () => {
+  it("lists the project's components, then the exports left out and why", () => {
+    const text = describeComponents({
+      components: ["PromoTag", "ui/Button"],
+      leftOut: [
+        { name: "PromoPrice", path: "src/promo.tsx", reason: "returns string only" },
+        { name: "Loose", path: "src/promo.tsx", reason: "its type is any", undecided: true }
+      ]
+    })
+    expect(text).toBe(
+      [
+        "The project's own:",
+        "  PromoTag",
+        "",
+        "ui, as ui/Name:",
+        "  Button",
+        "",
+        "Not components:",
+        "  PromoPrice, in src/promo.tsx: returns string only",
+        "  Loose, in src/promo.tsx: can't tell, its type is any"
+      ].join("\n")
+    )
   })
 })
 

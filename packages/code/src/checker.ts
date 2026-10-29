@@ -30,10 +30,10 @@ export interface FoundComponent {
 
 export interface ComponentReport {
   components: FoundComponent[]
-  /** Exports that may be components, but whose types can't say, with why. Listed, never guessed. */
-  ambiguous: { name: string; reason: string }[]
+  /** Exports that may be components, but whose types can't say, with why; in an app, the file exporting them. */
+  ambiguous: { name: string; reason: string; entry?: string }[]
   /** Capitalised values that aren't components, with why. Types and lowercase helpers aren't listed. */
-  rejected: { name: string; reason: string }[]
+  rejected: { name: string; reason: string; entry?: string }[]
   /** Whether React's types were found. Without them, return types are judged by their names. */
   reactTypes: boolean
 }
@@ -125,8 +125,10 @@ export function findComponents(scan: ComponentScan): ComponentReport {
       // Icon sets give thousands of exports one shared type; judging it once keeps them fast.
       if (!(type.flags & ts.TypeFlags.Any)) verdicts.set(type, verdict)
     }
-    if ("ambiguous" in verdict) return void report.ambiguous.push({ name, reason: verdict.ambiguous })
-    if ("not" in verdict) return void report.rejected.push({ name, reason: verdict.not })
+    // An app's left-out exports say which file they're in, so each file's can be looked up.
+    const where = scan.defaultExports ? { entry: from.entry } : {}
+    if ("ambiguous" in verdict) return void report.ambiguous.push({ name, reason: verdict.ambiguous, ...where })
+    if ("not" in verdict) return void report.rejected.push({ name, reason: verdict.not, ...where })
     const existing = seen.get(symbol)
     // One component exported under several names (Lucide's `Heart`, `HeartIcon` and `LucideHeart`) is listed once. Of
     // an app's files, the one declaring it wins over an index that re-exports it, as the parse lists it there too.

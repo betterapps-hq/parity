@@ -235,9 +235,10 @@ export class Workspace {
 
   /**
    * The project's components once the type checker has read them, or after its files changed. Ones the guest doesn't
-   * have yet, or has from another file, are given to it, and load the first time they're drawn.
+   * have yet, or has from another file, are given to it, and load the first time they're drawn. `leftOut` is what the
+   * checker left out, and why.
    */
-  setSources(id: string, sources: ProjectInfo["sources"]): void {
+  setSources(id: string, sources: ProjectInfo["sources"], leftOut?: ProjectInfo["leftOut"]): void {
     const tab = this.getTab(id)
     if (!tab?.session) return
     const before = tab.session.info.sources
@@ -249,7 +250,12 @@ export class Workspace {
     tab.session.loaded.guest.addComponents?.(changed)
     const added = { ...tab.session.added, ...changed }
     for (const name of Object.keys(added)) if (!(name in sources)) delete added[name]
-    const info = { ...tab.session.info, sources, componentCount: Object.keys(sources).length }
+    const info = {
+      ...tab.session.info,
+      sources,
+      componentCount: Object.keys(sources).length,
+      ...(leftOut ? { leftOut } : {})
+    }
     this.replace(id, { ...tab, session: { ...tab.session, info, added } })
   }
 

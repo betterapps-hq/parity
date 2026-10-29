@@ -1,4 +1,33 @@
+import type { ComponentEvidence } from "./library.ts"
 import type { ComponentSource } from "./project.ts"
+
+/** An export of the app's that isn't listed as a component, and why, so a person or agent looking for it learns why. */
+export interface LeftOutExport {
+  name: string
+  /** Its file, relative to the project root. */
+  path: string
+  reason: string
+  /** Whether its types couldn't say either way, rather than saying it isn't one. */
+  undecided?: true
+}
+
+/** What a component was recognised as, in words: "a class component", "made with memo". */
+export function describeEvidence(as: ComponentEvidence): string {
+  switch (as) {
+    case "function":
+      return "a function returning something React renders"
+    case "forwardRef":
+      return "made with forwardRef"
+    case "memo":
+      return "made with memo"
+    case "lazy":
+      return "made with lazy"
+    case "class":
+      return "a class component"
+    case "exotic":
+      return "a component object, such as a library's primitive under another name"
+  }
+}
 
 /**
  * Where the Components panel lists one of the project's own components: with its UI kit, which loads with the canvas;

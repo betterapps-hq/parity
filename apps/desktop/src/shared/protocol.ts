@@ -4,6 +4,7 @@ import type {
   ComponentInfo,
   ComponentSource,
   DescribedTokens,
+  LeftOutExport,
   LibraryInfo,
   ModeSettings,
   ProjectDetection,
@@ -100,6 +101,8 @@ export interface WindowMethods {
       projectId: string
       components: Record<string, ComponentInfo>
       sources?: Record<string, ComponentSource>
+      /** The exports the type checker left out, with why. */
+      leftOut?: LeftOutExport[]
     }
     result: undefined
   }
@@ -128,6 +131,8 @@ export interface ProjectInfo {
   componentCount: number
   /** Where each component comes from: the project's own files, or a library. */
   sources: Record<string, ComponentSource>
+  /** The app's capitalised exports the type checker left out, with why, once it has read them. */
+  leftOut?: LeftOutExport[]
   /** How the project was discovered. */
   notes: string[]
   /**
@@ -180,6 +185,8 @@ export interface TabSnapshot {
   components: string[]
   /** Components the type checker found after the guest loaded, which other pages' guests have to add themselves. */
   addedComponents?: Record<string, Pick<ComponentSource, "path" | "export">>
+  /** The app's exports the type checker left out, with why. */
+  leftOut?: LeftOutExport[]
   iconLibraries: string[]
   tokens: Token[]
   theme: ThemeVariable[]

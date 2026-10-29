@@ -11,6 +11,7 @@ import {
 } from "@parity/core"
 import { ChevronDown, Crown, Rows3 } from "lucide-react"
 import {
+  type CSSProperties,
   memo,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
@@ -46,6 +47,8 @@ import { ModeView } from "../ModeView.tsx"
 import { useDesignSelection, useInteractions, useRenameRequest } from "../selection.ts"
 import { useProject } from "./context.ts"
 import { useFrameBitmap } from "./frame-bitmaps.ts"
+import { useFrameSkeleton } from "./frame-skeletons.ts"
+import { FrameSkeleton } from "./FrameSkeleton.tsx"
 import { DesignIcon, designColor, kindColors } from "./kinds.tsx"
 import { ModesMenu } from "./ModesMenu.tsx"
 import { activeState, companionScale, containerModes, withShownModes } from "./view.ts"
@@ -475,7 +478,12 @@ const FrameTile = memo(function FrameTile({
       }),
     [container, state, mode.viewport, library]
   )
-  const bitmap = useFrameBitmap(session, tree, mode, size.width, size.height, scale)
+  const tile = useRef<HTMLDivElement>(null)
+  const { key, bitmap } = useFrameBitmap(session, tree, mode, size.width, size.height, scale)
+  // The bitmap shows once it's decoded, so the frame doesn't go blank in between; until then, its skeleton, which then
+  // leaves the page.
+  const [decoded, setDecoded] = useState<string>()
+  const skeleton = useFrameSkeleton(key, tile, size.width, !bitmap)
   const onSelect = () => selection.set({ design: entry.key, mode: mode.id })
   return (
     <figure
@@ -508,9 +516,17 @@ const FrameTile = memo(function FrameTile({
         </figcaption>
       )}
       <div
+        ref={tile}
         className="relative transition-shadow"
-        style={selected ? { boxShadow: `0 0 0 3px ${kindColors.mode}` } : undefined}
-        data-bitmap={bitmap ? "" : undefined}
+        style={
+          {
+            ...(selected ? { boxShadow: `0 0 0 3px ${kindColors.mode}` } : {}),
+            // How tall the frame was measured, for when it skips drawing before the browser has noted its size.
+            ...(skeleton ? { "--frame-height": `${skeleton.height}px` } : {})
+          } as CSSProperties
+        }
+        data-bitmap={bitmap && decoded === bitmap ? "" : undefined}
+        data-skeleton={skeleton ? "" : undefined}
       >
         <ModeView
           loaded={loaded}
@@ -524,7 +540,21 @@ const FrameTile = memo(function FrameTile({
           primary={primary}
           interactions={interactions}
         />
-        {bitmap && <img className="frame-bitmap" src={bitmap} alt="" decoding="async" draggable={false} />}
+        {skeleton && !(bitmap && decoded === bitmap) && <FrameSkeleton skeleton={skeleton} />}
+        {bitmap && (
+          <img
+            className="frame-bitmap"
+            src={bitmap}
+            alt=""
+            draggable={false}
+            onLoad={(event) =>
+              void event.currentTarget
+                .decode()
+                .catch(() => undefined)
+                .then(() => setDecoded(bitmap))
+            }
+          />
+        )}
       </div>
     </figure>
   )

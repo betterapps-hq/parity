@@ -26,9 +26,10 @@ export function serveAgents(): void {
         presence.push(params as WindowMethods["agent.presence"]["params"])
         return undefined
       case "project.componentsChanged": {
-        const { projectId, components, sources } = params as WindowMethods["project.componentsChanged"]["params"]
+        const { projectId, components, sources, leftOut } =
+          params as WindowMethods["project.componentsChanged"]["params"]
         const tab = workspace.getTabs().find((candidate) => candidate.session?.id === projectId)
-        if (sources && tab) workspace.setSources(tab.id, sources)
+        if (sources && tab) workspace.setSources(tab.id, sources, leftOut)
         tab?.session?.components.set(components)
         return undefined
       }
@@ -89,6 +90,7 @@ function snapshot(reference: string | undefined): TabSnapshot {
     // The guest keeps components whose files were deleted since it loaded; they aren't the project's any more.
     components: session.loaded.guest.components.filter((name) => name in session.info.sources),
     ...(session.added ? { addedComponents: session.added } : {}),
+    ...(session.info.leftOut ? { leftOut: session.info.leftOut } : {}),
     iconLibraries: session.info.libraries.filter((library) => library.kind === "icons").map((library) => library.id),
     tokens: session.tokens.get(),
     theme: session.info.theme,

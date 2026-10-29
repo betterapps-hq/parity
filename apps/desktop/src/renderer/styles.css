@@ -171,15 +171,21 @@ textarea,
   contain-intrinsic-size: auto none;
 }
 
+/* A frame with a skeleton was measured, so it keeps that height even if the browser never noted one. */
+[data-skeleton] [data-frame] {
+  contain-intrinsic-height: auto var(--frame-height);
+}
+
 .container-view[data-away] [data-frame] {
   content-visibility: hidden;
 }
 
 /*
- * Zoomed far out, a frame shows its bitmap once it has one (see frame-bitmaps.ts), except on the selected board and
- * while interacting, where the frames are the real thing.
+ * Zoomed far out, a frame shows its bitmap once it has one (see frame-bitmaps.ts), and its skeleton until then once
+ * it's measured (see frame-skeletons.ts), except on the selected board and while interacting, where the frames are the
+ * real thing.
  */
-.frame-bitmap {
+:is(.frame-bitmap, .frame-skeleton) {
   display: none;
   position: absolute;
   inset: 0;
@@ -188,12 +194,13 @@ textarea,
   pointer-events: none;
 }
 
-.canvas-area[data-far]:not([data-tool="interact"]) .container-view:not([data-live]) [data-bitmap] {
-  & [data-frame] {
+.canvas-area[data-far]:not([data-tool="interact"]) .container-view:not([data-live]) {
+  & :is([data-bitmap], [data-skeleton]) [data-frame] {
     content-visibility: hidden;
   }
 
-  & .frame-bitmap {
+  & [data-bitmap] .frame-bitmap,
+  & [data-skeleton]:not([data-bitmap]) .frame-skeleton {
     display: block;
   }
 }
