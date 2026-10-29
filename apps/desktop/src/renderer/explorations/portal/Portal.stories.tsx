@@ -320,15 +320,17 @@ export const Activity: Story = { render: () => <ActivityPage /> }
 export const Handoff: Story = { render: () => <HandoffPage /> }
 
 /**
- * What a notification or "See what changed" opens: the project's canvas in the browser, comparing two versions. The
- * changed boards before and after, numbered where they changed, each change as code (the token, the components, the
- * pull request), the review, and the versions along the bottom.
+ * What a notification or "See what changed" opens: the project's canvas in the browser, comparing two versions, kept
+ * quiet so the changes stand out. The changed boards before and after (or either alone), each change outlined and
+ * numbered, the same numbers down the side with the token and components behind them, and Approve at the foot. The
+ * labels above the boards pick which versions to compare. Hover a change, on a board or in the list, to bring it
+ * forward.
  */
 export const WhatChanged: Story = { render: () => <ChangesPage /> }
 
 /**
  * Members and seats: who has an editor seat, who views and comments for free, open seats, seat requests to approve or
- * deny, and invites waiting for an admin. Only editors pay, and agents are the customer's own.
+ * deny, and invites waiting for an admin. Only editors pay.
  */
 export const Members: Story = { render: () => <MembersPage /> }
 
@@ -340,7 +342,7 @@ export const AddSeats: Story = { render: () => <AddSeatsPage /> }
 
 /**
  * Plans: Figma's four, at half the price per editor seat, rounded up to the next .95. Each builds on the one before.
- * Only editors pay on every plan; viewers, commenters and your own agents are free.
+ * Only editors pay on every plan; viewers and commenters are free.
  */
 export const Plans: Story = { render: () => <PlansPage /> }
 

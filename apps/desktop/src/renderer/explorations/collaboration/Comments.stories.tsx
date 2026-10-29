@@ -1,13 +1,14 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import type { ReactNode } from "react"
+import { expect, screen, userEvent, waitFor, within } from "storybook/test"
 import { me, people } from "../explore-data.ts"
-import { type CommentData, thread, threads } from "./collab-data.ts"
+import { type Attachment, type CommentData, heroThread, thread, threads } from "./collab-data.ts"
 import { Comment, CommentsPanel, Composer, MentionMenu, Thread } from "./comments.tsx"
 import { Stage } from "./stage.tsx"
 
 /**
- * Comments, broken into their parts: one comment, the composer, the mention menu, a thread in each of its states, and
- * the list of every thread in a project. Pins, which mark where a thread is on the canvas, have their own stories.
+ * Comments, broken into their parts: one comment, the composer, the mention menu, attachments, editing, a thread in each
+ * of its states, and the list of every thread in a project. Pins, which mark where a thread is on the canvas, have their own stories.
  */
 const meta = {
   title: "Parity/Explorations/Collaboration/Comments",
@@ -37,6 +38,8 @@ const examples: { label: string; comment: CommentData }[] = [
   },
   { label: "From an agent", comment: thread("toggle").comments[1]! },
   { label: "With a snapshot of the frame", comment: thread("wrap").comments[0]! },
+  { label: "With pictures", comment: heroThread.comments[0]! },
+  { label: "With files", comment: heroThread.comments[1]! },
   {
     label: "Yours, edited",
     comment: { id: "b", author: me, when: "Just now", text: "Moved the toggle above the cards.", edited: true }
@@ -60,7 +63,10 @@ export const SingleComment: Story = {
   )
 }
 
-/** The composer, empty and with text. Type @ to mention someone; the camera attaches a snapshot of the frame. */
+/**
+ * The composer, empty and with text. Type @ to mention someone; the camera attaches a snapshot of the frame, and the
+ * paperclip attaches files.
+ */
 export const ComposerStates: Story = {
   render: () => (
     <Stage>
@@ -98,6 +104,99 @@ export const Mentions: Story = {
       </div>
     </Stage>
   )
+}
+
+/** Files attached while they upload, and one too large to attach. Sending waits until the uploads finish. */
+const attaching: Attachment[] = [
+  {
+    id: "a-shot",
+    name: "toggle-mobile.png",
+    size: 640_000,
+    kind: "image",
+    screen: { kind: "marketing", hue: 250, dark: true },
+    progress: 0.15
+  },
+  {
+    id: "a-flow",
+    name: "checkout-flow.png",
+    size: 910_000,
+    kind: "image",
+    screen: { kind: "dashboard", hue: 200, dark: true }
+  },
+  { id: "a-spec", name: "Billing toggle spec.pdf", size: 1_800_000, kind: "file", progress: 0.05 },
+  {
+    id: "a-video",
+    name: "Screen recording.mov",
+    size: 182_000_000,
+    kind: "file",
+    error: "Too large, 25 MB at most"
+  }
+]
+
+/**
+ * Attaching: the paperclip picks files, or drop them on the composer, or paste a screenshot. Pictures show a preview
+ * and other files a chip with their kind and size; each shows how far it has uploaded, and the arrow sends once they're
+ * done. Anything too large says so and stays out of what's sent. Try attaching your own.
+ */
+export const Attaching: Story = {
+  render: () => (
+    <Stage>
+      <div className="w-[22rem]">
+        <Composer initial="Here's how it looks on a phone, and the spec." initialAttachments={attaching} />
+      </div>
+    </Stage>
+  )
+}
+
+/**
+ * A thread with pictures and files. Pictures preview in the comment and open larger, with the arrow keys stepping
+ * between them; files show as chips with their kind, size and a download. The comments list counts what's attached.
+ */
+export const Attachments: Story = {
+  render: () => (
+    <Stage className="flex items-start gap-8">
+      <Thread thread={heroThread} onClose={() => {}} />
+      <div className="h-[30rem] overflow-hidden rounded-xl border">
+        <CommentsPanel threads={[heroThread, ...threads]} selected="hero" />
+      </div>
+    </Stage>
+  )
+}
+
+/**
+ * Editing your own comment: Edit, from its menu, turns it into a composer with its text and attachments. Enter or Save
+ * keeps the change and marks it edited; Esc or Cancel leaves it as it was.
+ */
+export const Editing: Story = {
+  render: () => (
+    <Stage>
+      <Thread thread={heroThread} onClose={() => {}} />
+    </Stage>
+  ),
+  play: async ({ canvasElement }) => {
+    const more = within(canvasElement).getAllByRole("button", { name: "More" })
+    await userEvent.click(more.at(-1)!)
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Edit" }))
+    await waitFor(() => expect(within(canvasElement).getByRole("button", { name: "Save" })).toBeInTheDocument())
+  }
+}
+
+/**
+ * Deleting your own comment asks first, in place. Deleting the comment that started a thread deletes the thread, and
+ * says so.
+ */
+export const Deleting: Story = {
+  render: () => (
+    <Stage>
+      <Thread thread={heroThread} onClose={() => {}} />
+    </Stage>
+  ),
+  play: async ({ canvasElement }) => {
+    const more = within(canvasElement).getAllByRole("button", { name: "More" })
+    await userEvent.click(more.at(-1)!)
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Delete" }))
+    await waitFor(() => expect(within(canvasElement).getByText("Delete this comment?")).toBeInTheDocument())
+  }
 }
 
 /** A thread as it opens beside its pin. Try resolving it, reacting, or replying. */

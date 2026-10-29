@@ -1,335 +1,432 @@
 /**
- * A project opened from the portal on what changed: its canvas in the browser, comparing two versions. The changed
- * boards before and after, numbered where they changed, and each change as code down the side: the token, the
- * components that follow it, the branch and pull request. A notification or "See what changed" opens this; the link
- * names both versions, so it can go in a pull request.
+ * A project opened from the portal on what changed: its canvas in the browser, comparing two versions. Quiet around
+ * the edges so the changes are what you see: the changed boards before and after, each change marked and numbered,
+ * and the same numbers down the side with what happened and where it lives in code. Hovering a change in either place
+ * brings it forward and fades the rest. A notification or "See what changed" opens this; the link names both versions,
+ * so it can go in a pull request.
  */
-import { Check, ChevronDown, ChevronRight, Clock, GitBranch, GitPullRequest, Link2, Monitor, X } from "lucide-react"
-import type { ReactNode } from "react"
+import { Check, ChevronDown, ChevronRight, Ellipsis, GitBranch, GitPullRequest, Link2, Monitor } from "lucide-react"
+import { type ReactNode, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { agentPalettes } from "../../agent/agent-colors.ts"
-import { AgentBadge } from "../../agent/AgentPointer.tsx"
-import { ThreadRow } from "../collaboration/comments.tsx"
-import { CalloutNumber } from "../collaboration/notes.tsx"
-import { me, type Person, people } from "../explore-data.ts"
-import { Avatar, AvatarStack, ParityMark } from "../parts.tsx"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu"
+import { me, people, type Person } from "../explore-data.ts"
+import { Avatar, ParityMark } from "../parts.tsx"
 import type { Look, RenderKind } from "../start/data.ts"
 import { DesignRender } from "../start/renders.tsx"
 import { designOf, event, portalProject } from "./data.ts"
-import { HandoffPill, PortalWindow } from "./parts.tsx"
+import { PortalWindow } from "./parts.tsx"
 
-const { maya, sam, claude } = people
+const { maya, sam, claude, jonas } = people
 const violet = "oklch(0.7 0.16 275)"
 
-/** A board on the canvas: its name and version above, then the design, ringed when it changed. */
+type View = "before" | "both" | "after"
+
+/** Where a change is on a board, by share of the board's size, and what it is. */
+interface Change {
+  n: number
+  board: "Billing" | "Overview"
+  area: { left: string; top: string; width: string; height: string }
+  where: string
+  what: string
+  code: string
+}
+
+const changes: Change[] = [
+  {
+    n: 1,
+    board: "Billing",
+    area: { left: "1%", top: "20%", width: "20%", height: "10%" },
+    where: "Navigation",
+    what: "The open page follows the brand color",
+    code: "SidebarLink"
+  },
+  {
+    n: 2,
+    board: "Billing",
+    area: { left: "23%", top: "31%", width: "75%", height: "24%" },
+    where: "Plan and usage",
+    what: "The plan badge and usage meters follow it",
+    code: "PlanCard, UsageMeter"
+  },
+  {
+    n: 3,
+    board: "Overview",
+    area: { left: "22%", top: "36%", width: "76%", height: "30%" },
+    where: "Usage chart",
+    what: "The chart's line and fill follow it",
+    code: "UsageChart"
+  }
+]
+
+/** A change's number: small, in the comparison's one color. */
+function Number({ n, active }: { n: number; active?: boolean }) {
+  return (
+    <span
+      className={`grid size-[18px] shrink-0 place-items-center rounded-full text-[10px] font-semibold text-white tabular-nums transition-opacity ${active === false ? "opacity-40" : ""}`}
+      style={{ background: violet }}
+    >
+      {n}
+    </span>
+  )
+}
+
+/**
+ * A board, before or after. After, each change is outlined with its number; before, the change you're looking at is
+ * traced faintly so the two can be compared at a glance.
+ */
 function Board({
-  name,
-  note,
   kind,
   look,
-  changed,
-  children
+  side,
+  marks,
+  focus,
+  onFocus
 }: {
-  name: string
-  note?: string
   kind: RenderKind
   look: Look
-  changed?: boolean
-  /** Marks drawn over the design, placed by share of its size. */
-  children?: ReactNode
+  side: "before" | "after"
+  marks: Change[]
+  focus?: number
+  onFocus(n: number | undefined): void
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-2">
-      <span className="flex items-center gap-2 text-[11px] font-medium text-white/60">
-        {name}
-        {note && <span className="text-white/35">{note}</span>}
-        {changed && (
-          <span
-            className="rounded-full px-1.5 py-px text-[10px] font-semibold text-white"
-            style={{ background: violet }}
+    <div className="relative rounded-[5px] shadow-[0_16px_40px_-12px_rgb(0_0_0/0.6)] ring-1 ring-white/[0.06]">
+      <div className="overflow-hidden rounded-[5px]">
+        <DesignRender kind={kind} look={look} />
+      </div>
+      {marks.map((change) => {
+        const active = focus === undefined ? undefined : focus === change.n
+        if (side === "before")
+          return active ? (
+            <span
+              key={change.n}
+              className="pointer-events-none absolute rounded-[4px] border-[1.5px] border-dashed motion-safe:animate-in motion-safe:fade-in-0"
+              style={{ ...change.area, borderColor: violet }}
+            />
+          ) : null
+        return (
+          <button
+            key={change.n}
+            type="button"
+            aria-label={`Change ${change.n}, ${change.where}`}
+            onPointerEnter={() => onFocus(change.n)}
+            onPointerLeave={() => onFocus(undefined)}
+            onFocus={() => onFocus(change.n)}
+            onBlur={() => onFocus(undefined)}
+            className={`absolute rounded-[4px] transition-[opacity,box-shadow,background-color] duration-150 ${active === false ? "opacity-30" : ""}`}
+            style={{
+              ...change.area,
+              boxShadow: `0 0 0 ${active ? 2 : 1.5}px ${violet}`,
+              background: active ? `color-mix(in oklch, ${violet} 10%, transparent)` : undefined
+            }}
           >
-            Changed
-          </span>
-        )}
-      </span>
-      <div
-        className={`relative rounded-[5px] shadow-[0_16px_40px_-10px_rgb(0_0_0/0.7)] ${changed ? "ring-2" : "ring-1 ring-white/10"}`}
-        style={changed ? { ["--tw-ring-color" as string]: violet } : undefined}
-      >
-        <div className="overflow-hidden rounded-[5px]">
-          <DesignRender kind={kind} look={look} />
-        </div>
-        {children}
-      </div>
+            <span className="absolute -top-2 -left-2">
+              <Number n={change.n} />
+            </span>
+          </button>
+        )
+      })}
     </div>
   )
 }
 
-/** Where a change is on a board: dashed round the area, with its number at the corner. */
-function Changed({
-  n,
-  left,
-  top,
-  width,
-  height
+/** The project's overflow: the link, the desktop app, and the branch and pull request this compares. */
+function MoreMenu() {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button size="icon-sm" variant="ghost" aria-label="More">
+          <Ellipsis />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-64">
+        <DropdownMenuItem>
+          <Link2 /> Copy link to this comparison
+        </DropdownMenuItem>
+        <DropdownMenuItem>
+          <Monitor /> Open in the desktop app
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem>
+          <GitBranch /> <span className="truncate font-mono text-xs">claude/tighten-plan-cards</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem>
+          <GitPullRequest /> Pull request #148, open
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+/** The project's versions, newest first: who made each, and what it was. */
+const versions: { n: number; who: Person; label: string; when: string }[] = [
+  { n: 43, who: maya, label: "Maya commented on Billing", when: event("maya-comment").when },
+  { n: 42, who: claude, label: "Claude Code changed the brand token", when: event("claude-run").when },
+  { n: 41, who: sam, label: "Sam merged #142", when: event("sam-merge").when },
+  { n: 40, who: me, label: "When you were last here", when: "Yesterday" },
+  { n: 39, who: jonas, label: "Jonas renamed the Usage page", when: "2 days ago" }
+]
+
+/** The brand token changed in v42, so a comparison shows changes only when it spans that version. */
+const tokenChanged = 42
+
+function describe(n: number): string {
+  if (n === versions[0]!.n) return "now"
+  if (n === 40) return "when you were last here"
+  return versions.find((version) => version.n === n)!.label
+}
+
+/**
+ * One side of the comparison, named above its column: the version and what it was. Clicking it picks another, newest
+ * first, with who made each; a version that would cross the other side can't be picked.
+ */
+function VersionPicker({
+  side,
+  value,
+  other,
+  onPick
 }: {
-  n: number
-  left: string
-  top: string
-  width: string
-  height: string
+  side: "before" | "after"
+  value: number
+  other: number
+  onPick(n: number): void
 }) {
   return (
-    <div
-      className="absolute rounded-md border-2 border-dashed"
-      style={{ left, top, width, height, borderColor: violet }}
-    >
-      <span className="absolute -top-2.5 -left-2.5">
-        <CalloutNumber n={n} />
-      </span>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="group -mx-1.5 flex w-fit items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-white/40 hover:bg-white/[0.06] hover:text-white/60 data-[state=open]:bg-white/[0.06]"
+        >
+          <span className="font-medium text-white/70">v{value}</span>, {describe(value)}
+          <ChevronDown className="size-3 opacity-50 group-hover:opacity-100" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-80">
+        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+          {side === "before" ? "Compare from" : "Compare to"}
+        </DropdownMenuLabel>
+        {versions.map((version) => (
+          <DropdownMenuItem
+            key={version.n}
+            disabled={side === "before" ? version.n >= other : version.n <= other}
+            onSelect={() => onPick(version.n)}
+            className="gap-2.5"
+          >
+            <Avatar person={version.who} size={18} />
+            <span className="w-7 shrink-0 font-medium tabular-nums">v{version.n}</span>
+            <span className="min-w-0 flex-1 truncate">{version.label}</span>
+            <span className="shrink-0 text-xs text-muted-foreground">{version.when}</span>
+            <Check className={`size-3.5 ${version.n === value ? "" : "invisible"}`} />
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+/** Something else since you were last here, kept to one line. */
+function Also({ who, children }: { who: (typeof people)[keyof typeof people]; children: ReactNode }) {
+  return (
+    <div className="flex items-start gap-2.5 py-1.5 text-xs text-muted-foreground">
+      <Avatar person={who} size={18} />
+      <span className="min-w-0 flex-1 leading-relaxed">{children}</span>
     </div>
   )
 }
-
-/** Code, as code. */
-function Code({ children }: { children: ReactNode }) {
-  return <span className="rounded border bg-background px-1 py-px font-mono text-[11px]">{children}</span>
-}
-
-/** One change in the side list: its number, where it is, what happened, and the code it lives in. */
-function Change({ n, where, what, code }: { n: number; where: string; what: string; code: ReactNode }) {
-  return (
-    <div className="flex gap-2.5 rounded-lg px-2 py-1.5 hover:bg-muted/50">
-      <CalloutNumber n={n} />
-      <span className="flex min-w-0 flex-col gap-1">
-        <span className="text-[13px] font-medium">{where}</span>
-        <span className="text-xs text-muted-foreground">{what}</span>
-        <span className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">{code}</span>
-      </span>
-    </div>
-  )
-}
-
-/** Who made a group of changes, and when. */
-function By({ who, when, children }: { who: Person; when: string; children: ReactNode }) {
-  return (
-    <section className="flex flex-col gap-2.5">
-      <div className="flex items-center gap-2 text-sm">
-        <Avatar person={who} size={22} />
-        <span className="flex-1 font-medium">{who.name}</span>
-        <span className="text-xs text-muted-foreground">{when}</span>
-      </div>
-      {children}
-    </section>
-  )
-}
-
-/** The versions on the history bar: who made each, and what it was. */
-const versions = [
-  { at: "34%", name: "v40", who: me, label: "You were here" },
-  { at: "52%", name: "v41", who: sam, label: "#142 merged" },
-  { at: "76%", name: "v42", who: claude, label: "Brand token" },
-  { at: "90%", name: "v43", who: maya, label: "Comment" }
-]
 
 export function ChangesPage() {
   const project = portalProject("dashboard")
   const billing = designOf(project, "Billing")
   const overview = designOf(project, "Overview")
-  // At v40 the brand token was still blue.
-  const before: Look = { ...project.look, hue: 250 }
+  const [from, setFrom] = useState(40)
+  const [to, setTo] = useState(43)
+  // Before v42 the brand token was still blue.
+  const lookAt = (n: number): Look => (n < tokenChanged ? { ...project.look, hue: 250 } : project.look)
+  const changed = from < tokenChanged && to >= tokenChanged
+  const also = [
+    { at: 43, who: maya, text: <>on Billing: “{event("maya-comment").quote}”</> },
+    { at: 41, who: sam, text: <>merged #142 Billing settings, before this change</> }
+  ].filter((item) => item.at > from && item.at <= to)
+  const [view, setView] = useState<View>("both")
+  const [focus, setFocus] = useState<number>()
+  const [more, setMore] = useState(false)
+  const boards = [
+    { name: "Billing" as const, kind: billing.kind },
+    { name: "Overview" as const, kind: overview.kind }
+  ]
+  const sides = view === "both" ? (["before", "after"] as const) : ([view] as const)
   return (
-    <PortalWindow path="kestrel/cloud-console/compare/v40...v43">
+    <PortalWindow path={`kestrel/cloud-console/compare/v${from}...v${to}`}>
       <div className="flex h-full flex-col">
         <header className="flex h-11 shrink-0 items-center gap-2.5 border-b bg-background px-3 text-sm whitespace-nowrap">
-          <ParityMark size={22} />
-          <span className="text-muted-foreground">Kestrel</span>
-          <ChevronRight className="size-3.5 text-muted-foreground" />
+          <ParityMark size={20} />
           <span className="font-medium">{project.name}</span>
-          <span className="flex items-center gap-1.5 rounded-md border px-2 py-0.5 font-mono text-[11px]">
-            <GitBranch className="size-3" />
-            claude/tighten-plan-cards
-            <span className="font-sans text-muted-foreground">compared with main</span>
-            <ChevronDown className="size-3 text-muted-foreground" />
-          </span>
-          <span className="flex items-center gap-1 text-xs text-muted-foreground">
-            <GitPullRequest className="size-3.5" /> #148, open
-          </span>
-          <div className="ml-auto flex items-center gap-2">
-            <AvatarStack people={[sam, me]} size={24} max={3} />
-            <Button size="sm" variant="ghost" className="gap-1.5">
-              <Link2 /> Copy link
+          <ChevronRight className="size-3.5 text-muted-foreground/60" />
+          <span className="text-muted-foreground">What changed</span>
+          <div className="ml-auto flex items-center gap-1">
+            <Button size="sm" variant="ghost">
+              Share
             </Button>
-            <Button size="sm" variant="outline" className="gap-1.5">
-              <Monitor /> Desktop app
-            </Button>
-            <Button size="sm">Share</Button>
+            <MoreMenu />
           </div>
         </header>
         <div className="flex min-h-0 flex-1">
-          <div className="relative min-w-0 flex-1 overflow-hidden bg-[#0f0f12]">
-            <div
-              className="pointer-events-none absolute inset-0"
-              style={{
-                background: `radial-gradient(60% 50% at 30% 15%, oklch(0.55 0.14 ${project.look.hue} / 0.14), transparent 70%)`
-              }}
-            />
-            <div className="relative flex justify-center pt-4">
-              <div className="flex items-center gap-3 rounded-full border border-white/10 bg-black/60 py-1 pr-1.5 pl-4 text-xs text-white/80 shadow-lg backdrop-blur">
-                <span>
-                  <span className="font-medium text-white">v40</span>, when you were last here, against{" "}
-                  <span className="font-medium text-white">v43</span>, now
-                </span>
-                <span className="flex rounded-full bg-white/10 p-0.5">
-                  {["Before", "After", "Side by side"].map((option) => (
-                    <span
-                      key={option}
-                      className={`rounded-full px-2.5 py-0.5 ${option === "Side by side" ? "bg-white text-black" : "text-white/70"}`}
-                    >
-                      {option}
-                    </span>
-                  ))}
-                </span>
-                <X className="size-3.5 text-white/60" />
+          <div className="relative min-w-0 flex-1 overflow-auto bg-[#0f0f12]">
+            <div className="flex items-center justify-between px-12 pt-5 pb-4">
+              <div className={`grid flex-1 gap-x-10 ${sides.length === 2 ? "grid-cols-2" : "grid-cols-1"}`}>
+                {sides.map((side) => (
+                  <VersionPicker
+                    key={side}
+                    side={side}
+                    value={side === "before" ? from : to}
+                    other={side === "before" ? to : from}
+                    onPick={side === "before" ? setFrom : setTo}
+                  />
+                ))}
+              </div>
+              <div className="ml-6 flex rounded-md bg-white/[0.06] p-0.5 text-[11px]">
+                {(["before", "both", "after"] as const).map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    aria-pressed={view === option}
+                    onClick={() => setView(option)}
+                    className={`rounded-[5px] px-2 py-0.5 ${view === option ? "bg-white/15 text-white" : "text-white/50 hover:text-white/80"}`}
+                  >
+                    {option === "before" ? "Before" : option === "after" ? "After" : "Side by side"}
+                  </button>
+                ))}
               </div>
             </div>
-            <div className="relative grid grid-cols-2 gap-x-10 gap-y-7 px-12 pt-6">
-              <Board name="Billing" note="v40" kind={billing.kind} look={before} />
-              <Board name="Billing" note="v43" kind={billing.kind} look={project.look} changed>
-                <Changed n={1} left="1%" top="20%" width="20%" height="10%" />
-                <Changed n={2} left="23%" top="31%" width="75%" height="24%" />
-              </Board>
-              <Board name="Overview" note="v40" kind={overview.kind} look={before} />
-              <Board name="Overview" note="v43" kind={overview.kind} look={project.look} changed>
-                <Changed n={3} left="22%" top="36%" width="76%" height="30%" />
-              </Board>
+            <div className="flex flex-col gap-8 px-12 pb-10">
+              {boards.map((board) => (
+                <section key={board.name} className="flex flex-col gap-2">
+                  <span className="text-[11px] font-medium text-white/50">{board.name}</span>
+                  <div
+                    className={`grid gap-x-10 ${sides.length === 2 ? "grid-cols-2" : "mx-auto w-full max-w-3xl grid-cols-1"}`}
+                  >
+                    {sides.map((side) => (
+                      <Board
+                        key={side}
+                        kind={board.kind}
+                        look={lookAt(side === "before" ? from : to)}
+                        side={side}
+                        marks={changed ? changes.filter((change) => change.board === board.name) : []}
+                        focus={focus}
+                        onFocus={setFocus}
+                      />
+                    ))}
+                  </div>
+                </section>
+              ))}
             </div>
           </div>
-          <aside className="flex w-[22rem] shrink-0 flex-col border-l bg-background">
-            <div className="flex flex-col gap-1 border-b p-4">
-              <h2 className="text-sm font-semibold">What changed</h2>
-              <span className="text-xs text-muted-foreground">
-                1 token, so 3 places on 2 boards, newest first. Sign in doesn't use it and is unchanged.
-              </span>
-            </div>
-            <div className="flex flex-col gap-6 overflow-y-auto p-4">
-              <section className="flex flex-col gap-2.5">
-                <h3 className="text-xs font-medium text-muted-foreground">Comments since v40</h3>
-                <div className="-mx-2.5">
-                  <ThreadRow
-                    thread={{
-                      id: "team-badge",
-                      design: "Billing",
-                      layer: "Plan cards",
-                      unread: true,
-                      comments: [
-                        {
-                          id: "team-badge-1",
-                          author: maya,
-                          when: event("maya-comment").when,
-                          text: event("maya-comment").quote!
-                        }
-                      ]
-                    }}
-                  />
-                </div>
-              </section>
-              <By who={claude} when={event("claude-run").when}>
-                <AgentBadge
-                  palette={agentPalettes[7]}
-                  agent="Claude Code"
-                  kind="write"
-                  label="Tighten the plan cards"
-                />
-                <div className="flex flex-col gap-1.5 rounded-lg border bg-card p-3 font-mono text-[11px]">
-                  <span className="text-muted-foreground">src/styles/tokens.css</span>
-                  <span className="text-[oklch(0.7_0.19_25)]">- --brand: oklch(0.6 0.17 250);</span>
-                  <span className="text-[oklch(0.75_0.17_162)]">+ --brand: oklch(0.62 0.15 158);</span>
-                </div>
-                <div className="-mx-2 flex flex-col">
-                  <Change
-                    n={1}
-                    where="Billing, Navigation"
-                    what="The open page follows the brand color"
-                    code={
-                      <>
-                        <Code>SidebarLink</Code> in src/app/Sidebar.tsx
-                      </>
-                    }
-                  />
-                  <Change
-                    n={2}
-                    where="Billing, Plan and usage"
-                    what="The plan badge and usage meters follow it"
-                    code={
-                      <>
-                        <Code>PlanCard</Code> <Code>UsageMeter</Code> in src/billing
-                      </>
-                    }
-                  />
-                  <Change
-                    n={3}
-                    where="Overview, Usage chart"
-                    what="The chart's line and fill follow it"
-                    code={
-                      <>
-                        <Code>UsageChart</Code> in src/overview/UsageChart.tsx
-                      </>
-                    }
-                  />
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  No component changed: every difference comes from the token, with no overrides.
-                </span>
-                <div className="flex flex-col gap-2 rounded-lg border bg-card p-3">
-                  <span className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <HandoffPill status="In review" />
-                    You asked for this
-                  </span>
-                  <div className="flex gap-2">
-                    <Button size="sm" className="gap-1.5">
-                      <Check /> Approve
-                    </Button>
-                    <Button size="sm" variant="outline">
-                      Ask for changes
-                    </Button>
+          <aside className="flex w-[21rem] shrink-0 flex-col border-l bg-background">
+            <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 py-5">
+              <div className="flex flex-col gap-1.5">
+                <h2 className="text-sm font-semibold">What changed</h2>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  {changed
+                    ? "One token changed, so 3 places on 2 boards look different. Nothing else did."
+                    : `Nothing on these boards changed between v${from} and v${to}.`}
+                </p>
+              </div>
+              {changed && (
+                <>
+                  <div className="flex items-center gap-2.5 rounded-lg bg-muted/40 px-3 py-2.5">
+                    <span className="font-mono text-xs">--brand</span>
+                    <span className="ml-auto flex items-center gap-1.5">
+                      <span
+                        className="size-4 rounded-[4px] ring-1 ring-white/10"
+                        style={{ background: "oklch(0.6 0.17 250)" }}
+                      />
+                      <ChevronRight className="size-3 text-muted-foreground" />
+                      <span
+                        className="size-4 rounded-[4px] ring-1 ring-white/10"
+                        style={{ background: "oklch(0.62 0.15 158)" }}
+                      />
+                    </span>
                   </div>
-                  <span className="text-xs text-muted-foreground">
-                    Approving marks both boards Ready to build and approves #148 on GitHub.
-                  </span>
+                  <ol className="-mx-2 flex flex-col">
+                    {changes.map((change) => {
+                      const active = focus === undefined ? undefined : focus === change.n
+                      return (
+                        <li key={change.n}>
+                          <button
+                            type="button"
+                            onPointerEnter={() => setFocus(change.n)}
+                            onPointerLeave={() => setFocus(undefined)}
+                            onFocus={() => setFocus(change.n)}
+                            onBlur={() => setFocus(undefined)}
+                            className={`flex w-full gap-3 rounded-lg px-2 py-2.5 text-left transition-opacity duration-150 ${active ? "bg-muted/50" : ""} ${active === false ? "opacity-50" : ""}`}
+                          >
+                            <Number n={change.n} />
+                            <span className="flex min-w-0 flex-col gap-0.5">
+                              <span className="text-[13px] font-medium">
+                                {change.board}, {change.where}
+                              </span>
+                              <span className="text-xs text-muted-foreground">{change.what}</span>
+                              <span className="font-mono text-[11px] text-muted-foreground/70">{change.code}</span>
+                            </span>
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ol>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Avatar person={claude} size={18} />
+                    <span>Claude Code, for you, {event("claude-run").when.toLowerCase()}</span>
+                  </div>
+                </>
+              )}
+              {also.length > 0 && (
+                <div className="border-t pt-3">
+                  <button
+                    type="button"
+                    aria-expanded={more}
+                    onClick={() => setMore(!more)}
+                    className="flex w-full items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    <ChevronRight className={`size-3.5 transition-transform ${more ? "rotate-90" : ""}`} />
+                    Also between v{from} and v{to}: {also.length === 1 ? "1 more" : `${also.length} more`}
+                  </button>
+                  {more && (
+                    <div className="flex flex-col pt-2 pl-5 motion-safe:animate-in motion-safe:fade-in-0">
+                      {also.map((item) => (
+                        <Also key={item.at} who={item.who}>
+                          <span className="text-foreground">{item.who.name.split(" ")[0]}</span> {item.text}
+                        </Also>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </By>
-              <By who={sam} when={event("sam-merge").when}>
-                <span className="text-xs text-muted-foreground">
-                  Merged #142 Billing settings into main, before Claude Code's change. Billing matched main then.
-                </span>
-              </By>
+              )}
             </div>
+            {changed && (
+              <div className="flex flex-col gap-2 border-t px-5 py-4">
+                <div className="flex gap-2">
+                  <Button size="sm" className="flex-1 gap-1.5">
+                    <Check /> Approve
+                  </Button>
+                  <Button size="sm" variant="ghost" className="flex-1">
+                    Ask for changes
+                  </Button>
+                </div>
+                <span className="text-[11px] text-muted-foreground">
+                  Approves #148 and marks both boards ready to build.
+                </span>
+              </div>
+            )}
           </aside>
         </div>
-        <footer className="flex h-14 shrink-0 items-center gap-3 border-t bg-background px-4 text-xs text-muted-foreground">
-          <Clock className="size-3.5" />
-          <span>Yesterday</span>
-          <div className="relative mb-3 h-1.5 flex-1 rounded-full bg-muted">
-            <div
-              className="absolute inset-y-0 right-0 left-[34%] rounded-full"
-              style={{ background: violet, opacity: 0.45 }}
-            />
-            {versions.map((version) => (
-              <span
-                key={version.name}
-                className="absolute top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
-                style={{ left: version.at }}
-              >
-                <Avatar person={version.who} size={16} className="ring-2 ring-background" />
-                <span className="absolute top-5 text-[10px] whitespace-nowrap">
-                  {version.name}, {version.label}
-                </span>
-              </span>
-            ))}
-          </div>
-          <span>Now</span>
-        </footer>
       </div>
     </PortalWindow>
   )

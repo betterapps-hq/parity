@@ -399,6 +399,13 @@ recommended answer to each of its questions.
   (`control={<Checkbox />}`), and inserted as a slot of that prop's name, which the canvas already passes as the prop.
 - **Components declared but missing when they run are left out (LIB-37):** MUI's types declare `BadgeRoot`, `ModalRoot`
   and others its build doesn't export; they're `visual: false`, and the report names them.
+- **Parts every example draws from a hook's list aren't visual (LIB-38):** when each use of a part sits inside
+  `list.map(...)` over what a library hook returns (`const { toasts } = Toast.useToastManager()`), the part is runtime
+  data the library hands the app, and it's `visual: false`, like hosted parts. An example's own component the list is
+  mapped into (`toasts.map((toast) => <MyToast toast={toast} />)`) counts as mapped too. Base UI's Toast.Root, Content,
+  Title, Description, Action, Close, Positioner and Arrow are the case; the Viewport they're mapped into stays
+  placeable. Hooks that hold the example's own values (`useState`, `useMemo`, `useReducer`, `useRef`,
+  `useControllable*`) don't count, and one use placed directly keeps the part visual. No other library's file changed.
 - **The in-app backtest runs its own instance:** `PARITY_UI_PORT`, `PARITY_DEBUG_PORT`, `PARITY_AGENT_FILE` and
   `PARITY_USER_DATA` give it its own ports, CLI channel and settings, so it runs beside another session's Parity instead
   of driving it.
@@ -519,16 +526,19 @@ recommended answer to each of its questions.
   it uses, its branch and pull request when there is one, and a change made after it was approved. Developers inspect
   it, pick it up, or give it to their own agent.
 - **What changed compares two versions of a branch against main** (my call): the boards before and after side by side,
-  numbered where they changed, and each change as code down the side (the token diff, the components that follow it and
-  their files), with the pull request, approve or ask for changes, and the versions along the bottom. Its link names
-  both versions, so it can go in a pull request.
-- **Only editors pay; viewing and commenting are free, and agents don't take up seats** (your calls, 2026-10-29). A seat
-  request uses the open seats first, and buying more is offered only past them. Members can invite; an admin approves
-  each editor seat. Billing admin is a role of its own, and an admin can be one too.
+  numbered where they changed, and each change down the side (the token, the components that follow it), with approve
+  or ask for changes. Its link names both versions, so it can go in a pull request.
+- **What changed stays quiet so the changes are the focus** (your call, 2026-10-29). No glow, pills or rings on the
+  boards; the branch, pull request and links sit in a menu; hovering a change brings it forward on both boards and in
+  the list. There's no timeline: the version labels above the boards pick what's compared.
+- **Only editors pay; viewing and commenting are free** (your calls, 2026-10-29). A seat request uses the open seats
+  first, and buying more is offered only past them. Members can invite; an admin approves each editor seat. Billing
+  admin is a role of its own, and an admin can be one too.
 - **An agent can never do more than the person who runs it** (my call): a viewer's agent only comments. Security lists
   which agents can connect, with sign-in, sharing, guests and an audit log of who changed what.
-- **Agents are the customer's own,** such as Claude Code and Cursor, connected to Parity through its MCP server. Parity
-  doesn't run or pay for them, so it has no agent use to bill (your call).
+- **Agents aren't part of billing at all** (your call, 2026-10-29). Parity has no agents of its own: the ones people
+  use, such as Claude Code and Cursor, are theirs, connected through Parity's MCP server. So the billing, plans and
+  members pages don't mention agents; which ones can connect is in Security.
 - **The plans are Figma's at half the price per editor seat, rounded up to the next .95** (your call, 2026-10-29,
   against Figma's Full seat prices that day): Starter free, Professional $8.95 a month billed yearly or $10.95 monthly,
   Organization $27.95 and Enterprise $45.95, both billed yearly. As on Figma, seats added mid-year on Organization and

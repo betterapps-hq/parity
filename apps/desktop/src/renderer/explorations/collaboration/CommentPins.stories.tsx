@@ -2,19 +2,11 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import type { ReactNode } from "react"
 import { me, people } from "../explore-data.ts"
 import { MiniScreen } from "../parts.tsx"
-import { thread } from "./collab-data.ts"
+import { pricingPins, thread, type ThreadData } from "./collab-data.ts"
 import { commentBlue, Thread } from "./comments.tsx"
-import {
-  AreaComment,
-  CommentCursor,
-  CommentModeBar,
-  CommentPin,
-  LayerOutline,
-  PinCluster,
-  PinPreview,
-  PlacedPin
-} from "./pins.tsx"
-import { Board, type Marker, PricingDesign, Stage } from "./stage.tsx"
+import { LiveBoard } from "./live-board.tsx"
+import { CommentCursor, CommentModeBar, CommentPin, PinCluster, PinPreview, PlacedPin } from "./pins.tsx"
+import { Board, PricingDesign, Stage } from "./stage.tsx"
 
 /**
  * Pins mark where a thread is on the canvas, the way Figma and Velt do: on a point, on a layer (the pin follows the
@@ -52,7 +44,18 @@ const states: { label: string; note: string; pin: ReactNode }[] = [
     label: "Merged",
     note: "Zoomed out, nearby pins combine",
     pin: <PinCluster count={4} people={[people.maya, people.priya]} unread />
-  }
+  },
+  {
+    label: "Lost its layer",
+    note: "The layer was deleted",
+    pin: <CommentPin people={[people.maya]} replies={1} state="detached" />
+  },
+  {
+    label: "Another frame",
+    note: "Left on a frame you aren't viewing",
+    pin: <CommentPin people={[people.priya]} state="elsewhere" />
+  },
+  { label: "On a component", note: "Shows on each of its uses", pin: <CommentPin people={[people.sam]} component /> }
 ]
 
 /** Every state a pin can be in. */
@@ -66,6 +69,74 @@ export const PinStates: Story = {
             <div className="flex flex-col gap-0.5">
               <span className="text-sm font-medium">{label}</span>
               <span className="text-xs text-muted-foreground">{note}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Stage>
+  )
+}
+
+const lost: { label: string; pin: ReactNode; thread: ThreadData }[] = [
+  {
+    label: "Its layer was deleted",
+    pin: <CommentPin people={[people.maya, people.jonas]} replies={1} state="detached" />,
+    thread: { ...thread("toggle"), unread: false, place: { kind: "deleted", by: people.jonas, when: "20 min ago" } }
+  },
+  {
+    label: "Its layer moved to another design",
+    pin: <CommentPin people={[people.lena]} />,
+    thread: {
+      id: "moved",
+      design: "Checkout",
+      layer: "Coupon field",
+      frame: "Desktop",
+      place: { kind: "moved", from: "Cart", by: people.sam },
+      comments: [
+        { id: "moved-1", author: people.lena, when: "2 days ago", text: "Should the coupon field sit below the total?" }
+      ]
+    }
+  },
+  {
+    label: "Left on a frame you aren't viewing",
+    pin: <CommentPin people={[people.priya, me]} replies={1} state="elsewhere" />,
+    thread: {
+      ...thread("wrap"),
+      working: undefined,
+      frame: "Mobile, 360",
+      place: { kind: "frame", seen: "Desktop, Dark" }
+    }
+  },
+  {
+    label: "On a component, seen from one of its uses",
+    pin: <CommentPin people={[people.sam]} component />,
+    thread: {
+      id: "component",
+      design: "Plan card",
+      layer: "Badge",
+      place: { kind: "component", component: "Plan card", uses: 3 },
+      comments: [
+        { id: "component-1", author: people.sam, when: "1 h ago", text: "The badge needs more room on the right." }
+      ]
+    }
+  }
+]
+
+/**
+ * Threads that lost their place, and what each shows: a deleted layer leaves its pin dashed where it was, with a way to
+ * move it; a layer moved to another design takes its threads along; a thread left on another frame is faded until you
+ * switch to it; and a thread on a component shows on every use, marked as the component's.
+ */
+export const LostTheirPlace: Story = {
+  render: () => (
+    <Stage>
+      <div className="grid w-fit grid-cols-2 gap-x-10 gap-y-8">
+        {lost.map(({ label, pin, thread: lostThread }) => (
+          <div key={label} className="flex flex-col gap-3">
+            <span className="text-xs text-white/45">{label}</span>
+            <div className="flex items-start gap-3">
+              <div className="pt-1">{pin}</div>
+              <Thread thread={lostThread} onClose={() => {}} />
             </div>
           </div>
         ))}
@@ -88,57 +159,20 @@ export const HoverPreview: Story = {
   )
 }
 
-/** Pins a layer's thread at its top-right corner, and outlines it while the thread is open. */
-function pinned(name: string, element: ReactNode, pin: ReactNode, outlined: boolean) {
-  const placed = <span className="absolute top-0 left-full z-10 -translate-y-full pl-0.5">{pin}</span>
-  return outlined ? (
-    <LayerOutline name={name}>
-      {element}
-      {placed}
-    </LayerOutline>
-  ) : (
-    <div className="relative w-fit">
-      {element}
-      {placed}
-    </div>
-  )
-}
-
-const marked: Marker = (id, element) => {
-  if (id === "toggle")
-    return pinned(
-      "Billing toggle",
-      element,
-      <CommentPin people={[people.maya, people.claude, people.jonas]} replies={2} state="selected" />,
-      true
-    )
-  if (id === "plan-team-name")
-    return pinned(
-      "Plan name",
-      element,
-      <CommentPin people={[people.priya, me, people.claude]} replies={1} state="working" />,
-      false
-    )
-  if (id === "signin") return pinned("Sign in", element, <CommentPin people={[people.lena]} state="unread" />, false)
-  return element
-}
-
 /**
- * On a board: a layer's thread open beside its pin with the layer outlined, an agent at work on another, an unread one
- * on Sign in, and an area comment across the plans' features.
+ * A board you can comment on. Hover a pin for its preview, click it to open the thread, and close it with the X, Esc,
+ * a click on the design or the pin again. Resolve, Mark as unread, Copy link and Delete all change the pin; Resolved
+ * shows resolved pins again, and Comment (or C) lets you click the design to start a thread.
  */
 export const OnABoard: Story = {
   render: () => (
-    <Stage>
-      <Board name="Pricing" frame="Desktop, Dark">
-        <PricingDesign mark={marked} />
-        <AreaComment x={28} y={318} width={664} height={66}>
-          <CommentPin people={[people.sam]} state="unread" />
-        </AreaComment>
-        <div className="absolute top-[52px] left-[560px] z-20">
-          <Thread thread={thread("toggle")} onClose={() => {}} />
-        </div>
-      </Board>
+    <Stage className="pb-40">
+      <LiveBoard
+        name="Pricing"
+        frame="Desktop, Dark"
+        initial={pricingPins}
+        design={(mark) => <PricingDesign mark={mark} />}
+      />
     </Stage>
   )
 }

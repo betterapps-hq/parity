@@ -1,7 +1,7 @@
 /**
  * The org's admin pages that charging per seat needs: members and their seats, billing, plans and security. Only
- * editors pay; viewing and commenting are free, and agents are the customer's own. The plans are Figma's at half the
- * price. A seat request is approved against the open seats first; buying more is only offered past them.
+ * editors pay; viewing and commenting are free. The plans are Figma's at half the price. A seat request is approved
+ * against the open seats first; buying more is only offered past them.
  */
 import {
   Check,
@@ -170,7 +170,7 @@ function MemberRow({ member }: { member: Member }) {
 export function MembersPage() {
   return (
     <SettingsPage tab="Members">
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         <Meter
           label="Editor seats"
           value={`${editors}`}
@@ -182,13 +182,6 @@ export function MembersPage() {
         <Meter label="Viewers and commenters" value="2" of="free">
           <span className="text-xs text-muted-foreground">
             Only editors pay. Members view and comment on every project; guests only on what they're invited to.
-          </span>
-        </Meter>
-        <Meter label="Your agents" value="2" of="connected">
-          <span className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Avatar person={claude} size={18} />
-            <Avatar person={cursor} size={18} />
-            Your own, and free. Which can connect is in Security.
           </span>
         </Meter>
       </div>
@@ -282,8 +275,7 @@ function BillingBody() {
           <span className="flex flex-1 flex-col gap-0.5">
             <span className="text-lg font-semibold">Organization plan</span>
             <span className="text-sm text-muted-foreground">
-              ${seatPrice} per editor seat a month, billed yearly. Viewers and commenters are free, and your own agents
-              connect at no charge.
+              ${seatPrice} per editor seat a month, billed yearly. Viewers and commenters are free.
             </span>
           </span>
           <Button variant="outline">Change plan</Button>
@@ -480,7 +472,7 @@ export function PlansPage() {
       <div className="flex flex-col gap-1">
         <h2 className="text-[15px] font-semibold">Plans</h2>
         <span className="text-sm text-muted-foreground">
-          Only editors pay. Viewers, commenters and your own agents are free on every plan.
+          Only editors pay. Viewers and commenters are free on every plan.
         </span>
       </div>
       <div className="grid grid-cols-4 gap-4">

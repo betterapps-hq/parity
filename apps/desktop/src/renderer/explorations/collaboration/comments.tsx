@@ -4,31 +4,56 @@ import {
   BellOff,
   Camera,
   Check,
+  Component,
   Ellipsis,
   Layers,
   Link,
+  Link2,
+  type LucideIcon,
   Mail,
+  MonitorSmartphone,
+  MoveRight,
+  Paperclip,
   Pencil,
+  Plus,
   RotateCcw,
   Search,
   SmilePlus,
+  SquareArrowOutUpRight,
   Trash2,
+  Unlink,
   X
 } from "lucide-react"
-import { Fragment, type KeyboardEvent, useRef, useState } from "react"
+import { Fragment, type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { Textarea } from "@/components/ui/textarea"
 import { agentPalettes } from "../../agent/agent-colors.ts"
 import { me, type Person } from "../explore-data.ts"
 import { accent, Avatar } from "../parts.tsx"
-import { type CommentData, everyone, mentionable, type Reaction, type ThreadData } from "./collab-data.ts"
+import { AttachmentChip, Attachments, DraftPicture, fromFiles, useUploads } from "./attachments.tsx"
+import {
+  type Attachment,
+  type CommentData,
+  everyone,
+  mentionable,
+  type Place,
+  type Reaction,
+  type ThreadData,
+  type TrackerId
+} from "./collab-data.ts"
+import { searchEmoji } from "./emoji-data.ts"
+import { EmojiPopover, EmojiSuggest, pickSuggestion, ReactionAdder } from "./emoji.tsx"
+import { IssueDialog, IssueLink, orgTrackers, type Tracker, TrackerMark } from "./issues.tsx"
 
 /** Unread, and what you've reacted with: the comments' one accent. */
 export const commentBlue = "oklch(0.65 0.18 250)"
@@ -90,7 +115,7 @@ export function toggleReaction(reactions: Reaction[] = [], emoji: string): React
     .filter((reaction) => reaction.by.length > 0)
 }
 
-/** Emoji reactions under a comment, with who reacted on hover. Yours are tinted. */
+/** Emoji reactions under a comment, with who reacted on hover. Yours are tinted; the smiley after them adds one. */
 export function Reactions({ reactions, onToggle }: { reactions: Reaction[]; onToggle?(emoji: string): void }) {
   return (
     <div className="flex flex-wrap gap-1">
@@ -114,14 +139,7 @@ export function Reactions({ reactions, onToggle }: { reactions: Reaction[]; onTo
           </button>
         )
       })}
-      <button
-        type="button"
-        aria-label="Add a reaction"
-        onClick={() => onToggle?.("👍")}
-        className="grid size-6 place-items-center rounded-full border text-muted-foreground hover:bg-muted hover:text-foreground"
-      >
-        <SmilePlus className="size-3.5" />
-      </button>
+      <ReactionAdder onPick={(emoji) => onToggle?.(emoji)} />
     </div>
   )
 }
@@ -149,10 +167,35 @@ export function Snapshot({ frame, onRemove }: { frame: string; onRemove?(): void
   )
 }
 
-/** One comment: who, when, the text, a snapshot, reactions; react and more on hover. */
-export function Comment({ comment, onReact }: { comment: CommentData; onReact?(emoji: string): void }) {
+/**
+ * One comment: who, when, the text, a snapshot, attachments and reactions; on hover, a reaction from every emoji, and
+ * more. Your own can be edited in place, or deleted after a second look.
+ */
+export function Comment({
+  comment,
+  first,
+  onReact,
+  onEdit,
+  onDelete
+}: {
+  comment: CommentData
+  /** The thread's first comment: deleting it deletes the thread. */
+  first?: boolean
+  onReact?(emoji: string): void
+  onEdit?(draft: Draft): void
+  onDelete?(): void
+}) {
+  const [mode, setMode] = useState<"view" | "edit" | "delete">("view")
+  // Leaving the menu for the edit box or the delete check keeps focus there, not on the menu's button.
+  const leaving = useRef(false)
+  const leaveFor = (next: "edit" | "delete") => {
+    leaving.current = true
+    setMode(next)
+  }
   return (
-    <div className="group/comment relative flex gap-2.5 rounded-lg px-2 py-2 hover:bg-muted/30">
+    <div
+      className={`group/comment relative flex gap-2.5 rounded-lg px-2 py-2 ${mode === "view" ? "hover:bg-muted/30" : "bg-muted/30"}`}
+    >
       <Avatar person={comment.author} size={26} />
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex items-baseline gap-1.5 text-xs">
@@ -163,43 +206,109 @@ export function Comment({ comment, onReact }: { comment: CommentData; onReact?(e
           <span className="text-muted-foreground">{comment.when}</span>
           {comment.edited && <span className="text-muted-foreground">(edited)</span>}
         </div>
-        <CommentText text={comment.text} />
-        {comment.snapshot && <Snapshot frame={comment.snapshot} />}
-        {!!comment.reactions?.length && <Reactions reactions={comment.reactions} onToggle={onReact} />}
+        {mode === "edit" ? (
+          <Composer
+            initial={comment.text}
+            initialAttachments={comment.attachments}
+            focusOnMount
+            onCancel={() => setMode("view")}
+            onSend={(draft) => {
+              onEdit?.(draft)
+              setMode("view")
+            }}
+          />
+        ) : (
+          <>
+            {comment.text && <CommentText text={comment.text} />}
+            {comment.snapshot && <Snapshot frame={comment.snapshot} />}
+            {!!comment.attachments?.length && <Attachments items={comment.attachments} />}
+            {!!comment.reactions?.length && <Reactions reactions={comment.reactions} onToggle={onReact} />}
+          </>
+        )}
+        {mode === "delete" && (
+          <ConfirmDelete
+            first={first}
+            onCancel={() => setMode("view")}
+            onDelete={() => {
+              setMode("view")
+              onDelete?.()
+            }}
+          />
+        )}
       </div>
-      <div className="absolute top-1.5 right-1.5 flex rounded-md border bg-popover opacity-0 shadow-sm group-hover/comment:opacity-100 focus-within:opacity-100 has-[[data-state=open]]:opacity-100">
-        <Button size="icon-xs" variant="ghost" aria-label="React" onClick={() => onReact?.("👍")}>
-          <SmilePlus />
-        </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button size="icon-xs" variant="ghost" aria-label="More">
-              <Ellipsis />
+      {mode === "view" && (
+        <div className="absolute top-1.5 right-1.5 flex rounded-md border bg-popover opacity-0 shadow-sm group-hover/comment:opacity-100 focus-within:opacity-100 has-[[data-state=open]]:opacity-100">
+          <EmojiPopover align="end" onPick={(emoji) => onReact?.(emoji)}>
+            <Button size="icon-xs" variant="ghost" aria-label="Add a reaction">
+              <SmilePlus />
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            {comment.author === me && (
-              <DropdownMenuItem>
-                <Pencil /> Edit
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem>
-              <Link /> Copy link
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Mail /> Mark unread from here
-            </DropdownMenuItem>
-            {comment.author === me && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive">
-                  <Trash2 /> Delete
+          </EmojiPopover>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="icon-xs" variant="ghost" aria-label="More">
+                <Ellipsis />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="w-48"
+              onCloseAutoFocus={(event) => {
+                if (leaving.current) event.preventDefault()
+                leaving.current = false
+              }}
+            >
+              {comment.author === me && (
+                <DropdownMenuItem onSelect={() => leaveFor("edit")}>
+                  <Pencil /> Edit
                 </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+              )}
+              <DropdownMenuItem>
+                <Link /> Copy link
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <Mail /> Mark unread from here
+              </DropdownMenuItem>
+              {comment.author === me && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem variant="destructive" onSelect={() => leaveFor("delete")}>
+                    <Trash2 /> Delete
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** A second look before a comment goes, saying when the whole thread goes with it. Esc changes your mind. */
+function ConfirmDelete({ first, onCancel, onDelete }: { first?: boolean; onCancel(): void; onDelete(): void }) {
+  const cancel = useRef<HTMLButtonElement>(null)
+  useEffect(() => cancel.current?.focus(), [])
+  const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key !== "Escape") return
+    event.preventDefault()
+    onCancel()
+  }
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-2.5 text-xs">
+      <span>
+        <span className="font-medium">Delete this comment?</span>{" "}
+        <span className="text-muted-foreground">
+          {first ? "It started the thread, so the replies go with it." : "Its reactions go with it."}
+        </span>
+      </span>
+      <span className="flex justify-end gap-1.5">
+        <Button ref={cancel} size="xs" variant="ghost" onClick={onCancel} onKeyDown={onKeyDown}>
+          Cancel
+        </Button>
+        <Button size="xs" variant="destructive" onClick={onDelete} onKeyDown={onKeyDown}>
+          {first ? "Delete thread" : "Delete"}
+        </Button>
+      </span>
     </div>
   )
 }
@@ -269,35 +378,64 @@ export function MentionMenu({
 
 const typedMention = /(?:^|\s)@([A-Za-z]*(?: [A-Za-z]*)?)$/
 
+const typedEmoji = /(?:^|\s):([a-z0-9_+-]{2,})$/i
+
+/** What the composer sends: the text, whether to take a snapshot of the frame, and what's attached. */
+export interface Draft {
+  text: string
+  snapshot: boolean
+  attachments: Attachment[]
+}
+
 /**
- * Where a comment is written. @ opens the mention menu, Enter sends and Shift+Enter starts a new line; the camera
- * attaches a snapshot of the frame.
+ * Where a comment is written. @ opens the mention menu and a colon with two letters suggests emoji, as in :th; Enter
+ * sends and Shift+Enter starts a new line. The smiley opens the emoji picker at the caret, the camera attaches a
+ * snapshot of the frame, and the paperclip attaches files, as does dropping or pasting them: pictures show a preview,
+ * other files a chip. With `onCancel` it edits a comment instead, with Save and Cancel, and Esc cancels.
  */
 export function Composer({
   placeholder = "Add a comment, @ to mention",
   initial = "",
+  initialAttachments = [],
   frame = "Desktop, Dark",
   menuSide = "top",
+  focusOnMount,
   onSend,
+  onCancel,
   className = ""
 }: {
   placeholder?: string
   initial?: string
+  initialAttachments?: Attachment[]
   /** The frame a snapshot would capture. */
   frame?: string
   menuSide?: "top" | "bottom"
-  onSend?(text: string, snapshot: boolean): void
+  /** Puts the caret at the end of the text as soon as it shows, as editing a comment does. */
+  focusOnMount?: boolean
+  onSend?(draft: Draft): void
+  onCancel?(): void
   className?: string
 }) {
   const [text, setText] = useState(initial)
   const [active, setActive] = useState(0)
   const [dismissed, setDismissed] = useState<string>()
   const [snapshot, setSnapshot] = useState(false)
+  const [attachments, setAttachments] = useState(initialAttachments)
+  const [dragging, setDragging] = useState(false)
   const area = useRef<HTMLTextAreaElement>(null)
+  const picker = useRef<HTMLInputElement>(null)
+  const uploading = useUploads(attachments, setAttachments)
+  const ready = attachments.filter((attachment) => !attachment.error)
+  const canSend = (!!text.trim() || ready.length > 0) && !uploading
+  const pictures = attachments.filter((attachment) => attachment.kind === "image")
+  const files = attachments.filter((attachment) => attachment.kind === "file")
   const query = typedMention.exec(text)?.[1]
+  const emojiQuery = query === undefined ? typedEmoji.exec(text)?.[1] : undefined
   const options = query === undefined ? [] : mentionOptions(query)
-  const open = query !== undefined && options.length > 0 && dismissed !== text
-  const index = Math.min(active, options.length - 1)
+  const emoji = emojiQuery === undefined ? [] : searchEmoji(emojiQuery, 6)
+  const count = options.length || emoji.length
+  const open = count > 0 && dismissed !== text
+  const index = Math.min(active, count - 1)
 
   const change = (next: string) => {
     setText(next)
@@ -307,34 +445,94 @@ export function Composer({
     change(`${text.slice(0, text.length - query!.length - 1)}@${person.name} `)
     area.current?.focus()
   }
+  const pickEmoji = (index: number) => {
+    change(`${text.slice(0, text.length - emojiQuery!.length - 1)}${pickSuggestion(emoji[index]!)}`)
+    area.current?.focus()
+  }
+  /** Puts an emoji from the picker where the caret was, and the caret after it. */
+  const insert = (value: string) => {
+    const field = area.current
+    const start = field?.selectionStart ?? text.length
+    const end = field?.selectionEnd ?? text.length
+    change(text.slice(0, start) + value + text.slice(end))
+    requestAnimationFrame(() => {
+      field?.focus()
+      field?.setSelectionRange(start + value.length, start + value.length)
+    })
+  }
+  const attach = (list: ArrayLike<File>) => {
+    if (list.length) setAttachments((current) => [...current, ...fromFiles(list)])
+  }
+  const remove = (id: string) => setAttachments((current) => current.filter((attachment) => attachment.id !== id))
   const send = () => {
-    if (!text.trim()) return
-    onSend?.(text.trim(), snapshot)
+    if (!canSend) return
+    onSend?.({ text: text.trim(), snapshot, attachments: ready })
+    if (onCancel) return
     change("")
     setSnapshot(false)
+    setAttachments([])
   }
+  useEffect(() => {
+    if (!focusOnMount) return
+    const field = area.current
+    field?.focus()
+    field?.setSelectionRange(field.value.length, field.value.length)
+  }, [focusOnMount])
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (open && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
       event.preventDefault()
-      setActive((index + (event.key === "ArrowDown" ? 1 : options.length - 1)) % options.length)
+      setActive((index + (event.key === "ArrowDown" ? 1 : count - 1)) % count)
     } else if (open && (event.key === "Enter" || event.key === "Tab")) {
       event.preventDefault()
-      pick(options[index]!.person)
+      if (options.length) pick(options[index]!.person)
+      else pickEmoji(index)
     } else if (open && event.key === "Escape") {
+      event.preventDefault()
       setDismissed(text)
     } else if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault()
       send()
+    } else if (event.key === "Escape" && onCancel) {
+      event.preventDefault()
+      onCancel()
     }
   }
 
   return (
-    <div className={`relative rounded-xl border bg-background focus-within:border-ring ${className}`}>
-      {open && (
+    <div
+      className={`relative rounded-xl border bg-background focus-within:border-ring ${className}`}
+      onDragOver={(event) => {
+        if (!event.dataTransfer.types.includes("Files")) return
+        event.preventDefault()
+        setDragging(true)
+      }}
+      onDragLeave={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false)
+      }}
+      onDrop={(event) => {
+        event.preventDefault()
+        setDragging(false)
+        attach(event.dataTransfer.files)
+      }}
+    >
+      {dragging && (
+        <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-xl border-2 border-dashed border-[oklch(0.65_0.18_250)] bg-[oklch(0.65_0.18_250/0.12)] text-xs font-medium motion-safe:animate-in motion-safe:fade-in-0">
+          Drop to attach
+        </div>
+      )}
+      {open && options.length > 0 && (
         <MentionMenu
           query={query}
           active={index}
           onPick={pick}
+          className={`absolute left-2 z-20 ${menuSide === "top" ? "bottom-full mb-1.5" : "top-full mt-1.5"}`}
+        />
+      )}
+      {open && emoji.length > 0 && (
+        <EmojiSuggest
+          matches={emoji}
+          active={index}
+          onPick={(entry) => pickEmoji(emoji.indexOf(entry))}
           className={`absolute left-2 z-20 ${menuSide === "top" ? "bottom-full mb-1.5" : "top-full mt-1.5"}`}
         />
       )}
@@ -346,13 +544,42 @@ export function Composer({
         placeholder={placeholder}
         onChange={(event) => change(event.target.value)}
         onKeyDown={onKeyDown}
+        onPaste={(event) => {
+          if (!event.clipboardData.files.length) return
+          event.preventDefault()
+          attach(event.clipboardData.files)
+        }}
         className="max-h-40 min-h-0 resize-none border-0 bg-transparent px-3 pt-2.5 pb-1 text-[13px] shadow-none focus-visible:ring-0 md:text-[13px] dark:bg-transparent"
       />
+      {attachments.length > 0 && (
+        <div className="flex flex-col gap-1.5 px-3 pt-1 pb-1">
+          {pictures.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {pictures.map((picture) => (
+                <DraftPicture key={picture.id} attachment={picture} onRemove={() => remove(picture.id)} />
+              ))}
+            </div>
+          )}
+          {files.map((file) => (
+            <AttachmentChip key={file.id} attachment={file} onRemove={() => remove(file.id)} />
+          ))}
+        </div>
+      )}
       {snapshot && (
         <div className="px-3 pt-1 pb-1">
           <Snapshot frame={frame} onRemove={() => setSnapshot(false)} />
         </div>
       )}
+      <input
+        ref={picker}
+        type="file"
+        multiple
+        hidden
+        onChange={(event) => {
+          attach(event.target.files ?? [])
+          event.target.value = ""
+        }}
+      />
       <div className="flex items-center gap-0.5 px-1.5 pb-1.5">
         <Button
           size="icon-xs"
@@ -366,28 +593,52 @@ export function Composer({
         >
           <AtSign />
         </Button>
-        <Button size="icon-xs" variant="ghost" aria-label="Add an emoji" className="text-muted-foreground">
-          <SmilePlus />
-        </Button>
+        <EmojiPopover onPick={insert}>
+          <Button size="icon-xs" variant="ghost" aria-label="Add an emoji" className="text-muted-foreground">
+            <SmilePlus />
+          </Button>
+        </EmojiPopover>
+        {!onCancel && (
+          <Button
+            size="icon-xs"
+            variant="ghost"
+            aria-label="Attach a snapshot of this frame"
+            aria-pressed={snapshot}
+            className={snapshot ? "text-foreground" : "text-muted-foreground"}
+            onClick={() => setSnapshot(!snapshot)}
+          >
+            <Camera />
+          </Button>
+        )}
         <Button
           size="icon-xs"
           variant="ghost"
-          aria-label="Attach a snapshot of this frame"
-          aria-pressed={snapshot}
-          className={snapshot ? "text-foreground" : "text-muted-foreground"}
-          onClick={() => setSnapshot(!snapshot)}
+          aria-label="Attach files"
+          className="text-muted-foreground"
+          onClick={() => picker.current?.click()}
         >
-          <Camera />
+          <Paperclip />
         </Button>
-        <Button
-          size="icon-xs"
-          className="ml-auto rounded-full"
-          aria-label="Send"
-          disabled={!text.trim()}
-          onClick={send}
-        >
-          <ArrowUp />
-        </Button>
+        {onCancel ? (
+          <span className="ml-auto flex gap-1">
+            <Button size="xs" variant="ghost" onClick={onCancel}>
+              Cancel
+            </Button>
+            <Button size="xs" disabled={!canSend} onClick={send}>
+              Save
+            </Button>
+          </span>
+        ) : (
+          <Button
+            size="icon-xs"
+            className="ml-auto rounded-full"
+            aria-label={uploading ? "Send, once the files finish uploading" : "Send"}
+            disabled={!canSend}
+            onClick={send}
+          >
+            <ArrowUp />
+          </Button>
+        )}
       </div>
     </div>
   )
@@ -424,7 +675,99 @@ export function AgentWorking({ agent, label }: { agent: Person; label: string })
   )
 }
 
-function ThreadMenu() {
+/**
+ * Why a thread isn't where it was left, and the way back: move the pin of a thread whose layer was deleted, go to the
+ * design a layer moved to, switch to the frame a comment was left in, or open the component it's on.
+ */
+export function PlaceNote({ place, layer }: { place: Place; layer?: string }) {
+  const name = <span className="font-medium text-foreground">{layer ?? "Its layer"}</span>
+  const strong = (text: string | number) => <span className="font-medium text-foreground">{text}</span>
+  const {
+    icon: Icon,
+    text,
+    action
+  } = ((): { icon: LucideIcon; text: ReactNode; action: string } => {
+    switch (place.kind) {
+      case "deleted":
+        return {
+          icon: Unlink,
+          text: (
+            <>
+              {name} was deleted by {nameOf(place.by)}, {place.when.toLowerCase()}. The pin stays where it was.
+            </>
+          ),
+          action: "Move pin"
+        }
+      case "moved":
+        return {
+          icon: MoveRight,
+          text: (
+            <>
+              Moved here with {name} from {strong(place.from)}, by {nameOf(place.by)}.
+            </>
+          ),
+          action: "Show where"
+        }
+      case "frame":
+        return {
+          icon: MonitorSmartphone,
+          text: <>Left on a different frame. You're looking at {strong(place.seen)}.</>,
+          action: "Switch"
+        }
+      case "component":
+        return {
+          icon: Component,
+          text: (
+            <>
+              On the {strong(place.component)} component, so it shows on all {place.uses} of its uses.
+            </>
+          ),
+          action: "Open component"
+        }
+    }
+  })()
+  const deleted = place.kind === "deleted"
+  return (
+    <div
+      className={`flex items-start gap-2 border-b py-2 pr-1.5 pl-3 text-xs text-muted-foreground ${deleted ? "bg-[oklch(0.8_0.14_75/0.1)]" : "bg-muted/40"}`}
+    >
+      <Icon className={`mt-px size-3.5 shrink-0 ${deleted ? "text-[oklch(0.82_0.14_75)]" : ""}`} />
+      <span className="min-w-0 flex-1 leading-relaxed">{text}</span>
+      <Button size="xs" variant="ghost" className="-my-0.5 text-foreground">
+        {action}
+      </Button>
+    </div>
+  )
+}
+
+function ThreadMenu({
+  muted,
+  issue,
+  trackers,
+  onMarkUnread,
+  onCopyLink,
+  onMute,
+  onIssue,
+  onUnlink,
+  onDelete
+}: {
+  muted: boolean
+  /** The key of the issue the thread became, if it has. */
+  issue?: string
+  trackers: Tracker[]
+  onMarkUnread?(): void
+  onCopyLink?(): void
+  onMute(): void
+  onIssue(tracker: TrackerId | undefined, mode: "create" | "link"): void
+  onUnlink(): void
+  onDelete?(): void
+}) {
+  // A dialog opened from the menu keeps focus; handing it back to the menu's button would close the dialog again.
+  const leaving = useRef(false)
+  const openIssue = (tracker: TrackerId | undefined, mode: "create" | "link") => {
+    leaving.current = true
+    onIssue(tracker, mode)
+  }
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -432,18 +775,55 @@ function ThreadMenu() {
           <Ellipsis />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52">
-        <DropdownMenuItem>
+      <DropdownMenuContent
+        align="end"
+        className="w-52"
+        onCloseAutoFocus={(event) => {
+          if (leaving.current) event.preventDefault()
+          leaving.current = false
+        }}
+      >
+        <DropdownMenuItem onSelect={onMarkUnread}>
           <Mail /> Mark as unread
         </DropdownMenuItem>
-        <DropdownMenuItem>
+        <DropdownMenuItem onSelect={onCopyLink}>
           <Link /> Copy link
         </DropdownMenuItem>
-        <DropdownMenuItem>
-          <BellOff /> Mute this thread
+        <DropdownMenuItem onSelect={onMute}>
+          <BellOff /> {muted ? "Unmute this thread" : "Mute this thread"}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive">
+        {issue ? (
+          <DropdownMenuItem onSelect={onUnlink}>
+            <Unlink /> Unlink {issue}
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <SquareArrowOutUpRight /> Create issue
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-56">
+              {trackers.map((tracker) => (
+                <DropdownMenuItem key={tracker.id} onSelect={() => openIssue(tracker.id, "create")}>
+                  <TrackerMark id={tracker.id} size={14} /> In {tracker.name}
+                </DropdownMenuItem>
+              ))}
+              {trackers.length > 0 ? (
+                <DropdownMenuItem onSelect={() => openIssue(undefined, "link")}>
+                  <Link2 /> Link an existing issue
+                </DropdownMenuItem>
+              ) : (
+                <p className="px-2 py-1.5 text-xs text-muted-foreground">Your org hasn't added an issue tracker yet.</p>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem>
+                <Plus /> Add an issue tracker
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem variant="destructive" onSelect={onDelete}>
           <Trash2 /> Delete thread
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -454,41 +834,75 @@ function ThreadMenu() {
 /**
  * A thread, as it opens beside its pin: where it is, resolve and more, the comments (long threads fold their middle),
  * an agent at work when one was mentioned, and the reply box. Resolving folds the reply box away; Reopen brings it back.
+ * With `onChange` the canvas holds the thread, so its pin can follow along; without it, the thread keeps its own.
  */
 export function Thread({
-  thread: initial,
+  thread: given,
+  onChange,
   onClose,
+  onMarkUnread,
+  onCopyLink,
+  onDelete,
+  trackers = orgTrackers,
   className = ""
 }: {
   thread: ThreadData
+  onChange?(thread: ThreadData): void
   onClose?(): void
+  onMarkUnread?(): void
+  onCopyLink?(): void
+  onDelete?(): void
+  /** The issue trackers the org has added, which Create issue offers. */
+  trackers?: Tracker[]
   className?: string
 }) {
-  const [thread, setThread] = useState(initial)
+  const [own, setOwn] = useState(given)
   const [expanded, setExpanded] = useState(false)
+  const [muted, setMuted] = useState(false)
+  const [issueDialog, setIssueDialog] = useState<{ tracker: TrackerId; mode: "create" | "link"; opened: number }>()
+  const thread = onChange ? given : own
+  const update = (change: (current: ThreadData) => ThreadData) =>
+    onChange ? onChange(change(thread)) : setOwn((current) => change(current))
   const resolve = () =>
-    setThread((current) => ({ ...current, resolved: current.resolved ? undefined : { by: me, when: "Just now" } }))
+    update((current) => ({ ...current, resolved: current.resolved ? undefined : { by: me, when: "Just now" } }))
   const react = (id: string, emoji: string) =>
-    setThread((current) => ({
+    update((current) => ({
       ...current,
       comments: current.comments.map((comment) =>
         comment.id === id ? { ...comment, reactions: toggleReaction(comment.reactions, emoji) } : comment
       )
     }))
-  const reply = (text: string, snapshot: boolean) =>
-    setThread((current) => ({
+  const reply = ({ text, snapshot, attachments }: Draft) =>
+    update((current) => ({
       ...current,
       comments: [
         ...current.comments,
         {
-          id: `${current.id}-${current.comments.length + 1}`,
+          id: `${current.id}-${Date.now()}`,
           author: me,
           when: "Just now",
           text,
-          snapshot: snapshot ? (current.frame ?? "Desktop") : undefined
+          snapshot: snapshot ? (current.frame ?? "Desktop") : undefined,
+          attachments: attachments.length ? attachments : undefined
         }
       ]
     }))
+  const edit = (id: string, { text, attachments }: Draft) =>
+    update((current) => ({
+      ...current,
+      comments: current.comments.map((comment) =>
+        comment.id === id
+          ? { ...comment, text, attachments: attachments.length ? attachments : undefined, edited: true }
+          : comment
+      )
+    }))
+  /** Deleting the first comment deletes the thread. */
+  const remove = (id: string) => {
+    if (thread.comments[0]?.id !== id)
+      update((current) => ({ ...current, comments: current.comments.filter((comment) => comment.id !== id) }))
+    else if (onDelete) onDelete()
+    else update((current) => ({ ...current, comments: [], resolved: undefined }))
+  }
   const folded = !expanded && thread.comments.length > 4 ? thread.comments.length - 3 : 0
   const shown = folded ? [thread.comments[0]!, ...thread.comments.slice(-2)] : thread.comments
 
@@ -504,7 +918,11 @@ export function Thread({
             {thread.design}
             {thread.layer ? `, ${thread.layer}` : ""}
           </span>
-          {thread.frame && <span className="truncate text-[11px] text-muted-foreground">{thread.frame}</span>}
+          {thread.frame && (
+            <span className="truncate text-[11px] text-muted-foreground">
+              {thread.place?.kind === "frame" ? `Left on ${thread.frame}` : thread.frame}
+            </span>
+          )}
         </span>
         {thread.comments.length > 0 && (
           <>
@@ -518,7 +936,20 @@ export function Thread({
             >
               <Check />
             </Button>
-            <ThreadMenu />
+            {muted && <BellOff aria-label="Muted" className="size-3.5 text-muted-foreground" />}
+            <ThreadMenu
+              muted={muted}
+              issue={thread.issue?.key}
+              trackers={trackers}
+              onMarkUnread={onMarkUnread}
+              onCopyLink={onCopyLink}
+              onMute={() => setMuted(!muted)}
+              onIssue={(tracker, mode) =>
+                setIssueDialog({ tracker: tracker ?? trackers[0]!.id, mode, opened: Date.now() })
+              }
+              onUnlink={() => update((current) => ({ ...current, issue: undefined }))}
+              onDelete={onDelete}
+            />
           </>
         )}
         {onClose && (
@@ -527,6 +958,19 @@ export function Thread({
           </Button>
         )}
       </div>
+      {thread.issue && <IssueLink issue={thread.issue} resolved={!!thread.resolved} onResolve={resolve} />}
+      {thread.place && !thread.resolved && <PlaceNote place={thread.place} layer={thread.layer} />}
+      {issueDialog && (
+        <IssueDialog
+          key={issueDialog.opened}
+          open
+          onOpenChange={(next) => !next && setIssueDialog(undefined)}
+          thread={thread}
+          available={trackers}
+          initial={issueDialog}
+          onLink={(issue) => update((current) => ({ ...current, issue }))}
+        />
+      )}
       {thread.resolved && (
         <div className="flex items-center gap-2 border-b bg-emerald-500/10 py-1.5 pr-1.5 pl-3 text-xs">
           <Check className="size-3.5 text-emerald-400" />
@@ -543,7 +987,13 @@ export function Thread({
         <div className={`flex max-h-[26rem] flex-col overflow-y-auto p-1.5 ${thread.resolved ? "opacity-70" : ""}`}>
           {shown.map((comment, index) => (
             <Fragment key={comment.id}>
-              <Comment comment={comment} onReact={(emoji) => react(comment.id, emoji)} />
+              <Comment
+                comment={comment}
+                first={comment === thread.comments[0]}
+                onReact={(emoji) => react(comment.id, emoji)}
+                onEdit={(draft) => edit(comment.id, draft)}
+                onDelete={() => remove(comment.id)}
+              />
               {folded > 0 && index === 0 && (
                 <button
                   type="button"
@@ -580,6 +1030,7 @@ export function Thread({
 export function ThreadRow({ thread, selected }: { thread: ThreadData; selected?: boolean }) {
   const first = thread.comments[0]!
   const replies = thread.comments.length - 1
+  const attached = thread.comments.reduce((count, comment) => count + (comment.attachments?.length ?? 0), 0)
   return (
     <button
       type="button"
@@ -591,7 +1042,9 @@ export function ThreadRow({ thread, selected }: { thread: ThreadData; selected?:
           <span className="text-[13px] font-medium">{nameOf(first.author)}</span>
           <span className="text-muted-foreground">{first.when}</span>
         </span>
-        <span className="line-clamp-2 text-[13px] text-foreground/85">{first.text.replace(/\{([^}]+)\}/g, "$1")}</span>
+        <span className="line-clamp-2 text-[13px] text-foreground/85">
+          {first.text.replace(/\{([^}]+)\}/g, "$1") || "Attached files"}
+        </span>
         <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted-foreground">
           {thread.layer && (
             <span className="flex items-center gap-1">
@@ -599,6 +1052,11 @@ export function ThreadRow({ thread, selected }: { thread: ThreadData; selected?:
             </span>
           )}
           {replies > 0 && <span>{replies === 1 ? "1 reply" : `${replies} replies`}</span>}
+          {attached > 0 && (
+            <span className="flex items-center gap-1" title={`${attached} attached`}>
+              <Paperclip className="size-3" /> {attached}
+            </span>
+          )}
           {thread.resolved && (
             <span className="flex items-center gap-1 text-emerald-400">
               <Check className="size-3" /> Resolved

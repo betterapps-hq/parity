@@ -1,4 +1,4 @@
-import { Check, Eye, ListFilter, MessageSquarePlus, Plus } from "lucide-react"
+import { Check, Component, Eye, ListFilter, MessageSquarePlus, Plus } from "lucide-react"
 import type { CSSProperties, ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { Kbd } from "@/components/ui/kbd"
@@ -8,25 +8,30 @@ import { Avatar, AvatarStack } from "../parts.tsx"
 import type { ThreadData } from "./collab-data.ts"
 import { CommentText, commentBlue } from "./comments.tsx"
 
-export type PinState = "default" | "unread" | "selected" | "resolved" | "working" | "draft"
+export type PinState = "default" | "unread" | "selected" | "resolved" | "working" | "draft" | "detached" | "elsewhere"
 
 /** The pin's corner that marks the spot: the rest of it is round. */
 const teardrop = "rounded-[18px] rounded-bl-[3px]"
 
 /**
  * Where a thread is: the avatars of who's in it, in a teardrop whose sharp corner marks the spot. Unread pins have a
- * blue ring, the open one fills blue, an agent at work glows in its color, and resolved pins fade to a check.
+ * blue ring, the open one fills blue, an agent at work glows in its color, and resolved pins fade to a check. A pin
+ * whose layer was deleted is dashed in amber, one left on another frame is faded, and one on a component wears the
+ * component's mark on every use.
  */
 export function CommentPin({
   people,
   state = "default",
   replies,
+  component,
   className = ""
 }: {
   people: Person[]
   state?: PinState
   /** Shown after the avatars once a thread has replies. */
   replies?: number
+  /** The thread is on a component, and this is one of its uses. */
+  component?: boolean
   className?: string
 }) {
   const palette = agentPalettes[7]!
@@ -36,11 +41,13 @@ export function CommentPin({
     selected: "ring-2 ring-white",
     resolved: "ring-1 ring-white/10 opacity-70",
     working: "ring-2",
-    draft: "outline-2 outline-dashed outline-white/60 outline-offset-0"
+    draft: "outline-2 outline-dashed outline-white/60 outline-offset-0",
+    detached: "outline-2 outline-dashed outline-[oklch(0.82_0.14_75)] outline-offset-0",
+    elsewhere: "ring-1 ring-white/10 opacity-55"
   }[state]
   return (
     <span
-      className={`relative inline-flex items-center p-[3px] shadow-[0_4px_14px_rgb(0_0_0/0.45)] ${teardrop} ${ring} ${
+      className={`relative inline-flex items-center p-[3px] shadow-[0_4px_14px_rgb(0_0_0/0.45)] transition-[scale,background-color,box-shadow,opacity] duration-200 ease-out ${teardrop} ${ring} ${
         state === "selected" ? "scale-110 bg-[oklch(0.6_0.19_255)] text-white" : "bg-popover"
       } origin-bottom-left ${className}`}
       style={
@@ -84,9 +91,14 @@ export function CommentPin({
       )}
       {state === "unread" && (
         <span
-          className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full ring-2 ring-[#0c0c0f]"
+          className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full ring-2 ring-[#0c0c0f] duration-300 motion-safe:animate-in motion-safe:zoom-in-0"
           style={{ background: commentBlue }}
         />
+      )}
+      {component && (
+        <span className="absolute -right-1 -bottom-1 grid size-4 place-items-center rounded-full bg-[oklch(0.62_0.2_300)] text-white ring-2 ring-[#0c0c0f]">
+          <Component className="size-2.5" strokeWidth={2.5} />
+        </span>
       )}
     </span>
   )

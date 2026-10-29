@@ -1,14 +1,18 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { AtSign, BellOff, Check, MessageSquare, Settings, Sparkles, X } from "lucide-react"
 import type { CSSProperties, ReactNode } from "react"
-import { Button } from "@/components/ui/button"
-import { activity, me, people, type Person } from "./explore-data.ts"
-import { Avatar, ExploreWindow, type MockTab, MiniScreen } from "./parts.tsx"
-import { ActivityRow, TitleBarActions } from "./start-page-parts.tsx"
+import { useState } from "react"
+import { heroThread, thread, threads } from "./collaboration/collab-data.ts"
+import { CommentsPanel, Thread } from "./collaboration/comments.tsx"
+import { EmailDigest, Inbox, notices, NoticeToast, NotificationSettings } from "./collaboration/notifications.tsx"
+import { CommentPin } from "./collaboration/pins.tsx"
+import { me, people } from "./explore-data.ts"
+import { ExploreWindow, type MockTab, MiniScreen } from "./parts.tsx"
+import { TitleBarActions } from "./start-page-parts.tsx"
 
 /**
- * Where notifications go once people collaborate: proposals for an inbox across projects, comments in place on the
- * canvas, a project's own activity, and what interrupts in the moment. Each is shown over an open project.
+ * Where notifications go once people collaborate: an inbox across projects in the title bar, comments in place on the
+ * canvas, a project's own comments beside the inspector, what interrupts in the moment, the settings for all of it, and
+ * the email summary. Built from the collaboration parts, shown over an open project.
  */
 const meta = {
   title: "Parity/Explorations/Notifications",
@@ -20,8 +24,8 @@ type Story = StoryObj<typeof meta>
 
 const tabs: MockTab[] = [
   { id: "home", title: "Home", home: true, badge: 3 },
-  { id: "website", title: "Buildkit website" },
-  { id: "dashboard", title: "Better Apps dashboard" }
+  { id: "website", title: "Website" },
+  { id: "dashboard", title: "Dashboard" }
 ]
 
 /** Lines standing in for a panel's rows. */
@@ -39,31 +43,16 @@ function PanelLines({ count, inset = false }: { count: number; inset?: boolean }
   )
 }
 
-/** A comment's pin on a board: who started it, and how many replies. */
-function Pin({
-  person,
-  replies,
-  style,
-  active
-}: {
-  person: Person
-  replies?: number
-  style: CSSProperties
-  active?: boolean
-}) {
+/** A pin on the canvas, its sharp corner at the point. */
+function Pin({ style, children }: { style: CSSProperties; children: ReactNode }) {
   return (
-    <div className="absolute flex items-center gap-1" style={style}>
-      <span
-        className={`flex items-center gap-1 rounded-full rounded-bl-none bg-background p-0.5 pr-2 shadow-lg ring-1 ${active ? "ring-2 ring-[oklch(0.65_0.18_250)]" : "ring-border"}`}
-      >
-        <Avatar person={person} size={22} />
-        {replies !== undefined && <span className="text-[11px] text-muted-foreground">{replies}</span>}
-      </span>
+    <div className="absolute z-10 -translate-y-full" style={style}>
+      {children}
     </div>
   )
 }
 
-/** An open project, simplified: layers, the canvas with two boards, the inspector and the status bar. */
+/** An open project, simplified: layers, the canvas with two boards and their pins, the inspector and the status bar. */
 function Project({ children, right, pins = true }: { children?: ReactNode; right?: ReactNode; pins?: boolean }) {
   return (
     <div className="flex h-full flex-col">
@@ -87,9 +76,15 @@ function Project({ children, right, pins = true }: { children?: ReactNode; right
           </div>
           {pins && (
             <>
-              <Pin person={people.maya} replies={2} style={{ left: "38%", top: "34%" }} active />
-              <Pin person={people.jonas} style={{ left: "16%", top: "52%" }} />
-              <Pin person={people.priya} replies={1} style={{ left: "75%", top: "22%" }} />
+              <Pin style={{ left: "38%", top: "34%" }}>
+                <CommentPin people={[people.maya, people.claude, people.jonas]} replies={2} state="selected" />
+              </Pin>
+              <Pin style={{ left: "16%", top: "52%" }}>
+                <CommentPin people={[people.sam]} state="unread" />
+              </Pin>
+              <Pin style={{ left: "75%", top: "22%" }}>
+                <CommentPin people={[people.priya, me]} replies={1} state="working" />
+              </Pin>
             </>
           )}
           {children}
@@ -102,7 +97,7 @@ function Project({ children, right, pins = true }: { children?: ReactNode; right
         )}
       </div>
       <div className="flex h-7 shrink-0 items-center gap-3 border-t px-3 text-xs text-muted-foreground">
-        <span>Better Apps dashboard</span>
+        <span>Dashboard</span>
         <span className="ml-auto">Saved</span>
       </div>
     </div>
@@ -110,138 +105,46 @@ function Project({ children, right, pins = true }: { children?: ReactNode; right
 }
 
 /**
- * Inbox in the title bar: a bell beside your avatar, on every tab, opens notifications from every project. Mentions and
- * replies come first; activity and agents' work each have their own view.
+ * The inbox in the title bar: a bell beside your avatar, on every tab, opens notifications from every project. For you
+ * comes first; everything and agents' work each have their own view. Open one to mark it read, try Mark all read, Pause,
+ * or the gear for the settings.
  */
 export const TitleBarInbox: Story = {
   render: () => (
     <ExploreWindow tabs={tabs} active="dashboard" actions={<TitleBarActions />}>
       <Project />
-      <div className="absolute top-1 right-[156px] z-10 flex w-[25rem] flex-col overflow-hidden rounded-xl border bg-popover shadow-2xl">
-        <div className="flex items-center gap-2 border-b px-4 py-3">
-          <span className="text-sm font-semibold">Inbox</span>
-          <span className="ml-auto text-xs text-muted-foreground">Mark all read</span>
-          <Settings className="size-4 text-muted-foreground" />
-        </div>
-        <div className="flex gap-1 border-b px-3 py-2 text-sm">
-          <span className="flex items-center gap-1.5 rounded-md bg-muted px-2.5 py-1 font-medium">
-            <AtSign className="size-3.5" /> For you <span className="text-xs text-muted-foreground">3</span>
-          </span>
-          <span className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-muted-foreground">
-            <MessageSquare className="size-3.5" /> All
-          </span>
-          <span className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-muted-foreground">
-            <Sparkles className="size-3.5" /> Agents
-          </span>
-        </div>
-        <div className="flex max-h-[30rem] flex-col gap-0.5 overflow-y-auto p-2">
-          <span className="px-3 pt-1 pb-1 text-xs font-medium text-muted-foreground">Today</span>
-          {activity
-            .filter((item) => item.day === "Today")
-            .map((item) => (
-              <ActivityRow key={item.id} item={item} />
-            ))}
-          <span className="px-3 pt-2 pb-1 text-xs font-medium text-muted-foreground">Earlier</span>
-          {activity
-            .filter((item) => item.day !== "Today")
-            .map((item) => (
-              <ActivityRow key={item.id} item={item} compact />
-            ))}
-        </div>
-        <div className="flex items-center gap-2 border-t px-4 py-2.5 text-xs text-muted-foreground">
-          <BellOff className="size-3.5" /> Pause notifications
-          <span className="ml-auto">Email a daily summary</span>
-        </div>
-      </div>
+      <Inbox className="absolute top-1 right-[156px] z-10" />
     </ExploreWindow>
   )
 }
 
-/** A comment thread, open beside its pin. */
-function Thread() {
+function ToastDemo() {
+  const [shown, setShown] = useState(true)
   return (
-    <div className="absolute top-[30%] left-[44%] z-10 flex w-80 flex-col rounded-xl border bg-popover shadow-2xl">
-      <div className="flex items-center gap-2 border-b px-3 py-2 text-xs text-muted-foreground">
-        Pricing, Plan cards
-        <span className="ml-auto flex gap-2">
-          <Check className="size-3.5" />
-          <X className="size-3.5" />
-        </span>
-      </div>
-      <div className="flex flex-col gap-3 p-3">
-        {[
-          {
-            who: people.maya,
-            text: "@Andrew can we drop the annual toggle here? It fights with the plan cards.",
-            when: "8 min ago"
-          },
-          {
-            who: people.claude,
-            text: "I can move it above the cards as a segmented control. Want me to try it in a new state?",
-            when: "6 min ago"
-          },
-          { who: people.jonas, text: "+1, and keep the savings badge.", when: "2 min ago" }
-        ].map((comment) => (
-          <div key={comment.when} className="flex gap-2.5">
-            <Avatar person={comment.who} size={24} />
-            <div className="flex min-w-0 flex-col gap-0.5 text-sm">
-              <span className="text-xs">
-                <span className="font-medium">{comment.who.name}</span>{" "}
-                <span className="text-muted-foreground">{comment.when}</span>
-              </span>
-              <span className="text-foreground/90">{comment.text}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="m-3 mt-0 rounded-lg border bg-background px-3 py-2 text-sm text-muted-foreground">
-        Reply, @ to mention
-      </div>
-    </div>
-  )
-}
-
-/** A notification that arrives while you work: only for mentions and replies to you. */
-function Toast({ who, children, action }: { who: Person; children: ReactNode; action: string }) {
-  return (
-    <div className="flex w-[23rem] gap-3 rounded-xl border bg-popover p-3 shadow-2xl">
-      <Avatar person={who} size={28} />
-      <div className="flex min-w-0 flex-1 flex-col gap-2 text-sm">
-        <span className="text-muted-foreground">{children}</span>
-        <div className="flex gap-2">
-          <Button size="xs">{action}</Button>
-          <Button size="xs" variant="ghost">
-            Dismiss
-          </Button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/**
- * In place on the canvas: comments are pins on the boards, a thread opens beside its pin (agents can answer there too),
- * and a mention or reply from another project arrives as a toast you can act on. The Home tab's dot says there's more.
- */
-export const OnTheCanvas: Story = {
-  render: () => (
     <ExploreWindow tabs={tabs} active="dashboard" actions={<TitleBarActions />}>
       <Project>
-        <Thread />
+        <div className="absolute top-[30%] left-[40%] z-10">
+          <Thread thread={thread("toggle")} onClose={() => {}} />
+        </div>
       </Project>
-      <div className="absolute right-4 bottom-12 z-10">
-        <Toast who={people.jonas} action="Open">
-          <span className="font-medium text-foreground">Jonas Weber</span> replied on{" "}
-          <span className="font-medium text-foreground">Level select</span> in SpawnKit: “Pushed the new tiles.”
-        </Toast>
-      </div>
+      {shown && (
+        <div className="absolute right-4 bottom-12 z-10">
+          <NoticeToast notice={notices.find((notice) => notice.kind === "reply")!} onDismiss={() => setShown(false)} />
+        </div>
+      )}
     </ExploreWindow>
   )
 }
 
 /**
- * A project's own activity, as a panel beside the inspector: its comments, changes and agents' runs, filtered to this
- * project. The cross-project inbox stays in the title bar.
+ * In place on the canvas: comments are pins on the boards and a thread opens beside its pin. A mention or a reply from
+ * elsewhere arrives as a toast; Reply answers it right there, without leaving what you're doing.
+ */
+export const OnTheCanvas: Story = { render: () => <ToastDemo /> }
+
+/**
+ * A project's own comments, as a panel beside the inspector: open, for you, or resolved, grouped by design. The inbox
+ * across projects stays in the title bar.
  */
 export const ProjectActivityPanel: Story = {
   render: () => (
@@ -251,63 +154,40 @@ export const ProjectActivityPanel: Story = {
           <div className="flex w-80 shrink-0 flex-col border-l">
             <div className="flex gap-1 border-b px-2 py-1.5 text-xs">
               <span className="rounded-md px-2.5 py-1 text-muted-foreground">Design</span>
-              <span className="rounded-md bg-muted px-2.5 py-1 font-medium">
-                Comments <span className="text-muted-foreground">3</span>
-              </span>
+              <span className="rounded-md bg-muted px-2.5 py-1 font-medium">Comments</span>
               <span className="rounded-md px-2.5 py-1 text-muted-foreground">History</span>
             </div>
-            <div className="flex flex-col gap-0.5 p-2">
-              {[
-                {
-                  who: people.maya,
-                  design: "Pricing",
-                  text: "@Andrew can we drop the annual toggle here?",
-                  when: "8 min ago",
-                  unread: true
-                },
-                {
-                  who: people.priya,
-                  design: "Pricing, mobile",
-                  text: "The plan names wrap on small phones.",
-                  when: "1 h ago",
-                  unread: true
-                },
-                {
-                  who: me,
-                  design: "Checkout",
-                  text: "Resolved: the coupon field moved below the total.",
-                  when: "Yesterday"
-                }
-              ].map((comment) => (
-                <div key={comment.when} className="flex gap-3 rounded-lg px-2 py-2.5 hover:bg-muted/40">
-                  <Avatar person={comment.who} size={26} />
-                  <div className="flex min-w-0 flex-1 flex-col gap-1 text-[13px]">
-                    <span className="text-xs text-muted-foreground">
-                      <span className="font-medium text-foreground">
-                        {comment.who === me ? "You" : comment.who.name}
-                      </span>{" "}
-                      on {comment.design}
-                    </span>
-                    <span className="text-foreground/90">{comment.text}</span>
-                    <span className="text-xs text-muted-foreground">{comment.when}</span>
-                  </div>
-                  {comment.unread && <span className="mt-1.5 size-2 shrink-0 rounded-full bg-[oklch(0.65_0.18_250)]" />}
-                </div>
-              ))}
-              <div className="mt-2 border-t px-2 pt-3 text-xs font-medium text-muted-foreground">
-                Agents in this project
-              </div>
-              <div className="flex items-center gap-2.5 px-2 py-2 text-[13px]">
-                <Avatar person={people.claude} size={26} />
-                <div className="flex flex-col">
-                  <span>Tighten the plan cards</span>
-                  <span className="text-xs text-muted-foreground">Claude Code changed 4 designs, 1 h ago</span>
-                </div>
-              </div>
+            <div className="min-h-0 flex-1 [&>aside]:w-full [&>aside]:border-l-0">
+              <CommentsPanel threads={[heroThread, ...threads]} selected="toggle" />
             </div>
           </div>
         }
       />
     </ExploreWindow>
+  )
+}
+
+/**
+ * What to be told about, and how: a level for comments, switches for agents, reviews, access requests and issues, then
+ * desktop notifications and email. All projects is the default; a project can have its own. Opens from the inbox's
+ * gear, and from Preferences.
+ */
+export const Settings: Story = {
+  render: () => (
+    <div className="grid min-h-screen place-items-center bg-[#0c0c0f] p-10">
+      <div className="w-[25rem] overflow-hidden rounded-xl border bg-popover shadow-2xl">
+        <div className="border-b px-4 py-2.5 text-sm font-semibold">Notifications</div>
+        <NotificationSettings />
+      </div>
+    </div>
+  )
+}
+
+/** The daily summary email, sent only on days something happened: what needs you, each a link to the thread. */
+export const EmailSummary: Story = {
+  render: () => (
+    <div className="grid min-h-screen place-items-center bg-neutral-200 p-10">
+      <EmailDigest />
+    </div>
   )
 }
