@@ -27,7 +27,7 @@ import { TrackerMark } from "./issues.tsx"
 /** Something that happened that you might want to know about, from any project. */
 export interface Notice {
   id: string
-  kind: "mention" | "reply" | "agent" | "review" | "access" | "issue" | "resolved"
+  kind: "mention" | "reply" | "proposal" | "agent" | "review" | "access" | "issue" | "resolved"
   who: Person
   project: string
   /** The design, and the layer when there is one. */
@@ -52,6 +52,17 @@ export const notices: Notice[] = [
     text: "@Andrew Craswell can we drop the annual toggle here? It fights with the {Plan cards}.",
     when: "8 min ago",
     unread: true
+  },
+  {
+    id: "n-proposal",
+    kind: "proposal",
+    who: people.claude,
+    project: "Website",
+    where: "Pricing, Billing toggle",
+    text: "Move the {Billing toggle} above the {Plan cards}, as a segmented control, in a new state.",
+    when: "6 min ago",
+    unread: true,
+    action: "Approve"
   },
   {
     id: "n-agent",
@@ -119,6 +130,7 @@ export const notices: Notice[] = [
 const verbs: Record<Notice["kind"], { verb: string; icon: LucideIcon; color: string }> = {
   mention: { verb: "mentioned you", icon: AtSign, color: commentBlue },
   reply: { verb: "replied", icon: MessageSquare, color: commentBlue },
+  proposal: { verb: "wants your approval", icon: Check, color: "oklch(0.8 0.14 75)" },
   agent: { verb: "finished what you asked", icon: Sparkles, color: "oklch(0.7 0.16 300)" },
   review: { verb: "asked you to review", icon: Eye, color: "oklch(0.78 0.14 75)" },
   access: { verb: "asked for access", icon: KeyRound, color: "oklch(0.78 0.14 75)" },

@@ -40,6 +40,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { agentPalettes } from "../../agent/agent-colors.ts"
 import { me, type Person } from "../explore-data.ts"
 import { accent, Avatar } from "../parts.tsx"
+import { ProposalCard } from "./approvals.tsx"
 import { AttachmentChip, Attachments, DraftPicture, fromFiles, useUploads } from "./attachments.tsx"
 import {
   type Attachment,
@@ -174,16 +175,21 @@ export function Snapshot({ frame, onRemove }: { frame: string; onRemove?(): void
 export function Comment({
   comment,
   first,
+  canApprove,
   onReact,
   onEdit,
-  onDelete
+  onDelete,
+  onDecide
 }: {
   comment: CommentData
   /** The thread's first comment: deleting it deletes the thread. */
   first?: boolean
+  /** You can edit, so you can approve what's proposed. */
+  canApprove?: boolean
   onReact?(emoji: string): void
   onEdit?(draft: Draft): void
   onDelete?(): void
+  onDecide?(status: "approved" | "declined", reason?: string): void
 }) {
   const [mode, setMode] = useState<"view" | "edit" | "delete">("view")
   // Leaving the menu for the edit box or the delete check keeps focus there, not on the menu's button.
@@ -220,6 +226,18 @@ export function Comment({
         ) : (
           <>
             {comment.text && <CommentText text={comment.text} />}
+            {comment.proposal && (
+              <ProposalCard
+                proposal={comment.proposal}
+                lines={comment.proposal.changes.map((change) => (
+                  <CommentText key={change} text={change} />
+                ))}
+                agent={comment.author.name}
+                canApprove={canApprove}
+                onApprove={() => onDecide?.("approved")}
+                onDecline={(reason) => onDecide?.("declined", reason || undefined)}
+              />
+            )}
             {comment.snapshot && <Snapshot frame={comment.snapshot} />}
             {!!comment.attachments?.length && <Attachments items={comment.attachments} />}
             {!!comment.reactions?.length && <Reactions reactions={comment.reactions} onToggle={onReact} />}
@@ -844,6 +862,7 @@ export function Thread({
   onCopyLink,
   onDelete,
   trackers = orgTrackers,
+  canApprove = true,
   className = ""
 }: {
   thread: ThreadData
@@ -854,6 +873,8 @@ export function Thread({
   onDelete?(): void
   /** The issue trackers the org has added, which Create issue offers. */
   trackers?: Tracker[]
+  /** You can edit, so you can approve what's proposed; someone who can only comment can't. */
+  canApprove?: boolean
   className?: string
 }) {
   const [own, setOwn] = useState(given)
@@ -896,6 +917,22 @@ export function Thread({
           : comment
       )
     }))
+  /** Approving a proposal sets whoever proposed it to work on it; declining tells them, with why when you said. */
+  const decide = (id: string, status: "approved" | "declined", reason?: string) =>
+    update((current) => {
+      const proposing = current.comments.find((comment) => comment.id === id)
+      if (!proposing?.proposal) return current
+      return {
+        ...current,
+        working:
+          status === "approved" ? { agent: proposing.author, label: proposing.proposal.summary } : current.working,
+        comments: current.comments.map((comment) =>
+          comment === proposing
+            ? { ...comment, proposal: { ...proposing.proposal!, status, by: me, when: "Just now", reason } }
+            : comment
+        )
+      }
+    })
   /** Deleting the first comment deletes the thread. */
   const remove = (id: string) => {
     if (thread.comments[0]?.id !== id)
@@ -990,9 +1027,11 @@ export function Thread({
               <Comment
                 comment={comment}
                 first={comment === thread.comments[0]}
+                canApprove={canApprove}
                 onReact={(emoji) => react(comment.id, emoji)}
                 onEdit={(draft) => edit(comment.id, draft)}
                 onDelete={() => remove(comment.id)}
+                onDecide={(status, reason) => decide(comment.id, status, reason)}
               />
               {folded > 0 && index === 0 && (
                 <button

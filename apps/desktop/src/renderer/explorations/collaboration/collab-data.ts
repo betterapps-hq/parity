@@ -25,6 +25,22 @@ export interface Attachment {
   error?: string
 }
 
+/**
+ * A change someone set to propose changes (usually an agent) says it will make, for an editor to approve or decline
+ * with a click instead of a reply.
+ */
+export interface Proposal {
+  /** What it will do, in a few words: what the agent shows while it works. */
+  summary: string
+  /** Each change, with `{Layer}` links as in a comment. */
+  changes: string[]
+  status: "waiting" | "approved" | "declined"
+  by?: Person
+  when?: string
+  /** Why it was declined, when someone said. */
+  reason?: string
+}
+
 export interface CommentData {
   id: string
   author: Person
@@ -36,6 +52,7 @@ export interface CommentData {
   /** A snapshot of the frame, taken when the comment was left. */
   snapshot?: string
   attachments?: Attachment[]
+  proposal?: Proposal
 }
 
 /**
@@ -166,6 +183,37 @@ export const threads: ThreadData[] = [
     ]
   }
 ]
+
+/** Maya's question, and Claude Code proposing what it would do about it, waiting for someone to approve. */
+export const proposalThread: ThreadData = {
+  id: "proposal",
+  design: "Pricing",
+  layer: "Billing toggle",
+  frame: "Desktop, Dark",
+  comments: [
+    {
+      id: "proposal-1",
+      author: people.maya,
+      when: "8 min ago",
+      text: "@Claude Code can we drop the annual toggle here? It fights with the {Plan cards}."
+    },
+    {
+      id: "proposal-2",
+      author: people.claude,
+      when: "6 min ago",
+      text: "I'd keep it, but move it out of the way:",
+      proposal: {
+        summary: "Move the billing toggle above the plan cards",
+        changes: [
+          "Move the {Billing toggle} above the {Plan cards}, centered",
+          "Make it a segmented control, Monthly and Yearly, with the savings badge on Yearly",
+          "Do it in a new state, Toggle above, so Default stays as it is"
+        ],
+        status: "waiting"
+      }
+    }
+  ]
+}
 
 /** A thread with pictures and files attached. */
 export const heroThread: ThreadData = {

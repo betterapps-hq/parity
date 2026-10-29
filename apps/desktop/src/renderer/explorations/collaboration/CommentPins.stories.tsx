@@ -38,6 +38,11 @@ const states: { label: string; note: string; pin: ReactNode }[] = [
     note: "Glows in the agent's color",
     pin: <CommentPin people={[people.priya, me, people.claude]} replies={1} state="working" />
   },
+  {
+    label: "Waiting for approval",
+    note: "A proposed change needs an editor",
+    pin: <CommentPin people={[people.maya, people.claude]} replies={1} state="waiting" />
+  },
   { label: "Resolved", note: "Hidden unless you show resolved", pin: <CommentPin people={[]} state="resolved" /> },
   { label: "Placing", note: "Yours, before you've written it", pin: <CommentPin people={[]} state="draft" /> },
   {

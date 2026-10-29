@@ -8,14 +8,24 @@ import { Avatar, AvatarStack } from "../parts.tsx"
 import type { ThreadData } from "./collab-data.ts"
 import { CommentText, commentBlue } from "./comments.tsx"
 
-export type PinState = "default" | "unread" | "selected" | "resolved" | "working" | "draft" | "detached" | "elsewhere"
+export type PinState =
+  | "default"
+  | "unread"
+  | "selected"
+  | "resolved"
+  | "working"
+  | "draft"
+  | "detached"
+  | "elsewhere"
+  | "waiting"
 
 /** The pin's corner that marks the spot: the rest of it is round. */
 const teardrop = "rounded-[18px] rounded-bl-[3px]"
 
 /**
  * Where a thread is: the avatars of who's in it, in a teardrop whose sharp corner marks the spot. Unread pins have a
- * blue ring, the open one fills blue, an agent at work glows in its color, and resolved pins fade to a check. A pin
+ * blue ring, the open one fills blue, an agent at work glows in its color, one waiting for someone to approve a
+ * proposed change has an amber ring, and resolved pins fade to a check. A pin
  * whose layer was deleted is dashed in amber, one left on another frame is faded, and one on a component wears the
  * component's mark on every use.
  */
@@ -43,7 +53,8 @@ export function CommentPin({
     working: "ring-2",
     draft: "outline-2 outline-dashed outline-white/60 outline-offset-0",
     detached: "outline-2 outline-dashed outline-[oklch(0.82_0.14_75)] outline-offset-0",
-    elsewhere: "ring-1 ring-white/10 opacity-55"
+    elsewhere: "ring-1 ring-white/10 opacity-55",
+    waiting: "ring-2 ring-[oklch(0.8_0.14_75)]"
   }[state]
   return (
     <span
