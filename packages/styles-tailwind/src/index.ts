@@ -1,8 +1,8 @@
 import { readFile } from "node:fs/promises"
-import { createRequire } from "node:module"
 import { dirname, join } from "node:path"
 import { pathToFileURL } from "node:url"
 import type { StylesAdapter, ThemeVariable } from "@parity/core"
+import { installedPackage, packageEntry } from "./installed.ts"
 
 interface TailwindNode {
   __unstable__loadDesignSystem(
@@ -32,16 +32,11 @@ export const tailwindStyles: StylesAdapter = {
 }
 
 async function loadTailwindNode(root: string): Promise<TailwindNode> {
-  const fromProject = createRequire(join(root, "package.json"))
   // `@tailwindcss/node` is usually a dependency of the project's Tailwind plugin rather than of the project itself.
   for (const via of [undefined, "@tailwindcss/vite", "@tailwindcss/postcss", "@tailwindcss/cli"]) {
-    try {
-      const require = via ? createRequire(fromProject.resolve(via)) : fromProject
-      const resolved = require.resolve("@tailwindcss/node")
-      return (await import(pathToFileURL(resolved).href)) as TailwindNode
-    } catch {
-      // Try the next way in.
-    }
+    const from = via ? installedPackage(root, via) : root
+    const dir = from && installedPackage(from, "@tailwindcss/node")
+    if (dir) return (await import(pathToFileURL(packageEntry(dir, "@tailwindcss/node")).href)) as TailwindNode
   }
   throw new Error(`Tailwind's @tailwindcss/node is not installed in ${root}`)
 }
