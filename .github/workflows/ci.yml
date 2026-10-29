@@ -12,7 +12,7 @@ jobs:
   # pnpm verify on each system, through the shared template. A newer push to the same branch or pull request cancels
   # the run before it.
   verify:
-    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@569bd0725dcac69cff947c614a9be065a57a2d8a # v1.0.1
+    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@8b4311a69b28ad7423898dceda366cee6644f92c # v1.1.1
     with:
       os: '["ubuntu-latest", "windows-latest", "macos-latest"]'
       # The detection tests need every project in fixtures/ installed, each with its own package manager. Their

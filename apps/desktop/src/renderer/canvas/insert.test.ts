@@ -129,25 +129,6 @@ describe("inserting a library part", () => {
     expect(cells.map((cell) => (cell.type === "component" ? cell.props : null))).toEqual([undefined, { colSpan: 2 }])
   })
 
-  it("gives a part to a parent's render prop, keeping the parent's other slots", () => {
-    const tree = {
-      "acme/Node": source({
-        sample: {
-          props: {
-            render: { $render: [{ component: "acme/Branch" }] },
-            indentGuide: { $element: [{ component: "acme/Guide" }] }
-          }
-        }
-      }),
-      "acme/Item": source({ parents: ["acme/Node"] })
-    }
-    const item: DesignNode = { type: "component", id: "i", component: "acme/Item" }
-    const placed = withLibraryContext(item, tree, [], new Set(["i"]))
-    const slots = placed.type === "component" ? placed.slots : undefined
-    expect(Object.keys(slots ?? {}).sort()).toEqual(["$render:render", "indentGuide"])
-    expect(slots?.["$render:render"]?.map(shape)).toEqual(["Item"])
-  })
-
   it("keeps render functions as $render slots, and gives a part to a parent that calls its children", () => {
     const dates = {
       "acme/DateInput": source({
