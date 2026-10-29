@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "List icons whose names end in a number, and insert the name each icon set's types prefer",
-  "packageName": "@parity/registry",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

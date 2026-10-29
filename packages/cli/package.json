@@ -9,7 +9,8 @@
   "exports": {
     ".": "./src/client.ts"
   },
-  "dependencies": {
+  "dependencies": {},
+  "devDependencies": {
     "@parity/libgen": "workspace:*",
     "@parity/registry": "workspace:*"
   }

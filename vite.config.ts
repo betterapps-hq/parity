@@ -117,7 +117,7 @@ export default defineConfig({
     overrides: [
       {
         // Node runs these with its type stripping, which rejects parameter properties and namespaces.
-        files: ["packages/**", "apps/*/scripts/**"],
+        files: ["packages/**", "apps/*/scripts/**", "scripts/**"],
         rules: {
           "typescript/parameter-properties": "error",
           "typescript/no-namespace": "error"
@@ -199,7 +199,7 @@ export default defineConfig({
     ]
   },
   test: {
-    include: ["packages/*/src/**/*.test.ts", "apps/*/src/**/*.test.ts"]
+    include: ["packages/*/src/**/*.test.ts", "apps/*/src/**/*.test.ts", "scripts/*.test.ts"]
   },
   run: {
     cache: true

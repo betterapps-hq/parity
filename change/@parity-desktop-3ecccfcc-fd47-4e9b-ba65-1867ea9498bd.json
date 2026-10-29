@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Bundle the private packages from devDependencies",
+  "packageName": "@parity/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

@@ -207,36 +207,6 @@ importers:
       '@fontsource-variable/geist':
         specifier: ^5.3.0
         version: 5.3.0
-      '@parity/agent':
-        specifier: workspace:*
-        version: link:../../packages/agent
-      '@parity/builder-vite':
-        specifier: workspace:*
-        version: link:../../packages/builder-vite
-      '@parity/code':
-        specifier: workspace:*
-        version: link:../../packages/code
-      '@parity/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@parity/icons':
-        specifier: workspace:*
-        version: link:../../packages/icons
-      '@parity/libgen':
-        specifier: workspace:*
-        version: link:../../packages/libgen
-      '@parity/project':
-        specifier: workspace:*
-        version: link:../../packages/project
-      '@parity/registry':
-        specifier: workspace:*
-        version: link:../../packages/registry
-      '@parity/renderer-react':
-        specifier: workspace:*
-        version: link:../../packages/renderer-react
-      '@parity/styles-tailwind':
-        specifier: workspace:*
-        version: link:../../packages/styles-tailwind
       '@tanstack/react-virtual':
         specifier: 3.14.23
         version: 3.14.23(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -289,6 +259,36 @@ importers:
         specifier: ^7.5.0
         version: 7.5.0
     devDependencies:
+      '@parity/agent':
+        specifier: workspace:*
+        version: link:../../packages/agent
+      '@parity/builder-vite':
+        specifier: workspace:*
+        version: link:../../packages/builder-vite
+      '@parity/code':
+        specifier: workspace:*
+        version: link:../../packages/code
+      '@parity/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@parity/icons':
+        specifier: workspace:*
+        version: link:../../packages/icons
+      '@parity/libgen':
+        specifier: workspace:*
+        version: link:../../packages/libgen
+      '@parity/project':
+        specifier: workspace:*
+        version: link:../../packages/project
+      '@parity/registry':
+        specifier: workspace:*
+        version: link:../../packages/registry
+      '@parity/renderer-react':
+        specifier: workspace:*
+        version: link:../../packages/renderer-react
+      '@parity/styles-tailwind':
+        specifier: workspace:*
+        version: link:../../packages/styles-tailwind
       '@storybook/react-vite':
         specifier: 10.6.5
         version: 10.6.5(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(@voidzero-dev/vite-plus-core@1.4.0(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(typescript@6.0.3))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(storybook@10.6.5(@types/react@19.3.0)(prettier@3.9.10)(react@19.3.1)(vite-plus@1.4.0(@types/node@24.19.2)(@vitest/ui@5.0.5)(esbuild@0.28.2)(jiti@2.7.0)(typescript@6.0.3)))(typescript@6.0.3)
@@ -440,7 +440,7 @@ importers:
         version: 8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)
 
   packages/cli:
-    dependencies:
+    devDependencies:
       '@parity/libgen':
         specifier: workspace:*
         version: link:../libgen

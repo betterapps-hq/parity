@@ -1,4 +1,8 @@
-# Format, lint and type errors in the staged files, fixing what can be fixed. Never skip it with --no-verify.
-# Change files aren't checked here for now: Beachball counts the whole working tree, so other sessions' unfinished
-# edits in this shared folder blocked unrelated commits. A check of the staged files alone replaces it (PAR-4).
+# Format, lint and type errors in the staged files, fixing what can be fixed. Then a change file for each released
+# package the commit touches: Beachball checks the desktop app's and the CLI's own files, and scripts/changes.ts the
+# private packages they bundle. Never skip it with --no-verify.
 vp staged
+# Git hands hooks GIT_DIR, and with it set Beachball looks for a branch's committed change files in change/change/.
+unset GIT_DIR
+beachball check
+node scripts/changes.ts check

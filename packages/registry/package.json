@@ -1,6 +1,7 @@
 {
   "name": "@parity/registry",
   "version": "0.0.0",
+  "private": true,
   "type": "module",
   "description": "Parity's own .lib.par files, for libraries that don't ship one.",
   "exports": {
