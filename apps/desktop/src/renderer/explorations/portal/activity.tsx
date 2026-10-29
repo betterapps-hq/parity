@@ -64,7 +64,7 @@ export function ActivityPage() {
     <PortalPage active="activity" path="kestrel/activity">
       <div className="flex min-h-full">
         <main className="min-w-0 flex-1">
-          <div className="mx-auto flex max-w-2xl flex-col gap-6 px-8 py-7">
+          <div className="flex max-w-2xl flex-col gap-6 px-8 py-7">
             <PortalHeader title="Activity" />
             <div className="flex items-center justify-between">
               <Pills options={["Everyone", "Your teams", "People you follow"]} />
@@ -174,7 +174,7 @@ export function ActivityPage() {
             <div className="grid grid-cols-2 gap-2">
               <Tally value="54" label="Changes to designs" />
               <Tally value="18" label="Threads resolved" />
-              <Tally value="7" label="Boards built" />
+              <Tally value="3" label="Designs approved" />
               <Tally value={`${readyToBuild}`} label="Ready to build" />
             </div>
           </section>

@@ -1,41 +1,25 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { LayoutGrid, List, UserPlus } from "lucide-react"
+import { UserPlus } from "lucide-react"
 import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { agentPalettes } from "../../agent/agent-colors.ts"
 import { AgentBadge } from "../../agent/AgentPointer.tsx"
 import { people } from "../explore-data.ts"
-import { AvatarStack, GitHubMark } from "../parts.tsx"
+import { AvatarStack } from "../parts.tsx"
 import { ActivityRow, OrgBadge } from "../start-page-parts.tsx"
 import { CanvasArt, ProjectCard } from "../start/page.tsx"
 import { ActivityPage } from "./activity.tsx"
 import { AddSeatsPage, BillingPage, MembersPage, PlansPage, SecurityPage } from "./admin.tsx"
 import { ChangesPage } from "./changes.tsx"
-import {
-  claudeTask,
-  event,
-  events,
-  needsYou,
-  orgProjects,
-  portalProject,
-  type PortalEvent,
-  teams,
-  workingNow
-} from "./data.ts"
+import { claudeTask, event, events, needsYou, portalProject, type PortalEvent, teams, workingNow } from "./data.ts"
 import { HandoffPage } from "./handoff.tsx"
 import { InboxPage } from "./inbox.tsx"
 import { InspectPage } from "./inspect.tsx"
-import {
-  DesignTile,
-  FeedCard,
-  Name,
-  Pills,
-  PortalHeader,
-  PortalPage,
-  SeeAll,
-  TeammateCard,
-  WhereaboutsRow
-} from "./parts.tsx"
+import { LibraryPage } from "./library.tsx"
+import { DesignTile, FeedCard, Name, PortalPage, SeeAll, Tabs, TeammateCard, WhereaboutsRow } from "./parts.tsx"
+import { RecentsPage } from "./recents.tsx"
+import { SearchPage } from "./search.tsx"
+import { RequestAccessPage, SharePage } from "./share.tsx"
 
 /**
  * The portal: Parity on the web, for a whole org. It's where people find what they've been tagged in, see what their
@@ -97,10 +81,24 @@ const needsYouBodies: Record<string, ReactNode> = {
     </div>
   ),
   "cursor-question": (
+    <div className="grid grid-cols-[minmax(0,1fr)_168px] gap-4">
+      <div className="flex flex-col gap-3">
+        <p className="text-sm">Should search results open in a panel, or on their own page?</p>
+        <span className="text-xs text-muted-foreground">Cursor is working for you, and stopped to ask.</span>
+        <div className="mt-auto">
+          <ReplyField placeholder="Answer Cursor" hint="It picks up where it stopped" />
+        </div>
+      </div>
+      <DesignTile project="docs" design="Docs home" />
+    </div>
+  ),
+  "ivy-access": (
     <>
-      <p className="text-sm">Should search results open in a panel, or on their own page?</p>
-      <span className="text-xs text-muted-foreground">Cursor is working for you, and stopped to ask.</span>
-      <ReplyField placeholder="Answer Cursor" hint="It picks up where it stopped" />
+      <p className="text-sm">{event("ivy-access").quote}</p>
+      <span className="text-xs text-muted-foreground">
+        Ivy is a guest from studio-north.com. Commenting is free, and Priya Raman, who owns Help center, gets this too.
+      </span>
+      <Act later="Deny">Let her comment</Act>
     </>
   ),
   "noah-seat": (
@@ -113,20 +111,21 @@ const needsYouBodies: Record<string, ReactNode> = {
     </>
   ),
   "claude-run": (
-    <div className="grid grid-cols-[minmax(0,1fr)_132px_132px] gap-3">
-      <div className="col-span-3">
+    <div className="grid grid-cols-[minmax(0,1fr)_repeat(3,96px)] gap-3">
+      <div className="col-span-4">
         <AgentBadge palette={agentPalettes[7]} agent="Claude Code" kind="write" label={claudeTask} />
       </div>
-      <div className="flex flex-col gap-3">
+      <div className="flex min-w-0 flex-col gap-3">
         <span className="text-xs text-muted-foreground">
-          Sam Okafor asked for this. One token changed, so 3 boards look different.
+          Sam Okafor asked for this. One token changed, so these 3 boards look different.
         </span>
         <div className="mt-auto">
           <Act>See what changed</Act>
         </div>
       </div>
-      <DesignTile project="dashboard" design="Billing" changed />
-      <DesignTile project="dashboard" design="Overview" changed />
+      <DesignTile project="dashboard" design="Billing" changed plain />
+      <DesignTile project="dashboard" design="Overview" changed plain />
+      <DesignTile project="dashboard" design="Sign in" changed plain />
     </div>
   ),
   "priya-review": (
@@ -151,7 +150,7 @@ function ForYou() {
     <PortalPage active="home" path="kestrel">
       <div className="flex min-h-full">
         <main className="min-w-0 flex-1">
-          <div className="mx-auto flex max-w-2xl flex-col gap-6 px-8 py-8">
+          <div className="flex max-w-2xl flex-col gap-6 px-8 py-8">
             <div className="flex flex-col gap-1.5">
               <h1 className="text-[26px] leading-tight font-semibold tracking-tight">Good morning, Andrew</h1>
               <p className="text-sm text-muted-foreground">
@@ -223,38 +222,7 @@ function ForYou() {
  */
 export const Home: Story = { render: () => <ForYou /> }
 
-/** Recents, as Figma's file browser: every project you've been in, as its canvas. Opening one opens its canvas. */
-function Library() {
-  return (
-    <PortalPage active="recents" path="kestrel/recents">
-      <div className="flex flex-col gap-6 px-8 py-7">
-        <PortalHeader title="Recents">
-          <Pills options={["All", "Yours", "Shared with you", "Agents working"]} />
-          <div className="ml-auto flex items-center gap-2">
-            <div className="flex rounded-lg border p-0.5">
-              <span className="grid size-7 place-items-center rounded-md bg-muted">
-                <LayoutGrid className="size-4" />
-              </span>
-              <span className="grid size-7 place-items-center rounded-md text-muted-foreground">
-                <List className="size-4" />
-              </span>
-            </div>
-            <Button variant="outline" className="gap-1.5">
-              <GitHubMark /> From a repository
-            </Button>
-          </div>
-        </PortalHeader>
-        <div className="grid grid-cols-4 gap-x-5 gap-y-8">
-          {orgProjects.map((shown) => (
-            <ProjectCard key={shown.id} project={shown} />
-          ))}
-        </div>
-      </div>
-    </PortalPage>
-  )
-}
-
-export const Recents: Story = { render: () => <Library /> }
+export const Recents: Story = { render: () => <RecentsPage /> }
 
 /** A team: who's working where right now, the team's projects, and its week. */
 function TeamPage() {
@@ -280,11 +248,14 @@ function TeamPage() {
             </Button>
           </div>
         </div>
-        <Pills options={["Now", "Projects", "Activity", "People"]} />
+        <Tabs tabs={["Now", "Projects", "Activity", "People"]} active="Now" />
         <section className="flex flex-col gap-4">
           <div className="flex items-baseline gap-3">
             <h2 className="text-[15px] font-semibold">Working now</h2>
-            <span className="text-xs text-muted-foreground">{here.length} here, 1 away</span>
+            <span className="text-xs text-muted-foreground">
+              {here.filter((where) => !where.who.agent).length} people and{" "}
+              {here.filter((where) => where.who.agent).length} agent here, 1 away
+            </span>
           </div>
           <div className="grid grid-cols-4 gap-5">
             {[...here, away].map((where) => (
@@ -347,6 +318,27 @@ export const Handoff: Story = { render: () => <HandoffPage /> }
  * props as code, its states, its tokens and its size, or give the board to your coding agent.
  */
 export const Inspect: Story = { render: () => <InspectPage /> }
+
+/**
+ * A library: its components as the code renders them, which version each project uses and on which boards, and its
+ * releases. Projects behind the latest version can be updated from here, or the update given to an agent.
+ */
+export const Library: Story = { render: () => <LibraryPage /> }
+
+/**
+ * Sharing a project: a request waiting for an answer first, then everyone with access and where it comes from (owning
+ * it, a team, being an admin, an invite), its agents, and who else in the org can open it.
+ */
+export const Share: Story = { render: () => <SharePage /> }
+
+/** Opening a link to a project you can't see: who owns it, the role to ask for and what it costs, and a note. */
+export const RequestAccess: Story = { render: () => <RequestAccessPage /> }
+
+/**
+ * Search results: designs, components with their files, comments and settings, the match marked, with filters for
+ * project, team, when and who. Only what you can open shows.
+ */
+export const Search: Story = { render: () => <SearchPage /> }
 
 /**
  * What a notification or "See what changed" opens: the project's canvas in the browser, comparing two versions, kept

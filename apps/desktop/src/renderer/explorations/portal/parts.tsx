@@ -13,8 +13,8 @@ import {
   Download,
   House,
   Inbox,
+  Library,
   Lock,
-  PenLine,
   Plus,
   RotateCw,
   Search,
@@ -97,7 +97,7 @@ function NavItem({
       <span className="flex-1 truncate">{label}</span>
       {count !== undefined &&
         (dot ? (
-          <span className="grid h-4 min-w-4 place-items-center rounded-full bg-[oklch(0.62_0.19_256)] px-1 text-[10px] font-semibold text-white">
+          <span className="grid h-4 min-w-4 place-items-center rounded-full bg-[oklch(0.65_0.21_25)] px-1 text-[10px] font-semibold text-white">
             {count}
           </span>
         ) : (
@@ -119,7 +119,8 @@ export type PortalPlace =
   | "recents"
   | "starred"
   | "shared"
-  | "drafts"
+  | "libraries"
+  | "search"
   | "apps"
   | "web"
   | "settings"
@@ -133,9 +134,13 @@ export function PortalNav({ active }: { active: PortalPlace }) {
         <OrgSwitcher org={kestrel} className="min-w-0 flex-1" />
       </div>
       <div className="mb-2 flex gap-1.5">
-        <div className="flex h-8 flex-1 items-center gap-2 rounded-md border bg-background/60 px-2.5 text-sm text-muted-foreground">
-          <Search className="size-3.5" />
-          <span className="flex-1">Search</span>
+        <div
+          className={`flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md border px-2.5 text-sm text-muted-foreground ${active === "search" ? "border-foreground/30 bg-background" : "bg-background/60"}`}
+        >
+          <Search className="size-3.5 shrink-0" />
+          <span className={`flex-1 truncate ${active === "search" ? "text-foreground" : ""}`}>
+            {active === "search" ? searchQuery : "Search"}
+          </span>
           <Kbd>Ctrl K</Kbd>
         </div>
         <Button size="icon-sm" aria-label="New project">
@@ -156,7 +161,7 @@ export function PortalNav({ active }: { active: PortalPlace }) {
       <NavItem icon={<Clock className="size-4" />} label="Recents" active={active === "recents"} />
       <NavItem icon={<Star className="size-4" />} label="Starred" count={3} active={active === "starred"} />
       <NavItem icon={<Users className="size-4" />} label="Shared with you" count={2} active={active === "shared"} />
-      <NavItem icon={<PenLine className="size-4" />} label="Drafts" count={2} active={active === "drafts"} />
+      <NavItem icon={<Library className="size-4" />} label="Libraries" active={active === "libraries"} />
       <NavHeading>Your teams</NavHeading>
       <NavItem icon={<OrgBadge org={teams.apps.org} size={16} />} label="Apps" active={active === "apps"} />
       <NavItem icon={<OrgBadge org={teams.web.org} size={16} />} label="Web" active={active === "web"} />
@@ -229,13 +234,19 @@ export function HereAvatar({ person, size = 28, away }: { person: Person; size?:
   )
 }
 
-/** Where someone is, in a few words: the board and project, who an agent works for, or when they left. */
+/**
+ * Where someone is, in a few words: the board and project, or when they left. An agent's line starts with who it works
+ * for, so that's the part a narrow row keeps.
+ */
 function whereabouts(where: Whereabouts): string {
   const name = portalProject(where.project).name
   if (where.away) return `Left ${where.design} in ${name}, ${where.away}`
-  const forWhom = where.for ? `, for ${where.for === me ? "you" : where.for.name.split(" ")[0]}` : ""
-  return `${where.design} in ${name}${forWhom}`
+  if (where.for) return `For ${where.for === me ? "you" : where.for.name.split(" ")[0]}, on ${where.design} in ${name}`
+  return `${where.design} in ${name}`
 }
+
+/** What a search in the nav shows while its results are open. */
+export const searchQuery = "plan"
 
 /** Joining a person follows them on the canvas; an agent is watched, since it can't be followed into a conversation. */
 function joinLabel(where: Whereabouts): string {
@@ -295,6 +306,7 @@ export function TeammateCard({ where }: { where: Whereabouts }) {
 const handoffColors: Record<Handoff, string> = {
   "In review": "oklch(0.8 0.15 80)",
   "Ready to build": "oklch(0.74 0.13 230)",
+  Building: "oklch(0.72 0.12 200)",
   // Violet, the color every screen marks a change with.
   "Changed since approval": "oklch(0.72 0.16 290)",
   Built: "oklch(0.75 0.17 162)",
@@ -321,6 +333,7 @@ export function DesignTile({
   design,
   mobile,
   changed,
+  plain,
   className = ""
 }: {
   project: string
@@ -329,11 +342,13 @@ export function DesignTile({
   mobile?: boolean
   /** Marked as changed since you last looked. */
   changed?: boolean
+  /** Without its status, when the card around it already says it. */
+  plain?: boolean
   className?: string
 }) {
   const shown = portalProject(id)
   const picked = designOf(shown, design)
-  const status = handoff[`${id}/${picked.name}`]
+  const status = plain ? undefined : handoff[`${id}/${picked.name}`]
   return (
     <div className={`flex flex-col gap-1.5 ${className}`}>
       <div
@@ -391,6 +406,25 @@ export function SeeAll({ children }: { children: ReactNode }) {
   )
 }
 
+/**
+ * Tabs, for moving between the parts of one place: underlined, with the page's left edge. Filters within a list use
+ * Pills instead.
+ */
+export function Tabs<T extends string>({ tabs, active }: { tabs: readonly T[]; active: T }) {
+  return (
+    <div className="flex gap-5 border-b text-sm">
+      {tabs.map((name) => (
+        <span
+          key={name}
+          className={`-mb-px border-b-2 pb-2.5 ${name === active ? "border-foreground font-medium text-foreground" : "border-transparent text-muted-foreground"}`}
+        >
+          {name}
+        </span>
+      ))}
+    </div>
+  )
+}
+
 const settingsTabs = ["General", "Members", "Teams", "Billing", "Security", "Integrations"] as const
 
 /** The org's settings: a row of tabs for its parts, then the part picked. Only admins see them. */
@@ -399,15 +433,8 @@ export function SettingsPage({ tab, children }: { tab: (typeof settingsTabs)[num
     <PortalPage active="settings" path={`kestrel/settings/${tab.toLowerCase()}`}>
       <div className="flex flex-col gap-6 px-8 py-7">
         <PortalHeader title="Kestrel settings" />
-        <div className="-mt-2 flex gap-5 border-b text-sm">
-          {settingsTabs.map((name) => (
-            <span
-              key={name}
-              className={`-mb-px border-b-2 pb-2.5 ${name === tab ? "border-foreground font-medium text-foreground" : "border-transparent text-muted-foreground"}`}
-            >
-              {name}
-            </span>
-          ))}
+        <div className="-mt-2">
+          <Tabs tabs={settingsTabs} active={tab} />
         </div>
         {children}
       </div>

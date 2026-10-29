@@ -56,12 +56,12 @@ export const teams = {
 
 /**
  * Where a board stands between design and code, from Parity's own versions, so it works without git. In review:
- * someone asked for a review. Ready to build: a version was approved and isn't built yet. Changed since approval:
- * edited after the approved version, so it needs another look first. Built: the project's code draws the approved
- * version as designed. Code differs: the code changed after it was built. Branches and pull requests show too, where a
- * project has them.
+ * someone asked for a review. Ready to build: a version was approved and nobody's building it yet. Building: someone
+ * picked it up. Changed since approval: edited after the approved version, so it needs another look first. Built: the
+ * project's code draws the approved version as designed. Code differs: the code changed after it was built. Branches
+ * and pull requests show too, where a project has them.
  */
-export type Handoff = "In review" | "Ready to build" | "Changed since approval" | "Built" | "Code differs"
+export type Handoff = "In review" | "Ready to build" | "Building" | "Changed since approval" | "Built" | "Code differs"
 
 export const handoff: Record<string, Handoff> = {
   "dashboard/Billing": "In review",
@@ -69,7 +69,7 @@ export const handoff: Record<string, Handoff> = {
   "dashboard/Sign in": "In review",
   "website/Pricing": "Changed since approval",
   "website/Home": "Built",
-  "spawnkit/Level select": "Ready to build",
+  "spawnkit/Level select": "Building",
   "spawnkit/In game": "Code differs",
   "docs/Docs home": "In review",
   "copilot/Inbox": "Ready to build",
@@ -118,6 +118,8 @@ export interface PortalEvent extends Activity {
 
 const { maya, jonas, priya, sam, lena, claude, cursor } = people
 export const noah = { name: "Noah Park", hue: 210 }
+/** A guest from the agency Kestrel works with, invited to one project. */
+export const ivy = { name: "Ivy Lopez", hue: 20 }
 
 /** What Sam asked Claude Code to do in the Cloud console, which it now wants reviewed. */
 export const claudeTask = "Move the console to the green brand"
@@ -179,6 +181,20 @@ export const events: PortalEvent[] = [
     day: "Today",
     unread: true,
     team: "apps"
+  },
+  {
+    id: "ivy-access",
+    ago: 30,
+    kind: "invite",
+    who: ivy,
+    project: "Help center",
+    action: "asked to comment on",
+    quote: "Priya asked me to look over the new getting started section.",
+    when: "30 min ago",
+    day: "Today",
+    unread: true,
+    needsYou: true,
+    team: "web"
   },
   {
     id: "maya-comment",

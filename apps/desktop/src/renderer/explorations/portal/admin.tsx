@@ -22,11 +22,10 @@ import { Button } from "@/components/ui/button"
 import { me, type Person, people } from "../explore-data.ts"
 import { Avatar, GitHubMark } from "../parts.tsx"
 import { OrgBadge } from "../start-page-parts.tsx"
-import { noah, teams } from "./data.ts"
+import { ivy, noah, teams } from "./data.ts"
 import { Pills, SettingsPage } from "./parts.tsx"
 
 const { maya, jonas, priya, sam, lena, claude, cursor } = people
-const ivy = { name: "Ivy Lopez", hue: 20 }
 const seatPrice = 27.95
 const paidSeats = 8
 
@@ -87,10 +86,13 @@ const can: { what: string; roles: Record<Role, boolean | string> }[] = [
     roles: { Admin: true, "Billing admin": true, Member: true, Guest: "Projects they're invited to" }
   },
   {
-    what: "Approve a design",
+    what: "Approve a design, with an editor seat",
     roles: { Admin: "Not their own", "Billing admin": "Not their own", Member: "Not their own", Guest: false }
   },
-  { what: "Invite people", roles: { Admin: true, "Billing admin": true, Member: "An admin approves", Guest: false } },
+  {
+    what: "Invite people",
+    roles: { Admin: true, "Billing admin": true, Member: "Viewers; editors once approved", Guest: false }
+  },
   { what: "Approve editor seats", roles: { Admin: true, "Billing admin": true, Member: false, Guest: false } },
   { what: "Plan, invoices and payment", roles: { Admin: true, "Billing admin": true, Member: false, Guest: false } },
   {
@@ -259,7 +261,7 @@ export function MembersPage() {
         </span>
         <span className="ml-auto flex gap-2">
           <Button size="sm" variant="ghost">
-            Decline
+            Deny
           </Button>
           <Button size="sm">Approve and send</Button>
         </span>
@@ -529,17 +531,17 @@ const plans: {
     name: "Starter",
     price: "Free",
     billing: "For trying Parity",
-    features: ["3 projects", "Every component and token from your code", "Comments and sharing"],
+    features: ["3 projects", "Every component and token from your code", "Comments and sharing", "30 days of versions"],
     warning:
-      "Kestrel has 7 projects; Starter keeps 3 and the rest become read only. Single sign-on, the audit log and billing admins turn off."
+      "Kestrel has 7 projects; Starter keeps 3 and the rest become read only. Teams, shared libraries, single sign-on, the audit log and billing admins turn off, and only 30 days of versions are kept."
   },
   {
     name: "Professional",
     price: "$8.95",
     billing: "A seat a month, billed yearly, or $10.95 monthly",
-    features: ["Everything in Starter, and", "Unlimited projects", "Teams and shared libraries", "Version history"],
+    features: ["Everything in Starter, and", "Unlimited projects", "Teams and shared libraries", "Every version, kept"],
     warning:
-      "Kestrel requires single sign-on and keeps an audit log. Professional has neither, so both turn off, and Sam Okafor stops being a billing admin."
+      "Single sign-on, the audit log, libraries across the org and seat requests turn off, and Sam Okafor stops being a billing admin. Kestrel requires single sign-on today."
   },
   {
     name: "Organization",
@@ -726,7 +728,7 @@ export function SecurityPage() {
               detail="Through Parity's GitHub app, which reads code and opens pull requests"
             >
               <span className="flex items-center gap-1.5 text-xs whitespace-nowrap">
-                <GitHubMark /> 6 in kestrel
+                <GitHubMark /> 7 in kestrel
               </span>
             </Setting>
             <Setting title="Who can connect a repository" detail="And so which code Parity can draw boards from">

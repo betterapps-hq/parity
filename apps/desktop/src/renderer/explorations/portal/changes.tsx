@@ -20,6 +20,7 @@ import { people, type Person } from "../explore-data.ts"
 import { Avatar, ParityMark } from "../parts.tsx"
 import type { Look, RenderKind } from "../start/data.ts"
 import { DesignRender } from "../start/renders.tsx"
+import { type ConsolePart, consoleFiles } from "./boards.ts"
 import { claudeTask, designOf, event, portalProject } from "./data.ts"
 import { PortalWindow } from "./parts.tsx"
 
@@ -46,8 +47,8 @@ interface Change {
   areas: Area[]
   where: string
   what: string
-  code: string
-  file: string
+  /** The components it's in, as the code names them. */
+  parts: ConsolePart[]
 }
 
 type BoardName = "Billing" | "Overview" | "Sign in"
@@ -63,8 +64,7 @@ const changes: Change[] = [
     areas: [at(0.8, 1.6, 3.6, 5), at(0.4, 37.4, 17.2, 6.4)],
     where: "Navigation",
     what: "The logo and the open page",
-    code: "Brand, SidebarLink",
-    file: "src/app/Sidebar.tsx"
+    parts: ["Brand", "SidebarLink"]
   },
   {
     n: 2,
@@ -72,8 +72,7 @@ const changes: Change[] = [
     areas: [at(88.6, 13.4, 9.6, 5.6)],
     where: "Change plan",
     what: "The main button",
-    code: "Button",
-    file: "src/ui/Button.tsx"
+    parts: ["Button"]
   },
   {
     n: 3,
@@ -81,8 +80,7 @@ const changes: Change[] = [
     areas: [at(21.8, 22.8, 39.2, 14.6), at(21.8, 57.8, 36.4, 3.8)],
     where: "Plan and usage",
     what: "The plan badge and the meters that aren't near their limit",
-    code: "PlanBadge, UsageMeter",
-    file: "src/billing"
+    parts: ["PlanBadge", "UsageMeter"]
   },
   {
     n: 4,
@@ -90,8 +88,7 @@ const changes: Change[] = [
     areas: [at(21.6, 64.6, 76.6, 23.2)],
     where: "Plans",
     what: "The current plan's ring and check, and every plan's ticks",
-    code: "PlanCard",
-    file: "src/billing/PlanCard.tsx"
+    parts: ["PlanCard"]
   },
   {
     n: 5,
@@ -99,8 +96,7 @@ const changes: Change[] = [
     areas: [at(0.8, 1.6, 3.6, 5), at(0.4, 13, 17.2, 6.4)],
     where: "Navigation",
     what: "The logo and the open page",
-    code: "Brand, SidebarLink",
-    file: "src/app/Sidebar.tsx"
+    parts: ["Brand", "SidebarLink"]
   },
   {
     n: 6,
@@ -108,8 +104,7 @@ const changes: Change[] = [
     areas: [at(88.8, 13.5, 9.4, 5.6)],
     where: "New app",
     what: "The main button",
-    code: "Button",
-    file: "src/ui/Button.tsx"
+    parts: ["Button"]
   },
   {
     n: 7,
@@ -117,8 +112,7 @@ const changes: Change[] = [
     areas: [at(30.4, 27.4, 66.6, 5)],
     where: "Stats",
     what: "Each stat's sparkline",
-    code: "StatCard",
-    file: "src/overview/StatCard.tsx"
+    parts: ["StatCard"]
   },
   {
     n: 8,
@@ -126,8 +120,7 @@ const changes: Change[] = [
     areas: [at(21.8, 36.6, 41.6, 29.6)],
     where: "Usage chart",
     what: "The chart's line, fill and legend",
-    code: "UsageChart",
-    file: "src/overview/UsageChart.tsx"
+    parts: ["UsageChart"]
   },
   {
     n: 9,
@@ -135,8 +128,7 @@ const changes: Change[] = [
     areas: [at(21.8, 94.4, 56.4, 5.4)],
     where: "Apps",
     what: "Each app's icon and request sparkline",
-    code: "AppRow",
-    file: "src/overview/AppRow.tsx"
+    parts: ["AppRow"]
   },
   {
     n: 10,
@@ -144,8 +136,7 @@ const changes: Change[] = [
     areas: [at(0.6, 1, 54.8, 98)],
     where: "Side panel",
     what: "The gradient behind the quote",
-    code: "SignInPanel",
-    file: "src/auth/SignInPanel.tsx"
+    parts: ["SignInPanel"]
   },
   {
     n: 11,
@@ -153,8 +144,7 @@ const changes: Change[] = [
     areas: [at(63.4, 18.2, 4.4, 7), at(63.4, 70.2, 29.1, 6.5)],
     where: "Form",
     what: "The logo and the Continue button",
-    code: "Brand, Button",
-    file: "src/auth/SignIn.tsx"
+    parts: ["Brand", "Button"]
   }
 ]
 
@@ -486,10 +476,12 @@ export function ChangesPage() {
                                 {change.board}, {change.where}
                               </span>
                               <span className="text-xs text-muted-foreground">{change.what}</span>
-                              <span className="text-[11px] text-muted-foreground/70">
-                                <span className="font-mono">{change.code}</span> in{" "}
-                                <span className="font-mono">{change.file}</span>
-                              </span>
+                              {change.parts.map((part) => (
+                                <span key={part} className="text-[11px] text-muted-foreground/70">
+                                  <span className="font-mono">{part}</span> in{" "}
+                                  <span className="font-mono">{consoleFiles[part]}</span>
+                                </span>
+                              ))}
                             </span>
                           </button>
                         </li>

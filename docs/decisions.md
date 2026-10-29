@@ -547,15 +547,28 @@ recommended answer to each of its questions.
   side), Recents (the projects as a file browser), a team page that opens on who's working where now, each on the canvas
   they're in, with Join for people and Watch for agents; the Inbox (the open item beside its board, pins and all, with
   its thread); the org's Activity (changes shown as the designs, merges, published components, new people, and the week
-  in numbers); Handoff and Inspect; the canvas opened on what changed; and the admin pages Members, Billing, Add seats,
-  Plans and Security.
+  in numbers); Handoff and Inspect; the canvas opened on what changed; a library's page; sharing and asking for access;
+  search results; and the admin pages Members, Billing, Add seats, Plans and Security.
+- **Every page shares one left edge, and tabs and filters look different** (my calls, after the third review): tabs move
+  between the parts of one place (a team, settings, a library), and quiet pills filter a list.
 - **Handoff is for developers: every board by where it stands between design and code, from Parity's own versions** (my
   calls, after the design reviews), so it works without git, as history does. A board is In review, Ready to build,
-  Changed since approval, Built, or Code differs. An approval is of one version, so an edit after it turns the board to
-  Changed since approval wherever its status shows, and the developer can build the approved version or look at what
-  changed. Each board names its version, its components and their files (new ones and new props marked), its tokens and
-  their values, its states and sizes, and who's building it; branches, pull requests and tracker issues show too where a
-  project has them. Whoever's building a board hears when it changes.
+  Building, Changed since approval, Built, or Code differs. An approval is of one version, so an edit after it turns the
+  board to Changed since approval wherever its status shows, and the developer can build the approved version or look at
+  what changed. Handoff is a list, one row per board grouped by status, with the board you pick open at the side: its
+  version, its components and their files (new ones and new props marked), its tokens and their values, its states and
+  sizes, and who's building it; branches, pull requests and tracker issues show too where a project has them. Whoever's
+  building a board hears when it changes. Handoff, Inspect and What changed read what a board delivers from one list
+  (`portal/boards.ts`), so they always name the same components and tokens.
+- **Libraries take Drafts' place in the nav** (my call): Parity's projects live in repositories, so there are no drafts.
+  A library's page shows its components as the code renders them, which version each project uses and on which boards,
+  and its releases; a project behind the latest version can be updated from there, or the update given to an agent.
+- **Sharing shows where everyone's access comes from** (my call): owning the project, a team, being an admin, or an
+  invite. Requests waiting for an answer come first, and go to the inbox of the project's owner and the org's admins.
+  Asking to view or comment is free; asking to edit needs an editor seat, which an admin approves. The dialog keeps to
+  Security: no public links, and guests for 90 days.
+- **Search is one page of everything you can open** (my call): designs, components with their files, comments and
+  settings, the match marked, filtered by project, team, when and who. Projects you can't see stay out of it.
 - **Inspect is Parity's Dev Mode** (my call): a board at its approved version, read-only, where picking anything shows
   its component and file, its props as code, its states, its tokens and its size, and Give to your agent hands the board
   to the developer's own coding agent.

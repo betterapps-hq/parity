@@ -64,10 +64,10 @@ export function InboxPage() {
                 <Check /> Done
               </Button>
               <Button variant="outline" size="sm" className="gap-1.5">
-                <Monitor /> Desktop app
+                <Monitor /> Open in the desktop app
               </Button>
               <Button size="sm" className="gap-1.5">
-                <ExternalLink /> Open on the canvas
+                <ExternalLink /> Open the canvas
               </Button>
             </div>
           </div>
