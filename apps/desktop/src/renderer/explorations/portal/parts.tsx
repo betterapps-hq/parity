@@ -26,8 +26,7 @@ import {
 import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { Kbd } from "@/components/ui/kbd"
-import { StickyNote } from "../collaboration/notes.tsx"
-import { me, people, type Person } from "../explore-data.ts"
+import { me, type Person } from "../explore-data.ts"
 import { Avatar, ParityMark } from "../parts.tsx"
 import { OrgBadge, OrgSwitcher } from "../start-page-parts.tsx"
 import { CanvasArt } from "../start/page.tsx"
@@ -336,17 +335,6 @@ export function SeeAll({ children }: { children: ReactNode }) {
     <span className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
       {children} <ArrowRight className="size-3" />
     </span>
-  )
-}
-
-/** A question the design leaves open, as a sticky note beside it: it's for deciding, and never ships. */
-export function OpenQuestion({ children }: { children: ReactNode }) {
-  return (
-    <div className="w-fit rotate-[1.5deg] self-start">
-      <StickyNote color="yellow" author={people.claude} size={220}>
-        {children}
-      </StickyNote>
-    </div>
   )
 }
 

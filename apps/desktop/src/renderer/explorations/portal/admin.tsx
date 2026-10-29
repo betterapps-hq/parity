@@ -1,20 +1,20 @@
 /**
- * The org's admin pages that charging per seat needs: members and their seats, and billing. A seat is for editing;
- * viewing and commenting are free. Prices are placeholders, and the open questions sit on the designs as sticky notes.
+ * The org's admin pages that charging per seat needs: members and their seats, billing and plans. Only editors pay;
+ * viewing and commenting are free, and agents are the customer's own. The plans are Figma's at half the price.
  */
-import { ChevronDown, CreditCard, Download, Minus, Plus, Search, Sparkles, UserPlus } from "lucide-react"
+import { Check, ChevronDown, CreditCard, Download, Minus, Plus, Search, Sparkles, UserPlus } from "lucide-react"
 import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { me, type Person, people } from "../explore-data.ts"
 import { Avatar } from "../parts.tsx"
 import { OrgBadge } from "../start-page-parts.tsx"
 import { teams } from "./data.ts"
-import { OpenQuestion, Pills, SettingsPage } from "./parts.tsx"
+import { Pills, SettingsPage } from "./parts.tsx"
 
 const { maya, jonas, priya, sam, lena, claude, cursor } = people
 const noah = { name: "Noah Park", hue: 210 }
 const ivy = { name: "Ivy Lopez", hue: 20 }
-const price = 24
+const seatPrice = 27.95
 
 /** A figure about seats or money, with what it's out of and a bar when it fills up. */
 function Meter({
@@ -212,10 +212,8 @@ export function MembersPage() {
 }
 
 const invoices = [
-  { date: "Oct 1, 2026", detail: "8 editor seats", amount: "$192.00" },
-  { date: "Sep 18, 2026", detail: "2 seats added, prorated", amount: "$20.80" },
-  { date: "Sep 1, 2026", detail: "6 editor seats", amount: "$144.00" },
-  { date: "Aug 1, 2026", detail: "6 editor seats", amount: "$144.00" }
+  { date: "Oct 1, 2026", detail: "Quarterly: 2 seats added Sep 18, for the rest of the year", amount: "$192.97" },
+  { date: "Jan 1, 2026", detail: "Organization, 6 editor seats for 2026", amount: "$2,012.40" }
 ]
 
 /** A section of the billing page: a title, then a card. */
@@ -231,7 +229,7 @@ function Panel({ title, action, children }: { title: string; action?: ReactNode;
   )
 }
 
-function BillingBody({ aside }: { aside?: ReactNode }) {
+function BillingBody() {
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_340px] gap-8">
       <div className="flex flex-col gap-7">
@@ -240,10 +238,10 @@ function BillingBody({ aside }: { aside?: ReactNode }) {
             <Sparkles className="size-6" />
           </span>
           <span className="flex flex-1 flex-col gap-0.5">
-            <span className="text-lg font-semibold">Team plan</span>
+            <span className="text-lg font-semibold">Organization plan</span>
             <span className="text-sm text-muted-foreground">
-              ${price} per editor seat a month. Viewers and commenters are free, and your own agents connect at no
-              charge.
+              ${seatPrice} per editor seat a month, billed yearly. Viewers and commenters are free, and your own agents
+              connect at no charge.
             </span>
           </span>
           <Button variant="outline">Change plan</Button>
@@ -253,7 +251,7 @@ function BillingBody({ aside }: { aside?: ReactNode }) {
         </div>
         <div className="grid grid-cols-3 gap-4">
           <Meter label="Editor seats" value="6" of="of 8 used" filled={6 / 8} />
-          <Meter label="Next invoice" value={`$${8 * price}.00`} of="on Nov 1" />
+          <Meter label="Renews" value="$2,683.20" of="on Jan 1, 2027" />
           <Meter label="Waiting for a seat" value="2" of="asked or invited" />
         </div>
         <Panel
@@ -263,9 +261,9 @@ function BillingBody({ aside }: { aside?: ReactNode }) {
           <table className="w-full text-left text-sm">
             <tbody>
               {invoices.map((invoice) => (
-                <tr key={invoice.date + invoice.detail} className="border-b last:border-0">
-                  <td className="py-2.5">{invoice.date}</td>
-                  <td className="py-2.5 text-muted-foreground">{invoice.detail}</td>
+                <tr key={invoice.date} className="border-b last:border-0">
+                  <td className="py-2.5 whitespace-nowrap">{invoice.date}</td>
+                  <td className="py-2.5 pl-4 text-muted-foreground">{invoice.detail}</td>
                   <td className="py-2.5 text-right tabular-nums">{invoice.amount}</td>
                   <td className="py-2.5 pl-4 text-right">
                     <span className="rounded-full bg-[oklch(0.75_0.17_162)]/15 px-2 py-0.5 text-xs text-[oklch(0.75_0.17_162)]">
@@ -304,7 +302,6 @@ function BillingBody({ aside }: { aside?: ReactNode }) {
             </span>
           </div>
         </Panel>
-        {aside}
       </div>
     </div>
   )
@@ -313,19 +310,19 @@ function BillingBody({ aside }: { aside?: ReactNode }) {
 export function BillingPage() {
   return (
     <SettingsPage tab="Billing">
-      <BillingBody aside={<OpenQuestion>Open: the price per editor seat.</OpenQuestion>} />
+      <BillingBody />
     </SettingsPage>
   )
 }
 
-/** Adding seats: how many, and what it costs today for the rest of the month and from the next invoice on. */
+/** Adding seats mid-year: how many, what the rest of the year costs on the next quarterly invoice, and the renewal. */
 export function AddSeatsPage() {
   const adding = 2
   return (
     <SettingsPage tab="Billing">
       <BillingBody />
       <div className="absolute inset-0 z-30 grid place-items-center bg-black/50">
-        <div className="flex w-[420px] flex-col gap-5 rounded-2xl border bg-popover p-6 text-popover-foreground shadow-2xl">
+        <div className="flex w-[440px] flex-col gap-5 rounded-2xl border bg-popover p-6 text-popover-foreground shadow-2xl">
           <div className="flex flex-col gap-1">
             <h2 className="text-lg font-semibold">Add editor seats</h2>
             <span className="text-sm text-muted-foreground">
@@ -345,20 +342,106 @@ export function AddSeatsPage() {
             </span>
           </div>
           <div className="flex flex-col gap-2 text-sm">
-            <span className="flex justify-between">
-              <span className="text-muted-foreground">Today, for the rest of October</span>
-              <span className="tabular-nums">$4.65</span>
+            <span className="flex justify-between gap-4">
+              <span className="text-muted-foreground">The rest of 2026, on the January 1 quarterly invoice</span>
+              <span className="tabular-nums">$117.62</span>
             </span>
-            <span className="flex justify-between">
-              <span className="text-muted-foreground">From November 1, for 10 seats</span>
-              <span className="tabular-nums">${10 * price}.00 a month</span>
+            <span className="flex justify-between gap-4">
+              <span className="text-muted-foreground">From January 1, 2027, for 10 seats</span>
+              <span className="tabular-nums">$3,354.00 a year</span>
             </span>
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="ghost">Cancel</Button>
-            <Button>Add 2 seats and pay $4.65</Button>
+            <Button>Add 2 seats</Button>
           </div>
         </div>
+      </div>
+    </SettingsPage>
+  )
+}
+
+/** Parity's plans: Figma's, at half the price per editor seat, rounded up to the next .95. */
+const plans = [
+  {
+    name: "Starter",
+    price: "Free",
+    billing: "For trying Parity",
+    features: ["3 projects", "Every component and token from your code", "Comments and sharing"]
+  },
+  {
+    name: "Professional",
+    price: "$8.95",
+    billing: "A seat a month, billed yearly, or $10.95 monthly",
+    features: ["Unlimited projects", "Teams and shared libraries", "Version history"]
+  },
+  {
+    name: "Organization",
+    price: `$${seatPrice}`,
+    billing: "A seat a month, billed yearly",
+    features: [
+      "Libraries across the org",
+      "Admins, billing admins and seat requests",
+      "Single sign-on",
+      "Seats added mid-year billed quarterly"
+    ],
+    current: true
+  },
+  {
+    name: "Enterprise",
+    price: "$45.95",
+    billing: "A seat a month, billed yearly",
+    features: ["Several workspaces", "SCIM and an audit log", "Dedicated support"]
+  }
+]
+
+/** Changing plan: the four plans side by side, with the one Kestrel is on marked. */
+export function PlansPage() {
+  return (
+    <SettingsPage tab="Billing">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-[15px] font-semibold">Plans</h2>
+        <span className="text-sm text-muted-foreground">
+          Only editors pay. Viewers, commenters and your own agents are free on every plan.
+        </span>
+      </div>
+      <div className="grid grid-cols-4 gap-4">
+        {plans.map((plan) => (
+          <div
+            key={plan.name}
+            className={`flex flex-col gap-4 rounded-xl border bg-card p-5 ${plan.current ? "ring-2 ring-[oklch(0.7_0.16_275)]" : ""}`}
+          >
+            <span className="flex items-center justify-between">
+              <span className="font-semibold">{plan.name}</span>
+              {plan.current && (
+                <span className="rounded-full bg-[oklch(0.7_0.16_275)]/15 px-2 py-0.5 text-xs text-[oklch(0.7_0.16_275)]">
+                  Your plan
+                </span>
+              )}
+            </span>
+            <span className="flex flex-col gap-1">
+              <span className="text-3xl font-semibold tracking-tight tabular-nums">{plan.price}</span>
+              <span className="text-xs text-muted-foreground">{plan.billing}</span>
+            </span>
+            <ul className="flex flex-1 flex-col gap-2 text-sm">
+              {plan.features.map((feature) => (
+                <li key={feature} className="flex gap-2">
+                  <Check className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                  {feature}
+                </li>
+              ))}
+            </ul>
+            {plan.current ? (
+              <Button variant="outline" disabled>
+                Current plan
+              </Button>
+            ) : plan.name === "Enterprise" ? (
+              <Button>Talk to us</Button>
+            ) : (
+              <Button variant="outline">Switch to {plan.name}</Button>
+            )}
+          </div>
+        ))}
       </div>
     </SettingsPage>
   )

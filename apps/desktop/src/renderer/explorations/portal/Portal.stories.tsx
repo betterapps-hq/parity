@@ -8,7 +8,7 @@ import { AvatarStack } from "../parts.tsx"
 import { ActivityRow, OrgBadge } from "../start-page-parts.tsx"
 import { CanvasArt, ProjectCard } from "../start/page.tsx"
 import { ActivityPage } from "./activity.tsx"
-import { AddSeatsPage, BillingPage, MembersPage } from "./admin.tsx"
+import { AddSeatsPage, BillingPage, MembersPage, PlansPage } from "./admin.tsx"
 import { ChangesPage } from "./changes.tsx"
 import { orgProjects, portalProject, teams, type Whereabouts, workingNow } from "./data.ts"
 import { InboxPage } from "./inbox.tsx"
@@ -351,13 +351,19 @@ export const Activity: Story = { render: () => <ActivityPage /> }
 export const WhatChanged: Story = { render: () => <ChangesPage /> }
 
 /**
- * Members and seats: who has an editor seat, who views for free, who asked for a seat, and pending invites. The open
- * questions about seats sit on the page as a sticky note.
+ * Members and seats: who has an editor seat, who views and comments for free, who asked for a seat, and pending
+ * invites. Only editors pay, and agents are the customer's own.
  */
 export const Members: Story = { render: () => <MembersPage /> }
 
-/** Billing: the plan, seats used, the next invoice, past invoices, the card and who can change it. */
+/** Billing: the Organization plan, seats used, the renewal, past invoices, the card and who can change it. */
 export const Billing: Story = { render: () => <BillingPage /> }
 
-/** Adding seats: how many, what it costs today for the rest of the month, and from the next invoice on. */
+/** Adding seats mid-year: the rest of the year on the next quarterly invoice, then the renewal for every seat. */
 export const AddSeats: Story = { render: () => <AddSeatsPage /> }
+
+/**
+ * Plans: Figma's four, at half the price per editor seat, rounded up to the next .95. Only editors pay on every plan;
+ * viewers, commenters and your own agents are free.
+ */
+export const Plans: Story = { render: () => <PlansPage /> }

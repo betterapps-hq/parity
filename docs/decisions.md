@@ -442,14 +442,16 @@ recommended answer to each of its questions.
   they're in, with Join; the Inbox (the open item beside its board, pins and all, with its thread); the org's Activity
   (changes shown as the designs, merges, published components, new people, and the week in numbers); the canvas opened
   on what changed (before and after side by side, numbered changes, who changed what, approve or ask for changes, and
-  the history along the bottom); and the admin pages Members, Billing and Add seats.
-- **A seat is for editing; viewing and commenting are free,** as Figma does it. Admins approve a seat someone asks for,
-  and adding seats charges the rest of the month at once. Billing admins are their own role. The price ($24 a seat a
-  month) is a placeholder.
-- **Only editors pay; agents don't take up seats** (your calls, 2026-10-29).
+  the history along the bottom); and the admin pages Members, Billing, Add seats and Plans.
+- **Only editors pay; viewing and commenting are free, and agents don't take up seats** (your calls, 2026-10-29). Admins
+  approve a seat someone asks for, and billing admins are their own role.
 - **Agents are the customer's own,** such as Claude Code and Cursor, connected to Parity through its MCP server. Parity
   doesn't run or pay for them, so it has no agent use to bill (your call).
-- **Open, marked on the Billing design as a sticky note:** the price per seat.
+- **The plans are Figma's at half the price per editor seat, rounded up to the next .95** (your call, 2026-10-29,
+  against Figma's Full seat prices that day): Starter free, Professional $8.95 a month billed yearly or $10.95 monthly,
+  Organization $27.95 and Enterprise $45.95, both billed yearly. As on Figma, seats added mid-year on Organization and
+  Enterprise are prorated to the renewal and invoiced quarterly. Kestrel is on Organization. Each plan's features follow
+  Figma's tiers for now (the Plans story) and are still to be settled.
 
 ## Storybook
 
