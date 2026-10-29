@@ -44,7 +44,7 @@ export const keymap = {
   insert: { group: "Object", label: "Insert", keys: ["/", "Shift I"] },
   wrap: { group: "Object", label: "Wrap in layout", keys: ["Ctrl G", "Ctrl Alt G", "Shift A"] },
   unwrap: { group: "Object", label: "Unwrap layout", keys: ["Ctrl Shift G", "Alt Shift A", "Ctrl Backspace"] },
-  makeComponent: { group: "Object", label: "Make it a component", keys: ["Ctrl Alt K"] },
+  makeComponent: { group: "Object", label: "Make component", keys: ["Ctrl Alt K"] },
   goToMain: { group: "Object", label: "Go to the main component", keys: ["Ctrl Alt Shift K"] },
   detach: { group: "Object", label: "Detach instance", keys: ["Ctrl Alt B"] },
   bringForward: { group: "Object", label: "Bring forward", keys: ["Ctrl ]"] },

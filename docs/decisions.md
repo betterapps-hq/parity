@@ -75,7 +75,14 @@ still need your call.
   - **Bring forward moves a layer later in its layout,** which paints it in front, as CSS does, so it moves down the
     Layers list, which lists layers in their layout's order.
   - **Alt+1 and Alt+2 open Layers and Components,** Figma's Layers and Assets.
+  - **Ctrl+Alt+K makes a component of a design or a layer:** a design selected on its own becomes a component (or a
+    screen again), and a selected layer is extracted into a new component named after it, as Figma's is.
   - Figma keys for things Parity doesn't do yet are CAN-39.
+- **Enter, Tab and the arrows on a focused control are the control's** (found by the editor audit, 2026-10-29): a
+  button, tab, Layers row or toggle presses, moves focus or moves within itself, so Tab moves through the inspector's
+  fields instead of selecting the next layer. They act on the canvas when it, or nothing, has focus. A key the canvas
+  handles is also kept from tldraw when it's released, as tldraw's select tool picks the next board on Tab's release.
+- **Escape while the pointer is held cancels the drag,** of a layer or a design, rather than selecting the parent.
 - **Electron's default menu is replaced.** It closed the window on Ctrl+W and reloaded it on Ctrl+R. Its developer menu
   registers no keys, so Ctrl+R is free for Rename; Ctrl+Shift+I opens developer tools through the keymap. Its keys never
   worked on Windows anyway, where the menu isn't shown.

@@ -34,6 +34,9 @@ export function useAppShortcuts(): void {
 export function useShortcuts(session: ProjectSession | undefined, active: boolean): void {
   useEffect(() => {
     if (!active || !session) return undefined
+    // tldraw acts on Tab and Enter when they're released, so a key handled here is taken from it on the way up too.
+    const handledKeys = new Set<string>()
+    let pointerHeld = false
 
     const onKeyDown = (event: KeyboardEvent) => {
       // Keys typed into a design, as when interacting with it, are the design's. Shadow DOM hands this listener the
@@ -47,10 +50,21 @@ export function useShortcuts(session: ProjectSession | undefined, active: boolea
       const typing = !!target?.closest("input, textarea, select, [contenteditable='true'], [contenteditable='']")
       const inMenu = !!target?.closest("[role=menu], [role=listbox], [role=dialog]")
       if (typing || inMenu) return
+      // Escape mid-drag cancels the drag, a layer's or a design's, rather than selecting the parent.
+      if (pointerHeld && event.key === "Escape") return
+      // Enter, Tab and the arrows on a focused button, tab, Layers row or other control are that control's: they press
+      // it, move focus on, or move within it. They're the canvas's when the canvas, or nothing, has focus.
+      const control =
+        !!target &&
+        target !== document.body &&
+        !target.closest(".tl-container") &&
+        !!target.closest("button, a[href], [role], [tabindex]")
+      if (control && (event.key === "Enter" || event.key === "Tab" || event.key.startsWith("Arrow"))) return
       const mod = event.ctrlKey || event.metaKey
       const handled = () => {
         event.preventDefault()
         event.stopImmediatePropagation()
+        handledKeys.add(event.code)
       }
 
       const command = shortcutFor(event, canvasCommands)
@@ -73,7 +87,32 @@ export function useShortcuts(session: ProjectSession | undefined, active: boolea
       }
     }
 
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (!handledKeys.delete(event.code)) return
+      event.preventDefault()
+      event.stopImmediatePropagation()
+    }
+    const onPointerDown = () => {
+      pointerHeld = true
+    }
+    const onPointerUp = () => {
+      pointerHeld = false
+    }
+
     window.addEventListener("keydown", onKeyDown, { capture: true })
-    return () => window.removeEventListener("keydown", onKeyDown, { capture: true })
+    window.addEventListener("keyup", onKeyUp, { capture: true })
+    window.addEventListener("pointerdown", onPointerDown, { capture: true })
+    window.addEventListener("pointerup", onPointerUp, { capture: true })
+    window.addEventListener("pointercancel", onPointerUp, { capture: true })
+    // A release outside the window never arrives, so leaving it ends the hold too.
+    window.addEventListener("blur", onPointerUp)
+    return () => {
+      window.removeEventListener("blur", onPointerUp)
+      window.removeEventListener("keydown", onKeyDown, { capture: true })
+      window.removeEventListener("keyup", onKeyUp, { capture: true })
+      window.removeEventListener("pointerdown", onPointerDown, { capture: true })
+      window.removeEventListener("pointerup", onPointerUp, { capture: true })
+      window.removeEventListener("pointercancel", onPointerUp, { capture: true })
+    }
   }, [session, active])
 }

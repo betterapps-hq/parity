@@ -266,7 +266,11 @@ function ObjectItems() {
       <Item command="unwrap" icon={Ungroup} />
       <MenubarSeparator />
       <Item command="makeComponent" icon={Diamond}>
-        {design?.container.kind === "component" ? "Make it a screen" : "Make it a component"}
+        {design?.container.kind === "component"
+          ? "Make it a screen"
+          : design
+            ? "Make it a component"
+            : "Make component"}
       </Item>
       <Item command="goToMain" icon={Diamond}>
         {instance ? `Go to ${mainName(instance.node.design)}` : "Go to the main component"}

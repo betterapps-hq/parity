@@ -2,6 +2,7 @@ import { detachInstance, findNode } from "@parity/core"
 import { toast } from "sonner"
 import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
 import { copySelection, copyStyle, duplicateDesigns, pasteClipboard, pasteStyle } from "../canvas/clipboard.ts"
+import { layerLabel } from "../canvas/kinds.tsx"
 import { firstChildLayer, parentLayer, projectLibrary, siblingLayer } from "../canvas/layers.ts"
 import { selectedDesigns } from "../selection.ts"
 import { type ProjectSession, saveFailureToast, workspace } from "../workspace.ts"
@@ -19,6 +20,7 @@ import {
   unwrapLayer,
   wrapLayers
 } from "./arrange.ts"
+import { extractIntoComponent } from "./components.ts"
 import { duplicateDesign, setDesignKind } from "./designs.ts"
 import { setLayout } from "./layout.ts"
 import { getPreferences, setPreferences } from "./preferences.ts"
@@ -316,6 +318,36 @@ export function selectedDesign(session = activeSession()) {
 export function toggleComponent(session = activeSession()): void {
   const entry = selectedDesign(session)
   if (session && entry) setDesignKind(session, entry, entry.container.kind === "component" ? "screen" : "component")
+}
+
+/** The one layer selected, when it's one of its design's own layers, not the root or a layer inside an instance. */
+export function selectedOwnLayer(session = activeSession()) {
+  const current = session?.selection.get()
+  const entry = current?.design ? session?.store.getEntry(current.design) : undefined
+  const node =
+    entry && current?.node && !current.nodes?.length ? findNode(entry.container.root, current.node) : undefined
+  return entry && node && node.id !== entry.container.root.id ? { entry, node } : undefined
+}
+
+/**
+ * Ctrl+Alt+K, as in Figma: a design selected on its own becomes a component, or a screen again; a selected layer is
+ * extracted into a new component design named after it, as the inspector's Make component does.
+ */
+export function makeComponent(session = activeSession()): void {
+  if (!session) return
+  if (selectedDesign(session)) {
+    toggleComponent(session)
+    return
+  }
+  const layer = selectedOwnLayer(session)
+  if (!layer) return
+  try {
+    const name = layerLabel(layer.node, session.store.getEntries())
+    session.selection.set({ design: extractIntoComponent(session, layer.entry, [layer.node.id], name) })
+    revealSelection(session)
+  } catch (error) {
+    toast.info(message(error))
+  }
 }
 
 /** The selected layer, when it's one instance of a component. */
