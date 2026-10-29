@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 1024 1024" fill="none">
+  <title>Parity</title>
+  <!-- Drawn for 16 to 32 pixels, where selection handles would blur: the same equals, the design lighter than the code. -->
+  <defs>
+    <linearGradient id="tile" x1="512" y1="0" x2="512" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2C2858"/>
+      <stop offset="1" stop-color="#0D0B22"/>
+    </linearGradient>
+    <linearGradient id="built" x1="192" y1="0" x2="832" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#54D8F4"/>
+      <stop offset="0.5" stop-color="#7A7EFF"/>
+      <stop offset="1" stop-color="#D85CE1"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="232" fill="url(#tile)"/>
+  <rect x="192" y="272" width="640" height="184" rx="60" fill="#F5F4FF" fill-opacity="0.66"/>
+  <rect x="192" y="568" width="640" height="184" rx="60" fill="url(#built)"/>
+</svg>
