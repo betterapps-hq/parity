@@ -42,13 +42,13 @@ at the end of this page are the plan for testing more. Four of them exist in `fi
 
 ### Expected
 
-| Expectation             | Why it pays                                                                                               | Without it                                                                                 |
-| ----------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| TypeScript              | One engine, the type checker, gives props today and component discovery, API clients and code links next. | Designs render, but props aren't inferred.                                                 |
-| React 19                | One renderer adapter to build and test. React 18 and earlier are dropped.                                 | It opens as usual, but React 18 and earlier aren't tested and may not render.              |
-| Vite                    | One builder adapter; it loads the project's own config.                                                   | The project doesn't open (no builder adapter).                                             |
-| Tailwind CSS v4         | The theme is read and written as `@theme`; spacing and type scales come with it.                          | Plain CSS variables still give tokens; the spacing scale and `@theme` editing are missing. |
-| Named component exports | Exports are matched by name in the guest, the props reader and the insert picker.                         | A default export shows as an unknown component (a gap to fix, see below).                  |
+| Expectation         | Why it pays                                                                                               | Without it                                                                                 |
+| ------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| TypeScript          | One engine, the type checker, gives props today and component discovery, API clients and code links next. | Designs render, but props aren't inferred.                                                 |
+| React 19            | One renderer adapter to build and test. React 18 and earlier are dropped.                                 | It opens as usual, but React 18 and earlier aren't tested and may not render.              |
+| Vite                | One builder adapter; it loads the project's own config.                                                   | The project doesn't open (no builder adapter).                                             |
+| Tailwind CSS v4     | The theme is read and written as `@theme`; spacing and type scales come with it.                          | Plain CSS variables still give tokens; the spacing scale and `@theme` editing are missing. |
+| Exported components | Parity places what code can import. Named and default exports both work.                                  | A component used only inside its own file isn't listed.                                    |
 
 ## Will my project open?
 
@@ -57,7 +57,7 @@ at the end of this page are the plan for testing more. Four of them exist in `fi
 | React 19, Vite, Tailwind v4, shadcn, TypeScript                         | ✅     | Everything. This is the example project and the Buildkit scaffolder's stack.                                       |
 | React 18 and earlier                                                    | ❌     | Dropped: React 18 came out in March 2022. Nothing blocks it and it may still render, but it isn't tested or fixed. |
 | React, Vite, plain CSS with custom properties                           | ❔     | Should render, with tokens from the CSS. Spacing values assume Tailwind's `--spacing` variable.                    |
-| React, Vite, JavaScript                                                 | ◐      | Renders `.jsx` components without inferred props. `.js` files aren't scanned.                                      |
+| React, Vite, JavaScript                                                 | ◐      | Renders `.jsx` and `.js` components without inferred props.                                                        |
 | React, Vite, Tailwind v3 and earlier                                    | ❌     | Dropped: v3 came out in December 2021. Untested; the theme reader uses a v4 API, so the theme doesn't load.        |
 | React, Vite, CSS modules or CSS-in-JS (MUI, Emotion, styled-components) | ❔     | Components render, but their styles most likely don't reach the frames.                                            |
 | React, Vite, Fluent UI v9                                               | 🔜     | Planned; see Fluent UI and Fluent icons. Today its styles most likely don't reach the frames.                      |
@@ -117,32 +117,36 @@ at the end of this page are the plan for testing more. Four of them exist in `fi
 
 ### Finding components
 
-| Source                                                 | Status | Notes                                                                                                                                                                                                 |
-| ------------------------------------------------------ | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| shadcn `components.json` `aliases.ui` folder           | ✅     |                                                                                                                                                                                                       |
-| `src/components/ui`, `components/ui`, `src/components` | ◐      | Only the first folder found, and not its subfolders. Pages and feature components are missed.                                                                                                         |
-| `.tsx`, `.jsx`                                         | ✅     |                                                                                                                                                                                                       |
-| `.js`, `.ts`                                           | ❌     |                                                                                                                                                                                                       |
-| Named exports                                          | ✅     | Found with a text pattern.                                                                                                                                                                            |
-| Default exports                                        | ❌     | Found but don't render; a gap to fix.                                                                                                                                                                 |
-| The whole app, by type                                 | 🔜     | Parse first, then the type checker in the props worker; see `proposals/component-detection.md`. Measured on a 914-file app: no false matches, and it found every component the other two methods did. |
+| Source                                                             | Status | Notes                                                                                                                                                                                                                                                                         |
+| ------------------------------------------------------------------ | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| shadcn `components.json` `aliases.ui` folder                       | ✅     |                                                                                                                                                                                                                                                                               |
+| Every file the app's tsconfig includes                             | ✅     | Read with TypeScript's own config parser, so `extends` and project references are followed. Without a tsconfig, every file under the root. Stories, tests, generated files, `tmp` folders, and the entry file that mounts the app are left out.                               |
+| The UI kit: `src/components/ui`, `components/ui`, `src/components` | ✅     | When `components.json` doesn't name a folder, the first of these found. Its components load with the canvas and keep their bare names on a clash. The rest of the app loads as it's drawn.                                                                                    |
+| `.tsx`, `.jsx`                                                     | ✅     |                                                                                                                                                                                                                                                                               |
+| `.js`                                                              | ✅     |                                                                                                                                                                                                                                                                               |
+| `.ts`                                                              | ❌     | A component written without JSX in a `.ts` file isn't found.                                                                                                                                                                                                                  |
+| Named and default exports                                          | ✅     | Found by parsing each file: copacker's 360 component files in about a quarter of a second, with no route objects or API handlers counted. A default export takes its declaration's name, else its file's.                                                                     |
+| Aliases, and components without JSX                                | ✅     | The type checker in the props worker adds what parsing can't see, such as `const Select = SelectPrimitive.Root` and components that return only `children`. On copacker it took about 13 seconds after opening, and the list matched the earlier measurement: 593 components. |
+| Two components with one name                                       | ✅     | The second gains its folder, as in `components/FieldError`.                                                                                                                                                                                                                   |
+| Workspace packages                                                 | 🔜     | Each one its own section, imported by its package name (FIND-4).                                                                                                                                                                                                              |
 
 ### Component libraries
 
-| Library                                             | Status | Notes                                                                                                                                                                                                                            |
-| --------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Any package with a `.lib.par`                       | ✅     | Describes itself (components, icons, decorators, stylesheet, breakpoints, DTCG tokens) with no change to Parity.                                                                                                                 |
-| Any React package, with `parity lib`                | ✅     | Writes its `.lib.par`: components by type, tokens, decorators for the libraries Parity knows, and each part's parents and samples, tried with React's server renderer. Regenerating reports new, changed and removed components. |
-| Parts placed inside their parents                   | ✅     | Inserting `AccordionTrigger` brings its Accordion and AccordionItem. In the app, these render inside their parents: Radix 115 of 118, Base UI 159 of 174, Mantine 117 of 119, Chakra 433 of 477, each Buildkit style 145 of 145. |
-| Hand edits to a library file                        | ✅     | Kept in the file's `edits` or a shared file, merged over what's generated, and kept when it's regenerated.                                                                                                                       |
-| A library newer than its file                       | ◐      | Uses the newest older file, leaves out what's gone and lists new components by name, with a note to update the file.                                                                                                             |
-| A library's own repo, with a `.lib.par` at its root | ✅     | Its designs open on the canvas, and saving writes them into the `.lib.par`'s `canvas`.                                                                                                                                           |
-| Buildkit shadcn styles (Base UI)                    | ✅     | All eight (luma, lyra, maia, mira, nova, rhea, sera, vega) in the registry, sharing one set of hand edits, with the tooltip provider and toaster. The Radix styles aren't published.                                             |
-| shadcn components copied into the project           | ✅     | Found as the project's own components.                                                                                                                                                                                           |
-| Radix, Base UI, React Aria (unstyled)               | ✅     | In the registry with their providers; styles come from the project's CSS.                                                                                                                                                        |
-| MUI, Chakra, Mantine                                | ✅     | In the registry, styled in frames, with each library's dark theme as a mode.                                                                                                                                                     |
-| Fluent UI React v9 (`@fluentui/react-components`)   | ✅     | In the registry: Griffel renders into each frame, and Fluent's five themes are modes.                                                                                                                                            |
-| Installing a library not in the catalog             | ◐      | The catalog is the registry. Other packages work once they ship a `.lib.par` or one is written with `parity lib`.                                                                                                                |
+| Library                                             | Status | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| --------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Any package with a `.lib.par`                       | ✅     | Describes itself (components, icons, decorators, stylesheet, breakpoints, DTCG tokens) with no change to Parity.                                                                                                                                                                                                                                                                                                                                                                    |
+| Any React package, with `parity lib`                | ✅     | Writes its `.lib.par`: components by type, tokens, decorators for the libraries Parity knows, and each part's parents and samples, tried with React's server renderer. Regenerating reports new, changed and removed components.                                                                                                                                                                                                                                                    |
+| Parts placed inside their parents                   | ✅     | Inserting `AccordionTrigger` brings its Accordion and AccordionItem. In the app, these render inside their parents: Radix 115 of 118, Base UI 159 of 174, Mantine 117 of 119, Chakra 433 of 477, each Buildkit style 145 of 145.                                                                                                                                                                                                                                                    |
+| Hand edits to a library file                        | ✅     | Kept in the file's `edits` or a shared file, merged over what's generated, and kept when it's regenerated.                                                                                                                                                                                                                                                                                                                                                                          |
+| Parts learned from a library's own examples         | ✅     | `parity lib` reads the stories, demos and examples in the library's repository at the installed version's commit: whole parent paths with optional levels, and samples with the values the file declares. Rendering on the server, inside their parents: Radix 115 of 116, Base UI 166 of 174 (159 without examples), Mantine 111 of 116, Chakra 432 of 473 (424), React Aria 40 of 57 (25), MUI 11 of 19 (6), Fluent 3 of 6 (0), each Buildkit style 145 of 145 with 3 hand edits. |
+| A library newer than its file                       | ◐      | Uses the newest older file, leaves out what's gone and lists new components by name, with a note to update the file.                                                                                                                                                                                                                                                                                                                                                                |
+| A library's own repo, with a `.lib.par` at its root | ✅     | Its designs open on the canvas, and saving writes them into the `.lib.par`'s `canvas`.                                                                                                                                                                                                                                                                                                                                                                                              |
+| Buildkit shadcn styles (Base UI)                    | ✅     | All eight (luma, lyra, maia, mira, nova, rhea, sera, vega) in the registry, sharing one set of hand edits, with the tooltip provider and toaster. The Radix styles aren't published.                                                                                                                                                                                                                                                                                                |
+| shadcn components copied into the project           | ✅     | Found as the project's own components.                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Radix, Base UI, React Aria (unstyled)               | ✅     | In the registry with their providers; styles come from the project's CSS.                                                                                                                                                                                                                                                                                                                                                                                                           |
+| MUI, Chakra, Mantine                                | ✅     | In the registry, styled in frames, with each library's dark theme as a mode.                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Fluent UI React v9 (`@fluentui/react-components`)   | ✅     | In the registry: Griffel renders into each frame, and Fluent's five themes are modes.                                                                                                                                                                                                                                                                                                                                                                                               |
+| Installing a library not in the catalog             | ◐      | The catalog is the registry. Other packages work once they ship a `.lib.par` or one is written with `parity lib`.                                                                                                                                                                                                                                                                                                                                                                   |
 
 ### Icons and images
 
@@ -214,30 +218,29 @@ wrote them.
 
 In each column, ● means the feature needs it, and ◐ means the feature is better with it.
 
-| Feature                         | TypeScript | React | Vite | Tailwind v4 | CSS variables | Other                                     |
-| ------------------------------- | ---------- | ----- | ---- | ----------- | ------------- | ----------------------------------------- |
-| Render designs                  |            | ●     | ●    |             | ◐             | A global stylesheet Parity can find       |
-| Insert the project's components |            | ●     |      |             |               | Named exports in the component folder     |
-| Props panel                     | ●          | ●     |      |             |               | cva for variants                          |
-| Tokens panel and editing        |            |       |      | ◐           | ●             |                                           |
-| Modes: themes                   |            |       |      |             | ●             | A theme class such as `.dark`             |
-| Modes: breakpoints              |            |       |      | ◐           | ●             | Width-only media queries                  |
-| Spacing and type controls       |            |       |      | ●           | ●             | `--spacing` and the type scale            |
-| Library components              |            | ●     |      |             |               | A `.lib.par` or a catalog entry           |
-| Icons                           |            | ●     |      |             |               | `lucide-react`                            |
-| Pasted images                   |            |       |      |             |               | The project's `public` folder             |
-| Storybook links                 |            |       |      |             |               | Storybook 9 or later with CSF `component` |
-| Accessibility and tab order     |            | ●     | ●    |             |               | Whatever renders the frame                |
-| Export PNG and SVG              |            | ●     | ●    |             |               |                                           |
-| Agent API                       |            | ●     | ●    | ◐           |               | Spacing values assume `--spacing`         |
+| Feature                         | TypeScript | React | Vite | Tailwind v4 | CSS variables | Other                                      |
+| ------------------------------- | ---------- | ----- | ---- | ----------- | ------------- | ------------------------------------------ |
+| Render designs                  |            | ●     | ●    |             | ◐             | A global stylesheet Parity can find        |
+| Insert the project's components |            | ●     |      |             |               | Exported from a file the tsconfig includes |
+| Props panel                     | ●          | ●     |      |             |               | cva for variants                           |
+| Tokens panel and editing        |            |       |      | ◐           | ●             |                                            |
+| Modes: themes                   |            |       |      |             | ●             | A theme class such as `.dark`              |
+| Modes: breakpoints              |            |       |      | ◐           | ●             | Width-only media queries                   |
+| Spacing and type controls       |            |       |      | ●           | ●             | `--spacing` and the type scale             |
+| Library components              |            | ●     |      |             |               | A `.lib.par` or a catalog entry            |
+| Icons                           |            | ●     |      |             |               | `lucide-react`                             |
+| Pasted images                   |            |       |      |             |               | The project's `public` folder              |
+| Storybook links                 |            |       |      |             |               | Storybook 9 or later with CSF `component`  |
+| Accessibility and tab order     |            | ●     | ●    |             |               | Whatever renders the frame                 |
+| Export PNG and SVG              |            | ●     | ●    |             |               |                                            |
+| Agent API                       |            | ●     | ●    | ◐           |               | Spacing values assume `--spacing`          |
 
 ## Gaps to fix
 
 Not requirements, just work not done yet:
 
-- Default exports don't render, and `export default X` isn't found.
-- Components are read from one folder, not its subfolders. The type-based discovery plan fixes this.
-- `.js` and `.ts` files aren't scanned for components.
+- Components written without JSX in `.ts` files aren't found.
+- A component file added, renamed or deleted needs the project reopened (FIND-7).
 - Themes set by attribute (`[data-theme="dark"]`) and `prefers-color-scheme` blocks aren't read as themes.
 - A package's stylesheet imported by the app entry (`import "@mantine/core/styles.css"`) is read as a file under `src/`
   that doesn't exist.
@@ -429,12 +432,11 @@ yet.
 
 What the detection snapshots record on 2026-10-28, gaps included:
 
-- **`vite7-js`:** Vite 7.3.7 with `vite.config.cjs`, npm, and four components. The `[data-theme="dark"]` values are
-  dropped, so there's one theme. `Avatar`, written `export default function Avatar`, is listed under a named export the
-  file doesn't have, and `Badge`, written `export default Badge`, isn't found.
+- **`vite7-js`:** Vite 7.3.7 with `vite.config.cjs`, npm, and six components, `App` and the default exports `Avatar` and
+  `Badge` among them. The `[data-theme="dark"]` values are dropped, so there's one theme.
 - **`react-aria`:** Vite 7.3.7 with `vite.config.mts`, Yarn Berry, Tailwind 4.3.3's theme with the `.dark` theme and six
-  breakpoints, three components, and Storybook 9 stories for two of them. React Aria Components isn't listed as a
-  library, and Hugeicons isn't found.
+  breakpoints, four components with `App`, and Storybook 9 stories for two of them. React Aria Components isn't listed
+  as a library, and Hugeicons isn't found.
 - **`mantine`:** Vite 8.3.5 with `vite.config.cts` and bun. Mantine's stylesheet, imported from `main.tsx`, becomes
   `src/@mantine/core/styles.css`, which doesn't exist. The `prefers-color-scheme` block overwrites the light values, and
   Mantine isn't listed as a library.

@@ -97,23 +97,28 @@
     "App": {
       "path": "src/App.tsx",
       "export": "default",
+      "as": "function",
       "lazy": true
     },
     "Button": {
       "path": "src/components/ui/button.tsx",
-      "export": "Button"
+      "export": "Button",
+      "as": "function"
     },
     "Card": {
       "path": "src/components/ui/card.tsx",
-      "export": "Card"
+      "export": "Card",
+      "as": "function"
     },
     "CardContent": {
       "path": "src/components/ui/card.tsx",
-      "export": "CardContent"
+      "export": "CardContent",
+      "as": "function"
     },
     "CardTitle": {
       "path": "src/components/ui/card.tsx",
-      "export": "CardTitle"
+      "export": "CardTitle",
+      "as": "function"
     }
   },
   "libraries": [],

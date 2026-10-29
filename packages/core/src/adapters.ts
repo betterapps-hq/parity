@@ -136,6 +136,11 @@ export interface Guest {
    * it's drawn. Ids the guest already has are left as they are.
    */
   addComponents?(sources: Record<string, Pick<ComponentSource, "path" | "export">>): void
+  /**
+   * Resolves once the components drawn so far that load on demand have loaded, so an offscreen render or a screenshot
+   * can wait for them.
+   */
+  loaded?(): Promise<void>
   /** The names of an icon set's icons, as in `Heart` for `lucide/Heart`. */
   iconNames?(library: string): string[]
   css: string

@@ -1,6 +1,8 @@
 # Proposal: finding components
 
-Status: decided on 2026-10-28, with the recommended answer to each question below; being built.
+Status: decided on 2026-10-28, with the recommended answer to each question below. The parse, the type checker's pass,
+ids and default exports landed on 2026-10-29; workspace packages, the memory budget, the cache, keeping the list in step
+and grouping are still to do (backlog FIND-4 to FIND-16).
 
 ## In one line
 

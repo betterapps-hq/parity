@@ -8,7 +8,7 @@ import type {
   MountHandle,
   RenderNode
 } from "@parity/core"
-import { Component, type ComponentType, createElement, Fragment, lazy, type ReactNode, Suspense } from "react"
+import { Component, type ComponentType, createElement, Fragment, type ReactNode, useEffect, useState } from "react"
 import { createRoot } from "react-dom/client"
 
 type Props = Record<string, unknown>
@@ -64,13 +64,41 @@ export function createGuest(init: GuestInit): Guest {
   const drawn = new Map<unknown, ComponentType<Props>>()
   const deferred = new Map<string, ComponentType<Props>>()
 
-  /** An app component whose module loads the first time it's drawn. */
+  /** Modules still loading for components drawn on demand. */
+  const inFlight = new Set<Promise<unknown>>()
+
+  /**
+   * An app component whose module loads the first time it's drawn. It draws nothing until then, and the rest of the
+   * frame doesn't wait. React's `lazy` would do this too, but holds back what was suspended for 300ms after it loads,
+   * which an offscreen render waiting on `loaded()` would miss.
+   */
   const onDemand = (name: string): ComponentType<Props> | undefined => {
     const load = loaders[name]
     if (!load) return undefined
     let component = deferred.get(name)
     if (!component) {
-      component = lazy(async () => ({ default: (await load()) as ComponentType<Props> }))
+      let ready: ComponentType<Props> | undefined
+      let failure: { error: unknown } | undefined
+      let loading: Promise<void> | undefined
+      const start = () => {
+        if (loading) return loading
+        loading = load().then(
+          (value) => void (ready = value as ComponentType<Props>),
+          (error: unknown) => void (failure = { error })
+        )
+        inFlight.add(loading)
+        void loading.finally(() => inFlight.delete(loading!))
+        return loading
+      }
+      component = function OnDemand(props: Props) {
+        const [, redraw] = useState(0)
+        useEffect(() => {
+          if (!ready && !failure) void start().then(() => redraw((count) => count + 1))
+        }, [])
+        // Thrown while drawing, so the component's boundary shows why it couldn't load.
+        if (failure) throw failure.error
+        return ready ? createElement(ready, props) : null
+      }
       deferred.set(name, component)
     }
     return component
@@ -151,9 +179,7 @@ export function createGuest(init: GuestInit): Guest {
           else props[slot] = rendered.length === 1 ? rendered[0] : rendered
         }
         const element = children ? createElement(component, props, ...children) : createElement(component, props)
-        // One still loading draws nothing until it's ready, and the rest of the frame doesn't wait for it.
-        const ready = node.component in loaders ? createElement(Suspense, { fallback: null }, element) : element
-        return createElement(ComponentBoundary, { key, name: node.component }, ready)
+        return createElement(ComponentBoundary, { key, name: node.component }, element)
       }
     }
   }
@@ -162,6 +188,16 @@ export function createGuest(init: GuestInit): Guest {
     renderer: "react",
     components: names,
     hasComponent: (name) => lookup(name) !== undefined,
+    async loaded() {
+      // A component that loads can draw others that load too, so this waits for a pass that starts none.
+      for (let pass = 0; pass < 10; pass++) {
+        if (inFlight.size === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 16))
+          if (inFlight.size === 0) return
+        }
+        await Promise.allSettled(inFlight)
+      }
+    },
     addComponents(sources) {
       for (const [id, source] of Object.entries(sources)) {
         if (components[id] || id in loaders) continue

@@ -86,27 +86,33 @@
     "App": {
       "path": "src/App.jsx",
       "export": "default",
+      "as": "function",
       "lazy": true
     },
     "Avatar": {
       "path": "src/components/Avatar.jsx",
-      "export": "default"
+      "export": "default",
+      "as": "function"
     },
     "Badge": {
       "path": "src/components/Badge.jsx",
-      "export": "default"
+      "export": "default",
+      "as": "function"
     },
     "Button": {
       "path": "src/components/Button.jsx",
-      "export": "Button"
+      "export": "Button",
+      "as": "function"
     },
     "Card": {
       "path": "src/components/Card.jsx",
-      "export": "Card"
+      "export": "Card",
+      "as": "function"
     },
     "ThemeToggle": {
       "path": "src/components/ThemeToggle.jsx",
-      "export": "ThemeToggle"
+      "export": "ThemeToggle",
+      "as": "function"
     }
   },
   "libraries": [],

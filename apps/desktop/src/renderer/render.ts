@@ -47,8 +47,9 @@ window.canvasRender = async (job) => {
       onError: (error) => errors.push(error instanceof Error ? error.message : String(error)),
       ...(job.mode.globals ? { globals: job.mode.globals } : {})
     })
-    // Let React commit, images and fonts load, and layout settle.
+    // Let React commit, components that load on demand arrive, images and fonts load, and layout settle.
     await new Promise((resolve) => setTimeout(resolve, 30))
+    await loaded.guest.loaded?.()
     await window.canvasSettle()
     await Promise.race([imagesLoaded(host), new Promise((resolve) => setTimeout(resolve, 1500))])
 

@@ -26,11 +26,10 @@ export function serveAgents(): void {
         presence.push(params as WindowMethods["agent.presence"]["params"])
         return undefined
       case "project.componentsChanged": {
-        const { projectId, components } = params as WindowMethods["project.componentsChanged"]["params"]
-        workspace
-          .getTabs()
-          .find((tab) => tab.session?.id === projectId)
-          ?.session?.components.set(components)
+        const { projectId, components, sources } = params as WindowMethods["project.componentsChanged"]["params"]
+        const tab = workspace.getTabs().find((candidate) => candidate.session?.id === projectId)
+        if (sources && tab) workspace.setSources(tab.id, sources)
+        tab?.session?.components.set(components)
         return undefined
       }
       case "project.fileChanged": {

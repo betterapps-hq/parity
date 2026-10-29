@@ -163,7 +163,12 @@ export function componentIds(
  * that no other one ends with. Two in one folder are told apart by that folder and their file's name, and the whole
  * path is the last resort.
  */
-function qualifier(component: FoundComponent, group: FoundComponent[], taken: ReadonlySet<string>, name: string): string {
+function qualifier(
+  component: FoundComponent,
+  group: FoundComponent[],
+  taken: ReadonlySet<string>,
+  name: string
+): string {
   const own = folders(component.path)
   const others = group.filter((other) => other !== component).map((other) => folders(other.path))
   const free = (id: string) => !taken.has(`${id}/${name}`)

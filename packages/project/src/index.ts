@@ -1,7 +1,6 @@
 import { readdir, readFile } from "node:fs/promises"
 import { dirname, extname, join, relative } from "node:path"
 import {
-  type ComponentSource,
   type DescribedTokens,
   libraryManifestExtension,
   type PackageManifest,

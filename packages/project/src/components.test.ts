@@ -3,7 +3,7 @@ import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import type { RendererAdapter } from "@parity/core"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
-import { componentIds, type FoundComponent } from "./components.ts"
+import { checkedChanges, componentIds, type FoundComponent } from "./components.ts"
 import { discoverProject } from "./index.ts"
 import { readTsconfig, resolvePathAlias } from "./tsconfig.ts"
 
@@ -50,14 +50,17 @@ describe("finding the app's components", () => {
     await write("src/components/ui/button.tsx", "export function Button() {}")
     await write("src/routes/orders/order-list.tsx", "export function OrderList() {}")
     await write("src/components/ui/button.stories.tsx", "export function Primary() {}")
-    await write("src/main.tsx", 'createRoot(document.getElementById("root")!).render(<App />)\nexport function App() {}')
+    await write(
+      "src/main.tsx",
+      'createRoot(document.getElementById("root")!).render(<App />)\nexport function App() {}'
+    )
     await write("src/tmp/scratch.tsx", "export function Scratch() {}")
     await write("other/outside.tsx", "export function Outside() {}")
 
     const project = await discoverProject(root, renderer)
     expect(project.components).toEqual({
-      Button: { path: "src/components/ui/button.tsx", export: "Button" },
-      OrderList: { path: "src/routes/orders/order-list.tsx", export: "OrderList", lazy: true }
+      Button: { path: "src/components/ui/button.tsx", export: "Button", as: "function" },
+      OrderList: { path: "src/routes/orders/order-list.tsx", export: "OrderList", as: "function", lazy: true }
     })
     expect(project.notes).toContain("not read, since they mount the app: src/main.tsx")
   })
@@ -108,12 +111,18 @@ describe("component ids", () => {
       new Set()
     )
     expect(Object.keys(ids)).toEqual(["demos/sidebar-footer/AppSidebar", "demos/sidebar-header/AppSidebar"])
-    const avoided = componentIds([found("src/nova/button.tsx", "Button"), found("src/ui/button.tsx", "Button")], new Set(["nova/Button"]))
+    const avoided = componentIds(
+      [found("src/nova/button.tsx", "Button"), found("src/ui/button.tsx", "Button")],
+      new Set(["nova/Button"])
+    )
     expect(Object.keys(avoided)).toEqual(["src/nova/Button", "ui/Button"])
   })
 
   it("list a component exported by name and as the default once", () => {
-    const ids = componentIds([found("src/badge.tsx", "Badge"), { ...found("src/badge.tsx", "Badge"), export: "default" }])
+    const ids = componentIds([
+      found("src/badge.tsx", "Badge"),
+      { ...found("src/badge.tsx", "Badge"), export: "default" }
+    ])
     expect(ids).toEqual({ Badge: { path: "src/badge.tsx", export: "Badge", lazy: true } })
   })
 })
@@ -132,5 +141,30 @@ describe("readTsconfig", () => {
     expect(resolvePathAlias(root, tsconfig, "@/components/ui")).toBe("src/components/ui")
     expect(resolvePathAlias(root, tsconfig, "~ui")).toBe("src/ui/index.ts")
     expect(resolvePathAlias(root, tsconfig, "react")).toBeUndefined()
+  })
+})
+
+describe("checkedChanges", () => {
+  it("adds what only the checker found, confirms undecided ones it agrees with, and drops the rest", () => {
+    const sources = {
+      Select: { path: "src/components/ui/select.tsx", export: "Select" },
+      selectVariants: { path: "src/components/ui/select.tsx", export: "SelectVariants" },
+      Button: { path: "src/components/ui/button.tsx", export: "Button", as: "function" as const },
+      ForAdmins: { path: "src/legacy/access.tsx", export: "ForAdmins", as: "function" as const },
+      "nova/Card": { path: "@acme/nova", export: "Card", library: "nova" }
+    }
+    const changes = checkedChanges(sources, [
+      { name: "Select", path: "src/components/ui/select.tsx", export: "Select", as: "exotic" },
+      { name: "Button", path: "src/components/ui/button.tsx", export: "Button", as: "forwardRef" },
+      { name: "ForAdmins", path: "src/components/access.tsx", export: "ForAdmins", as: "function" }
+    ])
+    expect(changes.confirmed).toEqual({
+      Select: { path: "src/components/ui/select.tsx", export: "Select", as: "exotic" }
+    })
+    expect(changes.removed).toEqual(["selectVariants"])
+    // The name is taken by a component the parse found, which keeps it.
+    expect(changes.added).toEqual({
+      "components/ForAdmins": { path: "src/components/access.tsx", export: "ForAdmins", as: "function", lazy: true }
+    })
   })
 })

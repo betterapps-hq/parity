@@ -78,6 +78,18 @@ still need your call.
   service (with the project's Vite), the GPU and Electron's helpers. Clicking it shows the last minute's frame rate, the
   longest recent frame and each process. Storybook runs outside the app, so it isn't counted. Measuring runs only while
   the stats show.
+- **`pnpm perf` measures the canvas** in its own copy of the app (its own ports and profile) on the example project, at
+  a fixed 1439×901: frames per second zooming and panning, where each frame's time goes, selecting and editing a design,
+  and memory. Results go to `.inspect/perf`, and `--compare` sets a run beside an earlier one.
+- **Zoomed far out, frames show bitmaps.** Once a frame has stayed the same for a second, the offscreen renderer
+  captures it at a quarter of its size, one frame at a time so agents' renders still get their turn. Wherever the canvas
+  draws frames no larger than that (25% zoom on a 1x screen), each shows its bitmap, and its live frame stays mounted
+  but skips drawing. The selected design stays live, as does everything while interacting, and so does a frame with no
+  bitmap yet. Bitmaps are kept in memory only, so a code change never shows a stale one.
+- **The canvas doesn't restyle its elements while the camera moves.** tldraw's `--tl-zoom` changes only once zooming
+  stops, titles and labels size themselves from the zoom directly, selection colours go through tldraw's theme rather
+  than custom properties, and the layer the camera moves is composited, so panning and zooming move what's already drawn
+  until the camera stops. Boards well out of view skip drawing their frames but keep their layout.
 - **A selected design shows only its own rounded outline.** tldraw's square selection box is drawn only around several
   designs at once.
 - **Copy and paste go through the system clipboard,** in a JSON envelope Parity recognises, so copies paste across
@@ -189,14 +201,23 @@ recommended answer to each of its questions.
 
 - **A quick parse of every app file lists components first, and TypeScript's checker then confirms them** and adds what
   the parse can't see, such as `const Select = SelectPrimitive.Root`.
-- **A component's id is its export name, gaining its folder only on a clash.** Two components named `FieldError` become
-  `ui/FieldError` and `packing-fields/FieldError`, with as many parent folders as it takes to tell them apart. One
-  exception keeps existing designs working: a component in the UI kit folder, the one `components.json` names or
-  `src/components/ui`, keeps the bare name, because that folder was all Parity read before. A default export takes its
+- **A component's id is its export name, gaining folders only on a clash,** as few as it takes to tell it apart, as in
+  `(portal)/ErrorPage` and `app/ErrorPage`. A component in the UI kit folder, the one `components.json` names or else
+  `src/components/ui`, keeps the bare name even then, because that folder was all Parity read before, so existing
+  designs keep working: copacker's other `FieldError` becomes `components/FieldError`. A default export takes its
   declaration's name, else its file's.
 - **Libraries are listed when they have a `.lib.par` or are in Parity's registry, plus workspace packages the app
   depends on.** Other dependencies, such as Radix or Base UI, show through the project's own wrappers.
 - **Pages get their own section in the Components panel** until the routes lens can name them.
+- **The UI kit loads with the canvas, and the rest of the app loads as it's drawn.** My call, made while building it:
+  loading copacker's 275 other modules at once took 14 seconds before anything drew. On demand, its canvas is ready in
+  about a second, and a page arrives in under half a second the first time it's placed.
+- **Exports only the type checker can decide wait for it,** such as an alias or a component that only returns
+  `children`. In the UI kit, every capitalised export is still listed from the start, as before, until the checker drops
+  the ones that aren't components. My call, so nothing the UI kit showed before goes missing while it runs.
+- **Some folders are never read for components:** installed packages, build output, `__tests__`, `__mocks__`, `e2e`,
+  `tmp` and `temp`, and also stories, tests, generated files and the entry file that mounts the app. My call: copacker's
+  tsconfig includes a `tmp` folder of experiments that would have added 2,500 components.
 
 ## Libraries, icons and images
 
@@ -248,14 +269,30 @@ recommended answer to each of its questions.
   found in this order: the revision a kit records upstream (`upstream.json`), npm's `gitHead`, a version tag, then the
   last commit before npm's publish date. It checks out only the stories, demos and examples (a shallow, blob-filtered
   fetch and a sparse checkout, about 7 seconds for shadcn), cached under `~/.parity/cache/examples` per commit and
-  folders. The TypeScript compiler reads their JSX: each component's nearest library parent, counted, and its fullest
-  use as a sample. A parent counts when at least half the uses are inside one and half of those agree; a part that draws
-  alone takes only its own family's (examples put everything in forms and cards), and the chain climbs while the part
-  still fails, then through its own family. JSX passed in a prop isn't placed in that element. Every chain and sample is
-  still tried: one that doesn't render is grown from the errors, the errors alone are tried if that fails, and other
-  families' parents a part renders without are dropped. `--no-examples` skips it, and the registry's presets name each
-  library's repository and folders. Buildkit's hand edits went from 30 to 13, of which 8 only mark Toast parts
-  non-visual.
+  folders (MUI's demos have no telling names, so its preset names a folder where every JSX file counts). The TypeScript
+  compiler reads their JSX: every library ancestor of each use, and its fullest use as a sample. Most uses must be
+  inside something; the chain is every ancestor at least half of those have, at any depth, in the order they're usually
+  nested, rather than one level at a time (LIB-35). A part that draws alone takes only its own family's (examples put
+  everything in forms and cards), and while a part still fails, the top level's own examples are added, for examples
+  split across a demo's components. JSX passed in a prop isn't placed in that element. Every chain and sample is still
+  tried: one that doesn't render is grown from the errors, the errors alone are tried if that fails, and other families'
+  parents a part renders without are dropped. `--no-examples` skips it, and the registry's presets name each library's
+  repository and folders.
+- **A level some examples leave out is optional (LIB-35):** one fewer than nine in ten uses have (`DropdownMenuGroup`)
+  that the part still renders without is in `optionalParents`. Inserting a part brings an optional level only when a
+  parent outside it is missing too, so a `DropdownMenuItem` dropped into a `DropdownMenuContent` comes alone, and one
+  dropped on an empty frame comes in the whole structure the examples show. A level every example has stays required
+  even if the server render passes without it, which is how a popup's Content got left out before.
+- **Samples take the values an example's file gives (LIB-35):** names it declares (`config={chartConfig}`), the first
+  value of `useState`, and the items of a list it maps into elements, with each item's fields filled in; anything
+  computed is left out. Values stay small (eight items, 2,000 characters). Example props a part needed are used when
+  trying the parts inside it, as inserting gives parents their sample's props; props it renders without are taken away
+  from its sample if a part inside it then fails.
+- **Parts only a decorator's host renders aren't for placing (LIB-35):** `parity lib` follows the package's own built
+  files from each function to what it renders (`jsx()`, `createElement()` and JSX), and a part drawn only inside a host
+  a decorator adds (`Toaster` mapping its toasts into `Toast` and `ToastTitle`), and in no example, is marked
+  `visual: false`. Buildkit's shared hand edits went from 30 (LIB-28) to 13 (LIB-34) to 3 (LIB-35): the SelectScroll
+  buttons, which only SelectContent renders and no example shows, and ChartStyle's sample.
 - **`parity lib` tries parts with React's server renderer,** from the project's own React, rather than in the app: it
   needs no window, runs in seconds, and still throws the context errors that name a part's parents. The library's
   decorator providers wrap each try, with their imports and calls made, a mode's default value, and no frame, so
@@ -393,7 +430,12 @@ recommended answer to each of its questions.
   `:host`, in a layer below the project's own CSS), not from the canvas around it. Before this, text without a size of
   its own took the canvas's 12px and 18px line height instead of 16px. The frames beside the first column are drawn
   smaller on purpose, and so aren't actual size at 100%. `frame.test.ts` lays a frame out in Chrome and checks its root
-  against a fresh page's, and the render sweep (VAL-1) is to compare whole frames with Chrome.
+  against a fresh page's, and the render sweep (VAL-1) is to compare whole frames with Chrome. On screen at 100%, a
+  phone and a desktop frame were also captured and compared with Chrome pixel by pixel: same size and place, with only
+  text antialiasing differing (the canvas draws text in grayscale, and Chrome with ClearType's colored edges).
+- **Frames have square corners and cut nothing off,** at your request, since a browser's viewport doesn't round its
+  corners. Only a frame with a device height clips, below that height, where a browser would scroll; a frame that grows
+  with its content shows all of it, shadows and popups included.
 - **Agents render offscreen,** in a hidden window, so their work never moves your camera. Export uses the same renderer.
 - **Prop inference uses the TypeScript 6 compiler in a worker thread,** from cva variants, destructured defaults and the
   component's own props type.

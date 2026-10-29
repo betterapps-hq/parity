@@ -71,7 +71,9 @@ export function findComponents(source: string, file: string): ComponentExport[] 
 
   const found: ComponentExport[] = []
   // A component exported by name and as the default is listed once, by its name.
-  const named = new Set(exported.filter((entry) => entry.export !== "default").map((entry) => entry.local ?? entry.name))
+  const named = new Set(
+    exported.filter((entry) => entry.export !== "default").map((entry) => entry.local ?? entry.name)
+  )
   for (const entry of exported) {
     // JSX treats a lowercase tag as an HTML element, so a component's name starts with a capital.
     if (!/^[A-Z]/.test(entry.name)) continue
@@ -114,7 +116,7 @@ function evidence(
       : ts.isPropertyAccessExpression(callee)
         ? callee.name.text
         : undefined
-    return (name && wrappers[name]) ?? "maybe"
+    return (name === undefined ? undefined : wrappers[name]) ?? "maybe"
   }
   if (ts.isIdentifier(value)) {
     // `export const Button = BaseButton`, where `BaseButton` is declared in the same file.

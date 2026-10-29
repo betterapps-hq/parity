@@ -75,15 +75,18 @@
     "App": {
       "path": "src/App.tsx",
       "export": "default",
+      "as": "function",
       "lazy": true
     },
     "ProfileForm": {
       "path": "src/components/ProfileForm.tsx",
-      "export": "ProfileForm"
+      "export": "ProfileForm",
+      "as": "function"
     },
     "StatCard": {
       "path": "src/components/StatCard.tsx",
-      "export": "StatCard"
+      "export": "StatCard",
+      "as": "function"
     }
   },
   "libraries": [

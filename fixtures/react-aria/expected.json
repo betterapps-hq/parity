@@ -117,19 +117,23 @@
     "App": {
       "path": "src/App.tsx",
       "export": "default",
+      "as": "function",
       "lazy": true
     },
     "Button": {
       "path": "src/components/Button.tsx",
-      "export": "Button"
+      "export": "Button",
+      "as": "function"
     },
     "TextField": {
       "path": "src/components/TextField.tsx",
-      "export": "TextField"
+      "export": "TextField",
+      "as": "function"
     },
     "ThemeToggle": {
       "path": "src/components/ThemeToggle.tsx",
-      "export": "ThemeToggle"
+      "export": "ThemeToggle",
+      "as": "function"
     }
   },
   "libraries": [

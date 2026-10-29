@@ -41,8 +41,8 @@ describe("discoverProject", () => {
     const project = await discoverProject(root, renderer)
     expect(project.styles).toEqual(["app/global.css"])
     expect(project.components).toEqual({
-      Card: { path: "lib/ui/card.tsx", export: "Card" },
-      CardTitle: { path: "lib/ui/card.tsx", export: "CardTitle" }
+      Card: { path: "lib/ui/card.tsx", export: "Card", as: "function" },
+      CardTitle: { path: "lib/ui/card.tsx", export: "CardTitle", as: "function" }
     })
     expect(project.documents).toEqual(["designs/team.par"])
   })

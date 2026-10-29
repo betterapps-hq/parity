@@ -231,6 +231,18 @@ export class Workspace {
     this.notify()
   }
 
+  /**
+   * The project's components once the type checker has read them. Ones the guest doesn't have yet are added to it, and
+   * load the first time they're drawn.
+   */
+  setSources(id: string, sources: ProjectInfo["sources"]): void {
+    const tab = this.getTab(id)
+    if (!tab?.session) return
+    tab.session.loaded.guest.addComponents?.(sources)
+    const info = { ...tab.session.info, sources, componentCount: Object.keys(sources).length }
+    this.replace(id, { ...tab, session: { ...tab.session, info } })
+  }
+
   setEditor(id: string, editor: Editor | undefined): void {
     const tab = this.getTab(id)
     if (!tab?.session || tab.session.editor === editor) return

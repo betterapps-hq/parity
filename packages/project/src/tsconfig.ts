@@ -53,7 +53,10 @@ export function readTsconfig(root: string): ProjectTsconfig {
  * app's config is asked first, then the others, since a solution-style root config often holds the shared ones.
  */
 export function resolvePathAlias(root: string, tsconfig: ProjectTsconfig, alias: string): string | undefined {
-  const ordered = [...(tsconfig.app ? [tsconfig.app] : []), ...tsconfig.configs.filter((config) => config !== tsconfig.app)]
+  const ordered = [
+    ...(tsconfig.app ? [tsconfig.app] : []),
+    ...tsconfig.configs.filter((config) => config !== tsconfig.app)
+  ]
   for (const config of ordered) {
     const { paths } = config.options
     if (!paths) continue
