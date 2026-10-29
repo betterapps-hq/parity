@@ -27,7 +27,7 @@ import { Button } from "@/components/ui/button"
 import { me, type Person, people } from "../explore-data.ts"
 import { Avatar, GitHubMark } from "../parts.tsx"
 import { OrgBadge } from "../start-page-parts.tsx"
-import { ivy, noah, teams } from "./data.ts"
+import { event, ivy, noah, teams } from "./data.ts"
 import { Pills, SettingsPage } from "./parts.tsx"
 
 const { maya, jonas, priya, sam, lena, claude, cursor } = people
@@ -86,7 +86,7 @@ const can: { what: string; roles: Record<Role, boolean | string> }[] = [
     what: "Open, view and comment",
     roles: {
       Admin: true,
-      "Billing admin": true,
+      "Billing admin": "Their teams' projects, and what's shared with them",
       Member: "Their teams' projects, and what's shared with them",
       Guest: "Projects they're invited to"
     }
@@ -95,7 +95,7 @@ const can: { what: string; roles: Record<Role, boolean | string> }[] = [
     what: "Edit, with an editor seat",
     roles: {
       Admin: true,
-      "Billing admin": true,
+      "Billing admin": "Their teams' projects, and what's shared with them",
       Member: "Their teams' projects, and what's shared with them",
       Guest: "Projects they're invited to"
     }
@@ -168,6 +168,58 @@ const members: Member[] = [
 const editors = members.filter((member) => member.seat === "Editor").length
 const openSeats = paidSeats - editors
 
+/** Editor seats waiting on an admin, oldest first: an invite a member sent, and someone asking for one. */
+function SeatRequests() {
+  const invite = event("ren-invite")
+  const asked = event("noah-seat")
+  const requests = [
+    {
+      key: "ren",
+      avatar: <span className="grid size-7 place-items-center rounded-full bg-muted text-xs">R</span>,
+      name: "ren@kestrel.dev",
+      line: `Priya Raman invited them as an editor: “${invite.quote}”`,
+      waited: invite.when,
+      approve: "Approve and send"
+    },
+    {
+      key: "noah",
+      avatar: <Avatar person={noah} size={28} />,
+      name: noah.name,
+      line: `Asked for an editor seat: “${asked.quote}”`,
+      waited: asked.when,
+      approve: "Approve"
+    }
+  ]
+  return (
+    <section className="flex flex-col gap-2">
+      <h2 className="text-[15px] font-semibold">
+        Seat requests <span className="font-normal text-muted-foreground tabular-nums">{requests.length}</span>
+      </h2>
+      <div className="rounded-xl border px-4">
+        {requests.map((request) => (
+          <div key={request.key} className="flex items-center gap-3 border-b py-3 text-sm last:border-0">
+            {request.avatar}
+            <span className="flex min-w-0 flex-col">
+              <span className="font-medium">{request.name}</span>
+              <span className="truncate text-xs text-muted-foreground">{request.line}</span>
+            </span>
+            <span className="ml-auto shrink-0 text-xs text-muted-foreground">Waiting {request.waited}</span>
+            <span className="flex shrink-0 gap-2">
+              <Button size="sm" variant="ghost">
+                Deny
+              </Button>
+              <Button size="sm">{request.approve}</Button>
+            </span>
+          </div>
+        ))}
+      </div>
+      <span className="text-xs text-muted-foreground">
+        Members can invite; an admin or billing admin approves each editor seat. Both fit in Kestrel's open seats.
+      </span>
+    </section>
+  )
+}
+
 function MemberRow({ member }: { member: Member }) {
   return (
     <tr className="border-b last:border-0">
@@ -188,15 +240,7 @@ function MemberRow({ member }: { member: Member }) {
       </td>
       <td className="py-2.5 pr-4">
         {member.asked ? (
-          <span className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Asked for an editor seat</span>
-            <Button size="sm" className="h-7 px-2.5 text-xs">
-              Approve
-            </Button>
-            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs">
-              Deny
-            </Button>
-          </span>
+          <span className="text-xs text-muted-foreground">Viewer, asked for an editor seat</span>
         ) : (
           <Picker>{member.seat === "Editor" ? "Editor seat" : "Viewer, free"}</Picker>
         )}
@@ -237,6 +281,7 @@ export function MembersPage({ overlay }: { overlay?: ReactNode }) {
           </span>
         </Meter>
       </div>
+      <SeatRequests />
       <div className="flex items-center gap-3">
         <div className="flex h-8 w-64 items-center gap-2 rounded-md border bg-background px-2.5 text-sm text-muted-foreground">
           <Search className="size-3.5" /> Search members
@@ -269,22 +314,6 @@ export function MembersPage({ overlay }: { overlay?: ReactNode }) {
             ))}
           </tbody>
         </table>
-      </div>
-      <div className="flex items-center gap-3 rounded-xl border border-dashed px-4 py-3 text-sm">
-        <span className="grid size-7 place-items-center rounded-full bg-muted text-xs">R</span>
-        <span className="flex flex-col">
-          <span>ren@kestrel.dev</span>
-          <span className="text-xs text-muted-foreground">
-            Priya Raman invited them as an editor 2 days ago. Members can invite; an admin or billing admin approves the
-            seat.
-          </span>
-        </span>
-        <span className="ml-auto flex gap-2">
-          <Button size="sm" variant="ghost">
-            Deny
-          </Button>
-          <Button size="sm">Approve and send</Button>
-        </span>
       </div>
       <section className="flex flex-col gap-3">
         <h2 className="text-[15px] font-semibold">What each role can do</h2>
@@ -496,8 +525,8 @@ export function AddSeatsPage() {
           <div className="flex flex-col gap-1">
             <h2 className="text-lg font-semibold">Add editor seats</h2>
             <span className="text-sm text-muted-foreground">
-              Noah Park's request and the invite for ren@kestrel.dev will take Kestrel's last {openSeats} open seats.
-              These are for the two designers joining Apps on Monday.
+              Noah Park's request and the invite for ren@kestrel.dev will take Kestrel's last {openSeats} open seats, so
+              anyone who asks after them would need a new one.
             </span>
           </div>
           <div className="flex items-center justify-between rounded-xl border p-3">
@@ -560,9 +589,14 @@ const plans: {
     name: "Professional",
     price: "$8.95",
     billing: "A seat a month, billed yearly, or $10.95 monthly",
-    features: ["Everything in Starter, and", "Unlimited projects", "Teams and shared libraries", "Every version, kept"],
+    features: [
+      "Everything in Starter, and",
+      "Unlimited projects",
+      "Teams, each with its own libraries",
+      "Every version, kept"
+    ],
     warning:
-      "Single sign-on, the audit log, libraries across the org and seat requests turn off, and Sam Okafor stops being a billing admin. Kestrel requires single sign-on today."
+      "Single sign-on, the audit log and seat requests turn off, Kestrel UI is shared only within the Design system team, and Sam Okafor stops being a billing admin. Kestrel requires single sign-on today."
   },
   {
     name: "Organization",
@@ -718,10 +752,11 @@ export function RemoveMemberPage() {
                 <span className="text-xs text-muted-foreground">Requests for access go to the new owner.</span>
               </Consequence>
               <Consequence icon={<Bot />}>
-                Cursor, which Jonas connected, will lose access. What it made stays, under Jonas's name.
+                Jonas's Cursor will lose access; yours keeps working. What Jonas's made stays, under Jonas's name.
               </Consequence>
               <Consequence icon={<History />}>
-                Jonas's versions, comments and approvals stay as they are, and in the audit log.
+                Jonas's versions, comments and approvals stay as they are, and in the audit log. Apps keeps two
+                reviewers, you and Lena.
               </Consequence>
               <Consequence icon={<KeyRound />}>
                 Jonas will be signed out everywhere. Kestrel has no SCIM, so remove Jonas in Okta too, or Jonas can sign

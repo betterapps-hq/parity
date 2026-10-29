@@ -17,7 +17,7 @@ export interface Part {
   library?: string
   uses?: number
   /** New in this version, given new props, or only looking different because a token it uses changed. */
-  change?: "New" | "New props" | "Follows --brand"
+  change?: "New" | "New props" | "Changed" | "Follows --brand"
 }
 
 export interface Token {
@@ -72,8 +72,8 @@ export interface Deliverable {
   approvedBefore?: number
   /** Who approved this version. A board in review has `review` instead. */
   approved?: { who: Person; when: string }
-  /** Who asked for a review of this version, while it's in review. */
-  review?: { who: Person; when: string; for?: Person }
+  /** Who asked for a review of this version, and who it waits on, while it's in review. */
+  review?: { who: Person; when: string; for?: Person; reviewer: Person }
   /** What this version asks the code for, in words. */
   asks: string
   /** The page or route the board is, as a file. */
@@ -119,7 +119,7 @@ const brand: Token = {
 }
 
 const claudeReview = {
-  review: { who: claude, when: event("claude-run").when, for: sam },
+  review: { who: claude, when: event("claude-run").when, for: sam, reviewer: me },
   asks: `${claudeTask}: the brand color goes from blue to green. No component changed; everything that uses the token follows it`,
   tokens: [brand],
   code: {
@@ -183,7 +183,7 @@ export const deliverables: Record<string, Deliverable> = {
     tokens: [{ name: "--unread", value: "oklch(0.7 0.15 250)", added: true, usedBy: ["ThreadRow"] }],
     states: ["Default", "Unread", "Empty"],
     sizes: ["Desktop"],
-    issue: "KES-212 in Linear"
+    issue: "Linear KES-212"
   },
   "website/Pricing": {
     project: "website",
@@ -222,8 +222,8 @@ export const deliverables: Record<string, Deliverable> = {
     project: "spawnkit",
     design: "In game",
     version: 5,
-    approved: { who: jonas, when: "3 weeks ago" },
-    asks: "The code moved the health bar to the top after v5 was built, in #139",
+    approved: { who: lena, when: "3 weeks ago" },
+    asks: "The score at the top left, and the hearts in a pill at the bottom left, both over the level",
     page: "src/routes/play.tsx",
     parts: [
       { name: "HealthBar", file: "src/hud/HealthBar.tsx", uses: 1 },
@@ -275,7 +275,7 @@ export const deliverables: Record<string, Deliverable> = {
     project: "docs",
     design: "Docs home",
     version: 3,
-    review: { who: priya, when: event("priya-review").when },
+    review: { who: priya, when: event("priya-review").when, reviewer: me },
     asks: "A search field, and a getting started section",
     page: "src/pages/index.tsx",
     parts: [
@@ -308,7 +308,11 @@ export const deliverables: Record<string, Deliverable> = {
     approved: { who: maya, when: "2 days ago" },
     asks: "Built as approved, and published in Kestrel UI 2.4",
     page: "packages/ui/src/index.ts",
-    parts: [{ name: "Toggle", file: "packages/ui/src/toggle.tsx", uses: 1 }],
+    parts: [
+      { name: "Toggle", file: "packages/ui/src/toggle.tsx", uses: 3, change: "New props" },
+      { name: "Button", file: "packages/ui/src/button.tsx", uses: 4, change: "Changed" },
+      { name: "Menu", file: "packages/ui/src/menu.tsx", uses: 1, change: "Changed" }
+    ],
     tokens: [],
     states: ["Default"],
     sizes: ["Desktop"],

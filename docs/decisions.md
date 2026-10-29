@@ -812,16 +812,18 @@ recommended answer to each of its questions.
 - **Handoff is for developers: every board by where it stands between design and code, from Parity's own versions** (my
   calls, after the design reviews), so it works without git, as history does. A board is In review, Ready to build,
   Building, Changed since approval, Built, or Code differs. An approval is of one version, so a newer version marked
-  ready turns the board to Changed since approval wherever its status shows, and the developer can build the approved
-  version or look at what changed. Handoff is a list, one row per board grouped by status, with the board you pick open
-  at the side: its version, its page and components and their files (new ones and new props marked), its tokens and
-  their values, its states and sizes, and its code; branches, pull requests and tracker issues show too where a project
-  has them. Each row has the same two columns (my call, after the fourth review): Approval, who approved the version or
-  who asked for its review, and Code, who's building it, built it, or made it with the design. An agent that changes a
-  design and its code together, as Claude Code did for the Cloud console, leaves the code already in a pull request, so
-  approving that design leaves only the merge, and its boards are Built once it merges. Only the picked row's action is
-  a filled button. Handoff, Inspect and What changed read what a board delivers from one list (`portal/boards.ts`), so
-  they always name the same components and tokens.
+  ready while the approved one is still to build or being built turns the board to Changed since approval wherever its
+  status shows, and the developer can build the approved version or look at what changed; once the approved version is
+  built, a newer one is just In review (my call, after the seventh review). Handoff is a list, one row per board grouped
+  by status, with the board you pick open at the side: its version, its page and components and their files (new ones
+  and new props marked), its tokens and their values, its states and sizes, and its code; branches, pull requests and
+  tracker issues show too where a project has them. Each row has the same two columns (my call, after the fourth
+  review): Approval, who approved the version, or while it's in review, whom it waits on and who asked when, and Code,
+  who's building it, built it, or made it with the design. An agent that changes a design and its code together, as
+  Claude Code did for the Cloud console, leaves the code already in a pull request, so approving that design leaves only
+  the merge, and its boards are Built once it merges. Only the picked row's action is a filled button. Handoff, Inspect
+  and What changed read what a board delivers from one list (`portal/boards.ts`), so they always name the same
+  components and tokens.
 - **Every change makes a version, but only one its designer marks ready moves a board** (your call, 2026-10-29, after
   the fifth review). Marking a version ready asks one of the team's reviewers; the versions in between are drafts, and
   someone working on a board shows in Handoff as just that, without its status moving or anyone being told. So builders
@@ -853,8 +855,11 @@ recommended answer to each of its questions.
   boards by status, and each team's boards by status and what it approved this week, so a large org can find work and
   see where each team stands. Recents stays the file browser of what you've been in.
 - **Removing someone says what happens first** (my call, after the fifth review): their seat opens and is paid for until
-  the renewal, the projects they own go to someone you pick, the agents they connected lose access, their work stays
-  under their name, and without SCIM they're to be removed from the identity provider too.
+  the renewal, the projects they own go to someone you pick, the agents they connected lose access (anyone else's
+  connection of the same agent keeps working), their work stays under their name, their teams are told who's left to
+  review, and without SCIM they're to be removed from the identity provider too.
+- **Seat requests wait in one place** (my call, after the seventh review): Members lists every editor seat waiting on an
+  admin, invites and requests alike, with how long each has waited, and each is in the admins' Needs you.
 - **Libraries take Drafts' place in the nav** (my call): Parity's projects live in repositories, so there are no drafts.
   A library's page shows its components as the code renders them, which version each project uses and on which boards,
   and its releases; a project behind the latest version can be updated from there, or the update given to an agent.
@@ -867,10 +872,11 @@ recommended answer to each of its questions.
 - **Inspect is Parity's Dev Mode** (my call): a board at its approved version, read-only, opened from Handoff and
   leading back to it. Picking anything shows its component and file, its props as code, its states, its text and size as
   the code writes them (classes, with pixels beside), its tokens, and hovering something else measures to it. New and
-  changed are against main. What the version asks for and the designer's notes come first (my call, after the sixth
-  review); the board's page file and what there is to export show too, files open on GitHub, and Give to your agent
-  hands the board to the developer's own coding agent. There's usually nothing to export: icons come from the project's
-  icon package and the rest is drawn in code.
+  changed are against main, and a value that isn't one of the project's tokens says so (my call, after the seventh
+  review). What the version asks for and the designer's notes come first (my call, after the sixth review); the board's
+  page file and what there is to export show too, files open on GitHub, and Give to your agent hands the board to the
+  developer's own coding agent. There's usually nothing to export: icons come from the project's icon package and the
+  rest is drawn in code.
 - **What changed compares two of the project's versions** (my calls, after the design reviews). Parity records versions
   itself, and only a change makes one: a comment doesn't. Every place a change shows is marked, found from what the
   render draws with the changed token rather than placed by hand, so a token change marks every board that uses it. A
@@ -887,8 +893,9 @@ recommended answer to each of its questions.
   who build from designs don't need a seat. A seat request uses the open seats first, and buying more is offered only
   past them.
 - **Four roles, each shown with what it can do** (my calls): admins can do everything; billing admins look after the
-  plan, invoices and seats; members work on every project; guests only on what they're invited to. Members can invite,
-  and an admin or billing admin approves each editor seat. Nobody approves their own design, or their own agent's.
+  plan, invoices and seats; members, and billing admins beyond billing, work on their teams' projects and what's shared
+  with them (my call, after the seventh review); guests only on what they're invited to. Members can invite, and an
+  admin or billing admin approves each editor seat. Nobody approves their own design, or their own agent's.
 - **An agent can never do more than the person who runs it** (my call): a viewer's agent only comments. Security lists
   which agents can connect, with sign-in, sharing, guests and an audit log of who changed what.
 - **Agents aren't part of billing at all** (your call, 2026-10-29). Parity has no agents of its own: the ones people
@@ -1014,9 +1021,33 @@ recommended answer to each of its questions.
 - **A builder that stops by itself shows as crashed** in the status bar's processes, with the end of what it printed,
   and can be started again from there. One that stops before its server answers fails the project's opening with that
   error, as a builder that throws does.
-- **A reopened project gets its builder's last port back when it's free,** so its guest URL stays the same, which
-  PAR-195 relies on; otherwise any free port, as before. The service remembers each project's port while it runs, and a
-  reopen waits for the closing builder's process to end first.
+- **A reopened project gets its builder's last port back when it's free and its code hasn't changed** (PAR-195), so its
+  guest URL stays the same and the pages draw with the modules they hold; otherwise any free port. The service remembers
+  each project's port while it runs, and a reopen waits for the closing builder's process to end first. With the port
+  back on every reopen, as CAN-81 had it, a reopen after a code change showed the old code: a page never loads a URL
+  twice, so the window kept the modules it had. My call on how a builder tells, in `@parity/core`'s
+  [served.ts](../packages/core/src/served.ts) with the Vite side in `builder-vite/src/served.ts`:
+  - **It logs what it serves the pages:** each module as first sent, with the files Vite made it from as they were then
+    (its own and what it imports, which for the stylesheet is every file Tailwind scanned, design files included), and
+    the files the whole build depends on (its config, the lockfiles in the root and above, the environment files, the
+    root's package.json and TypeScript configs). It hands the log to the service as it closes.
+  - **The next builder compares it with the files,** and with the guest module it would make now, before it listens. Any
+    difference, or no log at all (a builder that crashed or didn't close in time), means a new port, and its log says
+    which file changed.
+  - **A file changed while the project was open still counts as unchanged** when every module made from it comes out the
+    same when made again at close, so saving a design that uses no new class keeps the address. Build files never get
+    this.
+  - **The builder that takes the address carries the log on,** since the pages still hold what the last one served. One
+    started again from the processes list takes its port whenever it's free; if it can't, the windows are told
+    (`project.guestMoved`) and load the guest from the new one.
+  - **A reopen after a code change still loads every module again,** about 130 MB in the window for the example project,
+    which a page can't give back. Only picking up code edits live (PAR-165) or a separate realm per project would avoid
+    that.
+- **Closing a project lets go of its guest in the window:** its `loadGuest` entry and the stylesheet the document
+  adopted for it (PAR-195), so the next open makes its stylesheets anew, without the last session's token previews. The
+  offscreen renderer lets go of a project's last guest when its jobs come with a new address, since it doesn't hear of
+  closes, and closes when idle anyway. Frame bitmaps are keyed by the guest module, which a same-address reopen gets
+  back, so they still show.
 - **The performance stats count each project's builder,** as "Vite for shop", since its memory used to count in the
   service's: the service asks each builder for its CPU time, and the system reads its memory as it does Electron's own
   processes'. Storybook and the other servers Parity starts still aren't counted.

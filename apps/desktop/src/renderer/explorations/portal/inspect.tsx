@@ -300,6 +300,9 @@ export function InspectPage() {
                 <span className="flex flex-col gap-0.5">
                   <span className="text-muted-foreground">The level number</span>
                   <code className="font-mono text-[11px]">text-[26px] font-black text-white</code>
+                  <span className="text-[11px] text-[oklch(0.8_0.15_80)]">
+                    26px and white aren't Ember Caves tokens
+                  </span>
                 </span>
                 <span className="flex flex-col gap-0.5">
                   <span className="text-muted-foreground">Locked, instead of the number</span>

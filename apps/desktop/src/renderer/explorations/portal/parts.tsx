@@ -234,14 +234,10 @@ export function HereAvatar({ person, size = 28, away }: { person: Person; size?:
   )
 }
 
-/**
- * Where someone is, in a few words: the board and project, or when they left. An agent's line starts with who it works
- * for, so that's the part a narrow row keeps.
- */
+/** Where someone is, in a few words: the board and project, or when they left. */
 function whereabouts(where: Whereabouts): string {
   const name = portalProject(where.project).name
   if (where.away) return `Left ${where.design} in ${name}, ${where.away}`
-  if (where.for) return `For ${where.for === me ? "you" : where.for.name.split(" ")[0]}, on ${where.design} in ${name}`
   return `${where.design} in ${name}`
 }
 
@@ -259,7 +255,15 @@ export function WhereaboutsRow({ where }: { where: Whereabouts }) {
     <div className="group/row flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-muted/50">
       <HereAvatar person={where.who} away={!!where.away} />
       <span className="flex min-w-0 flex-1 flex-col text-sm">
-        <span className="truncate">{where.who.name}</span>
+        <span className="truncate">
+          {where.who.name}
+          {where.for && (
+            <span className="text-muted-foreground">
+              {" "}
+              for {where.for === me ? "you" : where.for.name.split(" ")[0]}
+            </span>
+          )}
+        </span>
         <span className="truncate text-xs text-muted-foreground">{whereabouts(where)}</span>
       </span>
       {!where.away && (
