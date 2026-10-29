@@ -83,6 +83,8 @@ describe("shortcutFor", () => {
     expect(shortcutFor(press("n", "KeyN"), commands)).toBe("nextDesign")
     expect(shortcutFor(press("N", "KeyN", { shift: true }), commands)).toBe("previousDesign")
     expect(shortcutFor(press("V", "KeyV", { ctrl: true, shift: true }), commands)).toBe("pasteOver")
+    expect(shortcutFor(press("R", "KeyR", { ctrl: true, shift: true }), commands)).toBe("pasteReplace")
+    expect(shortcutFor(press("r", "KeyR", { ctrl: true }), commands)).toBe("rename")
   })
 
   it("never gives two commands the same keys", () => {

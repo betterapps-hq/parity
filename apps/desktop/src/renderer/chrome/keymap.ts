@@ -40,6 +40,7 @@ export const keymap = {
   copy: { group: "Edit", label: "Copy", keys: ["Ctrl C"] },
   paste: { group: "Edit", label: "Paste", keys: ["Ctrl V"] },
   pasteOver: { group: "Edit", label: "Paste over selection", keys: ["Ctrl Shift V"] },
+  pasteReplace: { group: "Edit", label: "Paste to replace", keys: ["Ctrl Shift R"] },
   duplicate: { group: "Edit", label: "Duplicate", keys: ["Ctrl D"] },
   delete: { group: "Edit", label: "Delete", keys: ["Del", "Backspace"] },
   copyStyle: { group: "Edit", label: "Copy style", keys: ["Ctrl Alt C"] },

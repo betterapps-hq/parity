@@ -201,6 +201,7 @@ function EditItems() {
       <Item command="copy" icon={Copy} />
       <Item command="paste" icon={ClipboardPaste} />
       <Item command="pasteOver" />
+      <Item command="pasteReplace" />
       <Item command="duplicate" icon={Copy} />
       <Item command="delete" icon={Trash2} variant="destructive" />
       <MenubarSeparator />

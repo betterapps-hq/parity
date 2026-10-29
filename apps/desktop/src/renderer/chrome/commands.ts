@@ -7,7 +7,8 @@ import {
   duplicateDesigns,
   pasteClipboard,
   pasteOverSelection,
-  pasteStyle
+  pasteStyle,
+  pasteToReplace
 } from "../canvas/clipboard.ts"
 import { layerLabel } from "../canvas/kinds.tsx"
 import { firstChildLayer, parentLayer, projectLibrary, siblingLayer } from "../canvas/layers.ts"
@@ -186,6 +187,10 @@ export async function pasteOver(session = activeSession()): Promise<void> {
   if (session) await pasteOverSelection(session)
 }
 
+export async function pasteReplace(session = activeSession()): Promise<void> {
+  if (session) await pasteToReplace(session)
+}
+
 export function copySelectionStyle(session = activeSession()): void {
   if (session) copyStyle(session)
 }
@@ -209,13 +214,16 @@ export function selectMatching(session = activeSession()): void {
   if (next) session.selection.set(next)
 }
 
-/** N and Shift+N: selects the next or previous design, in the Layers panel's order, and brings it into view. */
+/**
+ * N and Shift+N, as Figma's Zoom to next frame: select the next or previous design, in the Layers panel's order, and
+ * zoom to it as Zoom to selection does.
+ */
 export function selectAdjacentDesign(step: 1 | -1, session = activeSession()): void {
   if (!session) return
   const key = adjacentDesign(session.store.getEntries(), session.selection.get(), step)
   if (!key) return
   session.selection.set({ design: key })
-  revealSelection(session)
+  zoomToSelection(session)
 }
 
 /**

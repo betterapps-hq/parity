@@ -222,48 +222,180 @@ Gaps: the menu items were checked by hand in an isolated copy of the app; no sto
 
 ### Next and previous design (CAN-39)
 
-N selects the design after the selected one and brings it into view, and Shift+N the one before, as Figma does with
-frames. They're in View, after Zoom to selection.
+N selects the design after the selected one and zooms to it, and Shift+N the one before, as Figma's Zoom to next frame
+and Zoom to previous frame do. They're in View, after Zoom to selection.
 
 - **The order is the Layers panel's:** components, then screens, each in the order the project lists them. It goes round
   from the last to the first.
 - **From a selected layer or mode column,** it goes on from its design. With nothing, or a text note, selected, N
   selects the first design and Shift+N the last.
-- **Into view** centers the design when it's off screen and zooms out only when it doesn't fit, as revealing a selection
-  does elsewhere.
+- **The zoom** is Zoom to selection's: the design fills the view, with a margin, whether it was in view or not.
 
 Code: `adjacentDesign` and `designOrder` in `apps/desktop/src/renderer/canvas/select.ts`, and `selectAdjacentDesign` in
-`chrome/commands.ts`.
+`chrome/commands.ts`, which zooms with `zoomToSelection`.
 
 Tests: `apps/desktop/src/renderer/canvas/select.test.ts` (the order, going round, from a layer, and with nothing
-selected). Bringing it into view was checked in an isolated copy of the app.
+selected). The zoom was checked in an isolated copy of the app.
 
-### Paste over selection (CAN-39)
+### Paste over selection and paste to replace (CAN-39)
 
-Ctrl+Shift+V, in Edit after Paste: what's on the clipboard replaces each selected layer, in its place, as one undo step,
-and the copies end up selected.
+Figma's two pastes that go where the selection is, both in Edit after Paste. Each is one undo step, and the copies end
+up selected. What they paste is Parity's copied layers, plain text as a text layer, or an image or SVG, saved into
+`public/images/` as a paste saves it; Paste over selection also pastes copied designs over designs.
+
+**Paste over selection (Ctrl+Shift+V)** puts what's on the clipboard in the selection's place, on top of it, and removes
+nothing.
+
+- **Over layers,** the copies go just after the last selected layer, in the design's order, in its layout or slot, once
+  however many layers are selected. Later in a layout paints on top, so over an absolutely placed layer they sit on top
+  of it, at its insets as the state being edited shows them, in place of their own. A selected layout or component gets
+  them beside it, not inside it, which is where Paste differs.
+- **Over designs,** copied designs go at the selected designs' position: the copies' top left corner at the selected
+  designs' top left, sitting as they sat together, on top of them, as new designs are. Each keeps its id unless that's
+  taken, as a paste does.
+- **Layers go over layers and designs over designs.** Otherwise a message says what to copy. It needs layers or designs
+  selected; otherwise it's unavailable in the menu and the keys do nothing. Layers inside an instance can't be pasted
+  over, and a message says so.
+
+**Paste to replace (Ctrl+Shift+R)** puts what's on the clipboard in place of each selected layer.
 
 - **In its place** is its index in its layout or slot, and, for an absolutely placed layer, its insets as the state
   being edited shows them, which replace the pasted layer's own.
-- **Each selected layer gets its own copy,** with fresh ids, as Figma's paste to replace does. With one layer selected,
-  that's the done-when's "the clipboard's layers replace the selection, in its place".
-- **What pastes over:** Parity's copied layers, plain text as a text layer, and an image or SVG, saved into
-  `public/images/` as a paste saves it. Copied designs or text notes don't; a message says to copy layers. The states'
-  changes to a replaced layer go with it.
-- **It needs layers selected;** otherwise it's unavailable in the menu and the keys do nothing. Layers inside an
-  instance can't be pasted over, and a message says so.
+- **Each selected layer gets its own copy,** with fresh ids, as Figma's does. The states' changes to a replaced layer go
+  with it.
+- **It needs layers selected,** and replaces only with layers: copied designs or text notes get a message. Layers inside
+  an instance can't be replaced, and a message says so.
+- **The key is free.** Ctrl+R renames, and nothing else in Parity takes Ctrl+Shift+R: the keymap's test fails if two
+  commands share keys, and the main process's menu adds no keys of its own (its Developer items, including Reload, are
+  built with `registerAccelerator: false`, and Electron's default menu, whose Force Reload took it, is replaced).
 
-Code: `apps/desktop/src/renderer/canvas/paste-over.ts` (`replaceLayers`) and, in `canvas/clipboard.ts`,
-`pasteOverSelection`, with reading the clipboard (`readClipboard`) and saving an image (`importImage`) shared with
-Paste.
+Code: `apps/desktop/src/renderer/canvas/paste-over.ts` (`placeOver`, `designsAt` and `replaceLayers`) and, in
+`canvas/clipboard.ts`, `pasteOverSelection` and `pasteToReplace`, with reading the clipboard (`readClipboard`) and
+saving an image (`importImage`) shared with Paste.
 
-Tests: `apps/desktop/src/renderer/canvas/paste-over.test.ts` (in place of one layer, fresh ids and states' changes
-dropped, each of several layers, in a component's slot, at an absolutely placed layer's insets, and leaving the root and
-instances' layers alone).
+Tests: `apps/desktop/src/renderer/canvas/paste-over.test.ts`. Paste over selection: after the selected layer with
+nothing removed, once after the last of several, beside a selected component, on top of an absolutely placed layer at
+its insets, in a component's slot, leaving the root and instances' layers alone, designs at the selection's corner as
+they sat, and new ids for designs whose ids are taken. Paste to replace: in place of one layer, fresh ids and states'
+changes dropped, each of several layers, in a component's slot, at an absolutely placed layer's insets, and leaving the
+root and instances' layers alone. `chrome/keymap.test.ts` checks both keys, and that Ctrl+R still renames.
 
-Gaps: reading the clipboard and the messages have no automated test. Copying a Pricing text and pasting it over another
-was checked in an isolated copy of the app, with the page's clipboard standing in for the system's.
+Gaps: reading the clipboard and the messages have no automated test. Both pastes, over layers and designs, and
+Ctrl+Shift+R not reloading the window, were checked in an isolated copy of the app, with the page's clipboard standing
+in for the system's.
 
 ## Fields
 
 How the inspector's number, length and token fields read what's typed, scrubbed or stepped.
+
+### Typing, stepping and scrubbing (CAN-48)
+
+Every number and length field in the Design tab takes what people type, as Figma's do. The lengths are Gap (and its
+column and row gaps), Padding and Margin (both sides, or each side), Width and Height, Min and Max, and an absolutely
+placed layer's insets. Opacity is a percentage. A grid's Cols and Rows, a layer's Span and a text's Max lines are whole
+numbers. A component's number props take any number.
+
+- **What a field shows.** A length shows in pixels: a gap of 4 steps shows 16, with `px` after it, hidden while the
+  field has focus. Hovering it gives its step (`Gap, spacing-4`). A length token shows its name, in a code font. When
+  the selected layers differ, the field shows the word Mixed, as text that can be typed after.
+- **What it reads.** A number; `px`, `rem` (16px) and `%`; maths with `+ - * /` (`×` and `÷` too) and brackets; for a
+  length, a token's name (`container-sm` or `--container-sm`) or a step's (`spacing-4`). An empty field clears the
+  property, as before. Typing 320 in Width gives 320px, kept as 80 steps (`w-80`), following the project's spacing unit:
+  with MUI's 8px, 320 is 40 steps.
+- **Working from the value there.** A leading `+`, `*` or `/` works from it: `+8` adds 8px, `*2` doubles it. A leading
+  minus is a negative number, since an inset can be negative; to subtract, type after the value shown, or `Mixed-8`.
+  Mixed stands for each layer's own value, so `Mixed+8` adds 8px to each selected layer; anything without it gives every
+  layer the same value. In a length or a count, `%` is a share of the value there (`50%` halves a width, as in Figma's
+  dimension fields); in Opacity it's the unit, so `50%` is 50.
+- **What unset counts as,** for maths that works from the value: 0 for padding, margin, gaps and insets, 100 for
+  opacity, 2 for a grid's columns, 1 for a span, and a layer's measured size for Width and Height when they're auto,
+  fill or hug, as Figma's sizes are always numbers. Unset limits, rows, max lines and props have no value, so such maths
+  says "There's no value here to work from". A layer whose value is a token has no number either: it keeps its value,
+  and the field says how many layers did.
+- **Off the spacing scale, until CAN-80.** Before, a length field read steps and took any number, so `7.3` became
+  29.2px, which Tailwind can't write as a class, without a word. Now a typed length lands on the nearest half step (2px
+  with a 4px unit), which is what Tailwind's scale lists below 4 and what dragging already writes, and the field says so
+  under its row: "Snapped to 282px, the nearest step on the spacing scale". A value already off it shows as it is (29.2)
+  until it's edited. Keeping and flagging lengths off the scale is CAN-80.
+- **Limits.** Sizes, padding, margin, gaps and limits can't go below 0; insets can. Opacity stays within 0 and 100.
+  Counts are whole numbers from 1. A value past a limit is kept at it ("Kept at 0px: it can't go lower"), and a count
+  with a fraction is rounded ("Rounded to 2: it takes whole numbers"), each said under the row.
+- **Up and Down** move a length one step of the spacing scale (4px with a 4px unit) and Shift ten steps, the same
+  distance nudging moves an absolutely placed layer; a half step goes to the whole step beside it. Opacity, counts and
+  numbers move by 1, and Shift by 10. Each press is made at once, and presses on a field less than a second apart are
+  one undo step, as a run of typing is. With something readable typed, it steps from that; with something it can't read,
+  nothing changes and the reason shows.
+- **Scrubbing.** Dragging a field's label changes the value by one step for every 2px the pointer moves, ten with Shift,
+  left to lower. The label is the row's (Width, Gap, Opacity, Max lines) when the row holds one field without a letter
+  of its own, else the letter inside the field (V and H, T, R, B and L, X and Y, Cols and Rows). Such a label has a
+  left-right cursor and its hint says "Drag to change it". The canvas previews while dragging, the field shows the
+  value, and letting go makes it one undo step. Escape takes it back. Pressing a letter without dragging focuses its
+  field. These are my calls, as the smallest step from Figma, whose labels scrub at four speeds.
+- **The canvas previews while typing or scrubbing.** Each readable keystroke shows on the canvas at once, without
+  changing the design: the edit's inline styles are written straight onto the elements already drawn, in every frame of
+  the design, worked out for each frame's state and viewport as the frame works out its own. The side panels follow once
+  the change is made. Something it can't read keeps the last preview while typing, since `16p` is on its way to `16px`.
+  A component previews only when it renders the design's props on its root, as only then does it take the style; one
+  that doesn't changes once the edit is made, as before.
+- **Committing.** Enter makes the edit, one undo step, and keeps the field, with its text selected for the next value.
+  Tab or clicking away makes it too. The preview stays until the change draws over it, so the canvas doesn't flick back.
+  Escape takes the preview back, puts the value back and leaves the field.
+- **Input it can't read stays** as typed, with the field marked and the reason under its row:
+  `Can't read "abc": type a number, px, rem or %`, `"em" isn't a unit Width takes`,
+  `Opacity takes a percentage, not px`, `Something's missing after "+"`, `A bracket isn't closed`,
+  `Put an operator between 16 and 4`, `Can't divide by zero`. Nothing is made and the canvas goes back to the value. It
+  stays when the field loses focus, until it's typed in again or Escape.
+- **A value changing underneath** (an agent's edit, an undo, a resize on the canvas) doesn't touch what's being typed:
+  it shows over the value until it's made or reverted. With nothing typed, the field follows the value. Selecting
+  another layer, or another set of layers, starts the fields afresh.
+- **What a field says** shows under its whole row, where there's room, and stays until the field is next edited. A note
+  is muted; a reason is in the destructive color, read out as an alert, and the field points to it (`aria-describedby`).
+
+Code:
+
+- `packages/core/src/fields.ts`: reading what's typed (`readFieldInput`), working it out against a value
+  (`applyFieldInput`), landing on the scale and the limits, steps (`stepFieldValue`), scrubbing (`scrubSteps`), showing
+  a value (`formatFieldValue`) and what the field says (`describeFieldNote`, `summarizeFieldNotes`). It takes data and
+  returns data; it can move to `@parity/editor` when PKG-4 makes it.
+- `packages/core/src/style-changes.ts`: which inline styles an edit changes between two renders of a design
+  (`styleChanges`).
+- `apps/desktop/src/renderer/chrome/number-field.ts`: the field's behaviour as a reducer (`reduceField`): drafts, Enter,
+  leaving, Escape, steps and scrubs, and the effects it asks for.
+- `chrome/fields.tsx`: `NumberField`, which runs those effects and handles keys and scrubbing, `NumberInput`, and
+  `Field`, whose label scrubs a lone field and which shows what its fields say under the row.
+- `chrome/StyleSections.tsx`: each style field's rules and how its edit reads and writes each layer's own style
+  (`fieldEdits`), with `LengthInput` and `CompactNumber`. `StyleEditor` takes values, or a function of each layer's
+  style, and has `preview` and `endPreview`. `chrome/PropsSection.tsx` has the number props.
+- `canvas/style-preview.ts`: `StylePreview`, which writes previews onto the frames, takes them back, and settles them
+  for the change. `chrome/LayerPanel.tsx` and `chrome/MultiPanel.tsx` wire it into the inspector, the latter working an
+  edit out for each layer.
+
+Tests:
+
+- `packages/core/src/fields.test.ts` (42): 320 as pixels, `16px`, `rem` and step names, tokens, maths with units, `%` of
+  the value there, leading operators, a leading minus, Mixed per layer, landing on the scale with its note, limits,
+  another spacing unit, clearing, `50-10` in Opacity, counts and numbers, each reason for input it can't read, steps,
+  scrubbing, and notes across layers. The cases the audit found broken fail without the change.
+- `packages/core/src/style-changes.test.ts` (6): only what an edit changes, properties taken off, a component's style, a
+  state that sets its own value, and nothing for no change.
+- `apps/desktop/src/renderer/chrome/number-field.test.ts` (16): previews while typing, keeping the last one, the draft
+  over a changing value, Enter committing and keeping focus, input it can't read kept with its reason, leaving the
+  field, Escape, steps from the value and from a draft, and scrubbing.
+- `apps/desktop/src/renderer/chrome/fields.test.ts` (9), in Chrome: the real field in a row. 320 previews as it's typed;
+  Enter commits and keeps focus with the text selected; `16em` stays with its reason, also after leaving; a value
+  changing underneath, then Escape; a snapped note; Up, Shift+Up and Down; scrubbing the row's label to one commit, and
+  Escape during a scrub; and `Mixed+8` on two layers.
+- `apps/desktop/src/renderer/canvas/style-preview.test.ts` (6), in Chrome: a preview drawn in each state's frame, a
+  state that sets its own width left alone, a later preview putting back what it doesn't change, taking it back exactly,
+  settling for the change, and nothing written for no change.
+- `chrome/fields.stories.tsx`: a Length row in every look, and TypingMaths, SnappedToTheScale, CantRead and Stepping.
+
+Gaps: the inspector's wiring (`LayerPanel`, `MultiPanel` and `StylePreview` against the real store and frames) has no
+automated test. It was checked in an isolated copy of the app on the example project on 2026-10-29, on Pricing's Brand
+mark: typing 320 in Width previewed at each keystroke in 25, 25 and 41 ms (a commit took 291 ms to show before) and
+Enter made 320px as one undo step, with focus kept; `16px` gave 16px; 281 gave 282px with its note; `abc` stayed with
+its reason; a value set underneath left `12` in the field; Up, Shift+Up and Down gave 36, 76 and 72px as one undo step;
+`50-10` in Opacity gave 40; scrubbing the Width label previewed in 22 ms and made one undo step; and `Mixed+8` on Brand
+mark and Plans gave 40px and 1208px. The stories' play functions weren't run in Storybook. Number props don't preview,
+since a prop change has to draw the component again; they take maths and are made on Enter, as before. In a 320px
+inspector, Width and Height show about three characters of what's typed (CAN-75).

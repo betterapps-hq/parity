@@ -25,7 +25,7 @@ import { designsSelection, layersSelection, selectedDesigns, selectedNodes } fro
 import type { ProjectSession } from "../workspace.ts"
 import { shapeIdFor } from "./CanvasEditor.tsx"
 import { nodeForItem } from "./insert.ts"
-import { replaceLayers } from "./paste-over.ts"
+import { designsAt, placeOver, replaceLayers } from "./paste-over.ts"
 
 /**
  * Copy and paste for layers, designs and text notes, through the system clipboard, so they paste into another
@@ -111,44 +111,78 @@ async function readClipboard(): Promise<ClipboardContent> {
 }
 
 /**
- * Paste over selection (Ctrl+Shift+V): what's on the clipboard replaces each selected layer, in its place, as one undo
- * step, and ends up selected. Parity's layers, an image or text paste over layers; copied designs and notes don't.
+ * Paste over selection (Ctrl+Shift+V), as Figma's: what's on the clipboard goes in the selection's place, on top of it,
+ * and nothing is removed. Layers go just after the last selected layer, at its insets when it's placed absolutely;
+ * copied designs go at the selected designs' position. One undo step, and the copies end up selected.
  */
 export async function pasteOverSelection(session: ProjectSession): Promise<void> {
+  const { store, selection } = session
+  const current = selection.get()
+  const entry = current.design ? store.getEntry(current.design) : undefined
+  const ids = selectedNodes(current)
+  if (entry && ids.length > 0) {
+    const nodes = await clipboardLayers(session, "Copy layers to paste them over layers")
+    if (!nodes) return
+    let copies: string[] = []
+    const state = editingState(entry.container, current.state)
+    store.updateContainer(
+      entry.key,
+      nodes.length === 1 ? "Paste over layer" : `Paste ${nodes.length} layers over`,
+      (container) => {
+        const placed = placeOver(container, ids, nodes, state)
+        copies = placed.copies
+        return placed.container
+      }
+    )
+    if (copies.length === 0) {
+      toast.info("Layers inside an instance can't be pasted over")
+      return
+    }
+    selection.set(layersSelection(entry.key, copies, current))
+    warnUnknown(nodes, session.components.get())
+    return
+  }
+  const selected = selectedDesigns(current).flatMap((key) => store.getEntry(key) ?? [])
+  if (selected.length === 0) return
+  const content = await readClipboard()
+  if (content.kind !== "envelope" || content.envelope.payload.kind !== "designs") {
+    toast.info("Copy designs to paste them over designs")
+    return
+  }
+  const at = {
+    x: Math.min(...selected.map((design) => design.container.position.x)),
+    y: Math.min(...selected.map((design) => design.container.position.y))
+  }
+  const copies = designsAt(
+    content.envelope.payload.designs,
+    store.getEntries().map((design) => design.container.id),
+    at
+  )
+  const path = store.mainPath
+  store.change(copies.length === 1 ? "Paste over design" : `Paste ${copies.length} designs over`, (snapshot) => {
+    const document: CanvasDocument = snapshot.documents.get(path) ?? { version: 3, containers: [] }
+    const next = { ...document, containers: [...document.containers, ...copies] }
+    return { ...snapshot, documents: new Map(snapshot.documents).set(path, next) }
+  })
+  selection.set(designsSelection(copies.map((copy) => containerKey(path, copy.id))))
+}
+
+/**
+ * Paste to replace (Ctrl+Shift+R), as Figma's: what's on the clipboard replaces each selected layer, in its place, as
+ * one undo step, and ends up selected. Parity's layers, an image or text replace layers; copied designs and notes don't.
+ */
+export async function pasteToReplace(session: ProjectSession): Promise<void> {
   const current = session.selection.get()
   const entry = current.design ? session.store.getEntry(current.design) : undefined
   const ids = selectedNodes(current)
   if (!entry || ids.length === 0) return
-  const content = await readClipboard()
-  let nodes: DesignNode[]
-  if (content.kind === "envelope") {
-    if (content.envelope.payload.kind !== "layers") {
-      toast.info("Copy layers to paste them over the selection")
-      return
-    }
-    nodes = content.envelope.payload.nodes
-  } else if (content.kind === "image") {
-    const progress = toast.loading("Adding the image…")
-    try {
-      nodes = [await importImage(session, content.blob, content.name)]
-      toast.dismiss(progress)
-    } catch (error) {
-      toast.error("Couldn't paste the image", {
-        id: progress,
-        description: error instanceof Error ? error.message : String(error)
-      })
-      return
-    }
-  } else if (content.kind === "text") nodes = [{ type: "text", id: "pasted", text: content.text }]
-  else {
-    toast.info("There's nothing on the clipboard to paste")
-    return
-  }
+  const nodes = await clipboardLayers(session, "Copy layers to replace layers with them")
+  if (!nodes) return
   let copies: string[] = []
   const state = editingState(entry.container, current.state)
   session.store.updateContainer(
     entry.key,
-    ids.length === 1 ? "Paste over layer" : `Paste over ${ids.length} layers`,
+    ids.length === 1 ? "Paste to replace" : `Paste to replace ${ids.length} layers`,
     (container) => {
       const replaced = replaceLayers(container, ids, nodes, state)
       copies = replaced.copies
@@ -156,11 +190,41 @@ export async function pasteOverSelection(session: ProjectSession): Promise<void>
     }
   )
   if (copies.length === 0) {
-    toast.info("Layers inside an instance can't be pasted over")
+    toast.info("Layers inside an instance can't be replaced")
     return
   }
   session.selection.set(layersSelection(entry.key, copies, current))
   warnUnknown(nodes, session.components.get())
+}
+
+/**
+ * What's on the clipboard as layers to place: Parity's copied layers, an image saved into the project, or plain text as
+ * a text layer. Undefined, with a message, when it's something else or nothing.
+ */
+async function clipboardLayers(session: ProjectSession, notLayers: string): Promise<DesignNode[] | undefined> {
+  const content = await readClipboard()
+  if (content.kind === "envelope") {
+    if (content.envelope.payload.kind === "layers") return content.envelope.payload.nodes
+    toast.info(notLayers)
+    return undefined
+  }
+  if (content.kind === "text") return [{ type: "text", id: "pasted", text: content.text }]
+  if (content.kind === "empty") {
+    toast.info("There's nothing on the clipboard to paste")
+    return undefined
+  }
+  const progress = toast.loading("Adding the image…")
+  try {
+    const node = await importImage(session, content.blob, content.name)
+    toast.dismiss(progress)
+    return [node]
+  } catch (error) {
+    toast.error("Couldn't paste the image", {
+      id: progress,
+      description: error instanceof Error ? error.message : String(error)
+    })
+    return undefined
+  }
 }
 
 /** An image on the system clipboard, such as a screenshot or an image copied from a browser. */
