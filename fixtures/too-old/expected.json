@@ -58,7 +58,7 @@
     ],
     "missing": [],
     "adapter": "tailwind",
-    "error": "Cannot apply unknown utility class `bg-background`. Are you using CSS modules or similar and missing `@reference`? https://tailwindcss.com/docs/functions-and-directives#reference-directive (Tailwind CSS 3.4.19 from node_modules/tailwindcss; untested, Parity tests Tailwind CSS v4)"
+    "error": "Tailwind's @tailwindcss/node is not installed in <project> (Tailwind CSS 3.4.19 from node_modules/tailwindcss; untested, Parity tests Tailwind CSS v4)"
   },
   "tokens": {
     "count": 5,
