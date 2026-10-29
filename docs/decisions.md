@@ -77,8 +77,12 @@ still need your call.
   of all cores, and memory and CPU cover every process of the app: the windows, the offscreen renderer, the project
   service (with the project's Vite), the GPU and Electron's helpers. Clicking it shows the last minute's frame rate, the
   longest recent frame and each process. Storybook runs outside the app, so it isn't counted. Measuring runs only while
-  the stats show. Memory adds up each process's working set, which counts memory the processes share once for each of
-  them, so it reads higher than Task Manager's private working set.
+  the stats show. On Windows, memory is each process's private working set, the memory only it uses, as Task Manager's
+  Memory column counts it: the working set Electron reports also counts the pages the processes share, once for each,
+  and read about 25% high. Electron doesn't give the private part, so a PowerShell the main process starts asks Windows
+  for it (`GetProcessMemoryInfo`, a fraction of a millisecond a process, where the performance counters take over a
+  second) while the stats show, and stops 15 seconds after they stop. Elsewhere, memory is the working set. `pnpm perf`
+  reads memory the same way.
 - **`pnpm perf` measures the canvas** in its own copy of the app on the example project, in a window that opens at
   1439×901 in the middle of the main screen, so every run draws the same area at the same pixel ratio (the page is held
   at that size only if the window can't open within a few pixels of it, so a maximized copy still lays out like a

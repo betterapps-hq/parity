@@ -18,6 +18,7 @@ import {
 import type { ProcessUsage, RenderedFrame, RenderJob, SaveDialogOptions } from "../shared/protocol.ts"
 import type { MainMessage, ServiceMessage } from "../shared/service.ts"
 import { readConsole, recordConsole } from "./console-log.ts"
+import { privateWorkingSets } from "./private-memory.ts"
 
 const rendererUrl = process.env.PARITY_RENDERER_URL
 if (!rendererUrl) {
@@ -145,6 +146,8 @@ function createWindow(): void {
     minWidth: 960,
     minHeight: 600,
     title: "Parity",
+    // The taskbar's icon on Windows and the window list's on Linux. macOS shows the dock's, set when the app starts.
+    icon: join(import.meta.dirname, "resources", process.platform === "win32" ? "icon.ico" : "icon.png"),
     backgroundColor: background,
     // The tab strip is the title bar; the system's window buttons sit over its end.
     titleBarStyle: mac ? "hiddenInset" : "hidden",
@@ -276,11 +279,14 @@ ipcMain.handle("canvas:set-theme", (_event, theme: ThemeSource) => {
 })
 
 // The performance stats: each process's CPU and memory, named by what it does. Storybook and other programs the
-// project service starts run outside the app, so they aren't counted.
-ipcMain.handle("canvas:metrics", (event): ProcessUsage[] => {
+// project service starts run outside the app, so they aren't counted. Memory is the private working set where Windows
+// gives it (see private-memory.ts), as Task Manager counts it, and the working set elsewhere.
+ipcMain.handle("canvas:metrics", async (event): Promise<ProcessUsage[]> => {
   const cores = availableParallelism()
   const pages = new Map(webContents.getAllWebContents().map((contents) => [contents.getOSProcessId(), contents]))
-  return app.getAppMetrics().map((metric): ProcessUsage => {
+  const metrics = app.getAppMetrics()
+  const privates = await privateWorkingSets(metrics.map((metric) => metric.pid))
+  return metrics.map((metric): ProcessUsage => {
     const page = pages.get(metric.pid)
     const role: ProcessUsage["role"] =
       metric.type === "Browser"
@@ -310,7 +316,7 @@ ipcMain.handle("canvas:metrics", (event): ProcessUsage[] => {
       name: names[role],
       pid: metric.pid,
       cpu: metric.cpu.percentCPUUsage / cores,
-      memory: metric.memory.workingSetSize * 1024
+      memory: privates.get(metric.pid) ?? metric.memory.workingSetSize * 1024
     }
   })
 })
@@ -365,6 +371,8 @@ function renderFrame(job: RenderJob, capture: boolean): Promise<{ frame?: Render
 }
 
 void app.whenReady().then(() => {
+  // Otherwise the dock shows the icon of the app Parity runs as, which is Electron.
+  app.dock?.setIcon(join(import.meta.dirname, "resources", "dock.png"))
   Menu.setApplicationMenu(applicationMenu())
   service = startService()
   createWindow()

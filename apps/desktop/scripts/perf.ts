@@ -531,6 +531,8 @@ async function hiddenTab(page: Page, cdp: CDPSession, frames: number): Promise<R
 async function memory(page: Page, cdp: CDPSession): Promise<Record<string, number>> {
   const { metrics } = await cdp.send("Performance.getMetrics")
   const heap = metrics.find((metric) => metric.name === "JSHeapUsedSize")?.value ?? 0
+  // The first reading starts what reads each process's private memory on Windows, so the second is the one kept.
+  await page.evaluate(() => window.canvasHost.metrics())
   const processes = await page.evaluate(() => window.canvasHost.metrics())
   const byRole: Record<string, number> = { "js heap": Math.round(heap / 2 ** 20) }
   for (const usage of processes) {
