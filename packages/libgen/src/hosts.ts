@@ -2,24 +2,36 @@ import { readdir, readFile, stat } from "node:fs/promises"
 import { join } from "node:path"
 import ts from "typescript"
 
-/** A prop one of the package's components gives a part it renders: one of its own props, a value, or worked out. */
-export type PassedProp = { forward: string } | { value: unknown } | { computed: true }
+/**
+ * A prop one of the package's components gives a part it renders: one of its own props, a value, an item of a list it
+ * maps (`toasts.map((toast) => <Toast toast={toast} />)`), or worked out.
+ */
+export type PassedProp = { forward: string } | { value: unknown } | { item: true } | { computed: true }
 
-/** How a component of the package renders a part: the owner, and the props it passes. */
+/** How a component of the package renders a part: the owner, the props it passes, and the parts it puts inside. */
 export interface RenderCall {
   owner: string
   props: Record<string, PassedProp>
+  children?: RenderedChild[]
+}
+
+/** A part the package's own code puts inside another, with the parts inside it, by exported name. */
+export interface RenderedChild {
+  component: string
+  children?: RenderedChild[]
 }
 
 /**
  * What each of the package's own functions renders, by the names the package exports: read from its compiled files,
  * following `jsx()` and `createElement()` calls and JSX. Only files that mention one of `names` are read. `calls`, when
- * given, collects each render with the props passed, by the part rendered.
+ * given, collects each render with the props passed, by the part rendered. `made`, when given, collects the values
+ * the package exports that a factory makes (`export const toast = createToastManager()`), by their exported names.
  */
 export async function readRenders(
   packageDir: string,
   names: string[],
-  calls?: Map<string, RenderCall[]>
+  calls?: Map<string, RenderCall[]>,
+  made?: Set<string>
 ): Promise<Map<string, Set<string>>> {
   const renders = new Map<string, Set<string>>()
   for (const file of await sourceFiles(packageDir)) {
@@ -36,6 +48,17 @@ export async function readRenders(
       }
     }
     const named = (local: string) => exportedAs.get(local) ?? local
+    for (const statement of made ? source.statements : []) {
+      if (!ts.isVariableStatement(statement)) continue
+      const exported = statement.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword)
+      for (const declaration of statement.declarationList.declarations) {
+        const init = declaration.initializer
+        if (!ts.isIdentifier(declaration.name) || !init || !ts.isCallExpression(init)) continue
+        if (!/(?:^|\.)create[A-Z]\w*$/.test(init.expression.getText(source))) continue
+        const local = declaration.name.text
+        if (exported || exportedAs.has(local)) made!.add(named(local))
+      }
+    }
     const visit = (node: ts.Node, owner: string | undefined, params: Params) => {
       let here = owner
       let own = params
@@ -56,14 +79,34 @@ export async function readRenders(
           renders.set(here, set)
           if (calls) {
             const list = calls.get(named(rendered)) ?? []
-            list.push({ owner: here, props: passedProps(node, own) })
+            const children = renderedChildren(node, source, named)
+            list.push({ owner: here, props: passedProps(node, own), ...(children.length > 0 ? { children } : {}) })
             calls.set(named(rendered), list)
           }
         }
       }
-      ts.forEachChild(node, (child) => visit(child, here, own))
+      // A list's items, inside the callback that maps them.
+      const callback =
+        ts.isCallExpression(node) &&
+        ts.isPropertyAccessExpression(node.expression) &&
+        node.expression.name.text === "map"
+          ? node.arguments[0]
+          : undefined
+      const item =
+        callback && (ts.isArrowFunction(callback) || ts.isFunctionExpression(callback))
+          ? callback.parameters[0]?.name
+          : undefined
+      ts.forEachChild(node, (child) =>
+        visit(
+          child,
+          here,
+          child === callback && item && ts.isIdentifier(item)
+            ? { ...own, items: new Set([...own.items, item.text]) }
+            : own
+        )
+      )
     }
-    visit(source, undefined, { locals: new Map(), objects: new Set() })
+    visit(source, undefined, { locals: new Map(), objects: new Set(), items: new Set() })
   }
   return renders
 }
@@ -105,10 +148,12 @@ export function hostedParts(renders: Map<string, Set<string>>, hosts: string[], 
 interface Params {
   locals: Map<string, string>
   objects: Set<string>
+  /** Items of lists being mapped, by the callback's parameter. */
+  items: Set<string>
 }
 
 function paramsOf(node: ts.Node): Params {
-  const params: Params = { locals: new Map(), objects: new Set() }
+  const params: Params = { locals: new Map(), objects: new Set(), items: new Set() }
   // The function itself, or the one a call wraps (`forwardRef(function (props, ref) {...})`).
   let fn: ts.Node | undefined = node
   if (ts.isCallExpression(fn)) fn = fn.arguments.find((arg) => ts.isFunctionLike(arg))
@@ -153,6 +198,7 @@ function passedProps(node: ts.Node, params: Params): Record<string, PassedProp> 
   for (const [key, value] of entries) {
     if (key === "children" || key === "className") continue
     if (!value) props[key] = { value: true }
+    else if (ts.isIdentifier(value) && params.items.has(value.text)) props[key] = { item: true }
     else if (ts.isIdentifier(value) && params.locals.has(value.text))
       props[key] = { forward: params.locals.get(value.text)! }
     else if (
@@ -168,6 +214,40 @@ function passedProps(node: ts.Node, params: Params): Record<string, PassedProp> 
     } else props[key] = { computed: true }
   }
   return props
+}
+
+/**
+ * The parts a `jsx(X, { children })` call puts inside X, through HTML elements, lists and conditions in between
+ * (`_jsxs(ToastContent, { children: [_jsxs("div", { children: [_jsx(ToastTitle, {})] })] })`).
+ */
+function renderedChildren(node: ts.Node, source: ts.SourceFile, named: (local: string) => string): RenderedChild[] {
+  const childrenOf = (call: ts.CallExpression): RenderedChild[] => {
+    const object = call.arguments[1]
+    if (!object || !ts.isObjectLiteralExpression(object)) return []
+    const children = object.properties.find(
+      (property): property is ts.PropertyAssignment =>
+        ts.isPropertyAssignment(property) && ts.isIdentifier(property.name) && property.name.text === "children"
+    )
+    return children ? walk(children.initializer) : []
+  }
+  const walk = (expression: ts.Expression): RenderedChild[] => {
+    while (ts.isParenthesizedExpression(expression)) expression = expression.expression
+    if (ts.isArrayLiteralExpression(expression)) return expression.elements.flatMap(walk)
+    if (ts.isConditionalExpression(expression)) return walk(expression.whenTrue)
+    if (ts.isBinaryExpression(expression) && expression.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) {
+      return walk(expression.right)
+    }
+    if (!ts.isCallExpression(expression)) return []
+    const first = expression.arguments[0]
+    const rendered = renderedBy(expression, source)
+    if (rendered) {
+      const children = childrenOf(expression)
+      return [{ component: named(rendered), ...(children.length > 0 ? { children } : {}) }]
+    }
+    // An HTML element: what's inside it.
+    return first && ts.isStringLiteral(first) && /^[a-z]/.test(first.text) ? childrenOf(expression) : []
+  }
+  return ts.isCallExpression(node) ? childrenOf(node) : []
 }
 
 /** The component a `jsx(X, ...)`, `createElement(X, ...)` or `<X>` renders, when it's a plain name. */

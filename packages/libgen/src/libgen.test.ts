@@ -404,6 +404,29 @@ describe("parts", () => {
           }
         }
       ])
+      // A list's items it passes, the parts it puts inside, and the values a factory makes that it exports.
+      await writeFile(
+        join(dir, "dist", "toast.js"),
+        `const toast = Primitive.createToastManager()
+        function ToastList() {
+          const { toasts } = Primitive.useToastManager()
+          return toasts.map((item) => _jsx(Toast, { toast: item, children: _jsxs(ToastContent, { children: [_jsxs("div", { children: [_jsx(ToastTitle, {})] }), item.action && _jsx(ToastClose, {})] }) }))
+        }
+        export { toast, Toast, ToastContent, ToastTitle, ToastClose }`
+      )
+      const toastCalls = new Map<string, RenderCall[]>()
+      const made = new Set<string>()
+      await readRenders(dir, ["Toast", "ToastContent"], toastCalls, made)
+      expect(made).toEqual(new Set(["toast"]))
+      expect(toastCalls.get("Toast")).toEqual([
+        {
+          owner: "ToastList",
+          props: { toast: { item: true } },
+          children: [
+            { component: "ToastContent", children: [{ component: "ToastTitle" }, { component: "ToastClose" }] }
+          ]
+        }
+      ])
     } finally {
       await rm(dir, { recursive: true, force: true })
     }

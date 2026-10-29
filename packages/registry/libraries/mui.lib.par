@@ -5922,7 +5922,8 @@
                           "props": {
                             "sx": {
                               "color": "white"
-                            }
+                            },
+                            "aria-label": "star Breakfast"
                           }
                         }
                       ]
@@ -5948,7 +5949,8 @@
                           "props": {
                             "sx": {
                               "color": "white"
-                            }
+                            },
+                            "aria-label": "star Burger"
                           }
                         }
                       ]
@@ -5974,7 +5976,8 @@
                           "props": {
                             "sx": {
                               "color": "white"
-                            }
+                            },
+                            "aria-label": "star Camera"
                           }
                         }
                       ]
@@ -6340,42 +6343,45 @@
         "as": "function",
         "group": "List",
         "sample": {
+          "props": {
+            "sx": {
+              "width": "100%",
+              "maxWidth": 360,
+              "bgcolor": "background.paper"
+            }
+          },
           "children": [
             {
               "component": "ListItem",
               "props": {
-                "disablePadding": true,
-                "sx": {
-                  "display": "block"
-                }
+                "secondaryAction": {
+                  "$element": [
+                    {
+                      "component": "IconButton",
+                      "props": {
+                        "edge": "end"
+                      }
+                    }
+                  ]
+                },
+                "disablePadding": true
               },
               "children": [
                 {
                   "component": "ListItemButton",
                   "props": {
-                    "sx": [
-                      {
-                        "minHeight": 48,
-                        "px": 2.5
-                      }
-                    ]
+                    "role": "checkbox",
+                    "aria-labelledby": "checkbox-list-label-0",
+                    "dense": true
                   },
                   "children": [
                     {
-                      "component": "ListItemIcon",
-                      "props": {
-                        "sx": [
-                          {
-                            "minWidth": 0,
-                            "justifyContent": "center"
-                          }
-                        ]
-                      }
+                      "component": "ListItemIcon"
                     },
                     {
                       "component": "ListItemText",
                       "props": {
-                        "primary": "Inbox"
+                        "id": "checkbox-list-label-0"
                       }
                     }
                   ]
@@ -6385,38 +6391,34 @@
             {
               "component": "ListItem",
               "props": {
-                "disablePadding": true,
-                "sx": {
-                  "display": "block"
-                }
+                "secondaryAction": {
+                  "$element": [
+                    {
+                      "component": "IconButton",
+                      "props": {
+                        "edge": "end"
+                      }
+                    }
+                  ]
+                },
+                "disablePadding": true
               },
               "children": [
                 {
                   "component": "ListItemButton",
                   "props": {
-                    "sx": [
-                      {
-                        "minHeight": 48,
-                        "px": 2.5
-                      }
-                    ]
+                    "role": "checkbox",
+                    "aria-labelledby": "checkbox-list-label-1",
+                    "dense": true
                   },
                   "children": [
                     {
-                      "component": "ListItemIcon",
-                      "props": {
-                        "sx": [
-                          {
-                            "minWidth": 0,
-                            "justifyContent": "center"
-                          }
-                        ]
-                      }
+                      "component": "ListItemIcon"
                     },
                     {
                       "component": "ListItemText",
                       "props": {
-                        "primary": "Starred"
+                        "id": "checkbox-list-label-1"
                       }
                     }
                   ]
@@ -6426,38 +6428,34 @@
             {
               "component": "ListItem",
               "props": {
-                "disablePadding": true,
-                "sx": {
-                  "display": "block"
-                }
+                "secondaryAction": {
+                  "$element": [
+                    {
+                      "component": "IconButton",
+                      "props": {
+                        "edge": "end"
+                      }
+                    }
+                  ]
+                },
+                "disablePadding": true
               },
               "children": [
                 {
                   "component": "ListItemButton",
                   "props": {
-                    "sx": [
-                      {
-                        "minHeight": 48,
-                        "px": 2.5
-                      }
-                    ]
+                    "role": "checkbox",
+                    "aria-labelledby": "checkbox-list-label-2",
+                    "dense": true
                   },
                   "children": [
                     {
-                      "component": "ListItemIcon",
-                      "props": {
-                        "sx": [
-                          {
-                            "minWidth": 0,
-                            "justifyContent": "center"
-                          }
-                        ]
-                      }
+                      "component": "ListItemIcon"
                     },
                     {
                       "component": "ListItemText",
                       "props": {
-                        "primary": "Send email"
+                        "id": "checkbox-list-label-2"
                       }
                     }
                   ]

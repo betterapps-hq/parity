@@ -11,7 +11,7 @@ import {
 } from "@parity/core"
 import type { FoundComponent } from "./components.ts"
 import { type ExampleUse, exampleLevels, familyOf } from "./examples.ts"
-import type { RenderCall } from "./hosts.ts"
+import type { RenderCall, RenderedChild } from "./hosts.ts"
 
 export type Load = (specifier: string) => Promise<Record<string, unknown>>
 
@@ -38,6 +38,8 @@ export interface PartsReport {
   /** Whether rendering could be tried at all: it needs React and react-dom from the project. */
   tried: boolean
   note?: string
+  /** Parts drawn from a list the library keeps that render with an item of it, and the parts placed inside them. */
+  drawn?: string[]
 }
 
 const notVisual = /(?:Context|Consumer|Provider)$/
@@ -63,7 +65,9 @@ export async function relateParts(
   /** The package's components that render each one in its own code (`SelectContent` for `SelectScrollUpButton`). */
   renderedBy: Map<string, string[]> = new Map(),
   /** The props those components pass when they render each one, for a part that needs what its owner gives it. */
-  calls: Map<string, RenderCall[]> = new Map()
+  calls: Map<string, RenderCall[]> = new Map(),
+  /** An item of the lists the library keeps, from its examples, for parts their owner draws from such a list. */
+  listItem?: Record<string, unknown>
 ): Promise<PartsReport> {
   let React: Record<string, unknown>
   let server: Record<string, unknown>
@@ -379,6 +383,8 @@ export async function relateParts(
   }
 
   const missing: string[] = []
+  /** Parts drawn from a list the library keeps that render with an item of it. */
+  const drawnParts = new Set<string>()
   for (const component of components) {
     const relation: PartRelation = {}
     const short = component.name.slice(component.name.lastIndexOf(".") + 1)
@@ -460,6 +466,48 @@ export async function relateParts(
         break
       }
     }
+    // A part the package draws from a list it keeps (`<Toast toast={toast}>` for each toast) shows an item of it, with
+    // the parts the package puts inside it, so it's placed as a whole toast rather than an empty one. With an item it
+    // may need what its owner had around it (the toast manager's provider), which its error names; so may the parts
+    // inside it.
+    const drawn = listItem
+      ? (calls.get(component.name) ?? []).find((call) => Object.values(call.props).some((passed) => "item" in passed))
+      : undefined
+    const inDrawn = (relation.parents ?? []).some((parent) => drawnParts.has(parent))
+    if (drawn || (inside && inDrawn)) {
+      const before = samples.get(component.name)
+      const props: Record<string, unknown> = { ...before }
+      for (const [key, passed] of Object.entries(drawn?.props ?? {})) {
+        if ("item" in passed) props[key] = { id: "1", ...listItem }
+      }
+      samples.set(component.name, props)
+      let parents = relation.parents ?? []
+      let failed = attempt(parents, component.name)
+      for (let tries = 0; failed && tries < 2; tries++) {
+        const needed = named(failed, component.name, parents)
+        if (!needed) break
+        const next = attempt([needed, ...parents], component.name)
+        if (next === failed) break
+        parents = [needed, ...parents]
+        failed = next
+      }
+      if (failed) samples.set(component.name, before ?? {})
+      else {
+        if (parents.length > (relation.parents?.length ?? 0)) {
+          relation.parents = parents
+          relation.parentsFrom = "error"
+          delete relation.optionalParents
+        }
+        if (drawn) {
+          drawnParts.add(component.name)
+          // The package's own nesting beats children put together from the parts' parents.
+          const own = exportedChildren(drawn.children ?? [], names)
+          const children = own.length > 0 ? own : (relation.sample?.children ?? [])
+          relation.sample = { props, ...(children.length > 0 ? { children } : {}) }
+        }
+        inside = undefined
+      }
+    }
     if (inside) relation.inside = inside
     relations.set(component.name, relation)
   }
@@ -502,15 +550,28 @@ export async function relateParts(
   for (const [parent, parts] of [...partsOf].sort(([a], [b]) => depth(b) - depth(a))) {
     const relation = relations.get(parent)
     if (!relation || relation.inside || (relation.sampleFrom === "example" && relation.sample?.children)) continue
+    // A drawn part already holds what the package puts inside it.
+    if (drawnParts.has(parent)) continue
     const children: SampleChild[] = parts.slice(0, 3).map((part) => ({
       component: part,
       ...(relations.get(part)?.sample?.children ? { children: relations.get(part)!.sample!.children } : {})
     }))
     if (!attempt(relation.parents ?? [], parent, children)) relation.sample = { ...relation.sample, children }
   }
+  // The parts inside a drawn part's sample, so they're placed as part of it.
+  const drawnTree = new Set(drawnParts)
+  const addTree = (children: SampleChild[] = []) => {
+    for (const child of children) {
+      if (typeof child !== "object" || !("component" in child)) continue
+      drawnTree.add(child.component)
+      addTree(child.children)
+    }
+  }
+  for (const part of drawnParts) addTree(relations.get(part)?.sample?.children)
   return {
     relations,
     tried: true,
+    ...(drawnTree.size > 0 ? { drawn: [...drawnTree] } : {}),
     ...(missing.length > 0
       ? {
           note: `Declared but not exported when it runs, so left out: ${missing.slice(0, 10).join(", ")}${missing.length > 10 ? ` and ${missing.length - 10} more` : ""}.`
@@ -629,4 +690,13 @@ function exported(module: Record<string, unknown>, name: string): unknown {
   let found: unknown = module
   for (const part of name.split(".")) found = (found as Record<string, unknown>)?.[part]
   return found ?? (name === "default" ? module : undefined)
+}
+
+/** The parts the package puts inside another, as sample children, keeping only those it exports. */
+function exportedChildren(children: RenderedChild[], names: string[]): SampleChild[] {
+  return children.flatMap((child): SampleChild[] => {
+    const inner = exportedChildren(child.children ?? [], names)
+    if (!names.includes(child.component)) return inner
+    return [{ component: child.component, ...(inner.length > 0 ? { children: inner } : {}) }]
+  })
 }

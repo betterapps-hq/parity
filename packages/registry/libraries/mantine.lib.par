@@ -26369,11 +26369,11 @@
         "group": "SemiCircleProgress",
         "sample": {
           "props": {
-            "value": 60,
-            "orientation": "up",
-            "fillDirection": "left-to-right",
-            "label": "Up, L→R",
-            "size": 150
+            "value": 75,
+            "label": "75%",
+            "labelPosition": "center",
+            "size": 200,
+            "thickness": 12
           }
         },
         "fingerprint": "be852c59",

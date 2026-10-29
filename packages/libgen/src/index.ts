@@ -20,7 +20,14 @@ import { installedPackage, parseJsonc } from "@parity/project"
 import ts from "typescript"
 import { type AnatomyCheck, checkAnatomy, readAnatomy } from "./anatomy.ts"
 import { type ComponentReport, findComponents, relativePath } from "./components.ts"
-import { type ExampleSource, type ExampleUse, fetchExamples, readExamples } from "./examples.ts"
+import {
+  type ExampleFile,
+  type ExampleSource,
+  type ExampleUse,
+  exampleItem,
+  fetchExamples,
+  readExamples
+} from "./examples.ts"
 import { hostedParts, type RenderCall, readRenders, renderedIn } from "./hosts.ts"
 import { type PartRelation, relateParts } from "./parts.ts"
 import { type Load, type Preset, presets } from "./presets.ts"
@@ -216,10 +223,12 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
     const providers = (preset?.decorators ?? []).flatMap((decorator) => (decorator.wrap ? [decorator.wrap] : []))
     let uses = new Map<string, ExampleUse>()
     let anatomy = new Map<string, string[][]>()
+    let exampleFiles: ExampleFile[] = []
     if (options.examples !== false) {
       const fetched = await fetchExamples(pkg, dir, preset?.examples)
       if (fetched.note) notes.push(fetched.note)
       const componentNames = scan.components.map((component) => component.name)
+      exampleFiles = fetched.files
       uses = readExamples(fetched.files, componentNames)
       anatomy = readAnatomy(fetched.docs ?? [], componentNames)
       if (fetched.source) report.examples = { ...fetched.source, used: uses.size }
@@ -227,7 +236,16 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
     // What the package's own components render, for parts no example shows and for what only a host renders.
     const names = scan.components.map((component) => component.name)
     const calls = new Map<string, RenderCall[]>()
-    const renders = await readRenders(dir, names, calls)
+    const made = new Set<string>()
+    const renders = await readRenders(dir, names, calls, made)
+    // Parts the package draws from a list it keeps (`toasts.map((toast) => <Toast toast={toast} />)`) get an item of
+    // it from the examples: what they hand the package's own manager (`toast.add({ title })`) or a hook's result.
+    const takesItem = new Set(
+      [...calls].flatMap(([part, list]) =>
+        list.some((call) => Object.values(call.props).some((passed) => "item" in passed)) ? [part] : []
+      )
+    )
+    const listItem = takesItem.size > 0 ? exampleItem(exampleFiles, made) : undefined
     const parts = await relateParts(
       loader(root, dir),
       componentImport ?? name,
@@ -236,22 +254,29 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
       options.trialEdits?.components,
       uses,
       renderedIn(renders),
-      calls
+      calls,
+      listItem
     )
     if (parts.note) notes.push(parts.note)
-    // Parts only a host the decorators add renders, and no example places, aren't for placing.
+    // Parts only a host the decorators add renders, and no example places, aren't for placing, unless they render with
+    // the list item the host draws them from (Buildkit's Toast and the parts inside it).
     const hosts = (preset?.decorators ?? []).flatMap((decorator) =>
       decorator.add && !decorator.add.component.includes(".") ? [decorator.add.component] : []
     )
+    const drawnTree = new Set(parts.drawn)
     if (hosts.length > 0) {
       for (const hosted of hostedParts(renders, hosts, names)) {
         if (uses.has(hosted)) continue
-        parts.relations.set(hosted, { ...parts.relations.get(hosted), visual: false })
+        const relation = parts.relations.get(hosted)
+        if (listItem && drawnTree.has(hosted) && !relation?.inside) continue
+        parts.relations.set(hosted, { ...relation, visual: false })
       }
     }
-    // Parts every example draws from a list a hook returns (toasts from the toast manager) are runtime data.
-    for (const [part, use] of uses) {
-      if (use.fromHook) parts.relations.set(part, { ...parts.relations.get(part), visual: false })
+    // Parts every example draws from a list a hook returns (toasts from the toast manager) stay placeable, with the
+    // item the examples hand the hook as their sample; the report names them, as they render only with that item.
+    const fromHook = [...uses].filter(([, use]) => use.fromHook).map(([part]) => part)
+    if (fromHook.length > 0) {
+      notes.push(`Drawn from a hook's list in every example, sampled with the item it's given: ${fromHook.join(", ")}`)
     }
     // Parts the package renders inside its own components, and that no example or docs page places, are internal.
     const owners = renderedIn(renders)

@@ -2160,7 +2160,10 @@
                   "component": "AttachmentActions",
                   "children": [
                     {
-                      "component": "AttachmentAction"
+                      "component": "AttachmentAction",
+                      "props": {
+                        "aria-label": "Remove workspace.png"
+                      }
                     }
                   ]
                 },
@@ -2202,7 +2205,10 @@
                   "component": "AttachmentActions",
                   "children": [
                     {
-                      "component": "AttachmentAction"
+                      "component": "AttachmentAction",
+                      "props": {
+                        "aria-label": "Remove desk-reference.jpg"
+                      }
                     }
                   ]
                 },
@@ -2244,7 +2250,10 @@
                   "component": "AttachmentActions",
                   "children": [
                     {
-                      "component": "AttachmentAction"
+                      "component": "AttachmentAction",
+                      "props": {
+                        "aria-label": "Remove office-reference.jpg"
+                      }
                     }
                   ]
                 },
@@ -15134,7 +15143,41 @@
         "as": "function",
         "declaration": "dist/ui/toast.d.ts",
         "group": "Toast",
-        "visual": false,
+        "parents": [
+          "ToastProvider"
+        ],
+        "parentsFrom": "error",
+        "sample": {
+          "props": {
+            "toast": {
+              "id": "1",
+              "title": "Event created",
+              "description": "Sunday, December 3 at 9:00 AM",
+              "actionProps": {
+                "children": "Undo"
+              }
+            }
+          },
+          "children": [
+            {
+              "component": "ToastContent",
+              "children": [
+                {
+                  "component": "ToastTitle"
+                },
+                {
+                  "component": "ToastDescription"
+                },
+                {
+                  "component": "ToastAction"
+                },
+                {
+                  "component": "ToastClose"
+                }
+              ]
+            }
+          ]
+        },
         "fingerprint": "d6905d04",
         "props": {
           "className?": "28eeab",
@@ -15149,10 +15192,10 @@
         "declaration": "dist/ui/toast.d.ts",
         "group": "Toast",
         "parents": [
+          "ToastProvider",
           "Toast"
         ],
         "parentsFrom": "error",
-        "visual": false,
         "fingerprint": "00f08b4c",
         "props": {
           "className?": "0f3b71",
@@ -15166,10 +15209,10 @@
         "declaration": "dist/ui/toast.d.ts",
         "group": "Toast",
         "parents": [
+          "ToastProvider",
           "Toast"
         ],
         "parentsFrom": "error",
-        "visual": false,
         "fingerprint": "a7efe058",
         "props": {
           "className?": "e457d5",
@@ -15183,10 +15226,10 @@
         "declaration": "dist/ui/toast.d.ts",
         "group": "Toast",
         "parents": [
+          "ToastProvider",
           "Toast"
         ],
         "parentsFrom": "error",
-        "visual": false,
         "fingerprint": "b60d1781",
         "props": {
           "className?": "2d0ada",
@@ -15199,10 +15242,10 @@
         "declaration": "dist/ui/toast.d.ts",
         "group": "Toast",
         "parents": [
+          "ToastProvider",
           "Toast"
         ],
         "parentsFrom": "error",
-        "visual": false,
         "fingerprint": "af5e474a",
         "props": {
           "className?": "5e0d00",
@@ -15220,12 +15263,7 @@
             "toastOptions": {
               "className": "ml-[160px]"
             }
-          },
-          "children": [
-            {
-              "component": "ToastViewport"
-            }
-          ]
+          }
         },
         "fingerprint": "17741906",
         "props": {
@@ -15255,6 +15293,32 @@
         "group": "Toast",
         "visual": false,
         "internal": true,
+        "sample": {
+          "children": [
+            {
+              "component": "Toast",
+              "children": [
+                {
+                  "component": "ToastContent",
+                  "children": [
+                    {
+                      "component": "ToastTitle"
+                    },
+                    {
+                      "component": "ToastDescription"
+                    },
+                    {
+                      "component": "ToastAction"
+                    },
+                    {
+                      "component": "ToastClose"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
         "fingerprint": "17741906",
         "props": {
           "children?": "75c961",
@@ -15268,10 +15332,10 @@
         "declaration": "dist/ui/toast.d.ts",
         "group": "Toast",
         "parents": [
+          "ToastProvider",
           "Toast"
         ],
         "parentsFrom": "error",
-        "visual": false,
         "fingerprint": "455dde65",
         "props": {
           "className?": "5d6ca5",
@@ -15284,9 +15348,10 @@
         "declaration": "dist/ui/toast.d.ts",
         "group": "Toast",
         "parents": [
-          "Toaster"
+          "ToastProvider",
+          "Toast"
         ],
-        "parentsFrom": "source",
+        "parentsFrom": "error",
         "visual": false,
         "internal": true,
         "fingerprint": "a6c53108",

@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest"
-import { exampleLevels, familyOf, familySample, nearestParent, normalizeRepo, readExamples } from "./examples.ts"
+import {
+  exampleItem,
+  exampleLevels,
+  familyOf,
+  familySample,
+  nearestParent,
+  normalizeRepo,
+  readExamples
+} from "./examples.ts"
 
 describe("whole paths", () => {
   const menu = (inner: string) =>
@@ -118,6 +126,34 @@ describe("lists a hook returns", () => {
     const uses = readExamples([{ path: "a.tsx", text }], names)
     expect(uses.get("Toast.Root")?.fromHook).toBe(true)
     expect(uses.get("Toast.Title")?.fromHook).toBe(true)
+  })
+
+  it("samples the item the example hands the hook's manager, with an id when it's keyed by one", () => {
+    const text = `function Button() {
+      const manager = Toast.useToastManager()
+      const kind = "Draft"
+      return <button onClick={() => manager.add({ title: \`\${kind} saved\`, description: "Saved", count: \`\${n}\` })} />
+    }
+    function List() {
+      const { toasts } = Toast.useToastManager()
+      return <Toast.Viewport>{toasts.map((toast) => <MyToast key={toast.id} toast={toast} />)}</Toast.Viewport>
+    }
+    function MyToast({ toast }) {
+      return <Toast.Root toast={toast}><Toast.Title /></Toast.Root>
+    }`
+    const uses = readExamples([{ path: "a.tsx", text }], names)
+    // A template is kept when the file spells out every part of it.
+    const toast = { id: "1", title: "Draft saved", description: "Saved" }
+    expect(uses.get("Toast.Root")?.sample).toEqual({ props: { toast }, children: [{ component: "Toast.Title" }] })
+  })
+
+  it("finds the item examples hand a value the package makes", () => {
+    const files = [
+      { path: "a.tsx", text: `toast.add({ description: "Saved" })` },
+      { path: "b.tsx", text: `toast.add({ title: "Event created", description: "Sunday" }); table.set({ id: "x" })` }
+    ]
+    expect(exampleItem(files, new Set(["toast"]))).toEqual({ title: "Event created", description: "Sunday" })
+    expect(exampleItem(files, new Set())).toBeUndefined()
   })
 
   it("doesn't mark a part some example places itself", () => {

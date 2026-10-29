@@ -271,7 +271,10 @@ export function readExamples(files: ExampleFile[], names: string[]): Map<string,
     const placedHere = new Set<string>()
     const hooked = hookResults(source)
     const drawnFromHook = mappedComponents(source, hooked, resolve)
-    const visit = (node: ts.Node, around: string[], mapped: boolean) => {
+    context.hooked = hooked
+    context.hookItem = hookItem(source, hooked, context)
+    const drawnWith = drawnProps(source, drawnFromHook, context)
+    const visit = (node: ts.Node, around: string[], mapped: boolean, env: Map<string, unknown>) => {
       let here = around
       if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
         const opening = ts.isJsxElement(node) ? node.openingElement : node
@@ -299,7 +302,7 @@ export function readExamples(files: ExampleFile[], names: string[]): Map<string,
             else use.topLevel++
             if (use.paths.length < 300) use.paths.push(path)
           }
-          const sample = familySample(sampleOf(node, context, 0), familyOf(name))
+          const sample = familySample(sampleOf(node, { ...context, env }, 0), familyOf(name))
           const size = sampleWeight(sample)
           if (size > use.sampleSize) {
             use.sample = sample
@@ -309,12 +312,24 @@ export function readExamples(files: ExampleFile[], names: string[]): Map<string,
           here = [name, ...around]
         }
       }
-      const inList = mapped || hookMapped(node, hooked, source) || drawnFromHook.has(declaredName(node) ?? "")
+      const declared = declaredName(node)
+      const inList = mapped || hookMapped(node, hooked, source) || drawnFromHook.has(declared ?? "")
+      // A hook's list items are the sample item inside the callback that maps them, and in the example's own
+      // component they're drawn with.
+      let inner = env
+      const callback = hookMapped(node, hooked, source) ? (node as ts.CallExpression).arguments[0] : undefined
+      if (callback && (ts.isArrowFunction(callback) || ts.isFunctionExpression(callback)) && context.hookItem) {
+        inner = new Map(env)
+        bind(callback.parameters[0]?.name, itemFor(callback, context.hookItem, source), inner)
+      } else if (declared && drawnWith.has(declared)) {
+        inner = new Map(env)
+        bind(firstParameter(node), drawnWith.get(declared), inner)
+      }
       // JSX passed in a prop (`content={<ChartTooltipContent />}`) is rendered wherever that component puts it, so
       // it isn't placed in the element whose prop it is.
-      ts.forEachChild(node, (child) => visit(child, ts.isJsxAttributes(child) ? [] : here, inList))
+      ts.forEachChild(node, (child) => visit(child, ts.isJsxAttributes(child) ? [] : here, inList, inner))
     }
-    visit(source, [], false)
+    visit(source, [], false, new Map())
   }
   return uses
 }
@@ -326,6 +341,9 @@ interface Context {
   scope: Map<string, ts.Expression>
   /** Names bound while mapping a list: the callback's parameters, as each item. */
   env: Map<string, unknown>
+  /** Names bound to what a library hook returns, and a sample item for the lists among them. */
+  hooked?: Set<string>
+  hookItem?: Record<string, unknown>
 }
 
 function sampleOf(node: ts.JsxElement | ts.JsxSelfClosingElement, context: Context, depth: number): ComponentSample {
@@ -415,7 +433,11 @@ function pushExpression(expression: ts.Expression, context: Context, depth: numb
     if (!body) return
     const list = evaluate(expression.expression.expression, context, 0)
     // A list the file doesn't spell out still shows what goes in it, once.
-    const items = Array.isArray(list) ? list.slice(0, 3) : [undefined]
+    const items = Array.isArray(list)
+      ? list.slice(0, 3)
+      : context.hookItem && context.hooked && hookMapped(expression, context.hooked, context.source)
+        ? [itemFor(callback, context.hookItem, context.source)]
+        : [undefined]
     items.forEach((item, index) => {
       const env = new Map(context.env)
       if (item !== undefined) bind(callback.parameters[0]?.name, item, env)
@@ -510,11 +532,17 @@ function declarations(source: ts.SourceFile): Map<string, ts.Expression> {
 /** Hooks that hold the example's own values, not data the library hands it. */
 const ownValueHooks = /(?:^|\.)use(?:State|Reducer|Memo|Callback|Ref|DeferredValue|Transition|Controllable\w*)$/
 
-/** The names a file binds to what a library hook returns (`const { toasts } = Toast.useToastManager()`). */
+/**
+ * The names a file binds to what a library hook returns (`const { toasts } = Toast.useToastManager()`), or to what a
+ * library factory makes (`const manager = Toast.createToastManager()`), whose items reach the same lists.
+ */
 function hookResults(source: ts.SourceFile): Set<string> {
   const names = new Set<string>()
+  const made = (expression: ts.Expression) =>
+    isHookCall(expression, source) ||
+    (ts.isCallExpression(expression) && /(?:^|\.)create[A-Z]\w*$/.test(expression.expression.getText(source)))
   const visit = (node: ts.Node) => {
-    if (ts.isVariableDeclaration(node) && node.initializer && isHookCall(unwrap(node.initializer), source)) {
+    if (ts.isVariableDeclaration(node) && node.initializer && made(unwrap(node.initializer))) {
       if (ts.isIdentifier(node.name)) names.add(node.name.text)
       else {
         for (const element of node.name.elements) {
@@ -574,6 +602,100 @@ function mappedComponents(
     queue.push(...tagsIn(bodies.get(next)!))
   }
   return found
+}
+
+/**
+ * A sample item for the lists a library keeps, across its examples: the fullest object they hand one of `values`, what
+ * the package makes and exports (`toast.add({ title, description })` with Buildkit's `toast`).
+ */
+export function exampleItem(files: ExampleFile[], values: Set<string>): Record<string, unknown> | undefined {
+  let best: Record<string, unknown> | undefined
+  if (values.size === 0) return undefined
+  for (const file of files) {
+    if (![...values].some((value) => file.text.includes(`${value}.`))) continue
+    const source = ts.createSourceFile(file.path, file.text, ts.ScriptTarget.Latest, false, ts.ScriptKind.TSX)
+    const context: Context = { source, resolve: () => undefined, scope: declarations(source), env: new Map() }
+    const item = hookItem(source, values, context)
+    if (item && Object.keys(item).length > Object.keys(best ?? {}).length) best = item
+  }
+  return best
+}
+
+/**
+ * A sample item for the lists a hook returns: the fullest object the file hands one of the hook's results
+ * (`toastManager.add({ title, description })`), which is what the library puts in the list.
+ */
+function hookItem(source: ts.SourceFile, hooked: Set<string>, context: Context): Record<string, unknown> | undefined {
+  let best: Record<string, unknown> | undefined
+  const visit = (node: ts.Node) => {
+    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) {
+      let root = unwrap(node.expression.expression)
+      while (ts.isPropertyAccessExpression(root)) root = unwrap(root.expression)
+      const argument = node.arguments[0] && unwrap(node.arguments[0])
+      if (ts.isIdentifier(root) && hooked.has(root.text) && argument && ts.isObjectLiteralExpression(argument)) {
+        const value = evaluate(argument, context, 0) as Record<string, unknown> | undefined
+        if (value && Object.keys(value).length > Object.keys(best ?? {}).length) best = value
+      }
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(source)
+  return best
+}
+
+/** The item a map callback gets, with an `id` when it reads one (`key={toast.id}`), as lists key their items. */
+function itemFor(
+  callback: ts.ArrowFunction | ts.FunctionExpression,
+  item: Record<string, unknown>,
+  source: ts.SourceFile
+): Record<string, unknown> {
+  const name = callback.parameters[0]?.name
+  const readsId = !!name && ts.isIdentifier(name) && callback.getText(source).includes(`${name.text}.id`)
+  return readsId && item.id === undefined ? { id: "1", ...item } : item
+}
+
+/** The props each of the example's own components gets where a hook's list is mapped into it. */
+function drawnProps(source: ts.SourceFile, drawn: Set<string>, context: Context): Map<string, Record<string, unknown>> {
+  const found = new Map<string, Record<string, unknown>>()
+  const { hooked, hookItem: item } = context
+  if (drawn.size === 0 || !item || !hooked) return found
+  const visit = (node: ts.Node) => {
+    const callback = hookMapped(node, hooked, source) ? (node as ts.CallExpression).arguments[0] : undefined
+    if (!callback || !(ts.isArrowFunction(callback) || ts.isFunctionExpression(callback))) {
+      ts.forEachChild(node, visit)
+      return
+    }
+    const env = new Map<string, unknown>()
+    bind(callback.parameters[0]?.name, itemFor(callback, item, source), env)
+    const inner = (child: ts.Node) => {
+      if (ts.isJsxOpeningElement(child) || ts.isJsxSelfClosingElement(child)) {
+        const tag = child.tagName.getText(source)
+        if (drawn.has(tag) && !found.has(tag)) {
+          const props: Record<string, unknown> = {}
+          for (const attribute of child.attributes.properties) {
+            if (!ts.isJsxAttribute(attribute)) continue
+            const value = attributeValue(attribute.initializer, { ...context, env })
+            if (value !== undefined) props[attribute.name.getText(source)] = value
+          }
+          found.set(tag, props)
+        }
+      }
+      ts.forEachChild(child, inner)
+    }
+    inner(callback)
+  }
+  visit(source)
+  return found
+}
+
+/** A declared component's first parameter, for its props. */
+function firstParameter(node: ts.Node): ts.BindingName | undefined {
+  let fn: ts.Node | undefined = ts.isVariableDeclaration(node) ? node.initializer && unwrap(node.initializer) : node
+  if (fn && ts.isCallExpression(fn)) fn = fn.arguments.find((argument) => ts.isFunctionLike(argument))
+  if (fn && (ts.isFunctionDeclaration(fn) || ts.isArrowFunction(fn) || ts.isFunctionExpression(fn))) {
+    return fn.parameters[0]?.name
+  }
+  return undefined
 }
 
 /** The name of a component a file declares: `function Name()` or `const Name = ...`, capitalised. */
@@ -638,6 +760,16 @@ function evaluate(expression: ts.Expression, context: Context, depth: number): u
   if (depth > 6) return undefined
   expression = unwrap(expression)
   if (ts.isStringLiteralLike(expression)) return expression.text.slice(0, 200)
+  // A template whose every part the file spells out.
+  if (ts.isTemplateExpression(expression)) {
+    let text = expression.head.text
+    for (const span of expression.templateSpans) {
+      const value = evaluate(span.expression, context, depth + 1)
+      if (typeof value !== "string" && typeof value !== "number") return undefined
+      text += `${value}${span.literal.text}`
+    }
+    return text.slice(0, 200)
+  }
   if (ts.isNumericLiteral(expression)) return Number(expression.text)
   if (expression.kind === ts.SyntaxKind.TrueKeyword) return true
   if (expression.kind === ts.SyntaxKind.FalseKeyword) return false

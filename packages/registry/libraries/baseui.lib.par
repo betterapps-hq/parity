@@ -7043,7 +7043,6 @@
           "Toast.Content"
         ],
         "parentsFrom": "error",
-        "visual": false,
         "fingerprint": "ad545b3d",
         "props": {
           "className?": "0f3b71",
@@ -7062,7 +7061,6 @@
           "Toast.Root"
         ],
         "parentsFrom": "example",
-        "visual": false,
         "fingerprint": "68ce6363",
         "props": {
           "className?": "a3bfd3",
@@ -7080,7 +7078,6 @@
           "Toast.Content"
         ],
         "parentsFrom": "error",
-        "visual": false,
         "sample": {
           "children": [
             "Dismiss"
@@ -7103,7 +7100,6 @@
           "Toast.Root"
         ],
         "parentsFrom": "example",
-        "visual": false,
         "sample": {
           "children": [
             {
@@ -7137,10 +7133,10 @@
           "Toast.Content"
         ],
         "parentsFrom": "example",
-        "visual": false,
         "sample": {
           "children": [
-            "data.userId is"
+            "data.userId is",
+            "123"
           ]
         },
         "fingerprint": "6286ff0e",
@@ -7157,6 +7153,56 @@
           "Toast.Root"
         ],
         "parentsFrom": "namespace",
+        "sample": {
+          "children": [
+            {
+              "component": "Toast.Viewport",
+              "children": [
+                {
+                  "component": "Toast.Positioner",
+                  "props": {
+                    "toast": {
+                      "id": "1",
+                      "description": "Copied",
+                      "positionerProps": {
+                        "sideOffset": 10
+                      },
+                      "timeout": 1500
+                    }
+                  },
+                  "children": [
+                    {
+                      "component": "Toast.Root",
+                      "props": {
+                        "toast": {
+                          "id": "1",
+                          "description": "Copied",
+                          "positionerProps": {
+                            "sideOffset": 10
+                          },
+                          "timeout": 1500
+                        }
+                      },
+                      "children": [
+                        {
+                          "component": "Toast.Arrow"
+                        },
+                        {
+                          "component": "Toast.Content",
+                          "children": [
+                            {
+                              "component": "Toast.Description"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
         "fingerprint": "8163b9bc",
         "props": {
           "className?": "e9ca96",
@@ -7173,11 +7219,30 @@
           "Toast.Viewport"
         ],
         "parentsFrom": "example",
-        "visual": false,
         "sample": {
+          "props": {
+            "toast": {
+              "id": "1",
+              "description": "Copied",
+              "positionerProps": {
+                "sideOffset": 10
+              },
+              "timeout": 1500
+            }
+          },
           "children": [
             {
               "component": "Toast.Root",
+              "props": {
+                "toast": {
+                  "id": "1",
+                  "description": "Copied",
+                  "positionerProps": {
+                    "sideOffset": 10
+                  },
+                  "timeout": 1500
+                }
+              },
               "children": [
                 {
                   "component": "Toast.Arrow"
@@ -7244,7 +7309,31 @@
       "Toast.Root": {
         "as": "forwardRef",
         "group": "Toast",
-        "visual": false,
+        "sample": {
+          "props": {
+            "toast": {
+              "id": "1",
+              "title": "Toast with custom data",
+              "data": {
+                "userId": "123"
+              }
+            }
+          },
+          "children": [
+            {
+              "component": "Toast.Content",
+              "children": [
+                "data.userId is",
+                {
+                  "component": "Toast.Close",
+                  "children": [
+                    "Dismiss"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
         "fingerprint": "e920d6a9",
         "props": {
           "className?": "28eeab",
@@ -7258,13 +7347,15 @@
         "as": "forwardRef",
         "group": "Toast",
         "parents": [
-          "Toast.Portal",
-          "Toast.Viewport",
           "Toast.Root",
           "Toast.Content"
         ],
-        "parentsFrom": "error",
-        "visual": false,
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "Toast with custom data"
+          ]
+        },
         "fingerprint": "57370510",
         "props": {
           "className?": "5d6ca5",
@@ -7283,9 +7374,29 @@
           "children": [
             {
               "component": "Toast.Positioner",
+              "props": {
+                "toast": {
+                  "id": "1",
+                  "description": "Copied",
+                  "positionerProps": {
+                    "sideOffset": 10
+                  },
+                  "timeout": 1500
+                }
+              },
               "children": [
                 {
                   "component": "Toast.Root",
+                  "props": {
+                    "toast": {
+                      "id": "1",
+                      "description": "Copied",
+                      "positionerProps": {
+                        "sideOffset": 10
+                      },
+                      "timeout": 1500
+                    }
+                  },
                   "children": [
                     {
                       "component": "Toast.Arrow"
