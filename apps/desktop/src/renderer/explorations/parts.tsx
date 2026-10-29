@@ -128,20 +128,89 @@ export function AvatarStack({ people, size = 22, max = 4 }: { people: Person[]; 
 }
 
 /** Parity's mark: an equals sign in a rounded square, design and code at parity. */
+/**
+ * Parity's icon, the brackets around a component, as drawn in /brand: up to 40 pixels the small drawing, with heavier
+ * lines and no glow, and above that the full one.
+ */
 export function ParityMark({ size = 32 }: { size?: number }) {
-  const gradient = `parity-${useId().replaceAll(/[^\w-]/g, "")}`
+  const id = `parity-${useId().replaceAll(/[^\w-]/g, "")}`
+  const full = size > 40
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" aria-label="Parity">
+    <svg width={size} height={size} viewBox="0 0 1024 1024" fill="none" aria-label="Parity">
       <defs>
-        <linearGradient id={gradient} x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="oklch(0.8 0.13 220)" />
-          <stop offset="0.55" stopColor="oklch(0.66 0.19 275)" />
-          <stop offset="1" stopColor="oklch(0.66 0.21 320)" />
+        <linearGradient id={`${id}-tile`} x1="96" y1="48" x2="928" y2="976" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#8A74FF" />
+          <stop offset="0.5" stopColor="#5432E6" />
+          <stop offset="1" stopColor="#2C129E" />
         </linearGradient>
+        <radialGradient id={`${id}-sheen`} cx="0.25" cy="0" r="0.85">
+          <stop stopColor="#FFFFFF" stopOpacity="0.24" />
+          <stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id={`${id}-glow`} x1="425" y1="425" x2="599" y2="599" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#54D8F4" />
+          <stop offset="0.5" stopColor="#7A7EFF" />
+          <stop offset="1" stopColor="#D85CE1" />
+        </linearGradient>
+        <filter
+          id={`${id}-halo`}
+          x="0"
+          y="0"
+          width="1024"
+          height="1024"
+          filterUnits="userSpaceOnUse"
+          colorInterpolationFilters="sRGB"
+        >
+          <feGaussianBlur stdDeviation="46" />
+        </filter>
       </defs>
-      <rect width="32" height="32" rx="9" fill={`url(#${gradient})`} />
-      <rect x="8.5" y="11" width="15" height="3.4" rx="1.7" fill="white" />
-      <rect x="8.5" y="17.6" width="15" height="3.4" rx="1.7" fill="white" fillOpacity="0.85" />
+      <rect width="1024" height="1024" rx="232" fill={`url(#${id}-tile)`} />
+      {full ? (
+        <>
+          <rect width="1024" height="1024" rx="232" fill={`url(#${id}-sheen)`} />
+          <rect x="2" y="2" width="1020" height="1020" rx="230" stroke="#FFFFFF" strokeOpacity="0.14" strokeWidth="4" />
+          <path
+            d="M468 266L222 512L468 758M556 266L802 512L556 758"
+            stroke="#FFFFFF"
+            strokeWidth="60"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M512 425L599 512L512 599L425 512Z"
+            fill={`url(#${id}-glow)`}
+            stroke={`url(#${id}-glow)`}
+            strokeWidth="72"
+            strokeLinejoin="round"
+            opacity="0.9"
+            filter={`url(#${id}-halo)`}
+          />
+          <path
+            d="M512 425L599 512L512 599L425 512Z"
+            fill="#FFFFFF"
+            stroke="#FFFFFF"
+            strokeWidth="42"
+            strokeLinejoin="round"
+          />
+        </>
+      ) : (
+        <>
+          <path
+            d="M432 306L226 512L432 718M592 306L798 512L592 718"
+            stroke="#FFFFFF"
+            strokeWidth="112"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M512 448L576 512L512 576L448 512Z"
+            fill="#FFFFFF"
+            stroke="#FFFFFF"
+            strokeWidth="56"
+            strokeLinejoin="round"
+          />
+        </>
+      )}
     </svg>
   )
 }
