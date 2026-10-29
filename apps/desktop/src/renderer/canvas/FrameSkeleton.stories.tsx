@@ -49,14 +49,14 @@ function zoomedOut(...names: string[]): Story {
 /** App screens: a sidebar and top bar around stat cards, charts and tables. */
 export const AppScreens: Story = zoomedOut("Dashboard", "Projects")
 
-/** Marketing pages: a hero, feature rows and pricing cards. */
-export const MarketingPages: Story = zoomedOut("Home", "Pricing")
+/** A marketing page: a hero, a billing toggle and pricing cards. */
+export const MarketingPage: Story = zoomedOut("Pricing")
 
-/** Forms: a sign-up form and a code to type in, each a narrow column in the middle. */
-export const Forms: Story = zoomedOut("Sign up", "Verify email")
+/** A form, Sign in: fields and buttons in a narrow column in the middle. */
+export const Form: Story = zoomedOut("Sign in")
 
-/** Settings: sections of fields, switches and a danger zone with a red border. */
-export const Settings: Story = zoomedOut("Settings", "Security")
+/** Settings: tabs over sections of fields, a select and switches. */
+export const Settings: Story = zoomedOut("Settings")
 
 /** Components on their smaller boards, where a skeleton is a handful of bars and boxes. */
 export const Components: Story = zoomedOut("Stat card", "Plan card", "Activity item", "Member row")
@@ -79,7 +79,7 @@ const signInBitmaps = {
  * taking three seconds and one at a time, as captures are. The other board keeps its skeletons, getting no bitmaps.
  */
 export const Swap: Story = onCanvas(
-  ["Invite teammates", "Sign in"],
+  ["Settings", "Sign in"],
   () =>
     answering({
       "frames.capture": async ({ job }) => {
@@ -95,5 +95,5 @@ export const Swap: Story = onCanvas(
         return { png: bitmap.split(",")[1] }
       }
     }),
-  () => zoomOut(["Invite teammates", "Sign in"])
+  () => zoomOut(["Settings", "Sign in"])
 )

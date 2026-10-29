@@ -1,18 +1,9 @@
 import { readFile } from "node:fs/promises"
 import { createRequire } from "node:module"
-import { join, resolve } from "node:path"
+import { dirname, join, relative, resolve } from "node:path"
 import { guestModuleSource } from "@parity/builder-vite"
 import { inferProps } from "@parity/code"
-import {
-  type CanvasDocument,
-  type ComponentInfo,
-  defaultModeSettings,
-  libraryCanvas,
-  libraryManifestExtension,
-  type PackageManifest,
-  parseCanvasDocument,
-  parseLibraryManifest
-} from "@parity/core"
+import { type ComponentInfo, defaultModeSettings, type PackageManifest, parseCanvasDocument } from "@parity/core"
 import { detectProject, discoverProject } from "@parity/project"
 import { reactRenderer } from "@parity/renderer-react"
 import { tailwindStyles } from "@parity/styles-tailwind"
@@ -21,6 +12,11 @@ import type { ProjectInfo } from "../src/shared/protocol.ts"
 
 /** The project stories open: the shadcn example, as the app's service finds it. */
 const root = resolve(import.meta.dirname, "../../../examples/shadcn-vite")
+/**
+ * The designs stories open in place of the example's own: only the ones stories use. The example keeps growing as a
+ * stress test for `pnpm dev` and `pnpm perf`, and opening all of it made every story slow.
+ */
+const designs = resolve(import.meta.dirname, "example.par")
 const projectId = "virtual:parity/example-project"
 const guestId = "virtual:parity/example-guest"
 const rendererId = "virtual:canvas/renderer"
@@ -48,18 +44,22 @@ export function exampleProject(): Plugin {
     async load(id) {
       if (id === `\0${projectId}`) {
         const { info, components } = await project()
-        for (const { path } of info.documents) this.addWatchFile(join(root, path))
+        this.addWatchFile(designs)
         return `export default ${JSON.stringify({ info, components })}`
       }
       if (id.split("?")[0] === `\0${guestId}`) return guestModuleSource((await project()).config)
       return undefined
     },
+    handleHotUpdate({ file }) {
+      // Changing the designs reads the project again, as reopening it would.
+      if (resolve(file) === designs) found = undefined
+    },
     transform(code, id) {
-      // The project's own builder scans the project for class names; this one scans the canvas app. Adds the example,
-      // its designs among it, so the classes its components and designs use are compiled.
+      // The project's own builder scans the project for class names; this one scans the canvas app. Adds the example's
+      // source and the designs stories open, so the classes its components and those designs use are compiled.
       const [path] = id.split("?")
       if (!path || resolve(path) !== join(root, "src", "index.css")) return undefined
-      return `${code}\n@source "../";\n`
+      return `${code}\n@source "./";\n@source "${relative(dirname(path), designs).replaceAll("\\", "/")}";\n`
     }
   }
 }
@@ -71,19 +71,12 @@ async function discover(): Promise<{
 }> {
   const pkg = JSON.parse(await readFile(join(root, "package.json"), "utf8")) as PackageManifest
   const config = await discoverProject(root, reactRenderer, pkg)
-  const documents = await Promise.all(
-    config.documents.map(async (path) => {
-      try {
-        return { path, document: readDesigns(path, await readFile(join(root, path), "utf8")) }
-      } catch (error) {
-        return { path, error: error instanceof Error ? error.message : String(error) }
-      }
-    })
-  )
   const stylesheet = config.styles[0]
   const theme = stylesheet ? await tailwindStyles.loadTheme(root, stylesheet).catch(() => []) : []
   const mainDocument = config.documents.find((path) => !path.includes("/")) ?? "shadcn-vite.par"
-  const main = documents.find((entry) => entry.path === mainDocument)?.document
+  // The example's main designs file is the only one stories open, read from Storybook's own copy.
+  const documents = [await readDocument(mainDocument)]
+  const main = documents[0]?.document
   const info: Omit<ProjectInfo, "guestUrl"> = {
     id: root,
     root,
@@ -106,9 +99,11 @@ async function discover(): Promise<{
   return { config, info, components: inferProps(root, config.components) }
 }
 
-function readDesigns(path: string, text: string): CanvasDocument {
-  const value: unknown = JSON.parse(text)
-  return path.endsWith(libraryManifestExtension)
-    ? libraryCanvas(parseLibraryManifest(value))
-    : parseCanvasDocument(value)
+/** Storybook's designs under the example's file name, or why they couldn't be read. */
+async function readDocument(path: string): Promise<ProjectInfo["documents"][number]> {
+  try {
+    return { path, document: parseCanvasDocument(JSON.parse(await readFile(designs, "utf8"))) }
+  } catch (error) {
+    return { path, error: error instanceof Error ? error.message : String(error) }
+  }
 }

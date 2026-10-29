@@ -45,7 +45,7 @@ export const NothingSelected: Story = { loaders: [inspecting("accessibility")] }
 export const Checking: Story = {
   loaders: [
     async () => {
-      await checking("Reports")()
+      await checking("Projects")()
       // The check that starts when the tab opens takes ten minutes to answer.
       service.latency = 10 * 60 * 1000
     }
@@ -93,14 +93,14 @@ export const CheckFailed: Story = {
 
 /** A check that finished with warnings about frames it couldn't render, listed after the findings. */
 export const CheckWithWarnings: Story = {
-  loaders: [checking("Sign up")],
+  loaders: [checking("Sign in")],
   play: ({ canvasElement }) =>
     checkAgain(canvasElement, /couldn.t be rendered/, () =>
       answerNext("accessibility.check", async (_, real) => ({
         ...(await real()),
         warnings: [
-          "Creating account in Mobile Light couldn't be rendered: the frame timed out.",
-          "Weak password in Desktop Dark couldn't be rendered: the frame timed out."
+          "Wrong password in Mobile Light couldn't be rendered: the frame timed out.",
+          "Wrong password in Desktop Dark couldn't be rendered: the frame timed out."
         ]
       }))
     )

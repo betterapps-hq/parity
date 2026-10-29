@@ -458,12 +458,15 @@ recommended answer to each of its questions.
   package or the companion one released with it, at the same version or else the newest before it, matching keys to
   every name each icon is exported under. Each icon's tags go on one line, so a set of thousands stays readable.
   Regenerating a set's file is all it takes to update them.
-- **A set that publishes no tags is read from its website's own scripts, but never from a web API.** The user's call
-  (2026-10-29). Heroicons' keywords come from heroicons.com, whose scripts carry them for its search as an object of
-  word lists by icon. `parity lib` finds that object by its shape, as the scripts' names change with each deploy, and
-  records the day the site served it, as a page has no versions: 190 of 324 icons have keywords. Hugeicons' tags are
-  only on its web API, for its newest version and with no licence, so it's searched by its names and the synonyms its
-  package exports (Gear and Cog for Settings01Icon).
+- **Tags come only from metadata published with a version, read by one reader for every set.** The user's call
+  (2026-10-29): updating a library must take no manual work and give the same file each time, and Parity has to scale to
+  hundreds of libraries without code for any one. A set's preset only says where its metadata is (a file in an npm
+  package, or files in the repository and commit npm records for the version), and `iconWords` works out the shape: the
+  table that names the most icons, wherever it sits, and from each icon its lists of words and the fields that sort
+  icons into groups, leaving out fields that barely vary, constants, words most icons share and markers such as `*new*`.
+  A set that publishes no versioned metadata is searched by its names and the other names it exports. So Heroicons,
+  whose keywords are only in heroicons.com's scripts, and Hugeicons, whose tags are only on its web API, are searched by
+  name: neither source has a version, so the same release could read differently from one day to the next.
 - **Icon search is Parity's own ranking, not Fuse.js or MiniSearch.** My call, from a benchmark of 50 queries people
   type ("gear", "close", "down arrow", "calender") over Lucide with its tags, checked against 50 more it wasn't tuned
   on. Parity's search put the icon meant first for 39 of the held-out 50 and in the first row for all 50, in about 5 ms;
@@ -734,12 +737,12 @@ recommended answer to each of its questions.
 - **The accessibility checks find real issues in it,** mostly one token pair: `muted-foreground` on `muted` is 4.34:1,
   short of 4.5:1, which shows on avatar initials, the keyboard hint and small print. They're left in, since changing
   that token and checking again is a good demo.
-- **Parity's own Storybook opens a small copy of the example's designs** (your call, 2026-10-29), since opening all of
-  them made Storybook grind to a halt: 61 designs took 17 seconds to open, with the page frozen for up to 12 seconds at
-  a time. `apps/desktop/.storybook/example.par` holds the twelve that stories use (Pricing, Dashboard, Projects, Sign
-  in, Settings, the component designs they're built from, and Button), laid out close together, on the example's own
-  components and styles; they open in about 6 seconds. The example keeps growing as the stress test that `pnpm dev` and
-  `pnpm perf` open. The copy doesn't follow the example: a story that needs another design adds it to the copy.
+- **Parity's own Storybook opens a small copy of the example's designs** (your call, 2026-10-29), since opening all 61
+  made Storybook grind to a halt. `apps/desktop/.storybook/example.par` holds the 14 that stories use (Pricing,
+  Dashboard, Projects, Sign in, Settings, the component designs they're built from, Button, Member row and Order line),
+  laid out close together, on the example's own components and styles. Stories that showed other screens now show these.
+  The example keeps growing as the stress test that `pnpm dev` and `pnpm perf` open. The copy doesn't follow the
+  example: a story that needs another design adds it to the copy.
 
 ## The portal
 

@@ -61,8 +61,8 @@ export const AttributeWithOptions: Story = {
   ]
 }
 
-/** A prop inferred as a number, the URL field's size: a number input, with its default as the placeholder. */
-export const NumberProp: Story = { loaders: [pick("Create workspace", "URL input")] }
+/** A prop inferred as a number, the search field's size: a number input, with its default as the placeholder. */
+export const NumberProp: Story = { loaders: [pick("Projects", "Search input")] }
 
 /** Content given as a number rather than text: the children prop can only say it's set in layers. */
 export const NumberAsContent: Story = {

@@ -90,7 +90,9 @@ with stories, and the status bar item only when the project has a Storybook. The
 6007, with about 60 story files. It isn't part of the product:
 
 - Its stories use `storybook/test` for play functions, and a stand-in `storybook.open` that returns a fixed URL.
-- Its `example-project` plugin runs the real project discovery on `examples/shadcn-vite`, Storybook info included.
+- Its `example-project` plugin runs the real project discovery on `examples/shadcn-vite`, Storybook info included, but
+  opens its own designs file, `.storybook/example.par`, in place of the example's: only the fourteen designs stories
+  use, so stories stay quick while the example grows as a stress test.
 - Which Storybook it runs on decides nothing about which Storybook versions projects can use.
 
 The example project, `examples/shadcn-vite`, runs Storybook 10 on port 6006 with the docs add-on and `autodocs`, so its
@@ -128,8 +130,8 @@ components open on their docs page.
   routes. See [web-and-backend.md](proposals/web-and-backend.md).
 - **Stories as tests, later.** Running stories through Storybook's Vitest add-on, once the core works. See
   [web-and-backend.md](proposals/web-and-backend.md) and [support.md](support.md).
-- **Open:** whether tests recorded in interact mode replay against a design's story or the running app. See
-  [backlog.md](backlog.md).
+- **Open:** whether tests recorded in interact mode replay against a design's story or the running app. See PAR-315 in
+  Linear.
 
 ## The boundary
 
