@@ -1,4 +1,4 @@
-import { childNodes, type DesignNode } from "@parity/core"
+import { childNodes, type ComponentRenderStatus, type DesignNode } from "@parity/core"
 import type { ReactNode } from "react"
 import { toast } from "sonner"
 import { userEvent, waitFor, within } from "storybook/test"
@@ -214,6 +214,34 @@ export function preferring(change: Partial<Preferences>): void {
   const before = getPreferences()
   setPreferences(change)
   undo.push(() => setPreferences(before))
+}
+
+/**
+ * Makes the example's components read as failing to draw, with these errors by id, until the story ends. The example
+ * draws everywhere, and its guest is shared by every story, so this wraps the guest's own status rather than breaking
+ * a component.
+ */
+export function failingToDraw(errors: Record<string, string>): void {
+  const guest = example().loaded.guest
+  const real = guest.renderStatus
+  if (!real) return
+  const failing = Object.fromEntries(Object.entries(errors).map(([id, error]) => [id, { error }]))
+  let seen: Record<string, ComponentRenderStatus> | undefined
+  let merged: Record<string, ComponentRenderStatus> = failing
+  guest.renderStatus = {
+    get: () => {
+      const now = real.get()
+      if (now !== seen) {
+        seen = now
+        merged = { ...now, ...failing }
+      }
+      return merged
+    },
+    subscribe: real.subscribe
+  }
+  undo.push(() => {
+    guest.renderStatus = real
+  })
 }
 
 /** Keeps links the app opens in the browser from opening, until the story ends. */

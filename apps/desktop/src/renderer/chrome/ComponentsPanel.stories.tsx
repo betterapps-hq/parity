@@ -1,6 +1,7 @@
+import type { DetectionCorrections } from "@parity/core"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
-import { example, keepingLinks, openProjects, ProjectStage } from "../stories/fixtures.tsx"
+import { example, failingToDraw, keepingLinks, openProjects, ProjectStage } from "../stories/fixtures.tsx"
 import { service } from "../stories/host.ts"
 import { ComponentsPanel } from "./AssetsPanel.tsx"
 import { setLayout } from "./layout.ts"
@@ -123,6 +124,126 @@ export const NothingMatches: Story = {
   play: async ({ canvasElement }) => {
     await enter(within(canvasElement).getByRole("textbox", { name: "Search components" }), "carousel slide")
     await within(canvasElement).findByText("Nothing matches.")
+  }
+}
+
+/** Exports of the example's that the type checker left out, with the reasons it gives. */
+const leftOut = [
+  {
+    name: "ThemeContext",
+    path: "src/components/theme-provider.tsx",
+    export: "ThemeContext",
+    reason: "a context, which passes a value down rather than drawing anything"
+  },
+  {
+    name: "ThemeScript",
+    path: "src/components/theme-provider.tsx",
+    export: "ThemeScript",
+    reason: "returns any, so whether React can render it isn't known",
+    undecided: true as const
+  }
+]
+
+/** Opens the example on the Components tab, with exports the type checker left out. */
+async function openWithLeftOut(): Promise<void> {
+  await openComponents()
+  example().info.leftOut = leftOut
+}
+
+/** Corrects the component list in the example's main project file, as the panel's menu and buttons do. */
+function correcting(detection: DetectionCorrections): void {
+  const { store } = example()
+  const main = store.getDocuments().find((entry) => entry.path === store.mainPath)!.document
+  store.applyDocuments("Correct the component list", [{ path: store.mainPath, document: { ...main, detection } }])
+}
+
+/**
+ * A search that matches exports which aren't components: they're listed apart, with why the type checker left them
+ * out, and each can be listed by hand.
+ */
+export const NotListed: Story = {
+  loaders: [openWithLeftOut],
+  play: async ({ canvasElement }) => {
+    await enter(within(canvasElement).getByRole("textbox", { name: "Search components" }), "theme")
+    await within(canvasElement).findByText("Not listed")
+  }
+}
+
+/**
+ * An export listed by hand: the main project file keeps it under `detection`, unsaved until the project is, and it's
+ * listed with the components, its tooltip saying so.
+ */
+export const ListedByHand: Story = {
+  loaders: [
+    async () => {
+      await openWithLeftOut()
+      const ref = { path: "src/components/theme-provider.tsx", export: "ThemeScript" }
+      correcting({ include: [ref] })
+      // As the service lists it once it hears about the correction.
+      const { info } = example()
+      info.sources = { ...info.sources, ThemeScript: { ...ref, lazy: true, included: true } }
+    }
+  ],
+  play: async ({ canvasElement }) => {
+    await enter(within(canvasElement).getByRole("textbox", { name: "Search components" }), "theme")
+    await userEvent.hover(await within(canvasElement).findByRole("button", { name: "ThemeScript" }))
+    const hint = await within(document.body).findByRole("tooltip", undefined, { timeout: 3000 })
+    await expect(hint).toHaveTextContent("ThemeScript, listed by hand")
+  }
+}
+
+/** Right-clicking one of the project's own components offers to take it off the list. */
+export const NotAComponent: Story = {
+  loaders: [openComponents],
+  play: async ({ canvasElement }) => {
+    await userEvent.click(source(canvasElement, "Component designs"))
+    const kit = source(canvasElement, "UI kit").closest("section")!
+    const badge = within(kit as HTMLElement).getByRole("button", { name: "Badge" })
+    const box = badge.getBoundingClientRect()
+    // Where a pointer would be, so the menu opens beside the row.
+    await fireEvent.contextMenu(badge, { clientX: box.left + 48, clientY: box.top + box.height / 2 })
+    await within(document.body).findByRole("menuitem", { name: "Not a component" })
+  }
+}
+
+/** A component taken off the list: it's gone from its source, and a search finds it under Not listed to list again. */
+export const TakenOffTheList: Story = {
+  loaders: [
+    async () => {
+      await openComponents()
+      correcting({ exclude: [{ path: "src/components/ui/badge.tsx", export: "Badge" }] })
+      // As the service lists them once it hears about the correction.
+      const { info } = example()
+      const { Badge: _, ...rest } = info.sources
+      info.sources = rest
+    }
+  ],
+  play: async ({ canvasElement }) => {
+    await enter(within(canvasElement).getByRole("textbox", { name: "Search components" }), "badge")
+    await within(canvasElement).findByRole("button", { name: "List it again" })
+  }
+}
+
+/**
+ * Components failing to draw on the canvas: a warning beside each, and its tooltip says why, here a missing provider,
+ * which a decorator adds.
+ */
+export const FailingToDraw: Story = {
+  loaders: [
+    async () => {
+      await openComponents()
+      failingToDraw({
+        Card: "useSidebar must be used within a SidebarProvider.",
+        Table: "Cannot read properties of undefined (reading 'map')"
+      })
+    }
+  ],
+  play: async ({ canvasElement }) => {
+    await userEvent.click(source(canvasElement, "Component designs"))
+    const [card] = await within(canvasElement).findAllByLabelText("Fails to draw")
+    await userEvent.hover(card!.closest("button")!)
+    const hint = await within(document.body).findByRole("tooltip", undefined, { timeout: 3000 })
+    await expect(hint).toHaveTextContent("Needs a provider, which a decorator can add")
   }
 }
 
