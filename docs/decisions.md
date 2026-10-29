@@ -989,6 +989,10 @@ recommended answer to each of its questions.
   sweep compares each canvas frame's layout with its page's, element by element (VAL-1), as was done by hand for CAN-23
   to CAN-33. A gap in the canvas's isolation then shows up as a failure, not as a wrong baseline.
 
+- **Visual tests come after the core** (your call, 2026-10-29). VAL-18 and the VIS stream, which
+  [visual-tests.md](proposals/visual-tests.md) proposes, stay at Later until the core is done, including VIS-1 and
+  VIS-2, which need nothing else.
+
 - **Agents render offscreen,** in a hidden window, so their work never moves your camera. Export uses the same renderer.
 - **The offscreen renderer closes when it's idle,** a minute after its last job, and the next job opens it again
   (CAN-83). Its page holds every module graph the project's guest imported, which a page can't unload, so it held 115 to

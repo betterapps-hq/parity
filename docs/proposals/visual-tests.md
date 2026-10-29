@@ -4,8 +4,9 @@ Status: draft, revised 2026-10-29 after your review. Three things changed: CI is
 their own machine, and a code change under an unchanged design must be caught, including one a sync will bring into the
 design. Nothing is built. It builds on two decisions already made: visual tests draw each frame as a page of its own
 (VAL-18), and the render sweep compares those pages with baselines (VAL-1). The items are the VIS stream in the
-[backlog](../backlog.md), and two questions for you are in Waiting on you. You've settled a third: `@parity/cli` will be
-public on npm, so CI runs it with `npx`.
+[backlog](../backlog.md), at Later: you've put visual tests after the core. One question for you is in Waiting on you.
+You've settled two others: when to build this (after the core), and that `@parity/cli` will be public on npm, so CI runs
+it with `npx`.
 
 ## In one line
 
@@ -445,7 +446,8 @@ These are targets to measure, not claims. A benchmark like `pnpm perf` records t
 
 ## Order
 
-CI comes first, as you asked. Each step is a backlog item in the VIS stream:
+This starts after the core (your call, 2026-10-29). Within it, CI comes first, as you asked. Each step is a backlog item
+in the VIS stream:
 
 1. **The pure parts:** cases, traces and the plan in `@parity/visual` (VIS-1), and the SSIM compare with regions
    (VIS-2). These are data in and data out, tested without Electron or a browser.
@@ -494,9 +496,7 @@ These are my calls, open to change. They go into decisions.md once you agree wit
 
 ## Decisions needed from you
 
-1. **When to build it (Q1).** VAL-18 is marked Later, after the core. Everything here waits on it, except VIS-1 and
-   VIS-2, which could start at any time.
-2. **A fresh page per case in a shared context (Q2),** rather than a context per case, to keep the HTTP cache warm. This
-   changes the wording of the VAL-18 decision. Each case still gets its own window, document, modules and storage.
+- **A fresh page per case in a shared context (Q2),** rather than a context per case, to keep the HTTP cache warm. This
+  changes the wording of the VAL-18 decision. Each case still gets its own window, document, modules and storage.
 
-How CI gets Parity's CLI (Q3) is settled: `@parity/cli` will be public on npm (your call, 2026-10-29).
+Settled on 2026-10-29: visual tests come after the core (Q1), and `@parity/cli` will be public on npm (Q3).
