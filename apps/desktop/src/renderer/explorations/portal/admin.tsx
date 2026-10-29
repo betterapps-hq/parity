@@ -4,10 +4,15 @@
  * against the open seats first; buying more is only offered past them.
  */
 import {
+  Armchair,
+  Bot,
   Check,
   ChevronDown,
   CreditCard,
   Download,
+  FolderOpen,
+  History,
+  KeyRound,
   Lock,
   Minus,
   Plus,
@@ -73,21 +78,36 @@ type Role = "Admin" | "Billing admin" | "Member" | "Guest"
 
 /**
  * What each role can do. Admins can do everything, billing included; billing admins look after the plan, invoices and
- * seats; members work on every project; guests only on what they're invited to. Nobody approves their own design, or
- * their own agent's.
+ * seats; members work on their teams' projects and what's shared with them; guests only on what they're invited to.
+ * A team's reviewers approve its designs once the designer asks, never their own or their own agent's.
  */
 const can: { what: string; roles: Record<Role, boolean | string> }[] = [
   {
     what: "Open, view and comment",
-    roles: { Admin: true, "Billing admin": true, Member: true, Guest: "Projects they're invited to" }
+    roles: {
+      Admin: true,
+      "Billing admin": true,
+      Member: "Their teams' projects, and what's shared with them",
+      Guest: "Projects they're invited to"
+    }
   },
   {
     what: "Edit, with an editor seat",
-    roles: { Admin: true, "Billing admin": true, Member: true, Guest: "Projects they're invited to" }
+    roles: {
+      Admin: true,
+      "Billing admin": true,
+      Member: "Their teams' projects, and what's shared with them",
+      Guest: "Projects they're invited to"
+    }
   },
   {
     what: "Approve a design, with an editor seat",
-    roles: { Admin: "Not their own", "Billing admin": "Not their own", Member: "Not their own", Guest: false }
+    roles: {
+      Admin: "As a team's reviewer, not their own",
+      "Billing admin": "As a team's reviewer, not their own",
+      Member: "As a team's reviewer, not their own",
+      Guest: false
+    }
   },
   {
     what: "Invite people",
@@ -196,7 +216,7 @@ function MemberRow({ member }: { member: Member }) {
   )
 }
 
-export function MembersPage() {
+export function MembersPage({ overlay }: { overlay?: ReactNode }) {
   return (
     <SettingsPage tab="Members">
       <div className="grid grid-cols-2 gap-4">
@@ -306,13 +326,14 @@ export function MembersPage() {
           </table>
         </div>
       </section>
+      {overlay}
     </SettingsPage>
   )
 }
 
 const invoices = [
   {
-    number: "KST-2026-014",
+    number: "KST-2026-002",
     date: "Oct 1, 2026",
     detail: "Quarterly: 2 seats added Sep 18, to the end of 2026",
     amount: "$192.97"
@@ -657,6 +678,67 @@ function On({ children }: { children: string }) {
   )
 }
 
+/** What happens when someone leaves, a line each, so an admin knows before confirming. */
+function Consequence({ icon, children }: { icon: ReactNode; children: ReactNode }) {
+  return (
+    <span className="flex items-start gap-3 text-sm">
+      <span className="mt-0.5 text-muted-foreground [&_svg]:size-4">{icon}</span>
+      <span className="flex min-w-0 flex-1 flex-col gap-1.5">{children}</span>
+    </span>
+  )
+}
+
+/**
+ * Removing someone from Kestrel: what happens to their seat, the projects they own, the agents they connected and
+ * their work, before anyone confirms. Kestrel signs in with Okta and has no SCIM, so it says to remove them there too.
+ */
+export function RemoveMemberPage() {
+  return (
+    <MembersPage
+      overlay={
+        <div className="absolute inset-0 z-30 grid place-items-center bg-black/50">
+          <div className="flex w-[480px] flex-col gap-5 rounded-2xl border bg-popover p-6 text-popover-foreground shadow-2xl">
+            <div className="flex items-center gap-3">
+              <Avatar person={jonas} size={36} />
+              <span className="flex flex-col">
+                <span className="text-base font-semibold">Remove Jonas Weber from Kestrel?</span>
+                <span className="text-xs text-muted-foreground">
+                  jonas@kestrel.dev, a member with an editor seat, on the Apps team
+                </span>
+              </span>
+            </div>
+            <div className="flex flex-col gap-4">
+              <Consequence icon={<Armchair />}>
+                Jonas's editor seat opens today. Kestrel pays for it until the renewal on Jan 1, 2027, and it goes to
+                whoever asks next.
+              </Consequence>
+              <Consequence icon={<FolderOpen />}>
+                <span>Jonas owns Ember Caves. Hand it to</span>
+                <Picker>Sam Okafor</Picker>
+                <span className="text-xs text-muted-foreground">Requests for access go to the new owner.</span>
+              </Consequence>
+              <Consequence icon={<Bot />}>
+                Cursor, which Jonas connected, loses access now. What it made stays, under Jonas's name.
+              </Consequence>
+              <Consequence icon={<History />}>
+                Jonas's versions, comments and approvals stay as they are, and in the audit log.
+              </Consequence>
+              <Consequence icon={<KeyRound />}>
+                Jonas is signed out everywhere now. Kestrel has no SCIM, so remove Jonas in Okta too, or the next
+                sign-in works again.
+              </Consequence>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost">Cancel</Button>
+              <Button variant="destructive">Remove Jonas</Button>
+            </div>
+          </div>
+        </div>
+      }
+    />
+  )
+}
+
 /** Who changed what, newest first. The seats Sam added on Sep 18 are the 2 on that quarter's invoice. */
 const audit = [
   { who: priya, what: "added", target: "Noah Park to Kestrel, as a viewer", when: "Yesterday, 4:20 PM" },
@@ -706,9 +788,9 @@ export function SecurityPage() {
             </Setting>
             <Setting
               title="Who approves a design"
-              detail="Anyone with an editor seat, except whoever made or asked for it"
+              detail="Each team's reviewers, once the designer marks a version ready. Never their own. Apps: Andrew, Lena and Jonas. Web: Andrew and Priya. Design system: Maya and Lena"
             >
-              <Picker>Not their own</Picker>
+              <Picker>Team reviewers</Picker>
             </Setting>
             <Setting title="Guests" detail="People outside kestrel.dev, on the projects they're invited to">
               <Picker>Allowed, for 90 days</Picker>

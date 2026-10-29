@@ -37,7 +37,7 @@ export function designOf(shown: StartProject, name: string): Design {
   return shown.designs.find((design) => design.name === name) ?? shown.designs[0]!
 }
 
-/** Priya added Noah to the Web team yesterday; he's waiting on an editor seat. */
+/** Priya added Noah to the Web team yesterday, and Noah is waiting on an editor seat. */
 export const noah = { name: "Noah Park", hue: 210 }
 /** A guest from the agency Kestrel works with, invited to one project. */
 export const ivy = { name: "Ivy Lopez", hue: 20 }
@@ -55,16 +55,18 @@ function team(id: string, name: string, hue: number, members: Person[], projects
 
 export const teams = {
   apps: team("apps", "Apps", 162, [me, people.jonas, people.sam, people.lena], ["dashboard", "spawnkit", "copilot"]),
-  web: team("web", "Web", 250, [me, people.maya, people.priya, noah], ["website", "docs"]),
+  web: team("web", "Web", 250, [me, people.maya, people.priya, noah], ["website", "docs", "standup"]),
   system: team("system", "Design system", 280, [people.lena, people.maya], ["library"])
 }
 
 /**
- * Where a board stands between design and code, from Parity's own versions, so it works without git. In review:
- * someone asked for a review. Ready to build: a version was approved and nobody's building it yet. Building: someone
- * picked it up. Changed since approval: edited after the approved version, so it needs another look first. Built: the
- * project's code draws the approved version as designed. Code differs: the code changed after it was built. Branches
- * and pull requests show too, where a project has them.
+ * Where a board stands between design and code, from Parity's own versions, so it works without git. Every change
+ * makes a version, but only one its designer marks ready for review moves a board: edits in between are drafts, shown
+ * only as someone editing. In review: a version is ready and waiting on a reviewer. Ready to build: a version was
+ * approved and nobody's building it yet. Building: someone picked it up. Changed since approval: a newer version than
+ * the approved one is ready for review, so it needs another look first. Built: the project's code draws the approved
+ * version as designed. Code differs: the code changed after it was built. Branches and pull requests show too, where a
+ * project has them.
  */
 export type Handoff = "In review" | "Ready to build" | "Building" | "Changed since approval" | "Built" | "Code differs"
 
@@ -98,7 +100,7 @@ export interface Whereabouts {
 
 /** Your teammates and their agents, where they are now. */
 export const workingNow: Whereabouts[] = [
-  { who: people.maya, project: "website", design: "Pricing", doing: "Editing the plan cards" },
+  { who: people.maya, project: "website", design: "Home", doing: "Trying a new hero" },
   { who: people.claude, project: "website", design: "Pricing", doing: "Try shorter plan names at 360", for: me },
   { who: people.jonas, project: "spawnkit", design: "In game", doing: "Checking Cursor's tiles" },
   { who: people.cursor, project: "spawnkit", design: "In game", doing: "Place the new tiles", for: people.jonas },
@@ -119,13 +121,26 @@ export interface PortalEvent extends Activity {
   needsYou?: boolean
   /** Which team's projects it's in. */
   team?: keyof typeof teams
+  /** How a team's page says it, when it's worded to you: "replied on" rather than "replied to you on". */
+  forTeam?: { action: string; design?: string }
 }
 
 const { maya, jonas, priya, sam, lena, claude, cursor } = people
 
+/** Who owns each project: who it belongs to in Kestrel, and who gets requests for access to it. */
+export const owners: Record<string, Person> = {
+  website: maya,
+  dashboard: sam,
+  docs: priya,
+  library: lena,
+  spawnkit: jonas,
+  copilot: sam,
+  standup: priya
+}
+
 /** What changed on Pricing since v12, the version you approved and are building. */
 export const pricingSince =
-  "You're building v12. Since then, Save 20% moved into the billing toggle, Team's card is Most popular, and Compare all plans is gone."
+  "You're building v12. v14 moves Save 20% into the billing toggle, makes Team's card Most popular, and takes out Compare all plans."
 
 /** What Sam asked Claude Code to do in the Cloud console, which it now wants reviewed. */
 export const claudeTask = "Move the console to the green brand"
@@ -133,14 +148,14 @@ export const claudeTask = "Move the console to the green brand"
 /** Everything that happened in Kestrel lately, newest first. */
 export const events: PortalEvent[] = [
   {
-    id: "maya-mention",
+    id: "jonas-mention",
     ago: 8,
     kind: "mention",
-    who: maya,
+    who: jonas,
     project: "Kestrel website",
     design: "Pricing",
     action: "mentioned you on",
-    quote: "@Andrew can we drop the annual toggle here? It fights with the plan cards.",
+    quote: "@Andrew can we drop the annual toggle on phones? With Save 20% in it, it's wider than the plan cards.",
     when: "8 min ago",
     day: "Today",
     unread: true,
@@ -150,11 +165,11 @@ export const events: PortalEvent[] = [
   {
     id: "maya-change",
     ago: 12,
-    kind: "publish",
+    kind: "review",
     who: maya,
     project: "Kestrel website",
     design: "Pricing",
-    action: "made v14 of",
+    action: "asked Priya Raman to review v14 of",
     quote: pricingSince,
     when: "12 min ago",
     day: "Today",
@@ -166,7 +181,8 @@ export const events: PortalEvent[] = [
     id: "cursor-question",
     ago: 20,
     kind: "agent",
-    who: cursor,
+    // Two people here run Cursor, so it says whose.
+    who: { ...cursor, name: "Your Cursor" },
     project: "Help center",
     design: "Docs home",
     action: "is waiting on you on",
@@ -176,6 +192,18 @@ export const events: PortalEvent[] = [
     unread: true,
     needsYou: true,
     team: "web"
+  },
+  {
+    id: "you-approve",
+    ago: 20,
+    kind: "review",
+    who: me,
+    project: "Ember Caves",
+    design: "Level select",
+    action: "approved v8 of",
+    when: "20 min ago",
+    day: "Today",
+    team: "apps"
   },
   {
     id: "jonas-reply",
@@ -189,7 +217,8 @@ export const events: PortalEvent[] = [
     when: "25 min ago",
     day: "Today",
     unread: true,
-    team: "apps"
+    team: "apps",
+    forTeam: { action: "replied on", design: "Level select" }
   },
   {
     id: "ivy-access",
@@ -244,7 +273,8 @@ export const events: PortalEvent[] = [
     day: "Today",
     unread: true,
     needsYou: true,
-    team: "apps"
+    team: "apps",
+    forTeam: { action: "changed 3 designs for Sam Okafor, and asked for a review, in" }
   },
   {
     id: "priya-review",
@@ -316,7 +346,8 @@ export const events: PortalEvent[] = [
     action: "invited you to",
     when: "2 days ago",
     day: "This week",
-    team: "apps"
+    team: "apps",
+    forTeam: { action: "invited Andrew Craswell to" }
   }
 ]
 

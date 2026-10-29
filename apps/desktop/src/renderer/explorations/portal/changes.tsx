@@ -34,10 +34,11 @@ import type { Look } from "../start/data.ts"
 import { DesignRender } from "../start/renders.tsx"
 import { type ConsolePart, consoleFiles, deliverable, type PullRequest } from "./boards.ts"
 import { claudeTask, designOf, event, portalProject } from "./data.ts"
+import { InGameAt } from "./ingame-render.tsx"
 import { PortalWindow } from "./parts.tsx"
 import { PricingAt } from "./pricing-render.tsx"
 
-const { maya, sam, claude, jonas } = people
+const { maya, sam, claude, jonas, priya } = people
 const violet = "oklch(0.7 0.16 275)"
 
 type View = "before" | "both" | "after"
@@ -85,7 +86,19 @@ interface Version {
   who: Person
   label: string
   when: string
+  /** Not marked ready: edits in between, which move nothing and reach nobody. */
+  draft?: boolean
 }
+
+/**
+ * Who you are to a comparison, which decides what you can do at its foot. A reviewer the designer asked approves it or
+ * asks for changes. Whoever's building the version before it keeps building, or asks the designer. Where the code has
+ * moved away from the design, either side can give way.
+ */
+type Viewer =
+  | { as: "reviewer"; threads: string; approves: ReactNode }
+  | { as: "builder"; building: number; reviewer: Person; designer: Person; threads: string }
+  | { as: "drift"; builder: Person; note: ReactNode }
 
 /** One comparison: its project, versions, boards, changes, and what approving it does. */
 export interface Comparison {
@@ -97,6 +110,11 @@ export interface Comparison {
   to: number
   /** What to call a version besides its label: the one you approved, or the one current when you were last here. */
   named: Record<number, string>
+  /** Fixed names for the two sides, where they aren't two versions to pick between: a design and its code. */
+  sides?: { before: string; after: string }
+  /** What the view is called, and the end of its link, when it isn't two versions. */
+  title?: string
+  compare?: string
   boards: { name: string; draw(version: number): ReactNode }[]
   changes: Change[]
   /** The sentence at the top of the side panel, for the changes shown. */
@@ -108,8 +126,7 @@ export interface Comparison {
   also: { at: number; who: Person; text: ReactNode }[]
   /** The code it's in: the branch and pull request, and what they are. */
   code?: { label: string; branch: string; pr: PullRequest }
-  /** What approving does, under the buttons. */
-  approve(to: number): ReactNode
+  you: Viewer
 }
 
 function at(left: number, top: number, width: number, height: number): Area {
@@ -275,12 +292,16 @@ export const consoleComparison: Comparison = {
     { at: 43, who: maya, text: <>commented on Billing: “{event("maya-comment").quote}”</> }
   ],
   code: { label: "Already in code", branch: "claude/green-brand", pr: { number: 148, state: "open" } },
-  approve: (to) => (
-    <>
-      Approves the design at v{to}. Its code is already in #148, so nobody needs to pick it up: the 3 boards are Built
-      once #148 merges on GitHub.
-    </>
-  )
+  you: {
+    as: "reviewer",
+    threads: "1 open thread, Maya's on Billing. Approving leaves it open.",
+    approves: (
+      <>
+        Claude Code asked you, for Sam, as one of the Apps team's reviewers. Its code is already in #148, so nobody
+        needs to pick it up: the 3 boards are Built once #148 merges on GitHub.
+      </>
+    )
+  }
 }
 
 const website = portalProject("website")
@@ -296,13 +317,13 @@ export const pricingComparison: Comparison = {
   slug: "kestrel-website",
   versions: [
     { n: 14, who: maya, label: "Maya made Team Most popular", when: event("maya-change").when },
-    { n: 13, who: maya, label: "Maya moved Save 20% into the toggle", when: "40 min ago" },
+    { n: 13, who: maya, label: "Maya moved Save 20% into the toggle", when: "40 min ago", draft: true },
     { n: 12, who: maya, label: "Maya lined up the plan cards", when: "Yesterday" },
     { n: 11, who: maya, label: "Maya's first pass at three plans", when: "2 days ago" }
   ],
   from: 12,
   to: 14,
-  named: { 12: "you approved it" },
+  named: { 12: "you approved it", 14: "ready for review" },
   boards: [{ name: "Pricing", draw: (n) => <PricingAt look={website.look} version={n} /> }],
   changes: [
     {
@@ -360,11 +381,87 @@ export const pricingComparison: Comparison = {
   },
   also: [],
   code: { label: "You're building v12", branch: "pricing-plans", pr: { number: 150, state: "draft" } },
-  approve: (to) => (
+  you: {
+    as: "builder",
+    building: 12,
+    reviewer: priya,
+    designer: maya,
+    threads: "1 open thread, Jonas's on the toggle"
+  }
+}
+
+const caves = portalProject("spawnkit")
+
+/**
+ * In game, where the code moved away from the design after it was built: v5, as approved and built in #128, against
+ * main after #139. Outlines are measured from the render, as shares of the 1280 by 800 board.
+ */
+export const inGameComparison: Comparison = {
+  project: "spawnkit",
+  slug: "ember-caves",
+  title: "Code against design",
+  compare: "v5...main",
+  versions: [
+    { n: 6, who: sam, label: "main, after #139", when: "9 days ago" },
+    { n: 5, who: jonas, label: "v5, approved and built", when: "3 weeks ago" }
+  ],
+  from: 5,
+  to: 6,
+  named: {},
+  sides: { before: "v5, as approved and built in #128", after: "main now, after #139" },
+  boards: [{ name: "In game", draw: (n) => <InGameAt look={caves.look} as={n === 5 ? "design" : "code"} /> }],
+  changes: [
+    {
+      n: 1,
+      board: "In game",
+      at: 6,
+      who: sam,
+      kind: "Moved",
+      was: [at(2, 90.4, 10.7, 7.2)],
+      areas: [at(2, 2.4, 9.4, 5.2)],
+      where: "Hearts",
+      what: "From a bar at the bottom to the top left",
+      parts: [
+        {
+          name: "HealthBar",
+          file: "src/routes/play.tsx",
+          diff: ['- <HealthBar placement="bottom" />', '+ <HealthBar placement="top" />']
+        }
+      ]
+    },
+    {
+      n: 2,
+      board: "In game",
+      at: 6,
+      who: sam,
+      kind: "Moved",
+      was: [at(2, 2.4, 13.3, 4.6)],
+      areas: [at(2, 7.4, 13.3, 4.6)],
+      where: "Score",
+      what: "Down, under the hearts",
+      parts: [{ name: "GameHud", file: "src/hud/GameHud.tsx" }]
+    }
+  ],
+  summary: () =>
+    "The code draws 2 things differently from v5, the version that was approved and built. Nothing else differs.",
+  why: (
     <>
-      Approves v{to}. You're building v12 in #150, so Handoff moves your build to v{to} with these changes to make.
+      <span className="text-foreground">Sam Okafor</span>, in #139, merged 9 days ago: “Hearts at the bottom sat under
+      players' thumbs.” Nobody changed the design to match.
     </>
-  )
+  ),
+  also: [],
+  code: { label: "Changed in", branch: "main", pr: { number: 139, state: "merged" } },
+  you: {
+    as: "drift",
+    builder: sam,
+    note: (
+      <>
+        Updating the design makes v6 from what main draws, so In game is Built again and Jonas, who approved v5, hears
+        about it. Asking Sam opens a thread on #139 for the code to go back to v5.
+      </>
+    )
+  }
 }
 
 /** A change's number: small, in the comparison's one color. */
@@ -502,7 +599,7 @@ function VersionPicker({
 }) {
   const { versions, named } = comparison
   const describe = (n: number) =>
-    n === versions[0]!.n ? "now" : (named[n] ?? versions.find((version) => version.n === n)!.label)
+    named[n] ?? (n === versions[0]!.n ? "now" : versions.find((version) => version.n === n)!.label)
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -529,7 +626,10 @@ function VersionPicker({
           >
             <Avatar person={version.who} size={18} />
             <span className="w-7 shrink-0 font-medium tabular-nums">v{version.n}</span>
-            <span className="min-w-0 flex-1 truncate">{version.label}</span>
+            <span className="min-w-0 flex-1 truncate">
+              {version.label}
+              {version.draft && <span className="text-muted-foreground">, a draft</span>}
+            </span>
             <span className="shrink-0 text-xs text-muted-foreground">{version.when}</span>
             <Check className={`size-3.5 ${version.n === value ? "" : "invisible"}`} />
           </DropdownMenuItem>
@@ -611,13 +711,13 @@ export function ChangesPage({ comparison }: { comparison: Comparison }) {
   const boards = comparison.boards.filter((board) => shown.some((change) => change.board === board.name))
   const sides = view === "both" ? (["before", "after"] as const) : ([view] as const)
   return (
-    <PortalWindow path={`kestrel/${comparison.slug}/compare/v${from}...v${to}`}>
+    <PortalWindow path={`kestrel/${comparison.slug}/compare/${comparison.compare ?? `v${from}...v${to}`}`}>
       <div className="flex h-full flex-col">
         <header className="flex h-11 shrink-0 items-center gap-2.5 border-b bg-background px-3 text-sm whitespace-nowrap">
           <ParityMark size={20} />
           <span className="font-medium">{project.name}</span>
           <ChevronRight className="size-3.5 text-muted-foreground/60" />
-          <span className="text-muted-foreground">What changed</span>
+          <span className="text-muted-foreground">{comparison.title ?? "What changed"}</span>
           <div className="ml-auto flex items-center gap-1">
             <Button size="sm" variant="ghost">
               Share
@@ -629,16 +729,22 @@ export function ChangesPage({ comparison }: { comparison: Comparison }) {
           <div className="relative min-w-0 flex-1 overflow-auto bg-[#0f0f12]">
             <div className="flex items-center justify-between px-12 pt-5 pb-4">
               <div className={`grid flex-1 gap-x-10 ${sides.length === 2 ? "grid-cols-2" : "grid-cols-1"}`}>
-                {sides.map((side) => (
-                  <VersionPicker
-                    key={side}
-                    comparison={comparison}
-                    side={side}
-                    value={side === "before" ? from : to}
-                    other={side === "before" ? to : from}
-                    onPick={side === "before" ? setFrom : setTo}
-                  />
-                ))}
+                {sides.map((side) =>
+                  comparison.sides ? (
+                    <span key={side} className="text-xs text-white/55">
+                      {comparison.sides[side]}
+                    </span>
+                  ) : (
+                    <VersionPicker
+                      key={side}
+                      comparison={comparison}
+                      side={side}
+                      value={side === "before" ? from : to}
+                      other={side === "before" ? to : from}
+                      onPick={side === "before" ? setFrom : setTo}
+                    />
+                  )
+                )}
               </div>
               <div className="ml-6 flex rounded-md bg-white/[0.06] p-0.5 text-xs">
                 {(["before", "both", "after"] as const).map((option) => (
@@ -764,33 +870,7 @@ export function ChangesPage({ comparison }: { comparison: Comparison }) {
             </div>
             {shown.length > 0 && (
               <div className="flex flex-col gap-2 border-t px-5 py-4">
-                {asking ? (
-                  <>
-                    <textarea
-                      aria-label="What should change"
-                      placeholder="What should change? It goes to everyone who made these versions."
-                      className="min-h-20 resize-none rounded-lg border bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
-                    />
-                    <div className="flex gap-2">
-                      <Button size="sm" className="flex-1">
-                        Send
-                      </Button>
-                      <Button size="sm" variant="ghost" className="flex-1" onClick={() => setAsking(false)}>
-                        Cancel
-                      </Button>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex gap-2">
-                    <Button size="sm" className="flex-1 gap-1.5">
-                      <Check /> Approve v{to}
-                    </Button>
-                    <Button size="sm" variant="ghost" className="flex-1" onClick={() => setAsking(true)}>
-                      Ask for changes
-                    </Button>
-                  </div>
-                )}
-                <span className="text-[11px] leading-relaxed text-muted-foreground">{comparison.approve(to)}</span>
+                <Foot you={comparison.you} to={to} changes={shown.length} asking={asking} onAsk={setAsking} />
               </div>
             )}
           </aside>
@@ -798,4 +878,87 @@ export function ChangesPage({ comparison }: { comparison: Comparison }) {
       </div>
     </PortalWindow>
   )
+}
+
+/** What you can do at the foot of a comparison, by who you are to it, with a note box for asking. */
+function Foot({
+  you,
+  to,
+  changes,
+  asking,
+  onAsk
+}: {
+  you: Viewer
+  to: number
+  changes: number
+  asking: boolean
+  onAsk(asking: boolean): void
+}) {
+  const ask =
+    you.as === "reviewer"
+      ? "Ask for changes"
+      : you.as === "builder"
+        ? `Ask ${first(you.designer)}`
+        : `Ask ${first(you.builder)}`
+  const placeholder =
+    you.as === "reviewer"
+      ? "What should change? It goes to everyone who made these versions."
+      : you.as === "builder"
+        ? `Ask ${first(you.designer)} about these changes`
+        : `What should ${first(you.builder)} change back?`
+  return (
+    <>
+      {you.as !== "drift" && (
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <MessageSquare className="size-3.5 shrink-0" />
+          {you.as === "builder" ? `v${to} waits on ${you.reviewer.name}'s review, with ${you.threads}.` : you.threads}
+        </span>
+      )}
+      {asking ? (
+        <>
+          <textarea
+            aria-label={ask}
+            placeholder={placeholder}
+            className="min-h-20 resize-none rounded-lg border bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          />
+          <div className="flex gap-2">
+            <Button size="sm" className="flex-1">
+              Send
+            </Button>
+            <Button size="sm" variant="ghost" className="flex-1" onClick={() => onAsk(false)}>
+              Cancel
+            </Button>
+          </div>
+        </>
+      ) : (
+        <div className="flex gap-2">
+          <Button size="sm" className="flex-1 gap-1.5">
+            {you.as === "reviewer" ? (
+              <>
+                <Check /> Approve v{to}
+              </>
+            ) : you.as === "builder" ? (
+              `Keep building v${you.building}`
+            ) : (
+              "Update the design"
+            )}
+          </Button>
+          <Button size="sm" variant="ghost" className="flex-1" onClick={() => onAsk(true)}>
+            {ask}
+          </Button>
+        </div>
+      )}
+      <span className="text-[11px] leading-relaxed text-muted-foreground">
+        {you.as === "reviewer"
+          ? you.approves
+          : you.as === "builder"
+            ? `When ${first(you.reviewer)} approves v${to}, Handoff moves your build to it with these ${changes} changes, and you hear about it here and in your inbox. Until then, v${you.building} is still the approved version.`
+            : you.note}
+      </span>
+    </>
+  )
+}
+
+function first(person: Person): string {
+  return person.name.split(" ")[0]!
 }

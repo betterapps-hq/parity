@@ -2,7 +2,7 @@
 import { Check, ChevronRight, ExternalLink, Monitor } from "lucide-react"
 import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
-import { thread } from "../collaboration/collab-data.ts"
+import type { ThreadData } from "../collaboration/collab-data.ts"
 import { Thread } from "../collaboration/comments.tsx"
 import { CommentPin } from "../collaboration/pins.tsx"
 import { me, people } from "../explore-data.ts"
@@ -11,10 +11,34 @@ import { DesignRender } from "../start/renders.tsx"
 import { designOf, event, needsYou, portalProject } from "./data.ts"
 import { Pills, PortalPage } from "./parts.tsx"
 
-const { maya, jonas, priya, lena, claude } = people
+const { maya, jonas, priya, lena } = people
 
 /** What's for you but doesn't need you, newest first: a reply, a resolved thread, an invite. */
 const earlier = ["jonas-reply", "lena-resolve", "sam-invite"].map(event)
+
+/** The thread Jonas mentioned you in, on Pricing as it is at v14, with Save 20% in the toggle. */
+const toggleThread: ThreadData = {
+  id: "toggle",
+  design: "Pricing",
+  layer: "Billing toggle",
+  frame: "Desktop",
+  unread: true,
+  comments: [
+    {
+      id: "toggle-1",
+      author: jonas,
+      when: event("jonas-mention").when,
+      text: "@Andrew Craswell can we drop the annual toggle on phones? With Save 20% in it, it's wider than the {Plan cards}.",
+      reactions: [{ emoji: "👍", by: [priya] }]
+    },
+    {
+      id: "toggle-2",
+      author: maya,
+      when: "5 min ago",
+      text: "Fine by me on phones. Desktop keeps it: that's what v14 is about."
+    }
+  ]
+}
 
 /** A pin on the preview, its point at a share of the design's width and height. */
 function Pin({ left, top, children }: { left: string; top: string; children: ReactNode }) {
@@ -72,14 +96,14 @@ export function InboxPage() {
             </div>
           </div>
           <div className="flex min-h-0 flex-1">
-            <div className="relative min-w-0 flex-1 overflow-hidden bg-[#0f0f12] px-8 pt-12">
+            <div className="relative min-w-0 flex-1 overflow-hidden bg-[#0f0f12] px-6 pt-8">
               <div
                 className="pointer-events-none absolute inset-0"
                 style={{
                   background: `radial-gradient(60% 50% at 30% 20%, oklch(0.55 0.14 ${website.look.hue} / 0.16), transparent 70%)`
                 }}
               />
-              <div className="relative mx-auto max-w-[640px]">
+              <div className="relative mx-auto max-w-[860px]">
                 <span className="text-[11px] font-medium text-white/55">
                   Pricing <span className="text-white/35">Desktop</span>
                 </span>
@@ -87,8 +111,8 @@ export function InboxPage() {
                   <div className="overflow-hidden rounded-[5px] shadow-[0_16px_40px_-10px_rgb(0_0_0/0.7)] ring-1 ring-white/10">
                     <DesignRender kind={pricing.kind} look={website.look} />
                   </div>
-                  <Pin left="62%" top="45%">
-                    <CommentPin people={[maya, claude, jonas]} state="selected" replies={2} />
+                  <Pin left="58%" top="37%">
+                    <CommentPin people={[jonas, maya]} state="selected" replies={1} />
                   </Pin>
                   <Pin left="40%" top="62%">
                     <CommentPin people={[priya, me]} state="working" replies={1} />
@@ -101,7 +125,7 @@ export function InboxPage() {
               </div>
             </div>
             <div className="w-[23.5rem] shrink-0 overflow-y-auto border-l p-3">
-              <Thread thread={{ ...thread("toggle"), frame: "Desktop" }} />
+              <Thread thread={toggleThread} />
             </div>
           </div>
         </div>

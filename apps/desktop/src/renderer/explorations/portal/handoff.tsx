@@ -10,10 +10,22 @@ import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { me } from "../explore-data.ts"
 import { Avatar } from "../parts.tsx"
+import type { Look } from "../start/data.ts"
 import { DesignRender } from "../start/renders.tsx"
 import { type Deliverable, deliverable, deliverables } from "./boards.ts"
-import { designOf, type Handoff, handoff, portalProject } from "./data.ts"
+import { designOf, type Handoff, handoff, portalProject, workingNow } from "./data.ts"
 import { HandoffPill, Pills, PortalHeader, PortalPage, PullRequestLink } from "./parts.tsx"
+import { PricingAt } from "./pricing-render.tsx"
+
+/** Boards that can be drawn at an earlier version, so the side shows the version that was approved. */
+const versioned: Record<string, (look: Look, version: number) => ReactNode> = {
+  "website/Pricing": (look, version) => <PricingAt look={look} version={version} />
+}
+
+/** Who's editing a board now: their edits are drafts until they mark a version ready, so the status doesn't move. */
+function editing(board: Deliverable) {
+  return workingNow.find((where) => where.project === board.project && where.design === board.design && !where.away)
+}
 
 const violet = "oklch(0.72 0.16 290)"
 
@@ -101,6 +113,7 @@ function BoardRow({ board, status }: { board: Deliverable; status: Handoff }) {
   const action = mainAction[status]
   const latest = board.since?.at(-1)?.version
   const selected = key === picked
+  const now = editing(board)
   return (
     <div
       className={`${columns} rounded-lg px-2 py-2 ${selected ? "bg-muted/60 ring-1 ring-border" : "hover:bg-muted/30"} ${status === "Built" ? "opacity-60" : ""}`}
@@ -113,8 +126,13 @@ function BoardRow({ board, status }: { board: Deliverable; status: Handoff }) {
           <span className="truncate text-sm font-medium">{design.name}</span>
           <span className="truncate text-xs text-muted-foreground">
             {shown.name}, v{board.version}
-            {latest && <span style={{ color: violet }}>, now v{latest}</span>}
+            {latest && <span style={{ color: violet }}>, v{latest} ready</span>}
           </span>
+          {now && (
+            <span className="truncate text-[11px] text-muted-foreground/80">
+              {now.who.agent ? `${now.who.name}, for ${who(now.for!)},` : now.who.name.split(" ")[0]} is working on it
+            </span>
+          )}
         </span>
       </span>
       <Approval board={board} />
@@ -167,13 +185,14 @@ function Detail({ board }: { board: Deliverable }) {
             </Button>
           </div>
           <div className="overflow-hidden rounded-md ring-1 ring-border">
-            <DesignRender kind={design.kind} look={shown.look} />
+            {versioned[`${board.project}/${board.design}`]?.(shown.look, board.version) ?? (
+              <DesignRender kind={design.kind} look={shown.look} />
+            )}
           </div>
           {board.approved && (
             <span className="flex items-center gap-2 text-xs text-muted-foreground">
               <Avatar person={board.approved.who} size={16} />
-              {capital(who(board.approved.who))} approved v{board.version} {board.approved.when}
-              {latest && `. This is v${latest}.`}
+              {capital(who(board.approved.who))} approved v{board.version}, as it's drawn here, {board.approved.when}
             </span>
           )}
         </div>
@@ -189,14 +208,15 @@ function Detail({ board }: { board: Deliverable }) {
                   <span className="flex flex-col gap-0.5">
                     <span>{change.what}</span>
                     <span className="text-muted-foreground">
-                      v{change.version}, {change.when}
+                      v{change.version}, {change.when},{" "}
+                      {change.ready ? `ready for review by ${change.ready.reviewer.name}` : "a draft"}
                     </span>
                   </span>
                 </span>
               ))}
               <span className="flex items-center gap-2 text-xs" style={{ color: violet }}>
                 <TriangleAlert className="size-3.5 shrink-0" />
-                Maya's question on the annual toggle is still open
+                Jonas's question on the toggle, on phones, is still open
               </span>
               <Button size="sm" variant="outline" className="w-fit">
                 See what changed, v{board.version} to v{latest}
@@ -253,16 +273,17 @@ function Detail({ board }: { board: Deliverable }) {
                 {board.code.pr && <PullRequestLink pr={board.code.pr} />}
                 {latest && (
                   <span>
-                    Keep building v{board.version} as approved, or wait for v{latest} to be approved. You hear about
-                    every newer version here and in your inbox.
+                    Keep building v{board.version} as approved, or wait for v{latest}:{" "}
+                    {board.since?.at(-1)?.ready?.reviewer.name} reviews it, and you hear when it's approved. Drafts
+                    don't reach you; versions marked ready do.
                   </span>
                 )}
               </span>
             </span>
           ) : (
             <span className="text-xs text-muted-foreground">
-              Nobody yet. Whoever picks it up hears when someone makes a newer version, opens a thread on it, or
-              withdraws the approval, here and in their inbox.
+              Nobody yet. Whoever picks it up hears when a newer version is marked ready, someone opens a thread on it,
+              or the approval is withdrawn, here and in their inbox.
             </span>
           )}
         </Part>
@@ -293,7 +314,8 @@ export function HandoffPage() {
             <div className="flex flex-col gap-1">
               <PortalHeader title="Handoff" />
               <span className="text-sm text-muted-foreground">
-                Every board by where it stands between design and code, at the version that was approved.
+                Every board by where it stands between design and code, at the version that was approved. Drafts don't
+                move a board; a version its designer marks ready does.
               </span>
             </div>
             <div className="flex items-center gap-3">

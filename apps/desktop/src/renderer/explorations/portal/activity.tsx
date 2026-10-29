@@ -3,7 +3,7 @@
  * Filters narrow it to your teams or the people you follow. Things only for you (mentions, review requests, seat
  * requests) stay in your inbox.
  */
-import { Download, GitMerge, Package, UserPlus } from "lucide-react"
+import { Download, GitMerge, Hand, Package } from "lucide-react"
 import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { agentPalettes } from "../../agent/agent-colors.ts"
@@ -11,6 +11,7 @@ import { AgentBadge } from "../../agent/AgentPointer.tsx"
 import { Avatar } from "../parts.tsx"
 import { ActivityRow, OrgBadge } from "../start-page-parts.tsx"
 import { CanvasArt } from "../start/page.tsx"
+import { approvedThisWeek } from "./boards.ts"
 import { claudeTask, event, noah, portalProject, type PortalEvent, readyToBuild, teams } from "./data.ts"
 import { DesignTile, FeedCard, Name, Pills, PortalHeader, PortalPage, SeeAll } from "./parts.tsx"
 
@@ -75,15 +76,16 @@ export function ActivityPage() {
               item={event("maya-change")}
               line={
                 <>
-                  <Name>Maya Chen</Name> made v13 and v14 of <Name>Pricing</Name> in <Name>Kestrel website</Name>
+                  <Name>Maya Chen</Name> made v14 of <Name>Pricing</Name> in <Name>Kestrel website</Name> ready for
+                  review
                 </>
               }
             >
               <span className="text-sm text-muted-foreground">
-                Save 20% moved into the billing toggle, Team's card is Most popular, and Compare all plans is gone. You
-                approved v12, and you're building it.
+                Save 20% moved into the billing toggle, Team's card is Most popular, and Compare all plans is gone. v13
+                was a draft; Maya asked Priya Raman to review v14.
               </span>
-              <div className="grid grid-cols-[1fr_0.42fr_1fr] items-end gap-2">
+              <div className="grid grid-cols-[1fr_0.42fr_1fr] items-end gap-4">
                 <DesignTile project="website" design="Pricing" changed />
                 <DesignTile project="website" design="Pricing" mobile changed />
               </div>
@@ -93,6 +95,7 @@ export function ActivityPage() {
                 </Button>
               </div>
             </Card>
+            <Row id="you-approve" />
             <Row id="jonas-reply" />
             <Row id="maya-comment" />
             <Card
@@ -158,7 +161,7 @@ export function ActivityPage() {
                   <span className="text-xs text-muted-foreground">Viewer for now, and asked for an editor seat</span>
                 </span>
                 <Button size="sm" variant="outline" className="ml-auto gap-1.5">
-                  <UserPlus /> Say hello
+                  <Hand /> Say hello
                 </Button>
               </div>
             </Card>
@@ -177,7 +180,7 @@ export function ActivityPage() {
             <div className="grid grid-cols-2 gap-2">
               <Tally value="54" label="Changes to designs" />
               <Tally value="18" label="Threads resolved" />
-              <Tally value="3" label="Designs approved" />
+              <Tally value={`${approvedThisWeek()}`} label="Designs approved" />
               <Tally value={`${readyToBuild}`} label="Ready to build" />
             </div>
           </section>

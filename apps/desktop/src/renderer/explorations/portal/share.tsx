@@ -45,7 +45,7 @@ function ShareDialog() {
     { person: priya, why: "Owns the project", role: "owner" },
     { person: me, why: "Admin of Kestrel", role: "edit" },
     { person: maya, why: "Through the Web team", role: "edit" },
-    { person: noah, why: "Through the Web team. Views until his editor seat is approved", role: "view" }
+    { person: noah, why: "Through the Web team. Views until the editor seat Noah asked for is approved", role: "view" }
   ]
   const request = event("ivy-access")
   return (
@@ -85,7 +85,7 @@ function ShareDialog() {
             </span>
             <p className="border-l-2 pl-2.5 text-[13px] text-foreground/85">{request.quote}</p>
             <div className="flex gap-2">
-              <Button size="sm">Let her comment</Button>
+              <Button size="sm">Let Ivy comment</Button>
               <Button size="sm" variant="ghost">
                 Deny
               </Button>
@@ -191,8 +191,8 @@ export function RequestAccessPage() {
           <div className="flex flex-col gap-1">
             <h2 className="text-base font-semibold">You need access to Help center</h2>
             <p className="text-sm text-muted-foreground">
-              It belongs to Kestrel, where you're a guest on Kestrel website. Priya Raman owns it, and she and Kestrel's
-              admins will get your request.
+              It belongs to Kestrel, where you're a guest on Kestrel website. Priya Raman owns it, and Priya and
+              Kestrel's admins will get your request.
             </p>
           </div>
           <div className="flex w-full rounded-lg bg-muted p-0.5 text-xs">

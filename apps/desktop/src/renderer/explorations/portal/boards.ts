@@ -4,7 +4,7 @@
  * Inspect and What changed all read from here, so they always name the same things.
  */
 import { me, type Person, people } from "../explore-data.ts"
-import { claudeTask, event } from "./data.ts"
+import { claudeTask, event, handoff } from "./data.ts"
 
 const { maya, sam, lena, claude, priya, jonas } = people
 
@@ -27,12 +27,17 @@ export interface Token {
   usedBy: string[]
 }
 
-/** A change made after the approved version, with the version it made. */
+/**
+ * A version made after the approved one. Every change makes a version, but only one its designer marks ready, asking
+ * a reviewer, moves the board's status or reaches whoever's building it; the rest are drafts.
+ */
 export interface Since {
   version: number
   who: Person
   when: string
   what: string
+  /** Marked ready for review, with who reviews it. */
+  ready?: { reviewer: Person }
 }
 
 export interface PullRequest {
@@ -192,7 +197,8 @@ export const deliverables: Record<string, Deliverable> = {
         version: 14,
         who: maya,
         when: event("maya-change").when,
-        what: "Made Team's card Most popular, and took out Compare all plans"
+        what: "Made Team's card Most popular, and took out Compare all plans",
+        ready: { reviewer: priya }
       }
     ],
     code: {
@@ -292,6 +298,22 @@ export const deliverables: Record<string, Deliverable> = {
     code: { who: lena, doing: "Built", when: "yesterday" }
   }
 }
+
+/** How many boards were approved this week, from Monday, October 26, in some projects or all of them. */
+export function approvedThisWeek(projects?: string[]): number {
+  return Object.values(deliverables).filter(
+    (board) =>
+      (!projects || projects.includes(board.project)) &&
+      board.approved &&
+      /min ago|h ago|yesterday|^[23] days ago$/.test(board.approved.when)
+  ).length
+}
+
+/** Boards waiting on a developer, as the nav counts them: ready to pick up, or changed under you while you build. */
+export const handoffWaiting = Object.values(deliverables).filter((board) => {
+  const status = handoff[`${board.project}/${board.design}`]
+  return status === "Ready to build" || (status === "Changed since approval" && board.code?.who === me)
+}).length
 
 /** One board's deliverable, by project and design. */
 export function deliverable(project: string, design: string): Deliverable {

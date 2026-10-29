@@ -5,7 +5,7 @@
  * components, what it shows is the code, not a guess at it.
  */
 import { Bot, ChevronRight, Copy, ExternalLink, FileCode, Monitor } from "lucide-react"
-import type { ReactNode } from "react"
+import { Fragment, type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { me } from "../explore-data.ts"
 import { Avatar, ParityMark } from "../parts.tsx"
@@ -140,7 +140,9 @@ export function InspectPage() {
             <span className="px-2 pb-3">
               <FileLink file={board.page} />
             </span>
-            <h3 className="px-2 pb-1 text-xs font-medium text-muted-foreground">On this board</h3>
+            <h3 className="flex items-baseline justify-between px-2 pb-1 text-xs font-medium text-muted-foreground">
+              On this board <span className="font-normal">uses</span>
+            </h3>
             {board.parts.map((onBoard) => (
               <span
                 key={onBoard.name}
@@ -152,6 +154,7 @@ export function InspectPage() {
                 <span className="text-[11px] tabular-nums">{onBoard.uses}</span>
               </span>
             ))}
+            <span className="px-2 pt-1 text-[11px] text-muted-foreground">New and changed are against main.</span>
             <div className="mt-auto flex flex-col gap-2 rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1.5 text-foreground">
                 <Avatar person={board.approved!.who} size={16} />
@@ -282,12 +285,18 @@ export function InspectPage() {
                 Each state is a frame on the board, so you can see it before you build it.
               </span>
             </Section>
-            <Section title="Text">
-              <div className="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-y-1.5 text-xs">
-                <span className="text-muted-foreground">Level number</span>
-                <span className="font-mono">26, weight 900, white</span>
-                <span className="text-muted-foreground">Locked</span>
-                <span className="font-mono">Lock icon, 24, white at 40%</span>
+            <Section title="Text" action={<CopyButton label="Copy the classes" />}>
+              <div className="flex flex-col gap-2 text-xs">
+                <span className="flex flex-col gap-0.5">
+                  <span className="text-muted-foreground">The level number</span>
+                  <code className="font-mono text-[11px]">text-[26px] font-black text-white</code>
+                </span>
+                <span className="flex flex-col gap-0.5">
+                  <span className="text-muted-foreground">Locked, instead of the number</span>
+                  <code className="font-mono text-[11px]">
+                    {'<Lock className="size-6 text-(--tile-locked-foreground)" />'}
+                  </code>
+                </span>
               </div>
             </Section>
             <Section title="Tokens">
@@ -307,21 +316,27 @@ export function InspectPage() {
                 ))}
               </div>
             </Section>
-            <Section title="Size and spacing">
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-y-1.5 text-xs">
-                <span className="text-muted-foreground">Size</span>
-                <span className="font-mono">64 × 64</span>
-                <span className="text-muted-foreground">Corners</span>
-                <span className="font-mono">full</span>
-                <span className="text-muted-foreground">Bottom edge</span>
-                <span className="font-mono">6</span>
-                <span className="text-muted-foreground">Stars, under the tile</span>
-                <span className="font-mono">8</span>
-                <span className="text-muted-foreground">To level 5, hovered</span>
-                <span className="font-mono">{gap}</span>
-                <span className="text-muted-foreground">The current level</span>
-                <span className="font-mono">78 × 78</span>
+            <Section title="Size and spacing" action={<CopyButton label="Copy the classes" />}>
+              <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-baseline gap-x-3 gap-y-1.5 text-xs">
+                {[
+                  ["Size", "size-16", "64px"],
+                  ["Corners", "rounded-full", ""],
+                  ["Bottom edge", "border-b-6", "6px"],
+                  ["Stars, under the tile", "gap-2", "8px"],
+                  ["Current level", "size-[78px]", "78px"],
+                  ["To level 5, hovered", "", `${gap}px`]
+                ].map(([label, code, px]) => (
+                  <Fragment key={label}>
+                    <span className="text-muted-foreground">{label}</span>
+                    <code className="font-mono text-[11px]">{code}</code>
+                    <span className="text-right font-mono text-[11px] text-muted-foreground tabular-nums">{px}</span>
+                  </Fragment>
+                ))}
               </div>
+              <span className="text-[11px] text-muted-foreground">
+                Levels sit where the map puts them, in <span className="font-mono">src/levels/map.ts</span>, so the
+                space between tiles comes from there, not from a class.
+              </span>
             </Section>
             {board.notes && (
               <Section title="Notes">

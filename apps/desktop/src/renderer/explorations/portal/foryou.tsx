@@ -5,7 +5,7 @@
  */
 import { AtSign, Eye, GitMerge, MessageSquare, Package, Sparkles, UserPlus } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import type { ActivityKind } from "../explore-data.ts"
+import { type ActivityKind, me } from "../explore-data.ts"
 import { Avatar } from "../parts.tsx"
 import { ActivityRow, ActivityText } from "../start-page-parts.tsx"
 import { CanvasArt } from "../start/page.tsx"
@@ -25,10 +25,10 @@ const kindIcons: Record<ActivityKind, typeof AtSign> = {
 
 /** What you can do about each thing from here: the main action, and a second one where there is one. */
 const actions: Record<string, { main: string; also?: string }> = {
-  "maya-mention": { main: "Reply" },
+  "jonas-mention": { main: "Reply" },
   "maya-change": { main: "See what changed" },
   "cursor-question": { main: "Answer" },
-  "ivy-access": { main: "Let her comment", also: "Deny" },
+  "ivy-access": { main: "Let Ivy comment", also: "Deny" },
   "noah-seat": { main: "Approve", also: "Deny" },
   "claude-run": { main: "See what changed" },
   "priya-review": { main: "Review" }
@@ -52,9 +52,9 @@ function NeedsYouRow({ item }: { item: PortalEvent }) {
         <span className="truncate">
           <ActivityText item={item} />
         </span>
-        {item.quote && <span className="truncate text-foreground/80">{item.quote}</span>}
+        {item.quote && <span className="line-clamp-2 text-foreground/80">{item.quote}</span>}
       </span>
-      <span className="flex shrink-0 items-center gap-1">
+      <span className="flex w-60 shrink-0 items-center justify-end gap-1">
         {pr && (
           <span className="mr-1">
             <PullRequestLink pr={pr} />
@@ -79,7 +79,7 @@ function NeedsYouRow({ item }: { item: PortalEvent }) {
 }
 
 /** Since you were last here: what happened in your projects that doesn't need you. */
-const since = events.filter((item) => !item.needsYou && item.ago < 24 * 60)
+const since = events.filter((item) => !item.needsYou && item.who !== me && item.ago < 24 * 60)
 
 export function ForYouPage() {
   return (

@@ -11,6 +11,7 @@ import {
   Clock,
   Code,
   Download,
+  FolderOpen,
   GitPullRequest,
   House,
   Inbox,
@@ -33,17 +34,8 @@ import { Avatar, ParityMark } from "../parts.tsx"
 import { OrgBadge, OrgSwitcher } from "../start-page-parts.tsx"
 import { CanvasArt } from "../start/page.tsx"
 import { DesignRender } from "../start/renders.tsx"
-import {
-  designOf,
-  type Handoff,
-  handoff,
-  kestrel,
-  needsYou,
-  portalProject,
-  readyToBuild,
-  teams,
-  type Whereabouts
-} from "./data.ts"
+import { handoffWaiting } from "./boards.ts"
+import { designOf, type Handoff, handoff, kestrel, needsYou, portalProject, teams, type Whereabouts } from "./data.ts"
 
 /** The browser around the portal: one tab, the address, and the page. */
 export function PortalWindow({ path, children }: { path: string; children: ReactNode }) {
@@ -118,6 +110,7 @@ export type PortalPlace =
   | "activity"
   | "handoff"
   | "recents"
+  | "projects"
   | "starred"
   | "shared"
   | "libraries"
@@ -157,9 +150,15 @@ export function PortalNav({ active }: { active: PortalPlace }) {
         active={active === "inbox"}
       />
       <NavItem icon={<Activity className="size-4" />} label="Activity" active={active === "activity"} />
-      <NavItem icon={<Code className="size-4" />} label="Handoff" count={readyToBuild} active={active === "handoff"} />
+      <NavItem
+        icon={<Code className="size-4" />}
+        label="Handoff"
+        count={handoffWaiting}
+        active={active === "handoff"}
+      />
       <NavHeading>Projects</NavHeading>
       <NavItem icon={<Clock className="size-4" />} label="Recents" active={active === "recents"} />
+      <NavItem icon={<FolderOpen className="size-4" />} label="All projects" active={active === "projects"} />
       <NavItem icon={<Star className="size-4" />} label="Starred" count={3} active={active === "starred"} />
       <NavItem icon={<Users className="size-4" />} label="Shared with you" count={2} active={active === "shared"} />
       <NavItem icon={<Library className="size-4" />} label="Libraries" active={active === "libraries"} />
@@ -304,7 +303,7 @@ export function TeammateCard({ where }: { where: Whereabouts }) {
   )
 }
 
-const handoffColors: Record<Handoff, string> = {
+export const handoffColors: Record<Handoff, string> = {
   "In review": "oklch(0.8 0.15 80)",
   "Ready to build": "oklch(0.74 0.13 230)",
   Building: "oklch(0.72 0.12 200)",

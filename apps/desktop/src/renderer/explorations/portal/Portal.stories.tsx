@@ -6,8 +6,8 @@ import { AvatarStack } from "../parts.tsx"
 import { ActivityRow, OrgBadge } from "../start-page-parts.tsx"
 import { ProjectCard } from "../start/page.tsx"
 import { ActivityPage } from "./activity.tsx"
-import { AddSeatsPage, BillingPage, MembersPage, PlansPage, SecurityPage } from "./admin.tsx"
-import { ChangesPage, consoleComparison, pricingComparison } from "./changes.tsx"
+import { AddSeatsPage, BillingPage, MembersPage, PlansPage, RemoveMemberPage, SecurityPage } from "./admin.tsx"
+import { ChangesPage, consoleComparison, inGameComparison, pricingComparison } from "./changes.tsx"
 import { events, portalProject, teams, workingNow } from "./data.ts"
 import { ForYouPage } from "./foryou.tsx"
 import { HandoffPage } from "./handoff.tsx"
@@ -15,6 +15,7 @@ import { InboxPage } from "./inbox.tsx"
 import { InspectPage } from "./inspect.tsx"
 import { LibraryPage } from "./library.tsx"
 import { PortalPage, SeeAll, Tabs, TeammateCard } from "./parts.tsx"
+import { AllProjectsPage } from "./projects.tsx"
 import { RecentsPage } from "./recents.tsx"
 import { SearchPage } from "./search.tsx"
 import { RequestAccessPage, SharePage } from "./share.tsx"
@@ -40,13 +41,21 @@ export const Home: Story = { render: () => <ForYouPage /> }
 
 export const Recents: Story = { render: () => <RecentsPage /> }
 
+/**
+ * All projects: every project you can open, as a list grouped by team, with each team's boards counted by where they
+ * stand and what it approved this week, and each project's owner, last edit and boards.
+ */
+export const AllProjects: Story = { render: () => <AllProjectsPage /> }
+
 /** A team: who's working where right now, the team's projects, and its week. */
 function TeamPage() {
   const { apps } = teams
   const here = workingNow.filter((where) => apps.projects.includes(where.project))
   const away = { who: people.lena, project: "library", design: "Components", doing: "", away: "yesterday" }
-  // The team's week, not yours: what's only for you stays in your inbox.
-  const week = events.filter((item) => item.team === "apps" && !item.needsYou && !/\byou\b/.test(item.action))
+  // The team's week, as the team would read it: anything worded to you is said for the team, or left to your inbox.
+  const week = events
+    .filter((item) => item.team === "apps" && (item.forTeam || !/\byou\b/.test(item.action)))
+    .map((item) => (item.forTeam ? { ...item, ...item.forTeam, design: item.forTeam.design } : item))
   return (
     <PortalPage active="apps" path="kestrel/teams/apps">
       <div className="flex flex-col gap-8 px-8 py-7">
@@ -174,10 +183,22 @@ export const WhatChanged: Story = { render: () => <ChangesPage comparison={conso
 export const WhatChangedOnPricing: Story = { render: () => <ChangesPage comparison={pricingComparison} /> }
 
 /**
+ * Code against design, from Handoff's Show the difference: In game as v5 was approved and built, beside what main draws
+ * now that #139 moved the hearts. Either the design is updated to match the code, or the builder is asked to match it.
+ */
+export const CodeDiffers: Story = { render: () => <ChangesPage comparison={inGameComparison} /> }
+
+/**
  * Members and seats: who has an editor seat, who views and comments for free, open seats, seat requests to approve or
  * deny, and invites waiting for an admin. Only editors pay.
  */
 export const Members: Story = { render: () => <MembersPage /> }
+
+/**
+ * Removing someone: what happens to their seat, the projects they own (handed to someone else), the agents they
+ * connected and their work, and what to do in the identity provider, before anyone confirms.
+ */
+export const RemoveMember: Story = { render: () => <RemoveMemberPage /> }
 
 /** Billing: the Organization plan, open seats, the renewal and its invoice, past invoices and billing details. */
 export const Billing: Story = { render: () => <BillingPage /> }

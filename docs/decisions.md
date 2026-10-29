@@ -753,30 +753,52 @@ recommended answer to each of its questions.
   projects as a file browser), a team page that opens on who's working where now, each on the canvas they're in, with
   Join for people and Watch for agents; the Inbox (the open item beside its board, pins and all, with its thread); the
   org's Activity (changes shown as the designs, merges, published components, new people, and the week in numbers);
-  Handoff and Inspect; the canvas opened on what changed; a library's page; sharing and asking for access; search
-  results; and the admin pages Members, Billing, Add seats, Plans and Security.
+  Handoff and Inspect; the canvas opened on what changed, or on how the code differs from the design; All projects, by
+  team; a library's page; sharing and asking for access; search results; and the admin pages Members (with removing
+  someone), Billing, Add seats, Plans and Security.
 - **For you is a digest, as the start page's is** (my call, after the fourth review): each thing waiting on you is one
-  line with what they said and its one or two actions (Reply, Approve, Let her comment, See what changed), so most of it
+  line with what they said and its one or two actions (Reply, Approve, Let Ivy comment, See what changed), so most of it
   can be answered from there, and what happened since you were last here follows close under it. The inbox has the full
   thread beside its board.
 - **Every page shares one left edge, and tabs and filters look different** (my calls, after the third review): tabs move
   between the parts of one place (a team, settings, a library), and quiet pills filter a list.
 - **Handoff is for developers: every board by where it stands between design and code, from Parity's own versions** (my
   calls, after the design reviews), so it works without git, as history does. A board is In review, Ready to build,
-  Building, Changed since approval, Built, or Code differs. An approval is of one version, so an edit after it turns the
-  board to Changed since approval wherever its status shows, and the developer can build the approved version or look at
-  what changed. Handoff is a list, one row per board grouped by status, with the board you pick open at the side: its
-  version, its page and components and their files (new ones and new props marked), its tokens and their values, its
-  states and sizes, and its code; branches, pull requests and tracker issues show too where a project has them. Each row
-  has the same two columns (my call, after the fourth review): Approval, who approved the version or who asked for its
-  review, and Code, who's building it, built it, or made it with the design. An agent that changes a design and its code
-  together, as Claude Code did for the Cloud console, leaves the code already in a pull request, so approving that
-  design leaves only the merge, and its boards are Built once it merges. Only the picked row's action is a filled
-  button. Handoff, Inspect and What changed read what a board delivers from one list (`portal/boards.ts`), so they
-  always name the same components and tokens.
-- **Whoever's building a board hears when it changes, as something that needs them** (my call, after the fourth review):
-  For you and the inbox say which version they're building, what changed since in a sentence, and link the comparison
-  and their pull request. Kestrel's example is you building Pricing v12 in #150 while Maya made v13 and v14.
+  Building, Changed since approval, Built, or Code differs. An approval is of one version, so a newer version marked
+  ready turns the board to Changed since approval wherever its status shows, and the developer can build the approved
+  version or look at what changed. Handoff is a list, one row per board grouped by status, with the board you pick open
+  at the side: its version, its page and components and their files (new ones and new props marked), its tokens and
+  their values, its states and sizes, and its code; branches, pull requests and tracker issues show too where a project
+  has them. Each row has the same two columns (my call, after the fourth review): Approval, who approved the version or
+  who asked for its review, and Code, who's building it, built it, or made it with the design. An agent that changes a
+  design and its code together, as Claude Code did for the Cloud console, leaves the code already in a pull request, so
+  approving that design leaves only the merge, and its boards are Built once it merges. Only the picked row's action is
+  a filled button. Handoff, Inspect and What changed read what a board delivers from one list (`portal/boards.ts`), so
+  they always name the same components and tokens.
+- **Every change makes a version, but only one its designer marks ready moves a board** (your call, 2026-10-29, after
+  the fifth review). Marking a version ready asks one of the team's reviewers; the versions in between are drafts, and
+  someone working on a board shows in Handoff as just that, without its status moving or anyone being told. So builders
+  never hear about unfinished work.
+- **Whoever's building a board hears when a newer version is marked ready, as something that needs them** (my call,
+  after the fourth review): For you and the inbox say which version they're building, what changed since in a sentence,
+  and link the comparison and their pull request. Kestrel's example is you building Pricing v12 in #150 while Maya made
+  v13, a draft, and v14, which she asked Priya to review.
+- **Each team picks its reviewers, and only they approve its designs, once the designer asks** (my call, after the fifth
+  review), never their own or their own agent's. Kestrel's: Andrew, Lena and Jonas for Apps; Andrew and Priya for Web;
+  Maya and Lena for the design system.
+- **What you can do with a comparison depends on who you are to it** (my call, after the fifth review): a reviewer who
+  was asked approves it or asks for changes, with its open threads shown; whoever's building the older version keeps
+  building it or asks the designer, and moves to the newer one only once it's approved; free viewers, such as developers
+  without a seat, see the same comparison.
+- **Code that's moved away from its design gets the same comparison** (my call, after the fifth review): Code differs
+  opens the approved version beside what main draws now, each difference marked with the code change behind it, and
+  either the design is updated to match, making a new version, or the builder is asked to match the design.
+- **All projects is a list grouped by team** (my call, after the fifth review): each project's owner, last edit and
+  boards by status, and each team's boards by status and what it approved this week, so a large org can find work and
+  see where each team stands. Recents stays the file browser of what you've been in.
+- **Removing someone says what happens first** (my call, after the fifth review): their seat opens and is paid for until
+  the renewal, the projects they own go to someone you pick, the agents they connected lose access, their work stays
+  under their name, and without SCIM they're to be removed from the identity provider too.
 - **Libraries take Drafts' place in the nav** (my call): Parity's projects live in repositories, so there are no drafts.
   A library's page shows its components as the code renders them, which version each project uses and on which boards,
   and its releases; a project behind the latest version can be updated from there, or the update given to an agent.
@@ -787,10 +809,11 @@ recommended answer to each of its questions.
 - **Search is one page of everything you can open** (my call): designs, components with their files, comments and
   settings, the match marked, filtered by project, team, when and who. Projects you can't see stay out of it.
 - **Inspect is Parity's Dev Mode** (my call): a board at its approved version, read-only, opened from Handoff and
-  leading back to it. Picking anything shows its component and file, its props as code, its states, its text, its tokens
-  and its size, and hovering something else measures to it. The board's page file, the designer's notes and what there
-  is to export show too, files open on GitHub, and Give to your agent hands the board to the developer's own coding
-  agent. There's usually nothing to export: icons come from the project's icon package and the rest is drawn in code.
+  leading back to it. Picking anything shows its component and file, its props as code, its states, its text and size as
+  the code writes them (classes, with pixels beside), its tokens, and hovering something else measures to it. New and
+  changed are against main. The board's page file, the designer's notes and what there is to export show too, files open
+  on GitHub, and Give to your agent hands the board to the developer's own coding agent. There's usually nothing to
+  export: icons come from the project's icon package and the rest is drawn in code.
 - **What changed compares two of the project's versions** (my calls, after the design reviews). Parity records versions
   itself, and only a change makes one: a comment doesn't. Every place a change shows is marked, found from what the
   render draws with the changed token rather than placed by hand, so a token change marks every board that uses it. A

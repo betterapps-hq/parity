@@ -11,7 +11,7 @@ import { DesignRender } from "../start/renders.tsx"
 import { designOf, event, handoff, portalProject } from "./data.ts"
 import { HandoffPill, Pills, PortalPage, searchQuery } from "./parts.tsx"
 
-const { maya, jonas } = people
+const { jonas, sam } = people
 
 /** A name with the part that matches the search marked. */
 function Match({ text }: { text: string }) {
@@ -52,7 +52,7 @@ const components: { name: string; project: string; file: string; uses: string }[
 ]
 
 export function SearchPage() {
-  const mention = event("maya-mention")
+  const mention = event("jonas-mention")
   return (
     <PortalPage active="search" path={`kestrel/search?q=${searchQuery}`}>
       <div className="flex min-h-full">
@@ -110,12 +110,12 @@ export function SearchPage() {
             </Group>
             <Group title="Comments" count={2}>
               {[
-                { who: maya, where: "Pricing in Kestrel website", text: mention.quote!, when: mention.when },
+                { who: jonas, where: "Pricing in Kestrel website", text: mention.quote!, when: mention.when },
                 {
-                  who: jonas,
+                  who: sam,
                   where: "Billing in Cloud console",
                   text: "Should the plan badge pick up the new green too?",
-                  when: "Yesterday"
+                  when: "50 min ago"
                 }
               ].map((hit) => (
                 <div key={hit.text} className="flex items-start gap-3 rounded-lg px-2 py-2 hover:bg-muted/40">
