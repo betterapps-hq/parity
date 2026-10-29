@@ -12,7 +12,7 @@ jobs:
   # pnpm verify on each system, through the shared template. A newer push to the same branch or pull request cancels
   # the run before it.
   verify:
-    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@8b4311a69b28ad7423898dceda366cee6644f92c # v1.1.1
+    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@c3b85f070cf22fbf7a4dae841461f82e2b16ea20 # v1.2.0
     with:
       os: '["ubuntu-latest", "windows-latest", "macos-latest"]'
       # The detection tests need every project in fixtures/ installed, each with its own package manager. Their
@@ -40,9 +40,32 @@ jobs:
       cache-key-files: fixtures/*/*lock*
       # A run that installs the fixture projects and caches their 2 GB can outlast the default 30 minutes on Windows.
       timeout-minutes: 45
-      # Pull requests also run Beachball's check once PAR-4 lands, which makes pnpm verify run it. Set fetch-depth to 0
-      # then: Beachball compares the branch with origin/main, which a shallow checkout of a pull request doesn't have.
-      #
-      # Vite Task's cache (node_modules/.vite/task-cache) isn't kept between runs yet. pnpm verify runs vp check and
-      # vp test directly, not through vp run, so it doesn't use that cache, and keeping it needs a key that changes
-      # every run with a prefix to restore from, which ci-verify's one extra cache can't take.
+      # Vite Task's cache isn't kept between runs: pnpm verify runs vp check and vp test directly, not through vp run.
+
+  # What needs only one system and the branch's history: types, and on pull requests the change files Beachball and
+  # scripts/changes.ts check, and the title squash merging makes the commit's subject. Both compare with origin/main,
+  # which a shallow checkout doesn't have. The title comes from the event's file, never through an expression.
+  checks:
+    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@c3b85f070cf22fbf7a4dae841461f82e2b16ea20 # v1.2.0
+    with:
+      fetch-depth: 0
+      # A group of its own, so it never cancels verify's run on Ubuntu.
+      concurrency-key: checks-${{ github.ref }}
+      command: |
+        pnpm check:types
+        if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+          pnpm exec beachball check
+          node scripts/changes.ts check --committed
+          node scripts/commits.ts title "$(jq -r .pull_request.title "$GITHUB_EVENT_PATH")"
+        fi
+
+  # The one check the main branch's ruleset requires, so it needn't change when jobs or systems do.
+  ci-passes:
+    name: CI passes
+    if: always()
+    needs: [verify, checks]
+    runs-on: ubuntu-latest
+    steps:
+      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1
+      - run: echo "Every job passed."
