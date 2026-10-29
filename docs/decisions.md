@@ -252,6 +252,17 @@ still need your call.
 - **The canvas previews a field's edit as inline styles on the frames already drawn,** not through the store, so typing
   shows in about 25 ms and commits as one undo step. Number props don't preview yet (CAN-93).
 - **The field parser is in `@parity/core`** until `@parity/editor` exists (PKG-4).
+- **A dragged layer stays in its own layout while the pointer is over that layout** (CAN-47): it changes places with its
+  neighbours and never drops into one of them, so cards and bars that are layouts themselves don't swallow the neighbour
+  they pass. Putting a layer inside a neighbour is done in Layers for now (CAN-96). Targets are measured before the
+  dragged layer is hidden. In a grid or wrapping row, the line under the pointer decides first, then the children's
+  middles, and below the last line the layer goes last.
+- **A resize starts only after 4px along the handle's own axes,** and an edge fills only once it has left the parent's
+  inside and come back, so pressing a handle never changes the other axis (CAN-47). Absolutely placed layers resize by
+  their insets and never fill: a token inset on the side that moves becomes a number of steps, since a token can't be
+  offset, and the other sides keep theirs. The resize hint closes when a handle is pressed.
+- **A duplicated design goes to the first free space to the right along its row,** 160px clear of every design and note,
+  as do designs pasted into their own project (CAN-47). Bringing it into view when that's off screen is CAN-94.
 
 ## Main components and instances
 
