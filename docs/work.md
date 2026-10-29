@@ -25,10 +25,10 @@ What's decided goes in [decisions.md](decisions.md), designs in [proposals](prop
    (and ask the Design Editor session to republish the support matrix), the feature's section in editor.md, and any
    calls you made in decisions.md. Commit as [AGENTS.md](../AGENTS.md) says.
 6. **Close it once the work is on main,** with a comment saying what landed: the files, the tests, the doc section and
-   the commit. Until Parity is on GitHub, commits go straight to main, so move the issue to Done yourself. Once it's
-   there, work goes through a pull request: after it merges, check the issue moved to Done and has that comment, and
-   move it or add the comment if not. Work that's only partly landed stays In Progress, with a comment saying what's
-   left.
+   the commit. Commits go straight to main and reach GitHub (betterapps-hq/parity) only when the user asks for a push,
+   so move the issue to Done yourself. Work that goes through a pull request closes its issue when it merges, since
+   Linear is connected to betterapps-hq: after it merges, check the issue moved to Done and has that comment, and move
+   it or add the comment if not. Work that's only partly landed stays In Progress, with a comment saying what's left.
 7. **Found more work?** Create an issue in the Parity project, written as below.
 8. **Blocked by a decision?** Create an issue with the Decision label, assigned to the user, that blocks the issue it
    holds up. Questions go to the user, not into the code. When the user answers, record the answer in decisions.md,
@@ -52,10 +52,9 @@ What's decided goes in [decisions.md](decisions.md), designs in [proposals](prop
 - **Todo** is planned work. A blocked one shows what it's waiting for.
 - **Backlog** is work the user put after the core, and work that's parked or waiting on Better Apps.
 - **In Progress, Done** and **Canceled** mean what they say. A split or dropped issue is Canceled with a comment why.
-- **Urgent** is the repository work that comes before Parity goes on GitHub: Vite+, CI and checks on commit, the first
-  package boundaries, then the first unsigned release. **High** is what's next after it, in the user's lens priority:
-  databases, the API, routes and mock data, then telemetry, then links from code, then writing back. **Low** is after
-  the core. The rest aren't ranked yet.
+- **Urgent** is the repository work: Vite+, CI and checks on commit, the first package boundaries, then the first
+  unsigned release. **High** is what's next after it, in the user's lens priority: databases, the API, routes and mock
+  data, then telemetry, then links from code, then writing back. **Low** is after the core. The rest aren't ranked yet.
 - **Decision** marks a question for the user. **Parked** is React and Vite only, until the user asks for a second.
   **Waits on Better Apps** needs one of Better Apps' packages first.
 
