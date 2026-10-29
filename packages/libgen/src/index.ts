@@ -273,7 +273,17 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
       if (fetched.note) notes.push(fetched.note)
       const componentNames = scan.components.map((component) => component.name)
       exampleFiles = fetched.files
-      uses = readExamples(fetched.files, componentNames, pkg.name)
+      // The functions the package exports, which examples may import from where the package takes them (Chakra's
+      // `parseDate`, from `@internationalized/date`).
+      const own = pkg.name
+        ? await loader(
+            root,
+            dir
+          )(pkg.name)
+            .then((module) => new Set(Object.keys(module).filter((key) => typeof module[key] === "function")))
+            .catch(() => new Set<string>())
+        : new Set<string>()
+      uses = readExamples(fetched.files, componentNames, pkg.name, own)
       anatomy = readAnatomy(fetched.docs ?? [], componentNames)
       if (fetched.source) report.examples = { ...fetched.source, used: uses.size }
     }

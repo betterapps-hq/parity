@@ -2,21 +2,17 @@ import { readdir, readFile, realpath, stat } from "node:fs/promises"
 import { dirname, join, posix, relative, resolve } from "node:path"
 import {
   applyLibraryEdits,
-  type ComponentSample,
   type ComponentSource,
   type DescribedTokens,
   type LibraryInfo,
   type LibraryManifest,
   libraryManifestExtension,
-  isMadeValue,
-  isSampleElement,
-  isSampleRender,
   type PackageManifest,
   parseLibraryEdits,
   parseLibraryManifest,
   readDesignTokens,
   type RendererAdapter,
-  type SampleChild
+  librarySource
 } from "@parity/core"
 import { type RegistryEntry, registryEntries, registryEntryFor } from "@parity/registry"
 import { parseJsonc } from "./jsonc.ts"
@@ -186,24 +182,14 @@ export async function findLibraries(
         if (older?.gone.has(name) || component.visual === false) continue
         const declaration = component.declaration ? join(packageDir, component.declaration) : entry
         result.components[`${definition.id}/${name}`] = {
-          path: importOf(listed.import, packageName, importName),
-          export: name,
-          library: definition.id,
-          declaration: posix.normalize(relative(root, declaration).replaceAll("\\", "/")),
-          ...(component.group ? { group: component.group } : {}),
-          ...(component.parents ? { parents: component.parents.map((parent) => `${definition.id}/${parent}`) } : {}),
-          ...(component.internal ? { internal: true as const } : {}),
-          ...(component.optionalParents
-            ? { optionalParents: component.optionalParents.map((parent) => `${definition.id}/${parent}`) }
-            : {}),
-          ...(component.parentParts ? { parentParts: true as const } : {}),
-          ...(component.sample
-            ? {
-                sample: sampleIds(component.sample, definition.id, (specifier) =>
-                  importOf(specifier, packageName, importName)
-                )
-              }
-            : {})
+          ...librarySource(
+            definition.id,
+            name,
+            component,
+            importOf(listed.import, packageName, importName),
+            (specifier) => importOf(specifier, packageName, importName)
+          ),
+          declaration: posix.normalize(relative(root, declaration).replaceAll("\\", "/"))
         }
       }
       continue
@@ -218,47 +204,6 @@ export async function findLibraries(
     }
   }
   return result
-}
-
-/**
- * A sample with its children's components named by id, as `nova/AccordionItem`; HTML elements keep their tag. A value the
- * package makes (`{ $call: { import: "@chakra-ui/react", ... } }`) imports it by the name the project depends on.
- */
-function sampleIds(
-  sample: ComponentSample,
-  library: string,
-  imported: (specifier: string) => string = (specifier) => specifier
-): ComponentSample {
-  const child = (node: SampleChild): SampleChild =>
-    typeof node === "string"
-      ? node
-      : isSampleRender(node)
-        ? { ...node, $render: node.$render.map(child) }
-        : {
-            ...node,
-            component: /^[a-z]/.test(node.component) ? node.component : `${library}/${node.component}`,
-            ...(node.props ? { props: propIds(node.props) } : {}),
-            ...(node.children ? { children: node.children.map(child) } : {})
-          }
-  // A render function in a prop (`renderInput`) names components too.
-  const propIds = (props: Record<string, unknown>) =>
-    Object.fromEntries(
-      Object.entries(props).map(([key, item]) => [
-        key,
-        isSampleRender(item)
-          ? { ...item, $render: item.$render.map(child) }
-          : isSampleElement(item)
-            ? { $element: item.$element.map(child) }
-            : isMadeValue(item)
-              ? { ...item, $call: { ...item.$call, import: imported(item.$call.import) } }
-              : item
-      ])
-    )
-  return {
-    ...sample,
-    ...(sample.props ? { props: propIds(sample.props) } : {}),
-    ...(sample.children ? { children: sample.children.map(child) } : {})
-  }
 }
 
 /** A library file with its hand edits merged over it, read from its `edits` or the shared file it names. */

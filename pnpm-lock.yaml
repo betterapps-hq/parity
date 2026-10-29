@@ -441,6 +441,9 @@ importers:
 
   packages/cli:
     devDependencies:
+      '@parity/core':
+        specifier: workspace:*
+        version: link:../core
       '@parity/libgen':
         specifier: workspace:*
         version: link:../libgen

@@ -12,6 +12,7 @@
   },
   "dependencies": {},
   "devDependencies": {
+    "@parity/core": "workspace:*",
     "@parity/libgen": "workspace:*",
     "@parity/registry": "workspace:*"
   }

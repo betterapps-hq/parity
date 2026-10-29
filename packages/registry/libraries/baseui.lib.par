@@ -2842,6 +2842,8 @@
         "as": "forwardRef",
         "group": "Menu",
         "parents": [
+          "Menu.List",
+          "Menu.Group",
           "Menu.FilterProvider",
           "Menu.Root",
           "Menu.SubmenuRoot",
@@ -2866,6 +2868,8 @@
         "as": "forwardRef",
         "group": "Menu",
         "parents": [
+          "Menu.List",
+          "Menu.Group",
           "Menu.FilterProvider",
           "Menu.Root",
           "Menu.SubmenuRoot",
@@ -3088,6 +3092,8 @@
         "as": "forwardRef",
         "group": "Menu",
         "parents": [
+          "Menu.List",
+          "Menu.Group",
           "Menu.FilterProvider",
           "Menu.Root",
           "Menu.SubmenuRoot",
@@ -4956,20 +4962,7 @@
         "as": "forwardRef",
         "group": "NumberField",
         "sample": {
-          "props": {
-            "defaultValue": 100
-          },
           "children": [
-            {
-              "component": "NumberField.ScrubArea",
-              "children": [
-                "Amount",
-                {
-                  "component": "NumberField.ScrubAreaCursor",
-                  "children": []
-                }
-              ]
-            },
             {
               "component": "NumberField.Group",
               "children": [
@@ -4982,6 +4975,16 @@
                 },
                 {
                   "component": "NumberField.Increment",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "component": "NumberField.ScrubArea",
+              "children": [
+                "Amount",
+                {
+                  "component": "NumberField.ScrubAreaCursor",
                   "children": []
                 }
               ]
@@ -7451,6 +7454,7 @@
         "as": "forwardRef",
         "group": "Toast",
         "parents": [
+          "Toast.Root",
           "Toast.Portal",
           "Toast.Viewport"
         ],
@@ -7631,6 +7635,7 @@
         "as": "forwardRef",
         "group": "Toast",
         "parents": [
+          "Toast.Root",
           "Toast.Portal"
         ],
         "parentsFrom": "example",

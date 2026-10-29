@@ -11,13 +11,11 @@ import type {
   RenderNode
 } from "@parity/core"
 import {
-  cloneElement,
   Component,
   type ComponentType,
   createContext,
   createElement,
   Fragment,
-  isValidElement,
   type ReactNode,
   useContext,
   useEffect,
@@ -312,13 +310,15 @@ export function createGuest(init: GuestInit): Guest {
   const madeProps = (props: Props | undefined): Props =>
     Object.fromEntries(Object.entries(props ?? {}).map(([name, value]) => [name, madeValue(value)]))
 
-  const toReact = (node: RenderNode, key?: number): ReactNode => {
+  // `extra` is what a render function passes on: given to the node itself, since a component is wrapped in its boundary.
+  const toReact = (node: RenderNode, key?: number, extra?: Props): ReactNode => {
     switch (node.kind) {
       case "text":
         return node.text
       case "element": {
         const props = {
           ...attributesFor(node.tag, node.attributes),
+          ...extra,
           key,
           style: node.style,
           "data-canvas-node": node.nodeId
@@ -338,25 +338,29 @@ export function createGuest(init: GuestInit): Guest {
         }
         // The canvas finds a component by its boundary, below, not by this prop: a component may not render it, or
         // render it on an inner element. It still marks the DOM of components that pass it on, for scripts that look.
-        const props: Props = { ...madeProps(node.props), "data-canvas-node": node.nodeId }
+        const props: Props = { ...madeProps(node.props), ...extra, "data-canvas-node": node.nodeId }
         let children: ReactNode[] | undefined
         for (const [slot, nodes] of Object.entries(node.slots)) {
-          const rendered = nodes.map((child, index) => toReact(child, index))
           // A `$render:` slot is a function the component calls (`renderInput`, function children); `$renderWith:`
           // spreads what it's called with onto the one element it returns, and `?pass=a,b` gives it to those props.
           const render = /^\$render(With)?:([^?]+)(?:\?pass=(.+))?$/.exec(slot)
           if (render) {
             const [, spread, prop, pass] = render
-            const only = rendered.length === 1 && isValidElement(rendered[0]) ? rendered[0] : undefined
             props[prop!] = (argument: unknown) => {
-              if (only && pass)
-                return cloneElement(only, Object.fromEntries(pass.split(",").map((name) => [name, argument])))
-              if (only && spread && typeof argument === "object" && argument)
-                return cloneElement(only, argument as Props)
-              return only ?? rendered
+              const given = pass
+                ? Object.fromEntries(pass.split(",").map((name) => [name, argument]))
+                : spread && typeof argument === "object" && argument
+                  ? (argument as Props)
+                  : undefined
+              // Only the one element a function returns takes what it's called with.
+              const rendered = nodes.map((child, index) =>
+                toReact(child, index, nodes.length === 1 ? given : undefined)
+              )
+              return rendered.length === 1 ? rendered[0] : rendered
             }
             continue
           }
+          const rendered = nodes.map((child, index) => toReact(child, index))
           // The default slot becomes children; any other slot is a node-valued prop.
           if (slot === "children") children = rendered
           else props[slot] = rendered.length === 1 ? rendered[0] : rendered

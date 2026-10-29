@@ -1,23 +1,22 @@
 import {
   type ComponentInfo,
-  type ComponentSource,
+  componentNode,
   type DesignNode,
-  isSampleElement,
-  isSampleRender,
-  renderSlotOf,
-  type SampleChild,
-  type SampleRender,
   type ImageCredit,
   generateId,
   insertNode,
   locateNode,
   nodeIds,
-  type ContainerSpec
+  type ContainerSpec,
+  withLibraryContext
 } from "@parity/core"
 import type { ContainerEntry, DesignStore } from "../design-store.ts"
 import { findNodeElement, nodeBox } from "../frame.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { hitTest, type Point } from "./hit.ts"
+
+// Where a library part goes when it's inserted, shared with `parity lib check`, which tries it the same way.
+export { withLibraryContext }
 
 /**
  * Something from the Assets panel: one of the project's or a library's components (icons included), a component
@@ -49,37 +48,19 @@ export function componentLabel(component: string): string {
  * that takes children gets its own name as text, so it isn't an empty box.
  */
 export function nodeForItem(item: InsertItem, info: ComponentInfo | undefined, taken: Set<string>): DesignNode {
-  const id = generateId(taken)
-  if (item.kind === "instance") return { type: "instance", id, design: item.design }
+  if (item.kind === "instance") return { type: "instance", id: generateId(taken), design: item.design }
   if (item.kind === "image") {
     const height = Math.max(1, Math.round((imageSteps * item.height) / Math.max(1, item.width)))
     return {
       type: "image",
-      id,
+      id: generateId(taken),
       src: item.src,
       ...(item.alt ? { alt: item.alt } : {}),
       ...(item.credit ? { credit: item.credit } : {}),
       style: { width: imageSteps, height }
     }
   }
-  const props: Record<string, unknown> = { ...item.props }
-  for (const prop of info?.props ?? []) {
-    if (prop.name in props) continue
-    if (!prop.required || prop.default !== undefined || prop.name === "children") continue
-    if (prop.kind === "enum") props[prop.name] = prop.options?.[0]
-    else if (prop.kind === "boolean") props[prop.name] = false
-    else if (prop.kind === "number") props[prop.name] = 0
-    else if (prop.kind === "string") props[prop.name] = prop.name
-  }
-  if (info?.props.some((prop) => prop.name === "children" && prop.kind === "node")) {
-    props.children = componentLabel(item.component)
-  }
-  return {
-    type: "component",
-    id,
-    component: item.component,
-    ...(Object.keys(props).length > 0 ? { props } : {})
-  }
+  return componentNode(item.component, info, taken, item.props)
 }
 
 export interface DropTarget {
@@ -158,143 +139,6 @@ export function insertItem(
   }))
   selection.set({ design: target.entry.key, node: part.id, mode: target.mode, state: target.state })
   return part.id
-}
-
-/**
- * A library component as its library file says it's used: with its sample (a collection's items, an Accordion's
- * item), and, for a part, inside the parents it needs that aren't around the drop target already. An
- * `AccordionTrigger` dropped into an empty layout comes inside an Accordion and an AccordionItem; dropped into an
- * AccordionItem, it comes alone.
- */
-export function withLibraryContext(
-  node: DesignNode,
-  sources: Record<string, ComponentSource>,
-  around: string[],
-  taken: Set<string>
-): DesignNode {
-  if (node.type !== "component") return node
-  const source = sources[node.component]
-  if (!source) return node
-  const id = () => {
-    const next = generateId(taken)
-    taken.add(next)
-    return next
-  }
-  const build = (child: Exclude<SampleChild, SampleRender>): DesignNode => {
-    if (typeof child === "string") return { type: "text", id: id(), text: child }
-    // An HTML element in a sample stands for any single element a part clones: text is one.
-    if (!child.component.includes("/")) {
-      const text = child.children?.find((item): item is string => typeof item === "string") ?? "Text"
-      return { type: "text", id: id(), text }
-    }
-    // A child its sample spells out (with props or children) is as written; only a bare one takes its own sample's
-    // props, so one `Cell` example's `colSpan` doesn't reach every cell of a table.
-    return component(child.component, child.props, child.children, !child.props && !child.children)
-  }
-  const nodes = (children: SampleChild[]) => children.flatMap((child) => (isSampleRender(child) ? [] : [build(child)]))
-  /**
-   * Props and children as a node holds them. A render function (`renderInput`, function children) is a `$render:`
-   * slot of the nodes it returns, `$renderWith:` when what it's called with is spread onto them, so its nodes can be
-   * edited like any others.
-   */
-  const held = (props: Record<string, unknown>, children: SampleChild[] = []) => {
-    const plain: Record<string, unknown> = {}
-    const slots: Record<string, DesignNode[]> = {}
-    const renderSlot = (prop: string, render: SampleRender) => {
-      const pass = render.pass ? `?pass=${render.pass.join(",")}` : ""
-      slots[`${render.spread ? "$renderWith" : "$render"}:${prop}${pass}`] = nodes(render.$render)
-    }
-    for (const [key, value] of Object.entries(props)) {
-      if (isSampleRender(value)) renderSlot(key, value)
-      // Elements as a prop's value go in a slot of that name, which the canvas passes as the prop.
-      else if (isSampleElement(value)) slots[key] = nodes(value.$element)
-      else plain[key] = value
-    }
-    const render = children.find(isSampleRender)
-    if (render) renderSlot("children", render)
-    const rest = nodes(children)
-    if (rest.length > 0) slots.children = rest
-    return { props: plain, slots }
-  }
-  const component = (
-    name: string,
-    props?: Record<string, unknown>,
-    children?: SampleChild[],
-    defaults = true
-  ): DesignNode => {
-    const { props: merged, slots } = held({ ...(defaults ? sources[name]?.sample?.props : {}), ...props }, children)
-    return {
-      type: "component",
-      id: id(),
-      component: name,
-      ...(Object.keys(merged).length > 0 ? { props: merged } : {}),
-      ...(Object.keys(slots).length > 0 ? { slots } : {})
-    }
-  }
-  let placed: DesignNode = node
-  const sample = source.sample
-  if (sample) {
-    const { props, slots } = held({ ...sample.props, ...node.props }, sample.children)
-    if (sample.children?.length) delete props.children
-    const { props: _label, ...rest } = node
-    placed = {
-      ...rest,
-      ...(Object.keys(props).length > 0 ? { props } : {}),
-      ...(Object.keys(slots).length > 0 ? { slots: { ...node.slots, ...slots } } : {})
-    }
-  }
-  const parents = source.parents ?? []
-  const nearest = parents.findLastIndex((parent) => around.includes(parent))
-  // An optional level (`DropdownMenuGroup`) comes only with a missing parent outside it, when the structure is new.
-  const optional = new Set(source.optionalParents ?? [])
-  const missing = parents.slice(nearest + 1)
-  const added = missing.filter(
-    (parent, index) => !optional.has(parent) || missing.slice(0, index).some((outer) => !optional.has(outer))
-  )
-  const calling = added.some((parent) => renderSlotOf(sources[parent]?.sample))
-  if (source.parentParts && added.length > 0 && !calling) return inOuterSample(added, placed)
-  for (const parent of added.reverse()) {
-    const wrapper = component(parent)
-    // A parent that calls its children, or a render prop (`TreeView.Node`'s `render`), gets the part in that render
-    // slot, as its sample's own are.
-    const calls = renderSlotOf(sources[parent]?.sample)
-    const slot = calls
-      ? `$render:${calls.prop}${calls.render.pass ? `?pass=${calls.render.pass.join(",")}` : ""}`
-      : "children"
-    const kept = Object.fromEntries(
-      Object.entries(wrapper.type === "component" ? (wrapper.slots ?? {}) : {}).filter(
-        ([name]) => !calls || !name.startsWith(`$render:${calls.prop}`)
-      )
-    )
-    placed = wrapper.type === "component" ? { ...wrapper, slots: { ...(calls ? kept : {}), [slot]: [placed] } } : placed
-  }
-  return placed
-
-  /**
-   * A part that needs what's around it (a table's header beside the body a row is in) goes into the outermost
-   * parent's whole sample, each level in place of the first like it there and the part in place of the first like it
-   * at the bottom, so the row it's in keeps its other cells. A level the sample doesn't hold comes alone.
-   */
-  function inOuterSample(chain: string[], part: DesignNode): DesignNode {
-    const inside = (level: number, given: SampleChild[] | undefined): DesignNode[] => {
-      const name = level < chain.length ? chain[level]! : part.type === "component" ? part.component : ""
-      const items = (given ?? []).filter((item): item is Exclude<SampleChild, SampleRender> => !isSampleRender(item))
-      const at = items.findIndex((item) => typeof item === "object" && item.component === name)
-      const found = at === -1 ? undefined : (items[at] as Exclude<SampleChild, string | SampleRender>)
-      let here = part
-      if (level < chain.length) {
-        // A bare level takes its own sample, as any bare child does.
-        const written = found && (found.props || found.children)
-        const wrapper = component(name, found?.props, undefined, !written)
-        const children = inside(level + 1, written ? found.children : sources[name]?.sample?.children)
-        here = wrapper.type === "component" ? { ...wrapper, slots: { ...wrapper.slots, children } } : wrapper
-      }
-      return at === -1 ? [here] : items.map((item, index) => (index === at ? here : build(item)))
-    }
-    const outer = component(chain[0]!)
-    const children = inside(1, sources[chain[0]!]?.sample?.children)
-    return outer.type === "component" ? { ...outer, slots: { ...outer.slots, children } } : outer
-  }
 }
 
 /**

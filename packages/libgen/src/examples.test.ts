@@ -9,6 +9,32 @@ import {
   readExamples
 } from "./examples.ts"
 
+describe("wrappers from a file beside the example", () => {
+  it("counts one another example file declares, as the part it passes its props to", () => {
+    const files = [
+      {
+        path: "stories/utils.tsx",
+        text: `export const MyMenuItem = (props) => <MenuItem {...props} className="item" />`
+      },
+      {
+        path: "stories/Menu.stories.tsx",
+        text: `import { MyMenuItem } from "./utils"
+export const Sub = () => (
+  <Menu>
+    <SubmenuTrigger>
+      <MyMenuItem>Share</MyMenuItem>
+      <Popover><Menu><MyMenuItem>Email</MyMenuItem></Menu></Popover>
+    </SubmenuTrigger>
+  </Menu>
+)`
+      }
+    ]
+    const uses = readExamples(files, ["Menu", "MenuItem", "Popover", "SubmenuTrigger"])
+    // Both in the story, and the wrapper's own element, which its file doesn't place.
+    expect(uses.get("MenuItem")?.count).toBe(3)
+  })
+})
+
 describe("whole paths", () => {
   const menu = (inner: string) =>
     `<Card><DropdownMenu><DropdownMenuContent>${inner}</DropdownMenuContent></DropdownMenu></Card>`
@@ -412,6 +438,18 @@ describe("families", () => {
     // What a render prop draws is placed inside the component it's given to, and a render that picks shows the first.
     expect(uses.get("TreeView.Branch")?.paths).toEqual([["TreeView.Node", "TreeView.Root"]])
     expect(uses.get("TreeView.Node")?.sample?.props?.render).toEqual({ $render: [{ component: "TreeView.Branch" }] })
+  })
+
+  it("calls a function the package re-exports from the package, though the example imports it from elsewhere", () => {
+    const text = `
+      import { parseDate, today } from "@internationalized/date"
+      export const Demo = () => <DatePicker.Root defaultValue={[parseDate("2026-01-26")]} max={today()} />`
+    const uses = readExamples([{ path: "date.tsx", text }], ["DatePicker.Root"], "@acme/ui", new Set(["parseDate"]))
+    expect(uses.get("DatePicker.Root")?.sample?.props?.defaultValue).toEqual([
+      { $call: { import: "@acme/ui", export: "parseDate" }, args: ["2026-01-26"] }
+    ])
+    // One it doesn't export isn't made.
+    expect(uses.get("DatePicker.Root")?.sample?.props?.max).toBeUndefined()
   })
 
   it("leaves out a sample prop only one of a part's many uses sets", () => {

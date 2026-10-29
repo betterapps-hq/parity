@@ -1594,7 +1594,6 @@
       },
       "Collection": {
         "as": "function",
-        "declaration": "node_modules/react-aria/dist/types/src/collections/CollectionBuilder.d.ts",
         "group": "CollectionBuilder",
         "fingerprint": "a5f42da7",
         "props": {
@@ -1607,7 +1606,6 @@
       },
       "CollectionBuilder": {
         "as": "function",
-        "declaration": "node_modules/react-aria/dist/types/src/collections/CollectionBuilder.d.ts",
         "group": "CollectionBuilder",
         "parents": [
           "Collection"
@@ -1624,12 +1622,16 @@
         "as": "forwardRef",
         "declaration": "dist/types/src/ColorArea.d.ts",
         "group": "ColorArea",
+        "parents": [
+          "ColorPicker"
+        ],
+        "parentsFrom": "example",
         "sample": {
-          "children": [
-            {
-              "component": "ColorThumb"
-            }
-          ]
+          "props": {
+            "colorSpace": "hsb",
+            "xChannel": "saturation",
+            "yChannel": "brightness"
+          }
         },
         "fingerprint": "e79990e8",
         "props": {
@@ -1865,33 +1867,25 @@
           },
           "children": [
             {
+              "component": "ColorArea",
+              "props": {
+                "colorSpace": "hsb",
+                "xChannel": "saturation",
+                "yChannel": "brightness"
+              }
+            },
+            {
               "component": "ColorField",
               "props": {
                 "colorSpace": "hex"
               }
             },
             {
-              "component": "ColorSwatchPicker",
-              "children": [
-                {
-                  "component": "ColorSwatchPickerItem",
-                  "props": {
-                    "color": "#f00"
-                  }
-                },
-                {
-                  "component": "ColorSwatchPickerItem",
-                  "props": {
-                    "color": "#ff0"
-                  }
-                },
-                {
-                  "component": "ColorSwatchPickerItem",
-                  "props": {
-                    "color": "#0ff"
-                  }
-                }
-              ]
+              "component": "ColorSlider",
+              "props": {
+                "channel": "hue",
+                "colorSpace": "hsb"
+              }
             }
           ]
         },
@@ -1908,6 +1902,16 @@
         "as": "forwardRef",
         "declaration": "dist/types/src/ColorSlider.d.ts",
         "group": "ColorSlider",
+        "parents": [
+          "ColorPicker"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "channel": "hue",
+            "colorSpace": "hsb"
+          }
+        },
         "fingerprint": "821edf66",
         "props": {
           "aria-describedby?": "0bf956",
@@ -2006,6 +2010,11 @@
         "as": "forwardRef",
         "declaration": "dist/types/src/ColorSwatch.d.ts",
         "group": "ColorSwatch",
+        "sample": {
+          "props": {
+            "aria-label": "Color picker"
+          }
+        },
         "fingerprint": "483254af",
         "props": {
           "aria-describedby?": "0bf956",
@@ -2105,19 +2114,46 @@
               "component": "ColorSwatchPickerItem",
               "props": {
                 "color": "#f00"
-              }
+              },
+              "children": [
+                {
+                  "$render": [
+                    {
+                      "component": "ColorSwatch"
+                    }
+                  ]
+                }
+              ]
             },
             {
               "component": "ColorSwatchPickerItem",
               "props": {
                 "color": "#ff0"
-              }
+              },
+              "children": [
+                {
+                  "$render": [
+                    {
+                      "component": "ColorSwatch"
+                    }
+                  ]
+                }
+              ]
             },
             {
               "component": "ColorSwatchPickerItem",
               "props": {
                 "color": "#0ff"
-              }
+              },
+              "children": [
+                {
+                  "$render": [
+                    {
+                      "component": "ColorSwatch"
+                    }
+                  ]
+                }
+              ]
             }
           ]
         },
@@ -2220,7 +2256,16 @@
         "sample": {
           "props": {
             "color": "#f00"
-          }
+          },
+          "children": [
+            {
+              "$render": [
+                {
+                  "component": "ColorSwatch"
+                }
+              ]
+            }
+          ]
         },
         "fingerprint": "f94ca789",
         "props": {
@@ -4295,7 +4340,6 @@
       },
       "Focusable": {
         "as": "forwardRef",
-        "declaration": "node_modules/react-aria/dist/types/src/interactions/useFocusable.d.ts",
         "group": "UseFocusable",
         "sample": {
           "children": [
@@ -4448,20 +4492,29 @@
                 },
                 {
                   "component": "GridListItem",
+                  "props": {
+                    "textValue": "Foo"
+                  },
                   "children": [
-                    "1,1"
+                    "Foo"
                   ]
                 },
                 {
                   "component": "GridListItem",
+                  "props": {
+                    "textValue": "Bar"
+                  },
                   "children": [
-                    "1,2"
+                    "Bar"
                   ]
                 },
                 {
                   "component": "GridListItem",
+                  "props": {
+                    "textValue": "Baz"
+                  },
                   "children": [
-                    "1,3"
+                    "Baz"
                   ]
                 }
               ]
@@ -4477,20 +4530,29 @@
                 },
                 {
                   "component": "GridListItem",
+                  "props": {
+                    "textValue": "Charizard"
+                  },
                   "children": [
-                    "2,1"
+                    "Charizard"
                   ]
                 },
                 {
                   "component": "GridListItem",
+                  "props": {
+                    "textValue": "Blastoise"
+                  },
                   "children": [
-                    "2,2"
+                    "Blastoise"
                   ]
                 },
                 {
                   "component": "GridListItem",
+                  "props": {
+                    "textValue": "Pikachu"
+                  },
                   "children": [
-                    "2,3"
+                    "Pikachu"
                   ]
                 }
               ]
@@ -4506,20 +4568,20 @@
                 },
                 {
                   "component": "GridListItem",
+                  "props": {
+                    "textValue": "text value check"
+                  },
                   "children": [
-                    "3,1"
+                    "textValue is \"text value check\""
                   ]
                 },
                 {
                   "component": "GridListItem",
+                  "props": {
+                    "textValue": "Blah"
+                  },
                   "children": [
-                    "3,2"
-                  ]
-                },
-                {
-                  "component": "GridListItem",
-                  "children": [
-                    "3,3"
+                    "Blah"
                   ]
                 }
               ]
@@ -4950,20 +5012,29 @@
             },
             {
               "component": "GridListItem",
+              "props": {
+                "textValue": "Foo"
+              },
               "children": [
-                "1,1"
+                "Foo"
               ]
             },
             {
               "component": "GridListItem",
+              "props": {
+                "textValue": "Bar"
+              },
               "children": [
-                "1,2"
+                "Bar"
               ]
             },
             {
               "component": "GridListItem",
+              "props": {
+                "textValue": "Baz"
+              },
               "children": [
-                "1,3"
+                "Baz"
               ]
             }
           ]
@@ -5115,7 +5186,6 @@
       },
       "I18nProvider": {
         "as": "function",
-        "declaration": "node_modules/react-aria/dist/types/src/i18n/I18nProvider.d.ts",
         "group": "I18nProvider",
         "visual": false,
         "sample": {
@@ -5306,9 +5376,24 @@
             {
               "component": "ListBoxSection",
               "children": [
-                "Foo",
-                "Bar",
-                "Baz"
+                {
+                  "component": "ListBoxItem",
+                  "children": [
+                    "Foo"
+                  ]
+                },
+                {
+                  "component": "ListBoxItem",
+                  "children": [
+                    "Bar"
+                  ]
+                },
+                {
+                  "component": "ListBoxItem",
+                  "children": [
+                    "Baz"
+                  ]
+                }
               ]
             },
             {
@@ -5317,9 +5402,24 @@
                 "aria-label": "Section 2"
               },
               "children": [
-                "Foo",
-                "Bar",
-                "Baz"
+                {
+                  "component": "ListBoxItem",
+                  "children": [
+                    "Foo"
+                  ]
+                },
+                {
+                  "component": "ListBoxItem",
+                  "children": [
+                    "Bar"
+                  ]
+                },
+                {
+                  "component": "ListBoxItem",
+                  "children": [
+                    "Baz"
+                  ]
+                }
               ]
             }
           ]
@@ -5440,7 +5540,8 @@
         "parentsFrom": "example",
         "sample": {
           "children": [
-            "Greece"
+            "Item",
+            "Foo"
           ]
         },
         "fingerprint": "6077f0cd",
@@ -5556,7 +5657,6 @@
           "ListBox"
         ],
         "parentsFrom": "example",
-        "parentParts": true,
         "fingerprint": "7e773f93",
         "props": {
           "children?": "75c961",
@@ -5651,9 +5751,24 @@
             "aria-label": "Section 2"
           },
           "children": [
-            "Copy",
-            "Paste",
-            "Cut"
+            {
+              "component": "ListBoxItem",
+              "children": [
+                "Copy"
+              ]
+            },
+            {
+              "component": "ListBoxItem",
+              "children": [
+                "Paste"
+              ]
+            },
+            {
+              "component": "ListBoxItem",
+              "children": [
+                "Cut"
+              ]
+            }
           ]
         },
         "fingerprint": "8f1e8f7c",
@@ -5752,37 +5867,69 @@
             {
               "component": "MenuItem",
               "props": {
-                "id": "common_name"
+                "id": "favorite"
               },
               "children": [
-                "Name"
+                "Unfavorite"
               ]
             },
             {
               "component": "MenuItem",
               "props": {
-                "id": "cycle"
+                "id": "edit"
               },
               "children": [
-                "Cycle"
+                "Edit…"
               ]
             },
             {
               "component": "MenuItem",
               "props": {
-                "id": "sunlight"
+                "id": "delete"
               },
               "children": [
-                "Sunlight"
+                "Delete…"
               ]
             },
             {
-              "component": "MenuItem",
-              "props": {
-                "id": "watering"
-              },
+              "component": "SubmenuTrigger",
               "children": [
-                "Watering"
+                {
+                  "component": "MenuItem",
+                  "props": {
+                    "aria-label": "Share"
+                  },
+                  "children": [
+                    "Share"
+                  ]
+                },
+                {
+                  "component": "Menu",
+                  "children": [
+                    {
+                      "component": "MenuItem",
+                      "props": {
+                        "target": "blank",
+                        "rel": "noopener noreferrer",
+                        "aria-label": "X"
+                      },
+                      "children": [
+                        "X…"
+                      ]
+                    },
+                    {
+                      "component": "MenuItem",
+                      "props": {
+                        "target": "blank",
+                        "rel": "noopener noreferrer",
+                        "aria-label": "Email"
+                      },
+                      "children": [
+                        "Email…"
+                      ]
+                    }
+                  ]
+                }
               ]
             }
           ]
@@ -5895,6 +6042,9 @@
           "Menu"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "MenuTrigger"
+        ],
         "sample": {
           "children": [
             "X…"
@@ -6108,10 +6258,33 @@
         ],
         "sample": {
           "children": [
-            "Foo",
-            "Bar",
-            "Baz",
-            "Google"
+            {
+              "component": "MenuItem",
+              "children": [
+                "Foo"
+              ]
+            },
+            {
+              "component": "MenuItem",
+              "children": [
+                "Bar"
+              ]
+            },
+            {
+              "component": "MenuItem",
+              "children": [
+                "Baz"
+              ]
+            },
+            {
+              "component": "MenuItem",
+              "props": {
+                "href": "http://google.com"
+              },
+              "children": [
+                "Google"
+              ]
+            }
           ]
         },
         "fingerprint": "76552199",
@@ -6214,44 +6387,69 @@
           "children": [
             {
               "component": "Menu",
-              "props": {
-                "selectionMode": "multiple"
-              },
               "children": [
                 {
                   "component": "MenuItem",
                   "props": {
-                    "id": "common_name"
+                    "id": "favorite"
                   },
                   "children": [
-                    "Name"
+                    "Unfavorite"
                   ]
                 },
                 {
                   "component": "MenuItem",
                   "props": {
-                    "id": "cycle"
+                    "id": "edit"
                   },
                   "children": [
-                    "Cycle"
+                    "Edit…"
                   ]
                 },
                 {
                   "component": "MenuItem",
                   "props": {
-                    "id": "sunlight"
+                    "id": "delete"
                   },
                   "children": [
-                    "Sunlight"
+                    "Delete…"
                   ]
                 },
                 {
-                  "component": "MenuItem",
-                  "props": {
-                    "id": "watering"
-                  },
+                  "component": "SubmenuTrigger",
                   "children": [
-                    "Watering"
+                    {
+                      "component": "MenuItem",
+                      "props": {
+                        "aria-label": "Share"
+                      },
+                      "children": [
+                        "Share"
+                      ]
+                    },
+                    {
+                      "component": "Menu",
+                      "children": [
+                        {
+                          "component": "MenuItem",
+                          "props": {
+                            "target": "blank",
+                            "rel": "noopener noreferrer",
+                            "aria-label": "X"
+                          },
+                          "children": []
+                        },
+                        {
+                          "component": "MenuItem",
+                          "props": {
+                            "target": "blank",
+                            "rel": "noopener noreferrer",
+                            "aria-label": "Email"
+                          },
+                          "children": []
+                        }
+                      ]
+                    }
                   ]
                 }
               ]
@@ -7305,7 +7503,6 @@
       },
       "Pressable": {
         "as": "forwardRef",
-        "declaration": "node_modules/react-aria/dist/types/src/interactions/Pressable.d.ts",
         "group": "Pressable",
         "sample": {
           "children": [
@@ -8134,7 +8331,6 @@
       },
       "RouterProvider": {
         "as": "function",
-        "declaration": "node_modules/react-aria/dist/types/src/utils/openLink.d.ts",
         "group": "OpenLink",
         "visual": false,
         "sample": {
@@ -8158,6 +8354,33 @@
           "TableBody"
         ],
         "parentsFrom": "example",
+        "parentParts": true,
+        "sample": {
+          "children": [
+            {
+              "component": "Cell",
+              "children": []
+            },
+            {
+              "component": "Cell",
+              "children": [
+                "Games"
+              ]
+            },
+            {
+              "component": "Cell",
+              "children": [
+                "File folder"
+              ]
+            },
+            {
+              "component": "Cell",
+              "children": [
+                "6/7/2020"
+              ]
+            }
+          ]
+        },
         "fingerprint": "8c2026ae",
         "props": {
           "children?": "f63982",
@@ -8900,6 +9123,8 @@
         "declaration": "dist/types/src/Sheet.d.ts",
         "group": "Sheet",
         "parents": [
+          "Sheet",
+          "SheetContent",
           "SheetTrigger",
           "SheetOverlay"
         ],
@@ -9820,7 +10045,6 @@
       },
       "SSRProvider": {
         "as": "function",
-        "declaration": "node_modules/react-aria/dist/types/src/ssr/SSRProvider.d.ts",
         "group": "SSRProvider",
         "visual": false,
         "sample": {
@@ -9837,12 +10061,56 @@
         "as": "function",
         "declaration": "dist/types/src/Menu.d.ts",
         "group": "Menu",
+        "parents": [
+          "MenuTrigger",
+          "Menu",
+          "MenuSection"
+        ],
+        "parentsFrom": "example",
+        "optionalParents": [
+          "MenuSection"
+        ],
         "sample": {
           "props": {
             "children": []
           },
           "children": [
-            "With subdialog"
+            {
+              "component": "MenuItem",
+              "props": {
+                "aria-label": "Share"
+              },
+              "children": [
+                "Share"
+              ]
+            },
+            {
+              "component": "Menu",
+              "children": [
+                {
+                  "component": "MenuItem",
+                  "props": {
+                    "target": "blank",
+                    "rel": "noopener noreferrer",
+                    "aria-label": "X"
+                  },
+                  "children": [
+                    "X…"
+                  ]
+                },
+                {
+                  "component": "MenuItem",
+                  "props": {
+                    "target": "blank",
+                    "rel": "noopener noreferrer",
+                    "aria-label": "Email"
+                  },
+                  "children": [
+                    "Email…"
+                  ]
+                }
+              ]
+            }
           ]
         },
         "fingerprint": "1919d798",
@@ -10576,13 +10844,128 @@
           "Table"
         ],
         "parentsFrom": "example",
+        "parentParts": true,
         "sample": {
           "children": [
             {
-              "component": "Row"
+              "component": "Row",
+              "props": {
+                "id": "1"
+              },
+              "children": [
+                {
+                  "component": "Cell",
+                  "children": []
+                },
+                {
+                  "component": "Cell",
+                  "children": [
+                    "Games"
+                  ]
+                },
+                {
+                  "component": "Cell",
+                  "children": [
+                    "File folder"
+                  ]
+                },
+                {
+                  "component": "Cell",
+                  "children": [
+                    "6/7/2020"
+                  ]
+                }
+              ]
             },
             {
-              "component": "TableLoadMoreItem"
+              "component": "Row",
+              "props": {
+                "id": "2"
+              },
+              "children": [
+                {
+                  "component": "Cell",
+                  "children": []
+                },
+                {
+                  "component": "Cell",
+                  "children": [
+                    "Program Files"
+                  ]
+                },
+                {
+                  "component": "Cell",
+                  "children": [
+                    "File folder"
+                  ]
+                },
+                {
+                  "component": "Cell",
+                  "children": [
+                    "4/7/2021"
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "Row",
+              "props": {
+                "id": "3"
+              },
+              "children": [
+                {
+                  "component": "Cell",
+                  "children": []
+                },
+                {
+                  "component": "Cell",
+                  "children": [
+                    "bootmgr"
+                  ]
+                },
+                {
+                  "component": "Cell",
+                  "children": [
+                    "System file"
+                  ]
+                },
+                {
+                  "component": "Cell",
+                  "children": [
+                    "11/20/2010"
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "Row",
+              "props": {
+                "id": "4"
+              },
+              "children": [
+                {
+                  "component": "Cell",
+                  "children": []
+                },
+                {
+                  "component": "Cell",
+                  "children": [
+                    "log.txt"
+                  ]
+                },
+                {
+                  "component": "Cell",
+                  "children": [
+                    "Text Document"
+                  ]
+                },
+                {
+                  "component": "Cell",
+                  "children": [
+                    "1/18/2016"
+                  ]
+                }
+              ]
             }
           ]
         },
@@ -13406,10 +13789,21 @@
                                     "data-testid": "combo-box-list-box"
                                   },
                                   "children": [
-                                    "Foo",
-                                    "Bar",
-                                    "Baz",
-                                    "Google"
+                                    {
+                                      "component": "ListBoxItem"
+                                    },
+                                    {
+                                      "component": "ListBoxItem"
+                                    },
+                                    {
+                                      "component": "ListBoxItem"
+                                    },
+                                    {
+                                      "component": "ListBoxItem",
+                                      "props": {
+                                        "href": "http://google.com"
+                                      }
+                                    }
                                   ]
                                 }
                               ]
@@ -14088,7 +14482,6 @@
       },
       "VisuallyHidden": {
         "as": "function",
-        "declaration": "node_modules/react-aria/dist/types/src/visually-hidden/VisuallyHidden.d.ts",
         "group": "VisuallyHidden",
         "sample": {
           "children": [

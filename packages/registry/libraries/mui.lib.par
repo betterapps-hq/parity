@@ -9160,6 +9160,8 @@
         "as": "function",
         "group": "TableSortLabel",
         "parents": [
+          "TableContainer",
+          "Table",
           "TableHead",
           "TableRow",
           "TableCell"

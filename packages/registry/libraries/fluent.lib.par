@@ -27465,7 +27465,6 @@
             {
               "component": "InteractionTagPrimary",
               "props": {
-                "secondaryText": "appearance=outline",
                 "hasSecondaryAction": true
               },
               "children": [

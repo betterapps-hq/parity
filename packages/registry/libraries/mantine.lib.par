@@ -6142,7 +6142,6 @@
         "group": "Accordion",
         "sample": {
           "props": {
-            "variant": "filled",
             "defaultValue": "photos",
             "order": 3,
             "mih": 200
@@ -15375,10 +15374,42 @@
         "group": "Grid",
         "sample": {
           "children": [
-            "1",
-            "2",
-            "3",
-            "4"
+            {
+              "component": "GridCol",
+              "props": {
+                "span": 3
+              },
+              "children": [
+                "1"
+              ]
+            },
+            {
+              "component": "GridCol",
+              "props": {
+                "span": 3
+              },
+              "children": [
+                "2"
+              ]
+            },
+            {
+              "component": "GridCol",
+              "props": {
+                "span": 3
+              },
+              "children": [
+                "3"
+              ]
+            },
+            {
+              "component": "GridCol",
+              "props": {
+                "span": 3
+              },
+              "children": [
+                "4"
+              ]
+            }
           ]
         },
         "fingerprint": "e0a9943a",
@@ -15476,11 +15507,11 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "span": {
-              "base": 12,
-              "sm": 3
-            }
-          }
+            "span": 4
+          },
+          "children": [
+            "flex-start"
+          ]
         },
         "fingerprint": "3b9b31e9",
         "props": {
@@ -20068,11 +20099,8 @@
         "group": "Modal",
         "sample": {
           "props": {
-            "opened": true,
-            "title": "Please consider this",
-            "transitionProps": {
-              "transition": "rotate-left"
-            }
+            "opened": false,
+            "title": "Please consider this"
           },
           "children": [
             "rotate-left transition"
@@ -27271,43 +27299,37 @@
         "sample": {
           "props": {
             "children": "Text",
-            "active": 1
+            "active": 0
           },
           "children": [
             {
               "component": "StepperStep",
               "props": {
                 "label": "First step",
-                "description": "Create an account"
+                "description": "Profile settings"
               },
-              "children": [
-                "Step 1 content: Create an account"
-              ]
+              "children": []
             },
             {
               "component": "StepperStep",
               "props": {
                 "label": "Second step",
-                "description": "Verify email"
+                "description": "Personal information"
               },
-              "children": [
-                "Step 2 content: Verify email"
-              ]
+              "children": []
             },
             {
               "component": "StepperStep",
               "props": {
                 "label": "Final step",
-                "description": "Get full access"
+                "description": "Social media"
               },
-              "children": [
-                "Step 3 content: Get full access"
-              ]
+              "children": []
             },
             {
               "component": "StepperCompleted",
               "children": [
-                "Completed, click back button to get to previous step"
+                "Completed! Form values:"
               ]
             }
           ]
@@ -27418,7 +27440,7 @@
             "children": "Text"
           },
           "children": [
-            "Completed, click back button to get to previous step"
+            "Completed! Form values:"
           ]
         },
         "fingerprint": "2cdee27a",
@@ -27436,12 +27458,9 @@
         "parentsFrom": "example",
         "sample": {
           "props": {
-            "label": "First step",
-            "description": "Create an account"
-          },
-          "children": [
-            "Step 1 content: Create an account"
-          ]
+            "label": "Step 2",
+            "description": "Verify email"
+          }
         },
         "fingerprint": "823008b0",
         "props": {

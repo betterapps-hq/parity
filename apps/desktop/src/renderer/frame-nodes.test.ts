@@ -339,10 +339,10 @@ describe("finding a design node's DOM", () => {
 
 /**
  * A component handing props to what's in its slot: Radix's Slot merging a button's onto its asChild child, and a
- * `$renderWith:` slot spreading what the component calls it with. Both clone the slot's element, so they reach an
- * element layer. A component layer is drawn inside the guest's error boundary, so the clone is of the boundary, which
- * draws its child as it was: the props are lost. That has been so since `$renderWith:` came in (7c9c8c3); the boundary
- * is from the first commit. The failing cases are kept as `it.fails` until it's fixed.
+ * `$renderWith:` slot spreading what the component calls it with. A component layer is drawn inside the guest's error
+ * boundary. The guest gives a render slot's props to the layer itself, so `$renderWith:` reaches it; Radix's Slot
+ * clones the boundary, which draws its child as it was, so asChild's props are lost. The failing case is kept as
+ * `it.fails` until it's fixed.
  */
 describe("props a component hands to its slot", () => {
   const slots: Node[] = [
@@ -415,7 +415,7 @@ describe("props a component hands to its slot", () => {
     ])
   })
 
-  it.fails("gives a component in a $renderWith: slot what the component renders it with", async () => {
+  it("gives a component in a $renderWith: slot what the component renders it with", async () => {
     expect(await drawn("ul.repeat > li.tag")).toEqual([
       { className: "tag given", slot: undefined, index: "0" },
       { className: "tag given", slot: undefined, index: "1" }
