@@ -593,6 +593,35 @@ recommended answer to each of its questions.
   package puts inside it; ToastViewport is back under Toaster, and the Toaster's sample holds it again.
 - **An anchored toast's Positioner renders unanchored:** Base UI's anchored demo anchors to a button's ref, which a
   sample can't hold, so the Positioner sits at the frame's corner. Accepted rather than faked.
+- **An example's own wrapper of a part is the part (LIB-48):** a demo component that returns one of the library's parts
+  and nothing else (`const CustomTab = (props) => <Tab {...props} />`) places that part wherever the demo places the
+  wrapper, so React Aria's `Tab` is found inside `TabList` in `Tabs`. One that hands its props on is sampled where it's
+  used; one that doesn't (`<Item title="Docs">`) is sampled from its own element, with the children it's given when that
+  element has none. The wrapper's own element isn't counted as a use of its own.
+- **Families take in what the examples only place inside them (LIB-48):** a plural is its singular's family (`Tabs` with
+  `Tab`), and a part the examples nearly always place, directly inside one family, joins it for samples (React Aria's
+  `Row`, `Cell` and `Column` join `Table`), so a table's sample keeps its header and rows. Not when the part's own
+  family is usually around it too (Chakra's `Toggle.Indicator` in a `Button` in `Toggle.Root`), and never into a layout
+  box that holds more than eight families (`Group`, `Stack`, `Dialog`).
+- **A collection's placeholder isn't drawing (LIB-48):** React Aria renders an item outside its collection as a bare
+  `<item>` for the collection to read, without throwing, so `Row` and `NavigationTreeItem` looked like they drew alone
+  and got no parents. Markup that starts with `<item>` now counts as failing.
+- **A part can need its parents' other parts (LIB-48):** a table's row renders only with the header beside the body it's
+  in. When the examples' chain fails alone but renders with the parts each parent's example holds, the part in place of
+  the first like it, the part is marked `parentParts`, and inserting it alone brings those parts along. The chain is
+  accepted only where the part adds markup, since a closed menu or popover renders nothing on the server and would seem
+  to hold anything. It's tried before the chain is grown upward, with and without the levels fewer than nine in ten
+  examples show (a `Virtualizer` half of them wrap tables in).
+- **A name's guess gives way to the examples and the collection (LIB-48):** a part the examples mostly use with nothing
+  of the library's around it gets no parent from its name (Chakra's `InputGroup` isn't put inside `Input`), and a prefix
+  that's a collection's item yields to the collection (React Aria's `TabPanels` goes in `Tabs`, not `Tab`).
+- **Failing parts are tried again once every parent has its sample (LIB-48):** parts are tried in name order, so
+  Chakra's `Combobox.Indicator` failed before `Combobox.Item` took its example `item`. Chakra now renders 446 of 473.
+- **What's left needs values the app makes at runtime:** Chakra's TreeView parts render inside `TreeView.NodeProvider`
+  given a plain `node` and `indexPath`, but the examples only pass the node a tree collection hands its render function.
+  Its toasts need a `createToaster()` toaster, its FileUpload items `File`s, its date cells date objects; React Aria's
+  toasts need a `ToastQueue`. Sample props are JSON, and only decorators can hold `$call` values, so these stay failing
+  until samples can hold made values or a hand edit gives them.
 - **The in-app backtest runs its own instance:** `PARITY_UI_PORT`, `PARITY_DEBUG_PORT`, `PARITY_AGENT_FILE` and
   `PARITY_USER_DATA` give it its own ports, CLI channel and settings, so it runs beside another session's Parity instead
   of driving it.
@@ -1000,6 +1029,8 @@ recommended answer to each of its questions.
 - **Agents see what the Components panel shows** (your call, 2026-10-29): `parity components` lists the components that
   fail to draw on the canvas and why, and the person's corrections, saved or not, as well as the exports that aren't
   components (`0004a01`).
+- **`@parity/cli` will be public on npm** (your call, 2026-10-29), so a CI pipeline gets Parity with `npx @parity/cli`
+  and nothing else to download. Visual tests in CI rely on it (VIS-13).
 - **A project's Vite server keeps its own dependency cache,** `node_modules/.vite-parity`. With Vite's default, the
   project's own dev server, often running alongside, re-optimized into the same folder, and each server then served
   stale dependencies ("Outdated Optimize Dep"). Opening Parity's own app as a project broke every offscreen render this
@@ -1053,6 +1084,30 @@ recommended answer to each of its questions.
   `node`: no parameter properties, namespaces or enums. oxlint rejects the first two in `packages/**` and
   `apps/*/scripts/**`; the app's bundled code may use them. The Library files session found CAN-48's parser had broken
   the CLI this way, fixed in `f743864`.
+
+## Repository and releases
+
+How Parity goes public and ships. The proposal is [proposals/repository.md](proposals/repository.md), and the work is
+the REPO stream in the backlog.
+
+- **Parity will be a public repository under the Fencing Club organization on GitHub,** as you decided on 2026-10-29.
+  Actions runners are free for public repositories, so CI tests on Windows, macOS and Linux.
+- **Releases ship unsigned until signing is set up,** as you chose on 2026-10-29. Signing is REPO-13. Until then,
+  Windows SmartScreen warns on first run, macOS blocks the app until it's allowed in System Settings, and macOS can't
+  update in place, so CAN-38 waits for signing there.
+- **The toolchain moves to Vite+ in place, with `vp migrate`.** You asked for the monorepo template on 2026-10-29. My
+  calls: workspace packages stay source-only, the example project, fixtures and builder-vite stay on stock Vite because
+  they stand in for or drive customers' projects, and `pnpm verify` keeps its name.
+- **Installers come from electron-builder, releases from a `v*` tag in GitHub Actions to GitHub Releases, and versions
+  from release-please.** My call: one tool makes installers, signs them and serves updates, and release-please reads the
+  conventional commits AGENTS.md already asks for. `@changesets/cli` would clash in name with PKG-2's changesets, and
+  beachball wants a change file with every commit.
+- **Conventions from the agency monorepo are in [conventions.md](conventions.md),** as you asked on 2026-10-29. My call
+  on which: finish a change before checking it, fix forward, ask before adding a dependency, no dot glyph as a
+  separator, and try changes people see in the running app. Its Turborepo, beachball, shared config packages, "prefer
+  `type` over `interface`", React Compiler rules and library catalogs aren't taken; the proposal says why.
+- **Once releases ship, a change to `.par` or `.lib.par` still reads the old format.** My call, and the one exception to
+  fixing forward: people's saved files outlive the version that wrote them.
 
 ## Packages
 
