@@ -1142,6 +1142,12 @@ to PAR-206 build it.
   both holes, so PAR-140 replaces it.
 - **Spacing draws at its true size,** in rows and in the detail's scale, as you asked on 2026-10-29: rows widen to the
   section's longest length, up to 128 pixels, and only a longer one is drawn cut, with a break in its bar.
+- **Copying a token takes one step,** since you judged it's why most people open the tab: a copy button on each row and
+  tile, Ctrl+C on a row, and a click on a palette shade copy `var(--name)`. My call: `var()` is the default because it
+  works anywhere CSS does, while a color's Tailwind class depends on the property. The detail lists the Tailwind classes
+  too, each copied with a click.
+- **The detail has no caption under the name.** You found "Font sizes, theme scale" awkward and of little use: the kind
+  and source repeat the section heading and the filter. Only a library's name stays.
 
 ## The app icon
 
@@ -1277,9 +1283,17 @@ How Parity's code is split, so the parts that change most are easy to find, repl
 2026-10-28, expecting design-to-code and code-to-design to need a lot of iteration. The proposal is
 [proposals/packages.md](proposals/packages.md). These are my calls; change any of them.
 
-- **Logic lives in packages that take data and return data,** with no React, tldraw, Electron or `node:fs` in their
-  dependencies, and tests that run without Electron. The app's main and service processes do the files, IPC and
-  processes, and the renderer keeps the views. A lint rule per logic package keeps it that way (PAR-5).
+- **Logic lives in packages that take data and return data,** with tests that run without Electron. The app's main and
+  service processes do the files, IPC and processes, and the renderer keeps the views. You chose how far the lint guard
+  reaches on 2026-10-29 (PAR-5), and the root `vite.config.ts` holds it:
+  - A package is pure unless that file names it: nothing from Node, React, tldraw or Electron, and only other pure
+    packages. A new package starts pure, so nobody has to remember to guard it.
+  - `@parity/code`, `@parity/project` and `@parity/registry` are readers. They read a project's files, since
+    TypeScript's program and the project's discovery read as they go, but never write them or start processes; a reader
+    that needs a file changed returns a changeset. They use no React and depend only on pure packages and other readers.
+  - The CLI, libgen, the agent runtime, the adapters and the fixtures are the edge, where Node belongs, and
+    renderer-react uses React.
+  - No package imports Electron, tldraw or the app. Tests may use Node to set up files.
 - **Design and code sync gets one package, `@parity/code`,** which also takes over the three component readers
   (`project/components.ts`, `libgen/components.ts` and `@parity/props`), so one TypeScript program per project serves
   them all. Generating component files, reading them back and the drift review are built there, with golden-file tests.

@@ -1,6 +1,7 @@
 import {
   Check,
   ChevronsUpDown,
+  Copy,
   CornerDownRight,
   LayoutGrid,
   List,
@@ -10,7 +11,7 @@ import {
   Search,
   Undo2
 } from "lucide-react"
-import { type ReactNode, useState } from "react"
+import { type KeyboardEvent as ReactKeyboardEvent, type ReactNode, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Input } from "@/components/ui/input"
@@ -22,6 +23,7 @@ import { PanelSection } from "../../chrome/PanelSection.tsx"
 import {
   allTokens,
   breakpoints,
+  codeFor,
   drawn,
   durations,
   easings,
@@ -80,6 +82,82 @@ function edited(token: SampleToken, values: Record<string, string>): SampleToken
   return { ...token, values, resolved, via: references(values.default ?? "") }
 }
 
+/** Copies text to the clipboard, and remembers what it copied for a moment, so the button can say so. */
+function useCopy() {
+  const [copied, setCopied] = useState<string>()
+  useEffect(() => {
+    if (copied === undefined) return
+    const timer = setTimeout(() => setCopied(undefined), 1500)
+    return () => clearTimeout(timer)
+  }, [copied])
+  const copy = (text: string) =>
+    void navigator.clipboard.writeText(text).then(
+      () => setCopied(text),
+      () => {}
+    )
+  return { copied, copy }
+}
+
+/** Ctrl+C, or Cmd+C on a Mac, on a token's row or tile copies it, as its copy button does. */
+function copyKey(copy: () => void) {
+  return (event: ReactKeyboardEvent) => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c") {
+      event.preventDefault()
+      copy()
+    }
+  }
+}
+
+/**
+ * The copy button on a row or tile: it shows while the row is hovered or has the keyboard, and stays a moment after
+ * copying, its tooltip saying what was copied.
+ */
+function CopyButton({
+  text,
+  copied,
+  onCopy,
+  className = ""
+}: {
+  text: string
+  copied: boolean
+  onCopy(): void
+  className?: string
+}) {
+  const [hint, setHint] = useState(false)
+  return (
+    <Hint label={copied ? `Copied ${text}` : `Copy ${text}`} open={hint || copied} onOpenChange={setHint}>
+      <button
+        type="button"
+        aria-label={`Copy ${text}`}
+        onClick={onCopy}
+        className={`grid size-6 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:opacity-100 ${copied ? "opacity-100" : "opacity-0 group-focus-within/token:opacity-100 group-hover/token:opacity-100"} ${className}`}
+      >
+        {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+      </button>
+    </Hint>
+  )
+}
+
+/** One way to write a token in code, in the detail, copied with a click. */
+function CopyChip({ text }: { text: string }) {
+  const { copied, copy } = useCopy()
+  const [hint, setHint] = useState(false)
+  return (
+    <Hint label={copied ? "Copied" : "Copy"} open={hint || copied !== undefined} onOpenChange={setHint}>
+      <Button
+        variant="outline"
+        size="sm"
+        aria-label={`Copy ${text}`}
+        onClick={() => copy(text)}
+        className="h-6 max-w-full gap-1 px-1.5 font-mono text-[11px] font-normal"
+      >
+        <span className="truncate">{text}</span>
+        {copied ? <Check className="size-3 text-(--process-running)" /> : <Copy className="size-3 opacity-60" />}
+      </Button>
+    </Hint>
+  )
+}
+
 /** A token's row in the panel: its preview, name and value. Clicking it opens its detail and editor. */
 export function TokenRow({
   token: original,
@@ -97,14 +175,16 @@ export function TokenRow({
   const token = edited(original, values)
   const { playing, handlers } = useHoverPlay(token, forced)
   const value = valueLabel(token)
+  const { copied, copy } = useCopy()
+  const code = codeFor(token)[0]!
   return (
-    <li>
+    <li {...handlers} className="group/token relative flex items-center">
       <Popover defaultOpen={open}>
         <PopoverTrigger asChild>
           <button
             type="button"
-            {...handlers}
-            className="flex min-h-8 w-full min-w-0 items-center gap-2 rounded-md px-1.5 py-1 text-left text-xs hover:bg-accent/50 aria-expanded:bg-accent"
+            onKeyDown={copyKey(() => copy(code))}
+            className="flex min-h-8 w-full min-w-0 items-center gap-2 rounded-md py-1 pr-8 pl-1.5 text-left text-xs group-hover/token:bg-accent/50 aria-expanded:bg-accent"
           >
             <TokenGlyph
               token={token}
@@ -125,6 +205,7 @@ export function TokenRow({
           <TokenDetail token={original} values={values} onValues={setValues} />
         </PopoverContent>
       </Popover>
+      <CopyButton text={code} copied={copied === code} onCopy={() => copy(code)} className="absolute right-1" />
     </li>
   )
 }
@@ -135,35 +216,68 @@ function TokenTileButton({ token: original, playing: forced }: { token: SampleTo
   const token = edited(original, values)
   const { playing, handlers } = useHoverPlay(token, forced)
   const value = valueLabel(token)
+  const { copied, copy } = useCopy()
+  const code = codeFor(token)[0]!
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          {...handlers}
-          className="flex min-w-0 flex-col gap-1 rounded-md p-1 text-left hover:bg-accent/50 aria-expanded:bg-accent"
-        >
-          {token.kind === "color" ? (
-            <span className="flex h-[58px] w-full overflow-hidden rounded-md border border-white/10">
-              {themesOf(token).map((theme) => (
-                <span key={theme} className="flex-1">
-                  <TokenArt token={token} width={60} height={58} theme={theme} />
-                </span>
-              ))}
+    <div {...handlers} className="group/token relative flex min-w-0">
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            onKeyDown={copyKey(() => copy(code))}
+            className="flex min-w-0 flex-1 flex-col gap-1 rounded-md p-1 text-left group-hover/token:bg-accent/50 aria-expanded:bg-accent"
+          >
+            {token.kind === "color" ? (
+              <span className="flex h-[58px] w-full overflow-hidden rounded-md border border-white/10">
+                {themesOf(token).map((theme) => (
+                  <span key={theme} className="flex-1">
+                    <TokenArt token={token} width={60} height={58} theme={theme} />
+                  </span>
+                ))}
+              </span>
+            ) : (
+              <TokenTile token={token} width={120} height={58} playing={playing} />
+            )}
+            <span className="flex min-w-0 items-baseline gap-1 px-0.5">
+              <span className="min-w-0 flex-1 truncate font-mono text-[11px]">{token.name}</span>
+              {value && <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">{value}</span>}
             </span>
-          ) : (
-            <TokenTile token={token} width={120} height={58} playing={playing} />
-          )}
-          <span className="flex min-w-0 items-baseline gap-1 px-0.5">
-            <span className="min-w-0 flex-1 truncate font-mono text-[11px]">{token.name}</span>
-            {value && <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">{value}</span>}
-          </span>
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="start" side="right" sideOffset={12} onEscapeKeyDown={keepEditing}>
-        <TokenDetail token={original} values={values} onValues={setValues} />
-      </PopoverContent>
-    </Popover>
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-80 p-0" align="start" side="right" sideOffset={12} onEscapeKeyDown={keepEditing}>
+          <TokenDetail token={original} values={values} onValues={setValues} />
+        </PopoverContent>
+      </Popover>
+      <CopyButton
+        text={code}
+        copied={copied === code}
+        onCopy={() => copy(code)}
+        className="absolute top-2 right-2 bg-popover/90 shadow-sm hover:bg-popover"
+      />
+    </div>
+  )
+}
+
+/** A shade in the palette grid: a click copies it, as there's little else to do with one of 242. */
+function PaletteShade({ shade }: { shade: SampleToken }) {
+  const { copied, copy } = useCopy()
+  const [hint, setHint] = useState(false)
+  const code = codeFor(shade)[0]!
+  return (
+    <Hint
+      label={copied ? `Copied ${code}` : `${shade.name}: ${shade.values.default}`}
+      detail={copied ? undefined : "Click to copy"}
+      open={hint || copied !== undefined}
+      onOpenChange={setHint}
+    >
+      <button
+        type="button"
+        aria-label={`Copy ${code}`}
+        onClick={() => copy(code)}
+        className="h-5 flex-1 hover:outline-2 hover:outline-offset-1 hover:outline-foreground"
+        style={{ background: shade.values.default }}
+      />
+    </Hint>
   )
 }
 
@@ -177,14 +291,7 @@ function PaletteGrid({ tokens }: { tokens: SampleToken[] }) {
           <span className="w-14 shrink-0 truncate text-[11px] text-muted-foreground">{hue}</span>
           <div className="flex flex-1 gap-px overflow-hidden rounded-sm">
             {shades.map((shade) => (
-              <Hint key={shade.name} label={`${shade.name}: ${shade.values.default}`}>
-                <button
-                  type="button"
-                  aria-label={shade.name}
-                  className="h-5 flex-1 hover:outline-2 hover:outline-offset-1 hover:outline-foreground"
-                  style={{ background: shade.values.default }}
-                />
-              </Hint>
+              <PaletteShade key={shade.name} shade={shade} />
             ))}
           </div>
         </div>
@@ -398,18 +505,9 @@ function References({ token }: { token: SampleToken }) {
   )
 }
 
-/** What kind of token it is and where it's from, in words. */
-function origin(token: SampleToken): string {
-  const kind = tokenSections.find((section) => section.kinds.some((entry) => entry.kind === token.kind))
-  const heading = kind?.kinds.find((entry) => entry.kind === token.kind)?.heading
-  const what = heading && kind!.kinds.length > 1 ? `${kind!.title}, ${heading.toLowerCase()}` : (kind?.title ?? "Token")
-  if (token.library) return `${what} from ${token.library}`
-  return `${what}, ${token.source === "semantic" ? "the project's own" : "theme scale"}`
-}
-
 /**
- * A token's detail, opened from its row: a large preview, what it's from and what it comes to, and its value, which is
- * read-only until Edit. Editing checks each value as it's typed and writes nothing until Save; Cancel or Escape leaves
+ * A token's detail, opened from its row: a large preview, the ways to write it in code, each copied with a click, what
+ * it comes to, and its value, which is read-only until Edit. Editing checks each value as it's typed and writes nothing until Save; Cancel or Escape leaves
  * without writing. After a save the detail says where it went, with Undo to write the old value back. Motion plays while
  * the detail is open, with a button to stop it; with reduced motion it waits for Play.
  */
@@ -455,13 +553,19 @@ export function TokenDetail({
         <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1">
             <div className="truncate font-mono text-sm font-medium">--{token.name}</div>
-            <div className="text-xs text-muted-foreground">{origin(token)}</div>
+            {/* The section and the preview already say what kind it is; a library is the one thing they don't. */}
+            {token.library && <div className="text-xs text-muted-foreground">From {token.library}</div>}
           </div>
           {moving.has(token.kind) && (
             <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setPlay(!playing)}>
               {playing ? <Pause /> : <Play />} {playing ? "Pause" : "Play"}
             </Button>
           )}
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {codeFor(token).map((text) => (
+            <CopyChip key={text} text={text} />
+          ))}
         </div>
         {token.description && <p className="text-xs">{token.description}</p>}
         <References token={shown} />

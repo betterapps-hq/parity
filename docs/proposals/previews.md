@@ -22,6 +22,7 @@ In Parity's Storybook, under Parity/Explorations/Previews. Drawings stand in for
 | Tokens: Detail From Row, Details                | A token's detail: large preview, the tokens its value goes through, what it comes to, uses, its value          |
 | Tokens: Detail Editing, Detail Saved            | Edit, the checks a value must pass before Save, and what the detail says once it's written                     |
 | Tokens: Panel Spacing                           | Spacing at its true size in the rows and in the detail's scale; a length too long for a row drawn cut          |
+| Tokens: Copying                                 | A copy button on each row and tile, Ctrl+C on a row, a click on a palette shade; the detail's ways to write it |
 | Tokens: Reduced Motion On                       | With reduced motion nothing plays by itself; Play runs it once asked                                           |
 | Tokens: Inspector Fields, three Picker stories  | Previews in the inspector's token buttons and pickers, with a larger one for the highlighted option            |
 | Components: States                              | Every state a preview can be in, in a list row, a grid tile and on the card                                    |
@@ -78,6 +79,18 @@ none of them, which a test can check.
 pixels look it. Spacing rows widen their preview to the section's longest length, up to 128 pixels; a longer one, such
 as a sidebar's 16rem, is drawn cut with a break in its bar, and its value gives the length. The detail lists the whole
 scale at true size with this step marked, so a step reads against its neighbours.
+
+**Copying comes first.** Copying a token is likely why most people open the tab, so it takes one step from anywhere a
+token shows. A row or tile has a copy button while it's hovered or has the keyboard, and Ctrl+C (Cmd+C on a Mac) on it
+does the same; both copy `var(--radius-md)`, which works anywhere CSS does, and the button's tooltip says what was
+copied. A breakpoint copies its variant (`md:`), since `var()` can't go in a media query. A palette shade copies when
+clicked. The detail lists every way to write the token, each copied with a click: `var()`, then the Tailwind classes
+that use it (`rounded-md`; `bg-primary`, `text-primary` and `border-primary` for a color), or the class with the
+variable (`z-(--chakra-z-index-modal)`) for a token outside Tailwind's names.
+
+**Nothing under the name repeats the panel.** The detail doesn't say what kind of token it is or whether it's the
+project's or the theme's: the section heading, the preview and the All, Project and Theme filter already do. It names a
+library ("From Fluent UI"), which nothing else does.
 
 **The detail shows the value; Edit changes it.** A token's detail opens with its value read-only. Edit turns it into a
 field per theme, checked as it's typed, and the preview follows while the value is one it can draw. Nothing is written

@@ -551,6 +551,62 @@ export function substituted(value: string): string {
   })
 }
 
+/**
+ * Each kind's Tailwind theme namespace and the utilities that read it. A token named in the namespace (`radius-md`)
+ * gets the utility Tailwind makes for it (`rounded-md`); any other gets the utility with the variable
+ * (`z-(--chakra-z-index-modal)`).
+ */
+const utilities: Partial<Record<PreviewKind, [namespace: string, utilities: string[]]>> = {
+  color: ["color-", ["bg", "text", "border"]],
+  spacing: ["spacing-", ["p", "gap", "w"]],
+  radius: ["radius-", ["rounded"]],
+  "border-width": ["", ["border"]],
+  shadow: ["shadow-", ["shadow"]],
+  "inset-shadow": ["inset-shadow-", ["inset-shadow"]],
+  "drop-shadow": ["drop-shadow-", ["drop-shadow"]],
+  "text-shadow": ["text-shadow-", ["text-shadow"]],
+  font: ["font-", ["font"]],
+  "font-size": ["text-", ["text"]],
+  "font-weight": ["font-weight-", ["font"]],
+  leading: ["leading-", ["leading"]],
+  tracking: ["tracking-", ["tracking"]],
+  opacity: ["", ["opacity"]],
+  blur: ["blur-", ["blur"]],
+  "backdrop-blur": ["backdrop-blur-", ["backdrop-blur"]],
+  perspective: ["perspective-", ["perspective"]],
+  aspect: ["aspect-", ["aspect"]],
+  duration: ["", ["duration"]],
+  easing: ["ease-", ["ease"]],
+  animation: ["animate-", ["animate"]],
+  "z-index": ["", ["z"]],
+  container: ["container-", ["max-w"]],
+  cursor: ["", ["cursor"]]
+}
+
+/**
+ * What a person would paste to use a token: `var()` first, which works anywhere CSS does, then the Tailwind classes
+ * that use it. A breakpoint is a variant (`md:`), as `var()` can't go in a media query.
+ */
+export function codeFor(token: SampleToken): string[] {
+  const css = `var(--${token.name})`
+  if (token.kind === "breakpoint") return [`${token.name.replace(/^breakpoint-/, "")}:`]
+  if (token.kind === "border") return [css, `[border:${css}]`]
+  const [namespace, names] = utilities[token.kind] ?? ["", []]
+  const step = namespace && token.name.startsWith(namespace) ? token.name.slice(namespace.length) : undefined
+  // A project's own colors reach Tailwind through `@theme inline`, by their own names (`bg-primary`).
+  const named = step ?? (token.kind === "color" ? token.name : undefined)
+  const classes = names.map((name) =>
+    named
+      ? `${name}-${named}`
+      : token.kind === "border-width"
+        ? `${name}-(length:--${token.name})`
+        : `${name}-(--${token.name})`
+  )
+  if (token.kind === "container" && step) classes.push(`@${step}:`)
+  // The spacing scale's base is what its steps are made of, not a length a class sets.
+  return token.kind === "spacing" && !step ? [css] : [css, ...classes]
+}
+
 /** A length in pixels, from px, rem or em, or from anything else the browser can work out, such as `calc()`. */
 export function px(value: string): number {
   const match = /^(-?[\d.]+)(px|rem|em)?$/.exec(value.trim())

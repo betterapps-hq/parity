@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { expect, fireEvent, userEvent, within } from "storybook/test"
+import { expect, fireEvent, spyOn, userEvent, within } from "storybook/test"
 import { CanvasBeside, Labeled, LeftPanelFrame, Stage } from "./frame.tsx"
 import { token } from "./preview-data.ts"
 import { ReducedMotion } from "./token-art.tsx"
@@ -92,14 +92,39 @@ export const PanelSpacing: Story = {
 }
 
 /**
- * A token's detail, opened by clicking its row: a large preview, what it's from, the tokens its value goes through and
- * how many layers use it, then its value, which can't be changed until Edit. Clicking away or Escape closes it.
+ * Copying, likely what most people open the tab for. Each row has a copy button, shown while it's hovered or has the
+ * keyboard, and Ctrl+C on a row does the same; both copy `var(--radius-md)`, which works anywhere CSS does. A palette
+ * shade copies when clicked. The detail has every way to write the token, each copied with a click.
+ */
+export const Copying: Story = {
+  render: () => <Panel view="list" query="radius" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    // Stands in for the clipboard while the checks run, then puts it back so the story copies for real.
+    const writes = spyOn(navigator.clipboard, "writeText").mockResolvedValue()
+    try {
+      await userEvent.click(canvas.getByRole("button", { name: "Copy var(--radius-md)" }))
+      await expect(writes).toHaveBeenLastCalledWith("var(--radius-md)")
+      canvas.getByRole("button", { name: /^radius-lg/ }).focus()
+      await userEvent.keyboard("{Control>}c{/Control}")
+      await expect(writes).toHaveBeenLastCalledWith("var(--radius-lg)")
+    } finally {
+      writes.mockRestore()
+    }
+  }
+}
+
+/**
+ * A token's detail, opened by clicking its row: a large preview, the ways to write it in code, the tokens its value
+ * goes through and how many layers use it, then its value, which can't be changed until Edit. Clicking away or Escape
+ * closes it.
  */
 export const DetailFromRow: Story = {
   render: () => <Panel view="list" query="radius" open="radius-md" />,
   play: async () => {
     const dialog = await within(document.body).findByRole("dialog")
     await expect(within(dialog).getByText("--radius-md")).toBeInTheDocument()
+    await expect(within(dialog).getByRole("button", { name: "Copy rounded-md" })).toBeInTheDocument()
     await expect(within(dialog).getByText(/Comes to/)).toBeInTheDocument()
     await expect(within(dialog).getByRole("button", { name: "Edit" })).toBeInTheDocument()
   }
