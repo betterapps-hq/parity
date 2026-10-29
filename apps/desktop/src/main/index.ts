@@ -29,8 +29,10 @@ if (!rendererUrl) {
 if (process.env.PARITY_DEBUG_PORT) app.commandLine.appendSwitch("remote-debugging-port", process.env.PARITY_DEBUG_PORT)
 // A copy being measured keeps drawing while other windows cover it, which a window otherwise stops doing on Windows.
 if (process.env.PARITY_WINDOW_SIZE) app.commandLine.appendSwitch("disable-features", "CalculateNativeWinOcclusion")
-// A second copy, such as the one `pnpm perf` starts, keeps its own tabs, storage and theme.
-if (process.env.PARITY_USER_DATA) app.setPath("userData", process.env.PARITY_USER_DATA)
+// A second copy, such as the one `pnpm perf` starts, keeps its own tabs, storage and theme. The app's own stay where
+// its package's name put them, under @parity/desktop, now that the app is named Parity.
+app.setPath("userData", process.env.PARITY_USER_DATA ?? app.getPath("userData"))
+app.setName("Parity")
 
 let service: UtilityProcess | undefined
 /** Services replaced by a fresh one; their exit is expected. */
