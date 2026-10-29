@@ -144,7 +144,7 @@ export function MembersPage() {
   const editors = members.filter((member) => member.seat === "Editor").length
   return (
     <SettingsPage tab="Members">
-      <div className="grid grid-cols-[minmax(0,1fr)_236px] gap-8">
+      <div className="flex flex-col">
         <div className="flex min-w-0 flex-col gap-6">
           <div className="grid grid-cols-3 gap-4">
             <Meter label="Editor seats" value={`${editors}`} of={`of 8 paid`} filled={editors / 8}>
@@ -152,7 +152,7 @@ export function MembersPage() {
             </Meter>
             <Meter label="Viewers and commenters" value="2" of="free">
               <span className="text-xs text-muted-foreground">
-                They can open every design, comment and follow along.
+                Only editors pay. Everyone else can open every design, comment and follow along.
               </span>
             </Meter>
             <Meter label="Agents" value="2" of="connected">
@@ -206,7 +206,6 @@ export function MembersPage() {
             </span>
           </div>
         </div>
-        <OpenQuestion>Open: does commenting need a seat, or only editing?</OpenQuestion>
       </div>
     </SettingsPage>
   )

@@ -446,9 +446,8 @@ recommended answer to each of its questions.
 - **A seat is for editing; viewing and commenting are free,** as Figma does it. Admins approve a seat someone asks for,
   and adding seats charges the rest of the month at once. Billing admins are their own role. The price ($24 a seat a
   month) is a placeholder.
-- **Agents don't take up seats** (your call, 2026-10-29).
-- **Open, marked on the designs as sticky notes:** whether commenting needs a seat, the price per seat, and whether
-  heavy agent use is billed by usage.
+- **Only editors pay; agents don't take up seats** (your calls, 2026-10-29).
+- **Open, marked on the designs as sticky notes:** the price per seat, and whether heavy agent use is billed by usage.
 
 ## Storybook
 
