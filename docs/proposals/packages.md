@@ -59,12 +59,23 @@ when it's spread through UI code. Today:
 
 ## The rule
 
-- **Logic packages take data and return data.** No React, tldraw, Electron or `node:fs` in their dependencies. Files,
-  IPC and processes stay in the app's main and service processes, which call the packages.
-- **Dependencies point one way:** the app uses packages, packages never import the app, and core imports nothing.
-- **Each package's tests run in Vitest without Electron.** A rule that changes gets a test where it lives.
-- **The guard is mechanical.** pnpm already stops a package importing what its `package.json` doesn't declare, and an
-  oxlint `no-restricted-imports` rule per logic package keeps UI and platform imports out.
+- **Logic packages take data and return data.** No Node, React, tldraw or Electron in them, and they depend only on
+  other pure packages. Files, IPC and processes stay in the app's main and service processes, which call the packages. A
+  package is pure unless it's named as a reader or at the edge, so a new package starts pure.
+- **Readers read a project's files but never write them or start processes:** `@parity/code`, `@parity/project` and
+  `@parity/registry`, since TypeScript's program and the project's discovery read the project as they go. A reader that
+  needs a file changed returns a changeset for the service to apply. Readers use no React and depend only on pure
+  packages and other readers.
+- **The edge is where Node and React belong:** the CLI, `@parity/libgen`, the agent runtime, the adapters
+  (`renderer-react`, the only package with React, `builder-vite` and `styles-tailwind`) and the fixtures.
+- **Dependencies point one way:** the app uses packages, no package imports Electron, tldraw or the app, and core
+  imports nothing.
+- **Each package's tests run in Vitest without Electron.** They may use Node to set up files. A rule that changes gets a
+  test where it lives.
+- **The guard is mechanical.** pnpm already stops a package importing what its `package.json` doesn't declare, and
+  `no-restricted-imports` overrides in the root `vite.config.ts` keep each kind of package to its imports, so
+  `pnpm verify` fails on a breach. Naming a package a reader or part of the edge is a change to that file, reviewed like
+  any other.
 
 ## The packages
 

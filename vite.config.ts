@@ -1,5 +1,52 @@
 import { defineConfig } from "vite-plus"
 
+/*
+ * What each package may import (PKG-1, docs/proposals/packages.md: The rule). A package is pure unless it's named below:
+ * it takes data and returns data, with nothing from Node, React, tldraw or Electron, so a new package starts pure.
+ */
+
+/** Packages that read a project's files but never write them or start processes; writes go through changesets. */
+const readers = ["code", "project", "registry"]
+
+/** Packages at the edge, where Node and React belong: the CLI, generators, the agent runtime, adapters and fixtures. */
+const edge = ["agent", "builder-vite", "cli", "fixtures", "libgen", "renderer-react", "styles-tailwind"]
+
+const packageFiles = (names: string[]) => names.map((name) => `packages/${name}/**`)
+const packageImports = (names: string[]) => names.flatMap((name) => [`@parity/${name}`, `@parity/${name}/**`])
+
+/** What no package imports. */
+const appOnly = {
+  group: ["electron", "tldraw", "@tldraw/*", "@parity/desktop", "@parity/desktop/**", "**/apps/**"],
+  message: "Electron, tldraw and the app belong to apps/desktop; packages never import them."
+}
+
+const noUi = {
+  group: ["react", "react/**", "react-dom", "react-dom/**"],
+  message: "Only renderer-react and the app use React; logic packages take data and return data."
+}
+
+/** Writing to the file system, from node:fs and node:fs/promises. */
+const fileWrites = [
+  "appendFile",
+  "chmod",
+  "chown",
+  "copyFile",
+  "cp",
+  "link",
+  "mkdir",
+  "mkdtemp",
+  "rename",
+  "rm",
+  "rmdir",
+  "symlink",
+  "truncate",
+  "unlink",
+  "utimes",
+  "writeFile"
+]
+const readOnly =
+  "Reader packages read files but never write them: return a changeset and let the project service apply it."
+
 /**
  * The workspace's format, lint, type-check, test and task settings, which `vp check`, `vp test` and `vp run` read from
  * the root. Each app keeps its own Vite settings in its folder.
@@ -83,6 +130,71 @@ export default defineConfig({
           "jsx-a11y/click-events-have-key-events": "off",
           "jsx-a11y/no-noninteractive-element-interactions": "off"
         }
+      },
+      {
+        // Every package is pure unless a later entry names it. `node:` on every builtin keeps the patterns whole.
+        files: ["packages/**"],
+        rules: {
+          "unicorn/prefer-node-protocol": "error",
+          "eslint/no-restricted-imports": [
+            "error",
+            {
+              patterns: [
+                appOnly,
+                noUi,
+                {
+                  group: ["node:*", "node:*/**"],
+                  message: "Logic packages take data and return data; files and processes stay in the app's service."
+                },
+                {
+                  group: packageImports([...readers, ...edge]),
+                  message: "A pure package depends only on other pure packages."
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        files: packageFiles(readers),
+        rules: {
+          "eslint/no-restricted-imports": [
+            "error",
+            {
+              paths: [
+                {
+                  name: "node:fs",
+                  importNames: [
+                    ...fileWrites,
+                    ...fileWrites.map((name) => `${name}Sync`),
+                    "createWriteStream",
+                    "promises"
+                  ],
+                  message: readOnly
+                },
+                { name: "node:fs/promises", importNames: fileWrites, message: readOnly },
+                {
+                  name: "node:child_process",
+                  message: "Reader packages don't start processes; the project service does."
+                }
+              ],
+              patterns: [
+                appOnly,
+                noUi,
+                { group: packageImports(edge), message: "A reader package depends only on pure and reader packages." }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        files: packageFiles(edge),
+        rules: { "eslint/no-restricted-imports": ["error", { patterns: [appOnly] }] }
+      },
+      {
+        // Tests may use Node to set up files and folders.
+        files: ["packages/**/*.test.ts", "packages/**/*.test.tsx"],
+        rules: { "eslint/no-restricted-imports": ["error", { patterns: [appOnly] }] }
       }
     ]
   },
