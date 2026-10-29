@@ -80,11 +80,10 @@ export default defineConfig({
     categories: {
       correctness: "error"
     },
-    // Type-checking here is what `tsc -p tsconfig.json` did, on TypeScript 7. It needs type-aware linting on.
+    // Types are checked on push and in CI, not on commit or in `pnpm verify`: `pnpm check:types` runs this lint with
+    // `--type-aware --type-check`, which adds the type-aware rules and what `tsc -p tsconfig.json` did, on TypeScript 7.
     options: {
-      reportUnusedDisableDirectives: "error",
-      typeAware: true,
-      typeCheck: true
+      reportUnusedDisableDirectives: "error"
     },
     ignorePatterns: [
       "**/dist/**",
@@ -199,7 +198,9 @@ export default defineConfig({
     ]
   },
   test: {
-    include: ["packages/*/src/**/*.test.ts", "apps/*/src/**/*.test.ts", "scripts/*.test.ts"]
+    include: ["packages/*/src/**/*.test.ts", "apps/*/src/**/*.test.ts", "scripts/*.test.ts"],
+    // CI's runners have four cores. Locally twelve, which Copacker's tests settled on for this machine.
+    maxWorkers: process.env.CI ? 4 : 12
   },
   run: {
     cache: true

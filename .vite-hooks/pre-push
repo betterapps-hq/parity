@@ -1,0 +1,9 @@
+# What a pull request would otherwise show: the commits' messages, formatting, lint with the type-aware rules and type
+# errors, which commits don't check, and a change file for each released package the branch changes. It also catches
+# a commit that skipped its hooks. Never skip it with --no-verify.
+unset GIT_DIR
+node scripts/commits.ts push "$1"
+vp check --no-lint
+vp lint --type-aware --type-check
+beachball check
+node scripts/changes.ts check

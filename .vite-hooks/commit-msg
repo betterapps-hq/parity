@@ -1,0 +1,3 @@
+# The commit's message: a conventional subject, such as `fix(desktop): …`, of at most 100 characters, and not work in
+# progress. Never skip it with --no-verify.
+node scripts/commits.ts message "$1"

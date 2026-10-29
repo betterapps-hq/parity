@@ -15,6 +15,7 @@
     "storybook": "pnpm --filter @parity/desktop storybook",
     "format": "vp fmt",
     "check": "vp check",
+    "check:types": "vp lint --type-aware --type-check",
     "test": "vp test run",
     "verify": "vp check && vp test run",
     "changefile": "node scripts/changes.ts write",
