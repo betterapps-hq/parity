@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Start versioning with Beachball",
+  "packageName": "@parity/renderer-react",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

@@ -1,7 +1,6 @@
 {
   "name": "@parity/icons",
   "version": "0.0.0",
-  "private": true,
   "type": "module",
   "description": "Lists an icon set's icons and searches them by name, alias and tag.",
   "exports": {

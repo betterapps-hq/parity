@@ -1,0 +1,4 @@
+# Format, lint and type errors in the staged files, fixing what can be fixed, then a change file for each versioned
+# package the commit touches. Never skip it with --no-verify.
+vp staged
+beachball check

@@ -16,10 +16,13 @@
     "format": "vp fmt",
     "check": "vp check",
     "test": "vp test run",
-    "verify": "vp check && vp test run"
+    "verify": "vp check && vp test run",
+    "changefile": "beachball change --no-commit",
+    "prepare": "vp config --hooks --no-agent"
   },
   "devDependencies": {
     "@types/node": "^24.12.0",
+    "beachball": "catalog:",
     "typescript": "7.0.2",
     "vite-plus": "catalog:",
     "vitest": "catalog:"

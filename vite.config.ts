@@ -203,5 +203,12 @@ export default defineConfig({
   },
   run: {
     cache: true
+  },
+  // The pre-commit hook checks only what the commit stages, fixing what it can, so other sessions' unfinished work in
+  // the same folder never fails it. CI checks everything on a clean checkout. Lint (which also type-checks) and format
+  // run separately because `vp check` fails when either finds nothing to check, such as a commit of only images or of
+  // the example project, which both ignore.
+  staged: {
+    "*": ["vp lint --fix --no-error-on-unmatched-pattern", "vp fmt --no-error-on-unmatched-pattern"]
   }
 })
