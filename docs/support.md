@@ -242,8 +242,6 @@ Not requirements, just work not done yet:
 - Components written without JSX in `.ts` files aren't found.
 - A component file added, renamed or deleted needs the project reopened (FIND-7).
 - Themes set by attribute (`[data-theme="dark"]`) and `prefers-color-scheme` blocks aren't read as themes.
-- A package's stylesheet imported by the app entry (`import "@mantine/core/styles.css"`) is read as a file under `src/`
-  that doesn't exist.
 - Per-component styles (CSS modules, CSS-in-JS) don't reach frames.
 - Library installs are limited to the built-in catalog.
 
@@ -430,18 +428,25 @@ Vite 8 can't be installed cleanly. Its Yarn Berry uses the `node-modules` linker
 project yet. By the version cutoff, Mantine 8 should be tested too, since it drops in May 2027; no project covers it
 yet.
 
-What the detection snapshots record on 2026-10-28, gaps included:
+What the detection snapshots record on 2026-10-29, gaps included:
 
 - **`vite7-js`:** Vite 7.3.7 with `vite.config.cjs`, npm, and six components, `App` and the default exports `Avatar` and
   `Badge` among them. The `[data-theme="dark"]` values are dropped, so there's one theme.
 - **`react-aria`:** Vite 7.3.7 with `vite.config.mts`, Yarn Berry, Tailwind 4.3.3's theme with the `.dark` theme and six
-  breakpoints, four components with `App`, and Storybook 9 stories for two of them. React Aria Components isn't listed
-  as a library, and Hugeicons isn't found.
-- **`mantine`:** Vite 8.3.5 with `vite.config.cts` and bun. Mantine's stylesheet, imported from `main.tsx`, becomes
-  `src/@mantine/core/styles.css`, which doesn't exist. The `prefers-color-scheme` block overwrites the light values, and
-  Mantine isn't listed as a library.
+  breakpoints, four components with `App`, and Storybook 9 stories for two of them. React Aria Components is listed as a
+  library, and Hugeicons as an icon set.
+- **`mantine`:** Vite 8.3.5 with `vite.config.cts` and bun. Mantine is listed as a library, and its stylesheet, imported
+  from `main.tsx`, is read from the package. The `prefers-color-scheme` block still overwrites the light values, so the
+  dark ones become the defaults.
 - **`too-old`:** the project opens, with one quiet notice that React 18, Vite 5, Tailwind 3 and Storybook 8 are
   untested. The Tailwind v3 theme doesn't load: Tailwind v4's reader stops at the project's first v3 `@apply`.
+- **`chakra`:** Chakra UI is listed as a library with its five breakpoints, and Phosphor and Tabler as icon sets.
+- **`headless`:** Base UI and Radix are listed as libraries, Heroicons and Lucide as icon sets, and the `.dark` theme is
+  read.
+- **`mui` and `fluent`:** MUI and Fluent UI are listed as libraries, Fluent's icons as an icon set, and MUI's four
+  breakpoints are read. Neither has tokens yet, since both keep their themes in JavaScript objects.
+- **`buildkit`:** the eight Buildkit styles are listed as libraries, with only `luma`'s stylesheet imported, and Lucide
+  as an icon set. Tailwind's theme gives 513 tokens, the `.dark` theme and five breakpoints.
 
 Every axis, and where it's covered:
 
