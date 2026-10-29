@@ -1220,6 +1220,10 @@ the Repository, CI and releases stream in Linear.
   pre-release until it's promoted, and promoting marks that same release a full one, so nothing is rebuilt; the beta is
   a Get beta updates setting rather than a second app; and electron-builder stays over Electron Forge, whose free update
   service ignores pre-releases and doesn't serve Linux. The work is PAR-11, PAR-12 and PAR-157.
+- **Pull requests get a web preview of Parity's UI: its Storybook, deployed to Cloudflare,** as you asked on 2026-10-29,
+  beside the unsigned installers. My call: not the whole app as a web app, since the project service needs Node for
+  files, each project's Vite and the agent, and Storybook already runs the real UI against a stand-in service. The work
+  is PAR-111 and PAR-113.
 - **Pipelines are shared across Parity, Buildkit, Better Apps and Copacker,** from one repository of templates, as you
   asked on 2026-10-29. Each repository has thin top-level pipelines, one per stage (CI, previews, the release PR, and CD
   split by what's delivered: npm packages, the desktop app, web apps), calling reusable workflows and composite actions
