@@ -36,7 +36,8 @@ import {
 import { reactRenderer } from "@parity/renderer-react"
 import { tailwindStyles } from "@parity/styles-tailwind"
 import type { ProjectInfo, ServiceMethods, TokenChange, WindowMethods } from "../shared/protocol.ts"
-import { checkComponents, inferComponents } from "./props.ts"
+import { saveDetection, savedDetection } from "./detection-cache.ts"
+import { checkComponents, closeChecker, inferComponents } from "./props.ts"
 import { stopStorybook } from "./storybook.ts"
 
 const renderers: RendererAdapter[] = [reactRenderer]
@@ -111,6 +112,7 @@ export function openProject(root: string): Promise<ProjectInfo> {
 export async function closeProject(projectId: string): Promise<undefined> {
   const project = projects.get(projectId)
   projects.delete(projectId)
+  closeChecker(projectId, projects.size === 0 && opening.size === 0)
   stopStorybook(projectId)
   project?.watcher?.close()
   await project?.session.close()
@@ -138,6 +140,15 @@ async function start(root: string): Promise<ProjectInfo> {
   if (!found.builder) throw new Error(explain(`No builder supports ${root}.\n${found.misses.join("\n")}`))
   const { builder } = found
   const config = await discoverProject(root, renderer, pkg)
+  // What the type checker and props found last time, when nothing they read has changed since.
+  const discovered = { ...config.components }
+  const { fingerprint, saved } = await savedDetection(root, config)
+  if (saved) {
+    for (const id of Object.keys(config.components)) if (!(id in saved.sources)) delete config.components[id]
+    Object.assign(config.components, saved.sources)
+    config.notes.push("components and props as the type checker found them last time, since then nothing has changed")
+  }
+
 
   // One broken project file shouldn't hide the others; its error is shown instead.
   const known = new Map<string, string>()
@@ -194,12 +205,18 @@ async function start(root: string): Promise<ProjectInfo> {
     stylesheets: config.styles,
     known,
     sources: config.components,
-    components: inferProps(root, config.components),
+    components: saved ? Promise.resolve(saved.props) : inferProps(root, config.components, config.componentFiles),
     renderer,
     ...(config.uiKit ? { uiKit: config.uiKit } : {})
   }
   project.watcher = watchProjectFiles(project)
-  void checkTypes(project, config.componentFiles)
+  if (!saved) {
+    void checkTypes(project, config.componentFiles).then(async (ran) => {
+      if (!ran || projects.get(root) !== project) return
+      const found = { sources: project.sources, props: await project.components }
+      await saveDetection(root, config.componentFiles, discovered, fingerprint, found)
+    })
+  }
   projects.set(root, project)
   console.log(`[service] ${info.name}: ${renderer.name} via ${builder.name} ${session.toolVersion} at ${info.guestUrl}`)
   for (const found of [detection.packageManager, ...detection.tools]) console.log(`[service]   ${found.summary}`)
@@ -410,20 +427,20 @@ function watchProjectFiles(project: OpenProject): FSWatcher | undefined {
  * Runs the type checker over the app's files once props are read, so the list gains what the parse can't see, such as
  * `const Select = SelectPrimitive.Root`, and loses the UI kit's undecided exports that aren't components. The builder
  * serves the guest from `sources`, so a guest loaded later has the new ones; the canvas hears about them and adds them
- * to the guest it has.
+ * to the guest it has. Whether the checker read them, so what it found can be saved.
  */
-async function checkTypes(project: OpenProject, files: string[]): Promise<void> {
+async function checkTypes(project: OpenProject, files: string[]): Promise<boolean> {
   const { root, id } = project.info
-  if (files.length === 0) return
+  if (files.length === 0) return true
   await project.components
   let checked: Awaited<ReturnType<typeof checkComponents>>
   try {
     checked = await checkComponents(root, files)
   } catch (error) {
     console.warn(`[service] the type checker couldn't read the components: ${message(error)}`)
-    return
+    return false
   }
-  if (projects.get(root) !== project) return
+  if (projects.get(root) !== project) return false
   const { added, confirmed, removed } = checkedChanges(project.sources, checked)
   for (const name of removed) delete project.sources[name]
   Object.assign(project.sources, confirmed, added)
@@ -431,7 +448,7 @@ async function checkTypes(project: OpenProject, files: string[]): Promise<void> 
   console.log(
     `[service]   the type checker added ${Object.keys(added).length} components and left out ${removed.length}`
   )
-  if (Object.keys(added).length === 0 && removed.length === 0) return
+  if (Object.keys(added).length === 0 && removed.length === 0) return true
   const before = project.components
   project.components = Promise.all([before, inferProps(root, added)]).then(([known, more]) => {
     const all = { ...known, ...more }
@@ -440,6 +457,7 @@ async function checkTypes(project: OpenProject, files: string[]): Promise<void> 
   })
   const components = await project.components
   if (projects.get(root) === project) notifyComponents({ projectId: id, components, sources: project.sources })
+  return true
 }
 
 /**
@@ -488,8 +506,12 @@ async function rescanComponents(project: OpenProject, paths: string[]): Promise<
 }
 
 /** Props inference that never fails the project: without it, panels fall back to free-form props. */
-function inferProps(root: string, sources: Record<string, ComponentSource>): Promise<Record<string, ComponentInfo>> {
-  return inferComponents(root, sources).catch((error: unknown) => {
+function inferProps(
+  root: string,
+  sources: Record<string, ComponentSource>,
+  files?: string[]
+): Promise<Record<string, ComponentInfo>> {
+  return inferComponents(root, sources, files).catch((error: unknown) => {
     console.warn(`[service] couldn't infer component props: ${message(error)}`)
     return {}
   })

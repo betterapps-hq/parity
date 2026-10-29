@@ -24,7 +24,7 @@ import { type PartRelation, relateParts } from "./parts.ts"
 import { type Load, type Preset, presets } from "./presets.ts"
 import { breakpointsOf, type CollectedToken, cssTokens, pairLineHeights, toDtcg } from "./tokens.ts"
 
-export { findComponents } from "./components.ts"
+export { componentOptions, findComponents, reactProbe, withReactProbe } from "./components.ts"
 export { guessParent, relateParts } from "./parts.ts"
 export { familyOf, fetchExamples, nearestParent, normalizeRepo, readExamples } from "./examples.ts"
 export { parseLibraryEdits } from "@parity/core"

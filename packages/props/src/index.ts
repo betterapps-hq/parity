@@ -12,13 +12,15 @@ const groupOrder: PropGroup[] = ["variant", "own", "html", "aria", "event"]
 /**
  * Reads each component's props from its source with the TypeScript checker: what kind of value each takes, the options
  * of literal unions and cva variants, and defaults from cva's `defaultVariants` and the component's own destructuring.
- * Uses its own TypeScript, so it works whatever version the project builds with.
+ * Uses its own TypeScript, so it works whatever version the project builds with. A `program` that already holds every
+ * component's file is read instead of building one, as the desktop app keeps one per project.
  */
-export function inferProps(root: string, components: Record<string, ComponentSource>): Record<string, ComponentInfo> {
-  const options = compilerOptions(root)
+export function inferProps(
+  root: string,
+  components: Record<string, ComponentSource>,
+  program: ts.Program = ts.createProgram({ rootNames: propsFiles(root, components), options: compilerOptions(root) })
+): Record<string, ComponentInfo> {
   const fileOf = (source: ComponentSource) => resolve(root, source.declaration ?? source.path)
-  const files = [...new Set(Object.values(components).map(fileOf))]
-  const program = ts.createProgram({ rootNames: files, options })
   const checker = program.getTypeChecker()
   const result: Record<string, ComponentInfo> = {}
   const variantsByFile = new Map<string, Variants>()
@@ -40,6 +42,11 @@ export function inferProps(root: string, components: Record<string, ComponentSou
     }
   }
   return result
+}
+
+/** The files props are read from: each component's declarations, else its source. */
+export function propsFiles(root: string, components: Record<string, ComponentSource>): string[] {
+  return [...new Set(Object.values(components).map((source) => resolve(root, source.declaration ?? source.path)))]
 }
 
 /**

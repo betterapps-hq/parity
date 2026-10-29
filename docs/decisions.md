@@ -234,6 +234,14 @@ recommended answer to each of its questions.
   `app/` (`page`, `layout`, `template`, `error`, `not-found`, `loading`, `default`), and any component in a file in a
   `pages` or `routes` folder, other than files starting with `_` or `-` and `api` routes. Route modules' other exports,
   such as React Router's `ErrorBoundary`, are parts of the page too.
+- **The type checker keeps one program per open project, within a memory budget.** My call on the numbers: props and the
+  checker share the program, which is kept for the two projects used last and let go when a tab closes; the worker stops
+  when no project is open. It isn't built with under 1 GB of memory free, and the worker may use half the computer's
+  memory at most. Either way the components stay as the parse found them.
+- **What the checker and props found is saved outside the project, by contents.** My call: in
+  `~/.parity/cache/detection`, one file per project, under a fingerprint of every file they read, the tsconfigs,
+  package.json, the lockfile, the list as discovered and Parity's own checker code. Results aren't saved when files
+  changed while the checker read them.
 - **Changed files are read again on their own, without reopening the project.** My call: the parse reads the changed
   files about half a second after the last change, so added, renamed and deleted components show at once, and the type
   checker then reads only those files and the files that import them, since an export's type can come from an import. A
@@ -472,6 +480,25 @@ recommended answer to each of its questions.
   Enterprise are prorated to the renewal and invoiced quarterly. Kestrel is on Organization. Each plan's features follow
   Figma's tiers for now (the Plans story) and are still to be settled.
 
+## Collaboration
+
+- **It's designed as small parts, each with its own stories,** under Parity/Explorations/Collaboration
+  (`explorations/collaboration`): comments, comment pins, accessibility annotations, notes and sections, emoji, presence
+  and sharing. Comment pins / On a board is a board you can use, with its animations.
+- **Proposes changes is an approval, not a review tool** (your call, 2026-10-29). An agent or person with that role says
+  what they'll change, and someone approves it with a click instead of replying "go ahead". There's no branch comparison
+  or merge screen.
+- **History doesn't depend on git** (your call, 2026-10-29). Many people using Parity won't use git, so Parity records
+  who did what and when itself, and the web app (the portal) shows it. A project's git history, where it has one, is
+  extra.
+- **Better Apps comes first** (your call, 2026-10-29). Parity's comments, approvals, history and activity aren't built
+  until Better Apps' packages have the audit log, approval flows and activity features. Better Apps' plans (Buildkit's
+  `docs/platform-planning`) list comments, reactions, attachments, live presence, approval flows and the audit log;
+  activity isn't in them yet.
+- **Threads, approvals and presence live in the portal's service, not in the `.par` file** (my call, open). They come
+  from Better Apps: comments, approvals and the audit log in its database, presence in its realtime rooms. A comment
+  isn't a change to the project, so it never touches the project's files or their history.
+
 ## Storybook
 
 - **Storybook is detected, not configured:** its `main` file must exist, in `.storybook` or the folder a script that
@@ -513,6 +540,13 @@ recommended answer to each of its questions.
   here, and adding the panel to the design clears it. No library false positives are hidden.
 
 ## Rendering and agents
+
+- **A project's Vite server listens on a port of its own, on 127.0.0.1 only.** My call: Parity asks the system for a
+  free port, then has Vite take exactly that one, rather than passing port 0, which Vite reads as unset and turns
+  into 5173. With two Parity instances open (two sessions, or an isolated backtest beside the person's app), both
+  servers took 5173, one on IPv4 and one on IPv6, and a frame asking `localhost:5173` could reach the other instance's
+  server and fail to load its guest. Portless doesn't replace this: it names servers by proxying to a port, so it would
+  still need a free one behind it, and the guest server is internal to Parity, loaded only by its own frames.
 
 - **At 100% a frame is the size Chrome draws the same page,** checked element by element on all 36 frames of the
   example's screens, within 0.01px. A frame's root starts from what a browser gives a page's root (`all: initial` on

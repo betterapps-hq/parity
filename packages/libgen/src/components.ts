@@ -47,19 +47,19 @@ export interface ComponentScan {
   compilerOptions?: ts.CompilerOptions
   /** Whether a default export counts, named after its declaration or its file. Apps say yes; packages, no. */
   defaultExports?: boolean
+  /**
+   * A program to read them from instead of building one, as the desktop app keeps one per project. Made with
+   * `componentOptions` and a host from `withReactProbe`, it holds `entries` and `reactProbe(root)`.
+   */
+  program?: ts.Program
 }
 
 const probeName = "__parity_probe__.ts"
 const probeText = 'import type { ReactNode } from "react"\nexport type ParityNode = ReactNode\n'
 
-/**
- * Finds the components a package or an app exports, by asking TypeScript what each export is, as
- * `proposals/component-detection.md` describes: a capitalised function taking one props object (or nothing) and
- * returning something React renders, or a `forwardRef`, `memo` or `lazy` result, or a class with `render` and `props`.
- * Members of namespace exports count too, as `Dialog.Root`.
- */
-export function findComponents(scan: ComponentScan): ComponentReport {
-  const options: ts.CompilerOptions = {
+/** The settings components are read with: the scan's own over ones that read JSX, JavaScript and modern modules. */
+export function componentOptions(compilerOptions?: ts.CompilerOptions): ts.CompilerOptions {
+  return {
     target: ts.ScriptTarget.ES2022,
     module: ts.ModuleKind.ESNext,
     moduleResolution: ts.ModuleResolutionKind.Bundler,
@@ -69,11 +69,19 @@ export function findComponents(scan: ComponentScan): ComponentReport {
     noEmit: true,
     allowJs: true,
     types: [],
-    ...scan.compilerOptions,
+    ...compilerOptions,
     incremental: false
   }
-  const probe = slashes(join(scan.root, probeName))
-  const host = ts.createCompilerHost(options, true)
+}
+
+/** A file only the checker sees, naming React's `ReactNode` so it can tell what React renders. */
+export function reactProbe(root: string): string {
+  return slashes(join(root, probeName))
+}
+
+/** A compiler host that also serves `reactProbe(root)`. */
+export function withReactProbe(host: ts.CompilerHost, root: string): ts.CompilerHost {
+  const probe = reactProbe(root)
   const { getSourceFile, fileExists, readFile } = host
   host.getSourceFile = (fileName, language, onError, create) =>
     slashes(fileName) === probe
@@ -81,8 +89,24 @@ export function findComponents(scan: ComponentScan): ComponentReport {
       : getSourceFile.call(host, fileName, language, onError, create)
   host.fileExists = (fileName) => slashes(fileName) === probe || fileExists.call(host, fileName)
   host.readFile = (fileName) => (slashes(fileName) === probe ? probeText : readFile.call(host, fileName))
+  return host
+}
 
-  const program = ts.createProgram({ rootNames: [...scan.entries, probe], options, host })
+/**
+ * Finds the components a package or an app exports, by asking TypeScript what each export is, as
+ * `proposals/component-detection.md` describes: a capitalised function taking one props object (or nothing) and
+ * returning something React renders, or a `forwardRef`, `memo` or `lazy` result, or a class with `render` and `props`.
+ * Members of namespace exports count too, as `Dialog.Root`.
+ */
+export function findComponents(scan: ComponentScan): ComponentReport {
+  const probe = reactProbe(scan.root)
+  const program =
+    scan.program ??
+    (() => {
+      const options = componentOptions(scan.compilerOptions)
+      const host = withReactProbe(ts.createCompilerHost(options, true), scan.root)
+      return ts.createProgram({ rootNames: [...scan.entries, probe], options, host })
+    })()
   const checker = program.getTypeChecker()
   const node = reactNodeType(checker, program.getSourceFile(probe))
   const report: ComponentReport = { components: [], ambiguous: [], rejected: [], reactTypes: node !== undefined }

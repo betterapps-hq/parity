@@ -29,6 +29,7 @@ export {
   readChangedFiles
 } from "./components.ts"
 export { addCommand, cutoff, detectPackageManager, detectProject } from "./detect.ts"
+export { detectionFingerprint } from "./fingerprint.ts"
 export { parseJsonc } from "./jsonc.ts"
 export { installedPackage, type LibraryDefinition, libraryCatalog } from "./libraries.ts"
 export { parseStoryFile } from "./storybook.ts"
