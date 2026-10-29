@@ -1,7 +1,7 @@
 # Proposal: package boundaries
 
 Status: draft. `@parity/code` exists (PKG-3, 2026-10-29); nothing else has moved yet. The rule and the first items are
-in [decisions.md](../decisions.md) and the [backlog](../backlog.md) (PKG).
+in [decisions.md](../decisions.md) and in Linear's Package boundaries stream.
 
 ## In one line
 
@@ -84,8 +84,8 @@ when it's spread through UI code. Today:
 | `@parity/code`                      | One TypeScript program per project. Listing components, props, file ownership by hash, writing a component file from a design, reading an edited file back, drift, review. | `project/components.ts`, `libgen/components.ts`, `@parity/props`, and the CMP items not built yet. |
 | Changesets, in `@parity/project`    | File edits built as data, shown as a diff, applied together, undone together, remembered so the app ignores its own writes.                                                | The writes in `utility/projects.ts`, `utility/libraries.ts`, `utility/images.ts` and `cli/lib.ts`. |
 | `@parity/editor`                    | Editor behaviour without the views: clipboard, drop rules, arranging, inserting, Make component, placement, snapping, selection, undo and unsaved tracking.                | The renderer files listed above.                                                                   |
-| `@parity/models`, then one per lens | The lens schemas (FND-3), then each lens's standards reader and model operations. Each adapter, such as Drizzle or TanStack Router, is a package of its own.               | New code.                                                                                          |
-| `@parity/storybook`                 | Everything Storybook-specific, behind the `StoryAdapter` in [storybook.md](../storybook.md).                                                                               | `project/storybook.ts` and `utility/storybook.ts` (SB-1).                                          |
+| `@parity/models`, then one per lens | The lens schemas (PAR-15), then each lens's standards reader and model operations. Each adapter, such as Drizzle or TanStack Router, is a package of its own.              | New code.                                                                                          |
+| `@parity/storybook`                 | Everything Storybook-specific, behind the `StoryAdapter` in [storybook.md](../storybook.md).                                                                               | `project/storybook.ts` and `utility/storybook.ts` (PAR-114).                                       |
 | `@parity/tokens`, later             | Reading tokens (Tailwind, DTCG), editing them in stylesheets, and matching described tokens to custom properties.                                                          | `core/tokens.ts`, `core/tokens-dtcg.ts`, `core/css-source.ts`, the Tokens panel's matching.        |
 
 ### `@parity/code`: design and code, both ways
@@ -112,7 +112,7 @@ This is the one you expect to iterate on most, so it gets the clearest boundary.
   so the watcher ignores it, as `.par` saves already do.
 - **Everything that writes goes through it:** tokens, library imports, images, `.lib.par`, generated components and
   stories, `.parity/` files, and later migrations, handlers, route files and recipes.
-- **This moves the diff-first part of WRITE-1 into the foundations,** because components need it before any lens does.
+- **This moves the diff-first part of PAR-293 into the foundations,** because components need it before any lens does.
   Writing back from the lenses (migrations, handlers, route files) keeps its place at the end of the order you set.
 
 ### `@parity/editor`
@@ -127,8 +127,8 @@ This is the one you expect to iterate on most, so it gets the clearest boundary.
 
 - **Core stays the `.par` model.** Lens models are JSON Schemas in `@parity/models`; each lens's reader and operations
   are a package, starting with `@parity/lens-data`; the lens's views live in the app.
-- **Each adapter is a package,** implementing EXT-1's interface. That's also what lets code adapters run in their own
-  process later (EXT-8).
+- **Each adapter is a package,** implementing PAR-341's interface. That's also what lets code adapters run in their own
+  process later (PAR-348).
 
 ## What stays in the app
 
@@ -139,16 +139,16 @@ This is the one you expect to iterate on most, so it gets the clearest boundary.
 
 ## Order
 
-1. **The rule and its lint guard** (PKG-1).
-2. **Changesets** (PKG-2), with tokens, library imports and images moved onto them.
+1. **The rule and its lint guard** (PAR-5).
+2. **Changesets** (PAR-6), with tokens, library imports and images moved onto them.
 3. **`@parity/code` from the three readers** (PKG-3), after FIND-1 and PROJ-5, which the Components Sync session has in
    progress on those files. It's the natural start of FIND-2, which already says to reuse libgen's finder. Generating
-   files (CMP-17), the drift review (CMP-25) and reading back (CMP-22) are then built inside it.
-4. **`@parity/editor`,** file by file (PKG-4 to PKG-7).
-5. **`@parity/models` with FND-3,** then a package per lens and adapter as each starts.
-6. **`@parity/storybook` with SB-1.**
-7. **`@parity/tokens`** (PKG-8) when token work picks up, and the agent API's 1,320-line workspace split by area when it
-   next grows.
+   files (PAR-85), the drift review (PAR-93) and reading back (PAR-90) are then built inside it.
+4. **`@parity/editor`,** file by file (PAR-7, then PAR-32 to PAR-34).
+5. **`@parity/models` with PAR-15,** then a package per lens and adapter as each starts.
+6. **`@parity/storybook` with PAR-114.**
+7. **`@parity/tokens`** (PAR-35) when token work picks up, and the agent API's 1,320-line workspace split by area when
+   it next grows.
 
 ## Calls made here
 
@@ -156,5 +156,5 @@ These are in decisions.md as my calls. Change any of them.
 
 - The rule above, and its lint guard.
 - `@parity/props` merges into `@parity/code`, since both need the same program.
-- Changesets come before the components work that needs them, so CMP-17 waits on PKG-2 and PKG-3.
+- Changesets come before the components work that needs them, so PAR-85 waits on PAR-6 and PKG-3.
 - Lenses and adapters never go in core.

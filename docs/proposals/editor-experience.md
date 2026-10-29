@@ -2,8 +2,8 @@
 
 Status: an audit and plan from the Design Editor session, 2026-10-29. You asked for "an award winning editor experience"
 that surpasses Figma, Canva and Pen.dev for people going from design to implementation, and to look at how designers and
-engineers each work for gaps. The tasks are in the [backlog](../backlog.md) as CAN-43 to CAN-75, ranked here by impact.
-Nothing here is decided until it's in [decisions.md](../decisions.md).
+engineers each work for gaps. The tasks are in Linear as PAR-161 to PAR-189, ranked here by impact. Nothing here is
+decided until it's in [decisions.md](../decisions.md).
 
 ## In one line
 
@@ -142,7 +142,7 @@ source of truth, and review designs where code is reviewed. The Tasks columns gi
 | Real content and states | Data, long text, empty and error states, locales                          | States and modes are first-class (ahead of everyone); no data sets or stress tests                             | 15                       |
 | Responsive              | Edits per breakpoint                                                      | Viewports render side by side (ahead); every edit changes every viewport                                       | 14                       |
 | Prototype and present   | Flows between screens, a present mode                                     | Interact runs real behaviour (ahead); no flows or present mode                                                 | 27                       |
-| Review and sign-off     | Comments on a layer in a state, approval that freezes what was approved   | Not built; COLLAB-6 and COLLAB-7 wait on Better Apps                                                           | 17                       |
+| Review and sign-off     | Comments on a layer in a state, approval that freezes what was approved   | Not built; PAR-372 and PAR-373 wait on Better Apps                                                             | 17                       |
 | Hand off                | Ready status, annotations, what changed since                             | None                                                                                                           | 17, 28                   |
 | Look after the system   | Usage, the impact of a change, token edits                                | "Used N times"; token edits skip undo                                                                          | 7                        |
 
@@ -153,9 +153,9 @@ source of truth, and review designs where code is reviewed. The Tasks columns gi
 | Pick up work               | Links to the exact design, state and mode; what's ready and what moved | None                                                                                                               | 16, 17    |
 | Read what to build         | Component, file, props as code, token names, the code's own units      | Component names, props, token names and Tailwind values (ahead of Figma); no file, no open in editor, no code copy | 9, 10     |
 | Get assets                 | Bulk export with consistent names                                      | PNG of whole designs only                                                                                          | 29        |
-| Build, often with an agent | Exact, structured context                                              | The CLI and MCP are strong; JSX for agents is planned (AGT-14)                                                     | 9, 10, 21 |
+| Build, often with an agent | Exact, structured context                                              | The CLI and MCP are strong; JSX for agents is planned (PAR-265)                                                    | 9, 10, 21 |
 | Check the result           | Compare with the design across states, modes and accessibility         | Accessibility checks are strong; visual tests are planned (VIS stream)                                             | VIS       |
-| Keep in step after launch  | Drift found in both directions                                         | Planned (CMP-25)                                                                                                   | 17        |
+| Keep in step after launch  | Drift found in both directions                                         | Planned (PAR-93)                                                                                                   | 17        |
 
 ## What the audit found
 
@@ -208,18 +208,19 @@ that's a regression or the run's conditions (uncommitted work, another copy on t
 ## The tasks, ordered by impact
 
 Impact weighs how often people hit something, how much it hurts or helps when they do, and whether it's a reason to
-choose Parity over Figma. Sizes are the backlog's S, M and L. Each task's "Done when" is in its backlog row.
+choose Parity over Figma. Sizes are S, M and L, as [work.md](../work.md) describes them. Each task's "Done when" is in
+its Linear issue.
 
 ### Make it fast and trustworthy
 
-1. **Make selecting, hovering, editing and zooming instant** (CAN-30, CAN-43; L). Selection takes up to a second and
-   edits longer, where Figma answers in the next frame; it's the first thing anyone notices. CAN-30 covers the side
-   panels: render only the rows that changed, and keep Radix's Presence and tooltips off rows that aren't open. CAN-43
+1. **Make selecting, hovering, editing and zooming instant** (PAR-159, PAR-161; L). Selection takes up to a second and
+   edits longer, where Figma answers in the next frame; it's the first thing anyone notices. PAR-159 covers the side
+   panels: render only the rows that changed, and keep Radix's Presence and tooltips off rows that aren't open. PAR-161
    covers the rest of the hot path: the overlay measures only when the camera, the selection or a frame changes and
    writes outline positions in the same frame; hover doesn't re-render the Layers tree; board drags and resizes preview
    without saving or rebuilding frames until release; zoom holds 60 fps. Budgets, in a production build: hover within a
    frame, a selection and its inspector within 50 ms, an edit within 100 ms, dragging at 55 fps or better.
-2. **Fail a change that makes the canvas slower** (CAN-44; M). Selection measured three times slower than two hours
+2. **Fail a change that makes the canvas slower** (PAR-162; M). Selection measured three times slower than two hours
    earlier, and nothing noticed. Figma tests frame times on every pull request. `pnpm perf --check` compares a run with
    the budgets and the last accepted run and exits with an error when a measure is over budget or 20% worse; sessions
    that touch the canvas, the panels or the renderer run it before committing.
@@ -227,7 +228,7 @@ choose Parity over Figma. Sizes are the backlog's S, M and L. Each task's "Done 
    be selectable at all, which many app components don't. Find a component's DOM from React's own tree, the fiber whose
    props carry the node's id, the way React DevTools highlights components. When a component doesn't take `style`, say
    so and offer a layout around it instead of letting sizes do nothing.
-4. **Select what you point at in one click** (CAN-46; M). Reaching a stat card took four double-clicks and 2.3 s. Make
+4. **Select what you point at in one click** (PAR-163; M). Reaching a stat card took four double-clicks and 2.3 s. Make
    boards behave like Figma's top-level frames: a click inside selects the top-level layer under the pointer and the
    board is picked by its title or background, Ctrl-click still goes to the leaf, Enter selects all children or starts
    editing text, a box drawn from a frame's background selects layers inside it, and right-click > Select layer lists
@@ -242,119 +243,119 @@ choose Parity over Figma. Sizes are the backlog's S, M and L. Each task's "Done 
    away, for sizes and insets only; colours, type, radius and shadows stay tokens. A sidebar 280px wide is a fact of
    real apps, and engineers already write `w-[280px]`. This loosens the tokens-only model for lengths, so it goes in
    decisions.md when built.
-7. **Put every change through Save and Undo, in the state being edited** (CAN-49; M). Token edits are undoable and saved
-   with everything else; edits that can't be per state say so first; the text editor opens on the state's text; values
-   keep their types; turning Show every state off again leaves the file clean.
-8. **Show what fails without hiding the frame, and pick up code edits live** (CAN-50, with CAN-3; M). Real components
+7. **Put every change through Save and Undo, in the state being edited** (PAR-164; M). Token edits are undoable and
+   saved with everything else; edits that can't be per state say so first; the text editor opens on the state's text;
+   values keep their types; turning Show every state off again leaves the file clean.
+8. **Show what fails without hiding the frame, and pick up code edits live** (PAR-165, with PAR-147; M). Real components
    fail often, for missing providers or data, and the fix needs to be in front of you: a badge on the frame, the failing
    layer marked in Layers and the inspector with its reason and fix, and the canvas updating within a second of a
    component file being edited or broken.
 
 ### Make inspecting a design the same as reading its code
 
-9. **Show the code behind a selection** (CAN-51; M). The engineer's first question is "what do I build", and today the
+9. **Show the code behind a selection** (PAR-166; M). The engineer's first question is "what do I build", and today the
    answer has no file and no code. A Code section in the Design tab: the component's file and line with Open in editor,
    its import, the instance as JSX with its props, the JSX and Tailwind classes Parity would write for a layout or text
-   layer (AGT-14's output, in the UI), every token with its value in the mode showing, and Copy as JSX. The Components
+   layer (PAR-265's output, in the UI), every token with its value in the mode showing, and Copy as JSX. The Components
    panel shows each component's file. No other tool can do this without a hand-written mapping.
-10. **Know the source line of every element** (CAN-52; M). A development-only Vite transform in builder-vite tags each
+10. **Know the source line of every element** (PAR-167; M). A development-only Vite transform in builder-vite tags each
     JSX element with its file, line and column, so anything inside a real component can show and open its source, and
     agents get the same in `parity components` and snapshots. This is Onlook's approach, and it keeps agents from
     searching for where a change belongs.
 
 ### Handle like Figma
 
-11. **Add right-click menus on the canvas** (CAN-53; S). Every other editor has one, and Parity's canvas shows nothing.
+11. **Add right-click menus on the canvas** (PAR-168; S). Every other editor has one, and Parity's canvas shows nothing.
     Select layer, Copy, Paste here, Paste over, Duplicate, Wrap in layout, Make component, Go to main component, Hide,
     Lock, ordering, Open in editor and Copy as JSX, each with its shortcut from the keymap.
 12. **Finish the keyboard** (CAN-39, CAN-54; M). CAN-39 already lists nudging, select matching, lock, paste over and
     find. Nudge semantics to match Figma: arrows reorder a layer inside a layout and move an absolutely placed one, by 1
     or by 10 with Shift (1px needs CAN-48's off-scale lengths). CAN-54 makes frames inert outside Interact, so Tab can't
     land in a design's input and leave every shortcut dead.
-13. **Drag padding, gap and size on the canvas** (CAN-55; M). The hatching for padding and gap becomes handles you drag
+13. **Drag padding, gap and size on the canvas** (PAR-169; M). The hatching for padding and gap becomes handles you drag
     by spacing steps, with the value shown, click to type, Alt for opposite sides and Alt+Shift for all. Double-click an
     edge for Hug, Alt+double-click for Fill, resize several layers together, Alt to resize from the centre. Unlike
     Figma, a drag that stays on the scale keeps the token.
 
 ### Show the real thing, in every case
 
-14. **Keep an edit on the viewport it's made in** (CAN-56; L). Resizing in the Mobile frame changes every viewport
+14. **Keep an edit on the viewport it's made in** (PAR-170; L). Resizing in the Mobile frame changes every viewport
     today, though the model already stores per-viewport changes. A toggle beside the edit-state switch sends edits to
     this viewport only; the inspector marks values set for it, with Reset, as Framer does; a frame can be dragged wider
     or narrower to watch it reflow without saving. This is where Figma is weakest.
-15. **Show real data and edge cases on any board** (CAN-57; L). Data sets for props (none, a few, many, long text)
+15. **Show real data and edge cases on any board** (PAR-171; L). Data sets for props (none, a few, many, long text)
     chosen beside the state; a stretch mode with long names, doubled text, a pseudo-locale and right-to-left; and a list
-    of the states a screen's components suggest (empty, loading, error, disabled) with the ones it shows. Brings MORE-17
+    of the states a screen's components suggest (empty, loading, error, disabled) with the ones it shows. Brings PAR-337
     forward. Figma can only fake this; Parity renders it.
 
 ### Close the loop with engineers
 
-16. **Link to a design, state and mode** (CAN-58; S). A `parity://` link that opens the project at that design, layer,
+16. **Link to a design, state and mode** (PAR-172; S). A `parity://` link that opens the project at that design, layer,
     state and mode, built from ids so it survives moves and renames, for tickets and pull requests. The CLI takes it
     too.
-17. **Mark designs ready and show what changed since** (CAN-59, with CMP-25; L). Draft, Ready and Built statuses;
+17. **Mark designs ready and show what changed since** (PAR-173, with PAR-93; L). Draft, Ready and Built statuses;
     marking Ready keeps what the design was, so engineers see exactly what changed since in layers, props, tokens and
-    text, with before and after; a view lists designs by status. With CMP-25 the same view shows drift from code.
+    text, with before and after; a view lists designs by status. With PAR-93 the same view shows drift from code.
     Figma's Ready for dev is a flag; this is a record.
 
 ### Handle like Figma, continued
 
-18. **Snap layers while moving and resizing** (CAN-60; M). Absolutely placed layers move live and snap to siblings' and
+18. **Snap layers while moving and resizing** (PAR-174; M). Absolutely placed layers move live and snap to siblings' and
     the parent's edges and centres with red guides and distances; equal spacing shows marks; Ctrl moves freely, as for
     boards.
-19. **Make text editing feel native** (CAN-61; M). The editor selects the word or text you clicked, follows the text
+19. **Make text editing feel native** (PAR-175; M). The editor selects the word or text you clicked, follows the text
     while panning and zooming, wraps at the text's own width, keeps the edit on Escape like notes, waits for an input
     method to finish before Enter saves, and text can be auto width, auto height or fixed.
-20. **Edit every kind of prop** (CAN-62, with CMP-15 and CMP-16; M). Structured editors for objects and arrays from
+20. **Edit every kind of prop** (PAR-176, with PAR-83 and PAR-84; M). Structured editors for objects and arrays from
     their types, events shown as wired in code with their signature, required props flagged, prop names as words ("Show
     rising") with the code name on hover, and ReactNode props opening as slots.
 
 ### Agents, speed for experts, ease for everyone
 
-21. **Show agents' work as it happens** (CAN-63; L). Pen's lesson: the person's selection is the agent's context, edits
+21. **Show agents' work as it happens** (PAR-177; L). Pen's lesson: the person's selection is the agent's context, edits
     stream onto the canvas, layers being built are marked, each agent shows where it's working, each edit is an undo
-    step named after it, and a failed call changes nothing. Builds on AGT-11, AGT-16 and AGT-18.
-22. **Make the insert picker and Components panel fast and clean** (CAN-64; M). The `/` picker opens in 1.3 s and lists
+    step named after it, and a failed call changes nothing. Builds on PAR-262, PAR-267 and PAR-269.
+22. **Make the insert picker and Components panel fast and clean** (PAR-178; M). The `/` picker opens in 1.3 s and lists
     DialogOverlay, ThemeProvider and Badge twice. Open within 100 ms, rank the project's own components first, leave
     internal parts and plumbing out unless searched by name, merge one component found in two places, and show small
     previews from the frame bitmaps.
-23. **Open a project in seconds** (CAN-65, with CAN-28 and CAN-19; M). 8.6 s to a usable canvas and 27 s to previews.
+23. **Open a project in seconds** (PAR-179, with PAR-158 and PAR-153; M). 8.6 s to a usable canvas and 27 s to previews.
     Write down where the time goes first, then aim for 3 s and 5 s.
-24. **Find anything from one search, and repeat the last action** (CAN-66; M). Search actions finds commands only;
+24. **Find anything from one search, and repeat the last action** (PAR-180; M). Search actions finds commands only;
     extend it to designs, layers, components, tokens and panel actions, recent first. Repeat last action is the shortcut
     Figma users keep asking for.
-25. **Put the likely actions on the selection** (CAN-67; M). Canva's first tier: a small bar above the selection with
+25. **Put the likely actions on the selection** (PAR-181; M). Canva's first tier: a small bar above the selection with
     what its type and props suggest (variant, size and on/off props for a component; direction, gap and wrap for a
     layout), plus Wrap, Make component and a jump to the inspector. It hides while dragging and can be turned off.
 
 ### Explore, organise and hand off
 
-26. **Try alternatives side by side** (CAN-68; M). Designers explore in parallel; parallel prototyping beats serial
+26. **Try alternatives side by side** (PAR-182; M). Designers explore in parallel; parallel prototyping beats serial
     iteration. Duplicate as alternative puts the copy beside the design in free space, grouped under one label; one is
     marked chosen; Compare shows two side by side or overlaid; the rest go to an archive section rather than the bin.
-27. **Organise boards into sections and flows, and present them** (CAN-69, with CAN-21 and FND-2; L). Labelled sections,
-    arrows from a layer to a board that stay attached as boards move, and a Present mode that shows designs full size in
-    Interact and follows the arrows.
-28. **Annotate layers with intent, behaviour and accessibility** (CAN-70; M). GitHub open-sourced an annotation kit
+27. **Organise boards into sections and flows, and present them** (PAR-183, with PAR-154 and PAR-27; L). Labelled
+    sections, arrows from a layer to a board that stay attached as boards move, and a Present mode that shows designs
+    full size in Interact and follows the arrows.
+28. **Annotate layers with intent, behaviour and accessibility** (PAR-184; M). GitHub open-sourced an annotation kit
     because link versus button, labels, heading levels and error text get lost even with accessible components.
     Annotations attach to a layer, state or mode, can quote live values, show in the Code section, and agents read and
     write them.
-29. **Export layers, icons and images** (CAN-71; S). PNG or SVG of any layer, several at once named after their layers,
+29. **Export layers, icons and images** (PAR-185; S). PNG or SVG of any layer, several at once named after their layers,
     and icons in bulk as SVG; Copy as PNG is in CAN-39.
 
 ### Complete and polish
 
-30. **Fill in the styling controls designers expect** (CAN-72; L). A colour picker for colour tokens with the nearest
+30. **Fill in the styling controls designers expect** (PAR-186; L). A colour picker for colour tokens with the nearest
     token suggested, radius per corner, borders per side, opacity on token colours (`bg-primary/50`), a text layer's tag
     (heading levels for the accessibility checks), blur and backdrop blur, grid track sizes, baseline, aspect ratio and
     a typed size for a design's frame.
-31. **Make the Layers panel scale** (CAN-73, with CMP-24; M). Search, collapse all, eye and lock on each row, reordering
-    designs, a design row that outlines its board on hover, highlighting inside instances, and rows that render only
-    when visible.
-32. **Start well: first run and a new project** (CAN-74, with SCF-4 and LIB-31; M). The first run opens the example
+31. **Make the Layers panel scale** (PAR-187, with PAR-92; M). Search, collapse all, eye and lock on each row,
+    reordering designs, a design row that outlines its board on hover, highlighting inside instances, and rows that
+    render only when visible.
+32. **Start well: first run and a new project** (PAR-188, with PAR-284 and PAR-133; M). The first run opens the example
     project, not the working folder, with three short tasks to try; the start screen shows thumbnails, removes recent
     projects and flags missing ones; New project comes from the Buildkit scaffolder.
-33. **Polish the panels** (CAN-75; M). Clipped values ("Autc"), the crowded left tab strip, unthemed scrollbars, the
+33. **Polish the panels** (PAR-189; M). Clipped values ("Autc"), the crowded left tab strip, unthemed scrollbars, the
     toolbar over board titles, tooltips during drags, "Column layout" on a grid, one icon and colour per kind
     everywhere, one pattern for headings, search fields, selects, rows and empty states, accessible names on every
     inspector control, and swatches that show in the light theme.

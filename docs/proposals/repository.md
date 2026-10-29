@@ -1,6 +1,6 @@
 # Proposal: the public repository, CI and releases
 
-Status: draft, 2026-10-29. The work is the REPO stream in the [backlog](../backlog.md), and the calls made are in
+Status: draft, 2026-10-29. The work is the Repository, CI and releases stream in Linear, and the calls made are in
 [decisions.md](../decisions.md) under "Repository and releases".
 
 ## In one line
@@ -18,9 +18,10 @@ later.
 - **There's no remote, CI, README or licence.** The root `package.json` says `UNLICENSED`.
 - **Nothing builds for production.** The main process exits without `PARITY_RENDERER_URL`, so Parity only runs under
   `pnpm dev`.
-- **Nothing is versioned.** Every package is `private` at `0.0.0`, and the CLI runs from source.
-- **`pnpm verify` checks other sessions' unfinished work too,** because several sessions share the folder. On 2026-10-29
-  it failed on another session's scratch file, so on its own it isn't a reliable gate.
+- **Only the desktop app and the CLI are versioned,** from Beachball change files (PAR-4). The packages they bundle stay
+  `private`, and the CLI still runs from source.
+- **Hooks check what a commit stages and what a push sends** (PAR-3), so other sessions' unfinished work no longer fails
+  a commit. `pnpm verify` still checks the whole folder.
 
 ## Vite+
 
@@ -36,38 +37,60 @@ with a type checker that runs on TypeScript 7. Its `vite:monorepo` template has 
   - **The example project, the fixtures and `@parity/builder-vite` stay on stock Vite.** `examples/shadcn-vite` stands
     in for a customer's project, and builder-vite drives the customer's own Vite, so the override mustn't reach them.
     The `prefer-vite-plus-imports` lint rule skips builder-vite for the same reason.
-  - **`pnpm verify` keeps its name** and runs `vp check` and `vp test`, since AGENTS.md, the backlog and every running
+  - **`pnpm verify` keeps its name** and runs `vp check` and `vp test`, since AGENTS.md, work.md and every running
     session use it. Every repo using the shared pipelines has a `pnpm verify`, which is what the shared CI runs.
-- **Two steps, so running sessions aren't broken.** The configuration goes first (REPO-1), made in a worktree, because
+- **Two steps, so running sessions aren't broken.** The configuration goes first (PAR-1), made in a worktree, because
   `vp migrate` reinstalls `node_modules` under any running `pnpm dev`. The 75 test files' imports move to
-  `vite-plus/test` later, when sessions have committed (REPO-2).
+  `vite-plus/test` later, when sessions have committed (PAR-393).
 
-## Checks on commit
+## Checks on commit and push
 
-- **A commit lints and formats the files it stages, and a push checks types,** as the agency monorepo does with
-  lefthook. Vite+ does this itself with `vp staged` and `vp hooks` (REPO-3).
+- **A commit lints and formats the files it stages, and a push checks types,** as the agency monorepo and Copacker do
+  with lefthook. Vite+ does this itself with `vp staged` and `vp hooks` (PAR-3).
 - **It also fixes the shared-folder problem:** a commit is checked on its own files, not on other sessions' unfinished
   ones. Nobody bypasses the hooks with `--no-verify`.
+- **What each hook checks:**
+  - **pre-commit:** lint and formatting on the staged files, fixed where they can be, then `scripts/changes.ts check`
+    for change files, both from what's staged.
+  - **commit-msg:** a conventional subject of at most 100 characters that isn't work in progress (`scripts/commits.ts`).
+  - **pre-push:** the pushed commits' messages, with fixups refused, formatting, lint with the type-aware rules and type
+    errors (`pnpm check:types`), and `scripts/changes.ts check --committed`. It catches a commit that skipped its hooks.
+- **`pnpm verify` leaves types to the push,** since type checking grows slow, and tests run on twelve workers locally
+  and four in CI, as Copacker's do.
+
+## Pull requests
+
+- **`main` takes changes only through pull requests,** under a ruleset Terraform writes when the repository goes on
+  GitHub (PAR-398), from a shared module the other repositories can use too.
+- **A pull request merges once its checks pass and every thread is resolved:** CI's, CodeRabbit's status and the
+  title's. No approval is required, since GitHub doesn't let you approve your own.
+- **Merges squash,** so a pull request's title becomes the commit's subject, and CI checks it with
+  `node scripts/commits.ts title`.
+- **CodeRabbit reviews every pull request** from `.coderabbit.yaml`: assertively, against AGENTS.md and conventions.md,
+  with notes on change files, packages, tests and workflows. Lint, format, types, tests and change files are CI's, so
+  its own linters are off. It needs the CodeRabbit app installed on Fencing-Club.
+- **Force pushes to `main`, deleting it and bypassing the ruleset aren't allowed,** and GitHub's secret scanning and
+  push protection stay on.
 
 ## Versions: Beachball change files
 
-This is how Buildkit and the agency monorepo already release, and you asked for it on 2026-10-29 (REPO-12).
+This is how Buildkit and the agency monorepo already release, and you asked for it on 2026-10-29 (PAR-4).
 
 - **A change to a versioned package carries a change file** saying the bump type and a line for the changelog.
-  `pnpm change` writes one without prompting (`beachball change --type patch --message "…" --no-commit`), so sessions
-  can, and `pnpm verify` and CI run `beachball check`.
+  `pnpm changefile --type patch --message "…"` writes the missing ones without prompting, so sessions can. The hooks
+  check them with `scripts/changes.ts`, from what's staged or committed, and CI also runs `beachball check`, which
+  counts the working tree and so only suits a clean checkout.
 - **What's versioned:**
   - **The CLI is published** to npm.
-  - **The desktop app is versioned but not published:** not `private`, with `"beachball": { "shouldPublish": false }`.
-    Beachball still bumps it and writes its changelog, which the desktop release reads.
-  - **The workspace packages the CLI and the app bundle are versioned the same way.** Beachball ignores `private`
-    packages, so without this a change to `@parity/core` would never bump the CLI or the app that ship it. With it, a
-    change file for core bumps core, and Beachball's dependent bumps, which follow `devDependencies` too, carry it to
-    every package that bundles core.
-  - **Everything else stays `private`:** the example project, the fixtures and anything not shipped.
+  - **The desktop app is versioned but not published.** Beachball bumps it and writes its changelog, which the desktop
+    release reads.
+  - **The workspace packages the CLI and the app bundle stay `private`,** in their `devDependencies`. Beachball ignores
+    private packages, so `scripts/changes.ts` asks for a change file on the app or the CLI when one they bundle changes,
+    following private packages through each other.
+  - **Everything else stays `private` too:** the example project, the fixtures and anything not shipped.
 - **Beachball 2.66 understands pnpm's `workspace:` and `catalog:` versions,** and treats a catalog change as a change to
   the packages that use it.
-- **A release PR, then delivery,** as Buildkit does it (REPO-17): after CI passes on `main`, pending change files open a
+- **A release PR, then delivery,** as Buildkit does it (PAR-10): after CI passes on `main`, pending change files open a
   pull request with `beachball bump`'s versions and changelogs, which merges itself once its checks pass. Its version
   changes start the CD pipelines. Sessions pull before they push, so they pick up the release commits.
 - **Every merged release PR ships,** the CLI to npm and the app to GitHub Releases, as Buildkit's packages do. The app
@@ -76,23 +99,23 @@ This is how Buildkit and the agency monorepo already release, and you asked for 
 
 ## npm packages
 
-- **The CLI is the published package** (REPO-14), which you settled on 2026-10-29. `vp pack` builds it into one package
+- **The CLI is the published package** (PAR-13), which you settled on 2026-10-29. `vp pack` builds it into one package
   that bundles the workspace packages it uses, listed as `devDependencies` so they aren't installed separately, and
   ships its skills and registry files. Later, the extension SDK [extensions.md](extensions.md) describes would be a
   second.
 - **It can't be `@parity/cli`.** The `@parity` scope on npm belongs to Parity Technologies (`@parity/api`,
-  `@parity/abi`), so the published name is Q7. Its command can still be `parity`. Inside the repository the workspace
-  packages keep their `@parity/*` names, since they're never published.
+  `@parity/abi`), so the published name is PAR-26. Its command can still be `parity`. Inside the repository the
+  workspace packages keep their `@parity/*` names, since they're never published.
 - **Publishing uses npm's trusted publishing,** with provenance and no token: `pnpm publish --provenance` from a job
-  with `id-token: write` in a protected `npm` environment, as Buildkit's `publish.yml` does (REPO-15). npm checks the
+  with `id-token: write` in a protected `npm` environment, as Buildkit's `publish.yml` does (PAR-14). npm checks the
   _top-level_ workflow's file name, not a reusable one it calls, so each repository registers its own `cd-npm.yml` on
   npmjs.com.
-- **Only packages Beachball would publish are published.** pnpm doesn't know Beachball's `shouldPublish`, so the publish
-  step publishes the packages that are neither `private` nor marked `shouldPublish: false`, in dependency order.
+- **Only packages with a `publishConfig` are published,** which the CLI gets with its npm name. The desktop app isn't
+  private, since Beachball versions it, so `private` alone can't tell the publish step what goes to npm.
 
 ## CI
 
-- **The shared CI template runs `pnpm verify`** on an operating system matrix (REPO-4): Ubuntu, Windows and macOS for
+- **The shared CI template runs `pnpm verify`** on an operating system matrix (PAR-2): Ubuntu, Windows and macOS for
   Parity, since a public repository's runners are free on all three and Parity is developed on Windows. It sets up Vite+
   through `voidzero-dev/setup-vp`, pinned to an exact release, since its docs say the `v1` tag no longer gets updates.
 - **Parity's own steps go before it:** installing the fixture projects with npm, Yarn and Bun
@@ -101,28 +124,28 @@ This is how Buildkit and the agency monorepo already release, and you asked for 
 - **Pull requests also run `beachball check`.**
 - **A newer push cancels the run before it.** Release and deploy runs never cancel.
 - **Dependabot opens a weekly PR** for npm minor and patch updates, grouped, and one for Actions, which also keeps the
-  shared pipelines' pinned versions current (REPO-5).
+  shared pipelines' pinned versions current (PAR-394).
 
 ## Desktop releases
 
-1. **A production build** (REPO-10): the renderer through `vp build`, the main, utility, preload and worker bundles, and
+1. **A production build** (PAR-8): the renderer through `vp build`, the main, utility, preload and worker bundles, and
    the main process loading the built files when packaged.
-2. **Unsigned installers with electron-builder** (CAN-37): NSIS for Windows, a DMG for macOS (arm64 and x64) and an
+2. **Unsigned installers with electron-builder** (PAR-9): NSIS for Windows, a DMG for macOS (arm64 and x64) and an
    AppImage for Linux, with Parity's name, icon and version. The utility process needs TypeScript 6 at runtime with its
    `lib.*.d.ts` files on disk, so it ships unbundled and outside the asar archive. Everything else is bundled, which
    keeps pnpm's symlinked `node_modules` out of the package.
-3. **cd-desktop** (REPO-11): when a release PR raises the desktop app's version on `main`, it builds the installers on
+3. **cd-desktop** (PAR-11): when a release PR raises the desktop app's version on `main`, it builds the installers on
    all three systems and publishes them as a GitHub pre-release tagged `v<version>`, the form electron-updater reads,
    with the app's changelog and the update metadata. The tldraw licence key comes from a repository secret, and signing
    steps skip with a notice until their secrets exist.
-4. **Promotion** (REPO-18): run by hand with a version, it marks that pre-release a full release, so it reaches
-   everyone. See Betas.
+4. **Promotion** (PAR-12): run by hand with a version, it marks that pre-release a full release, so it reaches everyone.
+   See Betas.
 5. **Only the desktop app makes GitHub Releases.** electron-updater reads the repository's releases, so a CLI release
    there could look like an app update. npm packages keep their changelogs in `CHANGELOG.md`.
-6. **Signing later** (REPO-13): Windows through Azure Artifact Signing, macOS with a Developer ID and notarization.
+6. **Signing later** (PAR-399): Windows through Azure Artifact Signing, macOS with a Developer ID and notarization.
 
 Unsigned, Windows SmartScreen warns on first run, and macOS blocks the app until it's allowed in System Settings >
-Privacy & Security. macOS can't update an unsigned app in place either, so updates on macOS (CAN-38) wait for REPO-13;
+Privacy & Security. macOS can't update an unsigned app in place either, so updates on macOS (PAR-160) wait for PAR-399;
 Windows and Linux can update unsigned.
 
 ## Betas
@@ -131,9 +154,9 @@ You asked on 2026-10-29 for beta builds and production releases, promoted the wa
 production.
 
 - **Every release is a beta first.** cd-desktop publishes it as a GitHub pre-release. Parity with Get beta updates on
-  (CAN-38) takes pre-releases too, through electron-updater's `allowPrerelease`; everyone else only takes full releases.
-  The beta is a setting, not a second app, so one build serves both.
-- **Promoting reuses the release** (REPO-18). `cd-desktop.yml`, run by hand with a version, waits for approval in a
+  (PAR-160) takes pre-releases too, through electron-updater's `allowPrerelease`; everyone else only takes full
+  releases. The beta is a setting, not a second app, so one build serves both.
+- **Promoting reuses the release** (PAR-12). `cd-desktop.yml`, run by hand with a version, waits for approval in a
   protected `production` environment, then marks the pre-release a full release and the latest, as
   `gh release edit v1.4.0 --prerelease=false --latest` does. Nothing is rebuilt, so everyone gets the files the beta
   ran.
@@ -146,10 +169,18 @@ production.
 
 ## Previews
 
-- **Each pull request gets builds to try** (REPO-16): the CLI through pkg.pr.new, installable with `npx` from the URL it
+- **Each pull request gets builds to try** (PAR-400): the CLI through pkg.pr.new, installable with `npx` from the URL it
   comments, and the unsigned installers as the run's artifacts, linked from a comment.
+- **Parity's UI gets a web preview too** (PAR-113): its Storybook, built as a static site and deployed to Cloudflare
+  through the shared `publish-storybook` template to the preview environment, linked from the same comment and removed
+  when the pull request closes. It runs the real interface against the stand-in service in `stories/host.ts`, so a
+  change can be seen without installing anything. It isn't the whole app: the project service needs Node for files, each
+  project's Vite and the agent, so breakage only the desktop app has is the installers' to catch.
+- **The static build needs the example's frames first** (PAR-111). Stories load the example's guest module from
+  Storybook's Vite dev server, which a static build doesn't have, so the build emits it as a file.
+- **Pull requests from forks get no deployed preview,** since they can't use the Cloudflare secret.
 - **Web apps in other repositories get a deployed preview per pull request,** removed when it closes, as Copacker, Spawn
-  and the HOA app do today. Parity has no web app yet.
+  and the HOA app do today, through the `preview-web` template.
 
 ## Shared pipelines
 
@@ -159,27 +190,53 @@ from discrete templates, with a pipeline per stage rather than one that does eve
 
 **Each repository keeps thin top-level pipelines, one per stage, and only the ones it needs:**
 
-| Pipeline              | Runs on                                              | Calls                                                                                       |
-| --------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `ci.yml`              | pull requests and `main`                             | `ci-verify`, plus the repository's own extra jobs                                           |
-| `preview.yml`         | pull requests                                        | `preview-npm`, `preview-desktop` or `preview-web`                                           |
-| `preview-cleanup.yml` | a closed pull request, and a schedule                | `preview-web-cleanup`                                                                       |
-| `release.yml`         | CI passing on `main`                                 | `release-prepare` and `release-merge`, Beachball's PR                                       |
-| `cd-npm.yml`          | a published package's version changing               | `cd-npm-publish`; this file is npm's trusted publisher                                      |
-| `cd-desktop.yml`      | the desktop app's version changing, then a promotion | `cd-desktop-build` and `cd-desktop-release` for the beta, `cd-desktop-promote` for everyone |
-| `cd-web.yml`          | `main`, then a promotion to production               | `cd-web-deploy` for staging, `cd-web-promote` for production                                |
+| Pipeline              | Runs on                                              | Calls                                                                                         |
+| --------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `ci.yml`              | pull requests and `main`                             | `ci-verify`, plus the repository's own extra jobs                                             |
+| `preview.yml`         | pull requests                                        | `preview-npm`, `preview-desktop`, `preview-web`, or `publish-storybook` to `preview`          |
+| `preview-cleanup.yml` | a closed pull request, and a schedule                | `preview-web-cleanup` or `unpublish-storybook`                                                |
+| `release.yml`         | CI passing on `main`                                 | `release-prepare` and `release-merge`, Beachball's PR                                         |
+| `cd-npm.yml`          | a published package's version changing               | `cd-npm-publish`; this file is npm's trusted publisher                                        |
+| `cd-desktop.yml`      | the desktop app's version changing, then a promotion | `cd-desktop-build` and `cd-desktop-release` for the beta, `cd-desktop-promote` for everyone   |
+| `cd-web.yml`          | `main`, then a promotion to production               | `cd-web-deploy` for staging, `cd-web-promote` for production, and `publish-storybook` to each |
 
 **`Fencing-Club/pipelines` holds the templates,** with a folder per CI system, as you said on 2026-10-29: `github/` now,
-and room for others such as Azure DevOps, which VIS-13's visual tests also target.
+and room for others such as Azure DevOps, which PAR-239's visual tests also target.
 
 - **Composite actions** for steps several templates share, in `github/actions/<name>/action.yml`: `setup` (checkout,
   Node from `.nvmrc`, Vite+ or pnpm, a frozen install and caches), `publishable-packages` and `changed-versions`. Their
   docs are in `github/README.md`.
 - **Reusable workflows** (`on: workflow_call`), one job's worth each, are the exception: GitHub only calls a reusable
   workflow from the repository's own `.github/workflows/`, never from another folder or a subfolder. So they live there,
-  and the stage is the name's prefix: `ci-`, `preview-`, `release-`, `cd-npm-`, `cd-desktop-`, `cd-web-`.
+  and the stage is the name's prefix: `ci-`, `preview-`, `release-`, `cd-npm-`, `cd-desktop-`, `cd-web-`. A template any
+  stage calls is named for what it does instead, such as `publish-storybook`.
 - **Each template documents its inputs, secrets, permissions and an example caller,** and the repository's own CI runs
   each template against a small example workspace.
+- **The first templates are `setup` and `ci-verify`** (PAR-110), which Parity's CI (PAR-2) calls first. v1.0.1 has them,
+  tested against a pnpm and a Vite+ example workspace on Ubuntu, Windows and macOS.
+- **One template publishes Storybook, `publish-storybook`, to whichever environment the caller names.** You publish
+  pull-request, staging and production Storybooks often, from many repositories, each to a place of its own, as you said
+  on 2026-10-29. The caller's stage picks the environment:
+  - `preview.yml` publishes each pull request's Storybook to `preview` as a Worker preview named for it, as the HOA
+    app's previews are, and comments its URL. `unpublish-storybook` deletes it when the pull request closes.
+  - `cd-web.yml` publishes to `staging` from `main` and to `production` on promotion.
+- **Where an environment's Storybook goes is that GitHub environment's settings,** which Terraform writes: the Worker's
+  name and URL, the account and a token. A new destination is a new environment, and production can wait for an
+  approval, as GitHub environments can.
+- **It publishes what it builds, or a Storybook an earlier job built,** so staging and production can get the same
+  build.
+
+**Cloud services come from Terraform,** as you said on 2026-10-29. Nothing a pipeline needs is made by hand or by the
+pipeline itself:
+
+- **Each repository that needs a cloud service has a Terraform project in `infra/`,** with its state in R2 and Terraform
+  and the Cloudflare provider at Copacker's versions.
+- **`Fencing-Club/pipelines` holds the modules,** in `terraform/`, beside the templates that need them. The first,
+  `cloudflare-storybook`, makes a static-assets Worker for each environment a repository publishes Storybook to, with a
+  custom domain where one is given, an API token that can deploy Workers, and each GitHub environment's variables and
+  secret that `publish-storybook` reads.
+- **So the templates only deploy.** They take names and tokens from the variables and secrets Terraform wrote, and skip
+  with a notice when those don't exist yet.
 
 **Rules:**
 
@@ -197,17 +254,17 @@ and room for others such as Azure DevOps, which VIS-13's visual tests also targe
 
 The agency monorepo (`D:\agency`) is set up the same way. What Parity takes from it:
 
-- **Checks on commit and push,** never bypassed (REPO-3).
-- **Beachball change files** (REPO-12), which Buildkit uses too.
+- **Checks on commit and push,** never bypassed (PAR-3).
+- **Beachball change files** (PAR-4), which Buildkit uses too.
 - **Dependabot, cancelling superseded CI runs, and release steps that skip with a notice** when their secret is missing
-  (REPO-4, REPO-5, REPO-11).
-- **knip for unused files, dependencies and exports** (REPO-6), which matters more as code moves into packages.
-- **Its stricter lint rules** (REPO-7), without `curly` (2,623 hits: Parity writes one-line `if (x) return`),
+  (PAR-2, PAR-394, PAR-11).
+- **knip for unused files, dependencies and exports** (PAR-395), which matters more as code moves into packages.
+- **Its stricter lint rules** (PAR-396), without `curly` (2,623 hits: Parity writes one-line `if (x) return`),
   `no-console` (the CLI and scripts print) and `no-bitwise`. That leaves about 250 to fix, most of them nested
   ternaries.
 - **pnpm's `verifyDepsBeforeRun: error`,** so a script stops when another session changed the dependencies without
-  installing them, and **shared versions in a pnpm catalog** (both in REPO-1).
-- **Editor settings in `.vscode`:** the oxc extension formatting on save, and TypeScript's native preview (REPO-1).
+  installing them, and **shared versions in a pnpm catalog** (both in PAR-1).
+- **Editor settings in `.vscode`:** the oxc extension formatting on save, and TypeScript's native preview (PAR-1).
 - **Its working conventions,** adapted in [conventions.md](../conventions.md).
 
 What it doesn't take:
@@ -223,11 +280,11 @@ What it doesn't take:
 
 ## Order
 
-1. REPO-1, the Vite+ configuration, with PKG-1's rule moving into `lint.overrides` if PKG-1 has landed. Meanwhile the
+1. PAR-1, the Vite+ configuration, with PAR-5's rule moving into `lint.overrides` if PAR-5 has landed. Meanwhile the
    pipelines repository gets its first templates, `setup` and `ci-verify`, in a session of its own.
-2. REPO-4, CI through the shared template, REPO-3, checks on commit, and REPO-12, change files. REPO-2 when sessions are
+2. PAR-2, CI through the shared template, PAR-3, checks on commit, and PAR-4, change files. PAR-393 when sessions are
    quiet.
-3. REPO-8, a README and licence, then REPO-9, the repository on GitHub, once CI passes on a clean checkout.
-4. REPO-17, the release PR, then REPO-10, CAN-37, REPO-11 and REPO-18, the first unsigned desktop release and its
-   promotion. REPO-14 and REPO-15, the CLI on npm, once Q7 names it.
-5. REPO-16, previews, then REPO-5, REPO-6 and REPO-7 whenever there's room. REPO-13 when signing is set up.
+3. PAR-397, a README and licence, then PAR-398, the repository on GitHub, once CI passes on a clean checkout.
+4. PAR-10, the release PR, then PAR-8, PAR-9, PAR-11 and PAR-12, the first unsigned desktop release and its promotion.
+   PAR-13 and PAR-14, the CLI on npm, once PAR-26 names it.
+5. PAR-400, previews, then PAR-394, PAR-395 and PAR-396 whenever there's room. PAR-399 when signing is set up.

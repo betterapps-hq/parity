@@ -4,7 +4,7 @@
  * works from it (`+8` adds 8), and so does the word Mixed (`Mixed+8` adds 8 to each selected layer's own value).
  *
  * Lengths are kept as steps of the spacing scale (`4` is `calc(var(--spacing) * 4)`) but typed and shown in pixels, so
- * typing 320 in Width gives 320px. Until lengths can leave the scale (CAN-80), a length lands on the nearest half step,
+ * typing 320 in Width gives 320px. Until lengths can leave the scale (PAR-194), a length lands on the nearest half step,
  * which is what Tailwind's scale lists below 4 and what drags already write, and the field says when it moved one.
  */
 
@@ -158,7 +158,7 @@ export function summarizeFieldNotes(notes: readonly FieldNote[], rules: FieldRul
   return `Some layers ${line}`
 }
 
-/** Whether a length, in steps, sits on the half-step grid lengths land on until CAN-80. */
+/** Whether a length, in steps, sits on the half-step grid lengths land on until PAR-194. */
 export function onSpacingGrid(steps: number): boolean {
   return Math.abs(steps * 2 - Math.round(steps * 2)) < 1e-9
 }

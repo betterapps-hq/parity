@@ -3,10 +3,10 @@
 Status: draft, revised 2026-10-29 after your review. Three things changed: CI is the priority, nobody runs Docker on
 their own machine, and a code change under an unchanged design must be caught, including one a sync will bring into the
 design. Nothing is built. It builds on two decisions already made: visual tests draw each frame as a page of its own
-(VAL-18), and the render sweep compares those pages with baselines (VAL-1). The items are the VIS stream in the
-[backlog](../backlog.md), at Later: you've put visual tests after the core. One question for you is in Waiting on you.
-You've settled two others: when to build this (after the core), and that the CLI will be public on npm, so CI runs it
-with `npx`. Its package name is Q7, since the `@parity` scope on npm belongs to Parity Technologies.
+(PAR-226), and the render sweep compares those pages with baselines (PAR-211). The items are the Visual tests stream in
+Linear, in Backlog: you've put visual tests after the core. One question for you is open, as PAR-25. You've settled two
+others: when to build this (after the core), and that the CLI will be public on npm, so CI runs it with `npx`. Its
+package name is PAR-26, since the `@parity` scope on npm belongs to Parity Technologies.
 
 ## In one line
 
@@ -45,7 +45,7 @@ Each case remembers what its last render read: its trace. A trace lists:
 - the case's resolved tree, after the sync described below, and its mode;
 - every project file the page loaded, by its git blob hash, including decorators such as `.parity/preview.tsx`;
 - every package the page loaded, by name and version from the lockfile;
-- the Tailwind classes it used, with the stylesheet sources, plugins and Tailwind version behind them (VIS-5 narrows
+- the Tailwind classes it used, with the stylesheet sources, plugins and Tailwind version behind them (PAR-231 narrows
   this to the tokens it read);
 - the toolchain: the Vite config, the `.env` files Vite reads and Parity's version;
 - the environment's fingerprint.
@@ -80,13 +80,13 @@ cache costs renders, never a wrong answer.
 
 ### What a pull request costs
 
-Parity's column is targets, which VIS-12 measures. Chromatic's comes from its docs.
+Parity's column is targets, which PAR-238 measures. Chromatic's comes from its docs.
 
 | Pull request                        | Chromatic                                                                                                                           | Parity                                                                                      |
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | Touches no UI: backend, docs, tests | Since [August 2026](https://www.chromatic.com/blog/chromatic-changelog-august-2026/), nothing is captured or charged                | The plan step only: seconds, with nothing installed and no browser                          |
 | Changes one component               | Builds and uploads Storybook, then captures the stories [TurboSnap](https://www.chromatic.com/docs/turbosnap/) traces to the change | Installs (cached), starts Vite, and renders only the cases whose traces read that component |
-| Changes a token                     | Every story the changed stylesheet reaches in the module graph, which for a global stylesheet is all of them                        | Every case that read the stylesheet, and with VIS-5 only the cases that read the token      |
+| Changes a token                     | Every story the changed stylesheet reaches in the module graph, which for a global stylesheet is all of them                        | Every case that read the stylesheet, and with PAR-231 only the cases that read the token    |
 | Pushes again with an unrelated fix  | Builds and uploads again                                                                                                            | Cases already rendered with the same inputs come from the cache                             |
 | Merges to main                      | Builds again                                                                                                                        | Accepted cases' traces verify, so nothing renders                                           |
 | Rebased or squashed                 | When the last build's commit is gone, TurboSnap looks for an older build                                                            | Traces don't depend on git history                                                          |
@@ -106,7 +106,7 @@ Parity's column is targets, which VIS-12 measures. Chromatic's comes from its do
   and Azure DevOps' hosted Ubuntu runners as they come. A container image is there for CI systems that prefer one, but
   nothing needs it.
 
-VIS-6 holds this to account: two different Ubuntu runner images must give byte-identical captures.
+PAR-232 holds this to account: two different Ubuntu runner images must give byte-identical captures.
 
 ### Report on the pull request
 
@@ -180,8 +180,8 @@ jobs:
         with: { name: parity-visual, path: .parity/visual/out }
 ```
 
-`@parity/cli` stands in for the CLI's npm package, whose name is Q7. A sharded version adds a plan job whose output is
-the render jobs' matrix. VIS-13 writes both, and the Azure DevOps equivalents.
+`@parity/cli` stands in for the CLI's npm package, whose name is PAR-26. A sharded version adds a plan job whose output
+is the render jobs' matrix. PAR-239 writes both, and the Azure DevOps equivalents.
 
 ## When code changes under a design
 
@@ -201,7 +201,7 @@ opens the design's drift review and approves the edit into the design. In CI nob
 sync's reading itself:
 
 - **Read back what can be read.** For each linked file whose hash differs from the one Parity last wrote, Parity reads
-  back what it can: text, token classes, props and known components, through CMP-22's read-back in `@parity/code`, which
+  back what it can: text, token classes, props and known components, through PAR-90's read-back in `@parity/code`, which
   is pure. The result goes into the design in memory, not into the `.par`. The run then renders the design, and every
   instance of it, as it will be once synced.
 - **Render the file for what can't.** An edit Parity can't read back gets frozen or overwritten when someone syncs.
@@ -213,7 +213,7 @@ sync's reading itself:
   since the design is the source, and reports "code not written yet", so a reviewer sees that the app lags the design.
   It doesn't fail the check.
 - **Traces list linked files too,** so the plan catches a hand edit without rendering anything.
-- **Until CMP-22 lands,** a linked file changed by hand is rendered from the file and listed as drift.
+- **Until PAR-90 lands,** a linked file changed by hand is rendered from the file and listed as drift.
 
 ## On a developer's machine
 
@@ -243,7 +243,7 @@ Chromatic and tools like it start from a Storybook build. Parity has most of the
 | **Each case as plain data.** [render.ts](../../packages/core/src/render.ts) resolves a design for a state and mode into a `RenderNode` tree. | A hash of that tree says whether the design itself changed.                                                                                                              |
 | **The project's own dev server.** [builder-vite](../../packages/builder-vite/src/index.ts) runs the project's Vite.                          | No Storybook build and no upload. The server sees every file a case's page loads, which is what makes traces.                                                            |
 | **The project's CSS and tokens.** Core reads both from the stylesheets' sources.                                                             | Traces can name the tokens a case reads, so changing a token re-tests only the cases that use it.                                                                        |
-| **Design and code, linked both ways.** `@parity/code` (CMP-22, CMP-25).                                                                      | CI can show what a hand edit will do to the design once synced, which no Storybook tool can know.                                                                        |
+| **Design and code, linked both ways.** `@parity/code` (PAR-90, PAR-93).                                                                      | CI can show what a hand edit will do to the design once synced, which no Storybook tool can know.                                                                        |
 | **A measured box for every node.** `RenderedFrame.nodes` from the offscreen renderer.                                                        | A change reads "`header/avatar` grew from 32 to 40 px and everything below it moved", not "38,000 pixels differ". A shift is reported once, not as every pixel under it. |
 | **Offscreen checks.** Accessibility (axe) and the project's console, per frame.                                                              | The same pass checks accessibility and render errors, with no add-ons.                                                                                                   |
 | **The canvas.** A case is a frame the person can already see.                                                                                | Review happens on the frame itself, rather than in a separate web app.                                                                                                   |
@@ -332,7 +332,7 @@ git. It's been tuned for speed and flake, so its lessons are worth more than its
 
 ### The case page
 
-This is VAL-18. Each case loads as its own page on the project's dev server:
+This is PAR-226. Each case loads as its own page on the project's dev server:
 
 - The page imports the guest, the decorators and only the components the case uses.
 - It sets up the mode: viewport, pixel ratio, colour scheme, reduced motion and touch, as the decision lists.
@@ -344,9 +344,9 @@ This is VAL-18. Each case loads as its own page on the project's dev server:
   - `document.fonts.ready` has resolved and every image has decoded;
   - two animation frames have passed.
 
-One change to the decision is worth making for speed (Q2 in the backlog). Give each case a **fresh page** in a browser
-context shared by one worker, and clear storage, cookies and service workers between cases, rather than a fresh context
-per case. A page already gives a case its own window, document, modules, portals, focus and listeners, which is what the
+One change to the decision is worth making for speed (PAR-25). Give each case a **fresh page** in a browser context
+shared by one worker, and clear storage, cookies and service workers between cases, rather than a fresh context per
+case. A page already gives a case its own window, document, modules, portals, focus and listeners, which is what the
 decision asks for. The context would add only an empty HTTP cache, and with the dev server serving hundreds of modules,
 an empty cache per case is the slowest part of a page load. Modes that need different touch or mobile emulation get a
 context of their own per worker.
@@ -420,11 +420,11 @@ parity test changes --since <ref>  cases whose baselines changed, with before an
 ```
 
 `parity test` runs without the app, unlike most of the CLI's commands, which call the running app. CI gets it with
-`npx`, since the CLI will be public on npm (your call, 2026-10-29), under the name Q7 settles.
+`npx`, since the CLI will be public on npm (your call, 2026-10-29), under the name PAR-26 settles.
 
 ## Targets
 
-These are targets to measure, not claims. A benchmark like `pnpm perf` records them on the example project (VIS-12), so
+These are targets to measure, not claims. A benchmark like `pnpm perf` records them on the example project (PAR-238), so
 "faster than Chromatic" stays something we've checked:
 
 - **Plan, with nothing installed:** under 2 s for 1,000 cases, after checkout.
@@ -438,8 +438,8 @@ These are targets to measure, not claims. A benchmark like `pnpm perf` records t
 
 - **Hover, focus and active states,** forced on a node through CDP's `CSS.forcePseudoState`. The pointer never moves, so
   these states are deterministic. Storybook users get this from the pseudo-states addon.
-- **Steps before the capture:** clicks and typing from AGT-10, for open menus and filled forms.
-- **Stories as cases.** Through Storybook's portable stories, under the StoryAdapter (SB-1). A project's existing
+- **Steps before the capture:** clicks and typing from PAR-261, for open menus and filled forms.
+- **Stories as cases.** Through Storybook's portable stories, under the StoryAdapter (PAR-114). A project's existing
   stories would get the same traces, and need no Storybook build.
 - **Firefox and WebKit** through the same Playwright driver, as Refracto does.
 - **A prebuilt bundle for CI.** One `vite build` of the case page, so pages load a few chunks instead of hundreds of
@@ -449,7 +449,7 @@ These are targets to measure, not claims. A benchmark like `pnpm perf` records t
   SSIM modes. Benchmark the two on Parity's frames before settling. Frames are whole screens, bigger than Storybook's
   component crops, so the diff's speed matters more here. Check both packages' licences and upkeep first.
 - **A shared cache across machines,** as Turborepo's remote cache does for builds, if CI caches prove too short-lived.
-- **Parity's own runners,** a follow-up engineering effort with a proposal of its own (VIS-26). Your direction
+- **Parity's own runners,** a follow-up engineering effort with a proposal of its own (PAR-252). Your direction
   (2026-10-29) is that baselines eventually come from hardware Parity controls. That makes captures byte-identical every
   time, and lets a developer's machine check its changes against the baselines CI promotes on merge, as Chromatic's
   addon does. One approach for that proposal to weigh: the project's CI or a developer's machine renders each case as
@@ -459,32 +459,32 @@ These are targets to measure, not claims. A benchmark like `pnpm perf` records t
 
 ## Order
 
-This starts after the core (your call, 2026-10-29). Within it, CI comes first, as you asked. Each step is a backlog item
-in the VIS stream:
+This starts after the core (your call, 2026-10-29). Within it, CI comes first, as you asked. Each step is an issue in
+Linear's Visual tests stream:
 
-1. **The pure parts:** cases, traces and the plan in `@parity/visual` (VIS-1), and the SSIM compare with regions
-   (VIS-2). These are data in and data out, tested without Electron or a browser.
-2. **The page and the runner:** VAL-18, then `parity test` with capture, the hash gate, verify on mismatch, baselines,
-   reports and exit codes (VIS-3). Then the pinned browser and fonts on any Linux runner (VIS-6), and the benchmark
-   (VIS-12).
+1. **The pure parts:** cases, traces and the plan in `@parity/visual` (PAR-227), and the SSIM compare with regions
+   (PAR-228). These are data in and data out, tested without Electron or a browser.
+2. **The page and the runner:** PAR-226, then `parity test` with capture, the hash gate, verify on mismatch, baselines,
+   reports and exit codes (PAR-229). Then the pinned browser and fonts on any Linux runner (PAR-232), and the benchmark
+   (PAR-238).
 3. **CI:**
-   - the plan before installing (VIS-4);
-   - the cache between runs (VIS-24);
-   - CI templates, the pull request summary and shards (VIS-13);
-   - changed layers and the layout diff for the summary (VIS-9);
-   - accepting from the app (VIS-21) and from the pull request (VIS-22);
-   - the visual changelog (VIS-25).
-4. **Code under designs:** linked designs rendered as they'll be once synced (VIS-23), after CMP-22.
-5. **Precision:** traces that name tokens (VIS-5).
+   - the plan before installing (PAR-230);
+   - the cache between runs (PAR-250);
+   - CI templates, the pull request summary and shards (PAR-239);
+   - changed layers and the layout diff for the summary (PAR-235);
+   - accepting from the app (PAR-247) and from the pull request (PAR-248);
+   - the visual changelog (PAR-251).
+4. **Code under designs:** linked designs rendered as they'll be once synced (PAR-249), after PAR-90.
+5. **Precision:** traces that name tokens (PAR-231).
 6. **A developer's machine:**
-   - comparison with HEAD's renders (VIS-7);
-   - watch mode (VIS-8);
-   - review on the canvas (VIS-10).
+   - comparison with HEAD's renders (PAR-233);
+   - watch mode (PAR-234);
+   - review on the canvas (PAR-236).
 7. **Around it:**
-   - accessibility and the console per case (VIS-11);
-   - agent tools (VIS-14).
+   - accessibility and the console per case (PAR-237);
+   - agent tools (PAR-240).
 
-VAL-1, the render sweep over the validation projects, then becomes `parity test` on each validation project plus its
+PAR-211, the render sweep over the validation projects, then becomes `parity test` on each validation project plus its
 canvas-against-page layout check.
 
 ## Calls made here
@@ -510,8 +510,8 @@ These are my calls, open to change. They go into decisions.md once you agree wit
 
 ## Decisions needed from you
 
-- **A fresh page per case in a shared context (Q2),** rather than a context per case, to keep the HTTP cache warm. This
-  changes the wording of the VAL-18 decision. Each case still gets its own window, document, modules and storage.
+- **A fresh page per case in a shared context (PAR-25),** rather than a context per case, to keep the HTTP cache warm.
+  This changes the wording of the PAR-226 decision. Each case still gets its own window, document, modules and storage.
 
-Settled on 2026-10-29: visual tests come after the core (Q1), and the CLI will be public on npm (Q3), under the name Q7
-settles.
+Settled on 2026-10-29: visual tests come after the core (Q1), and the CLI will be public on npm (Q3), under the name
+PAR-26 settles.

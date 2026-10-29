@@ -1,7 +1,7 @@
 # Proposal: token and component previews
 
-Status: designed as Storybook explorations on 2026-10-29; nothing is built. The builds are PAR-138 to PAR-140 and
-PAR-204 to PAR-206 in Linear.
+Status: designed as Storybook explorations on 2026-10-29; nothing is built. The builds are PAR-141 to PAR-143 and
+PAR-207 to PAR-209 in Linear.
 
 ## In one line
 
@@ -82,11 +82,13 @@ scale at true size with this step marked, so a step reads against its neighbours
 
 **Copying comes first.** Copying a token is likely why most people open the tab, so it takes one step from anywhere a
 token shows. A row or tile has a copy button while it's hovered or has the keyboard, and Ctrl+C (Cmd+C on a Mac) on it
-does the same; both copy `var(--radius-md)`, which works anywhere CSS does, and the button's tooltip says what was
-copied. A breakpoint copies its variant (`md:`), since `var()` can't go in a media query. A palette shade copies when
-clicked. The detail lists every way to write the token, each copied with a click: `var()`, then the Tailwind classes
-that use it (`rounded-md`; `bg-primary`, `text-primary` and `border-primary` for a color), or the class with the
-variable (`z-(--chakra-z-index-modal)`) for a token outside Tailwind's names.
+does the same; both copy the token's name as CSS writes it, `--radius-md`, which Parity's fields and the agent take, and
+the button's icon turns into a green check. A palette shade copies when clicked, with a "Copied" bubble rising from it.
+These are `chrome/Copy.tsx`'s `CopyButton` and `CopyOnClick`, which every copy in Parity uses. The detail has a copy
+button by the name and, beside it, a Copy for code menu for the times someone is in the code: `var()`, then the Tailwind
+classes that use it (`rounded-md`; `bg-primary`, `text-primary` and `border-primary` for a color), the class with the
+variable (`z-(--chakra-z-index-modal)`) for a token outside Tailwind's names, or the variant (`md:`) for a breakpoint,
+since `var()` can't go in a media query.
 
 **Nothing under the name repeats the panel.** The detail doesn't say what kind of token it is or whether it's the
 project's or the theme's: the section heading, the preview and the All, Project and Theme filter already do. It names a
@@ -122,7 +124,7 @@ components on one page and cropping each from one capture is worth measuring onc
 
 **When they're made.**
 
-1. Never while a project is opening: not before the canvas is usable and its own bitmaps are taken (PAR-176).
+1. Never while a project is opening: not before the canvas is usable and its own bitmaps are taken (PAR-179).
 2. Ones in view first: a row or picker item on screen asks for its picture, still behind canvas and agent jobs.
 3. The rest in an idle pass: after two seconds with no pointer, key, drag or agent edit, one job at a time, stopping
    before the next job as soon as the person works. The pass ends, and the offscreen renderer's idle close
@@ -134,7 +136,7 @@ under a minute of background work, once.
 
 **Kept on disk, keyed by content.** Each picture's key is a hash of the preview tree, the mode, the content of the
 component's file and everything it imports (from the builder's module graph), the project's compiled CSS and Parity's
-renderer version. Files go in the disk store PAR-155 makes for the canvas's frame bitmaps,
+renderer version. Files go in the disk store PAR-158 makes for the canvas's frame bitmaps,
 `<userData>/previews/<project>/<key>.png`, with an index of each component's current key, size and state. The renderer
 gets them through a `parity-preview:` protocol as plain `<img>`s, so Chromium decodes only what's on screen and nothing
 sits in JavaScript as data URLs, as `frame-bitmaps.ts` keeps today's.
@@ -149,7 +151,7 @@ rendering anything.
 **Memory and disk.** Two files per picture: a thumbnail at 240 by 152 pixels (the grid tile at 2x, also used for list
 rows and picker rows) of about 5 to 10 KB, and a large one at 608 by 352 (the card at 2x) of about 25 to 40 KB, since
 flat interface pictures compress well. 200 components come to about 10 MB on disk, capped per project (50 MB, least
-recently shown first) and removed with the project from recents (PAR-185). In memory, decoded thumbnails are about 150
+recently shown first) and removed with the project from recents (PAR-188). In memory, decoded thumbnails are about 150
 KB each, so a panel showing 30 holds about 4.5 MB, plus under 1 MB for an open card. The renderer keeps only the index,
 a few dozen bytes per component.
 
@@ -171,4 +173,4 @@ stay in the main process; the views stay in the app.
 Recorded in [decisions.md](../decisions.md) under Previews: tokens drawn not rendered; preview kinds and the sections
 they give; motion only while looked at; component pictures as bitmaps of what inserting places, on disk by content;
 stale pictures shown dimmed; the Components tab's three views with List as the default; the hover card and the picker's
-card; and PAR-175's preview clause moving to PAR-205.
+card; and PAR-178's preview clause moving to PAR-208.

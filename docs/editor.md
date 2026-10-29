@@ -4,7 +4,7 @@ What Parity's canvas editor does, how each part of it works, and the tests that 
 for every piece of editor work to land with tests and a description here, so nothing gets lost or quietly breaks.
 Shortcuts are listed once, in the keymap ([chrome/keymap.ts](../apps/desktop/src/renderer/chrome/keymap.ts)) and the
 Keyboard shortcuts dialog; this page says what they do. What's decided and why is in [decisions.md](decisions.md).
-Features built before 2026-10-29 are being added under DOC-2 in the [backlog](backlog.md).
+Features built before 2026-10-29 are being added under PAR-392 in Linear.
 
 ## How to keep it
 
@@ -214,7 +214,7 @@ project's right handle dragged 50px right gave a width of 49 steps and no height
 handle dragged sideways changed nothing; the Review slot's top handle dragged up 16px gave top 36 and height 20 with the
 bottom edge where it was, and its left handle dragged right gave left 3 with right still 0. A resize writes as the
 pointer moves, and in a development build those writes can be more than a second apart, so one drag can take several
-undos; one undo step per gesture is CAN-79.
+undos; one undo step per gesture is PAR-193.
 
 ### Duplicating a design (CAN-47)
 
@@ -315,7 +315,7 @@ actions, since each needs to know which arrow was pressed.
 - **Designs and text notes** move 1px, or 10px with Shift. A selected mode column moves its design.
 - **One undo step per run.** Presses on the same selection less than a second apart are one step (Undo nudge layer);
   pausing, or changing the selection, starts another.
-- **Moving a layer by 1px** waits for CAN-80, since it would leave the spacing scale.
+- **Moving a layer by 1px** waits for PAR-194, since it would leave the spacing scale.
 - **Layers inside an instance don't move,** as they can't be dragged.
 - **The keys.** On the canvas, the arrows with Ctrl or Alt do nothing, so tldraw never moves a design behind the
   keymap's back. On a focused control, such as a Layers row, the arrows stay the control's. A layer that moves stays in
@@ -468,11 +468,11 @@ numbers. A component's number props take any number.
   fill or hug, as Figma's sizes are always numbers. Unset limits, rows, max lines and props have no value, so such maths
   says "There's no value here to work from". A layer whose value is a token has no number either: it keeps its value,
   and the field says how many layers did.
-- **Off the spacing scale, until CAN-80.** Before, a length field read steps and took any number, so `7.3` became
+- **Off the spacing scale, until PAR-194.** Before, a length field read steps and took any number, so `7.3` became
   29.2px, which Tailwind can't write as a class, without a word. Now a typed length lands on the nearest half step (2px
   with a 4px unit), which is what Tailwind's scale lists below 4 and what dragging already writes, and the field says so
   under its row: "Snapped to 282px, the nearest step on the spacing scale". A value already off it shows as it is (29.2)
-  until it's edited. Keeping and flagging lengths off the scale is CAN-80.
+  until it's edited. Keeping and flagging lengths off the scale is PAR-194.
 - **Limits.** Sizes, padding, margin, gaps and limits can't go below 0; insets can. Opacity stays within 0 and 100.
   Counts are whole numbers from 1. A value past a limit is kept at it ("Kept at 0px: it can't go lower"), and a count
   with a fraction is rounded ("Rounded to 2: it takes whole numbers"), each said under the row.
@@ -512,7 +512,7 @@ Code:
 - `packages/core/src/fields.ts`: reading what's typed (`readFieldInput`), working it out against a value
   (`applyFieldInput`), landing on the scale and the limits, steps (`stepFieldValue`), scrubbing (`scrubSteps`), showing
   a value (`formatFieldValue`) and what the field says (`describeFieldNote`, `summarizeFieldNotes`). It takes data and
-  returns data; it can move to `@parity/editor` when PKG-4 makes it.
+  returns data; it can move to `@parity/editor` when PAR-7 makes it.
 - `packages/core/src/style-changes.ts`: which inline styles an edit changes between two renders of a design
   (`styleChanges`).
 - `apps/desktop/src/renderer/chrome/number-field.ts`: the field's behaviour as a reducer (`reduceField`): drafts, Enter,
@@ -554,4 +554,4 @@ its reason; a value set underneath left `12` in the field; Up, Shift+Up and Down
 `50-10` in Opacity gave 40; scrubbing the Width label previewed in 22 ms and made one undo step; and `Mixed+8` on Brand
 mark and Plans gave 40px and 1208px. The stories' play functions weren't run in Storybook. Number props don't preview,
 since a prop change has to draw the component again; they take maths and are made on Enter, as before. In a 320px
-inspector, Width and Height show about three characters of what's typed (CAN-75).
+inspector, Width and Height show about three characters of what's typed (PAR-189).

@@ -130,7 +130,7 @@ components open on their docs page.
   routes. See [web-and-backend.md](proposals/web-and-backend.md).
 - **Stories as tests, later.** Running stories through Storybook's Vitest add-on, once the core works. See
   [web-and-backend.md](proposals/web-and-backend.md) and [support.md](support.md).
-- **Open:** whether tests recorded in interact mode replay against a design's story or the running app. See PAR-315 in
+- **Open:** whether tests recorded in interact mode replay against a design's story or the running app. See PAR-320 in
   Linear.
 
 ## The boundary
