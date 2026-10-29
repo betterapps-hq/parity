@@ -1,14 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="145" height="100" viewBox="164 252 696 480" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" width="116" height="100" viewBox="184 228 656 568" fill="none">
   <title>Parity</title>
   <!-- The glyph alone, in one color: it takes the color of the text around it. Drawn for 32 pixels and up; below
-       that the handles blur, so use parity-icon-small.svg. -->
-  <defs>
-    <clipPath id="beside-handles">
-      <path clip-rule="evenodd" d="M0 0H1024V1024H0ZM172 260h80v80h-80ZM772 260h80v80h-80ZM172 412h80v80h-80ZM772 412h80v80h-80Z"/>
-    </clipPath>
-  </defs>
-  <rect x="212" y="300" width="600" height="152" rx="48" fill="currentColor" fill-opacity="0.28" clip-path="url(#beside-handles)"/>
-  <path d="M252 300H772M252 452H772M212 340V412M812 340V412" stroke="currentColor" stroke-width="22"/>
-  <path fill="currentColor" fill-rule="evenodd" d="M172 260h80v80h-80ZM194 282v36h36v-36ZM772 260h80v80h-80ZM794 282v36h36v-36ZM172 412h80v80h-80ZM194 434v36h36v-36ZM772 412h80v80h-80ZM794 434v36h36v-36Z"/>
-  <rect x="212" y="572" width="600" height="152" rx="48" fill="currentColor"/>
+       that, use parity-icon-small.svg. -->
+  <path d="M468 266L222 512L468 758M556 266L802 512L556 758" stroke="currentColor" stroke-width="60" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M512 425L599 512L512 599L425 512Z" fill="currentColor" stroke="currentColor" stroke-width="42" stroke-linejoin="round"/>
 </svg>
