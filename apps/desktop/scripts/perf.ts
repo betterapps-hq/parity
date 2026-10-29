@@ -58,6 +58,8 @@ interface Run {
   /** Elements whose style was recalculated, per frame. */
   styledPerFrame: number
   hot?: Hot[]
+  /** The window was hidden, such as minimized, for some of the run, so it drew at a crawl or not at all. */
+  hidden?: true
 }
 
 interface Result {
@@ -83,6 +85,8 @@ interface Result {
     /** Boards whose size differs from before the switch, once their frames have drawn and a few seconds later. */
     resizedDrawn: number
     resizedLater: number
+    /** The boards counted in resizedLater, as `key: before → after`. */
+    resized?: string[]
   }
 }
 
@@ -99,6 +103,9 @@ const runner = spawn(process.execPath, [join(appDir, "scripts/dev.ts"), project]
     PARITY_UI_FROZEN: "1",
     PARITY_DEBUG_PORT: String(debugPort),
     PARITY_USER_DATA: profileDir,
+    // The window opens at the size to measure, rather than the page being held at it, so the window still behaves like
+    // a window if someone maximizes it.
+    PARITY_WINDOW_SIZE: viewport,
     // Agents find the app through this file. The copy keeps its own, so agents keep working with the person's app and
     // can't change the copy while it's measured.
     PARITY_AGENT_FILE: join(profileDir, "agent.json")
@@ -143,9 +150,20 @@ async function connect(): Promise<Page> {
 }
 
 async function measure(page: Page): Promise<Result> {
-  // The same size every run, whatever size the window opens at, since a larger one draws more.
+  // The same size every run, since a larger window draws more. The window opens at it, give or take the few pixels
+  // Windows rounds by, which the census reports; one that didn't, such as on a screen too small for it, is held at it.
+  // Sizes come from the protocol, since code evaluated here reads the window's size as a frame's (see viewport.ts).
+  const cdp = await page.context().newCDPSession(page)
+  const pageSize = async () => {
+    const { cssLayoutViewport } = await cdp.send("Page.getLayoutMetrics")
+    return { width: cssLayoutViewport.clientWidth, height: cssLayoutViewport.clientHeight }
+  }
   const [width, height] = viewport.split("x").map(Number)
-  await page.setViewportSize({ width: width!, height: height! })
+  const opened = await pageSize()
+  if (Math.abs(opened.width - width!) > 8 || Math.abs(opened.height - height!) > 8) {
+    console.warn(`The window opened at ${opened.width}x${opened.height}, so the page is held at ${viewport}`)
+    await page.setViewportSize({ width: width!, height: height! })
+  }
   // The copy's window comes to the front and looks like the person's own, so its title says what it is.
   await page.evaluate(() => {
     document.title = "Parity (pnpm perf is measuring this copy, which closes by itself)"
@@ -201,18 +219,38 @@ async function measure(page: Page): Promise<Result> {
       frames: frames.length,
       frameElements: frames.reduce((total, host) => total + (host.shadowRoot?.querySelectorAll("*").length ?? 0), 0),
       pageElements: document.querySelectorAll("*").length,
-      width: innerWidth,
-      height: innerHeight,
       pixelRatio: devicePixelRatio
     }
   })
-  Object.assign(census, { bitmaps: bitmapsReady.bitmaps, bitmapSeconds: Math.round(bitmapsReady.seconds) })
+  Object.assign(census, {
+    ...(await pageSize()),
+    bitmaps: bitmapsReady.bitmaps,
+    bitmapSeconds: Math.round(bitmapsReady.seconds)
+  })
 
-  const cdp = await page.context().newCDPSession(page)
   await cdp.send("Performance.enable")
+  // The copy keeps drawing while covered, but not minimized; a run measured then is marked, not mistaken for slow.
+  const hiddenSince = () =>
+    page.evaluate(() => {
+      const watched = window as unknown as { perfHidden?: boolean }
+      const hidden = Boolean(watched.perfHidden) || document.hidden
+      if (watched.perfHidden === undefined) {
+        document.addEventListener("visibilitychange", () => {
+          if (document.hidden) watched.perfHidden = true
+        })
+      }
+      watched.perfHidden = false
+      return hidden
+    })
+  await hiddenSince()
   const runs: Run[] = []
   for (const motion of ["zoom", "pan", "hover", "idle", "pan at 100%"] as const) {
-    runs.push(await moveCamera(page, cdp, motion))
+    const run = await moveCamera(page, cdp, motion)
+    if (await hiddenSince()) {
+      console.warn(`The window was hidden during ${motion}, so its numbers don't count`)
+      run.hidden = true
+    }
+    runs.push(run)
     // What the camera rests on afterwards, to check by eye that the canvas still draws as it should.
     await page.waitForTimeout(1500)
     if (motion === "zoom" || motion === "pan at 100%")
@@ -414,19 +452,30 @@ async function hiddenTab(page: Page, cdp: CDPSession, frames: number): Promise<R
     return { nodes: value("Nodes"), heapMb: Math.round(value("JSHeapUsedSize") / 1048576) }
   }
   const shown = await counts()
+  // Keyed by design, since the shapes' ids aren't kept across sessions.
   const boards = () =>
     page.evaluate(() => {
       const editor = (window as unknown as PerfWindow).perfSession.editor!
-      return editor.getCurrentPageShapes().map((shape) => {
-        const box = editor.getShapePageBounds(shape)!
-        return `${shape.id} ${Math.round(box.w)}×${Math.round(box.h)}`
-      })
+      return Object.fromEntries(
+        editor.getCurrentPageShapes().map((shape) => {
+          const box = editor.getShapePageBounds(shape)!
+          return [(shape.props as { key: string }).key, `${Math.round(box.w)}×${Math.round(box.h)}`]
+        })
+      )
     })
-  const sizes = await boards()
-  const resized = async () => {
-    const now = new Set(await boards())
-    return sizes.filter((size) => !now.has(size)).length
+  const changed = (before: Record<string, string>, after: Record<string, string>) =>
+    Object.keys(before)
+      .filter((key) => before[key] !== after[key])
+      .map((key) => `${key}: ${before[key]} → ${after[key] ?? "gone"}`)
+  // The runs before this one may leave boards still settling, so the sizes to keep are the ones that hold still.
+  let sizes = await boards()
+  for (let tries = 0; tries < 20; tries++) {
+    await page.waitForTimeout(500)
+    const now = await boards()
+    if (changed(sizes, now).length === 0) break
+    sizes = now
   }
+  const resized = async () => changed(sizes, await boards())
   const first = await page.evaluate(
     async ([url, root]) => {
       const { workspace } = (await import(url)) as { workspace: Workspace }
@@ -473,8 +522,9 @@ async function hiddenTab(page: Page, cdp: CDPSession, frames: number): Promise<R
     heapHiddenMb: hidden.heapMb,
     backMs: round(back.ms),
     backLongestMs: round(back.longest),
-    resizedDrawn,
-    resizedLater
+    resizedDrawn: resizedDrawn.length,
+    resizedLater: resizedLater.length,
+    resized: resizedLater
   }
 }
 
@@ -577,7 +627,7 @@ function report(result: Result, previous: Result | undefined): void {
   }
   for (const run of result.runs) {
     const before = previous?.runs.find((candidate) => candidate.name === run.name)
-    console.log(`\n${run.name}`)
+    console.log(`\n${run.name}${run.hidden ? " (the window was hidden, so these don't count)" : ""}`)
     console.log(`  fps               ${column(run.fps, before?.fps)}`)
     console.log(`  frame p50 ms      ${column(run.frameMs.p50, before?.frameMs.p50)}`)
     console.log(`  frame p90 ms      ${column(run.frameMs.p90, before?.frameMs.p90)}`)
@@ -609,6 +659,7 @@ function report(result: Result, previous: Result | undefined): void {
     console.log(`  back drawn ms     ${column(result.hidden.backMs, before?.backMs)}`)
     console.log(`  back longest ms   ${column(result.hidden.backLongestMs, before?.backLongestMs)}`)
     console.log(`  boards resized    ${result.hidden.resizedDrawn} once drawn, ${result.hidden.resizedLater} after 3 s`)
+    for (const board of result.hidden.resized?.slice(0, 10) ?? []) console.log(`    ${board}`)
   }
   console.log(`\nmemory MB`)
   for (const [role, value] of Object.entries(result.memoryMb)) {

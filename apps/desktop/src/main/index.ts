@@ -9,6 +9,7 @@ import {
   Menu,
   MessageChannelMain,
   nativeTheme,
+  screen,
   shell,
   type UtilityProcess,
   utilityProcess,
@@ -26,6 +27,8 @@ if (!rendererUrl) {
 
 // Lets agents and scripts inspect the running canvas over the Chrome DevTools Protocol.
 if (process.env.PARITY_DEBUG_PORT) app.commandLine.appendSwitch("remote-debugging-port", process.env.PARITY_DEBUG_PORT)
+// A copy being measured keeps drawing while other windows cover it, which a window otherwise stops doing on Windows.
+if (process.env.PARITY_WINDOW_SIZE) app.commandLine.appendSwitch("disable-features", "CalculateNativeWinOcclusion")
 // A second copy, such as the one `pnpm perf` starts, keeps its own tabs, storage and theme.
 if (process.env.PARITY_USER_DATA) app.setPath("userData", process.env.PARITY_USER_DATA)
 
@@ -123,9 +126,20 @@ function restartService(): void {
 function createWindow(): void {
   const mac = process.platform === "darwin"
   const { background, symbols } = titleBarColors()
+  // A size for the page itself, such as 1439x901, which `pnpm perf` asks for so every run draws the same area, in the
+  // middle of the main screen, so every run draws at the same pixel ratio.
+  const [pageWidth, pageHeight] = (process.env.PARITY_WINDOW_SIZE ?? "").split("x").map(Number)
+  const { workArea } = screen.getPrimaryDisplay()
   const window = new BrowserWindow({
-    width: 1440,
-    height: 900,
+    ...(pageWidth && pageHeight
+      ? {
+          width: pageWidth,
+          height: pageHeight,
+          useContentSize: true,
+          x: Math.round(workArea.x + Math.max(0, workArea.width - pageWidth) / 2),
+          y: Math.round(workArea.y + Math.max(0, workArea.height - pageHeight) / 2)
+        }
+      : { width: 1440, height: 900 }),
     minWidth: 960,
     minHeight: 600,
     title: "Parity",
