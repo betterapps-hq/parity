@@ -77,12 +77,15 @@ still need your call.
   of all cores, and memory and CPU cover every process of the app: the windows, the offscreen renderer, the project
   service (with the project's Vite), the GPU and Electron's helpers. Clicking it shows the last minute's frame rate, the
   longest recent frame and each process. Storybook runs outside the app, so it isn't counted. Measuring runs only while
-  the stats show. On Windows, memory is each process's private working set, the memory only it uses, as Task Manager's
-  Memory column counts it: the working set Electron reports also counts the pages the processes share, once for each,
-  and read about 25% high. Electron doesn't give the private part, so a PowerShell the main process starts asks Windows
-  for it (`GetProcessMemoryInfo`, a fraction of a millisecond a process, where the performance counters take over a
-  second) while the stats show, and stops 15 seconds after they stop. Elsewhere, memory is the working set. `pnpm perf`
-  reads memory the same way.
+  the stats show. Memory is what each process uses on its own, as the system's own monitor counts it: the working set
+  Electron reports also counts the pages the processes share, once for each, and read about 25% high. Electron doesn't
+  give the private part, so each system is asked its own way (`main/private-memory.ts`): on Windows, the private working
+  set of Task Manager's Memory column, from a PowerShell that calls `GetProcessMemoryInfo` (a fraction of a millisecond
+  a process, where the performance counters take over a second) while the stats show and stops 15 seconds after; on
+  Linux, anonymous resident memory from each process's `/proc/<pid>/status`, which stays readable for Chromium's
+  sandboxed processes where `smaps` doesn't; on macOS, the footprint of Activity Monitor's Memory column, from `top` at
+  most every two seconds. A process the system won't say about keeps its working set. `pnpm perf` reads memory the same
+  way. The Linux and macOS readings are tested against those systems' output, but haven't run on them yet.
 - **`pnpm perf` measures the canvas** in its own copy of the app on the example project, in a window that opens at
   1439×901 in the middle of the main screen, so every run draws the same area at the same pixel ratio (the page is held
   at that size only if the window can't open within a few pixels of it, so a maximized copy still lays out like a
@@ -105,12 +108,17 @@ still need your call.
   stops, titles and labels size themselves from the zoom directly, selection colours go through tldraw's theme rather
   than custom properties, and the layer the camera moves is composited, so panning and zooming move what's already drawn
   until the camera stops. Boards well out of view skip drawing their frames but keep their layout.
-- **The app is named Parity, also to Windows.** The main process names itself Parity and keeps its settings where the
-  package's name put them (`%APPDATA%\@parity\desktop`). Task Manager and the taskbar name an app by its executable's
-  version information, so on Windows `pnpm dev` runs Electron from a copy named `Parity.exe` whose version information
-  says Parity, made once per Electron version under `apps/desktop/node_modules/.cache`, its other files linked to
-  Electron's. If the copy can't be made, it runs Electron as installed. The edit voids the executable's signature, so
-  Windows would refuse to run the copy with Smart App Control on; it's off here.
+- **The app is named Parity, with Parity's icon, to every system.** The main process names itself Parity and keeps its
+  settings where the package's name put them (`%APPDATA%\@parity\desktop` on Windows). Each system names and draws an
+  app from its program rather than its windows, so `pnpm dev` runs a copy of Electron carrying Parity's name and icon
+  (`scripts/parity-electron.ts`), made once for each Electron version and icon under `apps/desktop/node_modules/.cache`;
+  if it can't be made, the app runs as Electron, with a warning. On Windows the copy is `Parity.exe`, its version
+  information saying Parity and its icon resources replaced with `icon.ico`, its other files linked to Electron's; the
+  edit voids the signature, so Windows would refuse it with Smart App Control on (it's off here). On macOS it's
+  `Parity.app`, cloned from Electron's bundle, with its program renamed, its Info.plist naming Parity, its icon file
+  drawn from `dock.png` and the bundle signed again ad hoc; Electron finds its helpers by its own name first, so they
+  keep theirs. On Linux it's Electron's folder linked, with the program as `parity`, since Linux names a process by its
+  file; the window's icon comes from the app. The macOS and Linux copies haven't run on those systems yet.
 - **A selected design shows only its own rounded outline.** tldraw's square selection box is drawn only around several
   designs at once.
 - **Copy and paste go through the system clipboard,** in a JSON envelope Parity recognises, so copies paste across
@@ -784,8 +792,9 @@ recommended answer to each of its questions.
   `icon.ico` for the Windows taskbar, `icon.png` for Linux, and `dock.png` for the macOS dock, with the margin Apple's
   icons keep around the tile. The dev runner copies them beside the bundles, so a second copy of the app finds them too.
   The taskbar shrinks the 32 and 40 pixel sizes to 24 and 30, so those use the small drawing.
-- **Parity.exe still has Electron's icon in its own resources,** which Windows shows where it reads the program rather
-  than the window, such as File Explorer or a taskbar button pinned before the app runs. Packaging the app sets it.
+- **The program the app runs from carries the icon too,** for where a system reads the program rather than the window:
+  File Explorer, Task Manager and a taskbar button pinned before the app runs, or Finder and Activity Monitor: see "The
+  app is named Parity, with Parity's icon, to every system". Packaging the app will set it the same way.
 
 ## Developing Parity
 

@@ -1,14 +1,61 @@
-import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process"
+import { type ChildProcessWithoutNullStreams, execFile, spawn } from "node:child_process"
+import { readFile } from "node:fs/promises"
 import { createInterface } from "node:readline"
+import { linuxAnonymous, macFootprints, windowsAnswer } from "./memory-readings.ts"
 
 /*
- * Each process's private working set on Windows: the memory only it uses, which Task Manager shows as its memory.
- * Electron reports the working set, which also counts the pages the app's processes share, once for each, so adding
- * those up reads well over Task Manager. Electron has no call for the private part, so a PowerShell asks Windows for
- * it (GetProcessMemoryInfo, a fraction of a millisecond a process; reading the performance counters takes over a
- * second). It starts when the stats first ask, answers each line of process ids with their sizes, and stops once
- * nothing has asked for a while. Its input closes with the app, which ends it too.
+ * The memory each of the app's processes uses on its own, as the system's own monitor counts it. Electron reports the
+ * working set, which also counts the pages the processes share, once for each, so adding those up reads well over
+ * what the system shows. Electron has no call for the private part, so each system is asked its own way:
+ *
+ * - Windows: the private working set, Task Manager's Memory column. A PowerShell asks Windows for it
+ *   (GetProcessMemoryInfo, a fraction of a millisecond a process; the performance counters take over a second). It
+ *   starts when the stats first ask, answers each line of process ids with their sizes, and stops once nothing has
+ *   asked for a while. Its input closes with the app, which ends it too.
+ * - Linux: anonymous resident memory, from each process's `/proc/<pid>/status`, read directly.
+ * - macOS: the memory footprint, Activity Monitor's Memory column, from `top`, at most every two seconds.
+ *
+ * A process the system won't say about keeps its working set.
  */
+
+/** The memory each process asked about uses on its own, in bytes, where the system says. */
+export async function privateMemory(pids: number[]): Promise<ReadonlyMap<number, number>> {
+  if (pids.length === 0) return new Map()
+  if (process.platform === "win32") return windows(pids)
+  if (process.platform === "linux") return linux(pids)
+  if (process.platform === "darwin") return mac(pids)
+  return new Map()
+}
+
+async function linux(pids: number[]): Promise<Map<number, number>> {
+  const sizes = new Map<number, number>()
+  await Promise.all(
+    pids.map(async (pid) => {
+      const bytes = await readFile(`/proc/${pid}/status`, "utf8").then(linuxAnonymous, () => undefined)
+      if (bytes) sizes.set(pid, bytes)
+    })
+  )
+  return sizes
+}
+
+/** How often `top` is asked, since it reads every process on the computer. */
+const topMs = 2000
+let footprints: { taken: number; sizes: Promise<Map<number, number>> } | undefined
+
+async function mac(pids: number[]): Promise<Map<number, number>> {
+  if (!footprints || Date.now() - footprints.taken > topMs) {
+    footprints = {
+      taken: Date.now(),
+      sizes: new Promise((resolve) => {
+        execFile("top", ["-l", "1", "-stats", "pid,mem"], { maxBuffer: 2 ** 22, timeout: 5000 }, (error, output) =>
+          resolve(error ? new Map() : macFootprints(output))
+        )
+      })
+    }
+  }
+  const all = await footprints.sizes
+  return new Map(pids.flatMap((pid) => (all.has(pid) ? [[pid, all.get(pid)!] as const] : [])))
+}
 
 const script = `
 Add-Type -TypeDefinition @'
@@ -61,9 +108,8 @@ let lastAsked = 0
 /** The latest answer, for a question that isn't answered in time. */
 let latest = new Map<number, number>()
 
-/** The private working set of each process asked about, in bytes, or nothing where it isn't known. */
-export async function privateWorkingSets(pids: number[]): Promise<ReadonlyMap<number, number>> {
-  if (process.platform !== "win32" || unavailable || pids.length === 0) return new Map()
+async function windows(pids: number[]): Promise<Map<number, number>> {
+  if (unavailable) return new Map()
   lastAsked = Date.now()
   const current = (reader ??= start())
   return new Promise((resolve) => {
@@ -91,13 +137,8 @@ function start(): Reader {
   child.stderr.resume()
   createInterface({ input: child.stdout }).on("line", (line) => {
     answered = true
-    const sizes = new Map<number, number>()
-    for (const pair of line.split(" ")) {
-      const [pid, bytes] = pair.split("=").map(Number)
-      if (pid && bytes && bytes > 0) sizes.set(pid, bytes)
-    }
-    latest = sizes
-    started.waiting.shift()?.(sizes)
+    latest = windowsAnswer(line)
+    started.waiting.shift()?.(latest)
   })
   child.stdin.on("error", () => undefined)
   child.on("error", () => {

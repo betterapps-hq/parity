@@ -18,7 +18,7 @@ import {
 import type { ProcessUsage, RenderedFrame, RenderJob, SaveDialogOptions } from "../shared/protocol.ts"
 import type { MainMessage, ServiceMessage } from "../shared/service.ts"
 import { readConsole, recordConsole } from "./console-log.ts"
-import { privateWorkingSets } from "./private-memory.ts"
+import { privateMemory } from "./private-memory.ts"
 
 const rendererUrl = process.env.PARITY_RENDERER_URL
 if (!rendererUrl) {
@@ -279,13 +279,13 @@ ipcMain.handle("canvas:set-theme", (_event, theme: ThemeSource) => {
 })
 
 // The performance stats: each process's CPU and memory, named by what it does. Storybook and other programs the
-// project service starts run outside the app, so they aren't counted. Memory is the private working set where Windows
-// gives it (see private-memory.ts), as Task Manager counts it, and the working set elsewhere.
+// project service starts run outside the app, so they aren't counted. Memory is what each process uses on its own, as
+// the system's monitor counts it (see private-memory.ts), and its working set where the system won't say.
 ipcMain.handle("canvas:metrics", async (event): Promise<ProcessUsage[]> => {
   const cores = availableParallelism()
   const pages = new Map(webContents.getAllWebContents().map((contents) => [contents.getOSProcessId(), contents]))
   const metrics = app.getAppMetrics()
-  const privates = await privateWorkingSets(metrics.map((metric) => metric.pid))
+  const privates = await privateMemory(metrics.map((metric) => metric.pid))
   return metrics.map((metric): ProcessUsage => {
     const page = pages.get(metric.pid)
     const role: ProcessUsage["role"] =
