@@ -853,8 +853,9 @@ recommended answer to each of its questions.
   still need a free one behind it, and the guest server is internal to Parity, loaded only by its own frames.
 - **Each open project's builder runs in a process of its own, which closing the project ends** (CAN-81). My call, from
   the memory audit: a closed Vite server isn't freed in the process that ran it, because Rolldown's native handles keep
-  closures from it, and through them its whole module graph, so each reopen of the example project kept about 160 MB in
-  the project service. The service starts the builder with Parity's own Node
+  closures from it, and through them its whole module graph, so each reopen of the example project kept 60 to 160 MB in
+  the project service. With the builder in its own process, five reopens leave the service where one open had it. The
+  service starts the builder with Parity's own Node
   ([builder-process.ts](../apps/desktop/src/utility/builder-process.ts), started by
   [builders.ts](../apps/desktop/src/utility/builders.ts)), and they talk in the messages in `@parity/core`'s
   [builder-process.ts](../packages/core/src/builder-process.ts): the start options as data, with the builder by id and

@@ -102,6 +102,7 @@ export function installHost(): void {
       Promise.resolve([
         { role: "this-window", name: "This window", pid: 2, cpu: 3.2, memory: 310_000_000 },
         { role: "service", name: "Project service", pid: 3, cpu: 0.6, memory: 240_000_000 },
+        { role: "builder", name: "Vite for shop", pid: 5, cpu: 0.2, memory: 180_000_000 },
         { role: "app", name: "Parity", pid: 1, cpu: 0.4, memory: 120_000_000 },
         { role: "gpu", name: "GPU", pid: 4, cpu: 1.1, memory: 150_000_000 }
       ])

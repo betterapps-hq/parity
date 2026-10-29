@@ -48,14 +48,28 @@ export interface ComponentExport {
   as?: ComponentEvidence
 }
 
+/**
+ * What a builder needs of the renderer: the packages and modules its guest runs on. Only data, so it can cross to the
+ * builder's own process without the renderer's code, which reads components with TypeScript.
+ */
+export type BuilderRenderer = Pick<
+  RendererAdapter,
+  "id" | "name" | "guestModule" | "runtimePackages" | "runtimeImports"
+>
+
 export interface BuilderStartOptions {
   root: string
   config: ProjectConfig
-  renderer: RendererAdapter
+  renderer: BuilderRenderer
   /** Absolute path of the renderer's guest module. */
   rendererGuestPath: string
   /** Origins allowed to load the guest module (the canvas UI). */
   allowedOrigins: string[]
+  /**
+   * The port to serve on if it's free, as the one a reopened project had, so its guest URL stays the same. Otherwise,
+   * or when it's unset, any free port.
+   */
+  port?: number
 }
 
 /**

@@ -349,10 +349,10 @@ export interface CanvasHost {
 /** One of the app's processes, as the performance stats show it. */
 export interface ProcessUsage {
   /**
-   * What it does: the app itself, this window or another, the offscreen renderer agents use, the project service that
-   * runs the project's build tool, the GPU, or one of Electron's helpers.
+   * What it does: the app itself, this window or another, the offscreen renderer agents use, the project service, an
+   * open project's builder, which runs its build tool in a process of its own, the GPU, or one of Electron's helpers.
    */
-  role: "app" | "this-window" | "window" | "offscreen" | "service" | "gpu" | "helper"
+  role: "app" | "this-window" | "window" | "offscreen" | "service" | "builder" | "gpu" | "helper"
   name: string
   pid: number
   /** Share of the whole computer's CPU since the last reading, from 0 to 100. */

@@ -32,7 +32,8 @@ export const viteBuilder: BuilderAdapter = {
   async start(options) {
     const vite = await loadProjectVite(options.root)
     const configFile = await scriptedConfig(options.root)
-    const port = await freePort()
+    // A reopened project gets its last port back when it can, so its guest URL is the one the canvas already loaded.
+    const port = options.port !== undefined && (await portFree(options.port)) ? options.port : await freePort()
     const server = await vite.createServer({
       root: options.root,
       ...(configFile ? { configFile } : {}),
@@ -92,6 +93,15 @@ export function freePort(): Promise<number> {
       const { port } = listener.address() as AddressInfo
       listener.close(() => resolve(port))
     })
+  })
+}
+
+/** Whether nothing on 127.0.0.1 is using a port. */
+export function portFree(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const listener = createNetServer()
+    listener.once("error", () => resolve(false))
+    listener.listen(port, loopback, () => listener.close(() => resolve(true)))
   })
 }
 

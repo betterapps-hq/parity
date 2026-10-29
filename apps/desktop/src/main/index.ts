@@ -16,7 +16,7 @@ import {
   webContents
 } from "electron"
 import type { ProcessUsage, RenderedFrame, RenderJob, SaveDialogOptions } from "../shared/protocol.ts"
-import type { MainMessage, ServiceMessage } from "../shared/service.ts"
+import type { BuilderReading, MainMessage, ServiceMessage } from "../shared/service.ts"
 import { readConsole, recordConsole } from "./console-log.ts"
 import { idleClose } from "./idle-close.ts"
 import { privateMemory } from "./private-memory.ts"
@@ -96,6 +96,9 @@ function startService(): UtilityProcess {
     } else if (message.type === "console") {
       const entries = readConsole(message.origin, message.clear)
       child.postMessage({ type: "console-result", id: message.id, entries } satisfies MainMessage)
+    } else if (message.type === "builders-result") {
+      lastBuilders = message.builders
+      builderAnswers.get(message.id)?.(message.builders)
     }
   })
   child.on("exit", (code) => {
@@ -286,15 +289,39 @@ ipcMain.handle("canvas:set-theme", (_event, theme: ThemeSource) => {
   }
 })
 
+let nextBuilderReading = 1
+const builderAnswers = new Map<number, (builders: BuilderReading[]) => void>()
+/** The service's last answer, for when it's too busy to answer in time. */
+let lastBuilders: BuilderReading[] = []
+
+/** Each project's builder's CPU and memory, from the service, which runs each builder in a process of its own. */
+function builderReadings(): Promise<BuilderReading[]> {
+  const current = service
+  if (!current) return Promise.resolve([])
+  const id = nextBuilderReading++
+  return new Promise((resolve) => {
+    const answer = (builders: BuilderReading[]) => {
+      builderAnswers.delete(id)
+      clearTimeout(timer)
+      resolve(builders)
+    }
+    const timer = setTimeout(() => answer(lastBuilders), 1000)
+    builderAnswers.set(id, answer)
+    current.postMessage({ type: "builders", id } satisfies MainMessage)
+  })
+}
+
 // The performance stats: each process's CPU and memory, named by what it does. Storybook and other programs the
-// project service starts run outside the app, so they aren't counted. Memory is what each process uses on its own, as
-// the system's monitor counts it (see private-memory.ts), and its working set where the system won't say.
+// project service starts run outside the app, so they aren't counted, apart from each project's builder, which runs
+// in a process of its own the service starts. Memory is what each process uses on its own, as the system's monitor
+// counts it (see private-memory.ts), and its working set where the system won't say.
 ipcMain.handle("canvas:metrics", async (event): Promise<ProcessUsage[]> => {
   const cores = availableParallelism()
   const pages = new Map(webContents.getAllWebContents().map((contents) => [contents.getOSProcessId(), contents]))
   const metrics = app.getAppMetrics()
-  const privates = await privateMemory(metrics.map((metric) => metric.pid))
-  return metrics.map((metric): ProcessUsage => {
+  const builders = await builderReadings()
+  const privates = await privateMemory([...metrics.map((metric) => metric.pid), ...builders.map(({ pid }) => pid)])
+  const usage = metrics.map((metric): ProcessUsage => {
     const page = pages.get(metric.pid)
     const role: ProcessUsage["role"] =
       metric.type === "Browser"
@@ -316,6 +343,7 @@ ipcMain.handle("canvas:metrics", async (event): Promise<ProcessUsage[]> => {
       window: page?.getTitle() || "Another window",
       offscreen: "Offscreen renderer",
       service: "Project service",
+      builder: "Builder",
       gpu: "GPU",
       helper: metric.name || metric.serviceName || metric.type
     }
@@ -327,6 +355,12 @@ ipcMain.handle("canvas:metrics", async (event): Promise<ProcessUsage[]> => {
       memory: privates.get(metric.pid) ?? metric.memory.workingSetSize * 1024
     }
   })
+  const builderUsage = builders.map((builder): ProcessUsage => ({
+    role: "builder",
+    ...builder,
+    memory: privates.get(builder.pid) ?? builder.memory
+  }))
+  return [...usage, ...builderUsage]
 })
 
 // Agents measure and capture frames offscreen, so their work never moves the person's camera.
@@ -413,12 +447,12 @@ const devRunner = Number(process.env.PARITY_DEV_RUNNER)
 if (devRunner) {
   // The runner rebuilds the service's bundle next to this one as its code changes; restarting just the service keeps
   // windows open. One build can raise several events, so the bundle's content decides.
-  const bundle = () =>
-    ["utility.mjs", "props-worker.mjs"].map((name) => readFileSync(join(import.meta.dirname, name), "utf8")).join("\n")
+  const bundles = ["utility.mjs", "props-worker.mjs", "builder-process.mjs"]
+  const bundle = () => bundles.map((name) => readFileSync(join(import.meta.dirname, name), "utf8")).join("\n")
   let running = bundle()
   let pending: NodeJS.Timeout | undefined
   watch(import.meta.dirname, (_event, name) => {
-    if (name !== "utility.mjs" && name !== "props-worker.mjs") return
+    if (!name || !bundles.includes(name)) return
     clearTimeout(pending)
     pending = setTimeout(() => {
       const next = bundle()

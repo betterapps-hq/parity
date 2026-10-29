@@ -1,7 +1,8 @@
 import type { MessagePortMain } from "electron"
 import type { ChannelMessage, ServiceMethods, WindowMethods } from "../shared/protocol.ts"
-import type { MainMessage } from "../shared/service.ts"
+import type { MainMessage, ServiceMessage } from "../shared/service.ts"
 import { checkAccessibility, exportDesigns, startAgentServer } from "./agent.ts"
+import { builderReadings } from "./builders.ts"
 import { handleConsoleResult } from "./console.ts"
 import { importImage } from "./images.ts"
 import { addLibrary, catalogFor, importStyles } from "./libraries.ts"
@@ -109,6 +110,11 @@ process.parentPort.on("message", (event: { data: MainMessage; ports: MessagePort
     handleRenderResult(event.data)
   } else if (event.data.type === "console-result") {
     handleConsoleResult(event.data)
+  } else if (event.data.type === "builders") {
+    const { id } = event.data
+    void builderReadings().then((builders) =>
+      process.parentPort.postMessage({ type: "builders-result", id, builders } satisfies ServiceMessage)
+    )
   }
 })
 

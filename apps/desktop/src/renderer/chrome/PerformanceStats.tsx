@@ -7,7 +7,16 @@ import { Hint } from "./Hint.tsx"
 import { usePerformanceStats } from "./performance.ts"
 import { setPreferences } from "./preferences.ts"
 
-const roleOrder: ProcessUsage["role"][] = ["this-window", "offscreen", "service", "app", "gpu", "window", "helper"]
+const roleOrder: ProcessUsage["role"][] = [
+  "this-window",
+  "offscreen",
+  "service",
+  "builder",
+  "app",
+  "gpu",
+  "window",
+  "helper"
+]
 
 function megabytes(bytes: number): string {
   return `${Math.round(bytes / 1024 / 1024).toLocaleString()} MB`
@@ -113,8 +122,8 @@ export function PerformanceStats() {
         <p className="border-t px-3 py-2 text-muted-foreground">
           {latest?.heap &&
             `This window's JavaScript uses ${megabytes(latest.heap.used)} of ${megabytes(latest.heap.limit)}. `}
-          CPU is a share of all {navigator.hardwareConcurrency} cores. Storybook and the other servers listed under
-          processes, beside these stats, aren&apos;t counted.
+          CPU is a share of all {navigator.hardwareConcurrency} cores. Each project&apos;s builder is counted, but
+          Storybook and the other servers listed under processes, beside these stats, aren&apos;t.
         </p>
       </PopoverContent>
     </Popover>

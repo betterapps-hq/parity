@@ -7,7 +7,9 @@ import { correctedSources, leftOutChanges } from "@parity/code"
 import {
   type BuilderAdapter,
   type BuilderDetection,
-  type BuilderSession,
+  builderProcessOptions,
+  type BuilderProcessSession,
+  type BuilderStartOptions,
   type ComponentInfo,
   type ComponentSource,
   type CanvasDocument,
@@ -39,6 +41,7 @@ import {
 import { reactRenderer } from "@parity/renderer-react"
 import { tailwindStyles } from "@parity/styles-tailwind"
 import type { ProjectInfo, ServiceMethods, TokenChange, WindowMethods } from "../shared/protocol.ts"
+import { startBuilder } from "./builders.ts"
 import { saveDetection, savedDetection } from "./detection-cache.ts"
 import { forgetProcess, forgetProject, trackProcess } from "./processes.ts"
 import { checkComponents, closeChecker, inferComponents } from "./props.ts"
@@ -53,7 +56,10 @@ const allowedOrigins = (process.env.PARITY_ALLOWED_ORIGINS ?? "").split(",").fil
 
 interface OpenProject {
   info: ProjectInfo
-  session: BuilderSession
+  /** The builder, which runs in a process of its own, and what it was started with, to start it again. */
+  session: BuilderProcessSession
+  builder: BuilderAdapter
+  startOptions: BuilderStartOptions
   /** Stylesheets token edits may write to, relative to the root. */
   stylesheets: string[]
   /** What each project file last held, as read or written here, so the watcher only reports changes from outside. */
@@ -93,6 +99,10 @@ export function projectComponents({
 /** Every project open in a tab. Each runs its own builder, so tabs never share a module graph. */
 const projects = new Map<string, OpenProject>()
 const opening = new Map<string, Promise<ProjectInfo>>()
+/** Closed projects whose builder's process hasn't ended yet, by root. */
+const closing = new Map<string, Promise<void>>()
+/** The port each project's builder last served on, so a reopened project's guest URL stays the same. */
+const lastPorts = new Map<string, number>()
 
 /** A project's root from a folder, or from one of its `.par` files: the nearest folder above it with a package.json. */
 export function projectRootFor(root: string | undefined): string {
@@ -122,7 +132,13 @@ export async function closeProject(projectId: string): Promise<undefined> {
   stopStorybook(projectId)
   forgetProject(projectId)
   project?.watcher?.close()
-  await project?.session.close()
+  if (project) {
+    // Ending the builder's process frees the port it had, which a reopen waits for to have it again.
+    const closed = project.session.close()
+    closing.set(projectId, closed)
+    await closed
+    if (closing.get(projectId) === closed) closing.delete(projectId)
+  }
   return undefined
 }
 
@@ -177,35 +193,29 @@ async function start(root: string): Promise<ProjectInfo> {
     config.notes.push("components and props as the type checker found them last time, since then nothing has changed")
   }
 
-  // The build server runs inside the project service, so it stops when the project closes, not on its own.
-  const serving = trackProcess({
-    id: builderProcessId(root),
-    kind: "builder",
-    shape: "server",
-    name: builder.name,
-    projectId: root,
-    project: pkg.name ?? basename(root),
-    pid: process.pid,
-    status: "starting"
-  })
+  const startOptions: BuilderStartOptions = {
+    root,
+    config,
+    renderer,
+    rendererGuestPath: require.resolve(renderer.guestModule),
+    allowedOrigins
+  }
+  // The same project's last builder, closing, may still have the port it would have again.
+  await closing.get(root)
+  const serving = serveBuilder(root, pkg.name ?? basename(root), builder, startOptions)
   const [session, styles] = await Promise.all([
-    builder
-      .start({
-        root,
-        config,
-        renderer,
-        rendererGuestPath: require.resolve(renderer.guestModule),
-        allowedOrigins
-      })
-      .catch((error: unknown) => {
-        throw new Error(explain(message(error)), { cause: error })
-      }),
+    serving.catch((error: unknown) => {
+      throw new Error(explain(message(error)), { cause: error })
+    }),
     loadStyles(root, config.styles, detection)
   ]).catch((error: unknown) => {
+    void serving.then(
+      (started) => started.close(),
+      () => undefined
+    )
     forgetProcess(builderProcessId(root))
     throw error
   })
-  serving.set("running", { url: new URL(session.guestUrl).origin })
   const info: ProjectInfo = {
     id: root,
     root,
@@ -230,6 +240,8 @@ async function start(root: string): Promise<ProjectInfo> {
   const project: OpenProject = {
     info,
     session,
+    builder,
+    startOptions,
     stylesheets: config.styles,
     known,
     sources: config.components,
@@ -252,6 +264,65 @@ async function start(root: string): Promise<ProjectInfo> {
   for (const note of config.notes) console.log(`[service]   ${note}`)
   if (styles.info) console.log(`[service]   ${styles.theme.length} theme variables from ${styles.info.name}`)
   return info
+}
+
+/**
+ * Starts a project's builder in a process of its own and lists it, on the port it last had if that's free. One that
+ * stops by itself shows as crashed, with why, and can be started again from the list.
+ */
+async function serveBuilder(
+  root: string,
+  name: string,
+  builder: BuilderAdapter,
+  options: BuilderStartOptions,
+  again = false
+): Promise<BuilderProcessSession> {
+  const id = builderProcessId(root)
+  const port = lastPorts.get(root)
+  const tracking = trackProcess(
+    { id, kind: "builder", shape: "server", name: builder.name, projectId: root, project: name, status: "starting" },
+    { restart: () => restartBuilder(root) }
+  )
+  const started = startBuilder(builderProcessOptions(builder, { ...options, ...(port ? { port } : {}) }), {
+    builder: builder.name,
+    project: name,
+    onCrash: (error) => {
+      console.warn(`[service] ${name}: ${error}`)
+      tracking.set("failed", { error })
+    }
+  })
+  if (started.pid) tracking.set("starting", { pid: started.pid })
+  try {
+    const session = await started.session
+    const url = new URL(session.guestUrl)
+    lastPorts.set(root, Number(url.port))
+    tracking.set("running", { url: url.origin })
+    return session
+  } catch (error) {
+    // A project that doesn't open shows why itself; a builder started again shows it in the list.
+    if (again) tracking.set("failed", { error: message(error) })
+    else forgetProcess(id)
+    throw error
+  }
+}
+
+/** Starts a project's builder again, as after it crashed, with the components the project has now. */
+async function restartBuilder(root: string): Promise<void> {
+  const project = getProject(root)
+  await project.session.close()
+  const session = await serveBuilder(root, project.info.name, project.builder, project.startOptions, true)
+  if (projects.get(root) !== project) {
+    await session.close()
+    return
+  }
+  project.session = session
+  // It has its old port back unless something took it; then windows that open the project from now on find the new one.
+  project.info.guestUrl = session.guestUrl
+}
+
+/** Sends the builder the components the guest imports, once they've changed in place. */
+function serveSources(project: OpenProject): void {
+  project.session.setComponents(project.sources)
 }
 
 async function loadStyles(
@@ -490,6 +561,7 @@ async function checkTypes(project: OpenProject, files: string[]): Promise<boolea
   for (const name of removed) delete project.sources[name]
   Object.assign(project.sources, confirmed, added)
   applyCorrections(project)
+  serveSources(project)
   project.info.componentCount = Object.keys(project.sources).length
   console.log(
     `[service]   the type checker added ${Object.keys(added).length} components and left out ${removed.length}`
@@ -540,9 +612,10 @@ async function rescanComponents(project: OpenProject, paths: string[]): Promise<
   if (!current()) return
   const settle = async (found: Record<string, ComponentSource>, label: string, added: number, removed: number) => {
     const next = correctedSources(found, project.corrections)
-    // In place, since the builder serves the guest from this list.
+    // In place, since the project's info and its builder's start options share this list.
     for (const name of Object.keys(project.sources)) if (!(name in next)) delete project.sources[name]
     Object.assign(project.sources, next)
+    serveSources(project)
     project.info.componentCount = Object.keys(project.sources).length
     project.components = inferProps(root, project.sources)
     const components = await project.components
@@ -600,7 +673,7 @@ export async function correctComponents({
   return undefined
 }
 
-/** Applies the person's corrections to the list in place, since the builder serves the guest from it. */
+/** Applies the person's corrections to the list in place, since the project's info and builder share it. */
 function applyCorrections(project: OpenProject): void {
   const next = correctedSources(project.sources, project.corrections)
   if (next === project.sources) return

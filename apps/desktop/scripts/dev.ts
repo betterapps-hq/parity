@@ -85,7 +85,8 @@ const builds: BuildContext[] = [
     ...shared,
     entryPoints: {
       utility: join(appDir, "src/utility/index.ts"),
-      "props-worker": join(appDir, "src/utility/props-worker.ts")
+      "props-worker": join(appDir, "src/utility/props-worker.ts"),
+      "builder-process": join(appDir, "src/utility/builder-process.ts")
     },
     format: "esm",
     outExtension: { ".js": ".mjs" },
