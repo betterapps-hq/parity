@@ -4,7 +4,7 @@ import { createRequire } from "node:module"
 import { createServer } from "node:net"
 import { dirname, join } from "node:path"
 import type { ServiceMethods } from "../shared/protocol.ts"
-import { findRoutedStorybook, local, projectDomains, readPortless, storybookEndpoint } from "./portless.ts"
+import { findRoutedServer, readPortless } from "./portless.ts"
 import { forgetProcess, killTree, trackProcess } from "./processes.ts"
 import { getProject, message } from "./projects.ts"
 
@@ -107,16 +107,15 @@ async function start(projectId: string, entry: Running): Promise<Served> {
         storyPaths.length === 0 || served.some((item) => storyPaths.some((path) => sameFile(item.importPath, path))),
       () => false
     )
-  const domains = await projectDomains(info.root)
 
-  // A Storybook already serving this project is used as it is: one Portless routes to, under one of the project's own
-  // names or as the only one with its stories, or else one on its usual port.
+  // A Storybook already serving this project is used as it is: one Portless routes to, which opens at its name, or else
+  // one on its usual port. Without stories to check, a routed Storybook could be any project's.
   const usual = `http://localhost:${storybook.port ?? 6006}`
-  const existing =
-    (await findRoutedStorybook(await readPortless(), domains?.endpoints, (base) =>
-      // Without names or stories to go by, a routed Storybook could be any project's.
-      domains || storyPaths.length > 0 ? servesProject(base) : Promise.resolve(false)
-    )) ?? ((await servesProject(usual)) ? { url: usual, address: usual } : undefined)
+  const routed =
+    storyPaths.length > 0
+      ? await findRoutedServer(await readPortless(), servesProject, (base) => servesFrom(base, info.root))
+      : undefined
+  const existing = routed ?? ((await servesProject(usual)) ? { url: usual, address: usual } : undefined)
   if (existing) {
     entry.url = existing.url
     trackProcess({
@@ -131,29 +130,6 @@ async function start(projectId: string, entry: Running): Promise<Served> {
       startedBy: "elsewhere"
     })
     return existing
-  }
-
-  // A project that names its servers with dev-domains has Storybook started through it, so it runs under its name as
-  // it would from a terminal. Should that fail, as when Portless's proxy needs setting up, Parity starts it itself.
-  const endpoint = domains && storybookEndpoint(domains.endpoints, info.name)
-  if (domains && endpoint) {
-    try {
-      return await launch(
-        projectId,
-        entry,
-        [domains.cli, "run", endpoint.service, "--cwd", info.root],
-        async () => {
-          const route = (await readPortless()).routes.find((candidate) => candidate.hostname === endpoint.hostname)
-          return route && local(route.port)
-        },
-        { address: endpoint.origin, quiet: true }
-      )
-    } catch (error) {
-      if (entry.stopping) throw error
-      console.warn(
-        `[service] dev-domains couldn't start Storybook for ${info.name}, so Parity starts it: ${message(error)}`
-      )
-    }
   }
 
   const wanted = storybook.port ?? 6006
@@ -183,21 +159,12 @@ async function start(projectId: string, entry: Running): Promise<Served> {
       "--config-dir",
       storybook.configDir
     ],
-    () => Promise.resolve(url)
+    url
   )
 }
 
-/**
- * Starts Storybook from a command line run by Parity's own Node in the project's folder, and waits until it answers
- * where `locate` finds it. A quiet start that fails leaves the process list to whatever starts it next.
- */
-async function launch(
-  projectId: string,
-  entry: Running,
-  args: string[],
-  locate: () => Promise<string | undefined>,
-  { address, quiet = false }: { address?: string; quiet?: boolean } = {}
-): Promise<Served> {
+/** Starts Storybook from a command line run by Parity's own Node in the project's folder, and waits until it answers. */
+async function launch(projectId: string, entry: Running, args: string[], url: string): Promise<Served> {
   const { info } = getProject(projectId)
   // Electron runs as plain Node here.
   const child = spawn(process.execPath, args, {
@@ -206,6 +173,7 @@ async function launch(
     stdio: ["ignore", "pipe", "pipe"]
   })
   entry.child = child
+  entry.url = url
   const tracking = trackProcess(
     {
       id: processId(projectId),
@@ -214,7 +182,8 @@ async function launch(
       name: "Storybook",
       projectId,
       project: info.name,
-      status: "starting"
+      status: "starting",
+      url
     },
     { stop: () => stopStorybook(projectId), restart: () => restartStorybook(projectId) }
   )
@@ -225,35 +194,25 @@ async function launch(
   }
   child.stdout?.on("data", keep)
   child.stderr?.on("data", keep)
-  console.log(`[service] starting Storybook for ${info.name}`)
+  console.log(`[service] starting Storybook for ${info.name} at ${url}`)
 
-  let started = false
   const exited = new Promise<never>((_, reject) => {
     child.on("exit", (code) => {
-      const stopped = new Error(`Storybook stopped (exit code ${code}):\n${log.slice(-1500)}`)
-      // A quiet start that fails, and a Storybook started in its place, are for whatever comes next.
-      if (entry.child !== child || (quiet && !started)) return reject(stopped)
       if (running.get(projectId) === entry) running.delete(projectId)
       if (entry.stopping) tracking.set("stopped")
       else tracking.set("failed", { error: `Stopped by itself, with exit code ${code}` })
-      reject(stopped)
+      reject(new Error(`Storybook stopped (exit code ${code}):\n${log.slice(-1500)}`))
     })
     child.on("error", reject)
   })
   const ready = (async () => {
     const deadline = Date.now() + startTimeout
     while (Date.now() < deadline && child.exitCode === null) {
-      const url = await locate()
-      if (url && url !== entry.url) {
-        entry.url = url
-        tracking.set("starting", { url })
-      }
       if (
-        url &&
-        (await storyIndex(url).then(
+        await storyIndex(url).then(
           () => true,
           () => false
-        ))
+        )
       )
         return url
       await new Promise((resolve) => setTimeout(resolve, 750))
@@ -261,12 +220,11 @@ async function launch(
     throw new Error(`Storybook didn't start within ${startTimeout / 1000} seconds:\n${log.slice(-1500)}`)
   })()
   try {
-    const url = await Promise.race([ready, exited])
-    started = true
+    await Promise.race([ready, exited])
     tracking.set("running")
-    return { url, address: address ?? url }
+    return { url, address: url }
   } catch (error) {
-    if (!entry.stopping && !quiet) tracking.set("failed", { error: message(error) })
+    if (!entry.stopping) tracking.set("failed", { error: message(error) })
     if (child.pid) killTree(child.pid)
     throw error
   }
@@ -277,6 +235,19 @@ async function storyIndex(base: string): Promise<IndexEntry[]> {
   if (!response.ok) throw new Error(`Storybook answered ${response.status}`)
   const body = (await response.json()) as { entries?: Record<string, IndexEntry> }
   return Object.values(body.entries ?? {})
+}
+
+/**
+ * Whether a Storybook serves files from the project's folder, to tell its checkout's from a worktree's that serves the
+ * same stories. Vite, which builds most Storybooks Parity opens, serves only the folders it allows and answers Forbidden
+ * for the rest; with another builder, it can't tell.
+ */
+function servesFrom(base: string, root: string): Promise<boolean> {
+  const file = `${root.replaceAll("\\", "/").replace(/^\//, "")}/package.json`
+  return fetch(`${base}/@fs/${file}`, { signal: AbortSignal.timeout(5000) }).then(
+    (response) => response.ok,
+    () => false
+  )
 }
 
 /** Storybook's import paths start with `./`; Parity's are plain, relative to the root. */

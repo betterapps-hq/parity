@@ -948,13 +948,18 @@ recommended answer to each of its questions.
   starts the project's own Storybook (with Electron's Node, so nothing else needs installing) and stops it when the tab
   closes. It uses the script's port, or 6006, so links people already use keep working, and a free port only when that
   one's taken. A component's docs page opens when it has one, else its first story, in your browser.
-- **Storybook opens at its Portless name when it has one.** You asked on 2026-10-29 that a project using Portless gets
-  the right address. My calls: a Storybook Portless routes to is reused when it serves the project's stories, and
-  stories open at its name (`https://storybook.shop.localhost`). A project with Buildkit's dev-domains has its Storybook
-  started through `dev-domains run`, so it gets its name there too; if that fails, Parity starts Storybook itself as
-  before. The service checks a server at `localhost`, since Node doesn't trust Portless's certificate, and only the
-  browser gets the name. Which route is Storybook comes from dev-domains' names (`stories`, `<package>-stories`) until
-  it says what each one is.
+- **Storybook opens at its Portless name when it has one, whatever named it.** You asked on 2026-10-29 that a project
+  using Portless gets the right address, without Parity knowing which package set the name up. Parity reads Portless's
+  routes, which Portless's own command line, Buildkit's dev-domains and anything else built on Portless all write, and
+  asks each route's port for its story index: a Storybook with the project's stories is reused, and stories open at its
+  name (`https://parity-shadcn-vite-stories.localhost`). My calls:
+  - **Parity doesn't name what it starts.** With no Storybook running, it starts its own at `localhost` as before; one
+    started under a name, from a terminal or a script, is found by it.
+  - **A checkout's Storybook is told from a worktree's** by asking each for the project's `package.json` through Vite,
+    which serves only the folders it allows and refuses the rest. When it can't tell, as with another builder, Parity
+    uses neither and starts its own.
+  - The service checks a server at `localhost`, since Node doesn't trust Portless's certificate; only the browser gets
+    the name.
 - **How the two connect, and the rules that keep them apart, are in [storybook.md](storybook.md).**
 
 ## Accessibility
