@@ -1,54 +1,253 @@
 # Proposal: fast visual tests
 
-Status: draft, 2026-10-29. Nothing is built. It builds on two decisions already made: visual tests draw each frame as a
-page of its own (VAL-18), and the render sweep compares those pages with baselines (VAL-1). The items are the VIS stream
-in the [backlog](../backlog.md), and two questions for you are in Waiting on you.
+Status: draft, revised 2026-10-29 after your review. Three things changed: CI is the priority, nobody runs Docker on
+their own machine, and a code change under an unchanged design must be caught, including one a sync will bring into the
+design. Nothing is built. It builds on two decisions already made: visual tests draw each frame as a page of its own
+(VAL-18), and the render sweep compares those pages with baselines (VAL-1). The items are the VIS stream in the
+[backlog](../backlog.md), and three questions for you are in Waiting on you.
 
 ## In one line
 
-Every design in every state and mode is already a test case. `parity test` draws each one as its own page on the
-project's dev server, skips every case whose inputs haven't changed, captures the rest with Chromium and compares them
-with baselines kept in the repo. The same runner works on your machine while you design, inside the app, and in CI.
+In CI, Parity works out which cases a pull request can change before installing anything, renders only those on any
+Linux runner without a container, and puts the changes on the pull request for review. On a developer's machine the same
+runner answers in seconds while they design, with nothing to set up.
+
+## What it has to do
+
+1. **CI first.** Pull requests are where visual tests pay off. One that touches no UI should pass in seconds, and one
+   that does should render only what it can change.
+2. **Nothing to install on a developer's machine.** No Docker, no images, nothing beyond Parity. Committed baselines
+   come from CI, so a developer's machine never has to match CI's pixels.
+3. **Test what the app will show.** A design that hasn't changed still changes when the code under it does: a component
+   it uses, or the file of a linked component that a sync will bring into the design.
+
+A case is one design in one state and one mode, named by ids: `design/state/mode`. By default a design is tested in the
+modes it shows.
+
+## In CI
+
+### The pipeline
+
+| Step    | What happens                                                                                                                                     | What it needs                                                 |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| Plan    | Checks each case's trace against git, the lockfile and the `.par` files, and lists the cases that need rendering. With none, the job passes here | Node and Parity's CLI. The project isn't installed            |
+| Render  | Starts the project's Vite and captures the planned cases                                                                                         | The project's packages, and Parity's pinned browser and fonts |
+| Compare | A hash first, then an SSIM diff; the layers that changed; accessibility and the console                                                          |                                                               |
+| Report  | A check, a summary on the pull request, and an artifact with the captures and an HTML report                                                     |                                                               |
+| Accept  | From the app, or with a comment on the pull request. CI's own captures become the baselines                                                      |                                                               |
+
+### Plan: what can have changed, before installing anything
+
+Each case remembers what its last render read: its trace. A trace lists:
+
+- the case's resolved tree, after the sync described below, and its mode;
+- every project file the page loaded, by its git blob hash, including decorators such as `.parity/preview.tsx`;
+- every package the page loaded, by name and version from the lockfile;
+- the Tailwind classes it used, with the stylesheet sources, plugins and Tailwind version behind them (VIS-5 narrows
+  this to the tokens it read);
+- the toolchain: the Vite config, the `.env` files Vite reads and Parity's version;
+- the environment's fingerprint.
+
+If everything a trace lists is unchanged, the render would read the same things and draw the same picture, so the case
+passes without a browser. That holds for imports that only happen at run time too: a new import can only come from a
+file the trace already lists, and that file would have changed. Build systems such as Shake call these verifying traces.
+
+Checking traces needs nothing installed:
+
+- **Files:** `git ls-files -s` gives every tracked file's blob hash at once, on a shallow clone too. Untracked files a
+  page read, such as `.env.local`, are hashed from disk.
+- **Packages:** versions come from the lockfile. A lockfile Parity can't read precisely is hashed whole instead, which
+  is slower but never wrong. A workspace package used through a built `dist` folder counts as all of that package's
+  tracked files.
+- **Designs:** come from the `.par` files, through core.
+- **Tailwind:** its rules for a set of classes depend only on those classes, the stylesheet sources, its plugins and its
+  version, so a class added in some other file doesn't touch this case.
+
+A full run, nightly or on demand, renders everything. Any case whose picture changed while its trace still verified is
+reported as a miss, which is a bug in Parity, not a review item.
+
+Where traces live:
+
+- **In each case's committed record:** the trace of the render that made its baseline. It changes only when the baseline
+  does, so a pull request that changes code without changing pixels rewrites no records and causes no merge conflicts.
+- **In CI's cache:** the traces and results of every run, on any branch. They're facts about content, true whichever
+  branch made them, so a pull request can restore main's cache as well as its own.
+
+A case passes the plan when a trace from either place still verifies and its result matches the baseline. A missing
+cache costs renders, never a wrong answer.
+
+### What a pull request costs
+
+Parity's column is targets, which VIS-12 measures. Chromatic's comes from its docs.
+
+| Pull request                        | Chromatic                                                                                                                           | Parity                                                                                      |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Touches no UI: backend, docs, tests | Since [August 2026](https://www.chromatic.com/blog/chromatic-changelog-august-2026/), nothing is captured or charged                | The plan step only: seconds, with nothing installed and no browser                          |
+| Changes one component               | Builds and uploads Storybook, then captures the stories [TurboSnap](https://www.chromatic.com/docs/turbosnap/) traces to the change | Installs (cached), starts Vite, and renders only the cases whose traces read that component |
+| Changes a token                     | Every story the changed stylesheet reaches in the module graph, which for a global stylesheet is all of them                        | Every case that read the stylesheet, and with VIS-5 only the cases that read the token      |
+| Pushes again with an unrelated fix  | Builds and uploads again                                                                                                            | Cases already rendered with the same inputs come from the cache                             |
+| Merges to main                      | Builds again                                                                                                                        | Accepted cases' traces verify, so nothing renders                                           |
+| Rebased or squashed                 | When the last build's commit is gone, TurboSnap looks for an older build                                                            | Traces don't depend on git history                                                          |
+
+### Render: the same pixels on any Linux runner, without a container
+
+- **Parity's own browser.** Parity downloads the Chromium headless shell build its version names on first use, and
+  caches it as Playwright does.
+- **Parity's own fonts.** A pinned font pack supplies the system and fallback fonts, with its own fontconfig file, so
+  neither the runner's installed fonts nor its fontconfig defaults (hinting, antialiasing) count. The project's web
+  fonts load from its dev server as usual.
+- **Fixed settings:** software rendering, no GPU, the sRGB colour profile and font hinting off.
+- **Fingerprinted.** The browser build, font pack, settings and OS family make a fingerprint that's part of every trace.
+  On a runner with a fingerprint Parity doesn't know, it says so before comparing, rather than reporting every case as
+  changed.
+- **Linux only, for baselines.** Each OS draws text with a different library, so baselines come from Linux, on GitHub's
+  and Azure DevOps' hosted Ubuntu runners as they come. A container image is there for CI systems that prefer one, but
+  nothing needs it.
+
+VIS-6 holds this to account: two different Ubuntu runner images must give byte-identical captures.
+
+### Report on the pull request
+
+- **A check** that fails when changes need review (exit 1) or something broke (exit 2), and passes otherwise.
+- **A summary on the pull request:** the counts, then each changed case and its changed layers, in Parity's words. For
+  example: "`settings/default/mobile`: `header/avatar` grew from 32 to 40 px, and 6 layers below it moved". Each one
+  links into the report.
+- **An artifact:** captures, baselines, diffs, `results.json`, and an HTML report that works offline.
+- **JUnit** for the test tab, and **SARIF** for accessibility findings.
+- **Drift is listed apart:** designs that a sync will change ("When code changes under a design", below).
+
+### Accepting changes
+
+Baselines are always CI's own captures, so the next run matches them byte for byte.
+
+- **From the app, the main way.** Parity shows the latest run's results for the branch the person has open. It fetches
+  the run's artifact from GitHub or Azure DevOps with the sign-in the person already has, through `gh` or `az`. The
+  changes show on the frames themselves. Accepting writes CI's captures and traces into the working tree, together with
+  any sync the change needs, ready to commit and push. The next run's plan then verifies every accepted case without
+  rendering it.
+- **From the pull request, if the project turns it on.** A comment such as `/parity accept` or
+  `/parity accept settings/*` runs a small job that commits the run's captures to the branch. It needs a token that can
+  push, which pull requests from forks don't get, so it's off by default.
+- **The first run** makes a project's baselines the same way: everything is new, and accepting it all commits them.
+
+### Main and releases
+
+- **After a merge,** main's run verifies the accepted records, so nothing accepted renders again. Main's traces fill the
+  cache that pull requests restore.
+- **Two pull requests that both accepted changes to one case** conflict in git on its record, so the second rebases and
+  runs again.
+- **A case changed only by two pull requests together** renders on main's run. With a merge queue, that happens on the
+  combined commit, before the merge.
+- **A visual changelog.** Records are in git, so `parity test changes --since v1.4` lists the cases whose baselines
+  changed between two commits, with before and after, for release notes or a deploy's sign-off.
+
+### Shards
+
+The plan knows the cases and their recorded times before any runner starts, so it can output a matrix: as many render
+jobs as the work needs, and none when nothing needs rendering. GitHub Actions takes it as a dynamic matrix, and Azure
+DevOps as a job parameter. The longest cases go first.
+
+### An example workflow
+
+On GitHub Actions, in one job, with the install skipped when nothing needs rendering:
+
+```yaml
+name: Visual tests
+on: pull_request
+jobs:
+  visual:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 24 }
+      - uses: actions/cache@v4
+        with:
+          path: .parity/visual/cache
+          key: parity-visual-${{ github.sha }}
+          restore-keys: parity-visual-
+      - id: plan
+        run: npx @parity/cli test plan --github-output
+      - if: steps.plan.outputs.render == 'true'
+        run: corepack enable && pnpm install --frozen-lockfile
+      - if: steps.plan.outputs.render == 'true'
+        run: npx @parity/cli test render
+      - run: npx @parity/cli test report --ci
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: parity-visual, path: .parity/visual/out }
+```
+
+A sharded version adds a plan job whose output is the render jobs' matrix. VIS-13 writes both, and the Azure DevOps
+equivalents.
+
+## When code changes under a design
+
+There are two ways code reaches a design, and each is caught.
+
+### Components a design uses
+
+A design that places the project's `Button` has a page that imports `components/ui/button.tsx` and everything that
+imports, so all of it is in the case's trace. Change `button.tsx`, and every case that loaded it renders again, while
+cases that never loaded it don't. A library upgrade works the same way, since the package's version is in the trace.
+
+### Linked component designs
+
+A linked component design is the source, linked to a file Parity wrote ("Option C" in decisions.md). The canvas draws
+the design from the `.par`. A hand edit to `member-row.tsx` therefore changes the app, but not the canvas, until someone
+opens the design's drift review and approves the edit into the design. In CI nobody does that, so the run does the
+sync's reading itself:
+
+- **Read back what can be read.** For each linked file whose hash differs from the one Parity last wrote, Parity reads
+  back what it can: text, token classes, props and known components, through CMP-22's read-back in `@parity/code`, which
+  is pure. The result goes into the design in memory, not into the `.par`. The run then renders the design, and every
+  instance of it, as it will be once synced.
+- **Render the file for what can't.** An edit Parity can't read back gets frozen or overwritten when someone syncs.
+  Until they choose, CI renders the file itself for that design, which is what the app will show.
+- **Report it as drift,** apart from ordinary changes. For example: "`member-row.tsx` was edited by hand, and once
+  synced, 14 cases change like this." Accepting in the app approves the sync into the `.par` and takes the baselines, in
+  one commit.
+- **The other direction:** a design changed in the `.par` whose file hasn't been written yet. CI renders the design,
+  since the design is the source, and reports "code not written yet", so a reviewer sees that the app lags the design.
+  It doesn't fail the check.
+- **Traces list linked files too,** so the plan catches a hand edit without rendering anything.
+- **Until CMP-22 lands,** a linked file changed by hand is rendered from the file and listed as drift.
+
+## On a developer's machine
+
+Nothing to set up: Parity's pinned browser downloads itself the first time, as in CI.
+
+- **Local results compare with local renders,** never with committed baselines, since Windows and macOS draw text
+  differently from CI's Linux. Parity works out each case's state at HEAD from git, and keeps a cache of this machine's
+  renders. A changed case is compared with this machine's render of the same case at HEAD. That render comes from the
+  cache, or is rendered once from a temporary copy of HEAD's files that links the installed packages.
+- **Watch mode in the app** keeps that cache warm. Saving a file re-renders only the cases whose traces read it, and
+  changing a design re-renders only its cases.
+- **CI's verdict shows in the app too,** for the open branch, so the person reviews and accepts CI's captures without
+  leaving Parity.
+- **On Linux with CI's fingerprint,** local results compare with the committed baselines directly.
 
 ## Why Parity can be faster than Chromatic
 
-Chromatic and tools like it start from a Storybook build: build every story, upload the build, capture in cloud
-browsers, then compare. Their fast path, [TurboSnap](https://www.chromatic.com/docs/turbosnap/), reads the git changes
-since the last build and the bundler's module graph to find the story files a change can reach. That needs the git
-history of the previous build. When a rebase, squash or force push removes that commit, it falls back to an older build.
-Parity can skip most of that work, because it already has most of the parts:
+Chromatic and tools like it start from a Storybook build. Parity has most of the parts already:
 
-| What Parity already has                                                                                                                      | What it buys visual tests                                                                                                                                             |
-| -------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **The test matrix.** Designs, states and modes in the `.par`, each with an id.                                                               | No stories to write and no build to list them. The list of cases is a pure function of the document.                                                                  |
-| **Each case as plain data.** [render.ts](../../packages/core/src/render.ts) resolves a design for a state and mode into a `RenderNode` tree. | A hash of that tree says whether the design itself changed. Editing one design changes only its own cases.                                                            |
-| **The project's own dev server.** [builder-vite](../../packages/builder-vite/src/index.ts) runs the project's Vite.                          | No Storybook build and no upload. Modules compile on demand, and the server sees every file a case's page loads, which is what lets Parity skip cases (below).        |
-| **The project's CSS and tokens.** Core reads both.                                                                                           | A case can be keyed on the CSS rules and tokens it actually uses, so changing a token re-tests only the cases that use it.                                            |
-| **A measured box for every node.** `RenderedFrame.nodes` from the offscreen renderer.                                                        | A change reads "`header/avatar` grew from 32 to 40 px and everything below moved", not "38,000 pixels differ". A shift is reported once, not as every pixel under it. |
-| **Offscreen checks.** Accessibility (axe) and the project's console, per frame.                                                              | The same pass checks accessibility and render errors, with no add-ons.                                                                                                |
-| **The canvas.** A case is a frame you can already see.                                                                                       | Review happens on the frame itself, while you design and before you push, rather than in a separate web app after CI.                                                 |
-| **An agent CLI and MCP tools.**                                                                                                              | Agents get results by node id, fix the design or the code, and re-run only the affected cases.                                                                        |
-
-Where the time goes in a run, side by side:
-
-| Step                      | Chromatic                                                             | Parity                                                                                          |
-| ------------------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Before the first capture  | Build the whole Storybook and upload it                               | Start Vite (lazy) and hash inputs. A run where nothing changed ends here                        |
-| Choosing what to capture  | Story files reachable from git changes since the last build           | Cases whose own inputs changed: tree, files loaded, packages, CSS used, mode, environment       |
-| Where the browser runs    | A cloud fleet that fetches the uploaded build                         | On your machine or the CI runner, fetching over loopback                                        |
-| Waiting for a stable page | The story's render, plus delays set per story where that isn't enough | Parity's own page reports when React committed, lazy parts arrived, and fonts and images loaded |
-| Comparing                 | In the cloud, after upload                                            | A hash first; a pixel diff only when the hash differs                                           |
-| Reviewing                 | Chromatic's web app                                                   | The canvas, the app's review panel, an HTML report in CI, and `--json` for agents               |
-| Cost                      | Billed per snapshot                                                   | Your own machines                                                                               |
+| What Parity already has                                                                                                                      | What it buys visual tests                                                                                                                                                |
+| -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **The test matrix.** Designs, states and modes in the `.par`, each with an id.                                                               | No stories to write and no build to list them. CI can plan from the `.par` before installing anything.                                                                   |
+| **Each case as plain data.** [render.ts](../../packages/core/src/render.ts) resolves a design for a state and mode into a `RenderNode` tree. | A hash of that tree says whether the design itself changed.                                                                                                              |
+| **The project's own dev server.** [builder-vite](../../packages/builder-vite/src/index.ts) runs the project's Vite.                          | No Storybook build and no upload. The server sees every file a case's page loads, which is what makes traces.                                                            |
+| **The project's CSS and tokens.** Core reads both from the stylesheets' sources.                                                             | Traces can name the tokens a case reads, so changing a token re-tests only the cases that use it.                                                                        |
+| **Design and code, linked both ways.** `@parity/code` (CMP-22, CMP-25).                                                                      | CI can show what a hand edit will do to the design once synced, which no Storybook tool can know.                                                                        |
+| **A measured box for every node.** `RenderedFrame.nodes` from the offscreen renderer.                                                        | A change reads "`header/avatar` grew from 32 to 40 px and everything below it moved", not "38,000 pixels differ". A shift is reported once, not as every pixel under it. |
+| **Offscreen checks.** Accessibility (axe) and the project's console, per frame.                                                              | The same pass checks accessibility and render errors, with no add-ons.                                                                                                   |
+| **The canvas.** A case is a frame the person can already see.                                                                                | Review happens on the frame itself, rather than in a separate web app.                                                                                                   |
+| **An agent CLI and MCP tools.**                                                                                                              | Agents get results by node id, fix the design or the code, and re-run only the affected cases.                                                                           |
 
 What Chromatic does better, for fairness:
 
 - **A hosted review** that people without the app can open from a pull request, with history.
 - **Several browsers at scale.** Parity starts with Chromium only.
-- **Builds that touch no UI are now free**
-  ([August 2026 changelog](https://www.chromatic.com/blog/chromatic-changelog-august-2026/)). Parity's keys give the
-  same result per case rather than per build.
-- **Nothing to run yourself.** Parity's model is local-first: your machine and your CI runners.
+- **Nothing to run yourself.** Parity runs on the project's own CI runners.
 
 ## What Refracto taught us
 
@@ -94,7 +293,7 @@ git. It's been tuned for speed and flake, so its lessons are worth more than its
 - **The CI contract:**
   - exit 0 when nothing changed, 1 when changes need review, 2 when something is broken, 3 for a usage error;
   - JUnit for test tabs and SARIF for accessibility findings;
-  - `--json` on every command, and accept, deny and submit as commands, so an agent can drive the whole loop.
+  - `--json` on every command, and accept and deny as commands, so an agent can drive the whole loop.
 - **The environment is part of the key.** Refracto's distributed design keys every image on a fingerprint of the browser
   build, the OS image and the font package. A new fingerprint means a new baseline, not a failed comparison.
 - **Keep the browser next to the files.** Cloud browsers loading a build through a tunnel were about 10× slower per
@@ -104,27 +303,24 @@ git. It's been tuned for speed and flake, so its lessons are worth more than its
 ### What to leave
 
 - **Building and scraping Storybook.** Parity draws its own designs on the project's dev server.
+- **Choosing what to capture from git diffs and a saved module graph.** Refracto's affected-story detection needs the
+  baseline commit's graph and falls back to capturing everything for lockfiles it can't parse. Traces need no history,
+  and an unreadable lockfile costs only the cases that loaded packages.
+- **Committing candidates to the pull request for review.** Refracto's CI pushes a review archive onto the branch.
+  Parity reads CI's artifact instead, and commits only what someone accepts.
 - **A second screenshot on every capture.** Refracto takes screenshots 400 ms apart, up to ten, until two match. That
   cost is paid by every case. Parity checks again only when a capture differs from its baseline ("Verify on mismatch",
   below).
 - **Detecting loading states by a library's class names** (`.fui-Skeleton`). A Parity state that shows loading is
   declared as one, so the runner never has to guess.
-- **Forcing one font family on everything.** Fonts are part of a design. Parity pins the machine's fonts through the
-  environment, and waits for the project's own web fonts.
+- **Forcing one font family on everything.** Fonts are part of a design. Parity pins the fallback fonts with its font
+  pack, and waits for the project's own web fonts.
 - **Hiding every focus ring and tooltip.** Refracto needed this because play functions leave focus behind. A Parity case
   starts with nothing focused, and a state that shows focus or a tooltip asks for it.
-- **Choosing what to capture from git diffs.** Keys from what each case loaded are more precise and need no history. The
-  one place Refracto needed lockfile parsing, which packages changed, falls out of the keys as well.
 - **A constant `Math.random`.** Code that draws until it gets a different value never finishes. A seeded generator, the
   same seed for every case, is as stable and safe.
 
-## How a run works
-
-### Cases
-
-A case is one design in one state and one mode, named by ids: `design/state/mode`. By default a design is tested in the
-modes it shows. A design or state can opt out, and VAL-1's "every component with its default props" is an extra source
-of cases that's off by default. Component designs with states are the better source.
+## How a case renders
 
 ### The case page
 
@@ -147,42 +343,15 @@ decision asks for. The context would add only an empty HTTP cache, and with the 
 an empty cache per case is the slowest part of a page load. Modes that need different touch or mobile emulation get a
 context of their own per worker.
 
-### Keys: skipping what can't have changed
-
-Each case gets a key. A case whose key matches its baseline's passes without a browser.
-
-| Part            | What it covers                                                                                                                                                                              |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Tree            | A hash of the case's resolved `RenderNode` tree, with props and text                                                                                                                        |
-| Mode            | Width, height, pixel ratio, colour scheme, globals                                                                                                                                          |
-| Files loaded    | A hash of every project file the case's page asked the dev server for: source, CSS, images, fonts, JSON. Recorded the last time the case rendered                                           |
-| Packages loaded | Name and version of every package whose files the page loaded. Bumping one package re-tests only the cases that loaded it                                                                   |
-| CSS used        | Phase one: the compiled stylesheets. Phase two: only the rules that can match the case's classes, tags and attributes, and the custom properties they read, followed through `var()` chains |
-| Toolchain       | Vite config, plugin versions, Parity's version                                                                                                                                              |
-| Environment     | Browser build, OS image, font set, rendering settings                                                                                                                                       |
-
-Why recording what the page loaded is safe: the set of files a case loads can change only if one of the files it loaded
-changed, or its tree did, and both change the key. Dynamic imports, environment variables baked into modules and assets
-are all covered, because they all go through the server. Nothing needs git history, so keys work on uncommitted changes,
-rebases and squashes alike. Checking keys costs one transform of the stylesheets and a hash of each recorded file, and
-needs no browser. A run where nothing changed should take seconds whatever the number of cases.
-
-Keys are trusted, then checked. `--full` ignores them. A full run, nightly or on the main branch, reports any case whose
-pixels changed while its key didn't as a key miss: a bug in Parity, not a review item.
-
-The canvas's bitmap cache (CAN-28) needs the same key. Whichever comes first builds it, and the other reuses it.
-
 ### Capture
 
-- **One engine everywhere:** Chromium's headless shell at a pinned build, driven through playwright-core, which the
-  desktop app's scripts already use. The app runs the same runner as a child process rather than using its own Electron
-  window, so your machine and CI use the same engine.
+- **One engine everywhere:** the pinned Chromium headless shell, driven through playwright-core, which the desktop app's
+  scripts already use. The app runs the same runner as a child process rather than using its own Electron window.
 - **One screenshot per case:** CDP's `Page.captureScreenshot`, clipped to the frame's box, beyond the viewport, with
   `optimizeForSpeed`.
-- **Workers:** one Vite server shared by every worker, warmed by transforming the union of the recorded files before any
-  page opens. Each browser process has about four pages in flight, with more processes up to the cores and memory
-  available. Hashing, decoding and diffing run off the main thread. Cases whose keys changed go first, and the longest
-  go first after that, using the times stored with each baseline.
+- **Workers:** one Vite server shared by every worker, warmed by transforming the files the planned cases' traces list
+  before any page opens. Each browser process has about four pages in flight, with more processes up to the cores and
+  memory available. Hashing, decoding and diffing run off the main thread.
 
 ### Verify on mismatch
 
@@ -211,83 +380,51 @@ Each baseline keeps the boxes of its nodes, rounded, beside the image. A changed
 - **Accessibility and console results from the same pass.** Only new axe violations need review, as Refracto and
   Chromatic do, and a render error makes the case broken.
 
-## Your machine and CI
-
-Baselines are only comparable on the same environment. Text antialiasing differs between Windows, macOS and Linux, and
-decisions.md already notes that the canvas and Chrome antialias text differently. So there are two kinds of reference:
-
-- **Committed baselines come from one environment:** a pinned Linux image with the Chromium build, the font set and
-  software rendering. CI runs in it. On your machine, `parity test --docker` runs in it too, for an exact comparison
-  with what's committed.
-- **On your own machine, compare against twins.** When a case renders on your machine with the same key as its committed
-  baseline, that render is its twin: same inputs, your environment. It goes in a cache outside the repo, under your
-  environment's fingerprint. When an edit changes the case's key, the new render is compared with the twin, so the
-  operating system never differs within a comparison. Watch mode keeps twins current as you work. A case you'd already
-  changed before the cache was filled has no twin. For those, Parity says so and offers `--docker`, or renders the
-  committed version from a temporary checkout.
-
 ## Baselines on disk
 
 ```
 .parity/visual/
-  config.json                           threshold, modes to include or skip, hosts allowed besides the dev server
-  baselines/<design>/<state>__<mode>.webp   lossless WebP, committed
-  baselines/<design>/<state>__<mode>.json   key parts, recorded inputs, capture hash, node boxes, time taken
-  out/                                  not committed: captures, diffs, report.html, junit.xml, results.json
+  config.json                                threshold, modes to include or skip, hosts allowed besides the dev server
+  baselines/<design>/<state>__<mode>.webp    lossless WebP, committed
+  baselines/<design>/<state>__<mode>.json    committed: the trace of the render that made the baseline, the capture's
+                                             hash, node boxes and the time it took
+  cache/                                     not committed: traces and results of earlier runs, restored in CI
+  out/                                       not committed: this run's captures, diffs, report, junit.xml, results.json
 ```
 
 - **One small JSON per case,** rather than one manifest, so two pull requests conflict only when they change the same
-  case. Recorded input lists repeat a lot, so they're stored once per distinct list and referred to by hash.
+  case. Recorded file lists repeat a lot, so the cache stores each list once and refers to it by hash.
 - **Ids, not names, in paths,** since names change and ids don't.
 - **Git LFS is optional.** Lossless WebP keeps plain git workable for a long time.
 
 ## Commands
 
 ```
-parity test                         key, capture, compare and report; exit 0, 1, 2 or 3
-parity test --watch                 re-run the cases a save affects
+parity test                        plan, render and report in one step
+parity test plan                   what needs rendering, without installing or rendering (--github-output, --shards n)
+parity test render [--shard i/n]   render the planned cases
+parity test report --ci            merge shards, write the summary and reports, exit 0, 1, 2 or 3
+parity test --watch                re-run the cases a save affects
 parity test --only <design>[/<state>[/<mode>]]
-parity test --full                  ignore keys and render everything
-parity test --update                accept every change, for trusted branches
-parity test --docker                run inside the pinned image
-parity test --shard 2/4             a deterministic share of the cases, weighted by recorded time
-parity test --reporter junit,sarif,json,html
-parity test accept|deny <case…> [--from <report folder>]
-parity test review                  open the results in the app
+parity test --full                 ignore traces and render everything
+parity test accept|deny <case…> [--from <run or folder>]
+parity test changes --since <ref>  cases whose baselines changed, with before and after
 ```
 
-`parity test` runs without the app, unlike most of the CLI's commands, which call the running app. In CI it's one step:
-
-```
-parity test --ci --reporter junit,sarif,html
-```
-
-Caching `node_modules/.vite-parity` between CI runs saves Vite's dependency step. Changes that need review leave a
-report folder as the job's artifact, with the captures, diffs and an HTML page. `parity test accept --from <folder>`, or
-opening the folder in the app, writes the accepted baselines into your working tree to commit with the change, so
-baselines land in the pull request that caused them.
-
-## In the app
-
-- **Frames carry their result.** Changed, new, unstable or broken shows as a badge on the frame. A toggle overlays the
-  baseline on the frame itself, with the changed regions outlined, and lists the layers that changed.
-- **A Visual tests panel** lists the cases that need review, grouped by design. It shows the baseline, the capture and
-  the diff side by side or overlaid, with accept and deny for a case, a design or everything, from the keyboard.
-  Accepting writes baselines through changesets (PKG-2), so it can be undone.
-- **Watch mode by default while a project is open,** as a low-priority background job. Saving a file re-runs only the
-  cases that loaded it. Changing a design re-runs only its cases. Results arrive as each case finishes.
-- **Agents** get a `visual_test` MCP tool and `parity test --json`. Results name nodes, so an agent can fix a design and
-  re-run just those cases. The skill tells agents to ask you before accepting changes.
+`parity test` runs without the app, unlike most of the CLI's commands, which call the running app. CI needs the CLI from
+somewhere, and today `@parity/cli` is private (Q3).
 
 ## Targets
 
 These are targets to measure, not claims. A benchmark like `pnpm perf` records them on the example project (VIS-12), so
 "faster than Chromatic" stays something we've checked:
 
-- A run where nothing changed: under 5 s end to end, Vite start included, whatever the number of cases.
-- A warm capture: under 100 ms per case per page in flight. Refracto measured about 0.4 s per snapshot on a local
+- **Plan, with nothing installed:** under 2 s for 1,000 cases, after checkout.
+- **A pull request that touches no UI:** done within 15 s of checkout, fetching the CLI included.
+- **A warm capture:** under 100 ms per case per page in flight. Refracto measured about 0.4 s per snapshot on a local
   machine, from a Storybook build.
-- From save to result in watch mode, for an edit that touches up to ten cases: under 1 s.
+- **Byte-identical captures** on two different Ubuntu runner images.
+- **Watch mode on a developer's machine:** under 1 s from save to result, for an edit that touches up to ten cases.
 
 ## Later
 
@@ -295,32 +432,40 @@ These are targets to measure, not claims. A benchmark like `pnpm perf` records t
   these states are deterministic. Storybook users get this from the pseudo-states addon.
 - **Steps before the capture:** clicks and typing from AGT-10, for open menus and filled forms.
 - **Stories as cases.** Through Storybook's portable stories, under the StoryAdapter (SB-1). A project's existing
-  stories would get the same keys, and need no Storybook build.
+  stories would get the same traces, and need no Storybook build.
 - **Firefox and WebKit** through the same Playwright driver, as Refracto does.
 - **A prebuilt bundle for CI.** One `vite build` of the case page, so pages load a few chunks instead of hundreds of
-  modules. Keys map chunks back to their source files through the build's module list. This is worth doing only if the
+  modules. Traces map chunks back to their source files through the build's module list. This is worth doing only if the
   benchmark shows module loading dominates in CI.
 - **pixel-buffer-diff against BlazeDiff.** [BlazeDiff](https://jsr.io/@blazediff/core-native) has a Rust version and
   SSIM modes. Benchmark the two on Parity's frames before settling. Frames are whole screens, bigger than Storybook's
   component crops, so the diff's speed matters more here. Check both packages' licences and upkeep first.
+- **A shared cache across machines,** as Turborepo's remote cache does for builds, if CI caches prove too short-lived.
 
 ## Order
 
-Each step is a backlog item in the VIS stream:
+CI comes first, as you asked. Each step is a backlog item in the VIS stream:
 
-1. **The pure parts first:** cases, keys and per-case records in `@parity/visual` (VIS-1), and the SSIM compare with
-   regions (VIS-2). These are data in and data out, tested without Electron or a browser.
+1. **The pure parts:** cases, traces and the plan in `@parity/visual` (VIS-1), and the SSIM compare with regions
+   (VIS-2). These are data in and data out, tested without Electron or a browser.
 2. **The page and the runner:** VAL-18, then `parity test` with capture, the hash gate, verify on mismatch, baselines,
-   reports and exit codes (VIS-3), and the benchmark (VIS-12).
-3. **Skipping:** recorded inputs and packages (VIS-4), then the CSS each case uses (VIS-5).
-4. **Environments:** the pinned image and `--docker` (VIS-6), then twins (VIS-7).
-5. **The loop you'll feel:**
+   reports and exit codes (VIS-3). Then the pinned browser and fonts on any Linux runner (VIS-6), and the benchmark
+   (VIS-12).
+3. **CI:**
+   - the plan before installing (VIS-4);
+   - the cache between runs (VIS-24);
+   - CI templates, the pull request summary and shards (VIS-13);
+   - changed layers and the layout diff for the summary (VIS-9);
+   - accepting from the app (VIS-21) and from the pull request (VIS-22);
+   - the visual changelog (VIS-25).
+4. **Code under designs:** linked designs rendered as they'll be once synced (VIS-23), after CMP-22.
+5. **Precision:** traces that name tokens (VIS-5).
+6. **A developer's machine:**
+   - comparison with HEAD's renders (VIS-7);
    - watch mode (VIS-8);
-   - changed layers and the layout diff (VIS-9);
-   - review on the canvas and in the panel (VIS-10).
-6. **Around it:**
+   - review on the canvas (VIS-10).
+7. **Around it:**
    - accessibility and the console per case (VIS-11);
-   - CI templates, reporters and shards (VIS-13);
    - agent tools (VIS-14).
 
 VAL-1, the render sweep over the validation projects, then becomes `parity test` on each validation project plus its
@@ -330,15 +475,21 @@ canvas-against-page layout check.
 
 These are my calls, open to change. They go into decisions.md once you agree with this proposal.
 
-- One capture engine everywhere: a pinned Chromium headless shell. The app runs the runner rather than using its own
-  window.
-- Committed baselines come only from the pinned Linux image. Other machines compare against twins.
-- Cases are skipped by keys built from what each case loaded, not from git diffs, and a full run checks the keys.
-- `pixel-buffer-diff` in SSIM mode, with a per-pixel threshold of 0.01 by default, until the benchmark against BlazeDiff
-  says otherwise.
-- Baselines are lossless WebP with one JSON per case in `.parity/visual/`, committed, with LFS optional.
-- A second capture only on a mismatch, and unstable cases are reported as unstable, never retried until they pass.
-- Random values come from a seeded generator, not a constant.
+- **Where baselines come from:** CI makes every committed baseline. Developers' machines compare with their own renders
+  of HEAD, and nobody needs Docker.
+- **Where CI runs:** any Linux runner, with Parity's pinned browser, fonts and settings. A container is optional, for CI
+  only.
+- **How cases are skipped:** CI plans from traces before installing. A case's committed record keeps only the trace of
+  its accepted render, and CI's cache keeps the rest.
+- **Linked designs:** CI renders them as they'll be once synced, and reports drift apart from other changes. Code that
+  lags its design is reported, not failed.
+- **Accepting:** it takes CI's captures, from the app first. Accepting from the pull request is opt-in per project.
+- **Comparing:** `pixel-buffer-diff` in SSIM mode, with a per-pixel threshold of 0.01 by default, until the benchmark
+  against BlazeDiff says otherwise.
+- **Storing:** baselines are lossless WebP with one JSON per case in `.parity/visual/`, committed, with LFS optional.
+- **Flakes:** a second capture happens only on a mismatch, and unstable cases are reported as unstable, never retried
+  until they pass.
+- **Random values** come from a seeded generator, not a constant.
 
 ## Decisions needed from you
 
@@ -346,3 +497,5 @@ These are my calls, open to change. They go into decisions.md once you agree wit
    VIS-2, which could start at any time.
 2. **A fresh page per case in a shared context (Q2),** rather than a context per case, to keep the HTTP cache warm. This
    changes the wording of the VAL-18 decision. Each case still gets its own window, document, modules and storage.
+3. **How CI gets Parity's CLI (Q3).** `@parity/cli` is private today. Publishing it to npm makes `npx @parity/cli` work
+   in any pipeline. A standalone download is the other way.
