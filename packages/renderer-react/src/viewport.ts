@@ -105,8 +105,12 @@ function rootOf(fiber: Fiber): unknown {
   return (top.stateNode as { containerInfo?: unknown } | null)?.containerInfo
 }
 
-/** The URL and position on each line of a stack trace, as in `at render (http://localhost:5173/src/App.tsx:12:7)`. */
-const stackLine = /([a-z][\w+.-]*:[^\s()]+):\d+:\d+\)?$/i
+/**
+ * Where the code on each line of a stack trace came from, as in `at render (http://localhost:5173/src/App.tsx:12:7)`: a
+ * URL, or `<anonymous>` for code evaluated without one, as in DevTools. Built-in functions, as in
+ * `at Array.map (<anonymous>)`, have no position, so they aren't listed.
+ */
+const stackLine = /([^\s()]+):\d+:\d+\)?$/
 
 function callers(): string[] {
   return (new Error().stack ?? "").split("\n").flatMap((line) => {
@@ -129,7 +133,8 @@ let projectSite: string | undefined
 
 /**
  * Whether the code asking is the project's, rather than Parity's or its libraries' (tldraw reads `innerHeight`): all of
- * it was served from the project's server.
+ * it was served from the project's server. Code evaluated without a source, from DevTools or a script driving Parity,
+ * is Parity's.
  */
 function projectIsAsking(): boolean {
   return projectSite !== undefined && callers().every((url) => siteOf(url) === projectSite)

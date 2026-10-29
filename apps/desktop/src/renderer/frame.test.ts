@@ -367,6 +367,17 @@ describe("a frame's window", () => {
     expect(await page.evaluate(() => parityAsks())).toEqual({ width: 1000, mobile: false, client: 1000 })
   })
 
+  it("leaves Parity's window to code evaluated without a source, as in DevTools", async () => {
+    await page.click("#phone button")
+    expect(
+      await page.evaluate(() => ({
+        width: innerWidth,
+        mobile: matchMedia("(max-width: 767px)").matches,
+        client: document.documentElement.clientWidth
+      }))
+    ).toEqual({ width: 1000, mobile: false, client: 1000 })
+  })
+
   it("tells a frame's media queries and resize listeners when its window resizes", async () => {
     await page.evaluate(() => {
       const handles = (window as unknown as { handles: Record<string, { resize(viewport: Viewport): void }> }).handles

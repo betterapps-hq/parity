@@ -152,7 +152,7 @@ async function connect(): Promise<Page> {
 async function measure(page: Page): Promise<Result> {
   // The same size every run, since a larger window draws more. The window opens at it, give or take the few pixels
   // Windows rounds by, which the census reports; one that didn't, such as on a screen too small for it, is held at it.
-  // Sizes come from the protocol, since code evaluated here reads the window's size as a frame's (see viewport.ts).
+  // Sizes come from the protocol, which reads the window itself.
   const cdp = await page.context().newCDPSession(page)
   const pageSize = async () => {
     const { cssLayoutViewport } = await cdp.send("Page.getLayoutMetrics")

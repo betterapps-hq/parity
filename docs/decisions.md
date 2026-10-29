@@ -561,6 +561,10 @@ recommended answer to each of its questions.
 - **Proposes changes is an approval, not a review tool** (your call, 2026-10-29). An agent or person with that role says
   what they'll change, and someone approves it with a click instead of replying "go ahead". There's no branch comparison
   or merge screen.
+- **A proposal sits in the proposer's comment, and only editors decide it** (my calls). Each change is a line, with its
+  layers linked. Approving sets the proposer to work on it, shown under the thread; declining can say why, and the
+  proposer sees that. Someone who can only comment sees it waiting for an editor. While it waits, its pin has an amber
+  ring and the inbox lists it under For you with Approve.
 - **History doesn't depend on git** (your call, 2026-10-29). Many people using Parity won't use git, so Parity records
   who did what and when itself, and the web app (the portal) shows it. A project's git history, where it has one, is
   extra.
@@ -677,8 +681,9 @@ recommended answer to each of its questions.
   - for a media query list or resize listener, the frame that made it. These hear the frame resize without a rebuild;
   - otherwise, in an event handler, a timer or a render the project starts itself, the frame last drawn or used, but
     only for the project's code. Code counts as the project's when every caller on the stack came from the project's
-    server. Parity's code, tldraw included, always gets Parity's window. In Parity's Storybook, where the two share a
-    server, this last case is off.
+    server. Parity's code, tldraw included, always gets Parity's window, and so does code evaluated without a source,
+    from DevTools or a script driving Parity. In Parity's Storybook, where the two share a server, this last case is
+    off.
 
   React's production build names no component, so with several frames on the canvas, a render the project starts itself
   can get the answer of the frame drawn last. A `useState` set in a mount effect still gets the right one. `screen` and
