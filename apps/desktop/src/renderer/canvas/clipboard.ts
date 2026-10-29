@@ -22,10 +22,13 @@ import { toast } from "sonner"
 import { editingState } from "../chrome/LayerPanel.tsx"
 import { containerKey } from "../design-store.ts"
 import { designsSelection, layersSelection, selectedDesigns, selectedNodes } from "../selection.ts"
+import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { shapeIdFor } from "./CanvasEditor.tsx"
 import { freeSpotBeside, takenBounds } from "./free-space.ts"
+import { hitTest, type Point } from "./hit.ts"
 import { nodeForItem } from "./insert.ts"
+import { measureHere, pasteHere } from "./paste-here.ts"
 import { designsAt, placeOver, replaceLayers } from "./paste-over.ts"
 
 /**
@@ -199,11 +202,84 @@ export async function pasteToReplace(session: ProjectSession): Promise<void> {
 }
 
 /**
- * What's on the clipboard as layers to place: Parity's copied layers, an image saved into the project, or plain text as
- * a text layer. Undefined, with a message, when it's something else or nothing.
+ * Paste here, from the canvas's right-click menu: what's on the clipboard goes where the pointer was (client
+ * coordinates), whatever's selected. Copied designs go there on the canvas, their top left at the pointer, sitting as
+ * they sat together, as do copied notes. Layers, text and images go into the layout under the pointer, in the frame
+ * there, at the slot under it, or at the pointer when the layout is absolutely placed (see `pasteHere`). Over no design,
+ * text is a note there and layers a new screen there. One undo step, and the copies end up selected.
  */
-async function clipboardLayers(session: ProjectSession, notLayers: string): Promise<DesignNode[] | undefined> {
+export async function pasteAtPointer(session: ProjectSession, point: Point): Promise<void> {
+  const { store, selection, editor } = session
+  if (!editor) return
+  const page = editor.screenToPage(point)
+  const at = { x: Math.round(page.x), y: Math.round(page.y) }
+  const area = editor.getContainer().closest(".canvas-area") ?? document
+  // Measured before the clipboard is read, which can wait on an image being saved.
+  const hit = hitTest(area, store, point, editor)
+  const here = hit && measureHere(hit, point, spacingUnit(session.tokens.get()))
   const content = await readClipboard()
+  if (content.kind === "empty") {
+    toast.info("There's nothing on the clipboard to paste")
+    return
+  }
+  if (content.kind === "envelope" && content.envelope.payload.kind === "designs") {
+    const copies = designsAt(
+      content.envelope.payload.designs,
+      store.getEntries().map((design) => design.container.id),
+      at
+    )
+    const path = store.mainPath
+    store.change(copies.length === 1 ? "Paste design here" : `Paste ${copies.length} designs here`, (snapshot) => {
+      const document: CanvasDocument = snapshot.documents.get(path) ?? { version: 3, containers: [] }
+      const next = { ...document, containers: [...document.containers, ...copies] }
+      return { ...snapshot, documents: new Map(snapshot.documents).set(path, next) }
+    })
+    selection.set(designsSelection(copies.map((copy) => containerKey(path, copy.id))))
+    return
+  }
+  if (content.kind === "envelope" && content.envelope.payload.kind === "notes") {
+    pasteNotes(session, content.envelope.payload.notes, at)
+    return
+  }
+  if (!hit && content.kind === "text") {
+    pasteNotes(session, [{ id: "pasted", text: content.text, position: at }], at)
+    return
+  }
+  if (hit && !here) {
+    toast.info("There's no layout here to paste into")
+    return
+  }
+  const nodes = await clipboardLayers(session, "Copy layers to paste them here", content)
+  if (!nodes) return
+  if (!hit || !here) {
+    pasteAsNewDesign(session, nodes, at)
+    return
+  }
+  let copies: string[] = []
+  const state = editingState(hit.entry.container, hit.state)
+  store.updateContainer(
+    hit.entry.key,
+    nodes.length === 1 ? "Paste layer here" : `Paste ${nodes.length} layers here`,
+    (container) => {
+      const placed = pasteHere(container, nodes, here, state)
+      copies = placed.copies
+      return placed.container
+    }
+  )
+  selection.set(layersSelection(hit.entry.key, copies, hit))
+  warnUnknown(nodes, session.components.get())
+}
+
+/**
+ * What's on the clipboard as layers to place: Parity's copied layers, an image saved into the project, or plain text as
+ * a text layer. Undefined, with a message, when it's something else or nothing. `read` is the clipboard already read.
+ */
+async function clipboardLayers(
+  session: ProjectSession,
+  notLayers: string,
+  read?: ClipboardContent
+): Promise<DesignNode[] | undefined> {
+  const content = read ?? (await readClipboard())
   if (content.kind === "envelope") {
     if (content.envelope.payload.kind === "layers") return content.envelope.payload.nodes
     toast.info(notLayers)
@@ -444,8 +520,8 @@ export function placeLayers(
   return { design: entry.key, ids: copies.map((copy) => copy.id), frame: target.frame }
 }
 
-/** Layers pasted with nothing to paste them into become a new screen, in the middle of the view. */
-function pasteAsNewDesign(session: ProjectSession, nodes: DesignNode[]): void {
+/** Layers pasted with nothing to paste them into become a new screen, in the middle of the view unless placed `at`. */
+function pasteAsNewDesign(session: ProjectSession, nodes: DesignNode[], at = viewCenter(session)): void {
   const { store, selection } = session
   const taken = new Set<string>()
   const rootId = generateId(taken)
@@ -459,7 +535,7 @@ function pasteAsNewDesign(session: ProjectSession, nodes: DesignNode[]): void {
     {
       id,
       name: "Pasted",
-      position: viewCenter(session),
+      position: at,
       root: {
         type: "layout",
         id: rootId,
@@ -517,10 +593,16 @@ function pasteDesigns(session: ProjectSession, designs: ContainerSpec[], samePro
   selection.set(designsSelection(copies.map((copy) => containerKey(path, copy.id))))
 }
 
-function pasteNotes(session: ProjectSession, notes: NoteSpec[]): void {
+/**
+ * Notes pasted a little below and right of where they were copied from, or with their top left `at` a place on the
+ * canvas, sitting as they sat together.
+ */
+function pasteNotes(session: ProjectSession, notes: NoteSpec[], at?: { x: number; y: number }): void {
   const { store, selection } = session
   const taken = new Set(store.getNotes().map((note) => note.note.id))
-  const offset = 24
+  const left = Math.min(...notes.map((note) => note.position.x))
+  const top = Math.min(...notes.map((note) => note.position.y))
+  const shift = at ? { x: at.x - left, y: at.y - top } : { x: 24, y: 24 }
   let last: string | undefined
   for (const note of notes) {
     const id = `note-${generateId(taken)}`
@@ -528,7 +610,7 @@ function pasteNotes(session: ProjectSession, notes: NoteSpec[]): void {
     last = store.addNote(store.mainPath, {
       ...note,
       id,
-      position: { x: note.position.x + offset, y: note.position.y + offset }
+      position: { x: note.position.x + shift.x, y: note.position.y + shift.y }
     })
   }
   if (last) selection.set({ note: last })

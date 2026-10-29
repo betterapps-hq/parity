@@ -7,6 +7,7 @@ import { CanvasOverlay } from "./canvas/CanvasOverlay.tsx"
 import { ProjectContext } from "./canvas/context.ts"
 import { useShortcuts } from "./canvas/shortcuts.ts"
 import { TabOrderOverlay } from "./canvas/TabOrderOverlay.tsx"
+import { CanvasMenu } from "./chrome/CanvasMenu.tsx"
 import { Inspector } from "./chrome/Inspector.tsx"
 import { LeftPanel } from "./chrome/LeftPanel.tsx"
 import { StatusBar } from "./chrome/StatusBar.tsx"
@@ -53,19 +54,22 @@ function CanvasArea({ tabId }: { tabId: string }) {
     editor.setCurrentTool(tool === "hand" ? "hand" : "select")
   }, [session?.editor, tool])
 
+  // Isolated, so the canvas's floating controls and overlays, high up within it, stay below menus and dialogs. A
+  // right-click on it opens the canvas's menu.
   return (
-    // Isolated, so the canvas's floating controls and overlays, high up within it, stay below menus and dialogs.
-    <div
-      className={`canvas-area relative isolate min-w-0 flex-1 ${tool === "text" ? "cursor-text" : ""}`}
-      data-tool={tool}
-    >
-      <CanvasEditor onEditor={onEditor} />
-      <CanvasOverlay />
-      <TabOrderOverlay />
-      <CanvasDrop />
-      <AgentPresence />
-      <FloatingToolbar />
-      <ViewControls />
-    </div>
+    <CanvasMenu>
+      <div
+        className={`canvas-area relative isolate min-w-0 flex-1 ${tool === "text" ? "cursor-text" : ""}`}
+        data-tool={tool}
+      >
+        <CanvasEditor onEditor={onEditor} />
+        <CanvasOverlay />
+        <TabOrderOverlay />
+        <CanvasDrop />
+        <AgentPresence />
+        <FloatingToolbar />
+        <ViewControls />
+      </div>
+    </CanvasMenu>
   )
 }

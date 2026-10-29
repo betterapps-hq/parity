@@ -176,6 +176,87 @@ sent as soon as each selection drew; the five selections the old way made, set o
 took 1.06 to 1.37 s, before counting the gestures. Ctrl doesn't change what a box selects, where Figma's selects the
 layers deeper inside. Right-click's Select layer, listing everything under the pointer, is PAR-168.
 
+### Right-click menus (PAR-168)
+
+A right-click on a design opens Figma's canvas menu, as far as Parity's commands go, for what's selected. Each item
+shows its keys from the keymap as the menubar shows them (`ContextMenuShortcut`, through `formatKeys`), and runs the
+menubar's command. The Layers panel's menu is unchanged.
+
+- **The items**, in groups with a line between them: Select layer; Copy, Paste here, Paste over selection, Paste to
+  replace and Duplicate; Bring to front, Bring forward, Send backward and Send to back; Wrap in layout, Make component
+  and Go to the main component; Hide. Labels are the menubar's, except that Go to names the main component ("Go to Plan
+  card"), Hide reads Show when every selected layer is hidden in the state being edited, and Make component, with a
+  design selected on its own, reads "Make it a component", or "Make it a screen" on a component. Paste here has no keys.
+  Lock comes with PAR-192, and Open in editor and Copy as JSX with PAR-166; they have no placeholders.
+- **With designs selected**, what's only for layers is left out: Paste to replace, the order, Wrap in layout and Hide.
+  Go to the main component is there only with an instance selected.
+- **Unavailable** items are greyed: the order and Make component with several layers selected, Make component with
+  several designs, and, for layers inside an instance, Copy, Duplicate, the order, Wrap in layout and Hide. Paste over
+  selection and Paste to replace stay for those, and say why they can't.
+- **Around the designs** the menu is Paste here, then Select all and Zoom to fit.
+- **A right-click selects first**, what a click there would select (Ctrl-right-click the deepest layer), unless the
+  pointer is inside the selection: over a selected layer or a layer inside one, or anywhere in a selected design when no
+  layers are selected. Then the selection stays and the menu acts on all of it. On a frame's background, or around the
+  frames, it selects the design. A selected layer's resize handle, which reaches a little past its box, keeps the
+  selection.
+- **Select layer** lists the design, then every layer under the pointer, outermost first, layers inside instances
+  included (from `nodesAt`), named and drawn with the icons Layers gives them, with a check on those selected. Pointing
+  at an entry, or reaching it with the arrow keys, outlines its layer in the frame that was right-clicked; choosing it
+  selects it there, and choosing the design selects the design.
+- **Paste here** pastes what's on the clipboard where the pointer was, whatever's selected, as one undo step ("Paste
+  layer here", "Paste design here"), and selects the copies.
+  - Designs go on the canvas with their top left at the pointer, sitting as they sat together. Notes do the same.
+  - Layers, text and images go into the deepest of the design's own layouts under the pointer, in the frame there, at
+    the slot under the pointer, where a dragged layer would land (`slotAt`). A hidden layer isn't a slot. A layout
+    inside an instance is never the target.
+  - In a layout that's absolutely placed in the state shown, the copies go last, on top, at the pointer: their left and
+    top in half steps of the spacing scale from inside its border, in place of their own insets. A copy that's
+    absolutely placed itself goes in the slot, and at the pointer.
+  - Over a design with no layout under the pointer, nothing is pasted, and a toast says so. Around the designs, text
+    becomes a note at the pointer, and layers a new screen there.
+- **Where the right-click lands decides.** tldraw keeps the system's menu from the canvas, pans while the right button
+  is dragged (no menu then), and when the button comes up without panning, selects the board under it and sends a
+  `contextmenu` of its own, for a release anywhere over the canvas. So the menu reads the selection, the target and Ctrl
+  when the button goes down. A design's title keeps its own menu, and state labels, toolbars and text being edited open
+  none. A text note over a board gets the menu for around the designs.
+- **Interact mode:** the design gets the right-click, and no menu opens.
+
+Code: the menu's contents are `canvasMenu` in `apps/desktop/src/renderer/chrome/canvas-menu.ts`, which takes the
+selection and the design under the pointer and returns the items, available or not, in order, with Select layer's list;
+`rightClickSelection` there is what a right-click selects. `chrome/CanvasMenu.tsx` is the context menu around the canvas
+area in `ProjectView.tsx`: it records the right button's press, finds the design under the pointer with `hitTest` and
+`pickLayer`, outlines Select layer's entries through the hover, and runs items through `actions.ts`. Paste here is
+`pasteAtPointer` in `canvas/clipboard.ts`, which reads the clipboard and places designs, notes and text; layers go
+through `canvas/paste-here.ts`, where `measureHere` measures the layout under the pointer in its frame and `pasteHere`
+places the copies.
+
+Tests:
+
+- `chrome/canvas-menu.test.ts` (17): one layer's menu in order with its keys, an instance's Go to, several layers, Show
+  and Hide in two states, a design's menu and its Make component label, several designs, a layer inside an instance, the
+  menu around the designs; Select layer's list, names, checks and the design's kind; and what a right-click selects on a
+  layer, a frame's background, around the frames, the root, inside the selection, outside it, and in a selected design.
+- `canvas/paste-here.test.ts` (12): the dashboard's stats row, at the slot under the pointer, first and last, several
+  copies together, fresh ids, a hidden card skipped, an empty layout; an absolutely placed layout at half size, half
+  steps, a copy's own insets replaced; an absolutely placed copy in the slot; a state that places the row absolutely;
+  and nothing pasted into a layer that isn't a layout.
+- `canvas/paste-here-frame.test.ts` (4), in Chrome: `measureHere` on a grid drawn at half size, with a hidden card, the
+  slot under the pointer, first and last, at the pointer inside an absolutely placed layout's border, and the deepest
+  layout.
+- `chrome/CanvasMenu.stories.tsx` (7 stories, under Parity/Chrome/Canvas menu), on the real canvas with tldraw: Layer,
+  Instance, SeveralLayers, Design, EmptyCanvas, SelectLayer and Interacting. Each right-clicks through tldraw's pointer
+  events and checks the selection, the items, what's unavailable and the keys; SelectLayer checks the list and the
+  outline. All seven played without errors in headless Chrome on 2026-10-29.
+
+Gaps: the system's real right button, panning and the stand-in clipboard were checked in an isolated copy of the app on
+the example project on 2026-10-29: each item ran and undid as one step, Paste here landed in Hero after Lede, in
+Calendar's absolutely placed Events at the pointer, and a design and a note at the pointer, and Interact mode and the
+design's title opened no canvas menu. There's no end-to-end test for the menu yet (PAR-202). A component's slots aren't
+Paste here targets. Several copies pasted into an absolutely placed layout all land at the pointer, on top of each
+other. A copy that stretches between its insets loses its right and bottom when it's placed at the pointer. A
+right-click while the menu is open closes it, and another opens it. The menubar still offers Copy, Duplicate, the order,
+Wrap in layout and Hide for a layer inside an instance, which they don't act on; the canvas menu greys them.
+
 ## Moving, reordering and resizing
 
 Dragging layers and designs, where they land, resize handles and duplicates.
