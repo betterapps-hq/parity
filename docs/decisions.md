@@ -418,8 +418,8 @@ recommended answer to each of its questions.
   tokens, or from a design system library it adds. Pen's ready-made styles aren't copied, and the skill never suggests
   one. TOK-5, which proposed them, was dropped; its ID isn't reused.
 - **Agent passes write stories; they don't set up Storybook** (your call, 2026-10-28). Adding Storybook to a project is
-  setup work for the scaffolder, whose catalog already has a Storybook add-on, or for a recipe (SCF-5, waiting on Q30).
-  AGT-25, which made it a pass, was dropped; its ID isn't reused.
+  setup work for the scaffolder, whose catalog already has a Storybook add-on, or for a recipe (SCF-5). The pass that
+  set up Storybook was dropped before anyone built it; AGT-25 is now a different item.
 - **The CLI and MCP find layout problems:** `parity problems <design>` and the `find_problems` tool report render
   errors, overflow, clipping and unknown components, in every state and the modes shown unless narrowed.
   `parity problems` exits with 1 when it finds any.
