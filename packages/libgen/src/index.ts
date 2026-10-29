@@ -3,6 +3,7 @@ import { readdir, readFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { basename, dirname, join, resolve, sep } from "node:path"
 import { pathToFileURL } from "node:url"
+import { type ComponentReport, findComponents, relativePath } from "@parity/code"
 import {
   applyLibraryEdits,
   type LibraryBreakpoint,
@@ -19,7 +20,6 @@ import {
 import { installedPackage, parseJsonc } from "@parity/project"
 import ts from "typescript"
 import { type AnatomyCheck, checkAnatomy, readAnatomy } from "./anatomy.ts"
-import { type ComponentReport, findComponents, relativePath } from "./components.ts"
 import {
   type ExampleFile,
   type ExampleSource,
@@ -33,7 +33,7 @@ import { type PartRelation, relateParts } from "./parts.ts"
 import { type Load, type Preset, presets } from "./presets.ts"
 import { breakpointsOf, type CollectedToken, cssTokens, pairLineHeights, toDtcg } from "./tokens.ts"
 
-export { componentOptions, findComponents, reactProbe, withReactProbe } from "./components.ts"
+export { componentOptions, findComponents, reactProbe, withReactProbe } from "@parity/code"
 export { guessParent, relateParts } from "./parts.ts"
 export { familyOf, fetchExamples, nearestParent, normalizeRepo, readExamples } from "./examples.ts"
 export { parseLibraryEdits } from "@parity/core"

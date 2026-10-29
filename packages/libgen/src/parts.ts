@@ -1,3 +1,4 @@
+import type { FoundComponent } from "@parity/code"
 import {
   type ComponentSample,
   type DecoratorElement,
@@ -9,7 +10,6 @@ import {
   type SampleElement,
   type SampleRender
 } from "@parity/core"
-import type { FoundComponent } from "./components.ts"
 import { type ExampleUse, exampleLevels, familyOf } from "./examples.ts"
 import type { RenderCall, RenderedChild } from "./hosts.ts"
 
