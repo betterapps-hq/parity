@@ -7,6 +7,8 @@
 - **Logic goes in packages that take data and return data,** with tests that run without Electron, as
   [docs/proposals/packages.md](docs/proposals/packages.md) sets out. The app keeps views, files, IPC and processes.
 - **Several sessions edit this folder at once.** Re-read a file just before changing it.
-- **Commit only when the user asks,** and then only the changes they asked for, since other sessions' work in progress
-  shares this tree.
+- **Commit your work when you judge it's ready,** without waiting to be asked: a backlog item done, a fix in, a doc
+  finished, with `pnpm verify` passing. Stage your own files by path, so other sessions' unfinished work stays out
+  unless the user asks for a wholesale commit. Shared docs such as the backlog and decisions.md go in whole. Write
+  conventional messages (`feat(core): …`, `fix(desktop): …`, `docs: …`). There's no remote, so nothing is pushed.
 - Run `pnpm verify` before finishing.

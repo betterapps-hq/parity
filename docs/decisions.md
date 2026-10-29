@@ -436,7 +436,10 @@ recommended answer to each of its questions.
   an Electron that kept the debug port and old code. The runner now quits, closing Electron, once whatever started it is
   gone, and Electron quits once the runner is gone.
 - **The repository has its first commit,** `3dbc7fb`, everything as it stood, which you asked for on 2026-10-28 before
-  the package work starts. Sessions still commit only when you ask.
+  the package work starts.
+- **Sessions commit their own work when they judge it's ready.** You said: "I want it to commit when it thinks it
+  should, not just when I ask." That's when a piece of work is done and `pnpm verify` passes. Each session stages its
+  own files, so other sessions' unfinished work stays out unless you ask for a wholesale commit. AGENTS.md says how.
 
 ## Packages
 

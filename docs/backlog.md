@@ -13,7 +13,8 @@ current: it's only useful while it's true. What's decided goes in [decisions.md]
    `In progress: <your session's title>`, add it to In progress, and save.
 4. **Finish:** run `pnpm verify`, then move the item's row to Done with the date and your session, and take its ID out
    of other items' `After` lists, setting any that empty to Ready. Update the rows it changes in support.md, ask the
-   Design Editor session to republish the support matrix, and record any calls you made in decisions.md.
+   Design Editor session to republish the support matrix, and record any calls you made in decisions.md. Then commit
+   your changes, as [AGENTS.md](../AGENTS.md) says.
 5. **Found more work?** Add it to its stream with the next free ID, as a row with a Done when. IDs are permanent: never
    renumber or reuse one.
 6. **Blocked by a decision?** Add it to Waiting on you if it's new, and set the item's Status to `Waiting on you: Q<n>`.
