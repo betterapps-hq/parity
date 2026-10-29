@@ -145,6 +145,8 @@ function createWindow(): void {
     minWidth: 960,
     minHeight: 600,
     title: "Parity",
+    // The taskbar's icon on Windows and the window list's on Linux. macOS shows the dock's, set when the app starts.
+    icon: join(import.meta.dirname, "resources", process.platform === "win32" ? "icon.ico" : "icon.png"),
     backgroundColor: background,
     // The tab strip is the title bar; the system's window buttons sit over its end.
     titleBarStyle: mac ? "hiddenInset" : "hidden",
@@ -365,6 +367,8 @@ function renderFrame(job: RenderJob, capture: boolean): Promise<{ frame?: Render
 }
 
 void app.whenReady().then(() => {
+  // Otherwise the dock shows the icon of the app Parity runs as, which is Electron.
+  app.dock?.setIcon(join(import.meta.dirname, "resources", "dock.png"))
   Menu.setApplicationMenu(applicationMenu())
   service = startService()
   createWindow()

@@ -526,8 +526,8 @@ recommended answer to each of its questions.
   it uses, its branch and pull request when there is one, and a change made after it was approved. Developers inspect
   it, pick it up, or give it to their own agent.
 - **What changed compares two versions of a branch against main** (my call): the boards before and after side by side,
-  numbered where they changed, and each change down the side (the token, the components that follow it), with approve
-  or ask for changes. Its link names both versions, so it can go in a pull request.
+  numbered where they changed, and each change down the side (the token, the components that follow it), with approve or
+  ask for changes. Its link names both versions, so it can go in a pull request.
 - **What changed stays quiet so the changes are the focus** (your call, 2026-10-29). No glow, pills or rings on the
   boards; the branch, pull request and links sit in a menu; hovering a change brings it forward on both boards and in
   the list. There's no timeline: the version labels above the boards pick what's compared.
@@ -732,6 +732,18 @@ recommended answer to each of its questions.
   project's own dev server, often running alongside, re-optimized into the same folder, and each server then served
   stale dependencies ("Outdated Optimize Dep"). Opening Parity's own app as a project broke every offscreen render this
   way (PROJ-11).
+
+## The app icon
+
+- **Parity's icon is the brackets: code's `<` and `>` closing around a component's diamond,** which you chose on
+  2026-10-29. The drawings are in `brand/`: `parity-icon.svg` for 48 pixels and up, `parity-icon-small.svg` with heavier
+  lines and no glow for smaller sizes, and `parity-mark.svg`, the glyph alone in one color.
+- **The app's icons are drawn from those files** by `apps/desktop/scripts/icons.ts` into `apps/desktop/resources`:
+  `icon.ico` for the Windows taskbar, `icon.png` for Linux, and `dock.png` for the macOS dock, with the margin Apple's
+  icons keep around the tile. The dev runner copies them beside the bundles, so a second copy of the app finds them too.
+  The taskbar shrinks the 32 and 40 pixel sizes to 24 and 30, so those use the small drawing.
+- **Parity.exe still has Electron's icon in its own resources,** which Windows shows where it reads the program rather
+  than the window, such as File Explorer or a taskbar button pinned before the app runs. Packaging the app sets it.
 
 ## Developing Parity
 
