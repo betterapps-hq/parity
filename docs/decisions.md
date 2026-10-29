@@ -602,10 +602,15 @@ recommended answer to each of its questions.
   `Tab`), and a part the examples nearly always place, directly inside one family, joins it for samples (React Aria's
   `Row`, `Cell` and `Column` join `Table`), so a table's sample keeps its header and rows. Not when the part's own
   family is usually around it too (Chakra's `Toggle.Indicator` in a `Button` in `Toggle.Root`), and never into a layout
-  box that holds more than eight families (`Group`, `Stack`, `Dialog`).
-- **A collection's placeholder isn't drawing (LIB-48):** React Aria renders an item outside its collection as a bare
-  `<item>` for the collection to read, without throwing, so `Row` and `NavigationTreeItem` looked like they drew alone
-  and got no parents. Markup that starts with `<item>` now counts as failing.
+  box that holds more than eight families (`Group`, `Stack`, `Dialog`). Pruning a chain uses the same families, so a row
+  keeps the `TableBody` it's in.
+- **A collection's placeholder isn't drawing (LIB-48):** React Aria renders a collection's parts outside one as bare
+  placeholders for the collection to read (`<item>`, `<tablebody>`), without throwing, so `Row` and `NavigationTreeItem`
+  looked like they drew alone and got no parents. Markup that starts with one now counts as failing.
+- **A prop only one use sets is left out of a sample (LIB-48):** a part's sample props are its defaults wherever it's
+  drawn, including inside other parts' samples, so React Aria's one `Cell colSpan={2}` made every cell in a table's
+  sample span two columns. For a part with five or more uses, a prop fewer than two set is kept aside and added back
+  only when the part can't draw without it (MUI's `Slide` and its `in`).
 - **A part can need its parents' other parts (LIB-48):** a table's row renders only with the header beside the body it's
   in. When the examples' chain fails alone but renders with the parts each parent's example holds, the part in place of
   the first like it, the part is marked `parentParts`, and inserting it alone brings those parts along. The chain is
@@ -1033,8 +1038,9 @@ recommended answer to each of its questions.
 - **Agents see what the Components panel shows** (your call, 2026-10-29): `parity components` lists the components that
   fail to draw on the canvas and why, and the person's corrections, saved or not, as well as the exports that aren't
   components (`0004a01`).
-- **`@parity/cli` will be public on npm** (your call, 2026-10-29), so a CI pipeline gets Parity with `npx @parity/cli`
-  and nothing else to download. Visual tests in CI rely on it (VIS-13).
+- **The CLI will be public on npm** (your call, 2026-10-29), so a CI pipeline gets Parity with `npx` and nothing else to
+  download. Visual tests in CI rely on it (VIS-13). It can't be published as `@parity/cli`, because the `@parity` scope
+  on npm belongs to Parity Technologies, so its name is Q7.
 - **A project's Vite server keeps its own dependency cache,** `node_modules/.vite-parity`. With Vite's default, the
   project's own dev server, often running alongside, re-optimized into the same folder, and each server then served
   stale dependencies ("Outdated Optimize Dep"). Opening Parity's own app as a project broke every offscreen render this
@@ -1102,14 +1108,28 @@ the REPO stream in the backlog.
 - **The toolchain moves to Vite+ in place, with `vp migrate`.** You asked for the monorepo template on 2026-10-29. My
   calls: workspace packages stay source-only, the example project, fixtures and builder-vite stay on stock Vite because
   they stand in for or drive customers' projects, and `pnpm verify` keeps its name.
-- **Installers come from electron-builder, releases from a `v*` tag in GitHub Actions to GitHub Releases, and versions
-  from release-please.** My call: one tool makes installers, signs them and serves updates, and release-please reads the
-  conventional commits AGENTS.md already asks for. `@changesets/cli` would clash in name with PKG-2's changesets, and
-  beachball wants a change file with every commit.
+- **Versions come from Beachball change files,** as Buildkit and the agency monorepo do it, which you asked for on
+  2026-10-29. This replaces my earlier call for release-please. My calls on how:
+  - The CLI is published.
+  - The desktop app and the workspace packages the CLI or the app bundle are versioned with
+    `"beachball": { "shouldPublish": false }`, rather than `private`, so a change to one bumps whatever ships it.
+  - The rest stays `private`.
+  - `pnpm change` writes a change file without prompting, so sessions can.
+- **Releases follow Buildkit's flow.** After CI passes on `main`, pending change files open a release PR that merges
+  itself once its checks pass, and its version changes start delivery: the CLI to npm through trusted publishing with
+  provenance, and the desktop app to GitHub Releases. My calls: installers come from electron-builder, since one tool
+  makes installers, signs them and serves updates, and only the desktop app makes GitHub Releases, so the updater never
+  mistakes a CLI release for an app update.
+- **Pipelines are shared across Parity, Buildkit, Better Apps and Copacker,** from one repository of templates, as you
+  asked on 2026-10-29. Each repository has thin top-level pipelines, one per stage (CI, previews, the release PR, and CD
+  split by what's delivered: npm packages, the desktop app, web apps), calling reusable workflows and composite actions
+  from it. My calls: the repository is public, because callers span `AndrewCraswell` and `Fencing-Club`; callers pin a
+  full commit SHA that Dependabot moves; and CI is shared as far as `pnpm verify`, with each repository's extra jobs
+  beside the call. Where it lives is Q8.
 - **Conventions from the agency monorepo are in [conventions.md](conventions.md),** as you asked on 2026-10-29. My call
   on which: finish a change before checking it, fix forward, ask before adding a dependency, no dot glyph as a
-  separator, and try changes people see in the running app. Its Turborepo, beachball, shared config packages, "prefer
-  `type` over `interface`", React Compiler rules and library catalogs aren't taken; the proposal says why.
+  separator, and try changes people see in the running app. Its Turborepo, shared config packages, "prefer `type` over
+  `interface`", React Compiler rules and library catalogs aren't taken; the proposal says why.
 - **Once releases ship, a change to `.par` or `.lib.par` still reads the old format.** My call, and the one exception to
   fixing forward: people's saved files outlive the version that wrote them.
 
