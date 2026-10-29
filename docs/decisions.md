@@ -1293,6 +1293,21 @@ the Repository, CI and releases stream in Linear.
   - Shared modules live in `Fencing-Club/pipelines/terraform/`.
   - Terraform also writes the GitHub variables and secrets the templates read, so a template only deploys, and skips
     with a notice until they exist.
+- **The `cloudflare-storybook` module (pipelines v1.1.0) has three limits Cloudflare and GitHub set.** My calls on each:
+  - Its deploy token has Workers Scripts Write across the account. Cloudflare can't hold a token that uploads assets and
+    manages previews to particular Workers; the module's README says so.
+  - The account's workers.dev subdomain is chosen once in the dashboard, the one step by hand: the provider has no
+    resource for it, and the apply stops with a message when it's missing.
+  - It writes into an existing GitHub environment, such as a web deploy's `production` with its protection rules, and
+    only creates `preview` itself. Owning an existing one would reset its rules, and destroying it would delete the web
+    deploy's secrets.
+- **Parity's CI (PAR-2) runs `pnpm verify` through ci-verify on Ubuntu, Windows and macOS.** My calls:
+  - Its `prepare` installs the fixture projects when any is missing, with Bun 1.4.3 and Corepack 0.35.0 pinned from npm
+    on every system, and `npm ci` for the five fixtures `install-projects` doesn't know (buildkit, chakra, fluent,
+    headless, mui). Their `node_modules`, about 2 GB per system, are cached on their lockfiles.
+  - Runners get 45 minutes, since a run that installs the fixtures can outlast 30 on Windows.
+  - Vite Task's cache isn't kept yet: `pnpm verify` doesn't go through `vp run`, and ci-verify's extra cache can't
+    restore from an older key. When PAR-4 makes `pnpm verify` run `beachball check`, `fetch-depth` becomes 0.
 - **`Fencing-Club/pipelines` started with the setup action and ci-verify (PAR-110).** My calls:
   - The setup action checks out without keeping credentials, and on Windows turns off `core.autocrlf` first, since the
     runners' CRLF made Vite+'s formatter fail every file.
