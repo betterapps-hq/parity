@@ -129,8 +129,17 @@ still need your call.
   and formatting.
 - **Snapping is on by default.** Designs lock to each other's edges and centres within 8 screen pixels. Hold Ctrl to
   move freely, or turn it off under View.
-- **Double-click drills in first, as in Figma.** It edits text only on a selected text layer that's the deepest thing
-  under the pointer.
+- **A click inside a board selects what's under the pointer, as in Figma's top-level frames** (PAR-163, which replaced
+  double-click drilling in first). A click selects the top-level layer, or, with a layer of that design selected, its
+  sibling there. The board is selected by its title or background, and a click on a frame's background selects it too.
+  Each double-click goes one level deeper than the selection, and edits text only on a selected text layer that's the
+  deepest thing under the pointer. Ctrl-click selects the deepest layer, Enter selects the layers inside or edits a text
+  layer, and hovering outlines what a click would select, in the frame under the pointer. A press drags what a click
+  would select, so a board never moves by a frame's background, where Figma moves a selected frame dragged from inside
+  it. Free text notes keep tldraw's click and double-click.
+- **A box drawn from a frame's background selects the top-level layers it touches** (PAR-163), as Figma's and tldraw's
+  do, live, drawn with tldraw's own box; Shift adds to the selection and Escape restores it. Ctrl doesn't make it go
+  deeper yet. With several designs selected, Enter works in the one picked last.
 - **Side panels have one row of tabs, Pen style.** The open tab shows its name and the rest show only their icons. The
   left panel's tabs are Layers, Components, Icons, Images and Tokens; the right's are Design, Modes and Accessibility.
   Each panel remembers its open tab.
@@ -228,9 +237,9 @@ still need your call.
   hovering only measures boxes.
 - **A layer's box is what it draws at its top level** (CAN-45): one element for most layers, each root of a fragment,
   and for a provider, the top-level elements of the layers inside it. A point belongs to the innermost layer. Undrawn
-  (0×0) elements are left out unless every element is undrawn, content portaled out of the frame doesn't count, a slot
-  drawn twice is one layer covering every copy, and a component that draws nothing has no box and is selected from
-  Layers.
+  (0×0) elements and elements clipped to nothing, such as a checkbox's hidden input, are left out unless every element
+  is undrawn (PAR-163), content portaled out of the frame doesn't count, a slot drawn twice is one layer covering every
+  copy, and a component that draws nothing has no box and is selected from Layers.
 - **When a component's props have no `style`, the inspector says sizes and styles won't change it** and offers Wrap in
   layout (CAN-45). It's read from the props type, so it doesn't show for `any`, `object`, index signatures or type
   parameters.
