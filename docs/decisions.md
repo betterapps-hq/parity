@@ -447,7 +447,9 @@ recommended answer to each of its questions.
   and adding seats charges the rest of the month at once. Billing admins are their own role. The price ($24 a seat a
   month) is a placeholder.
 - **Only editors pay; agents don't take up seats** (your calls, 2026-10-29).
-- **Open, marked on the designs as sticky notes:** the price per seat, and whether heavy agent use is billed by usage.
+- **Agents are the customer's own,** such as Claude Code and Cursor, connected to Parity through its MCP server. Parity
+  doesn't run or pay for them, so it has no agent use to bill (your call).
+- **Open, marked on the Billing design as a sticky note:** the price per seat.
 
 ## Storybook
 

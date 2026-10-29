@@ -155,11 +155,11 @@ export function MembersPage() {
                 Only editors pay. Everyone else can open every design, comment and follow along.
               </span>
             </Meter>
-            <Meter label="Agents" value="2" of="connected">
+            <Meter label="Your agents" value="2" of="connected">
               <span className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Avatar person={claude} size={18} />
                 <Avatar person={cursor} size={18} />
-                Don't take seats
+                Your own, and free
               </span>
             </Meter>
           </div>
@@ -242,7 +242,8 @@ function BillingBody({ aside }: { aside?: ReactNode }) {
           <span className="flex flex-1 flex-col gap-0.5">
             <span className="text-lg font-semibold">Team plan</span>
             <span className="text-sm text-muted-foreground">
-              ${price} per editor seat a month. Viewers, commenters and agents are free.
+              ${price} per editor seat a month. Viewers and commenters are free, and your own agents connect at no
+              charge.
             </span>
           </span>
           <Button variant="outline">Change plan</Button>
@@ -312,9 +313,7 @@ function BillingBody({ aside }: { aside?: ReactNode }) {
 export function BillingPage() {
   return (
     <SettingsPage tab="Billing">
-      <BillingBody
-        aside={<OpenQuestion>Open: the price per seat, and whether heavy agent use is billed by usage.</OpenQuestion>}
-      />
+      <BillingBody aside={<OpenQuestion>Open: the price per editor seat.</OpenQuestion>} />
     </SettingsPage>
   )
 }
