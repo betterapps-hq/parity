@@ -7,11 +7,11 @@ import {
   checkedChanges,
   componentIds,
   filesChanged,
-  type FoundComponent,
+  findAppComponents,
   importersOf,
+  type ParsedComponent,
   readChangedFiles
-} from "./components.ts"
-import { discoverProject } from "./index.ts"
+} from "./listing.ts"
 import { readTsconfig, resolvePathAlias } from "./tsconfig.ts"
 
 /** Exported functions are components; `export const X = Y.Z` is one the parse can't decide. */
@@ -46,6 +46,13 @@ afterEach(async () => {
 })
 
 describe("finding the app's components", () => {
+  /** The app's components with their ids, as discovery lists them, with the UI kit in `uiKit`. */
+  const list = async (uiKit?: string) => {
+    const notes: string[] = []
+    const { found } = await findAppComponents(root, renderer, readTsconfig(root), uiKit, notes)
+    return { components: componentIds(found), notes }
+  }
+
   it("reads every file the app's tsconfig includes, through its references", async () => {
     await write(
       "tsconfig.json",
@@ -64,7 +71,7 @@ describe("finding the app's components", () => {
     await write("src/tmp/scratch.tsx", "export function Scratch() {}")
     await write("other/outside.tsx", "export function Outside() {}")
 
-    const project = await discoverProject(root, renderer)
+    const project = await list("src/components/ui")
     expect(project.components).toEqual({
       Button: { path: "src/components/ui/button.tsx", export: "Button", as: "function" },
       OrderList: { path: "src/routes/orders/order-list.tsx", export: "OrderList", as: "function", lazy: true }
@@ -75,20 +82,20 @@ describe("finding the app's components", () => {
   it("reads every file under the root when there's no tsconfig", async () => {
     await write("src/pages/home.tsx", "export function Home() {}")
     await write("node_modules/pkg/index.tsx", "export function Installed() {}")
-    const project = await discoverProject(root, renderer)
+    const project = await list()
     expect(Object.keys(project.components)).toEqual(["Home"])
   })
 
   it("keeps undecided exports only in the UI kit folder, as it did before", async () => {
     await write("src/components/ui/select.tsx", "export const Select = Primitive.Root\nexport function SelectItem() {}")
     await write("src/components/access.tsx", "export const ForAdmins = Gate.Admins")
-    const project = await discoverProject(root, renderer)
+    const project = await list("src/components/ui")
     expect(Object.keys(project.components).sort()).toEqual(["Select", "SelectItem"])
   })
 })
 
 describe("component ids", () => {
-  const found = (path: string, name: string, uiKit = false): FoundComponent => ({ name, path, export: name, uiKit })
+  const found = (path: string, name: string, uiKit = false): ParsedComponent => ({ name, path, export: name, uiKit })
 
   it("are bare names while they're unique", () => {
     expect(Object.keys(componentIds([found("src/a.tsx", "Card"), found("src/b.tsx", "Badge")]))).toEqual([
@@ -186,7 +193,7 @@ describe("checkedChanges", () => {
 })
 
 describe("files changing", () => {
-  const own = (path: string, name: string, extra: Partial<FoundComponent> = {}): FoundComponent => ({
+  const own = (path: string, name: string, extra: Partial<ParsedComponent> = {}): ParsedComponent => ({
     name,
     path,
     export: name,

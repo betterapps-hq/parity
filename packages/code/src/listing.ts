@@ -4,7 +4,7 @@ import type { ComponentEvidence, ComponentSource, RendererAdapter } from "@parit
 import { type ProjectTsconfig, resolvePathAlias } from "./tsconfig.ts"
 
 /** A component found in the app's source, before it has an id. */
-export interface FoundComponent {
+export interface ParsedComponent {
   name: string
   /** Its file, relative to the project root. */
   path: string
@@ -49,9 +49,9 @@ export async function findAppComponents(
   tsconfig: ProjectTsconfig,
   uiKit: string | undefined,
   notes: string[]
-): Promise<{ found: FoundComponent[]; files: string[] }> {
+): Promise<{ found: ParsedComponent[]; files: string[] }> {
   const { files: unique, from } = await appFiles(root, renderer, tsconfig)
-  const found: FoundComponent[] = []
+  const found: ParsedComponent[] = []
   const entries: string[] = []
   const read: string[] = []
   await Promise.all(
@@ -89,7 +89,7 @@ async function parseFile(
   renderer: RendererAdapter,
   path: string,
   uiKit: string | undefined
-): Promise<FoundComponent[] | "mounts" | "gone"> {
+): Promise<ParsedComponent[] | "mounts" | "gone"> {
   const source = await readFile(join(root, path), "utf8").catch(() => undefined)
   if (source === undefined) return "gone"
   if (mountsApp.test(source)) return "mounts"
@@ -107,9 +107,9 @@ export async function readChangedFiles(
   files: readonly string[],
   uiKit: string | undefined,
   changed: Iterable<string>
-): Promise<Map<string, FoundComponent[] | undefined>> {
+): Promise<Map<string, ParsedComponent[] | undefined>> {
   const inApp = new Set(files)
-  const read = new Map<string, FoundComponent[] | undefined>()
+  const read = new Map<string, ParsedComponent[] | undefined>()
   await Promise.all(
     [...new Set(changed)].map(async (path) => {
       const parsed = inApp.has(path) ? await parseFile(root, renderer, path, uiKit) : "gone"
@@ -128,7 +128,7 @@ export async function readChangedFiles(
  */
 export function filesChanged(
   sources: Record<string, ComponentSource>,
-  read: ReadonlyMap<string, FoundComponent[] | undefined>
+  read: ReadonlyMap<string, ParsedComponent[] | undefined>
 ): { sources: Record<string, ComponentSource>; added: string[]; removed: string[] } {
   const key = (path: string, name: string) => `${path}#${name}`
   const next: Record<string, ComponentSource> = {}
@@ -237,10 +237,10 @@ export function checkedChanges(
  * Ids already `taken`, such as libraries' `nova/Button`, are skipped the same way.
  */
 export function componentIds(
-  found: FoundComponent[],
+  found: ParsedComponent[],
   taken: ReadonlySet<string> = new Set()
 ): Record<string, ComponentSource> {
-  const byName = new Map<string, FoundComponent[]>()
+  const byName = new Map<string, ParsedComponent[]>()
   for (const component of found) {
     const same = byName.get(component.name) ?? []
     // One component exported twice from its file, by name and as the default, is listed once.
@@ -249,7 +249,7 @@ export function componentIds(
   }
   const ids: Record<string, ComponentSource> = {}
   // The UI kit loads with the canvas; the rest of the app, which can import much more, loads as it's drawn.
-  const add = (id: string, component: FoundComponent) => {
+  const add = (id: string, component: ParsedComponent) => {
     ids[id] = {
       path: component.path,
       export: component.export,
@@ -276,8 +276,8 @@ export function componentIds(
  * path is the last resort.
  */
 function qualifier(
-  component: FoundComponent,
-  group: FoundComponent[],
+  component: ParsedComponent,
+  group: ParsedComponent[],
   taken: ReadonlySet<string>,
   name: string
 ): string {
@@ -330,7 +330,7 @@ async function walk(folder: string, extensions: string[]): Promise<string[]> {
   return files.flat()
 }
 
-export function count(n: number, noun: string): string {
+function count(n: number, noun: string): string {
   return `${n} ${noun}${n === 1 ? "" : "s"}`
 }
 

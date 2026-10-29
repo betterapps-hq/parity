@@ -1,7 +1,7 @@
 # Proposal: package boundaries
 
-Status: draft. Nothing has moved yet. The rule and the first items are in [decisions.md](../decisions.md) and the
-[backlog](../backlog.md) (PKG).
+Status: draft. `@parity/code` exists (PKG-3, 2026-10-29); nothing else has moved yet. The rule and the first items are
+in [decisions.md](../decisions.md) and the [backlog](../backlog.md) (PKG).
 
 ## In one line
 
@@ -42,11 +42,11 @@ when it's spread through UI code. Today:
    - [snap.ts](../../apps/desktop/src/renderer/canvas/snap.ts): snapping;
    - [design-store.ts](../../apps/desktop/src/renderer/design-store.ts): undo, unsaved tracking and save state, inside a
      store that also holds React hooks.
-2. **Code is read three times, by three packages.** [project/components.ts](../../packages/project/src/components.ts)
-   parses files to list components, [libgen/components.ts](../../packages/libgen/src/components.ts) runs TypeScript's
-   checker to find them, and [props](../../packages/props/src/index.ts) runs it again for props. Reading an edited
-   component back into its design would be a fourth. The checker held about 1.8 GB on copacker, so one program per
-   project matters for memory too.
+2. **Code is read three times, by three packages.** `project/components.ts` parses files to list components,
+   `libgen/components.ts` runs TypeScript's checker to find them, and `@parity/props` runs it again for props. (They are
+   [listing.ts](../../packages/code/src/listing.ts), [checker.ts](../../packages/code/src/checker.ts) and
+   [props.ts](../../packages/code/src/props.ts) in `@parity/code` now.) Reading an edited component back into its design
+   would be a fourth. The checker held about 1.8 GB on copacker, so one program per project matters for memory too.
 3. **Writing into a project has no shared layer.** Token edits go into the stylesheet from
    [utility/projects.ts](../../apps/desktop/src/utility/projects.ts), library style imports from
    [utility/libraries.ts](../../apps/desktop/src/utility/libraries.ts), images from

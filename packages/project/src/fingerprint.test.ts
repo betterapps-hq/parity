@@ -1,9 +1,9 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
+import { readTsconfig } from "@parity/code"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { detectionFingerprint } from "./fingerprint.ts"
-import { readTsconfig } from "./tsconfig.ts"
 
 let root: string
 

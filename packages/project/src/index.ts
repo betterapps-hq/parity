@@ -1,5 +1,6 @@
 import { readdir, readFile } from "node:fs/promises"
 import { dirname, extname, join, relative } from "node:path"
+import { componentIds, findAppComponents, type ProjectTsconfig, readTsconfig, resolvePathAlias } from "@parity/code"
 import {
   type ComponentSource,
   type DescribedTokens,
@@ -10,12 +11,10 @@ import {
   type ProjectConfig,
   type RendererAdapter
 } from "@parity/core"
-import { componentIds, count, findAppComponents } from "./components.ts"
 import { loadConfig } from "./configs.ts"
 import { parseJsonc } from "./jsonc.ts"
 import { describedTokens, findLibraries } from "./libraries.ts"
 import { findStorybook } from "./storybook.ts"
-import { type ProjectTsconfig, readTsconfig, resolvePathAlias } from "./tsconfig.ts"
 import { findWorkspace, workspaceDependencies, workspaceSection } from "./workspace.ts"
 
 export { type ConfigSource, findConfig, type FoundConfig, loadConfig } from "./configs.ts"
@@ -24,16 +23,16 @@ export {
   type CheckedComponent,
   checkedChanges,
   filesChanged,
-  type FoundComponent,
   importersOf,
+  type ParsedComponent,
   readChangedFiles
-} from "./components.ts"
+} from "@parity/code"
 export { addCommand, cutoff, detectPackageManager, detectProject } from "./detect.ts"
 export { detectionFingerprint } from "./fingerprint.ts"
 export { parseJsonc } from "./jsonc.ts"
 export { installedPackage, type LibraryDefinition, libraryCatalog } from "./libraries.ts"
 export { parseStoryFile } from "./storybook.ts"
-export { type ProjectTsconfig, readTsconfig, resolvePathAlias, type TsconfigFile } from "./tsconfig.ts"
+export { type ProjectTsconfig, readTsconfig, resolvePathAlias, type TsconfigFile } from "@parity/code"
 export { findWorkspace, type Workspace } from "./workspace.ts"
 
 export interface DiscoveredProject extends ProjectConfig {
@@ -251,4 +250,8 @@ async function shadcnConfig(root: string, notes: string[]): Promise<unknown> {
 
 function toPosix(path: string): string {
   return path.replaceAll("\\", "/").replace(/^\.\//, "")
+}
+
+function count(n: number, noun: string): string {
+  return `${n} ${noun}${n === 1 ? "" : "s"}`
 }

@@ -3,10 +3,17 @@ import { statSync } from "node:fs"
 import { freemem } from "node:os"
 import { relative, resolve } from "node:path"
 import { parentPort } from "node:worker_threads"
+import {
+  type CheckedComponent,
+  componentOptions,
+  findComponents,
+  inferProps,
+  propsFiles,
+  reactProbe,
+  readTsconfig,
+  withReactProbe
+} from "@parity/code"
 import type { ComponentSource } from "@parity/core"
-import { componentOptions, findComponents, reactProbe, withReactProbe } from "@parity/libgen"
-import { type CheckedComponent, readTsconfig } from "@parity/project"
-import { inferProps, propsFiles } from "@parity/props"
 import ts from "typescript"
 
 type Request =

@@ -193,6 +193,9 @@ importers:
       '@parity/builder-vite':
         specifier: workspace:*
         version: link:../../packages/builder-vite
+      '@parity/code':
+        specifier: workspace:*
+        version: link:../../packages/code
       '@parity/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -202,9 +205,6 @@ importers:
       '@parity/project':
         specifier: workspace:*
         version: link:../../packages/project
-      '@parity/props':
-        specifier: workspace:*
-        version: link:../../packages/props
       '@parity/registry':
         specifier: workspace:*
         version: link:../../packages/registry
@@ -422,6 +422,15 @@ importers:
         specifier: workspace:*
         version: link:../registry
 
+  packages/code:
+    dependencies:
+      '@parity/core':
+        specifier: workspace:*
+        version: link:../core
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
   packages/core: {}
 
   packages/fixtures:
@@ -444,6 +453,9 @@ importers:
 
   packages/libgen:
     dependencies:
+      '@parity/code':
+        specifier: workspace:*
+        version: link:../code
       '@parity/core':
         specifier: workspace:*
         version: link:../core
@@ -459,6 +471,9 @@ importers:
 
   packages/project:
     dependencies:
+      '@parity/code':
+        specifier: workspace:*
+        version: link:../code
       '@parity/core':
         specifier: workspace:*
         version: link:../core
@@ -481,15 +496,6 @@ importers:
       '@types/semver':
         specifier: ^7.8.0
         version: 7.8.0
-
-  packages/props:
-    dependencies:
-      '@parity/core':
-        specifier: workspace:*
-        version: link:../core
-      typescript:
-        specifier: 6.0.3
-        version: 6.0.3
 
   packages/registry:
     dependencies:

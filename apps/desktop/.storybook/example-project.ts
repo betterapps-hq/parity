@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { join, resolve } from "node:path"
 import { guestModuleSource } from "@parity/builder-vite"
+import { inferProps } from "@parity/code"
 import {
   type CanvasDocument,
   type ComponentInfo,
@@ -13,7 +14,6 @@ import {
   parseLibraryManifest
 } from "@parity/core"
 import { detectProject, discoverProject } from "@parity/project"
-import { inferProps } from "@parity/props"
 import { reactRenderer } from "@parity/renderer-react"
 import { tailwindStyles } from "@parity/styles-tailwind"
 import type { Plugin } from "vite"
