@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Draw the Icons tab's icons larger, in square cells that fill each row",
+  "packageName": "@parity/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

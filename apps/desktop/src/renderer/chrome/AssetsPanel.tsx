@@ -535,8 +535,10 @@ function ImportStyles({ library }: { library: LibraryInfo }) {
   )
 }
 
-/** Each icon's cell, in pixels: a 16px icon with room to aim at it. */
-const iconCell = 40
+/** The smallest an icon's cell gets, in pixels: room to aim at its icon. Cells grow so each row fills the panel. */
+const iconCell = 52
+/** How big each icon is drawn, in pixels. */
+const iconSize = 20
 
 /**
  * Every icon in the project's icon sets, searchable, drawn by the project's own copy of each set as its `.lib.par`
@@ -552,13 +554,19 @@ export function IconsPanel() {
   const style = pickedStyle && styles.includes(pickedStyle) ? pickedStyle : initial
   const [query, setQuery] = useState("")
   const scrollRef = useRef<HTMLDivElement>(null)
-  const [columns, setColumns] = useState(6)
+  // As many square cells as fit the row whole, each as wide as the row's share; rows are whole pixels tall, so icons stay
+  // sharp as they scroll.
+  const [grid, setGrid] = useState({ columns: 4, cell: iconCell })
+  const { columns } = grid
 
   useLayoutEffect(() => {
     const element = scrollRef.current
     if (!element) return undefined
     const observer = new ResizeObserver(([entry]) => {
-      setColumns(Math.max(1, Math.floor((entry!.contentRect.width - 16) / iconCell)))
+      const width = entry!.contentRect.width
+      const fit = Math.max(1, Math.floor(width / iconCell))
+      const cell = Math.max(iconCell, Math.floor(width / fit))
+      setGrid((current) => (current.columns === fit && current.cell === cell ? current : { columns: fit, cell }))
     })
     observer.observe(element)
     return () => observer.disconnect()
@@ -575,9 +583,11 @@ export function IconsPanel() {
   const virtualizer = useVirtualizer({
     count: Math.ceil(matches.length / columns),
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => iconCell,
+    estimateSize: () => grid.cell,
     overscan: 8
   })
+  // Rows change height with the panel's width; the virtualizer keeps the heights it measured until told.
+  useLayoutEffect(() => virtualizer.measure(), [virtualizer, grid.cell])
 
   if (!library) {
     return (
@@ -663,7 +673,7 @@ export function IconsPanel() {
               key={row.key}
               className="absolute inset-x-0 top-0 grid"
               style={{
-                height: iconCell,
+                height: grid.cell,
                 transform: `translateY(${row.start}px)`,
                 gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`
               }}
@@ -677,7 +687,7 @@ export function IconsPanel() {
                     aria-label={label}
                     className="grid cursor-grab place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground active:cursor-grabbing"
                   >
-                    <GuestIcon loaded={session.loaded} item={item} />
+                    <GuestIcon loaded={session.loaded} item={item} size={iconSize} />
                   </button>
                 </Hint>
               ))}

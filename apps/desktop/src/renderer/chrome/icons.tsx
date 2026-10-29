@@ -7,7 +7,7 @@ import {
   iconStyles as setStyles,
   searchIcons
 } from "@parity/icons"
-import { useEffect, useMemo, useRef } from "react"
+import { type CSSProperties, useEffect, useMemo, useRef } from "react"
 import type { InsertItem } from "../canvas/insert.ts"
 import type { LoadedGuest } from "../guest.ts"
 
@@ -74,17 +74,25 @@ export function iconCatalog(loaded: LoadedGuest, library: LibraryInfo, style: st
 const iconSheet = (() => {
   const sheet = new CSSStyleSheet()
   sheet.replaceSync(
-    ":host { display: grid; place-items: center; width: 16px; height: 16px; font-size: 16px; color: inherit }\n" +
-      "svg { width: 16px; height: 16px; display: block }"
+    ":host { display: grid; place-items: center; width: var(--icon-size); height: var(--icon-size); font-size: var(--icon-size); color: inherit }\n" +
+      "svg { width: var(--icon-size); height: var(--icon-size); display: block }"
   )
   return sheet
 })()
 
 /**
  * An icon drawn by the project's own copy of its icon set, through the guest, so the panel shows exactly what a design
- * will. It lives in a shadow root of its own, without the project's decorators.
+ * will. It lives in a shadow root of its own, without the project's decorators, `size` pixels square.
  */
-export function GuestIcon({ loaded, item }: { loaded: LoadedGuest; item: IconEntry["item"] }) {
+export function GuestIcon({
+  loaded,
+  item,
+  size = 16
+}: {
+  loaded: LoadedGuest
+  item: IconEntry["item"]
+  size?: number
+}) {
   const hostRef = useRef<HTMLSpanElement>(null)
   const tree = useMemo<RenderNode[]>(
     () => [{ kind: "component", nodeId: "icon", component: item.component, props: { ...item.props }, slots: {} }],
@@ -99,5 +107,12 @@ export function GuestIcon({ loaded, item }: { loaded: LoadedGuest; item: IconEnt
     const handle = loaded.guest.mount(target, tree, { bare: true })
     return () => handle.unmount()
   }, [loaded, tree])
-  return <span ref={hostRef} aria-hidden className="inline-grid size-4 place-items-center" />
+  return (
+    <span
+      ref={hostRef}
+      aria-hidden
+      className="inline-grid place-items-center"
+      style={{ width: size, height: size, "--icon-size": `${size}px` } as CSSProperties}
+    />
+  )
 }
