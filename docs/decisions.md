@@ -479,6 +479,14 @@ recommended answer to each of its questions.
   declared under rather than an alias (Lucide's `TriangleAlert`, not `AlertTriangle`; Tabler's `IconBrandKakaoTalk`, not
   the misspelled `IconBrandKakoTalk`). The panel shows the inserted name without an `Icon` its other names don't have,
   so Phosphor's icons still read as Gear.
+- **A style kept in a module of its own is found from the package's entry points (LIB-32).** My call: `parity lib` loads
+  each path the package's `exports` lists, and one that exports at least half the set's icons and draws them differently
+  from its default module is a style, named by its path (`16/solid` is 16 Solid) and recorded in
+  `icons.variants.modules`. Entry points that draw the same icons the same way (Phosphor's `ssr`, Lucide's `icons`) are
+  other ways in, and ones that don't load as a module (Fluent's `fonts`) or export few icons are left out, so of the six
+  sets only Heroicons has such styles: 24 Outline, its default, 24 Solid, 20 Solid and 16 Solid. An icon in the default
+  style stays `heroicons/CogIcon`; in another it names the module between the set and the icon, as its import does
+  (`heroicons/16/solid/CogIcon`), and the guest imports each style's module.
 - **Icon search is Parity's own ranking, not Fuse.js or MiniSearch.** My call, from a benchmark of 50 queries people
   type ("gear", "close", "down arrow", "calender") over Lucide with its tags, checked against 50 more it wasn't tuned
   on. Parity's search put the icon meant first for 39 of the held-out 50 and in the first row for all 50, in about 5 ms;
@@ -684,6 +692,25 @@ recommended answer to each of its questions.
 - **The in-app backtest runs its own instance:** `PARITY_UI_PORT`, `PARITY_DEBUG_PORT`, `PARITY_AGENT_FILE` and
   `PARITY_USER_DATA` give it its own ports, CLI channel and settings, so it runs beside another session's Parity instead
   of driving it.
+- **`parity lib check <library>` is the in-app check (PAR-408):** it inserts every component of a registry library file
+  into a design in the tab's project, once bare and once the way the Assets panel inserts it, and counts the parts that
+  fail bare but render inside their parents. It builds nodes with core's `componentNode` and `withLibraryContext`, the
+  same code the canvas inserts with, so the check can't drift from the app. Each library's floor, the least share of
+  placed parts that must render, is in `packages/registry/in-app.json`; below it the command exits with 1.
+- **A render function's arguments go to the node it returns (PAR-409):** a `$render` slot's `pass` and `$renderWith`
+  props are given to the node itself, not cloned onto the error boundary around it, which dropped them (React Aria's
+  `CalendarCell` lost its `date`, `DateSegment` its `segment`).
+- **Generated parents and samples (PAR-409):**
+  - A wrapper an example imports from a file beside it (`MyMenuItem` from `./utils`) counts as the part it passes its
+    props to, as a wrapper in the same file does.
+  - React Aria's `<submenutrigger>` markup is a placeholder, like `<item>`, so the part fails alone and gets parents.
+  - A part named for a family (`SubmenuTrigger`, `Menu`) joins it even when examples also draw it alone and the family
+    holds many others.
+  - A chain whose outermost parent has parents of its own starts outside them, unless they're circular.
+  - A part with no children of its own takes those its parent's sample spells out for it (a table's `Row` its `Cell`s),
+    going into the outermost parent's whole sample when only that renders.
+  - A function the library re-exports (Chakra's `parseDate`) is called from the library when an example imports it from
+    elsewhere.
 - **`parity lib` tries parts with React's server renderer,** from the project's own React, rather than in the app: it
   needs no window, runs in seconds, and still throws the context errors that name a part's parents. The library's
   decorator providers wrap each try, with their imports and calls made, a mode's default value, and no frame, so
