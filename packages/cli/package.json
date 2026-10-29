@@ -1,0 +1,17 @@
+{
+  "name": "@parity/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Drive the Parity app from a terminal or an agent: read state, run edits, take screenshots, serve MCP.",
+  "bin": {
+    "parity": "./src/bin.ts"
+  },
+  "exports": {
+    ".": "./src/client.ts"
+  },
+  "dependencies": {
+    "@parity/libgen": "workspace:*",
+    "@parity/registry": "workspace:*"
+  }
+}

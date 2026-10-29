@@ -1,0 +1,14 @@
+.card {
+  background-color: var(--app-surface);
+  border-radius: var(--app-radius);
+}
+
+.value {
+  font-size: rem(28px);
+  font-weight: 700;
+  line-height: 1;
+
+  @media (max-width: $mantine-breakpoint-sm) {
+    font-size: rem(22px);
+  }
+}

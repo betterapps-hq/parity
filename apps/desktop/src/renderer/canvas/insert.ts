@@ -1,0 +1,243 @@
+import {
+  type ComponentInfo,
+  type ComponentSource,
+  type DesignNode,
+  type SampleChild,
+  type ImageCredit,
+  generateId,
+  insertNode,
+  locateNode,
+  nodeIds,
+  type ContainerSpec
+} from "@parity/core"
+import type { ContainerEntry, DesignStore } from "../design-store.ts"
+import { findNodeElement } from "../frame.ts"
+import type { ProjectSession } from "../workspace.ts"
+import { hitTest, type Point } from "./hit.ts"
+
+/**
+ * Something from the Assets panel: one of the project's or a library's components (icons included), a component
+ * design, or an image.
+ */
+export type InsertItem =
+  | {
+      kind: "component"
+      component: string
+      /** Props it starts with, such as the weight a Phosphor icon is drawn in. */
+      props?: Record<string, unknown>
+    }
+  | { kind: "instance"; design: string }
+  | { kind: "image"; src: string; alt?: string; credit?: ImageCredit; width: number; height: number }
+
+/** Images go in this many spacing steps wide (320px at 4px a step), their height following their shape. */
+const imageSteps = 80
+
+/** The drag data type for items dragged from the Components panel onto the canvas. */
+export const insertMime = "application/x-parity-insert"
+
+/** The component's name without its library: `nova/Button` reads as Button. */
+export function componentLabel(component: string): string {
+  return component.split("/").at(-1) ?? component
+}
+
+/**
+ * A new node for an item, ready to show something: required props get their default or first option, and a component
+ * that takes children gets its own name as text, so it isn't an empty box.
+ */
+export function nodeForItem(item: InsertItem, info: ComponentInfo | undefined, taken: Set<string>): DesignNode {
+  const id = generateId(taken)
+  if (item.kind === "instance") return { type: "instance", id, design: item.design }
+  if (item.kind === "image") {
+    const height = Math.max(1, Math.round((imageSteps * item.height) / Math.max(1, item.width)))
+    return {
+      type: "image",
+      id,
+      src: item.src,
+      ...(item.alt ? { alt: item.alt } : {}),
+      ...(item.credit ? { credit: item.credit } : {}),
+      style: { width: imageSteps, height }
+    }
+  }
+  const props: Record<string, unknown> = { ...item.props }
+  for (const prop of info?.props ?? []) {
+    if (prop.name in props) continue
+    if (!prop.required || prop.default !== undefined || prop.name === "children") continue
+    if (prop.kind === "enum") props[prop.name] = prop.options?.[0]
+    else if (prop.kind === "boolean") props[prop.name] = false
+    else if (prop.kind === "number") props[prop.name] = 0
+    else if (prop.kind === "string") props[prop.name] = prop.name
+  }
+  if (info?.props.some((prop) => prop.name === "children" && prop.kind === "node")) {
+    props.children = componentLabel(item.component)
+  }
+  return {
+    type: "component",
+    id,
+    component: item.component,
+    ...(Object.keys(props).length > 0 ? { props } : {})
+  }
+}
+
+export interface DropTarget {
+  entry: ContainerEntry
+  /** The layout the item goes into, and where among its children. */
+  parent: string
+  index: number
+  mode: string
+  state: string
+  /** Where the item would land, as a line in client coordinates. */
+  line: { x: number; y: number; w: number; h: number }
+}
+
+/**
+ * Where a drop at a point lands: the deepest layout under it, between the children either side of the point along the
+ * layout's direction, with the line to draw there.
+ */
+export function dropTarget(area: ParentNode, store: DesignStore, point: Point): DropTarget | undefined {
+  const hit = hitTest(area, store, point)
+  if (!hit) return undefined
+  const layout = hit.chain.findLast((node) => node.type === "layout")
+  if (layout?.type !== "layout") return undefined
+  const element = findNodeElement(hit.host, layout.id)
+  if (!element) return undefined
+  const row = getComputedStyle(element).flexDirection.startsWith("row")
+  const box = element.getBoundingClientRect()
+  const children = layout.children
+    .map((child, index) => ({ index, rect: findNodeElement(hit.host, child.id)?.getBoundingClientRect() }))
+    .filter((child): child is { index: number; rect: DOMRect } => !!child.rect)
+  const after = children.find((child) =>
+    row ? point.x < child.rect.left + child.rect.width / 2 : point.y < child.rect.top + child.rect.height / 2
+  )
+  const index = after?.index ?? layout.children.length
+  const edge = after
+    ? row
+      ? after.rect.left - 2
+      : after.rect.top - 2
+    : children.length > 0
+      ? row
+        ? children.at(-1)!.rect.right + 1
+        : children.at(-1)!.rect.bottom + 1
+      : row
+        ? box.left + 4
+        : box.top + 4
+  const line = row
+    ? {
+        x: edge,
+        y: (after ?? children.at(-1))?.rect.top ?? box.top + 4,
+        w: 2,
+        h: (after ?? children.at(-1))?.rect.height ?? box.height - 8
+      }
+    : { x: box.left + 4, y: edge, w: box.width - 8, h: 2 }
+  return { entry: hit.entry, parent: layout.id, index, mode: hit.mode, state: hit.state, line }
+}
+
+/** Inserts an item into a layout, as one undoable step, and selects it. */
+export function insertItem(
+  session: ProjectSession,
+  target: { entry: ContainerEntry; parent: string; index?: number; slot?: string; mode?: string; state?: string },
+  item: InsertItem
+): string {
+  const { store, selection, components } = session
+  const info = item.kind === "component" ? components.get()[item.component] : undefined
+  const taken = nodeIds(target.entry.container.root)
+  const part = nodeForItem(item, info, taken)
+  const location = locateNode(target.entry.container.root, target.parent)
+  const around = location
+    ? [...location.ancestors, location.node].flatMap((node) => (node.type === "component" ? [node.component] : []))
+    : []
+  const node = withLibraryContext(part, session.info.sources, around, taken)
+  const label =
+    item.kind === "component" ? componentLabel(item.component) : item.kind === "instance" ? "component" : "image"
+  store.updateContainer(target.entry.key, `Add ${label}`, (container: ContainerSpec) => ({
+    ...container,
+    root: insertNode(container.root, target.parent, node, { index: target.index, slot: target.slot })
+  }))
+  selection.set({ design: target.entry.key, node: part.id, mode: target.mode, state: target.state })
+  return part.id
+}
+
+/**
+ * A library component as its library file says it's used: with its sample (a collection's items, an Accordion's
+ * item), and, for a part, inside the parents it needs that aren't around the drop target already. An
+ * `AccordionTrigger` dropped into an empty layout comes inside an Accordion and an AccordionItem; dropped into an
+ * AccordionItem, it comes alone.
+ */
+export function withLibraryContext(
+  node: DesignNode,
+  sources: Record<string, ComponentSource>,
+  around: string[],
+  taken: Set<string>
+): DesignNode {
+  if (node.type !== "component") return node
+  const source = sources[node.component]
+  if (!source) return node
+  const id = () => {
+    const next = generateId(taken)
+    taken.add(next)
+    return next
+  }
+  const build = (child: SampleChild): DesignNode => {
+    if (typeof child === "string") return { type: "text", id: id(), text: child }
+    // An HTML element in a sample stands for any single element a part clones: text is one.
+    if (!child.component.includes("/")) {
+      const text = child.children?.find((item): item is string => typeof item === "string") ?? "Text"
+      return { type: "text", id: id(), text }
+    }
+    return component(child.component, child.props, child.children)
+  }
+  const component = (name: string, props?: Record<string, unknown>, children?: SampleChild[]): DesignNode => {
+    const merged = { ...sources[name]?.sample?.props, ...props }
+    return {
+      type: "component",
+      id: id(),
+      component: name,
+      ...(Object.keys(merged).length > 0 ? { props: merged } : {}),
+      ...(children?.length ? { slots: { children: children.map(build) } } : {})
+    }
+  }
+  let placed: DesignNode = node
+  const sample = source.sample
+  if (sample) {
+    const props: Record<string, unknown> = { ...sample.props, ...node.props }
+    if (sample.children?.length) delete props.children
+    const { props: _label, ...rest } = node
+    placed = {
+      ...rest,
+      ...(Object.keys(props).length > 0 ? { props } : {}),
+      ...(sample.children?.length ? { slots: { ...node.slots, children: sample.children.map(build) } } : {})
+    }
+  }
+  const parents = source.parents ?? []
+  const nearest = parents.findLastIndex((parent) => around.includes(parent))
+  for (const parent of parents.slice(nearest + 1).reverse()) {
+    const wrapper = component(parent)
+    placed = wrapper.type === "component" ? { ...wrapper, slots: { children: [placed] } } : placed
+  }
+  return placed
+}
+
+/**
+ * Inserts at the selection, for a click instead of a drag: into a selected layout, after any other selected layer, or
+ * at the end of a selected design. Returns false when nothing is selected to insert into.
+ */
+export function insertAtSelection(session: ProjectSession, item: InsertItem): boolean {
+  const current = session.selection.get()
+  const entry = current.design ? session.store.getEntry(current.design) : undefined
+  if (!entry) return false
+  const { root } = entry.container
+  if (current.node) {
+    const location = locateNode(root, current.node)
+    if (!location) return false
+    if (location.node.type === "layout") {
+      insertItem(session, { entry, parent: location.node.id, ...current }, item)
+      return true
+    }
+    const parent = location.ancestors.at(-1)
+    if (!parent) return false
+    insertItem(session, { entry, parent: parent.id, index: location.index + 1, slot: location.slot, ...current }, item)
+    return true
+  }
+  if (root.type !== "layout") return false
+  insertItem(session, { entry, parent: root.id, ...current }, item)
+  return true
+}

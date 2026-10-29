@@ -1,0 +1,18 @@
+{
+  "version": 3,
+  "id": "lucide",
+  "name": "Lucide",
+  "description": "Over 1,600 consistent, open source icons; shadcn's default icon set.",
+  "package": {
+    "name": "lucide-react",
+    "version": "1.63.0",
+    "range": ">=0.400.0 <2.0.0"
+  },
+  "icons": {
+    "render": "export",
+    "exclude": [
+      "LucideProvider"
+    ],
+    "count": 1925
+  }
+}

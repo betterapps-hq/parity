@@ -1,0 +1,189 @@
+{
+  "opens": true,
+  "renderer": "react",
+  "builder": {
+    "id": "vite",
+    "found": true,
+    "version": "7.3.7",
+    "config": "vite.config.mts",
+    "summary": "Vite 7.3.7, config vite.config.mts"
+  },
+  "packageManager": {
+    "id": "yarn",
+    "name": "Yarn Berry",
+    "agent": "yarn@berry",
+    "from": "yarn.lock",
+    "summary": "Yarn Berry from yarn.lock"
+  },
+  "tools": [
+    {
+      "id": "react",
+      "name": "React",
+      "version": "19.3.1",
+      "from": "node_modules/react",
+      "status": "supported",
+      "summary": "React 19.3.1 from node_modules/react"
+    },
+    {
+      "id": "vite",
+      "name": "Vite",
+      "version": "7.3.7",
+      "from": "node_modules/vite",
+      "config": "vite.config.mts",
+      "status": "supported",
+      "drops": "2027-06-24",
+      "summary": "Vite 7.3.7 from node_modules/vite, config vite.config.mts; tested until June 2027"
+    },
+    {
+      "id": "tailwind",
+      "name": "Tailwind CSS",
+      "version": "4.3.3",
+      "from": "node_modules/tailwindcss",
+      "status": "supported",
+      "summary": "Tailwind CSS 4.3.3 from node_modules/tailwindcss"
+    },
+    {
+      "id": "storybook",
+      "name": "Storybook",
+      "version": "9.1.21",
+      "from": "node_modules/storybook",
+      "config": ".storybook/main.ts",
+      "status": "supported",
+      "drops": "2027-05-28",
+      "summary": "Storybook 9.1.21 from node_modules/storybook, config .storybook/main.ts; tested until May 2027"
+    }
+  ],
+  "styles": {
+    "stylesheets": [
+      "src/index.css"
+    ],
+    "missing": [],
+    "adapter": "tailwind"
+  },
+  "tokens": {
+    "count": 442,
+    "categories": {
+      "breakpoint": 6,
+      "color": 292,
+      "container": 13,
+      "effect": 14,
+      "font": 3,
+      "font-size": 13,
+      "font-weight": 9,
+      "leading": 5,
+      "motion": 7,
+      "other": 6,
+      "radius": 9,
+      "shadow": 24,
+      "spacing": 35,
+      "tracking": 6
+    },
+    "semantic": {
+      "accent": {
+        "default": "var(--color-brand-600)",
+        "dark": "var(--color-brand-500)"
+      },
+      "background": {
+        "default": "var(--color-white)",
+        "dark": "var(--color-zinc-950)"
+      },
+      "border": {
+        "default": "var(--color-zinc-300)",
+        "dark": "var(--color-zinc-700)"
+      },
+      "foreground": {
+        "default": "var(--color-zinc-900)",
+        "dark": "var(--color-zinc-50)"
+      },
+      "muted": {
+        "default": "var(--color-zinc-500)",
+        "dark": "var(--color-zinc-400)"
+      }
+    }
+  },
+  "themes": [
+    "default",
+    "dark"
+  ],
+  "breakpoints": {
+    "breakpoint-2xl": "96rem",
+    "breakpoint-3xl": "112rem",
+    "breakpoint-lg": "64rem",
+    "breakpoint-md": "48rem",
+    "breakpoint-sm": "40rem",
+    "breakpoint-xl": "80rem"
+  },
+  "components": {
+    "App": {
+      "path": "src/App.tsx",
+      "export": "default",
+      "lazy": true
+    },
+    "Button": {
+      "path": "src/components/Button.tsx",
+      "export": "Button"
+    },
+    "TextField": {
+      "path": "src/components/TextField.tsx",
+      "export": "TextField"
+    },
+    "ThemeToggle": {
+      "path": "src/components/ThemeToggle.tsx",
+      "export": "ThemeToggle"
+    }
+  },
+  "libraries": [
+    {
+      "id": "aria",
+      "package": "react-aria-components",
+      "version": "1.22.1",
+      "stylesImported": true,
+      "components": 155
+    }
+  ],
+  "icons": [
+    {
+      "id": "hugeicons",
+      "package": "@hugeicons/core-free-icons",
+      "version": "4.3.5"
+    }
+  ],
+  "storybook": {
+    "configDir": ".storybook",
+    "main": ".storybook/main.ts",
+    "script": "storybook",
+    "port": 6006,
+    "stories": {
+      "Button": [
+        {
+          "path": "src/components/Button.stories.tsx",
+          "title": "Components/Button",
+          "exports": [
+            "Primary",
+            "Secondary"
+          ]
+        }
+      ],
+      "TextField": [
+        {
+          "path": "src/components/TextField.stories.tsx",
+          "title": "Components/TextField",
+          "exports": [
+            "Default",
+            "Invalid"
+          ]
+        }
+      ]
+    }
+  },
+  "notes": [
+    "styles from /src/main.tsx: src/index.css",
+    "the UI kit is in src/components",
+    "4 components in 5 files from tsconfig.app.json",
+    "not read, since they mount the app: src/main.tsx",
+    "0 components from Hugeicons (@hugeicons/core-free-icons)",
+    "155 components from React Aria Components (react-aria-components)",
+    "no .par project file yet",
+    "Storybook in .storybook, with stories for 2 components"
+  ]
+}

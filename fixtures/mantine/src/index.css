@@ -1,0 +1,20 @@
+:root {
+  --app-surface: #ffffff;
+  --app-text: #1a1b1e;
+  --app-accent: #228be6;
+  --app-radius: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --app-surface: #1a1b1e;
+    --app-text: #f1f3f5;
+    --app-accent: #4dabf7;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--app-surface);
+  color: var(--app-text);
+}

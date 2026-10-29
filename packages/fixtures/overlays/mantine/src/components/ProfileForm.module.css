@@ -1,0 +1,7 @@
+.paper {
+  background-color: var(--app-surface);
+
+  @mixin dark {
+    border-color: var(--mantine-color-dark-4);
+  }
+}

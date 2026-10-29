@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 4%;
+    --border: 240 6% 90%;
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 100%;
+  }
+
+  .dark {
+    --background: 240 10% 4%;
+    --foreground: 0 0% 98%;
+    --border: 240 4% 16%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 240 10% 4%;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}

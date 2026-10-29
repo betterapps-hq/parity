@@ -1,0 +1,40 @@
+{
+  "version": 3,
+  "id": "fluent-icons",
+  "name": "Fluent icons",
+  "description": "Microsoft's Fluent System Icons, in Regular and Filled styles, some with a size in the name.",
+  "package": {
+    "name": "@fluentui/react-icons",
+    "version": "2.0.344",
+    "range": "^2.0.0"
+  },
+  "icons": {
+    "render": "export",
+    "exclude": [
+      "IconDirectionContextProvider"
+    ],
+    "variants": {
+      "pattern": "^(?<name>.+?)(?<size>\\d+)?(?<style>Regular|Filled|Color|Light)$",
+      "styles": [
+        "Regular",
+        "Filled",
+        "Color",
+        "Light"
+      ],
+      "sizes": [
+        10,
+        12,
+        16,
+        20,
+        24,
+        28,
+        32,
+        48
+      ],
+      "default": {
+        "style": "Regular"
+      }
+    },
+    "count": 26690
+  }
+}

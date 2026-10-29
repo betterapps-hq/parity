@@ -1,0 +1,32 @@
+{
+  "version": 3,
+  "id": "phosphor",
+  "name": "Phosphor",
+  "description": "A flexible icon family with six weights, picked with the weight prop.",
+  "package": {
+    "name": "@phosphor-icons/react",
+    "version": "2.1.10",
+    "range": "^2.0.0"
+  },
+  "icons": {
+    "render": "export",
+    "exclude": [
+      "IconBase"
+    ],
+    "variants": {
+      "prop": "weight",
+      "styles": [
+        "thin",
+        "light",
+        "regular",
+        "bold",
+        "fill",
+        "duotone"
+      ],
+      "default": {
+        "style": "regular"
+      }
+    },
+    "count": 1513
+  }
+}

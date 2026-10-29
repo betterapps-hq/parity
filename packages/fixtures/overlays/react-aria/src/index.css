@@ -1,0 +1,39 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-brand-50: oklch(0.97 0.02 265);
+  --color-brand-500: oklch(0.62 0.19 265);
+  --color-brand-600: oklch(0.55 0.21 265);
+  --color-brand-700: oklch(0.48 0.2 265);
+  --breakpoint-3xl: 112rem;
+}
+
+:root {
+  --background: var(--color-white);
+  --foreground: var(--color-zinc-900);
+  --muted: var(--color-zinc-500);
+  --border: var(--color-zinc-300);
+  --accent: var(--color-brand-600);
+}
+
+.dark {
+  --background: var(--color-zinc-950);
+  --foreground: var(--color-zinc-50);
+  --muted: var(--color-zinc-400);
+  --border: var(--color-zinc-700);
+  --accent: var(--color-brand-500);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+}
+
+body {
+  @apply bg-background text-foreground;
+}

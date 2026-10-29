@@ -1,0 +1,6554 @@
+{
+  "version": 3,
+  "id": "radix",
+  "name": "Radix Primitives",
+  "description": "Unstyled, accessible primitives; styles come from the project's CSS.",
+  "package": {
+    "name": "radix-ui",
+    "version": "1.8.1",
+    "range": "^1.0.0"
+  },
+  "components": {
+    "list": {
+      "AccessibleIcon.Root": {
+        "as": "function",
+        "group": "AccessibleIcon",
+        "sample": {
+          "children": [
+            {
+              "component": "span",
+              "children": [
+                "Text"
+              ]
+            }
+          ],
+          "props": {
+            "label": "Text"
+          }
+        },
+        "fingerprint": "d49f0f5d",
+        "props": {
+          "children?": "75c961",
+          "label": "ecb252"
+        }
+      },
+      "Accordion.Content": {
+        "as": "forwardRef",
+        "group": "Accordion",
+        "parents": [
+          "Accordion.Root",
+          "Accordion.Item"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "Odio placerat",
+            "quisque",
+            "sapien sagittis non sociis ligula penatibus dignissim vitae,",
+            "Cool"
+          ]
+        },
+        "fingerprint": "6fbe6a09",
+        "props": {
+          "asChild?": "31e5d9",
+          "forceMount?": "a887f0"
+        }
+      },
+      "Accordion.Header": {
+        "as": "forwardRef",
+        "group": "Accordion",
+        "parents": [
+          "Accordion.Root",
+          "Accordion.Item"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "component": "Accordion.Trigger",
+              "children": [
+                "One"
+              ]
+            }
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Accordion.Item": {
+        "as": "forwardRef",
+        "group": "Accordion",
+        "parents": [
+          "Accordion.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "value": "four"
+          },
+          "children": [
+            {
+              "component": "Accordion.Header",
+              "children": [
+                {
+                  "component": "Accordion.Trigger",
+                  "children": [
+                    "Four"
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "Accordion.Content",
+              "children": [
+                "Odio placerat",
+                "quisque",
+                "sapien sagittis non sociis ligula penatibus dignissim vitae,",
+                "Cool"
+              ]
+            }
+          ]
+        },
+        "fingerprint": "af84dbf4",
+        "props": {
+          "asChild?": "31e5d9",
+          "disabled?": "31e5d9",
+          "value": "ecb252"
+        }
+      },
+      "Accordion.Root": {
+        "as": "forwardRef",
+        "group": "Accordion",
+        "sample": {
+          "props": {
+            "type": "single",
+            "defaultValue": "one",
+            "collapsible": true
+          },
+          "children": [
+            {
+              "component": "Accordion.Item",
+              "props": {
+                "value": "one"
+              },
+              "children": [
+                {
+                  "component": "Accordion.Header",
+                  "children": [
+                    {
+                      "component": "Accordion.Trigger",
+                      "children": [
+                        "One"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "Accordion.Content",
+                  "children": [
+                    "Per erat orci nostra luctus sociosqu mus risus penatibus, du"
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "Accordion.Item",
+              "props": {
+                "value": "two"
+              },
+              "children": [
+                {
+                  "component": "Accordion.Header",
+                  "children": [
+                    {
+                      "component": "Accordion.Trigger",
+                      "children": [
+                        "Two"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "Accordion.Content",
+                  "children": [
+                    "Cursus sed mattis commodo fermentum conubia ipsum pulvinar s"
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "Accordion.Item",
+              "props": {
+                "value": "three",
+                "disabled": true
+              },
+              "children": [
+                {
+                  "component": "Accordion.Header",
+                  "children": [
+                    {
+                      "component": "Accordion.Trigger",
+                      "children": [
+                        "Three (disabled)"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "Accordion.Content",
+                  "children": [
+                    "Sociis hac sapien turpis conubia sagittis justo dui, incepto"
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "Accordion.Item",
+              "props": {
+                "value": "four"
+              },
+              "children": [
+                {
+                  "component": "Accordion.Header",
+                  "children": [
+                    {
+                      "component": "Accordion.Trigger",
+                      "children": [
+                        "Four"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "Accordion.Content",
+                  "children": [
+                    "Odio placerat",
+                    "quisque",
+                    "sapien sagittis non sociis ligula penatibus dignissim vitae,",
+                    "Cool"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "74bd77bf",
+        "props": {
+          "asChild?": "31e5d9",
+          "defaultValue?": "09a470",
+          "dir?": "24c660",
+          "disabled?": "31e5d9",
+          "onValueChange?": "6b75b4",
+          "orientation?": "b87b41",
+          "type": "44070b",
+          "value?": "09a470"
+        }
+      },
+      "Accordion.Trigger": {
+        "as": "forwardRef",
+        "group": "Accordion",
+        "parents": [
+          "Accordion.Root",
+          "Accordion.Item",
+          "Accordion.Header"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "One"
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "AlertDialog.Action": {
+        "as": "forwardRef",
+        "group": "AlertDialog",
+        "parents": [
+          "AlertDialog.Root",
+          "AlertDialog.Portal",
+          "AlertDialog.Content"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "yolo, do it"
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "AlertDialog.Cancel": {
+        "as": "forwardRef",
+        "group": "AlertDialog",
+        "parents": [
+          "AlertDialog.Root",
+          "AlertDialog.Portal",
+          "AlertDialog.Content"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "maybe not"
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "AlertDialog.Content": {
+        "as": "forwardRef",
+        "group": "AlertDialog",
+        "parents": [
+          "AlertDialog.Root",
+          "AlertDialog.Portal"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "component": "AlertDialog.Title",
+              "children": [
+                "Are you sure?"
+              ]
+            },
+            {
+              "component": "AlertDialog.Description",
+              "children": [
+                "This will do a very dangerous thing. Thar be dragons!"
+              ]
+            },
+            {
+              "component": "AlertDialog.Action",
+              "children": [
+                "yolo, do it"
+              ]
+            },
+            {
+              "component": "AlertDialog.Cancel",
+              "children": [
+                "maybe not"
+              ]
+            }
+          ]
+        },
+        "fingerprint": "c0daf83c",
+        "props": {
+          "asChild?": "31e5d9",
+          "deferPointerDownOutside?": "31e5d9",
+          "forceMount?": "a887f0",
+          "onCloseAutoFocus?": "8249b3",
+          "onEscapeKeyDown?": "116e58",
+          "onFocusOutside?": "e78547",
+          "onOpenAutoFocus?": "8249b3"
+        }
+      },
+      "AlertDialog.Description": {
+        "as": "forwardRef",
+        "group": "AlertDialog",
+        "parents": [
+          "AlertDialog.Root",
+          "AlertDialog.Portal",
+          "AlertDialog.Content"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "This will do a very dangerous thing. Thar be dragons!"
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "AlertDialog.Overlay": {
+        "as": "forwardRef",
+        "group": "AlertDialog",
+        "parents": [
+          "AlertDialog.Root",
+          "AlertDialog.Portal"
+        ],
+        "parentsFrom": "example",
+        "fingerprint": "6fbe6a09",
+        "props": {
+          "asChild?": "31e5d9",
+          "forceMount?": "a887f0"
+        }
+      },
+      "AlertDialog.Portal": {
+        "as": "function",
+        "group": "AlertDialog",
+        "parents": [
+          "AlertDialog.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "component": "AlertDialog.Overlay"
+            },
+            {
+              "component": "AlertDialog.Content",
+              "children": [
+                {
+                  "component": "AlertDialog.Title",
+                  "children": [
+                    "Are you sure?"
+                  ]
+                },
+                {
+                  "component": "AlertDialog.Description",
+                  "children": [
+                    "This will do a very dangerous thing. Thar be dragons!"
+                  ]
+                },
+                {
+                  "component": "AlertDialog.Action",
+                  "children": [
+                    "yolo, do it"
+                  ]
+                },
+                {
+                  "component": "AlertDialog.Cancel",
+                  "children": [
+                    "maybe not"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "51ac84a8",
+        "props": {
+          "children?": "75c961",
+          "container?": "42487d",
+          "forceMount?": "a887f0"
+        }
+      },
+      "AlertDialog.Root": {
+        "as": "function",
+        "group": "AlertDialog",
+        "sample": {
+          "props": {
+            "defaultOpen": true
+          },
+          "children": [
+            {
+              "component": "AlertDialog.Trigger",
+              "children": [
+                "delete everything"
+              ]
+            },
+            {
+              "component": "AlertDialog.Portal",
+              "children": [
+                {
+                  "component": "AlertDialog.Overlay"
+                },
+                {
+                  "component": "AlertDialog.Content",
+                  "children": [
+                    {
+                      "component": "AlertDialog.Title",
+                      "children": [
+                        "Title"
+                      ]
+                    },
+                    {
+                      "component": "AlertDialog.Description",
+                      "children": [
+                        "Description"
+                      ]
+                    },
+                    {
+                      "component": "AlertDialog.Action",
+                      "children": [
+                        "Confirm"
+                      ]
+                    },
+                    {
+                      "component": "AlertDialog.Cancel",
+                      "children": [
+                        "Cancel"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "d0b548fa",
+        "props": {
+          "children?": "75c961",
+          "defaultOpen?": "31e5d9",
+          "onOpenChange?": "f73e3e",
+          "open?": "31e5d9"
+        }
+      },
+      "AlertDialog.Title": {
+        "as": "forwardRef",
+        "group": "AlertDialog",
+        "parents": [
+          "AlertDialog.Root",
+          "AlertDialog.Portal",
+          "AlertDialog.Content"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "Are you sure?"
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "AlertDialog.Trigger": {
+        "as": "forwardRef",
+        "group": "AlertDialog",
+        "parents": [
+          "AlertDialog.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "delete everything"
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "AspectRatio.Root": {
+        "as": "forwardRef",
+        "group": "AspectRatio",
+        "sample": {
+          "children": [
+            "Default ratio (1/1)"
+          ]
+        },
+        "fingerprint": "adf0eece",
+        "props": {
+          "asChild?": "31e5d9",
+          "ratio?": "2d4737"
+        }
+      },
+      "Avatar.Fallback": {
+        "as": "forwardRef",
+        "group": "Avatar",
+        "parents": [
+          "Avatar.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "delayMs": 300
+          },
+          "children": [
+            "JS"
+          ]
+        },
+        "fingerprint": "acd38620",
+        "props": {
+          "asChild?": "31e5d9",
+          "delayMs?": "2d4737"
+        }
+      },
+      "Avatar.Image": {
+        "as": "forwardRef",
+        "group": "Avatar",
+        "parents": [
+          "Avatar.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "alt": "John Smith"
+          }
+        },
+        "fingerprint": "9d65a99c",
+        "props": {
+          "asChild?": "31e5d9",
+          "onLoadingStatusChange?": "ec6932"
+        }
+      },
+      "Avatar.Root": {
+        "as": "forwardRef",
+        "group": "Avatar",
+        "sample": {
+          "children": [
+            {
+              "component": "Avatar.Image",
+              "props": {
+                "alt": "John Smith"
+              }
+            },
+            {
+              "component": "Avatar.Fallback",
+              "props": {
+                "delayMs": 300
+              },
+              "children": [
+                "JS"
+              ]
+            }
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Checkbox.Indicator": {
+        "as": "forwardRef",
+        "group": "Checkbox",
+        "parents": [
+          "Checkbox.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "forceMount": true
+          }
+        },
+        "fingerprint": "6fbe6a09",
+        "props": {
+          "asChild?": "31e5d9",
+          "forceMount?": "a887f0"
+        }
+      },
+      "Checkbox.Root": {
+        "as": "forwardRef",
+        "group": "Checkbox",
+        "sample": {
+          "props": {
+            "name": "required",
+            "required": true
+          },
+          "children": [
+            {
+              "component": "Checkbox.Indicator"
+            }
+          ]
+        },
+        "fingerprint": "19c11302",
+        "props": {
+          "asChild?": "31e5d9",
+          "checked?": "004d55",
+          "defaultChecked?": "004d55",
+          "onCheckedChange?": "2d752d",
+          "required?": "31e5d9"
+        }
+      },
+      "Collapsible.Content": {
+        "as": "forwardRef",
+        "group": "Collapsible",
+        "parents": [
+          "Collapsible.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "asChild": true
+          },
+          "children": [
+            "Content 1"
+          ]
+        },
+        "fingerprint": "6fbe6a09",
+        "props": {
+          "asChild?": "31e5d9",
+          "forceMount?": "a887f0"
+        }
+      },
+      "Collapsible.Root": {
+        "as": "forwardRef",
+        "group": "Collapsible",
+        "sample": {
+          "children": [
+            {
+              "component": "Collapsible.Content",
+              "children": [
+                "Content 1"
+              ]
+            },
+            {
+              "component": "Collapsible.Trigger",
+              "children": [
+                "Trigger"
+              ]
+            }
+          ]
+        },
+        "fingerprint": "4cf8f40a",
+        "props": {
+          "asChild?": "31e5d9",
+          "defaultOpen?": "31e5d9",
+          "disabled?": "31e5d9",
+          "onOpenChange?": "f73e3e",
+          "open?": "31e5d9"
+        }
+      },
+      "Collapsible.Trigger": {
+        "as": "forwardRef",
+        "group": "Collapsible",
+        "parents": [
+          "Collapsible.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "Trigger"
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "ContextMenu.Arrow": {
+        "as": "forwardRef",
+        "group": "ContextMenu",
+        "parents": [
+          "ContextMenu.Root",
+          "ContextMenu.Portal",
+          "ContextMenu.SubContent"
+        ],
+        "parentsFrom": "example",
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "ContextMenu.CheckboxItem": {
+        "as": "forwardRef",
+        "group": "ContextMenu",
+        "parents": [
+          "ContextMenu.Root",
+          "ContextMenu.Portal",
+          "ContextMenu.Content"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "disabled": true
+          },
+          "children": [
+            "Strikethrough",
+            {
+              "component": "ContextMenu.ItemIndicator"
+            }
+          ]
+        },
+        "fingerprint": "6eff2732",
+        "props": {
+          "asChild?": "31e5d9",
+          "checked?": "004d55",
+          "disabled?": "31e5d9",
+          "onCheckedChange?": "a8259f",
+          "onSelect?": "8249b3",
+          "textValue?": "0bf956"
+        }
+      },
+      "ContextMenu.Content": {
+        "as": "forwardRef",
+        "group": "ContextMenu",
+        "parents": [
+          "ContextMenu.Root",
+          "ContextMenu.Portal"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "component": "ContextMenu.Item",
+              "children": [
+                "Undo"
+              ]
+            },
+            {
+              "component": "ContextMenu.Item",
+              "children": [
+                "Redo"
+              ]
+            },
+            {
+              "component": "ContextMenu.Separator"
+            },
+            {
+              "component": "ContextMenu.Sub",
+              "children": [
+                {
+                  "component": "ContextMenu.SubTrigger",
+                  "children": [
+                    "Submenu →"
+                  ]
+                },
+                {
+                  "component": "ContextMenu.Portal",
+                  "children": [
+                    {
+                      "component": "ContextMenu.SubContent",
+                      "props": {
+                        "sideOffset": 12
+                      },
+                      "children": [
+                        {
+                          "component": "ContextMenu.Item"
+                        },
+                        {
+                          "component": "ContextMenu.Item"
+                        },
+                        {
+                          "component": "ContextMenu.Separator"
+                        },
+                        {
+                          "component": "ContextMenu.Sub"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "1153b6e6",
+        "props": {
+          "align?": "e726e5",
+          "alignOffset?": "2d4737",
+          "arrowPadding?": "2d4737",
+          "asChild?": "31e5d9",
+          "avoidCollisions?": "31e5d9",
+          "collisionBoundary?": "8744b5",
+          "collisionPadding?": "d4cfd8",
+          "forceMount?": "a887f0",
+          "hideWhenDetached?": "31e5d9",
+          "loop?": "31e5d9",
+          "onCloseAutoFocus?": "8249b3",
+          "onEscapeKeyDown?": "116e58",
+          "onFocusOutside?": "e78547",
+          "onInteractOutside?": "1e5eb6",
+          "onPointerDownOutside?": "8bb37e",
+          "side?": "f2ab84",
+          "sideOffset?": "2d4737",
+          "sticky?": "9adf72",
+          "updatePositionStrategy?": "0e5ccb"
+        }
+      },
+      "ContextMenu.Group": {
+        "as": "forwardRef",
+        "group": "ContextMenu",
+        "parents": [
+          "ContextMenu.Root",
+          "ContextMenu.Portal",
+          "ContextMenu.Content"
+        ],
+        "parentsFrom": "example",
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "ContextMenu.Item": {
+        "as": "forwardRef",
+        "group": "ContextMenu",
+        "parents": [
+          "ContextMenu.Root",
+          "ContextMenu.Portal",
+          "ContextMenu.Content"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "disabled": true
+          },
+          "children": [
+            "Cut"
+          ]
+        },
+        "fingerprint": "041d3409",
+        "props": {
+          "asChild?": "31e5d9",
+          "disabled?": "31e5d9",
+          "onSelect?": "8249b3",
+          "textValue?": "0bf956"
+        }
+      },
+      "ContextMenu.ItemIndicator": {
+        "as": "forwardRef",
+        "group": "ContextMenu",
+        "parents": [
+          "ContextMenu.Root",
+          "ContextMenu.Portal",
+          "ContextMenu.Content",
+          "ContextMenu.CheckboxItem"
+        ],
+        "parentsFrom": "example",
+        "fingerprint": "6fbe6a09",
+        "props": {
+          "asChild?": "31e5d9",
+          "forceMount?": "a887f0"
+        }
+      },
+      "ContextMenu.Label": {
+        "as": "forwardRef",
+        "group": "ContextMenu",
+        "parents": [
+          "ContextMenu.Root",
+          "ContextMenu.Portal",
+          "ContextMenu.Content"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "Color"
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "ContextMenu.Portal": {
+        "as": "function",
+        "group": "ContextMenu",
+        "parents": [
+          "ContextMenu.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "component": "ContextMenu.Content",
+              "children": [
+                {
+                  "component": "ContextMenu.Label",
+                  "children": [
+                    "Color"
+                  ]
+                },
+                {
+                  "component": "ContextMenu.RadioGroup",
+                  "children": [
+                    {
+                      "component": "ContextMenu.RadioItem",
+                      "props": {
+                        "value": "royalblue"
+                      },
+                      "children": [
+                        "Blue",
+                        {
+                          "component": "ContextMenu.ItemIndicator"
+                        }
+                      ]
+                    },
+                    {
+                      "component": "ContextMenu.RadioItem",
+                      "props": {
+                        "value": "tomato"
+                      },
+                      "children": [
+                        "Red",
+                        {
+                          "component": "ContextMenu.ItemIndicator"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "ContextMenu.Separator"
+                },
+                {
+                  "component": "ContextMenu.CheckboxItem",
+                  "children": [
+                    "Fade",
+                    {
+                      "component": "ContextMenu.ItemIndicator"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "51ac84a8",
+        "props": {
+          "children?": "75c961",
+          "container?": "42487d",
+          "forceMount?": "a887f0"
+        }
+      },
+      "ContextMenu.RadioGroup": {
+        "as": "forwardRef",
+        "group": "ContextMenu",
+        "parents": [
+          "ContextMenu.Root",
+          "ContextMenu.Portal",
+          "ContextMenu.Content"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "component": "ContextMenu.RadioItem",
+              "props": {
+                "value": "royalblue"
+              },
+              "children": [
+                "Blue",
+                {
+                  "component": "ContextMenu.ItemIndicator"
+                }
+              ]
+            },
+            {
+              "component": "ContextMenu.RadioItem",
+              "props": {
+                "value": "tomato"
+              },
+              "children": [
+                "Red",
+                {
+                  "component": "ContextMenu.ItemIndicator"
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "e6ea7f7c",
+        "props": {
+          "asChild?": "31e5d9",
+          "onValueChange?": "afb072",
+          "value?": "0bf956"
+        }
+      },
+      "ContextMenu.RadioItem": {
+        "as": "forwardRef",
+        "group": "ContextMenu",
+        "parents": [
+          "ContextMenu.Root",
+          "ContextMenu.Portal",
+          "ContextMenu.Content",
+          "ContextMenu.RadioGroup"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "value": "royalblue"
+          },
+          "children": [
+            "Blue",
+            {
+              "component": "ContextMenu.ItemIndicator"
+            }
+          ]
+        },
+        "fingerprint": "4239cebf",
+        "props": {
+          "asChild?": "31e5d9",
+          "disabled?": "31e5d9",
+          "onSelect?": "8249b3",
+          "textValue?": "0bf956",
+          "value": "ecb252"
+        }
+      },
+      "ContextMenu.Root": {
+        "as": "function",
+        "group": "ContextMenu",
+        "sample": {
+          "children": [
+            {
+              "component": "ContextMenu.Trigger",
+              "children": [
+                {
+                  "component": "ContextMenu.Root",
+                  "children": [
+                    {
+                      "component": "ContextMenu.Trigger"
+                    },
+                    {
+                      "component": "ContextMenu.Portal",
+                      "children": [
+                        {
+                          "component": "ContextMenu.Content"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "ContextMenu.Portal",
+              "children": [
+                {
+                  "component": "ContextMenu.Content",
+                  "children": [
+                    {
+                      "component": "ContextMenu.Label",
+                      "children": [
+                        "Blue box menu"
+                      ]
+                    },
+                    {
+                      "component": "ContextMenu.Separator"
+                    },
+                    {
+                      "component": "ContextMenu.Item",
+                      "children": [
+                        "Blue action 1"
+                      ]
+                    },
+                    {
+                      "component": "ContextMenu.Item",
+                      "children": [
+                        "Blue action 2"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "e41e17f8",
+        "props": {
+          "children?": "75c961",
+          "dir?": "24c660",
+          "modal?": "31e5d9",
+          "onOpenChange?": "f73e3e",
+          "open?": "31e5d9"
+        }
+      },
+      "ContextMenu.Separator": {
+        "as": "forwardRef",
+        "group": "ContextMenu",
+        "parents": [
+          "ContextMenu.Root",
+          "ContextMenu.Portal",
+          "ContextMenu.Content"
+        ],
+        "parentsFrom": "example",
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "ContextMenu.Sub": {
+        "as": "function",
+        "group": "ContextMenu",
+        "parents": [
+          "ContextMenu.Root",
+          "ContextMenu.Portal",
+          "ContextMenu.Content"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "component": "ContextMenu.SubTrigger",
+              "children": [
+                "Submenu →"
+              ]
+            },
+            {
+              "component": "ContextMenu.Portal",
+              "children": [
+                {
+                  "component": "ContextMenu.SubContent",
+                  "props": {
+                    "sideOffset": 12
+                  },
+                  "children": [
+                    {
+                      "component": "ContextMenu.Item",
+                      "children": [
+                        "One"
+                      ]
+                    },
+                    {
+                      "component": "ContextMenu.Item",
+                      "children": [
+                        "Two"
+                      ]
+                    },
+                    {
+                      "component": "ContextMenu.Separator"
+                    },
+                    {
+                      "component": "ContextMenu.Sub",
+                      "children": [
+                        {
+                          "component": "ContextMenu.SubTrigger"
+                        },
+                        {
+                          "component": "ContextMenu.Portal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "d0b548fa",
+        "props": {
+          "children?": "75c961",
+          "defaultOpen?": "31e5d9",
+          "onOpenChange?": "f73e3e",
+          "open?": "31e5d9"
+        }
+      },
+      "ContextMenu.SubContent": {
+        "as": "forwardRef",
+        "group": "ContextMenu",
+        "parents": [
+          "ContextMenu.Root",
+          "ContextMenu.Portal"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "sideOffset": 12
+          },
+          "children": [
+            {
+              "component": "ContextMenu.Item",
+              "children": [
+                "One"
+              ]
+            },
+            {
+              "component": "ContextMenu.Item",
+              "children": [
+                "Two"
+              ]
+            },
+            {
+              "component": "ContextMenu.Separator"
+            },
+            {
+              "component": "ContextMenu.Sub",
+              "children": [
+                {
+                  "component": "ContextMenu.SubTrigger",
+                  "children": [
+                    "Submenu →"
+                  ]
+                },
+                {
+                  "component": "ContextMenu.Portal",
+                  "children": [
+                    {
+                      "component": "ContextMenu.SubContent",
+                      "props": {
+                        "sideOffset": 12
+                      },
+                      "children": [
+                        {
+                          "component": "ContextMenu.Item"
+                        },
+                        {
+                          "component": "ContextMenu.Item"
+                        },
+                        {
+                          "component": "ContextMenu.Item"
+                        },
+                        {
+                          "component": "ContextMenu.Arrow"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "c3514199",
+        "props": {
+          "align?": "6fda9b",
+          "alignOffset?": "2d4737",
+          "arrowPadding?": "2d4737",
+          "asChild?": "31e5d9",
+          "avoidCollisions?": "31e5d9",
+          "collisionBoundary?": "8744b5",
+          "collisionPadding?": "d4cfd8",
+          "forceMount?": "a887f0",
+          "hideWhenDetached?": "31e5d9",
+          "loop?": "31e5d9",
+          "onEscapeKeyDown?": "116e58",
+          "onFocusOutside?": "e78547",
+          "onInteractOutside?": "1e5eb6",
+          "onPointerDownOutside?": "8bb37e",
+          "sideOffset?": "2d4737",
+          "sticky?": "9adf72",
+          "updatePositionStrategy?": "0e5ccb"
+        }
+      },
+      "ContextMenu.SubTrigger": {
+        "as": "forwardRef",
+        "group": "ContextMenu",
+        "parents": [
+          "ContextMenu.Root",
+          "ContextMenu.Portal",
+          "ContextMenu.Content",
+          "ContextMenu.Sub"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "disabled": true
+          },
+          "children": [
+            "History →"
+          ]
+        },
+        "fingerprint": "0e965d05",
+        "props": {
+          "asChild?": "31e5d9",
+          "disabled?": "31e5d9",
+          "textValue?": "0bf956"
+        }
+      },
+      "ContextMenu.Trigger": {
+        "as": "forwardRef",
+        "group": "ContextMenu",
+        "parents": [
+          "ContextMenu.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "component": "ContextMenu.Root",
+              "children": [
+                {
+                  "component": "ContextMenu.Trigger"
+                },
+                {
+                  "component": "ContextMenu.Portal",
+                  "children": [
+                    {
+                      "component": "ContextMenu.Content",
+                      "children": [
+                        {
+                          "component": "ContextMenu.Label"
+                        },
+                        {
+                          "component": "ContextMenu.Separator"
+                        },
+                        {
+                          "component": "ContextMenu.Item"
+                        },
+                        {
+                          "component": "ContextMenu.Item"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "49696cf8",
+        "props": {
+          "asChild?": "31e5d9",
+          "disabled?": "31e5d9"
+        }
+      },
+      "Dialog.Close": {
+        "as": "forwardRef",
+        "group": "Dialog",
+        "parents": [
+          "Dialog.Root",
+          "Dialog.Portal",
+          "Dialog.Content"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "Close dialog"
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Dialog.Content": {
+        "as": "forwardRef",
+        "group": "Dialog",
+        "parents": [
+          "Dialog.Root",
+          "Dialog.Portal"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "component": "Dialog.Close",
+              "children": [
+                "close"
+              ]
+            },
+            {
+              "component": "Dialog.Title",
+              "children": [
+                "Title"
+              ]
+            },
+            {
+              "component": "Dialog.Description",
+              "children": [
+                "Description"
+              ]
+            },
+            "First Name Last Name Send"
+          ]
+        },
+        "fingerprint": "7230e3db",
+        "props": {
+          "asChild?": "31e5d9",
+          "deferPointerDownOutside?": "31e5d9",
+          "forceMount?": "a887f0",
+          "onCloseAutoFocus?": "8249b3",
+          "onEscapeKeyDown?": "116e58",
+          "onFocusOutside?": "e78547",
+          "onInteractOutside?": "1e5eb6",
+          "onOpenAutoFocus?": "8249b3",
+          "onPointerDownOutside?": "8bb37e"
+        }
+      },
+      "Dialog.Description": {
+        "as": "forwardRef",
+        "group": "Dialog",
+        "parents": [
+          "Dialog.Root",
+          "Dialog.Portal",
+          "Dialog.Content"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "Please enter the info for your booking below."
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Dialog.Overlay": {
+        "as": "forwardRef",
+        "group": "Dialog",
+        "parents": [
+          "Dialog.Root",
+          "Dialog.Portal"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "component": "Dialog.Content",
+              "children": [
+                {
+                  "component": "Dialog.Title",
+                  "children": [
+                    "Booking info"
+                  ]
+                },
+                {
+                  "component": "Dialog.Description",
+                  "children": [
+                    "Please enter the info for your booking below."
+                  ]
+                },
+                {
+                  "component": "Dialog.Close",
+                  "children": [
+                    "close"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "6fbe6a09",
+        "props": {
+          "asChild?": "31e5d9",
+          "forceMount?": "a887f0"
+        }
+      },
+      "Dialog.Portal": {
+        "as": "function",
+        "group": "Dialog",
+        "parents": [
+          "Dialog.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "component": "Dialog.Overlay"
+            },
+            {
+              "component": "Dialog.Content",
+              "children": [
+                {
+                  "component": "Dialog.Close",
+                  "children": [
+                    "close"
+                  ]
+                },
+                {
+                  "component": "Dialog.Title",
+                  "children": [
+                    "Title"
+                  ]
+                },
+                {
+                  "component": "Dialog.Description",
+                  "children": [
+                    "Description"
+                  ]
+                },
+                "First Name Last Name Send"
+              ]
+            }
+          ]
+        },
+        "fingerprint": "51ac84a8",
+        "props": {
+          "children?": "75c961",
+          "container?": "42487d",
+          "forceMount?": "a887f0"
+        }
+      },
+      "Dialog.Root": {
+        "as": "function",
+        "group": "Dialog",
+        "sample": {
+          "children": [
+            {
+              "component": "Dialog.Trigger",
+              "children": [
+                "open"
+              ]
+            },
+            {
+              "component": "Dialog.Portal",
+              "children": [
+                {
+                  "component": "Dialog.Overlay"
+                },
+                {
+                  "component": "Dialog.Content",
+                  "children": [
+                    {
+                      "component": "Dialog.Close",
+                      "children": [
+                        "close"
+                      ]
+                    },
+                    {
+                      "component": "Dialog.Title",
+                      "children": [
+                        "Title"
+                      ]
+                    },
+                    {
+                      "component": "Dialog.Description",
+                      "children": [
+                        "Description"
+                      ]
+                    },
+                    "First Name Last Name Send"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "7d9a3e94",
+        "props": {
+          "children?": "75c961",
+          "defaultOpen?": "31e5d9",
+          "modal?": "31e5d9",
+          "onOpenChange?": "f73e3e",
+          "open?": "31e5d9"
+        }
+      },
+      "Dialog.Title": {
+        "as": "forwardRef",
+        "group": "Dialog",
+        "parents": [
+          "Dialog.Root",
+          "Dialog.Portal",
+          "Dialog.Content"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "Dialog with nested context menu"
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Dialog.Trigger": {
+        "as": "forwardRef",
+        "group": "Dialog",
+        "parents": [
+          "Dialog.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "Open dialog"
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Dialog.WarningProvider": {
+        "as": "function",
+        "group": "Dialog",
+        "parents": [
+          "Dialog.Root"
+        ],
+        "parentsFrom": "namespace",
+        "visual": false,
+        "sample": {
+          "props": {
+            "contentName": "Text",
+            "titleName": "Text",
+            "docsSlug": "dialog"
+          }
+        },
+        "fingerprint": "b23d21b0",
+        "props": {
+          "__scopeDialog?": "4651a3",
+          "children?": "75c961",
+          "contentName": "ecb252",
+          "docsSlug": "e493c2",
+          "titleName": "ecb252"
+        }
+      },
+      "Direction.Provider": {
+        "as": "function",
+        "group": "Direction",
+        "visual": false,
+        "sample": {
+          "props": {
+            "dir": "ltr"
+          },
+          "children": [
+            "Right-to-left Animated Scrollable",
+            "Undo Cut Copy Paste Disabled One One Two Three Four Five Six"
+          ]
+        },
+        "fingerprint": "8d5487ad",
+        "props": {
+          "children?": "75c961",
+          "dir": "fd8e45"
+        }
+      },
+      "DropdownMenu.Arrow": {
+        "as": "forwardRef",
+        "group": "DropdownMenu",
+        "parents": [
+          "DropdownMenu.Root",
+          "DropdownMenu.Portal",
+          "DropdownMenu.Content"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "width": 20,
+            "height": 10
+          }
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "DropdownMenu.CheckboxItem": {
+        "as": "forwardRef",
+        "group": "DropdownMenu",
+        "parents": [
+          "DropdownMenu.Root",
+          "DropdownMenu.Portal",
+          "DropdownMenu.Content",
+          "DropdownMenu.Group"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "Select all",
+            {
+              "component": "DropdownMenu.ItemIndicator"
+            }
+          ]
+        },
+        "fingerprint": "6eff2732",
+        "props": {
+          "asChild?": "31e5d9",
+          "checked?": "004d55",
+          "disabled?": "31e5d9",
+          "onCheckedChange?": "a8259f",
+          "onSelect?": "8249b3",
+          "textValue?": "0bf956"
+        }
+      },
+      "DropdownMenu.Content": {
+        "as": "forwardRef",
+        "group": "DropdownMenu",
+        "parents": [
+          "DropdownMenu.Root",
+          "DropdownMenu.Portal"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "sideOffset": 5,
+            "avoidCollisions": false
+          },
+          "children": [
+            {
+              "component": "DropdownMenu.Item",
+              "children": [
+                "Undo"
+              ]
+            },
+            {
+              "component": "DropdownMenu.Item",
+              "children": [
+                "Redo"
+              ]
+            },
+            {
+              "component": "DropdownMenu.Separator"
+            },
+            {
+              "component": "DropdownMenu.Sub",
+              "props": {
+                "open": true
+              },
+              "children": [
+                {
+                  "component": "DropdownMenu.SubTrigger",
+                  "children": [
+                    "Submenu →"
+                  ]
+                },
+                {
+                  "component": "DropdownMenu.Portal",
+                  "children": [
+                    {
+                      "component": "DropdownMenu.SubContent",
+                      "props": {
+                        "sideOffset": 12,
+                        "avoidCollisions": false
+                      },
+                      "children": [
+                        {
+                          "component": "DropdownMenu.Item"
+                        },
+                        {
+                          "component": "DropdownMenu.Item"
+                        },
+                        {
+                          "component": "DropdownMenu.Separator"
+                        },
+                        {
+                          "component": "DropdownMenu.Sub",
+                          "props": {
+                            "open": true
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "1153b6e6",
+        "props": {
+          "align?": "e726e5",
+          "alignOffset?": "2d4737",
+          "arrowPadding?": "2d4737",
+          "asChild?": "31e5d9",
+          "avoidCollisions?": "31e5d9",
+          "collisionBoundary?": "8744b5",
+          "collisionPadding?": "d4cfd8",
+          "forceMount?": "a887f0",
+          "hideWhenDetached?": "31e5d9",
+          "loop?": "31e5d9",
+          "onCloseAutoFocus?": "8249b3",
+          "onEscapeKeyDown?": "116e58",
+          "onFocusOutside?": "e78547",
+          "onInteractOutside?": "1e5eb6",
+          "onPointerDownOutside?": "8bb37e",
+          "side?": "f2ab84",
+          "sideOffset?": "2d4737",
+          "sticky?": "9adf72",
+          "updatePositionStrategy?": "0e5ccb"
+        }
+      },
+      "DropdownMenu.Group": {
+        "as": "forwardRef",
+        "group": "DropdownMenu",
+        "parents": [
+          "DropdownMenu.Root",
+          "DropdownMenu.Portal",
+          "DropdownMenu.Content"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "component": "DropdownMenu.CheckboxItem",
+              "children": [
+                "Select all",
+                {
+                  "component": "DropdownMenu.ItemIndicator"
+                }
+              ]
+            },
+            {
+              "component": "DropdownMenu.Separator"
+            }
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "DropdownMenu.Item": {
+        "as": "forwardRef",
+        "group": "DropdownMenu",
+        "parents": [
+          "DropdownMenu.Root",
+          "DropdownMenu.Portal",
+          "DropdownMenu.Content"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "disabled": true
+          },
+          "children": [
+            "Cut"
+          ]
+        },
+        "fingerprint": "041d3409",
+        "props": {
+          "asChild?": "31e5d9",
+          "disabled?": "31e5d9",
+          "onSelect?": "8249b3",
+          "textValue?": "0bf956"
+        }
+      },
+      "DropdownMenu.ItemIndicator": {
+        "as": "forwardRef",
+        "group": "DropdownMenu",
+        "parents": [
+          "DropdownMenu.Root",
+          "DropdownMenu.Portal",
+          "DropdownMenu.Content",
+          "DropdownMenu.Group",
+          "DropdownMenu.CheckboxItem"
+        ],
+        "parentsFrom": "example",
+        "fingerprint": "6fbe6a09",
+        "props": {
+          "asChild?": "31e5d9",
+          "forceMount?": "a887f0"
+        }
+      },
+      "DropdownMenu.Label": {
+        "as": "forwardRef",
+        "group": "DropdownMenu",
+        "parents": [
+          "DropdownMenu.Root",
+          "DropdownMenu.Portal",
+          "DropdownMenu.Content",
+          "DropdownMenu.Group"
+        ],
+        "parentsFrom": "example",
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "DropdownMenu.Portal": {
+        "as": "function",
+        "group": "DropdownMenu",
+        "parents": [
+          "DropdownMenu.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "component": "DropdownMenu.Content",
+              "props": {
+                "sideOffset": 5,
+                "avoidCollisions": false
+              },
+              "children": [
+                {
+                  "component": "DropdownMenu.Item",
+                  "children": [
+                    "Undo"
+                  ]
+                },
+                {
+                  "component": "DropdownMenu.Item",
+                  "children": [
+                    "Redo"
+                  ]
+                },
+                {
+                  "component": "DropdownMenu.Separator"
+                },
+                {
+                  "component": "DropdownMenu.Sub",
+                  "props": {
+                    "open": true
+                  },
+                  "children": [
+                    {
+                      "component": "DropdownMenu.SubTrigger",
+                      "children": [
+                        "Submenu →"
+                      ]
+                    },
+                    {
+                      "component": "DropdownMenu.Portal",
+                      "children": [
+                        {
+                          "component": "DropdownMenu.SubContent",
+                          "props": {
+                            "sideOffset": 12,
+                            "avoidCollisions": false
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "51ac84a8",
+        "props": {
+          "children?": "75c961",
+          "container?": "42487d",
+          "forceMount?": "a887f0"
+        }
+      },
+      "DropdownMenu.RadioGroup": {
+        "as": "forwardRef",
+        "group": "DropdownMenu",
+        "parents": [
+          "DropdownMenu.Root",
+          "DropdownMenu.Portal",
+          "DropdownMenu.Content"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "component": "DropdownMenu.RadioItem",
+              "children": [
+                {
+                  "component": "DropdownMenu.ItemIndicator"
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "e6ea7f7c",
+        "props": {
+          "asChild?": "31e5d9",
+          "onValueChange?": "afb072",
+          "value?": "0bf956"
+        }
+      },
+      "DropdownMenu.RadioItem": {
+        "as": "forwardRef",
+        "group": "DropdownMenu",
+        "parents": [
+          "DropdownMenu.Root",
+          "DropdownMenu.Portal",
+          "DropdownMenu.Content",
+          "DropdownMenu.RadioGroup"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "value": "Text"
+          },
+          "children": [
+            {
+              "component": "DropdownMenu.ItemIndicator"
+            }
+          ]
+        },
+        "fingerprint": "4239cebf",
+        "props": {
+          "asChild?": "31e5d9",
+          "disabled?": "31e5d9",
+          "onSelect?": "8249b3",
+          "textValue?": "0bf956",
+          "value": "ecb252"
+        }
+      },
+      "DropdownMenu.Root": {
+        "as": "function",
+        "group": "DropdownMenu",
+        "sample": {
+          "props": {
+            "open": true,
+            "dir": "rtl",
+            "modal": false
+          },
+          "children": [
+            {
+              "component": "DropdownMenu.Portal",
+              "children": [
+                {
+                  "component": "DropdownMenu.Content",
+                  "props": {
+                    "sideOffset": 5,
+                    "avoidCollisions": false
+                  },
+                  "children": [
+                    {
+                      "component": "DropdownMenu.Item",
+                      "children": [
+                        "Undo"
+                      ]
+                    },
+                    {
+                      "component": "DropdownMenu.Item",
+                      "children": [
+                        "Redo"
+                      ]
+                    },
+                    {
+                      "component": "DropdownMenu.Separator"
+                    },
+                    {
+                      "component": "DropdownMenu.Sub",
+                      "props": {
+                        "open": true
+                      },
+                      "children": [
+                        {
+                          "component": "DropdownMenu.SubTrigger"
+                        },
+                        {
+                          "component": "DropdownMenu.Portal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "DropdownMenu.Trigger",
+              "children": [
+                "Open"
+              ]
+            }
+          ]
+        },
+        "fingerprint": "f6fa42f0",
+        "props": {
+          "children?": "75c961",
+          "defaultOpen?": "31e5d9",
+          "dir?": "24c660",
+          "modal?": "31e5d9",
+          "onOpenChange?": "f73e3e",
+          "open?": "31e5d9"
+        }
+      },
+      "DropdownMenu.Separator": {
+        "as": "forwardRef",
+        "group": "DropdownMenu",
+        "parents": [
+          "DropdownMenu.Root",
+          "DropdownMenu.Portal",
+          "DropdownMenu.Content"
+        ],
+        "parentsFrom": "example",
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "DropdownMenu.Sub": {
+        "as": "function",
+        "group": "DropdownMenu",
+        "parents": [
+          "DropdownMenu.Root",
+          "DropdownMenu.Portal",
+          "DropdownMenu.Content"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "open": true
+          },
+          "children": [
+            {
+              "component": "DropdownMenu.SubTrigger",
+              "children": [
+                "Submenu →"
+              ]
+            },
+            {
+              "component": "DropdownMenu.Portal",
+              "children": [
+                {
+                  "component": "DropdownMenu.SubContent",
+                  "props": {
+                    "sideOffset": 12,
+                    "avoidCollisions": false
+                  },
+                  "children": [
+                    {
+                      "component": "DropdownMenu.Item",
+                      "children": [
+                        "One"
+                      ]
+                    },
+                    {
+                      "component": "DropdownMenu.Item",
+                      "children": [
+                        "Two"
+                      ]
+                    },
+                    {
+                      "component": "DropdownMenu.Separator"
+                    },
+                    {
+                      "component": "DropdownMenu.Sub",
+                      "props": {
+                        "open": true
+                      },
+                      "children": [
+                        {
+                          "component": "DropdownMenu.SubTrigger"
+                        },
+                        {
+                          "component": "DropdownMenu.Portal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "d0b548fa",
+        "props": {
+          "children?": "75c961",
+          "defaultOpen?": "31e5d9",
+          "onOpenChange?": "f73e3e",
+          "open?": "31e5d9"
+        }
+      },
+      "DropdownMenu.SubContent": {
+        "as": "forwardRef",
+        "group": "DropdownMenu",
+        "parents": [
+          "DropdownMenu.Root",
+          "DropdownMenu.Portal"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "sideOffset": 12,
+            "avoidCollisions": false
+          },
+          "children": [
+            {
+              "component": "DropdownMenu.Item",
+              "children": [
+                "One"
+              ]
+            },
+            {
+              "component": "DropdownMenu.Item",
+              "children": [
+                "Two"
+              ]
+            },
+            {
+              "component": "DropdownMenu.Separator"
+            },
+            {
+              "component": "DropdownMenu.Sub",
+              "props": {
+                "open": true
+              },
+              "children": [
+                {
+                  "component": "DropdownMenu.SubTrigger",
+                  "children": [
+                    "Submenu →"
+                  ]
+                },
+                {
+                  "component": "DropdownMenu.Portal",
+                  "children": [
+                    {
+                      "component": "DropdownMenu.SubContent",
+                      "props": {
+                        "sideOffset": 12,
+                        "avoidCollisions": false
+                      },
+                      "children": [
+                        {
+                          "component": "DropdownMenu.Item"
+                        },
+                        {
+                          "component": "DropdownMenu.Item"
+                        },
+                        {
+                          "component": "DropdownMenu.Item"
+                        },
+                        {
+                          "component": "DropdownMenu.Arrow"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "c3514199",
+        "props": {
+          "align?": "6fda9b",
+          "alignOffset?": "2d4737",
+          "arrowPadding?": "2d4737",
+          "asChild?": "31e5d9",
+          "avoidCollisions?": "31e5d9",
+          "collisionBoundary?": "8744b5",
+          "collisionPadding?": "d4cfd8",
+          "forceMount?": "a887f0",
+          "hideWhenDetached?": "31e5d9",
+          "loop?": "31e5d9",
+          "onEscapeKeyDown?": "116e58",
+          "onFocusOutside?": "e78547",
+          "onInteractOutside?": "1e5eb6",
+          "onPointerDownOutside?": "8bb37e",
+          "sideOffset?": "2d4737",
+          "sticky?": "9adf72",
+          "updatePositionStrategy?": "0e5ccb"
+        }
+      },
+      "DropdownMenu.SubTrigger": {
+        "as": "forwardRef",
+        "group": "DropdownMenu",
+        "parents": [
+          "DropdownMenu.Root",
+          "DropdownMenu.Portal",
+          "DropdownMenu.Content",
+          "DropdownMenu.Sub"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "disabled": true
+          },
+          "children": [
+            "History →"
+          ]
+        },
+        "fingerprint": "0e965d05",
+        "props": {
+          "asChild?": "31e5d9",
+          "disabled?": "31e5d9",
+          "textValue?": "0bf956"
+        }
+      },
+      "DropdownMenu.Trigger": {
+        "as": "forwardRef",
+        "group": "DropdownMenu",
+        "parents": [
+          "DropdownMenu.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "open menu"
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Form.Control": {
+        "as": "forwardRef",
+        "group": "Form",
+        "parents": [
+          "Form.Root",
+          "Form.Field"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "id": "email",
+            "name": "email",
+            "type": "email",
+            "required": true,
+            "placeholder": "rolli@example.com"
+          }
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Form.Field": {
+        "as": "forwardRef",
+        "group": "Form",
+        "parents": [
+          "Form.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "name": "password"
+          },
+          "children": [
+            {
+              "component": "Form.Label",
+              "children": [
+                "Password"
+              ]
+            },
+            {
+              "component": "Form.Control",
+              "props": {
+                "type": "password",
+                "required": true
+              }
+            },
+            {
+              "component": "Form.Message",
+              "props": {
+                "match": "valueMissing"
+              },
+              "children": [
+                "Password is required"
+              ]
+            },
+            {
+              "component": "Form.Message",
+              "children": [
+                "Password is not complex enough"
+              ]
+            }
+          ]
+        },
+        "fingerprint": "8d19a284",
+        "props": {
+          "asChild?": "31e5d9",
+          "name": "ecb252",
+          "serverInvalid?": "31e5d9"
+        }
+      },
+      "Form.Label": {
+        "as": "forwardRef",
+        "group": "Form",
+        "parents": [
+          "Form.Root",
+          "Form.Field"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "name": "email",
+            "htmlFor": "email"
+          },
+          "children": [
+            "Email"
+          ]
+        },
+        "fingerprint": "9ecf581a",
+        "props": {
+          "asChild?": "31e5d9",
+          "name?": "0bf956"
+        }
+      },
+      "Form.Message": {
+        "as": "forwardRef",
+        "group": "Form",
+        "parents": [
+          "Form.Root",
+          "Form.Field"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "match": "valueMissing",
+            "name": "email"
+          },
+          "children": [
+            "Please enter your email address."
+          ]
+        },
+        "fingerprint": "7f27ef77",
+        "props": {
+          "asChild?": "31e5d9",
+          "forceMatch?": "31e5d9",
+          "match?": "7f282c",
+          "name?": "0bf956"
+        }
+      },
+      "Form.Root": {
+        "as": "forwardRef",
+        "group": "Form",
+        "sample": {
+          "children": [
+            {
+              "component": "Form.Field",
+              "props": {
+                "name": "name"
+              },
+              "children": [
+                {
+                  "component": "Form.Label",
+                  "children": [
+                    "Name (required)"
+                  ]
+                },
+                {
+                  "component": "Form.Control",
+                  "props": {
+                    "type": "text",
+                    "required": true
+                  }
+                },
+                {
+                  "component": "Form.Message",
+                  "props": {
+                    "match": "valueMissing"
+                  }
+                },
+                {
+                  "component": "Form.Message",
+                  "props": {
+                    "match": "valid"
+                  },
+                  "children": [
+                    "valid!"
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "Form.Field",
+              "props": {
+                "name": "age"
+              },
+              "children": [
+                {
+                  "component": "Form.Label",
+                  "children": [
+                    "Age (0-99)"
+                  ]
+                },
+                {
+                  "component": "Form.Control",
+                  "props": {
+                    "type": "number",
+                    "min": "0",
+                    "max": "99",
+                    "step": "1"
+                  }
+                },
+                {
+                  "component": "Form.Message",
+                  "props": {
+                    "match": "rangeOverflow"
+                  }
+                },
+                {
+                  "component": "Form.Message",
+                  "props": {
+                    "match": "rangeUnderflow"
+                  }
+                }
+              ]
+            },
+            {
+              "component": "Form.Field",
+              "props": {
+                "name": "email"
+              },
+              "children": [
+                {
+                  "component": "Form.Label",
+                  "children": [
+                    "Email"
+                  ]
+                },
+                {
+                  "component": "Form.Control",
+                  "props": {
+                    "type": "email"
+                  }
+                },
+                {
+                  "component": "Form.Message",
+                  "props": {
+                    "match": "typeMismatch"
+                  }
+                }
+              ]
+            },
+            {
+              "component": "Form.Field",
+              "props": {
+                "name": "password"
+              },
+              "children": [
+                {
+                  "component": "Form.Label",
+                  "children": [
+                    "Password"
+                  ]
+                },
+                {
+                  "component": "Form.Control",
+                  "props": {
+                    "type": "password",
+                    "minLength": 8,
+                    "maxLength": 16
+                  }
+                },
+                {
+                  "component": "Form.Message",
+                  "props": {
+                    "match": "tooShort"
+                  }
+                },
+                {
+                  "component": "Form.Message",
+                  "props": {
+                    "match": "tooLong"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "e2eddedf",
+        "props": {
+          "asChild?": "31e5d9",
+          "onClearServerErrors?": "327874"
+        }
+      },
+      "Form.Submit": {
+        "as": "forwardRef",
+        "group": "Form",
+        "parents": [
+          "Form.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "Submit"
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Form.ValidityState": {
+        "as": "function",
+        "group": "Form",
+        "parents": [
+          "Form.Root",
+          "Form.Field"
+        ],
+        "parentsFrom": "example",
+        "fingerprint": "eeec4ada",
+        "props": {
+          "__scopeForm?": "4651a3",
+          "children": "410a86",
+          "name?": "0bf956"
+        }
+      },
+      "HoverCard.Arrow": {
+        "as": "forwardRef",
+        "group": "HoverCard",
+        "parents": [
+          "HoverCard.Root",
+          "HoverCard.Portal",
+          "HoverCard.Content"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "width": 20,
+            "height": 10,
+            "offset": 20
+          }
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "HoverCard.Content": {
+        "as": "forwardRef",
+        "group": "HoverCard",
+        "parents": [
+          "HoverCard.Root",
+          "HoverCard.Portal"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "side": "top",
+            "align": "center",
+            "sideOffset": 5
+          },
+          "children": [
+            {
+              "component": "HoverCard.Arrow",
+              "props": {
+                "width": 20,
+                "height": 10,
+                "offset": 20
+              }
+            },
+            {
+              "component": "HoverCard.Root",
+              "children": [
+                {
+                  "component": "HoverCard.Trigger",
+                  "props": {
+                    "href": "/"
+                  },
+                  "children": [
+                    "trigger level 3"
+                  ]
+                },
+                {
+                  "component": "HoverCard.Portal",
+                  "children": [
+                    {
+                      "component": "HoverCard.Content",
+                      "props": {
+                        "side": "bottom",
+                        "align": "start",
+                        "sideOffset": 5
+                      },
+                      "children": [
+                        {
+                          "component": "HoverCard.Arrow",
+                          "props": {
+                            "width": 20,
+                            "height": 10,
+                            "offset": 20
+                          }
+                        },
+                        "level 3"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "c9c86ea4",
+        "props": {
+          "align?": "e726e5",
+          "alignOffset?": "2d4737",
+          "arrowPadding?": "2d4737",
+          "asChild?": "31e5d9",
+          "avoidCollisions?": "31e5d9",
+          "collisionBoundary?": "8744b5",
+          "collisionPadding?": "d4cfd8",
+          "forceMount?": "a887f0",
+          "hideWhenDetached?": "31e5d9",
+          "onEscapeKeyDown?": "116e58",
+          "onFocusOutside?": "e78547",
+          "onInteractOutside?": "1e5eb6",
+          "onPointerDownOutside?": "8bb37e",
+          "side?": "f2ab84",
+          "sideOffset?": "2d4737",
+          "sticky?": "9adf72",
+          "updatePositionStrategy?": "0e5ccb"
+        }
+      },
+      "HoverCard.Portal": {
+        "as": "function",
+        "group": "HoverCard",
+        "parents": [
+          "HoverCard.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "component": "HoverCard.Content",
+              "props": {
+                "side": "top",
+                "align": "center",
+                "sideOffset": 5
+              },
+              "children": [
+                {
+                  "component": "HoverCard.Arrow",
+                  "props": {
+                    "width": 20,
+                    "height": 10,
+                    "offset": 20
+                  }
+                },
+                {
+                  "component": "HoverCard.Root",
+                  "children": [
+                    {
+                      "component": "HoverCard.Trigger",
+                      "props": {
+                        "href": "/"
+                      },
+                      "children": [
+                        "trigger level 3"
+                      ]
+                    },
+                    {
+                      "component": "HoverCard.Portal",
+                      "children": [
+                        {
+                          "component": "HoverCard.Content",
+                          "props": {
+                            "side": "bottom",
+                            "align": "start",
+                            "sideOffset": 5
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "51ac84a8",
+        "props": {
+          "children?": "75c961",
+          "container?": "42487d",
+          "forceMount?": "a887f0"
+        }
+      },
+      "HoverCard.Root": {
+        "as": "function",
+        "group": "HoverCard",
+        "sample": {
+          "children": [
+            {
+              "component": "HoverCard.Trigger",
+              "props": {
+                "href": "/"
+              },
+              "children": [
+                "trigger level 2"
+              ]
+            },
+            {
+              "component": "HoverCard.Portal",
+              "children": [
+                {
+                  "component": "HoverCard.Content",
+                  "props": {
+                    "side": "top",
+                    "align": "center",
+                    "sideOffset": 5
+                  },
+                  "children": [
+                    {
+                      "component": "HoverCard.Arrow",
+                      "props": {
+                        "width": 20,
+                        "height": 10,
+                        "offset": 20
+                      }
+                    },
+                    {
+                      "component": "HoverCard.Root",
+                      "children": [
+                        {
+                          "component": "HoverCard.Trigger",
+                          "props": {
+                            "href": "/"
+                          }
+                        },
+                        {
+                          "component": "HoverCard.Portal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "c98a1d46",
+        "props": {
+          "children?": "75c961",
+          "closeDelay?": "2d4737",
+          "defaultOpen?": "31e5d9",
+          "onOpenChange?": "f73e3e",
+          "open?": "31e5d9",
+          "openDelay?": "2d4737"
+        }
+      },
+      "HoverCard.Trigger": {
+        "as": "forwardRef",
+        "group": "HoverCard",
+        "parents": [
+          "HoverCard.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "href": "#"
+          },
+          "children": [
+            "hover me"
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Label.Root": {
+        "as": "forwardRef",
+        "group": "Label",
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Menubar.Arrow": {
+        "as": "forwardRef",
+        "group": "Menubar",
+        "parents": [
+          "Menubar.Root",
+          "Menubar.Menu",
+          "Menubar.Portal",
+          "Menubar.SubContent"
+        ],
+        "parentsFrom": "example",
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Menubar.CheckboxItem": {
+        "as": "forwardRef",
+        "group": "Menubar",
+        "parents": [
+          "Menubar.Root",
+          "Menubar.Menu",
+          "Menubar.Portal",
+          "Menubar.Content"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "component": "Menubar.ItemIndicator"
+            }
+          ]
+        },
+        "fingerprint": "6eff2732",
+        "props": {
+          "asChild?": "31e5d9",
+          "checked?": "004d55",
+          "disabled?": "31e5d9",
+          "onCheckedChange?": "a8259f",
+          "onSelect?": "8249b3",
+          "textValue?": "0bf956"
+        }
+      },
+      "Menubar.Content": {
+        "as": "forwardRef",
+        "group": "Menubar",
+        "parents": [
+          "Menubar.Root",
+          "Menubar.Menu",
+          "Menubar.Portal"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "avoidCollisions": false,
+            "sideOffset": 2
+          },
+          "children": [
+            {
+              "component": "Menubar.Item",
+              "props": {
+                "disabled": true
+              },
+              "children": [
+                "Undo"
+              ]
+            },
+            {
+              "component": "Menubar.Item",
+              "children": [
+                "Redo"
+              ]
+            },
+            {
+              "component": "Menubar.Separator"
+            },
+            {
+              "component": "Menubar.Sub",
+              "props": {
+                "open": true
+              },
+              "children": [
+                {
+                  "component": "Menubar.SubTrigger",
+                  "children": [
+                    "Find",
+                    "→"
+                  ]
+                },
+                {
+                  "component": "Menubar.Portal",
+                  "children": [
+                    {
+                      "component": "Menubar.SubContent",
+                      "props": {
+                        "sideOffset": 10,
+                        "avoidCollisions": false
+                      },
+                      "children": [
+                        {
+                          "component": "Menubar.Item"
+                        },
+                        {
+                          "component": "Menubar.Separator"
+                        },
+                        {
+                          "component": "Menubar.Item"
+                        },
+                        {
+                          "component": "Menubar.Item"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "1153b6e6",
+        "props": {
+          "align?": "e726e5",
+          "alignOffset?": "2d4737",
+          "arrowPadding?": "2d4737",
+          "asChild?": "31e5d9",
+          "avoidCollisions?": "31e5d9",
+          "collisionBoundary?": "8744b5",
+          "collisionPadding?": "d4cfd8",
+          "forceMount?": "a887f0",
+          "hideWhenDetached?": "31e5d9",
+          "loop?": "31e5d9",
+          "onCloseAutoFocus?": "8249b3",
+          "onEscapeKeyDown?": "116e58",
+          "onFocusOutside?": "e78547",
+          "onInteractOutside?": "1e5eb6",
+          "onPointerDownOutside?": "8bb37e",
+          "side?": "f2ab84",
+          "sideOffset?": "2d4737",
+          "sticky?": "9adf72",
+          "updatePositionStrategy?": "0e5ccb"
+        }
+      },
+      "Menubar.Group": {
+        "as": "forwardRef",
+        "group": "Menubar",
+        "parents": [
+          "Menubar.Root",
+          "Menubar.Menu",
+          "Menubar.Portal",
+          "Menubar.Content"
+        ],
+        "parentsFrom": "example",
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Menubar.Item": {
+        "as": "forwardRef",
+        "group": "Menubar",
+        "parents": [
+          "Menubar.Root",
+          "Menubar.Menu",
+          "Menubar.Portal",
+          "Menubar.Content"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "disabled": true
+          },
+          "children": [
+            "Undo"
+          ]
+        },
+        "fingerprint": "041d3409",
+        "props": {
+          "asChild?": "31e5d9",
+          "disabled?": "31e5d9",
+          "onSelect?": "8249b3",
+          "textValue?": "0bf956"
+        }
+      },
+      "Menubar.ItemIndicator": {
+        "as": "forwardRef",
+        "group": "Menubar",
+        "parents": [
+          "Menubar.Root",
+          "Menubar.Menu",
+          "Menubar.Portal",
+          "Menubar.Content",
+          "Menubar.CheckboxItem"
+        ],
+        "parentsFrom": "example",
+        "fingerprint": "6fbe6a09",
+        "props": {
+          "asChild?": "31e5d9",
+          "forceMount?": "a887f0"
+        }
+      },
+      "Menubar.Label": {
+        "as": "forwardRef",
+        "group": "Menubar",
+        "parents": [
+          "Menubar.Root",
+          "Menubar.Menu",
+          "Menubar.Portal",
+          "Menubar.Content"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "Work"
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Menubar.Menu": {
+        "as": "function",
+        "group": "Menubar",
+        "parents": [
+          "Menubar.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "value": "edit"
+          },
+          "children": [
+            {
+              "component": "Menubar.Trigger",
+              "children": [
+                "Edit"
+              ]
+            },
+            {
+              "component": "Menubar.Portal",
+              "children": [
+                {
+                  "component": "Menubar.Content",
+                  "props": {
+                    "avoidCollisions": false,
+                    "sideOffset": 2
+                  },
+                  "children": [
+                    {
+                      "component": "Menubar.Item",
+                      "props": {
+                        "disabled": true
+                      },
+                      "children": [
+                        "Undo"
+                      ]
+                    },
+                    {
+                      "component": "Menubar.Item",
+                      "children": [
+                        "Redo"
+                      ]
+                    },
+                    {
+                      "component": "Menubar.Separator"
+                    },
+                    {
+                      "component": "Menubar.Sub",
+                      "props": {
+                        "open": true
+                      },
+                      "children": [
+                        {
+                          "component": "Menubar.SubTrigger"
+                        },
+                        {
+                          "component": "Menubar.Portal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "464daa7f",
+        "props": {
+          "__scopeMenubar?": "4651a3",
+          "children?": "75c961",
+          "value?": "0bf956"
+        }
+      },
+      "Menubar.Portal": {
+        "as": "function",
+        "group": "Menubar",
+        "parents": [
+          "Menubar.Root",
+          "Menubar.Menu"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "component": "Menubar.Content",
+              "props": {
+                "avoidCollisions": false,
+                "sideOffset": 2
+              },
+              "children": [
+                {
+                  "component": "Menubar.Item",
+                  "props": {
+                    "disabled": true
+                  },
+                  "children": [
+                    "Undo"
+                  ]
+                },
+                {
+                  "component": "Menubar.Item",
+                  "children": [
+                    "Redo"
+                  ]
+                },
+                {
+                  "component": "Menubar.Separator"
+                },
+                {
+                  "component": "Menubar.Sub",
+                  "props": {
+                    "open": true
+                  },
+                  "children": [
+                    {
+                      "component": "Menubar.SubTrigger",
+                      "children": [
+                        "Find",
+                        "→"
+                      ]
+                    },
+                    {
+                      "component": "Menubar.Portal",
+                      "children": [
+                        {
+                          "component": "Menubar.SubContent",
+                          "props": {
+                            "sideOffset": 10,
+                            "avoidCollisions": false
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "51ac84a8",
+        "props": {
+          "children?": "75c961",
+          "container?": "42487d",
+          "forceMount?": "a887f0"
+        }
+      },
+      "Menubar.RadioGroup": {
+        "as": "forwardRef",
+        "group": "Menubar",
+        "parents": [
+          "Menubar.Root",
+          "Menubar.Menu",
+          "Menubar.Portal",
+          "Menubar.Content"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "component": "Menubar.RadioItem",
+              "children": [
+                {
+                  "component": "Menubar.ItemIndicator"
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "e6ea7f7c",
+        "props": {
+          "asChild?": "31e5d9",
+          "onValueChange?": "afb072",
+          "value?": "0bf956"
+        }
+      },
+      "Menubar.RadioItem": {
+        "as": "forwardRef",
+        "group": "Menubar",
+        "parents": [
+          "Menubar.Root",
+          "Menubar.Menu",
+          "Menubar.Portal",
+          "Menubar.Content",
+          "Menubar.RadioGroup"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "value": "Text"
+          },
+          "children": [
+            {
+              "component": "Menubar.ItemIndicator"
+            }
+          ]
+        },
+        "fingerprint": "4239cebf",
+        "props": {
+          "asChild?": "31e5d9",
+          "disabled?": "31e5d9",
+          "onSelect?": "8249b3",
+          "textValue?": "0bf956",
+          "value": "ecb252"
+        }
+      },
+      "Menubar.Root": {
+        "as": "forwardRef",
+        "group": "Menubar",
+        "sample": {
+          "children": [
+            {
+              "component": "Menubar.Menu",
+              "children": [
+                {
+                  "component": "Menubar.Trigger",
+                  "children": [
+                    "File"
+                  ]
+                },
+                {
+                  "component": "Menubar.Portal",
+                  "children": [
+                    {
+                      "component": "Menubar.Content",
+                      "props": {
+                        "sideOffset": 2
+                      },
+                      "children": [
+                        {
+                          "component": "Menubar.Item"
+                        },
+                        {
+                          "component": "Menubar.Item"
+                        },
+                        {
+                          "component": "Menubar.Item"
+                        },
+                        {
+                          "component": "Menubar.Separator"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "Menubar.Menu",
+              "children": [
+                {
+                  "component": "Menubar.Trigger",
+                  "children": [
+                    "Edit"
+                  ]
+                },
+                {
+                  "component": "Menubar.Portal",
+                  "children": [
+                    {
+                      "component": "Menubar.Content",
+                      "props": {
+                        "sideOffset": 2
+                      },
+                      "children": [
+                        {
+                          "component": "Menubar.Item"
+                        },
+                        {
+                          "component": "Menubar.Item"
+                        },
+                        {
+                          "component": "Menubar.Separator"
+                        },
+                        {
+                          "component": "Menubar.Sub"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "Menubar.Menu",
+              "children": [
+                {
+                  "component": "Menubar.Trigger",
+                  "children": [
+                    "View"
+                  ]
+                },
+                {
+                  "component": "Menubar.Portal",
+                  "children": [
+                    {
+                      "component": "Menubar.Content",
+                      "props": {
+                        "sideOffset": 2
+                      },
+                      "children": [
+                        {
+                          "component": "Menubar.Separator"
+                        },
+                        {
+                          "component": "Menubar.Item"
+                        },
+                        {
+                          "component": "Menubar.Item"
+                        },
+                        {
+                          "component": "Menubar.Separator"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "Menubar.Menu",
+              "children": [
+                {
+                  "component": "Menubar.Trigger",
+                  "children": [
+                    "Profiles"
+                  ]
+                },
+                {
+                  "component": "Menubar.Portal",
+                  "children": [
+                    {
+                      "component": "Menubar.Content",
+                      "props": {
+                        "sideOffset": 2
+                      },
+                      "children": [
+                        {
+                          "component": "Menubar.RadioGroup"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "4ecf8d8c",
+        "props": {
+          "asChild?": "31e5d9",
+          "defaultValue?": "0bf956",
+          "dir?": "24c660",
+          "loop?": "31e5d9",
+          "onValueChange?": "afb072",
+          "value?": "0bf956"
+        }
+      },
+      "Menubar.Separator": {
+        "as": "forwardRef",
+        "group": "Menubar",
+        "parents": [
+          "Menubar.Root",
+          "Menubar.Menu",
+          "Menubar.Portal",
+          "Menubar.Content"
+        ],
+        "parentsFrom": "example",
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Menubar.Sub": {
+        "as": "function",
+        "group": "Menubar",
+        "parents": [
+          "Menubar.Root",
+          "Menubar.Menu",
+          "Menubar.Portal",
+          "Menubar.Content"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "open": true
+          },
+          "children": [
+            {
+              "component": "Menubar.SubTrigger",
+              "children": [
+                "Find",
+                "→"
+              ]
+            },
+            {
+              "component": "Menubar.Portal",
+              "children": [
+                {
+                  "component": "Menubar.SubContent",
+                  "props": {
+                    "sideOffset": 10,
+                    "avoidCollisions": false
+                  },
+                  "children": [
+                    {
+                      "component": "Menubar.Item",
+                      "children": [
+                        "Search the web…"
+                      ]
+                    },
+                    {
+                      "component": "Menubar.Separator"
+                    },
+                    {
+                      "component": "Menubar.Item",
+                      "children": [
+                        "Find…"
+                      ]
+                    },
+                    {
+                      "component": "Menubar.Item",
+                      "children": [
+                        "Find Next"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "d0b548fa",
+        "props": {
+          "children?": "75c961",
+          "defaultOpen?": "31e5d9",
+          "onOpenChange?": "f73e3e",
+          "open?": "31e5d9"
+        }
+      },
+      "Menubar.SubContent": {
+        "as": "forwardRef",
+        "group": "Menubar",
+        "parents": [
+          "Menubar.Root",
+          "Menubar.Menu",
+          "Menubar.Portal"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "sideOffset": 10,
+            "avoidCollisions": false
+          },
+          "children": [
+            {
+              "component": "Menubar.Item",
+              "children": [
+                "Search the web…"
+              ]
+            },
+            {
+              "component": "Menubar.Separator"
+            },
+            {
+              "component": "Menubar.Item",
+              "children": [
+                "Find…"
+              ]
+            },
+            {
+              "component": "Menubar.Item",
+              "children": [
+                "Find Next"
+              ]
+            }
+          ]
+        },
+        "fingerprint": "c3514199",
+        "props": {
+          "align?": "6fda9b",
+          "alignOffset?": "2d4737",
+          "arrowPadding?": "2d4737",
+          "asChild?": "31e5d9",
+          "avoidCollisions?": "31e5d9",
+          "collisionBoundary?": "8744b5",
+          "collisionPadding?": "d4cfd8",
+          "forceMount?": "a887f0",
+          "hideWhenDetached?": "31e5d9",
+          "loop?": "31e5d9",
+          "onEscapeKeyDown?": "116e58",
+          "onFocusOutside?": "e78547",
+          "onInteractOutside?": "1e5eb6",
+          "onPointerDownOutside?": "8bb37e",
+          "sideOffset?": "2d4737",
+          "sticky?": "9adf72",
+          "updatePositionStrategy?": "0e5ccb"
+        }
+      },
+      "Menubar.SubTrigger": {
+        "as": "forwardRef",
+        "group": "Menubar",
+        "parents": [
+          "Menubar.Root",
+          "Menubar.Menu",
+          "Menubar.Portal",
+          "Menubar.Content",
+          "Menubar.Sub"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "disabled": true
+          },
+          "children": [
+            "Speech",
+            "→"
+          ]
+        },
+        "fingerprint": "0e965d05",
+        "props": {
+          "asChild?": "31e5d9",
+          "disabled?": "31e5d9",
+          "textValue?": "0bf956"
+        }
+      },
+      "Menubar.Trigger": {
+        "as": "forwardRef",
+        "group": "Menubar",
+        "parents": [
+          "Menubar.Root",
+          "Menubar.Menu"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "File"
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "NavigationMenu.Content": {
+        "as": "forwardRef",
+        "group": "NavigationMenu",
+        "parents": [
+          "NavigationMenu.Root",
+          "NavigationMenu.List",
+          "NavigationMenu.Item"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "component": "NavigationMenu.Sub",
+              "props": {
+                "orientation": "vertical",
+                "defaultValue": "customers"
+              },
+              "children": [
+                {
+                  "component": "NavigationMenu.List",
+                  "children": [
+                    {
+                      "component": "NavigationMenu.Item",
+                      "props": {
+                        "value": "customers"
+                      },
+                      "children": [
+                        {
+                          "component": "NavigationMenu.Trigger"
+                        },
+                        {
+                          "component": "NavigationMenu.Content"
+                        }
+                      ]
+                    },
+                    {
+                      "component": "NavigationMenu.Item",
+                      "props": {
+                        "value": "partners"
+                      },
+                      "children": [
+                        {
+                          "component": "NavigationMenu.Trigger"
+                        },
+                        {
+                          "component": "NavigationMenu.Content"
+                        }
+                      ]
+                    },
+                    {
+                      "component": "NavigationMenu.Item",
+                      "props": {
+                        "value": "enterprise"
+                      },
+                      "children": [
+                        {
+                          "component": "NavigationMenu.Trigger"
+                        },
+                        {
+                          "component": "NavigationMenu.Content"
+                        }
+                      ]
+                    },
+                    {
+                      "component": "NavigationMenu.Indicator"
+                    }
+                  ]
+                },
+                {
+                  "component": "NavigationMenu.Viewport"
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "436bd069",
+        "props": {
+          "asChild?": "31e5d9",
+          "deferPointerDownOutside?": "31e5d9",
+          "forceMount?": "a887f0",
+          "onEscapeKeyDown?": "116e58",
+          "onFocusOutside?": "e78547",
+          "onInteractOutside?": "1e5eb6",
+          "onPointerDownOutside?": "8bb37e"
+        }
+      },
+      "NavigationMenu.Indicator": {
+        "as": "forwardRef",
+        "group": "NavigationMenu",
+        "parents": [
+          "NavigationMenu.Root",
+          "NavigationMenu.List"
+        ],
+        "parentsFrom": "example",
+        "fingerprint": "6fbe6a09",
+        "props": {
+          "asChild?": "31e5d9",
+          "forceMount?": "a887f0"
+        }
+      },
+      "NavigationMenu.Item": {
+        "as": "forwardRef",
+        "group": "NavigationMenu",
+        "parents": [
+          "NavigationMenu.Root",
+          "NavigationMenu.List"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "Company",
+            {
+              "component": "NavigationMenu.Content",
+              "children": [
+                {
+                  "component": "NavigationMenu.Sub",
+                  "props": {
+                    "orientation": "vertical",
+                    "defaultValue": "customers"
+                  },
+                  "children": [
+                    {
+                      "component": "NavigationMenu.List",
+                      "children": [
+                        {
+                          "component": "NavigationMenu.Item",
+                          "props": {
+                            "value": "customers"
+                          }
+                        },
+                        {
+                          "component": "NavigationMenu.Item",
+                          "props": {
+                            "value": "partners"
+                          }
+                        },
+                        {
+                          "component": "NavigationMenu.Item",
+                          "props": {
+                            "value": "enterprise"
+                          }
+                        },
+                        {
+                          "component": "NavigationMenu.Indicator"
+                        }
+                      ]
+                    },
+                    {
+                      "component": "NavigationMenu.Viewport"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "2884e42c",
+        "props": {
+          "asChild?": "31e5d9",
+          "value?": "0bf956"
+        }
+      },
+      "NavigationMenu.Link": {
+        "as": "forwardRef",
+        "group": "NavigationMenu",
+        "parents": [
+          "NavigationMenu.Root",
+          "NavigationMenu.List",
+          "NavigationMenu.Item"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "href": "#example"
+          },
+          "children": [
+            "Link"
+          ]
+        },
+        "fingerprint": "5f9ee007",
+        "props": {
+          "active?": "31e5d9",
+          "asChild?": "31e5d9",
+          "onSelect?": "8249b3"
+        }
+      },
+      "NavigationMenu.List": {
+        "as": "forwardRef",
+        "group": "NavigationMenu",
+        "parents": [
+          "NavigationMenu.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "component": "NavigationMenu.Item",
+              "children": [
+                "Products",
+                {
+                  "component": "NavigationMenu.Content",
+                  "children": [
+                    {
+                      "component": "NavigationMenu.Sub",
+                      "props": {
+                        "defaultValue": "extensibility"
+                      },
+                      "children": [
+                        {
+                          "component": "NavigationMenu.List"
+                        },
+                        {
+                          "component": "NavigationMenu.Viewport"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "NavigationMenu.Item",
+              "children": [
+                "Company",
+                {
+                  "component": "NavigationMenu.Content",
+                  "children": [
+                    {
+                      "component": "NavigationMenu.Sub",
+                      "props": {
+                        "orientation": "vertical",
+                        "defaultValue": "customers"
+                      },
+                      "children": [
+                        {
+                          "component": "NavigationMenu.List"
+                        },
+                        {
+                          "component": "NavigationMenu.Viewport"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "NavigationMenu.Item",
+              "children": [
+                "Developers",
+                {
+                  "component": "NavigationMenu.Content"
+                }
+              ]
+            },
+            {
+              "component": "NavigationMenu.Item",
+              "children": [
+                {
+                  "component": "NavigationMenu.Link",
+                  "props": {
+                    "href": "#example"
+                  },
+                  "children": [
+                    "Link"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "NavigationMenu.Root": {
+        "as": "forwardRef",
+        "group": "NavigationMenu",
+        "sample": {
+          "children": [
+            {
+              "component": "NavigationMenu.List",
+              "children": [
+                {
+                  "component": "NavigationMenu.Item",
+                  "children": [
+                    "Products",
+                    {
+                      "component": "NavigationMenu.Content",
+                      "children": [
+                        {
+                          "component": "NavigationMenu.Sub",
+                          "props": {
+                            "defaultValue": "extensibility"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "NavigationMenu.Item",
+                  "children": [
+                    "Company",
+                    {
+                      "component": "NavigationMenu.Content",
+                      "children": [
+                        {
+                          "component": "NavigationMenu.Sub",
+                          "props": {
+                            "orientation": "vertical",
+                            "defaultValue": "customers"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "NavigationMenu.Item",
+                  "children": [
+                    "Developers",
+                    {
+                      "component": "NavigationMenu.Content"
+                    }
+                  ]
+                },
+                {
+                  "component": "NavigationMenu.Item",
+                  "children": [
+                    {
+                      "component": "NavigationMenu.Link",
+                      "props": {
+                        "href": "#example"
+                      },
+                      "children": [
+                        "Link"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "NavigationMenu.Viewport"
+            }
+          ]
+        },
+        "fingerprint": "b3d8046b",
+        "props": {
+          "activationMode?": "6df6e4",
+          "asChild?": "31e5d9",
+          "defaultValue?": "0bf956",
+          "delayDuration?": "2d4737",
+          "dir?": "24c660",
+          "onValueChange?": "afb072",
+          "orientation?": "b87b41",
+          "skipDelayDuration?": "2d4737",
+          "value?": "0bf956"
+        }
+      },
+      "NavigationMenu.Sub": {
+        "as": "forwardRef",
+        "group": "NavigationMenu",
+        "parents": [
+          "NavigationMenu.Root",
+          "NavigationMenu.List",
+          "NavigationMenu.Item",
+          "NavigationMenu.Content"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "orientation": "vertical",
+            "defaultValue": "customers"
+          },
+          "children": [
+            {
+              "component": "NavigationMenu.List",
+              "children": [
+                {
+                  "component": "NavigationMenu.Item",
+                  "props": {
+                    "value": "customers"
+                  },
+                  "children": [
+                    {
+                      "component": "NavigationMenu.Trigger",
+                      "children": [
+                        "Customers"
+                      ]
+                    },
+                    {
+                      "component": "NavigationMenu.Content"
+                    }
+                  ]
+                },
+                {
+                  "component": "NavigationMenu.Item",
+                  "props": {
+                    "value": "partners"
+                  },
+                  "children": [
+                    {
+                      "component": "NavigationMenu.Trigger",
+                      "children": [
+                        "Partners"
+                      ]
+                    },
+                    {
+                      "component": "NavigationMenu.Content"
+                    }
+                  ]
+                },
+                {
+                  "component": "NavigationMenu.Item",
+                  "props": {
+                    "value": "enterprise"
+                  },
+                  "children": [
+                    {
+                      "component": "NavigationMenu.Trigger",
+                      "children": [
+                        "Enterprise"
+                      ]
+                    },
+                    {
+                      "component": "NavigationMenu.Content"
+                    }
+                  ]
+                },
+                {
+                  "component": "NavigationMenu.Indicator"
+                }
+              ]
+            },
+            {
+              "component": "NavigationMenu.Viewport"
+            }
+          ]
+        },
+        "fingerprint": "0b69b0a6",
+        "props": {
+          "activationMode?": "6df6e4",
+          "asChild?": "31e5d9",
+          "defaultValue?": "0bf956",
+          "disableToggle?": "31e5d9",
+          "onValueChange?": "afb072",
+          "orientation?": "b87b41",
+          "value?": "0bf956"
+        }
+      },
+      "NavigationMenu.Trigger": {
+        "as": "forwardRef",
+        "group": "NavigationMenu",
+        "parents": [
+          "NavigationMenu.Root",
+          "NavigationMenu.List",
+          "NavigationMenu.Item"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "Extensibility"
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "NavigationMenu.Viewport": {
+        "as": "forwardRef",
+        "group": "NavigationMenu",
+        "parents": [
+          "NavigationMenu.Root"
+        ],
+        "parentsFrom": "example",
+        "fingerprint": "6fbe6a09",
+        "props": {
+          "asChild?": "31e5d9",
+          "forceMount?": "a887f0"
+        }
+      },
+      "Popover.Anchor": {
+        "as": "forwardRef",
+        "group": "Popover",
+        "parents": [
+          "Popover.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "Item",
+            {
+              "component": "Popover.Trigger",
+              "children": [
+                "open"
+              ]
+            }
+          ]
+        },
+        "fingerprint": "2db03439",
+        "props": {
+          "asChild?": "31e5d9",
+          "virtualRef?": "9b8d80"
+        }
+      },
+      "Popover.Arrow": {
+        "as": "forwardRef",
+        "group": "Popover",
+        "parents": [
+          "Popover.Root",
+          "Popover.Portal",
+          "Popover.Content"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "width": 20,
+            "height": 10,
+            "offset": 10
+          }
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Popover.Close": {
+        "as": "forwardRef",
+        "group": "Popover",
+        "parents": [
+          "Popover.Root",
+          "Popover.Portal",
+          "Popover.Content"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "close"
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Popover.Content": {
+        "as": "forwardRef",
+        "group": "Popover",
+        "parents": [
+          "Popover.Root",
+          "Popover.Portal"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "sideOffset": 5
+          },
+          "children": [
+            {
+              "component": "Popover.Root",
+              "children": [
+                {
+                  "component": "Popover.Trigger",
+                  "children": [
+                    "Open nested popover"
+                  ]
+                },
+                {
+                  "component": "Popover.Portal",
+                  "children": [
+                    {
+                      "component": "Popover.Content",
+                      "props": {
+                        "side": "top",
+                        "align": "center",
+                        "sideOffset": 5
+                      },
+                      "children": [
+                        {
+                          "component": "Popover.Close"
+                        },
+                        {
+                          "component": "Popover.Arrow",
+                          "props": {
+                            "width": 20,
+                            "height": 10,
+                            "offset": 20
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "Popover.Close",
+              "children": [
+                "close"
+              ]
+            },
+            {
+              "component": "Popover.Arrow",
+              "props": {
+                "width": 20,
+                "height": 10,
+                "offset": 20
+              }
+            }
+          ]
+        },
+        "fingerprint": "d477d37b",
+        "props": {
+          "align?": "e726e5",
+          "alignOffset?": "2d4737",
+          "arrowPadding?": "2d4737",
+          "asChild?": "31e5d9",
+          "avoidCollisions?": "31e5d9",
+          "collisionBoundary?": "8744b5",
+          "collisionPadding?": "d4cfd8",
+          "deferPointerDownOutside?": "31e5d9",
+          "forceMount?": "a887f0",
+          "hideWhenDetached?": "31e5d9",
+          "onCloseAutoFocus?": "8249b3",
+          "onEscapeKeyDown?": "116e58",
+          "onFocusOutside?": "e78547",
+          "onInteractOutside?": "1e5eb6",
+          "onOpenAutoFocus?": "8249b3",
+          "onPointerDownOutside?": "8bb37e",
+          "side?": "f2ab84",
+          "sideOffset?": "2d4737",
+          "sticky?": "9adf72",
+          "updatePositionStrategy?": "0e5ccb"
+        }
+      },
+      "Popover.Description": {
+        "as": "forwardRef",
+        "group": "Popover",
+        "parents": [
+          "Popover.Root",
+          "Popover.Portal",
+          "Popover.Content"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "Choose how you receive notifications."
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Popover.Portal": {
+        "as": "function",
+        "group": "Popover",
+        "parents": [
+          "Popover.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "component": "Popover.Content",
+              "props": {
+                "sideOffset": 5
+              },
+              "children": [
+                {
+                  "component": "Popover.Root",
+                  "children": [
+                    {
+                      "component": "Popover.Trigger",
+                      "children": [
+                        "Open nested popover"
+                      ]
+                    },
+                    {
+                      "component": "Popover.Portal",
+                      "children": [
+                        {
+                          "component": "Popover.Content",
+                          "props": {
+                            "side": "top",
+                            "align": "center",
+                            "sideOffset": 5
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "Popover.Close",
+                  "children": [
+                    "close"
+                  ]
+                },
+                {
+                  "component": "Popover.Arrow",
+                  "props": {
+                    "width": 20,
+                    "height": 10,
+                    "offset": 20
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "51ac84a8",
+        "props": {
+          "children?": "75c961",
+          "container?": "42487d",
+          "forceMount?": "a887f0"
+        }
+      },
+      "Popover.Root": {
+        "as": "function",
+        "group": "Popover",
+        "sample": {
+          "children": [
+            {
+              "component": "Popover.Trigger",
+              "children": [
+                "open"
+              ]
+            },
+            {
+              "component": "Popover.Portal",
+              "children": [
+                {
+                  "component": "Popover.Content",
+                  "props": {
+                    "sideOffset": 5
+                  },
+                  "children": [
+                    {
+                      "component": "Popover.Title",
+                      "children": [
+                        "Notifications"
+                      ]
+                    },
+                    {
+                      "component": "Popover.Description",
+                      "children": [
+                        "Choose how you receive notifications."
+                      ]
+                    },
+                    {
+                      "component": "Popover.Close",
+                      "children": [
+                        "close"
+                      ]
+                    },
+                    {
+                      "component": "Popover.Arrow",
+                      "props": {
+                        "width": 20,
+                        "height": 10
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "7d9a3e94",
+        "props": {
+          "children?": "75c961",
+          "defaultOpen?": "31e5d9",
+          "modal?": "31e5d9",
+          "onOpenChange?": "f73e3e",
+          "open?": "31e5d9"
+        }
+      },
+      "Popover.Title": {
+        "as": "forwardRef",
+        "group": "Popover",
+        "parents": [
+          "Popover.Root",
+          "Popover.Portal",
+          "Popover.Content"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "Notifications"
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Popover.Trigger": {
+        "as": "forwardRef",
+        "group": "Popover",
+        "parents": [
+          "Popover.Root"
+        ],
+        "parentsFrom": "example",
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Portal.Root": {
+        "as": "forwardRef",
+        "group": "Portal",
+        "sample": {
+          "children": [
+            "This content is rendered in a portal (another DOM tree)",
+            "Because of the portal, it can appear in a different DOM tree"
+          ]
+        },
+        "fingerprint": "9b7f1046",
+        "props": {
+          "asChild?": "31e5d9",
+          "container?": "42487d"
+        }
+      },
+      "Progress.Indicator": {
+        "as": "forwardRef",
+        "group": "Progress",
+        "parents": [
+          "Progress.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "/"
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Progress.Root": {
+        "as": "forwardRef",
+        "group": "Progress",
+        "sample": {
+          "props": {
+            "value": 0
+          },
+          "children": [
+            {
+              "component": "Progress.Indicator",
+              "children": [
+                "/"
+              ]
+            }
+          ]
+        },
+        "fingerprint": "6b313fd2",
+        "props": {
+          "asChild?": "31e5d9",
+          "getValueLabel?": "e845ff",
+          "max?": "2d4737",
+          "value?": "fedf4d"
+        }
+      },
+      "RadioGroup.Indicator": {
+        "as": "forwardRef",
+        "group": "RadioGroup",
+        "parents": [
+          "RadioGroup.Root",
+          "RadioGroup.Item"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "forceMount": true
+          }
+        },
+        "fingerprint": "6fbe6a09",
+        "props": {
+          "asChild?": "31e5d9",
+          "forceMount?": "a887f0"
+        }
+      },
+      "RadioGroup.Item": {
+        "as": "forwardRef",
+        "group": "RadioGroup",
+        "parents": [
+          "RadioGroup.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "value": "2",
+            "disabled": true
+          },
+          "children": [
+            {
+              "component": "RadioGroup.Indicator"
+            }
+          ]
+        },
+        "fingerprint": "0220e2f1",
+        "props": {
+          "asChild?": "31e5d9",
+          "checked?": "31e5d9",
+          "required?": "31e5d9",
+          "value": "ecb252"
+        }
+      },
+      "RadioGroup.Root": {
+        "as": "forwardRef",
+        "group": "RadioGroup",
+        "sample": {
+          "props": {
+            "defaultValue": "3"
+          },
+          "children": [
+            {
+              "component": "RadioGroup.Item",
+              "props": {
+                "value": "1",
+                "disabled": true
+              },
+              "children": [
+                {
+                  "component": "RadioGroup.Indicator"
+                }
+              ]
+            },
+            {
+              "component": "RadioGroup.Item",
+              "props": {
+                "value": "2",
+                "disabled": true
+              },
+              "children": [
+                {
+                  "component": "RadioGroup.Indicator"
+                }
+              ]
+            },
+            {
+              "component": "RadioGroup.Item",
+              "props": {
+                "value": "3",
+                "disabled": true
+              },
+              "children": [
+                {
+                  "component": "RadioGroup.Indicator"
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "11cb170a",
+        "props": {
+          "asChild?": "31e5d9",
+          "defaultValue?": "0bf956",
+          "dir?": "24c660",
+          "disabled?": "31e5d9",
+          "form?": "0bf956",
+          "loop?": "31e5d9",
+          "name?": "0bf956",
+          "onValueChange?": "afb072",
+          "orientation?": "b87b41",
+          "required?": "31e5d9",
+          "value?": "ecd0ef"
+        }
+      },
+      "ScrollArea.Content": {
+        "as": "forwardRef",
+        "group": "ScrollArea",
+        "parents": [
+          "ScrollArea.Root",
+          "ScrollArea.Viewport"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "ScrollArea.Corner": {
+        "as": "forwardRef",
+        "group": "ScrollArea",
+        "parents": [
+          "ScrollArea.Root"
+        ],
+        "parentsFrom": "example",
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "ScrollArea.Root": {
+        "as": "forwardRef",
+        "group": "ScrollArea",
+        "sample": {
+          "props": {
+            "type": "auto",
+            "data-testid": "root"
+          },
+          "children": [
+            {
+              "component": "ScrollArea.Viewport",
+              "props": {
+                "disableImplicitContentElement": true
+              },
+              "children": [
+                {
+                  "component": "ScrollArea.Content",
+                  "children": [
+                    "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "ScrollArea.Scrollbar",
+              "props": {
+                "orientation": "vertical"
+              },
+              "children": [
+                {
+                  "component": "ScrollArea.Thumb"
+                }
+              ]
+            },
+            {
+              "component": "ScrollArea.Scrollbar",
+              "props": {
+                "orientation": "horizontal"
+              },
+              "children": [
+                {
+                  "component": "ScrollArea.Thumb"
+                }
+              ]
+            },
+            {
+              "component": "ScrollArea.Corner"
+            }
+          ]
+        },
+        "fingerprint": "2028cdf9",
+        "props": {
+          "asChild?": "31e5d9",
+          "dir?": "24c660",
+          "scrollHideDelay?": "2d4737",
+          "type?": "bbfba6"
+        }
+      },
+      "ScrollArea.Scrollbar": {
+        "as": "forwardRef",
+        "group": "ScrollArea",
+        "parents": [
+          "ScrollArea.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "orientation": "vertical"
+          },
+          "children": [
+            {
+              "component": "ScrollArea.Thumb"
+            }
+          ]
+        },
+        "fingerprint": "93c98811",
+        "props": {
+          "asChild?": "31e5d9",
+          "forceMount?": "a887f0",
+          "orientation?": "b87b41"
+        }
+      },
+      "ScrollArea.Thumb": {
+        "as": "forwardRef",
+        "group": "ScrollArea",
+        "parents": [
+          "ScrollArea.Root",
+          "ScrollArea.Scrollbar"
+        ],
+        "parentsFrom": "example",
+        "fingerprint": "6fbe6a09",
+        "props": {
+          "asChild?": "31e5d9",
+          "forceMount?": "a887f0"
+        }
+      },
+      "ScrollArea.Viewport": {
+        "as": "forwardRef",
+        "group": "ScrollArea",
+        "parents": [
+          "ScrollArea.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "disableImplicitContentElement": true
+          },
+          "children": [
+            {
+              "component": "ScrollArea.Content",
+              "children": [
+                "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
+              ]
+            }
+          ]
+        },
+        "fingerprint": "6bca5a56",
+        "props": {
+          "asChild?": "31e5d9",
+          "disableImplicitContentElement?": "31e5d9",
+          "nonce?": "0bf956"
+        }
+      },
+      "Select.Arrow": {
+        "as": "forwardRef",
+        "group": "Select",
+        "parents": [
+          "Select.Root",
+          "Select.Portal",
+          "Select.Content"
+        ],
+        "parentsFrom": "example",
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Select.Content": {
+        "as": "forwardRef",
+        "group": "Select",
+        "parents": [
+          "Select.Root",
+          "Select.Portal"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "sideOffset": 5
+          },
+          "children": [
+            {
+              "component": "Select.Viewport",
+              "children": [
+                {
+                  "component": "Select.Item",
+                  "props": {
+                    "value": ""
+                  },
+                  "children": [
+                    {
+                      "component": "Select.ItemText",
+                      "children": [
+                        "None"
+                      ]
+                    },
+                    {
+                      "component": "Select.ItemIndicator"
+                    }
+                  ]
+                },
+                {
+                  "component": "Select.Item",
+                  "props": {
+                    "value": "one"
+                  },
+                  "children": [
+                    {
+                      "component": "Select.ItemText",
+                      "children": [
+                        "One"
+                      ]
+                    },
+                    {
+                      "component": "Select.ItemIndicator"
+                    }
+                  ]
+                },
+                {
+                  "component": "Select.Item",
+                  "props": {
+                    "value": "two"
+                  },
+                  "children": [
+                    {
+                      "component": "Select.ItemText",
+                      "children": [
+                        "Two"
+                      ]
+                    },
+                    {
+                      "component": "Select.ItemIndicator"
+                    }
+                  ]
+                },
+                {
+                  "component": "Select.Item",
+                  "props": {
+                    "value": "three"
+                  },
+                  "children": [
+                    {
+                      "component": "Select.ItemText",
+                      "children": [
+                        "Three"
+                      ]
+                    },
+                    {
+                      "component": "Select.ItemIndicator"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "Select.Arrow"
+            }
+          ]
+        },
+        "fingerprint": "740c499b",
+        "props": {
+          "align?": "e726e5",
+          "alignOffset?": "2d4737",
+          "arrowPadding?": "2d4737",
+          "asChild?": "31e5d9",
+          "avoidCollisions?": "31e5d9",
+          "collisionBoundary?": "8744b5",
+          "collisionPadding?": "d4cfd8",
+          "forceMount?": "a887f0",
+          "hideWhenDetached?": "31e5d9",
+          "onCloseAutoFocus?": "8249b3",
+          "onEscapeKeyDown?": "116e58",
+          "onPointerDownOutside?": "8bb37e",
+          "position?": "1d57ac",
+          "side?": "f2ab84",
+          "sideOffset?": "2d4737",
+          "sticky?": "9adf72",
+          "updatePositionStrategy?": "0e5ccb"
+        }
+      },
+      "Select.Group": {
+        "as": "forwardRef",
+        "group": "Select",
+        "parents": [
+          "Select.Root",
+          "Select.Portal",
+          "Select.Content",
+          "Select.Viewport"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "component": "Select.Label"
+            }
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Select.Icon": {
+        "as": "forwardRef",
+        "group": "Select",
+        "parents": [
+          "Select.Root",
+          "Select.Trigger"
+        ],
+        "parentsFrom": "example",
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Select.Item": {
+        "as": "forwardRef",
+        "group": "Select",
+        "parents": [
+          "Select.Root",
+          "Select.Portal",
+          "Select.Content",
+          "Select.Viewport"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "value": "one"
+          },
+          "children": [
+            {
+              "component": "Select.ItemText",
+              "children": [
+                "One",
+                "👍"
+              ]
+            },
+            {
+              "component": "Select.ItemIndicator"
+            }
+          ]
+        },
+        "fingerprint": "257e8fae",
+        "props": {
+          "asChild?": "31e5d9",
+          "disabled?": "31e5d9",
+          "textValue?": "0bf956",
+          "value": "ecb252"
+        }
+      },
+      "Select.ItemIndicator": {
+        "as": "forwardRef",
+        "group": "Select",
+        "parents": [
+          "Select.Root",
+          "Select.Portal",
+          "Select.Content",
+          "Select.Viewport",
+          "Select.Item"
+        ],
+        "parentsFrom": "example",
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Select.ItemText": {
+        "as": "forwardRef",
+        "group": "Select",
+        "parents": [
+          "Select.Root",
+          "Select.Portal",
+          "Select.Content",
+          "Select.Viewport",
+          "Select.Item"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "One",
+            "👍"
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Select.Label": {
+        "as": "forwardRef",
+        "group": "Select",
+        "parents": [
+          "Select.Root",
+          "Select.Portal",
+          "Select.Content",
+          "Select.Viewport",
+          "Select.Group"
+        ],
+        "parentsFrom": "example",
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Select.Portal": {
+        "as": "function",
+        "group": "Select",
+        "parents": [
+          "Select.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "component": "Select.Content",
+              "props": {
+                "sideOffset": 5
+              },
+              "children": [
+                {
+                  "component": "Select.Viewport",
+                  "children": [
+                    {
+                      "component": "Select.Item",
+                      "props": {
+                        "value": ""
+                      },
+                      "children": [
+                        {
+                          "component": "Select.ItemText"
+                        },
+                        {
+                          "component": "Select.ItemIndicator"
+                        }
+                      ]
+                    },
+                    {
+                      "component": "Select.Item",
+                      "props": {
+                        "value": "one"
+                      },
+                      "children": [
+                        {
+                          "component": "Select.ItemText"
+                        },
+                        {
+                          "component": "Select.ItemIndicator"
+                        }
+                      ]
+                    },
+                    {
+                      "component": "Select.Item",
+                      "props": {
+                        "value": "two"
+                      },
+                      "children": [
+                        {
+                          "component": "Select.ItemText"
+                        },
+                        {
+                          "component": "Select.ItemIndicator"
+                        }
+                      ]
+                    },
+                    {
+                      "component": "Select.Item",
+                      "props": {
+                        "value": "three"
+                      },
+                      "children": [
+                        {
+                          "component": "Select.ItemText"
+                        },
+                        {
+                          "component": "Select.ItemIndicator"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "Select.Arrow"
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "51ac84a8",
+        "props": {
+          "children?": "75c961",
+          "container?": "42487d",
+          "forceMount?": "a887f0"
+        }
+      },
+      "Select.Root": {
+        "as": "function",
+        "group": "Select",
+        "sample": {
+          "props": {
+            "defaultValue": "two"
+          },
+          "children": [
+            {
+              "component": "Select.Trigger",
+              "children": [
+                {
+                  "component": "Select.Value",
+                  "props": {
+                    "placeholder": "Pick an option"
+                  }
+                },
+                {
+                  "component": "Select.Icon"
+                }
+              ]
+            },
+            {
+              "component": "Select.Portal",
+              "children": [
+                {
+                  "component": "Select.Content",
+                  "props": {
+                    "sideOffset": 5
+                  },
+                  "children": [
+                    {
+                      "component": "Select.Viewport",
+                      "children": [
+                        {
+                          "component": "Select.Item",
+                          "props": {
+                            "value": ""
+                          }
+                        },
+                        {
+                          "component": "Select.Item",
+                          "props": {
+                            "value": "one"
+                          }
+                        },
+                        {
+                          "component": "Select.Item",
+                          "props": {
+                            "value": "two"
+                          }
+                        },
+                        {
+                          "component": "Select.Item",
+                          "props": {
+                            "value": "three"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "component": "Select.Arrow"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "f3289942",
+        "props": {
+          "autoComplete?": "0bf956",
+          "children?": "75c961",
+          "defaultOpen?": "31e5d9",
+          "defaultValue?": "0bf956",
+          "dir?": "24c660",
+          "disabled?": "31e5d9",
+          "form?": "0bf956",
+          "name?": "0bf956",
+          "onOpenChange?": "f73e3e",
+          "onValueChange?": "afb072",
+          "open?": "31e5d9",
+          "required?": "31e5d9",
+          "value?": "0bf956"
+        }
+      },
+      "Select.ScrollDownButton": {
+        "as": "forwardRef",
+        "group": "Select",
+        "parents": [
+          "Select.Root",
+          "Select.Portal",
+          "Select.Content"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "▼"
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Select.ScrollUpButton": {
+        "as": "forwardRef",
+        "group": "Select",
+        "parents": [
+          "Select.Root",
+          "Select.Portal",
+          "Select.Content"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "▲"
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Select.Separator": {
+        "as": "forwardRef",
+        "group": "Select",
+        "parents": [
+          "Select.Root",
+          "Select.Portal",
+          "Select.Content",
+          "Select.Viewport"
+        ],
+        "parentsFrom": "example",
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Select.Trigger": {
+        "as": "forwardRef",
+        "group": "Select",
+        "parents": [
+          "Select.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "aria-label": "pick a food"
+          },
+          "children": [
+            {
+              "component": "Select.Value",
+              "props": {
+                "placeholder": "Pick a food"
+              }
+            },
+            {
+              "component": "Select.Icon"
+            }
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Select.Value": {
+        "as": "forwardRef",
+        "group": "Select",
+        "parents": [
+          "Select.Root",
+          "Select.Trigger"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "placeholder": "Pick an option"
+          }
+        },
+        "fingerprint": "164c41b1",
+        "props": {
+          "asChild?": "31e5d9",
+          "placeholder?": "75c961"
+        }
+      },
+      "Select.Viewport": {
+        "as": "forwardRef",
+        "group": "Select",
+        "parents": [
+          "Select.Root",
+          "Select.Portal",
+          "Select.Content"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "component": "Select.Item",
+              "props": {
+                "value": ""
+              },
+              "children": [
+                {
+                  "component": "Select.ItemText",
+                  "children": [
+                    "None"
+                  ]
+                },
+                {
+                  "component": "Select.ItemIndicator"
+                }
+              ]
+            },
+            {
+              "component": "Select.Item",
+              "props": {
+                "value": "one"
+              },
+              "children": [
+                {
+                  "component": "Select.ItemText",
+                  "children": [
+                    "One"
+                  ]
+                },
+                {
+                  "component": "Select.ItemIndicator"
+                }
+              ]
+            },
+            {
+              "component": "Select.Item",
+              "props": {
+                "value": "two"
+              },
+              "children": [
+                {
+                  "component": "Select.ItemText",
+                  "children": [
+                    "Two"
+                  ]
+                },
+                {
+                  "component": "Select.ItemIndicator"
+                }
+              ]
+            },
+            {
+              "component": "Select.Item",
+              "props": {
+                "value": "three"
+              },
+              "children": [
+                {
+                  "component": "Select.ItemText",
+                  "children": [
+                    "Three"
+                  ]
+                },
+                {
+                  "component": "Select.ItemIndicator"
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "0dc1943c",
+        "props": {
+          "asChild?": "31e5d9",
+          "nonce?": "0bf956"
+        }
+      },
+      "Separator.Root": {
+        "as": "forwardRef",
+        "group": "Separator",
+        "sample": {
+          "props": {
+            "orientation": "horizontal",
+            "decorative": true
+          }
+        },
+        "fingerprint": "5ac7fc8b",
+        "props": {
+          "asChild?": "31e5d9",
+          "decorative?": "31e5d9",
+          "orientation?": "b87b41"
+        }
+      },
+      "Slider.Range": {
+        "as": "forwardRef",
+        "group": "Slider",
+        "parents": [
+          "Slider.Root",
+          "Slider.Track"
+        ],
+        "parentsFrom": "example",
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Slider.Root": {
+        "as": "forwardRef",
+        "group": "Slider",
+        "sample": {
+          "props": {
+            "minStepsBetweenThumbs": 10,
+            "preserveThumbOrder": true
+          },
+          "children": [
+            {
+              "component": "Slider.Track",
+              "children": [
+                {
+                  "component": "Slider.Range"
+                }
+              ]
+            },
+            {
+              "component": "Slider.Thumb"
+            },
+            {
+              "component": "Slider.Thumb"
+            },
+            {
+              "component": "Slider.Thumb"
+            }
+          ]
+        },
+        "fingerprint": "4625fca7",
+        "props": {
+          "asChild?": "31e5d9",
+          "defaultValue?": "257806",
+          "dir?": "24c660",
+          "disabled?": "31e5d9",
+          "form?": "0bf956",
+          "inverted?": "31e5d9",
+          "max?": "2d4737",
+          "min?": "2d4737",
+          "minStepsBetweenThumbs?": "2d4737",
+          "name?": "0bf956",
+          "onValueChange?": "b8b4c9",
+          "onValueCommit?": "b8b4c9",
+          "orientation?": "b87b41",
+          "preserveThumbOrder?": "31e5d9",
+          "step?": "2d4737",
+          "value?": "257806"
+        }
+      },
+      "Slider.Thumb": {
+        "as": "forwardRef",
+        "group": "Slider",
+        "parents": [
+          "Slider.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "name": "price[min]"
+          }
+        },
+        "fingerprint": "9ecf581a",
+        "props": {
+          "asChild?": "31e5d9",
+          "name?": "0bf956"
+        }
+      },
+      "Slider.Track": {
+        "as": "forwardRef",
+        "group": "Slider",
+        "parents": [
+          "Slider.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "component": "Slider.Range"
+            }
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Slot.Root": {
+        "as": "forwardRef",
+        "group": "Slot",
+        "fingerprint": "2a9c677d"
+      },
+      "Slot.Slottable": {
+        "as": "function",
+        "group": "Slot",
+        "parents": [
+          "Slot.Root"
+        ],
+        "parentsFrom": "namespace",
+        "sample": {
+          "props": {
+            "children": "Text"
+          }
+        },
+        "fingerprint": "28342872",
+        "props": {
+          "children": "f31403"
+        }
+      },
+      "Switch.Root": {
+        "as": "forwardRef",
+        "group": "Switch",
+        "sample": {
+          "props": {
+            "name": "uncontrolled",
+            "defaultChecked": true
+          },
+          "children": [
+            {
+              "component": "Switch.Thumb"
+            }
+          ]
+        },
+        "fingerprint": "83bf46e6",
+        "props": {
+          "asChild?": "31e5d9",
+          "checked?": "31e5d9",
+          "defaultChecked?": "31e5d9",
+          "onCheckedChange?": "a8259f",
+          "required?": "31e5d9"
+        }
+      },
+      "Switch.Thumb": {
+        "as": "forwardRef",
+        "group": "Switch",
+        "parents": [
+          "Switch.Root"
+        ],
+        "parentsFrom": "example",
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Tabs.Content": {
+        "as": "forwardRef",
+        "group": "Tabs",
+        "parents": [
+          "Tabs.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "value": "tab1",
+            "forceMount": true
+          },
+          "children": [
+            "Tab 1 content"
+          ]
+        },
+        "fingerprint": "f07f817d",
+        "props": {
+          "asChild?": "31e5d9",
+          "forceMount?": "a887f0",
+          "value": "ecb252"
+        }
+      },
+      "Tabs.List": {
+        "as": "forwardRef",
+        "group": "Tabs",
+        "parents": [
+          "Tabs.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "aria-label": "tabs example"
+          },
+          "children": [
+            {
+              "component": "Tabs.Trigger",
+              "props": {
+                "value": "tab1"
+              },
+              "children": [
+                "Tab 1"
+              ]
+            },
+            {
+              "component": "Tabs.Trigger",
+              "props": {
+                "value": "tab2",
+                "disabled": true
+              },
+              "children": [
+                "Tab 2"
+              ]
+            },
+            {
+              "component": "Tabs.Trigger",
+              "props": {
+                "value": "tab3"
+              },
+              "children": [
+                "Tab 3"
+              ]
+            }
+          ]
+        },
+        "fingerprint": "f042af55",
+        "props": {
+          "asChild?": "31e5d9",
+          "loop?": "31e5d9"
+        }
+      },
+      "Tabs.Root": {
+        "as": "forwardRef",
+        "group": "Tabs",
+        "sample": {
+          "props": {
+            "defaultValue": "tab1",
+            "orientation": "vertical",
+            "activationMode": "manual"
+          },
+          "children": [
+            {
+              "component": "Tabs.List",
+              "props": {
+                "aria-label": "tabs example"
+              },
+              "children": [
+                {
+                  "component": "Tabs.Trigger",
+                  "props": {
+                    "value": "tab1"
+                  },
+                  "children": [
+                    "Tab 1"
+                  ]
+                },
+                {
+                  "component": "Tabs.Trigger",
+                  "props": {
+                    "value": "tab2",
+                    "disabled": true
+                  },
+                  "children": [
+                    "Tab 2"
+                  ]
+                },
+                {
+                  "component": "Tabs.Trigger",
+                  "props": {
+                    "value": "tab3"
+                  },
+                  "children": [
+                    "Tab 3"
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "Tabs.Content",
+              "props": {
+                "value": "tab1"
+              },
+              "children": [
+                "Dis metus rhoncus sit convallis sollicitudin vel cum, hac pu"
+              ]
+            },
+            {
+              "component": "Tabs.Content",
+              "props": {
+                "value": "tab2"
+              },
+              "children": [
+                "You'll never find me!"
+              ]
+            },
+            {
+              "component": "Tabs.Content",
+              "props": {
+                "value": "tab3"
+              },
+              "children": [
+                "Ut nisi elementum metus semper mauris dui fames accumsan aen"
+              ]
+            }
+          ]
+        },
+        "fingerprint": "bb2cdd3f",
+        "props": {
+          "activationMode?": "6df6e4",
+          "asChild?": "31e5d9",
+          "defaultValue?": "0bf956",
+          "dir?": "24c660",
+          "onValueChange?": "afb072",
+          "orientation?": "b87b41",
+          "value?": "0bf956"
+        }
+      },
+      "Tabs.Trigger": {
+        "as": "forwardRef",
+        "group": "Tabs",
+        "parents": [
+          "Tabs.Root",
+          "Tabs.List"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "value": "tab2",
+            "disabled": true
+          },
+          "children": [
+            "Tab 2"
+          ]
+        },
+        "fingerprint": "7cd7ee7f",
+        "props": {
+          "asChild?": "31e5d9",
+          "value": "ecb252"
+        }
+      },
+      "Toast.Action": {
+        "as": "forwardRef",
+        "group": "Toast",
+        "parents": [
+          "Toast.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "altText": "Go and perform an action"
+          },
+          "children": [
+            "Toast button",
+            ".2"
+          ]
+        },
+        "fingerprint": "91628c21",
+        "props": {
+          "altText": "ecb252",
+          "asChild?": "31e5d9"
+        }
+      },
+      "Toast.Close": {
+        "as": "forwardRef",
+        "group": "Toast",
+        "parents": [
+          "Toast.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "aria-label": "Close"
+          },
+          "children": [
+            "Toast button",
+            ".1"
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Toast.Description": {
+        "as": "forwardRef",
+        "group": "Toast",
+        "parents": [
+          "Toast.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "Toast",
+            "description"
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Toast.Provider": {
+        "as": "function",
+        "group": "Toast",
+        "visual": false,
+        "sample": {
+          "children": [
+            {
+              "component": "Toast.Root",
+              "children": [
+                "Toast 1 ×",
+                {
+                  "component": "Toast.Description",
+                  "children": [
+                    "Description"
+                  ]
+                },
+                {
+                  "component": "Toast.Action",
+                  "props": {
+                    "altText": "alternative"
+                  },
+                  "children": [
+                    "Action"
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "Toast.Root",
+              "children": [
+                "Toast 2 ×",
+                {
+                  "component": "Toast.Description",
+                  "children": [
+                    "Description"
+                  ]
+                },
+                {
+                  "component": "Toast.Action",
+                  "props": {
+                    "altText": "alternative"
+                  },
+                  "children": [
+                    "Action"
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "Toast.Viewport"
+            }
+          ]
+        },
+        "fingerprint": "57d8b188",
+        "props": {
+          "announcerContainer?": "623c63",
+          "children?": "75c961",
+          "duration?": "2d4737",
+          "label?": "0bf956",
+          "swipeDirection?": "fcb314",
+          "swipeThreshold?": "2d4737"
+        }
+      },
+      "Toast.Root": {
+        "as": "forwardRef",
+        "group": "Toast",
+        "sample": {
+          "props": {
+            "open": true
+          },
+          "children": [
+            {
+              "component": "Toast.Title",
+              "children": [
+                "Toast",
+                "title"
+              ]
+            },
+            {
+              "component": "Toast.Description",
+              "children": [
+                "Toast",
+                "description"
+              ]
+            },
+            {
+              "component": "Toast.Close",
+              "props": {
+                "aria-label": "Close"
+              },
+              "children": [
+                "Toast button",
+                ".1"
+              ]
+            },
+            {
+              "component": "Toast.Action",
+              "props": {
+                "altText": "Go and perform an action"
+              },
+              "children": [
+                "Toast button",
+                ".2"
+              ]
+            }
+          ]
+        },
+        "fingerprint": "5b455482",
+        "props": {
+          "asChild?": "31e5d9",
+          "defaultOpen?": "31e5d9",
+          "duration?": "2d4737",
+          "forceMount?": "a887f0",
+          "onEscapeKeyDown?": "116e58",
+          "onOpenChange?": "f73e3e",
+          "onPause?": "327874",
+          "onResume?": "327874",
+          "onSwipeCancel?": "a80fa3",
+          "onSwipeEnd?": "a80fa3",
+          "onSwipeMove?": "a80fa3",
+          "onSwipeStart?": "a80fa3",
+          "open?": "31e5d9",
+          "type?": "74a64e"
+        }
+      },
+      "Toast.Title": {
+        "as": "forwardRef",
+        "group": "Toast",
+        "parents": [
+          "Toast.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "Toast",
+            "title"
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Toast.Viewport": {
+        "as": "forwardRef",
+        "group": "Toast",
+        "parents": [
+          "Toast.Root"
+        ],
+        "parentsFrom": "namespace",
+        "fingerprint": "fe1dded6",
+        "props": {
+          "asChild?": "31e5d9",
+          "hotkey?": "61a5ce",
+          "label?": "0bf956"
+        }
+      },
+      "Toggle.Root": {
+        "as": "forwardRef",
+        "group": "Toggle",
+        "sample": {
+          "props": {
+            "defaultPressed": true
+          },
+          "children": [
+            "Toggle"
+          ]
+        },
+        "fingerprint": "6dcea6e3",
+        "props": {
+          "asChild?": "31e5d9",
+          "defaultPressed?": "31e5d9",
+          "onPressedChange?": "9e0a43",
+          "pressed?": "31e5d9"
+        }
+      },
+      "ToggleGroup.Item": {
+        "as": "forwardRef",
+        "group": "ToggleGroup",
+        "parents": [
+          "ToggleGroup.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "value": "3",
+            "disabled": true
+          },
+          "children": [
+            "Option 3"
+          ]
+        },
+        "fingerprint": "7cd7ee7f",
+        "props": {
+          "asChild?": "31e5d9",
+          "value": "ecb252"
+        }
+      },
+      "ToggleGroup.Root": {
+        "as": "forwardRef",
+        "group": "ToggleGroup",
+        "sample": {
+          "props": {
+            "type": "multiple",
+            "disabled": false
+          },
+          "children": [
+            {
+              "component": "ToggleGroup.Item",
+              "props": {
+                "value": "1"
+              },
+              "children": [
+                "Option 1"
+              ]
+            },
+            {
+              "component": "ToggleGroup.Item",
+              "props": {
+                "value": "2",
+                "disabled": true
+              },
+              "children": [
+                "Option 2"
+              ]
+            },
+            {
+              "component": "ToggleGroup.Item",
+              "props": {
+                "value": "3"
+              },
+              "children": [
+                "Option 3"
+              ]
+            },
+            {
+              "component": "ToggleGroup.Item",
+              "props": {
+                "value": "4",
+                "disabled": true
+              },
+              "children": [
+                "Option 4"
+              ]
+            }
+          ]
+        },
+        "fingerprint": "3782ae3c",
+        "props": {
+          "asChild?": "31e5d9",
+          "defaultValue?": "09a470",
+          "dir?": "24c660",
+          "disabled?": "31e5d9",
+          "loop?": "31e5d9",
+          "onValueChange?": "6b75b4",
+          "orientation?": "b87b41",
+          "rovingFocus?": "31e5d9",
+          "type": "44070b",
+          "value?": "09a470"
+        }
+      },
+      "Toolbar.Button": {
+        "as": "forwardRef",
+        "group": "Toolbar",
+        "parents": [
+          "Toolbar.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "disabled": true
+          },
+          "children": [
+            "Button (disabled)"
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Toolbar.Link": {
+        "as": "forwardRef",
+        "group": "Toolbar",
+        "parents": [
+          "Toolbar.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "href": "https://www.w3.org/TR/2019/WD-wai-aria-practices-1.2-20191218/examples/toolbar/toolbar.html",
+            "target": "_blank"
+          },
+          "children": [
+            "Link"
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Toolbar.Root": {
+        "as": "forwardRef",
+        "group": "Toolbar",
+        "sample": {
+          "props": {
+            "loop": true
+          },
+          "children": [
+            {
+              "component": "Toolbar.Button",
+              "children": [
+                "Button"
+              ]
+            },
+            {
+              "component": "Toolbar.Button",
+              "props": {
+                "disabled": true
+              },
+              "children": [
+                "Button (disabled)"
+              ]
+            },
+            {
+              "component": "Toolbar.Separator"
+            },
+            {
+              "component": "Toolbar.Link",
+              "props": {
+                "href": "https://www.w3.org/TR/2019/WD-wai-aria-practices-1.2-20191218/examples/toolbar/toolbar.html",
+                "target": "_blank"
+              },
+              "children": [
+                "Link"
+              ]
+            }
+          ]
+        },
+        "fingerprint": "bb0f77a6",
+        "props": {
+          "asChild?": "31e5d9",
+          "dir?": "24c660",
+          "loop?": "31e5d9",
+          "orientation?": "b87b41"
+        }
+      },
+      "Toolbar.Separator": {
+        "as": "forwardRef",
+        "group": "Toolbar",
+        "parents": [
+          "Toolbar.Root"
+        ],
+        "parentsFrom": "example",
+        "fingerprint": "5ac7fc8b",
+        "props": {
+          "asChild?": "31e5d9",
+          "decorative?": "31e5d9",
+          "orientation?": "b87b41"
+        }
+      },
+      "Toolbar.ToggleGroup": {
+        "as": "forwardRef",
+        "group": "Toolbar",
+        "parents": [
+          "Toolbar.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "type": "single"
+          },
+          "children": [
+            {
+              "component": "Toolbar.ToggleItem",
+              "props": {
+                "value": "left"
+              },
+              "children": [
+                "Left"
+              ]
+            },
+            {
+              "component": "Toolbar.ToggleItem",
+              "props": {
+                "value": "center"
+              },
+              "children": [
+                "Center"
+              ]
+            },
+            {
+              "component": "Toolbar.ToggleItem",
+              "props": {
+                "value": "right"
+              },
+              "children": [
+                "Right"
+              ]
+            }
+          ]
+        },
+        "fingerprint": "3782ae3c",
+        "props": {
+          "asChild?": "31e5d9",
+          "defaultValue?": "09a470",
+          "dir?": "24c660",
+          "disabled?": "31e5d9",
+          "loop?": "31e5d9",
+          "onValueChange?": "6b75b4",
+          "orientation?": "b87b41",
+          "rovingFocus?": "31e5d9",
+          "type": "44070b",
+          "value?": "09a470"
+        }
+      },
+      "Toolbar.ToggleItem": {
+        "as": "forwardRef",
+        "group": "Toolbar",
+        "parents": [
+          "Toolbar.Root",
+          "Toolbar.ToggleGroup"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "value": "left"
+          },
+          "children": [
+            "Left"
+          ]
+        },
+        "fingerprint": "7cd7ee7f",
+        "props": {
+          "asChild?": "31e5d9",
+          "value": "ecb252"
+        }
+      },
+      "Tooltip.Arrow": {
+        "as": "forwardRef",
+        "group": "Tooltip",
+        "parents": [
+          "Tooltip.Root",
+          "Tooltip.Portal",
+          "Tooltip.Content"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "width": 20,
+            "height": 10,
+            "offset": 10
+          }
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "Tooltip.Content": {
+        "as": "forwardRef",
+        "group": "Tooltip",
+        "parents": [
+          "Tooltip.Root",
+          "Tooltip.Portal"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "sideOffset": 5
+          },
+          "children": [
+            "View in",
+            "WorkOS",
+            {
+              "component": "Tooltip.Arrow",
+              "props": {
+                "offset": 10
+              }
+            }
+          ]
+        },
+        "fingerprint": "6be96cfb",
+        "props": {
+          "align?": "e726e5",
+          "alignOffset?": "2d4737",
+          "aria-label?": "0bf956",
+          "arrowPadding?": "2d4737",
+          "asChild?": "31e5d9",
+          "avoidCollisions?": "31e5d9",
+          "collisionBoundary?": "8744b5",
+          "collisionPadding?": "d4cfd8",
+          "forceMount?": "a887f0",
+          "hideWhenDetached?": "31e5d9",
+          "onEscapeKeyDown?": "116e58",
+          "onPointerDownOutside?": "8bb37e",
+          "side?": "f2ab84",
+          "sideOffset?": "2d4737",
+          "sticky?": "9adf72",
+          "updatePositionStrategy?": "0e5ccb"
+        }
+      },
+      "Tooltip.Portal": {
+        "as": "function",
+        "group": "Tooltip",
+        "parents": [
+          "Tooltip.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "component": "Tooltip.Content",
+              "props": {
+                "sideOffset": 5
+              },
+              "children": [
+                "View in",
+                "WorkOS",
+                {
+                  "component": "Tooltip.Arrow",
+                  "props": {
+                    "offset": 10
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "51ac84a8",
+        "props": {
+          "children?": "75c961",
+          "container?": "42487d",
+          "forceMount?": "a887f0"
+        }
+      },
+      "Tooltip.Provider": {
+        "as": "function",
+        "group": "Tooltip",
+        "visual": false,
+        "sample": {
+          "props": {
+            "children": "Text",
+            "delayDuration": 0
+          },
+          "children": [
+            {
+              "component": "Tooltip.Root",
+              "children": [
+                {
+                  "component": "Tooltip.Trigger",
+                  "children": [
+                    "Hover me"
+                  ]
+                },
+                {
+                  "component": "Tooltip.Portal",
+                  "children": [
+                    {
+                      "component": "Tooltip.Content",
+                      "props": {
+                        "sideOffset": 5
+                      },
+                      "children": [
+                        "Nicely done!",
+                        {
+                          "component": "Tooltip.Arrow",
+                          "props": {
+                            "offset": 10
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "Tooltip.Root",
+              "children": [
+                {
+                  "component": "Tooltip.Trigger",
+                  "children": [
+                    "Hover me"
+                  ]
+                },
+                {
+                  "component": "Tooltip.Portal",
+                  "children": [
+                    {
+                      "component": "Tooltip.Content",
+                      "props": {
+                        "sideOffset": 5
+                      },
+                      "children": [
+                        "Nicely done!",
+                        {
+                          "component": "Tooltip.Arrow",
+                          "props": {
+                            "offset": 10
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "Tooltip.Root",
+              "children": [
+                {
+                  "component": "Tooltip.Trigger",
+                  "children": [
+                    "Hover me"
+                  ]
+                },
+                {
+                  "component": "Tooltip.Portal",
+                  "children": [
+                    {
+                      "component": "Tooltip.Content",
+                      "props": {
+                        "sideOffset": 5
+                      },
+                      "children": [
+                        "Nicely done!",
+                        {
+                          "component": "Tooltip.Arrow",
+                          "props": {
+                            "offset": 10
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "fingerprint": "273881bd",
+        "props": {
+          "children": "75c961",
+          "delayDuration?": "2d4737",
+          "disableHoverableContent?": "31e5d9",
+          "skipDelayDuration?": "2d4737"
+        }
+      },
+      "Tooltip.Root": {
+        "as": "function",
+        "group": "Tooltip",
+        "sample": {
+          "children": [
+            {
+              "component": "Tooltip.Portal",
+              "children": [
+                {
+                  "component": "Tooltip.Content",
+                  "props": {
+                    "sideOffset": 5
+                  },
+                  "children": [
+                    "View in",
+                    "WorkOS",
+                    {
+                      "component": "Tooltip.Arrow",
+                      "props": {
+                        "offset": 10
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "Tooltip.Trigger",
+              "children": [
+                "Right start"
+              ]
+            }
+          ]
+        },
+        "fingerprint": "6bec3c00",
+        "props": {
+          "children?": "75c961",
+          "defaultOpen?": "31e5d9",
+          "delayDuration?": "2d4737",
+          "disableHoverableContent?": "31e5d9",
+          "onOpenChange?": "f73e3e",
+          "open?": "31e5d9"
+        }
+      },
+      "Tooltip.Trigger": {
+        "as": "forwardRef",
+        "group": "Tooltip",
+        "parents": [
+          "Tooltip.Root"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "tabIndex": 0
+          },
+          "children": [
+            "Right start"
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      },
+      "VisuallyHidden.Root": {
+        "as": "forwardRef",
+        "group": "VisuallyHidden",
+        "sample": {
+          "children": [
+            "Save the file"
+          ]
+        },
+        "fingerprint": "efd83dfe",
+        "props": {
+          "asChild?": "31e5d9"
+        }
+      }
+    }
+  },
+  "decorators": [
+    {
+      "wrap": {
+        "import": "radix-ui",
+        "component": "Direction.Provider",
+        "props": {
+          "dir": {
+            "$frame": "dir"
+          }
+        }
+      }
+    },
+    {
+      "wrap": {
+        "import": "radix-ui",
+        "component": "Tooltip.Provider"
+      }
+    },
+    {
+      "wrap": {
+        "import": "radix-ui",
+        "component": "Toast.Provider"
+      }
+    },
+    {
+      "add": {
+        "import": "radix-ui",
+        "component": "Toast.Viewport"
+      }
+    }
+  ]
+}

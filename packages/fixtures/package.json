@@ -1,0 +1,17 @@
+{
+  "name": "@parity/fixtures",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "node src/generate.ts",
+    "install-projects": "node src/generate.ts --install"
+  },
+  "dependencies": {
+    "@parity/builder-vite": "workspace:*",
+    "@parity/core": "workspace:*",
+    "@parity/project": "workspace:*",
+    "@parity/renderer-react": "workspace:*",
+    "@parity/styles-tailwind": "workspace:*"
+  }
+}

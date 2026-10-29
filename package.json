@@ -1,0 +1,30 @@
+{
+  "name": "parity",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "packageManager": "pnpm@12.10.1",
+  "engines": {
+    "node": ">=24",
+    "pnpm": ">=12 <13"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @parity/desktop dev",
+    "inspect": "pnpm --filter @parity/desktop inspect",
+    "perf": "pnpm --filter @parity/desktop perf",
+    "storybook": "pnpm --filter @parity/desktop storybook",
+    "format": "oxfmt",
+    "check:format": "oxfmt --check",
+    "check:lint": "oxlint",
+    "check:types": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "verify": "pnpm check:format && pnpm check:lint && pnpm check:types && pnpm test"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.0",
+    "oxfmt": "^0.75.0",
+    "oxlint": "^1.90.0",
+    "typescript": "7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

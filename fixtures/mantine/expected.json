@@ -1,0 +1,108 @@
+{
+  "opens": true,
+  "renderer": "react",
+  "builder": {
+    "id": "vite",
+    "found": true,
+    "version": "8.3.5",
+    "config": "vite.config.cts",
+    "summary": "Vite 8.3.5, config vite.config.cts"
+  },
+  "packageManager": {
+    "id": "bun",
+    "name": "Bun",
+    "agent": "bun",
+    "from": "bun.lock",
+    "summary": "Bun from bun.lock"
+  },
+  "tools": [
+    {
+      "id": "react",
+      "name": "React",
+      "version": "19.3.1",
+      "from": "node_modules/react",
+      "status": "supported",
+      "summary": "React 19.3.1 from node_modules/react"
+    },
+    {
+      "id": "vite",
+      "name": "Vite",
+      "version": "8.3.5",
+      "from": "node_modules/vite",
+      "config": "vite.config.cts",
+      "status": "supported",
+      "summary": "Vite 8.3.5 from node_modules/vite, config vite.config.cts"
+    }
+  ],
+  "styles": {
+    "stylesheets": [
+      "src/index.css"
+    ],
+    "missing": []
+  },
+  "tokens": {
+    "count": 4,
+    "categories": {
+      "color": 3,
+      "other": 1
+    },
+    "semantic": {
+      "app-accent": {
+        "default": "#4dabf7"
+      },
+      "app-radius": {
+        "default": "12px"
+      },
+      "app-surface": {
+        "default": "#1a1b1e"
+      },
+      "app-text": {
+        "default": "#f1f3f5"
+      }
+    }
+  },
+  "themes": [
+    "default"
+  ],
+  "breakpoints": {
+    "mantine/xs": "576px",
+    "mantine/sm": "768px",
+    "mantine/md": "992px",
+    "mantine/lg": "1200px",
+    "mantine/xl": "1408px"
+  },
+  "components": {
+    "App": {
+      "path": "src/App.tsx",
+      "export": "default",
+      "lazy": true
+    },
+    "ProfileForm": {
+      "path": "src/components/ProfileForm.tsx",
+      "export": "ProfileForm"
+    },
+    "StatCard": {
+      "path": "src/components/StatCard.tsx",
+      "export": "StatCard"
+    }
+  },
+  "libraries": [
+    {
+      "id": "mantine",
+      "package": "@mantine/core",
+      "version": "9.7.3",
+      "stylesImported": true,
+      "components": 291
+    }
+  ],
+  "icons": [],
+  "storybook": null,
+  "notes": [
+    "styles from /src/main.tsx: @mantine/core/styles.css, src/index.css",
+    "the UI kit is in src/components",
+    "3 components in 4 files from tsconfig.app.json",
+    "not read, since they mount the app: src/main.tsx",
+    "291 components from Mantine (@mantine/core)",
+    "no .par project file yet"
+  ]
+}

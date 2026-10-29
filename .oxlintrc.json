@@ -1,0 +1,36 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["eslint", "typescript", "react", "vitest", "jsx-a11y", "import", "oxc", "unicorn", "promise"],
+  "categories": {
+    "correctness": "error"
+  },
+  "options": {
+    "reportUnusedDisableDirectives": "error"
+  },
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/out/**",
+    "**/node_modules/**",
+    "**/coverage/**",
+    "examples/**",
+    "fixtures/**",
+    "packages/fixtures/overlays/**",
+    "*.md"
+  ],
+  "rules": {
+    "typescript/no-explicit-any": "error",
+    "typescript/ban-ts-comment": "error",
+    "typescript/consistent-type-imports": "error",
+    "eslint/no-console": "off"
+  },
+  "overrides": [
+    {
+      "files": ["apps/desktop/src/renderer/components/ui/**"],
+      "rules": {
+        "jsx-a11y/prefer-tag-over-role": "off",
+        "jsx-a11y/click-events-have-key-events": "off",
+        "jsx-a11y/no-noninteractive-element-interactions": "off"
+      }
+    }
+  ]
+}

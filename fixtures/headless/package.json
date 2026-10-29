@@ -1,0 +1,26 @@
+{
+  "name": "headless",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Validation project: Radix Primitives and Base UI, unstyled, with Heroicons and Lucide, npm.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build"
+  },
+  "dependencies": {
+    "@base-ui/react": "^1.9.0",
+    "@heroicons/react": "^2.2.0",
+    "lucide-react": "^1.63.0",
+    "radix-ui": "^1.8.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.5"
+  }
+}

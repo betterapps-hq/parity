@@ -1,0 +1,25 @@
+{
+  "name": "fluent",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Validation project: Fluent UI v9 with Griffel, and Fluent icons, npm.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build"
+  },
+  "dependencies": {
+    "@fluentui/react-components": "^9.75.0",
+    "@fluentui/react-icons": "^2.0.344",
+    "@griffel/shadow-dom": "^0.2.19",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.5"
+  }
+}

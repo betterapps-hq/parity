@@ -1,0 +1,20 @@
+{
+  "name": "@parity/renderer-react",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./guest": "./src/guest.ts"
+  },
+  "dependencies": {
+    "@parity/core": "workspace:*",
+    "typescript": "6.0.3"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  }
+}

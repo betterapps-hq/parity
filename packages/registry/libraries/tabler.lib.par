@@ -1,0 +1,25 @@
+{
+  "version": 3,
+  "id": "tabler",
+  "name": "Tabler Icons",
+  "description": "Over 5,000 outline and filled icons on a 24px grid.",
+  "package": {
+    "name": "@tabler/icons-react",
+    "version": "3.50.0",
+    "range": "^3.0.0"
+  },
+  "icons": {
+    "render": "export",
+    "variants": {
+      "pattern": "^(?<name>Icon.+?)(?<style>Filled)?$",
+      "styles": [
+        "Outline",
+        "Filled"
+      ],
+      "default": {
+        "style": "Outline"
+      }
+    },
+    "count": 6257
+  }
+}

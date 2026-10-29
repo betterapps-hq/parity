@@ -1,0 +1,384 @@
+import { defaultModeSettings, findNode } from "@parity/core"
+import { describe, expect, it } from "vitest"
+import { execute } from "./run.ts"
+import type { AgentEvent, AgentHooks, AgentSnapshot } from "./types.ts"
+
+function snapshot(): AgentSnapshot {
+  return {
+    tab: `tab-${Math.random()}`,
+    components: ["Button", "Card"],
+    tokens: [
+      { name: "background", category: "color", source: "semantic", values: { default: "white", dark: "black" } },
+      { name: "primary", category: "color", source: "semantic", values: { default: "blue" } },
+      { name: "text-2xl", category: "font-size", source: "theme", values: { default: "1.5rem" } }
+    ],
+    theme: [],
+    modes: defaultModeSettings,
+    documents: [
+      {
+        path: "app.par",
+        document: {
+          version: 3,
+          containers: [
+            {
+              id: "signup",
+              name: "Sign up",
+              position: { x: 0, y: 0 },
+              root: {
+                type: "layout",
+                id: "page",
+                name: "Page",
+                children: [
+                  { type: "text", id: "title", name: "Title", text: "Create an account" },
+                  {
+                    type: "component",
+                    id: "submit",
+                    name: "Submit",
+                    component: "Button",
+                    props: { children: "Sign up" }
+                  }
+                ]
+              },
+              states: [{ id: "default", name: "Default" }]
+            }
+          ]
+        }
+      }
+    ],
+    mainDocument: "app.par",
+    props: {
+      Button: {
+        name: "Button",
+        path: "src/components/ui/button.tsx",
+        props: [
+          { name: "variant", kind: "enum", group: "variant", options: ["default", "outline"], default: "default" },
+          { name: "children", kind: "node", group: "own" },
+          { name: "disabled", kind: "boolean", group: "html" }
+        ]
+      }
+    },
+    selection: {},
+    bounds: { "app.par#signup": { x: 0, y: 0, width: 1400, height: 900 } }
+  }
+}
+
+function hooks(events: AgentEvent[] = []): AgentHooks {
+  return {
+    presence: (batch) => events.push(...batch),
+    render: async ({ mode, capture, audit }) => ({
+      width: mode.width,
+      height: 600,
+      nodes: [{ id: "title", x: 0, y: 0, width: mode.width + 10, height: 40 }],
+      overflowsX: mode.width < 500,
+      unknownComponents: [],
+      ...(capture ? { png: "iVBOR" } : {}),
+      ...(audit
+        ? {
+            issues: [
+              {
+                rule: "color-contrast",
+                impact: "serious" as const,
+                help: "Elements must meet minimum color contrast ratio thresholds",
+                helpUrl: "https://dequeuniversity.com/rules/axe/4.14/color-contrast",
+                nodes: [
+                  {
+                    id: "title",
+                    detail: "#999999 on #ffffff is 2.84:1, and 24px text needs 4.5:1.",
+                    contrast: {
+                      foreground: "#999999",
+                      background: "#ffffff",
+                      ratio: 2.84,
+                      required: 4.5,
+                      fontSize: 24,
+                      bold: false
+                    }
+                  },
+                  { id: "frame-root", detail: "Outside any node" },
+                  { id: "submit/label", detail: "Inside an instance" },
+                  { id: "submit/icon", detail: "Inside the same instance" },
+                  { id: "", detail: "Also outside any node" }
+                ]
+              }
+            ]
+          }
+        : {})
+    })
+  }
+}
+
+describe("execute", () => {
+  it("applies every change as one result and shows the work", async () => {
+    const events: AgentEvent[] = []
+    const result = await execute(
+      {
+        label: "Add a hint",
+        code: `hint = Insert("page", {type: "text", name: "Hint", text: "Free forever"}, {index: 1})
+Update("submit", {props: {variant: "outline"}})
+AddState("signup", {name: "Loading", changes: {Submit: {props: {disabled: true}}}})
+Print(Get("page", {depth: 1}).children.length)`
+      },
+      snapshot(),
+      hooks(events)
+    )
+    expect(result.ok).toBe(true)
+    expect(result.output).toEqual(["3"])
+    expect(result.created.Hint).toMatch(/^[a-zA-Z0-9]{5}$/)
+    const container = result.changes.documents[0]!.document.containers[0]!
+    expect(findNode(container.root, "submit")).toMatchObject({ props: { children: "Sign up", variant: "outline" } })
+    expect(container.states[1]).toEqual({
+      id: "loading",
+      name: "Loading",
+      overrides: { submit: { props: { disabled: true } } }
+    })
+    expect(events[0]).toMatchObject({ kind: "start", label: "Add a hint" })
+    expect(events.some((event) => event.kind === "write" && event.node === "submit")).toBe(true)
+    expect(events.at(-1)).toMatchObject({ kind: "end" })
+  })
+
+  it("changes nothing when the snippet fails, and retries with edits", async () => {
+    const shared = snapshot()
+    const failed = await execute(
+      { label: "Broken", code: `Update("submit", {props: {variant: "ghost"}})\nUpdate("missing", {text: "x"})` },
+      shared,
+      hooks()
+    )
+    expect(failed.ok).toBe(false)
+    expect(failed.error).toContain(`No node "missing"`)
+    expect(failed.error).toContain("line 2")
+    expect(failed.changes.documents).toEqual([])
+
+    const retried = await execute(
+      { label: "Fixed", editId: failed.editId, edits: [{ find: "missing", replace: "title" }] },
+      shared,
+      hooks()
+    )
+    expect(retried.ok).toBe(true)
+    expect(findNode(retried.changes.documents[0]!.document.containers[0]!.root, "title")).toMatchObject({ text: "x" })
+  })
+
+  it("keeps globals between calls in the same tab", async () => {
+    const shared = snapshot()
+    await execute({ label: "One", code: "saved = 41" }, shared, hooks())
+    const result = await execute({ label: "Two", code: "Print(saved + 1)" }, shared, hooks())
+    expect(result.output).toEqual(["42"])
+  })
+
+  it("creates designs in the project file, placed in empty space", async () => {
+    const result = await execute(
+      {
+        label: "New screen",
+        code: `id = CreateDesign({name: "Pricing", root: {type: "layout", name: "Page", style: {background: "background"}, children: [{type: "text", text: "Plans", style: {size: "text-2xl"}}]}})
+Print(id, FindEmptySpace({width: 100, height: 100}).x > 1400)`
+      },
+      snapshot(),
+      hooks()
+    )
+    expect(result.ok).toBe(true)
+    expect(result.output).toEqual(["pricing true"])
+    const created = result.changes.documents.find((entry) => entry.path === "app.par")
+    expect(created?.document.containers.map((container) => container.id)).toEqual(["signup", "pricing"])
+    expect(created?.document.containers[1]).toMatchObject({
+      id: "pricing",
+      kind: "screen",
+      position: { x: 1640, y: 0 }
+    })
+  })
+
+  it("shows a move as a drag, and warns when a moved board lands on another", async () => {
+    const events: AgentEvent[] = []
+    const result = await execute(
+      {
+        label: "Tidy up",
+        code: `CreateDesign({name: "Pricing", x: 2000, y: 0})
+UpdateDesign("pricing", {x: 600, y: 300})
+Print(JSON.stringify(Overlaps("signup")))`
+      },
+      snapshot(),
+      hooks(events)
+    )
+    expect(result.ok).toBe(true)
+    expect(events.filter((event) => event.design === "app.par#pricing").map((event) => event.kind)).toEqual([
+      "write",
+      "move"
+    ])
+    expect(events.find((event) => event.kind === "move")).toMatchObject({
+      from: { x: 2000, y: 0 },
+      to: { x: 600, y: 300 }
+    })
+    expect(JSON.parse(result.output[0]!)).toEqual([
+      { designs: ["signup", "pricing"], names: ["Sign up", "Pricing"], width: 800, height: 760, estimated: true }
+    ])
+    expect(result.warnings).toContainEqual(expect.stringContaining("Sign up (signup) overlaps Pricing (pricing)"))
+  })
+
+  it("counts a board's title as part of it", async () => {
+    const result = await execute(
+      {
+        label: "Stack",
+        code: `CreateDesign({name: "Below", x: 0, y: 1000})
+Print(JSON.stringify(Overlaps("below")))`
+      },
+      snapshot(),
+      hooks()
+    )
+    expect(JSON.parse(result.output[0]!)).toMatchObject([{ designs: ["signup", "below"], titleOnly: true }])
+    expect(result.warnings).toContainEqual(expect.stringContaining("is too close to"))
+  })
+
+  it("doesn't warn about overlaps the call didn't touch", async () => {
+    const base = snapshot()
+    const document = base.documents[0]!.document
+    document.containers.push({ ...document.containers[0]!, id: "copy", name: "Copy", position: { x: 100, y: 100 } })
+    const result = await execute({ label: "Look", code: `Print(Overlaps().length)` }, base, hooks())
+    expect(result.output).toEqual(["1"])
+    expect(result.warnings.filter((warning) => warning.includes("overlaps"))).toEqual([])
+  })
+
+  it("warns about unknown components and values that aren't tokens", async () => {
+    const result = await execute(
+      {
+        label: "Off system",
+        code: `Insert("page", {type: "component", component: "Carousel"})\nUpdate("page", {style: {background: "hotpink"}})`
+      },
+      snapshot(),
+      hooks()
+    )
+    expect(result.warnings.join("\n")).toContain(`"Carousel" isn't one of the project's components`)
+    expect(result.warnings.join("\n")).toContain(`background "hotpink" isn't a token`)
+  })
+
+  it("rejects nodes that don't fit the format", async () => {
+    const result = await execute(
+      { label: "Bad", code: `Insert("page", {type: "text", text: "x", fontSize: 12})` },
+      snapshot(),
+      hooks()
+    )
+    expect(result.ok).toBe(false)
+    expect(result.error).toContain("unknown properties fontSize")
+  })
+
+  it("measures, finds problems and screenshots any state in any mode", async () => {
+    const events: AgentEvent[] = []
+    const result = await execute(
+      {
+        label: "Check",
+        code: `const m = await Measure("signup", {mode: "mobile-light"})
+Print(m.width, m.nodes[0].name)
+Print((await Problems("signup", {mode: "all"})).length)
+Print(await Screenshot("signup", {mode: ["desktop-light", "tablet-light"]}))`
+      },
+      snapshot(),
+      hooks(events)
+    )
+    expect(result.ok).toBe(true)
+    expect(result.output[0]).toBe("390 Title")
+    // Every mode's title is wider than its viewport, and the mobile frame also overflows.
+    expect(result.output[1]).toBe("5")
+    expect(result.output[2]).toBe("2")
+    expect(result.screenshots.map((shot) => shot.mode)).toEqual(["desktop-light", "tablet-light"])
+    // Each look shows as what it is, so the agent's cursor can say so.
+    const looks = new Set(events.filter((event) => event.design).map((event) => event.kind))
+    expect(looks).toEqual(new Set(["measure", "problems", "screenshot"]))
+  })
+
+  it("checks accessibility in each mode, naming the layers", async () => {
+    const events: AgentEvent[] = []
+    const result = await execute(
+      {
+        label: "Check",
+        code: `Print(JSON.stringify(await Accessibility("signup", {mode: ["desktop-light", "mobile-light"]})))`
+      },
+      snapshot(),
+      hooks(events)
+    )
+    expect(result.ok).toBe(true)
+    expect(events.filter((event) => event.design).map((event) => event.kind)).toEqual([
+      "accessibility",
+      "accessibility"
+    ])
+    const findings = JSON.parse(result.output[0]!) as Record<string, unknown>[]
+    // Per mode: the title, the frame once, and the instance once for everything inside it.
+    expect(findings).toHaveLength(6)
+    expect(findings[2]).toMatchObject({ node: "submit", name: "Submit", detail: "Inside an instance" })
+    expect(findings[0]).toMatchObject({
+      state: "default",
+      mode: "desktop-light",
+      rule: "color-contrast",
+      impact: "serious",
+      node: "title",
+      name: "Title",
+      contrast: { foreground: "#999999", background: "#ffffff", ratio: 2.84, required: 4.5 }
+    })
+    // An element that isn't one of the design's nodes is reported on the frame.
+    expect(findings[1]).not.toHaveProperty("node")
+    expect(findings[1]).toMatchObject({ detail: "Outside any node" })
+  })
+
+  it("names an instance after its design", async () => {
+    const project = snapshot()
+    const [signup] = project.documents[0]!.document.containers
+    project.documents[0]!.document.containers = [
+      {
+        ...signup!,
+        root: {
+          ...signup!.root,
+          children: [{ type: "instance", id: "submit", design: "member-row" }]
+        } as typeof signup.root
+      },
+      {
+        id: "member-row",
+        name: "Member row",
+        kind: "component",
+        position: { x: 0, y: 1000 },
+        root: { type: "layout", id: "row", children: [] },
+        states: [{ id: "default", name: "Default" }]
+      }
+    ]
+    const result = await execute(
+      { label: "Check", code: `Print(JSON.stringify(await Accessibility("signup")))` },
+      project,
+      hooks()
+    )
+    expect(result.ok).toBe(true)
+    const findings = JSON.parse(result.output[0]!) as Record<string, unknown>[]
+    expect(findings.find((finding) => finding.node === "submit")).toMatchObject({ name: "Member row" })
+  })
+})
+
+describe("icons", () => {
+  it("knows an icon library's icons are components, and still warns about unknown ones", async () => {
+    const result = await execute(
+      {
+        label: "Icons",
+        code: `Insert("page", {type: "component", component: "lucide/Heart"})
+Insert("page", {type: "component", component: "Heart"})`
+      },
+      { ...snapshot(), iconLibraries: ["lucide"] },
+      hooks()
+    )
+    expect(result.ok).toBe(true)
+    const unknown = result.warnings.filter((warning) => warning.includes("isn't one of the project's components"))
+    expect(unknown).toEqual([expect.stringContaining('"Heart"')])
+  })
+})
+
+describe("component props", () => {
+  it("lists a component's props and warns about values it doesn't take", async () => {
+    const result = await execute(
+      {
+        label: "Props",
+        code: `Print(Props("Button").props.map((prop) => prop.name).join(" "))
+Update("submit", {props: {variant: "primary", tone: "loud"}})`
+      },
+      snapshot(),
+      hooks()
+    )
+    expect(result.output).toEqual(["variant children"])
+    expect(result.warnings).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('Button variant is one of "default", "outline", not "primary"'),
+        expect.stringContaining('Button has no prop "tone"')
+      ])
+    )
+  })
+})
