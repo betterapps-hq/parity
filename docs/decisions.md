@@ -1199,7 +1199,8 @@ recommended answer to each of its questions.
   status too.
 - **The CLI will be public on npm** (your call, 2026-10-29), so a CI pipeline gets Parity with `npx` and nothing else to
   download. Visual tests in CI rely on it (PAR-239). It can't be published as `@parity/cli`, because the `@parity` scope
-  on npm belongs to Parity Technologies, so its name is PAR-26.
+  on npm belongs to Parity Technologies, so it's `@parity-app/cli`, under the `parity-app` npm organization you created
+  on 2026-10-29 (PAR-26). Its command stays `parity`, and inside the repository it keeps its `@parity/cli` name.
 - **A project's Vite server keeps its own dependency cache,** `node_modules/.vite-parity`. With Vite's default, the
   project's own dev server, often running alongside, re-optimized into the same folder, and each server then served
   stale dependencies ("Outdated Optimize Dep"). Opening Parity's own app as a project broke every offscreen render this
@@ -1363,7 +1364,8 @@ the Repository, CI and releases stream in Linear.
     working tree, so in the folder sessions share it blocked commits on other sessions' unfinished edits. The commit
     hook runs `scripts/changes.ts check` on what's staged, the push hook `--committed` on the branch's commits, and CI
     both that and `beachball check` on its clean checkout.
-  - **npm gets the packages whose package.json has a `publishConfig`,** which the CLI gets with its npm name (PAR-13).
+  - **npm gets the packages whose package.json has a `publishConfig`,** which the CLI gets with its npm name,
+    `@parity-app/cli` (PAR-13).
 - **Hooks keep what doesn't belong out of pull requests (PAR-3),** as you asked on 2026-10-29. My calls:
   - **A commit lints and formats its staged files, fixing what it can, and its subject must be conventional,** at most
     100 characters (4 of the last 400 were longer) and not work in progress. A fixup commit can be made but not pushed.
