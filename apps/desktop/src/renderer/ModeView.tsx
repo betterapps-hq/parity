@@ -1,6 +1,6 @@
-import { modeGlobals, type RenderNode, type ResolvedMode } from "@parity/core"
+import { frameViewport, type MountHandle, modeGlobals, type RenderNode, type ResolvedMode } from "@parity/core"
 import { useEffect, useRef, useState } from "react"
-import { prepareFrame } from "./frame.ts"
+import { prepareFrame, setFrameViewport } from "./frame.ts"
 import type { LoadedGuest } from "./guest.ts"
 
 interface ModeViewProps {
@@ -51,7 +51,10 @@ export function ModeView({
   interactions = 0
 }: ModeViewProps) {
   const hostRef = useRef<HTMLDivElement>(null)
-  const handleRef = useRef<{ update(tree: RenderNode[]): void; unmount(): void }>(undefined)
+  const handleRef = useRef<MountHandle>(undefined)
+  // The window the frame stands for, which the project's viewport units and window size checks measure.
+  const { height: viewportHeight } = frameViewport({ width, height }, mode)
+  const viewportRef = useRef({ width, height: viewportHeight })
   const treeKey = JSON.stringify(tree)
   const environmentKey = JSON.stringify([mode.classNames, mode.attributes, modeGlobals(mode)])
   const renderKey = `${environmentKey}|${treeKey}`
@@ -82,6 +85,15 @@ export function ModeView({
     }
   }, [])
 
+  // A resized frame keeps its components and their state, as a resized browser window does. This comes before the frame
+  // is built, so one rebuilt at the same time starts at the new size.
+  useEffect(() => {
+    const viewport = { width, height: viewportHeight }
+    viewportRef.current = viewport
+    setFrameViewport(hostRef.current!, viewport)
+    handleRef.current?.resize?.(viewport)
+  }, [width, viewportHeight])
+
   // The frame is rebuilt when its environment changes, and after interacting, which leaves components in states the
   // design doesn't have; a changed design updates in place, keeping component state.
   useEffect(() => {
@@ -90,9 +102,11 @@ export function ModeView({
       Record<string, string>,
       Record<string, string>
     ]
-    const target = prepareFrame(hostRef.current!, loaded.sheet, { classNames, attributes })
+    const viewport = viewportRef.current
+    const target = prepareFrame(hostRef.current!, loaded.sheet, { classNames, attributes, viewport })
     const handle = loaded.guest.mount(target, [], {
       globals,
+      viewport,
       onError: (reason) =>
         setError({ key: currentKey.current, message: reason instanceof Error ? reason.message : String(reason) })
     })
@@ -110,9 +124,11 @@ export function ModeView({
 
   const message = error?.key === renderKey ? error.message : undefined
 
+  // A frame is a browser's viewport: square corners, and nothing cut off except below a device's height, where a browser
+  // would scroll. A frame that grows with its content shows all of it, shadows and popups included.
   return (
     <div
-      className="mode-frame relative overflow-hidden rounded-lg shadow-lg ring-1 ring-black/15"
+      className={`mode-frame relative shadow-lg ring-1 ring-black/15 ${height === undefined ? "" : "overflow-hidden"}`}
       style={{
         width: Math.round(width * scale),
         height: height === undefined ? undefined : Math.round(height * scale)

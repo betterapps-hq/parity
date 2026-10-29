@@ -8,8 +8,20 @@ import type {
   MountHandle,
   RenderNode
 } from "@parity/core"
-import { Component, type ComponentType, createElement, Fragment, type ReactNode, useEffect, useState } from "react"
+import {
+  Component,
+  type ComponentType,
+  createContext,
+  createElement,
+  Fragment,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useState
+} from "react"
+import { flushSync } from "react-dom"
 import { createRoot } from "react-dom/client"
+import { type FrameWindow, frameWindow } from "./viewport.ts"
 
 type Props = Record<string, unknown>
 
@@ -31,6 +43,9 @@ const missingStyle = {
   color: "#e11d48",
   font: "12px ui-monospace, monospace"
 }
+
+/** The window of the frame a component is drawn in. */
+const FrameWindowContext = createContext<FrameWindow | undefined>(undefined)
 
 /** Function components, and the objects `forwardRef`, `memo` and `lazy` return. */
 function isComponent(value: unknown): value is ComponentType<Props> {
@@ -92,9 +107,16 @@ export function createGuest(init: GuestInit): Guest {
       }
       component = function OnDemand(props: Props) {
         const [, redraw] = useState(0)
+        const own = useContext(FrameWindowContext)
         useEffect(() => {
-          if (!ready && !failure) void start().then(() => redraw((count) => count + 1))
-        }, [])
+          if (ready || failure) return
+          void start().then(() => {
+            // In the frame's window, as the rest of the frame first drew.
+            const again = () => redraw((count) => count + 1)
+            if (own) own.run(() => flushSync(again))
+            else again()
+          })
+        }, [own])
         // Thrown while drawing, so the component's boundary shows why it couldn't load.
         if (failure) throw failure.error
         return ready ? createElement(ready, props) : null
@@ -227,12 +249,50 @@ export function createGuest(init: GuestInit): Guest {
           report(name ? new Error(`${name}: ${message}`) : error)
         }
       })
-      const render = (nodes: RenderNode[]) => root.render(decorate(nodes.map((node, index) => toReact(node, index))))
+      const own = options.viewport && frameWindow(target, options.viewport)
+      const draw = (nodes: RenderNode[]) =>
+        createElement(
+          FrameWindowContext.Provider,
+          { value: own },
+          decorate(nodes.map((node, index) => toReact(node, index)))
+        )
+      if (!own) {
+        root.render(draw(tree))
+        return {
+          update: (nodes) => root.render(draw(nodes)),
+          unmount: () => {
+            root.unmount()
+            frame.undo()
+          }
+        }
+      }
+
+      // The frame's code asks its own window while it renders, effects included, so it renders synchronously. That's
+      // just after it's asked, so never inside one of the canvas's renders, should the canvas and project share a React.
+      let unmounted = false
+      let next: RenderNode[] | undefined
+      const soon = (work: () => void) =>
+        queueMicrotask(() => {
+          if (!unmounted) own.run(() => flushSync(work))
+        })
+      const render = (nodes: RenderNode[]) => {
+        if (next === undefined) {
+          soon(() => {
+            const latest = next!
+            next = undefined
+            root.render(draw(latest))
+          })
+        }
+        next = nodes
+      }
       render(tree)
       return {
         update: render,
+        resize: (viewport) => soon(() => own.resize(viewport)),
         unmount: () => {
+          unmounted = true
           root.unmount()
+          own.dispose()
           frame.undo()
         }
       }

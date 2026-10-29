@@ -1,3 +1,4 @@
+import { screenHeightForWidth } from "./devices.ts"
 import type {
   ContainerSpec,
   DesignNode,
@@ -10,6 +11,7 @@ import type {
   Size,
   StateSpec
 } from "./document.ts"
+import type { ResolvedMode } from "./modes.ts"
 
 /**
  * A design resolved for one state in one viewport: what a renderer adapter mounts. Framework-neutral: elements are
@@ -61,6 +63,19 @@ export function frameSize(
 ): { width: number; height?: number } {
   const size = design.frames?.[mode.viewport]
   return { width: size?.width ?? mode.width, ...(size?.height === undefined ? {} : { height: size.height }) }
+}
+
+/**
+ * The browser window a frame stands for, which viewport units, media queries and the project's own code measure: as wide
+ * as the frame, and as tall as the frame's fixed height, else its viewport's screen, else the device nearest its width.
+ * A frame that grows with its content is still drawn whole; this is only how tall its window is.
+ */
+export function frameViewport(
+  size: { width: number; height?: number },
+  mode: Pick<ResolvedMode, "options">
+): { width: number; height: number } {
+  const screen = mode.options.find(({ variable }) => variable.kind === "viewport")?.option.height
+  return { width: size.width, height: size.height ?? screen ?? screenHeightForWidth(size.width) }
 }
 
 /** Every design that instances can place, by id. */

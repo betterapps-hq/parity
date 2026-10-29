@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { type DesignNode, parseCanvasDocument } from "./document.ts"
-import { frameSize, resolveDesign } from "./render.ts"
+import { defaultModeSettings, resolveModes } from "./modes.ts"
+import { frameSize, frameViewport, resolveDesign } from "./render.ts"
 import { extractTokens } from "./tokens.ts"
 
 const root: DesignNode = {
@@ -184,6 +185,23 @@ describe("sizing", () => {
     }).containers[0]!
     expect(frameSize(design, { viewport: "mobile", width: 390 })).toEqual({ width: 390, height: 844 })
     expect(frameSize(design, { viewport: "desktop", width: 1280 })).toEqual({ width: 1280 })
+  })
+
+  it("gives a frame the window of its fixed height, its screen or the nearest device", () => {
+    const [desktop] = resolveModes(defaultModeSettings)
+    const phone = {
+      options: [
+        {
+          variable: { id: "viewport", name: "Viewport", kind: "viewport" as const, options: [] },
+          option: { id: "se", name: "iPhone SE", width: 375, height: 667 }
+        }
+      ]
+    }
+    expect(frameViewport({ width: 1280, height: 900 }, desktop!)).toEqual({ width: 1280, height: 900 })
+    expect(frameViewport({ width: 375 }, phone)).toEqual({ width: 375, height: 667 })
+    expect(frameViewport({ width: 1280 }, desktop!)).toEqual({ width: 1280, height: 800 })
+    expect(frameViewport({ width: 390 }, desktop!)).toEqual({ width: 390, height: 844 })
+    expect(frameViewport({ width: 1243 }, desktop!)).toEqual({ width: 1243, height: 800 })
   })
 })
 

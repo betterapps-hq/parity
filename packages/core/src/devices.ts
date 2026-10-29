@@ -49,6 +49,15 @@ export function deviceForWidth(width: number): DeviceKind {
   return "desktop"
 }
 
+/** A screen height for a width, for viewports that don't say: the device whose width is nearest, the earlier on a tie. */
+export function screenHeightForWidth(width: number): number {
+  let nearest = devicePresets[0]!
+  for (const preset of devicePresets) {
+    if (Math.abs(preset.width - width) < Math.abs(nearest.width - width)) nearest = preset
+  }
+  return nearest.height
+}
+
 /**
  * A CSS length in pixels, for breakpoints written in rem or em (16px each, the browser default) or px. Undefined for
  * anything else.

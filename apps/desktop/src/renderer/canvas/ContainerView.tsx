@@ -487,10 +487,7 @@ function FrameTile({
           )}
         </figcaption>
       )}
-      <div
-        className="rounded-xl transition-shadow"
-        style={selected ? { boxShadow: `0 0 0 3px ${kindColors.mode}` } : undefined}
-      >
+      <div className="transition-shadow" style={selected ? { boxShadow: `0 0 0 3px ${kindColors.mode}` } : undefined}>
         <ModeView
           loaded={loaded}
           tree={resolveDesign(boardRoot(entry.container), state, mode.viewport, library, {

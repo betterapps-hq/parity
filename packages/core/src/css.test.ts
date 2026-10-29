@@ -80,6 +80,27 @@ describe("prepareCanvasCss", () => {
     expect(scoped).toContain(".\\[\\&_svg\\:not\\(\\[class\\*\\=\\'size-\\'\\]\\)\\]\\:size-4 {")
   })
 
+  it("measures viewport units against the frame", () => {
+    const css =
+      ".a { height: 100vh; min-height: 100svh; width: calc(100vw - 2rem); margin-left: -50vw; max-height: calc(100dvh - 6rem); }"
+    expect(prepareCanvasCss(css, options).scoped).toBe(
+      ".a { height: calc(100 * var(--canvas-vh, 1vh)); min-height: calc(100 * var(--canvas-vh, 1svh)); " +
+        "width: calc(calc(100 * var(--canvas-vw, 1vw)) - 2rem); margin-left: calc(-50 * var(--canvas-vw, 1vw)); " +
+        "max-height: calc(calc(100 * var(--canvas-vh, 1dvh)) - 6rem); }"
+    )
+    expect(prepareCanvasCss(".a { font-size: 2.5vmin; }", options).scoped).toBe(
+      ".a { font-size: calc(2.5 * min(var(--canvas-vw, 1vw), var(--canvas-vh, 1vh))); }"
+    )
+  })
+
+  it("leaves viewport units in selectors, strings and urls alone", () => {
+    const css = '.h-\\[100vh\\] { content: "100vh"; background: url(/img-100vw.png); height: 50vh; }'
+    expect(prepareCanvasCss(css, options).scoped).toBe(
+      '.h-\\[100vh\\] { content: "100vh"; background: url(http://localhost:5555/img-100vw.png); ' +
+        "height: calc(50 * var(--canvas-vh, 1vh)); }"
+    )
+  })
+
   it("leaves keyframes and protocol-relative urls alone", () => {
     const css = "@keyframes spin { to { transform: rotate(1turn); } } .a { background: url(//cdn.example/x.png); }"
     expect(prepareCanvasCss(css, options).scoped).toBe(css)

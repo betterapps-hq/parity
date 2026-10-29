@@ -4,6 +4,13 @@ export const viewportContainerName = "canvas-viewport"
 /** Attribute on the element that stands in for `<body>` inside each rendered mode. */
 export const bodyAttribute = "data-canvas-body"
 
+/**
+ * Custom properties holding 1% of a frame's viewport width and height, which viewport units are rewritten to: in a frame,
+ * `100vh` is the height of the screen the frame stands for, not of Parity's window.
+ */
+export const viewportWidthProperty = "--canvas-vw"
+export const viewportHeightProperty = "--canvas-vh"
+
 export interface CanvasCss {
   /** Adopted by every rendered mode's shadow root. */
   scoped: string
@@ -20,6 +27,7 @@ export interface PrepareCssOptions {
  * Prepares a project's compiled CSS for rendering inside per-mode shadow roots without iframes:
  *
  * - viewport media queries become container queries, so each mode responds to its own width, not the window's
+ * - viewport units (`vw`, `vh`, `svh`, `dvh`, `vmin` and the rest) become the frame's, through custom properties
  * - `:root` and `html` become `:host`, and `body` becomes the mode's body element
  * - `@property` and `@font-face` move to the document, because shadow roots ignore them
  * - root-relative `url()`s point at the project's server instead of the canvas UI
@@ -134,7 +142,7 @@ function serialize(nodes: CssNode[], options: PrepareCssOptions, globals: string
   let output = ""
   for (const node of nodes) {
     if (node.kind === "text") {
-      output += rewriteUrls(node.text, options.baseUrl)
+      output += rewriteViewportUnits(rewriteUrls(node.text, options.baseUrl))
       continue
     }
     const prelude = node.prelude.trim()
@@ -179,6 +187,40 @@ function rewriteSelector(selector: string): string {
     .replace(/:root(?![\w-])/g, ":host")
     .replace(/(^|[\s,>+~(])html(?![\w-])/g, "$1:host")
     .replace(/(^|[\s,>+~(])body(?![\w-])/g, `$1[${bodyAttribute}]`)
+}
+
+/** A number with a viewport unit, not inside a word (`img-100vw`) or another number. */
+const viewportLength = /(^|[^\w.-])(-?(?:\d+\.?\d*|\.\d+)(?:e-?\d+)?)([sld]?)(vw|vh|vi|vb|vmin|vmax)(?![\w-])/g
+/** Strings and urls, whose contents aren't lengths. */
+const literal = /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|url\([^)]*\)/g
+
+/**
+ * Rewrites viewport lengths in declarations to the frame's viewport, falling back to the real unit where a frame doesn't
+ * set the properties: `100svh` becomes `calc(100 * var(--canvas-vh, 1svh))`. Inline and block units are taken as
+ * horizontal writing, as almost every page is.
+ */
+export function rewriteViewportUnits(text: string): string {
+  let output = ""
+  let last = 0
+  for (const match of text.matchAll(literal)) {
+    output += rewriteLengths(text.slice(last, match.index)) + match[0]
+    last = match.index + match[0].length
+  }
+  return output + rewriteLengths(text.slice(last))
+}
+
+function rewriteLengths(text: string): string {
+  return text.replace(viewportLength, (_match, before: string, number: string, kind: string, unit: string) => {
+    const width = `var(${viewportWidthProperty}, 1${kind}vw)`
+    const height = `var(${viewportHeightProperty}, 1${kind}vh)`
+    const one =
+      unit === "vw" || unit === "vi"
+        ? width
+        : unit === "vh" || unit === "vb"
+          ? height
+          : `${unit === "vmin" ? "min" : "max"}(${width}, ${height})`
+    return `${before}calc(${number} * ${one})`
+  })
 }
 
 function rewriteUrls(text: string, baseUrl: string): string {

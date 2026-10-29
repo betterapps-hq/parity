@@ -78,14 +78,18 @@ still need your call.
   service (with the project's Vite), the GPU and Electron's helpers. Clicking it shows the last minute's frame rate, the
   longest recent frame and each process. Storybook runs outside the app, so it isn't counted. Measuring runs only while
   the stats show.
-- **`pnpm perf` measures the canvas** in its own copy of the app (its own ports and profile) on the example project, at
-  a fixed 1439×901: frames per second zooming and panning, where each frame's time goes, selecting and editing a design,
-  and memory. Results go to `.inspect/perf`, and `--compare` sets a run beside an earlier one.
+- **`pnpm perf` measures the canvas** in its own copy of the app on the example project, at a fixed 1439×901: frames per
+  second zooming, panning and hovering, where each frame's time goes, selecting and editing a design, memory, and what a
+  hidden tab holds. Results go to `.inspect/perf`, and `--compare` sets a run beside an earlier one. The copy is kept
+  apart from the person's app and other sessions: its own ports, profile, bundle folder (`out/<port>`) and agent file,
+  so agents keep talking to the person's app; and it serves the code as it was when it started, so edits made meanwhile
+  can't reload what's measured. Its window says it's the measuring copy.
 - **Zoomed far out, frames show bitmaps.** Once a frame has stayed the same for a second, the offscreen renderer
   captures it at a quarter of its size, one frame at a time so agents' renders still get their turn. Wherever the canvas
   draws frames no larger than that (25% zoom on a 1x screen), each shows its bitmap, and its live frame stays mounted
   but skips drawing. The selected design stays live, as does everything while interacting, and so does a frame with no
-  bitmap yet. Bitmaps are kept in memory only, so a code change never shows a stale one.
+  bitmap yet. Bitmaps are kept in memory only, so a code change never shows a stale one. Below about 5%, boards and
+  frames also drop their shadows.
 - **The canvas doesn't restyle its elements while the camera moves.** tldraw's `--tl-zoom` changes only once zooming
   stops, titles and labels size themselves from the zoom directly, selection colours go through tldraw's theme rather
   than custom properties, and the layer the camera moves is composited, so panning and zooming move what's already drawn
@@ -291,8 +295,28 @@ recommended answer to each of its questions.
 - **Parts only a decorator's host renders aren't for placing (LIB-35):** `parity lib` follows the package's own built
   files from each function to what it renders (`jsx()`, `createElement()` and JSX), and a part drawn only inside a host
   a decorator adds (`Toaster` mapping its toasts into `Toast` and `ToastTitle`), and in no example, is marked
-  `visual: false`. Buildkit's shared hand edits went from 30 (LIB-28) to 13 (LIB-34) to 3 (LIB-35): the SelectScroll
-  buttons, which only SelectContent renders and no example shows, and ChartStyle's sample.
+  `visual: false`. Buildkit's shared hand edits went from 30 (LIB-28) to 13 (LIB-34) to 3 (LIB-35) to 1 (LIB-36):
+  ChartStyle's sample, which ChartContainer passes itself and no example shows.
+- **A part no example places takes its parents from the package's source, last (LIB-36):** the same reading of its built
+  files says which of its components render it, and that one's chain is tried after the errors' (`SelectContent` for
+  `SelectScrollUpButton`). Not before them: a kit's Content often renders its own Portal and Overlay, which go in the
+  Root.
+- **Render functions are samples (LIB-36).** A sample's child or prop value can be `{ "$render": [...] }`, a function
+  returning those children, with `spread` when what it's called with is spread onto the element
+  (`renderInput={(params) => <TextField {...params} />}`) or `pass` naming the props that take it
+  (`{(segment) => <DateSegment segment={segment} />}`). Examples' arrow functions that return JSX are read into them. In
+  a design they're slots, `$render:<prop>` (or `$renderWith:` to spread, with `?pass=a,b`), whose nodes the canvas turns
+  into the function the component calls, so they stay editable like any other nodes. A part inserted into a parent whose
+  examples call their children goes into that render slot.
+- **Example shares are counted per file and per use (LIB-36):** a level counts when either clears the bar, with the
+  larger share, so one long demo can't outvote ten short ones and a level most uses show isn't lost. A chain that still
+  fails is retried with levels a third, then a fifth, of the examples show, and a named parent's rarer levels are tried
+  when growing from errors (`Slider.Control` above a `Slider.Thumb`).
+- **The docs' anatomy checks every chain (LIB-36).** Presets name the folders of a library's docs pages; the code blocks
+  under their Anatomy or Usage headings are read as JSX, and `parity lib` reports how many parts the docs nest are
+  placed as they show (the nearest parent, and every parent the chain needs) and how many have every level, listing
+  those that differ. It's a check, not a signal, so it stays an independent measure; it reads Base UI's, Chakra's and
+  shadcn's docs (Radix's and Mantine's aren't in their repositories, MUI's and React Aria's have no anatomy blocks).
 - **`parity lib` tries parts with React's server renderer,** from the project's own React, rather than in the app: it
   needs no window, runs in seconds, and still throws the context errors that name a part's parents. The library's
   decorator providers wrap each try, with their imports and calls made, a mode's default value, and no frame, so
@@ -383,6 +407,23 @@ recommended answer to each of its questions.
   short of 4.5:1, which shows on avatar initials, the keyboard hint and small print. They're left in, since changing
   that token and checking again is a good demo.
 
+## The portal
+
+- **The portal is Parity on the web, for a whole org,** and has to exist before orgs pay per seat. It's where people
+  find what they've been tagged in, see what their teammates, their org and their agents are doing, and open designs to
+  see what changed (your call, 2026-10-29).
+- **Opening a project opens its canvas,** in the browser or the desktop app, as Figma does. There's no project page in
+  between (your call).
+- **It's designed as Storybook explorations, built from the start page's parts,** under Parity/Explorations/Portal
+  (`explorations/portal`), so it looks like the rest of Parity: the dark canvas previews, project cards, activity rows
+  and For you. A first pass drawn on the canvas from plain layouts and the UI kit read as a generic dashboard and was
+  dropped (your call).
+- **Its sample org is Kestrel, a made-up customer,** with the explorations' cast and the start page's projects renamed
+  for it (`portal/data.ts`). Buildkit isn't shown: it has nothing to do with the app (your call).
+- **So far:** For you (what needs you, each with its design, then what changed, with who's working where at the side),
+  Recents (the projects as a file browser) and a team page that opens on who's working where now, each on the canvas
+  they're in, with Join. Next: Inbox, org Activity, the canvas opened on what changed, Members and seats, and Billing.
+
 ## Storybook
 
 - **Storybook is detected, not configured:** its `main` file must exist, in `.storybook` or the folder a script that
@@ -436,6 +477,37 @@ recommended answer to each of its questions.
 - **Frames have square corners and cut nothing off,** at your request, since a browser's viewport doesn't round its
   corners. Only a frame with a device height clips, below that height, where a browser would scroll; a frame that grows
   with its content shows all of it, shadows and popups included.
+- **A frame stands for a browser window of its own size,** so a project's styles and code see the screen it's designed
+  for, not Parity's window, while frames stay shadow roots in one page. Iframes would isolate them fully, but at a
+  document, a copy of the project's code and a React per frame. The window is the frame's width by its fixed height,
+  else its viewport's screen height, else the height of the device nearest its width (844 for 390, 800 for 1280).
+- **Viewport units measure the frame's window** (CAN-23): `vw`, `vh`, their `s`, `l` and `d` forms, `vi`, `vb`, `vmin`
+  and `vmax` in the project's stylesheets become `calc()`s of two custom properties each frame sets. A frame has no
+  browser bars, so `svh`, `lvh` and `dvh` are all its height. A component's inline styles aren't rewritten yet (CAN-33).
+- **A frame's body has a browser's 8px margin,** in the lowest layer, so a reset such as Tailwind's preflight still
+  removes it (CAN-25). The size container that the project's rewritten media queries ask is the frame's root rather than
+  its body. A container lays out on its own, as a page's root does, so on the body it kept a first heading's margin from
+  joining the body's, as it does in Chrome. On the root, `position: fixed` places itself against the frame, as against a
+  browser's viewport.
+- **A project's code that asks the window its size gets the frame's answer** (CAN-27). This covers `matchMedia` with a
+  width, height, aspect ratio or orientation, `innerWidth`, `innerHeight`, `outerWidth`, `outerHeight`, the root's
+  `clientWidth` and `clientHeight`, and `resize` listeners. The frame asking is:
+  - the one React is rendering or running effects for, at any time. React's development build, which dev servers run,
+    names the component it's working on, and that component's root says which frame;
+  - the one the canvas is drawing or resizing, which it does synchronously, so the first effects run inside too;
+  - for a media query list or resize listener, the frame that made it. These hear the frame resize without a rebuild;
+  - otherwise, in an event handler, a timer or a render the project starts itself, the frame last drawn or used, but
+    only for the project's code. Code counts as the project's when every caller on the stack came from the project's
+    server. Parity's code, tldraw included, always gets Parity's window. In Parity's Storybook, where the two share a
+    server, this last case is off.
+
+  React's production build names no component, so with several frames on the canvas, a render the project starts itself
+  can get the answer of the frame drawn last. A `useState` set in a mount effect still gets the right one. `screen` and
+  `visualViewport` still describe Parity's window. `frame.test.ts` mounts shadcn's `useIsMobile` and a MUI-style
+  `useMediaQuery` in a phone and a laptop frame at once, clicks and resizes them, and checks Parity's own answers. After
+  these changes, the 93 full-size frames in the example's Boards story still match Chrome element by element, within
+  0.03px.
+
 - **Agents render offscreen,** in a hidden window, so their work never moves your camera. Export uses the same renderer.
 - **Prop inference uses the TypeScript 6 compiler in a worker thread,** from cva variants, destructured defaults and the
   component's own props type.
@@ -467,6 +539,10 @@ recommended answer to each of its questions.
   `parity problems` exits with 1 when it finds any.
 - **Reads for a terminal are CLI only:** `parity tokens`, `parity components` and `parity props <Component>`. Agents do
   these in a snippet (`GetTokens`, `Components`, `Props`), so the MCP tool list stays short.
+- **A project's Vite server keeps its own dependency cache,** `node_modules/.vite-parity`. With Vite's default, the
+  project's own dev server, often running alongside, re-optimized into the same folder, and each server then served
+  stale dependencies ("Outdated Optimize Dep"). Opening Parity's own app as a project broke every offscreen render this
+  way (PROJ-11).
 
 ## Developing Parity
 

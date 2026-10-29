@@ -1,7 +1,7 @@
 // The offscreen render window's page. The main process asks it to draw one frame, measures it, and captures it, so
 // agents can lay out and screenshot any state in any mode without touching the person's canvas.
 import type { AccessibilityIssue, ContrastDetail } from "@parity/agent"
-import type { RenderNode } from "@parity/core"
+import { type RenderNode, screenHeightForWidth } from "@parity/core"
 import axe, { type NodeResult, type RunOptions } from "axe-core"
 import type { MeasuredNode, RenderedFrame, RenderJob } from "../shared/protocol.ts"
 import { prepareFrame } from "./frame.ts"
@@ -41,9 +41,11 @@ window.canvasRender = async (job) => {
     document.body.append(host)
     currentHost = host
     const errors: string[] = []
-    const target = prepareFrame(host, loaded.sheet, job.mode)
+    const viewport = { width: job.mode.width, height: job.mode.height ?? screenHeightForWidth(job.mode.width) }
+    const target = prepareFrame(host, loaded.sheet, { ...job.mode, viewport })
     const tree = job.tree as RenderNode[]
     current = loaded.guest.mount(target, tree, {
+      viewport,
       onError: (error) => errors.push(error instanceof Error ? error.message : String(error)),
       ...(job.mode.globals ? { globals: job.mode.globals } : {})
     })

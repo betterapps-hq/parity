@@ -159,10 +159,22 @@ export interface MountOptions {
   globals?: Record<string, string>
   /** Renders without the libraries' decorators, as the Icons panel's previews do. */
   bare?: boolean
+  /**
+   * The window the frame stands for. The project's code that asks the window its size (`matchMedia`, `innerWidth`,
+   * resize events) gets this instead of Parity's window while it renders the frame or handles its events.
+   */
+  viewport?: FrameViewport
+}
+
+export interface FrameViewport {
+  width: number
+  height: number
 }
 
 export interface MountHandle {
   update(tree: RenderNode[]): void
+  /** The frame's window changed size, as when its frame is resized. */
+  resize?(viewport: FrameViewport): void
   unmount(): void
 }
 
