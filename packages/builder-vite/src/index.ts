@@ -32,6 +32,9 @@ export const viteBuilder: BuilderAdapter = {
     const server = await vite.createServer({
       root: options.root,
       ...(configFile ? { configFile } : {}),
+      // Its own dependency cache: the project's own dev server, often running alongside, would otherwise re-optimize
+      // into the same folder, and each server would then serve stale dependencies ("Outdated Optimize Dep").
+      cacheDir: "node_modules/.vite-parity",
       clearScreen: false,
       server: {
         port: 0,
