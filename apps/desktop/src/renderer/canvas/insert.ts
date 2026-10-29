@@ -4,6 +4,7 @@ import {
   type DesignNode,
   isSampleElement,
   isSampleRender,
+  renderSlotOf,
   type SampleChild,
   type SampleRender,
   type ImageCredit,
@@ -250,14 +251,22 @@ export function withLibraryContext(
   const added = missing.filter(
     (parent, index) => !optional.has(parent) || missing.slice(0, index).some((outer) => !optional.has(outer))
   )
-  const calling = added.some((parent) => sources[parent]?.sample?.children?.some(isSampleRender))
+  const calling = added.some((parent) => renderSlotOf(sources[parent]?.sample))
   if (source.parentParts && added.length > 0 && !calling) return inOuterSample(added, placed)
   for (const parent of added.reverse()) {
     const wrapper = component(parent)
-    // A parent that calls its children gets the part in a render slot, as its sample's own children are.
-    const calls = sources[parent]?.sample?.children?.find(isSampleRender)
-    const slot = calls ? `$render:children${calls.pass ? `?pass=${calls.pass.join(",")}` : ""}` : "children"
-    placed = wrapper.type === "component" ? { ...wrapper, slots: { [slot]: [placed] } } : placed
+    // A parent that calls its children, or a render prop (`TreeView.Node`'s `render`), gets the part in that render
+    // slot, as its sample's own are.
+    const calls = renderSlotOf(sources[parent]?.sample)
+    const slot = calls
+      ? `$render:${calls.prop}${calls.render.pass ? `?pass=${calls.render.pass.join(",")}` : ""}`
+      : "children"
+    const kept = Object.fromEntries(
+      Object.entries(wrapper.type === "component" ? (wrapper.slots ?? {}) : {}).filter(
+        ([name]) => !calls || !name.startsWith(`$render:${calls.prop}`)
+      )
+    )
+    placed = wrapper.type === "component" ? { ...wrapper, slots: { ...(calls ? kept : {}), [slot]: [placed] } } : placed
   }
   return placed
 

@@ -12209,9 +12209,16 @@
         "declaration": "lib/components/Combobox/ComboboxOption/ComboboxOption.d.ts",
         "group": "ComboboxOption",
         "parents": [
-          "Combobox"
+          "Combobox",
+          "ComboboxDropdown",
+          "ComboboxOptions",
+          "ComboboxGroup"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
+        "optionalParents": [
+          "ComboboxGroup",
+          "ComboboxDropdown"
+        ],
         "sample": {
           "props": {
             "value": "🍎 Apples"
@@ -17933,6 +17940,25 @@
         "group": "MantineThemeProvider",
         "visual": false,
         "sample": {
+          "props": {
+            "theme": {
+              "$call": {
+                "import": "@mantine/core",
+                "export": "createTheme"
+              },
+              "args": [
+                {
+                  "components": {
+                    "CustomComponent": {
+                      "defaultProps": {
+                        "color": "green"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
           "children": [
             "Provider color",
             "Prop color"

@@ -645,6 +645,23 @@ recommended answer to each of its questions.
   Its toasts need a `createToaster()` toaster, its FileUpload items `File`s, its date cells date objects; React Aria's
   toasts need a `ToastQueue`. Sample props are JSON, and only decorators can hold `$call` values, so these stay failing
   until samples can hold made values or a hand edit gives them.
+- **Samples hold values the package makes (LIB-49, your call, 2026-10-29):** a prop an example gives the result of one
+  of the package's own functions, imported by name from the package or a subpath of it, is
+  `{ "$call": { "import", "export" }, "args": [...] }`, with the arguments the file spells out
+  (`collection={createTreeCollection({ rootNode })}`). A function among the options is left out, so the package's
+  default is used, and a hook isn't one, since it only runs inside a component. `parity lib` calls each once before
+  trying parts and gives every part its examples' made values from the start, as the parts inside it, tried first in
+  name order, can't draw without them. The project imports them by the name it depends on the package by, the builder
+  loads their modules with the decorators', and the guest makes each once, in a list too (Fluent's
+  `columns={[createTableColumn(...)]}`). The inspector shows one as "Made by createTreeCollection()", not editable.
+  Chakra's TreeView parts now render: 456 of 473 on the server (from 446) and 460 in the app (from 450). Select,
+  Combobox and Listbox roots now come with their real collections.
+- **Code export must write made values as calls (LIB-49):** there's no design-to-code export yet; when there is, a
+  `$call` prop becomes an import of the function and a call with its arguments, hoisted out of the JSX.
+- **A render prop holds what it draws (LIB-49):** what an example's render function draws (`TreeView.Node`'s
+  `render={({ node }) => ...}`) is placed inside the component it's given to, unlike an element passed in a prop. A
+  render that picks between elements is sampled with the first. A parent whose sample has a render prop and no function
+  children gets an inserted part in that prop's slot, keeping its other slots.
 - **The in-app backtest runs its own instance:** `PARITY_UI_PORT`, `PARITY_DEBUG_PORT`, `PARITY_AGENT_FILE` and
   `PARITY_USER_DATA` give it its own ports, CLI channel and settings, so it runs beside another session's Parity instead
   of driving it.
@@ -1243,9 +1260,16 @@ the Repository, CI and releases stream in Linear.
   beside the unsigned installers. My call: not the whole app as a web app, since the project service needs Node for
   files, each project's Vite and the agent, and Storybook already runs the real UI against a stand-in service. The work
   is PAR-111 and PAR-113.
-- **Storybook previews are a shared template, `preview-storybook`,** because you deploy them to Cloudflare often and
-  from many repositories (2026-10-29). My call: each pull request's Storybook is a Worker preview named for it, as the
-  HOA app's previews are, on one static-assets Worker per repository, deleted when the pull request closes.
+- **One shared template, `publish-storybook`, publishes Storybook to whichever environment the caller names,** as you
+  asked on 2026-10-29: you publish pull-request previews, staging and production Storybooks often, from many
+  repositories, each to a place of its own. A template any stage calls is named for what it does, not for a stage. My
+  calls:
+  - Where each goes is that GitHub environment's settings, which Terraform's `cloudflare-storybook` module writes: a
+    static-assets Worker per environment, its URL, the account and a token. A new destination is a new environment, and
+    production can wait for an approval.
+  - A pull request's Storybook is a Worker preview named for it, as the HOA app's previews are, and
+    `unpublish-storybook` deletes it when the pull request closes.
+  - It publishes what it builds or an artifact an earlier job built, so staging and production can get the same build.
 - **Cloud services come from Terraform, and the pipelines expect what it makes,** as you said on 2026-10-29. My calls:
   - Each repository that needs one has a Terraform project in `infra/`, with its state in R2 and Terraform and the
     Cloudflare provider at Copacker's versions.

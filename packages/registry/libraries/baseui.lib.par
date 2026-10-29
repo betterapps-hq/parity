@@ -1282,7 +1282,7 @@
                     {
                       "component": "Combobox.Empty",
                       "children": [
-                        "No fruits found."
+                        "No labels found."
                       ]
                     },
                     {
@@ -1294,6 +1294,9 @@
                               "component": "Combobox.Item",
                               "children": []
                             }
+                          ],
+                          "pass": [
+                            "value"
                           ]
                         }
                       ]

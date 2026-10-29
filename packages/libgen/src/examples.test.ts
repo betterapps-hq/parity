@@ -389,6 +389,31 @@ describe("families", () => {
     })
   })
 
+  it("reads a call of the package's own function as a value it makes, but not a hook's", () => {
+    const text = `
+      import { TreeView, createTreeCollection, useListCollection } from "@acme/ui"
+      const collection = createTreeCollection({ rootNode: { id: "root", children: [{ id: "a" }] }, nodeToValue: (n) => n.id })
+      export const Demo = () => {
+        const list = useListCollection({ initialItems: [] })
+        return (
+          <TreeView.Root collection={collection} list={list}>
+            <TreeView.Node render={({ node }) => (node.children ? <TreeView.Branch /> : <TreeView.Item>Leaf</TreeView.Item>)} />
+          </TreeView.Root>
+        )
+      }`
+    const names = ["TreeView.Root", "TreeView.Node", "TreeView.Branch", "TreeView.Item"]
+    const uses = readExamples([{ path: "tree.tsx", text }], names, "@acme/ui")
+    expect(uses.get("TreeView.Root")?.sample?.props).toEqual({
+      collection: {
+        $call: { import: "@acme/ui", export: "createTreeCollection" },
+        args: [{ rootNode: { id: "root", children: [{ id: "a" }] } }]
+      }
+    })
+    // What a render prop draws is placed inside the component it's given to, and a render that picks shows the first.
+    expect(uses.get("TreeView.Branch")?.paths).toEqual([["TreeView.Node", "TreeView.Root"]])
+    expect(uses.get("TreeView.Node")?.sample?.props?.render).toEqual({ $render: [{ component: "TreeView.Branch" }] })
+  })
+
   it("leaves out a sample prop only one of a part's many uses sets", () => {
     const cells = [
       `<Cell colSpan={2}>Wide cell text</Cell>`,

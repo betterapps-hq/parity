@@ -275,6 +275,32 @@ export function createGuest(init: GuestInit): Guest {
     return list
   }
 
+  /**
+   * Values a library's package makes (`collection={createTreeCollection(...)}`), each made once by calling the
+   * package's function with its arguments, from the modules the builder loaded for them.
+   */
+  const made = new Map<string, unknown>()
+  const madeValue = (value: unknown): unknown => {
+    // In a list too (Fluent's `columns={[createTableColumn(...)]}`).
+    if (Array.isArray(value)) return value.some(isMade) ? value.map(madeValue) : value
+    const call = typeof value === "object" && value !== null ? (value as Props).$call : undefined
+    if (typeof call !== "object" || call === null) return value
+    const key = JSON.stringify(value)
+    if (!made.has(key)) {
+      const callee = call as { import: string; export: string }
+      if (!init.decorators) throw new Error(`${callee.import} isn't loaded`)
+      const fn = exported(init.decorators, callee.import, callee.export)
+      if (typeof fn !== "function") throw new Error(`${callee.import} has no function ${callee.export}`)
+      const args = (value as Props).args
+      made.set(key, (fn as (...args: unknown[]) => unknown)(...(Array.isArray(args) ? args.map(madeValue) : [])))
+    }
+    return made.get(key)
+  }
+  const isMade = (value: unknown): boolean =>
+    typeof value === "object" && value !== null && typeof (value as Props).$call === "object"
+  const madeProps = (props: Props | undefined): Props =>
+    Object.fromEntries(Object.entries(props ?? {}).map(([name, value]) => [name, madeValue(value)]))
+
   const toReact = (node: RenderNode, key?: number): ReactNode => {
     switch (node.kind) {
       case "text":
@@ -301,7 +327,7 @@ export function createGuest(init: GuestInit): Guest {
         }
         // The canvas finds a component by its boundary, below, not by this prop: a component may not render it, or
         // render it on an inner element. It still marks the DOM of components that pass it on, for scripts that look.
-        const props: Props = { ...node.props, "data-canvas-node": node.nodeId }
+        const props: Props = { ...madeProps(node.props), "data-canvas-node": node.nodeId }
         let children: ReactNode[] | undefined
         for (const [slot, nodes] of Object.entries(node.slots)) {
           const rendered = nodes.map((child, index) => toReact(child, index))

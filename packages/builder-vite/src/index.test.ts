@@ -112,6 +112,33 @@ describe("guestModuleSource with libraries", () => {
   })
 })
 
+describe("guestModuleSource with values a package makes", () => {
+  it("loads the modules its components' samples call, for the guest to make them", () => {
+    const source = guestModuleSource({
+      styles: [],
+      components: {
+        "chakra/TreeView.Root": {
+          path: "@chakra-ui/react",
+          export: "TreeView.Root",
+          library: "chakra",
+          sample: {
+            props: {
+              collection: {
+                $call: { import: "@chakra-ui/react/collection", export: "createTreeCollection" },
+                args: [{}]
+              }
+            }
+          }
+        }
+      },
+      documents: [],
+      libraries: []
+    })
+    expect(source).toContain('import("@chakra-ui/react/collection")')
+    expect(source).toMatch(/modules: \{ "@chakra-ui\/react\/collection": modules\[\d+\] \}/)
+  })
+})
+
 describe("guestModuleSource with package stylesheets", () => {
   it("draws them before the project's styles, apart, so they aren't read for tokens", () => {
     const source = guestModuleSource({

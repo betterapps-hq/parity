@@ -1,4 +1,4 @@
-import type { ComponentInfo, ComponentProp, DesignNode } from "@parity/core"
+import { type ComponentInfo, type ComponentProp, type DesignNode, isMadeValue } from "@parity/core"
 import { Plus, X } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -76,7 +76,9 @@ export function PropsSection({ node, info, changed, onChange, onReset }: PropsSe
                 onReset={() => onReset(name)}
                 hint={prop ? groupTitles[prop.group as keyof typeof groupTitles] : "Not a prop this component declares"}
               >
-                {prop ? (
+                {isMadeValue(values[name]) ? (
+                  <MadeValue value={values[name]} />
+                ) : prop ? (
                   <PropInput prop={prop} value={values[name]} onChange={(value) => onChange(name, value)} />
                 ) : (
                   <ValueInput value={values[name]} onCommit={(value) => onChange(name, value)} />
@@ -100,8 +102,25 @@ export function PropsSection({ node, info, changed, onChange, onReset }: PropsSe
   )
 }
 
+/**
+ * A value the library's package makes (`createTreeCollection(...)`), which the canvas makes the way the example did. It
+ * isn't edited here; removing it leaves the prop unset.
+ */
+function MadeValue({ value }: { value: unknown }) {
+  const call = isMadeValue(value) ? value.$call : undefined
+  return (
+    <span
+      className="truncate px-1 text-xs text-muted-foreground"
+      title={call ? `${call.export} from ${call.import}` : ""}
+    >
+      Made by {call?.export}()
+    </span>
+  )
+}
+
 /** The right control for a prop's kind of value, with its default as the placeholder. */
 function PropInput({ prop, value, onChange }: { prop: ComponentProp; value: unknown; onChange(value: unknown): void }) {
+  if (isMadeValue(value)) return <MadeValue value={value} />
   const fallback = prop.default === undefined || prop.default === null ? undefined : String(prop.default)
   switch (prop.kind) {
     case "enum":

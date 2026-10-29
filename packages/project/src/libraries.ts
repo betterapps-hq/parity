@@ -8,6 +8,7 @@ import {
   type LibraryInfo,
   type LibraryManifest,
   libraryManifestExtension,
+  isMadeValue,
   isSampleElement,
   isSampleRender,
   type PackageManifest,
@@ -184,7 +185,13 @@ export async function findLibraries(
             ? { optionalParents: component.optionalParents.map((parent) => `${definition.id}/${parent}`) }
             : {}),
           ...(component.parentParts ? { parentParts: true as const } : {}),
-          ...(component.sample ? { sample: sampleIds(component.sample, definition.id) } : {})
+          ...(component.sample
+            ? {
+                sample: sampleIds(component.sample, definition.id, (specifier) =>
+                  importOf(specifier, packageName, importName)
+                )
+              }
+            : {})
         }
       }
       continue
@@ -201,8 +208,15 @@ export async function findLibraries(
   return result
 }
 
-/** A sample with its children's components named by id, as `nova/AccordionItem`; HTML elements keep their tag. */
-function sampleIds(sample: ComponentSample, library: string): ComponentSample {
+/**
+ * A sample with its children's components named by id, as `nova/AccordionItem`; HTML elements keep their tag. A value the
+ * package makes (`{ $call: { import: "@chakra-ui/react", ... } }`) imports it by the name the project depends on.
+ */
+function sampleIds(
+  sample: ComponentSample,
+  library: string,
+  imported: (specifier: string) => string = (specifier) => specifier
+): ComponentSample {
   const child = (node: SampleChild): SampleChild =>
     typeof node === "string"
       ? node
@@ -223,7 +237,9 @@ function sampleIds(sample: ComponentSample, library: string): ComponentSample {
           ? { ...item, $render: item.$render.map(child) }
           : isSampleElement(item)
             ? { $element: item.$element.map(child) }
-            : item
+            : isMadeValue(item)
+              ? { ...item, $call: { ...item.$call, import: imported(item.$call.import) } }
+              : item
       ])
     )
   return {

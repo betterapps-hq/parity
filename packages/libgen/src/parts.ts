@@ -2,6 +2,8 @@ import type { FoundComponent } from "@parity/code"
 import {
   type ComponentSample,
   type DecoratorElement,
+  isMadeValue,
+  renderSlotOf,
   isSampleElement,
   isSampleRender,
   type LibraryEdits,
@@ -117,7 +119,40 @@ export async function relateParts(
     const edit = edits?.[component.name]
     samples.set(component.name, { ...component.samples, ...(edit ? edit.sample?.props : {}) })
   }
+  // Values the package makes in its examples (`collection={createTreeCollection(...)}`) are a part's from the start, as
+  // the parts inside it, tried first in name order, can't draw without them.
+  const madeProps = new Map<string, Record<string, unknown>>()
+  for (const [name, use] of examples) {
+    const props = Object.fromEntries(Object.entries(use.sample?.props ?? {}).filter(([, value]) => isMadeValue(value)))
+    if (Object.keys(props).length === 0 || !samples.has(name)) continue
+    madeProps.set(name, props)
+    samples.set(name, { ...samples.get(name), ...props })
+  }
 
+  // Values the package makes (`createTreeCollection(...)`), called once each before parts are tried, as the canvas does.
+  const made = new Map<unknown, unknown>()
+  const byCall = new Map<string, unknown>()
+  const callsIn = (value: unknown): unknown[] =>
+    isMadeValue(value)
+      ? [value]
+      : Array.isArray(value)
+        ? value.flatMap(callsIn)
+        : typeof value === "object" && value !== null
+          ? Object.values(value).flatMap(callsIn)
+          : []
+  for (const use of examples.values()) {
+    for (const call of callsIn(use.sample)) {
+      const key = JSON.stringify(call)
+      if (!byCall.has(key)) {
+        try {
+          byCall.set(key, await trialValue(load, call))
+        } catch {
+          byCall.set(key, undefined)
+        }
+      }
+      made.set(call, byCall.get(key))
+    }
+  }
   const cloneElement = (React.cloneElement ?? (React.default as Record<string, unknown>)?.cloneElement) as (
     element: unknown,
     props: Record<string, unknown>
@@ -141,7 +176,16 @@ export async function relateParts(
     Object.fromEntries(
       Object.entries(props ?? {}).map(([key, item]) => [
         key,
-        isSampleRender(item) ? live(item) : isSampleElement(item) ? element(item) : item
+        isSampleRender(item)
+          ? live(item)
+          : isSampleElement(item)
+            ? element(item)
+            : isMadeValue(item)
+              ? made.get(item)
+              : // In a list too (Fluent's `columns={[createTableColumn(...)]}`).
+                Array.isArray(item) && item.some(isMadeValue)
+                ? item.map((each) => (isMadeValue(each) ? made.get(each) : each))
+                : item
       ])
     )
   /**
@@ -194,19 +238,26 @@ export async function relateParts(
     render(placed(chain, name, build({ component: name, ...(children ? { children } : {}) }, true), parts))
   /** A part's element inside a chain of parents. */
   const placed = (chain: string[], name: string, part: unknown, parts: boolean) => {
-    const calling = chain.some((parent) => examples.get(parent)?.sample?.children?.some(isSampleRender))
+    const calling = chain.some((parent) => renderSlotOf(examples.get(parent)?.sample))
     if (parts && chain.length > 0 && !calling) return inExample(chain, name, part)
     let element = part
     for (const parent of [...chain].reverse()) {
-      // A parent whose examples call their children (`{(date) => <CalendarCell date={date} />}`) is given the part
-      // that way, with what it's called with going where the example's did.
-      const calls = examples.get(parent)?.sample?.children?.find(isSampleRender)
+      // A parent whose examples call their children (`{(date) => <CalendarCell date={date} />}`), or a render prop
+      // (`render={({ node }) => ...}`), is given the part that way, with what it's called with going where the
+      // example's did.
+      const slot = renderSlotOf(examples.get(parent)?.sample)
       const inner = element
-      const child = calls
+      const render = slot
         ? (argument: unknown) =>
-            calls.pass ? cloneElement(inner, Object.fromEntries(calls.pass.map((prop) => [prop, argument]))) : inner
-        : element
-      element = createElement(value(parent), liveProps(samples.get(parent)), child)
+            slot.render.pass
+              ? cloneElement(inner, Object.fromEntries(slot.render.pass.map((prop) => [prop, argument])))
+              : inner
+        : undefined
+      const props = liveProps(samples.get(parent))
+      element =
+        slot && slot.prop !== "children"
+          ? createElement(value(parent), { ...props, [slot.prop]: render })
+          : createElement(value(parent), props, render ?? element)
     }
     return element
   }
@@ -610,6 +661,9 @@ export async function relateParts(
         inside = undefined
       }
     }
+    // The values the package makes that it was tried with go where it's inserted too.
+    const madeHere = madeProps.get(component.name)
+    if (madeHere) relation.sample = { ...relation.sample, props: { ...madeHere, ...relation.sample?.props } }
     if (inside) relation.inside = inside
     relations.set(component.name, relation)
   }

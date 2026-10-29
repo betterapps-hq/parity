@@ -274,7 +274,12 @@ export interface ExampleUse {
  * its props and children. Props are worked out where the file says what they are: literals, names it declares
  * (`config={chartConfig}`), `useState`'s first value, and the items a list maps into elements.
  */
-export function readExamples(files: ExampleFile[], names: string[]): Map<string, ExampleUse> {
+export function readExamples(
+  files: ExampleFile[],
+  names: string[],
+  /** The library's package, whose own functions an example calls for a prop's value (`createTreeCollection`). */
+  pkg?: string
+): Map<string, ExampleUse> {
   const known = new Set(names)
   const flat = new Map(names.map((name) => [name.replaceAll(".", ""), name]))
   const resolve = (tag: string) => (known.has(tag) ? tag : flat.get(tag.replaceAll(".", "")))
@@ -295,7 +300,7 @@ export function readExamples(files: ExampleFile[], names: string[]): Map<string,
       const source =
         sources.get(file) ?? ts.createSourceFile(file.path, file.text, ts.ScriptTarget.Latest, false, ts.ScriptKind.TSX)
       sources.set(file, source)
-      readSource(source, uses, resolve, sampling ? family : undefined, setBy)
+      readSource(source, uses, resolve, sampling ? family : undefined, setBy, pkg)
     }
   }
   // A part's sample props are its defaults wherever it's drawn, so one that only a single use, or under a quarter of
@@ -327,13 +332,21 @@ function readSource(
   uses: Map<string, ExampleUse>,
   base: (tag: string) => string | undefined,
   family?: (name: string) => string,
-  setBy?: Map<string, Map<string, number>>
+  setBy?: Map<string, Map<string, number>>,
+  pkg?: string
 ): void {
   const wrapping = wrappers(source, base)
   // The example's own wrapper of a part (`<CustomTab>`) is that part where the example places it.
   const resolve = (tag: string) => base(tag) ?? wrapping.get(tag)?.name
   const wrapped = new Set([...wrapping.values()].map((wrapper) => wrapper.root))
-  const context: Context = { source, resolve, scope: declarations(source), env: new Map(), wrapping }
+  const context: Context = {
+    source,
+    resolve,
+    scope: declarations(source),
+    env: new Map(),
+    wrapping,
+    ...(pkg ? { imports: packageImports(source, pkg) } : {})
+  }
   const placedHere = new Set<string>()
   const hooked = hookResults(source)
   const drawnFromHook = mappedComponents(source, hooked, base)
@@ -407,8 +420,11 @@ function readSource(
       bind(firstParameter(node), drawnWith.get(declared), inner)
     }
     // JSX passed in a prop (`content={<ChartTooltipContent />}`) is rendered wherever that component puts it, so
-    // it isn't placed in the element whose prop it is.
-    ts.forEachChild(node, (child) => visit(child, ts.isJsxAttributes(child) ? [] : here, inList, inner))
+    // it isn't placed in the element whose prop it is. A render prop's (`render={({ node }) => ...}`) is drawn inside it.
+    ts.forEachChild(node, (child) => {
+      if (!ts.isJsxAttributes(child)) visit(child, here, inList, inner)
+      else ts.forEachChild(child, (attribute) => visit(attribute, rendersInside(attribute) ? here : [], inList, inner))
+    })
   }
   visit(source, [], false, new Map())
 }
@@ -507,6 +523,24 @@ interface Context {
   hookItem?: Record<string, unknown>
   /** The example's own wrappers of the library's parts, by name. */
   wrapping?: Map<string, { name: string; root: ts.Node; spread: boolean }>
+  /** The functions the file imports from the library's package, by the name it uses, with where they come from. */
+  imports?: Map<string, { import: string; export: string }>
+}
+
+/** The names a file imports from a package or its subpaths (`@base-ui/react/toast`), with what each is there. */
+function packageImports(source: ts.SourceFile, pkg: string): Map<string, { import: string; export: string }> {
+  const found = new Map<string, { import: string; export: string }>()
+  for (const statement of source.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue
+    const from = statement.moduleSpecifier.text
+    if (from !== pkg && !from.startsWith(`${pkg}/`)) continue
+    const bindings = statement.importClause?.namedBindings
+    if (!bindings || !ts.isNamedImports(bindings)) continue
+    for (const element of bindings.elements) {
+      found.set(element.name.text, { import: from, export: (element.propertyName ?? element.name).text })
+    }
+  }
+  return found
 }
 
 function sampleOf(node: ts.JsxElement | ts.JsxSelfClosingElement, context: Context, depth: number): ComponentSample {
@@ -658,7 +692,9 @@ function renderOf(
   context: Context,
   depth: number
 ): SampleRender | undefined {
-  const body = returned(callback)
+  // A render that picks between elements (`isBranch ? <BranchControl /> : <Item />`) shows the first.
+  let body = returned(callback)
+  if (body && ts.isConditionalExpression(body)) body = unwrap(body.whenTrue)
   if (!body || !(ts.isJsxElement(body) || ts.isJsxSelfClosingElement(body) || ts.isJsxFragment(body))) return undefined
   const inner: SampleChild[] = []
   pushExpression(body, context, depth, inner)
@@ -917,6 +953,13 @@ function declaredName(node: ts.Node): string | undefined {
   return name && /^[A-Z]/.test(name) ? name : undefined
 }
 
+/** Whether a prop is a render function (`render={({ node }) => ...}`), which the component draws inside itself. */
+function rendersInside(attribute: ts.Node): boolean {
+  const value = ts.isJsxAttribute(attribute) && attribute.initializer
+  const expression = value && ts.isJsxExpression(value) && value.expression && unwrap(value.expression)
+  return !!expression && (ts.isArrowFunction(expression) || ts.isFunctionExpression(expression))
+}
+
 /** The callback of a `list.map(callback)` call. */
 function mapCallback(node: ts.Node): ts.ArrowFunction | ts.FunctionExpression | undefined {
   if (!ts.isCallExpression(node) || !ts.isPropertyAccessExpression(node.expression)) return undefined
@@ -994,7 +1037,8 @@ function attributeValue(initializer: ts.JsxAttributeValue | undefined, context: 
 
 /**
  * The value an expression has, when the file says: literals, arrays and objects of them, the names it declares, and
- * a mapped item's fields. Anything else (calls, functions, imports) is undefined.
+ * a mapped item's fields, and calls of the package's own functions as `$call`s. Anything else (other calls, functions,
+ * imports) is undefined.
  */
 function evaluate(expression: ts.Expression, context: Context, depth: number): unknown {
   if (depth > 6) return undefined
@@ -1060,6 +1104,16 @@ function evaluate(expression: ts.Expression, context: Context, depth: number): u
       if (value !== undefined) object[key] = value
     }
     return object
+  }
+  // A call of one of the package's own functions (`createTreeCollection({ rootNode })`), with arguments the file spells
+  // out, as a value the canvas makes by calling it; not a hook, which only runs inside a component. A function among
+  // the options is left out, so the package's default is used.
+  if (ts.isCallExpression(expression) && ts.isIdentifier(expression.expression)) {
+    const callee = context.imports?.get(expression.expression.text)
+    if (!callee || !/^[a-z]/.test(callee.export) || /^use[A-Z]/.test(callee.export)) return undefined
+    const args = expression.arguments.map((argument) => evaluate(argument, context, depth + 1))
+    if (args.some((argument) => argument === undefined)) return undefined
+    return { $call: { import: callee.import, export: callee.export }, ...(args.length > 0 ? { args } : {}) }
   }
   if (ts.isPropertyAccessExpression(expression) || ts.isElementAccessExpression(expression)) {
     const object = evaluate(expression.expression, context, depth + 1)

@@ -161,9 +161,35 @@ export function isSampleElement(value: unknown): value is SampleElement {
   return typeof value === "object" && value !== null && Array.isArray((value as Record<string, unknown>).$element)
 }
 
+/**
+ * A prop's value the package makes by calling one of its own functions, as an example does (Chakra's
+ * `collection={createTreeCollection({ rootNode })}`): the canvas calls it with `args`, once per frame.
+ */
+export interface MadeValue {
+  $call: { import: string; export: string }
+  args?: unknown[]
+}
+
+/** Whether a sample's prop value is one the package makes. */
+export function isMadeValue(value: unknown): value is MadeValue {
+  const call = typeof value === "object" && value !== null ? (value as Record<string, unknown>).$call : undefined
+  return typeof call === "object" && call !== null && typeof (call as Record<string, unknown>).import === "string"
+}
+
 /** Whether a sample's child or prop value is a render function. */
 export function isSampleRender(value: unknown): value is SampleRender {
   return typeof value === "object" && value !== null && Array.isArray((value as Record<string, unknown>).$render)
+}
+
+/**
+ * Where a part's sample calls what's inside it: its function children, else a render prop (Chakra's `TreeView.Node`
+ * `render`), with the render function.
+ */
+export function renderSlotOf(sample: ComponentSample | undefined): { prop: string; render: SampleRender } | undefined {
+  const children = sample?.children?.find(isSampleRender)
+  if (children) return { prop: "children", render: children }
+  const entry = Object.entries(sample?.props ?? {}).find(([, value]) => isSampleRender(value))
+  return entry ? { prop: entry[0], render: entry[1] as SampleRender } : undefined
 }
 
 /**

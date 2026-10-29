@@ -9,6 +9,7 @@ import {
   commandOption,
   describedCategories,
   describedTokenCss,
+  isMadeValue,
   type LibraryInfo,
   libraryImports,
   type PackageManifest,
@@ -179,7 +180,14 @@ export function guestModuleSource(config: ProjectConfig): string {
   const decorated = config.libraries.flatMap((library) =>
     (library.decorators ?? []).map((decorator) => ({ library: library.id, decorator }))
   )
-  const decoratorModules = [...new Set(config.libraries.flatMap((library) => libraryImports(library)))]
+  // And the packages whose functions make values in its components' samples (`createTreeCollection`), which designs
+  // hold once the components are inserted.
+  const decoratorModules = [
+    ...new Set([
+      ...config.libraries.flatMap((library) => libraryImports(library)),
+      ...Object.values(config.components).flatMap((source) => madeImports(source.sample))
+    ])
+  ]
   for (const id of decoratorModules) {
     if (!imports.includes(id)) optional.add(id)
     ref(id)
@@ -216,6 +224,14 @@ export function guestModuleSource(config: ProjectConfig): string {
     "})",
     ""
   ].join("\n")
+}
+
+/** The modules a sample's values made by calling a package's function come from. */
+function madeImports(value: unknown): string[] {
+  if (isMadeValue(value)) return [value.$call.import, ...(value.args ?? []).flatMap(madeImports)]
+  if (Array.isArray(value)) return value.flatMap(madeImports)
+  if (typeof value === "object" && value !== null) return Object.values(value).flatMap(madeImports)
+  return []
 }
 
 /** An export path as property access: `Button` is `["Button"]`, and `Dialog.Root` reads into the namespace. */

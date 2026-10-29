@@ -82727,11 +82727,90 @@
         "as": "function",
         "group": "CodeBlockAdapterProvider",
         "parents": [
-          "CodeBlock.Content",
           "CodeBlock.Root"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "namespace",
         "visual": false,
+        "sample": {
+          "props": {
+            "value": {
+              "$call": {
+                "import": "@chakra-ui/react",
+                "export": "createShikiAdapter"
+              },
+              "args": [
+                {
+                  "theme": "github-dark"
+                }
+              ]
+            },
+            "children": "Text"
+          },
+          "children": [
+            {
+              "component": "CodeBlock.Root",
+              "props": {
+                "code": "import * as React from 'react';\nimport { CodeBlock } from '@chakra-ui/react';\n\nconst Example = () => {\n  const code = `\n{\n  \"name\": \"My App\",\n  \"version\": \"1.0.0\",\n  \"description\": \"A simple web appli",
+                "language": "tsx",
+                "maxLines": 10
+              },
+              "children": [
+                {
+                  "component": "CodeBlock.Header",
+                  "children": [
+                    {
+                      "component": "CodeBlock.Title",
+                      "children": [
+                        "index.tsx"
+                      ]
+                    },
+                    {
+                      "component": "CodeBlock.Control",
+                      "children": [
+                        {
+                          "component": "CodeBlock.CollapseTrigger",
+                          "props": {
+                            "asChild": true
+                          },
+                          "children": []
+                        },
+                        {
+                          "component": "CodeBlock.CopyTrigger",
+                          "props": {
+                            "asChild": true
+                          },
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "component": "CodeBlock.Content",
+                  "children": [
+                    {
+                      "component": "CodeBlock.Code",
+                      "children": [
+                        {
+                          "component": "CodeBlock.CodeText"
+                        }
+                      ]
+                    },
+                    {
+                      "component": "CodeBlock.Overlay",
+                      "children": [
+                        {
+                          "component": "CodeBlock.CollapseTrigger",
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
         "fingerprint": "bd22a811",
         "props": {
           "children": "75c961",
@@ -82742,9 +82821,14 @@
         "as": "forwardRef",
         "group": "CodeBlock",
         "parents": [
-          "CodeBlock.Root"
+          "CodeBlock.AdapterProvider",
+          "CodeBlock.Root",
+          "CodeBlock.Content"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
+        "optionalParents": [
+          "CodeBlock.AdapterProvider"
+        ],
         "sample": {
           "children": [
             {
@@ -83607,9 +83691,15 @@
         "as": "forwardRef",
         "group": "CodeBlock",
         "parents": [
-          "CodeBlock.Root"
+          "CodeBlock.AdapterProvider",
+          "CodeBlock.Root",
+          "CodeBlock.Content",
+          "CodeBlock.Code"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
+        "optionalParents": [
+          "CodeBlock.AdapterProvider"
+        ],
         "fingerprint": "ab3ee309",
         "props": {
           "_active?": "c3f29d",
@@ -84462,9 +84552,13 @@
         "as": "forwardRef",
         "group": "CodeBlock",
         "parents": [
-          "CodeBlock.Root"
+          "CodeBlock.AdapterProvider",
+          "CodeBlock.Root",
+          "CodeBlock.Header",
+          "CodeBlock.Control",
+          "CodeBlock.CollapseTrigger"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
         "fingerprint": "6efbbf4d",
         "props": {
           "_active?": "c3f29d",
@@ -85319,9 +85413,13 @@
         "as": "forwardRef",
         "group": "CodeBlock",
         "parents": [
-          "CodeBlock.Root"
+          "CodeBlock.AdapterProvider",
+          "CodeBlock.Root",
+          "CodeBlock.Content",
+          "CodeBlock.Overlay",
+          "CodeBlock.CollapseTrigger"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
         "sample": {
           "props": {
             "textStyle": "sm"
@@ -86179,9 +86277,20 @@
         "as": "forwardRef",
         "group": "CodeBlock",
         "parents": [
-          "CodeBlock.Root"
+          "CodeBlock.AdapterProvider",
+          "CodeBlock.Root",
+          "CodeBlock.Header",
+          "CodeBlock.Content",
+          "CodeBlock.Control",
+          "CodeBlock.Overlay"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
+        "optionalParents": [
+          "CodeBlock.Overlay",
+          "CodeBlock.Control",
+          "CodeBlock.Content",
+          "CodeBlock.Header"
+        ],
         "sample": {
           "children": [
             {
@@ -87044,9 +87153,13 @@
         "as": "forwardRef",
         "group": "CodeBlock",
         "parents": [
+          "CodeBlock.AdapterProvider",
           "CodeBlock.Root"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
+        "optionalParents": [
+          "CodeBlock.AdapterProvider"
+        ],
         "sample": {
           "children": [
             {
@@ -87927,8 +88040,8 @@
         "as": "function",
         "group": "CodeBlock",
         "parents": [
-          "CodeBlock.Root",
           "CodeBlock.AdapterProvider",
+          "CodeBlock.Root",
           "CodeBlock.Content"
         ],
         "parentsFrom": "error",
@@ -87942,9 +88055,11 @@
         "as": "forwardRef",
         "group": "CodeBlock",
         "parents": [
-          "CodeBlock.Root"
+          "CodeBlock.AdapterProvider",
+          "CodeBlock.Root",
+          "CodeBlock.Header"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
         "sample": {
           "children": [
             {
@@ -88815,9 +88930,16 @@
         "as": "forwardRef",
         "group": "CodeBlock",
         "parents": [
-          "CodeBlock.Root"
+          "CodeBlock.AdapterProvider",
+          "CodeBlock.Root",
+          "CodeBlock.Header",
+          "CodeBlock.CopyTrigger"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
+        "optionalParents": [
+          "CodeBlock.Header",
+          "CodeBlock.AdapterProvider"
+        ],
         "fingerprint": "c32f74bd",
         "props": {
           "_active?": "c3f29d",
@@ -89672,13 +89794,24 @@
         "as": "forwardRef",
         "group": "CodeBlock",
         "parents": [
-          "CodeBlock.Root"
+          "CodeBlock.AdapterProvider",
+          "CodeBlock.Root",
+          "CodeBlock.Header"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
+        "optionalParents": [
+          "CodeBlock.Header",
+          "CodeBlock.AdapterProvider"
+        ],
         "sample": {
           "props": {
             "asChild": true
-          }
+          },
+          "children": [
+            {
+              "component": "CodeBlock.CopyIndicator"
+            }
+          ]
         },
         "fingerprint": "ab3ee309",
         "props": {
@@ -90532,6 +90665,7 @@
         "as": "forwardRef",
         "group": "CodeBlock",
         "parents": [
+          "CodeBlock.AdapterProvider",
           "CodeBlock.Root"
         ],
         "parentsFrom": "error",
@@ -91387,9 +91521,13 @@
         "as": "forwardRef",
         "group": "CodeBlock",
         "parents": [
+          "CodeBlock.AdapterProvider",
           "CodeBlock.Root"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
+        "optionalParents": [
+          "CodeBlock.AdapterProvider"
+        ],
         "sample": {
           "children": [
             {
@@ -92271,9 +92409,11 @@
         "as": "forwardRef",
         "group": "CodeBlock",
         "parents": [
-          "CodeBlock.Root"
+          "CodeBlock.AdapterProvider",
+          "CodeBlock.Root",
+          "CodeBlock.Content"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
         "sample": {
           "children": [
             {
@@ -93147,8 +93287,70 @@
         "sample": {
           "props": {
             "children": "Text",
-            "code": "Text"
-          }
+            "code": "import * as React from 'react';\nimport { CodeBlock } from '@chakra-ui/react';\n\nconst Example = () => {\n  const code = `\n{\n  \"name\": \"My App\",\n  \"version\": \"1.0.0\",\n  \"description\": \"A simple web appli",
+            "language": "tsx"
+          },
+          "children": [
+            {
+              "component": "CodeBlock.Header",
+              "children": [
+                {
+                  "component": "CodeBlock.Title",
+                  "children": [
+                    "index.tsx"
+                  ]
+                },
+                {
+                  "component": "CodeBlock.Control",
+                  "children": [
+                    {
+                      "component": "CodeBlock.CollapseTrigger",
+                      "props": {
+                        "asChild": true
+                      },
+                      "children": []
+                    },
+                    {
+                      "component": "CodeBlock.CopyTrigger",
+                      "props": {
+                        "asChild": true
+                      },
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "CodeBlock.Content",
+              "children": [
+                {
+                  "component": "CodeBlock.Code",
+                  "children": [
+                    {
+                      "component": "CodeBlock.CodeText"
+                    }
+                  ]
+                },
+                {
+                  "component": "CodeBlock.Overlay",
+                  "children": [
+                    {
+                      "component": "CodeBlock.CollapseTrigger",
+                      "children": [
+                        {
+                          "component": "CodeBlock.CollapseText",
+                          "props": {
+                            "textStyle": "sm"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
         },
         "fingerprint": "f499f4e1",
         "props": {
@@ -94012,9 +94214,11 @@
         "as": "forwardRef",
         "group": "CodeBlock",
         "parents": [
-          "CodeBlock.Root"
+          "CodeBlock.AdapterProvider",
+          "CodeBlock.Root",
+          "CodeBlock.Header"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
         "sample": {
           "children": [
             "(size=",
@@ -159037,11 +159241,16 @@
         "sample": {
           "children": [
             {
-              "component": "DatePicker.ClearTrigger"
-            },
-            {
-              "component": "DatePicker.Trigger",
-              "children": []
+              "component": "DatePicker.Context",
+              "children": [
+                {
+                  "$render": [
+                    {
+                      "component": "DatePicker.ClearTrigger"
+                    }
+                  ]
+                }
+              ]
             }
           ]
         },
@@ -286081,6 +286290,48 @@
         "group": "Listbox",
         "sample": {
           "props": {
+            "collection": {
+              "$call": {
+                "import": "@chakra-ui/react",
+                "export": "createListCollection"
+              },
+              "args": [
+                {
+                  "items": [
+                    {
+                      "value": "euphoric-echoes",
+                      "title": "Euphoric Echoes",
+                      "artist": "Luna Solstice",
+                      "image": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=160&h=160&fit=crop"
+                    },
+                    {
+                      "value": "neon-dreamscape",
+                      "title": "Neon Dreamscape",
+                      "artist": "Electra Skyline",
+                      "image": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=160&h=160&fit=crop"
+                    },
+                    {
+                      "value": "cosmic-serenade",
+                      "title": "Cosmic Serenade",
+                      "artist": "Orion's Symphony",
+                      "image": "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=160&h=160&fit=crop"
+                    },
+                    {
+                      "value": "melancholy-melodies",
+                      "title": "Melancholy Melodies",
+                      "artist": "Violet Mistral",
+                      "image": "https://images.unsplash.com/photo-1571330735066-03aaa9429d89?w=160&h=160&fit=crop"
+                    },
+                    {
+                      "value": "rhythmic-illusions",
+                      "title": "Rhythmic Illusions",
+                      "artist": "Mirage Beats",
+                      "image": "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=160&h=160&fit=crop"
+                    }
+                  ]
+                }
+              ]
+            },
             "maxW": "640px"
           },
           "children": [
@@ -406423,6 +406674,33 @@
         "group": "Select",
         "sample": {
           "props": {
+            "collection": {
+              "$call": {
+                "import": "@chakra-ui/react",
+                "export": "createListCollection"
+              },
+              "args": [
+                {
+                  "items": [
+                    {
+                      "name": "Jessica Jones",
+                      "id": "jessica_jones",
+                      "avatar": "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=100"
+                    },
+                    {
+                      "name": "Kenneth Johnson",
+                      "id": "kenneth_johnson",
+                      "avatar": "https://images.unsplash.com/photo-1523477800337-966dbabe060b?w=100"
+                    },
+                    {
+                      "name": "Kate Wilson",
+                      "id": "kate_wilson",
+                      "avatar": "https://images.unsplash.com/photo-1609712409631-dbbb050746d1?w=100"
+                    }
+                  ]
+                }
+              ]
+            },
             "size": "sm",
             "width": "240px"
           },
@@ -521938,6 +522216,8 @@
         "group": "TreeView",
         "parents": [
           "TreeView.Root",
+          "TreeView.Tree",
+          "TreeView.Node",
           "TreeView.Item"
         ],
         "parentsFrom": "error",
@@ -522795,6 +523075,8 @@
         "group": "TreeView",
         "parents": [
           "TreeView.Root",
+          "TreeView.Tree",
+          "TreeView.Node",
           "TreeView.Item"
         ],
         "parentsFrom": "error",
@@ -523652,9 +523934,26 @@
         "group": "TreeView",
         "parents": [
           "TreeView.Root",
-          "TreeView.Item"
+          "TreeView.Tree",
+          "TreeView.Node"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "component": "TreeView.BranchTrigger"
+            },
+            {
+              "component": "TreeView.NodeCheckbox"
+            },
+            {
+              "component": "TreeView.BranchText"
+            },
+            {
+              "component": "TreeView.BranchIndicator"
+            }
+          ]
+        },
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",
@@ -524509,6 +524808,8 @@
         "group": "TreeView",
         "parents": [
           "TreeView.Root",
+          "TreeView.Tree",
+          "TreeView.Node",
           "TreeView.Item"
         ],
         "parentsFrom": "error",
@@ -525366,9 +525667,16 @@
         "group": "TreeView",
         "parents": [
           "TreeView.Root",
-          "TreeView.Item"
+          "TreeView.Tree",
+          "TreeView.Node",
+          "TreeView.BranchControl"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "asChild": true
+          }
+        },
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",
@@ -526223,9 +526531,11 @@
         "group": "TreeView",
         "parents": [
           "TreeView.Root",
-          "TreeView.Item"
+          "TreeView.Tree",
+          "TreeView.Node",
+          "TreeView.BranchControl"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",
@@ -527080,9 +527390,22 @@
         "group": "TreeView",
         "parents": [
           "TreeView.Root",
+          "TreeView.Tree",
+          "TreeView.Node",
           "TreeView.Item"
         ],
         "parentsFrom": "error",
+        "sample": {
+          "children": [
+            {
+              "component": "TreeView.BranchIndicator",
+              "props": {
+                "asChild": true
+              },
+              "children": []
+            }
+          ]
+        },
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",
@@ -527949,9 +528272,24 @@
         "as": "forwardRef",
         "group": "TreeView",
         "parents": [
-          "TreeView.Root"
+          "TreeView.Root",
+          "TreeView.Tree",
+          "TreeView.Node"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
+        "sample": {
+          "children": [
+            {
+              "component": "TreeView.NodeCheckbox"
+            },
+            {
+              "component": "TreeView.ItemText"
+            },
+            {
+              "component": "TreeView.ItemIndicator"
+            }
+          ]
+        },
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",
@@ -528806,9 +529144,11 @@
         "group": "TreeView",
         "parents": [
           "TreeView.Root",
+          "TreeView.Tree",
+          "TreeView.Node",
           "TreeView.Item"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",
@@ -529663,9 +530003,11 @@
         "group": "TreeView",
         "parents": [
           "TreeView.Root",
+          "TreeView.Tree",
+          "TreeView.Node",
           "TreeView.Item"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",
@@ -531380,13 +531722,23 @@
         "as": "function",
         "group": "TreeView",
         "parents": [
-          "TreeView.Root",
-          "TreeView.Tree"
+          "TreeView.Root"
         ],
-        "parentsFrom": "example",
+        "parentsFrom": "error",
         "sample": {
           "props": {
-            "render": "Text",
+            "render": {
+              "$render": [
+                {
+                  "component": "TreeView.BranchControl",
+                  "children": [
+                    {
+                      "component": "TreeView.BranchText"
+                    }
+                  ]
+                }
+              ]
+            },
             "indentGuide": {
               "$element": [
                 {
@@ -531396,6 +531748,37 @@
             }
           },
           "children": [
+            {
+              "component": "TreeView.BranchControl",
+              "children": [
+                {
+                  "component": "TreeView.BranchTrigger"
+                },
+                {
+                  "component": "TreeView.NodeCheckbox"
+                },
+                {
+                  "component": "TreeView.BranchText"
+                },
+                {
+                  "component": "TreeView.BranchIndicator"
+                }
+              ]
+            },
+            {
+              "component": "TreeView.Item",
+              "children": [
+                {
+                  "component": "TreeView.NodeCheckbox"
+                },
+                {
+                  "component": "TreeView.ItemText"
+                },
+                {
+                  "component": "TreeView.ItemIndicator"
+                }
+              ]
+            },
             {
               "component": "TreeView.NodeCheckboxIndicator"
             }
@@ -531415,9 +531798,21 @@
         "group": "TreeView",
         "parents": [
           "TreeView.Root",
+          "TreeView.Tree",
+          "TreeView.Node",
+          "TreeView.BranchControl",
           "TreeView.Item"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
+        "optionalParents": [
+          "TreeView.Item",
+          "TreeView.BranchControl"
+        ],
+        "sample": {
+          "props": {
+            "aria-label": "check node"
+          }
+        },
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",
@@ -532272,7 +532667,6 @@
         "group": "TreeView",
         "parents": [
           "TreeView.Root",
-          "TreeView.Tree",
           "TreeView.Node"
         ],
         "parentsFrom": "error",
@@ -532287,16 +532681,10 @@
         "group": "TreeView",
         "parents": [
           "TreeView.Root",
-          "TreeView.Tree",
           "TreeView.Node"
         ],
         "parentsFrom": "error",
         "visual": false,
-        "sample": {
-          "props": {
-            "children": "Text"
-          }
-        },
         "fingerprint": "2828042f",
         "props": {
           "children": "8c3e23"
@@ -532322,6 +532710,46 @@
         "group": "TreeView",
         "sample": {
           "props": {
+            "collection": {
+              "$call": {
+                "import": "@chakra-ui/react",
+                "export": "createTreeCollection"
+              },
+              "args": [
+                {
+                  "rootNode": {
+                    "id": "ROOT",
+                    "name": "",
+                    "children": [
+                      {
+                        "id": "node_modules",
+                        "name": "node_modules"
+                      },
+                      {
+                        "id": "src",
+                        "name": "src"
+                      },
+                      {
+                        "id": "panda.config",
+                        "name": "panda.config.ts"
+                      },
+                      {
+                        "id": "package.json",
+                        "name": "package.json"
+                      },
+                      {
+                        "id": "renovate.json",
+                        "name": "renovate.json"
+                      },
+                      {
+                        "id": "readme.md",
+                        "name": "README.md"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
             "maxW": "sm"
           },
           "children": [
@@ -532336,7 +532764,21 @@
               "component": "TreeView.Tree",
               "children": [
                 {
-                  "component": "TreeView.Node"
+                  "component": "TreeView.Node",
+                  "props": {
+                    "render": {
+                      "$render": [
+                        {
+                          "component": "TreeView.BranchControl",
+                          "children": [
+                            {
+                              "component": "TreeView.BranchText"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  }
                 }
               ]
             }
@@ -534106,6 +534548,18 @@
                   "$element": [
                     {
                       "component": "TreeView.BranchIndentGuide"
+                    }
+                  ]
+                },
+                "render": {
+                  "$render": [
+                    {
+                      "component": "TreeView.BranchControl",
+                      "children": [
+                        {
+                          "component": "TreeView.BranchText"
+                        }
+                      ]
                     }
                   ]
                 }

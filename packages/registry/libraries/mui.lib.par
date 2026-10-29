@@ -7085,7 +7085,15 @@
         "sample": {
           "props": {
             "count": 11
-          }
+          },
+          "children": [
+            {
+              "component": "PaginationItem",
+              "props": {
+                "slots": {}
+              }
+            }
+          ]
         },
         "fingerprint": "f2f4653a",
         "props": {
@@ -7115,6 +7123,10 @@
       "PaginationItem": {
         "as": "function",
         "group": "PaginationItem",
+        "parents": [
+          "Pagination"
+        ],
+        "parentsFrom": "example",
         "sample": {
           "props": {
             "slots": {}
@@ -9369,6 +9381,26 @@
         "as": "function",
         "group": "ThemeProvider",
         "visual": false,
+        "sample": {
+          "props": {
+            "theme": {
+              "$call": {
+                "import": "@mui/material/styles",
+                "export": "createTheme"
+              },
+              "args": [
+                {
+                  "palette": {
+                    "mode": "dark",
+                    "primary": {
+                      "main": "#1976d2"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
         "fingerprint": "3e0bccb3",
         "props": {
           "children?": "75c961",

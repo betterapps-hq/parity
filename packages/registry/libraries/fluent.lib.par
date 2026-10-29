@@ -25592,7 +25592,12 @@
             {
               "$render": [
                 {
-                  "component": "CarouselNavButton"
+                  "component": "CarouselNavImageButton",
+                  "props": {
+                    "image": {
+                      "src": "https://fabricweb.azureedge.net/fabric-website/assets/images/wireframe/image-square.png"
+                    }
+                  }
                 }
               ]
             }
@@ -26186,7 +26191,52 @@
                 }
               }
             ],
-            "columns": [],
+            "columns": [
+              {
+                "$call": {
+                  "import": "@fluentui/react-components",
+                  "export": "createTableColumn"
+                },
+                "args": [
+                  {
+                    "columnId": "file"
+                  }
+                ]
+              },
+              {
+                "$call": {
+                  "import": "@fluentui/react-components",
+                  "export": "createTableColumn"
+                },
+                "args": [
+                  {
+                    "columnId": "author"
+                  }
+                ]
+              },
+              {
+                "$call": {
+                  "import": "@fluentui/react-components",
+                  "export": "createTableColumn"
+                },
+                "args": [
+                  {
+                    "columnId": "lastUpdated"
+                  }
+                ]
+              },
+              {
+                "$call": {
+                  "import": "@fluentui/react-components",
+                  "export": "createTableColumn"
+                },
+                "args": [
+                  {
+                    "columnId": "lastUpdate"
+                  }
+                ]
+              }
+            ],
             "sortable": true,
             "selectionMode": "multiselect"
           },

@@ -248,7 +248,7 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
       if (fetched.note) notes.push(fetched.note)
       const componentNames = scan.components.map((component) => component.name)
       exampleFiles = fetched.files
-      uses = readExamples(fetched.files, componentNames)
+      uses = readExamples(fetched.files, componentNames, pkg.name)
       anatomy = readAnatomy(fetched.docs ?? [], componentNames)
       if (fetched.source) report.examples = { ...fetched.source, used: uses.size }
     }
