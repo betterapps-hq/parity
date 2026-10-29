@@ -45,7 +45,7 @@ still need your call.
 
 - **The menus are drawn by the app, in the title bar.** That's the same on every system. On macOS the system menu keeps
   only the app, clipboard, window and developer commands for now. **On macOS, the menus will also be mirrored into the
-  system menu bar,** which you chose on 2026-10-28, because Mac users look for commands there (PAR-147).
+  system menu bar,** which you chose on 2026-10-28, because Mac users look for commands there (PAR-150).
 - **File, Edit, View, Object, Arrange and Help, named and filled as Figma's are** (your request, 2026-10-29, from the
   menu audit). My calls:
   - **Object** holds what acts on the selection: Insert, wrapping in a layout, making a component, going to the main
@@ -57,7 +57,7 @@ still need your call.
   - **Help** has Search actions (Ctrl+K or Ctrl+/, Figma's actions menu), Keyboard shortcuts (Ctrl+Shift+?, as in
     Figma), developer tools and About Parity.
   - **No Check for updates yet.** Parity has no releases, so there's nothing to check; About says so and shows the
-    version, Electron and Chromium, with a button to copy them. Updating comes with packaging (PAR-9, PAR-157).
+    version, Electron and Chromium, with a button to copy them. Updating comes with packaging (PAR-9, PAR-160).
   - **Exit is in File on Windows and Linux only;** on a Mac, Quit is in the Parity menu, as every app's is.
 - **Every shortcut is in one keymap,** `chrome/keymap.ts`. The menus, tooltips, the Keyboard shortcuts dialog and the
   key handlers all read it, so what's shown is what works, and a test fails if two commands share keys. Keys are written
@@ -91,7 +91,7 @@ still need your call.
     (Ctrl+Alt+A) selects, within the design, layers that are the same component, the same main component, or text with
     the same tag, and styled the same apart from place and size. Content doesn't count. With designs selected, it
     selects designs of the same kind (CAN-39).
-  - Figma keys for things Parity doesn't do yet are Copy as PNG, find and lock (PAR-187 to PAR-189).
+  - Figma keys for things Parity doesn't do yet are Copy as PNG, find and lock (PAR-190 to PAR-192).
 - **Enter, Tab and the arrows on a focused control are the control's** (found by the editor audit, 2026-10-29): a
   button, tab, Layers row or toggle presses, moves focus or moves within itself, so Tab moves through the inspector's
   fields instead of selecting the next layer. They act on the canvas when it, or nothing, has focus. A key the canvas
@@ -219,7 +219,7 @@ still need your call.
 - **The arrows nudge** (CAN-39). A layer in a layout moves one place along the direction its frame draws, stepping over
   absolutely placed siblings and ones the state hides; in a grid, Up and Down move a whole row when there's one to move
   to, and Shift still moves one place. An absolutely placed layer moves one spacing step, or ten with Shift, from where
-  it's drawn, since 1px would leave the scale until PAR-191. Designs and notes move 1px, or 10. Each run of presses on
+  it's drawn, since 1px would leave the scale until PAR-194. Designs and notes move 1px, or 10. Each run of presses on
   one selection is one undo step.
 - **Layers are found from React's tree, as React DevTools does** (CAN-45), so a component that renders none of its props
   can be hovered, selected, outlined and dragged. Component layers are marked by the guest's error boundary and the
@@ -240,7 +240,7 @@ still need your call.
   number, since insets can be negative. `%` is a share of the current value, as in Figma, except in Opacity, where it's
   the unit. When maths needs a value that isn't set, padding, gaps and insets count as 0, opacity as 100, and Width and
   Height as their measured size; limits, rows and max lines say there's no value to work from.
-- **Until PAR-191, a typed length lands on the nearest half step** (2px on a 4px scale), which is what dragging writes
+- **Until PAR-194, a typed length lands on the nearest half step** (2px on a 4px scale), which is what dragging writes
   and what Tailwind's scale lists below 4, and the field says so under its row. Values already off it show as they are
   until edited.
 - **Up and Down move a length one spacing step, and Shift ten;** other numbers move by 1 and 10, and presses under a
@@ -250,11 +250,11 @@ still need your call.
   focus with the text selected, and Escape reverts and leaves. A value changing underneath doesn't touch what's being
   typed.
 - **The canvas previews a field's edit as inline styles on the frames already drawn,** not through the store, so typing
-  shows in about 25 ms and commits as one undo step. Number props don't preview yet (PAR-200).
+  shows in about 25 ms and commits as one undo step. Number props don't preview yet (PAR-203).
 - **The field parser is in `@parity/core`** until `@parity/editor` exists (PAR-7).
 - **A dragged layer stays in its own layout while the pointer is over that layout** (CAN-47): it changes places with its
   neighbours and never drops into one of them, so cards and bars that are layouts themselves don't swallow the neighbour
-  they pass. Putting a layer inside a neighbour is done in Layers for now (PAR-203). Targets are measured before the
+  they pass. Putting a layer inside a neighbour is done in Layers for now (PAR-206). Targets are measured before the
   dragged layer is hidden. In a grid or wrapping row, the line under the pointer decides first, then the children's
   middles, and below the last line the layer goes last.
 - **A resize starts only after 4px along the handle's own axes,** and an edge fills only once it has left the parent's
@@ -262,7 +262,7 @@ still need your call.
   their insets and never fill: a token inset on the side that moves becomes a number of steps, since a token can't be
   offset, and the other sides keep theirs. The resize hint closes when a handle is pressed.
 - **A duplicated design goes to the first free space to the right along its row,** 160px clear of every design and note,
-  as do designs pasted into their own project (CAN-47). Bringing it into view when that's off screen is PAR-201.
+  as do designs pasted into their own project (CAN-47). Bringing it into view when that's off screen is PAR-204.
 
 ## Main components and instances
 
@@ -759,7 +759,7 @@ recommended answer to each of its questions.
 - **The canvas reads like the journey:** one row of boards per part of it, top-aligned, 400 apart, rows 600 apart.
   Components sit below, the shared ones first, then in the order of the screens that use them, 600 apart so the state
   names beside them have room. Board sizes were worked out from `Measure`, since the canvas reports 0 for boards it
-  hasn't drawn (PAR-274).
+  hasn't drawn (PAR-279).
 - **Each screen has states worth showing:** Dashboard's Loading and Empty workspace, Sign in's Signing in and Wrong
   password, Settings' Saving, Saved and Invalid email, and Pricing's Monthly and Yearly.
 - **Repeated parts became component designs by extraction** (Stat card, Activity item, Plan card, Project card, Task
@@ -767,7 +767,7 @@ recommended answer to each of its questions.
   a Loading state. Pricing's Yearly state changes each plan's price through its instance.
 - **They were built through the agent API** (`parity exec`), one undoable step per screen, and saved after each, because
   the dev runner restarting Electron drops unsaved changes. Four agents built screens at once, taking turns through a
-  lock: each run applies whole project files, so two at once would overwrite each other's work (PAR-273).
+  lock: each run applies whole project files, so two at once would overwrite each other's work (PAR-278).
 - **The example imports Nova's styles** (`@buildkitgg/shadcn-baseui-nova/tailwind.css`, right after Tailwind), as the
   Components panel's Import styles does. Without it, Nova's switches and progress bars render invisible.
 - **The accessibility checks find real issues in it,** mostly one token pair: `muted-foreground` on `muted` is 4.34:1,
@@ -1010,7 +1010,7 @@ recommended answer to each of its questions.
   and can be started again from there. One that stops before its server answers fails the project's opening with that
   error, as a builder that throws does.
 - **A reopened project gets its builder's last port back when it's free,** so its guest URL stays the same, which
-  PAR-192 relies on; otherwise any free port, as before. The service remembers each project's port while it runs, and a
+  PAR-195 relies on; otherwise any free port, as before. The service remembers each project's port while it runs, and a
   reopen waits for the closing builder's process to end first.
 - **The performance stats count each project's builder,** as "Vite for shop", since its memory used to count in the
   service's: the service asks each builder for its CPU time, and the system reads its memory as it does Electron's own
@@ -1021,7 +1021,7 @@ recommended answer to each of its questions.
   `:host`, in a layer below the project's own CSS), not from the canvas around it. Before this, text without a size of
   its own took the canvas's 12px and 18px line height instead of 16px. The frames beside the first column are drawn
   smaller on purpose, and so aren't actual size at 100%. `frame.test.ts` lays a frame out in Chrome and checks its root
-  against a fresh page's, and the render sweep (PAR-208) is to compare whole frames with Chrome. On screen at 100%, a
+  against a fresh page's, and the render sweep (PAR-211) is to compare whole frames with Chrome. On screen at 100%, a
   phone and a desktop frame were also captured and compared with Chrome pixel by pixel: same size and place, with only
   text antialiasing differing (the canvas draws text in grayscale, and Chrome with ClearType's colored edges).
 - **Frames have square corners and cut nothing off,** at your request, since a browser's viewport doesn't round its
@@ -1069,14 +1069,14 @@ recommended answer to each of its questions.
   these changes, the 93 full-size frames in the example's Boards story still match Chrome element by element, within
   0.03px.
 
-- **Visual regression tests draw each frame as a page of its own, not as a canvas frame** (PAR-223). Canvas frames share
+- **Visual regression tests draw each frame as a page of its own, not as a canvas frame** (PAR-226). Canvas frames share
   one window, one document, one origin and one copy of the project's code, so the canvas can draw dozens at once. The
   rewrites and window answers above make them look right, and that's enough to design with. A baseline needs a
   guarantee, and these frames still share more than a test should:
   - the project's module state, such as a store two frames both read;
   - the document's portals, focus, scroll lock and listeners;
   - Parity's origin for storage, cookies and relative requests;
-  - Parity's root font size for `rem` (PAR-153) and its CSS variables (PAR-154);
+  - Parity's root font size for `rem` (PAR-156) and its CSS variables (PAR-157);
   - media queries other than width, the pixel ratio, the user agent and touch;
   - the canvas's drawing: fractional positions, zoom and grayscale text.
 
@@ -1084,12 +1084,12 @@ recommended answer to each of its questions.
   project's CSS is unchanged there, and its window, `html`, `body`, `rem`, media queries and modules are its own. The
   mode's viewport, pixel ratio, color scheme, reduced motion and touch are emulated. Time is frozen, animations
   finished, and fonts, images and components that load on demand awaited. The canvas is then held to those pages: the
-  sweep compares each canvas frame's layout with its page's, element by element (PAR-208), as was done by hand for
+  sweep compares each canvas frame's layout with its page's, element by element (PAR-211), as was done by hand for
   CAN-23 to CAN-33. A gap in the canvas's isolation then shows up as a failure, not as a wrong baseline.
 
-- **Visual tests come after the core** (your call, 2026-10-29). PAR-223 and the VIS stream, which
-  [visual-tests.md](proposals/visual-tests.md) proposes, stay at Later until the core is done, including PAR-224 and
-  PAR-225, which need nothing else.
+- **Visual tests come after the core** (your call, 2026-10-29). PAR-226 and the VIS stream, which
+  [visual-tests.md](proposals/visual-tests.md) proposes, stay at Later until the core is done, including PAR-227 and
+  PAR-228, which need nothing else.
 
 - **Agents render offscreen,** in a hidden window, so their work never moves your camera. Export uses the same renderer.
 - **The offscreen renderer closes when it's idle,** a minute after its last job, and the next job opens it again
@@ -1119,10 +1119,10 @@ recommended answer to each of its questions.
   `SKILL.md`, and its examples must run.
 - **Parity is design-system first, so it has no style archetypes.** A project's look comes from its own components and
   tokens, or from a design system library it adds. Pen's ready-made styles aren't copied, and the skill never suggests
-  one. PAR-137, which proposed them, was dropped; its ID isn't reused.
+  one. PAR-140, which proposed them, was dropped; its ID isn't reused.
 - **Agent passes write stories; they don't set up Storybook** (your call, 2026-10-28). Adding Storybook to a project is
-  setup work for the scaffolder, whose catalog already has a Storybook add-on, or for a recipe (PAR-280). The pass that
-  set up Storybook was dropped before anyone built it; PAR-273 is now a different item.
+  setup work for the scaffolder, whose catalog already has a Storybook add-on, or for a recipe (PAR-285). The pass that
+  set up Storybook was dropped before anyone built it; PAR-278 is now a different item.
 - **The CLI and MCP find layout problems:** `parity problems <design>` and the `find_problems` tool report render
   errors, overflow, clipping and unknown components, in every state and the modes shown unless narrowed.
   `parity problems` exits with 1 when it finds any.
@@ -1135,7 +1135,7 @@ recommended answer to each of its questions.
   read at the start of a snippet would be stale by the time its designs render. My call; change it if snippets need the
   status too.
 - **The CLI will be public on npm** (your call, 2026-10-29), so a CI pipeline gets Parity with `npx` and nothing else to
-  download. Visual tests in CI rely on it (PAR-236). It can't be published as `@parity/cli`, because the `@parity` scope
+  download. Visual tests in CI rely on it (PAR-239). It can't be published as `@parity/cli`, because the `@parity` scope
   on npm belongs to Parity Technologies, so its name is PAR-26.
 - **A project's Vite server keeps its own dependency cache,** `node_modules/.vite-parity`. With Vite's default, the
   project's own dev server, often running alongside, re-optimized into the same folder, and each server then served
@@ -1154,8 +1154,8 @@ recommended answer to each of its questions.
 ## Previews
 
 You asked on 2026-10-29 for previews of every kind of token and of components, designed in Storybook first. These calls
-are from that design; [proposals/previews.md](proposals/previews.md) has the detail, and PAR-138 to PAR-140 and PAR-204
-to PAR-206 build it.
+are from that design; [proposals/previews.md](proposals/previews.md) has the detail, and PAR-141 to PAR-143 and PAR-207
+to PAR-209 build it.
 
 - **Token previews are drawn, not rendered.** My call: a token's preview is a few of Parity's own elements styled from
   its resolved value, never a frame or a bitmap, so a panel of 459 tokens costs only elements. The project's custom
@@ -1172,7 +1172,7 @@ to PAR-206 build it.
   never otherwise, so an idle panel runs no animations. With reduced motion, nothing plays by itself and Play runs it
   once. Animation tokens play the project's own keyframes.
 - **Component previews are bitmaps of what inserting would place,** made by the offscreen renderer behind canvas bitmaps
-  and agent renders, in the project's default mode, and kept on disk keyed by content, in PAR-155's store. No panel or
+  and agent renders, in the project's default mode, and kept on disk keyed by content, in PAR-158's store. No panel or
   picker mounts a component. Dark previews are made only on request.
 - **A preview whose code changed shows its last picture, dimmed and marked as updating,** until the new one is made.
   That's fine in a list, unlike on the canvas, and a content key means a picture is never taken for current when it
@@ -1180,7 +1180,7 @@ to PAR-206 build it.
 - **The Components tab gets three views:** Names (today's list), List with a picture on each row (the default) and Grid.
   Resting the pointer on a component for half a second opens its card, with a large picture, its variants and its
   source; the `/` picker shows the highlighted component's card beside its list.
-- **PAR-175 keeps the picker's speed and ranking; its previews moved to PAR-205,** so the two aren't built twice.
+- **PAR-178 keeps the picker's speed and ranking; its previews moved to PAR-208,** so the two aren't built twice.
 - **A token's detail shows its value read-only, and Edit changes it.** You found on 2026-10-29 that Cancel seemed to do
   nothing, that an erased value had no way back, and that you couldn't tell what would save. So editing is a mode:
   nothing is written until Save, Cancel or Escape leaves without writing, and after a save the detail says where the
@@ -1188,7 +1188,7 @@ to PAR-206 build it.
 - **A value is checked before it can be saved:** brackets and quotes must close, each `var()` must name a token, and the
   value with its references replaced must be the kind's value. You found `calc(var(--radius) * 2.6` saved without its
   `)`; the browser closes it silently, and `CSS.supports` passes anything holding `var()`. Today's `validTokenValue` has
-  both holes, so PAR-140 replaces it.
+  both holes, so PAR-143 replaces it.
 - **Spacing draws at its true size,** in rows and in the detail's scale, as you asked on 2026-10-29: rows widen to the
   section's longest length, up to 128 pixels, and only a longer one is drawn cut, with a break in its bar.
 - **Copying a token takes one step,** since you judged it's why most people open the tab: a copy button on each row and
@@ -1228,10 +1228,10 @@ to PAR-206 build it.
 - **Editor work lands with tests and a section in [editor.md](editor.md).** You asked on 2026-10-29 for "tests for each
   piece of functionality, and documentation so we know it exists and don't lose it or regress". A feature's section says
   what it does, where its code is and which tests cover it, and changes in the same commit as the feature. Features
-  built before then are PAR-387.
+  built before then are PAR-392.
 - **The editor audit's tasks start with the ones that need no design,** as you asked on 2026-10-29. So the parts of
-  CAN-39, CAN-47 and CAN-48 that need design first moved to new items: Copy as PNG (PAR-187), find (PAR-188), lock
-  (PAR-189), the finer gesture work (PAR-190) and lengths off the spacing scale (PAR-191). Until PAR-191, nudging moves
+  CAN-39, CAN-47 and CAN-48 that need design first moved to new items: Copy as PNG (PAR-190), find (PAR-191), lock
+  (PAR-192), the finer gesture work (PAR-193) and lengths off the spacing scale (PAR-194). Until PAR-194, nudging moves
   an absolutely placed layer by one spacing step, or ten with Shift, since 1px would leave the scale.
 - **Packages and scripts use only TypeScript that Node can strip,** because the CLI and scripts run them with plain
   `node`: no parameter properties, namespaces or enums. oxlint rejects the first two in `packages/**` and
@@ -1245,15 +1245,15 @@ the Repository, CI and releases stream in Linear.
 
 - **Parity will be a public repository under the Fencing Club organization on GitHub,** as you decided on 2026-10-29.
   Actions runners are free for public repositories, so CI tests on Windows, macOS and Linux.
-- **Parity is MIT-licensed** (your call, 2026-10-29, Q6), like the agency monorepo. PAR-392 adds the LICENSE and names
+- **Parity is MIT-licensed** (your call, 2026-10-29, Q6), like the agency monorepo. PAR-397 adds the LICENSE and names
   it in every package.json.
 - **Interface text isn't checked against Fluent's guidance.** You said on 2026-10-29 that this was a Microsoft practice
   you no longer follow, so conventions.md keeps only the rule against dot separators.
 - **DOC-3, splitting the backlog, was dropped.** The backlog is moving to Linear, which solves its size. Its ID isn't
   reused.
-- **Releases ship unsigned until signing is set up,** as you chose on 2026-10-29. Signing is PAR-394. Until then,
+- **Releases ship unsigned until signing is set up,** as you chose on 2026-10-29. Signing is PAR-399. Until then,
   Windows SmartScreen warns on first run, macOS blocks the app until it's allowed in System Settings, and macOS can't
-  update in place, so PAR-157 waits for signing there.
+  update in place, so PAR-160 waits for signing there.
 - **The toolchain moves to Vite+ in place, with `vp migrate`.** You asked for the monorepo template on 2026-10-29. My
   calls: workspace packages stay source-only, the example project, fixtures and builder-vite stay on stock Vite because
   they stand in for or drive customers' projects, and `pnpm verify` keeps its name.
@@ -1264,20 +1264,50 @@ the Repository, CI and releases stream in Linear.
     the dependencies changed but weren't installed: run `pnpm install`.
   - **The desktop app runs on Vite+'s core.** A pnpm override keeps stock Vite 8 for the example project and
     builder-vite, as the call above says.
-  - **Type checking runs inside `vp check`,** on TypeScript 7, and needs type-aware linting on. The eight type-aware
-    rules that flagged 229 places are off until REPO-7 (PAR-391) fixes them.
-  - **Tests still import from `vitest`** until REPO-2. Until then `prefer-vite-plus-imports` is off.
+  - **Types are checked by `pnpm check:types`,** which runs `vp lint --type-aware --type-check` on TypeScript 7, on push
+    and in CI rather than in `vp check` (see the hooks below). The eight type-aware rules that flagged 229 places are
+    off until PAR-396 fixes them.
+  - **Tests still import from `vitest`** until PAR-393. Until then `prefer-vite-plus-imports` is off.
   - **`.storybook` is type-checked now.** Outside any tsconfig, the checker had given it a program without the `@`
     alias.
   - **No two files in a folder may differ only by case and extension.** Beside `Processes.tsx`, `processes.ts` made the
     checker on Windows mistake one for the other, so it's now `process-store.ts`.
 - **Versions come from Beachball change files,** as Buildkit and the agency monorepo do it, which you asked for on
   2026-10-29. This replaces my earlier call for release-please. My calls on how:
-  - The CLI is published.
-  - The desktop app and the workspace packages the CLI or the app bundle are versioned with
-    `"beachball": { "shouldPublish": false }`, rather than `private`, so a change to one bumps whatever ships it.
-  - The rest stays `private`.
-  - `pnpm change` writes a change file without prompting, so sessions can.
+  - **Only the desktop app and the CLI are versioned.** The workspace packages they bundle are `private` again, as you
+    agreed on 2026-10-29, and sit in their `devDependencies`, so electron-builder doesn't package them and Beachball
+    accepts a released package depending on them.
+  - **A change to a private package asks for a change file on what bundles it.** Beachball doesn't look inside private
+    packages, so `scripts/changes.ts` does, following them through each other to the app and the CLI.
+  - **`pnpm changefile --type patch --message "…"`** writes the missing change files without prompting, so sessions can.
+    pnpm 12 has its own `pnpm change`, hence the name.
+  - **Change files are checked from what's staged or committed, never the working tree.** `beachball check` counts the
+    working tree, so in the folder sessions share it blocked commits on other sessions' unfinished edits. The commit
+    hook runs `scripts/changes.ts check` on what's staged, the push hook `--committed` on the branch's commits, and CI
+    both that and `beachball check` on its clean checkout.
+  - **npm gets the packages whose package.json has a `publishConfig`,** which the CLI gets with its npm name (PAR-13).
+- **Hooks keep what doesn't belong out of pull requests (PAR-3),** as you asked on 2026-10-29. My calls:
+  - **A commit lints and formats its staged files, fixing what it can, and its subject must be conventional,** at most
+    100 characters (4 of the last 400 were longer) and not work in progress. A fixup commit can be made but not pushed.
+  - **Types are checked on push and in CI, not on commit or in `pnpm verify`,** as you said, since type checking grows
+    slow. On 2026-10-29 it took lint from 1.6 to 3.2 seconds.
+  - **A push also checks formatting, lint, the pushed commits' messages and change files,** which catches a commit that
+    skipped its hooks. It took 9 seconds.
+  - **Focused tests and `debugger` were lint errors already.**
+  - **Tests run on twelve workers locally and four in CI,** as Copacker's do, which you said suits your machine.
+- **Pull requests are required on `main`, and CodeRabbit reviews each one,** as you asked on 2026-10-29. The ruleset
+  comes with the repository (PAR-398). My calls:
+  - **A pull request merges once CI, CodeRabbit's status and the title check pass and every thread is resolved,** with
+    no approval required, since GitHub doesn't let you approve your own. CodeRabbit's findings are fixed or answered
+    before merging, and a review that stops on an error fails rather than passing unreviewed.
+  - **Merges squash,** so the title becomes the commit's subject, and CI checks it with `scripts/commits.ts title`.
+  - **Nobody force-pushes to or deletes `main`,** and nobody bypasses the ruleset.
+  - **Terraform writes the ruleset,** as it writes the GitHub settings the pipelines read, from a shared module so
+    Buildkit, Better Apps and Copacker can take the same rules.
+  - **`.coderabbit.yaml` reviews assertively,** with AGENTS.md and conventions.md as its guidelines, and leaves lint,
+    format, types, tests and change files to CI, so its own linters are off. Its Linear integration stays off, which
+    keeps private issues out of public comments.
+  - **GitHub's secret scanning and push protection stay on,** as they are by default for public repositories.
 - **Releases follow Buildkit's flow.** After CI passes on `main`, pending change files open a release PR that merges
   itself once its checks pass, and its version changes start delivery: the CLI to npm through trusted publishing with
   provenance, and the desktop app to GitHub Releases. My calls: installers come from electron-builder, since one tool
@@ -1287,7 +1317,7 @@ the Repository, CI and releases stream in Linear.
   production releases, promoted the way the web apps go from staging to production. My calls: a release is a GitHub
   pre-release until it's promoted, and promoting marks that same release a full one, so nothing is rebuilt; the beta is
   a Get beta updates setting rather than a second app; and electron-builder stays over Electron Forge, whose free update
-  service ignores pre-releases and doesn't serve Linux. The work is PAR-11, PAR-12 and PAR-157.
+  service ignores pre-releases and doesn't serve Linux. The work is PAR-11, PAR-12 and PAR-160.
 - **Pull requests get a web preview of Parity's UI: its Storybook, deployed to Cloudflare,** as you asked on 2026-10-29,
   beside the unsigned installers. My call: not the whole app as a web app, since the project service needs Node for
   files, each project's Vite and the agent, and Storybook already runs the real UI against a stand-in service. The work
@@ -1322,7 +1352,8 @@ the Repository, CI and releases stream in Linear.
     headless, mui). Their `node_modules`, about 2 GB per system, are cached on their lockfiles.
   - Runners get 45 minutes, since a run that installs the fixtures can outlast 30 on Windows.
   - Vite Task's cache isn't kept yet: `pnpm verify` doesn't go through `vp run`, and ci-verify's extra cache can't
-    restore from an older key. When PAR-4 makes `pnpm verify` run `beachball check`, `fetch-depth` becomes 0.
+    restore from an older key. CI's `beachball check` and `scripts/changes.ts check --committed` (PAR-4) compare with
+    `origin/main`, so they need `fetch-depth: 0`.
 - **`Fencing-Club/pipelines` started with the setup action and ci-verify (PAR-110).** My calls:
   - The setup action checks out without keeping credentials, and on Windows turns off `core.autocrlf` first, since the
     runners' CRLF made Vite+'s formatter fail every file.
