@@ -4,12 +4,14 @@ import type { MainMessage, ServiceMessage } from "../shared/service.ts"
 import { checkAccessibility, exportDesigns, startAgentServer } from "./agent.ts"
 import { builderReadings } from "./builders.ts"
 import { handleConsoleResult } from "./console.ts"
+import { undoProjectEdit } from "./edits.ts"
 import { importImage } from "./images.ts"
 import { addLibrary, catalogFor, importStyles } from "./libraries.ts"
 import { dismissProcess, listProcesses, restartProcess, stopProcess } from "./processes.ts"
 import {
   closeProject,
   correctComponents,
+  getProject,
   message,
   onFileChange,
   openProject,
@@ -30,6 +32,7 @@ const handlers: Handlers = {
   "document.save": saveDocument,
   "document.saveCopy": saveDocumentCopy,
   "images.import": importImage,
+  "project.undoEdit": ({ projectId, id }) => undoProjectEdit(getProject(projectId), id),
   "storybook.open": openStorybook,
   "designs.export": (params) => exportDesigns(editorWindow(), params),
   "frames.capture": async ({ job }) => {
@@ -124,9 +127,6 @@ onFileChange(
   },
   (change) => {
     editor?.request("project.componentsChanged", change).catch(() => undefined)
-  },
-  (change) => {
-    editor?.request("project.guestMoved", change).catch(() => undefined)
   }
 )
 

@@ -1443,16 +1443,29 @@ How Parity's code is split, so the parts that change most are easy to find, repl
     packages. A new package starts pure, so nobody has to remember to guard it.
   - `@parity/code`, `@parity/project` and `@parity/registry` are readers. They read a project's files, since
     TypeScript's program and the project's discovery read as they go, but never write them or start processes; a reader
-    that needs a file changed returns a changeset. They use no React and depend only on pure packages and other readers.
+    that needs a file changed returns a project edit. They use no React and depend only on pure packages and other
+    readers.
   - The CLI, libgen, the agent runtime, the adapters and the fixtures are the edge, where Node belongs, and
     renderer-react uses React.
   - No package imports Electron, tldraw or the app. Tests may use Node to set up files.
 - **Design and code sync gets one package, `@parity/code`,** which also takes over the three component readers
   (`project/components.ts`, `libgen/components.ts` and `@parity/props`), so one TypeScript program per project serves
   them all. Generating component files, reading them back and the drift review are built there, with golden-file tests.
-- **Every write into a project goes through changesets** (PAR-6): edits built as data, shown as a diff, applied and
+- **Every write into a project goes through project edits** (PAR-6): edits built as data, shown as a diff, applied and
   undone together. They come before the components work, so PAR-85 waits on them. Writing back from the lenses keeps its
-  place at the end of the lens order.
+  place at the end of the lens order. They were called changesets until you asked on 2026-10-29, since the word read as
+  the versioning tool and Parity versions with Beachball. My calls in building them:
+  - An edit expects what it finds: a file that changed since the edit was built is left alone, and the whole edit with
+    it, rather than overwritten. Undo is the edit reversed, so it refuses the same way once a file has changed again.
+  - The service keeps a project's latest 50 edits to undo, and no more than 64 MB of the files they wrote, since a
+    pasted image can be 20 MB. They outlast the project closing, because the window reopens a project to pick up what an
+    edit changed.
+  - Only importing a library's styles says what it wrote, with the diff and Undo, as it's a one-off change to the
+    project's own stylesheet. Token edits take their undo from the design's history (PAR-164), and saving them goes
+    through a project edit underneath. A pasted image stays a design step: its file is named by its content, so pasting
+    it again reuses it, and undoing the paste leaves the file, as before.
+  - Installing a library imports its styles through a project edit too, but doesn't offer Undo, since undoing the import
+    would leave the package installed.
 - **Editor behaviour moves into `@parity/editor`,** one file at a time with tests: arranging and the clipboard first.
 - **Lenses and adapters never go in core.** Lens models are schemas in `@parity/models`, each lens is a package, and so
   is each adapter, such as Drizzle or TanStack Router.

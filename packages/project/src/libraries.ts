@@ -56,6 +56,18 @@ function rank(library: LibraryDefinition): number {
   return library.kind === "icons" ? 2 : 1
 }
 
+/**
+ * A stylesheet with a library's styles imported right after Tailwind, so the library's own token defaults come first
+ * and the project's tokens, declared later in the file, still win. `undefined` when it imports them already.
+ */
+export function withStylesImport(source: string, specifier: string): string | undefined {
+  if (source.includes(specifier)) return undefined
+  const lines = source.split("\n")
+  const tailwind = lines.findIndex((text) => /^@import\s+["']tailwindcss["']/.test(text.trim()))
+  lines.splice(tailwind + 1, 0, `@import "${specifier}";`)
+  return lines.join("\n")
+}
+
 /** Buildkit publishes each shadcn style as its own package; any of them is recognized once installed. */
 const buildkitStyle = /^@buildkitgg\/shadcn-(baseui|radix)-([a-z]+)$/
 

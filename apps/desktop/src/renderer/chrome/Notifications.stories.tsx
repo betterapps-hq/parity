@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
+import { userEvent, within } from "storybook/test"
 import { Toaster } from "@/components/ui/sonner"
 import { AppWindow } from "../App.tsx"
 import { layersSelection } from "../selection.ts"
@@ -12,8 +13,9 @@ import {
   node,
   openProjects
 } from "../stories/fixtures.tsx"
-import { answering, pickingWith, service } from "../stories/host.ts"
+import { answerNext, answering, pickingWith, service } from "../stories/host.ts"
 import { workspace } from "../workspace.ts"
+import { importStyles } from "./AssetsPanel.tsx"
 import { renameDesign, Window } from "./chrome-fixtures.tsx"
 import { copySelectionStyle, exportImages, save, saveCopy, unwrapSelection } from "./commands.ts"
 
@@ -235,5 +237,58 @@ export const CouldntReopen: Story = {
     await frameDesigns("Pricing", "Dashboard")
     void workspace.reconnect()
     await holdToast("Couldn't reopen shadcn-vite")
+  }
+}
+
+/** Importing a library's styles from the Components panel, which writes the project's stylesheet and reopens it. */
+function importNovaStyles(): Promise<void> {
+  const session = example()
+  const nova = session.info.libraries.find((library) => library.id === "nova") ?? session.info.libraries[0]!
+  return importStyles(session, nova)
+}
+
+/** A button on the notification showing, since the window has an Undo of its own. */
+function notificationButton(name: string): HTMLElement {
+  const notification = document.querySelector<HTMLElement>("[data-sonner-toast]")
+  if (!notification) throw new Error("No notification is showing")
+  return within(notification).getByRole("button", { name })
+}
+
+/** A change Parity wrote into the project's files, here a library's styles imported: which file, why, and its diff. */
+export const ProjectFileChanged: Story = {
+  loaders: [() => openProjects("example")],
+  play: async () => {
+    void importNovaStyles()
+    await holdToast("Changed src/index.css")
+    await userEvent.click(notificationButton("Show changes"))
+  }
+}
+
+/** Undo on that notification: the file is put back, and the project reopened to draw without the styles. */
+export const ProjectFileChangeUndone: Story = {
+  loaders: [() => openProjects("example")],
+  play: async () => {
+    void importNovaStyles()
+    await holdToast("Changed src/index.css")
+    await userEvent.click(notificationButton("Undo"))
+    await holdToast("Put back src/index.css")
+  }
+}
+
+/** Undo when the file changed again since, so putting it back would lose that. */
+export const ProjectFileChangeNotUndone: Story = {
+  loaders: [
+    async () => {
+      await openProjects("example")
+      answerNext("project.undoEdit", () => {
+        throw new Error("src/index.css changed since this was made, so nothing was written")
+      })
+    }
+  ],
+  play: async () => {
+    void importNovaStyles()
+    await holdToast("Changed src/index.css")
+    await userEvent.click(notificationButton("Undo"))
+    await holdToast("Couldn't undo it")
   }
 }

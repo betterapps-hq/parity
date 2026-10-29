@@ -18,13 +18,11 @@ import {
   type DetectionCorrections,
   libraryCanvas,
   libraryManifestExtension,
-  mergeServed,
   type PackageManifest,
   parseCanvasDocument,
   parseLibraryManifest,
   type ProjectDetection,
   type RendererAdapter,
-  type ServedRecord,
   setCustomProperty,
   type StylesAdapter,
   type ThemeVariable,
@@ -42,9 +40,10 @@ import {
 } from "@parity/project"
 import { reactRenderer } from "@parity/renderer-react"
 import { tailwindStyles } from "@parity/styles-tailwind"
-import type { ProjectInfo, ServiceMethods, TokenChange, WindowMethods } from "../shared/protocol.ts"
+import type { ProjectEditResult, ProjectInfo, ServiceMethods, TokenChange, WindowMethods } from "../shared/protocol.ts"
 import { startBuilder } from "./builders.ts"
 import { saveDetection, savedDetection } from "./detection-cache.ts"
+import { applyProjectEdit } from "./edits.ts"
 import { forgetProcess, forgetProject, trackProcess } from "./processes.ts"
 import { checkComponents, closeChecker, inferComponents } from "./props.ts"
 import { stopStorybook } from "./storybook.ts"
@@ -75,32 +74,20 @@ interface OpenProject {
   uiKit?: string
   /** The person's corrections to which exports are components, as the canvas has the main project file now. */
   corrections?: DetectionCorrections
-  /**
-   * What the builders before this one served the project's pages, once one was started again on the same port: false
-   * when one ended without saying, as one that crashed.
-   */
-  servedBefore?: ServedRecord | false
 }
 
 type FileChange = WindowMethods["project.fileChanged"]["params"]
 type ComponentsChange = WindowMethods["project.componentsChanged"]["params"]
-type GuestMoved = WindowMethods["project.guestMoved"]["params"]
 let notifyFileChange: (change: FileChange) => void = () => undefined
 let notifyComponents: (change: ComponentsChange) => void = () => undefined
-let notifyGuestMoved: (change: GuestMoved) => void = () => undefined
 
-/**
- * Where changes to project files made outside the canvas are reported, props re-inferred after a source edit, and a
- * guest that moved to a new port when its builder was started again.
- */
+/** Where changes to project files made outside the canvas are reported, and props re-inferred after a source edit. */
 export function onFileChange(
   listener: (change: FileChange) => void,
-  components: (change: ComponentsChange) => void,
-  guestMoved: (change: GuestMoved) => void
+  components: (change: ComponentsChange) => void
 ): void {
   notifyFileChange = listener
   notifyComponents = components
-  notifyGuestMoved = guestMoved
 }
 
 /** The project's components with their props, once inferred. */
@@ -117,11 +104,6 @@ const opening = new Map<string, Promise<ProjectInfo>>()
 const closing = new Map<string, Promise<void>>()
 /** The port each project's builder last served on, so a reopened project's guest URL stays the same. */
 const lastPorts = new Map<string, number>()
-/**
- * What each closed project's builders served its pages, which a reopen's builder compares with the files now: it takes
- * the last port only when the pages' copies are current. A project missing here gets a new port.
- */
-const lastServed = new Map<string, ServedRecord>()
 
 /** A project's root from a folder, or from one of its `.par` files: the nearest folder above it with a package.json. */
 export function projectRootFor(root: string | undefined): string {
@@ -152,28 +134,13 @@ export async function closeProject(projectId: string): Promise<undefined> {
   forgetProject(projectId)
   project?.watcher?.close()
   if (project) {
-    // Ending the builder's process frees the port it had, which a reopen waits for to have it again, along with what
-    // it served.
-    const closed = project.session.close().then(() => {
-      const served = servedSince(project.servedBefore, project.session)
-      if (served) lastServed.set(projectId, served)
-      else lastServed.delete(projectId)
-    })
+    // Ending the builder's process frees the port it had, which a reopen waits for to have it again.
+    const closed = project.session.close()
     closing.set(projectId, closed)
     await closed
     if (closing.get(projectId) === closed) closing.delete(projectId)
   }
   return undefined
-}
-
-/** What a project's builders served its pages, the closed `session` last: nothing when one of them couldn't say. */
-function servedSince(
-  before: ServedRecord | false | undefined,
-  session: BuilderProcessSession
-): ServedRecord | undefined {
-  const served = session.servedRecord()
-  if (before === false || !served) return undefined
-  return before ? mergeServed(before, served) : served
 }
 
 function builderProcessId(root: string): string {
@@ -312,25 +279,19 @@ async function serveBuilder(
   again = false
 ): Promise<BuilderProcessSession> {
   const id = builderProcessId(root)
-  // A reopened project's builder takes its last port only when nothing it served the pages has changed since, so they
-  // draw with the modules they hold; one started again while it's open takes it whenever it's free.
-  const served = again ? undefined : lastServed.get(root)
-  const port = again || served ? lastPorts.get(root) : undefined
+  const port = lastPorts.get(root)
   const tracking = trackProcess(
     { id, kind: "builder", shape: "server", name: builder.name, projectId: root, project: name, status: "starting" },
     { restart: () => restartBuilder(root) }
   )
-  const started = startBuilder(
-    builderProcessOptions(builder, { ...options, ...(port ? { port } : {}), ...(served ? { served } : {}) }),
-    {
-      builder: builder.name,
-      project: name,
-      onCrash: (error) => {
-        console.warn(`[service] ${name}: ${error}`)
-        tracking.set("failed", { error })
-      }
+  const started = startBuilder(builderProcessOptions(builder, { ...options, ...(port ? { port } : {}) }), {
+    builder: builder.name,
+    project: name,
+    onCrash: (error) => {
+      console.warn(`[service] ${name}: ${error}`)
+      tracking.set("failed", { error })
     }
-  )
+  })
   if (started.pid) tracking.set("starting", { pid: started.pid })
   try {
     const session = await started.session
@@ -350,22 +311,14 @@ async function serveBuilder(
 async function restartBuilder(root: string): Promise<void> {
   const project = getProject(root)
   await project.session.close()
-  const before = servedSince(project.servedBefore, project.session) ?? false
   const session = await serveBuilder(root, project.info.name, project.builder, project.startOptions, true)
   if (projects.get(root) !== project) {
     await session.close()
     return
   }
   project.session = session
-  // It has its old port back unless something took it, and the pages still hold what the builders before served them.
-  if (session.guestUrl === project.info.guestUrl) {
-    project.servedBefore = before
-    return
-  }
-  // Otherwise the windows load the guest from the new port, so what this builder serves is all they draw with.
-  project.servedBefore = undefined
+  // It has its old port back unless something took it; then windows that open the project from now on find the new one.
   project.info.guestUrl = session.guestUrl
-  notifyGuestMoved({ projectId: root, guestUrl: session.guestUrl })
 }
 
 /** Sends the builder the components the guest imports, once they've changed in place. */
@@ -474,21 +427,24 @@ export async function saveDocumentCopy({
 export async function saveTokens({
   projectId,
   changes
-}: ServiceMethods["tokens.save"]["params"]): Promise<{ files: string[] }> {
+}: ServiceMethods["tokens.save"]["params"]): Promise<ProjectEditResult> {
   const project = getProject(projectId)
   const stylesheet = project.info.styles?.stylesheet ?? project.stylesheets[0]
   if (!stylesheet) throw new Error("The project has no stylesheet to write tokens to")
-  const path = join(project.info.root, stylesheet)
   const themeNames = new Set(project.info.theme.map((variable) => variable.name))
-  let source = await readFile(path, "utf8")
-  for (const change of changes) source = applyTokenChange(source, change, themeNames.has(change.name))
-  await writeFile(path, source)
+  const source = await readFile(join(project.info.root, stylesheet), "utf8")
+  let content = source
+  for (const change of changes) content = applyTokenChange(content, change, themeNames.has(change.name))
+  const edit = await applyProjectEdit(project, {
+    label: changes.length === 1 ? "Edit a token" : `Edit ${changes.length} tokens`,
+    files: [{ kind: "replace", path: stylesheet, expected: source, content }]
+  })
   // Keep the theme in step, so a reopened tab sees the new values before the builder recompiles.
   for (const change of changes) {
     const variable = project.info.theme.find((candidate) => candidate.name === change.name)
     if (variable && change.theme === "default") variable.value = change.value
   }
-  return { files: [stylesheet] }
+  return edit
 }
 
 function applyTokenChange(source: string, change: TokenChange, isTheme: boolean): string {

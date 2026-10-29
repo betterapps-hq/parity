@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto"
 import { existsSync } from "node:fs"
-import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import type { ServiceMethods } from "../shared/protocol.ts"
+import { applyProjectEdit } from "./edits.ts"
 import { getProject } from "./projects.ts"
 
 /** Image types that can be pasted in, by media type, with the extension each is saved under. */
@@ -27,7 +27,7 @@ export async function importImage({
   type,
   data
 }: ServiceMethods["images.import"]["params"]): Promise<ServiceMethods["images.import"]["result"]> {
-  const { info } = getProject(projectId)
+  const project = getProject(projectId)
   const extension = pastedTypes[type]
   if (!extension) throw new Error(`${type} images can't be pasted. Paste a PNG, JPEG, GIF, WebP or SVG.`)
   const bytes = Buffer.from(data, "base64")
@@ -39,11 +39,12 @@ export async function importImage({
       .replaceAll(/^-|-$/g, "")
       .toLowerCase() || "image"
   const file = `${base}-${hash}.${extension}`
-  const folder = join(info.root, "public", "images")
-  const path = join(folder, file)
-  if (!existsSync(path)) {
-    await mkdir(folder, { recursive: true })
-    await writeFile(path, bytes)
-  }
-  return { src: `/images/${file}`, path: `public/images/${file}` }
+  const path = `public/images/${file}`
+  const saved = { src: `/images/${file}`, path }
+  if (existsSync(join(project.info.root, path))) return saved
+  const edit = await applyProjectEdit(project, {
+    label: "Paste image",
+    files: [{ kind: "create", path, content: bytes }]
+  })
+  return { ...saved, edit }
 }

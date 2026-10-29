@@ -15,6 +15,16 @@ import type {
   Token
 } from "@parity/core"
 
+/**
+ * An edit the service made to a project's files: what it was for, each file's change as a unified diff (or a binary
+ * file's size), and the id that undoes it.
+ */
+export interface ProjectEditResult {
+  id: string
+  label: string
+  files: { path: string; diff: string }[]
+}
+
 /** Requests a canvas window sends to the project service, by method name. */
 export interface ServiceMethods {
   /** Opens a project, or returns it if it's already open. Without a root, opens the default project. */
@@ -43,18 +53,23 @@ export interface ServiceMethods {
    * Installs a library with the project's package manager and imports its styles. The tab then reopens to pick up its
    * components.
    */
-  "library.add": { params: { projectId: string; library: string }; result: { log: string } }
-  /** Imports an installed library's styles into the project's stylesheet. */
-  "library.importStyles": { params: { projectId: string; library: string }; result: undefined }
+  "library.add": { params: { projectId: string; library: string }; result: { log: string; edit?: ProjectEditResult } }
+  /** Imports an installed library's styles into the project's stylesheet; nothing to do when it imports them already. */
+  "library.importStyles": { params: { projectId: string; library: string }; result: ProjectEditResult | undefined }
   "document.save": { params: { projectId: string; path: string; document: CanvasDocument }; result: undefined }
   /**
    * Saves an image pasted onto the canvas into the project's public folder, where the dev server serves it. `data` is
-   * the file, base64 encoded; `type` its media type.
+   * the file, base64 encoded; `type` its media type. No edit when the same image was saved before.
    */
   "images.import": {
     params: { projectId: string; name: string; type: string; data: string }
-    result: { src: string; path: string }
+    result: { src: string; path: string; edit?: ProjectEditResult }
   }
+  /**
+   * Takes back an edit the service made to the project's files, unless a file has changed since. Only the project's
+   * latest 50 edits can be undone.
+   */
+  "project.undoEdit": { params: { projectId: string; id: string }; result: ProjectEditResult }
   /**
    * Opens a component's docs or first story in the project's Storybook, starting it if needed. Returns the address
    * to open; without a component, Storybook's home.
@@ -83,7 +98,7 @@ export interface ServiceMethods {
     result: { findings: AccessibilityFinding[]; frames: number; warnings: string[] }
   }
   /** Writes token values back to the project's stylesheets. */
-  "tokens.save": { params: { projectId: string; changes: TokenChange[] }; result: { files: string[] } }
+  "tokens.save": { params: { projectId: string; changes: TokenChange[] }; result: ProjectEditResult }
   /**
    * What Parity runs for the open projects: each one's build server and the Storybook it started, the tasks running,
    * and each task's last result.
@@ -186,8 +201,6 @@ export interface WindowMethods {
     }
     result: undefined
   }
-  /** A project's builder, started again, couldn't have its port back, so the project's guest is at a new address. */
-  "project.guestMoved": { params: { projectId: string; guestUrl: string }; result: undefined }
 }
 
 export type ServiceMethod = keyof ServiceMethods
@@ -371,8 +384,6 @@ export interface SaveDialogOptions {
 
 /** A frame the offscreen render window draws, to measure it or capture it. */
 export interface RenderJob {
-  /** The project drawn, so the render window lets go of its last guest when the project's moves to a new address. */
-  projectId: string
   guestUrl: string
   /** Components the guest adds before drawing, since the type checker found them after it loaded. */
   components?: Record<string, Pick<ComponentSource, "path" | "export">>
