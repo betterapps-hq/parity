@@ -88,6 +88,20 @@ describe("finding the app's components", () => {
     expect(Object.keys(project.components)).toEqual(["Home"])
   })
 
+  it("reads .ts files when the renderer asks for them, but not declarations or config files", async () => {
+    await write("src/components/badge.ts", "export function Badge() {}")
+    await write("src/env.d.ts", "export function Declared() {}")
+    await write("vite.config.ts", "export function Config() {}")
+    const { found } = await findAppComponents(
+      root,
+      { ...renderer, componentExtensions: [".tsx", ".ts"] },
+      readTsconfig(root),
+      undefined,
+      []
+    )
+    expect(found.map((component) => component.path)).toEqual(["src/components/badge.ts"])
+  })
+
   it("keeps undecided exports only in the UI kit folder, as it did before", async () => {
     await write("src/components/ui/select.tsx", "export const Select = Primitive.Root\nexport function SelectItem() {}")
     await write("src/components/access.tsx", "export const ForAdmins = Gate.Admins")

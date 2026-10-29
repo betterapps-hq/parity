@@ -281,6 +281,10 @@ recommended answer to each of its questions.
   comes from each component's error boundary in the guest, and a component loaded on demand only counts as drawn once
   its module has loaded. The panel shows failures only, as a warning beside the name; the reason is read from the error:
   a missing provider, server code, an async server component, or else the error itself.
+- **`.ts` files are read for components too, and config files aren't.** My call: a `.ts` file can't hold JSX, so the
+  parse leaves its capitalised functions and aliases to the type checker, which reads them with the rest. Files named
+  `*.config.*`, such as `vite.config.ts` and `eslint.config.js`, are skipped with stories and tests, as they only export
+  settings.
 
 ## Libraries, icons and images
 

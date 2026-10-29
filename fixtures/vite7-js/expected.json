@@ -121,7 +121,7 @@
   "notes": [
     "styles from /src/main.jsx: src/index.css",
     "the UI kit is in src/components",
-    "6 components in 8 files from the project's files",
+    "6 components in 7 files from the project's files",
     "not read, since they mount the app: src/main.jsx",
     "no .par project file yet"
   ]

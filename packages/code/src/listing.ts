@@ -36,8 +36,8 @@ const skippedFolders = new Set([
   "tmp",
   "temp"
 ])
-/** Stories, tests and generated files sit beside components and export everything but components. */
-const notComponents = /\.(stories|story|test|spec|gen|generated)\.[cm]?[jt]sx?$|\.d\.[cm]?ts$/
+/** Stories, tests, generated and config files sit beside components and export everything but components. */
+const notComponents = /\.(stories|story|test|spec|gen|generated|config)\.[cm]?[jt]sx?$|\.d\.[cm]?ts$/
 /** Code that mounts the app into the page, which the canvas must never run. */
 const mountsApp = /\b(createRoot|hydrateRoot)\s*\(|\bReactDOM\.render\s*\(/
 

@@ -9,7 +9,8 @@ export const reactRenderer: RendererAdapter = {
   guestModule: "@parity/renderer-react/guest",
   runtimePackages: ["react", "react-dom"],
   runtimeImports: ["react", "react/jsx-runtime", "react/jsx-dev-runtime", "react-dom", "react-dom/client"],
-  componentExtensions: [".tsx", ".jsx", ".js"],
+  // `.ts` too: a component can be made with `createElement`, or be an alias such as `const Select = Primitive.Root`.
+  componentExtensions: [".tsx", ".ts", ".jsx", ".js"],
   findComponents
 }
 
