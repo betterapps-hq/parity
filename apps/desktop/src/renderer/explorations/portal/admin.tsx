@@ -159,7 +159,7 @@ export function MembersPage() {
               <span className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Avatar person={claude} size={18} />
                 <Avatar person={cursor} size={18} />
-                Work as whoever runs them
+                Don't take seats
               </span>
             </Meter>
           </div>
@@ -206,9 +206,7 @@ export function MembersPage() {
             </span>
           </div>
         </div>
-        <OpenQuestion>
-          Open: does commenting need a seat, or only editing? And do agents use the seat of whoever runs them?
-        </OpenQuestion>
+        <OpenQuestion>Open: does commenting need a seat, or only editing?</OpenQuestion>
       </div>
     </SettingsPage>
   )

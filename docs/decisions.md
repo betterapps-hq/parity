@@ -317,6 +317,23 @@ recommended answer to each of its questions.
   placed as they show (the nearest parent, and every parent the chain needs) and how many have every level, listing
   those that differ. It's a check, not a signal, so it stays an independent measure; it reads Base UI's, Chakra's and
   shadcn's docs (Radix's and Mantine's aren't in their repositories, MUI's and React Aria's have no anatomy blocks).
+  Portals don't count either way, as chains leave them out (below).
+- **Internal parts (LIB-37):** a part the package renders inside another of its components, that no example or docs page
+  places, is `internal: true` (`ChartStyle`, a Select's scroll buttons, a kit's Overlay and Portal). It can still be
+  placed, and the Components panel lists it under "Internal parts" at the end of its library. A part that still fails is
+  tried with the props its owner passes when it renders it: the owner's own props (`config`) take the owner's sample,
+  literals stay, and worked-out values use the part's own sample. Buildkit now needs no hand edits, though the shared
+  file stays for the next one.
+- **Portals are left out of chains when the part renders without them (LIB-37):** they only move content out of the
+  frame, and Radix's throws in one ("getComputedStyle ... not of type Element") while passing on the server, where
+  portals don't run. Examples put them in every menu, so before this Radix rendered 108 of 118 in the app; after, 117.
+- **Elements as a prop's value are samples (LIB-37):** `{ "$element": [...] }`, read from examples' JSX in props
+  (`control={<Checkbox />}`), and inserted as a slot of that prop's name, which the canvas already passes as the prop.
+- **Components declared but missing when they run are left out (LIB-37):** MUI's types declare `BadgeRoot`, `ModalRoot`
+  and others its build doesn't export; they're `visual: false`, and the report names them.
+- **The in-app backtest runs its own instance:** `PARITY_UI_PORT`, `PARITY_DEBUG_PORT`, `PARITY_AGENT_FILE` and
+  `PARITY_USER_DATA` give it its own ports, CLI channel and settings, so it runs beside another session's Parity instead
+  of driving it.
 - **`parity lib` tries parts with React's server renderer,** from the project's own React, rather than in the app: it
   needs no window, runs in seconds, and still throws the context errors that name a part's parents. The library's
   decorator providers wrap each try, with their imports and calls made, a mode's default value, and no frame, so
@@ -426,11 +443,12 @@ recommended answer to each of its questions.
   (changes shown as the designs, merges, published components, new people, and the week in numbers); the canvas opened
   on what changed (before and after side by side, numbered changes, who changed what, approve or ask for changes, and
   the history along the bottom); and the admin pages Members, Billing and Add seats.
-- **A seat is for editing; viewing and commenting are free,** as Figma does it, and agents work as whoever runs them.
-  Admins approve a seat someone asks for, and adding seats charges the rest of the month at once. Billing admins are
-  their own role. The price ($24 a seat a month) is a placeholder.
-- **Open, marked on the designs as sticky notes:** whether commenting needs a seat, whether agents use the seat of
-  whoever runs them, the price per seat, and whether heavy agent use is billed by usage.
+- **A seat is for editing; viewing and commenting are free,** as Figma does it. Admins approve a seat someone asks for,
+  and adding seats charges the rest of the month at once. Billing admins are their own role. The price ($24 a seat a
+  month) is a placeholder.
+- **Agents don't take up seats** (your call, 2026-10-29).
+- **Open, marked on the designs as sticky notes:** whether commenting needs a seat, the price per seat, and whether
+  heavy agent use is billed by usage.
 
 ## Storybook
 
