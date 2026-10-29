@@ -6,6 +6,11 @@ export interface ComponentInfo {
   name: string
   /** Module path, relative to the project root. */
   path: string
+  /**
+   * What the project's code imports it from: a library's package name, or for its own component, its file through the
+   * tsconfig alias, as `@/components/ui/button`. Unset when only a relative path reaches it.
+   */
+  import?: string
   props: ComponentProp[]
 }
 

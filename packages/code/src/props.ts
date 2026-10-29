@@ -2,6 +2,7 @@ import { existsSync } from "node:fs"
 import { join, resolve } from "node:path"
 import type { ComponentInfo, ComponentProp, ComponentSource, PropGroup, PropKind } from "@parity/core"
 import ts from "typescript"
+import { importAlias, readTsconfig } from "./tsconfig.ts"
 
 type Literal = string | number | boolean | null
 
@@ -24,6 +25,9 @@ export function inferProps(
   const checker = program.getTypeChecker()
   const result: Record<string, ComponentInfo> = {}
   const variantsByFile = new Map<string, Variants>()
+  const tsconfig = readTsconfig(root)
+  const importOf = (source: ComponentSource) =>
+    source.library ? source.path : importAlias(root, tsconfig, source.path)
 
   for (const [name, source] of Object.entries(components)) {
     const file = program.getSourceFile(fileOf(source))
@@ -35,7 +39,8 @@ export function inferProps(
     }
     try {
       const props = componentProps(checker, file, source.export, variants)
-      if (props) result[name] = { name, path: source.path, props }
+      const from = importOf(source)
+      if (props) result[name] = { name, path: source.path, ...(from ? { import: from } : {}), props }
     } catch (error) {
       // One component the checker can't follow shouldn't cost the others their props.
       console.warn(`[props] ${name}: ${error instanceof Error ? error.message : String(error)}`)

@@ -1022,7 +1022,7 @@ export class AgentWorkspace {
     const props = info.props.filter(
       (prop) => options.all || ((prop.group === "variant" || prop.group === "own") && prop.kind !== "function")
     )
-    return { component, path: info.path, known: true, props }
+    return { component, path: info.path, ...(info.import ? { import: info.import } : {}), known: true, props }
   }
 
   /** Props a component doesn't declare, and values outside a prop's options. */

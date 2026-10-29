@@ -256,6 +256,8 @@ export function describeComponents({ components, iconLibraries = [] }: Component
 export interface PropsResponse {
   component: string
   path?: string
+  /** What the project's code imports it from: a package, or the file through the app's alias. */
+  import?: string
   known: boolean
   props: {
     name: string
@@ -270,7 +272,8 @@ export interface PropsResponse {
 /** A component's props, with each variant's options and default. */
 export function describeProps(result: PropsResponse): string {
   if (!result.known) return `${result.component}'s props haven't been read from its source yet. Try again in a moment.`
-  const lines = [`${result.component}, from ${result.path}:`]
+  const imported = result.import && result.import !== result.path ? `, imported from "${result.import}"` : ""
+  const lines = [`${result.component}, from ${result.path}${imported}:`]
   for (const prop of result.props) {
     const options = prop.options ? `: ${prop.options.map((option) => JSON.stringify(option)).join(", ")}` : ""
     const fallback = prop.default === undefined ? "" : `, default ${JSON.stringify(prop.default)}`

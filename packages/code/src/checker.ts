@@ -128,9 +128,15 @@ export function findComponents(scan: ComponentScan): ComponentReport {
     if ("ambiguous" in verdict) return void report.ambiguous.push({ name, reason: verdict.ambiguous })
     if ("not" in verdict) return void report.rejected.push({ name, reason: verdict.not })
     const existing = seen.get(symbol)
-    // One component exported under several names (Lucide's `Heart`, `HeartIcon` and `LucideHeart`) is listed once.
+    // One component exported under several names (Lucide's `Heart`, `HeartIcon` and `LucideHeart`) is listed once. Of
+    // an app's files, the one declaring it wins over an index that re-exports it, as the parse lists it there too.
     if (existing) {
-      if (preferred(name, existing.name, namespace)) Object.assign(existing, { name, ...from })
+      const declaredIn = (entry: string) => slashes(entry) === slashes(declaration.getSourceFile().fileName)
+      const switches =
+        scan.defaultExports && declaredIn(from.entry) !== declaredIn(existing.entry)
+          ? declaredIn(from.entry)
+          : preferred(name, existing.name, namespace)
+      if (switches) Object.assign(existing, { name, ...from })
       return
     }
     const file = declaration.getSourceFile().fileName

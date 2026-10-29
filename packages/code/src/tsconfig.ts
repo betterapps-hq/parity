@@ -50,32 +50,58 @@ export function readTsconfig(root: string): ProjectTsconfig {
 
 /**
  * Maps an import alias such as `@/components/ui` to a folder relative to the root, through the configs' `paths`. The
- * app's config is asked first, then the others, since a solution-style root config often holds the shared ones.
+ * app's config is asked first, then the others.
  */
 export function resolvePathAlias(root: string, tsconfig: ProjectTsconfig, alias: string): string | undefined {
+  for (const { pattern, target, base } of pathMappings(root, tsconfig)) {
+    const prefix = pattern.replace(/\*$/, "")
+    const matches = pattern.endsWith("*") ? alias.startsWith(prefix) : alias === pattern
+    if (!matches) continue
+    const resolved = join(base, target.replace(/\*$/, "") + (pattern.endsWith("*") ? alias.slice(prefix.length) : ""))
+    return posix.normalize(slashes(relative(root, resolved)))
+  }
+  return undefined
+}
+
+/**
+ * How the app's code imports one of its files through the tsconfig `paths`, the way its developers would write it:
+ * `src/components/ui/button.tsx` is `@/components/ui/button` when `@/*` maps to `./src/*`. The alias reaching furthest
+ * into the file's folders wins; unset when none reaches it.
+ */
+export function importAlias(root: string, tsconfig: ProjectTsconfig, path: string): string | undefined {
+  const module = slashes(path)
+    .replace(/\.[cm]?[jt]sx?$/, "")
+    .replace(/\/index$/, "")
+  let best: { alias: string; depth: number } | undefined
+  for (const { pattern, target, base } of pathMappings(root, tsconfig)) {
+    const folder = posix.normalize(slashes(relative(root, join(base, target.replace(/\*$/, "")))))
+    if (!pattern.endsWith("*")) {
+      if (folder.replace(/\.[cm]?[jt]sx?$/, "").replace(/\/index$/, "") === module) return pattern
+      continue
+    }
+    const prefix = folder === "." ? "" : `${folder}/`
+    if (!module.startsWith(prefix) || (best && best.depth >= prefix.length)) continue
+    best = { alias: pattern.slice(0, -1) + module.slice(prefix.length), depth: prefix.length }
+  }
+  return best?.alias
+}
+
+/** Every `paths` entry, the app's config first, then the others, since a solution-style root often holds shared ones. */
+function pathMappings(root: string, tsconfig: ProjectTsconfig): { pattern: string; target: string; base: string }[] {
   const ordered = [
     ...(tsconfig.app ? [tsconfig.app] : []),
     ...tsconfig.configs.filter((config) => config !== tsconfig.app)
   ]
-  for (const config of ordered) {
-    const { paths } = config.options
-    if (!paths) continue
+  return ordered.flatMap((config) => {
     // Without `baseUrl`, paths are relative to the config that declares them, which TypeScript records for us.
     const base =
       config.options.baseUrl ??
       (config.options as { pathsBasePath?: string }).pathsBasePath ??
       dirname(join(root, config.path))
-    for (const [pattern, targets] of Object.entries(paths)) {
-      const target = targets[0]
-      if (target === undefined) continue
-      const prefix = pattern.replace(/\*$/, "")
-      const matches = pattern.endsWith("*") ? alias.startsWith(prefix) : alias === pattern
-      if (!matches) continue
-      const resolved = join(base, target.replace(/\*$/, "") + (pattern.endsWith("*") ? alias.slice(prefix.length) : ""))
-      return posix.normalize(slashes(relative(root, resolved)))
-    }
-  }
-  return undefined
+    return Object.entries(config.options.paths ?? {}).flatMap(([pattern, targets]) =>
+      targets[0] === undefined ? [] : [{ pattern, target: targets[0], base }]
+    )
+  })
 }
 
 const host: ts.ParseConfigFileHost = {

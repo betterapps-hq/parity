@@ -12,7 +12,7 @@ import {
   type ParsedComponent,
   readChangedFiles
 } from "./listing.ts"
-import { readTsconfig, resolvePathAlias } from "./tsconfig.ts"
+import { importAlias, readTsconfig, resolvePathAlias } from "./tsconfig.ts"
 
 /** Exported functions are components; `export const X = Y.Z` is one the parse can't decide. */
 const renderer = {
@@ -155,6 +155,18 @@ describe("readTsconfig", () => {
     expect(resolvePathAlias(root, tsconfig, "@/components/ui")).toBe("src/components/ui")
     expect(resolvePathAlias(root, tsconfig, "~ui")).toBe("src/ui/index.ts")
     expect(resolvePathAlias(root, tsconfig, "react")).toBeUndefined()
+  })
+
+  it("writes a file's import through the alias that reaches furthest into it", async () => {
+    await write(
+      "tsconfig.json",
+      '{ "compilerOptions": { "paths": { "@/*": ["./src/*"], "@ui/*": ["./src/components/ui/*"], "~ui": ["./src/ui/index.ts"] } }, "include": ["src"] }'
+    )
+    const tsconfig = readTsconfig(root)
+    expect(importAlias(root, tsconfig, "src/routes/orders/order-list.tsx")).toBe("@/routes/orders/order-list")
+    expect(importAlias(root, tsconfig, "src/components/ui/button.tsx")).toBe("@ui/button")
+    expect(importAlias(root, tsconfig, "src/ui/index.ts")).toBe("~ui")
+    expect(importAlias(root, tsconfig, "other/outside.tsx")).toBeUndefined()
   })
 })
 

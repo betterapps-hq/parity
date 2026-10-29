@@ -77,23 +77,34 @@ still need your call.
   of all cores, and memory and CPU cover every process of the app: the windows, the offscreen renderer, the project
   service (with the project's Vite), the GPU and Electron's helpers. Clicking it shows the last minute's frame rate, the
   longest recent frame and each process. Storybook runs outside the app, so it isn't counted. Measuring runs only while
-  the stats show.
-- **`pnpm perf` measures the canvas** in its own copy of the app on the example project, at a fixed 1439×901: frames per
-  second zooming, panning and hovering, where each frame's time goes, selecting and editing a design, memory, and what a
-  hidden tab holds. Results go to `.inspect/perf`, and `--compare` sets a run beside an earlier one. The copy is kept
-  apart from the person's app and other sessions: its own ports, profile, bundle folder (`out/<port>`) and agent file,
-  so agents keep talking to the person's app; and it serves the code as it was when it started, so edits made meanwhile
+  the stats show. Memory adds up each process's working set, which counts memory the processes share once for each of
+  them, so it reads higher than Task Manager's private working set.
+- **`pnpm perf` measures the canvas** in its own copy of the app on the example project, in a window that opens at
+  1439×901 (the page is held at that size only if the window can't open at it, so a maximized copy still lays out like a
+  window), reading sizes from the DevTools protocol since evaluated code reads a frame's viewport: frames per second
+  zooming, panning and hovering, where each frame's time goes, selecting and editing a design, memory, and what a hidden
+  tab holds. Results go to `.inspect/perf`, and `--compare` sets a run beside an earlier one. The copy is kept apart
+  from the person's app and other sessions: its own ports, profile, bundle folder (`out/<port>`) and agent file, so
+  agents keep talking to the person's app; and it serves the code as it was when it started, so edits made meanwhile
   can't reload what's measured. Its window says it's the measuring copy.
 - **Zoomed far out, frames show bitmaps.** Once a frame has stayed the same for a second, the offscreen renderer
   captures it at a quarter of its size, one frame at a time so agents' renders still get their turn. Wherever the canvas
   draws frames no larger than that (25% zoom on a 1x screen), each shows its bitmap, and its live frame stays mounted
-  but skips drawing. The selected design stays live, as does everything while interacting, and so does a frame with no
-  bitmap yet. Bitmaps are kept in memory only, so a code change never shows a stale one. Below about 5%, boards and
-  frames also drop their shadows.
+  but skips drawing. The selected design stays live, as does everything while interacting. Until its bitmap is taken, a
+  frame shows its skeleton: measured from the live frame once it has stayed the same for a second, its text as faded
+  bars in the text's colour and its cards, fields, buttons and images as flat shapes, drawn as a few SVG paths per
+  frame, and keeping the frame's measured height. A frame not measured yet stays live. Bitmaps and skeletons are kept in
+  memory only, so a code change never shows a stale one. Below about 5%, boards and frames also drop their shadows.
 - **The canvas doesn't restyle its elements while the camera moves.** tldraw's `--tl-zoom` changes only once zooming
   stops, titles and labels size themselves from the zoom directly, selection colours go through tldraw's theme rather
   than custom properties, and the layer the camera moves is composited, so panning and zooming move what's already drawn
   until the camera stops. Boards well out of view skip drawing their frames but keep their layout.
+- **The app is named Parity, also to Windows.** The main process names itself Parity and keeps its settings where the
+  package's name put them (`%APPDATA%\@parity\desktop`). Task Manager and the taskbar name an app by its executable's
+  version information, so on Windows `pnpm dev` runs Electron from a copy named `Parity.exe` whose version information
+  says Parity, made once per Electron version under `apps/desktop/node_modules/.cache`, its other files linked to
+  Electron's. If the copy can't be made, it runs Electron as installed. The edit voids the executable's signature, so
+  Windows would refuse to run the copy with Smart App Control on; it's off here.
 - **A selected design shows only its own rounded outline.** tldraw's square selection box is drawn only around several
   designs at once.
 - **Copy and paste go through the system clipboard,** in a JSON envelope Parity recognises, so copies paste across
@@ -234,6 +245,10 @@ recommended answer to each of its questions.
   `app/` (`page`, `layout`, `template`, `error`, `not-found`, `loading`, `default`), and any component in a file in a
   `pages` or `routes` folder, other than files starting with `_` or `-` and `api` routes. Route modules' other exports,
   such as React Router's `ErrorBoundary`, are parts of the page too.
+- **A re-exported component is listed where it's declared, and imported through the app's alias.** My call: the file
+  that declares it is what the canvas loads, so an index re-exporting it adds nothing, even under another name. The
+  import shown to people and agents is the file through the tsconfig alias reaching furthest into it
+  (`@/components/ui/button`), not an index, since shadcn-style apps import each file.
 - **The type checker keeps one program per open project, within a memory budget.** My call on the numbers: props and the
   checker share the program, which is kept for the two projects used last and let go when a tab closes; the worker stops
   when no project is open. It isn't built with under 1 GB of memory free, and the worker may use half the computer's
@@ -495,9 +510,15 @@ recommended answer to each of its questions.
   until Better Apps' packages have the audit log, approval flows and activity features. Better Apps' plans (Buildkit's
   `docs/platform-planning`) list comments, reactions, attachments, live presence, approval flows and the audit log;
   activity isn't in them yet.
-- **Threads, approvals and presence live in the portal's service, not in the `.par` file** (my call, open). They come
-  from Better Apps: comments, approvals and the audit log in its database, presence in its realtime rooms. A comment
-  isn't a change to the project, so it never touches the project's files or their history.
+- **There's no live service for comments or presence yet** (your call, 2026-10-29). It waits on Better Apps' packages to
+  scaffold it, and Parity adds it then. Threads, approvals and presence will live in that service, not in the `.par`
+  file: a comment isn't a change to the project, so it never touches the project's files or their history.
+- **Editing the same app at the same time is needed, but not now** (your call, 2026-10-29). People should be able to
+  edit different details of the same app at once, with their changes syncing back to one shared state.
+- **Comments take attachments and can be edited** (your call, 2026-10-29). An attached file shows as a chip; an image
+  shows a preview.
+- **A thread can become an issue in GitHub, Linear or Azure DevOps** (your call, 2026-10-29). The list offers only the
+  trackers the org has added.
 
 ## Storybook
 
