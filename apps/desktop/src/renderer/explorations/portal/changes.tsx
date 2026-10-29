@@ -3,9 +3,21 @@
  * the edges so the changes are what you see: the changed boards before and after, each change marked and numbered,
  * and the same numbers down the side with what happened and where it lives in code. Hovering a change in either place
  * brings it forward and fades the rest. A notification or "See what changed" opens this; the link names both versions,
- * so it can go in a pull request.
+ * so it can go in a pull request. Two comparisons use it: Claude Code's token change across three Cloud console boards,
+ * already in a pull request, and the versions Maya made of Pricing after you approved v12 and started building it.
  */
-import { Check, ChevronDown, ChevronRight, Ellipsis, GitBranch, GitPullRequest, Link2, Monitor } from "lucide-react"
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Ellipsis,
+  ExternalLink,
+  GitBranch,
+  GitPullRequest,
+  Link2,
+  MessageSquare,
+  Monitor
+} from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
@@ -18,13 +30,14 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { people, type Person } from "../explore-data.ts"
 import { Avatar, ParityMark } from "../parts.tsx"
-import type { Look, RenderKind } from "../start/data.ts"
+import type { Look } from "../start/data.ts"
 import { DesignRender } from "../start/renders.tsx"
-import { type ConsolePart, consoleFiles } from "./boards.ts"
+import { type ConsolePart, consoleFiles, deliverable, type PullRequest } from "./boards.ts"
 import { claudeTask, designOf, event, portalProject } from "./data.ts"
 import { PortalWindow } from "./parts.tsx"
+import { PricingAt } from "./pricing-render.tsx"
 
-const { maya, sam, claude, jonas, lena } = people
+const { maya, sam, claude, jonas } = people
 const violet = "oklch(0.7 0.16 275)"
 
 type View = "before" | "both" | "after"
@@ -37,116 +50,322 @@ interface Area {
   height: string
 }
 
+/** A component a change touched, its file, and how its use changed, as lines of a diff. */
+interface Touched {
+  name: string
+  file: string
+  diff?: string[]
+}
+
 /**
- * A change: the places on one board that look different, what happened there, and the component and file it comes
- * from. The places are every element the render draws with the changed token, measured from the render itself.
+ * A change: the places on one board that look different, what happened there, and the components and files it comes
+ * from. A move is outlined where it was on the before side and where it is now on the after side; a removal is
+ * outlined, dashed, where it was on both.
  */
 interface Change {
   n: number
-  board: BoardName
+  board: string
+  /** The version that made it. */
+  at: number
+  who: Person
+  kind?: "Moved" | "Removed"
+  /** Where it is now, or for a removal, where it was. */
   areas: Area[]
+  /** Where it was, for a move. */
+  was?: Area[]
   where: string
   what: string
-  /** The components it's in, as the code names them. */
-  parts: ConsolePart[]
+  parts: Touched[]
+  /** Open threads on it. */
+  threads?: number
 }
 
-type BoardName = "Billing" | "Overview" | "Sign in"
+interface Version {
+  n: number
+  who: Person
+  label: string
+  when: string
+}
+
+/** One comparison: its project, versions, boards, changes, and what approving it does. */
+export interface Comparison {
+  project: string
+  slug: string
+  /** Newest first. Parity records them itself, whether or not the project uses git, and only a change makes one. */
+  versions: Version[]
+  from: number
+  to: number
+  /** What to call a version besides its label: the one you approved, or the one current when you were last here. */
+  named: Record<number, string>
+  boards: { name: string; draw(version: number): ReactNode }[]
+  changes: Change[]
+  /** The sentence at the top of the side panel, for the changes shown. */
+  summary(shown: Change[]): string
+  /** Who made the changes, and why. */
+  why: ReactNode
+  token?: { name: string; was: string; now?: string; note: string }
+  /** Other things between the two versions, kept to a line each. */
+  also: { at: number; who: Person; text: ReactNode }[]
+  /** The code it's in: the branch and pull request, and what they are. */
+  code?: { label: string; branch: string; pr: PullRequest }
+  /** What approving does, under the buttons. */
+  approve(to: number): ReactNode
+}
 
 function at(left: number, top: number, width: number, height: number): Area {
   return { left: `${left}%`, top: `${top}%`, width: `${width}%`, height: `${height}%` }
 }
 
-const changes: Change[] = [
-  {
-    n: 1,
-    board: "Billing",
-    areas: [at(0.8, 1.6, 3.6, 5), at(0.4, 37.4, 17.2, 6.4)],
-    where: "Navigation",
-    what: "The logo and the open page",
-    parts: ["Brand", "SidebarLink"]
+function fromConsole(name: ConsolePart): Touched {
+  return { name, file: consoleFiles[name] }
+}
+
+const dashboard = portalProject("dashboard")
+/** The brand token changed in v43, so the boards were blue before it. */
+const brandChanged = 43
+const consoleLook = (n: number): Look => (n < brandChanged ? { ...dashboard.look, hue: 250 } : dashboard.look)
+
+/** Claude Code's change to the Cloud console, for Sam: one token, measured wherever the boards draw with it. */
+export const consoleComparison: Comparison = {
+  project: "dashboard",
+  slug: "cloud-console",
+  versions: [
+    { n: 43, who: claude, label: "Claude Code changed the brand token", when: event("claude-run").when },
+    { n: 42, who: jonas, label: "Jonas added a Members board", when: "Yesterday" },
+    { n: 41, who: sam, label: "Sam tidied the deploys table", when: "Yesterday" },
+    { n: 40, who: jonas, label: "Jonas renamed the Usage page", when: "2 days ago" }
+  ],
+  from: 41,
+  to: 43,
+  named: { 41: "when you were last here" },
+  boards: (["Billing", "Overview", "Sign in"] as const).map((name) => ({
+    name,
+    draw: (n: number) => <DesignRender kind={designOf(dashboard, name).kind} look={consoleLook(n)} />
+  })),
+  changes: [
+    {
+      n: 1,
+      board: "Billing",
+      at: 43,
+      who: claude,
+      areas: [at(0.8, 1.6, 3.6, 5), at(0.4, 37.4, 17.2, 6.4)],
+      where: "Navigation",
+      what: "The logo and the open page",
+      parts: [fromConsole("Brand"), fromConsole("SidebarLink")]
+    },
+    {
+      n: 2,
+      board: "Billing",
+      at: 43,
+      who: claude,
+      areas: [at(88.6, 13.4, 9.6, 5.6)],
+      where: "Change plan",
+      what: "The main button",
+      parts: [fromConsole("Button")]
+    },
+    {
+      n: 3,
+      board: "Billing",
+      at: 43,
+      who: claude,
+      areas: [at(21.8, 22.8, 39.2, 14.6), at(21.8, 57.8, 36.4, 3.8)],
+      where: "Plan and usage",
+      what: "The plan badge and the meters that aren't near their limit",
+      parts: [fromConsole("PlanBadge"), fromConsole("UsageMeter")]
+    },
+    {
+      n: 4,
+      board: "Billing",
+      at: 43,
+      who: claude,
+      areas: [at(21.6, 64.6, 76.6, 23.2)],
+      where: "Plans",
+      what: "The current plan's ring and check, and every plan's ticks",
+      parts: [fromConsole("PlanCard")]
+    },
+    {
+      n: 5,
+      board: "Overview",
+      at: 43,
+      who: claude,
+      areas: [at(0.8, 1.6, 3.6, 5), at(0.4, 13, 17.2, 6.4)],
+      where: "Navigation",
+      what: "The logo and the open page",
+      parts: [fromConsole("Brand"), fromConsole("SidebarLink")]
+    },
+    {
+      n: 6,
+      board: "Overview",
+      at: 43,
+      who: claude,
+      areas: [at(88.8, 13.5, 9.4, 5.6)],
+      where: "New app",
+      what: "The main button",
+      parts: [fromConsole("Button")]
+    },
+    {
+      n: 7,
+      board: "Overview",
+      at: 43,
+      who: claude,
+      areas: [at(30.4, 27.4, 66.6, 5)],
+      where: "Stats",
+      what: "Each stat's sparkline",
+      parts: [fromConsole("StatCard")]
+    },
+    {
+      n: 8,
+      board: "Overview",
+      at: 43,
+      who: claude,
+      areas: [at(21.8, 36.6, 41.6, 29.6)],
+      where: "Usage chart",
+      what: "The chart's line, fill and legend",
+      parts: [fromConsole("UsageChart")]
+    },
+    {
+      n: 9,
+      board: "Overview",
+      at: 43,
+      who: claude,
+      areas: [at(21.8, 94.4, 56.4, 5.4)],
+      where: "Apps",
+      what: "Each app's icon and request sparkline",
+      parts: [fromConsole("AppRow")]
+    },
+    {
+      n: 10,
+      board: "Sign in",
+      at: 43,
+      who: claude,
+      areas: [at(0.6, 1, 54.8, 98)],
+      where: "Side panel",
+      what: "The gradient behind the quote",
+      parts: [fromConsole("SignInPanel")]
+    },
+    {
+      n: 11,
+      board: "Sign in",
+      at: 43,
+      who: claude,
+      areas: [at(63.4, 18.2, 4.4, 7), at(63.4, 70.2, 29.1, 6.5)],
+      where: "Form",
+      what: "The logo and the Continue button",
+      parts: [fromConsole("Brand"), fromConsole("Button")]
+    }
+  ],
+  summary: (shown) =>
+    shown.length
+      ? `One token changed, so ${shown.length} places on 3 boards look different. Each is marked, and nothing else changed.`
+      : "",
+  why: (
+    <>
+      <span className="text-foreground">Claude Code</span>, {event("claude-run").when}, for Sam Okafor, who asked it to
+      “{claudeTask}”.
+    </>
+  ),
+  token: {
+    name: "--brand",
+    was: "oklch(0.6 0.17 250)",
+    now: "oklch(0.62 0.15 158)",
+    note: "Every component on these boards that uses it follows it. No component changed."
   },
-  {
-    n: 2,
-    board: "Billing",
-    areas: [at(88.6, 13.4, 9.6, 5.6)],
-    where: "Change plan",
-    what: "The main button",
-    parts: ["Button"]
+  also: [
+    { at: 42, who: jonas, text: <>added a Members board. It's new, so there's nothing to compare.</> },
+    { at: 43, who: maya, text: <>commented on Billing: “{event("maya-comment").quote}”</> }
+  ],
+  code: { label: "Already in code", branch: "claude/green-brand", pr: { number: 148, state: "open" } },
+  approve: (to) => (
+    <>
+      Approves the design at v{to}. Its code is already in #148, so nobody needs to pick it up: the 3 boards are Built
+      once #148 merges on GitHub.
+    </>
+  )
+}
+
+const website = portalProject("website")
+const pricing = deliverable("website", "Pricing")
+const pricingFiles = Object.fromEntries(pricing.parts.map((part) => [part.name, part.file]))
+
+/**
+ * Maya's versions of Pricing after you approved v12 and started building it. Outlines are measured from the render:
+ * `data-mark` elements, as shares of the 1280 by 800 board.
+ */
+export const pricingComparison: Comparison = {
+  project: "website",
+  slug: "kestrel-website",
+  versions: [
+    { n: 14, who: maya, label: "Maya made Team Most popular", when: event("maya-change").when },
+    { n: 13, who: maya, label: "Maya moved Save 20% into the toggle", when: "40 min ago" },
+    { n: 12, who: maya, label: "Maya lined up the plan cards", when: "Yesterday" },
+    { n: 11, who: maya, label: "Maya's first pass at three plans", when: "2 days ago" }
+  ],
+  from: 12,
+  to: 14,
+  named: { 12: "you approved it" },
+  boards: [{ name: "Pricing", draw: (n) => <PricingAt look={website.look} version={n} /> }],
+  changes: [
+    {
+      n: 1,
+      board: "Pricing",
+      at: 13,
+      who: maya,
+      kind: "Moved",
+      was: [at(38.7, 45.4, 7, 4.7)],
+      areas: [at(52.6, 37, 5.5, 3.7)],
+      where: "Save 20%",
+      what: "From Team's card into the toggle's Yearly option",
+      parts: [
+        { name: "PlanCard", file: pricingFiles.PlanCard!, diff: ['- badge="Save 20%"'] },
+        { name: "BillingToggle", file: pricingFiles.BillingToggle!, diff: ['+ saving="20%"'] }
+      ],
+      threads: 1
+    },
+    {
+      n: 2,
+      board: "Pricing",
+      at: 14,
+      who: maya,
+      areas: [at(36.6, 45.4, 26.8, 46.2)],
+      where: "Team's card",
+      what: "Most popular, with a ring, a glow and a filled button",
+      parts: [{ name: "PlanCard", file: pricingFiles.PlanCard!, diff: ["+ popular"] }]
+    },
+    {
+      n: 3,
+      board: "Pricing",
+      at: 14,
+      who: maya,
+      kind: "Removed",
+      areas: [at(43.8, 94.1, 12.3, 4.2)],
+      where: "Compare all plans",
+      what: "Taken out from under the cards",
+      parts: [{ name: "ComparePlansLink", file: pricing.page, diff: ["- <ComparePlansLink />"] }]
+    }
+  ],
+  summary: (shown) =>
+    shown.length
+      ? `${shown.length === 1 ? "1 change" : `${shown.length} changes`} on Pricing since the version you approved: one moved, one changed and one taken out.`
+      : "",
+  why: (
+    <>
+      <span className="text-foreground">Maya Chen</span>, in v13 and v14: “Save 20% reads better next to Yearly, and
+      Team should look like the plan we want people on.”
+    </>
+  ),
+  token: {
+    name: "--savings",
+    was: "oklch(0.72 0.15 162)",
+    note: "Only Team's old badge used it, so it's no longer used. Save 20% in the toggle follows --brand."
   },
-  {
-    n: 3,
-    board: "Billing",
-    areas: [at(21.8, 22.8, 39.2, 14.6), at(21.8, 57.8, 36.4, 3.8)],
-    where: "Plan and usage",
-    what: "The plan badge and the meters that aren't near their limit",
-    parts: ["PlanBadge", "UsageMeter"]
-  },
-  {
-    n: 4,
-    board: "Billing",
-    areas: [at(21.6, 64.6, 76.6, 23.2)],
-    where: "Plans",
-    what: "The current plan's ring and check, and every plan's ticks",
-    parts: ["PlanCard"]
-  },
-  {
-    n: 5,
-    board: "Overview",
-    areas: [at(0.8, 1.6, 3.6, 5), at(0.4, 13, 17.2, 6.4)],
-    where: "Navigation",
-    what: "The logo and the open page",
-    parts: ["Brand", "SidebarLink"]
-  },
-  {
-    n: 6,
-    board: "Overview",
-    areas: [at(88.8, 13.5, 9.4, 5.6)],
-    where: "New app",
-    what: "The main button",
-    parts: ["Button"]
-  },
-  {
-    n: 7,
-    board: "Overview",
-    areas: [at(30.4, 27.4, 66.6, 5)],
-    where: "Stats",
-    what: "Each stat's sparkline",
-    parts: ["StatCard"]
-  },
-  {
-    n: 8,
-    board: "Overview",
-    areas: [at(21.8, 36.6, 41.6, 29.6)],
-    where: "Usage chart",
-    what: "The chart's line, fill and legend",
-    parts: ["UsageChart"]
-  },
-  {
-    n: 9,
-    board: "Overview",
-    areas: [at(21.8, 94.4, 56.4, 5.4)],
-    where: "Apps",
-    what: "Each app's icon and request sparkline",
-    parts: ["AppRow"]
-  },
-  {
-    n: 10,
-    board: "Sign in",
-    areas: [at(0.6, 1, 54.8, 98)],
-    where: "Side panel",
-    what: "The gradient behind the quote",
-    parts: ["SignInPanel"]
-  },
-  {
-    n: 11,
-    board: "Sign in",
-    areas: [at(63.4, 18.2, 4.4, 7), at(63.4, 70.2, 29.1, 6.5)],
-    where: "Form",
-    what: "The logo and the Continue button",
-    parts: ["Brand", "Button"]
-  }
-]
+  also: [],
+  code: { label: "You're building v12", branch: "pricing-plans", pr: { number: 150, state: "draft" } },
+  approve: (to) => (
+    <>
+      Approves v{to}. You're building v12 in #150, so Handoff moves your build to v{to} with these changes to make.
+    </>
+  )
+}
 
 /** A change's number: small, in the comparison's one color. */
 function Number({ n, active }: { n: number; active?: boolean }) {
@@ -161,19 +380,18 @@ function Number({ n, active }: { n: number; active?: boolean }) {
 }
 
 /**
- * A board, before or after. After, each change is outlined with its number; before, the change you're looking at is
- * traced faintly so the two can be compared at a glance.
+ * A board, before or after. After, each change is outlined with its number; a removal is dashed where it was. Before,
+ * moves and removals are dashed where they were, and the change you're looking at is traced faintly so the two can be
+ * compared at a glance.
  */
 function Board({
-  kind,
-  look,
+  children,
   side,
   marks,
   focus,
   onFocus
 }: {
-  kind: RenderKind
-  look: Look
+  children: ReactNode
   side: "before" | "after"
   marks: Change[]
   focus?: number
@@ -181,21 +399,17 @@ function Board({
 }) {
   return (
     <div className="relative rounded-[5px] shadow-[0_16px_40px_-12px_rgb(0_0_0/0.6)] ring-1 ring-white/[0.06]">
-      <div className="overflow-hidden rounded-[5px]">
-        <DesignRender kind={kind} look={look} />
-      </div>
+      <div className="overflow-hidden rounded-[5px]">{children}</div>
       {marks.flatMap((change) => {
         const active = focus === undefined ? undefined : focus === change.n
-        return change.areas.map((area, index) => {
+        const before = side === "before"
+        const areas = before ? (change.was ?? change.areas) : change.areas
+        // The before side marks only what isn't where it was: moves and removals, or the change you're looking at.
+        const shown = before ? Boolean(change.kind) || active : true
+        if (!shown) return []
+        const dashed = before || change.kind === "Removed"
+        return areas.map((area, index) => {
           const key = `${change.n}-${index}`
-          if (side === "before")
-            return active ? (
-              <span
-                key={key}
-                className="pointer-events-none absolute rounded-[4px] border-[1.5px] border-dashed motion-safe:animate-in motion-safe:fade-in-0"
-                style={{ ...area, borderColor: violet }}
-              />
-            ) : null
           return (
             <button
               key={key}
@@ -205,16 +419,20 @@ function Board({
               onPointerLeave={() => onFocus(undefined)}
               onFocus={() => onFocus(change.n)}
               onBlur={() => onFocus(undefined)}
-              className={`absolute rounded-[4px] transition-[opacity,box-shadow,background-color] duration-150 ${active === false ? "opacity-30" : ""}`}
+              className={`absolute rounded-[4px] transition-[opacity,box-shadow,background-color] duration-150 ${dashed ? "border-[1.5px] border-dashed" : ""} ${active === false ? "opacity-30" : ""}`}
               style={{
                 ...area,
-                boxShadow: `0 0 0 ${active ? 2 : 1.5}px ${violet}`,
+                borderColor: dashed ? violet : undefined,
+                boxShadow: dashed ? undefined : `0 0 0 ${active ? 2 : 1.5}px ${violet}`,
                 background: active ? `color-mix(in oklch, ${violet} 10%, transparent)` : undefined
               }}
             >
               {/* A change in several places is numbered once, at its first. */}
-              {index === 0 && (
-                <span className="absolute -top-2 -left-2">
+              {/* A small place gets its number beside it, so the number doesn't cover what changed. */}
+              {index === 0 && (!before || change.kind) && (
+                <span
+                  className={`absolute ${parseFloat(area.width) < 15 ? "top-1/2 right-full mr-1 -translate-y-1/2" : "-top-2 -left-2"}`}
+                >
                   <Number n={change.n} />
                 </span>
               )}
@@ -226,8 +444,11 @@ function Board({
   )
 }
 
-/** The project's overflow: the link, the desktop app, and the branch and pull request this compares. */
-function MoreMenu() {
+/**
+ * The project's overflow, kept in a menu so the comparison stays quiet: the link, the canvas at the newer version, the
+ * desktop app, and the branch and pull request the change is in.
+ */
+function MoreMenu({ code, to }: { code: Comparison["code"]; to: number }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -240,41 +461,26 @@ function MoreMenu() {
           <Link2 /> Copy link to this comparison
         </DropdownMenuItem>
         <DropdownMenuItem>
+          <ExternalLink /> Open the canvas at v{to}
+        </DropdownMenuItem>
+        <DropdownMenuItem>
           <Monitor /> Open in the desktop app
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem>
-          <GitBranch /> <span className="truncate font-mono text-xs">claude/green-brand</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem>
-          <GitPullRequest /> Pull request #148, open
-        </DropdownMenuItem>
+        {code && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">{code.label}</DropdownMenuLabel>
+            <DropdownMenuItem>
+              <GitBranch /> <span className="truncate font-mono text-xs">{code.branch}</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem>
+              <GitPullRequest /> Pull request #{code.pr.number}, {code.pr.state}
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )
-}
-
-/**
- * The project's versions, newest first: who made each, and what it was. Parity records them itself, whether or not
- * the project uses git, and only a change makes one: comments don't.
- */
-const versions: { n: number; who: Person; label: string; when: string }[] = [
-  { n: 43, who: claude, label: "Claude Code changed the brand token", when: event("claude-run").when },
-  { n: 42, who: lena, label: "Kestrel UI 2.4, with the new Toggle", when: event("lena-publish").when },
-  { n: 41, who: sam, label: "Sam tidied the deploys table", when: "Yesterday" },
-  { n: 40, who: jonas, label: "Jonas renamed the Usage page", when: "2 days ago" }
-]
-
-/** The brand token changed in v43, so a comparison shows changes only when it spans that version. */
-const tokenChanged = 43
-
-/** The version that was current when you were last here. */
-const lastHere = 41
-
-function describe(n: number): string {
-  if (n === versions[0]!.n) return "now"
-  if (n === lastHere) return "when you were last here"
-  return versions.find((version) => version.n === n)!.label
 }
 
 /**
@@ -282,27 +488,32 @@ function describe(n: number): string {
  * first, with who made each; a version that would cross the other side can't be picked.
  */
 function VersionPicker({
+  comparison,
   side,
   value,
   other,
   onPick
 }: {
+  comparison: Comparison
   side: "before" | "after"
   value: number
   other: number
   onPick(n: number): void
 }) {
+  const { versions, named } = comparison
+  const describe = (n: number) =>
+    n === versions[0]!.n ? "now" : (named[n] ?? versions.find((version) => version.n === n)!.label)
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="group -mx-1.5 flex w-fit items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-white/40 hover:bg-white/[0.06] hover:text-white/60 data-[state=open]:bg-white/[0.06]"
+          className="group -mx-1.5 flex w-fit items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-white/55 hover:bg-white/[0.06] hover:text-white/75 data-[state=open]:bg-white/[0.06]"
         >
           <span>
-            <span className="font-medium text-white/70">v{value}</span>, {describe(value)}
+            <span className="font-medium text-white/85">v{value}</span>, {describe(value)}
           </span>
-          <ChevronDown className="size-3 opacity-50 group-hover:opacity-100" />
+          <ChevronDown className="size-3 opacity-60 group-hover:opacity-100" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-80">
@@ -328,8 +539,8 @@ function VersionPicker({
   )
 }
 
-/** Something else since you were last here, kept to one line. */
-function Also({ who, children }: { who: (typeof people)[keyof typeof people]; children: ReactNode }) {
+/** Something else between the two versions, kept to one line. */
+function Also({ who, children }: { who: Person; children: ReactNode }) {
   return (
     <div className="flex items-start gap-2.5 py-1.5 text-xs text-muted-foreground">
       <Avatar person={who} size={18} />
@@ -338,28 +549,69 @@ function Also({ who, children }: { who: (typeof people)[keyof typeof people]; ch
   )
 }
 
-export function ChangesPage() {
-  const project = portalProject("dashboard")
-  const [from, setFrom] = useState(lastHere)
-  const [to, setTo] = useState(43)
-  // Before v43 the brand token was still blue.
-  const lookAt = (n: number): Look => (n < tokenChanged ? { ...project.look, hue: 250 } : project.look)
-  const changed = from < tokenChanged && to >= tokenChanged
-  const also = [
-    { at: 42, who: lena, text: <>moved the project to Kestrel UI 2.4. Nothing on these boards looks different.</> },
-    { at: 43, who: maya, text: <>commented on Billing: “{event("maya-comment").quote}”</> }
-  ].filter((item) => item.at > from && item.at <= to)
+/** A component a change touched, its file, and its diff, red for what went and green for what came. */
+function TouchedPart({ part }: { part: Touched }) {
+  return (
+    <span className="flex min-w-0 flex-col gap-0.5 text-[11px]">
+      <span className="font-mono text-foreground/80">{part.name}</span>
+      <span className="truncate font-mono text-muted-foreground/80">{part.file}</span>
+      {part.diff?.map((line) => (
+        <span
+          key={line}
+          className={`w-fit rounded-[3px] px-1 font-mono ${line.startsWith("-") ? "bg-[oklch(0.65_0.2_25)]/15 text-[oklch(0.78_0.12_25)]" : "bg-[oklch(0.7_0.15_150)]/15 text-[oklch(0.8_0.13_150)]"}`}
+        >
+          {line}
+        </span>
+      ))}
+    </span>
+  )
+}
+
+/** A token before and after, with its values. */
+function TokenChange({ token }: { token: NonNullable<Comparison["token"]> }) {
+  return (
+    <div className="flex flex-col gap-2 rounded-lg bg-muted/40 px-3 py-2.5">
+      <span className="flex items-center gap-2.5">
+        <span className="font-mono text-xs">{token.name}</span>
+        <span className="ml-auto flex items-center gap-1.5">
+          <span className="size-4 rounded-[4px] ring-1 ring-white/10" style={{ background: token.was }} />
+          <ChevronRight className="size-3 text-muted-foreground" />
+          {token.now ? (
+            <span className="size-4 rounded-[4px] ring-1 ring-white/10" style={{ background: token.now }} />
+          ) : (
+            <span className="text-[11px] text-muted-foreground">unused</span>
+          )}
+        </span>
+      </span>
+      <span className="font-mono text-[11px] text-muted-foreground">
+        {token.was}
+        {token.now && (
+          <>
+            <br />
+            {token.now}
+          </>
+        )}
+      </span>
+      <span className="text-[11px] text-muted-foreground">{token.note}</span>
+    </div>
+  )
+}
+
+export function ChangesPage({ comparison }: { comparison: Comparison }) {
+  const project = portalProject(comparison.project)
+  const [from, setFrom] = useState(comparison.from)
+  const [to, setTo] = useState(comparison.to)
+  const shown = comparison.changes.filter((change) => change.at > from && change.at <= to)
+  const versionsShown = new Set(shown.map((change) => change.at)).size > 1
+  const also = comparison.also.filter((item) => item.at > from && item.at <= to)
   const [view, setView] = useState<View>("both")
   const [focus, setFocus] = useState<number>()
   const [more, setMore] = useState(false)
-  const boards = (["Billing", "Overview", "Sign in"] as const).map((name) => ({
-    name,
-    kind: designOf(project, name).kind
-  }))
-  const places = changes.length
+  const [asking, setAsking] = useState(false)
+  const boards = comparison.boards.filter((board) => shown.some((change) => change.board === board.name))
   const sides = view === "both" ? (["before", "after"] as const) : ([view] as const)
   return (
-    <PortalWindow path={`kestrel/cloud-console/compare/v${from}...v${to}`}>
+    <PortalWindow path={`kestrel/${comparison.slug}/compare/v${from}...v${to}`}>
       <div className="flex h-full flex-col">
         <header className="flex h-11 shrink-0 items-center gap-2.5 border-b bg-background px-3 text-sm whitespace-nowrap">
           <ParityMark size={20} />
@@ -370,7 +622,7 @@ export function ChangesPage() {
             <Button size="sm" variant="ghost">
               Share
             </Button>
-            <MoreMenu />
+            <MoreMenu code={comparison.code} to={to} />
           </div>
         </header>
         <div className="flex min-h-0 flex-1">
@@ -380,6 +632,7 @@ export function ChangesPage() {
                 {sides.map((side) => (
                   <VersionPicker
                     key={side}
+                    comparison={comparison}
                     side={side}
                     value={side === "before" ? from : to}
                     other={side === "before" ? to : from}
@@ -387,14 +640,14 @@ export function ChangesPage() {
                   />
                 ))}
               </div>
-              <div className="ml-6 flex rounded-md bg-white/[0.06] p-0.5 text-[11px]">
+              <div className="ml-6 flex rounded-md bg-white/[0.06] p-0.5 text-xs">
                 {(["before", "both", "after"] as const).map((option) => (
                   <button
                     key={option}
                     type="button"
                     aria-pressed={view === option}
                     onClick={() => setView(option)}
-                    className={`rounded-[5px] px-2 py-0.5 ${view === option ? "bg-white/15 text-white" : "text-white/50 hover:text-white/80"}`}
+                    className={`rounded-[5px] px-2 py-0.5 ${view === option ? "bg-white/15 text-white" : "text-white/55 hover:text-white/80"}`}
                   >
                     {option === "before" ? "Before" : option === "after" ? "After" : "Side by side"}
                   </button>
@@ -402,88 +655,84 @@ export function ChangesPage() {
               </div>
             </div>
             <div className="flex flex-col gap-8 px-12 pb-10">
-              {boards.map((board) => (
+              {(boards.length ? boards : comparison.boards).map((board) => (
                 <section key={board.name} className="flex flex-col gap-2">
-                  <span className="text-[11px] font-medium text-white/50">{board.name}</span>
+                  <span className="text-xs font-medium text-white/55">{board.name}</span>
                   <div
                     className={`grid gap-x-10 ${sides.length === 2 ? "grid-cols-2" : "mx-auto w-full max-w-3xl grid-cols-1"}`}
                   >
                     {sides.map((side) => (
                       <Board
                         key={side}
-                        kind={board.kind}
-                        look={lookAt(side === "before" ? from : to)}
                         side={side}
-                        marks={changed ? changes.filter((change) => change.board === board.name) : []}
+                        marks={shown.filter((change) => change.board === board.name)}
                         focus={focus}
                         onFocus={setFocus}
-                      />
+                      >
+                        {board.draw(side === "before" ? from : to)}
+                      </Board>
                     ))}
                   </div>
                 </section>
               ))}
             </div>
           </div>
-          <aside className="flex w-[21rem] shrink-0 flex-col border-l bg-background">
+          <aside className="flex w-[22rem] shrink-0 flex-col border-l bg-background">
             <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 py-5">
               <div className="flex flex-col gap-1.5">
                 <h2 className="text-sm font-semibold">What changed</h2>
                 <p className="text-xs leading-relaxed text-muted-foreground">
-                  {changed
-                    ? `One token changed, so ${places} places on ${boards.length} boards look different. Each is marked, and nothing else changed.`
+                  {shown.length
+                    ? comparison.summary(shown)
                     : `Nothing on these boards changed between v${from} and v${to}.`}
                 </p>
               </div>
-              {changed && (
+              {shown.length > 0 && (
                 <>
-                  <div className="flex items-start gap-2.5 text-xs leading-relaxed text-muted-foreground">
-                    <Avatar person={claude} size={18} />
-                    <span>
-                      <span className="text-foreground">Claude Code</span>, {event("claude-run").when}, for Sam Okafor,
-                      who asked it to “{claudeTask}”.
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2.5 rounded-lg bg-muted/40 px-3 py-2.5">
-                    <span className="font-mono text-xs">--brand</span>
-                    <span className="ml-auto flex items-center gap-1.5">
-                      <span
-                        className="size-4 rounded-[4px] ring-1 ring-white/10"
-                        style={{ background: "oklch(0.6 0.17 250)" }}
-                      />
-                      <ChevronRight className="size-3 text-muted-foreground" />
-                      <span
-                        className="size-4 rounded-[4px] ring-1 ring-white/10"
-                        style={{ background: "oklch(0.62 0.15 158)" }}
-                      />
-                    </span>
-                  </div>
+                  <div className="text-xs leading-relaxed text-muted-foreground">{comparison.why}</div>
+                  {comparison.token && <TokenChange token={comparison.token} />}
                   <ol className="-mx-2 flex flex-col">
-                    {changes.map((change) => {
+                    {shown.map((change) => {
                       const active = focus === undefined ? undefined : focus === change.n
                       return (
-                        <li key={change.n}>
+                        <li key={change.n} className="group relative">
                           <button
                             type="button"
                             onPointerEnter={() => setFocus(change.n)}
                             onPointerLeave={() => setFocus(undefined)}
                             onFocus={() => setFocus(change.n)}
                             onBlur={() => setFocus(undefined)}
-                            className={`flex w-full gap-3 rounded-lg px-2 py-2.5 text-left transition-opacity duration-150 ${active ? "bg-muted/50" : ""} ${active === false ? "opacity-50" : ""}`}
+                            className={`flex w-full gap-3 rounded-lg px-2 py-2.5 pr-12 text-left transition-opacity duration-150 ${active ? "bg-muted/50" : ""} ${active === false ? "opacity-50" : ""}`}
                           >
                             <Number n={change.n} />
-                            <span className="flex min-w-0 flex-col gap-0.5">
-                              <span className="text-[13px] font-medium">
+                            <span className="flex min-w-0 flex-col gap-1">
+                              <span className="flex items-center gap-2 text-[13px] font-medium">
                                 {change.board}, {change.where}
+                                {change.kind && (
+                                  <span className="rounded-[4px] border px-1 text-[10px] font-normal text-muted-foreground">
+                                    {change.kind}
+                                  </span>
+                                )}
                               </span>
-                              <span className="text-xs text-muted-foreground">{change.what}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {change.what}
+                                {versionsShown && `, in v${change.at} by ${change.who.name.split(" ")[0]}`}
+                              </span>
                               {change.parts.map((part) => (
-                                <span key={part} className="text-[11px] text-muted-foreground/70">
-                                  <span className="font-mono">{part}</span> in{" "}
-                                  <span className="font-mono">{consoleFiles[part]}</span>
-                                </span>
+                                <TouchedPart key={part.name} part={part} />
                               ))}
                             </span>
                           </button>
+                          {/* Comment on a change: it pins to the change on the board, at the newer version. */}
+                          <Button
+                            size="icon-xs"
+                            variant="ghost"
+                            aria-label={`Comment on change ${change.n}`}
+                            className={`absolute top-2 right-1 gap-1 text-muted-foreground ${change.threads ? "w-auto px-1.5" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"}`}
+                          >
+                            <MessageSquare />
+                            {change.threads && <span className="text-[11px] tabular-nums">{change.threads}</span>}
+                          </Button>
                         </li>
                       )
                     })}
@@ -513,20 +762,35 @@ export function ChangesPage() {
                 </div>
               )}
             </div>
-            {changed && (
+            {shown.length > 0 && (
               <div className="flex flex-col gap-2 border-t px-5 py-4">
-                <div className="flex gap-2">
-                  <Button size="sm" className="flex-1 gap-1.5">
-                    <Check /> Approve
-                  </Button>
-                  <Button size="sm" variant="ghost" className="flex-1">
-                    Ask for changes
-                  </Button>
-                </div>
-                <span className="text-[11px] text-muted-foreground">
-                  Approves the design at v{to} and marks the {boards.length} boards ready to build. The pull request is
-                  still reviewed on GitHub.
-                </span>
+                {asking ? (
+                  <>
+                    <textarea
+                      aria-label="What should change"
+                      placeholder="What should change? It goes to everyone who made these versions."
+                      className="min-h-20 resize-none rounded-lg border bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                    />
+                    <div className="flex gap-2">
+                      <Button size="sm" className="flex-1">
+                        Send
+                      </Button>
+                      <Button size="sm" variant="ghost" className="flex-1" onClick={() => setAsking(false)}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex gap-2">
+                    <Button size="sm" className="flex-1 gap-1.5">
+                      <Check /> Approve v{to}
+                    </Button>
+                    <Button size="sm" variant="ghost" className="flex-1" onClick={() => setAsking(true)}>
+                      Ask for changes
+                    </Button>
+                  </div>
+                )}
+                <span className="text-[11px] leading-relaxed text-muted-foreground">{comparison.approve(to)}</span>
               </div>
             )}
           </aside>

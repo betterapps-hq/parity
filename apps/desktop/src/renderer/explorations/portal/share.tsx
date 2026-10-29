@@ -3,7 +3,7 @@
  * from (owning the project, a team, being an admin, an invite), puts requests waiting for an answer first, and keeps
  * to what Security allows: no public links, and guests for 90 days. Roles come from the collaboration explorations.
  */
-import { Building2, Check, Link, Lock, Mail, X } from "lucide-react"
+import { Building2, Link, Lock, Mail, Send, X } from "lucide-react"
 import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { agentRoles, RoleMenu, roles } from "../collaboration/sharing.tsx"
@@ -45,7 +45,7 @@ function ShareDialog() {
     { person: priya, why: "Owns the project", role: "owner" },
     { person: me, why: "Admin of Kestrel", role: "edit" },
     { person: maya, why: "Through the Web team", role: "edit" },
-    { person: noah, why: "Through the Web team, and asked for an editor seat", role: "view" }
+    { person: noah, why: "Through the Web team. Views until his editor seat is approved", role: "view" }
   ]
   const request = event("ivy-access")
   return (
@@ -212,7 +212,7 @@ export function RequestAccessPage() {
             {event("ivy-access").quote}
           </div>
           <Button className="w-full gap-1.5">
-            <Check /> Ask to comment
+            <Send /> Ask to comment
           </Button>
           <span className="text-xs text-muted-foreground">
             Signed in as ivy@studio-north.com. <span className="underline underline-offset-2">Switch account</span>

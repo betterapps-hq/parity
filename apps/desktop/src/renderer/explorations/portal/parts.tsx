@@ -11,6 +11,7 @@ import {
   Clock,
   Code,
   Download,
+  GitPullRequest,
   House,
   Inbox,
   Library,
@@ -323,6 +324,19 @@ export function HandoffPill({ status }: { status: Handoff }) {
     >
       <span className="size-1.5 rounded-full" style={{ background: color }} />
       {status}
+    </span>
+  )
+}
+
+/** A pull request, as a link to it on GitHub: its number, then its state. */
+export function PullRequestLink({ pr }: { pr: { number: number; state: string } }) {
+  return (
+    <span className="inline-flex items-center gap-1 text-xs whitespace-nowrap text-muted-foreground">
+      <GitPullRequest className="size-3.5" />
+      <span className="text-foreground underline decoration-muted-foreground/50 underline-offset-2 hover:decoration-foreground">
+        #{pr.number}
+      </span>
+      {pr.state}
     </span>
   )
 }

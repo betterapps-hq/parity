@@ -1,26 +1,42 @@
 /**
  * Inspect, Parity's answer to Dev Mode: a board opened from Handoff, read-only, at the version that was approved. Pick
- * anything on it to see the component it is, its file, its props as code, its states, the tokens it uses and its size.
- * Because the board is drawn from the project's own components, what it shows is the code, not a guess at it.
+ * anything on it to see the component it is, its file, its props as code, its states, its text, the tokens it uses and
+ * its size; hover something else to measure between them. Because the board is drawn from the project's own
+ * components, what it shows is the code, not a guess at it.
  */
-import { Bot, ChevronRight, Copy, FileCode, Monitor } from "lucide-react"
+import { Bot, ChevronRight, Copy, ExternalLink, FileCode, Monitor } from "lucide-react"
 import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
-import { ParityMark } from "../parts.tsx"
+import { me } from "../explore-data.ts"
+import { Avatar, ParityMark } from "../parts.tsx"
 import { DesignRender } from "../start/renders.tsx"
 import { deliverable } from "./boards.ts"
 import { designOf, handoff, portalProject } from "./data.ts"
-import { HandoffPill, Pills, PortalWindow } from "./parts.tsx"
+import { HandoffPill, Pills, PortalWindow, PullRequestLink } from "./parts.tsx"
 
 const selection = "oklch(0.64 0.19 255)"
 const added = "oklch(0.72 0.16 290)"
+/** Measurements, in Dev Mode's red. */
+const measure = "oklch(0.68 0.21 25)"
 
-/** The render's own size: a level tile sits at a point on a 1280 by 800 map. */
+/** The render's own size: level tiles sit at points on a 1280 by 800 map. */
 const map = { width: 1280, height: 800 }
 const tile = { x: 570, y: 440, size: 64 }
+/** The tile you're hovering: level 5, to measure to. */
+const next = { x: 710, y: 520, size: 64 }
 
 function share(value: number, of: number): string {
   return `${(value / of) * 100}%`
+}
+
+/** A box on the map, by its edges in the render's pixels. */
+function box(left: number, top: number, width: number, height: number) {
+  return {
+    left: share(left, map.width),
+    top: share(top, map.height),
+    width: share(width, map.width),
+    height: share(height, map.height)
+  }
 }
 
 /** A section of the side panel: a small title, then what it shows. */
@@ -44,6 +60,18 @@ function CopyButton({ label }: { label: string }) {
   )
 }
 
+/** A file, as a link to it on GitHub. */
+function FileLink({ file }: { file: string }) {
+  return (
+    <span className="group flex min-w-0 items-center gap-1.5 font-mono text-xs text-muted-foreground">
+      <span className="truncate underline decoration-muted-foreground/40 underline-offset-2 group-hover:text-foreground">
+        {file}
+      </span>
+      <ExternalLink className="size-3 shrink-0 opacity-60" aria-label="Opens on GitHub" />
+    </span>
+  )
+}
+
 /** Marked as new, or changed, in the approved version. */
 function New({ children = "new" }: { children?: string }) {
   return (
@@ -53,9 +81,21 @@ function New({ children = "new" }: { children?: string }) {
   )
 }
 
+/** A measurement label on the board. */
+function Measure({ children, className }: { children: string; className: string }) {
+  return (
+    <span
+      className={`absolute rounded-[3px] px-1 py-px font-mono text-[10px] whitespace-nowrap text-white tabular-nums ${className}`}
+      style={{ background: measure }}
+    >
+      {children}
+    </span>
+  )
+}
+
 const props: { name: string; value: string; type: string; added?: boolean }[] = [
   { name: "level", value: "4", type: "number" },
-  { name: "stars", value: "2", type: "0 | 1 | 2 | 3" },
+  { name: "stars", value: "3", type: "0 | 1 | 2 | 3" },
   { name: "locked", value: "false", type: "boolean", added: true },
   { name: "current", value: "false", type: "boolean" }
 ]
@@ -70,17 +110,20 @@ export function InspectPage() {
   const board = deliverable("spawnkit", "Level select")
   const part = board.parts.find((candidate) => candidate.name === selected)!
   const tokens = board.tokens.filter((token) => token.usedBy.includes(selected))
+  const gap = next.x - next.size / 2 - (tile.x + tile.size / 2)
   return (
     <PortalWindow path="kestrel/ember-caves/level-select/inspect?v=8">
       <div className="flex h-full flex-col">
         <header className="flex h-11 shrink-0 items-center gap-2.5 border-b bg-background px-3 text-sm whitespace-nowrap">
           <ParityMark size={20} />
+          <span className="text-muted-foreground hover:text-foreground">Handoff</span>
+          <ChevronRight className="size-3.5 text-muted-foreground/60" />
           <span className="font-medium">{shown.name}</span>
           <ChevronRight className="size-3.5 text-muted-foreground/60" />
           <span>{design.name}</span>
-          <ChevronRight className="size-3.5 text-muted-foreground/60" />
-          <span className="text-muted-foreground">Inspect</span>
-          <span className="ml-1 rounded-md bg-muted px-1.5 py-px text-[11px] font-medium tabular-nums">v8</span>
+          <span className="ml-1 rounded-md bg-muted px-1.5 py-px text-[11px] font-medium tabular-nums">
+            Inspect v{board.version}
+          </span>
           <HandoffPill status={handoff["spawnkit/Level select"]!} />
           <div className="ml-auto flex items-center gap-1">
             <Button size="sm" variant="ghost" className="gap-1.5">
@@ -92,7 +135,11 @@ export function InspectPage() {
           </div>
         </header>
         <div className="flex min-h-0 flex-1">
-          <aside className="flex w-56 shrink-0 flex-col gap-1 border-r bg-background p-3">
+          <aside className="flex w-60 shrink-0 flex-col gap-1 border-r bg-background p-3">
+            <h3 className="px-2 pb-1 text-xs font-medium text-muted-foreground">Page</h3>
+            <span className="px-2 pb-3">
+              <FileLink file={board.page} />
+            </span>
             <h3 className="px-2 pb-1 text-xs font-medium text-muted-foreground">On this board</h3>
             {board.parts.map((onBoard) => (
               <span
@@ -106,9 +153,20 @@ export function InspectPage() {
               </span>
             ))}
             <div className="mt-auto flex flex-col gap-2 rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
-              <span className="text-foreground">Approved v{board.version}</span>
-              {board.by.what}. {board.building?.who.name} is building it on {board.building?.branch}, #
-              {board.building?.pr?.number}.
+              <span className="flex items-center gap-1.5 text-foreground">
+                <Avatar person={board.approved!.who} size={16} />
+                {board.approved!.who === me ? "You" : board.approved!.who.name} approved v{board.version},{" "}
+                {board.approved!.when}
+              </span>
+              {board.code && (
+                <span className="flex flex-col gap-1">
+                  <span>
+                    {board.code.who.name} is building it on{" "}
+                    <span className="font-mono text-foreground">{board.code.branch}</span>
+                  </span>
+                  {board.code.pr && <PullRequestLink pr={board.code.pr} />}
+                </span>
+              )}
             </div>
           </aside>
           <div className="relative min-w-0 flex-1 overflow-hidden bg-[#0f0f12]">
@@ -116,20 +174,18 @@ export function InspectPage() {
               <Pills options={["Phone", "Tablet"]} />
             </div>
             <div className="relative mx-auto mt-5 w-[86%] max-w-[760px]">
-              <span className="text-[11px] font-medium text-white/50">
-                {design.name} <span className="text-white/30">Open, on a phone held sideways</span>
+              <span className="text-xs font-medium text-white/60">
+                {design.name} <span className="text-white/40">Open, on a phone held sideways</span>
               </span>
               <div className="relative mt-2 rounded-[5px] shadow-[0_16px_40px_-12px_rgb(0_0_0/0.6)] ring-1 ring-white/[0.06]">
                 <div className="overflow-hidden rounded-[5px]">
                   <DesignRender kind={design.kind} look={shown.look} />
                 </div>
+                {/* The picked tile, with its name and size. */}
                 <div
                   className="pointer-events-none absolute"
                   style={{
-                    left: share(tile.x - tile.size / 2, map.width),
-                    top: share(tile.y - tile.size / 2, map.height),
-                    width: share(tile.size, map.width),
-                    height: share(tile.size, map.height),
+                    ...box(tile.x - tile.size / 2, tile.y - tile.size / 2, tile.size, tile.size),
                     boxShadow: `0 0 0 1.5px ${selection}`
                   }}
                 >
@@ -140,15 +196,46 @@ export function InspectPage() {
                     {selected}
                   </span>
                   <span
-                    className="absolute top-full left-1/2 mt-1 -translate-x-1/2 rounded-[3px] px-1 py-px font-mono text-[10px] whitespace-nowrap text-white tabular-nums"
+                    className="absolute top-1/2 right-full mr-1 -translate-y-1/2 rounded-[3px] px-1 py-px font-mono text-[10px] whitespace-nowrap text-white tabular-nums"
                     style={{ background: selection }}
                   >
-                    64 × 64
+                    {tile.size} × {tile.size}
                   </span>
                 </div>
+                {/* The hovered tile, and the distances to it and to the stars under the picked one. */}
+                <div
+                  className="pointer-events-none absolute"
+                  style={{
+                    ...box(next.x - next.size / 2, next.y - next.size / 2, next.size, next.size),
+                    boxShadow: `0 0 0 1px ${measure}`
+                  }}
+                />
+                <div
+                  className="pointer-events-none absolute border-t"
+                  style={{
+                    ...box(tile.x + tile.size / 2, next.y - next.size / 2, gap, 0),
+                    borderColor: measure
+                  }}
+                >
+                  <Measure className="-top-5 left-1/2 -translate-x-1/2">{String(gap)}</Measure>
+                </div>
+                <div
+                  className="pointer-events-none absolute border-l border-dashed"
+                  style={{
+                    ...box(tile.x + tile.size / 2, tile.y - tile.size / 2, 0, next.y - tile.y),
+                    borderColor: measure
+                  }}
+                />
+                <div
+                  className="pointer-events-none absolute border-l"
+                  style={{ ...box(tile.x - tile.size / 2 - 3, tile.y + tile.size / 2, 0, 8), borderColor: measure }}
+                >
+                  <Measure className="top-1/2 right-1.5 -translate-y-1/2">8</Measure>
+                </div>
               </div>
-              <p className="mt-4 text-center text-xs text-white/40">
-                Pick anything on the board to inspect it. It's read-only, at the approved version.
+              <p className="mt-4 text-center text-xs text-white/55">
+                Pick anything on the board to inspect it, and hover something else to measure to it. It's read-only, at
+                the approved version.
               </p>
             </div>
           </div>
@@ -158,11 +245,11 @@ export function InspectPage() {
                 <span className="font-mono text-sm font-medium">{part.name}</span>
                 {part.change && <New>{part.change.toLowerCase()}</New>}
               </span>
-              <span className="font-mono text-xs text-muted-foreground">{part.file}</span>
+              <FileLink file={part.file} />
             </Section>
             <Section title="Code" action={<CopyButton label="Copy the code" />}>
               <pre className="rounded-lg bg-muted/50 px-3 py-2.5 font-mono text-xs leading-relaxed">
-                {"<LevelTile level={4} stars={2} />"}
+                {"<LevelTile level={4} stars={3} />"}
               </pre>
             </Section>
             <Section title="Props">
@@ -181,7 +268,7 @@ export function InspectPage() {
             </Section>
             <Section title="States">
               <div className="flex flex-wrap gap-1.5">
-                {["Open", "Locked", "Cleared", "Current"].map((state, index) => (
+                {board.states.map((state, index) => (
                   <span
                     key={state}
                     className={`flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs ${index === 0 ? "border-foreground/40 bg-muted" : "text-muted-foreground"}`}
@@ -195,39 +282,70 @@ export function InspectPage() {
                 Each state is a frame on the board, so you can see it before you build it.
               </span>
             </Section>
+            <Section title="Text">
+              <div className="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-y-1.5 text-xs">
+                <span className="text-muted-foreground">Level number</span>
+                <span className="font-mono">26, weight 900, white</span>
+                <span className="text-muted-foreground">Locked</span>
+                <span className="font-mono">Lock icon, 24, white at 40%</span>
+              </div>
+            </Section>
             <Section title="Tokens">
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-2">
                 {tokens.map((token) => (
-                  <span key={token.name} className="flex items-center gap-2 text-xs">
+                  <span key={token.name} className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 text-xs">
                     <span
-                      className="size-3.5 shrink-0 rounded-[3px] ring-1 ring-white/10"
+                      className="mt-px size-3.5 rounded-[3px] ring-1 ring-white/10"
                       style={{ background: token.value }}
                     />
-                    <span className="font-mono">{token.name}</span>
-                    {token.added && <New />}
-                    <span className="ml-auto font-mono text-[11px] text-muted-foreground">{token.value}</span>
+                    <span className="flex items-center gap-2">
+                      <span className="font-mono">{token.name}</span>
+                      {token.added && <New />}
+                    </span>
+                    <span className="col-start-2 font-mono text-[11px] text-muted-foreground">{token.value}</span>
                   </span>
                 ))}
               </div>
             </Section>
             <Section title="Size and spacing">
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-y-1.5 text-xs">
                 <span className="text-muted-foreground">Size</span>
                 <span className="font-mono">64 × 64</span>
                 <span className="text-muted-foreground">Corners</span>
                 <span className="font-mono">full</span>
-                <span className="text-muted-foreground">Stars below</span>
+                <span className="text-muted-foreground">Bottom edge</span>
+                <span className="font-mono">6</span>
+                <span className="text-muted-foreground">Stars, under the tile</span>
                 <span className="font-mono">8</span>
-                <span className="text-muted-foreground">Current level</span>
+                <span className="text-muted-foreground">To level 5, hovered</span>
+                <span className="font-mono">{gap}</span>
+                <span className="text-muted-foreground">The current level</span>
                 <span className="font-mono">78 × 78</span>
               </div>
+            </Section>
+            {board.notes && (
+              <Section title="Notes">
+                <span className="flex items-start gap-2 text-xs">
+                  <Avatar person={board.notes.who} size={16} />
+                  <span className="text-muted-foreground">
+                    <span className="text-foreground">{board.notes.who.name.split(" ")[0]}:</span> {board.notes.text}
+                  </span>
+                </span>
+              </Section>
+            )}
+            <Section title="Assets">
+              <span className="text-xs text-muted-foreground">
+                Nothing to export. The lock and stars are lucide-react's <span className="font-mono">Lock</span> and{" "}
+                <span className="font-mono">Star</span>, and the tile and map are drawn in code.
+              </span>
             </Section>
             <div className="mt-auto flex flex-col gap-2 border-t p-4">
               <Button size="sm" className="gap-1.5">
                 <Bot /> Give to your agent
               </Button>
               <span className="text-[11px] text-muted-foreground">
-                Hands your coding agent v8 of this board: its components, props, states and tokens.
+                Hands your coding agent v{board.version} of this board: its page, components, props, states, tokens and
+                notes.
               </span>
             </div>
           </aside>

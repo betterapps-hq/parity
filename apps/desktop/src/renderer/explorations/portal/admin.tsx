@@ -142,7 +142,7 @@ const members: Member[] = [
     active: "Today",
     asked: true
   },
-  { person: ivy, email: "ivy@studio-north.com", role: "Guest", seat: "Viewer", teams: [], active: "Last week" }
+  { person: ivy, email: "ivy@studio-north.com", role: "Guest", seat: "Viewer", teams: [], active: "Today" }
 ]
 
 const editors = members.filter((member) => member.seat === "Editor").length
@@ -670,7 +670,7 @@ const audit = [
 /** The agents people in Kestrel have connected, and which the org allows. */
 const agents = [
   { agent: claude, by: "Andrew Craswell and Sam Okafor", used: "Now", allowed: true },
-  { agent: cursor, by: "Jonas Weber", used: "Now", allowed: true },
+  { agent: cursor, by: "Jonas Weber and Andrew Craswell", used: "Now", allowed: true },
   { agent: { name: "Codex", hue: 150, agent: true }, by: "Nobody yet", used: "Never", allowed: false }
 ]
 

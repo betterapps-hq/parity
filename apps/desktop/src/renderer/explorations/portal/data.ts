@@ -37,6 +37,11 @@ export function designOf(shown: StartProject, name: string): Design {
   return shown.designs.find((design) => design.name === name) ?? shown.designs[0]!
 }
 
+/** Priya added Noah to the Web team yesterday; he's waiting on an editor seat. */
+export const noah = { name: "Noah Park", hue: 210 }
+/** A guest from the agency Kestrel works with, invited to one project. */
+export const ivy = { name: "Ivy Lopez", hue: 20 }
+
 export interface Team {
   org: Organization
   people: Person[]
@@ -50,7 +55,7 @@ function team(id: string, name: string, hue: number, members: Person[], projects
 
 export const teams = {
   apps: team("apps", "Apps", 162, [me, people.jonas, people.sam, people.lena], ["dashboard", "spawnkit", "copilot"]),
-  web: team("web", "Web", 250, [me, people.maya, people.priya], ["website", "docs"]),
+  web: team("web", "Web", 250, [me, people.maya, people.priya, noah], ["website", "docs"]),
   system: team("system", "Design system", 280, [people.lena, people.maya], ["library"])
 }
 
@@ -117,9 +122,10 @@ export interface PortalEvent extends Activity {
 }
 
 const { maya, jonas, priya, sam, lena, claude, cursor } = people
-export const noah = { name: "Noah Park", hue: 210 }
-/** A guest from the agency Kestrel works with, invited to one project. */
-export const ivy = { name: "Ivy Lopez", hue: 20 }
+
+/** What changed on Pricing since v12, the version you approved and are building. */
+export const pricingSince =
+  "You're building v12. Since then, Save 20% moved into the billing toggle, Team's card is Most popular, and Compare all plans is gone."
 
 /** What Sam asked Claude Code to do in the Cloud console, which it now wants reviewed. */
 export const claudeTask = "Move the console to the green brand"
@@ -148,9 +154,12 @@ export const events: PortalEvent[] = [
     who: maya,
     project: "Kestrel website",
     design: "Pricing",
-    action: "changed",
+    action: "made v14 of",
+    quote: pricingSince,
     when: "12 min ago",
     day: "Today",
+    unread: true,
+    needsYou: true,
     team: "web"
   },
   {

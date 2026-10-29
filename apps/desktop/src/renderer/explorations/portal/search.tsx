@@ -3,7 +3,7 @@
  * open, grouped by kind, with the matching part marked. Components come from each project's code, with their files,
  * so a developer can search for a component and land on every board that uses it.
  */
-import { Component, MessageSquare, Search, Settings } from "lucide-react"
+import { Component, MessageSquare, Settings } from "lucide-react"
 import type { ReactNode } from "react"
 import { people } from "../explore-data.ts"
 import { Avatar } from "../parts.tsx"
@@ -58,11 +58,9 @@ export function SearchPage() {
       <div className="flex min-h-full">
         <main className="min-w-0 flex-1">
           <div className="flex max-w-3xl flex-col gap-6 px-8 py-7">
-            <div className="flex h-11 items-center gap-3 rounded-xl border bg-background px-4 text-base">
-              <Search className="size-4 text-muted-foreground" />
-              <span className="flex-1">{searchQuery}</span>
-              <span className="text-xs text-muted-foreground">9 results in Kestrel</span>
-            </div>
+            <h1 className="text-xl font-semibold tracking-tight">
+              9 results for “{searchQuery}” <span className="font-normal text-muted-foreground">in Kestrel</span>
+            </h1>
             <Pills options={["All 9", "Designs 3", "Components 3", "Comments 2", "Settings 1"]} />
             <Group title="Designs" count={designs.length}>
               {designs.map((hit) => {

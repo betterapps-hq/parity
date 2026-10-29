@@ -1,17 +1,19 @@
 /**
  * Handoff, for developers: every board by where it stands between design and code, one row each, with the board you
  * pick open at the side. Statuses come from Parity's own versions, so they work without git: an approval is of one
- * version, and an edit after it shows as Changed since approval wherever the board's status does. What each board
+ * version, and an edit after it shows as Changed since approval wherever the board's status does. Each row says who
+ * approved it and who's writing its code, under headers that mean the same thing on every row. What each board
  * delivers comes from the same list as Inspect and What changed (`boards.ts`), so they always agree.
  */
-import { Bot, ChevronDown, Ellipsis, GitBranch, GitPullRequest, Search, TriangleAlert, X } from "lucide-react"
+import { Bot, ChevronDown, Ellipsis, GitBranch, Search, TriangleAlert, X } from "lucide-react"
 import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
+import { me } from "../explore-data.ts"
 import { Avatar } from "../parts.tsx"
 import { DesignRender } from "../start/renders.tsx"
 import { type Deliverable, deliverable, deliverables } from "./boards.ts"
 import { designOf, type Handoff, handoff, portalProject } from "./data.ts"
-import { HandoffPill, Pills, PortalHeader, PortalPage } from "./parts.tsx"
+import { HandoffPill, Pills, PortalHeader, PortalPage, PullRequestLink } from "./parts.tsx"
 
 const violet = "oklch(0.72 0.16 290)"
 
@@ -20,17 +22,13 @@ function Code({ children }: { children: ReactNode }) {
   return <span className="rounded-md border bg-background px-1.5 py-0.5 font-mono text-[11px]">{children}</span>
 }
 
-/** A pull request, as a link to it. */
-function PullRequest({ pr }: { pr: { number: number; state: string } }) {
-  return (
-    <span className="inline-flex items-center gap-1 text-xs whitespace-nowrap">
-      <GitPullRequest className="size-3.5 text-muted-foreground" />
-      <span className="text-foreground underline decoration-muted-foreground/50 underline-offset-2 hover:decoration-foreground">
-        #{pr.number}
-      </span>
-      {pr.state}
-    </span>
-  )
+/** You, or someone's first name. */
+function who(person: { name: string }): string {
+  return person === me ? "you" : person.name.split(" ")[0]!
+}
+
+function capital(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
 /** What a developer does first with a board, by where it stands. */
@@ -47,15 +45,65 @@ const order: Handoff[] = ["Ready to build", "Building", "Changed since approval"
 /** The board open at the side. */
 const picked = "website/Pricing"
 
+const columns = "grid grid-cols-[minmax(0,1fr)_150px_150px_140px] items-center gap-4"
+
+/** A cell of two lines: what it is, then when or where. */
+function Cell({ avatar, top, bottom }: { avatar?: { name: string; hue: number }; top: ReactNode; bottom: ReactNode }) {
+  return (
+    <span className="flex min-w-0 items-center gap-2 text-xs">
+      {avatar ? <Avatar person={avatar} size={20} /> : <span className="size-5 shrink-0" />}
+      <span className="flex min-w-0 flex-col">
+        <span className="truncate">{top}</span>
+        <span className="truncate text-muted-foreground">{bottom}</span>
+      </span>
+    </span>
+  )
+}
+
+/** Who approved the version, or who asked for a review while there's no approval yet. */
+function Approval({ board }: { board: Deliverable }) {
+  if (board.approved)
+    return (
+      <Cell avatar={board.approved.who} top={`Approved by ${who(board.approved.who)}`} bottom={board.approved.when} />
+    )
+  const asked = board.review!
+  return (
+    <Cell
+      avatar={asked.who}
+      top={`Asked by ${asked.who.name.split(" ")[0]}`}
+      bottom={`${asked.for ? `for ${asked.for.name.split(" ")[0]}, ` : ""}${asked.when}`}
+    />
+  )
+}
+
+/** Who's writing the code: building it, built it, or made it with the design, with the pull request. */
+function CodeCell({ board }: { board: Deliverable }) {
+  const code = board.code
+  if (!code)
+    return (
+      <Cell top={<span className="text-muted-foreground">Nobody yet</span>} bottom={board.issue ?? "Not tracked"} />
+    )
+  const top =
+    code.doing === "Building"
+      ? code.who === me
+        ? "You're building it"
+        : `${who(code.who)} is building it`
+      : code.doing === "Built"
+        ? `Built by ${who(code.who)}`
+        : "Already in code"
+  return <Cell avatar={code.who} top={top} bottom={code.pr ? <PullRequestLink pr={code.pr} /> : code.when} />
+}
+
 function BoardRow({ board, status }: { board: Deliverable; status: Handoff }) {
   const shown = portalProject(board.project)
   const design = designOf(shown, board.design)
   const key = `${board.project}/${board.design}`
   const action = mainAction[status]
   const latest = board.since?.at(-1)?.version
+  const selected = key === picked
   return (
     <div
-      className={`grid grid-cols-[minmax(0,1fr)_150px_150px_auto] items-center gap-4 rounded-lg px-2 py-2 ${key === picked ? "bg-muted/60 ring-1 ring-border" : "hover:bg-muted/30"} ${status === "Built" ? "opacity-60" : ""}`}
+      className={`${columns} rounded-lg px-2 py-2 ${selected ? "bg-muted/60 ring-1 ring-border" : "hover:bg-muted/30"} ${status === "Built" ? "opacity-60" : ""}`}
     >
       <span className="flex min-w-0 items-center gap-3">
         <span className="w-14 shrink-0 overflow-hidden rounded-[3px] ring-1 ring-border">
@@ -69,25 +117,11 @@ function BoardRow({ board, status }: { board: Deliverable; status: Handoff }) {
           </span>
         </span>
       </span>
-      <span className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
-        <Avatar person={board.by.who} size={18} />
-        <span className="truncate">{board.by.short}</span>
-      </span>
-      <span className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
-        {board.building ? (
-          <>
-            <Avatar person={board.building.who} size={18} />
-            {board.building.pr ? <PullRequest pr={board.building.pr} /> : board.building.who.name}
-          </>
-        ) : status === "Built" ? (
-          "Built"
-        ) : (
-          "Nobody yet"
-        )}
-      </span>
+      <Approval board={board} />
+      <CodeCell board={board} />
       <span className="flex items-center justify-end gap-1">
         {action && (
-          <Button size="sm" variant={status === "Building" ? "outline" : "default"} className="h-7 text-xs">
+          <Button size="sm" variant={selected ? "default" : "ghost"} className="h-7 text-xs">
             {action}
           </Button>
         )}
@@ -116,6 +150,8 @@ function Detail({ board }: { board: Deliverable }) {
   const status = handoff[`${board.project}/${board.design}`]!
   const changed = board.parts.filter((part) => part.change)
   const also = board.parts.filter((part) => !part.change)
+  const latest = board.since?.at(-1)?.version
+  const yours = board.code?.doing === "Building" && board.code.who === me
   return (
     <aside className="flex w-[24rem] shrink-0 flex-col border-l bg-background">
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
@@ -133,10 +169,13 @@ function Detail({ board }: { board: Deliverable }) {
           <div className="overflow-hidden rounded-md ring-1 ring-border">
             <DesignRender kind={design.kind} look={shown.look} />
           </div>
-          <span className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Avatar person={board.by.who} size={16} />
-            {board.by.what}
-          </span>
+          {board.approved && (
+            <span className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Avatar person={board.approved.who} size={16} />
+              {capital(who(board.approved.who))} approved v{board.version} {board.approved.when}
+              {latest && `. This is v${latest}.`}
+            </span>
+          )}
         </div>
         {board.since && (
           <Part title={`Changed since v${board.version}`}>
@@ -160,7 +199,7 @@ function Detail({ board }: { board: Deliverable }) {
                 Maya's question on the annual toggle is still open
               </span>
               <Button size="sm" variant="outline" className="w-fit">
-                See what changed, v{board.version} to v{board.since.at(-1)!.version}
+                See what changed, v{board.version} to v{latest}
               </Button>
             </div>
           </Part>
@@ -170,6 +209,7 @@ function Detail({ board }: { board: Deliverable }) {
           <span className="text-xs text-muted-foreground">
             {board.states.join(", ")}, on {board.sizes.join(" and ").toLowerCase()}
           </span>
+          <span className="truncate font-mono text-[11px] text-muted-foreground">{board.page}</span>
         </Part>
         <Part title="Components">
           {[...changed, ...also].map((part) => (
@@ -185,27 +225,50 @@ function Detail({ board }: { board: Deliverable }) {
         {board.tokens.length > 0 && (
           <Part title="Tokens">
             {board.tokens.map((token) => (
-              <span key={token.name} className="flex items-center gap-2 text-xs">
+              <span key={token.name} className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 text-xs">
                 <span
-                  className="size-3.5 shrink-0 rounded-[3px] ring-1 ring-white/10"
+                  className="mt-px size-3.5 rounded-[3px] ring-1 ring-white/10"
                   style={{ background: token.value }}
                 />
-                <span className="font-mono">{token.name}</span>
-                {token.added && <span style={{ color: violet }}>new</span>}
-                <span className="ml-auto font-mono text-[11px] text-muted-foreground">{token.value}</span>
+                <span className="flex items-center gap-2">
+                  <span className="font-mono">{token.name}</span>
+                  {token.added && <span style={{ color: violet }}>new</span>}
+                </span>
+                <span className="col-start-2 font-mono text-[11px] text-muted-foreground">
+                  {token.value}, in {token.usedBy.join(", ")}
+                </span>
               </span>
             ))}
           </Part>
         )}
-        <Part title="Who's building it">
-          <span className="text-xs text-muted-foreground">
-            Nobody yet. Whoever picks it up hears when someone makes a newer version, opens a thread on it, or withdraws
-            the approval, here and in their inbox.
-          </span>
+        <Part title="Code">
+          {board.code ? (
+            <span className="flex items-start gap-2 text-xs text-muted-foreground">
+              <Avatar person={board.code.who} size={16} />
+              <span className="flex flex-col gap-1">
+                <span>
+                  {yours ? "You've been building" : `${board.code.who.name} has been building`} v{board.version} since{" "}
+                  {board.code.when}, on <span className="font-mono text-foreground">{board.code.branch}</span>.
+                </span>
+                {board.code.pr && <PullRequestLink pr={board.code.pr} />}
+                {latest && (
+                  <span>
+                    Keep building v{board.version} as approved, or wait for v{latest} to be approved. You hear about
+                    every newer version here and in your inbox.
+                  </span>
+                )}
+              </span>
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              Nobody yet. Whoever picks it up hears when someone makes a newer version, opens a thread on it, or
+              withdraws the approval, here and in their inbox.
+            </span>
+          )}
         </Part>
       </div>
       <div className="flex flex-col gap-2 border-t px-5 py-4">
-        <Button size="sm">Build v{board.version}, as approved</Button>
+        <Button size="sm">{yours ? `Keep building v${board.version}` : `Build v${board.version}, as approved`}</Button>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" className="flex-1 gap-1.5">
             <Search /> Inspect v{board.version}
@@ -243,6 +306,12 @@ export function HandoffPage() {
               </span>
             </div>
             <div className="flex flex-col gap-4">
+              <div className={`${columns} border-b px-2 pb-2 text-xs text-muted-foreground`}>
+                <span>Board</span>
+                <span className="pl-7">Approval</span>
+                <span className="pl-7">Code</span>
+                <span />
+              </div>
               {order.map((status) => {
                 const group = rows.filter((board) => statusOf(board) === status)
                 if (!group.length) return null

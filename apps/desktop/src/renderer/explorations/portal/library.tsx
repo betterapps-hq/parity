@@ -11,7 +11,7 @@ import { Avatar } from "../parts.tsx"
 import { event, portalProject } from "./data.ts"
 import { Pills, PortalPage, Tabs } from "./parts.tsx"
 
-const { lena, maya } = people
+const { lena } = people
 const violet = "oklch(0.72 0.16 290)"
 
 /** Kestrel UI's own colors, so its components look like themselves. */
@@ -120,17 +120,6 @@ const toggleUses: { project: string; version: string; boards: string[] }[] = [
   { project: "docs", version: "2.4", boards: ["Docs home"] },
   { project: "dashboard", version: "2.3", boards: ["Billing", "Overview"] },
   { project: "copilot", version: "2.3", boards: ["Inbox"] }
-]
-
-const releases: { version: string; who: typeof lena; when: string; what: string }[] = [
-  {
-    version: "2.4",
-    who: lena,
-    when: event("lena-publish").when,
-    what: "Button, Toggle and Menu: a small Toggle, and an animated thumb"
-  },
-  { version: "2.3", who: lena, when: "3 weeks ago", what: "Tokens for the green brand, and Badge's new Draft style" },
-  { version: "2.2", who: maya, when: "Last month", what: "Dialog and Tooltip" }
 ]
 
 function ComponentCard({ name, uses, changed }: { name: string; uses: number; changed?: string }) {
@@ -252,17 +241,6 @@ export function LibraryPage() {
                 <ComponentCard key={component.name} {...component} />
               ))}
             </div>
-            <section className="flex flex-col gap-2">
-              <h2 className="text-sm font-semibold">Releases</h2>
-              {releases.map((release) => (
-                <div key={release.version} className="flex items-center gap-3 border-b py-2.5 text-sm last:border-0">
-                  <span className="w-10 font-medium tabular-nums">{release.version}</span>
-                  <Avatar person={release.who} size={20} />
-                  <span className="min-w-0 flex-1 truncate">{release.what}</span>
-                  <span className="text-xs text-muted-foreground">{release.when}</span>
-                </div>
-              ))}
-            </section>
           </div>
         </main>
         <ToggleDetail />

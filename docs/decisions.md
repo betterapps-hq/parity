@@ -702,12 +702,16 @@ recommended answer to each of its questions.
   renders name the org a look belongs to (`Look.org`), so Kestrel's apps say Kestrel, and the rest still say Buildkit.
 - **Every screen draws from one list of events** (my call, after the design review): For you, the Inbox, Activity and
   the team page all show the same things at the same times, so a count or a time never disagrees between screens.
-- **Its screens:** For you (what needs you, each with its design, then what changed, with who's working where at the
-  side), Recents (the projects as a file browser), a team page that opens on who's working where now, each on the canvas
-  they're in, with Join for people and Watch for agents; the Inbox (the open item beside its board, pins and all, with
-  its thread); the org's Activity (changes shown as the designs, merges, published components, new people, and the week
-  in numbers); Handoff and Inspect; the canvas opened on what changed; a library's page; sharing and asking for access;
-  search results; and the admin pages Members, Billing, Add seats, Plans and Security.
+- **Its screens:** For you (what needs you, then what changed, with who's working where at the side), Recents (the
+  projects as a file browser), a team page that opens on who's working where now, each on the canvas they're in, with
+  Join for people and Watch for agents; the Inbox (the open item beside its board, pins and all, with its thread); the
+  org's Activity (changes shown as the designs, merges, published components, new people, and the week in numbers);
+  Handoff and Inspect; the canvas opened on what changed; a library's page; sharing and asking for access; search
+  results; and the admin pages Members, Billing, Add seats, Plans and Security.
+- **For you is a digest, as the start page's is** (my call, after the fourth review): each thing waiting on you is one
+  line with what they said and its one or two actions (Reply, Approve, Let her comment, See what changed), so most of it
+  can be answered from there, and what happened since you were last here follows close under it. The inbox has the full
+  thread beside its board.
 - **Every page shares one left edge, and tabs and filters look different** (my calls, after the third review): tabs move
   between the parts of one place (a team, settings, a library), and quiet pills filter a list.
 - **Handoff is for developers: every board by where it stands between design and code, from Parity's own versions** (my
@@ -715,10 +719,17 @@ recommended answer to each of its questions.
   Building, Changed since approval, Built, or Code differs. An approval is of one version, so an edit after it turns the
   board to Changed since approval wherever its status shows, and the developer can build the approved version or look at
   what changed. Handoff is a list, one row per board grouped by status, with the board you pick open at the side: its
-  version, its components and their files (new ones and new props marked), its tokens and their values, its states and
-  sizes, and who's building it; branches, pull requests and tracker issues show too where a project has them. Whoever's
-  building a board hears when it changes. Handoff, Inspect and What changed read what a board delivers from one list
-  (`portal/boards.ts`), so they always name the same components and tokens.
+  version, its page and components and their files (new ones and new props marked), its tokens and their values, its
+  states and sizes, and its code; branches, pull requests and tracker issues show too where a project has them. Each row
+  has the same two columns (my call, after the fourth review): Approval, who approved the version or who asked for its
+  review, and Code, who's building it, built it, or made it with the design. An agent that changes a design and its code
+  together, as Claude Code did for the Cloud console, leaves the code already in a pull request, so approving that
+  design leaves only the merge, and its boards are Built once it merges. Only the picked row's action is a filled
+  button. Handoff, Inspect and What changed read what a board delivers from one list (`portal/boards.ts`), so they
+  always name the same components and tokens.
+- **Whoever's building a board hears when it changes, as something that needs them** (my call, after the fourth review):
+  For you and the inbox say which version they're building, what changed since in a sentence, and link the comparison
+  and their pull request. Kestrel's example is you building Pricing v12 in #150 while Maya made v13 and v14.
 - **Libraries take Drafts' place in the nav** (my call): Parity's projects live in repositories, so there are no drafts.
   A library's page shows its components as the code renders them, which version each project uses and on which boards,
   and its releases; a project behind the latest version can be updated from there, or the update given to an agent.
@@ -728,18 +739,23 @@ recommended answer to each of its questions.
   Security: no public links, and guests for 90 days.
 - **Search is one page of everything you can open** (my call): designs, components with their files, comments and
   settings, the match marked, filtered by project, team, when and who. Projects you can't see stay out of it.
-- **Inspect is Parity's Dev Mode** (my call): a board at its approved version, read-only, where picking anything shows
-  its component and file, its props as code, its states, its tokens and its size, and Give to your agent hands the board
-  to the developer's own coding agent.
+- **Inspect is Parity's Dev Mode** (my call): a board at its approved version, read-only, opened from Handoff and
+  leading back to it. Picking anything shows its component and file, its props as code, its states, its text, its tokens
+  and its size, and hovering something else measures to it. The board's page file, the designer's notes and what there
+  is to export show too, files open on GitHub, and Give to your agent hands the board to the developer's own coding
+  agent. There's usually nothing to export: icons come from the project's icon package and the rest is drawn in code.
 - **What changed compares two of the project's versions** (my calls, after the design reviews). Parity records versions
   itself, and only a change makes one: a comment doesn't. Every place a change shows is marked, found from what the
-  render draws with the changed token rather than placed by hand, so a token change marks every board that uses it. The
-  side says who made the change and why (the task someone gave their agent), and Approve approves the design at that
-  version and marks its boards ready to build; the pull request is still reviewed on GitHub. Its link names both
-  versions, so it can go in a pull request.
+  render draws with the changed token rather than placed by hand, so a token change marks every board that uses it. A
+  moved element is outlined where it was on the before side and where it is on the after side, and a removed one where
+  it was on both (my call, after the fourth review). The side says who made the changes and why (the version notes, or
+  the task someone gave their agent), the token's values before and after, and each change's components and files with
+  their props before and after, as a diff; each change can be commented on. Approve approves the design at the newer
+  version, and Ask for changes takes a note. Its link names both versions, so it can go in a pull request. Kestrel's
+  examples are Claude Code's token change to three Cloud console boards and Maya's v13 and v14 of Pricing.
 - **What changed stays quiet so the changes are the focus** (your call, 2026-10-29). No glow, pills or rings on the
-  boards; the branch, pull request and links sit in a menu; hovering a change brings it forward on both boards and in
-  the list. There's no timeline: the version labels above the boards pick what's compared.
+  boards; the branch, pull request and links, opening the canvas among them, sit in a menu; hovering a change brings it
+  forward on both boards and in the list. There's no timeline: the version labels above the boards pick what's compared.
 - **Only editors pay; viewing and commenting are free** (your calls, 2026-10-29). Inspecting is viewing, so developers
   who build from designs don't need a seat. A seat request uses the open seats first, and buying more is offered only
   past them.

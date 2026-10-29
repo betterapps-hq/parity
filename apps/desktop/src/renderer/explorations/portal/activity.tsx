@@ -75,11 +75,14 @@ export function ActivityPage() {
               item={event("maya-change")}
               line={
                 <>
-                  <Name>Maya Chen</Name> changed <Name>Pricing</Name> in <Name>Kestrel website</Name>, on desktop and
-                  phone
+                  <Name>Maya Chen</Name> made v13 and v14 of <Name>Pricing</Name> in <Name>Kestrel website</Name>
                 </>
               }
             >
+              <span className="text-sm text-muted-foreground">
+                Save 20% moved into the billing toggle, Team's card is Most popular, and Compare all plans is gone. You
+                approved v12, and you're building it.
+              </span>
               <div className="grid grid-cols-[1fr_0.42fr_1fr] items-end gap-2">
                 <DesignTile project="website" design="Pricing" changed />
                 <DesignTile project="website" design="Pricing" mobile changed />
