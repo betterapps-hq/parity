@@ -121,8 +121,8 @@ itself with Beachball.
 - **Token writes, library style imports and pasted images go through it.** Importing a library's styles says which file
   changed, with its diff and Undo. Token edits take their undo from the design's history, which PAR-164 is building, and
   a pasted image's file stays when its layer is undone, as before.
-- **Still to move onto it:** `.lib.par` files from `cli/lib.ts`, `.par` saves, and then generated components and
-  stories, `.parity/` files, and later migrations, handlers, route files and recipes.
+- **Still to move onto it:** `.lib.par` files from `cli/lib.ts` and `.par` saves (PAR-423), and then generated
+  components and stories, `.parity/` files, and later migrations, handlers, route files and recipes.
 - **This moves the diff-first part of PAR-293 into the foundations,** because components need it before any lens does.
   Writing back from the lenses (migrations, handlers, route files) keeps its place at the end of the order you set.
 
