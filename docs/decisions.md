@@ -458,6 +458,12 @@ recommended answer to each of its questions.
   package or the companion one released with it, at the same version or else the newest before it, matching keys to
   every name each icon is exported under. Each icon's tags go on one line, so a set of thousands stays readable.
   Regenerating a set's file is all it takes to update them.
+- **A set that publishes no tags is read from its website's own scripts, but never from a web API.** The user's call
+  (2026-10-29). Heroicons' keywords come from heroicons.com, whose scripts carry them for its search as an object of
+  word lists by icon. `parity lib` finds that object by its shape, as the scripts' names change with each deploy, and
+  records the day the site served it, as a page has no versions: 190 of 324 icons have keywords. Hugeicons' tags are
+  only on its web API, for its newest version and with no licence, so it's searched by its names and the synonyms its
+  package exports (Gear and Cog for Settings01Icon).
 - **Icon search is Parity's own ranking, not Fuse.js or MiniSearch.** My call, from a benchmark of 50 queries people
   type ("gear", "close", "down arrow", "calender") over Lucide with its tags, checked against 50 more it wasn't tuned
   on. Parity's search put the icon meant first for 39 of the held-out 50 and in the first row for all 50, in about 5 ms;
@@ -1174,7 +1180,10 @@ the REPO stream in the backlog.
   split by what's delivered: npm packages, the desktop app, web apps), calling reusable workflows and composite actions
   from it. My calls: the repository is public, because callers span `AndrewCraswell` and `Fencing-Club`; callers pin a
   full commit SHA that Dependabot moves; and CI is shared as far as `pnpm verify`, with each repository's extra jobs
-  beside the call. Where it lives is Q8.
+  beside the call.
+- **The shared pipelines live in `Fencing-Club/pipelines`, with a folder per CI system** (your call, 2026-10-29, Q8):
+  `github/` holds the composite actions and their docs. Reusable workflows can't go there, because GitHub only calls
+  them from a repository's own `.github/workflows/`, so they live there, named by stage.
 - **Conventions from the agency monorepo are in [conventions.md](conventions.md),** as you asked on 2026-10-29. My call
   on which: finish a change before checking it, fix forward, ask before adding a dependency, no dot glyph as a
   separator, and try changes people see in the running app. Its Turborepo, shared config packages, "prefer `type` over

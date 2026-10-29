@@ -169,20 +169,22 @@ from discrete templates, with a pipeline per stage rather than one that does eve
 | `cd-desktop.yml`      | the desktop app's version changing, then a promotion | `cd-desktop-build` and `cd-desktop-release` for the beta, `cd-desktop-promote` for everyone |
 | `cd-web.yml`          | `main`, then a promotion to production               | `cd-web-deploy` for staging, `cd-web-promote` for production                                |
 
-**The pipelines repository holds the templates:**
+**`Fencing-Club/pipelines` holds the templates,** with a folder per CI system, as you said on 2026-10-29: `github/` now,
+and room for others such as Azure DevOps, which VIS-13's visual tests also target.
 
-- **Reusable workflows** (`on: workflow_call`), one job's worth each, in `.github/workflows/`. GitHub only finds them
-  there and not in subfolders, so the stage is the name's prefix: `ci-`, `preview-`, `release-`, `cd-npm-`,
-  `cd-desktop-`, `cd-web-`.
-- **Composite actions** for steps several templates share, in `actions/<name>/action.yml`: `setup` (checkout, Node from
-  `.nvmrc`, Vite+ or pnpm, a frozen install and caches), `publishable-packages` and `changed-versions`.
+- **Composite actions** for steps several templates share, in `github/actions/<name>/action.yml`: `setup` (checkout,
+  Node from `.nvmrc`, Vite+ or pnpm, a frozen install and caches), `publishable-packages` and `changed-versions`. Their
+  docs are in `github/README.md`.
+- **Reusable workflows** (`on: workflow_call`), one job's worth each, are the exception: GitHub only calls a reusable
+  workflow from the repository's own `.github/workflows/`, never from another folder or a subfolder. So they live there,
+  and the stage is the name's prefix: `ci-`, `preview-`, `release-`, `cd-npm-`, `cd-desktop-`, `cd-web-`.
 - **Each template documents its inputs, secrets, permissions and an example caller,** and the repository's own CI runs
   each template against a small example workspace.
 
 **Rules:**
 
 - **It's public.** Callers span `AndrewCraswell/*` and `Fencing-Club/*`, and a private repository's workflows can only
-  be called from its own owner. Where it lives is Q8.
+  be called from its own owner.
 - **Callers pin a full commit SHA,** with the version in a comment, and Dependabot moves the pins. Buildkit already
   calls its merge workflow this way, so a pull request can never run a changed copy.
 - **Templates call their own actions by full path and release tag.** In a reusable workflow, `./` means the caller's
