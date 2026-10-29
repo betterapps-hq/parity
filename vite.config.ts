@@ -205,7 +205,9 @@ export default defineConfig({
       "scripts/*.test.ts"
     ],
     // CI's runners have four cores. Locally twelve, which Copacker's tests settled on for this machine.
-    maxWorkers: process.env.CI ? 4 : 12
+    maxWorkers: process.env.CI ? 4 : 12,
+    // Closing Chrome after the browser tests takes more than the default 10 seconds on CI's macOS runners.
+    hookTimeout: 30_000
   },
   run: {
     cache: true
