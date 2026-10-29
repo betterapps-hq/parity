@@ -611,6 +611,13 @@ recommended answer to each of its questions.
   drawn, including inside other parts' samples, so React Aria's one `Cell colSpan={2}` made every cell in a table's
   sample span two columns. For a part with five or more uses, a prop fewer than two set is kept aside and added back
   only when the part can't draw without it (MUI's `Slide` and its `in`).
+- **A sample's spelled-out children are inserted as written (LIB-48):** a child a sample gives props or children (a
+  table's cells, a tag group's tags) no longer takes its own part's sample props as defaults. Only a bare child does
+  (`{ component: "Cell" }`), and the parts a family's root is given carry their samples' props themselves. Every Tag in
+  React Aria's TagGroup took Tag's `id: "Annual"`, so the browser threw on duplicate keys, and each Cell took a
+  `colSpan`. A child the example filled with something a sample can't show (the demo's own checkbox) is kept as
+  written with empty children, so it isn't bare either. The generator builds samples the same way, so what it accepts
+  is what the app inserts.
 - **A part can need its parents' other parts (LIB-48):** a table's row renders only with the header beside the body it's
   in. When the examples' chain fails alone but renders with the parts each parent's example holds, the part in place of
   the first like it, the part is marked `parentParts`, and inserting it alone brings those parts along. The chain is
@@ -1054,6 +1061,37 @@ recommended answer to each of its questions.
   `@parity/builder-vite/dependency-maps`, which imports only Vite's types, since the builder runs it in the project's
   own Vite. Vite counts plugin names in its dependency cache's key, so adding it re-optimizes dependencies once, and
   pages can't reuse copies with maps from the HTTP cache.
+
+## Previews
+
+You asked on 2026-10-29 for previews of every kind of token and of components, designed in Storybook first. These calls
+are from that design; [proposals/previews.md](proposals/previews.md) has the detail, and TOK-6 to TOK-8 and CAN-97 to
+CAN-99 build it.
+
+- **Token previews are drawn, not rendered.** My call: a token's preview is a few of Parity's own elements styled from
+  its resolved value, never a frame or a bitmap, so a panel of 459 tokens costs only elements. The project's custom
+  properties are never set on Parity's elements, since shadcn's names are Parity's too; values resolve through
+  `resolveTokenValue`. Project fonts already draw in Parity's document, since `@font-face` moves there.
+- **Previews go by kind, finer than the category,** and the Tokens panel's sections follow the kinds. Shadows split into
+  box, inset, drop and text, motion into durations, easings and animations, and what's under Effects and Other today
+  gets sections of its own: blur, aspect ratios, perspective, border widths, opacity, layers (z-index) and cursors.
+  Opacity, blur and border width also become categories, since the inspector picks by category; the rest stay kinds.
+- **What a design shows sits on the design's sheet.** Shadows, blur, opacity and type are previewed on the project's
+  background in its default theme, not Parity's dark chrome; measurements (spacing, radius, z-index, motion) are
+  diagrams in Parity's ink.
+- **Motion moves only while it's looked at:** while hovered, focused, highlighted in a picker or open in its detail, and
+  never otherwise, so an idle panel runs no animations. With reduced motion, nothing plays by itself and Play runs it
+  once. Animation tokens play the project's own keyframes.
+- **Component previews are bitmaps of what inserting would place,** made by the offscreen renderer behind canvas bitmaps
+  and agent renders, in the project's default mode, and kept on disk keyed by content, in CAN-28's store. No panel or
+  picker mounts a component. Dark previews are made only on request.
+- **A preview whose code changed shows its last picture, dimmed and marked as updating,** until the new one is made.
+  That's fine in a list, unlike on the canvas, and a content key means a picture is never taken for current when it
+  isn't.
+- **The Components tab gets three views:** Names (today's list), List with a picture on each row (the default) and Grid.
+  Resting the pointer on a component for half a second opens its card, with a large picture, its variants and its
+  source; the `/` picker shows the highlighted component's card beside its list.
+- **CAN-64 keeps the picker's speed and ranking; its previews moved to CAN-98,** so the two aren't built twice.
 
 ## The app icon
 
