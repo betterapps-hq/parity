@@ -4,7 +4,8 @@ Status: draft, revised 2026-10-29 after your review. Three things changed: CI is
 their own machine, and a code change under an unchanged design must be caught, including one a sync will bring into the
 design. Nothing is built. It builds on two decisions already made: visual tests draw each frame as a page of its own
 (VAL-18), and the render sweep compares those pages with baselines (VAL-1). The items are the VIS stream in the
-[backlog](../backlog.md), and three questions for you are in Waiting on you.
+[backlog](../backlog.md), and two questions for you are in Waiting on you. You've settled a third: `@parity/cli` will be
+public on npm, so CI runs it with `npx`.
 
 ## In one line
 
@@ -411,8 +412,8 @@ parity test accept|deny <case…> [--from <run or folder>]
 parity test changes --since <ref>  cases whose baselines changed, with before and after
 ```
 
-`parity test` runs without the app, unlike most of the CLI's commands, which call the running app. CI needs the CLI from
-somewhere, and today `@parity/cli` is private (Q3).
+`parity test` runs without the app, unlike most of the CLI's commands, which call the running app. CI gets it with
+`npx @parity/cli`, since the CLI will be public on npm (your call, 2026-10-29).
 
 ## Targets
 
@@ -497,5 +498,5 @@ These are my calls, open to change. They go into decisions.md once you agree wit
    VIS-2, which could start at any time.
 2. **A fresh page per case in a shared context (Q2),** rather than a context per case, to keep the HTTP cache warm. This
    changes the wording of the VAL-18 decision. Each case still gets its own window, document, modules and storage.
-3. **How CI gets Parity's CLI (Q3).** `@parity/cli` is private today. Publishing it to npm makes `npx @parity/cli` work
-   in any pipeline. A standalone download is the other way.
+
+How CI gets Parity's CLI (Q3) is settled: `@parity/cli` will be public on npm (your call, 2026-10-29).
