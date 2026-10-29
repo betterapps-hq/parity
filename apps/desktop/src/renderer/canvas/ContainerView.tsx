@@ -45,7 +45,7 @@ import { ModeViewportIcon } from "../chrome/viewports.tsx"
 import type { ContainerEntry } from "../design-store.ts"
 import { useLibrary, useModeSettings } from "../design-store.ts"
 import { ModeView } from "../ModeView.tsx"
-import { useDesignSelection, useInteractions, useRenameRequest } from "../selection.ts"
+import { useDesignSelection, useInteracting, useInteractions, useRenameRequest } from "../selection.ts"
 import { useProject } from "./context.ts"
 import { useFrameBitmap } from "./frame-bitmaps.ts"
 import { useFrameSkeleton } from "./frame-skeletons.ts"
@@ -481,6 +481,7 @@ const FrameTile = memo(function FrameTile({
   const { selection } = session
   const size = frameSize(entry.container, mode)
   const interactions = useInteractions(selection)
+  const interactive = useInteracting(selection)
   const { container } = entry
   const tree = useMemo(
     () =>
@@ -551,6 +552,7 @@ const FrameTile = memo(function FrameTile({
           state={state.id}
           primary={primary}
           interactions={interactions}
+          interactive={interactive}
         />
         {skeleton && !(bitmap && decoded === bitmap) && <FrameSkeleton skeleton={skeleton} />}
         {bitmap && (

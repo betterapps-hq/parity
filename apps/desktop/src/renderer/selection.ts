@@ -187,6 +187,11 @@ export function useTool(store: SelectionStore): Tool {
   return useSyncExternalStore(store.subscribe, store.getTool)
 }
 
+/** Whether the designs take the pointer and keys, with the Interact tool. */
+export function useInteracting(store: SelectionStore): boolean {
+  return useSyncExternalStore(store.subscribe, () => store.getTool() === "interact")
+}
+
 /** Changes each time interacting stops. */
 export function useInteractions(store: SelectionStore): number {
   return useSyncExternalStore(store.subscribe, store.getInteractions)

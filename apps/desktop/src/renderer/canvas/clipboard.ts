@@ -25,6 +25,7 @@ import { designsSelection, layersSelection, selectedDesigns, selectedNodes } fro
 import type { ProjectSession } from "../workspace.ts"
 import { shapeIdFor } from "./CanvasEditor.tsx"
 import { nodeForItem } from "./insert.ts"
+import { replaceLayers } from "./paste-over.ts"
 
 /**
  * Copy and paste for layers, designs and text notes, through the system clipboard, so they paste into another
@@ -70,6 +71,27 @@ export async function copySelection(session: ProjectSession): Promise<boolean> {
  * text as a text layer.
  */
 export async function pasteClipboard(session: ProjectSession): Promise<void> {
+  const content = await readClipboard()
+  if (content.kind === "envelope") {
+    const { envelope } = content
+    const { payload } = envelope
+    if (payload.kind === "layers") placeLayers(session, payload.nodes)
+    else if (payload.kind === "designs") pasteDesigns(session, payload.designs, envelope.project === session.info.root)
+    else pasteNotes(session, payload.notes)
+    return
+  }
+  if (content.kind === "image") return pasteImage(session, content.blob, content.name)
+  if (content.kind === "text") pasteText(session, content.text)
+}
+
+type ClipboardContent =
+  | { kind: "envelope"; envelope: Envelope }
+  | { kind: "image"; blob: Blob; name: string }
+  | { kind: "text"; text: string }
+  | { kind: "empty" }
+
+/** What's on the system clipboard: Parity's own copy, an image or SVG markup, or plain text. */
+async function readClipboard(): Promise<ClipboardContent> {
   let text = ""
   try {
     text = await navigator.clipboard.readText()
@@ -77,21 +99,68 @@ export async function pasteClipboard(session: ProjectSession): Promise<void> {
     text = lastCopy?.text ?? ""
   }
   const envelope = text === lastCopy?.text ? lastCopy.envelope : parseEnvelope(text)
-  if (envelope) {
-    const { payload } = envelope
-    if (payload.kind === "layers") placeLayers(session, payload.nodes)
-    else if (payload.kind === "designs") pasteDesigns(session, payload.designs, envelope.project === session.info.root)
-    else pasteNotes(session, payload.notes)
-    return
-  }
+  if (envelope) return { kind: "envelope", envelope }
   const image = await clipboardImage()
-  if (image) return pasteImage(session, image, "pasted-image")
+  if (image) return { kind: "image", blob: image, name: "pasted-image" }
   const plain = text.trim()
   // SVG markup, as icon sites and design tools copy it, pastes as a picture rather than as its source.
   if (/^(<\?xml[^>]*>\s*)?<svg[\s>]/i.test(plain) && plain.endsWith("</svg>")) {
-    return pasteImage(session, new Blob([plain], { type: "image/svg+xml" }), "pasted-vector")
+    return { kind: "image", blob: new Blob([plain], { type: "image/svg+xml" }), name: "pasted-vector" }
   }
-  if (plain) pasteText(session, plain)
+  return plain ? { kind: "text", text: plain } : { kind: "empty" }
+}
+
+/**
+ * Paste over selection (Ctrl+Shift+V): what's on the clipboard replaces each selected layer, in its place, as one undo
+ * step, and ends up selected. Parity's layers, an image or text paste over layers; copied designs and notes don't.
+ */
+export async function pasteOverSelection(session: ProjectSession): Promise<void> {
+  const current = session.selection.get()
+  const entry = current.design ? session.store.getEntry(current.design) : undefined
+  const ids = selectedNodes(current)
+  if (!entry || ids.length === 0) return
+  const content = await readClipboard()
+  let nodes: DesignNode[]
+  if (content.kind === "envelope") {
+    if (content.envelope.payload.kind !== "layers") {
+      toast.info("Copy layers to paste them over the selection")
+      return
+    }
+    nodes = content.envelope.payload.nodes
+  } else if (content.kind === "image") {
+    const progress = toast.loading("Adding the image…")
+    try {
+      nodes = [await importImage(session, content.blob, content.name)]
+      toast.dismiss(progress)
+    } catch (error) {
+      toast.error("Couldn't paste the image", {
+        id: progress,
+        description: error instanceof Error ? error.message : String(error)
+      })
+      return
+    }
+  } else if (content.kind === "text") nodes = [{ type: "text", id: "pasted", text: content.text }]
+  else {
+    toast.info("There's nothing on the clipboard to paste")
+    return
+  }
+  let copies: string[] = []
+  const state = editingState(entry.container, current.state)
+  session.store.updateContainer(
+    entry.key,
+    ids.length === 1 ? "Paste over layer" : `Paste over ${ids.length} layers`,
+    (container) => {
+      const replaced = replaceLayers(container, ids, nodes, state)
+      copies = replaced.copies
+      return replaced.container
+    }
+  )
+  if (copies.length === 0) {
+    toast.info("Layers inside an instance can't be pasted over")
+    return
+  }
+  session.selection.set(layersSelection(entry.key, copies, current))
+  warnUnknown(nodes, session.components.get())
 }
 
 /** An image on the system clipboard, such as a screenshot or an image copied from a browser. */
@@ -111,15 +180,7 @@ async function clipboardImage(): Promise<Blob | undefined> {
 async function pasteImage(session: ProjectSession, blob: Blob, name: string): Promise<void> {
   const progress = toast.loading("Adding the image…")
   try {
-    const [size, data] = await Promise.all([imageSize(blob), base64(blob)])
-    const { src } = await window.canvasHost.request("images.import", {
-      projectId: session.id,
-      name,
-      type: blob.type,
-      data
-    })
-    const node = nodeForItem({ kind: "image", src, width: size.width, height: size.height }, undefined, new Set())
-    placeLayers(session, [node], "Paste image")
+    placeLayers(session, [await importImage(session, blob, name)], "Paste image")
     toast.dismiss(progress)
   } catch (error) {
     toast.error("Couldn't paste the image", {
@@ -127,6 +188,18 @@ async function pasteImage(session: ProjectSession, blob: Blob, name: string): Pr
       description: error instanceof Error ? error.message : String(error)
     })
   }
+}
+
+/** Saves an image into the project, and gives the layer that shows it at its own proportions. */
+async function importImage(session: ProjectSession, blob: Blob, name: string): Promise<DesignNode> {
+  const [size, data] = await Promise.all([imageSize(blob), base64(blob)])
+  const { src } = await window.canvasHost.request("images.import", {
+    projectId: session.id,
+    name,
+    type: blob.type,
+    data
+  })
+  return nodeForItem({ kind: "image", src, width: size.width, height: size.height }, undefined, new Set())
 }
 
 /** An image's natural size, in pixels; SVGs without one count as square. */

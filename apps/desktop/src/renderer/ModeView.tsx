@@ -19,6 +19,12 @@ interface ModeViewProps {
   primary?: boolean
   /** Changes when interacting with the canvas stops, to start the frame afresh from the design. */
   interactions?: number
+  /**
+   * Whether the design takes the pointer and keys, as in Interact. Otherwise the frame is inert: Tab, focus and a
+   * component's own focus calls never reach its inputs or buttons, so the canvas keeps its keys. Measuring it for
+   * selection, hover and outlines goes by layout boxes, which inert leaves alone.
+   */
+  interactive?: boolean
 }
 
 /** What the canvas and tldraw would otherwise act on too, when the pointer or keys are the design's. */
@@ -48,7 +54,8 @@ export function ModeView({
   design,
   state,
   primary = false,
-  interactions = 0
+  interactions = 0,
+  interactive = false
 }: ModeViewProps) {
   const hostRef = useRef<HTMLDivElement>(null)
   const handleRef = useRef<MountHandle>(undefined)
@@ -85,6 +92,12 @@ export function ModeView({
       for (const type of designEvents) host.removeEventListener(type, stop)
     }
   }, [])
+
+  // A frame that stops taking keys lets go of focus at once, rather than whenever the browser gets round to it.
+  useEffect(() => {
+    const focused = hostRef.current!.shadowRoot?.activeElement
+    if (!interactive && focused instanceof HTMLElement) focused.blur()
+  }, [interactive])
 
   // A resized frame keeps its components and their state, as a resized browser window does. This comes before the frame
   // is built, so one rebuilt at the same time starts at the new size.
@@ -148,6 +161,7 @@ export function ModeView({
         data-primary={primary}
         data-scale={scale}
         data-viewport={mode.viewport}
+        inert={!interactive}
         style={{ width, height, zoom: scale }}
       />
       {message && (

@@ -24,7 +24,11 @@ const named: Record<string, readonly string[]> = {
   Esc: ["Escape"],
   Enter: ["Enter"],
   Tab: ["Tab"],
-  Space: [" "]
+  Space: [" "],
+  "←": ["ArrowLeft"],
+  "→": ["ArrowRight"],
+  "↑": ["ArrowUp"],
+  "↓": ["ArrowDown"]
 }
 
 interface Parsed {

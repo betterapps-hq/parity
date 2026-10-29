@@ -1,10 +1,20 @@
 import { detachInstance, findNode } from "@parity/core"
 import { toast } from "sonner"
 import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
-import { copySelection, copyStyle, duplicateDesigns, pasteClipboard, pasteStyle } from "../canvas/clipboard.ts"
+import {
+  copySelection,
+  copyStyle,
+  duplicateDesigns,
+  pasteClipboard,
+  pasteOverSelection,
+  pasteStyle
+} from "../canvas/clipboard.ts"
 import { layerLabel } from "../canvas/kinds.tsx"
 import { firstChildLayer, parentLayer, projectLibrary, siblingLayer } from "../canvas/layers.ts"
+import { arrowOf, frameDrawn, nudgeSelection } from "../canvas/nudge.ts"
+import { adjacentDesign, inverseSelection, matchingSelection } from "../canvas/select.ts"
 import { selectedDesigns } from "../selection.ts"
+import { spacingUnit } from "../tokens-store.ts"
 import { type ProjectSession, saveFailureToast, workspace } from "../workspace.ts"
 import {
   type Alignment,
@@ -172,6 +182,10 @@ export async function paste(session = activeSession()): Promise<void> {
   if (session) await pasteClipboard(session)
 }
 
+export async function pasteOver(session = activeSession()): Promise<void> {
+  if (session) await pasteOverSelection(session)
+}
+
 export function copySelectionStyle(session = activeSession()): void {
   if (session) copyStyle(session)
 }
@@ -182,6 +196,52 @@ export function pasteSelectionStyle(session = activeSession()): void {
 
 export function selectEverything(session = activeSession()): void {
   if (session) selectAll(session)
+}
+
+/** Ctrl+Shift+A: what Select all would select, less what's selected. */
+export function selectInverse(session = activeSession()): void {
+  if (session) session.selection.set(inverseSelection(session.store, session.selection.get()))
+}
+
+/** Ctrl+Alt+A: every layer in the design like the selected ones, or every design of the same kind. */
+export function selectMatching(session = activeSession()): void {
+  const next = session && matchingSelection(session.store, session.selection.get())
+  if (next) session.selection.set(next)
+}
+
+/** N and Shift+N: selects the next or previous design, in the Layers panel's order, and brings it into view. */
+export function selectAdjacentDesign(step: 1 | -1, session = activeSession()): void {
+  if (!session) return
+  const key = adjacentDesign(session.store.getEntries(), session.selection.get(), step)
+  if (!key) return
+  session.selection.set({ design: key })
+  revealSelection(session)
+}
+
+/**
+ * The arrows: nudge the selected layers, designs or note, by the arrow pressed, further with Shift. A layer stays in
+ * view as it moves.
+ */
+export function nudge(event: KeyboardEvent | undefined, session = activeSession()): void {
+  const arrow = event && arrowOf(event.key)
+  if (!session || !arrow) return
+  const area = session.editor?.getContainer()
+  const unit = spacingUnit(session.tokens.get())
+  const blocked = nudgeSelection(
+    {
+      store: session.store,
+      selection: session.selection,
+      drawn: area ? (design) => frameDrawn(area, design, session.selection.get(), unit) : undefined
+    },
+    arrow,
+    event.shiftKey
+  )
+  if (blocked) {
+    toast.info(`Its ${blocked.side} is the ${String(blocked.token)} token, so it doesn't nudge that way`, {
+      id: "nudge-token"
+    })
+  }
+  if (session.selection.get().node) revealSelection(session)
 }
 
 export function wrapSelection(session = activeSession()): void {

@@ -1,7 +1,6 @@
 import { useEffect } from "react"
 import { actions } from "../chrome/actions.ts"
 import { type Command, keymap, shortcutFor } from "../chrome/keymap.ts"
-import { revealSelection } from "../chrome/reveal.ts"
 import type { ProjectSession } from "../workspace.ts"
 
 const commands = Object.keys(keymap) as Command[]
@@ -20,7 +19,7 @@ export function useAppShortcuts(): void {
       event.preventDefault()
       event.stopImmediatePropagation()
       const action = actions[command]
-      if (action.available?.() !== false) void action.run()
+      if (action.available?.() !== false) void action.run(event)
     }
     window.addEventListener("keydown", onKeyDown, { capture: true })
     return () => window.removeEventListener("keydown", onKeyDown, { capture: true })
@@ -76,14 +75,14 @@ export function useShortcuts(session: ProjectSession | undefined, active: boolea
           return
         }
         handled()
-        void action.run()
+        void action.run(event)
         return
       }
       // The browser's own Ctrl shortcuts for these would select the page's text or act on nothing here.
       if (mod && ["c", "x", "v", "d", "g", "a"].includes(event.key.toLowerCase())) handled()
-      else if (!mod && event.key.startsWith("Arrow") && session.selection.get().node) {
+      // Nudging is the keymap's: tldraw would move the selected design with the arrows the keymap doesn't bind.
+      else if (event.key.startsWith("Arrow") && (session.selection.get().design || session.selection.get().note)) {
         handled()
-        revealSelection(session)
       }
     }
 

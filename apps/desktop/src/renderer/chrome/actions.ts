@@ -14,21 +14,26 @@ import {
   exportImages,
   goToMainComponent,
   hideSelection,
+  nudge,
   openProjectFile,
   openProjectFolder,
   orderSelection,
   paste,
+  pasteOver,
   pasteSelectionStyle,
   redo,
   renameSelection,
   save,
   saveCopy,
+  selectAdjacentDesign,
   selectChildren,
   makeComponent,
   selectedDesign,
   selectedInstance,
   selectedOwnLayer,
   selectEverything,
+  selectInverse,
+  selectMatching,
   selectParent,
   selectSibling,
   showPanelTab,
@@ -55,9 +60,12 @@ import { openQuickInsert } from "./QuickInsert.tsx"
  * one applies: otherwise its keys do what they'd do anyway, as Tab moving focus.
  */
 export interface Action {
-  run(): unknown
+  /** `event` is the key that ran it, for an action that acts on which of its keys was pressed. */
+  run(event?: KeyboardEvent): unknown
   available?(): boolean
   scope?: "app"
+  /** It acts on the key pressed, as the arrows nudge each their own way, so only its keys run it, not the search. */
+  byKey?: boolean
 }
 
 const current = () => activeSession()?.selection.get()
@@ -74,6 +82,7 @@ const designs = () => {
   return selection && layers() === 0 ? selectedDesigns(selection).length : 0
 }
 const hasLayer = () => layers() > 0
+const hasDesigns = () => (activeSession()?.store.getEntries().length ?? 0) > 0
 const oneLayer = () => layers() === 1
 const alignable = () => layers() > 0 || designs() > 1
 const tool = (name: "select" | "hand" | "text" | "interact"): Action => ({
@@ -88,6 +97,10 @@ export const actions: Record<Command, Action> = {
   interact: tool("interact"),
 
   selectAll: { run: () => selectEverything(), available: hasSession },
+  selectInverse: { run: () => selectInverse(), available: hasSession },
+  selectMatching: { run: () => selectMatching(), available: () => hasLayer() || designs() > 0 },
+  nextDesign: { run: () => selectAdjacentDesign(1), available: hasDesigns },
+  previousDesign: { run: () => selectAdjacentDesign(-1), available: hasDesigns },
   selectChildren: { run: () => selectChildren(), available: hasDesign },
   selectParent: { run: () => selectParent(), available: hasLayer },
   selectNext: { run: () => selectSibling(1), available: hasLayer },
@@ -99,6 +112,7 @@ export const actions: Record<Command, Action> = {
   cut: { run: () => cut(), available: hasSomething },
   copy: { run: () => copy(), available: hasSomething },
   paste: { run: () => paste(), available: hasSession },
+  pasteOver: { run: () => pasteOver(), available: hasLayer },
   duplicate: { run: () => duplicateSelection(), available: hasDesign },
   delete: { run: () => deleteSelection(), available: hasSomething },
   copyStyle: { run: () => copySelectionStyle(), available: hasLayer },
@@ -125,6 +139,8 @@ export const actions: Record<Command, Action> = {
   alignBottom: { run: () => alignSelection("bottom"), available: alignable },
   distributeHorizontal: { run: () => distributeSelection("horizontal"), available: () => designs() >= 3 },
   distributeVertical: { run: () => distributeSelection("vertical"), available: () => designs() >= 3 },
+  nudge: { run: (event) => nudge(event), available: hasSomething, byKey: true },
+  bigNudge: { run: (event) => nudge(event), available: hasSomething, byKey: true },
 
   zoomIn: { run: () => zoomIn(), available: hasEditor },
   zoomOut: { run: () => zoomOut(), available: hasEditor },

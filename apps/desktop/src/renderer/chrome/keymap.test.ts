@@ -55,6 +55,13 @@ describe("matches", () => {
     expect(matches(press("F2", "F2"), "F2")).toBe(true)
     expect(matches(press("Enter", "Enter", { shift: true }), "Shift Enter")).toBe(true)
   })
+
+  it("writes the arrows as arrows", () => {
+    expect(matches(press("ArrowLeft", "ArrowLeft"), "←")).toBe(true)
+    expect(matches(press("ArrowDown", "ArrowDown", { shift: true }), "Shift ↓")).toBe(true)
+    expect(matches(press("ArrowDown", "ArrowDown", { shift: true }), "↓")).toBe(false)
+    expect(matches(press("ArrowUp", "ArrowUp"), "↓")).toBe(false)
+  })
 })
 
 describe("shortcutFor", () => {
@@ -64,6 +71,18 @@ describe("shortcutFor", () => {
     expect(shortcutFor(press("F2", "F2"), commands)).toBe("rename")
     expect(shortcutFor(press("r", "KeyR", { ctrl: true }), commands)).toBe("rename")
     expect(shortcutFor(press("H", "KeyH", { shift: true }), commands)).toBeUndefined()
+  })
+
+  it("runs Figma's keys for nudging, selecting and pasting over", () => {
+    const commands = Object.keys(keymap) as Command[]
+    expect(shortcutFor(press("ArrowRight", "ArrowRight"), commands)).toBe("nudge")
+    expect(shortcutFor(press("ArrowUp", "ArrowUp", { shift: true }), commands)).toBe("bigNudge")
+    expect(shortcutFor(press("ArrowUp", "ArrowUp", { alt: true }), commands)).toBeUndefined()
+    expect(shortcutFor(press("A", "KeyA", { ctrl: true, shift: true }), commands)).toBe("selectInverse")
+    expect(shortcutFor(press("å", "KeyA", { meta: true, alt: true }), commands)).toBe("selectMatching")
+    expect(shortcutFor(press("n", "KeyN"), commands)).toBe("nextDesign")
+    expect(shortcutFor(press("N", "KeyN", { shift: true }), commands)).toBe("previousDesign")
+    expect(shortcutFor(press("V", "KeyV", { ctrl: true, shift: true }), commands)).toBe("pasteOver")
   })
 
   it("never gives two commands the same keys", () => {
@@ -88,6 +107,8 @@ describe("formatKeys", () => {
     expect(formatKeys("Alt Shift H", true)).toBe("⌥⇧H")
     expect(formatKeys("Del", true)).toBe("⌫")
     expect(formatKeys("Shift 0", true)).toBe("⇧0")
+    expect(formatKeys("Shift ←", true)).toBe("⇧←")
+    expect(formatKeys("Ctrl Shift V", true)).toBe("⇧⌘V")
   })
 
   it("leaves text that isn't keys alone", () => {

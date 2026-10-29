@@ -24,6 +24,10 @@ export const keymap = {
   interact: { group: "Tools", label: "Interact with designs", keys: ["I"] },
 
   selectAll: { group: "Selection", label: "Select all", keys: ["Ctrl A"] },
+  selectInverse: { group: "Selection", label: "Select inverse", keys: ["Ctrl Shift A"] },
+  selectMatching: { group: "Selection", label: "Select matching layers", keys: ["Ctrl Alt A"] },
+  nextDesign: { group: "Selection", label: "Next design", keys: ["N"] },
+  previousDesign: { group: "Selection", label: "Previous design", keys: ["Shift N"] },
   selectChildren: { group: "Selection", label: "Select the first layer inside", keys: ["Enter"] },
   selectParent: { group: "Selection", label: "Select the parent", keys: ["Shift Enter", "\\"] },
   selectNext: { group: "Selection", label: "Select the next layer", keys: ["Tab"] },
@@ -35,6 +39,7 @@ export const keymap = {
   cut: { group: "Edit", label: "Cut", keys: ["Ctrl X"] },
   copy: { group: "Edit", label: "Copy", keys: ["Ctrl C"] },
   paste: { group: "Edit", label: "Paste", keys: ["Ctrl V"] },
+  pasteOver: { group: "Edit", label: "Paste over selection", keys: ["Ctrl Shift V"] },
   duplicate: { group: "Edit", label: "Duplicate", keys: ["Ctrl D"] },
   delete: { group: "Edit", label: "Delete", keys: ["Del", "Backspace"] },
   copyStyle: { group: "Edit", label: "Copy style", keys: ["Ctrl Alt C"] },
@@ -61,6 +66,8 @@ export const keymap = {
   alignBottom: { group: "Arrange", label: "Align bottom", keys: ["Alt S"] },
   distributeHorizontal: { group: "Arrange", label: "Distribute horizontally", keys: ["Alt Shift H"] },
   distributeVertical: { group: "Arrange", label: "Distribute vertically", keys: ["Alt Shift V"] },
+  nudge: { group: "Arrange", label: "Nudge", keys: ["←", "→", "↑", "↓"] },
+  bigNudge: { group: "Arrange", label: "Big nudge", keys: ["Shift ←", "Shift →", "Shift ↑", "Shift ↓"] },
 
   zoomIn: { group: "View", label: "Zoom in", keys: ["Ctrl +", "+"] },
   zoomOut: { group: "View", label: "Zoom out", keys: ["Ctrl -", "-"] },

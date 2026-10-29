@@ -52,7 +52,7 @@ export function ActionsSearch() {
   }
   const items: Item[] = [
     ...(Object.keys(keymap) as KeyCommand[])
-      .filter((id) => id !== "actions")
+      .filter((id) => id !== "actions" && !actions[id].byKey)
       .map((id) => ({ id, ...keymap[id], keys: keymap[id].keys[0], ...actions[id] })),
     ...extras
   ]

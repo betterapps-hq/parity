@@ -200,6 +200,7 @@ function EditItems() {
       <Item command="cut" icon={Scissors} />
       <Item command="copy" icon={Copy} />
       <Item command="paste" icon={ClipboardPaste} />
+      <Item command="pasteOver" />
       <Item command="duplicate" icon={Copy} />
       <Item command="delete" icon={Trash2} variant="destructive" />
       <MenubarSeparator />
@@ -207,6 +208,8 @@ function EditItems() {
       <Item command="pasteStyle" icon={Paintbrush} />
       <MenubarSeparator />
       <Item command="selectAll" icon={TextSelect} />
+      <Item command="selectMatching" />
+      <Item command="selectInverse" />
       <Item command="rename" icon={PenLine} />
       <MenubarSeparator />
       <Item command="settings" icon={Settings}>
@@ -226,6 +229,8 @@ function ViewItems() {
       <Item command="zoomTo100" />
       <Item command="zoomToFit" icon={Maximize} />
       <Item command="zoomToSelection" icon={Scan} />
+      <Item command="previousDesign" />
+      <Item command="nextDesign" />
       <MenubarSeparator />
       <MenubarCheckboxItem
         checked={layout.left || layout.right}
