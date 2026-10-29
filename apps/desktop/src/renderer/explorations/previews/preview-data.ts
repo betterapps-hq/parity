@@ -552,35 +552,49 @@ export function substituted(value: string): string {
 }
 
 /**
- * Each kind's Tailwind theme namespace and the utilities that read it. A token named in the namespace (`radius-md`)
- * gets the utility Tailwind makes for it (`rounded-md`); any other gets the utility with the variable
- * (`z-(--chakra-z-index-modal)`).
+ * Each kind's Tailwind theme namespace and the utilities that read it, each with what it sets. A token named in the
+ * namespace (`radius-md`) gets the utility Tailwind makes for it (`rounded-md`); any other gets the utility with the
+ * variable (`z-(--chakra-z-index-modal)`).
  */
-const utilities: Partial<Record<PreviewKind, [namespace: string, utilities: string[]]>> = {
-  color: ["color-", ["bg", "text", "border"]],
-  spacing: ["spacing-", ["p", "gap", "w"]],
-  radius: ["radius-", ["rounded"]],
-  "border-width": ["", ["border"]],
-  shadow: ["shadow-", ["shadow"]],
-  "inset-shadow": ["inset-shadow-", ["inset-shadow"]],
-  "drop-shadow": ["drop-shadow-", ["drop-shadow"]],
-  "text-shadow": ["text-shadow-", ["text-shadow"]],
-  font: ["font-", ["font"]],
-  "font-size": ["text-", ["text"]],
-  "font-weight": ["font-weight-", ["font"]],
-  leading: ["leading-", ["leading"]],
-  tracking: ["tracking-", ["tracking"]],
-  opacity: ["", ["opacity"]],
-  blur: ["blur-", ["blur"]],
-  "backdrop-blur": ["backdrop-blur-", ["backdrop-blur"]],
-  perspective: ["perspective-", ["perspective"]],
-  aspect: ["aspect-", ["aspect"]],
-  duration: ["", ["duration"]],
-  easing: ["ease-", ["ease"]],
-  animation: ["animate-", ["animate"]],
-  "z-index": ["", ["z"]],
-  container: ["container-", ["max-w"]],
-  cursor: ["", ["cursor"]]
+const utilities: Partial<Record<PreviewKind, [namespace: string, utilities: [utility: string, sets: string][]]>> = {
+  color: [
+    "color-",
+    [
+      ["bg", "Background"],
+      ["text", "Text"],
+      ["border", "Border"]
+    ]
+  ],
+  spacing: [
+    "spacing-",
+    [
+      ["p", "Padding"],
+      ["gap", "Gap"],
+      ["w", "Width"]
+    ]
+  ],
+  radius: ["radius-", [["rounded", "Corner radius"]]],
+  "border-width": ["", [["border", "Border width"]]],
+  shadow: ["shadow-", [["shadow", "Shadow"]]],
+  "inset-shadow": ["inset-shadow-", [["inset-shadow", "Inset shadow"]]],
+  "drop-shadow": ["drop-shadow-", [["drop-shadow", "Drop shadow"]]],
+  "text-shadow": ["text-shadow-", [["text-shadow", "Text shadow"]]],
+  font: ["font-", [["font", "Font"]]],
+  "font-size": ["text-", [["text", "Font size"]]],
+  "font-weight": ["font-weight-", [["font", "Font weight"]]],
+  leading: ["leading-", [["leading", "Line height"]]],
+  tracking: ["tracking-", [["tracking", "Letter spacing"]]],
+  opacity: ["", [["opacity", "Opacity"]]],
+  blur: ["blur-", [["blur", "Blur"]]],
+  "backdrop-blur": ["backdrop-blur-", [["backdrop-blur", "Backdrop blur"]]],
+  perspective: ["perspective-", [["perspective", "Perspective"]]],
+  aspect: ["aspect-", [["aspect", "Aspect ratio"]]],
+  duration: ["", [["duration", "Duration"]]],
+  easing: ["ease-", [["ease", "Easing"]]],
+  animation: ["animate-", [["animate", "Animation"]]],
+  "z-index": ["", [["z", "Stacking"]]],
+  container: ["container-", [["max-w", "Max width"]]],
+  cursor: ["", [["cursor", "Cursor"]]]
 }
 
 /**
@@ -589,28 +603,46 @@ const utilities: Partial<Record<PreviewKind, [namespace: string, utilities: stri
  */
 export const cssName = (token: SampleToken) => `--${token.name}`
 
+/** One way to write a token in code: in CSS or with Tailwind, saying what it sets, and the text itself. */
+export interface CodeForm {
+  group: "CSS" | "Tailwind"
+  label: string
+  text: string
+}
+
 /**
- * The ways to write a token in code, for the detail's Copy for code menu: `var()`, which works anywhere CSS does, then
- * the Tailwind classes that use it. A breakpoint is a variant (`md:`), as `var()` can't go in a media query.
+ * The ways to write a token in code, for the detail's Copy as menu: `var()`, which works anywhere CSS does, then the
+ * Tailwind classes that use it. A breakpoint or container width is a query instead (`@media (width >= 48rem)`, `md:`),
+ * as `var()` can't go in one.
  */
-export function codeFor(token: SampleToken): string[] {
-  const css = `var(--${token.name})`
-  if (token.kind === "breakpoint") return [`${token.name.replace(/^breakpoint-/, "")}:`]
-  if (token.kind === "border") return [css, `[border:${css}]`]
+export function codeFor(token: SampleToken): CodeForm[] {
+  const css: CodeForm = { group: "CSS", label: "Variable", text: `var(--${token.name})` }
+  const step = (namespace: string) => (token.name.startsWith(namespace) ? token.name.slice(namespace.length) : "")
+  if (token.kind === "breakpoint") {
+    return [
+      { group: "CSS", label: "Media query", text: `@media (width >= ${drawn(token)})` },
+      { group: "Tailwind", label: "Variant", text: `${step("breakpoint-")}:` }
+    ]
+  }
+  if (token.kind === "border") return [css, { group: "Tailwind", label: "Border", text: `[border:${css.text}]` }]
   const [namespace, names] = utilities[token.kind] ?? ["", []]
-  const step = namespace && token.name.startsWith(namespace) ? token.name.slice(namespace.length) : undefined
+  const named = (namespace && step(namespace)) || undefined
   // A project's own colors reach Tailwind through `@theme inline`, by their own names (`bg-primary`).
-  const named = step ?? (token.kind === "color" ? token.name : undefined)
-  const classes = names.map((name) =>
-    named
-      ? `${name}-${named}`
+  const own = named ?? (token.kind === "color" ? token.name : undefined)
+  const classes = names.map(([utility, label]): CodeForm => ({
+    group: "Tailwind",
+    label,
+    text: own
+      ? `${utility}-${own}`
       : token.kind === "border-width"
-        ? `${name}-(length:--${token.name})`
-        : `${name}-(--${token.name})`
-  )
-  if (token.kind === "container" && step) classes.push(`@${step}:`)
+        ? `${utility}-(length:--${token.name})`
+        : `${utility}-(--${token.name})`
+  }))
+  if (token.kind === "container" && named) {
+    classes.push({ group: "Tailwind", label: "Container query", text: `@${named}:` })
+  }
   // The spacing scale's base is what its steps are made of, not a length a class sets.
-  return token.kind === "spacing" && !step ? [css] : [css, ...classes]
+  return token.kind === "spacing" && !named ? [css] : [css, ...classes]
 }
 
 /** A length in pixels, from px, rem or em, or from anything else the browser can work out, such as `calc()`. */

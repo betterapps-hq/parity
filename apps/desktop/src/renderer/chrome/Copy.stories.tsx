@@ -3,9 +3,10 @@ import { expect, spyOn, userEvent, within } from "storybook/test"
 import { CopyButton, CopyOnClick } from "./Copy.tsx"
 
 /**
- * Parity's two ways to copy, for anything that copies: a copy button, whose icon turns into a green check and back,
- * and click-to-copy, for things with no room for a button, which raises a bubble from what was clicked. Both say
- * "Couldn't copy" when the clipboard refuses, so a copy never goes without a word.
+ * Parity's two ways to copy, for anything that copies: a copy button, whose icon turns into a green check and back (with
+ * a word, the word reads "Copied" at the same width), and click-to-copy, for things with no room for a button, which
+ * raises a bubble from what was clicked. Both say "Couldn't copy" when the clipboard refuses, so a copy never goes
+ * without a word.
  */
 const meta = {
   title: "Parity/Chrome/Copy",
@@ -24,6 +25,12 @@ function Sheet() {
         <span className="w-28 text-muted-foreground">Copy button</span>
         <code className="font-mono">--radius-md</code>
         <CopyButton text="--radius-md" />
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="w-28 text-muted-foreground">With a word</span>
+        <CopyButton text="--shadow-lg" variant="outline">
+          Copy
+        </CopyButton>
       </div>
       <div className="flex items-center gap-2">
         <span className="w-28 text-muted-foreground">Click to copy</span>

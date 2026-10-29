@@ -1231,16 +1231,20 @@ to PAR-209 build it.
   button on each row and tile, Ctrl+C on a row, and a click on a palette shade copy `--radius-md`. You chose the name
   over `var()` on 2026-10-29, since Parity is for designers and vibe coders, who rarely open the code: Parity's fields
   take the name, with or without the dashes, and refuse `var()` (PAR-401 makes them take it), and the dashes keep it
-  from reading as a Tailwind class in a message to the agent. The detail keeps `var()` and the Tailwind classes in a
-  Copy for code menu beside the name.
+  from reading as a Tailwind class in a message to the agent. The detail's Copy is a split button: its arrow opens Copy
+  as, with `var()` and the Tailwind classes, each named by what it sets.
 - **Every copy says how it went, through two shared parts** in `chrome/Copy.tsx`, which you asked for on 2026-10-29
   after a copy showed nothing: `CopyButton`, whose icon springs into a green check and back, or a red cross with
   "Couldn't copy", and `CopyOnClick`, for things with no room for a button, which raises a "Copied" bubble from what was
   clicked. Both share `useCopy`, so another way of copying the same thing (Ctrl+C, a menu) shows its result on the same
   button. My call: where the Clipboard API refuses, as in a frame without focus, they copy from a hidden field beside
   what has focus, so an open popover stays open. PAR-402 moves Parity's other copies onto them.
-- **The detail has no caption under the name.** You found "Font sizes, theme scale" awkward and of little use: the kind
-  and source repeat the section heading and the filter. Only a library's name stays.
+- **The detail says each thing once, in a fixed order:** the preview; the name, with what it comes to on the right as
+  its row shows it; one labeled list of facts (the value in each theme, Built on, From, Used by); and a bar with Edit
+  and Copy. You found the first pass disorganized on 2026-10-29: the value showed in three places, and its actions were
+  scattered. Editing turns the values into fields in place and the bar into Cancel and Save; a motion token's Play sits
+  on its preview, as on a video. There's no caption under the name: "Font sizes, theme scale" only repeated the section
+  heading and the filter, so a library's name moved into the list as From.
 
 ## The app icon
 

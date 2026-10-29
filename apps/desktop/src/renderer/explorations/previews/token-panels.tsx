@@ -1,24 +1,14 @@
-import {
-  Check,
-  ChevronDown,
-  ChevronsUpDown,
-  CornerDownRight,
-  LayoutGrid,
-  List,
-  Pause,
-  Pencil,
-  Play,
-  Search,
-  Undo2
-} from "lucide-react"
-import { type KeyboardEvent as ReactKeyboardEvent, type ReactNode, useState } from "react"
+import { Check, ChevronDown, ChevronsUpDown, LayoutGrid, List, Pause, Pencil, Play, Search } from "lucide-react"
+import { Fragment, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, useId, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
@@ -109,37 +99,44 @@ function revealed(copying: ReturnType<typeof useCopy>): string {
 }
 
 /**
- * The detail's copy buttons: the name, as everywhere, and beside it a menu of the ways to write the token in code, for
- * the times someone is in the code. Either way, the button's check says it copied.
+ * The detail's copy control, a split button. Its main half copies the name, as rows do; its arrow opens the other ways
+ * to write the token, under CSS and Tailwind, each saying what it is. Whichever is copied, the main half's check says
+ * so, and its tooltip names what was copied.
  */
-function DetailCopy({ token }: { token: SampleToken }) {
+function CopyMenu({ token }: { token: SampleToken }) {
   const copying = useCopy()
   const name = cssName(token)
+  const groups = Map.groupBy(codeFor(token), (form) => form.group)
   return (
-    <span className="flex shrink-0 items-center">
-      <CopyButton text={name} copying={copying} className="size-6" />
+    <div className="flex items-center rounded-lg border bg-background shadow-xs dark:border-input dark:bg-input/30">
+      <CopyButton text={name} copying={copying} className="rounded-r-none">
+        Copy
+      </CopyButton>
+      <span aria-hidden className="h-4 w-px bg-border" />
       <DropdownMenu>
-        <Hint label="Copy for code">
+        <Hint label="Copy as">
           <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              aria-label="Copy for code"
-              className="grid h-6 w-4 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground aria-expanded:bg-accent"
-            >
-              <ChevronDown className="size-3" />
-            </button>
+            <Button variant="ghost" size="icon-sm" aria-label="Copy as" className="w-6 rounded-l-none">
+              <ChevronDown className="size-3.5" />
+            </Button>
           </DropdownMenuTrigger>
         </Hint>
-        <DropdownMenuContent align="start" className="min-w-44">
-          <DropdownMenuLabel className="text-xs text-muted-foreground">Copy for code</DropdownMenuLabel>
-          {codeFor(token).map((text) => (
-            <DropdownMenuItem key={text} onSelect={() => copying.copy(text)} className="font-mono text-xs">
-              {text}
-            </DropdownMenuItem>
+        <DropdownMenuContent align="end" className="w-72">
+          {[...groups].map(([group, forms], index) => (
+            <DropdownMenuGroup key={group}>
+              {index > 0 && <DropdownMenuSeparator />}
+              <DropdownMenuLabel>{group}</DropdownMenuLabel>
+              {forms.map((form) => (
+                <DropdownMenuItem key={form.text} onSelect={() => copying.copy(form.text)} className="gap-3 text-xs">
+                  <span className="shrink-0">{form.label}</span>
+                  <code className="ml-auto min-w-0 truncate font-mono text-muted-foreground">{form.text}</code>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
-    </span>
+    </div>
   )
 }
 
@@ -461,32 +458,13 @@ function spacingSlot(tokens: SampleToken[]): number | undefined {
   return lengths.length > 0 ? Math.min(longestBar + 4, Math.max(40, Math.ceil(longest) + 6)) : undefined
 }
 
-/** Where a token's value comes from: each token it goes through, then what it comes to. */
-function References({ token }: { token: SampleToken }) {
-  if (!token.via?.length) return null
-  return (
-    <div className="flex flex-col gap-0.5 text-[11px] text-muted-foreground">
-      {token.via.map((name) => (
-        <span key={name} className="flex items-center gap-1">
-          <CornerDownRight className="size-3" />
-          <span className="font-mono text-foreground">--{name}</span>
-          <span className="truncate">{tokenNamed(name).values.default}</span>
-        </span>
-      ))}
-      <span className="flex items-center gap-1">
-        <CornerDownRight className="size-3" />
-        Comes to <span className="font-mono text-foreground">{token.resolved}</span>
-      </span>
-    </div>
-  )
-}
-
 /**
- * A token's detail, opened from its row: a large preview, its name with a copy button and a menu of the ways to write
- * it in code, what it comes to, and its value, which is read-only until Edit. Editing checks each value as it's typed
- * and writes nothing until Save; Cancel or Escape leaves without writing. After a save the detail says where it went,
- * with Undo to write the old value back. Motion plays while the detail is open, with a button to stop it; with reduced
- * motion it waits for Play.
+ * A token's detail, opened from its row. A large preview; the name, with what it comes to on the right as its row
+ * shows it, and its description; one list of facts (its value in each theme, the tokens it's built on, where it's from,
+ * how many layers use it); and a bar with the two things to do with it, Edit and Copy. Editing turns the values into
+ * fields in place, checked as they're typed, and the bar into Cancel and Save beside what saving does. After a save the
+ * value says where it was written, with Undo. Motion plays while the detail is open, with a button on the preview to
+ * stop it; with reduced motion it waits for Play.
  */
 export function TokenDetail({
   token,
@@ -503,6 +481,7 @@ export function TokenDetail({
   /** Opens it already editing, with these values typed, for a story. */
   draft?: Record<string, string>
 }) {
+  const id = useId()
   const reduced = useReducedMotion()
   const [play, setPlay] = useState<boolean>()
   const [own, setOwn] = useState(token.values)
@@ -512,6 +491,7 @@ export function TokenDetail({
   // What the last save replaced, for Undo.
   const [replaced, setReplaced] = useState<Record<string, string>>()
   const themes = themesOf(token)
+  const editing = editor && drafts !== undefined
   const problems: Record<string, string | undefined> = Object.fromEntries(
     themes.map((theme) => [theme, drafts ? valueProblem(token.kind, drafts[theme] ?? "") : undefined])
   )
@@ -519,138 +499,219 @@ export function TokenDetail({
   const changed = drafts !== undefined && themes.some((theme) => (drafts[theme] ?? "").trim() !== saved[theme])
   // While editing, the preview follows what's typed, as long as it's a value it can draw.
   const shown = edited(token, drafts && valid ? trimmed(drafts) : saved)
+  // What it comes to, by the name, as its row shows it; left out where the value already says just that.
+  const label = valueLabel(shown)
+  const comesTo = label === shown.values.default ? undefined : label
   const playing = moving.has(token.kind) && (play ?? !reduced)
   const cancel = () => setDrafts(undefined)
   return (
     <div className="flex flex-col">
-      <div className="p-3 pb-2">
+      <div className="group/preview relative px-3 pt-3">
         <DetailPreview token={shown} playing={playing} />
-      </div>
-      <div className="flex flex-col gap-1.5 px-3 pb-3">
-        <div className="flex items-center gap-2">
-          <div className="min-w-0 flex-1">
-            <div className="flex min-w-0 items-center gap-1">
-              <span className="truncate font-mono text-sm font-medium">{cssName(token)}</span>
-              <DetailCopy token={token} />
-            </div>
-            {/* The section and the preview already say what kind it is; a library is the one thing they don't. */}
-            {token.library && <div className="text-xs text-muted-foreground">From {token.library}</div>}
-          </div>
-          {moving.has(token.kind) && (
-            <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setPlay(!playing)}>
-              {playing ? <Pause /> : <Play />} {playing ? "Pause" : "Play"}
+        {moving.has(token.kind) && (
+          <Hint label={playing ? "Pause" : "Play"}>
+            {/* As on a video: always there while paused, and while playing only when the pointer or keyboard is on the
+                preview, so it doesn't sit over the motion. */}
+            <Button
+              variant="outline"
+              size="icon-sm"
+              aria-label={playing ? "Pause" : "Play"}
+              onClick={() => setPlay(!playing)}
+              className={`absolute right-5 bottom-2 rounded-full bg-popover shadow-sm transition-opacity focus-visible:opacity-100 ${playing ? "opacity-0 group-hover/preview:opacity-100" : ""}`}
+            >
+              {playing ? <Pause /> : <Play />}
             </Button>
-          )}
-        </div>
-        {token.description && <p className="text-xs">{token.description}</p>}
-        <References token={shown} />
-        {token.uses !== undefined && (
-          <p className="text-[11px] text-muted-foreground">
-            {token.uses === 0 ? "No design uses it yet." : `Used by ${token.uses} layers across the project's designs.`}
-          </p>
+          </Hint>
         )}
       </div>
-      {editor && !drafts && (
-        <div className="flex flex-col gap-1.5 border-t p-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium">Value</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 px-2 text-xs"
-              onClick={() => {
-                setDrafts(saved)
-                setReplaced(undefined)
-              }}
-            >
-              <Pencil /> Edit
-            </Button>
-          </div>
-          {themes.map((theme) => (
-            <div key={theme} className="flex items-baseline gap-2 text-xs">
-              <span className="w-20 shrink-0 text-muted-foreground">{themeLabel(theme)}</span>
-              <code className="min-w-0 flex-1 font-mono break-all">{saved[theme]}</code>
-            </div>
+      <header className="flex flex-col gap-0.5 p-3">
+        <div className="flex items-baseline gap-3">
+          <h3 className="min-w-0 flex-1 truncate font-mono text-sm font-medium">{cssName(token)}</h3>
+          {comesTo && <span className="shrink-0 font-mono text-sm text-muted-foreground tabular-nums">{comesTo}</span>}
+        </div>
+        {token.description && <p className="text-xs text-muted-foreground">{token.description}</p>}
+      </header>
+      <form
+        data-token-editing={editing || undefined}
+        onSubmit={(event) => {
+          event.preventDefault()
+          if (!drafts || !changed || !valid) return
+          setReplaced(saved)
+          save(trimmed(drafts))
+          setDrafts(undefined)
+        }}
+      >
+        <dl className="grid grid-cols-[4.25rem_minmax(0,1fr)] items-baseline gap-x-3 gap-y-2 border-t px-3 py-3 text-xs">
+          {themes.map((theme, index) => (
+            <Fragment key={theme}>
+              <dt className="text-muted-foreground">
+                <label htmlFor={`${id}-${theme}`}>{themeLabel(theme, themes)}</label>
+              </dt>
+              <dd className="min-w-0">
+                {editing ? (
+                  <>
+                    <span className="flex items-center gap-2">
+                      {token.kind === "color" && (
+                        <Swatch value={problems[theme] ? "transparent" : (drafts[theme] ?? "")} className="size-5" />
+                      )}
+                      <Input
+                        id={`${id}-${theme}`}
+                        value={drafts[theme] ?? ""}
+                        // The fields open because Edit was pressed, so the first takes the keyboard.
+                        // oxlint-disable-next-line jsx-a11y/no-autofocus
+                        autoFocus={index === 0}
+                        aria-invalid={problems[theme] ? true : undefined}
+                        onChange={(event) => setDrafts({ ...drafts, [theme]: event.currentTarget.value })}
+                        onKeyDown={(event) => {
+                          if (event.key === "Escape") cancel()
+                        }}
+                        className="h-7 font-mono text-xs"
+                      />
+                    </span>
+                    {problems[theme] && <p className="mt-1 text-[11px] text-destructive">{problems[theme]}</p>}
+                  </>
+                ) : (
+                  <span id={`${id}-${theme}`} className="flex items-baseline gap-2">
+                    {token.kind === "color" && (
+                      <Swatch value={saved[theme] ?? ""} className="size-3 shrink-0 translate-y-0.5" />
+                    )}
+                    <ValueText value={saved[theme] ?? ""} />
+                  </span>
+                )}
+              </dd>
+            </Fragment>
           ))}
-          {replaced && (
-            <div className="mt-1 flex items-center gap-2 rounded-md bg-muted/60 py-1 pr-1 pl-2 text-[11px]">
-              <Check className="size-3.5 shrink-0 text-(--process-running)" />
-              <span className="min-w-0 flex-1 text-muted-foreground">Saved to {stylesheet}.</span>
+          {replaced && !editing && (
+            <dd className="col-start-2 -mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <Check className="size-3 shrink-0 text-(--process-running)" />
+              Saved to {stylesheet}
               <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 px-2 text-xs"
+                type="button"
+                variant="link"
+                size="xs"
+                className="h-auto px-0 text-[11px]"
                 onClick={() => {
                   save(replaced)
                   setReplaced(undefined)
                 }}
               >
-                <Undo2 /> Undo
+                Undo
               </Button>
-            </div>
+            </dd>
           )}
-        </div>
-      )}
-      {editor && drafts && (
-        <form
-          data-token-editing
-          className="flex flex-col gap-2 border-t p-3"
-          onSubmit={(event) => {
-            event.preventDefault()
-            if (!changed || !valid) return
-            setReplaced(saved)
-            save(trimmed(drafts))
-            setDrafts(undefined)
-          }}
-        >
-          {themes.map((theme, index) => (
-            <label key={theme} className="flex flex-col gap-1">
-              <span className="text-xs text-muted-foreground">{themeLabel(theme)}</span>
-              <span className="flex items-center gap-2">
-                {token.kind === "color" && !problems[theme] && (
-                  <Swatch value={drafts[theme] ?? ""} className="size-7" />
-                )}
-                <Input
-                  value={drafts[theme] ?? ""}
-                  // The form opens because Edit was pressed, so its first field takes the keyboard.
-                  // oxlint-disable-next-line jsx-a11y/no-autofocus
-                  autoFocus={index === 0}
-                  aria-invalid={problems[theme] ? true : undefined}
-                  onChange={(event) => setDrafts({ ...drafts, [theme]: event.currentTarget.value })}
-                  onKeyDown={(event) => {
-                    if (event.key === "Escape") cancel()
+          {shown.via && shown.via.length > 0 && (
+            <>
+              <dt className="text-muted-foreground">Built on</dt>
+              <dd className="flex min-w-0 flex-col gap-1">
+                {shown.via.map((name) => (
+                  <span key={name} className="flex min-w-0 items-baseline gap-2">
+                    <code className="shrink-0 font-mono whitespace-nowrap">--{name}</code>
+                    <code className="truncate font-mono text-muted-foreground">{tokenNamed(name).values.default}</code>
+                  </span>
+                ))}
+              </dd>
+            </>
+          )}
+          {token.library && (
+            <>
+              <dt className="text-muted-foreground">From</dt>
+              <dd>{token.library}</dd>
+            </>
+          )}
+          {token.uses !== undefined && (
+            <>
+              <dt className="text-muted-foreground">Used by</dt>
+              <dd>{token.uses === 0 ? "No layers yet" : `${token.uses} ${token.uses === 1 ? "layer" : "layers"}`}</dd>
+            </>
+          )}
+        </dl>
+        <footer className="flex min-h-11 items-center gap-2 border-t px-3 py-2">
+          {editing ? (
+            <>
+              <p className="min-w-0 flex-1 text-[11px] text-muted-foreground">
+                {!valid ? "Fix the value to save" : changed ? `Saves to ${stylesheet}` : "Nothing to save yet"}
+              </p>
+              <Button type="button" variant="ghost" size="sm" onClick={cancel}>
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" disabled={!changed || !valid}>
+                Save
+              </Button>
+            </>
+          ) : (
+            <>
+              {editor && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="-ml-2"
+                  onClick={() => {
+                    setDrafts(saved)
+                    setReplaced(undefined)
                   }}
-                  className="h-8 font-mono text-xs"
-                />
-              </span>
-              {problems[theme] && <span className="text-[11px] text-destructive">{problems[theme]}</span>}
-            </label>
-          ))}
-          <p className="text-[11px] text-muted-foreground">
-            {!valid
-              ? "Fix the value to save it."
-              : changed
-                ? `Not saved yet. Save writes it to ${stylesheet}.`
-                : "Nothing is written until you save."}
-          </p>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" size="sm" onClick={cancel}>
-              Cancel
-            </Button>
-            <Button type="submit" size="sm" disabled={!changed || !valid}>
-              Save
-            </Button>
-          </div>
-        </form>
-      )}
+                >
+                  <Pencil /> Edit
+                </Button>
+              )}
+              <span className="flex-1" />
+              <CopyMenu token={token} />
+            </>
+          )}
+        </footer>
+      </form>
     </div>
   )
+}
+
+/**
+ * A value in code type. A list, such as a shadow's layers or a font stack, goes one part to a line, so it breaks where
+ * it means to rather than in the middle of a number.
+ */
+function ValueText({ value }: { value: string }) {
+  const parts = listParts(value)
+  return (
+    <code className="flex min-w-0 flex-col font-mono wrap-anywhere">
+      {parts.map((part, index) => (
+        // A part too long for its line goes on indented, so it never looks like the next part.
+        <span key={`${index}:${part}`} className="pl-3 -indent-3">
+          {part}
+          {index < parts.length - 1 && ","}
+        </span>
+      ))}
+    </code>
+  )
+}
+
+/** A value's top-level parts, split at the commas outside brackets: `0 1px red, 0 2px blue` is two. */
+function listParts(value: string): string[] {
+  const parts: string[] = []
+  let depth = 0
+  let start = 0
+  for (const [index, char] of [...value].entries()) {
+    if (char === "(") depth += 1
+    else if (char === ")") depth -= 1
+    else if (char === "," && depth === 0) {
+      parts.push(value.slice(start, index).trim())
+      start = index + 1
+    }
+  }
+  parts.push(value.slice(start).trim())
+  return parts
 }
 
 /** Where the example's tokens are written. */
 const stylesheet = "src/index.css"
 
-const themeLabel = (theme: string) => (theme === "default" ? "Light (root)" : `Theme .${theme}`)
+/**
+ * A theme's name as people say it: the root is Light beside a dark theme, and a theme class is its name. A token with
+ * one value has no theme to name, so its row is just its Value.
+ */
+function themeLabel(theme: string, themes: string[]): string {
+  if (theme !== "default") return theme.charAt(0).toUpperCase() + theme.slice(1)
+  if (themes.length === 1) return "Value"
+  return themes.includes("dark") ? "Light" : "Default"
+}
 
 function trimmed(values: Record<string, string>): Record<string, string> {
   return Object.fromEntries(Object.entries(values).map(([theme, value]) => [theme, value.trim()]))
@@ -675,10 +736,10 @@ function DetailPreview({ token, playing }: { token: SampleToken; playing: boolea
             <div key={theme} className="relative flex-1">
               <TokenArt token={token} width={width / themesOf(token).length} height={96} theme={theme} />
               <span
-                className="absolute bottom-1.5 left-2 rounded px-1 font-mono text-[10px]"
+                className="absolute bottom-1.5 left-2 rounded px-1 text-[10px]"
                 style={{ background: "rgb(0 0 0 / 0.55)", color: "white" }}
               >
-                {theme === "default" ? "Light" : "Dark"} {token.values[theme]}
+                {themeLabel(theme, themesOf(token))}
               </span>
             </div>
           ))}

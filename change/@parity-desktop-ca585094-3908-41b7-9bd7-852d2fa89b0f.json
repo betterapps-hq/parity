@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Lay out the token detail exploration in one order, with a Copy split button",
+  "packageName": "@parity/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

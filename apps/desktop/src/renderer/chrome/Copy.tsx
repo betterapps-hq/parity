@@ -77,31 +77,38 @@ function Outcome({ status, text }: { status: CopyStatus; text?: string }) {
 
 /**
  * A copy button. Its icon turns into a green check when the text is copied, or a red cross when the clipboard
- * refuses, then back, and its tooltip says which. Pass `copying` to share the status with another way of copying the
- * same thing, such as Ctrl+C, so this button shows that result too.
+ * refuses, then back, and its tooltip says which. With `children` it's a labeled button, such as "Copy", whose word
+ * reads "Copied" while the check shows, at the same width. Pass `copying` to share the status with another way of
+ * copying the same thing, such as Ctrl+C or a menu, so this button shows that result too.
  */
 export function CopyButton({
   text,
   label = `Copy ${text}`,
   copying,
-  className
+  variant = "ghost",
+  className,
+  children
 }: {
   text: string
   /** What the tooltip and screen readers call it. */
   label?: string
   copying?: ReturnType<typeof useCopy>
+  variant?: "ghost" | "outline"
   className?: string
+  /** A word beside the icon. */
+  children?: ReactNode
 }) {
   const own = useCopy()
   const { status, copy } = copying ?? own
   const [hovered, setHovered] = useState(false)
   const done = status !== undefined
+  const copied = done && status.ok
   return (
     <Tooltip open={hovered || done} onOpenChange={setHovered}>
       <TooltipTrigger asChild>
         <Button
-          variant="ghost"
-          size="icon-sm"
+          variant={variant}
+          size={children ? "sm" : "icon-sm"}
           aria-label={label}
           data-copied={done ? (status.ok ? "copied" : "failed") : undefined}
           className={className}
@@ -117,6 +124,13 @@ export function CopyButton({
               className={`text-destructive duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${done && !status.ok ? "" : "scale-50 opacity-0"}`}
             />
           </span>
+          {children && (
+            // Both words take the same cell, so the button keeps its width when one turns into the other.
+            <span className="grid *:col-start-1 *:row-start-1">
+              <span className={copied ? "invisible" : undefined}>{children}</span>
+              <span className={copied ? undefined : "invisible"}>Copied</span>
+            </span>
+          )}
         </Button>
       </TooltipTrigger>
       <TooltipContent>{done ? <Outcome status={status} text={text} /> : label}</TooltipContent>

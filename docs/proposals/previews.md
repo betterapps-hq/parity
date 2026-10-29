@@ -19,7 +19,8 @@ In Parity's Storybook, under Parity/Explorations/Previews. Drawings stand in for
 | Tokens: Every Kind                              | One preview per kind, as a tile and as a row, and which kinds are under Other or Effects today                 |
 | Tokens: Panel Rows, Panel Tiles, Panel Shadows  | The Tokens tab with a preview on every row in one fixed box, a Tiles view, and sections by what a token is for |
 | Tokens: Panel Motion, Motion Details            | Motion holds still until hovered; a duration races its scale, an easing draws over the project's others        |
-| Tokens: Detail From Row, Details                | A token's detail: large preview, the tokens its value goes through, what it comes to, uses, its value          |
+| Tokens: Detail From Row, Details                | A token's detail: preview, name and what it comes to, one list of facts, and a bar with Edit and Copy          |
+| Tokens: Detail Copy As                          | The Copy split button's other forms, under CSS and Tailwind, each named by what it sets                        |
 | Tokens: Detail Editing, Detail Saved            | Edit, the checks a value must pass before Save, and what the detail says once it's written                     |
 | Tokens: Panel Spacing                           | Spacing at its true size in the rows and in the detail's scale; a length too long for a row drawn cut          |
 | Tokens: Copying                                 | A copy button on each row and tile, Ctrl+C on a row, a click on a palette shade; the detail's ways to write it |
@@ -84,20 +85,30 @@ scale at true size with this step marked, so a step reads against its neighbours
 token shows. A row or tile has a copy button while it's hovered or has the keyboard, and Ctrl+C (Cmd+C on a Mac) on it
 does the same; both copy the token's name as CSS writes it, `--radius-md`, which Parity's fields and the agent take, and
 the button's icon turns into a green check. A palette shade copies when clicked, with a "Copied" bubble rising from it.
-These are `chrome/Copy.tsx`'s `CopyButton` and `CopyOnClick`, which every copy in Parity uses. The detail has a copy
-button by the name and, beside it, a Copy for code menu for the times someone is in the code: `var()`, then the Tailwind
-classes that use it (`rounded-md`; `bg-primary`, `text-primary` and `border-primary` for a color), the class with the
-variable (`z-(--chakra-z-index-modal)`) for a token outside Tailwind's names, or the variant (`md:`) for a breakpoint,
-since `var()` can't go in a media query.
+These are `chrome/Copy.tsx`'s `CopyButton` and `CopyOnClick`, which every copy in Parity uses. In the detail, Copy is a
+split button: its main half copies the name, and its arrow opens Copy as, for the times someone is in the code, with
+each form named by what it is: under CSS the variable, `var(--primary)`, or a media query for a breakpoint, since
+`var()` can't go in one; under Tailwind the classes that use it (Background `bg-primary`, Text `text-primary`, Border
+`border-primary`; Corner radius `rounded-md`), the class with the variable (`z-(--chakra-z-index-modal)`) for a token
+outside Tailwind's names, or the variant (`md:`) for a breakpoint.
 
-**Nothing under the name repeats the panel.** The detail doesn't say what kind of token it is or whether it's the
-project's or the theme's: the section heading, the preview and the All, Project and Theme filter already do. It names a
-library ("From Fluent UI"), which nothing else does.
+**The detail, top to bottom,** answers what it is, then what it's made of, then what to do with it, each once:
 
-**The detail shows the value; Edit changes it.** A token's detail opens with its value read-only. Edit turns it into a
-field per theme, checked as it's typed, and the preview follows while the value is one it can draw. Nothing is written
-until Save, which writes the project's stylesheet; Cancel, or Escape in a field, leaves editing and writes nothing.
-After a save the detail says where the value went, with Undo to write the old one back. A value must pass three checks:
+1. The preview. A motion token's Play or Pause sits on it, as on a video: always there while paused, and while it plays
+   only when the pointer or keyboard is on it.
+2. The name, with what it comes to on the right as its row shows it (`8px` for `calc(var(--radius) * 0.8)`, `80%` for
+   `0.8`), left out where the value already says just that, and the token's description under it.
+3. One list of facts, labels on the left: its value in each theme (Light and Dark, or just Value), a list such as a
+   shadow's layers one part to a line; the tokens it's Built on, with their values; From, for a library's token; and
+   Used by, how many layers. Nothing repeats the panel: what kind it is and whether it's the project's or the theme's
+   are the section heading's and the filter's to say.
+4. A bar with the two things to do with it: Edit on the left, Copy on the right.
+
+**The detail shows the value; Edit changes it.** A token's detail opens with its value read-only. Edit turns each value
+into a field in place, checked as it's typed, and the preview follows while the value is one it can draw; the bar turns
+into Cancel and Save, beside what saving does ("Saves to src/index.css"). Nothing is written until Save; Cancel, or
+Escape in a field, leaves editing and writes nothing. After a save the value says where it was written, with Undo to
+write the old one back. A value must pass three checks:
 
 1. Brackets and quotes close. The browser closes whatever is left open at the end of a value, so `CSS.supports` takes
    `calc(var(--radius) * 2.6` as complete.
