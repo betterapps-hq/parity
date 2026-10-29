@@ -615,9 +615,9 @@ recommended answer to each of its questions.
   table's cells, a tag group's tags) no longer takes its own part's sample props as defaults. Only a bare child does
   (`{ component: "Cell" }`), and the parts a family's root is given carry their samples' props themselves. Every Tag in
   React Aria's TagGroup took Tag's `id: "Annual"`, so the browser threw on duplicate keys, and each Cell took a
-  `colSpan`. A child the example filled with something a sample can't show (the demo's own checkbox) is kept as
-  written with empty children, so it isn't bare either. The generator builds samples the same way, so what it accepts
-  is what the app inserts.
+  `colSpan`. A child the example filled with something a sample can't show (the demo's own checkbox) is kept as written
+  with empty children, so it isn't bare either. The generator builds samples the same way, so what it accepts is what
+  the app inserts.
 - **A part can need its parents' other parts (LIB-48):** a table's row renders only with the header beside the body it's
   in. When the examples' chain fails alone but renders with the parts each parent's example holds, the part in place of
   the first like it, the part is marked `parentParts`, and inserting it alone brings those parts along. The chain is
@@ -1158,6 +1158,11 @@ the REPO stream in the backlog.
   provenance, and the desktop app to GitHub Releases. My calls: installers come from electron-builder, since one tool
   makes installers, signs them and serves updates, and only the desktop app makes GitHub Releases, so the updater never
   mistakes a CLI release for an app update.
+- **Desktop releases reach the beta first, and everyone when promoted,** as you asked on 2026-10-29: beta builds and
+  production releases, promoted the way the web apps go from staging to production. My calls: a release is a GitHub
+  pre-release until it's promoted, and promoting marks that same release a full one, so nothing is rebuilt; the beta is
+  a Get beta updates setting rather than a second app; and electron-builder stays over Electron Forge, whose free update
+  service ignores pre-releases and doesn't serve Linux. The work is REPO-11, REPO-18 and CAN-38.
 - **Pipelines are shared across Parity, Buildkit, Better Apps and Copacker,** from one repository of templates, as you
   asked on 2026-10-29. Each repository has thin top-level pipelines, one per stage (CI, previews, the release PR, and CD
   split by what's delivered: npm packages, the desktop app, web apps), calling reusable workflows and composite actions

@@ -7,7 +7,8 @@ Status: draft, 2026-10-29. The work is the REPO stream in the [backlog](../backl
 
 Parity moves to Vite+ and goes public under the Fencing Club organization. Beachball change files version the desktop
 app and the npm packages. Pipelines shared with Buildkit, Better Apps and Copacker run CI, previews, and delivery of the
-CLI to npm and of unsigned installers to GitHub Releases. Signing comes later.
+CLI to npm and of unsigned installers to GitHub Releases, as betas first and to everyone when promoted. Signing comes
+later.
 
 ## Where things stand
 
@@ -69,8 +70,9 @@ This is how Buildkit and the agency monorepo already release, and you asked for 
 - **A release PR, then delivery,** as Buildkit does it (REPO-17): after CI passes on `main`, pending change files open a
   pull request with `beachball bump`'s versions and changelogs, which merges itself once its checks pass. Its version
   changes start the CD pipelines. Sessions pull before they push, so they pick up the release commits.
-- **Every merged release PR ships,** the CLI to npm and the app to GitHub Releases, as Buildkit's packages do. If that's
-  too often for an app people install, the release PR can open on a schedule instead.
+- **Every merged release PR ships,** the CLI to npm and the app to GitHub Releases, as Buildkit's packages do. The app
+  goes to the beta, and reaches everyone only when it's promoted (see Betas), so how often release PRs merge doesn't
+  decide how often people's Parity changes.
 
 ## npm packages
 
@@ -110,15 +112,37 @@ This is how Buildkit and the agency monorepo already release, and you asked for 
    `lib.*.d.ts` files on disk, so it ships unbundled and outside the asar archive. Everything else is bundled, which
    keeps pnpm's symlinked `node_modules` out of the package.
 3. **cd-desktop** (REPO-11): when a release PR raises the desktop app's version on `main`, it builds the installers on
-   all three systems and publishes a GitHub Release with them, the app's changelog and the update metadata. The tldraw
-   licence key comes from a repository secret, and signing steps skip with a notice until their secrets exist.
-4. **Only the desktop app makes GitHub Releases.** electron-updater reads the repository's releases, so a CLI release
+   all three systems and publishes them as a GitHub pre-release tagged `v<version>`, the form electron-updater reads,
+   with the app's changelog and the update metadata. The tldraw licence key comes from a repository secret, and signing
+   steps skip with a notice until their secrets exist.
+4. **Promotion** (REPO-18): run by hand with a version, it marks that pre-release a full release, so it reaches
+   everyone. See Betas.
+5. **Only the desktop app makes GitHub Releases.** electron-updater reads the repository's releases, so a CLI release
    there could look like an app update. npm packages keep their changelogs in `CHANGELOG.md`.
-5. **Signing later** (REPO-13): Windows through Azure Artifact Signing, macOS with a Developer ID and notarization.
+6. **Signing later** (REPO-13): Windows through Azure Artifact Signing, macOS with a Developer ID and notarization.
 
 Unsigned, Windows SmartScreen warns on first run, and macOS blocks the app until it's allowed in System Settings >
 Privacy & Security. macOS can't update an unsigned app in place either, so updates on macOS (CAN-38) wait for REPO-13;
 Windows and Linux can update unsigned.
+
+## Betas
+
+You asked on 2026-10-29 for beta builds and production releases, promoted the way the web apps go from staging to
+production.
+
+- **Every release is a beta first.** cd-desktop publishes it as a GitHub pre-release. Parity with Get beta updates on
+  (CAN-38) takes pre-releases too, through electron-updater's `allowPrerelease`; everyone else only takes full releases.
+  The beta is a setting, not a second app, so one build serves both.
+- **Promoting reuses the release** (REPO-18). `cd-desktop.yml`, run by hand with a version, waits for approval in a
+  protected `production` environment, then marks the pre-release a full release and the latest, as
+  `gh release edit v1.4.0 --prerelease=false --latest` does. Nothing is rebuilt, so everyone gets the files the beta
+  ran.
+- **Pulling a bad release back** is marking it a pre-release again. People who haven't updated stay on the release
+  before it; people who have keep it until a fixed release reaches them, since Parity doesn't install an older version.
+- **Leaving the beta doesn't go back a version.** Someone on a beta newer than the latest full release stays on it until
+  a full release passes it.
+- **Electron Forge doesn't fit this.** Its free update service, update.electronjs.org, ignores pre-releases and serves
+  only Windows and macOS, so there'd be no beta and no updates on Linux.
 
 ## Previews
 
@@ -135,15 +159,15 @@ from discrete templates, with a pipeline per stage rather than one that does eve
 
 **Each repository keeps thin top-level pipelines, one per stage, and only the ones it needs:**
 
-| Pipeline              | Runs on                                | Calls                                                        |
-| --------------------- | -------------------------------------- | ------------------------------------------------------------ |
-| `ci.yml`              | pull requests and `main`               | `ci-verify`, plus the repository's own extra jobs            |
-| `preview.yml`         | pull requests                          | `preview-npm`, `preview-desktop` or `preview-web`            |
-| `preview-cleanup.yml` | a closed pull request, and a schedule  | `preview-web-cleanup`                                        |
-| `release.yml`         | CI passing on `main`                   | `release-prepare` and `release-merge`, Beachball's PR        |
-| `cd-npm.yml`          | a published package's version changing | `cd-npm-publish`; this file is npm's trusted publisher       |
-| `cd-desktop.yml`      | the desktop app's version changing     | `cd-desktop-build`, then `cd-desktop-release`                |
-| `cd-web.yml`          | `main`, then a promotion to production | `cd-web-deploy` for staging, `cd-web-promote` for production |
+| Pipeline              | Runs on                                              | Calls                                                                                       |
+| --------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `ci.yml`              | pull requests and `main`                             | `ci-verify`, plus the repository's own extra jobs                                           |
+| `preview.yml`         | pull requests                                        | `preview-npm`, `preview-desktop` or `preview-web`                                           |
+| `preview-cleanup.yml` | a closed pull request, and a schedule                | `preview-web-cleanup`                                                                       |
+| `release.yml`         | CI passing on `main`                                 | `release-prepare` and `release-merge`, Beachball's PR                                       |
+| `cd-npm.yml`          | a published package's version changing               | `cd-npm-publish`; this file is npm's trusted publisher                                      |
+| `cd-desktop.yml`      | the desktop app's version changing, then a promotion | `cd-desktop-build` and `cd-desktop-release` for the beta, `cd-desktop-promote` for everyone |
+| `cd-web.yml`          | `main`, then a promotion to production               | `cd-web-deploy` for staging, `cd-web-promote` for production                                |
 
 **The pipelines repository holds the templates:**
 
@@ -202,6 +226,6 @@ What it doesn't take:
 2. REPO-4, CI through the shared template, REPO-3, checks on commit, and REPO-12, change files. REPO-2 when sessions are
    quiet.
 3. REPO-8, a README and licence, then REPO-9, the repository on GitHub, once CI passes on a clean checkout.
-4. REPO-17, the release PR, then REPO-10, CAN-37 and REPO-11, the first unsigned desktop release. REPO-14 and REPO-15,
-   the CLI on npm, once Q7 names it.
+4. REPO-17, the release PR, then REPO-10, CAN-37, REPO-11 and REPO-18, the first unsigned desktop release and its
+   promotion. REPO-14 and REPO-15, the CLI on npm, once Q7 names it.
 5. REPO-16, previews, then REPO-5, REPO-6 and REPO-7 whenever there's room. REPO-13 when signing is set up.
