@@ -410,6 +410,10 @@ recommended answer to each of its questions.
   Title, Description, Action, Close, Positioner and Arrow are the case; the Viewport they're mapped into stays
   placeable. Hooks that hold the example's own values (`useState`, `useMemo`, `useReducer`, `useRef`,
   `useControllable*`) don't count, and one use placed directly keeps the part visual. No other library's file changed.
+- **Toasts stay placeable, with a sample toast (your call, 2026-10-29).** Toasts are visible and people design them, so
+  Base UI's Toast parts get a sample toast to render with rather than being `visual: false`, and LIB-39 changes LIB-38
+  to match. The hook-list signal still finds the parts that need sample data. A decorator's hosted toast parts (LIB-35)
+  follow if the same sample makes them render.
 - **The in-app backtest runs its own instance:** `PARITY_UI_PORT`, `PARITY_DEBUG_PORT`, `PARITY_AGENT_FILE` and
   `PARITY_USER_DATA` give it its own ports, CLI channel and settings, so it runs beside another session's Parity instead
   of driving it.
@@ -732,6 +736,9 @@ recommended answer to each of its questions.
   `parity problems` exits with 1 when it finds any.
 - **Reads for a terminal are CLI only:** `parity tokens`, `parity components` and `parity props <Component>`. Agents do
   these in a snippet (`GetTokens`, `Components`, `Props`), so the MCP tool list stays short.
+- **Agents see what the Components panel shows** (your call, 2026-10-29): `parity components` lists the components that
+  fail to draw on the canvas and why, and the person's corrections, saved or not, as well as the exports that aren't
+  components (`0004a01`).
 - **A project's Vite server keeps its own dependency cache,** `node_modules/.vite-parity`. With Vite's default, the
   project's own dev server, often running alongside, re-optimized into the same folder, and each server then served
   stale dependencies ("Outdated Optimize Dep"). Opening Parity's own app as a project broke every offscreen render this
