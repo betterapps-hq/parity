@@ -420,9 +420,17 @@ recommended answer to each of its questions.
   dropped (your call).
 - **Its sample org is Kestrel, a made-up customer,** with the explorations' cast and the start page's projects renamed
   for it (`portal/data.ts`). Buildkit isn't shown: it has nothing to do with the app (your call).
-- **So far:** For you (what needs you, each with its design, then what changed, with who's working where at the side),
-  Recents (the projects as a file browser) and a team page that opens on who's working where now, each on the canvas
-  they're in, with Join. Next: Inbox, org Activity, the canvas opened on what changed, Members and seats, and Billing.
+- **Its screens:** For you (what needs you, each with its design, then what changed, with who's working where at the
+  side), Recents (the projects as a file browser), a team page that opens on who's working where now, each on the canvas
+  they're in, with Join; the Inbox (the open item beside its board, pins and all, with its thread); the org's Activity
+  (changes shown as the designs, merges, published components, new people, and the week in numbers); the canvas opened
+  on what changed (before and after side by side, numbered changes, who changed what, approve or ask for changes, and
+  the history along the bottom); and the admin pages Members, Billing and Add seats.
+- **A seat is for editing; viewing and commenting are free,** as Figma does it, and agents work as whoever runs them.
+  Admins approve a seat someone asks for, and adding seats charges the rest of the month at once. Billing admins are
+  their own role. The price ($24 a seat a month) is a placeholder.
+- **Open, marked on the designs as sticky notes:** whether commenting needs a seat, whether agents use the seat of
+  whoever runs them, the price per seat, and whether heavy agent use is billed by usage.
 
 ## Storybook
 
