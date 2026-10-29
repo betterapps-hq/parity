@@ -44,6 +44,7 @@ window.canvasRender = async (job) => {
     const viewport = { width: job.mode.width, height: job.mode.height ?? screenHeightForWidth(job.mode.width) }
     const target = prepareFrame(host, loaded.sheet, { ...job.mode, viewport })
     const tree = job.tree as RenderNode[]
+    if (job.components) loaded.guest.addComponents?.(job.components)
     current = loaded.guest.mount(target, tree, {
       viewport,
       onError: (error) => errors.push(error instanceof Error ? error.message : String(error)),

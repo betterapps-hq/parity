@@ -87,6 +87,7 @@ function snapshot(reference: string | undefined): TabSnapshot {
     projectId: session.id,
     guestUrl: session.info.guestUrl,
     components: session.loaded.guest.components,
+    ...(session.added ? { addedComponents: session.added } : {}),
     iconLibraries: session.info.libraries.filter((library) => library.kind === "icons").map((library) => library.id),
     tokens: session.tokens.get(),
     theme: session.info.theme,

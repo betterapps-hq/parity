@@ -20,6 +20,8 @@ export interface ProjectSession {
   tokens: TokenStore
   /** Components and their props, inferred from source after the tab opens. */
   components: ComponentStore
+  /** Components the type checker found after the guest loaded, which offscreen renders add to theirs. */
+  added?: ProjectInfo["sources"]
   /** Design files that couldn't be read. */
   errors: { path: string; error: string }[]
   /** The tab's canvas, once mounted. */
@@ -239,8 +241,11 @@ export class Workspace {
     const tab = this.getTab(id)
     if (!tab?.session) return
     tab.session.loaded.guest.addComponents?.(sources)
+    const before = tab.session.info.sources
+    const added = { ...tab.session.added }
+    for (const [name, source] of Object.entries(sources)) if (!(name in before)) added[name] = source
     const info = { ...tab.session.info, sources, componentCount: Object.keys(sources).length }
-    this.replace(id, { ...tab, session: { ...tab.session, info } })
+    this.replace(id, { ...tab, session: { ...tab.session, info, added } })
   }
 
   setEditor(id: string, editor: Editor | undefined): void {

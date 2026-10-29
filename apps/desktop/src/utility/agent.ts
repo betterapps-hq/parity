@@ -257,6 +257,7 @@ function renderFor(snapshot: TabSnapshot): AgentHooks["render"] {
     const { frame, png } = await renderOffscreen(
       {
         guestUrl: snapshot.guestUrl,
+        ...(snapshot.addedComponents ? { components: snapshot.addedComponents } : {}),
         theme: snapshot.theme,
         tree,
         mode: {

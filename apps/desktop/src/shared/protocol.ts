@@ -173,6 +173,8 @@ export interface TabSnapshot {
   projectId: string
   guestUrl: string
   components: string[]
+  /** Components the type checker found after the guest loaded, which other pages' guests have to add themselves. */
+  addedComponents?: Record<string, Pick<ComponentSource, "path" | "export">>
   iconLibraries: string[]
   tokens: Token[]
   theme: ThemeVariable[]
@@ -272,6 +274,8 @@ export interface SaveDialogOptions {
 /** A frame the offscreen render window draws, to measure it or capture it. */
 export interface RenderJob {
   guestUrl: string
+  /** Components the guest adds before drawing, since the type checker found them after it loaded. */
+  components?: Record<string, Pick<ComponentSource, "path" | "export">>
   theme: ThemeVariable[]
   tree: unknown
   mode: {
