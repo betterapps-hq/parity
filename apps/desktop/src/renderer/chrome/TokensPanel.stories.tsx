@@ -346,6 +346,36 @@ export const ReferenceToAnotherToken: Story = {
 }
 
 /**
+ * A value that would loop back to the token through another: with --primary built on --chart-1, --chart-1 can't be
+ * built on --primary, though checked against --primary's old value it would pass.
+ */
+export const ReferenceLoop: Story = {
+  loaders: [openTokens],
+  play: async ({ canvasElement }) => {
+    const first = await edit(canvasElement, "primary")
+    await retype(first, "default", "var(--chart-1)")
+    await userEvent.click(within(first).getByRole("button", { name: "Apply" }))
+    await within(first).findByText("Applied. Saving writes it to src/index.css.")
+    // Pressing --chart-1's row closes this detail and opens its own, which may overlap as this one animates out.
+    const canvas = within(canvasElement)
+    const row = canvas.queryByRole("button", { name: "chart-1" }) ?? canvas.getByText("chart-1").closest("button")
+    if (!row) throw new Error("No token named chart-1 shows")
+    await userEvent.click(row)
+    const dialog = await waitFor(() => {
+      const found = within(document.body)
+        .getAllByRole("dialog")
+        .find((open) => within(open).queryByRole("heading", { name: "--chart-1" }))
+      if (!found) throw new Error("--chart-1's detail isn't open")
+      return found
+    })
+    await userEvent.click(within(dialog).getByRole("button", { name: "Edit" }))
+    await retype(dialog, "default", "var(--primary)")
+    await within(dialog).findByText("--primary is built on --chart-1, so this would loop.")
+    await expect(within(dialog).getByRole("button", { name: "Apply" })).toBeDisabled()
+  }
+}
+
+/**
  * Saving a color when the stylesheet can't be written: the panel says which token couldn't be written and why, with a
  * way to try again, marks its row, and the canvas keeps the value, unsaved.
  */

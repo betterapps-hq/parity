@@ -1097,7 +1097,8 @@ option switches on is named from its key (`teams-high-contrast` is Teams high co
 Edit turns the values into fields in place, checked as they're typed, with what's wrong under the field: a bracket or
 quote left open ("A bracket isn't closed. Add ) at the end."), which the browser would close by itself and take; a
 `var()` naming no token ("There's no token named --radius-huge."), each reference read in its own theme; a `var()`
-naming the token itself ("--primary can't be built on itself."); and a value that, with its references filled in, isn't
+naming the token itself ("--primary can't be built on itself.") or one built on it ("--primary is built on --chart-1, so
+this would loop."), which the old values alone would let through; and a value that, with its references filled in, isn't
 the kind's ("That isn't a color. Try oklch(0.6 0.2 250) or #2563eb."). The preview follows what's typed while it can
 draw it. Apply is off until something changed and every value is right; Cancel or Escape in a field leaves editing
 without changing anything, and Escape from the buttons closes the detail. Apply changes every frame at once as one
@@ -1112,8 +1113,9 @@ project's modes and apply through `TokenStore.set`. The Storybook exploration's 
 Tests: `chrome/TokensPanel.stories.tsx`: Detail (Light and Dark, never `.dark`; Copy and Copy as), EditingAColor,
 EditingAPaletteShade, SpacingStep (Built on `--spacing × 4`, Edit off), InvalidValue and UnclosedBracket (refused as
 typed, a token built on itself too, Apply off), ReferenceToAnotherToken (Apply as one unsaved step, Edit and Cancel
-keeping Undo, then the detail's Undo), and SaveFails. All 24 of the file's stories played in Storybook on 2026-10-29.
-Gaps: the inspector's pickers don't show previews yet, the rest of PAR-143.
+keeping Undo, then the detail's Undo), ReferenceLoop (refused through another token), and SaveFails. All 24 of the
+file's stories played in Storybook on 2026-10-29. Gaps: the inspector's pickers don't show previews yet, the rest of
+PAR-143.
 
 ## Opening and closing projects
 

@@ -67,6 +67,7 @@ export function TokenDetail({
   stylesheet,
   classes,
   lookup,
+  references,
   onApply,
   undo,
   draft
@@ -82,6 +83,8 @@ export function TokenDetail({
   classes: boolean
   /** What another token comes to in a theme, or undefined when there's no token of that name. */
   lookup(name: string, theme: string): string | undefined
+  /** The tokens another token's value in a theme is built on, as written, so a value that loops back is refused. */
+  references(name: string, theme: string): readonly string[]
   /** Changes its values, as one undoable step. */
   onApply(values: Record<string, string>): void
   /** Takes back the last apply, while it's still the history's last step. */
@@ -102,10 +105,8 @@ export function TokenDetail({
     themes.map((theme) => [
       theme,
       drafts
-        ? // A token built on itself comes to nothing, though its name looks up its old value.
-          tokenReferences(drafts[theme] ?? "").includes(preview.name)
-          ? `--${preview.name} can't be built on itself.`
-          : valueProblem(kind, drafts[theme] ?? "", (name) => lookup(name, theme))
+        ? (loopProblem(preview.name, drafts[theme] ?? "", (name) => references(name, theme)) ??
+          valueProblem(kind, drafts[theme] ?? "", (name) => lookup(name, theme)))
         : undefined
     ])
   )
@@ -327,6 +328,29 @@ export function TokenDetail({
       </form>
     </div>
   )
+}
+
+/**
+ * Why a value would make the token self loop back to itself, directly or through the tokens it's built on, or
+ * nothing. A loop comes to nothing in every frame, though checking it against the tokens' old values would pass.
+ */ function loopProblem(
+  self: string,
+  value: string,
+  references: (name: string) => readonly string[]
+): string | undefined {
+  for (const start of new Set(tokenReferences(value))) {
+    if (start === self) return `--${self} can't be built on itself.`
+    const seen = new Set<string>()
+    const next = [start]
+    while (next.length > 0) {
+      const name = next.pop()!
+      if (name === self) return `--${start} is built on --${self}, so this would loop.`
+      if (seen.has(name)) continue
+      seen.add(name)
+      next.push(...references(name))
+    }
+  }
+  return undefined
 }
 
 /**

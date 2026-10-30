@@ -5,7 +5,8 @@ import {
   type PreviewKind,
   previewKind,
   substituteReferences,
-  type Token
+  type Token,
+  tokenReferences
 } from "@parity-app/core"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { LayoutGrid, List, Search } from "lucide-react"
@@ -734,6 +735,12 @@ function Detail({ entry }: { entry: Kinded }) {
       stylesheet={store.stylesheet}
       classes={session.info.styles?.id === "tailwind"}
       lookup={(name, theme) => comesTo(panel.tokens, name, theme)}
+      references={(name, theme) => {
+        const other = panel.tokens.get(name)
+        if (!other) return []
+        const built = tokenReferences(other.values[theme] ?? other.values.default ?? "")
+        return other.derived ? [other.derived.from, ...built] : built
+      }}
       onApply={(changes) =>
         store.set(Object.entries(changes).map(([theme, value]) => ({ name: token.name, theme, value })))
       }
