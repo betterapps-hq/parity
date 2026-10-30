@@ -17,13 +17,13 @@ Features built before 2026-10-29 are being added under PAR-392 in Linear.
 ## Testing in the app (PAR-202)
 
 `pnpm test:app` drives a copy of Parity as a person does, with the system's own pointer and keyboard, and checks what
-the canvas, the panels and the project show: 76 tests, which take four to six minutes. It isn't part of `vp run test` or
-`pnpm verify`. The pre-push hook runs it when the commits a push sends change the app, its packages, the example or the
-workspace's build files (`scripts/app-tests.ts`), and a failure stops the push. Every worktree's suite shares the same
-ports, so a push waits while another worktree's hook is running it (a lock file in the system's temp folder, taken over
-when its process has gone and left alone when it can't be read; `scripts/app-tests.test.ts` covers each of those, while
-two hooks taking over one stale lock at once was checked by reading the code, since a test can't time it). CI runs it on
-Windows for every pull request and every push to main, without blocking the merge until it runs reliably there
+the canvas, the panels and the project show: 85 tests, which take five to eight minutes. It isn't part of `vp run test`
+or `pnpm verify`. The pre-push hook runs it when the commits a push sends change the app, its packages, the example or
+the workspace's build files (`scripts/app-tests.ts`), and a failure stops the push. Every worktree's suite shares the
+same ports, so a push waits while another worktree's hook is running it (a lock file in the system's temp folder, taken
+over when its process has gone and left alone when it can't be read; `scripts/app-tests.test.ts` covers each of those,
+while two hooks taking over one stale lock at once was checked by reading the code, since a test can't time it). CI runs
+it on Windows for every pull request and every push to main, without blocking the merge until it runs reliably there
 (PAR-438). While working, run only the files a change touches, such as `pnpm test:app keyboard`, rather than the whole
 suite after each change: each run opens a Parity window. Each feature's tests below name the end-to-end ones that cover
 it.
@@ -546,11 +546,27 @@ design has them on its frames' right and bottom.
   never fill.
 - **The hint** ("Drag to resize") closes when a handle is pressed and stays closed through the drag and after it, until
   the pointer next rests on a handle.
+- **Small layers keep their middle** (PAR-193). Along an axis where a layer is under 24 screen pixels, its handles sit
+  just outside it: the corners and the top and bottom strips above and below a layer that's short, the corners and the
+  side strips beside one that's narrow, with the strips running its whole length. So a press anywhere on a layer small
+  both ways drags it; one small along only one axis keeps its other axis's strips on it. New project at 50% is 16px
+  high: its corners, top and bottom sit above and below it, and only its left and right strips, 4px into each end as on
+  any wide layer, are on it. A layer 24px or more keeps its handles on its edges.
+- **Escape takes a resize back** (PAR-193), a layer's or a frame's: everything the drag wrote is undone without leaving
+  a step to undo or clearing what Redo had, the layer stays selected, and the release that follows does nothing. Escape
+  goes to the resize alone, not to the canvas, where it would select the parent. Only the resized design goes back:
+  another file an agent changed during the drag, or another design in the same file, keeps its change and its undo step.
+  Such a change clears Redo, as any new step does, so Redo comes back only when nothing else changed during the drag.
+- **The cursor** shows the handle's arrows wherever the pointer goes during the drag, over the canvas, the frames and
+  the panels, until it ends (see "Cursors and Escape during a gesture", below).
 
 Code: `apps/desktop/src/renderer/canvas/resize.ts` (`edgeAxes`, and `resizeGesture`, which follows one drag and gives
-the style for each pointer position), `canvas/insets.ts` (`resizeInsets`), `canvas/ResizeHandles.tsx` (the handles and
-their hint, which `chrome/Hint.tsx` now lets a caller open and close), and `canvas/CanvasOverlay.tsx` (`startResize`
-measures the layer, its parent and its drawn insets, and writes the style).
+the style for each pointer position), `canvas/insets.ts` (`resizeInsets`), `packages/editor/src/handles.ts`
+(`handleBoxes`, where each handle goes, `@parity-app/editor`), `canvas/ResizeHandles.tsx` (the handles and their hint,
+which `chrome/Hint.tsx` lets a caller open and close), and `canvas/CanvasOverlay.tsx` (`startResize` measures the layer,
+its parent and its drawn insets, and writes the style; `drag` follows the pointer, holds the cursor, and on Escape
+reverts the store to a checkpoint taken when the drag began, with `DesignStore.checkpoint` and `revert` in
+`design-store.ts`).
 
 Tests:
 
@@ -564,15 +580,90 @@ Tests:
 - `canvas/ResizeHandles.test.ts`, in Chrome: the hint opens on hover, closes on press and stays closed through a drag
   into the hint itself and after release (this fails as the handles were before), opens again on the next hover, and a
   double-click still resets.
-- `apps/desktop/e2e/moving.e2e.ts` (4), end to end (PAR-202): New project's right handle, named by its hint when the
+- `packages/editor/src/handles.test.ts`: handles straddling a large layer's edges with the strips short of the corners;
+  a layer under 24px both ways with no handle on it; one small only in height, with only its side strips on it; a layer
+  of exactly 24px as before; a layer that draws nothing; and a frame's three handles in order.
+- `apps/desktop/src/renderer/design-store.test.ts`, reverting to a checkpoint: a gesture's writes more than a second
+  apart taken back with nothing left to undo for them; Redo kept; a first write that merged into the step before it
+  leaving that step as it was; another file reloaded mid-gesture kept, with its undo step undoing to the design as it
+  was; another design added to the same file mid-gesture kept, with its undo step; and nothing changed since.
+- `apps/desktop/e2e/moving.e2e.ts` (6), end to end (PAR-202): New project's right handle, named by its hint when the
   pointer rests on it, dragged 48px right changes the width alone, in steps, with no hint during the drag or after; its
   top handle dragged sideways changes nothing and adds no undo step; the Review slot's top handle dragged up 16px gives
   top 36 and height 20 with the bottom edge where it was, and its left handle dragged right gives left 3 with right
-  still 0.
+  still 0; New project's right handle dragged in two moves, then Escape, leaves no style, nothing to undo, the width as
+  it was and the button selected; and at 50%, New project's handles leave it but for its two end strips, and a press 3px
+  inside its top edge moves it past Export. The last two failed before PAR-193.
 
-Gaps: a frame's own handles (a design's width and height) aren't covered by these tests. A resize writes as the pointer
-moves, and in a development build those writes can be more than a second apart, so one drag can take several undos; one
-undo step per gesture is PAR-193.
+Gaps: a frame's own handles (a design's width and height) aren't covered by these tests, Escape on them included, which
+goes through the same `drag`. A resize writes as the pointer moves, and in a development build those writes can be more
+than a second apart, so one drag can take several undos; one undo step per gesture is PAR-441, after PAR-34 moves the
+history into `@parity-app/editor`. Escape doesn't depend on it: it goes back to the checkpoint however many steps the
+drag wrote. Checked in the app on 2026-10-30, in a copy on its own ports: the handles above and below New project at
+50%, the arrows over the design 90px below the handle, and Escape leaving the button as it was.
+
+### Empty layouts (PAR-193)
+
+A layout with nothing in it, which would draw nothing, takes at least 24px of the design along each axis its content
+would size, outlined in dashes, so it can be seen, selected with a click and dropped into. This is on the canvas only.
+
+- **A length the design gives it stays.** Along an axis with a fixed width or height, or a least size, it keeps what the
+  design says, so an empty layout used as an 8px spacer is still 8px across; only the other axis gets the 24px. On an
+  instance whose component's root is an empty layout, the instance's own width or height counts too. Filling and growing
+  aren't lengths: in a grid, or with no space to share, they leave an empty layout at nothing, so it gets the 24px, and
+  where they give it more, it keeps that. In a row, an empty column that's stretched keeps its stretched height.
+- **It's empty when nothing is drawn in it** in the state and viewport shown, so a layout whose children the state hides
+  counts too. The size and the dashes go once something is put in it; while a drag shows a copy of a layer in it, they
+  stay.
+
+Code: core's `emptyLayoutAttribute` in `packages/core/src/render.ts` marks an empty layout's element with the axes its
+content would size (`data-canvas-empty-layout="width height"`), and the frame's root sheet in
+`apps/desktop/src/renderer/frame.ts` gives it its least size (`emptyLayoutSize`) and dashes. The least size is
+`!important`, to beat the `min-width: 0` every layout is drawn with. The sheet finds empty layouts by that attribute,
+not by `:empty`: with `:empty` in it, a sheet every frame shares, closing a project with the pointer in the window kept
+its frames in memory, about 1,800 DOM nodes each time on the example. `reopening.e2e.ts` caught it when the tests before
+it left the pointer on the canvas.
+
+Tests: `packages/core/src/render.test.ts`: which axes are marked for a layout that hugs, a fixed width, a least height,
+growing in a row, and filling with a fixed height; a layout with layers unmarked; and one whose only layer the state
+hides marked. End to end (PAR-202), `apps/desktop/e2e/moving.e2e.ts` (2), with an empty row added after New project:
+it's 24px wide and at least 24px high and is selected by a click, and a stat card dropped 6px inside its left edge at
+50% goes into it. Both failed before PAR-193: the row was 0px wide.
+
+Gaps: the size label and the inspector show the 24px the canvas gives it, not the 0 the app would draw.
+`reopening.e2e.ts` sees a leak like the one above only when the pointer is in the window, which depends on the tests run
+before it; moving the pointer in after each close would make it certain.
+
+### Cursors and Escape during a gesture (PAR-193)
+
+While layers are dragged, a design is dragged by its title or a handle resizes, the cursor shows what's happening
+wherever the pointer goes: grabbing for a drag, the handle's arrows for a resize. With the text tool, the canvas shows
+the text cursor. Escape cancels each of these drags.
+
+- **Why it needed a layer of its own.** The cursor used to be set on the page's body, which showed only where nothing
+  else set one: over the canvas tldraw sets its own cursor on everything it draws, and a title sets `default`. Now a
+  transparent layer over the whole window holds the cursor for as long as the gesture lasts. The gestures follow the
+  pointer through window listeners or pointer capture and find what's under it by layout boxes, so the layer takes
+  nothing from them, and nothing under it reacts to hovering meanwhile.
+- **The text tool** gives tldraw's canvas the browser's text cursor, by a rule more specific than tldraw's own, which
+  takes the cursor of tldraw's tool, always Select or Hand here.
+- **Escape on a design dragged by its title** puts every dragged design back where it was, saves nothing and adds no
+  undo step, and leaves the design selected. Escape on a layer drag already put everything back (CAN-47); on a resize
+  it's described above.
+
+Code: `apps/desktop/src/renderer/canvas/held-cursor.ts` (`holdCursor`), used by `canvas/layer-drag.ts`,
+`canvas/CanvasOverlay.tsx` (`drag`) and `canvas/ContainerShapeUtil.tsx` (`dragByTitle`, which gives the title the cursor
+too, since it has the pointer captured); the text tool's rule is in `apps/desktop/src/renderer/styles.css`.
+
+Tests: end to end (PAR-202), `apps/desktop/e2e/moving.e2e.ts` (5), reading the cursor of the element the browser finds
+under the pointer: grabbing while a stat card is dragged; grabbing while Dashboard is dragged by its title, on the title
+and 200px off it; the arrows 80px below New project's right handle mid-resize, and not after; the text cursor over the
+stat cards with the text tool; and Dashboard's title dragged 160px, then Escape, leaving its board and its position as
+they were with nothing to undo. Each failed before PAR-193.
+
+Gaps: what the system draws can't be read through the DevTools protocol, so the tests read the cursor the page asks for
+at the pointer. Whether Chrome takes a captured title's cursor or the layer's doesn't matter, since both are grabbing.
+Dragging a board by its background is tldraw's, with tldraw's own cursor, and Escape there is tldraw's too.
 
 ### Snapping a dragged design (PAR-33)
 

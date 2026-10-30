@@ -165,6 +165,107 @@ describe("saving", () => {
   })
 })
 
+describe("reverting to a checkpoint", () => {
+  const rename = (store: DesignStore, name: string, group?: string) =>
+    store.updateContainer("app.par#home", "Rename", (container) => ({ ...container, name }), { group })
+  const name = (store: DesignStore) => store.getEntry("app.par#home")?.container.name
+  /** A checkpoint for a gesture renaming home in the "resize" group. */
+  const start = (store: DesignStore) => {
+    const checkpoint = store.checkpoint("app.par#home", "resize")
+    if (!checkpoint) throw new Error("No design home")
+    return checkpoint
+  }
+
+  it("takes back a cancelled gesture's changes, leaving no step to undo for them", () => {
+    vi.useFakeTimers()
+    const { store } = setup()
+    rename(store, "Before")
+    const checkpoint = start(store)
+    // Written as a pointer moves, some more than a second apart, so they'd be several undo steps.
+    for (const step of ["One", "Two", "Three"]) {
+      rename(store, step, "resize")
+      vi.advanceTimersByTime(1500)
+    }
+    store.revert(checkpoint)
+    expect(name(store)).toBe("Before")
+    expect(store.getHistory()).toMatchObject({ canUndo: true, undoLabel: "Rename", canRedo: false })
+    store.undo()
+    expect(name(store)).toBe("home")
+    expect(store.getSaveState()).toEqual({ status: "saved" })
+  })
+
+  it("keeps what could be redone before the gesture", () => {
+    const { store } = setup()
+    rename(store, "Before")
+    store.undo()
+    const checkpoint = start(store)
+    rename(store, "During", "resize")
+    expect(store.getHistory().canRedo).toBe(false)
+    store.revert(checkpoint)
+    expect(store.getHistory()).toMatchObject({ canUndo: false, canRedo: true, redoLabel: "Rename" })
+    store.redo()
+    expect(name(store)).toBe("Before")
+  })
+
+  it("leaves the step before the gesture as it was, though the gesture's first change merged into it", () => {
+    vi.useFakeTimers()
+    const { store } = setup()
+    rename(store, "First drag", "resize")
+    const checkpoint = start(store)
+    // Within a second of the step before, in the same group: it merges into that step rather than making its own.
+    vi.advanceTimersByTime(500)
+    rename(store, "Second drag", "resize")
+    store.revert(checkpoint)
+    expect(name(store)).toBe("First drag")
+    store.undo()
+    expect(name(store)).toBe("home")
+    expect(store.getHistory().canUndo).toBe(false)
+  })
+
+  it("keeps another file changed meanwhile, with its undo step, which undoes to the design as it was", () => {
+    const { store } = setup()
+    const checkpoint = start(store)
+    rename(store, "During", "resize")
+    // An agent changes another file mid-gesture.
+    store.reloadDocument("other.par", { version: 3, containers: [design("pricing")] })
+    rename(store, "Still during", "resize")
+    store.revert(checkpoint)
+    expect(name(store)).toBe("home")
+    expect(store.getEntry("other.par#pricing")).toBeDefined()
+    expect(store.getHistory()).toMatchObject({ canUndo: true, undoLabel: "Reload other.par" })
+    store.undo()
+    expect(store.getEntry("other.par#pricing")).toBeUndefined()
+    expect(name(store)).toBe("home")
+    expect(store.getHistory().canUndo).toBe(false)
+  })
+
+  it("keeps another design in the same file changed meanwhile, with its undo step", () => {
+    const { store } = setup()
+    const checkpoint = start(store)
+    rename(store, "During", "resize")
+    // An agent adds a design to the same file mid-gesture.
+    store.addContainer("app.par", design("about"))
+    rename(store, "Still during", "resize")
+    store.revert(checkpoint)
+    expect(name(store)).toBe("home")
+    expect(store.getEntry("app.par#about")).toBeDefined()
+    expect(store.getHistory()).toMatchObject({ canUndo: true, undoLabel: "Add design" })
+    store.undo()
+    expect(store.getEntry("app.par#about")).toBeUndefined()
+    expect(name(store)).toBe("home")
+    expect(store.getHistory().canUndo).toBe(false)
+  })
+
+  it("changes nothing when nothing changed since it", () => {
+    const { store } = setup()
+    rename(store, "Before")
+    const checkpoint = start(store)
+    store.revert(checkpoint)
+    expect(name(store)).toBe("Before")
+    expect(store.getHistory()).toMatchObject({ canUndo: true, undoLabel: "Rename" })
+  })
+})
+
 describe("token edits", () => {
   it("are undoable, unsaved until Save, and saved with the project's other changes", async () => {
     const { store, writes, tokenWrites } = setup()

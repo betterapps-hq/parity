@@ -1,6 +1,6 @@
+import { type Edge, handleBoxes } from "@parity-app/editor"
 import { type CSSProperties, type PointerEvent as ReactPointerEvent, useState } from "react"
 import { Hint } from "../chrome/Hint.tsx"
-import type { Edge } from "./resize.ts"
 
 export const resizeCursors: Record<Edge, string> = {
   n: "ns-resize",
@@ -26,39 +26,19 @@ export interface ResizeHandlesProps {
 }
 
 /**
- * Square handles on the corners, and invisible strips along the sides, as in Figma. Each names itself after a moment's
- * hover; pressing one closes that, and it stays closed until the pointer is released, so it never sits over a resize.
+ * Square handles on the corners, and invisible strips along the sides, as in Figma. Around a layer under 24px on an
+ * axis they sit outside it (see `handleBoxes`), so a press on the layer drags it rather than resizing it. Each names
+ * itself after a moment's hover; pressing one closes that, and it stays closed until the pointer is released, so it
+ * never sits over a resize.
  */
 export function ResizeHandles({ handles, onStart, onReset }: ResizeHandlesProps) {
-  const { box, color, edges } = handles
+  const { color } = handles
   const [hint, setHint] = useState<Edge>()
   const [pressed, setPressed] = useState(false)
-  const strip = 8
-  const square = 8
-  return edges.map((edge) => {
+  return handleBoxes(handles.box, handles.edges).map(({ edge, box }) => {
     const corner = edge.length === 2
-    let x = box.x + box.w / 2
-    if (edge.includes("w")) x = box.x
-    else if (edge.includes("e")) x = box.x + box.w
-    let y = box.y + box.h / 2
-    if (edge.includes("n")) y = box.y
-    else if (edge.includes("s")) y = box.y + box.h
-    let style: CSSProperties
-    if (corner) {
-      style = {
-        left: x - square / 2,
-        top: y - square / 2,
-        width: square,
-        height: square,
-        background: "white",
-        border: `1.5px solid ${color}`,
-        borderRadius: 2
-      }
-    } else if (edge === "n" || edge === "s") {
-      style = { left: box.x + square, top: y - strip / 2, width: Math.max(0, box.w - square * 2), height: strip }
-    } else {
-      style = { left: x - strip / 2, top: box.y + square, width: strip, height: Math.max(0, box.h - square * 2) }
-    }
+    let style: CSSProperties = { left: box.x, top: box.y, width: box.w, height: box.h }
+    if (corner) style = { ...style, background: "white", border: `1.5px solid ${color}`, borderRadius: 2 }
     return (
       <Hint
         key={edge}
