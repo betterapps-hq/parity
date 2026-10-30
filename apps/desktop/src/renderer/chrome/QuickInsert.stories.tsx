@@ -47,13 +47,32 @@ const openWith = (query?: string) => async () => {
 }
 
 /**
- * Just opened: basic layers first, then the component designs, then the project's and its libraries' components, and,
- * when the project has an icon library, a hint that its icons can be searched too.
+ * Just opened: basic layers first, then the component designs, then the project's own components, then its libraries',
+ * each under its source, and, when the project has an icon library, a hint that its icons can be searched too. Internal
+ * parts, providers and the app's plumbing are left out until they're searched for by name (PAR-178).
  */
 export const Open: Story = { loaders: [heroSelected], play: openWith() }
 
-/** Searching for "card": the component designs and components whose names match. */
+/**
+ * Searching for "card": names that match first, the closest first, then names that only the file or folder they're
+ * in matches. Each row says where it's from.
+ */
 export const Searching: Story = { loaders: [heroSelected], play: openWith("card") }
+
+/**
+ * Searching for "badge": Badge is in the UI kit and in Shadcn Nova, so it's one row with both. Enter inserts the
+ * project's own, and clicking Shadcn Nova inserts Nova's; "nova badge" picks Nova's too.
+ */
+export const FoundInTwoPlaces: Story = {
+  loaders: [heroSelected],
+  play: async () => {
+    await openWith("badge")()
+    await expect(await body().findByRole("button", { name: "Insert Badge from Shadcn Nova" })).toBeInTheDocument()
+  }
+}
+
+/** Searching for "theme" finds ThemeProvider, which the picker leaves out until it's searched for by name. */
+export const SearchedByName: Story = { loaders: [heroSelected], play: openWith("theme") }
 
 /** Searching for "arrow": matching icons from the project's icon library, up to 48 of them. */
 export const SearchingIcons: Story = { loaders: [heroSelected], play: openWith("arrow") }

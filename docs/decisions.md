@@ -300,6 +300,28 @@ still need your call.
   32px margins and 16, 24 and 24px gutters. These are fixed until breakpoints or library metadata provide them.
 - **The insert picker** (`/` or Shift+I) offers text, rows and columns, component designs, the project's and libraries'
   components, and icons once two letters are typed. It inserts where a paste would.
+- **The picker ranks by where things come from, and a search by how its name matches** (PAR-178). My calls, from the
+  audit: browsing lists basic layers, component designs, the UI kit, the rest of the app, pages, then libraries' designs
+  and components. A search ranks an exact name, its start, a word's start, anywhere in it, then a name and description
+  together, then a description alone, the project's own first within each. The old fuzzy match is gone: letters
+  scattered through a name found AlertDialogTrigger for "badge".
+- **Internal parts, portals, providers and the app's plumbing are left out until a word of the search is in their name**
+  (PAR-178). My call on what counts: a `.lib.par`'s `internal` parts, names ending in Portal, Provider or Providers (the
+  last piece of a namespaced one, as Radix's `Tooltip.Provider`), and App, Router, Routes and names ending in Boundary.
+  A search only starting the name (`dialog` for DialogOverlay) lists it after every other match; one naming it in full
+  ranks it with them. The Components panel lists them last in each source, under a heading saying what they are, rather
+  than hiding them, since it's where people browse everything.
+- **A component found in two places is one row in the picker, with both sources** (PAR-178). My call: components with
+  the same name from different sources merge, never designs or basic layers, and never two from one source. Enter
+  inserts the project's own; clicking a source inserts that one, and a search naming a source puts it first. The
+  Components panel keeps them in their sections, which already tell them apart.
+- **The picker isn't a modal dialog, and draws only the rows in view** (PAR-178). My call: a modal Radix dialog's scroll
+  lock and pointer block restyle the whole window to open, about 100ms, and cmdk drew all 610 rows, about 350ms. The
+  picker keeps the look with a backdrop of its own, which takes clicks outside and closes it, and keeps Tab in its
+  search field. Its list is built once per project while the window is idle, with its icon sets.
+- **Radix Primitives isn't hidden from the picker** (PAR-178). Nothing in a `.lib.par` says a library is unstyled
+  primitives that the project's own components wrap, so it ranks last as a library. A flag in the `.lib.par` would let
+  the picker leave it out; that's for when a project shows it's needed.
 - **Interact (I) hands the pointer and keys to the designs,** so their real components work as in a browser: tabs
   switch, fields take typing, menus open. Clicks and keys stop at the design, so the canvas doesn't select, drag or run
   a shortcut too; scrolling still pans. Outlines and handles hide while interacting. An Escape the design doesn't use
