@@ -19,6 +19,7 @@ import { useProject } from "./context.ts"
 import { bitmapScale } from "./frame-bitmaps.ts"
 import { designColor, kindColors } from "./kinds.tsx"
 import { NoteShapeUtil } from "./NoteShapeUtil.tsx"
+import { sizeWhileShown } from "./overlay-canvas.ts"
 import { TitleLayer } from "./title-layer.tsx"
 import { withoutTldrawShortcuts } from "./tldraw-shortcuts.ts"
 
@@ -186,6 +187,33 @@ function markZoomedOut(editor: Editor): () => void {
   }
 }
 
+/**
+ * Whether tldraw draws anything on its overlay canvas. An overlay util that's active draws even with no overlays of its
+ * own: the selection box draws from the selection, and its overlays are only the handles, which it can leave out (as
+ * when Shift is held down on the empty canvas). The shape indicators are always active and draw only the overlays they
+ * list.
+ */
+function overlaysShow(editor: Editor): boolean {
+  return editor.overlays
+    .getActiveOverlayEntries()
+    .some(({ util, overlays }) => overlays.length > 0 || !(util instanceof ShapeIndicatorOverlayUtil))
+}
+
+/** tldraw's overlay canvas only holds a bitmap while an overlay shows (see `sizeWhileShown`). */
+function sizeOverlays(editor: Editor): () => void {
+  const canvas = editor.getContainer().querySelector<HTMLCanvasElement>("canvas.tl-canvas-overlays")
+  if (!canvas) return () => undefined
+  const sizing = sizeWhileShown(canvas, () => overlaysShow(editor))
+  sizing.release()
+  const stop = react("overlay canvas size", () => {
+    if (!overlaysShow(editor)) sizing.release()
+  })
+  return () => {
+    stop()
+    sizing.restore()
+  }
+}
+
 export function CanvasEditor({ onEditor }: { onEditor: (editor: Editor | undefined) => void }) {
   const { id: tab, store, selection, editor } = useProject()
   const theme = useResolvedTheme()
@@ -203,6 +231,7 @@ export function CanvasEditor({ onEditor }: { onEditor: (editor: Editor | undefin
       editor.setCameraOptions({ zoomSteps: [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 4, 8] })
       const stopZoom = settleZoom(editor)
       const stopZoomedOut = markZoomedOut(editor)
+      const stopOverlays = sizeOverlays(editor)
 
       // Designs and notes come and go with undo and agents, so shapes follow the store rather than being made once.
       const sync = () => {
@@ -303,6 +332,7 @@ export function CanvasEditor({ onEditor }: { onEditor: (editor: Editor | undefin
         clearTimeout(fit)
         stopZoom()
         stopZoomedOut()
+        stopOverlays()
         stopStore()
         stopHeld()
         stopMoves()

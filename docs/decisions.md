@@ -274,6 +274,14 @@ still need your call.
   file; the window's icon comes from the app. The macOS and Linux copies haven't run on those systems yet.
 - **A selected design shows only its own rounded outline.** tldraw's square selection box is drawn only around several
   designs at once.
+- **tldraw's overlay canvas holds a bitmap only while an overlay shows** (PAR-196). tldraw draws the selection box,
+  hover outlines, the brush and snap lines on one canvas the window's size in device pixels. It kept that bitmap all the
+  time, empty or not: 5 MB in the window and 31 MB of GPU images at a 1289 × 1012 canvas, measured with a memory-infra
+  dump on 2026-10-30. My call: Parity holds the canvas at no size while nothing shows, and lets tldraw size it again as
+  soon as something does. tldraw doesn't let an app replace that canvas, and it sizes it on every draw, so Parity sets
+  the canvas's own `width` and `height` to accessors that pass tldraw's size through only while an overlay shows
+  (`overlay-canvas.ts`). Patching tldraw would do the same but need carrying on every upgrade. Hovering a board, or
+  having several selected, still allocates the whole canvas while it shows.
 - **Copy and paste go through the system clipboard,** in a JSON envelope Parity recognises, so copies paste across
   projects and windows. Copied layers bring the state they were copied in with them, and pasting gives them new ids.
   Plain text pastes as a text layer, or as a note on the canvas when nothing is selected. Copy style and paste style
