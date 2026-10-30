@@ -225,11 +225,18 @@ async function checkoutExamples(
       // The repository's own files the examples import (Chakra's `compositions/ui/toaster`, which makes its toaster
       // and draws its toasts), as an example of how the parts go together.
       const tree = stdout.split("\n").filter((path) => /\.[jt]sx?$/.test(path) && !skipped.test(path))
-      const texts = await Promise.all(wanted.map((path) => readFile(join(dir, path), "utf8").catch(() => "")))
-      const imported = localImports(wanted, texts, tree).filter((path) => !wanted.includes(path))
-      if (imported.length > 0) {
-        wanted.push(...imported.slice(0, 500))
+      // And the files those import in turn, up to 500 in all.
+      let scan = [...wanted]
+      for (let added = 0; scan.length > 0 && added < 500;) {
+        const texts = await Promise.all(scan.map((path) => readFile(join(dir, path), "utf8").catch(() => "")))
+        const imported = localImports(scan, texts, tree)
+          .filter((path) => !wanted.includes(path))
+          .slice(0, 500 - added)
+        if (imported.length === 0) break
+        wanted.push(...imported)
+        added += imported.length
         await checkout(wanted)
+        scan = imported
       }
     }
     await writeFile(join(dir, ".parity-wanted"), wanted.join("\n"))
@@ -264,17 +271,22 @@ export function localImports(paths: string[], texts: string[], tree: string[]): 
 function localResolver(tree: string[]): (from: string, specifier: string) => string | undefined {
   const byStem = new Map<string, string>()
   for (const path of tree) byStem.set(path.replaceAll("\\", "/").replace(/(?:\/index)?\.[jt]sx?$/, ""), path)
+  // Each file by every end of its path, the first file a suffix fits keeping it, for imports by a mapped path. A
+  // workspace package's files are under its `src` (`apps/compositions/src/ui/toaster` for `compositions/ui/toaster`).
+  const bySuffix = new Map<string, string>()
+  for (const [stemmed, target] of byStem) {
+    const candidate = stemmed.replace(/\/src(?=\/)/g, "")
+    for (let at = -1; at < candidate.length; at = candidate.indexOf("/", at + 1)) {
+      const suffix = candidate.slice(at + 1)
+      if (!bySuffix.has(suffix)) bySuffix.set(suffix, target)
+      if (candidate.indexOf("/", at + 1) === -1) break
+    }
+  }
   return (from, specifier) => {
     if (specifier.startsWith(".")) return byStem.get(posix.join(posix.dirname(from.replaceAll("\\", "/")), specifier))
     // A package's name has at most one slash after its scope; a mapped path has more, or no scope.
     if (specifier.startsWith("@") ? specifier.split("/").length < 3 : !specifier.includes("/")) return undefined
-    const stem = specifier.replace(/^[@~]\//, "")
-    // A workspace package's files are under its `src` (`apps/compositions/src/ui/toaster` for `compositions/ui/toaster`).
-    for (const [stemmed, target] of byStem) {
-      const candidate = stemmed.replace(/\/src(?=\/)/g, "")
-      if (candidate === stem || candidate.endsWith(`/${stem}`)) return target
-    }
-    return undefined
+    return bySuffix.get(specifier.replace(/^[@~]\//, ""))
   }
 }
 

@@ -134,7 +134,7 @@ async function recordAppErrors(registry: string, library: string, report: CheckR
   for (const [name, why] of Object.entries(report.misses)) if (!why.startsWith("inside ")) kept[name] = why
   const path = appErrorsPath(registry, library)
   await mkdir(dirname(path), { recursive: true })
-  const sorted = Object.fromEntries(Object.entries(kept).sort(([a], [b]) => a.localeCompare(b)))
+  const sorted = Object.fromEntries(Object.entries(kept).sort(([a], [b]) => a.localeCompare(b, "en")))
   await writeFile(path, `${JSON.stringify(sorted, null, 2)}\n`)
   return Object.keys(sorted).length
 }
