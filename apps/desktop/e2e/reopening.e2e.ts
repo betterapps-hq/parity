@@ -1,5 +1,5 @@
 import { basename } from "node:path"
-import { afterAll, beforeAll, describe, expect, inject, it } from "vitest"
+import { afterAll, beforeAll, describe, expect, inject, it } from "vite-plus/test"
 import { App } from "./app.ts"
 
 // docs/editor.md, Opening and closing projects: closing a project gives back its canvas, however often it's opened
