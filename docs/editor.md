@@ -381,8 +381,10 @@ each under its source. A search ranks across sources instead, each row saying wh
   source (`(portal)/ErrorPage`, `app/ErrorPage`) stay two rows.
 - **The keyboard.** The search field keeps focus. Up and Down move through the rows and go round at the ends, Page Up
   and Page Down move eight, Enter inserts, Escape closes, and Tab does nothing, so focus can't reach the window behind.
-  The pointer picks the row it's over. Icons are searched once two letters are typed, up to 48 a set, after the
-  components.
+  The pointer picks the row it's over. Enter inserts a row's first source; to insert another from the keyboard, name it
+  in the search (`nova badge`), which puts it first. The row's text, which a screen reader reads, names every source,
+  but the source buttons themselves are for the pointer: no key moves between them. Icons are searched once two letters
+  are typed, up to 48 a set, after the components.
 - **The Components panel** searches the same way: in each source, families with the best matches first and the best
   matches first in each, hidden components only when a word of the search is in their name. Browsing, each source lists
   what the picker hides last, under a heading saying what it is ("Providers and app plumbing", "Internal parts and
