@@ -282,9 +282,9 @@ export function clearNotifications(): void {
  */
 export async function typeInto(field: HTMLInputElement, text: string): Promise<void> {
   field.focus()
-  const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!
+  const value = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!
   for (const character of text) {
-    setValue.call(field, field.value + character)
+    value.set!.call(field, field.value + character)
     field.dispatchEvent(new InputEvent("input", { bubbles: true, data: character, inputType: "insertText" }))
     await pause(30)
   }

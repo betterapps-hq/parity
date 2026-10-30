@@ -364,7 +364,8 @@ function imageSize(blob: Blob): Promise<{ width: number; height: number }> {
 function base64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result).replace(/^data:[^,]*,/, ""))
+    // A data URL, since it's read as one.
+    reader.onload = () => resolve(typeof reader.result === "string" ? reader.result.replace(/^data:[^,]*,/, "") : "")
     reader.onerror = () => reject(reader.error ?? new Error("The image couldn't be read"))
     reader.readAsDataURL(blob)
   })

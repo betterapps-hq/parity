@@ -58,8 +58,8 @@ export function RoleMenu<T extends string>({
 }: {
   value: T
   options: Record<T, RoleInfo>
-  onChange?(value: T): void
-  onRemove?(): void
+  onChange?: (value: T) => void
+  onRemove?: () => void
 }) {
   return (
     <DropdownMenu>
@@ -127,7 +127,7 @@ const projectLink = "parity://buildkit/website"
  * do, and choose who else can open it with the link. A project lives in a repository, so the dialog says when someone
  * can edit here but can't push there.
  */
-export function ShareDialog({ onClose }: { onClose?(): void }) {
+export function ShareDialog({ onClose }: { onClose?: () => void }) {
   const [members, setMembers] = useState(startingMembers)
   const [agents, setAgents] = useState(startingAgents)
   const [chips, setChips] = useState<string[]>([])

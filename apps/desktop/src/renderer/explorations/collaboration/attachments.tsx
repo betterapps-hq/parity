@@ -53,7 +53,7 @@ export function AttachmentChip({
   className = ""
 }: {
   attachment: Attachment
-  onRemove?(): void
+  onRemove?: () => void
   className?: string
 }) {
   const kind = fileKind(attachment.name)
@@ -123,7 +123,7 @@ function Picture({ attachment, className = "" }: { attachment: Attachment; class
 }
 
 /** A picture waiting to be sent: a small preview, a bar while it uploads, and remove. */
-export function DraftPicture({ attachment, onRemove }: { attachment: Attachment; onRemove?(): void }) {
+export function DraftPicture({ attachment, onRemove }: { attachment: Attachment; onRemove?: () => void }) {
   const uploading = attachment.progress !== undefined
   return (
     <div className="group/picture relative size-16 shrink-0 overflow-hidden rounded-lg border">
@@ -193,7 +193,7 @@ function Lightbox({
 }: {
   pictures: Attachment[]
   index?: number
-  onIndex(index: number | undefined): void
+  onIndex: (index: number | undefined) => void
 }) {
   const picture = index === undefined ? undefined : pictures[index]
   const step = (by: number) => index !== undefined && onIndex((index + by + pictures.length) % pictures.length)

@@ -341,11 +341,11 @@ function RuleSection({
   container: ContainerSpec
   group: RuleGroup
   open: boolean
-  onToggle(): void
+  onToggle: () => void
   allFrames: number
   /** What to say when a layer breaks the rule in every frame. */
   every: string
-  frameName(frame: Frame): string
+  frameName: (frame: Frame) => string
 }) {
   const { icon: Icon, label, tone } = impactLooks[group.impact]
   const layers = group.layers.reduce((count, layer) => count + Math.max(layer.nodes.length, 1), 0)
@@ -417,7 +417,7 @@ function LayerRow({
   layer: LayerGroup
   allFrames: number
   every: string
-  frameName(frame: Frame): string
+  frameName: (frame: Frame) => string
 }) {
   const { selection, store } = useProject()
   const node = layer.nodes[0] === undefined ? undefined : findNode(container.root, layer.nodes[0])

@@ -31,7 +31,6 @@ import {
   px,
   rest,
   SpacingBar,
-  spacingSlot,
   TokenArt,
   TokenGlyph,
   tokenSections,
@@ -129,14 +128,11 @@ function CopyMenu({ token }: { token: SampleToken }) {
 export function TokenRow({
   token: original,
   playing: forced,
-  open,
-  slot
+  open
 }: {
   token: SampleToken
   playing?: boolean
   open?: boolean
-  /** How wide the preview is, when its section's previews need more than the usual box. */
-  slot?: number
 }) {
   const [values, setValues] = useState(original.values)
   const token = edited(original, values)
@@ -153,12 +149,7 @@ export function TokenRow({
             onKeyDown={copyKey(() => copying.copy(name))}
             className="flex min-h-8 w-full min-w-0 items-center gap-2 rounded-md py-1 pr-8 pl-1.5 text-left text-xs group-hover/token:bg-accent/50 aria-expanded:bg-accent"
           >
-            <TokenGlyph
-              token={token}
-              playing={playing}
-              themes={token.kind === "color" ? themesOf(token) : undefined}
-              width={slot}
-            />
+            <TokenGlyph token={token} playing={playing} themes={token.kind === "color" ? themesOf(token) : undefined} />
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="truncate font-mono">{token.name}</span>
               {token.description && (
@@ -360,7 +351,7 @@ export function TokensPanel({
               return (
                 <div key="colors">
                   {own.length > 0 && (
-                    <PanelSection title="Project colors" count={own.length}>
+                    <PanelSection title="Semantic colors" count={own.length}>
                       <TokenList tokens={own} view={view} playing={playing} open={open} />
                     </PanelSection>
                   )}
@@ -414,17 +405,10 @@ function TokenList({
       </div>
     )
   }
-  const slot = spacingSlot(tokens)
   return (
     <ul className="flex flex-col">
       {tokens.map((token) => (
-        <TokenRow
-          key={token.name}
-          token={token}
-          playing={token.name === playing}
-          open={token.name === open}
-          slot={token.kind === "spacing" ? slot : undefined}
-        />
+        <TokenRow key={token.name} token={token} playing={token.name === playing} open={token.name === open} />
       ))}
     </ul>
   )
@@ -449,7 +433,7 @@ export function TokenDetail({
   editor?: boolean
   /** Its saved values, when what opened it shows them too; otherwise the detail keeps its own. */
   values?: Record<string, string>
-  onValues?(values: Record<string, string>): void
+  onValues?: (values: Record<string, string>) => void
   /** Opens it already editing, with these values typed, for a story. */
   draft?: Record<string, string>
 }) {
@@ -926,7 +910,7 @@ export function TokenPicker({
           <CommandList className="max-h-64">
             <CommandEmpty>No token matches.</CommandEmpty>
             {[...groups].map(([source, list]) => (
-              <CommandGroup key={source} heading={source === "semantic" ? "Project tokens" : "Theme scale"}>
+              <CommandGroup key={source} heading={source === "semantic" ? "Semantic" : "Primitive"}>
                 {list.map((token) => (
                   <CommandItem
                     key={token.name}

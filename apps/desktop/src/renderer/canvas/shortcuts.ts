@@ -46,17 +46,24 @@ export function useShortcuts(session: ProjectSession | undefined, active: boolea
         return
       }
       const target = event.target as HTMLElement | null
-      const typing = !!target?.closest("input, textarea, select, [contenteditable='true'], [contenteditable='']")
-      const inMenu = !!target?.closest("[role=menu], [role=listbox], [role=dialog]")
+      // A menu or dialog playing its closing animation still holds focus for a moment, but its keys, a field's in it
+      // included, are the canvas's again: Ctrl+Z straight after picking an item undoes it (PAR-424).
+      const closing = !!target?.closest(":is([role=menu], [role=listbox], [role=dialog])[data-state=closed]")
+      const typing =
+        !closing && !!target?.closest("input, textarea, select, [contenteditable='true'], [contenteditable='']")
+      const inMenu = !closing && !!target?.closest("[role=menu], [role=listbox], [role=dialog]")
       if (typing || inMenu) return
       // Escape mid-drag cancels the drag, a layer's or a design's, rather than selecting the parent.
       if (pointerHeld && event.key === "Escape") return
       // Enter, Tab and the arrows on a focused button, tab, Layers row or other control are that control's: they press
-      // it, move focus on, or move within it. They're the canvas's when the canvas, or nothing, has focus.
+      // it, move focus on, or move within it. They're the canvas's when the canvas, or nothing, has focus, and on a
+      // design's title, where Enter selects the layers inside; a title's menus and a board's captions and state labels
+      // are controls (`data-canvas-control`).
       const control =
         !!target &&
+        !closing &&
         target !== document.body &&
-        !target.closest(".tl-container") &&
+        (!target.closest(".tl-container") || !!target.closest("[data-canvas-control]")) &&
         !!target.closest("button, a[href], [role], [tabindex]")
       if (control && (event.key === "Enter" || event.key === "Tab" || event.key.startsWith("Arrow"))) return
       const mod = event.ctrlKey || event.metaKey

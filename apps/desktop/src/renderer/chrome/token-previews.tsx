@@ -1,7 +1,7 @@
 // What each kind of token looks like: a drawing from the token's own value, in a box of any size, so no frame renders
 // for it. The Tokens panel's rows and tiles draw with these. docs/proposals/previews.md has the design.
 
-import { type PreviewKind, substituteReferences, tokenReferences, unclosedInValue } from "@parity-app/core"
+import { type PreviewKind, substituteReferences, tokenReferences, unclosedInValue, valueParts } from "@parity-app/core"
 import { Ban, Hand, MousePointer2, TextCursor } from "lucide-react"
 import {
   createContext,
@@ -28,6 +28,19 @@ export interface PreviewToken {
 /** The value a token draws with in a theme. */
 export function drawn(token: PreviewToken, theme = "default"): string {
   return theme === "default" ? (token.resolved ?? token.values.default ?? "") : (token.values[theme] ?? "")
+}
+
+/**
+ * A token's themes grouped by the value each draws, in order, so themes that share a color draw as one swatch rather
+ * than as halves that run together.
+ */
+export function themesByValue(token: PreviewToken, themes: readonly string[]): string[][] {
+  const groups = new Map<string, string[]>()
+  for (const theme of themes) {
+    const value = drawn(token, theme)
+    groups.set(value, [...(groups.get(value) ?? []), theme])
+  }
+  return [...groups.values()]
 }
 
 /** The panel's sections, in order, each with the kinds it holds and a heading for each kind when it holds more. */
@@ -264,9 +277,15 @@ export function easingPoints(value: string, steps = 48): [number, number][] {
 }
 
 /** An animation shorthand's parts: the keyframes' name, how long, the easing, and whether it repeats. */
-export function animationParts(value: string): { name: string; duration: number; easing: string; infinite: boolean } {
+export function animationParts(value: string): {
+  name: string
+  /** Undefined when the value doesn't say. */
+  duration?: number
+  easing: string
+  infinite: boolean
+} {
   const parts: string[] = value.match(/[\w-]+\([^)]*\)|\S+/g) ?? []
-  const duration = parts.map(ms).find((time) => !Number.isNaN(time)) ?? 1000
+  const duration = parts.map(ms).find((time) => !Number.isNaN(time))
   const easing = parts.find((part) => /^(cubic-bezier|linear)\(/.test(part) || part in easingKeywords) ?? "ease"
   return { name: parts[0] ?? "", duration, easing, infinite: parts.includes("infinite") }
 }
@@ -416,13 +435,20 @@ export function DurationArt({
   )
 }
 
-/** An animation: a mark that runs the animation's keyframes while playing, and rests at its first frame otherwise. */
+/**
+ * An animation, the same way whichever library it's from: one plain sample, a rounded block, runs the animation's own
+ * keyframes while playing and rests whole otherwise. A faint outline holds the sample's place, so a motion that fades,
+ * shrinks or collapses it still reads as a change against where it was, and the box is never empty.
+ */
 export function AnimationArt({ value, size, playing }: { value: string; size: number; playing: boolean }) {
-  const mark = useRef<HTMLSpanElement>(null)
-  const { name, duration, easing, infinite } = animationParts(value)
-  const frames = useContext(Keyframes)(name)
+  const sample = useRef<HTMLSpanElement>(null)
+  const { name, duration = 1000, easing, infinite } = animationParts(value)
+  const width = Math.round(size * 0.6)
+  const height = Math.round(size * 0.42)
+  const keyframes = useContext(Keyframes)(name)
+  const frames = keyframes && runnable(keyframes, { width, height })
   usePlayback(
-    mark,
+    sample,
     frames?.length
       ? {
           frames: infinite ? frames : looped(frames[0]!, frames.at(-1)!, duration, easing),
@@ -433,60 +459,36 @@ export function AnimationArt({ value, size, playing }: { value: string; size: nu
       : undefined,
     playing
   )
-  const s = size
-  let art: ReactNode
-  if (name === "spin")
-    art = (
-      <span
-        ref={mark}
-        className="block rounded-full border-2"
-        style={{
-          width: s * 0.6,
-          height: s * 0.6,
-          borderColor: "currentColor",
-          borderTopColor: "var(--canvas-layer)"
-        }}
-      />
-    )
-  else if (name === "ping")
-    art = (
-      <>
-        <span
-          ref={mark}
-          className="absolute rounded-full"
-          style={{ width: s * 0.36, height: s * 0.36, background: "var(--canvas-layer)", opacity: 0.6 }}
-        />
-        <span
-          className="rounded-full"
-          style={{ width: s * 0.36, height: s * 0.36, background: "var(--canvas-layer)" }}
-        />
-      </>
-    )
-  else if (name === "bounce")
-    art = (
-      <span
-        ref={mark}
-        className="block rounded-full"
-        style={{
-          width: s * 0.36,
-          height: s * 0.36,
-          background: "var(--canvas-layer)",
-          transform: "translateY(-25%)"
-        }}
-      />
-    )
-  else
-    art = (
-      <span
-        ref={mark}
-        className="block rounded-[3px]"
-        style={{ width: s * 0.6, height: s * 0.42, background: "currentColor", opacity: name === "pulse" ? 0.7 : 1 }}
-      />
-    )
   return (
-    <span className="relative grid place-items-center" style={{ width: s, height: s }}>
-      {art}
+    <span className="relative grid place-items-center" style={{ width: size, height: size }}>
+      <span
+        className="absolute rounded-[3px] border border-dashed border-current opacity-40"
+        style={{ width, height }}
+      />
+      <span ref={sample} className="block overflow-hidden rounded-[3px] bg-current" style={{ width, height }} />
     </span>
+  )
+}
+
+/**
+ * Keyframes the sample can run. A value reading a variable the sample doesn't have, as Radix's accordion reads
+ * `--radix-accordion-content-height`, takes the variable's fallback, or for a size the sample's own, and is otherwise
+ * left out, so the sample never collapses for want of the page the keyframes were written for.
+ */
+function runnable(frames: Keyframe[], size: { width: number; height: number }): Keyframe[] {
+  return frames.map((frame) =>
+    Object.fromEntries(
+      Object.entries(frame).flatMap(([property, value]) => {
+        if (typeof value !== "string" || !value.includes("var(")) return [[property, value]]
+        const filled = value.replaceAll(/var\(\s*--[\w-]+\s*(?:,\s*([^()]*))?\)/g, (whole, fallback?: string) =>
+          fallback?.trim() ? fallback.trim() : whole
+        )
+        if (!filled.includes("var(")) return [[property, filled]]
+        if (/height|blocksize/i.test(property)) return [[property, `${size.height}px`]]
+        if (/width|inlinesize/i.test(property)) return [[property, `${size.width}px`]]
+        return []
+      })
+    )
   )
 }
 
@@ -876,47 +878,53 @@ function LayersArt({ token, width, height }: { token: PreviewToken; width: numbe
   )
 }
 
+/** The length a squeezed tail ends at, Tailwind's `--spacing-96`, longer than most themes' last step. */
+const squeezedTo = 384
+
 /**
- * A length at its true size, as a bar between two ticks. Only a length longer than `room` is cut, and the cut is drawn
- * as a break, so a cut bar never passes for its true size.
+ * How a length is drawn in `room` pixels. Up to the knee, 16 pixels short of the room, it's drawn at its true size;
+ * past it, the first part is drawn at its true size and the rest squeezed into those last pixels, on a log scale up to
+ * 384 pixels, so a longer length always ends further along.
  */
-export function SpacingBar({ length, room, dim = false }: { length: number; room: number; dim?: boolean }) {
-  const fits = !(length > room)
-  const shown = fits ? Math.max(1, length || 0) : Math.max(1, room - 14)
-  const fill = { background: dim ? "currentColor" : "var(--canvas-layer)", opacity: dim ? 0.35 : 0.85 }
-  return (
-    <span className="flex h-2.5 shrink-0 items-center text-muted-foreground">
-      <span className="relative h-full" style={{ width: shown }}>
-        <span className="absolute inset-y-0 left-0 w-px bg-current" />
-        <span className="absolute inset-x-0 top-1/4 h-1/2 rounded-[1px]" style={fill} />
-        {fits && <span className="absolute inset-y-0 right-0 w-px bg-current" />}
-      </span>
-      {!fits && (
-        <>
-          <svg width="9" height="10" viewBox="0 0 9 10" className="shrink-0" aria-hidden>
-            <path d="M1.5 9.5 L4 0.5 M5 9.5 L7.5 0.5" stroke="currentColor" strokeWidth="1" />
-          </svg>
-          <span className="relative h-full w-[5px]">
-            <span className="absolute inset-x-0 top-1/4 h-1/2 rounded-[1px]" style={fill} />
-            <span className="absolute inset-y-0 right-0 w-px bg-current" />
-          </span>
-        </>
-      )}
-    </span>
-  )
+export function barLength(length: number, room: number): { solid: number; squeezed: number } {
+  const tail = Math.min(16, Math.max(0, room) / 2)
+  const knee = Math.max(1, room - tail)
+  const size = Number.isFinite(length) ? Math.max(0, length) : 0
+  if (!(size > knee)) return { solid: Math.max(1, size), squeezed: 0 }
+  const share = Math.log(size / knee) / Math.log(Math.max(squeezedTo, size) / knee)
+  return { solid: knee, squeezed: tail * Math.min(1, share) }
 }
 
-/** The longest length a spacing row draws at its true size; a longer one is drawn cut, with a break in its bar. */
-const longestBar = 128
-
 /**
- * How wide a section's spacing previews are: as wide as its longest length, so every bar is its true size, up to
- * `longestBar`. Names still line up within the section. Nothing for a section without spacing.
+ * A length as a bar between two ticks, at its true size while it fits. A longer one is drawn true to the knee, then
+ * hatched where it's squeezed, so a squeezed bar never passes for its true size, and still reads longer than a shorter
+ * one.
  */
-export function spacingSlot(tokens: readonly PreviewToken[]): number | undefined {
-  const lengths = tokens.filter((token) => token.kind === "spacing").map((token) => px(drawn(token)))
-  const longest = Math.max(0, ...lengths.filter(Number.isFinite))
-  return lengths.length > 0 ? Math.min(longestBar + 4, Math.max(40, Math.ceil(longest) + 6)) : undefined
+export function SpacingBar({ length, room, dim = false }: { length: number; room: number; dim?: boolean }) {
+  const { solid, squeezed } = barLength(length, room)
+  const color = dim ? "currentColor" : "var(--canvas-layer)"
+  const opacity = dim ? 0.35 : 0.85
+  return (
+    <span className="relative block h-2.5 shrink-0 text-muted-foreground" style={{ width: solid + squeezed }}>
+      <span className="absolute inset-y-0 left-0 w-px bg-current" />
+      <span
+        className={`absolute top-1/4 left-0 h-1/2 ${squeezed ? "rounded-l-[1px]" : "rounded-[1px]"}`}
+        style={{ width: solid, background: color, opacity }}
+      />
+      {squeezed > 0 && (
+        <span
+          className="absolute top-1/4 h-1/2"
+          style={{
+            left: solid,
+            width: squeezed,
+            opacity,
+            background: `repeating-linear-gradient(135deg, ${color} 0 1.5px, transparent 1.5px 3px)`
+          }}
+        />
+      )}
+      <span className="absolute inset-y-0 right-0 w-px bg-current" />
+    </span>
+  )
 }
 
 const valueChecks: Partial<
@@ -967,12 +975,162 @@ export function valueProblem(
   const open = unclosedInValue(text)
   if (open) return open
   const missing = tokenReferences(text).find((name) => lookup(name) === undefined)
-  if (missing) return `There's no token named --${missing}.`
+  if (missing) return `There's no token named ${missing}.`
   const check = valueChecks[kind]
   if (!check) return undefined
   const [property, noun, example, wrap] = check
   const resolved = substituteReferences(text, lookup)
   return CSS.supports(property, wrap ? wrap(resolved) : resolved) ? undefined : `That isn't a ${noun}. Try ${example}.`
+}
+
+/**
+ * How far a shadow reaches past its box, in pixels: for its furthest layer, its offset plus its blur and spread. Read
+ * from the value, as `0 4px 6px -1px rgb(0 0 0 / 0.1)` reaches 9, so shadows order by size whatever they're named.
+ * Undefined when no layer has a length it can read, as when the lengths are variables.
+ */
+export function shadowReach(value: string): number | undefined {
+  let furthest: number | undefined
+  for (const layer of valueParts(value)) {
+    const lengths = topLevelWords(layer).flatMap((word) => {
+      const match = /^(-?\d*\.?\d+)(px|rem|em)?$/.exec(word)
+      return match ? [Number(match[1]) * (match[2] === "rem" || match[2] === "em" ? 16 : 1)] : []
+    })
+    if (lengths.length === 0) continue
+    const [x = 0, y = 0, blur = 0, spread = 0] = lengths
+    const reach = Math.max(Math.abs(x), Math.abs(y)) + Math.max(0, blur) + spread
+    furthest = Math.max(furthest ?? reach, reach)
+  }
+  return furthest
+}
+
+/** A value's words outside brackets, so a color function's numbers aren't taken for lengths. */
+function topLevelWords(value: string): string[] {
+  const words: string[] = []
+  let depth = 0
+  let word = ""
+  for (const char of value) {
+    if (char === "(") depth++
+    else if (char === ")") depth--
+    if (depth === 0 && /\s/.test(char)) {
+      if (word) words.push(word)
+      word = ""
+    } else word += char
+  }
+  if (word) words.push(word)
+  return words.filter((each) => !each.includes("("))
+}
+
+/**
+ * Where a token falls in its scale, for the kinds whose values are measured: a length in pixels, a duration in
+ * milliseconds, a weight, a ratio, how far a shadow reaches, an animation's duration, or a plain number. Undefined for
+ * the kinds with no one order (colors, fonts, easings, cursors) and for a value that can't be measured.
+ */
+export function scaleValue(token: PreviewToken): number | undefined {
+  const value = drawn(token)
+  let measured: number
+  switch (token.kind) {
+    case "spacing":
+    case "radius":
+    case "font-size":
+    case "tracking":
+    case "border-width":
+    case "blur":
+    case "backdrop-blur":
+    case "perspective":
+    case "breakpoint":
+    case "container":
+      measured = px(value)
+      break
+    case "duration":
+      measured = ms(value)
+      break
+    case "shadow":
+    case "inset-shadow":
+    case "drop-shadow":
+    case "text-shadow":
+      measured = shadowReach(value) ?? Number.NaN
+      break
+    case "animation":
+      measured = animationParts(value).duration ?? Number.NaN
+      break
+    case "font-weight":
+    case "leading":
+    case "opacity":
+    case "z-index":
+    case "number":
+      measured = Number(value)
+      break
+    case "aspect": {
+      const [width = Number.NaN, height = 1] = value.split("/").map((part) => Number(part.trim()))
+      measured = width / height
+      break
+    }
+    default:
+      return undefined
+  }
+  return Number.isFinite(measured) ? measured : undefined
+}
+
+/**
+ * Tokens smallest first, by `scaleValue`: font weights from thin to black, sizes from `text-xs` up, durations from the
+ * fastest, shadows from the closest. Those it can't measure keep their order after the rest, as do kinds with no one order.
+ */
+export function inScaleOrder<T>(items: readonly T[], preview: (item: T) => PreviewToken): T[] {
+  const measured = items.map((item) => {
+    const token = preview(item)
+    return { item, name: token.name, value: scaleValue(token) }
+  })
+  return measured
+    .toSorted((a, b) =>
+      a.value === undefined || b.value === undefined
+        ? (a.value === undefined ? 1 : 0) - (b.value === undefined ? 1 : 0) || compareNames(a.name, b.name)
+        : a.value - b.value || compareNames(a.name, b.name)
+    )
+    .map(({ item }) => item)
+}
+
+const collator = new Intl.Collator("en", { numeric: true, sensitivity: "base" })
+
+/**
+ * Names in the order people count them: word by word (split at dashes, underscores and camelCase), numbers by value
+ * (`chart-2` before `chart-10`, `fontSizeBase100` before `fontSizeBase1000`), and size words smallest first, so
+ * `2xs`, `xs`, `sm`, `md`, `lg`, `xl`, `2xl` and Fluent's `XXS` to `XXL` and `Small` to `XLarge` keep their order
+ * whatever library names them. A name that is the start of another comes first.
+ */
+export function compareNames(a: string, b: string): number {
+  const left = nameWords(a)
+  const right = nameWords(b)
+  for (let index = 0; index < Math.min(left.length, right.length); index++) {
+    const x = left[index]!
+    const y = right[index]!
+    const [xSize, ySize] = [sizeRank(x), sizeRank(y)]
+    let order: number
+    if (xSize !== undefined && ySize !== undefined) order = xSize - ySize
+    else if (/^\d*\.?\d+$/.test(x) && /^\d*\.?\d+$/.test(y)) order = Number(x) - Number(y)
+    else order = collator.compare(x, y)
+    if (order) return order
+  }
+  return left.length - right.length
+}
+
+function nameWords(name: string): string[] {
+  return name.split(/[-_]+|(?<=[a-z\d])(?=[A-Z])/).filter(Boolean)
+}
+
+/**
+ * Where a size word falls, small to large: `sm`, `s` and `Small` are -1, `md`, `m`, `Medium` and `base` 0, `lg`, `l`
+ * and `Large` 1, and each x, or the number before it, takes one step further out: `xs` -2, `2xs` and `XXS` -3, `xl`
+ * and `XLarge` 2, `2xl` 3. Undefined for any other word.
+ */
+function sizeRank(word: string): number | undefined {
+  const match = /^(?:(\d+)x|(x*))(s|sm|small|m|md|medium|base|l|lg|large)$/i.exec(word)
+  if (!match) return undefined
+  const size = match[3]!.toLowerCase()
+  let side = 0
+  if (["s", "sm", "small"].includes(size)) side = -1
+  else if (["l", "lg", "large"].includes(size)) side = 1
+  const steps = match[1] ? Number(match[1]) : match[2]!.length
+  return side * (1 + steps)
 }
 
 /**
@@ -1010,9 +1168,14 @@ export function valueLabel(token: PreviewToken): string | undefined {
       return value.replace(/\s*\/\s*/, ":")
     case "font":
       return value.split(",")[0]!.replaceAll(/['"]/g, "").replace(" Variable", "")
+    case "duration": {
+      const time = ms(value)
+      return Number.isNaN(time) ? value : `${Number(time.toFixed(2))}ms`
+    }
     case "animation": {
       const { duration, infinite } = animationParts(value)
-      return `${duration}ms${infinite ? ", loops" : ""}`
+      const time = duration === undefined ? undefined : `${duration}ms`
+      return [time, infinite ? "loops" : undefined].filter(Boolean).join(", ") || undefined
     }
     default:
       return value
@@ -1031,17 +1194,17 @@ export function TokenGlyph({
 }: {
   token: PreviewToken
   playing?: boolean
-  /** Colors show a swatch for each theme. */
+  /** Colors show a swatch for each theme, or one for themes that share a value. */
   themes?: string[]
   /** Wider for spacing, so each bar is its length's true size. */
   width?: number
 }) {
   if (token.kind === "color") {
     return (
-      <span className="flex h-5 w-10 shrink-0 overflow-hidden rounded-[4px]">
-        {themes.map((theme) => (
-          <span key={theme} className="h-full flex-1">
-            <TokenArt token={token} width={40 / themes.length} height={20} theme={theme} />
+      <span className="flex h-5 w-10 shrink-0 gap-px overflow-hidden rounded-[4px]">
+        {themesByValue(token, themes).map((group, _, groups) => (
+          <span key={group[0]} className="h-full flex-1">
+            <TokenArt token={token} width={40 / groups.length} height={20} theme={group[0]} />
           </span>
         ))}
       </span>

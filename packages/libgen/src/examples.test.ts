@@ -4,6 +4,7 @@ import {
   exampleLevels,
   familyOf,
   familySample,
+  localImports,
   nearestParent,
   normalizeRepo,
   readExamples
@@ -452,6 +453,24 @@ describe("families", () => {
     expect(uses.get("DatePicker.Root")?.sample?.props?.max).toBeUndefined()
   })
 
+  it("gives a part the values the package makes that any of its uses passes", () => {
+    const files = [
+      {
+        path: "full.tsx",
+        text: `<DatePicker.Root><DatePicker.Label>Date</DatePicker.Label><DatePicker.Content /></DatePicker.Root>`
+      },
+      {
+        path: "value.tsx",
+        text: `import { parseDate } from "@acme/ui"\nexport const Demo = () => <DatePicker.Root defaultValue={[parseDate("2025-03-15")]} />`
+      }
+    ]
+    const uses = readExamples(files, ["DatePicker.Root", "DatePicker.Label", "DatePicker.Content"], "@acme/ui")
+    expect(uses.get("DatePicker.Root")?.sample).toMatchObject({
+      props: { defaultValue: [{ $call: { import: "@acme/ui", export: "parseDate" }, args: ["2025-03-15"] }] },
+      children: [{ component: "DatePicker.Label" }, { component: "DatePicker.Content" }]
+    })
+  })
+
   it("leaves out a sample prop only one of a part's many uses sets", () => {
     const cells = [
       `<Cell colSpan={2}>Wide cell text</Cell>`,
@@ -511,5 +530,59 @@ describe("repository urls", () => {
       "https://github.com/adobe/react-spectrum"
     )
     expect(normalizeRepo(undefined)).toBeUndefined()
+  })
+})
+
+describe("localImports", () => {
+  it("finds the repository's files examples import, by relative path or a mapped one, but not packages", () => {
+    const tree = [
+      "apps/compositions/src/ui/toaster.tsx",
+      "apps/compositions/src/examples/toast-basic.tsx",
+      "packages/react/stories/utils.tsx",
+      "packages/react/stories/menu.stories.tsx",
+      "packages/react/src/index.ts"
+    ]
+    const paths = ["apps/compositions/src/examples/toast-basic.tsx", "packages/react/stories/menu.stories.tsx"]
+    const texts = [
+      `import { Button } from "@chakra-ui/react"\nimport { toaster } from "compositions/ui/toaster"`,
+      `import React from "react"\nimport { MyMenuItem } from "./utils"`
+    ]
+    expect(localImports(paths, texts, tree).sort()).toEqual([
+      "apps/compositions/src/ui/toaster.tsx",
+      "packages/react/stories/utils.tsx"
+    ])
+  })
+})
+
+describe("methods called on a value another file makes", () => {
+  it("makes it with the fullest call of each method the examples make on it", () => {
+    const files = [
+      {
+        path: "apps/compositions/src/ui/toaster.tsx",
+        text: `import { createToaster, Toaster as ChakraToaster, Toast } from "@acme/ui"
+export const toaster = createToaster({ placement: "bottom-end" })
+export const Toaster = () => (
+  <ChakraToaster toaster={toaster}>{(toast) => <Toast.Root><Toast.Title>Title</Toast.Title></Toast.Root>}</ChakraToaster>
+)`
+      },
+      {
+        path: "apps/compositions/src/examples/toast-types.tsx",
+        text: `import { toaster } from "compositions/ui/toaster"
+export const Demo = () => (
+  <>
+    <button onClick={() => toaster.create({ title: "Saved" })}>One</button>
+    <button onClick={() => toaster.create({ title: "File saved", type: "success" })}>Two</button>
+    <button onClick={() => toaster.create(makeOptions())}>Three</button>
+    <button onClick={() => toaster.dismiss()}>Clear</button>
+  </>
+)`
+      }
+    ]
+    const uses = readExamples(files, ["Toaster", "Toast.Root", "Toast.Title"], "@acme/ui")
+    expect(uses.get("Toaster")?.sample?.props?.toaster).toEqual({
+      $call: { import: "@acme/ui", export: "createToaster" },
+      args: [{ placement: "bottom-end" }],
+      methods: [{ method: "create", args: [{ title: "File saved", type: "success" }] }]
+    })
   })
 })

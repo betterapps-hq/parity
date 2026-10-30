@@ -84,7 +84,7 @@ export function iconVariants(
   // The ways digits split into the rest of a name and a size the set has, longest size first; `020` isn't a size. A
   // set that doesn't list its sizes takes any number.
   const splits = ({ base, digits }: Parsed) =>
-    [...digits].flatMap((_, at) => {
+    digits.split("").flatMap((_, at) => {
       const size = digits.slice(at)
       return String(Number(size)) === size && (sizes.size === 0 || sizes.has(Number(size)))
         ? [{ label: base + digits.slice(0, at), size: Number(size) }]

@@ -112,10 +112,10 @@ interface StateRowProps {
   base: boolean
   active: boolean
   renaming: boolean
-  onView(): void
-  onRename(): void
-  onRenamed(name: string | undefined): void
-  onDuplicate(): void
+  onView: () => void
+  onRename: () => void
+  onRenamed: (name: string | undefined) => void
+  onDuplicate: () => void
   onDelete?: () => void
 }
 

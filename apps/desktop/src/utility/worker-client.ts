@@ -12,13 +12,13 @@ export interface WorkerClient {
 
 export interface WorkerClientOptions {
   /** Starts a worker that answers each `{ id, ...message }` with `{ id, result }` or `{ id, error }`. */
-  start(): Worker
+  start: () => Worker
   /** How long the worker is kept with nothing asked of it before it stops, returning all its memory. */
   idleMs: number
   /** What a worker's unanswered requests fail with when it fails, such as by running out of memory. */
-  failed?(error: Error): Error
+  failed?: (error: Error) => Error
   /** Told when the worker stops for being idle. */
-  stopped?(): void
+  stopped?: () => void
 }
 
 interface Running {

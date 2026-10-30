@@ -135,7 +135,7 @@ export async function exportImages(scope: "selection" | "all", session = activeS
 
 /** Closes the active tab once its last edits are saved. */
 export function closeTab(id = workspace.getActiveId()): void {
-  if (id) workspace.close(id)
+  if (id) void workspace.close(id)
 }
 
 export function exit(): void {

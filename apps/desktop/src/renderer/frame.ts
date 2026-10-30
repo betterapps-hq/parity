@@ -86,7 +86,11 @@ let rewritingRules = false
 function rewriteAddedRules(): void {
   if (rewritingRules) return
   rewritingRules = true
-  const { insertRule, replace, replaceSync } = CSSStyleSheet.prototype
+  // The originals, called with each sheet as `this`.
+  const original = Object.getOwnPropertyDescriptors(CSSStyleSheet.prototype)
+  const insertRule = original.insertRule.value!
+  const replace = original.replace.value!
+  const replaceSync = original.replaceSync.value!
   CSSStyleSheet.prototype.insertRule = function (rule, index) {
     return insertRule.call(this, rewriteSheetViewportUnits(rule), index)
   }
@@ -138,10 +142,6 @@ function rewriteStyleText(node: Node): void {
   if (!(node instanceof Text) || node.parentElement?.localName !== "style") return
   const rewritten = rewriteSheetViewportUnits(node.data)
   if (rewritten !== node.data) node.data = rewritten
-}
-
-export function frameBody(host: Element): HTMLElement | undefined {
-  return (host.shadowRoot?.firstElementChild as HTMLElement | null) ?? undefined
 }
 
 /** How each frame's guest says where its design nodes are drawn, by the frame's host element. */

@@ -37,7 +37,7 @@ const providers = [
 ]
 
 /** Provider buttons, then a work email for single sign-on or a code. */
-function SignInForm({ onContinue }: { onContinue?(): void }) {
+function SignInForm({ onContinue }: { onContinue?: () => void }) {
   return (
     <div className="flex flex-col gap-3">
       {providers.map((provider) => (
@@ -356,7 +356,7 @@ function EmailFirst({ initial }: { initial: Step }) {
   )
 }
 
-function BackLink({ onClick, children }: { onClick(): void; children: ReactNode }) {
+function BackLink({ onClick, children }: { onClick: () => void; children: ReactNode }) {
   return (
     <button
       type="button"

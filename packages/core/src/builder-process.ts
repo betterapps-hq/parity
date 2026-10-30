@@ -1,6 +1,5 @@
 import type { BuilderAdapter, BuilderSession, BuilderStartOptions } from "./adapters.ts"
 import type { ComponentSource, ProjectConfig } from "./project.ts"
-import type { ServedRecord } from "./served.ts"
 
 /*
  * Each open project's builder runs in a process of its own, which ends when the project closes, so the system takes
@@ -27,8 +26,6 @@ export type BuilderProcessReply =
   | { type: "started"; guestUrl: string; toolVersion: string }
   | { type: "failed"; error: string }
   | ({ type: "usage"; id: number } & ProcessTimes)
-  /** What the builder served the pages, once it has closed, for the project's next builder. */
-  | { type: "closed"; served: ServedRecord }
 
 /** A process's CPU time and memory, as it reads them itself. */
 export interface ProcessTimes {
@@ -95,12 +92,7 @@ export function serveBuilderProcess(
     } else if (!closing) {
       closing = true
       void session
-        .then(async (started) => {
-          // Asked first, while the builder can still make a module again to check one whose files changed.
-          const served = await started?.served?.().catch(() => undefined)
-          await started?.close()
-          if (served) side.send({ type: "closed", served })
-        })
+        .then((started) => started?.close())
         .catch(() => undefined)
         .then(() => side.exit())
     }
@@ -120,11 +112,6 @@ export interface BuilderProcessSession extends BuilderSession {
   setComponents(components: Record<string, ComponentSource>): void
   /** Its process's CPU and memory, or nothing when it doesn't answer in time. */
   usage(): Promise<BuilderUsage | undefined>
-  /**
-   * What its builder said it served the pages as it closed: nothing before then, or when it ended without saying, as
-   * one that crashed or didn't close in time.
-   */
-  servedRecord(): ServedRecord | undefined
 }
 
 export interface BuilderUsage {
@@ -148,7 +135,7 @@ export interface BuilderProcessClient {
 
 export interface BuilderProcessClientOptions {
   /** Called when the process ends by itself after its builder started, with why. */
-  onCrash?(reason: string): void
+  onCrash?: (reason: string) => void
   /** How long a builder has to close before its process is ended, in milliseconds. */
   closeTimeout?: number
   /** How long a usage reading is waited for, in milliseconds. */
@@ -180,7 +167,6 @@ export function connectBuilderProcess(
   const readings = new Map<number, (reply?: ProcessTimes) => void>()
   let nextReading = 1
   let lastReading: ProcessTimes | undefined
-  let served: ServedRecord | undefined
 
   const close = (): Promise<void> => {
     if (state === "starting" || state === "running") {
@@ -219,8 +205,6 @@ export function connectBuilderProcess(
       if (reply.type === "usage") {
         const { type: _, id, ...reading } = reply
         readings.get(id)?.(reading)
-      } else if (reply.type === "closed") {
-        if (state === "closing") served = reply.served
       } else if (state !== "starting") {
         // A start that answers after it was told to close is closing anyway.
       } else if (reply.type === "started") {
@@ -231,7 +215,6 @@ export function connectBuilderProcess(
           toolVersion,
           setComponents: (components) => state === "running" && link.send({ type: "components", components }),
           usage,
-          servedRecord: () => served,
           close
         })
       } else {

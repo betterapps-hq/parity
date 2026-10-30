@@ -1,0 +1,4 @@
+{
+  "ComboboxSearch": "input is a void element tag and must neither have `children` nor use `dangerouslySetInnerHTML`.",
+  "TreeSelect": "input is a void element tag and must neither have `children` nor use `dangerouslySetInnerHTML`."
+}

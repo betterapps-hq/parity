@@ -258,7 +258,13 @@ function dtcgValue(value: string, category: TokenCategory, paths: Map<string, st
   if (reference && paths.has(reference)) return { $value: `{${paths.get(reference)!.join(".")}}` }
   const hex = /^#([\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})$/i.exec(value.trim())?.[1]
   if (hex && category === "color") {
-    const full = hex.length <= 4 ? [...hex].map((digit) => digit + digit).join("") : hex
+    const full =
+      hex.length <= 4
+        ? hex
+            .split("")
+            .map((digit) => digit + digit)
+            .join("")
+        : hex
     const channels = [0, 2, 4].map((at) => Math.round((parseInt(full.slice(at, at + 2), 16) / 255) * 1000) / 1000)
     const alpha = full.length === 8 ? Math.round((parseInt(full.slice(6, 8), 16) / 255) * 1000) / 1000 : undefined
     return {

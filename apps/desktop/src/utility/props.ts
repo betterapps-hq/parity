@@ -28,19 +28,19 @@ export const checkerIdleMs = Number(process.env.PARITY_CHECKER_IDLE_MS) || 5 * 6
 /** Props and the component check, read by TypeScript's checker in a worker thread, one request at a time. */
 export interface TypeChecker {
   /** Infers every component's props. */
-  inferComponents(
+  inferComponents: (
     root: string,
     components: Record<string, ComponentSource>,
     /** The app's files the type checker reads next, read now too, so both use one program. */
     files?: string[]
-  ): Promise<Record<string, ComponentInfo>>
+  ) => Promise<Record<string, ComponentInfo>>
   /** Asks which of the app's files' exports are components, and why it left out the others, from the same program. */
-  checkComponents(root: string, files: string[]): Promise<CheckResult>
+  checkComponents: (root: string, files: string[]) => Promise<CheckResult>
   /**
    * Lets go of a closed project's program, which can hold a couple of gigabytes. With no project open, the worker
    * stops, returning all of it.
    */
-  closeChecker(root: string, lastProject: boolean): void
+  closeChecker: (root: string, lastProject: boolean) => void
 }
 
 /**

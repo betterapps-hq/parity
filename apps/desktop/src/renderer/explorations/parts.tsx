@@ -39,9 +39,9 @@ export function ExploreWindow({
   actions?: ReactNode
   /** Working menus, in place of the drawn ones. */
   menus?: ReactNode
-  onSelect?(id: string): void
-  onClose?(id: string): void
-  onNew?(): void
+  onSelect?: (id: string) => void
+  onClose?: (id: string) => void
+  onNew?: () => void
   children: ReactNode
 }) {
   return (

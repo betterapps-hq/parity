@@ -99,8 +99,8 @@ function AgentCursor({
   agent: string
   index: number
   root: RefObject<HTMLDivElement | null>
-  onDone(agent: string): void
-  onScan(scan: Scan): void
+  onDone: (agent: string) => void
+  onScan: (scan: Scan) => void
 }) {
   const session = useProject()
   const version = usePresenceVersion()

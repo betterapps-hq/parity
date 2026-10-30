@@ -74,7 +74,7 @@ function CandidateCard({
 }: {
   entry: ContainerEntry
   candidate: RepeatCandidate
-  onDone(): void
+  onDone: () => void
 }) {
   const session = useProject()
   const [name, setName] = useState(candidate.name)
@@ -236,8 +236,12 @@ function VariantsSection({ entry, variants }: { entry: ContainerEntry; variants:
           onSubmit={(event) => {
             event.preventDefault()
             const data = new FormData(event.currentTarget)
-            const name = String(data.get("name") ?? "").trim()
-            const options = String(data.get("options") ?? "")
+            const text = (field: string) => {
+              const entry = data.get(field)
+              return typeof entry === "string" ? entry : ""
+            }
+            const name = text("name").trim()
+            const options = text("options")
               .split(",")
               .map((option) => option.trim())
               .filter(Boolean)

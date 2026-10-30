@@ -24,6 +24,12 @@ to npm and of unsigned installers to GitHub Releases, as betas first and to ever
 - **The agency monorepo's stricter lint rules are on** (PAR-396), apart from the three left out below.
 - **Hooks check what a commit stages and what a push sends** (PAR-3), so other sessions' unfinished work no longer fails
   a commit. `pnpm verify` still checks the whole folder.
+- **The type-aware lint rules are on** (PAR-396), checked with types on push and in CI. One test file turns
+  `no-implied-eval` off in `lint.overrides`, since it runs generated source; decisions.md says why.
+- **`pnpm check:unused` runs knip** (PAR-395) for unused files, dependencies and exports, from `knip.jsonc`. Neither
+  `pnpm verify` nor CI runs it yet.
+- **Dependabot keeps dependencies current** (PAR-394): weekly, grouped, a few days behind each release, and never in the
+  fixtures or the Vite+ toolchain. decisions.md has the calls.
 
 ## Vite+
 
@@ -129,7 +135,8 @@ This is how Buildkit and the agency monorepo already release, and you asked for 
 - **Pull requests also run `beachball check`.**
 - **A newer push cancels the run before it.** Release and deploy runs never cancel.
 - **Dependabot opens a weekly PR** for npm minor and patch updates, grouped, and one for Actions, which also keeps the
-  shared pipelines' pinned versions current (PAR-394).
+  shared pipelines' pinned versions current (PAR-394). It waits out a cooldown longer than pnpm's minimum release age,
+  and its pull requests need no change file, since Beachball's config ignores manifests on its own pull requests.
 
 ## Desktop releases
 
