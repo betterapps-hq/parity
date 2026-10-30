@@ -1002,11 +1002,11 @@ What the Tokens tab shows, and how a token is copied and edited from it.
 Every row in the Tokens tab draws its token as it looks, in one fixed box, so the names line up whatever the kind. A
 color shows a swatch for each theme; spacing, a bar at its true size; a radius, a rounded corner; a shadow, a card's
 corner on the design's sheet; type, "Aa" in its size, weight, spacing or font; line height, lines of text; opacity and
-blur, shapes on the design's sheet; a duration, a track; an easing, its curve; an animation, a mark; a z-index, where it
-falls among stacked sheets; breakpoints and containers, their share of a wide screen; an aspect ratio, a box of that
-shape; a cursor, its icon, and hovering it shows the real cursor. A bare number has nothing to draw, so its row shows
-the number. Beside the name is what the token comes to, in the unit people think in (`16px`, `50%`, `1.5×`, the first
-font, `1000ms, loops`), or nothing where the preview says it all.
+blur, shapes on the design's sheet; a duration, a track; an easing, its curve; an animation, one plain block running its
+keyframes; a z-index, where it falls among stacked sheets; breakpoints and containers, their share of a wide screen; an
+aspect ratio, a box of that shape; a cursor, its icon, and hovering it shows the real cursor. A bare number has nothing
+to draw, so its row shows the number. Beside the name is what the token comes to, in the unit people think in (`16px`,
+`50%`, `1.5×`, the first font, `1000ms, loops`), or nothing where the preview says it all.
 
 - **Sections follow what a token is for,** not where Parity files it: Colors (Project colors, then the Palette), Fonts,
   Font sizes, Font weights, Line height, Letter spacing, Spacing, Radius, Borders (Widths, Width and style), Shadows
@@ -1017,25 +1017,36 @@ font, `1000ms, loops`), or nothing where the preview says it all.
 - **Values are what the token comes to.** A reference is followed to the value at the end, through `calc()` too, in each
   theme (`--radius-lg: calc(var(--radius) + 4px)` draws at 14px), and a step of the spacing scale is the scale times its
   factor. The project's custom properties are never set on Parity's own elements, since shadcn's names are Parity's too.
-- **Spacing draws at its true size.** Rows widen to the section's longest length, up to 128 pixels; only a longer one is
-  drawn cut, with a break in its bar, so a cut bar never passes for its true size.
+- **Spacing keeps the usual box.** A bar is drawn at its true size while it fits the row's box; a longer one is drawn
+  cut, with a break in its bar, so a cut bar never passes for its true size, and the pixels beside the name say how long
+  it is. The detail draws it at its true size among its neighbours.
+- **Each measured kind lists smallest first:** font weights from thin to black, font sizes from `text-xs` up, then
+  spacing, radii, letter spacing, line heights, border widths, blurs, opacities, durations, layers, breakpoints,
+  containers, perspective and aspect ratios by value. Colors, fonts, shadows, easings, animations and cursors have no
+  one order, so they stay by name, as does a value that can't be measured, after the rest.
 - **What a design shows sits on the design's sheet:** shadows, blur, opacity and type are drawn on white in the light
   theme, as in a frame, not on Parity's dark chrome. Measurements are diagrams in Parity's ink.
 - **Tiles.** The List and Tiles buttons beside the search switch views. Tiles are two across, each a larger preview with
   the name and what it comes to under it. A bare number stays a row, as a tile of only a name says less. The palette
   stays a grid in both.
-- **Copying.** A row's or tile's copy button, which shows while it's hovered or has the keyboard, copies the token's
-  name as CSS writes it (`--radius-md`), which Parity's fields take, and its icon springs into a green check. Ctrl+C
-  (Cmd+C on a Mac) on a row or tile does the same. A palette shade copies on a click, with a "Copied" bubble, as there's
-  little else to do with one of 242.
+- **Copying.** A row's or tile's copy button, which shows in place of the value while the row is hovered or has the
+  keyboard, so the name never gives up room for it, copies the token's name as CSS writes it (`--radius-md`), which
+  Parity's fields take, and its icon springs into a green check. Ctrl+C (Cmd+C on a Mac) on a row or tile does the same.
+  A palette shade copies on a click, with a "Copied" bubble, as there's little else to do with one of 242.
 - **Editing.** Clicking a row or tile opens the token's detail (below), where Edit changes it. A palette shade is edited
   from a search: while searching, the palette's matches list as rows.
 - **Motion plays only while it's looked at:** a duration, easing or animation runs while its row or tile is hovered or
   has the keyboard, through the Web Animations API, and stops when that ends, so an idle tab runs no animations. With
   reduced motion it holds still. An animation runs the project's own `@keyframes`, read by name from its stylesheet,
-  inside `@layer` and `@media` too; one whose keyframes aren't there holds still.
+  inside `@layer` and `@media` too; one whose keyframes aren't there holds still. Every animation, whichever library
+  it's from, runs on the same plain block, with a dashed outline where the block rests, so one that fades, shrinks or
+  collapses still shows against where it was. A keyframe value reading a variable only its page has (Radix's
+  `--radix-accordion-content-height`) takes the variable's fallback, or, for a size, the block's own.
 - **Only the rows in view are drawn,** so the theme's 500 tokens cost what a screenful does. The search and the filters
   stay above the list as it scrolls.
+- **Narrow panels.** The left panel is at least 232 pixels wide, enough for every tab's icon and the collapse button.
+  The open tab shows its name only when the tab strip has room for it, and is otherwise an icon like the rest, with its
+  name in the tooltip. The filters drop their counts before their names, and every count is in the filter's tooltip.
 
 Code: the drawings are `apps/desktop/src/renderer/chrome/token-previews.tsx` (`TokenArt`, `TokenGlyph`, `TokenTile`,
 `valueLabel`, `valueProblem`, `spacingSlot`, `tokenSections`, `useHoverPlay`); the panel is `chrome/TokensPanel.tsx`
@@ -1075,9 +1086,9 @@ Clicking a token's row or tile opens its detail beside the panel, top to bottom:
 - **One list of facts:** its value in each theme, a shadow's layers or a font stack one part to a line; Built on, the
   tokens its value refers to, each with what it comes to (a spacing step shows `--spacing × 4`); and From, the library
   that describes it. A value the last save couldn't write says "Not written to the stylesheet".
-- **A bar with Edit and Copy.** Copy copies the name, as rows do; its arrow opens Copy as, with `var()` and the Tailwind
-  classes that use the token, each named by what it sets. A spacing step has no value of its own, so its Edit is off,
-  and its hint says to change `--spacing` instead.
+- **A bar with Edit and Copy.** Copy copies the name, as rows do; its arrow opens Copy as, with `var()` under CSS and,
+  in a project that styles with Tailwind, the classes that use the token, each named by what it sets. A spacing step has
+  no value of its own, so its Edit is off, and its hint says to change `--spacing` instead.
 
 Themes are named as the Modes panel names them: the root's values are the theme option that adds no class (Light), and
 `.dark`'s are the option whose class is `dark` (Dark). A library's themes take their options' names too, and a theme no

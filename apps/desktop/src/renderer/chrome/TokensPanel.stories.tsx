@@ -110,7 +110,7 @@ export const Copying: Story = {
       await userEvent.keyboard("{Control>}c{/Control}")
       await expect(writes).toHaveBeenLastCalledWith("--secondary")
       // The theme's tokens on their own put the palette at the top.
-      await userEvent.click(canvas.getByText(/^Theme \d+$/))
+      await userEvent.click(canvas.getByRole("radio", { name: /^Theme/ }))
       await userEvent.click(await canvas.findByRole("button", { name: "Copy --color-blue-500" }))
       await expect(writes).toHaveBeenLastCalledWith("--color-blue-500")
       await waitFor(() => expect(within(document.body).getAllByText("Copied").length).toBeGreaterThan(0))
@@ -132,7 +132,7 @@ export const Motion: Story = {
 export const ProjectTokens: Story = {
   loaders: [openTokens],
   play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByText(/^Project \d+$/))
+    await userEvent.click(within(canvasElement).getByRole("radio", { name: /^Project/ }))
   }
 }
 
@@ -140,7 +140,7 @@ export const ProjectTokens: Story = {
 export const ThemeScale: Story = {
   loaders: [openTokens],
   play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByText(/^Theme \d+$/))
+    await userEvent.click(within(canvasElement).getByRole("radio", { name: /^Theme/ }))
   }
 }
 
@@ -184,6 +184,47 @@ export const Shadows: Story = {
   loaders: [openTokens],
   play: async ({ canvasElement }) => {
     await search(canvasElement, "shadow")
+  }
+}
+
+/** Font weights from thin to black, as each measured kind lists smallest first, rather than by name. */
+export const InValueOrder: Story = {
+  loaders: [openTokens],
+  play: async ({ canvasElement }) => {
+    await search(canvasElement, "font-weight")
+    const names = [...canvasElement.querySelectorAll("[data-tokens-list] .font-mono")].map((name) => name.textContent)
+    await expect(names).toEqual([
+      "font-weight-thin",
+      "font-weight-extralight",
+      "font-weight-light",
+      "font-weight-normal",
+      "font-weight-medium",
+      "font-weight-semibold",
+      "font-weight-bold",
+      "font-weight-extrabold",
+      "font-weight-black"
+    ])
+  }
+}
+
+/**
+ * The panel at its narrowest: the open tab shows only its icon, the filters keep their names and drop their counts, and
+ * nothing runs out of its box.
+ */
+export const Narrow: Story = {
+  loaders: [openTokens],
+  // The width is the app's layout, which outlives the story, so it's put back after.
+  beforeEach: () => {
+    setLayout({ leftWidth: 232 })
+    return () => setLayout({ leftWidth: 256 })
+  },
+  play: async ({ canvasElement }) => {
+    const panel = within(canvasElement)
+    await panel.findByText("Project colors")
+    const filters = panel.getAllByRole("radio")
+    for (const filter of filters) await expect(filter.scrollWidth).toBeLessThanOrEqual(filter.clientWidth + 1)
+    const tabs = panel.getByRole("tablist")
+    await expect(tabs.scrollWidth).toBeLessThanOrEqual(tabs.clientWidth + 1)
   }
 }
 

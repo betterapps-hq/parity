@@ -264,9 +264,15 @@ export function easingPoints(value: string, steps = 48): [number, number][] {
 }
 
 /** An animation shorthand's parts: the keyframes' name, how long, the easing, and whether it repeats. */
-export function animationParts(value: string): { name: string; duration: number; easing: string; infinite: boolean } {
+export function animationParts(value: string): {
+  name: string
+  /** Undefined when the value doesn't say. */
+  duration?: number
+  easing: string
+  infinite: boolean
+} {
   const parts: string[] = value.match(/[\w-]+\([^)]*\)|\S+/g) ?? []
-  const duration = parts.map(ms).find((time) => !Number.isNaN(time)) ?? 1000
+  const duration = parts.map(ms).find((time) => !Number.isNaN(time))
   const easing = parts.find((part) => /^(cubic-bezier|linear)\(/.test(part) || part in easingKeywords) ?? "ease"
   return { name: parts[0] ?? "", duration, easing, infinite: parts.includes("infinite") }
 }
@@ -416,13 +422,20 @@ export function DurationArt({
   )
 }
 
-/** An animation: a mark that runs the animation's keyframes while playing, and rests at its first frame otherwise. */
+/**
+ * An animation, the same way whichever library it's from: one plain sample, a rounded block, runs the animation's own
+ * keyframes while playing and rests whole otherwise. A faint outline holds the sample's place, so a motion that fades,
+ * shrinks or collapses it still reads as a change against where it was, and the box is never empty.
+ */
 export function AnimationArt({ value, size, playing }: { value: string; size: number; playing: boolean }) {
-  const mark = useRef<HTMLSpanElement>(null)
-  const { name, duration, easing, infinite } = animationParts(value)
-  const frames = useContext(Keyframes)(name)
+  const sample = useRef<HTMLSpanElement>(null)
+  const { name, duration = 1000, easing, infinite } = animationParts(value)
+  const width = Math.round(size * 0.6)
+  const height = Math.round(size * 0.42)
+  const keyframes = useContext(Keyframes)(name)
+  const frames = keyframes && runnable(keyframes, { width, height })
   usePlayback(
-    mark,
+    sample,
     frames?.length
       ? {
           frames: infinite ? frames : looped(frames[0]!, frames.at(-1)!, duration, easing),
@@ -433,60 +446,36 @@ export function AnimationArt({ value, size, playing }: { value: string; size: nu
       : undefined,
     playing
   )
-  const s = size
-  let art: ReactNode
-  if (name === "spin")
-    art = (
-      <span
-        ref={mark}
-        className="block rounded-full border-2"
-        style={{
-          width: s * 0.6,
-          height: s * 0.6,
-          borderColor: "currentColor",
-          borderTopColor: "var(--canvas-layer)"
-        }}
-      />
-    )
-  else if (name === "ping")
-    art = (
-      <>
-        <span
-          ref={mark}
-          className="absolute rounded-full"
-          style={{ width: s * 0.36, height: s * 0.36, background: "var(--canvas-layer)", opacity: 0.6 }}
-        />
-        <span
-          className="rounded-full"
-          style={{ width: s * 0.36, height: s * 0.36, background: "var(--canvas-layer)" }}
-        />
-      </>
-    )
-  else if (name === "bounce")
-    art = (
-      <span
-        ref={mark}
-        className="block rounded-full"
-        style={{
-          width: s * 0.36,
-          height: s * 0.36,
-          background: "var(--canvas-layer)",
-          transform: "translateY(-25%)"
-        }}
-      />
-    )
-  else
-    art = (
-      <span
-        ref={mark}
-        className="block rounded-[3px]"
-        style={{ width: s * 0.6, height: s * 0.42, background: "currentColor", opacity: name === "pulse" ? 0.7 : 1 }}
-      />
-    )
   return (
-    <span className="relative grid place-items-center" style={{ width: s, height: s }}>
-      {art}
+    <span className="relative grid place-items-center" style={{ width: size, height: size }}>
+      <span
+        className="absolute rounded-[3px] border border-dashed border-current opacity-40"
+        style={{ width, height }}
+      />
+      <span ref={sample} className="block overflow-hidden rounded-[3px] bg-current" style={{ width, height }} />
     </span>
+  )
+}
+
+/**
+ * Keyframes the sample can run. A value reading a variable the sample doesn't have, as Radix's accordion reads
+ * `--radix-accordion-content-height`, takes the variable's fallback, or for a size the sample's own, and is otherwise
+ * left out, so the sample never collapses for want of the page the keyframes were written for.
+ */
+function runnable(frames: Keyframe[], size: { width: number; height: number }): Keyframe[] {
+  return frames.map((frame) =>
+    Object.fromEntries(
+      Object.entries(frame).flatMap(([property, value]) => {
+        if (typeof value !== "string" || !value.includes("var(")) return [[property, value]]
+        const filled = value.replaceAll(/var\(\s*--[\w-]+\s*(?:,\s*([^()]*))?\)/g, (whole, fallback?: string) =>
+          fallback?.trim() ? fallback.trim() : whole
+        )
+        if (!filled.includes("var(")) return [[property, filled]]
+        if (/height|blocksize/i.test(property)) return [[property, `${size.height}px`]]
+        if (/width|inlinesize/i.test(property)) return [[property, `${size.width}px`]]
+        return []
+      })
+    )
   )
 }
 
@@ -906,19 +895,6 @@ export function SpacingBar({ length, room, dim = false }: { length: number; room
   )
 }
 
-/** The longest length a spacing row draws at its true size; a longer one is drawn cut, with a break in its bar. */
-const longestBar = 128
-
-/**
- * How wide a section's spacing previews are: as wide as its longest length, so every bar is its true size, up to
- * `longestBar`. Names still line up within the section. Nothing for a section without spacing.
- */
-export function spacingSlot(tokens: readonly PreviewToken[]): number | undefined {
-  const lengths = tokens.filter((token) => token.kind === "spacing").map((token) => px(drawn(token)))
-  const longest = Math.max(0, ...lengths.filter(Number.isFinite))
-  return lengths.length > 0 ? Math.min(longestBar + 4, Math.max(40, Math.ceil(longest) + 6)) : undefined
-}
-
 const valueChecks: Partial<
   Record<PreviewKind, [property: string, noun: string, example: string, wrap?: (value: string) => string]>
 > = {
@@ -976,6 +952,63 @@ export function valueProblem(
 }
 
 /**
+ * Where a token falls in its scale, for the kinds whose values are measured: a length in pixels, a duration in
+ * milliseconds, a weight, a ratio or a plain number. Undefined for the kinds with no one order (colors, fonts, shadows,
+ * easings, animations, cursors) and for a value that can't be measured.
+ */
+export function scaleValue(token: PreviewToken): number | undefined {
+  const value = drawn(token)
+  let measured: number
+  switch (token.kind) {
+    case "spacing":
+    case "radius":
+    case "font-size":
+    case "tracking":
+    case "border-width":
+    case "blur":
+    case "backdrop-blur":
+    case "perspective":
+    case "breakpoint":
+    case "container":
+      measured = px(value)
+      break
+    case "duration":
+      measured = ms(value)
+      break
+    case "font-weight":
+    case "leading":
+    case "opacity":
+    case "z-index":
+    case "number":
+      measured = Number(value)
+      break
+    case "aspect": {
+      const [width = Number.NaN, height = 1] = value.split("/").map((part) => Number(part.trim()))
+      measured = width / height
+      break
+    }
+    default:
+      return undefined
+  }
+  return Number.isFinite(measured) ? measured : undefined
+}
+
+/**
+ * Tokens smallest first, by `scaleValue`: font weights from thin to black, sizes from `text-xs` up, durations from the
+ * fastest. Those it can't measure keep their order after the rest, as do kinds with no one order.
+ */
+export function inScaleOrder<T>(items: readonly T[], preview: (item: T) => PreviewToken): T[] {
+  const measured = items.map((item, index) => ({ item, index, value: scaleValue(preview(item)) }))
+  return measured
+    .toSorted((a, b) =>
+      a.value === undefined || b.value === undefined
+        ? (a.value === undefined ? 1 : 0) - (b.value === undefined ? 1 : 0) || a.index - b.index
+        : a.value - b.value || a.index - b.index
+    )
+    .map(({ item }) => item)
+}
+
+/**
  * What a row shows beside the name: the value in the unit people think in (pixels, milliseconds, percent), or nothing
  * where the preview says it all.
  */
@@ -1012,7 +1045,8 @@ export function valueLabel(token: PreviewToken): string | undefined {
       return value.split(",")[0]!.replaceAll(/['"]/g, "").replace(" Variable", "")
     case "animation": {
       const { duration, infinite } = animationParts(value)
-      return `${duration}ms${infinite ? ", loops" : ""}`
+      const time = duration === undefined ? undefined : `${duration}ms`
+      return [time, infinite ? "loops" : undefined].filter(Boolean).join(", ") || undefined
     }
     default:
       return value

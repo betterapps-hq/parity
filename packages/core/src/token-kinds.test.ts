@@ -134,10 +134,10 @@ describe("previewKind", () => {
 })
 
 describe("codeForms", () => {
-  it("writes a token as var(), then the Tailwind classes that use it, each saying what it sets", () => {
+  it("writes a token as var(), then the classes that use it, each saying what it sets", () => {
     expect(codeForms("radius-md", "radius", "0.375rem")).toEqual([
       { group: "CSS", label: "Variable", text: "var(--radius-md)" },
-      { group: "Tailwind", label: "Corner radius", text: "rounded-md" }
+      { group: "Class", label: "Corner radius", text: "rounded-md" }
     ])
     expect(codeForms("primary", "color", "oklch(0.205 0 0)").map((form) => form.text)).toEqual([
       "var(--primary)",

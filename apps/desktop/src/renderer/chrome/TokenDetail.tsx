@@ -65,6 +65,7 @@ export function TokenDetail({
   themeNames,
   scale,
   stylesheet,
+  classes,
   lookup,
   onApply,
   undo,
@@ -77,6 +78,8 @@ export function TokenDetail({
   scale: readonly PreviewToken[]
   /** Where saving the project writes it. */
   stylesheet: string
+  /** Whether the project styles with Tailwind, so Copy as offers the classes that use the token. */
+  classes: boolean
   /** What another token comes to in a theme, or undefined when there's no token of that name. */
   lookup(name: string, theme: string): string | undefined
   /** Changes its values, as one undoable step. */
@@ -294,7 +297,7 @@ export function TokenDetail({
                 </span>
               </Hint>
               <span className="flex-1" />
-              <CopyMenu token={preview} />
+              <CopyMenu token={preview} classes={classes} />
             </>
           )}
         </footer>
@@ -326,12 +329,13 @@ export function themeLabel(theme: string, themes: readonly string[], names: Read
 
 /**
  * The detail's copy control, a split button. Its main half copies the name, as rows do; its arrow opens the other ways
- * to write the token, under CSS and Tailwind, each saying what it is. Whichever is copied, the main half's check says
+ * to write the token, in CSS and, in a Tailwind project, as classes, each saying what it sets. Whichever is copied, the main half's check says
  * so, and its tooltip names what was copied.
  */
-function CopyMenu({ token }: { token: PreviewToken }) {
+function CopyMenu({ token, classes }: { token: PreviewToken; classes: boolean }) {
   const copying = useCopy()
-  const groups = Map.groupBy(codeForms(token.name, token.kind, drawn(token)), (form) => form.group)
+  const forms = codeForms(token.name, token.kind, drawn(token)).filter((form) => classes || form.group === "CSS")
+  const groups = Map.groupBy(forms, (form) => form.group)
   return (
     <div className="flex items-center rounded-lg border bg-background shadow-xs dark:border-input dark:bg-input/30">
       <CopyButton text={`--${token.name}`} copying={copying} className="rounded-r-none">

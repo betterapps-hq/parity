@@ -32,10 +32,10 @@ import { Hint } from "./Hint.tsx"
 import { PanelError } from "./PanelError.tsx"
 import { PanelSectionTitle } from "./PanelSection.tsx"
 import {
+  inScaleOrder,
   Keyframes,
   type PreviewToken,
   px,
-  spacingSlot,
   TokenGlyph,
   tokenSections,
   TokenTile,
@@ -148,7 +148,7 @@ function previewOf({ token, kind }: Kinded, tokens: TokenMap, themes: string[]):
 type Item =
   | { type: "section"; key: string; title: string; count: number; first: boolean }
   | { type: "heading"; key: string; text: string; first: boolean }
-  | { type: "row"; key: string; entry: Kinded; slot?: number; gap?: boolean }
+  | { type: "row"; key: string; entry: Kinded; gap?: boolean }
   | { type: "tiles"; key: string; entries: Kinded[] }
   | { type: "hue"; key: string; hue: string; shades: Token[] }
   | { type: "note"; key: string; text: string }
@@ -206,7 +206,7 @@ export function TokensPanel() {
     view,
     searching: Boolean(needle),
     unmatched: source === "all" ? unmatched : [],
-    spacing: (list) => spacingSlot(list.map((entry) => previewOf(entry, byName, themes)))
+    preview: (entry) => previewOf(entry, byName, themes)
   })
 
   const scroller = useRef<HTMLDivElement>(null)
@@ -243,7 +243,6 @@ export function TokensPanel() {
               themes={themes}
               described={described.byName.get(item.entry.token.name)}
               unwritten={unwritten.has(item.entry.token.name)}
-              slot={item.slot}
             />
           </div>
         )
@@ -294,7 +293,7 @@ export function TokensPanel() {
 
   return (
     <>
-      <div className="flex flex-col gap-2 border-b p-3">
+      <div className="@container flex flex-col gap-2 border-b p-3">
         <div className="flex items-center gap-1.5">
           <div className="relative min-w-0 flex-1">
             <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -335,17 +334,19 @@ export function TokensPanel() {
           onValueChange={(value) => value && setSource(value as Source)}
           className="w-full"
         >
-          <ToggleGroupItem value="all" className="h-7 flex-1 text-xs">
+          <ToggleGroupItem value="all" className="h-7 min-w-0 flex-1 px-1.5 text-xs">
             All
           </ToggleGroupItem>
-          <Hint label="The project's own variables" wait>
-            <ToggleGroupItem value="semantic" className="h-7 flex-1 text-xs aria-checked:bg-muted">
-              Project {counts.semantic}
+          <Hint label={`The project's own variables, ${counts.semantic}`} wait>
+            <ToggleGroupItem value="semantic" className="h-7 min-w-0 flex-1 gap-1 px-1.5 text-xs aria-checked:bg-muted">
+              <span className="truncate">Project</span>
+              <SourceCount count={counts.semantic} />
             </ToggleGroupItem>
           </Hint>
-          <Hint label={info.styles ? `${info.styles.name}'s theme` : "Theme scale"} wait>
-            <ToggleGroupItem value="theme" className="h-7 flex-1 text-xs aria-checked:bg-muted">
-              Theme {counts.theme}
+          <Hint label={`${info.styles ? `${info.styles.name}'s theme` : "The theme scale"}, ${counts.theme}`} wait>
+            <ToggleGroupItem value="theme" className="h-7 min-w-0 flex-1 gap-1 px-1.5 text-xs aria-checked:bg-muted">
+              <span className="truncate">Theme</span>
+              <SourceCount count={counts.theme} />
             </ToggleGroupItem>
           </Hint>
         </ToggleGroup>
@@ -403,19 +404,21 @@ function panelItems({
   view,
   searching,
   unmatched,
-  spacing
+  preview
 }: {
   matches: Kinded[]
   view: View
   searching: boolean
   unmatched: Described[]
-  /** How wide a list's spacing previews are. */
-  spacing: (list: Kinded[]) => number | undefined
+  /** A token as its preview draws it, which says where it falls in its scale. */
+  preview: (entry: Kinded) => PreviewToken
 }): Item[] {
   const items: Item[] = []
   const section = (title: string, count: number) =>
     items.push({ type: "section", key: `section ${title}`, title, count, first: items.length === 0 })
-  const list = (entries: Kinded[], gap = false) => {
+  const list = (given: Kinded[], gap = false) => {
+    // A kind that's measured lists smallest first: weights from thin to black, sizes from the smallest up.
+    const entries = inScaleOrder(given, preview)
     if (view === "tiles" && entries.every((entry) => entry.kind !== "number")) {
       for (let index = 0; index < entries.length; index += 2) {
         const pair = entries.slice(index, index + 2)
@@ -423,13 +426,11 @@ function panelItems({
       }
       return
     }
-    const slot = entries.some((entry) => entry.kind === "spacing") ? spacing(entries) : undefined
     for (const [index, entry] of entries.entries()) {
       items.push({
         type: "row",
         key: `row ${entry.token.name}`,
         entry,
-        slot: entry.kind === "spacing" ? slot : undefined,
         gap: gap && index === 0
       })
     }
@@ -491,6 +492,11 @@ function panelItems({
   return items
 }
 
+/** How many tokens a filter holds, shown only while the header is wide enough for it beside the filter's name. */
+function SourceCount({ count }: { count: number }) {
+  return <span className="hidden text-muted-foreground tabular-nums @[16rem]:inline">{count}</span>
+}
+
 /** Ctrl+C, or Cmd+C on a Mac, on a token's row or tile copies its name, as its copy button does. */
 function copyKey(copy: () => void) {
   return (event: ReactKeyboardEvent) => {
@@ -517,8 +523,7 @@ function TokenRow({
   tokens,
   themes,
   described,
-  unwritten = false,
-  slot
+  unwritten = false
 }: {
   entry: Kinded
   tokens: TokenMap
@@ -527,8 +532,6 @@ function TokenRow({
   described?: Described
   /** Whether the last save couldn't write its value to the stylesheet. */
   unwritten?: boolean
-  /** How wide the preview is, when its section's previews need more than the usual box. */
-  slot?: number
 }) {
   const { token, kind } = entry
   const preview = previewOf(entry, tokens, themes)
@@ -543,22 +546,29 @@ function TokenRow({
           <button
             type="button"
             onKeyDown={copyKey(() => copying.copy(name))}
-            className="flex min-h-8 w-full min-w-0 items-center gap-2 rounded-md py-1 pr-8 pl-1.5 text-left text-xs group-hover/token:bg-accent/50 aria-expanded:bg-accent"
+            className="flex min-h-8 w-full min-w-0 items-center gap-2 rounded-md py-1 pr-1.5 pl-1.5 text-left text-xs group-hover/token:bg-accent/50 aria-expanded:bg-accent"
           >
             <TokenGlyph
               token={preview}
               playing={playing}
               themes={kind === "color" ? themesOf(token, themes) : undefined}
-              width={slot}
             />
-            <span className="flex min-w-0 flex-1 flex-col">
+            <span
+              className={`flex min-w-0 flex-1 flex-col ${value ? "" : "group-focus-within/token:pr-6 group-hover/token:pr-6"}`}
+            >
               <span className="truncate font-mono">{token.name}</span>
               {described?.description && (
                 <span className="truncate text-[11px] text-muted-foreground">{described.description}</span>
               )}
               {unwritten && <span className="text-[11px] text-destructive">Not written to the stylesheet</span>}
             </span>
-            {value && <span className="max-w-20 shrink-0 truncate text-muted-foreground tabular-nums">{value}</span>}
+            {value && (
+              <span
+                className={`max-w-20 min-w-6 shrink-0 truncate text-right text-muted-foreground tabular-nums group-focus-within/token:invisible group-hover/token:invisible ${copying.status ? "invisible" : ""}`}
+              >
+                {value}
+              </span>
+            )}
           </button>
         </Hint>
       </TokenPopover>
@@ -715,10 +725,14 @@ function Detail({ entry }: { entry: Kinded }) {
         unwritten: panel.unwritten.has(token.name)
       }}
       themeNames={panel.themeNames}
-      scale={panel.kinded
-        .filter((other) => other.kind === kind)
-        .map((other) => previewOf(other, panel.tokens, panel.themes))}
+      scale={inScaleOrder(
+        panel.kinded
+          .filter((other) => other.kind === kind)
+          .map((other) => previewOf(other, panel.tokens, panel.themes)),
+        (other) => other
+      )}
       stylesheet={store.stylesheet}
+      classes={session.info.styles?.id === "tailwind"}
       lookup={(name, theme) => comesTo(panel.tokens, name, theme)}
       onApply={(changes) =>
         store.set(Object.entries(changes).map(([theme, value]) => ({ name: token.name, theme, value })))

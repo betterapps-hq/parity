@@ -1291,14 +1291,31 @@ to PAR-209 build it.
   value with its references replaced must be the kind's value. You found `calc(var(--radius) * 2.6` saved without its
   `)`; the browser closes it silently, and `CSS.supports` passes anything holding `var()`. `validTokenValue` had both
   holes; the Tokens panel's editor has checked values this way since PAR-141.
-- **Spacing draws at its true size,** in rows and in the detail's scale, as you asked on 2026-10-29: rows widen to the
-  section's longest length, up to 128 pixels, and only a longer one is drawn cut, with a break in its bar.
+- **Spacing draws at its true size in the detail, and within the usual box in rows.** You asked on 2026-10-29 for true
+  sizes, and rows widened to the section's longest length, up to 128 pixels; in the app's 256-pixel panel that cut the
+  spacing names to a letter, so you asked the same day to go back. Rows keep the box every kind has, a longer bar is
+  drawn cut with a break, the pixels are beside the name, and the detail draws the true size among its neighbours.
+- **A measured kind lists smallest first.** You found the font weights out of order on 2026-10-29: they were by name, so
+  black came before bold and thin last. Weights, sizes, lengths, durations, opacities, layers and ratios now list by
+  value; colors, fonts, shadows, easings, animations and cursors stay by name, having no one order.
+- **An animation is drawn the same way whichever library it's from:** one plain block runs its keyframes, over a dashed
+  outline of where it rests. You found on 2026-10-29 that some vanished when hovered (Radix's accordion keyframes
+  collapse to a height only its page knows) and that the drawings were a ring, a ball or a square by Tailwind's names,
+  which wouldn't carry to other libraries.
+- **Copy as offers classes only to a project that styles with Tailwind, under Class.** You asked on 2026-10-29 why it
+  said Tailwind for any token. My call: the second group is named for what it holds, classes, rather than "Token", since
+  `rounded-md` isn't the token `--radius-md`; and since those are Tailwind's classes, a project without Tailwind gets
+  `var()` alone.
+- **The panels hold up when narrow.** You found on 2026-10-29 that the Tokens panel's header ran out of its boxes and
+  the open tab's name ran over the next tab. My call: the left panel's least width goes from 200 to 232 pixels, the open
+  tab names itself only when there's room, filters drop their counts first, and a row's copy button takes the value's
+  place while it shows rather than keeping room for itself.
 - **Copying a token takes one step, and copies its name,** since you judged it's why most people open the tab: a copy
   button on each row and tile, Ctrl+C on a row, and a click on a palette shade copy `--radius-md`. You chose the name
   over `var()` on 2026-10-29, since Parity is for designers and vibe coders, who rarely open the code: Parity's fields
   take the name, with or without the dashes, and refuse `var()` (PAR-401 makes them take it), and the dashes keep it
   from reading as a Tailwind class in a message to the agent. The detail's Copy is a split button: its arrow opens Copy
-  as, with `var()` and the Tailwind classes, each named by what it sets.
+  as, with `var()` and, in a Tailwind project, the classes, each named by what it sets.
 - **Every copy says how it went, through two shared parts** in `chrome/Copy.tsx`, which you asked for on 2026-10-29
   after a copy showed nothing: `CopyButton`, whose icon springs into a green check and back, or a red cross with
   "Couldn't copy", and `CopyOnClick`, for things with no room for a button, which raises a "Copied" bubble from what was

@@ -105,9 +105,12 @@ function otherKind(name: string, value: string, type: string | undefined): Previ
   return "number"
 }
 
-/** One way to write a token in code: in CSS or with Tailwind, saying what it sets, and the text itself. */
+/**
+ * One way to write a token in code, saying what it sets, and the text itself: in CSS, which works anywhere, or as a
+ * class, which works where the project styles with Tailwind.
+ */
 export interface CodeForm {
-  group: "CSS" | "Tailwind"
+  group: "CSS" | "Class"
   label: string
   text: string
 }
@@ -160,7 +163,7 @@ const utilities: Partial<Record<PreviewKind, [namespace: string, utilities: [uti
 
 /**
  * The ways to write a token in code, for the detail's Copy as menu: `var()`, which works anywhere CSS does, then the
- * Tailwind classes that use it. A breakpoint is a query instead (`@media (width >= 48rem)`, `md:`), as `var()` can't
+ * classes that use it, which are Tailwind's, so the menu offers them only to a project that styles with it. A breakpoint is a query instead (`@media (width >= 48rem)`, `md:`), as `var()` can't
  * go in one. `value` is what the token comes to, which a breakpoint's media query is written with.
  */
 export function codeForms(name: string, kind: PreviewKind, value: string): CodeForm[] {
@@ -169,20 +172,20 @@ export function codeForms(name: string, kind: PreviewKind, value: string): CodeF
   if (kind === "breakpoint") {
     return [
       { group: "CSS", label: "Media query", text: `@media (width >= ${value})` },
-      { group: "Tailwind", label: "Variant", text: `${step("breakpoint-") || name}:` }
+      { group: "Class", label: "Variant", text: `${step("breakpoint-") || name}:` }
     ]
   }
-  if (kind === "border") return [css, { group: "Tailwind", label: "Border", text: `[border:${css.text}]` }]
+  if (kind === "border") return [css, { group: "Class", label: "Border", text: `[border:${css.text}]` }]
   const [namespace, names] = utilities[kind] ?? ["", []]
   const named = step(namespace) || undefined
   // A project's own colors reach Tailwind through `@theme inline`, by their own names (`bg-primary`).
   const own = named ?? (kind === "color" ? name : undefined)
   const classes = names.map(([utility, label]): CodeForm => ({
-    group: "Tailwind",
+    group: "Class",
     label,
     text: tailwindClass(utility, own, kind, name)
   }))
-  if (kind === "container" && named) classes.push({ group: "Tailwind", label: "Container query", text: `@${named}:` })
+  if (kind === "container" && named) classes.push({ group: "Class", label: "Container query", text: `@${named}:` })
   // The spacing scale's base is what its steps are made of, not a length a class sets.
   return kind === "spacing" && !named ? [css] : [css, ...classes]
 }
