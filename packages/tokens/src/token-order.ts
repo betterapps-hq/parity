@@ -63,7 +63,7 @@ function topLevelWords(value: string): string[] {
  * Where a token falls in its scale, for the kinds whose values are measured: a length in pixels, a duration in
  * milliseconds, a weight, a ratio, how far a shadow reaches, an animation's duration, or a plain number. `none` is 0.
  * Undefined for the kinds with no one order (colors, fonts, easings, cursors) and for a value that can't be measured.
- * A value still holding a `var()` can't be measured either, whichever part holds it, since the variable could be
+ * An empty value, or one still holding a `var()`, can't be measured either, whichever part holds it, since the variable could be
  * anything: a shadow of `0 var(--y) black` has no reach of 0. `length` measures what plain parsing can't, such as
  * `calc()`; the app passes one that asks the browser.
  */
@@ -73,7 +73,7 @@ export function scaleValue(
   length: (value: string) => number = parsedLength
 ): number | undefined {
   const text = value.trim()
-  if (/\bvar\(/i.test(text)) return undefined
+  if (text === "" || /\bvar\(/i.test(text)) return undefined
   let measured: number
   switch (kind) {
     case "spacing":

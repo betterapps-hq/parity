@@ -1229,11 +1229,12 @@ Tests:
   open; references listed and filled in; values split at their top-level commas.
 - `packages/tokens/src/matching.test.ts` (2): a described token matched by the custom property its extension names, else
   by its path, with or without its first group, and the ones that match none.
-- `packages/tokens/src/token-order.test.ts` (12, PAR-440): a picker's containers smallest first, as the panel lists
-  them; `none` first; what can't be measured after the rest, a value still holding a `var()` anywhere too; names by
-  number and by size word, in Tailwind's and both of Fluent's forms; a size word before `normal`, the same in every
-  starting order, which was a circle before; ties by name; animations by duration; shadows by reach, Tailwind's and
-  Fluent's, and a `calc()` layer read by the measurer it's given, with `var()` never handed to it.
+- `packages/tokens/src/token-order.test.ts` (13, PAR-440): a picker's containers smallest first, as the panel lists
+  them; `none` first; what can't be measured after the rest, a value still holding a `var()` anywhere too, and an empty
+  one of any kind; names by number and by size word, in Tailwind's and both of Fluent's forms; a size word before
+  `normal`, the same in every starting order, which was a circle before; ties by name; animations by duration; shadows
+  by reach, Tailwind's and Fluent's, and a `calc()` layer read by the measurer it's given, with `var()` never handed to
+  it.
 - `apps/desktop/src/renderer/token-values.test.ts` (3, PAR-440): the shared order takes a token's kind from its
   `.lib.par` DTCG type (shadows with no category list by reach only with it), and its value as what it comes to, through
   a reference and a derived spacing step; a value still holding a `var()` lists after the rest, never measured.

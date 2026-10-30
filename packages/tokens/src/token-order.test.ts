@@ -67,6 +67,17 @@ describe("token order", () => {
       ])
     ).toEqual(["animate-b", "animate-a"])
   })
+
+  it("can't measure an empty value, whatever the kind, where Number would read it as 0", () => {
+    for (const kind of ["font-weight", "opacity", "z-index", "number", "aspect", "spacing"] as const) {
+      expect(
+        ordered(kind, [
+          ["token-a", ""],
+          ["token-b", "2"]
+        ])
+      ).toEqual(["token-b", "token-a"])
+    }
+  })
 })
 
 describe("names", () => {
