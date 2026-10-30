@@ -1330,7 +1330,9 @@ Tests:
   palette shade), DetailFromTheKeyboard (the right arrow in and Escape back, past a spacing step's disabled Edit),
   Motion, EditingAPaletteShade (from a search), InvalidValue, UnclosedBracket (a bracket left open and a missing token,
   refused) and DescribedOnly (the end of the list, drawn once scrolled to). All 29 of the file's stories played in
-  Storybook on 2026-10-30.
+  Storybook on 2026-10-30. Gap: FoldedSections clears the search with the section already open, so no story folds one
+  during a search and then clears it. That clearing unfolds it was checked in the code: the search field's `onChange`
+  empties the folded set whenever the search goes from empty to not, or back.
 - `explorations/previews/TokenPreviews.stories.tsx`: all 18 played on 2026-10-29, drawing with the app's module.
 - `chrome/TokensPanel.stories.tsx` EqualThemes (PAR-435): `chart-3`, equal in Light and Dark, has two swatches in its
   row, its tile and its detail, each named for its theme.
