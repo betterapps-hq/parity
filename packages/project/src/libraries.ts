@@ -13,11 +13,11 @@ import {
   type PackageManifest,
   parseLibraryEdits,
   parseLibraryManifest,
-  readDesignTokens,
   type RendererAdapter,
   librarySource
 } from "@parity-app/core"
 import { type RegistryEntry, registryEntries, registryEntryFor } from "@parity-app/registry"
+import { readDesignTokens } from "@parity-app/tokens"
 import { parseJsonc } from "./jsonc.ts"
 
 /** A library that can be added to a project from the canvas: one Parity's registry describes. */

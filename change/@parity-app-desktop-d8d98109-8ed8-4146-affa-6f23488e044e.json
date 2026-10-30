@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Move token reading, editing and matching into @parity-app/tokens",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

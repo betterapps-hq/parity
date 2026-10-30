@@ -1,8 +1,9 @@
 # Proposal: package boundaries
 
 Status: draft. `@parity-app/code` exists (PKG-3), project edits are in `@parity-app/project` (PAR-6), and
-`@parity-app/editor` has arranging and the clipboard (PAR-7), all on 2026-10-29. The rule and the first items are in
-[decisions.md](../decisions.md) and in Linear's Package boundaries stream.
+`@parity-app/editor` has arranging and the clipboard (PAR-7), all on 2026-10-29. `@parity-app/tokens` holds reading,
+editing and matching tokens (PAR-35), on 2026-10-30. The rule and the first items are in [decisions.md](../decisions.md)
+and in Linear's Package boundaries stream.
 
 ## In one line
 
@@ -23,7 +24,8 @@ when it's spread through UI code. Today:
 ## What's clean today
 
 - **`@parity-app/core` is the `.par` model and the operations on it:** documents, edits, instances, render resolution,
-  modes, tokens, CSS and the library manifest. It imports nothing from Node, Electron or React, and has 12 test files.
+  modes, CSS and the library manifest, with the token types its contracts name. It imports nothing from Node, Electron
+  or React, and has 12 test files.
 - **Framework-specific code sits behind adapter interfaces:** `@parity-app/renderer-react`, `@parity-app/builder-vite`
   and `@parity-app/styles-tailwind`.
 - **The agent API calls core's edits** (`setContainer`, `insertNode`, `moveNode`, `applyChanges` and the rest) rather
@@ -88,7 +90,7 @@ when it's spread through UI code. Today:
 | `@parity-app/editor`                    | Editor behaviour without the views: clipboard, drop rules, arranging, inserting, Make component, placement, snapping, selection, undo and unsaved tracking.                | The renderer files listed above.                                                                   |
 | `@parity-app/models`, then one per lens | The lens schemas (PAR-15), then each lens's standards reader and model operations. Each adapter, such as Drizzle or TanStack Router, is a package of its own.              | New code.                                                                                          |
 | `@parity-app/storybook`                 | Everything Storybook-specific, behind the `StoryAdapter` in [storybook.md](../storybook.md).                                                                               | `project/storybook.ts` and `utility/storybook.ts` (PAR-114).                                       |
-| `@parity-app/tokens`, later             | Reading tokens (Tailwind, DTCG), editing them in stylesheets, and matching described tokens to custom properties.                                                          | `core/tokens.ts`, `core/tokens-dtcg.ts`, `core/css-source.ts`, the Tokens panel's matching.        |
+| `@parity-app/tokens`                    | Reading tokens (Tailwind, DTCG), editing them in stylesheets, and matching described tokens to custom properties.                                                          | `core/tokens.ts`, `core/tokens-dtcg.ts`, `core/css-source.ts`, the Tokens panel's matching.        |
 
 ### `@parity-app/code`: design and code, both ways
 
@@ -160,8 +162,8 @@ itself with Beachball.
 4. **`@parity-app/editor`,** file by file (PAR-7, then PAR-32 to PAR-34).
 5. **`@parity-app/models` with PAR-15,** then a package per lens and adapter as each starts.
 6. **`@parity-app/storybook` with PAR-114.**
-7. **`@parity-app/tokens`** (PAR-35) when token work picks up, and the agent API's 1,320-line workspace split by area
-   when it next grows.
+7. **`@parity-app/tokens`** (PAR-35, done on 2026-10-30; it depends on core, which keeps the token types its own
+   contracts name), and the agent API's 1,320-line workspace split by area when it next grows.
 
 ## Calls made here
 

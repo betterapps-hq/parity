@@ -7,8 +7,6 @@ import {
   parseLibraryManifest,
   withLibraryCanvas
 } from "./library.ts"
-import { readDesignTokens } from "./tokens-dtcg.ts"
-import { describedCategories, describedTokenCss, extractTokens } from "./tokens.ts"
 
 const fluent = {
   version: 3,
@@ -152,33 +150,6 @@ describe("parseLibraryManifest, version 3", () => {
       "@fluentui/react-components",
       "@griffel/shadow-dom"
     ])
-  })
-})
-
-describe("library tokens in frames", () => {
-  it("declares run-time tokens before the project's styles, files them by category, and pairs line heights", async () => {
-    const described = await readDesignTokens(
-      {
-        "font-size": {
-          base300: {
-            $value: "14px",
-            $extensions: { parity: { var: "fontSizeBase300", lineHeight: "lineHeightBase300" } }
-          }
-        },
-        leading: { base300: { $value: "20px", $extensions: { parity: { var: "lineHeightBase300" } } } },
-        spacing: { m: { $value: "12px", $extensions: { parity: { var: "spacingHorizontalM" } } } }
-      },
-      async () => ({})
-    )
-    const css = describedTokenCss(described)
-    expect(css).toContain("--fontSizeBase300--line-height: var(--lineHeightBase300);")
-    // The project's own declaration, later in the stylesheet, wins over the library's.
-    const tokens = extractTokens(`${css}:host { --spacingHorizontalM: 16px }`, [], describedCategories(described))
-    const byName = Object.fromEntries(tokens.map((token) => [token.name, token]))
-    expect(byName.spacingHorizontalM?.category).toBe("spacing")
-    expect(byName.fontSizeBase300?.category).toBe("font-size")
-    expect(byName.lineHeightBase300?.category).toBe("leading")
-    expect(byName.spacingHorizontalM?.values.default).toBe("16px")
   })
 })
 

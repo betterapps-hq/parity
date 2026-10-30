@@ -1929,6 +1929,26 @@ How Parity's code is split, so the parts that change most are easy to find, repl
     partway or pasting its JSON as text: `isParityCopy` tells the app the text was a Parity copy all the same.
   - A pasted design keeps its id when it's free, as the clipboard's comment always said. Before, every pasted design
     took an id made from its name, so one whose id wasn't its name's lost it.
+- **Reading, editing and matching tokens moved into `@parity-app/tokens`** (PAR-35), a pure package. My calls in
+  starting it:
+  - It holds reading compiled CSS for tokens and the categories (`tokens.ts`), reading DTCG files and resolvers
+    (`dtcg.ts`), preview kinds and Copy as forms (`kinds.ts`), editing custom properties in a stylesheet's source with
+    the rules for where a token's value goes (`stylesheet.ts`: `setCustomProperty`, and `writeTokenChanges`, which was
+    `applyTokenChange` in the project service), and matching described tokens to custom properties (`matching.ts`, which
+    was in the Tokens panel). Their tests moved with them, with the `extractTokens` and library-token tests that were in
+    core's `render.test.ts` and `library-v3.test.ts`.
+  - Tokens depends on core, and core still imports nothing. The types core's own contracts name stay in core, in
+    `token-types.ts`: `TokenCategory`, which a guest's `tokenCategories` and libgen use, and `DescribedToken` with
+    `TokenExtension`, which `ProjectConfig.describedTokens` holds. Everything else, `Token` included, is the package's.
+    Moving those types out instead would have had core import tokens and tokens import core's CSS parser and
+    `ThemeVariable`, a cycle.
+  - `collectCustomProperties` stays in core's `css.ts`, as it walks the same parse as `prepareCanvasCss`; tokens calls
+    it.
+  - Core doesn't re-export the moved names, since it can't import the package; every importer imports from
+    `@parity-app/tokens`. `TokenChange` moved from the app's protocol into the package with `writeTokenChanges`.
+  - The Tailwind adapter (`@parity-app/styles-tailwind`) stays an adapter at the edge, as it loads Tailwind with Node.
+    Libgen's token collecting (`libgen/src/tokens.ts`), which writes DTCG, and the editor's token edit history
+    (`renderer/token-edits.ts`) stay where they are for now.
 - **Lenses and adapters never go in core.** Lens models are schemas in `@parity-app/models`, each lens is a package, and
   so is each adapter, such as Drizzle or TanStack Router.
 

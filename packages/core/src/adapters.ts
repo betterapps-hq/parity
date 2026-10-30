@@ -2,7 +2,7 @@ import type { ComponentEvidence, LibraryDecorator } from "./library.ts"
 import type { ComponentSource, ProjectConfig } from "./project.ts"
 import type { ComponentRenderStatus } from "./render-status.ts"
 import type { RenderNode } from "./render.ts"
-import type { TokenCategory } from "./tokens.ts"
+import type { TokenCategory } from "./token-types.ts"
 
 /** The parts of a project's package.json that adapters use to detect a stack. */
 export interface PackageManifest {

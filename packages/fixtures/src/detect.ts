@@ -6,7 +6,6 @@ import {
   type BuilderDetection,
   type ComponentSource,
   type Detection,
-  extractTokens,
   type PackageManagerDetection,
   type PackageManifest,
   prepareCanvasCss,
@@ -18,6 +17,7 @@ import {
 import { detectProject, discoverProject } from "@parity-app/project"
 import { reactRenderer } from "@parity-app/renderer-react"
 import { tailwindStyles } from "@parity-app/styles-tailwind"
+import { extractTokens } from "@parity-app/tokens"
 
 // The adapters the desktop app opens projects with.
 const renderers: RendererAdapter[] = [reactRenderer]

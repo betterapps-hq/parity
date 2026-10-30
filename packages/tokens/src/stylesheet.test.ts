@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { setCustomProperty } from "./css-source.ts"
+import { setCustomProperty, writeTokenChanges } from "./stylesheet.ts"
 import { extractTokens, themeFallbackCss } from "./tokens.ts"
 
 const source = `@import "tailwindcss";
@@ -57,6 +57,41 @@ describe("setCustomProperty", () => {
     expect(setCustomProperty(css, "radius", "2px", { blocks: [":root"], create: ":root" })).toBe(
       ":root {\n  --radius-lg: 1rem;\n  @media (x) { --radius: 9px; }\n  --radius: 2px;\n}\n"
     )
+  })
+})
+
+describe("writeTokenChanges", () => {
+  it("writes a semantic token into the root, and a theme's value into its class", () => {
+    const next = writeTokenChanges(
+      source,
+      [
+        { name: "primary", theme: "default", value: "red" },
+        { name: "primary", theme: "dark", value: "blue" },
+        { name: "ring", theme: "dark", value: "green" }
+      ],
+      new Set()
+    )
+    expect(next).toContain("--primary: red; /* brand */")
+    expect(next).toContain(".dark {\n  --primary: blue;\n  --ring: green;\n}")
+  })
+
+  it("writes a theme scale token into the @theme block that declares it, else a new @theme block", () => {
+    const themeNames = new Set(["font-sans", "spacing"])
+    const next = writeTokenChanges(
+      source,
+      [
+        { name: "font-sans", theme: "default", value: "Inter, sans-serif" },
+        { name: "spacing", theme: "default", value: "0.3rem" }
+      ],
+      themeNames
+    )
+    expect(next).toContain("@theme inline {\n  --font-sans: Inter, sans-serif;")
+    expect(next).toMatch(/\n@theme \{\n {2}--spacing: 0\.3rem;\n\}\n$/)
+  })
+
+  it("adds a semantic token the stylesheet doesn't declare to the root", () => {
+    const next = writeTokenChanges(source, [{ name: "accent", theme: "default", value: "pink" }], new Set())
+    expect(next).toContain("--background: oklch(1 0 0);\n  --accent: pink;\n}")
   })
 })
 

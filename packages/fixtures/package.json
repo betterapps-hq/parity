@@ -13,6 +13,7 @@
     "@parity-app/core": "workspace:*",
     "@parity-app/project": "workspace:*",
     "@parity-app/renderer-react": "workspace:*",
-    "@parity-app/styles-tailwind": "workspace:*"
+    "@parity-app/styles-tailwind": "workspace:*",
+    "@parity-app/tokens": "workspace:*"
   }
 }

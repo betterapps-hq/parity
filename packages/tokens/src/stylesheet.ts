@@ -17,6 +17,41 @@ export interface SetPropertyOptions {
   create: string
 }
 
+/** A new value for a token in one theme: `default` for the root, otherwise the theme class (e.g. `dark`). */
+export interface TokenChange {
+  name: string
+  theme: string
+  value: string
+}
+
+/**
+ * Writes token values into a stylesheet's source: semantic tokens into `:root` or their theme class, theme scale
+ * tokens (those `themeNames` holds) into an `@theme` block, editing declarations in place where they already exist.
+ */
+export function writeTokenChanges(
+  source: string,
+  changes: readonly TokenChange[],
+  themeNames: ReadonlySet<string>
+): string {
+  let content = source
+  for (const change of changes) content = applyTokenChange(content, change, themeNames.has(change.name))
+  return content
+}
+
+function applyTokenChange(source: string, change: TokenChange, isTheme: boolean): string {
+  if (change.theme !== "default") {
+    const selector = `.${change.theme}`
+    return setCustomProperty(source, change.name, change.value, { blocks: [selector], create: selector })
+  }
+  if (isTheme) {
+    return setCustomProperty(source, change.name, change.value, {
+      blocks: ["@theme", "@theme inline", "@theme static", ":root"],
+      create: "@theme"
+    })
+  }
+  return setCustomProperty(source, change.name, change.value, { blocks: [":root", ":host"], create: ":root" })
+}
+
 /**
  * Sets a custom property in a stylesheet's source, keeping everything else (comments, order, formatting) as written.
  * Replaces an existing declaration in one of the given blocks, else adds it to the block named by `create`.

@@ -40,6 +40,7 @@
     "@parity-app/registry": "workspace:*",
     "@parity-app/renderer-react": "workspace:*",
     "@parity-app/styles-tailwind": "workspace:*",
+    "@parity-app/tokens": "workspace:*",
     "@storybook/react-vite": "10.6.5",
     "@tailwindcss/vite": "4.3.3",
     "@types/react": "^19.3.0",

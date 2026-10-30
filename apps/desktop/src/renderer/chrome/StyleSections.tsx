@@ -4,10 +4,9 @@ import {
   type Length,
   type NodeStyle,
   type Padding,
-  type Size,
-  spacingStepName,
-  type Token
+  type Size
 } from "@parity-app/core"
+import { spacingStepName, type Token } from "@parity-app/tokens"
 import {
   AlignCenter,
   AlignJustify,

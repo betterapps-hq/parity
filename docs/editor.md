@@ -962,7 +962,9 @@ value each token had before its first edit, `tokenDifferences`, `tokenWrites`, `
 views tidied is `document-equality.ts`. `tokens-store.ts` previews the history's token values in the shared stylesheet
 after each edit, undo or redo, and gives the design store its writer; `workspace.ts` makes one per guest, so a guest
 loaded again shows the unsaved values too. The agent's call is `agent/handlers.ts` (`apply`), the panel
-`chrome/TokensPanel.tsx`.
+`chrome/TokensPanel.tsx`. Saving writes the values into the stylesheet with `writeTokenChanges` in
+`packages/tokens/src/stylesheet.ts`, which `saveTokens` in `apps/desktop/src/utility/projects.ts` applies as a project
+edit.
 
 Tests:
 
@@ -972,6 +974,10 @@ Tests:
   read; saving automatically; an agent's call as one step; Show every state off again leaving the file clean; another
   state and back from a file with its view written out in full; and a file that differs in more than its view staying
   unsaved until undone.
+- `packages/tokens/src/stylesheet.test.ts` (8 of its 11): a value replaced in place, keeping comments and formatting; a
+  theme's own declaration; a missing one added at the block's indentation, or in a new block; no match on a prefix or a
+  nested block; a semantic token written to the root and a theme's value to its class; a theme scale token to the
+  `@theme` block that declares it, else a new one; and a token the stylesheet doesn't declare added to the root.
 - `apps/desktop/src/renderer/token-edits.test.ts` (4): the first edit's original kept, what Save writes, a theme value
   that wasn't there, and the token list with edits.
 - `apps/desktop/src/renderer/tokens-store.test.ts` (3), in Chrome: an edit previewed in the stylesheet in both themes,
@@ -1069,8 +1075,8 @@ to draw, so its row shows the number. Beside the name is what the token comes to
   Font sizes, Font weights, Line height, Letter spacing, Spacing, Radius, Borders (Widths, Width and style), Shadows
   (Box, Inset, Drop, Text), Opacity, Blur (Layer, Backdrop), Motion (Durations, Easing, Animations), Layers,
   Breakpoints, Containers, Aspect ratios, Perspective, Cursors and Other. Effects and Other no longer hold blurs,
-  z-indexes, border widths and the like. A token's kind comes from core's `previewKind`: its category, its name whatever
-  its case or separators, its value, and the DTCG type a `.lib.par` gives it.
+  z-indexes, border widths and the like. A token's kind comes from `previewKind` in `@parity-app/tokens`: its category,
+  its name whatever its case or separators, its value, and the DTCG type a `.lib.par` gives it.
 - **Values are what the token comes to.** A reference is followed to the value at the end, through `calc()` too, in each
   theme (`--radius-lg: calc(var(--radius) + 4px)` draws at 14px), and a step of the spacing scale is the scale times its
   factor. The project's custom properties are never set on Parity's own elements, since shadcn's names are Parity's too.
@@ -1125,14 +1131,17 @@ Code: the drawings are `apps/desktop/src/renderer/chrome/token-previews.tsx` (`T
 `valueLabel`, `valueProblem`, `spacingSlot`, `tokenSections`, `useHoverPlay`); the panel is `chrome/TokensPanel.tsx`
 (`comesTo`, `panelItems`, the virtualized list, `TokenRow`, `TokenTileButton`, `PaletteShade`, `TokenEditor`); the copy
 parts are `chrome/Copy.tsx`; the keyframes are `tokens-store.ts` (`keyframesNamed`, `TokenStore.keyframes`); a token's
-kind, the Copy as forms and the value helpers are `packages/core/src/token-kinds.ts`. The Storybook explorations under
-`explorations/previews` draw with the same module, from sample tokens.
+kind, the Copy as forms and the value helpers are `packages/tokens/src/kinds.ts`, and matching the tokens a `.lib.par`
+describes to the stylesheet's custom properties is `matchDescribed` in `packages/tokens/src/matching.ts`. The Storybook
+explorations under `explorations/previews` draw with the same module, from sample tokens.
 
 Tests:
 
-- `packages/core/src/token-kinds.test.ts` (12): kinds over Tailwind's theme, a project's own tokens, and the Chakra,
-  Fluent and Mantine registries, where no Chakra or Fluent token is left a bare number; Copy as forms; brackets and
-  quotes left open; references listed and filled in; values split at their top-level commas.
+- `packages/tokens/src/kinds.test.ts` (12): kinds over Tailwind's theme, a project's own tokens, and the Chakra, Fluent
+  and Mantine registries, where no Chakra or Fluent token is left a bare number; Copy as forms; brackets and quotes left
+  open; references listed and filled in; values split at their top-level commas.
+- `packages/tokens/src/matching.test.ts` (2): a described token matched by the custom property its extension names, else
+  by its path, with or without its first group, and the ones that match none.
 - `apps/desktop/src/renderer/tokens-store.test.ts` (1 of its 4), in Chrome: an animation's keyframes read from a
   stylesheet, inside `@layer` too, with each step's timing function as its easing.
 - `chrome/TokensPanel.stories.tsx`: AllTokens (no animation running with nothing hovered), Tiles, Copying (the row's

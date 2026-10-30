@@ -1,13 +1,6 @@
-import {
-  type DescribedToken,
-  type DescribedTokens,
-  type ModeSettings,
-  type PreviewKind,
-  previewKind,
-  substituteReferences,
-  type Token,
-  tokenReferences
-} from "@parity-app/core"
+import { type ModeSettings } from "@parity-app/core"
+import { type PreviewKind, previewKind, substituteReferences, type Token, tokenReferences } from "@parity-app/tokens"
+import { type LibraryToken, matchDescribed, type TokenChange } from "@parity-app/tokens"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { LayoutGrid, List, Search } from "lucide-react"
 import {
@@ -24,7 +17,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import type { TokenChange } from "../../shared/protocol.ts"
 import { useProject } from "../canvas/context.ts"
 import { useHistory, useModeSettings } from "../design-store.ts"
 import { useTokenFailure, useTokenList } from "../tokens-store.ts"
@@ -50,9 +42,6 @@ import { keepEditing, TokenDetail } from "./TokenDetail.tsx"
 type Source = "all" | "semantic" | "theme"
 type View = "list" | "tiles"
 
-/** A token a `.lib.par` describes, with the library that describes it. */
-type Described = DescribedToken & { library: string }
-
 /** A token with what its preview draws. */
 interface Kinded {
   token: Token
@@ -61,33 +50,6 @@ interface Kinded {
 
 /** Tokens by name, to look up what a reference comes to. */
 type TokenMap = ReadonlyMap<string, Token>
-
-/**
- * The custom properties a described token is likely written as: its whole path, as in `color-primary`, or without its
- * first group, as in `primary`, which is how shadcn names them.
- */
-function cssNames(path: string): string[] {
-  const parts = path.split(".")
-  return [parts.join("-"), parts.slice(1).join("-")].filter(Boolean)
-}
-
-/** Described tokens by the custom property each one matches, and the ones that match none. */
-function matchDescribed(sources: DescribedTokens[] | undefined, tokens: Token[]) {
-  const names = new Set(tokens.map((token) => token.name))
-  const byName = new Map<string, Described>()
-  const unmatched: Described[] = []
-  for (const source of sources ?? []) {
-    for (const token of source.tokens) {
-      const described = { ...token, library: source.name }
-      // A token that names its custom property matches it exactly; otherwise its path is the best guess.
-      const candidates = token.parity?.var ? [token.parity.var] : cssNames(token.path)
-      const name = candidates.find((candidate) => names.has(candidate))
-      if (name) byName.set(name, described)
-      else unmatched.push(described)
-    }
-  }
-  return { byName, unmatched }
-}
 
 /**
  * What a token comes to in a theme, with every token it refers to filled in, as the browser would work it out: a step
@@ -133,7 +95,7 @@ interface PanelData {
   tokens: TokenMap
   themes: string[]
   themeNames: ReadonlyMap<string, string>
-  described: ReadonlyMap<string, Described>
+  described: ReadonlyMap<string, LibraryToken>
   unwritten: ReadonlySet<string>
 }
 
@@ -155,7 +117,7 @@ type Item =
   | { type: "tiles"; key: string; entries: Kinded[] }
   | { type: "hue"; key: string; hue: string; shades: Token[] }
   | { type: "note"; key: string; text: string }
-  | { type: "described"; key: string; token: Described }
+  | { type: "described"; key: string; token: LibraryToken }
   | { type: "end"; key: string }
   | { type: "empty"; key: string }
 
@@ -429,7 +391,7 @@ function panelItems({
   matches: Kinded[]
   view: View
   searching: boolean
-  unmatched: Described[]
+  unmatched: LibraryToken[]
   /** A token as its preview draws it, which says where it falls in its scale. */
   preview: (entry: Kinded) => PreviewToken
 }): Item[] {
@@ -549,7 +511,7 @@ function TokenRow({
   tokens: TokenMap
   themes: string[]
   /** What a `.lib.par` says about this token. */
-  described?: Described
+  described?: LibraryToken
   /** Whether the last save couldn't write its value to the stylesheet. */
   unwritten?: boolean
 }) {
@@ -676,7 +638,7 @@ function PaletteShade({ token, value, unwritten }: { token: Token; value: string
 }
 
 /** A token a `.lib.par` describes but the stylesheet doesn't have, with its value in each context. */
-function DescribedRow({ token }: { token: Described }) {
+function DescribedRow({ token }: { token: LibraryToken }) {
   const contexts = Object.entries(token.values)
   return (
     <div className="flex min-h-7 min-w-0 items-center gap-2 px-1.5 py-1 text-xs">

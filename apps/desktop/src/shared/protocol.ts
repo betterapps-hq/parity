@@ -11,9 +11,9 @@ import type {
   ModeSettings,
   ProjectDetection,
   StorybookInfo,
-  ThemeVariable,
-  Token
+  ThemeVariable
 } from "@parity-app/core"
+import type { Token, TokenChange } from "@parity-app/tokens"
 
 /**
  * An edit the service made to a project's files: what it was for, each file's change as a unified diff (or a binary
@@ -257,13 +257,6 @@ export interface DocumentEntry {
   path: string
   document?: CanvasDocument
   error?: string
-}
-
-/** A new value for a token in one theme: `default` for the root, otherwise the theme class (e.g. `dark`). */
-export interface TokenChange {
-  name: string
-  theme: string
-  value: string
 }
 
 export interface TabSummary {

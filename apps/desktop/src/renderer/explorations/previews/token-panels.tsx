@@ -1,4 +1,4 @@
-import { codeForms, type PreviewKind, substituteReferences, tokenReferences, valueParts } from "@parity-app/core"
+import { codeForms, type PreviewKind, substituteReferences, tokenReferences, valueParts } from "@parity-app/tokens"
 import { Check, ChevronDown, ChevronsUpDown, LayoutGrid, List, Pause, Pencil, Play, Search } from "lucide-react"
 import { Fragment, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, useId, useState } from "react"
 import { Button } from "@/components/ui/button"

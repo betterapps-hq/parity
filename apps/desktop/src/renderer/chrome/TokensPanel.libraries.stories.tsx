@@ -1,4 +1,4 @@
-import { describedCategories, describedTokenCss, extractTokens, readDesignTokens } from "@parity-app/core"
+import { describedCategories, describedTokenCss, extractTokens, readDesignTokens } from "@parity-app/tokens"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { within } from "storybook/test"
 import { TooltipProvider } from "@/components/ui/tooltip"
