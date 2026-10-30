@@ -1,5 +1,5 @@
 {
-  "name": "@parity/styles-tailwind",
+  "name": "@parity-app/styles-tailwind",
   "version": "0.0.0",
   "license": "MIT",
   "private": true,
@@ -8,6 +8,6 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@parity/core": "workspace:*"
+    "@parity-app/core": "workspace:*"
   }
 }

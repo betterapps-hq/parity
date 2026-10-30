@@ -6,7 +6,7 @@ import type {
   PackageManagerDetection,
   PackageManifest,
   ProjectDetection
-} from "@parity/core"
+} from "@parity-app/core"
 import type { Agent } from "package-manager-detector"
 import { resolveCommand } from "package-manager-detector/commands"
 import { LOCKS } from "package-manager-detector/constants"

@@ -13,8 +13,8 @@ import {
   readDesignTokens,
   type RendererAdapter,
   librarySource
-} from "@parity/core"
-import { type RegistryEntry, registryEntries, registryEntryFor } from "@parity/registry"
+} from "@parity-app/core"
+import { type RegistryEntry, registryEntries, registryEntryFor } from "@parity-app/registry"
 import { parseJsonc } from "./jsonc.ts"
 
 /** A library that can be added to a project from the canvas: one Parity's registry describes. */
