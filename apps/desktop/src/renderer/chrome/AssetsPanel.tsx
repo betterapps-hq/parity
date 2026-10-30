@@ -13,7 +13,17 @@ import {
   type LeftOutExport,
   type LibraryInfo
 } from "@parity-app/core"
-import { componentLabel, type InsertItem } from "@parity-app/editor"
+import {
+  compareRanked,
+  componentLabel,
+  type HiddenReason,
+  hiddenHeading,
+  hiddenReason,
+  type InsertItem,
+  type InsertOrigin,
+  isLate,
+  searchOption
+} from "@parity-app/editor"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import {
   BookOpen,
@@ -125,8 +135,11 @@ function SearchField({
 
 export interface Family {
   name: string
-  /** `evidence` is why it counts as a component, in words. */
-  items: { key: string; label: string; item: InsertItem; evidence?: string }[]
+  /**
+   * `evidence` is why it counts as a component, in words; `hidden` why the insert picker leaves it out until it's
+   * searched for by name (PAR-178).
+   */
+  items: { key: string; label: string; item: InsertItem; evidence?: string; hidden?: HiddenReason }[]
   /** Its name is a folder or a route, shown over a single component too. */
   heading?: true
 }
@@ -135,28 +148,39 @@ export interface Source {
   id: string
   title: string
   icon: ReactNode
+  /** Where its components come from, which ranks them in the insert picker; a library's designs are its designs. */
+  origin: InsertOrigin
   families: Family[]
   library?: LibraryInfo
 }
 
 /**
  * Components under headings: by the file that defines them, as shadcn groups Card, CardHeader and CardTitle, or for the
- * rest of the app, by folder or page route.
+ * rest of the app, by folder or page route. What the picker hides comes last, under a heading of its own, as a
+ * library's internal parts always have.
  */
 function families(sources: [string, ComponentSource][], by: "file" | "folder" | "route" = "file"): Family[] {
   const evidence = new Map(
     sources.map(([key, source]) => [key, source.included ? "listed by hand" : source.as && describeEvidence(source.as)])
   )
-  return groupComponents(sources, by).map((group) => ({
+  const hidden = new Map(sources.map(([key, source]) => [key, hiddenReason(key, { internal: source.internal })]))
+  const grouped: Family[] = groupComponents(sources, by).map((group) => ({
     name: group.name,
     items: group.ids.map((key) => ({
       key,
       label: componentLabel(key),
       item: { kind: "component", component: key },
-      ...(evidence.get(key) ? { evidence: evidence.get(key) } : {})
+      ...(evidence.get(key) ? { evidence: evidence.get(key) } : {}),
+      ...(hidden.get(key) ? { hidden: hidden.get(key) } : {})
     })),
     ...(by === "file" ? {} : { heading: true as const })
   }))
+  const apart = grouped.flatMap((family) => family.items.filter((entry) => entry.hidden))
+  if (apart.length === 0) return grouped
+  const shown = grouped
+    .map((family) => ({ ...family, items: family.items.filter((entry) => !entry.hidden) }))
+    .filter((family) => family.items.length > 0)
+  return [...shown, { name: hiddenHeading(apart.flatMap((entry) => entry.hidden ?? [])), heading: true, items: apart }]
 }
 
 /** The project's own components by role: its UI kit, the rest of the app by folder, and its pages. */
@@ -166,12 +190,15 @@ function ownSources(info: ProjectInfo, all: [string, ComponentSource][]): Source
   const kit = withRole("kit")
   const pages = withRole("page")
   return [
-    ...(kit.length > 0 ? [{ id: "project:kit", title: "UI kit", icon, families: families(kit) }] : []),
-    { id: "project", title: info.name, icon, families: families(withRole("app"), "folder") },
+    ...(kit.length > 0
+      ? [{ id: "project:kit", title: "UI kit", icon, origin: "kit" as const, families: families(kit) }]
+      : []),
+    { id: "project", title: info.name, icon, origin: "app", families: families(withRole("app"), "folder") },
     {
       id: "project:pages",
       title: "Pages",
       icon: <MonitorSmartphone className="size-3.5" style={{ color: kindColors.screen }} />,
+      origin: "page",
       families: families(pages, "route")
     }
   ]
@@ -191,6 +218,7 @@ export function componentSources(info: ProjectInfo, entries: readonly ContainerE
       id: "designs",
       title: "Component designs",
       icon: <Diamond className="size-3.5" style={{ color: kindColors.component }} />,
+      origin: "design",
       families: [
         {
           name: "",
@@ -206,8 +234,6 @@ export function componentSources(info: ProjectInfo, entries: readonly ContainerE
   list.push(...ownSources(info, all))
   for (const library of info.libraries.filter((candidate) => candidate.kind !== "icons")) {
     const own = all.filter(([, source]) => source.library === library.id)
-    // Parts the library renders inside its own components come last, apart, so the list leads with what's placed.
-    const internal = own.filter(([, source]) => source.internal)
     // Its ready-made compositions come first, placed as linked instances, or as copies from their menu. One a project
     // design has the id of is left out, since placing it would place the project's.
     const ownIds = new Set(entries.map((entry) => entry.container.id))
@@ -229,17 +255,46 @@ export function componentSources(info: ProjectInfo, entries: readonly ContainerE
       id: library.id,
       title: library.name,
       icon: <Library className="size-3.5 text-muted-foreground" />,
-      families: [
-        ...designed,
-        ...families(own.filter(([, source]) => !source.internal)),
-        ...(internal.length > 0
-          ? [{ name: "Internal parts", items: families(internal).flatMap((family) => family.items) }]
-          : [])
-      ],
+      origin: "library",
+      // Parts it renders inside its own components, its providers and portals come last, apart, so the list leads with
+      // what's placed.
+      families: [...designed, ...families(own)],
       library
     })
   }
   return list
+}
+
+/**
+ * A source's families as a search finds them, as the insert picker matches (PAR-178): names before the file or folder
+ * they're listed under, hidden components only when the search names them, the best matches first in each family and
+ * the families with the best matches first.
+ */
+function searchFamilies(source: Source, query: string): Family[] {
+  const found = source.families.flatMap((family, place) => {
+    const items = family.items.flatMap((entry, index) => {
+      const match = searchOption(
+        {
+          key: entry.key,
+          name: entry.label,
+          origin: source.origin,
+          source: source.id,
+          sourceName: source.title,
+          description: family.name,
+          ...(entry.hidden ? { hidden: entry.hidden } : {})
+        },
+        query
+      )
+      // As in the picker, a hidden one the search only partly names comes after the rest.
+      return match ? [{ entry, tier: match.tier, late: isLate(entry, match), index }] : []
+    })
+    if (items.length === 0) return []
+    items.sort((a, b) => compareRanked(a, b) || a.index - b.index)
+    // The family ranks as its best match, which comes first, and keeps its place among families that rank the same.
+    const { tier, late } = items[0]!
+    return [{ family: { ...family, items: items.map(({ entry }) => entry) }, tier, late, index: place }]
+  })
+  return found.sort((a, b) => compareRanked(a, b) || a.index - b.index).map(({ family }) => family)
 }
 
 /** Components to drag into designs: component designs, the project's own, then each library's. */
@@ -252,19 +307,11 @@ export function ComponentsPanel() {
   const sources = useMemo(() => componentSources(info, entries), [entries, info])
 
   const needle = query.trim().toLowerCase()
-  const shown = sources
-    .map((source) => ({
-      ...source,
-      families: source.families
-        .map((family) => ({
-          ...family,
-          items: needle
-            ? family.items.filter((entry) => entry.label.toLowerCase().includes(needle) || family.name.includes(needle))
-            : family.items
-        }))
-        .filter((family) => family.items.length > 0)
-    }))
-    .filter((source) => source.families.length > 0 || (!needle && source.library))
+  const shown = needle
+    ? sources
+        .map((source) => ({ ...source, families: searchFamilies(source, needle) }))
+        .filter((source) => source.families.length > 0)
+    : sources.filter((source) => source.families.length > 0 || source.library)
   const corrections = useCorrections(session)
   const leftOut = needle
     ? notListed(info, corrections).filter((entry) => entry.name.toLowerCase().includes(needle))
