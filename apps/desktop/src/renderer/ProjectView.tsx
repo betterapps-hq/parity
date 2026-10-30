@@ -14,12 +14,18 @@ import { StatusBar } from "./chrome/StatusBar.tsx"
 import { FloatingToolbar, ViewControls } from "./chrome/Toolbar.tsx"
 import { OpeningProject, ProjectFailed } from "./ProjectStatus.tsx"
 import { useTool } from "./selection.ts"
-import { type Tab, workspace } from "./workspace.ts"
+import { useTabs, workspace } from "./workspace.ts"
 
-/** One project tab. Inactive tabs stay mounted, so switching back is instant and agents can still read them. */
-export function ProjectView({ tab, active }: { tab: Tab; active: boolean }) {
-  const session = tab.session
+/**
+ * One project tab. Inactive tabs stay mounted, so switching back is instant and agents can still read them. It's given
+ * the tab's id rather than the tab: React keeps the props its parent drew last, and a closed tab's session, canvas
+ * included, would stay in memory until the window drew again.
+ */
+export function ProjectView({ id, active }: { id: string; active: boolean }) {
+  const tab = useTabs().find((candidate) => candidate.id === id)
+  const session = tab?.session
   useShortcuts(session, active)
+  if (!tab) return null
 
   if (!session) {
     return (

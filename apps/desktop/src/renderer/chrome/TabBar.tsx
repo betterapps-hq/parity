@@ -47,10 +47,12 @@ const ignore = () => () => undefined
 
 /**
  * A project's tab. Its tooltip names the project's folder, and says when the project has unsaved changes; the close
- * button shows that as a dot.
+ * button shows that as a dot. It's given the tab's id, so the strip's last props don't keep a closed tab's session.
  */
-function ProjectTab({ tab, selected }: { tab: Tab; selected: boolean }) {
-  const unsaved = useUnsaved(tab.session?.store)
+function ProjectTab({ id, selected }: { id: string; selected: boolean }) {
+  const tab = useTabs().find((candidate) => candidate.id === id)
+  const unsaved = useUnsaved(tab?.session?.store)
+  if (!tab) return null
   return (
     <Hint
       label={tab.session?.info.root ?? tab.message ?? tab.title}
@@ -114,7 +116,7 @@ export function TabBar() {
         className="flex min-w-0 items-end gap-0.5 overflow-x-auto [scrollbar-width:none]"
       >
         {tabs.map((tab) => (
-          <ProjectTab key={tab.id} tab={tab} selected={tab.id === active} />
+          <ProjectTab key={tab.id} id={tab.id} selected={tab.id === active} />
         ))}
       </div>
       <Tooltip>
