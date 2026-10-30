@@ -181,7 +181,7 @@ function componentsReport(snapshot: TabSnapshot, components: string[]) {
   const listed = main?.detection?.include ?? []
   return {
     components,
-    iconLibraries: snapshot.iconLibraries,
+    iconLibraries: snapshot.iconSets.map((set) => set.id),
     // Less what the person listed by hand, which are components now.
     leftOut: (snapshot.leftOut ?? []).filter(
       (entry) => !listed.some((ref) => ref.path === entry.path && ref.export === entry.export)
@@ -225,7 +225,7 @@ function toAgentSnapshot(snapshot: TabSnapshot): AgentSnapshot {
   return {
     tab: snapshot.tab.id,
     components: snapshot.components,
-    iconLibraries: snapshot.iconLibraries,
+    iconSets: snapshot.iconSets,
     tokens: snapshot.tokens,
     theme: snapshot.theme,
     modes: snapshot.modes,
@@ -317,7 +317,12 @@ async function exec(
   const result = await execute(
     { label: request.label || "Agent edit", code: request.code, editId: request.editId, edits: request.edits },
     toAgentSnapshot(snapshot),
-    { presence: presenceFor(window, tabId, caller), render: renderFor(snapshot) }
+    {
+      presence: presenceFor(window, tabId, caller),
+      render: renderFor(snapshot),
+      iconNames: (set, module) =>
+        window.request("agent.iconNames", { tab: tabId, set, ...(module === undefined ? {} : { module }) })
+    }
   )
   const { changes, screenshots, ...rest } = result
   const hasChanges = changes.documents.length > 0 || !!changes.modes || changes.tokens.length > 0

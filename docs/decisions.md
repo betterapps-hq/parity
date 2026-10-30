@@ -518,6 +518,11 @@ recommended answer to each of its questions.
   developer would write. The guest imports the whole package once. The Icons panel and the insert picker list the names
   from the project's own copy, as its manifest says to read them, and draw each icon with the project's own code. Agents
   are told the icon libraries too, so `lucide/Heart` isn't flagged as a component the project doesn't have.
+- **Agents find icons with `Icons()`,** which lists the project's icon sets with their styles, and
+  `Icons(set, { search })`, which searches one the way the Icons panel does and returns each icon as the component (and
+  style props) to insert. My call: each call's snapshot carries the sets without their tags, and the names and tags are
+  read from the tab only when `Icons(set)` asks, since Fluent's run to thousands. It returns 50 icons unless `limit`
+  says otherwise.
 - **A manifest names an icon set's shape,** because sets differ: one export per icon (Lucide, Heroicons, Phosphor,
   Tabler, Fluent), or data drawn by one component (Hugeicons, through `HugeiconsIcon`'s `icon` prop). Styles and sizes
   are either a prop (Phosphor's `weight`) or part of the name (`AddFilled`, `Add24Regular`), described by a pattern with

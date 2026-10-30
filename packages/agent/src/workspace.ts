@@ -38,6 +38,7 @@ import {
   uniqueId,
   withFreshIds
 } from "@parity-app/core"
+import { describeIconSets, findIcons, type IconMatch, type IconOptions, iconStyle, styleModule } from "./icons.ts"
 import type {
   AccessibilityFinding,
   AgentEvent,
@@ -159,6 +160,8 @@ export class AgentWorkspace {
       Get: (...args: unknown[]) => this.get(args),
       Components: () => [...this.snapshot.components].sort(),
       Props: (component: string, options?: { all?: boolean }) => this.componentProps(component, options),
+      Icons: (set?: string, options?: IconOptions) =>
+        set === undefined ? describeIconSets(this.snapshot.iconSets ?? []) : this.icons(set, options),
       GetTokens: (filter?: { category?: string; source?: string; search?: string }) => this.getTokens(filter),
       GetModes: () => ({ settings: this.modes, modes: resolveModes(this.modes).map(describeMode) }),
       Selection: () => this.selection(),
@@ -1036,6 +1039,22 @@ export class AgentWorkspace {
     return { component, path: info.path, ...(info.import ? { import: info.import } : {}), known: true, props }
   }
 
+  /** One of the project's icon sets' icons, read from the project's own copy of the set. */
+  private async icons(id: string, options: IconOptions = {}): Promise<IconMatch[]> {
+    const sets = this.snapshot.iconSets ?? []
+    const set = sets.find((candidate) => candidate.id === id)
+    if (!set) {
+      throw new Error(
+        sets.length > 0
+          ? `"${id}" isn't one of the project's icon sets: ${sets.map((candidate) => candidate.id).join(", ")}`
+          : "The project has no icon sets"
+      )
+    }
+    if (!this.hooks.iconNames) throw new Error("Icon names can't be read here")
+    const style = iconStyle(set, options.style)
+    return findIcons(set, await this.hooks.iconNames(set.id, styleModule(set, style)), style, options)
+  }
+
   /** Props a component doesn't declare, and values outside a prop's options. */
   private checkProps(component: string, props: Record<string, unknown> | undefined, where: string): void {
     const info = this.snapshot.props[component]
@@ -1058,7 +1077,7 @@ export class AgentWorkspace {
   /** Warnings for things that are valid but probably not what was meant. */
   private lint(document: CanvasDocument): void {
     const components = new Set(this.snapshot.components)
-    const icons = (this.snapshot.iconLibraries ?? []).map((library) => `${library}/`)
+    const icons = (this.snapshot.iconSets ?? []).map((set) => `${set.id}/`)
     const tokens = new Set(this.snapshot.tokens.map((token) => token.name))
     for (const container of document.containers) {
       const check = (node: DesignNode, where: string) => {

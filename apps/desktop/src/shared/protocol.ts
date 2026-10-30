@@ -1,4 +1,4 @@
-import type { AccessibilityFinding, AccessibilityIssue, AgentEvent } from "@parity-app/agent"
+import type { AccessibilityFinding, AccessibilityIssue, AgentEvent, IconNames, IconSet } from "@parity-app/agent"
 import type {
   CanvasDocument,
   ComponentInfo,
@@ -185,6 +185,8 @@ export interface WindowMethods {
   "agent.apply": { params: AgentChanges; result: undefined }
   "agent.presence": { params: PresenceEvent[]; result: undefined }
   "agent.open": { params: { root: string }; result: TabSummary }
+  /** An icon set's names in one style's module, from the tab's own copy of the set, for `Icons(set)`. */
+  "agent.iconNames": { params: { tab: string; set: string; module?: string }; result: IconNames }
   /** A project file changed on disk, not by this window. */
   "project.fileChanged": { params: { projectId: string; path: string; document: CanvasDocument }; result: undefined }
   /**
@@ -286,7 +288,8 @@ export interface TabSnapshot {
   leftOut?: LeftOutExport[]
   /** How each component drawn so far fares on the canvas: drawn, or failing with what it threw. */
   renderStatus?: Record<string, ComponentRenderStatus>
-  iconLibraries: string[]
+  /** The project's icon sets, without the tags their icons are searched by, which `agent.iconNames` reads. */
+  iconSets: IconSet[]
   tokens: Token[]
   theme: ThemeVariable[]
   modes: ModeSettings
