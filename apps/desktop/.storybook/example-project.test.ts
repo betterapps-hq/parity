@@ -2,7 +2,7 @@ import { join, resolve } from "node:path"
 import type { Guest, RenderNode } from "@parity/core"
 import { type Browser, chromium, type Page } from "playwright-core"
 import { build, type Plugin, type Rolldown } from "vite"
-import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
 import { exampleProject } from "./example-project.ts"
 
 // `storybook build` has no dev server to serve the example's guest module from, so the plugin builds it as a chunk of

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { matchesQuery, sizeQuery } from "./viewport.ts"
 
 const phone = { width: 390, height: 844 }

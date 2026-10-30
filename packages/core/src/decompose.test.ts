@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { extractComponent, findRepeats } from "./decompose.ts"
 import type { ContainerSpec, DesignNode } from "./document.ts"
 import { findNode } from "./edit.ts"

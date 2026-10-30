@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { type ContainerSpec, type DesignNode, parseCanvasDocument } from "./document.ts"
 import { defaultModeSettings, resolveModes } from "./modes.ts"
 import { componentLibrary, frameSize, frameViewport, placedDesigns, reachableLibrary, resolveDesign } from "./render.ts"

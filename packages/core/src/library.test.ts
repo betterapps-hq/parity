@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { deviceForWidth, lengthToPixels } from "./devices.ts"
 import { libraryCanvas, parseLibraryManifest, withLibraryCanvas } from "./library.ts"
 

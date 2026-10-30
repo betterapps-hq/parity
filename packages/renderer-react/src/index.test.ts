@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { findComponents } from "./index.ts"
 
 const names = (source: string, file = "src/components/card.tsx") =>

@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest"
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/test"
 import { about, App, center } from "./app.ts"
 
 // docs/editor.md, Selecting: finding a layer's DOM (CAN-45) and selecting what you point at (PAR-163). The run's copy of

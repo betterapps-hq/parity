@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest"
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/test"
 import { App, type Box, center } from "./app.ts"
 
 // docs/editor.md, Moving, reordering and resizing (CAN-47): dragging layers, where they land, moving an absolutely

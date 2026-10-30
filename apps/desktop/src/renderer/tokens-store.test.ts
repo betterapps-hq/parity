@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url"
 import { build } from "esbuild"
 import { type Browser, chromium, type Page } from "playwright-core"
-import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
 
 // Token edits preview in the shared stylesheet every frame adopts, so this runs in Chrome, where CSSOM is real. It
 // needs Chrome installed.

@@ -2,7 +2,7 @@ import { cp, mkdtemp, readdir, rm, stat, symlink } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { basename, dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { snapshotProject } from "./detect.ts"
 
 const fixturesDir = resolve(dirname(fileURLToPath(import.meta.url)), "../../../fixtures")

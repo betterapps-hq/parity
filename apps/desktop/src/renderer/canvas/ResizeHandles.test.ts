@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url"
 import { build } from "esbuild"
 import { type Browser, chromium, type Page } from "playwright-core"
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vite-plus/test"
 
 // The handles' hints are Radix tooltips, which open and close on real pointer events, so this renders them in Chrome. It
 // needs Chrome installed.

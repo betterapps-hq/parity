@@ -1,7 +1,7 @@
-import type { TestProject } from "vitest/node"
+import type { TestProject } from "vite-plus/test/node"
 import { type Launched, launch } from "./launch.ts"
 
-declare module "vitest" {
+declare module "vite-plus/test" {
   export interface ProvidedContext {
     app: Launched
   }

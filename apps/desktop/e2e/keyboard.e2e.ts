@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest"
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/test"
 import { App, center } from "./app.ts"
 
 // docs/editor.md, Keyboard: keys outside Interact (CAN-54), nudging, select inverse and matching, next and previous

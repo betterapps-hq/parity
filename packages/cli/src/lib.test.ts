@@ -1,5 +1,5 @@
 import { covers } from "@parity/registry"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { keptRange, packageSpec } from "./lib.ts"
 
 describe("packageSpec", () => {

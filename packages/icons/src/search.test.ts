@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { iconEntries } from "./entries.ts"
 import { editDistance, iconIndex, searchIcons, words } from "./search.ts"
 

@@ -1,5 +1,5 @@
 import { type ContainerSpec, defaultModeSettings } from "@parity/core"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { DesignStore } from "../design-store.ts"
 import {
   boardClick,

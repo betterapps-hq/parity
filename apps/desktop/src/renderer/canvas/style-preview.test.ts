@@ -2,7 +2,7 @@ import { fileURLToPath } from "node:url"
 import type { ContainerSpec } from "@parity/core"
 import { build } from "esbuild"
 import { type Browser, chromium, type Page } from "playwright-core"
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vite-plus/test"
 import { cssName } from "./style-preview.ts"
 
 // The preview writes onto elements already drawn, so it runs in Chrome, where styles are real. It needs Chrome installed.

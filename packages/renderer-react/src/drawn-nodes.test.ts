@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { currentRootFiber, type Fiber, indexDrawnNodes } from "./drawn-nodes.ts"
 
 // Fibers shaped as React 19 makes them, with stand-ins for DOM elements. frame.test.ts checks the same walk on React
