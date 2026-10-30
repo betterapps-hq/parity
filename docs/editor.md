@@ -1176,11 +1176,41 @@ have no test of their own; the first was checked by reading `wakeNext`, the seco
 gives back and the time waking takes were measured by hand in a debug copy (see [decisions.md](decisions.md), Canvas),
 not by the suite.
 
+## What the editor itself loads
+
+What Parity's own UI costs the window, apart from the projects it shows.
+
+### Icons and dependencies served lean (PAR-199)
+
+The window loads only the lucide icons the editor uses, and Parity's dependencies minified. Nothing looks different; the
+window holds less.
+
+- **Icons:** each `import { … } from "lucide-react"` in the app's code is rewritten, while Vite serves it, to import
+  each icon from its own file, and lucide-react is kept out of Vite's prebundling. Types are dropped, a name
+  lucide-react doesn't export stays imported from the package so it fails as before, and the import keeps its lines, so
+  the module's source map holds. Imports are found by parsing the module, so import-like text in a string stays.
+  Dependencies and a project's own icons, which its builder serves, are left alone. Storybook uses the same config;
+  builds bundle lucide-react as usual.
+- **Dependencies:** what Vite prebundles for the UI is minified. Their source maps still lead DevTools to the code as
+  published, so a stack trace through tldraw reads as before once DevTools maps it.
+- **Measured** on the example project, against an isolated copy of the app: the window's scripts went from 19.3 M
+  characters to 14.9 M, lucide-react's from 1.73 M to 0.28 M across 149 files, tldraw's from 3.53 M to 1.68 M, and the
+  heap after a collection from 151 to about 141 MB. [decisions.md](decisions.md) has the calls.
+
+Code: `iconImports` and `iconImportsPlugin` in `apps/desktop/scripts/icon-imports.ts`, and `optimizeDeps` in
+`apps/desktop/vite.config.ts`.
+
+Tests: `apps/desktop/scripts/icon-imports.test.ts` (8: every name an icon goes by, the installed package's index, one
+file per icon under the module's own names, lines kept, types dropped, unknown names left, import-like text in strings
+and comments left, other modules unchanged). The e2e suite (`pnpm test:app`) runs the editor with both in place. Gaps:
+the minified prebundle has no test of its own; it was checked in an isolated copy of the app on 2026-10-29, where all
+736 icons on screen drew and the window's scripts were measured over the DevTools protocol.
+
 ## Opening and closing projects
 
 What opening a project loads into the windows, and what closing it gives back.
 
-### Reopening loads the project afresh (PAR-195, PAR-422)
+### Reopening loads the project afresh (PAR-195, PAR-422, PAR-433)
 
 A reopened project's builder serves it at a new address, one no guest has had since the project service started, even
 when the system would hand an old one out again, so the window and the offscreen renderer load its modules again rather
@@ -1197,18 +1227,28 @@ opened again.
 - **Tabs and their views are given a tab's id,** not the tab: React keeps the props a list's parent drew last, so a
   closed tab passed whole would keep its session, canvas included, until the window drew again.
 - **A builder started again** from the processes list keeps its address when it's free, since the canvas it serves is
-  still open; when it isn't, windows that open the project from then on find the new one.
+  still open. When it isn't, it takes a port no guest has had, and the open tabs are told (`project.guestMoved`): each
+  loads the guest from the new address, swaps in its tokens and lets go of the old guest. A tab whose new guest won't
+  load keeps the old one and says so, and the service tells it again the next time the builder starts again, even on the
+  same port, as it compares with where the window draws the guest (`followGuest`). A tab still loading when its guest
+  moves draws from the new address once it's ready; one reopened while the moved guest loads keeps what the reopen
+  loaded and lets the moved one go. When restarts overlap, the tab draws from the latest move, whichever guest loads
+  first.
 
-Code: `serveBuilder` and `newGuestPort` in `apps/desktop/src/utility/projects.ts`; `releaseGuest` in
-`apps/desktop/src/renderer/guest.ts`, called from `workspace.ts` and `render.ts`; `guestId` in
+Code: `serveBuilder` and `restartBuilder` in `apps/desktop/src/utility/projects.ts`, with `newGuestPort`, `restartPort`,
+`guestMove` and `followGuest` in `guest-ports.ts`; `moveGuest` in `apps/desktop/src/renderer/workspace.ts`;
+`releaseGuest` in `apps/desktop/src/renderer/guest.ts`, called from `workspace.ts` and `render.ts`; `guestId` in
 `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`, which keys a reopened guest's bitmaps apart from the last one's;
 `ProjectView.tsx` and `chrome/TabBar.tsx`, which take a tab's id.
 
 Tests: `apps/desktop/e2e/reopening.e2e.ts` opens and closes the example project twice and checks the window ends within
-3,000 DOM nodes of where it started; with the old address on reopen it ended about 69,000 over. Gaps: the offscreen
-renderer's side has no automated test. Skipping ports guests had has no test of its own, as the system handing an old
-port out again can't be made to happen; it was checked by reading `newGuestPort`. A project service started again
-forgets the ports, while the window keeps what it loaded from them.
+3,000 DOM nodes of where it started; with the old address on reopen it ended about 69,000 over.
+`apps/desktop/src/utility/guest-ports.test.ts` covers which port a builder takes, skipping ports guests had, and when
+the windows are told a guest moved, and told again after a move they couldn't load;
+`apps/desktop/src/renderer/workspace.test.ts` covers `moveGuest`, including a tab still loading, one reopened meanwhile
+and overlapping moves. Gaps: the offscreen renderer's side has no automated test, nor has `restartBuilder` sending
+`project.guestMoved` to the window. A project service started again forgets the ports, while the window keeps what it
+loaded from them.
 
 ### A tab closed while its project opens (PAR-427)
 

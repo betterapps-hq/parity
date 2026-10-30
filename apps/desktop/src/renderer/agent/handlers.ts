@@ -35,7 +35,8 @@ export function serveAgents(): void {
       }
       case "project.guestMoved": {
         const { projectId, guestUrl } = params as WindowMethods["project.guestMoved"]["params"]
-        await workspace.moveGuest(projectId, guestUrl)
+        // A tab that couldn't load it says so, and the service tries again when the builder is started again.
+        if (!(await workspace.moveGuest(projectId, guestUrl))) throw new Error(`The guest at ${guestUrl} didn't load`)
         return undefined
       }
       case "project.fileChanged": {

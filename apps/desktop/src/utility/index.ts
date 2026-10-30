@@ -127,7 +127,14 @@ onFileChange(
   },
   (change) => {
     editor?.request("project.componentsChanged", change).catch(() => undefined)
-  }
+  },
+  (change) =>
+    editor
+      ? editor.request("project.guestMoved", change).then(
+          () => true,
+          () => false
+        )
+      : Promise.resolve(false)
 )
 
 void startAgentServer(editorWindow).catch((error: unknown) =>
