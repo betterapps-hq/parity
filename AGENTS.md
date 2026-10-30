@@ -11,12 +11,15 @@
   [docs/proposals/packages.md](docs/proposals/packages.md) sets out. The app keeps views, files, IPC and processes.
 - **How code, tests and docs are written is in [docs/conventions.md](docs/conventions.md):** finish a change before
   checking it, ask before adding a dependency, and try changes people see in the running app.
-- **Several sessions edit this folder at once.** Re-read a file just before changing it.
+- **Several sessions work in this repository at once.** Re-read a file just before changing it.
+- **Work on a branch, and land it through a pull request.** `main` on GitHub (betterapps-hq/parity) takes changes only
+  through pull requests, squash-merged once `CI passes` and CodeRabbit pass and every thread is resolved. Start each
+  piece of work in its own worktree, on a branch from `origin/main`, and never commit to `main` itself.
 - **Commit your work when you judge it's ready,** without waiting to be asked: an issue done, a fix in, a doc finished,
-  with `pnpm verify` passing. Stage your own files by path, so other sessions' unfinished work stays out unless the user
-  asks for a wholesale commit. Shared docs such as decisions.md go in whole. Write conventional messages
-  (`feat(core): …`, `fix(desktop): …`, `docs: …`). `main` is on GitHub at betterapps-hq/parity; push only when the user
-  asks.
+  with `pnpm verify` passing. Write conventional messages (`feat(core): …`, `fix(desktop): …`, `docs: …`). Then push the
+  branch and open a pull request whose title is the squashed commit's subject, in the same form. Answer CodeRabbit's
+  threads by fixing or replying. The user merges unless they say otherwise; once it's merged, remove the worktree and
+  its branch.
 - **Commits are checked by hooks.** A commit gets lint and formatting on the files it stages, fixed where they can be, a
   conventional subject of at most 100 characters that isn't work in progress, and a change file for each versioned
   package it touches. After staging, run `pnpm changefile --type patch --message "what changed, for the changelog"`
