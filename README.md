@@ -45,14 +45,16 @@ pnpm install
 pnpm dev
 ```
 
-`pnpm dev` starts the desktop app with the example project, `examples/shadcn-vite`, open. Other scripts:
+`pnpm dev` starts the desktop app with the example project, `examples/shadcn-vite`, open. Other commands:
 
-| Command            | What it does                                                           |
-| ------------------ | ---------------------------------------------------------------------- |
-| `pnpm verify`      | Formatting, lint and tests, as CI runs them.                           |
-| `pnpm check:types` | Type checks, which run on push and in CI rather than in `verify`.      |
-| `pnpm test:app`    | The editor's end-to-end tests, a few minutes long and not in `verify`. |
-| `pnpm storybook`   | The app's interface in Storybook, against a stand-in project service.  |
+| Command            | What it does                                                                   |
+| ------------------ | ------------------------------------------------------------------------------ |
+| `pnpm verify`      | Formatting, lint and tests, as CI runs them: `vp run check` and `vp run test`. |
+| `vp run check`     | Formatting and lint only.                                                      |
+| `vp run test`      | The unit tests only.                                                           |
+| `pnpm check:types` | Type checks, which run on push and in CI rather than in `verify`.              |
+| `pnpm test:app`    | The editor's end-to-end tests, a few minutes long and not in `verify`.         |
+| `pnpm storybook`   | The app's interface in Storybook, against a stand-in project service.          |
 
 Some tests open the projects in `fixtures/`, which need installing first:
 `pnpm --filter @parity/fixtures install-projects` installs those it knows, and the rest install with `npm ci` in their
