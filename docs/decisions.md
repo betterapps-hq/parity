@@ -1472,6 +1472,10 @@ to PAR-209 build it.
   pickers now say Semantic (named for what they're for, as `primary`) and Primitive (the raw scale, as `color-red-500`),
   the pair Figma's variable collections use; Fluent's alias and global, Material's system and reference are the same
   split. Which tier a token is still follows where it's declared until a library says (PAR-143's audit).
+- **One token order, kept in the tokens package, for every list.** You found on 2026-10-29 that the spacing picker
+  listed containers as 2xl, 2xs, 3xl, 3xs, out of step with the Tokens panel, and asked for a DRY approach. The order
+  moved into `@parity-app/tokens` (`orderTokens`, beside the kinds it reads), and the token store hands every panel and
+  picker its tokens in it, the Tokens panel included, so none sorts on its own (PAR-440).
 - **A measured kind lists smallest first.** You found the font weights out of order on 2026-10-29: they were by name, so
   black came before bold and thin last. Weights, sizes, lengths, durations, opacities, layers and ratios now list by
   value; colors, fonts, easings, animations and cursors stay by name, having no one order. Shadows stayed by name too,

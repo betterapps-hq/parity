@@ -1,3 +1,4 @@
+import type { DescribedTokens } from "@parity-app/core"
 import type { Token } from "@parity-app/tokens"
 import type { TokenChange } from "@parity-app/tokens"
 import { useSyncExternalStore } from "react"
@@ -11,6 +12,7 @@ import {
   tokenKey,
   tokensWithEdits
 } from "./token-edits.ts"
+import { inTokenOrder } from "./token-values.ts"
 
 /**
  * A project's tokens, editable. An edit is a change like any other, in the design store's history: it shows in every
@@ -33,7 +35,9 @@ export class TokenStore {
     write: (changes: TokenChange[]) => Promise<unknown>,
     private readonly history: DesignStore,
     /** The stylesheet the tokens are written to, as the project names it. */
-    readonly stylesheet = "the stylesheet"
+    readonly stylesheet = "the stylesheet",
+    /** The tokens the project's `.lib.par` files describe, whose DTCG types say what kind a token is. */
+    private readonly described?: readonly DescribedTokens[]
   ) {
     this.tokens = loaded
     history.writeTokensWith({ path: stylesheet, write })
@@ -52,6 +56,22 @@ export class TokenStore {
   }
 
   get = () => this.tokens
+
+  private orderedFrom: Token[] | undefined
+  private ordered: Token[] = []
+
+  /**
+   * The tokens in the order every list of them shares (`orderTokens` in `@parity-app/tokens`): smallest first where a
+   * kind has a size or a number, ties and the rest by name, each token read as the Tokens panel draws it
+   * (`inTokenOrder`). Every panel and picker lists from this, the Tokens panel too, so none sorts on its own.
+   */
+  inOrder = () => {
+    if (this.orderedFrom !== this.tokens) {
+      this.ordered = inTokenOrder(this.tokens, this.described)
+      this.orderedFrom = this.tokens
+    }
+    return this.ordered
+  }
 
   /**
    * What the shared stylesheet previews so far, the latest value of each token in each theme, for frames drawn
@@ -145,8 +165,9 @@ function editLabel(changes: readonly TokenChange[]): string {
   return names.size === 1 ? `Edit ${[...names][0]}` : `Edit ${names.size} tokens`
 }
 
+/** The project's tokens, in the order every list of them shares. */
 export function useTokenList(store: TokenStore): Token[] {
-  return useSyncExternalStore(store.subscribe, store.get)
+  return useSyncExternalStore(store.subscribe, store.inOrder)
 }
 
 /** Why the last save couldn't write some of the project's token values, and which; undefined once one succeeds. */

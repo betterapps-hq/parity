@@ -1237,6 +1237,12 @@ to draw, so its row shows the number. Beside the name is what the token comes to
   one is drawn true to there and the rest squeezed, hatched, into those last pixels, on a log scale up to 384 pixels, so
   a squeezed bar never passes for its true size and a longer length still ends further along; the pixels beside the name
   say how long it is. The detail draws the scale the same way with more room, so most steps are at their true size.
+- **Every list of tokens shares one order** (`orderTokens` in `packages/tokens/src/token-order.ts`): the Tokens panel,
+  the inspector's token pickers and the spacing picker all list from `TokenStore.inOrder`, and none sorts on its own, so
+  they can't fall out of step (PAR-440). The store reads each token the way the panel draws it (`inTokenOrder` in
+  `token-values.ts`): its kind from the DTCG type a `.lib.par` gives it, and its value as what it comes to, references
+  and spacing steps filled in. A value of `none` counts as nothing, so it comes first. A length plain parsing can't
+  read, such as `calc()`, is measured by the browser, in a shadow's layers too.
 - **Each measured kind lists smallest first:** font weights from thin to black, font sizes from `text-xs` up, shadows by
   how far they reach past their box (for the furthest layer, the offset plus the blur and spread, read from the value
   rather than a size name), then spacing, radii, letter spacing, line heights, border widths, blurs, opacities,
@@ -1244,8 +1250,9 @@ to draw, so its row shows the number. Beside the name is what the token comes to
   A value that is a duration is a duration whatever its name, so tw-animate-css's `animation-delay-75` lists with the
   durations. Tokens of the same value, and the kinds with no one order (colors, fonts, easings, cursors), go by name the
   way people count: numbers by value (`chart-2` before `chart-10`) and size words smallest first (`2xs`, `xs`, `sm`,
-  `md`, `lg`, `xl`, `2xl`, and Fluent's `XXS` to `XXL` and `Small` to `XLarge`). A value that can't be measured goes
-  after the rest, by name the same way.
+  `md`, `lg`, `xl`, `2xl`, and Fluent's `XXS` to `XXL` and `Small` to `XLarge`). A size word comes before any other word
+  in the same place (`text-lg` before `text-normal`), so the order never runs in a circle. A value that can't be
+  measured goes after the rest, by name the same way.
 - **What a design shows sits on the design's sheet:** shadows, blur, opacity and type are drawn on white in the light
   theme, as in a frame, not on Parity's dark chrome. Measurements are diagrams in Parity's ink.
 - **Every color swatch has one clean edge (PAR-435).** One element paints the color over a checkerboard, which shows
@@ -1282,10 +1289,13 @@ to draw, so its row shows the number. Beside the name is what the token comes to
 
 Code: the drawings are `apps/desktop/src/renderer/chrome/token-previews.tsx` (`TokenArt`, `TokenGlyph`, `TokenTile`,
 `valueLabel`, `valueProblem`, `spacingSlot`, `tokenSections`, `useHoverPlay`); the panel is `chrome/TokensPanel.tsx`
-(`comesTo`, `panelItems`, the virtualized list, `TokenRow`, `TokenTileButton`, `PaletteShade`, `TokenEditor`); the copy
-parts are `chrome/Copy.tsx`; the keyframes are `tokens-store.ts` (`keyframesNamed`, `TokenStore.keyframes`); a token's
-kind, the Copy as forms and the value helpers are `packages/tokens/src/kinds.ts`, and matching the tokens a `.lib.par`
-describes to the stylesheet's custom properties is `matchDescribed` in `packages/tokens/src/matching.ts`. The Storybook
+(`panelItems`, the virtualized list, `TokenRow`, `TokenTileButton`, `PaletteShade`, `TokenEditor`); what a token comes
+to and the order built from it are `token-values.ts` (`comesTo`, `inTokenOrder`); lengths the browser measures are
+`lengths.ts` (`px`); the copy parts are `chrome/Copy.tsx`; the keyframes and the shared order are `tokens-store.ts`
+(`keyframesNamed`, `TokenStore.keyframes`, `TokenStore.inOrder`, `useTokenList`); a token's kind, the Copy as forms and
+the value helpers are `packages/tokens/src/kinds.ts`, and matching the tokens a `.lib.par` describes to the stylesheet's
+custom properties is `matchDescribed` in `packages/tokens/src/matching.ts`; the order itself is
+`packages/tokens/src/token-order.ts` (`orderTokens`, `scaleValue`, `shadowReach`, `compareNames`). The Storybook
 explorations under `explorations/previews` draw with the same module, from sample tokens.
 
 Tests:
@@ -1295,6 +1305,16 @@ Tests:
   open; references listed and filled in; values split at their top-level commas.
 - `packages/tokens/src/matching.test.ts` (2): a described token matched by the custom property its extension names, else
   by its path, with or without its first group, and the ones that match none.
+- `packages/tokens/src/token-order.test.ts` (13, PAR-440): a picker's containers smallest first, as the panel lists
+  them; `none` first; what can't be measured after the rest, a value still holding a `var()` anywhere too, and an empty
+  one of any kind; names by number and by size word, in Tailwind's and both of Fluent's forms; a size word before
+  `normal`, the same in every starting order, which was a circle before; ties by name; animations by duration; shadows
+  by reach, Tailwind's and Fluent's, and a `calc()` layer read by the measurer it's given, with `var()` never handed to
+  it.
+- `apps/desktop/src/renderer/token-values.test.ts` (3, PAR-440): the shared order takes a token's kind from its
+  `.lib.par` DTCG type (shadows with no category list by reach only with it), and its value as what it comes to, through
+  a reference and a derived spacing step; a value still holding a `var()` lists after the rest, never measured.
+- `chrome/token-previews.test.ts` (4): a spacing bar's true and squeezed lengths.
 - `apps/desktop/src/renderer/tokens-store.test.ts` (1 of its 4), in Chrome: an animation's keyframes read from a
   stylesheet, inside `@layer` too, with each step's timing function as its easing.
 - `chrome/TokensPanel.stories.tsx`: AllTokens (no animation running with nothing hovered), Tiles, Copying (the row's
@@ -1309,7 +1329,10 @@ Tests:
 
 Gaps: the previews themselves are checked by eye in Storybook, not by pixels. Opacity, blur and border width are still
 filed under Other and Effects as categories, so the inspector's pickers don't offer them by kind yet; the panel's
-sections already split them.
+sections already split them. No test reads a picker's list or the Tokens panel's rows for their order, and `px`'s
+browser measuring of `calc()` (`lengths.ts`) has no test of its own: after PAR-440's review fixes these were checked by
+reading the code (every list reads `useTokenList`, which returns `TokenStore.inOrder`, and the panel's filters keep that
+order) and through the core and `token-values.ts` tests above, not in Storybook or the running app.
 
 ### A token's detail (PAR-143)
 

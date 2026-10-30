@@ -630,7 +630,8 @@ function tokenStore(info: ProjectInfo, loaded: LoadedGuest, store: DesignStore):
     loaded.sheet,
     (changes) => window.canvasHost.request("tokens.save", { projectId: info.id, changes }),
     store,
-    info.styles?.stylesheet
+    info.styles?.stylesheet,
+    info.describedTokens
   )
 }
 

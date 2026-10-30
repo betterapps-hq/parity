@@ -62,15 +62,12 @@ function openLibrary(file: string) {
     const project = example()
     const sheet = new CSSStyleSheet()
     sheet.replaceSync(css)
+    const describedTokens = [{ name: manifest.name, manifest: `node_modules/${file}`, tokens: described }]
     const session: ProjectSession = {
       ...project,
-      info: {
-        ...project.info,
-        styles: undefined,
-        describedTokens: [{ name: manifest.name, manifest: `node_modules/${file}`, tokens: described }]
-      },
+      info: { ...project.info, styles: undefined, describedTokens },
       // Edits go nowhere: the story is for looking.
-      tokens: new TokenStore(tokens, sheet, () => Promise.resolve(), project.store, file)
+      tokens: new TokenStore(tokens, sheet, () => Promise.resolve(), project.store, file, describedTokens)
     }
     return { session }
   }
