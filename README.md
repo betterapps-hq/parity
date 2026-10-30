@@ -63,14 +63,14 @@ their folders.
 
 ## The CLI
 
-The `parity` command drives a running Parity from a terminal or an agent. It's coming to npm as `@parity-app/cli`:
+The `parity` command drives a running Parity from a terminal or an agent. It's on npm as `@parity-app/cli`:
 
 ```sh
 npx @parity-app/cli state
 ```
 
-Until it's published, run it from a checkout with `node packages/cli/src/bin.ts`. `parity --help` lists its commands,
-`parity mcp` serves them as MCP tools, and `parity skill` prints the skill that teaches an agent to design with Parity.
+From a checkout, `node packages/cli/src/bin.ts` runs it from source. `parity --help` lists its commands, `parity mcp`
+serves them as MCP tools, and `parity skill` prints the skill that teaches an agent to design with Parity.
 [packages/cli/README.md](packages/cli/README.md) has more.
 
 ## Layout

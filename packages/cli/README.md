@@ -5,8 +5,7 @@ agent. Parity is a design canvas that draws a project's real components, styled 
 open project's designs, components and tokens, runs edits as one undoable step, takes screenshots, checks accessibility,
 and serves all of this as MCP tools.
 
-> **Pre-release.** The CLI isn't on npm yet; its first publish is pending. Until then, run it from a checkout of the
-> repository with `node packages/cli/src/bin.ts`.
+> **Pre-release.** Versions before 1.0 may change their commands and output between releases.
 
 ## Install
 

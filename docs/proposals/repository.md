@@ -20,7 +20,8 @@ to npm and of unsigned installers to GitHub Releases, as betas first and to ever
 - **Nothing builds for production.** The main process exits without `PARITY_RENDERER_URL`, so Parity only runs under
   `pnpm dev`.
 - **Only the desktop app and the CLI are versioned,** from Beachball change files (PAR-4). The packages they bundle stay
-  `private`, and the CLI still runs from source.
+  `private`. The CLI is on npm as `@parity-app/cli` (PAR-13): 0.0.0 was published by hand on 2026-10-30, and npm trusts
+  `cd-npm.yml` in the `npm` environment to publish the rest, once that workflow exists.
 - **The agency monorepo's stricter lint rules are on** (PAR-396), apart from the three left out below.
 - **Hooks check what a commit stages and what a push sends** (PAR-3), so other sessions' unfinished work no longer fails
   a commit. `pnpm verify` still checks the whole folder.
