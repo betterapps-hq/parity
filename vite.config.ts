@@ -267,7 +267,10 @@ export default defineConfig({
     // CI's runners have four cores. Locally twelve, which Copacker's tests settled on for this machine.
     maxWorkers: process.env.CI ? 4 : 12,
     // Closing Chrome after the browser tests takes more than the default 10 seconds on CI's macOS runners.
-    hookTimeout: 30_000
+    hookTimeout: 30_000,
+    // CI's Windows runners take longer than the default 5 seconds over whichever tests run slowest, a different few
+    // each run, with Chrome and the fixture projects on four cores. Locally a slow test still fails at 5.
+    testTimeout: process.env.CI ? 20_000 : 5_000
   },
   // The checks, as tasks so Vite Task replays one whose inputs haven't changed since it last passed, here and in CI.
   // `pnpm verify` runs `check` and `test`, and `pnpm check:types` runs `types`; a task can't share a script's name.
