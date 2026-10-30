@@ -41,4 +41,12 @@ describe("guestMove", () => {
       guestUrl: "http://127.0.0.1:5402/guest.js"
     })
   })
+
+  it("tells the windows again when a move they couldn't load is followed by a restart on the same port", () => {
+    // restartBuilder compares with where the windows draw the guest, which a failed move left at the old port.
+    expect(guestMove("D:/shop", "http://127.0.0.1:5400/guest.js", "http://127.0.0.1:5402/guest.js")).toEqual({
+      projectId: "D:/shop",
+      guestUrl: "http://127.0.0.1:5402/guest.js"
+    })
+  })
 })

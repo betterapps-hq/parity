@@ -313,7 +313,7 @@ describe("moveGuest", () => {
     expect(guest.loads).toHaveLength(2)
     const fresh = { guest: { fresh: true }, sheet: {}, tokens: [] }
     guest.loads[1]!(fresh)
-    await moving
+    expect(await moving).toBe(true)
     const { session } = workspace.getTab(info.id)!
     expect(session!.info.guestUrl).toBe(moved)
     expect(session!.loaded).toBe(fresh)
@@ -323,16 +323,16 @@ describe("moveGuest", () => {
 
   it("does nothing when the guest is where the tab already loads it from", async () => {
     const workspace = await opened()
-    await workspace.moveGuest(info.id, info.guestUrl)
+    expect(await workspace.moveGuest(info.id, info.guestUrl)).toBe(true)
     expect(guest.loads).toHaveLength(1)
     expect(guest.released).toEqual([])
   })
 
-  it("keeps the tab on its old guest when the new address doesn't load", async () => {
+  it("keeps the tab on its old guest, and says it didn't move, when the new address doesn't load", async () => {
     const workspace = await opened()
     const moving = workspace.moveGuest(info.id, moved)
     guest.failures[1]!(new Error("The builder isn't answering"))
-    await moving
+    expect(await moving).toBe(false)
     expect(workspace.getTab(info.id)!.session!.info.guestUrl).toBe(info.guestUrl)
     expect(guest.released).toEqual([])
   })

@@ -283,14 +283,17 @@ export class Workspace {
     )
   }
 
-  /** Draws a project's tab with its guest from a new address, once its builder started again on another port. */
-  async moveGuest(projectId: string, guestUrl: string): Promise<void> {
+  /**
+   * Draws a project's tab with its guest from a new address, once its builder started again on another port. Resolves
+   * false when the guest there couldn't be loaded, so the tab still draws the old one.
+   */
+  async moveGuest(projectId: string, guestUrl: string): Promise<boolean> {
     const tab = this.tabs.find((candidate) => candidate.session?.id === projectId)
-    if (!tab?.session || tab.session.info.guestUrl === guestUrl) return
+    if (!tab?.session || tab.session.info.guestUrl === guestUrl) return true
     try {
       const loaded = await loadGuest(guestUrl, tab.session.info.theme)
       const current = this.getTab(tab.id)
-      if (!current?.session) return
+      if (!current?.session) return true
       // From the session as it is now, since its sources can change while the guest loads.
       const info = { ...current.session.info, guestUrl }
       const before = current.session.info.guestUrl
@@ -300,10 +303,12 @@ export class Workspace {
       })
       current.session.tokens.dispose()
       releaseGuest(before)
+      return true
     } catch (error) {
       toast.error(`Couldn't load ${tab.session.info.name} from its restarted builder`, {
         description: error instanceof Error ? error.message : String(error)
       })
+      return false
     }
   }
 

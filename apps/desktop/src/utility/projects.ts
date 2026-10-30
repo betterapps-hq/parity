@@ -75,13 +75,15 @@ interface OpenProject {
   uiKit?: string
   /** The person's corrections to which exports are components, as the canvas has the main project file now. */
   corrections?: DetectionCorrections
+  /** Where the windows load the project's guest from: `info.guestUrl`, unless they couldn't load it after it moved. */
+  drawnGuestUrl: string
 }
 
 type FileChange = WindowMethods["project.fileChanged"]["params"]
 type ComponentsChange = WindowMethods["project.componentsChanged"]["params"]
 let notifyFileChange: (change: FileChange) => void = () => undefined
 let notifyComponents: (change: ComponentsChange) => void = () => undefined
-let notifyGuestMoved: (change: GuestMoved) => void = () => undefined
+let notifyGuestMoved: (change: GuestMoved) => Promise<boolean> = () => Promise.resolve(false)
 
 /**
  * Where changes to project files made outside the canvas are reported, props re-inferred after a source edit, and a
@@ -90,7 +92,8 @@ let notifyGuestMoved: (change: GuestMoved) => void = () => undefined
 export function onFileChange(
   listener: (change: FileChange) => void,
   components: (change: ComponentsChange) => void,
-  guestMoved: (change: GuestMoved) => void
+  /** Resolves whether the windows now draw the guest from its new address. */
+  guestMoved: (change: GuestMoved) => Promise<boolean>
 ): void {
   notifyFileChange = listener
   notifyComponents = components
@@ -253,6 +256,7 @@ async function start(root: string): Promise<ProjectInfo> {
     session,
     builder,
     startOptions,
+    drawnGuestUrl: session.guestUrl,
     stylesheets: config.styles,
     known,
     sources: config.components,
@@ -330,11 +334,13 @@ async function restartBuilder(root: string): Promise<void> {
     return
   }
   project.session = session
-  // It has its old port back unless something took it; then the open windows load the guest from the new one.
-  const moved = guestMove(root, project.info.guestUrl, session.guestUrl)
-  if (!moved) return
   project.info.guestUrl = session.guestUrl
-  notifyGuestMoved(moved)
+  // It has its old port back unless something took it; then the open windows load the guest from the new one. That's
+  // checked against where they draw it, so a move they couldn't load is tried again when it's started again.
+  const moved = guestMove(root, project.drawnGuestUrl, session.guestUrl)
+  if (moved && (await notifyGuestMoved(moved)) && project.info.guestUrl === moved.guestUrl) {
+    project.drawnGuestUrl = moved.guestUrl
+  }
 }
 
 /** Sends the builder the components the guest imports, once they've changed in place. */

@@ -1088,7 +1088,8 @@ opened again.
 - **A builder started again** from the processes list keeps its address when it's free, since the canvas it serves is
   still open. When it isn't, it takes a port no guest has had, and the open tabs are told (`project.guestMoved`): each
   loads the guest from the new address, swaps in its tokens and lets go of the old guest. A tab whose new guest won't
-  load keeps the old one and says so.
+  load keeps the old one and says so, and the service tells it again the next time the builder starts again, even on the
+  same port, as it compares with where the window draws the guest.
 
 Code: `serveBuilder` and `restartBuilder` in `apps/desktop/src/utility/projects.ts`, with `newGuestPort`, `restartPort`
 and `guestMove` in `guest-ports.ts`; `moveGuest` in `apps/desktop/src/renderer/workspace.ts`; `releaseGuest` in
