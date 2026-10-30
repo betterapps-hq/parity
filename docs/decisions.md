@@ -1681,6 +1681,20 @@ the Repository, CI and releases stream in Linear.
   provenance, and the desktop app to GitHub Releases. My calls: installers come from electron-builder, since one tool
   makes installers, signs them and serves updates, and only the desktop app makes GitHub Releases, so the updater never
   mistakes a CLI release for an app update.
+  - **`release.yml` and `cd-npm.yml` call the shared templates** (PAR-10, PAR-14), `release-prepare`, `release-merge`
+    and `cd-npm-publish`, as `betterapps-hq/pipelines`' README shows, after CI passes for a push to `main`. My calls:
+    - **A GitHub App pushes and merges the release PR,** not a personal access token, so the release commits aren't
+      yours and nothing expires with a person's token. It needs read and write access to contents and pull requests,
+      installed on this repository only.
+    - **The `npm` environment comes from Terraform,** in `infra/github`, kept to `main` with administrators unable to
+      bypass it, and with no approval, since every merged release PR ships.
+    - **`cd-npm.yml` runs on every CI pass on `main`,** not only when a version changes, since the template publishes
+      only versions npm doesn't have: a run without one publishes nothing and asks for no approval, and a failed run is
+      caught up by the next.
+    - **CodeRabbit skips `CHANGELOG.md` and `CHANGELOG.json`,** whose wording it reviewed in the change files, so a
+      thread on a changelog can't hold up the release PR.
+    - **Four change files written under the old name `@parity/desktop` were renamed** to `@parity-app/desktop`, since
+      `beachball bump` skips a change file for a package that doesn't exist, leaving it and dropping its changelog line.
 - **Desktop releases reach the beta first, and everyone when promoted,** as you asked on 2026-10-29: beta builds and
   production releases, promoted the way the web apps go from staging to production. My calls: a release is a GitHub
   pre-release until it's promoted, and promoting marks that same release a full one, so nothing is rebuilt; the beta is

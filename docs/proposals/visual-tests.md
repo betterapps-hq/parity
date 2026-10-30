@@ -420,7 +420,7 @@ parity test changes --since <ref>  cases whose baselines changed, with before an
 ```
 
 `parity test` runs without the app, unlike most of the CLI's commands, which call the running app. CI gets it with
-`npx`, since the CLI will be public on npm (your call, 2026-10-29), under the name PAR-26 settles.
+`npx @parity-app/cli`, since the CLI is public on npm (your call, 2026-10-29), under the name PAR-26 settled.
 
 ## Targets
 

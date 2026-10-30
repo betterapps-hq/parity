@@ -30,6 +30,14 @@ to npm and of unsigned installers to GitHub Releases, as betas first and to ever
   job runs it; `pnpm verify` doesn't.
 - **Dependabot keeps dependencies current** (PAR-394): weekly, grouped, a few days behind each release, and never in the
   fixtures or the Vite+ toolchain. decisions.md has the calls.
+- **Release and npm pipelines are in place, waiting on credentials** (PAR-10, PAR-14). `release.yml` calls the shared
+  `release-prepare` and `release-merge` after CI passes on `main`, and `cd-npm.yml` calls `cd-npm-publish`, which
+  publishes `@parity-app/cli` through npm's trusted publishing with provenance. `0.0.0` was published by hand, and npm
+  trusts `cd-npm.yml` with the `npm` environment, which `infra/github` keeps to `main`. Until the release GitHub App's
+  `RELEASE_APP_CLIENT_ID` variable and `RELEASE_APP_PRIVATE_KEY` secret exist, `release.yml` skips with a notice, and
+  until Terraform's credentials exist, nothing makes the `npm` environment. The first release PR also waits on the
+  templates' v1.6.1, whose `release-prepare` gives the hooks `origin/main` to compare the release commit with.
+  CodeRabbit skips the changelogs, so the release PR has nothing for it to hold up.
 
 ## Vite+
 
@@ -100,7 +108,9 @@ This is how Buildkit and the agency monorepo already release, and you asked for 
   the packages that use it.
 - **A release PR, then delivery,** as Buildkit does it (PAR-10): after CI passes on `main`, pending change files open a
   pull request with `beachball bump`'s versions and changelogs, which merges itself once its checks pass. Its version
-  changes start the CD pipelines. Sessions pull before they push, so they pick up the release commits.
+  changes start the CD pipelines. Sessions pull before they push, so they pick up the release commits. A release commit
+  changes only versions, changelogs and change files, which the hooks and CI's checks accept: `scripts/changes.ts`
+  ignores a `package.json` whose only change is its version, and CI skips `beachball check` on `beachball/release`.
 - **Every merged release PR ships,** the CLI to npm and the app to GitHub Releases, as Buildkit's packages do. The app
   goes to the beta, and reaches everyone only when it's promoted (see Betas), so how often release PRs merge doesn't
   decide how often people's Parity changes.
@@ -120,7 +130,8 @@ This is how Buildkit and the agency monorepo already release, and you asked for 
   _top-level_ workflow's file name, not a reusable one it calls, so each repository registers its own `cd-npm.yml` on
   npmjs.com. npm only trusts a workflow for a package that exists, so the first version is published by hand, then
   `npm trust github @parity-app/cli --repo betterapps-hq/parity --file cd-npm.yml --env npm --allow-publish` hands it to
-  CI.
+  CI. `cd-npm.yml` runs whenever CI passes on `main`, and the template publishes only the versions npm doesn't have, so
+  only a merged release PR's new version publishes. It can also be run by hand to retry one.
 - **Only packages with a `publishConfig` are published,** which the CLI gets with its npm name. The desktop app isn't
   private, since Beachball versions it, so `private` alone can't tell the publish step what goes to npm.
 
