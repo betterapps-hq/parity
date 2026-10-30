@@ -107,6 +107,7 @@ describe("the registry", () => {
       const sample = list[chart]!.sample!
       expect(list[chart]!.group).toBe("Charts")
       expect(sample.props).toMatchObject({ responsive: true, width: "100%" })
+      expect(sample.props!.data).toHaveLength(6)
       expect(sample.props!.data).toEqual(expect.arrayContaining([expect.objectContaining({ month: "January" })]))
       expect(
         sample.children!.map((child) => typeof child === "object" && "component" in child && child.component)
