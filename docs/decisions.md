@@ -1538,7 +1538,8 @@ the Repository, CI and releases stream in Linear.
     from source.
   - **It needs Node 24,** as the repository does.
   - **Provenance comes from the CD workflow's `--provenance`, not `publishConfig`,** since npm only makes it in CI and
-    the first version is published by hand, which npm needs before it can trust the workflow.
+    the first version is published by hand, which npm needs before it can trust the workflow. 0.0.0 went up by hand on
+    2026-10-30, and `npm trust` then named `cd-npm.yml` and the `npm` environment as its only publisher.
   - **`pnpm --filter @parity-app/cli try-packed` installs the packed tarball in an empty folder and runs it.** CI runs
     it on each system. The packed tarball is 2.6 MB.
 - **Hooks keep what doesn't belong out of pull requests (PAR-3),** as you asked on 2026-10-29. My calls:
