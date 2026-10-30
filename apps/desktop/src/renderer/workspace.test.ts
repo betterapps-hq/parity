@@ -181,6 +181,59 @@ describe("a tab closed while its project opens", () => {
     expect(workspace.getTabs()).toEqual([])
   })
 
+  it("doesn't open again when its tab closes while a reopen closes the project", async () => {
+    const workspace = new Workspace()
+    const opening = workspace.open(info.root)
+    opens[0]!(info)
+    await settle()
+    guest.loads[0]!(loaded)
+    await opening
+    const reloading = workspace.reload(info.id)
+    await workspace.close(info.id)
+    await reloading
+    expect(opens).toHaveLength(1)
+    expect(closes).toEqual([info.id])
+    expect(workspace.getTabs()).toEqual([])
+  })
+
+  it("closes the project and lets go of its guest when its tab closes while a reopen loads the guest", async () => {
+    const workspace = new Workspace()
+    const opening = workspace.open(info.root)
+    opens[0]!(info)
+    await settle()
+    guest.loads[0]!(loaded)
+    await opening
+    const reloading = workspace.reload(info.id)
+    await settle()
+    opens[1]!(info)
+    await settle()
+    expect(guest.loads).toHaveLength(2)
+    await workspace.close(info.id)
+    guest.loads[1]!(loaded)
+    await reloading
+    expect(closes).toEqual([info.id, info.id])
+    expect(guest.released).toEqual([info.guestUrl, info.guestUrl])
+    expect(workspace.getTabs()).toEqual([])
+  })
+
+  it("reopens once when asked again while it reopens, so closing the tab cancels it", async () => {
+    const workspace = new Workspace()
+    const opening = workspace.open(info.root)
+    opens[0]!(info)
+    await settle()
+    guest.loads[0]!(loaded)
+    await opening
+    const reloading = workspace.reload(info.id)
+    await workspace.reload(info.id)
+    await settle()
+    expect(opens).toHaveLength(2)
+    await workspace.close(info.id)
+    opens[1]!(info)
+    await reloading
+    expect(closes).toEqual([info.id, info.id])
+    expect(workspace.getTabs()).toEqual([])
+  })
+
   it("keeps a project that finished opening, and closes it with its tab", async () => {
     const workspace = new Workspace()
     const opening = workspace.open(info.root)

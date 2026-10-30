@@ -211,8 +211,10 @@ export class Workspace {
    */
   async reload(id: string, step = "Reopening the project"): Promise<void> {
     const tab = this.getTab(id)
-    if (!tab) return
+    // A tab already opening or reopening gets its project from that, which closing the tab can still cancel.
+    if (!tab || this.attempts.has(id)) return
     if (tab.session?.store.hasUnsaved() && !(await saveOrSay(tab.session))) return
+    if (this.attempts.has(id) || this.getTab(id) !== tab) return
     this.replace(id, { id, title: tab.title, status: "loading" })
     const attempt = this.startAttempt(id)
     // A tab that has opened is its project's id, so a reopen is known to be for it from the start.
