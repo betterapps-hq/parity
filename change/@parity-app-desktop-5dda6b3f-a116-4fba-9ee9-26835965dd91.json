@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Drop PNG, JPEG, GIF, WebP and SVG files from Explorer or Finder onto the canvas: they land in the layout under the pointer, or as a new design on the empty canvas",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

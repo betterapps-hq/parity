@@ -173,7 +173,7 @@ at the end of this page are the plan for testing more. Four of them exist in `fi
 | Searching icons                        | ✅     | Words in any order, by name, every alias and the set's tags, ranked, with small typos forgiven. Agents search the same way with `Icons(set, { search })`.                                                                          |
 | Pexels                                 | ⏳     | Removed for now: Pexels isn't taking new customers. The Images tab says it's coming soon.                                                                                                                                          |
 | Unsplash                               | 🔜     | The first stock source, through a service of Parity's that holds the key.                                                                                                                                                          |
-| Pasted or imported images              | ✅     | PNG, JPEG, GIF, WebP and SVG up to 20 MB, saved to `public/images/`.                                                                                                                                                               |
+| Pasted, dropped or imported images     | ✅     | PNG, JPEG, GIF, WebP and SVG up to 20 MB, saved to `public/images/`, pasted or dropped from Explorer or Finder.                                                                                                                    |
 
 ### Package managers and repos
 

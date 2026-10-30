@@ -915,6 +915,25 @@ recommended answer to each of its questions.
   service; the key never ships in the app. Unsplash allows 50 requests an hour until it approves an app for production,
   then 5,000, and raises that further on request. Only searches and download pings count; loading the images themselves
   doesn't.
+- **Image files dropped from Explorer or Finder land as pasted layers do (PAR-24).** My calls, all in editor.md's
+  "Dropping image files":
+  - Over a layout they go where Paste here would put them: the slot under the pointer by `slotAt`, or at the pointer in
+    an absolutely placed layout. On the empty canvas they make a new screen at the pointer, as a paste with nothing to
+    paste into does, rather than a note.
+  - That screen is named after the file, or Images for several, rather than Pasted, since a dropped file has a name. It
+    lays them out in a padded row that wraps, so several sit side by side.
+  - Over a design's frame with no layout under the pointer, or its board's background around the frames, nothing is
+    added and a message says so. Paste here makes a new screen there instead, overlapping the board; a drop shows where
+    it would land before it happens, so it says it can't rather than surprise.
+  - Several files dropped into an absolutely placed layout go side by side from the pointer, each 4 steps right of the
+    one before when it has a width, and so do several copies from Paste here, which used to stack them at one point.
+  - The types and the 20 MB limit are one list in `@parity-app/editor` that `images.import` uses too, so a drop takes
+    exactly what saving accepts, and files are checked before they're read. A file the system gives no type is taken by
+    its extension. Skipped and failed files are named in a message, and the rest are still added.
+  - Placing them is one design step; the files are written first and stay when it's undone, as a paste's do.
+  - tldraw never gets the drop, so it can't add pictures of its own. A file dropped anywhere else in the window is
+    refused, since Electron would otherwise open it in Parity's place. In Interact the design gets the drop.
+  - The service's project edit for a saved image is labelled "Add image", since it's no longer only for a paste.
 
 ## The example project
 
@@ -1908,7 +1927,7 @@ How Parity's code is split, so the parts that change most are easy to find, repl
   - Only importing a library's styles says what it wrote, with the diff and Undo, as it's a one-off change to the
     project's own stylesheet. Token edits take their undo from the design's history (PAR-164), and saving them goes
     through a project edit underneath. A pasted image stays a design step: its file is named by its content, so pasting
-    it again reuses it, and undoing the paste leaves the file, as before.
+    it again reuses it, and undoing the paste leaves the file, as before. A dropped image file is the same (PAR-24).
   - Installing a library imports its styles through a project edit too, but doesn't offer Undo, since undoing the import
     would leave the package installed.
 - **Editor behaviour moves into `@parity-app/editor`,** one file at a time with tests: arranging and the clipboard first

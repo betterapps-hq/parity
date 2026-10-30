@@ -11,7 +11,7 @@ import {
   withFreshIds
 } from "@parity-app/core"
 import { findNodeElement, nodeBox } from "../frame.ts"
-import { type Flow, flowOf, type Point, type Rect, type SlotChild, slotAt } from "./drop-slot.ts"
+import { type Flow, flowOf, type Point, type Rect, type Slot, type SlotChild, slotAt } from "./drop-slot.ts"
 import type { Hit } from "./hit.ts"
 
 /**
@@ -41,12 +41,16 @@ export interface HereLayout {
 
 const insets = ["top", "right", "bottom", "left"] as const
 
+/** Spacing steps between copies placed side by side at the pointer, as a pasted screen spaces its layers. */
+const besideGap = 4
+
 /**
  * Pastes copies of `nodes`, with fresh ids, where `here` says the pointer was. In a layout that flows, they go in the
  * slot under the pointer (see `slotAt`). In a layout that's absolutely placed, as the state shown places it, they go
  * last, on top of what's in it, placed absolutely at the pointer. A copy that's absolutely placed itself goes in the slot
- * and at the pointer. At the pointer is its left and top in half steps of the spacing scale, in place of its own insets.
- * Returns the design and the copies' ids; none when `here` isn't one of the design's layouts.
+ * and at the pointer. At the pointer is its left and top in half steps of the spacing scale, in place of its own insets;
+ * several copies placed there go side by side from it. Image files dropped onto the canvas land the same way. Returns
+ * the design and the copies' ids; none when `here` isn't one of the design's layouts.
  */
 export function pasteHere(
   container: ContainerSpec,
@@ -54,25 +58,49 @@ export function pasteHere(
   here: HereLayout,
   state: StateSpec
 ): { container: ContainerSpec; copies: string[] } {
-  const layout = locateNode(container.root, here.layout)?.node
-  if (layout?.type !== "layout") return { container, copies: [] }
-  const free = nodeInState(layout, state, shownVariants(container)).style?.position === "absolute"
-  const count = layout.children.length
-  const index = free ? count : slotAt(here.children, here.point, here.flow, here.box, count).index
+  const slot = slotHere(container, here, state)
+  if (!slot) return { container, copies: [] }
+  const { layout, free, index } = slot
   const at = {
     left: halfSteps(here.point.x - here.origin.x, here),
     top: halfSteps(here.point.y - here.origin.y, here)
   }
   const taken = nodeIds(container.root)
+  // Several copies placed at the pointer go side by side from it, each a gap right of the one before when that one has
+  // a width of its own; one that fills or hugs leaves the next where it starts.
+  let left = at.left
   const copies = nodes.map((node) => {
     const copy = withFreshIds(node, taken)
-    return free || copy.style?.position === "absolute" ? placedAt(copy, at) : copy
+    if (!free && copy.style?.position !== "absolute") return copy
+    const placed = placedAt(copy, { left, top: at.top })
+    const width = copy.style?.width
+    if (typeof width === "number") left += width + besideGap
+    return placed
   })
   let root = container.root
   for (const [offset, copy] of copies.entries()) {
-    root = insertNode(root, layout.id, copy, { index: index + offset })
+    root = insertNode(root, layout, copy, { index: index + offset })
   }
   return { container: { ...container, root }, copies: copies.map((copy) => copy.id) }
+}
+
+/**
+ * Where layers pasted or dropped `here` go: the layout, whether it's absolutely placed in the state shown, the index
+ * they go in at, and, in a layout that flows, the line that marks the slot on screen. Undefined when `here` isn't one of
+ * the design's layouts.
+ */
+export function slotHere(
+  container: ContainerSpec,
+  here: HereLayout,
+  state: StateSpec
+): { layout: string; free: boolean; index: number; line?: Slot["line"] } | undefined {
+  const layout = locateNode(container.root, here.layout)?.node
+  if (layout?.type !== "layout") return undefined
+  const free = nodeInState(layout, state, shownVariants(container)).style?.position === "absolute"
+  const count = layout.children.length
+  if (free) return { layout: layout.id, free, index: count }
+  const slot = slotAt(here.children, here.point, here.flow, here.box, count)
+  return { layout: layout.id, free, index: slot.index, line: slot.line }
 }
 
 /** A distance on screen in half steps of the spacing scale, as dragging an absolutely placed layer writes them. */
