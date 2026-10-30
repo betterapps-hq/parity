@@ -1,0 +1,20 @@
+name: App tests
+
+# The editor's end-to-end tests (PAR-436), which open a copy of Parity on the example and drive it. On Windows, whose
+# runners have a desktop to open its window on; Linux would need a virtual display. A workflow of its own until they
+# run reliably on the runner (PAR-438): a failing job in CI would fail CI's run, which release.yml and cd-npm.yml wait
+# on, though `CI passes` leaves it out. Then it moves back into CI, and `CI passes` waits for it.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  app:
+    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@127016e9eaa157353b3f5ddbe82a32564a28cc08 # v1.7.0
+    with:
+      os: '["windows-latest"]'
+      command: pnpm test:app
