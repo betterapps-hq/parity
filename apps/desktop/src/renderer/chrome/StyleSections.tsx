@@ -1128,9 +1128,12 @@ function TextResizing({ editor }: { editor: StyleEditor }) {
   )
 }
 
-/** The whole step at or above a measured length, past a hundredth of a step of measuring noise. */
+/**
+ * The whole step at or above a measured length. A thousandth of a step (0.004px at 4px) is measuring noise from the zoom
+ * and the frame's scale: it's under the 1/64px browsers lay text out in, so a length truly past a step still rounds up.
+ */
 function stepUp(steps: number): number {
-  return Math.ceil(steps - 0.01)
+  return Math.ceil(steps - 0.001)
 }
 
 const textSizingOptions = [

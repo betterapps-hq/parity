@@ -1,6 +1,6 @@
 {
   "type": "minor",
-  "comment": "Draw a hugging text layer on one line, as Figma's auto width does, and tell agents how text layers size: auto width, auto height or fixed, from their width and height",
+  "comment": "Size a hugging text layer to its text, wrapping only at its maximum width, as Figma's auto width does, and tell agents how text layers size: auto width, auto height or fixed, from their width and height",
   "packageName": "@parity-app/cli",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "patch"
