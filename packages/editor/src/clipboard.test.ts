@@ -1,5 +1,5 @@
 import { type ContainerSpec, type DesignNode, findNode, nodeIds, nodeInState, type NoteSpec } from "@parity/core"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import {
   applyStyle,
   type ClipboardPayload,

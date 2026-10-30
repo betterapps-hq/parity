@@ -1,5 +1,5 @@
 import { type CanvasDocument, type ContainerSpec, type DesignNode, findNode, nodeInState } from "@parity/core"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import {
   alignBoxes,
   alignInLayouts,
