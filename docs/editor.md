@@ -1092,6 +1092,8 @@ Tests:
   bracket left open and a missing token, refused) and DescribedOnly (the end of the list, drawn once scrolled to). All
   22 of the file's stories played in Storybook on 2026-10-29.
 - `explorations/previews/TokenPreviews.stories.tsx`: all 18 played on 2026-10-29, drawing with the app's module.
+- `chrome/TokensPanel.stories.tsx` EqualThemes (PAR-435): `chart-3`, equal in Light and Dark, has two swatches in its
+  row, its tile and its detail, each named for its theme.
 - Swatch edges (PAR-435) were checked by eye on 2026-10-29 in AllTokens, Detail, Tiles and DescribedTokens, dark and
   light: black, white and destructive swatches each with one edge, and the palette's rows rounded at both ends.
 

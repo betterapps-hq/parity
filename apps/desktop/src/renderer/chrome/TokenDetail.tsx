@@ -458,9 +458,11 @@ export function DetailPreview({
             <div key={theme} className="relative flex-1 first:rounded-l-md last:rounded-r-md">
               <TokenArt token={token} width={width / themes.length} height={96} theme={theme} />
               {themes.length > 1 && (
+                // A long theme name is cut short within its swatch, and its tooltip has the whole name.
                 <span
-                  className="absolute bottom-1.5 left-2 rounded px-1 text-[10px]"
+                  className="absolute bottom-1.5 left-2 max-w-[calc(100%-1rem)] truncate rounded px-1 text-[10px]"
                   style={{ background: "rgb(0 0 0 / 0.55)", color: "white" }}
+                  title={themeLabel(theme, themes, themeNames)}
                 >
                   {themeLabel(theme, themes, themeNames)}
                 </span>

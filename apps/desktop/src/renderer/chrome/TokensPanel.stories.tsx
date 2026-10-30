@@ -256,6 +256,30 @@ export const Detail: Story = {
   }
 }
 
+/**
+ * A color whose value is the same in both themes still shows a swatch for each, in its row, its tile and its detail,
+ * so it reads like every other two-theme color: `chart-3` is `oklch(0.439 0 0)` in Light and Dark.
+ */
+export const EqualThemes: Story = {
+  loaders: [openTokens],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    // The swatches drawn in chart-3's row or tile, which is the button holding its name.
+    const swatches = () => canvas.getByText("chart-3").closest("button")?.querySelectorAll('[style*="--swatch"]').length
+    await search(canvasElement, "chart-3")
+    await expect(swatches()).toBe(2)
+    const dialog = await open(canvasElement, "chart-3")
+    const detail = within(dialog)
+    // Each theme's name labels its swatch and its value, and no swatch is named for both.
+    await expect(detail.getAllByText("Light")).toHaveLength(2)
+    await expect(detail.getAllByText("Dark")).toHaveLength(2)
+    await expect(dialog).not.toHaveTextContent("Light and Dark")
+    await userEvent.keyboard("{Escape}")
+    await userEvent.click(canvas.getByRole("radio", { name: "Tiles" }))
+    await waitFor(() => expect(swatches()).toBe(2))
+  }
+}
+
 /** Editing a project color: a value for the root (light) theme and one for the dark theme, each with its swatch. */
 export const EditingAColor: Story = {
   loaders: [openTokens],
