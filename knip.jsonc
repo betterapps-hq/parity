@@ -25,10 +25,13 @@
         ".storybook/{main,preview}.ts",
         "src/**/*.stories.tsx",
         "src/**/*.test.ts",
-        ".storybook/*.test.ts"
+        ".storybook/*.test.ts",
+        // The end-to-end tests `pnpm test:app` runs, with the config and setup that start the app for them.
+        "e2e/*.e2e.ts",
+        "e2e/{vite.config,global-setup}.ts"
       ],
       // CSS too, so its imports of tailwindcss, tw-animate-css, shadcn and Geist count as uses.
-      "project": ["src/**/*.{ts,tsx,css}", "scripts/**/*.ts", ".storybook/*.ts", "*.ts"],
+      "project": ["src/**/*.{ts,tsx,css}", "scripts/**/*.ts", ".storybook/*.ts", "e2e/**/*.ts", "*.ts"],
       "ignoreDependencies": [
         // Imported by @parity/project, which scripts/dev.ts bundles while leaving these out, so the bundled service
         // loads them from the app's own node_modules.
