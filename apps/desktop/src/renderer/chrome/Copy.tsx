@@ -142,7 +142,7 @@ export function CopyButton({
 }
 
 /** Says how a copy went to screen readers, which a tooltip doesn't reliably do. */
-function Announce({ status }: { status: CopyStatus | undefined }) {
+export function Announce({ status }: { status: CopyStatus | undefined }) {
   let said = ""
   if (status) said = status.ok ? "Copied" : "Couldn't copy"
   return <output className="sr-only">{said}</output>

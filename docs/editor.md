@@ -1565,12 +1565,16 @@ to draw, so its row shows the number. Beside the name is what the token comes to
 - **Tiles.** The List and Tiles buttons beside the search switch views. Tiles are two across, each a larger preview with
   the name and what it comes to under it. A bare number stays a row, as a tile of only a name says less. The palette
   stays a grid in both.
-- **Copying.** A row's or tile's copy button, which shows in place of the value while the row is hovered or has the
-  keyboard, so the name never gives up room for it, copies the token's name (`radius-md`), which Parity's fields take,
-  and its icon springs into a green check. Ctrl+C (Cmd+C on a Mac) on a row or tile does the same. A palette shade's
-  tooltip is its name, and a click copies it, with a "Copied" bubble, as there's little else to do with one of 242.
-- **Editing.** Clicking a row or tile opens the token's detail (below), where Edit changes it. A palette shade is edited
-  from a search: while searching, the palette's matches list as rows.
+- **Folding.** Each section's title folds it, and again opens it; a folded section keeps its title and count. Starting
+  or clearing a search unfolds every section, so nothing that matches is hidden.
+- **Copying.** A click on a row or tile copies the token's name (`radius-md`), which Parity's fields take, and the row
+  says Copied where its value was, for a moment, so the name never gives up room for a button. A detail a hover opened
+  stays open through the click. Ctrl+C (Cmd+C on a Mac) on a row or tile does the same. A palette shade's tooltip is its
+  name, and a click copies it, with a "Copied" bubble, as there's little else to do with one of 242.
+- **Editing.** Resting the pointer on a row or tile opens the token's detail (below), as a component's card opens, and
+  the right arrow opens it from the keyboard, or moves the keyboard into one a hover opened, past a disabled Edit. Edit
+  in the detail changes the token. A palette shade is edited from a search: while searching, the palette's matches list
+  as rows.
 - **Motion plays only while it's looked at:** a duration, easing or animation runs while its row or tile is hovered or
   has the keyboard, through the Web Animations API, and stops when that ends, so an idle tab runs no animations. With
   reduced motion it holds still. An animation runs the project's own `@keyframes`, read by name from its stylesheet,
@@ -1615,10 +1619,14 @@ Tests:
 - `chrome/token-previews.test.ts` (4): a spacing bar's true and squeezed lengths.
 - `apps/desktop/src/renderer/tokens-store.test.ts` (1 of its 4), in Chrome: an animation's keyframes read from a
   stylesheet, inside `@layer` too, with each step's timing function as its easing.
-- `chrome/TokensPanel.stories.tsx`: AllTokens (no animation running with nothing hovered), Tiles, Copying (the row's
-  button, Ctrl+C, a palette shade), Motion, EditingAPaletteShade (from a search), InvalidValue, UnclosedBracket (a
-  bracket left open and a missing token, refused) and DescribedOnly (the end of the list, drawn once scrolled to). All
-  22 of the file's stories played in Storybook on 2026-10-29.
+- `chrome/TokensPanel.stories.tsx`: AllTokens (no animation running with nothing hovered), FoldedSections (a title folds
+  its section, a search unfolds it), Tiles, Copying (a click on the row, keeping a hovered detail open, Ctrl+C, a
+  palette shade), DetailFromTheKeyboard (the right arrow in and Escape back, past a spacing step's disabled Edit),
+  Motion, EditingAPaletteShade (from a search), InvalidValue, UnclosedBracket (a bracket left open and a missing token,
+  refused) and DescribedOnly (the end of the list, drawn once scrolled to). All 29 of the file's stories played in
+  Storybook on 2026-10-30. Gap: FoldedSections clears the search with the section already open, so no story folds one
+  during a search and then clears it. That clearing unfolds it was checked in the code: the search field's `onChange`
+  empties the folded set whenever the search goes from empty to not, or back.
 - `explorations/previews/TokenPreviews.stories.tsx`: all 18 played on 2026-10-29, drawing with the app's module.
 - `chrome/TokensPanel.stories.tsx` EqualThemes (PAR-435): `chart-3`, equal in Light and Dark, has two swatches in its
   row, its tile and its detail, each named for its theme.
@@ -1634,7 +1642,8 @@ order) and through the core and `token-values.ts` tests above, not in Storybook 
 
 ### A token's detail (PAR-143)
 
-Clicking a token's row or tile opens its detail beside the panel, top to bottom:
+Resting the pointer on a token's row or tile opens its detail beside the panel (the right arrow opens it from the
+keyboard); a click on the row copies the token's name. The detail, top to bottom:
 
 - **A large preview.** A color shows each theme side by side, named. A spacing step is drawn at its true size among up
   to eight of its neighbours on the scale; a duration races the others; an easing is drawn over the rest, faintly; a
