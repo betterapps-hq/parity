@@ -1950,6 +1950,24 @@ How Parity's code is split, so the parts that change most are easy to find, repl
     partway or pasting its JSON as text: `isParityCopy` tells the app the text was a Parity copy all the same.
   - A pasted design keeps its id when it's free, as the clipboard's comment always said. Before, every pasted design
     took an id made from its name, so one whose id wasn't its name's lost it.
+- **Inserting, Make component and where new designs go are in `@parity-app/editor` too** (PAR-32), in `insert.ts`,
+  `components.ts`, `create.ts` and `placement.ts`. My calls in moving them:
+  - A drop's place is decided from boxes the app measures: `dropLayout` picks the deepest layout under the pointer and
+    `dropAt` the place among its children and the line, from the layout's direction and its children's boxes. Reading
+    the DOM (`hitTest`, `getComputedStyle`, `getBoundingClientRect`) stays in the app's `dropTarget`.
+  - Inserting takes the item's component info, the project's component sources and the component library as an
+    `InsertContext`, and builds the layer from the design the store hands it, not the one read before the step, as
+    arranging does. Its undo label comes from the package too (`insertLabel`).
+  - Make component (`makeComponent`) takes the documents and returns them changed, with the component's id, so the app
+    applies it with one `store.change`. Where it goes on the canvas is passed in, worked out by `aboveEverything` from
+    the designs' boxes, which the app measures. The app's `extractIntoComponent` keeps its name.
+  - `instancesOf` takes any list of designs with a `container`, so the Params section passes the store's entries
+    straight in, and the app's wrapper is gone.
+  - Placement is one file: `freeSpotBeside` (duplicates and pasted designs) moved from `free-space.ts`, which keeps only
+    `takenBounds` as it reads tldraw; `rightOfEverything` is the old `emptySpaceRight`; and `aboveEverything` is Make
+    component's. A new design's layers (`newDesign`) moved with it, from `chrome/create.ts`.
+  - The tests of `withLibraryContext` that sat in the app's `insert.test.ts` moved to core's `library-insert.test.ts`,
+    beside it, since that's where it's been since `parity lib check` needed it. The app no longer re-exports it.
 - **Reading, editing and matching tokens moved into `@parity-app/tokens`** (PAR-35), a pure package. My calls in
   starting it:
   - It holds reading compiled CSS for tokens and the categories (`tokens.ts`), reading DTCG files and resolvers

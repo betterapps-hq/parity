@@ -9,6 +9,7 @@ import {
   renameVariantOption,
   type RepeatCandidate
 } from "@parity-app/core"
+import { instancesOf } from "@parity-app/editor"
 import { Diamond, Plus, ScanSearch, Sparkles, Trash2, X } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -16,7 +17,7 @@ import { Input } from "@/components/ui/input"
 import { useProject } from "../canvas/context.ts"
 import { focusOnMount, kindColors } from "../canvas/kinds.tsx"
 import type { ContainerEntry } from "../design-store.ts"
-import { extractIntoComponent, instancesOf } from "./components.ts"
+import { extractIntoComponent } from "./components.ts"
 import { ChoiceInput, ValueInput } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import { PanelSection } from "./PanelSection.tsx"
@@ -140,7 +141,7 @@ export function ParamsSection({ entry }: { entry: ContainerEntry }) {
   const all = Object.entries(entry.container.params ?? {})
   const params = all.filter(([, param]) => param.type !== "variant")
   const variants = all.filter(([, param]) => param.type === "variant")
-  const usages = instancesOf(session, entry.container.id)
+  const usages = instancesOf(session.store.getEntries(), entry.container.id)
   return (
     <>
       <VariantsSection entry={entry} variants={variants} />

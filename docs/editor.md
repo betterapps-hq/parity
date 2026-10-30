@@ -107,8 +107,9 @@ check against the attribute) is in `guest.ts`, and the canvas's lookups (`findNo
 `nodeParent`, `nodeOfElement`, with the attribute as fallback) are in `apps/desktop/src/renderer/frame.ts`. `ModeView`
 and the offscreen renderer (`render.ts`) register each frame's guest. Hovering and clicking go through `canvas/hit.ts`,
 outlines, sizes and resize handles through `canvas/CanvasOverlay.tsx`, dragging through `canvas/layer-drag.ts`,
-inserting through `canvas/insert.ts`, and `chrome/reveal.ts` scrolls to a layer's box. Whether a component takes `style`
-is read in `packages/code/src/props.ts` (`takesStyle`), and the note is in `chrome/LayerPanel.tsx`.
+inserting through `canvas/insert.ts` (its rules in `packages/editor/src/insert.ts`), and `chrome/reveal.ts` scrolls to a
+layer's box. Whether a component takes `style` is read in `packages/code/src/props.ts` (`takesStyle`), and the note is
+in `chrome/LayerPanel.tsx`.
 
 Tests:
 
@@ -370,8 +371,9 @@ Tests:
   everything back.
 
 Gaps: the pointer handling in `pressLayers` (the threshold, Escape, the preview), first checked by hand on 2026-10-29,
-is now the end-to-end test above. Dropping a component from the Components panel (`canvas/insert.ts`, `dropTarget`)
-still goes by the older one-line rule, so it lands wrongly in a grid of more than one row.
+is now the end-to-end test above. Dropping a component from the Components panel (`dropAt` in
+`packages/editor/src/insert.ts`) still goes by the older one-line rule, so it lands wrongly in a grid of more than one
+row.
 
 ### Moving an absolutely placed layer by dragging (CAN-47)
 
@@ -454,13 +456,15 @@ place along that row where it keeps 160px clear of every design and note on the 
 design and their titles don't meet. Several selected designs move as one block, and pasting designs into the project
 they were copied from places them the same way.
 
-Code: `apps/desktop/src/renderer/canvas/free-space.ts` (`freeSpotBeside`, and `takenBounds`, which reads the canvas's
-shapes), used by `chrome/designs.ts` (`duplicateDesign`) and `canvas/clipboard.ts` (`pasteDesigns`).
+Code: `freeSpotBeside` in `packages/editor/src/placement.ts` (`@parity-app/editor`), with `takenBounds` in
+`apps/desktop/src/renderer/canvas/free-space.ts`, which reads the canvas's shapes, used by `chrome/designs.ts`
+(`duplicateDesign`) and `canvas/clipboard.ts` (`pasteDesigns`).
 
-Tests: `canvas/free-space.test.ts`: the original alone, the example's Dashboard with Projects 176px to its right, a run
-of designs and gaps too narrow for the copy, a gap wide enough, designs well above or below the row, and one just inside
-the gap below it. End to end (PAR-202), `apps/desktop/e2e/moving.e2e.ts` (1) presses Ctrl+D on Dashboard: the copy is
-selected, top-aligned with it to its right, with no design or note within 160px, and Undo takes it away.
+Tests: `packages/editor/src/placement.test.ts`: the original alone, the example's Dashboard with Projects 176px to its
+right, a run of designs and gaps too narrow for the copy, a gap wide enough, designs well above or below the row, and
+one just inside the gap below it. End to end (PAR-202), `apps/desktop/e2e/moving.e2e.ts` (1) presses Ctrl+D on
+Dashboard: the copy is selected, top-aligned with it to its right, with no design or note within 160px, and Undo takes
+it away.
 
 Gaps: the view doesn't follow a copy that lands off screen.
 
@@ -500,6 +504,49 @@ aligning designs by edges and centers, with a box offset from its position; dist
 selection's order; and moving designs in whole pixels.
 
 Gaps: the commands, menus and messages have no automated test. They didn't change when the rules moved into the package.
+
+### Inserting, Make component and new designs (PAR-32)
+
+Components, component designs and images go in from the Assets panel and Quick insert; Make component turns layers into
+a component design; the Layers panel's add buttons start new designs. Each is one undo step, and selects what it made.
+
+- **A drop lands in the deepest layout under the pointer,** before the first child whose middle is past the pointer
+  along the layout's direction, else at the end, and a line shows where while dragging. A drop outside a layout says to
+  drop onto one.
+- **A click inserts at the selection:** into a selected layout, at its end; just after any other selected layer, in its
+  layout or slot; or at the end of a selected design's root. With nothing to insert into, a message says to select a
+  layout.
+- **What goes in is ready to show something.** A component gets its required props (an option's first value, `false`,
+  `0` or its own name, unless they have a default) and its name as text when it takes children. A library's part comes
+  inside the parents it needs that aren't around the layout already, with their samples. A component design goes in as a
+  linked instance or, from a library's menu, a detached copy. An image is 80 spacing steps (320px) wide, its height
+  following its shape.
+- **The undo step says what was added:** "Add Button" (the component's name without its library), "Add component", "Add
+  copy" or "Add image".
+- **Make component** puts the component design at the end of the project file, 640px above the topmost design on the
+  canvas, lined up with the design it came from, so components sit above screens. An instance replaces each occurrence,
+  and the step is "Extract" and its name. It's refused, changing nothing, unless the design renders the same in every
+  state and viewport. A component design's Params section lists its instances, across every design.
+- **A new design goes 240px to the right of everything on the canvas,** top-aligned with the topmost design. A screen
+  starts as a padded page with its name as a heading, a component as a small padded layout on a 480px frame.
+
+Code: the rules are in `packages/editor/src/insert.ts`, `components.ts`, `create.ts` and `placement.ts`
+(`@parity-app/editor`). The app's `canvas/insert.ts` measures the layout under the pointer and applies an insert to the
+selection and the store, `chrome/components.ts` measures the designs and applies Make component, and `chrome/create.ts`
+adds a new design and zooms to it.
+
+Tests: `packages/editor/src/insert.test.ts`: the layer for a component (required props, given props, a library's name),
+an instance and an image (its size, alt text and credit, and a tiny one); the labels; inserting between children, at the
+end, in a slot, inside a library part's parents or among them already, and a detached copy; where a click inserts (a
+layout, after a layer, in a slot, the root, and nowhere); and where a drop lands (the deepest layout, a row, a column,
+the end, an empty layout and children the canvas doesn't draw). `components.test.ts`: making a component into the
+project file, a taken id and param names, a project file that doesn't exist yet, and the errors; and instances in
+layouts and slots across designs. `create.test.ts`: a new screen and component, and a taken id. `placement.test.ts`: a
+new design beside everything, one the canvas hasn't drawn, an empty canvas, and a component above everything. A library
+part's parents and samples are core's, in `packages/core/src/library-insert.test.ts`.
+
+Gaps: dragging and clicking in the panels, the messages, and measuring on the canvas have no automated test. They didn't
+change when the rules moved into the package.
 
 ## Keyboard
 
@@ -1348,14 +1395,16 @@ from what the design shows, with fresh ids, to change freely.
   [decisions.md](decisions.md)): the root keeps the instance's id, so it's selected the same way, and it's one undo
   step, "Add copy". A library design nested inside stays a linked instance.
 
-Code: `insertItem` in `apps/desktop/src/renderer/canvas/insert.ts` (an `instance` item with `detached`); the library
-rows' menu in `AssetsPanel.tsx`; `InstanceSection` in `apps/desktop/src/renderer/chrome/LayerPanel.tsx`.
+Code: `insertIntoDesign` in `packages/editor/src/insert.ts` (an `instance` item with `detached`), applied by
+`insertItem` in `apps/desktop/src/renderer/canvas/insert.ts`; the library rows' menu in `AssetsPanel.tsx`;
+`InstanceSection` in `apps/desktop/src/renderer/chrome/LayerPanel.tsx`.
 
 Tests: `packages/core/src/library.test.ts` (1: a library design placed in an app draws its components and params,
-linked, and the same once detached, with no link left). Gaps: inserting from the panel and the Instance section for a
-library's instance have no automated test. Both were tried in the same copy of the app: a click placed a linked instance
-drawing the library's Switch and Button with its param's default, named by the design in the Layers and Instance
-sections, and Insert detached copy placed plain layers.
+linked, and the same once detached, with no link left). `packages/editor/src/insert.test.ts` (1: a detached copy placed
+as plain layers, keeping the instance's id). Gaps: inserting from the panel and the Instance section for a library's
+instance have no automated test. Both were tried in the same copy of the app: a click placed a linked instance drawing
+the library's Switch and Button with its param's default, named by the design in the Layers and Instance sections, and
+Insert detached copy placed plain layers.
 
 ## Zooming far out
 

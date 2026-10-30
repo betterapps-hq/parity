@@ -1,4 +1,5 @@
 import type { DesignNode, LibraryInfo } from "@parity-app/core"
+import type { InsertItem } from "@parity-app/editor"
 import { defaultFilter } from "cmdk"
 import { Columns3, Rows3, Shapes, Type } from "lucide-react"
 import { useMemo, useState, useSyncExternalStore } from "react"
@@ -13,7 +14,7 @@ import {
   CommandList
 } from "@/components/ui/command"
 import { placeLayers } from "../canvas/clipboard.ts"
-import { type InsertItem, insertAtSelection } from "../canvas/insert.ts"
+import { insertAtSelection } from "../canvas/insert.ts"
 import { useContainerEntries } from "../design-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { componentSources } from "./AssetsPanel.tsx"
