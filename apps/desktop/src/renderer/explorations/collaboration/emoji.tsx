@@ -62,7 +62,7 @@ export function EmojiPicker({
   initialQuery = "",
   className = ""
 }: {
-  onPick(emoji: string): void
+  onPick: (emoji: string) => void
   initialQuery?: string
   className?: string
 }) {
@@ -260,7 +260,7 @@ export function EmojiPopover({
 }: {
   /** The button that opens it. */
   children: ReactElement
-  onPick(emoji: string): void
+  onPick: (emoji: string) => void
   align?: "start" | "center" | "end"
   side?: "top" | "bottom"
 }) {
@@ -289,7 +289,7 @@ export function EmojiSuggest({
 }: {
   matches: EmojiEntry[]
   active?: number
-  onPick?(entry: EmojiEntry): void
+  onPick?: (entry: EmojiEntry) => void
   className?: string
 }) {
   const { tone } = useEmojiPrefs()
@@ -319,7 +319,7 @@ export function pickSuggestion(entry: EmojiEntry): string {
 }
 
 /** The five you react with most, one click each, beside the reactions smiley. */
-export function QuickReactions({ onPick }: { onPick(emoji: string): void }) {
+export function QuickReactions({ onPick }: { onPick: (emoji: string) => void }) {
   const { recent, tone } = useEmojiPrefs()
   return (
     <>
@@ -349,7 +349,7 @@ export function QuickReactions({ onPick }: { onPick(emoji: string): void }) {
  * The smiley after a comment's reactions. Hovering it slides out the five you use most, right beside it; clicking it
  * opens every emoji.
  */
-export function ReactionAdder({ onPick }: { onPick(emoji: string): void }) {
+export function ReactionAdder({ onPick }: { onPick: (emoji: string) => void }) {
   return (
     <span className="group/add flex h-6 items-center rounded-full border text-muted-foreground hover:bg-muted/40 has-[[data-state=open]]:bg-muted">
       <EmojiPopover onPick={onPick}>

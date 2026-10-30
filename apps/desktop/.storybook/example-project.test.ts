@@ -112,5 +112,5 @@ describe("the example project in a Storybook build", () => {
 /** What the test page leaves on its window: the project as stories see it, and the canvas's way of loading guests. */
 type StoryWindow = {
   example: { info: { guestUrl: string } }
-  importGuest(url: string): Promise<{ default: Guest }>
+  importGuest: (url: string) => Promise<{ default: Guest }>
 }

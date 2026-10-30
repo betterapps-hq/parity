@@ -305,8 +305,8 @@ export interface NodeStyle {
 /** Steps of the spacing scale (`4` is `calc(var(--spacing) * 4)`), or the name of a length token. */
 export type Length = number | string
 
-/** A fixed length, or fill the parent, or hug the content. */
-export type Size = Length | "fill" | "hug"
+/** A fixed length, or `"fill"` the parent, or `"hug"` the content: both are among Length's strings. */
+export type Size = Length
 
 export type Padding = Length | [Length, Length] | [Length, Length, Length, Length]
 

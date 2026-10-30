@@ -359,16 +359,16 @@ interface LayerRowProps {
   hovered: boolean
   renaming: boolean
   dropPosition?: DropPosition
-  onDragStart(event: DragEvent): void
-  onDragOver(event: DragEvent): void
-  onDragLeave(): void
-  onDrop(event: DragEvent): void
-  onDragEnd(): void
-  onToggle(): void
-  onSelect(event?: MouseEvent | KeyboardEvent): void
-  onHover(on: boolean): void
-  onRename(): void
-  onRenamed(name: string | undefined): void
+  onDragStart: (event: DragEvent) => void
+  onDragOver: (event: DragEvent) => void
+  onDragLeave: () => void
+  onDrop: (event: DragEvent) => void
+  onDragEnd: () => void
+  onToggle: () => void
+  onSelect: (event?: MouseEvent | KeyboardEvent) => void
+  onHover: (on: boolean) => void
+  onRename: () => void
+  onRenamed: (name: string | undefined) => void
 }
 
 function LayerRow({

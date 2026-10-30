@@ -22,6 +22,7 @@ to npm and of unsigned installers to GitHub Releases, as betas first and to ever
 - **The agency monorepo's stricter lint rules are on** (PAR-396), apart from the three left out below.
 - **Hooks check what a commit stages and what a push sends** (PAR-3), so other sessions' unfinished work no longer fails
   a commit. `pnpm verify` still checks the whole folder.
+- **The type-aware lint rules are all on** (PAR-396), checked with types on push and in CI.
 
 ## Vite+
 

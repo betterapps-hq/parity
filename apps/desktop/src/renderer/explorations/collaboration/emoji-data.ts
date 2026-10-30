@@ -299,6 +299,6 @@ export const skinTones = [
 /** The emoji in a skin tone: the modifier follows its first character, in place of any presentation selector. */
 export function withTone(entry: EmojiEntry, modifier: string): string {
   if (!entry.tone || !modifier) return entry.emoji
-  const [first, ...rest] = [...entry.emoji.replace(/️/g, "")]
+  const [first, ...rest] = Array.from(entry.emoji.replace(/️/g, ""))
   return [first, modifier, ...rest].join("")
 }

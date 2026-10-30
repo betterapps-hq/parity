@@ -514,17 +514,17 @@ function watchDrawnNodes(root: Root, target: HTMLElement) {
   })
   observer.observe(frame, { childList: true, subtree: true })
   return {
-    read(): DrawnNodes | undefined {
+    read: (): DrawnNodes | undefined => {
       if (observer.takeRecords().length > 0) stale = true
       if (!stale) return drawn
       stale = false
       drawn = readDrawnNodes(root, target, frame)
       return drawn
     },
-    changed() {
+    changed: () => {
       stale = true
     },
-    dispose() {
+    dispose: () => {
       observer.disconnect()
     }
   }
@@ -627,7 +627,7 @@ function compile(decorator: LibraryDecorator, setup: GuestDecorators, frame: Fra
   const value = (raw: unknown) => resolve(raw, setup, frame)
   const { undos } = frame
   if (decorator.class !== undefined) {
-    const names = String(value(decorator.class) ?? "")
+    const names = String((value(decorator.class) ?? "") as unknown)
       .split(/\s+/)
       .filter((name) => name && !frame.body.classList.contains(name))
     frame.body.classList.add(...names)
@@ -639,7 +639,7 @@ function compile(decorator: LibraryDecorator, setup: GuestDecorators, frame: Fra
       const previous = frame.body.getAttribute(name)
       const next = value(raw)
       if (next === undefined || next === null || next === false) continue
-      frame.body.setAttribute(name, String(next))
+      frame.body.setAttribute(name, String(next as unknown))
       undos.push(() => (previous === null ? frame.body.removeAttribute(name) : frame.body.setAttribute(name, previous)))
     }
     return undefined
@@ -649,7 +649,7 @@ function compile(decorator: LibraryDecorator, setup: GuestDecorators, frame: Fra
       const next = value(raw)
       if (next === undefined || next === null) continue
       const previous = frame.body.style.getPropertyValue(name)
-      frame.body.style.setProperty(name, String(next))
+      frame.body.style.setProperty(name, String(next as unknown))
       undos.push(() => frame.body.style.setProperty(name, previous))
     }
     return undefined
@@ -668,7 +668,8 @@ function resolve(raw: unknown, setup: GuestDecorators, frame: Frame): unknown {
   if (Array.isArray(raw)) return raw.map((item) => resolve(item, setup, frame))
   if (typeof raw !== "object" || raw === null) return raw
   const record = raw as Record<string, unknown>
-  if (typeof record.$import === "string") return exported(setup, record.$import, String(record.export ?? "default"))
+  if (typeof record.$import === "string")
+    return exported(setup, record.$import, String((record.export ?? "default") as unknown))
   if (typeof record.$call === "object" && record.$call !== null) {
     const key = JSON.stringify(record)
     if (!frame.made.has(key)) {

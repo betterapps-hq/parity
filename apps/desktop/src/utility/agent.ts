@@ -480,7 +480,10 @@ function readOnly(snapshot: TabSnapshot): ReadApi {
 
 /** A name that's safe as a file name on every system: no reserved characters, no control characters. */
 function fileName(name: string): string {
-  const kept = [...name].filter((character) => character >= " " && !'<>:"/\\|?*'.includes(character)).join("")
+  const kept = name
+    .split("")
+    .filter((character) => character >= " " && !'<>:"/\\|?*'.includes(character))
+    .join("")
   return (
     kept
       .replaceAll(/\s+/g, " ")

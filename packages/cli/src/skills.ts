@@ -20,7 +20,7 @@ export async function readSkill(path = "SKILL.md"): Promise<string> {
 async function list(directory = root): Promise<string[]> {
   const entries = await readdir(directory, { withFileTypes: true })
   const files = await Promise.all(
-    entries.map((entry) =>
+    entries.map(async (entry) =>
       entry.isDirectory()
         ? list(join(directory, entry.name))
         : [relative(root, join(directory, entry.name)).replaceAll("\\", "/")]

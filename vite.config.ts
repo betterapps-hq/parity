@@ -156,16 +156,7 @@ export default defineConfig({
       "typescript/ban-ts-comment": "error",
       "typescript/consistent-type-imports": "error",
       "eslint/no-console": "off",
-      "vite-plus/prefer-vite-plus-imports": "error",
-      // Type-aware rules that flagged 229 places on 2026-10-29, left for REPO-7 to turn on with the fixes.
-      "typescript/unbound-method": "off",
-      "typescript/no-base-to-string": "off",
-      "typescript/restrict-template-expressions": "off",
-      "typescript/no-misused-spread": "off",
-      "typescript/no-redundant-type-constituents": "off",
-      "typescript/no-floating-promises": "off",
-      "typescript/await-thenable": "off",
-      "typescript/no-implied-eval": "off"
+      "vite-plus/prefer-vite-plus-imports": "error"
     },
     overrides: [
       {
@@ -249,6 +240,12 @@ export default defineConfig({
         // (pnpm-workspace.yaml), so it keeps stock `vite` and `vitest` imports.
         files: ["packages/builder-vite/**"],
         rules: { "vite-plus/prefer-vite-plus-imports": "off" }
+      },
+      {
+        // The test runs the module builder-vite generates, which it has as a string. A disable comment for a type-aware
+        // rule would fail `vp check`, which lints without types and so reports it unused.
+        files: ["packages/builder-vite/src/index.test.ts"],
+        rules: { "typescript/no-implied-eval": "off" }
       },
       {
         // Tests may use Node to set up files and folders.

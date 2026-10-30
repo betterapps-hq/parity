@@ -178,9 +178,9 @@ interface ModeCardProps {
   mode: ModeSpec
   settings: ModeSettings
   primary: boolean
-  onChange(mode: ModeSpec): void
-  onMakePrimary(): void
-  onDuplicate(): void
+  onChange: (mode: ModeSpec) => void
+  onMakePrimary: () => void
+  onDuplicate: () => void
   onDelete?: () => void
 }
 
@@ -252,7 +252,7 @@ interface VariableSelectProps {
   icon: React.ReactNode
   variable: ModeVariable
   value: string
-  onChange(value: string): void
+  onChange: (value: string) => void
 }
 
 function VariableSelect({ icon, variable, value, onChange }: VariableSelectProps) {
@@ -284,9 +284,9 @@ interface VariableCardProps {
   variable: ModeVariable
   /** Sizes that can be added, for the viewport variable. */
   presets?: PresetGroup[]
-  onChange(variable: ModeVariable): void
-  onAdd(preset: PresetGroup["presets"][number]): void
-  onRemove(optionId: string): void
+  onChange: (variable: ModeVariable) => void
+  onAdd: (preset: PresetGroup["presets"][number]) => void
+  onRemove: (optionId: string) => void
 }
 
 function VariableCard({ variable, presets, onChange, onAdd, onRemove }: VariableCardProps) {

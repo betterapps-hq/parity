@@ -211,13 +211,13 @@ function answer(target: object, name: string, value: (frame: Scope) => number): 
   let owner: object | null = target
   let real: PropertyDescriptor | undefined
   while (owner && !(real = Object.getOwnPropertyDescriptor(owner, name))) owner = Object.getPrototypeOf(owner)
-  const read = real?.get ?? (() => real?.value as number)
   Object.defineProperty(target, name, {
     configurable: true,
     enumerable: real?.enumerable ?? true,
     get() {
       const frame = asking()
-      return frame ? value(frame) : read.call(target)
+      if (frame) return value(frame)
+      return real?.get ? real.get.call(target) : (real?.value as number)
     }
   })
 }

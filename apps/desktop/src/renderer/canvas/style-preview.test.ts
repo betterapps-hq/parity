@@ -94,7 +94,8 @@ beforeAll(async () => {
   )
   await page.goto("http://parity.test/")
   // @ts-expect-error The bundle's global.
-  if (!(await page.evaluate(() => typeof preview === "object"))) throw new Error(`The page didn't load: ${errors}`)
+  if (!(await page.evaluate(() => typeof preview === "object")))
+    throw new Error(`The page didn't load: ${errors.join(",")}`)
 }, 30_000)
 
 afterAll(async () => {

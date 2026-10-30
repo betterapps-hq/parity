@@ -682,7 +682,8 @@ function TokenEditor({
             event.preventDefault()
             const data = new FormData(event.currentTarget)
             const changes = editable.flatMap((theme) => {
-              const value = String(data.get(theme) ?? "").trim()
+              const entry = data.get(theme)
+              const value = (typeof entry === "string" ? entry : "").trim()
               const current = token.values[theme] ?? ""
               return value && value !== current ? [{ name: token.name, theme, value }] : []
             })

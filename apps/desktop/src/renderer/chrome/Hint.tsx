@@ -16,7 +16,7 @@ type HintProps = Omit<ComponentProps<typeof TooltipTrigger>, "children"> & {
   hidden?: boolean
   /** Opens and closes it from outside, as hovering would, to close it when its element is pressed and dragged. */
   open?: boolean
-  onOpenChange?(open: boolean): void
+  onOpenChange?: (open: boolean) => void
   children: ReactElement
 }
 

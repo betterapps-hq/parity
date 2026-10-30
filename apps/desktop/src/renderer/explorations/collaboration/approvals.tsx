@@ -30,8 +30,8 @@ export function ProposalCard({
   /** Who proposed it, by first name. */
   agent: string
   canApprove?: boolean
-  onApprove?(): void
-  onDecline?(reason: string): void
+  onApprove?: () => void
+  onDecline?: (reason: string) => void
 }) {
   const [declining, setDeclining] = useState(false)
 
@@ -102,8 +102,8 @@ function DeclineBox({
   onDecline
 }: {
   agent: string
-  onCancel(): void
-  onDecline(reason: string): void
+  onCancel: () => void
+  onDecline: (reason: string) => void
 }) {
   const [reason, setReason] = useState("")
   const field = useRef<HTMLTextAreaElement>(null)

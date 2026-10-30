@@ -143,7 +143,7 @@ export function ViewportPicker({
   trigger: ReactNode
   /** Items above the sizes, like a blank mode. */
   extra?: (close: () => void) => ReactNode
-  onPick(preset: ViewportPreset): void
+  onPick: (preset: ViewportPreset) => void
 }) {
   const [open, setOpen] = useState(false)
   const close = () => setOpen(false)

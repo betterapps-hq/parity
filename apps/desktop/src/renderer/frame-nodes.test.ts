@@ -107,7 +107,8 @@ beforeAll(async () => {
   )
   await page.goto("http://parity.test/")
   // @ts-expect-error The bundle's global.
-  if (!(await page.evaluate(() => typeof frame === "object"))) throw new Error(`The page didn't load: ${errors}`)
+  if (!(await page.evaluate(() => typeof frame === "object")))
+    throw new Error(`The page didn't load: ${errors.join(",")}`)
   await mount(design)
 }, 30_000)
 
@@ -167,11 +168,11 @@ async function mount(tree: Node[]) {
     // @ts-expect-error The bundle's global.
     const bundle = frame as Record<string, unknown>
     const { createGuest, prepareFrame, setDrawnNodes } = bundle as unknown as {
-      createGuest(init: unknown): {
-        mount(target: unknown, tree: unknown, options: unknown): { drawnNodes?(): unknown }
+      createGuest: (init: unknown) => {
+        mount(target: unknown, tree: unknown, options: unknown): { drawnNodes?: () => unknown }
       }
-      prepareFrame(host: Element, sheet: CSSStyleSheet, environment: unknown): HTMLElement
-      setDrawnNodes(host: Element, read: unknown): void
+      prepareFrame: (host: Element, sheet: CSSStyleSheet, environment: unknown) => HTMLElement
+      setDrawnNodes: (host: Element, read: unknown) => void
     }
     // The bundle's components are its exports named in capitals.
     const components = Object.fromEntries(Object.entries(bundle).filter(([name]) => /^[A-Z]/.test(name)))

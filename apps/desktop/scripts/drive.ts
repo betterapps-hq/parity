@@ -50,7 +50,9 @@ try {
         await cdp.detach()
         return path
       } catch (error) {
-        console.log(`Screenshot ${name} failed: ${error instanceof Error ? error.message.split("\n")[0] : error}`)
+        console.log(
+          `Screenshot ${name} failed: ${error instanceof Error ? error.message.split("\n")[0] : String(error)}`
+        )
         return ""
       }
     }

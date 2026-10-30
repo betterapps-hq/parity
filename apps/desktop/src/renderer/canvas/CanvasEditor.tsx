@@ -165,7 +165,7 @@ function markZoomedOut(editor: Editor): () => void {
   }
 }
 
-export function CanvasEditor({ onEditor }: { onEditor(editor: Editor | undefined): void }) {
+export function CanvasEditor({ onEditor }: { onEditor: (editor: Editor | undefined) => void }) {
   const { id: tab, store, selection, editor } = useProject()
   const theme = useResolvedTheme()
 

@@ -143,12 +143,12 @@ function changed(checker: Checker): boolean {
 function cachingHost(options: ts.CompilerOptions): ts.CompilerHost {
   const host = ts.createCompilerHost(options, true)
   const parsed = new Map<string, { time: number; file: ts.SourceFile }>()
-  const { getSourceFile } = host
+  const getSourceFile = host.getSourceFile.bind(host)
   host.getSourceFile = (fileName, language, onError, create) => {
     const time = isInstalled(fileName) ? 0 : modified(fileName)
     const kept = parsed.get(fileName)
     if (kept && kept.time === time) return kept.file
-    const file = getSourceFile.call(host, fileName, language, onError, create)
+    const file = getSourceFile(fileName, language, onError, create)
     if (file) parsed.set(fileName, { time, file })
     return file
   }

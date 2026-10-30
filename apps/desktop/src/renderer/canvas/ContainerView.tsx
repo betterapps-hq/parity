@@ -61,7 +61,7 @@ interface ContainerViewProps {
   /** The pointer is over the board: its controls show. */
   hovered: boolean
   /** Starts dragging the design by its title. */
-  onTitlePointerDown(event: ReactPointerEvent): void
+  onTitlePointerDown: (event: ReactPointerEvent) => void
   /** Where the title draws: the canvas's title layer, and the board's place and width on the canvas. */
   title?: { layer: HTMLElement; x: number; y: number; width: number }
 }
@@ -210,7 +210,7 @@ function TitleButton({
 }: {
   entry: ContainerEntry
   color: string | undefined
-  onPointerDown(event: ReactPointerEvent): void
+  onPointerDown: (event: ReactPointerEvent) => void
 }) {
   const session = useProject()
   const [renaming, setRenaming] = useState(false)
@@ -309,7 +309,7 @@ function VariantMenu({
 }: {
   params: Record<string, ParamSpec>
   choices: Record<string, string>
-  onSelect(param: string, option: string): void
+  onSelect: (param: string, option: string) => void
 }) {
   const variants = Object.entries(params).filter(([name]) => choices[name] !== undefined)
   const label = variants
@@ -354,8 +354,8 @@ function StateMenu({
   states: StateSpec[]
   active: string
   allStates: boolean
-  onSelect(state: string): void
-  onShowAll(on: boolean): void
+  onSelect: (state: string) => void
+  onShowAll: (on: boolean) => void
 }) {
   const current = states.find((state) => state.id === active)
   return (
@@ -403,7 +403,7 @@ function StateLabel({
   state: StateSpec
   base: boolean
   offset: number
-  onSelect(): void
+  onSelect: () => void
 }) {
   const changes = changeCount(state)
   const ref = useRef<HTMLButtonElement>(null)
