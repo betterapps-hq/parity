@@ -1550,8 +1550,10 @@ the Repository, CI and releases stream in Linear.
   - **Each week, one pull request for npm's minor and patch updates and one for GitHub Actions,** which also moves the
     shared pipelines' pinned commits and their version comments. npm's major updates come one pull request each, at most
     ten open, since each may need code to change.
-  - **It waits 3 days after a version is published,** longer than the day pnpm's `minimumReleaseAge` asks, so its
-    updates install. Security updates don't wait, and Better Apps' own actions come straight away.
+  - **It waits 3 days before offering a direct dependency's new version,** longer than the day pnpm's
+    `minimumReleaseAge` asks. That doesn't cover the transitive versions its lockfile refresh resolves, which pnpm also
+    checks, so one published within the day can still fail CI's frozen install: re-run it once the version is a day old.
+    Security updates don't wait, and Better Apps' own actions come straight away.
   - **Titles are conventional:** `build(deps)` and `build(deps-dev)` for npm, `ci(deps)` for Actions, which
     `scripts/commits.ts title` accepts and squash merging makes the subject.
   - **It leaves the Vite+ toolchain alone.** Vite+ pins its own Vitest and its core, which the catalog names `vite`, so

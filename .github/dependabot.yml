@@ -12,7 +12,8 @@ updates:
     schedule:
       interval: weekly
     # pnpm won't install a version published less than a day ago (its minimumReleaseAge), so Dependabot waits longer
-    # than that before offering one. Security updates don't wait.
+    # than that before offering one. That covers direct dependencies, not the transitive versions a lockfile refresh
+    # picks up, so a pull request can still fail CI's install until those are a day old. Security updates don't wait.
     cooldown:
       default-days: 3
     open-pull-requests-limit: 10
