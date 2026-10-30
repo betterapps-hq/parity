@@ -1309,6 +1309,14 @@ to PAR-209 build it.
   the Tokens panel: a shade in the grid opened the editor before; now a click copies it, as the exploration has it, and
   while searching the palette's matches list as rows, which open the editor. The list draws only the rows in view, with
   the search and filters fixed above it.
+- **Themes are named as the modes name them, never by their class.** You asked on 2026-10-29 why the token editor said
+  "Theme .dark": the class is how a theme reaches a frame (shadcn's `.dark`, or the class Parity writes for each of a
+  library's DTCG contexts, such as Fluent's `teams-high-contrast`), not what anyone calls it. My call: a token's values
+  are still keyed by the class, as the stylesheet keys them, and the detail names each by the theme option that adds
+  that class in the Modes panel (Dark), the root's by the option that adds none (Light), and any other from its key.
+- **In the app, Apply replaces the exploration's Save.** The detail's design came before PAR-164 put every change
+  through Save and Undo, so its Save wrote the stylesheet at once. In the app Apply changes the canvas as one undoable
+  step and the project's Save writes it; the line under the value says so, with Undo while it's the last step.
 - **The detail says each thing once, in a fixed order:** the preview; the name, with what it comes to on the right as
   its row shows it; one labeled list of facts (the value in each theme, Built on, From, Used by); and a bar with Edit
   and Copy. You found the first pass disorganized on 2026-10-29: the value showed in three places, and its actions were

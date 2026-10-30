@@ -1,6 +1,7 @@
 import {
   type DescribedToken,
   type DescribedTokens,
+  type ModeSettings,
   type PreviewKind,
   previewKind,
   substituteReferences,
@@ -8,17 +9,25 @@ import {
 } from "@parity-app/core"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { LayoutGrid, List, Search } from "lucide-react"
-import { type KeyboardEvent as ReactKeyboardEvent, type ReactNode, useMemo, useRef, useState } from "react"
+import {
+  createContext,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+  useContext,
+  useMemo,
+  useRef,
+  useState
+} from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import type { TokenChange } from "../../shared/protocol.ts"
 import { useProject } from "../canvas/context.ts"
+import { useHistory, useModeSettings } from "../design-store.ts"
 import { useTokenFailure, useTokenList } from "../tokens-store.ts"
 import { save } from "./commands.ts"
 import { CopyButton, CopyOnClick, useCopy } from "./Copy.tsx"
-import { Swatch } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import { PanelError } from "./PanelError.tsx"
 import { PanelSectionTitle } from "./PanelSection.tsx"
@@ -31,9 +40,9 @@ import {
   tokenSections,
   TokenTile,
   useHoverPlay,
-  valueLabel,
-  valueProblem
+  valueLabel
 } from "./token-previews.tsx"
+import { keepEditing, TokenDetail } from "./TokenDetail.tsx"
 
 type Source = "all" | "semantic" | "theme"
 type View = "list" | "tiles"
@@ -98,6 +107,35 @@ function themesOf(token: Token, themes: string[]): string[] {
   return token.source === "semantic" ? themes : ["default"]
 }
 
+/**
+ * Each theme's name as the Modes panel gives it, by the class its option puts on a frame, which is how a token's values
+ * are keyed: `dark` is Dark, and the option that adds no class names the root's values (Light). A library's themes
+ * (Fluent's `teams-high-contrast`) are named however their options are.
+ */
+function themeNamesOf(settings: ModeSettings): Map<string, string> {
+  const names = new Map<string, string>()
+  for (const variable of settings.variables) {
+    if (variable.kind !== "theme") continue
+    for (const option of variable.options) {
+      const key = option.className?.trim() || "default"
+      if (!names.has(key)) names.set(key, option.name)
+    }
+  }
+  return names
+}
+
+/** What a token's detail needs from the panel: the tokens it reads, each theme's name, and what the last save left. */
+interface PanelData {
+  kinded: readonly Kinded[]
+  tokens: TokenMap
+  themes: string[]
+  themeNames: ReadonlyMap<string, string>
+  described: ReadonlyMap<string, Described>
+  unwritten: ReadonlySet<string>
+}
+
+const Panel = createContext<PanelData | undefined>(undefined)
+
 /** A token as its preview draws it: what it comes to in each of its themes. */
 function previewOf({ token, kind }: Kinded, tokens: TokenMap, themes: string[]): PreviewToken {
   const values = Object.fromEntries(
@@ -161,6 +199,8 @@ export function TokensPanel() {
   const counts = { semantic: tokens.filter((t) => t.source === "semantic").length, theme: 0 }
   counts.theme = tokens.length - counts.semantic
   const unmatched = described.unmatched.filter((token) => !needle || token.path.toLowerCase().includes(needle))
+  const modes = useModeSettings(session.store)
+  const themeNames = useMemo(() => themeNamesOf(modes), [modes])
   const items = panelItems({
     matches,
     view,
@@ -330,23 +370,25 @@ export function TokensPanel() {
             </PanelError>
           ))}
       </div>
-      <Keyframes.Provider value={store.keyframes}>
-        <div ref={scroller} data-tokens-list className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
-          <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
-            {virtualizer.getVirtualItems().map((line) => (
-              <div
-                key={line.key}
-                data-index={line.index}
-                ref={virtualizer.measureElement}
-                className="absolute top-0 left-0 w-full"
-                style={{ transform: `translateY(${line.start}px)` }}
-              >
-                {draw(items[line.index]!)}
-              </div>
-            ))}
+      <Panel.Provider value={{ kinded, tokens: byName, themes, themeNames, described: described.byName, unwritten }}>
+        <Keyframes.Provider value={store.keyframes}>
+          <div ref={scroller} data-tokens-list className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+            <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+              {virtualizer.getVirtualItems().map((line) => (
+                <div
+                  key={line.key}
+                  data-index={line.index}
+                  ref={virtualizer.measureElement}
+                  className="absolute top-0 left-0 w-full"
+                  style={{ transform: `translateY(${line.start}px)` }}
+                >
+                  {draw(items[line.index]!)}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      </Keyframes.Provider>
+        </Keyframes.Provider>
+      </Panel.Provider>
     </>
   )
 }
@@ -496,7 +538,7 @@ function TokenRow({
   const value = valueLabel(preview)
   return (
     <div {...handlers} className="group/token relative flex items-center">
-      <TokenEditor entry={entry} tokens={tokens} themes={themes}>
+      <TokenPopover entry={entry}>
         <Hint label={described?.description ? `${described.description} (${described.library})` : undefined} wait>
           <button
             type="button"
@@ -519,7 +561,7 @@ function TokenRow({
             {value && <span className="max-w-20 shrink-0 truncate text-muted-foreground tabular-nums">{value}</span>}
           </button>
         </Hint>
-      </TokenEditor>
+      </TokenPopover>
       <CopyButton text={name} copying={copying} className={`absolute right-1 size-6 ${revealed(copying)}`} />
     </div>
   )
@@ -545,7 +587,7 @@ function TokenTileButton({
   const value = unwritten ? "Not written" : valueLabel(preview)
   return (
     <div {...handlers} className="group/token relative flex min-w-0">
-      <TokenEditor entry={entry} tokens={tokens} themes={themes}>
+      <TokenPopover entry={entry}>
         <button
           type="button"
           onKeyDown={copyKey(() => copying.copy(name))}
@@ -563,7 +605,7 @@ function TokenTileButton({
             )}
           </span>
         </button>
-      </TokenEditor>
+      </TokenPopover>
       <CopyButton
         text={name}
         copying={copying}
@@ -635,108 +677,54 @@ function DescribedRow({ token }: { token: Described }) {
   )
 }
 
-/** Edits one token's value in each theme it has. */
-function TokenEditor({
-  entry,
-  tokens,
-  themes,
-  children
-}: {
-  entry: Kinded
-  tokens: TokenMap
-  themes: string[]
-  children: React.ReactElement
-}) {
-  const { tokens: store } = useProject()
-  const [open, setOpen] = useState(false)
-  const [problems, setProblems] = useState<Record<string, string>>({})
-  const { token, kind } = entry
-  const editable = themesOf(token, themes)
-  const opened = (next: boolean) => {
-    setOpen(next)
-    if (next) setProblems({})
-  }
-
-  if (token.derived) {
-    return (
-      <Popover open={open} onOpenChange={opened}>
-        <PopoverTrigger asChild>{children}</PopoverTrigger>
-        <PopoverContent className="w-72" align="start" side="right">
-          <div className="font-mono text-sm font-medium">{token.name}</div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {token.derived.factor} steps of <code>--{token.derived.from}</code>, {comesTo(tokens, token.name)}. It
-            follows the scale: change <code>--{token.derived.from}</code> to resize every step.
-          </p>
-        </PopoverContent>
-      </Popover>
-    )
-  }
-
+/** Opens a token's detail from its row or tile. */
+function TokenPopover({ entry, children }: { entry: Kinded; children: React.ReactElement }) {
   return (
-    <Popover open={open} onOpenChange={opened}>
+    <Popover>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent className="w-72" align="start" side="right">
-        <form
-          className="flex flex-col gap-3"
-          onSubmit={(event) => {
-            event.preventDefault()
-            const data = new FormData(event.currentTarget)
-            const changes = editable.flatMap((theme) => {
-              const entry = data.get(theme)
-              const value = (typeof entry === "string" ? entry : "").trim()
-              const current = token.values[theme] ?? ""
-              return value && value !== current ? [{ name: token.name, theme, value }] : []
-            })
-            // A value refers to tokens by what they come to in its own theme.
-            const found = Object.fromEntries(
-              changes.flatMap((change) => {
-                const problem = valueProblem(kind, change.value, (name) => comesTo(tokens, name, change.theme))
-                return problem ? [[change.theme, problem]] : []
-              })
-            )
-            setProblems(found)
-            if (Object.keys(found).length > 0) return
-            store.set(changes)
-            setOpen(false)
-          }}
-        >
-          <div>
-            <div className="font-mono text-sm font-medium">--{token.name}</div>
-            <div className="text-xs text-muted-foreground">
-              {token.source === "semantic" ? "Project token" : "Theme scale"} with {kind.replaceAll("-", " ")} values
-            </div>
-          </div>
-          {editable.map((theme) => (
-            <label key={theme} className="flex flex-col gap-1">
-              <span className="text-xs text-muted-foreground">
-                {theme === "default" ? "Light (root)" : `Theme .${theme}`}
-              </span>
-              <span className="flex items-center gap-2">
-                {kind === "color" && <Swatch value={comesTo(tokens, token.name, theme) ?? ""} className="size-7" />}
-                <Input
-                  name={theme}
-                  defaultValue={token.values[theme] ?? ""}
-                  aria-invalid={problems[theme] ? true : undefined}
-                  className="h-8 font-mono text-xs"
-                />
-              </span>
-              {problems[theme] && <span className="text-xs text-destructive">{problems[theme]}</span>}
-            </label>
-          ))}
-          <p className="text-xs text-muted-foreground">
-            Every frame shows it at once. Saving the project writes it to {store.stylesheet}, and Undo takes it back.
-          </p>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" size="sm">
-              Apply
-            </Button>
-          </div>
-        </form>
+      <PopoverContent className="w-80 p-0" align="start" side="right" sideOffset={12} onEscapeKeyDown={keepEditing}>
+        <Detail entry={entry} />
       </PopoverContent>
     </Popover>
+  )
+}
+
+/**
+ * A token's detail, mounted only while it's open, as it reads the rest of the token's scale. Apply changes the token
+ * as one undoable step, unsaved until the project is saved; its Undo shows while that's still the last step.
+ */
+function Detail({ entry }: { entry: Kinded }) {
+  const session = useProject()
+  const { tokens: store } = session
+  const panel = useContext(Panel)!
+  const { undoLabel } = useHistory(session.store)
+  const { token, kind } = entry
+  const described = panel.described.get(token.name)
+  // A theme the token sets no value in has the root's.
+  const values = Object.fromEntries(
+    themesOf(token, panel.themes).map((theme) => [theme, token.values[theme] ?? token.values.default ?? ""])
+  )
+  return (
+    <TokenDetail
+      token={{
+        preview: previewOf(entry, panel.tokens, panel.themes),
+        values,
+        description: described?.description,
+        library: described?.library,
+        derived: token.derived,
+        unwritten: panel.unwritten.has(token.name)
+      }}
+      themeNames={panel.themeNames}
+      scale={panel.kinded
+        .filter((other) => other.kind === kind)
+        .map((other) => previewOf(other, panel.tokens, panel.themes))}
+      stylesheet={store.stylesheet}
+      lookup={(name, theme) => comesTo(panel.tokens, name, theme)}
+      onApply={(changes) =>
+        store.set(Object.entries(changes).map(([theme, value]) => ({ name: token.name, theme, value })))
+      }
+      undo={undoLabel === `Edit --${token.name}` ? () => session.store.undo() : undefined}
+    />
   )
 }
 

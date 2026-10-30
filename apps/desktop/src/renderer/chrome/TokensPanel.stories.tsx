@@ -47,8 +47,8 @@ async function search(canvasElement: HTMLElement, text: string): Promise<void> {
   await enter(within(canvasElement).getByPlaceholderText(/^Search \d+ tokens$/), text)
 }
 
-/** Opens a token's editor from its swatch in the palette, or from its row, found by the token's name. */
-async function edit(canvasElement: HTMLElement, token: string): Promise<HTMLElement> {
+/** Opens a token's detail from its row, found by the token's name. */
+async function open(canvasElement: HTMLElement, token: string): Promise<HTMLElement> {
   const canvas = within(canvasElement)
   const trigger = canvas.queryByRole("button", { name: token }) ?? canvas.getByText(token).closest("button")
   if (!trigger) throw new Error(`No token named ${token} shows`)
@@ -56,7 +56,14 @@ async function edit(canvasElement: HTMLElement, token: string): Promise<HTMLElem
   return within(document.body).findByRole("dialog")
 }
 
-/** Replaces a value in the open editor: `default` is the root (light) theme's, otherwise the theme's class. */
+/** Opens a token's detail and presses Edit, which turns its values into fields. */
+async function edit(canvasElement: HTMLElement, token: string): Promise<HTMLElement> {
+  const dialog = await open(canvasElement, token)
+  await userEvent.click(within(dialog).getByRole("button", { name: "Edit" }))
+  return dialog
+}
+
+/** Replaces a value in the detail being edited: `default` is the root (light) theme's, otherwise the theme's key. */
 async function retype(dialog: HTMLElement, theme: string, value: string): Promise<void> {
   const field = dialog.querySelector<HTMLInputElement>(`input[name="${theme}"]`)
   if (!field) throw new Error(`The editor has no value for ${theme}`)
@@ -189,6 +196,25 @@ export const NothingMatches: Story = {
   }
 }
 
+/**
+ * A token's detail, opened from its row: a large preview of each theme, the name with a copy button and Copy as, its
+ * value in each theme, and Edit. Themes are named as the Modes panel names them, Light and Dark, never by the class
+ * that switches them on.
+ */
+export const Detail: Story = {
+  loaders: [openTokens],
+  play: async ({ canvasElement }) => {
+    const dialog = await open(canvasElement, "primary")
+    const detail = within(dialog)
+    await detail.findByRole("heading", { name: "--primary" })
+    await expect(detail.getAllByText("Light").length).toBeGreaterThan(0)
+    await expect(detail.getAllByText("Dark").length).toBeGreaterThan(0)
+    await expect(dialog).not.toHaveTextContent(".dark")
+    await expect(detail.getByRole("button", { name: "Copy --primary" })).toBeInTheDocument()
+    await expect(detail.getByRole("button", { name: "Copy as" })).toBeInTheDocument()
+  }
+}
+
 /** Editing a project color: a value for the root (light) theme and one for the dark theme, each with its swatch. */
 export const EditingAColor: Story = {
   loaders: [openTokens],
@@ -214,7 +240,9 @@ export const SpacingStep: Story = {
   loaders: [openTokens],
   play: async ({ canvasElement }) => {
     await search(canvasElement, "spacing-4")
-    await edit(canvasElement, "spacing-4")
+    const dialog = await open(canvasElement, "spacing-4")
+    await within(dialog).findByText("--spacing × 4")
+    await expect(within(dialog).getByRole("button", { name: "Edit" })).toBeDisabled()
   }
 }
 
@@ -224,8 +252,8 @@ export const InvalidValue: Story = {
   play: async ({ canvasElement }) => {
     const dialog = await edit(canvasElement, "primary")
     await retype(dialog, "default", "very dark blue")
-    await userEvent.click(within(dialog).getByRole("button", { name: "Apply" }))
     await within(dialog).findByText("That isn't a color. Try oklch(0.6 0.2 250) or #2563eb.")
+    await expect(within(dialog).getByRole("button", { name: "Apply" })).toBeDisabled()
   }
 }
 
@@ -239,12 +267,10 @@ export const UnclosedBracket: Story = {
     await search(canvasElement, "radius")
     const dialog = await edit(canvasElement, "radius")
     await retype(dialog, "default", "calc(var(--spacing) * 2.6")
-    await userEvent.click(within(dialog).getByRole("button", { name: "Apply" }))
     await within(dialog).findByText("A bracket isn't closed. Add ) at the end.")
     await retype(dialog, "default", "calc(var(--radius-huge) * 2)")
-    await userEvent.click(within(dialog).getByRole("button", { name: "Apply" }))
     await within(dialog).findByText("There's no token named --radius-huge.")
-    await expect(dialog).toHaveAttribute("data-state", "open")
+    await expect(within(dialog).getByRole("button", { name: "Apply" })).toBeDisabled()
   }
 }
 
@@ -258,9 +284,13 @@ export const ReferenceToAnotherToken: Story = {
     const dialog = await edit(canvasElement, "primary")
     await retype(dialog, "default", "var(--chart-1)")
     await userEvent.click(within(dialog).getByRole("button", { name: "Apply" }))
-    await waitFor(() => expect(dialog).toHaveAttribute("data-state", "closed"))
+    await within(dialog).findByText("Applied. Saving writes it to src/index.css.")
     await expect(example().store.getHistory().undoLabel).toBe("Edit --primary")
     await expect(example().store.hasUnsaved()).toBe(true)
+    // The detail's Undo takes it back, as Ctrl+Z would.
+    await userEvent.click(within(dialog).getByRole("button", { name: "Undo" }))
+    await within(dialog).findByText("oklch(0.205 0 0)")
+    await expect(example().store.hasUnsaved()).toBe(false)
   }
 }
 
@@ -285,7 +315,7 @@ export const SaveFails: Story = {
     const canvas = within(canvasElement)
     const title = await canvas.findByText(/^Couldn't write --primary to .+\.css$/)
     await expect(title.closest('[role="alert"]')).toHaveTextContent(/EPERM/)
-    await canvas.findByText("Not written to the stylesheet")
+    await waitFor(() => expect(canvas.getAllByText("Not written to the stylesheet").length).toBeGreaterThan(0))
   }
 }
 
@@ -347,8 +377,13 @@ export const DescribedOnly: Story = {
   loaders: DescribedTokens.loaders,
   play: async ({ canvasElement }) => {
     const list = canvasElement.querySelector("[data-tokens-list]")!
-    list.scrollTop = list.scrollHeight
-    await within(canvasElement).findByText("Described only")
+    // Rows measured as they draw can make the list longer, so it's scrolled again until the end shows.
+    await waitFor(() => {
+      list.scrollTop = list.scrollHeight
+      // A page out of sight sends no scroll events of its own, so the list hears of it here.
+      list.dispatchEvent(new Event("scroll"))
+      return expect(within(canvasElement).getByText("Described only")).toBeInTheDocument()
+    })
     await within(canvasElement).findByText("color.brand-accent")
   }
 }

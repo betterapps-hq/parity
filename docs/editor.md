@@ -1028,12 +1028,8 @@ font, `1000ms, loops`), or nothing where the preview says it all.
   name as CSS writes it (`--radius-md`), which Parity's fields take, and its icon springs into a green check. Ctrl+C
   (Cmd+C on a Mac) on a row or tile does the same. A palette shade copies on a click, with a "Copied" bubble, as there's
   little else to do with one of 242.
-- **Editing.** Clicking a row or tile opens the token's editor, as before (see "One history, saved together"). A palette
-  shade is edited from a search: while searching, the palette's matches list as rows. A value is checked before anything
-  changes, and the field says what's wrong: a bracket or quote left open ("A bracket isn't closed. Add ) at the end."),
-  which the browser would close by itself and take; a `var()` naming no token ("There's no token named --radius-huge.");
-  and a value that, with its references filled in, isn't the kind's ("That isn't a color. Try oklch(0.6 0.2 250) or
-  #2563eb."). This replaces `validTokenValue`, which passed anything holding `var()`.
+- **Editing.** Clicking a row or tile opens the token's detail (below), where Edit changes it. A palette shade is edited
+  from a search: while searching, the palette's matches list as rows.
 - **Motion plays only while it's looked at:** a duration, easing or animation runs while its row or tile is hovered or
   has the keyboard, through the Web Animations API, and stops when that ends, so an idle tab runs no animations. With
   reduced motion it holds still. An animation runs the project's own `@keyframes`, read by name from its stylesheet,
@@ -1064,6 +1060,48 @@ Tests:
 Gaps: the previews themselves are checked by eye in Storybook, not by pixels. Opacity, blur and border width are still
 filed under Other and Effects as categories, so the inspector's pickers don't offer them by kind yet; the panel's
 sections already split them.
+
+### A token's detail (PAR-143)
+
+Clicking a token's row or tile opens its detail beside the panel, top to bottom:
+
+- **A large preview.** A color shows each theme side by side, named. A spacing step is drawn at its true size among up
+  to eight of its neighbours on the scale; a duration races the others; an easing is drawn over the rest, faintly; a
+  font or size is set in a specimen; a z-index is marked in its stack; a breakpoint on a ruler with phone, tablet and
+  laptop widths. Motion plays while the detail is open, with a Pause button on the preview; with reduced motion it waits
+  for Play.
+- **The name** (`--primary`), with what it comes to on the right as its row shows it, left out where the value already
+  says just that, and what a `.lib.par` says it's for.
+- **One list of facts:** its value in each theme, a shadow's layers or a font stack one part to a line; Built on, the
+  tokens its value refers to, each with what it comes to (a spacing step shows `--spacing × 4`); and From, the library
+  that describes it. A value the last save couldn't write says "Not written to the stylesheet".
+- **A bar with Edit and Copy.** Copy copies the name, as rows do; its arrow opens Copy as, with `var()` and the Tailwind
+  classes that use the token, each named by what it sets. A spacing step has no value of its own, so its Edit is off,
+  and its hint says to change `--spacing` instead.
+
+Themes are named as the Modes panel names them: the root's values are the theme option that adds no class (Light), and
+`.dark`'s are the option whose class is `dark` (Dark). A library's themes take their options' names too, and a theme no
+option switches on is named from its key (`teams-high-contrast` is Teams high contrast). The class itself never shows.
+
+Edit turns the values into fields in place, checked as they're typed, with what's wrong under the field: a bracket or
+quote left open ("A bracket isn't closed. Add ) at the end."), which the browser would close by itself and take; a
+`var()` naming no token ("There's no token named --radius-huge."), each reference read in its own theme; and a value
+that, with its references filled in, isn't the kind's ("That isn't a color. Try oklch(0.6 0.2 250) or #2563eb."). The
+preview follows what's typed while it can draw it. Apply is off until something changed and every value is right; Cancel
+or Escape in a field leaves editing without changing anything, and Escape from the buttons closes the detail. Apply
+changes every frame at once as one undoable step, unsaved, as any edit is (see "One history, saved together"): the
+detail then says "Applied. Saving writes it to src/index.css.", with Undo while that's still the last step.
+
+Code: `apps/desktop/src/renderer/chrome/TokenDetail.tsx` (`TokenDetail`, `DetailPreview`, `themeLabel`, `CopyMenu`); the
+panel's `TokenPopover` and `Detail` in `chrome/TokensPanel.tsx`, which name themes with `themeNamesOf` from the
+project's modes and apply through `TokenStore.set`. The Storybook exploration's own detail
+(`explorations/previews/token-panels.tsx`) is the design it came from, with Save in place of Apply.
+
+Tests: `chrome/TokensPanel.stories.tsx`: Detail (Light and Dark, never `.dark`; Copy and Copy as), EditingAColor,
+EditingAPaletteShade, SpacingStep (Built on `--spacing × 4`, Edit off), InvalidValue and UnclosedBracket (refused as
+typed, Apply off), ReferenceToAnotherToken (Apply as one unsaved step, then the detail's Undo), and SaveFails. All 24 of
+the file's stories played in Storybook on 2026-10-29. Gaps: the inspector's pickers don't show previews yet, the rest of
+PAR-143.
 
 ## Opening and closing projects
 
