@@ -3595,7 +3595,6 @@
         "as": "function",
         "declaration": "dist/ui/chart.d.ts",
         "group": "Chart",
-        "internal": true,
         "sample": {
           "props": {
             "id": "Text",
@@ -13162,9 +13161,6 @@
         ],
         "parentsFrom": "example",
         "sample": {
-          "props": {
-            "id": "checkout-exp-month-ts6"
-          },
           "children": [
             {
               "component": "SelectValue"
@@ -13996,9 +13992,11 @@
                     {
                       "component": "SidebarMenuButton",
                       "props": {
-                        "size": "lg"
+                        "asChild": true
                       },
-                      "children": []
+                      "children": [
+                        "Acme Inc."
+                      ]
                     }
                   ]
                 }
@@ -14227,7 +14225,7 @@
         ],
         "sample": {
           "children": [
-            "More"
+            "Acme Inc."
           ]
         },
         "fingerprint": "90350cf4",

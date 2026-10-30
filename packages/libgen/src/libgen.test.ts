@@ -10,7 +10,7 @@ import { checkAnatomy, readAnatomy } from "./anatomy.ts"
 import { readExamples } from "./examples.ts"
 import { hostedParts, type RenderCall, readRenders, renderedIn } from "./hosts.ts"
 import { compareComponents, selectComponents } from "./index.ts"
-import { guessParent, relateParts } from "./parts.ts"
+import { completeChains, guessParent, type PartRelation, relateParts, spelledOut } from "./parts.ts"
 import { categorizeVar, cssTokens, pairLineHeights, toDtcg } from "./tokens.ts"
 
 const demo = join(import.meta.dirname, "fixtures/demo").replaceAll("\\", "/")
@@ -523,5 +523,83 @@ describe("regenerating", () => {
       Chip: after.Chip
     })
     expect(selectComponents(before, after, changes, ["Button"]).Button).toEqual(after.Button)
+  })
+})
+
+describe("errors from the app", () => {
+  // React from a workspace package that depends on it; libgen loads the project's own copy in real use.
+  const fromRenderer = createRequire(join(import.meta.dirname, "../../renderer-react/package.json"))
+  const load = async (specifier: string) =>
+    (await import(pathToFileURL(fromRenderer.resolve(specifier)).href)) as Record<string, unknown>
+
+  it("puts the parent an app error names in the part's chain, and takes an input's label off", async () => {
+    const React = (await load("react")) as unknown as ReactLike
+    const RootContext = React.createContext(false)
+    const library = {
+      Root: ({ children }: { children?: unknown }) =>
+        React.createElement(RootContext.Provider, { value: true }, children),
+      Item: ({ children }: { children?: unknown }) => {
+        if (!React.useContext(RootContext)) throw new Error("`Item` must be used within `Root`")
+        return React.createElement("li", null, children)
+      },
+      // Closed on the server, so they draw nothing there and need nothing.
+      Content: () => null,
+      Search: () => null,
+      Validity: ({ children }: { children: (state: string) => unknown }) => children("valid")
+    }
+    const found = (name: string) =>
+      ({ name, export: name, samples: {} }) as unknown as Parameters<typeof relateParts>[2][number]
+    const { relations } = await relateParts(
+      async (specifier) => (specifier === "demo" ? library : load(specifier)),
+      "demo",
+      ["Root", "Item", "Content", "Search", "Validity"].map(found),
+      [],
+      {},
+      new Map(),
+      new Map(),
+      new Map(),
+      undefined,
+      {
+        Content: "`Content` must be used within `Item`",
+        Search: "input is a void element tag and must neither have `children` nor use `dangerouslySetInnerHTML`."
+      }
+    )
+    expect(relations.get("Content")).toMatchObject({ parents: ["Root", "Item"], parentsFrom: "app" })
+    expect(relations.get("Search")?.sample).toEqual({ children: [] })
+    // Children that must be a function get one.
+    expect(relations.get("Validity")?.sample).toEqual({ children: [{ $render: ["Text"] }] })
+  })
+})
+
+describe("finishing parents and samples", () => {
+  it("starts a chain outside the parents its outermost parent needs, unless they're circular", () => {
+    const relations = new Map<string, PartRelation>([
+      ["MenuTrigger", {}],
+      ["Menu", { parents: ["MenuTrigger"], optionalParents: ["MenuTrigger"] }],
+      ["MenuSection", { parents: ["Menu"] }],
+      ["SubmenuTrigger", { parents: ["MenuSection"] }],
+      ["Sheet", { parents: ["SheetTrigger"] }],
+      ["SheetTrigger", { parents: ["Sheet"] }]
+    ])
+    completeChains(relations)
+    expect(relations.get("SubmenuTrigger")).toEqual({
+      parents: ["MenuTrigger", "Menu", "MenuSection"],
+      optionalParents: ["MenuTrigger"]
+    })
+    expect(relations.get("MenuSection")?.parents).toEqual(["MenuTrigger", "Menu"])
+    expect(relations.get("Sheet")?.parents).toEqual(["SheetTrigger"])
+  })
+
+  it("finds the children a sample spells out for a part, at any depth", () => {
+    const table = [
+      { component: "TableHeader", children: [{ component: "Column", children: ["Name"] }] },
+      {
+        component: "TableBody",
+        children: [{ component: "Row" }, { component: "Row", children: [{ component: "Cell", children: ["Ada"] }] }]
+      }
+    ]
+    expect(spelledOut(table, "Row")).toEqual([{ component: "Cell", children: ["Ada"] }])
+    expect(spelledOut(table, "Cell")).toEqual(["Ada"])
+    expect(spelledOut(table, "Footer")).toBeUndefined()
   })
 })

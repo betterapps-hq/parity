@@ -302,7 +302,13 @@ export function createGuest(init: GuestInit): Guest {
       const fn = exported(init.decorators, callee.import, callee.export)
       if (typeof fn !== "function") throw new Error(`${callee.import} has no function ${callee.export}`)
       const args = (value as Props).args
-      made.set(key, (fn as (...args: unknown[]) => unknown)(...(Array.isArray(args) ? args.map(madeValue) : [])))
+      const result = (fn as (...args: unknown[]) => unknown)(...(Array.isArray(args) ? args.map(madeValue) : []))
+      // The methods the examples call on it (`toaster.create({ title })`), once.
+      for (const step of ((value as Props).methods ?? []) as { method: string; args?: unknown[] }[]) {
+        const method = (result as Record<string, unknown> | null | undefined)?.[step.method]
+        if (typeof method === "function") method.apply(result, (step.args ?? []).map(madeValue))
+      }
+      made.set(key, result)
     }
     return made.get(key)
   }

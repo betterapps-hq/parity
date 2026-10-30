@@ -1662,9 +1662,19 @@
         "as": "forwardRef",
         "group": "ContextMenu",
         "parents": [
-          "ContextMenu.Root"
+          "ContextMenu.Root",
+          "Menu.Portal"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "alignOffset": -4,
+            "sideOffset": -4
+          },
+          "children": [
+            "Get Up! Inside Out Night Beats New playlist…"
+          ]
+        },
         "fingerprint": "7177807f",
         "props": {
           "align?": "ddc1fb",
@@ -2631,6 +2641,15 @@
           "Field.Root"
         ],
         "parentsFrom": "error",
+        "sample": {
+          "children": [
+            {
+              "$render": [
+                "Text"
+              ]
+            }
+          ]
+        },
         "fingerprint": "1df82ab1",
         "props": {
           "children": "1377fd"

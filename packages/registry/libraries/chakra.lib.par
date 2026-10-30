@@ -6376,8 +6376,7 @@
         "group": "AbsoluteCenter",
         "sample": {
           "props": {
-            "bg": "bg/80",
-            "p": "4"
+            "bg": "bg/80"
           }
         },
         "fingerprint": "3c8c2142",
@@ -25715,6 +25714,20 @@
         "group": "Avatar",
         "sample": {
           "props": {
+            "css": {
+              "$call": {
+                "import": "@chakra-ui/react",
+                "export": "defineStyle"
+              },
+              "args": [
+                {
+                  "outlineWidth": "2px",
+                  "outlineColor": "colorPalette.500",
+                  "outlineOffset": "2px",
+                  "outlineStyle": "solid"
+                }
+              ]
+            },
             "size": "2xs"
           },
           "children": [
@@ -116125,6 +116138,26 @@
         "as": "forwardRef",
         "group": "ColorPicker",
         "sample": {
+          "props": {
+            "defaultValue": {
+              "$call": {
+                "import": "@chakra-ui/react",
+                "export": "parseColor"
+              },
+              "args": [
+                "#eb5e41"
+              ]
+            },
+            "value": {
+              "$call": {
+                "import": "@chakra-ui/react",
+                "export": "parseColor"
+              },
+              "args": [
+                "#eb5e41"
+              ]
+            }
+          },
           "children": [
             {
               "component": "ColorPicker.HiddenInput"
@@ -150459,6 +150492,46 @@
         "group": "DateInput",
         "sample": {
           "props": {
+            "min": {
+              "$call": {
+                "import": "@chakra-ui/react",
+                "export": "parseDate"
+              },
+              "args": [
+                "2026-01-01"
+              ]
+            },
+            "max": {
+              "$call": {
+                "import": "@chakra-ui/react",
+                "export": "parseDate"
+              },
+              "args": [
+                "2026-12-31"
+              ]
+            },
+            "value": [
+              {
+                "$call": {
+                  "import": "@chakra-ui/react",
+                  "export": "parseDate"
+                },
+                "args": [
+                  "2026-01-26"
+                ]
+              }
+            ],
+            "defaultValue": [
+              {
+                "$call": {
+                  "import": "@chakra-ui/react",
+                  "export": "parseDate"
+                },
+                "args": [
+                  "2026-01-26"
+                ]
+              }
+            ],
             "maxW": "sm"
           },
           "children": [
@@ -222289,6 +222362,32 @@
         ],
         "parentsFrom": "example",
         "sample": {
+          "props": {
+            "css": {
+              "$call": {
+                "import": "@chakra-ui/react",
+                "export": "defineStyle"
+              },
+              "args": [
+                {
+                  "pos": "absolute",
+                  "bg": "bg",
+                  "px": "0.5",
+                  "top": "2.5",
+                  "insetStart": "3",
+                  "fontWeight": "normal",
+                  "pointerEvents": "none",
+                  "transition": "position",
+                  "color": "fg.muted",
+                  "&[data-float]": {
+                    "top": "-3",
+                    "insetStart": "2",
+                    "color": "fg"
+                  }
+                }
+              ]
+            }
+          },
           "children": [
             "Email",
             {
@@ -267051,8 +267150,8 @@
         "group": "IconButton",
         "sample": {
           "props": {
-            "size": "xs",
-            "variant": "outline"
+            "size": "sm",
+            "variant": "ghost"
           }
         },
         "fingerprint": "07123366",
@@ -412113,7 +412212,6 @@
         "group": "Skeleton",
         "sample": {
           "props": {
-            "variant": "shine",
             "width": "full",
             "height": "5"
           }
@@ -439356,10 +439454,8 @@
         "group": "StackSeparator",
         "sample": {
           "props": {
-            "borderColor": {
-              "base": "green.500",
-              "md": "red.200"
-            }
+            "h": "5",
+            "alignSelf": "center"
           }
         },
         "fingerprint": "80139224",
@@ -510077,9 +510173,10 @@
         "as": "forwardRef",
         "group": "Toast",
         "parents": [
+          "Toaster",
           "Toast.Root"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "app",
         "fingerprint": "7adee5b1",
         "props": {
           "_active?": "c3f29d",
@@ -510930,9 +511027,10 @@
         "as": "forwardRef",
         "group": "Toast",
         "parents": [
+          "Toaster",
           "Toast.Root"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "app",
         "fingerprint": "7adee5b1",
         "props": {
           "_active?": "c3f29d",
@@ -511783,9 +511881,10 @@
         "as": "forwardRef",
         "group": "Toast",
         "parents": [
+          "Toaster",
           "Toast.Root"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "app",
         "fingerprint": "7adee5b1",
         "props": {
           "_active?": "c3f29d",
@@ -512636,9 +512735,10 @@
         "as": "forwardRef",
         "group": "Toast",
         "parents": [
+          "Toaster",
           "Toast.Root"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "app",
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",
@@ -513491,6 +513591,28 @@
       "Toast.Root": {
         "as": "forwardRef",
         "group": "Toast",
+        "parents": [
+          "Toaster"
+        ],
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "width": {
+              "md": "sm"
+            }
+          },
+          "children": [
+            {
+              "component": "Toast.ActionTrigger"
+            },
+            {
+              "component": "Toast.CloseTrigger"
+            },
+            {
+              "component": "Toast.Description"
+            }
+          ]
+        },
         "fingerprint": "ec8528fd",
         "props": {
           "_active?": "c3f29d",
@@ -514345,9 +514467,10 @@
         "as": "forwardRef",
         "group": "Toast",
         "parents": [
+          "Toaster",
           "Toast.Root"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "app",
         "fingerprint": "7adee5b1",
         "props": {
           "_active?": "c3f29d",
@@ -515198,6 +515321,71 @@
         "as": "function",
         "declaration": "dist/types/components/toast/toast.d.ts",
         "group": "Toast",
+        "sample": {
+          "props": {
+            "toaster": {
+              "$call": {
+                "import": "@chakra-ui/react",
+                "export": "createToaster"
+              },
+              "args": [
+                {
+                  "placement": "bottom-end",
+                  "pauseOnPageIdle": true
+                }
+              ],
+              "methods": [
+                {
+                  "method": "create",
+                  "args": [
+                    {
+                      "description": "File saved successfully",
+                      "type": "info",
+                      "closable": true
+                    }
+                  ]
+                },
+                {
+                  "method": "success",
+                  "args": [
+                    {
+                      "title": "Update successful",
+                      "description": "File saved successfully to the server",
+                      "action": {
+                        "label": "Undo"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "method": "isVisible",
+                  "args": [
+                    "login-error-toast"
+                  ]
+                }
+              ]
+            },
+            "children": "Text",
+            "insetInline": {
+              "mdDown": "4"
+            }
+          },
+          "children": [
+            {
+              "$render": [
+                {
+                  "component": "Toast.Root",
+                  "props": {
+                    "width": {
+                      "md": "sm"
+                    }
+                  },
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
         "fingerprint": "a4e0483a",
         "props": {
           "_active?": "c3f29d",

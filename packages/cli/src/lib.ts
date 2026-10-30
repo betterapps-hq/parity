@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { dirname, join, relative, resolve } from "node:path"
 import type { GenerateReport as Report } from "@parity-app/libgen"
+import { readAppErrors } from "./check.ts"
 
 export interface LibOptions {
   root?: string
@@ -49,9 +50,17 @@ export async function runLib(packageName: string | undefined, options: LibOption
   const trialEdits = options.edits
     ? parseLibraryEdits(JSON.parse(await readFile(resolve(options.edits), "utf8")))
     : undefined
+  // A registry file is made again with the app's errors `parity lib check --record` kept for it.
+  const recordedId =
+    options.registry && spec
+      ? (options.id ??
+        (await registryEntries()).find((entry) => entry.manifest.package?.name === spec.name)?.manifest.id)
+      : undefined
+  const appErrors = recordedId ? await readAppErrors(registryDir(), recordedId) : undefined
   const generated = await generateLibrary({
     root,
     ...(trialEdits ? { trialEdits } : {}),
+    ...(appErrors ? { appErrors } : {}),
     ...(options.noExamples ? { examples: false } : {}),
     ...(options.noTags ? { tags: false } : {}),
     ...(spec ? { package: spec.name } : {}),

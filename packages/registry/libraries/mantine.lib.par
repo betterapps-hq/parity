@@ -12571,7 +12571,8 @@
           "props": {
             "value": "",
             "placeholder": "Search groceries"
-          }
+          },
+          "children": []
         },
         "fingerprint": "de18c85d",
         "props": {
@@ -12814,6 +12815,15 @@
         "as": "function",
         "declaration": "lib/components/CopyButton/CopyButton.d.ts",
         "group": "CopyButton",
+        "sample": {
+          "children": [
+            {
+              "$render": [
+                "Text"
+              ]
+            }
+          ]
+        },
         "fingerprint": "0734ce8d",
         "props": {
           "children": "a49065",
@@ -14855,6 +14865,15 @@
         "as": "function",
         "declaration": "lib/components/FileButton/FileButton.d.ts",
         "group": "FileButton",
+        "sample": {
+          "children": [
+            {
+              "$render": [
+                "Text"
+              ]
+            }
+          ]
+        },
         "fingerprint": "d219a8d7",
         "props": {
           "accept?": "0bf956",
@@ -32603,10 +32622,6 @@
         "as": "function",
         "declaration": "lib/components/TreeSelect/TreeSelectOption.d.ts",
         "group": "TreeSelectOption",
-        "parents": [
-          "TreeSelect"
-        ],
-        "parentsFrom": "prefix",
         "internal": true,
         "fingerprint": "0d6d9dad",
         "props": {
