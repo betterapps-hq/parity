@@ -1,4 +1,4 @@
-import { type CanvasDocument, parseCanvasDocument } from "./document.ts"
+import { type CanvasDocument, type ContainerSpec, type DesignNode, parseCanvasDocument } from "./document.ts"
 import {
   compact,
   expectArray,
@@ -621,6 +621,45 @@ function expectPattern(value: unknown, path: string): string {
     throw new TypeError(`${path}: expected a regular expression`)
   }
   return pattern
+}
+
+/**
+ * The id a library's components and designs are named by, as in `nova/Button`: its manifest's `id`, else its package's
+ * name without a scope. The library's own project names its components the same way, so its canvas's designs work
+ * unchanged in the apps that install it.
+ */
+export function libraryId(manifest: Pick<LibraryManifest, "id">, packageName: string): string {
+  return manifest.id ?? packageName.replace(/^@[^/]+\//, "")
+}
+
+/**
+ * A library's component designs, as the apps that install it place them: the component designs in its canvas, each
+ * named by the library (`nova/settings-row`), with the instances inside them pointing at those names. Their components
+ * are the library's already (`nova/Button`), as its own project names them.
+ */
+export function libraryDesigns(manifest: Pick<LibraryManifest, "canvas">, id: string): ContainerSpec[] {
+  const components = (manifest.canvas?.containers ?? []).filter((container) => container.kind === "component")
+  const own = new Set(components.map((container) => container.id))
+  const rename = (design: string) => (own.has(design) ? `${id}/${design}` : design)
+  return components.map((container) => ({
+    ...container,
+    id: `${id}/${container.id}`,
+    root: withDesignsRenamed(container.root, rename)
+  }))
+}
+
+function withDesignsRenamed(node: DesignNode, rename: (design: string) => string): DesignNode {
+  if (node.type === "instance") return { ...node, design: rename(node.design) }
+  if (node.type === "layout")
+    return { ...node, children: node.children.map((child) => withDesignsRenamed(child, rename)) }
+  if (node.type === "component" && node.slots) {
+    const slots = Object.entries(node.slots).map(([slot, nodes]) => [
+      slot,
+      nodes.map((child) => withDesignsRenamed(child, rename))
+    ])
+    return { ...node, slots: Object.fromEntries(slots) }
+  }
+  return node
 }
 
 /** The designs in a `.lib.par`, or an empty canvas when it has none yet. */

@@ -569,11 +569,17 @@ function sayWhenSavesFail(session: ProjectSession): void {
 async function createSession(info: ProjectInfo): Promise<ProjectSession> {
   const loaded = await loadGuest(info.guestUrl, info.theme)
   const readable = info.documents.flatMap(({ path, document }) => (document ? [{ path, document }] : []))
-  const store = new DesignStore(readable, info.modes.settings, info.mainDocument, {
-    saveDocument: (path, document) =>
-      window.canvasHost.request("document.save", { projectId: info.id, path, document }),
-    autosave: () => getPreferences().autosave
-  })
+  const store = new DesignStore(
+    readable,
+    info.modes.settings,
+    info.mainDocument,
+    {
+      saveDocument: (path, document) =>
+        window.canvasHost.request("document.save", { projectId: info.id, path, document }),
+      autosave: () => getPreferences().autosave
+    },
+    info.libraries.flatMap((library) => library.designs ?? [])
+  )
   const components = new ComponentStore()
   inferComponents(info, components)
   const session: ProjectSession = {

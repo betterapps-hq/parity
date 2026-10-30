@@ -1,10 +1,11 @@
 import { readdir, readFile } from "node:fs/promises"
-import { dirname, extname, join, relative } from "node:path"
+import { basename, dirname, extname, join, relative } from "node:path"
 import { componentIds, findAppComponents, type ProjectTsconfig, readTsconfig, resolvePathAlias } from "@parity-app/code"
 import {
   type ComponentSource,
   type DescribedTokens,
   type LibraryInfo,
+  libraryId,
   libraryManifestExtension,
   type PackageManifest,
   parseLibraryManifest,
@@ -74,25 +75,28 @@ export async function discoverProject(
   const app = await findAppComponents(root, renderer, tsconfig, uiKit, notes)
   notes.push(...libraries.notes)
   await addWorkspacePackages(root, pkg, renderer, libraries, notes)
-  const components = componentIds(app.found, new Set(Object.keys(libraries.components)))
-  for (const library of libraries.libraries) {
-    const found = Object.values(libraries.components).filter((source) => source.library === library.id).length
-    notes.push(`${count(found, "component")} from ${library.name} (${library.importName})`)
-  }
   const documents = await findDocuments(root)
-  notes.push(documents.length === 0 ? "no .par project file yet" : `designs in ${documents.join(", ")}`)
   const tokens: DescribedTokens[] = [...libraries.describedTokens]
+  // A library's own project names its components as the apps that install it do, so its canvas's designs work there.
+  let namespace: string | undefined
   const own = documents.find((path) => !path.includes("/") && path.endsWith(libraryManifestExtension))
   if (own) {
     try {
       const manifest = parseLibraryManifest(parseJsonc(await readFile(join(root, own), "utf8")))
       const described = await describedTokens(root, join(root, own), manifest)
       if (described) tokens.unshift(described)
-      notes.push(`a library, described by ${own}`)
+      namespace = libraryId(manifest, pkg.name ?? basename(root))
+      notes.push(`a library, described by ${own}, whose components are named like ${namespace}/Button`)
     } catch (error) {
       notes.push(`${own} can't be read: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
+  const components = componentIds(app.found, new Set(Object.keys(libraries.components)), namespace)
+  for (const library of libraries.libraries) {
+    const found = Object.values(libraries.components).filter((source) => source.library === library.id).length
+    notes.push(`${count(found, "component")} from ${library.name} (${library.importName})`)
+  }
+  notes.push(documents.length === 0 ? "no .par project file yet" : `designs in ${documents.join(", ")}`)
   const all = { ...components, ...libraries.components }
   const storybook = await findStorybook(root, pkg, all, async (specifier) => resolveAlias(root, tsconfig, specifier))
   if (storybook) {
@@ -108,6 +112,7 @@ export async function discoverProject(
     documents,
     ...(storybook ? { storybook } : {}),
     ...(tokens.length > 0 ? { describedTokens: tokens } : {}),
+    ...(namespace ? { namespace } : {}),
     notes,
     componentFiles: app.files,
     ...(uiKit ? { uiKit } : {})

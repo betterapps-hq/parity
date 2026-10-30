@@ -1,7 +1,6 @@
 import {
   childNodes,
   type ComponentLibrary,
-  componentLibrary,
   type ContainerSpec,
   type DesignNode,
   editInner,
@@ -19,9 +18,9 @@ import {
 } from "@parity-app/core"
 import type { DesignStore } from "../design-store.ts"
 
-/** Every design in the project by id, for expanding instances. */
+/** Every component design instances can place by id, the project's and its libraries', for expanding them. */
 export function projectLibrary(store: DesignStore): ComponentLibrary {
-  return componentLibrary(store.getEntries().map((entry) => entry.container))
+  return store.getComponentLibrary()
 }
 
 /**

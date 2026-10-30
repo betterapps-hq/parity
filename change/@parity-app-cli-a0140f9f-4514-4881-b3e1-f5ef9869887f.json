@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Name a library's own components by its id, list its canvas's component designs in apps that install it, and place them linked or as detached copies",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

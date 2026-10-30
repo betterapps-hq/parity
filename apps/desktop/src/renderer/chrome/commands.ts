@@ -412,7 +412,7 @@ export function makeComponent(session = activeSession()): void {
   const layer = selectedOwnLayer(session)
   if (!layer) return
   try {
-    const name = layerLabel(layer.node, session.store.getEntries())
+    const name = layerLabel(layer.node, session.store.getEntries(), session.store.getComponentLibrary())
     session.selection.set({ design: extractIntoComponent(session, layer.entry, [layer.node.id], name) })
     revealSelection(session)
   } catch (error) {

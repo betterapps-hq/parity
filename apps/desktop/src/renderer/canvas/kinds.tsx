@@ -1,4 +1,4 @@
-import { type ContainerKind, type DesignNode, nodeLabel } from "@parity-app/core"
+import { type ComponentLibrary, type ContainerKind, type DesignNode, nodeLabel } from "@parity-app/core"
 import {
   Box,
   Columns3,
@@ -33,9 +33,15 @@ export function nodeColor(node: DesignNode): string {
   return node.type === "component" || node.type === "instance" ? kindColors.component : kindColors.layer
 }
 
-/** A layer's name, with an unnamed instance called after its design ("Member row") rather than by the design's id. */
-export function layerLabel(node: DesignNode, entries: readonly ContainerEntry[]): string {
-  return nodeLabel(node, (id) => entries.find((entry) => entry.container.id === id)?.container.name)
+/**
+ * A layer's name, with an unnamed instance called after its design ("Member row") rather than by the design's id. A
+ * library's design, which isn't one of the `entries`, is found in `library` when it's given.
+ */
+export function layerLabel(node: DesignNode, entries: readonly ContainerEntry[], library?: ComponentLibrary): string {
+  return nodeLabel(
+    node,
+    (id) => entries.find((entry) => entry.container.id === id)?.container.name ?? library?.get(id)?.name
+  )
 }
 
 export function DesignIcon({ kind, ...props }: LucideProps & { kind: ContainerKind | undefined }) {

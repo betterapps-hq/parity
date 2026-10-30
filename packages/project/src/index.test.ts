@@ -143,6 +143,43 @@ describe("libraries", () => {
     ])
   })
 
+  it("names a library's own components by its id, so its canvas's designs refer to them as apps do", async () => {
+    await write("src/components/ui/button.tsx", "export function Button() {}")
+    await write("nova.lib.par", JSON.stringify({ version: 2, id: "nova", name: "Shadcn Nova" }))
+    const project = await discoverProject(root, renderer, { name: "@buildkitgg/shadcn-baseui-nova" })
+    expect(project.namespace).toBe("nova")
+    expect(project.components).toEqual({
+      "nova/Button": { path: "src/components/ui/button.tsx", export: "Button", as: "function" }
+    })
+
+    // Without an id, the package's name names them, as it does in the apps that install the library.
+    await write("nova.lib.par", JSON.stringify({ version: 2, name: "Shadcn Nova" }))
+    const unnamed = await discoverProject(root, renderer, { name: "@acme/charts" })
+    expect(Object.keys(unnamed.components)).toEqual(["charts/Button"])
+  })
+
+  it("lists the component designs a dependency's .lib.par canvas holds, named by the library", async () => {
+    const pkg = { dependencies: { "@acme/ui": "1.0.0" } }
+    await write("node_modules/@acme/ui/package.json", '{ "name": "@acme/ui", "types": "index.d.ts" }')
+    await write("node_modules/@acme/ui/index.d.ts", "export function Switch(): unknown")
+    const row = {
+      id: "settings-row",
+      name: "Settings row",
+      kind: "component",
+      position: { x: 0, y: 0 },
+      root: { type: "component", id: "switch", component: "acme/Switch" },
+      states: [{ id: "default", name: "Default" }]
+    }
+    const screen = { ...row, id: "showcase", name: "Showcase", kind: "screen" }
+    await write(
+      "node_modules/@acme/ui/acme.lib.par",
+      JSON.stringify({ version: 2, id: "acme", name: "Acme UI", canvas: { version: 3, containers: [row, screen] } })
+    )
+    const project = await discoverProject(root, renderer, pkg)
+    expect(project.libraries[0]?.designs).toEqual([{ ...row, id: "acme/settings-row" }])
+    expect(project.components["acme/Switch"]).toMatchObject({ library: "acme" })
+  })
+
   it("finds a library installed in a folder above, under an alias, whose exports leave out package.json", async () => {
     const pkg = { dependencies: { "@acme/kit": "npm:@buildkitgg/shadcn-baseui-nova@0.4.1" } }
     await write("app/package.json", JSON.stringify(pkg))

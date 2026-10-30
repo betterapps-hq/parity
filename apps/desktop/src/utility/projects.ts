@@ -73,6 +73,8 @@ interface OpenProject {
   /** What reads the app's files for components when they change, and the UI kit folder whose components load eagerly. */
   renderer: RendererAdapter
   uiKit?: string
+  /** For a library's own project, the id its own components are named by, as in `nova/Button`. */
+  namespace?: string
   /** The person's corrections to which exports are components, as the canvas has the main project file now. */
   corrections?: DetectionCorrections
   /** Where the windows load the project's guest from: `info.guestUrl`, unless they couldn't load it after it moved. */
@@ -197,7 +199,7 @@ async function start(root: string): Promise<ProjectInfo> {
   const mainDocument = pickMainDocument(config.documents, pkg.name ?? basename(root))
   const main = documents.find((entry) => entry.path === mainDocument)?.document
   // The person's corrections come before what was saved, so changing them is a change the fingerprint sees.
-  config.components = correctedSources(config.components, main?.detection)
+  config.components = correctedSources(config.components, main?.detection, config.namespace)
   // What the type checker and props found last time, when nothing they read has changed since.
   const discovered = { ...config.components }
   const { fingerprint, saved } = await savedDetection(root, config)
@@ -263,6 +265,7 @@ async function start(root: string): Promise<ProjectInfo> {
     components: saved ? Promise.resolve(saved.props) : inferProps(root, config.components, config.componentFiles),
     renderer,
     ...(config.uiKit ? { uiKit: config.uiKit } : {}),
+    ...(config.namespace ? { namespace: config.namespace } : {}),
     ...(main?.detection ? { corrections: main.detection } : {})
   }
   project.watcher = watchProjectFiles(project)
@@ -580,7 +583,12 @@ async function checkTypes(project: OpenProject, files: string[]): Promise<boolea
     return false
   }
   if (projects.get(root) !== project) return false
-  const { added, confirmed, removed } = checkedChanges(project.sources, checked.components)
+  const { added, confirmed, removed } = checkedChanges(
+    project.sources,
+    checked.components,
+    undefined,
+    project.namespace
+  )
   project.info.leftOut = checked.leftOut
   task.set("passed", { summary: typeCheckSummary(files.length, Object.keys(added).length, removed.length) })
   for (const name of removed) delete project.sources[name]
@@ -632,11 +640,11 @@ async function rescanComponents(project: OpenProject, paths: string[]): Promise<
   const tsconfig = readTsconfig(root)
   const { files } = await appFiles(root, project.renderer, tsconfig)
   const read = await readChangedFiles(root, project.renderer, files, project.uiKit, paths)
-  const update = filesChanged(project.sources, read)
+  const update = filesChanged(project.sources, read, project.namespace)
   const current = () => projects.get(root) === project
   if (!current()) return
   const settle = async (found: Record<string, ComponentSource>, label: string, added: number, removed: number) => {
-    const next = correctedSources(found, project.corrections)
+    const next = correctedSources(found, project.corrections, project.namespace)
     // In place, since the project's info and its builder's start options share this list.
     for (const name of Object.keys(project.sources)) if (!(name in next)) delete project.sources[name]
     Object.assign(project.sources, next)
@@ -663,7 +671,12 @@ async function rescanComponents(project: OpenProject, paths: string[]): Promise<
     return
   }
   if (!current()) return
-  const { added, confirmed, removed } = checkedChanges(project.sources, checked.components, new Set(toCheck))
+  const { added, confirmed, removed } = checkedChanges(
+    project.sources,
+    checked.components,
+    new Set(toCheck),
+    project.namespace
+  )
   const before = project.info.leftOut ?? []
   project.info.leftOut = leftOutChanges(before, new Set(toCheck), checked.leftOut)
   const unchanged = Object.keys(added).length === 0 && removed.length === 0 && Object.keys(confirmed).length === 0
@@ -700,7 +713,7 @@ export async function correctComponents({
 
 /** Applies the person's corrections to the list in place, since the project's info and builder share it. */
 function applyCorrections(project: OpenProject): void {
-  const next = correctedSources(project.sources, project.corrections)
+  const next = correctedSources(project.sources, project.corrections, project.namespace)
   if (next === project.sources) return
   for (const name of Object.keys(project.sources)) if (!(name in next)) delete project.sources[name]
   Object.assign(project.sources, next)
