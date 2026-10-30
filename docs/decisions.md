@@ -1943,8 +1943,8 @@ How Parity's code is split, so the parts that change most are easy to find, repl
   - Installing a library imports its styles through a project edit too, but doesn't offer Undo, since undoing the import
     would leave the package installed.
 - **Editor behaviour moves into `@parity-app/editor`,** one file at a time with tests: arranging and the clipboard first
-  (PAR-7). It was the first package after the CLI in the `@parity-app` scope, which every package uses since PAR-425. My
-  calls in starting it:
+  (PAR-7), then drop rules and snapping (PAR-33). It was the first package after the CLI in the `@parity-app` scope,
+  which every package uses since PAR-425. My calls in starting it:
   - Each rule takes a design, or the documents designs are in, and returns it changed, with what the app needs next: the
     copies' ids, the new layout's id, the layout to select. The same object back means nothing changed, so the store
     records no step. The app keeps the undo labels, the messages, the selection, the system clipboard, saving images and
@@ -1954,8 +1954,8 @@ How Parity's code is split, so the parts that change most are easy to find, repl
   - The rules have names of their own (`removeLayers`, `copyLayersInPlace`, `wrapInLayout`, `styleOf`, `applyStyle` and
     so on), so the app's commands keep theirs and nothing is imported under another name.
   - `paste-over.ts` moved with the clipboard, with its tests, since it was already pure and is where pasted layers go.
-    `paste-here.ts` stays until drop rules move (PAR-33), as it uses `drop-slot.ts`'s `slotAt`, and `free-space.ts`'s
-    `freeSpotBeside` until placement does (PAR-32).
+    `paste-here.ts` waited for drop rules (PAR-33), as it uses `drop-slot.ts`'s `slotAt`, and `free-space.ts`'s
+    `freeSpotBeside` waits for placement (PAR-32).
   - Reading the clipboard's envelope checks more than it did, since it's data from outside the app: the project must be
     text, and the payload one of the three kinds, its layers, designs or notes checked by core's `.par` parsers
     (`parseDesignNode`, `parseCanvasDocument`). A copy that fails pastes nothing, with a message, instead of throwing
@@ -2000,6 +2000,26 @@ How Parity's code is split, so the parts that change most are easy to find, repl
   - The Tailwind adapter (`@parity-app/styles-tailwind`) stays an adapter at the edge, as it loads Tailwind with Node.
     Libgen's token collecting (`libgen/src/tokens.ts`), which writes DTCG, and the editor's token edit history
     (`renderer/token-edits.ts`) stay where they are for now.
+- **Drop rules and snapping are in `@parity-app/editor`** (PAR-33): `slotAt` and `flowOf`, where a dragged layer lands
+  (`dropTargetAt`), moving it there (`moveLayersWithin`, `moveLayersAcross`), Paste here's `pasteHere`, and snapping a
+  dragged design (`snapBox`). My calls in moving them:
+  - The canvas passes measures in and applies what comes back. It keeps measuring frames (`DragLayouts`), finding the
+    frame under the pointer, the pointer handling and the drop preview, `measureHere`, and moving an absolutely placed
+    layer by its insets, whose rule (`shiftInsets`) stays with nudging in the app. For snapping it keeps reading
+    tldraw's boxes, the View menu's preference, Ctrl to move freely and drawing the guides.
+  - A frame's layouts' flows are read when the frame is measured, with the boxes, so `dropTargetAt` takes only data.
+    Before, the flow of the layout found was read from its computed style at each pointer move. Showing a copy doesn't
+    change a layout's display or direction, so drops land where they did.
+  - The package's names are its own (`dropTargetAt`, `moveLayersWithin`, `moveLayersAcross`, `snapBox`), and the app
+    keeps `moveTarget`, `moveLayers` and `snapPosition`. The app's `dropInFrame` measures and asks `dropTargetAt`.
+  - The 8-pixel snapping distance moved with the maths, and the zoom is passed in. A design's box is tldraw's `x`, `y`,
+    `w` and `h`, so the canvas passes tldraw's boxes as they are and the lines are the same numbers as before.
+  - Moving layers to another design copies them with the clipboard's `asShown`, which did the same as the drag's own
+    copy of it, and goes through the store's `updateContainers`. When none of the layers is in their design any more it
+    changes nothing, where before it added an empty undo step and selected nothing.
+  - `pasteHere` and `slotHere` moved with `slotAt`, their tests with them. The Chrome tests of measuring
+    (`drop-target.test.ts` and `paste-here-frame.test.ts`) stay in the app and call the package, and the rules gained
+    tests from boxes.
 - **Lenses and adapters never go in core.** Lens models are schemas in `@parity-app/models`, each lens is a package, and
   so is each adapter, such as Drizzle or TanStack Router.
 

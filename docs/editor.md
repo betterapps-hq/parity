@@ -281,8 +281,9 @@ selection and the design under the pointer and returns the items, available or n
 area in `ProjectView.tsx`: it records the right button's press, finds the design under the pointer with `hitTest` and
 `pickLayer`, outlines Select layer's entries through the hover, and runs items through `actions.ts`. Paste here is
 `pasteAtPointer` in `canvas/clipboard.ts`, which reads the clipboard and places designs, notes and text; layers go
-through `canvas/paste-here.ts`, where `measureHere` measures the layout under the pointer in its frame and `pasteHere`
-places the copies. Which keys an open menu keeps is `inMenu` in `canvas/shortcuts.ts`.
+through `canvas/paste-here.ts`, where `measureHere` measures the layout under the pointer in its frame, and `pasteHere`
+in `packages/editor/src/paste-here.ts` places the copies. Which keys an open menu keeps is `inMenu` in
+`canvas/shortcuts.ts`.
 
 Tests:
 
@@ -290,11 +291,11 @@ Tests:
   and Hide in two states, a design's menu and its Make component label, several designs, a layer inside an instance, the
   menu around the designs; Select layer's list, names, checks and the design's kind; and what a right-click selects on a
   layer, a frame's background, around the frames, the root, inside the selection, outside it, and in a selected design.
-- `canvas/paste-here.test.ts` (16): the dashboard's stats row, at the slot under the pointer, first and last, several
-  copies together, fresh ids, a hidden card skipped, an empty layout; an absolutely placed layout at half size, half
-  steps, a copy's own insets replaced; an absolutely placed copy in the slot; a state that places the row absolutely;
-  nothing pasted into a layer that isn't a layout; several copies side by side in an absolutely placed layout; and
-  `slotHere`'s slot and line in a row, none in an absolutely placed layout, and none outside a layout.
+- `packages/editor/src/paste-here.test.ts` (16): the dashboard's stats row, at the slot under the pointer, first and
+  last, several copies together, fresh ids, a hidden card skipped, an empty layout; an absolutely placed layout at half
+  size, half steps, a copy's own insets replaced; an absolutely placed copy in the slot; a state that places the row
+  absolutely; nothing pasted into a layer that isn't a layout; several copies side by side in an absolutely placed
+  layout; and `slotHere`'s slot and line in a row, none in an absolutely placed layout, and none outside a layout.
 - `canvas/paste-here-frame.test.ts` (4), in Chrome: `measureHere` on a grid drawn at half size, with a hidden card, the
   slot under the pointer, first and last, at the pointer inside an absolutely placed layout's border, and the deepest
   layout.
@@ -377,22 +378,36 @@ decisions.md describes. Where it lands follows the pointer:
   them. A move that leaves the order as it was changes nothing and adds no undo step. An absolutely placed layer doesn't
   reorder; it moves by its insets (below).
 
-Code: `apps/desktop/src/renderer/canvas/drop-slot.ts` (`slotAt` and `flowOf`, geometry only), `canvas/drop-target.ts`
-(`DragLayouts` measures a frame's layers through `frame.ts`'s `nodeBox`, and `dropTargetAt` finds the layout and slot),
-and `canvas/layer-drag.ts` (`pressLayers` measures when the drag begins; `moveTarget` finds the frame under the pointer;
-`DropPreview` shows the copy).
+Code: the rules are in `@parity-app/editor` (PAR-33), from measures the canvas passes in:
+`packages/editor/src/drop-slot.ts` (`slotAt` and `flowOf`, geometry only), `drop-target.ts` (`frameLayout` keeps what
+was measured, and `dropTargetAt` finds the layout and slot, and the line marking it) and `move-layers.ts`
+(`moveLayersWithin` and `moveLayersAcross`). The app's `apps/desktop/src/renderer/canvas/drop-target.ts` measures
+(`DragLayouts` reads a frame's layers' boxes through `frame.ts`'s `nodeBox`, and each layout's flow from its computed
+style, and `dropInFrame` passes them in), and `canvas/layer-drag.ts` follows the pointer (`pressLayers` measures when
+the drag begins; `moveTarget` finds the frame under the pointer; `DropPreview` shows the copy; `moveLayers` applies the
+move to the store and the selection).
 
 Tests:
 
-- `canvas/drop-slot.test.ts`: the stat cards in both directions and anywhere up or down their row, a card short of a
-  neighbour's middle staying put, two-row grids going up and down, the gap between rows, above and below every row, a
-  row that moving a card empties, wrapping rows of different widths and centred lines, one-line rows and columns, an
-  empty layout, and reading a flow from computed styles.
-- `canvas/drop-target.test.ts`, in Chrome: the stat cards laid out as a real grid, dragged right and left; the line
-  where the layout was, also after the camera zooms and pans; a card that stays in its own slot though its neighbour
-  slid there, against the same layout measured after the card was hidden (which jumps it past the neighbour, as before
-  CAN-47); a card dragged over neighbours that are layouts changing places with them; and a layout outside its own still
-  taking the drop.
+- `packages/editor/src/drop-slot.test.ts`: the stat cards in both directions and anywhere up or down their row, a card
+  short of a neighbour's middle staying put, two-row grids going up and down, the gap between rows, above and below
+  every row, a row that moving a card empties, wrapping rows of different widths and centred lines, one-line rows and
+  columns, an empty layout, and reading a flow from computed styles.
+- `packages/editor/src/drop-target.test.ts` (13), from boxes: the stat cards dragged right and left; the line where the
+  layout was, and the same slot after the camera zooms out and pans; a card that stays in its own slot while the pointer
+  is where it was; a card dragged over neighbours that are layouts, or the text in them, changing places with them; a
+  layout outside its own taking the drop; from another design, a card that's a layout taking it, and the dragged card
+  counting as a slot; children that aren't drawn left out; and nothing found in a layout that wasn't measured or a
+  design whose root isn't a layout.
+- `packages/editor/src/move-layers.test.ts` (12): within a design, before what was at the index, several together, ids
+  and states' changes kept, into a component's slot, and the same design back when dropped where it is, into itself or
+  into a layout that isn't there; into another design, copies in order with ids new there, as the state being edited
+  shows them, only the outermost of nested layers, into a slot, and nothing changed when the layers aren't there.
+- `apps/desktop/src/renderer/canvas/drop-target.test.ts`, in Chrome, measuring as the canvas does: the stat cards laid
+  out as a real grid, dragged right and left; the line where the layout was, also after the camera zooms and pans; a
+  card that stays in its own slot though its neighbour slid there, against the same layout measured after the card was
+  hidden (which jumps it past the neighbour, as before CAN-47); a card dragged over neighbours that are layouts changing
+  places with them; and a layout outside its own still taking the drop.
 - `apps/desktop/e2e/moving.e2e.ts` (6), end to end (PAR-202), on the dashboard: Users dragged right past Issues, with
   the card hidden and its copy where it lands, then undone; Issues dragged left past Revenue; the header's Export past
   New project; Feb among the revenue bars nudged a little (no change and nothing to undo) and past March (they swap, and
@@ -477,6 +492,25 @@ Tests:
 Gaps: a frame's own handles (a design's width and height) aren't covered by these tests. A resize writes as the pointer
 moves, and in a development build those writes can be more than a second apart, so one drag can take several undos; one
 undo step per gesture is PAR-193.
+
+### Snapping a dragged design (PAR-33)
+
+A design dragged on the canvas locks to the designs and notes around it, as decisions.md describes: along each axis, the
+nearest of its left, centre and right (or top, middle and bottom) to any of theirs, within 8 screen pixels at the
+current zoom. Of lines just as near, the first design's wins. A line shows where it locks, spanning both. Ctrl (Cmd on a
+Mac) moves freely, and so does turning snapping off under View; designs dragged together don't snap to each other.
+
+Code: `snapBox` in `packages/editor/src/snap.ts` takes the boxes and the zoom and returns where the design goes and the
+guides to draw; `apps/desktop/src/renderer/canvas/snap.ts` (`snapPosition`) reads the shapes' boxes from tldraw, checks
+the preference and draws the guides as tldraw's snap indicators, and `canvas/ContainerShapeUtil.tsx` calls it while a
+design is dragged.
+
+Tests: `packages/editor/src/snap.test.ts` (9): a left locking within 8 pixels and not past them, the distance counted on
+screen at half and double zoom, centres and ends lining up, each axis on its own, the nearest line though a farther one
+comes first, the first design's of lines just as near, the guides, and nothing around.
+
+Gaps: the pointer handling and the preference aren't tested; `apps/desktop/e2e/selecting.e2e.ts` drags a design with
+snapping on, but doesn't check where it locks.
 
 ### Duplicating a design (CAN-47)
 

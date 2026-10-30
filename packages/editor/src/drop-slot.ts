@@ -4,7 +4,12 @@
  */
 
 /** A box, as `getBoundingClientRect` gives one. */
-export type Rect = Pick<DOMRectReadOnly, "left" | "top" | "right" | "bottom">
+export interface Rect {
+  left: number
+  top: number
+  right: number
+  bottom: number
+}
 
 export interface Point {
   x: number

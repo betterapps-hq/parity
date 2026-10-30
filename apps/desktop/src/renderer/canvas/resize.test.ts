@@ -1,6 +1,6 @@
 import type { NodeStyle } from "@parity-app/core"
+import type { Rect } from "@parity-app/editor"
 import { describe, expect, it } from "vite-plus/test"
-import type { Rect } from "./drop-slot.ts"
 import { type Edge, edgeAxes, type ResizeStart, resizeGesture } from "./resize.ts"
 
 const box = (left: number, top: number, width: number, height: number): Rect => ({

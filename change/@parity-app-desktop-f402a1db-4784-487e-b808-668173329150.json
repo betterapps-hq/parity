@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Move where a dragged layer lands, Paste here's placement and snapping into @parity-app/editor",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

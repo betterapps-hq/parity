@@ -1,5 +1,5 @@
 import type { NodeStyle } from "@parity-app/core"
-import type { Rect } from "./drop-slot.ts"
+import type { Rect } from "@parity-app/editor"
 import { type DrawnSteps, resizeInsets } from "./insets.ts"
 
 /** A side or corner a resize handle sits on. */

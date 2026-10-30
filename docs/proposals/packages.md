@@ -2,9 +2,9 @@
 
 Status: draft. `@parity-app/code` exists (PKG-3), project edits are in `@parity-app/project` (PAR-6), and
 `@parity-app/editor` has arranging and the clipboard (PAR-7), all on 2026-10-29. `@parity-app/tokens` holds reading,
-editing and matching tokens (PAR-35), and `@parity-app/editor` inserting, Make component and placement (PAR-32), on
-2026-10-30. The rule and the first items are in [decisions.md](../decisions.md) and in Linear's Package boundaries
-stream.
+editing and matching tokens (PAR-35), and `@parity-app/editor` inserting, Make component and placement (PAR-32) and drop
+rules and snapping (PAR-33), on 2026-10-30. The rule and the first items are in [decisions.md](../decisions.md) and in
+Linear's Package boundaries stream.
 
 ## In one line
 
@@ -37,14 +37,15 @@ when it's spread through UI code. Today:
 1. **Editor rules live in the app.** These are model operations, mixed with views and the DOM:
    - [clipboard.ts](../../apps/desktop/src/renderer/canvas/clipboard.ts): the clipboard envelope, new ids on paste,
      placing pasted layers, copying and pasting style (in `@parity-app/editor` since PAR-7);
-   - [layer-drag.ts](../../apps/desktop/src/renderer/canvas/layer-drag.ts): where a dragged layer can land;
+   - [layer-drag.ts](../../apps/desktop/src/renderer/canvas/layer-drag.ts): where a dragged layer can land (in
+     `@parity-app/editor` since PAR-33);
    - [arrange.ts](../../apps/desktop/src/renderer/chrome/arrange.ts): deleting, duplicating, wrapping, unwrapping,
      aligning, distributing (in `@parity-app/editor` since PAR-7);
    - [insert.ts](../../apps/desktop/src/renderer/canvas/insert.ts),
      [components.ts](../../apps/desktop/src/renderer/chrome/components.ts) and
      [create.ts](../../apps/desktop/src/renderer/chrome/create.ts): inserting, Make component, where new designs go (in
      `@parity-app/editor` since PAR-32);
-   - [snap.ts](../../apps/desktop/src/renderer/canvas/snap.ts): snapping;
+   - [snap.ts](../../apps/desktop/src/renderer/canvas/snap.ts): snapping (in `@parity-app/editor` since PAR-33);
    - [design-store.ts](../../apps/desktop/src/renderer/design-store.ts): undo, unsaved tracking and save state, inside a
      store that also holds React hooks.
 2. **Code is read three times, by three packages.** `project/components.ts` parses files to list components,

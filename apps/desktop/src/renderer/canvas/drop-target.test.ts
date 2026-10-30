@@ -8,7 +8,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vite-plus
 let browser: Browser
 let page: Page
 
-const entry = `export { DragLayouts, dropTargetAt } from "./drop-target.ts"`
+const entry = `export { DragLayouts, dropInFrame } from "./drop-target.ts"`
 
 /**
  * The dashboard's stats: four cards in a four-column grid. They're instances of a stat card there; as layouts, each
@@ -133,7 +133,7 @@ function dropAt(design: Board, card: string, point: { x: number; y: number }) {
       const host = document.querySelector<HTMLElement>("#host")!
       const layouts = (window as unknown as { layouts: unknown }).layouts
       // @ts-expect-error The bundle's global.
-      const found = drop.dropTargetAt(layouts, design, host, point, "board", [card])
+      const found = drop.dropInFrame(layouts, design, host, point, "board", [card])
       return found && { parent: found.target.parent, index: found.target.index, line: found.line }
     },
     { design, card, point }

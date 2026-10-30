@@ -1,14 +1,23 @@
 import type { DesignNode } from "@parity-app/core"
-import { designOfImages, dropLabel, fileBaseName, skippedMessage, sortDrop } from "@parity-app/editor"
+import {
+  designOfImages,
+  dropLabel,
+  fileBaseName,
+  type HereLayout,
+  pasteHere,
+  type Slot,
+  skippedMessage,
+  slotHere,
+  sortDrop
+} from "@parity-app/editor"
 import { toast } from "sonner"
 import { editingState } from "../chrome/LayerPanel.tsx"
 import { layersSelection } from "../selection.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { importImage } from "./clipboard.ts"
-import type { Slot } from "./drop-slot.ts"
 import { type Hit, hitTest, type Point } from "./hit.ts"
-import { type HereLayout, measureHere, pasteHere, slotHere } from "./paste-here.ts"
+import { measureHere } from "./paste-here.ts"
 
 /**
  * Image files dragged onto the canvas from Explorer or Finder (PAR-24). Over a layout inside a design they go into the
