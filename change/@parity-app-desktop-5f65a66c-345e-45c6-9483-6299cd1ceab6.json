@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Give tldraw's overlay canvas a bitmap only while an overlay shows, saving about 36 MB",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

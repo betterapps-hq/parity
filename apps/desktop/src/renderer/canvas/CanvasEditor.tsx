@@ -19,6 +19,7 @@ import { useProject } from "./context.ts"
 import { bitmapScale } from "./frame-bitmaps.ts"
 import { designColor, kindColors } from "./kinds.tsx"
 import { NoteShapeUtil } from "./NoteShapeUtil.tsx"
+import { sizeWhileShown } from "./overlay-canvas.ts"
 import { TitleLayer } from "./title-layer.tsx"
 import { withoutTldrawShortcuts } from "./tldraw-shortcuts.ts"
 
@@ -165,6 +166,21 @@ function markZoomedOut(editor: Editor): () => void {
   }
 }
 
+/** tldraw's overlay canvas only holds a bitmap while an overlay shows (see `sizeWhileShown`). */
+function sizeOverlays(editor: Editor): () => void {
+  const canvas = editor.getContainer().querySelector<HTMLCanvasElement>("canvas.tl-canvas-overlays")
+  if (!canvas) return () => undefined
+  const sizing = sizeWhileShown(canvas, () => editor.overlays.getCurrentOverlays().length > 0)
+  sizing.release()
+  const stop = react("overlay canvas size", () => {
+    if (editor.overlays.getCurrentOverlays().length === 0) sizing.release()
+  })
+  return () => {
+    stop()
+    sizing.restore()
+  }
+}
+
 export function CanvasEditor({ onEditor }: { onEditor(editor: Editor | undefined): void }) {
   const { id: tab, store, selection, editor } = useProject()
   const theme = useResolvedTheme()
@@ -182,6 +198,7 @@ export function CanvasEditor({ onEditor }: { onEditor(editor: Editor | undefined
       editor.setCameraOptions({ zoomSteps: [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 4, 8] })
       const stopZoom = settleZoom(editor)
       const stopZoomedOut = markZoomedOut(editor)
+      const stopOverlays = sizeOverlays(editor)
 
       // Designs and notes come and go with undo and agents, so shapes follow the store rather than being made once.
       const sync = () => {
@@ -282,6 +299,7 @@ export function CanvasEditor({ onEditor }: { onEditor(editor: Editor | undefined
         clearTimeout(fit)
         stopZoom()
         stopZoomedOut()
+        stopOverlays()
         stopStore()
         stopHeld()
         stopMoves()

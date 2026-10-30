@@ -302,6 +302,29 @@ stretches between its insets loses its right and bottom when it's placed at the 
 open closes it, and another opens it. The menubar still offers Copy, Duplicate, the order, Wrap in layout and Hide for a
 layer inside an instance, which they don't act on; the canvas menu greys them.
 
+### The overlay canvas only takes memory while it shows something (PAR-196)
+
+tldraw draws the selection box around several designs, hover outlines, the brush and snap lines on a canvas over the
+board, the window's size in device pixels. With nothing on it, that canvas now holds no bitmap, so the window and the
+GPU don't keep about 36 MB of empty pixels. It's given the window's size again as soon as an overlay shows, before it's
+drawn, and gives the bitmap back once the last one goes.
+
+- **How:** tldraw sizes the canvas whenever it draws, so the canvas's `width` and `height` pass the size tldraw sets
+  through only while an overlay shows, and hold it at none otherwise. A reaction takes the bitmap back once tldraw has
+  no overlays left. A size the canvas already has is never set again, since that would clear it.
+- **Measured:** at a 1289 × 1012 canvas on the example project, a memory-infra dump showed the canvas's 5 MB in the
+  window and 31 MB of GPU images go when it was emptied, on 2026-10-30.
+
+Code: `sizeWhileShown` in `apps/desktop/src/renderer/canvas/overlay-canvas.ts`, used by `sizeOverlays` in
+`CanvasEditor.tsx`.
+
+Tests: `overlay-canvas.test.ts` (5: no bitmap while nothing shows, tldraw's size while something does and none after,
+left alone while something still shows, never setting a size it already has, restoring), and
+`apps/desktop/e2e/overlays.e2e.ts` (no bitmap with the pointer off the board, the window's size and a drawn box with
+every design selected, none again after Escape and after moving the camera). Gaps: hover outlines and snap lines were
+checked in an isolated copy of the app on 2026-10-30, the canvas taking its size while a board was hovered and none once
+the pointer left; the brush has no test.
+
 ## Moving, reordering and resizing
 
 Dragging layers and designs, where they land, resize handles and duplicates.
