@@ -1,3 +1,4 @@
+import type { Alignment, Order } from "@parity-app/editor"
 import { detachInstance, findNode } from "@parity/core"
 import { toast } from "sonner"
 import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
@@ -19,13 +20,11 @@ import { selectedDesigns } from "../selection.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import { type ProjectSession, saveFailureToast, workspace } from "../workspace.ts"
 import {
-  type Alignment,
   align,
   deleteDesigns,
   deleteLayers,
   distribute,
   duplicateLayers,
-  type Order,
   orderLayer,
   selectAll,
   toggleHiddenLayers,

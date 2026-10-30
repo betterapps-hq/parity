@@ -10,9 +10,9 @@ import {
   shownVariants,
   type StateSpec,
   topmostNodes,
-  uniqueId,
   withFreshIds
 } from "@parity/core"
+import { copyDesigns } from "./clipboard.ts"
 
 /**
  * Figma's two pastes that go where the selection is. Paste over selection (Ctrl+Shift+V) puts the clipboard on top of
@@ -79,18 +79,9 @@ export function designsAt(
   taken: readonly string[],
   at: { x: number; y: number }
 ): ContainerSpec[] {
-  const ids = [...taken]
   const left = Math.min(...designs.map((design) => design.position.x))
   const top = Math.min(...designs.map((design) => design.position.y))
-  return designs.map((design) => {
-    const id = uniqueId(design.name, ids)
-    ids.push(id)
-    return {
-      ...design,
-      id,
-      position: { x: Math.round(design.position.x - left + at.x), y: Math.round(design.position.y - top + at.y) }
-    }
-  })
+  return copyDesigns(designs, taken, { x: at.x - left, y: at.y - top })
 }
 
 /**

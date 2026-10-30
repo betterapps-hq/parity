@@ -448,6 +448,43 @@ selected, top-aligned with it to its right, with no design or note within 160px,
 
 Gaps: the view doesn't follow a copy that lands off screen.
 
+### Arranging layers and designs (PAR-7)
+
+Delete, Duplicate (Ctrl+D), Select all (Ctrl+A), Wrap in layout, Unwrap, the four orders, Hide, Align and Distribute act
+on the whole selection as one undo step, labelled with how many things they touched.
+
+- **They act on the outermost selected layers.** A layer inside another selected one moves with it, and selecting the
+  design's root leaves nothing to arrange.
+- **Delete selects the layout that held the last deleted layer,** or the design when that was its root.
+- **Duplicate puts each copy just after its original,** in its layout or slot, with fresh ids for it and everything in
+  it, and selects the copies.
+- **Select all picks the selected layer's siblings** in its layout or slot, or every design when no layer is selected.
+- **Wrap in layout lays the new layout out as the parent lays out the layers** in the state being edited: a row in a
+  row, with the parent's gap. Layers in different layouts can't be wrapped together, and a message says so.
+- **Unwrap leaves a layout's layers where it was** and selects them; on anything but a layout it says to select one.
+- **Ordering moves a layer among its siblings.** Later paints in front, as in CSS, so Bring forward moves it later in
+  its layout and down the Layers list. An order that wouldn't move it records nothing.
+- **Align on layers works in their layouts,** in the state being edited: a layer aligns by itself on its layout's cross
+  axis (`self`), and along the main axis the layout moves all its children (`justify`). Layers in a component's slot
+  stay as they are.
+- **Align on designs lines them up on the canvas** by their edges or centers, within the span of them all, and needs
+  two. **Distribute spaces three or more evenly** between the outermost two, across or down. Positions are rounded to
+  whole pixels, and a move that changes nothing records nothing.
+
+Code: the rules are in `packages/editor/src/arrange.ts` (`@parity-app/editor`).
+`apps/desktop/src/renderer/chrome/arrange.ts` applies them to the selection and the store, measures designs' boxes on
+the canvas and shows the messages. Hide is core's `toggleHidden`.
+
+Tests: `packages/editor/src/arrange.test.ts`: the outermost layers and the root; deleting and what's selected next (in a
+layout, the root and a slot); duplicating in place with fresh ids (in a layout, a slot, a copied layout's children, and
+nothing to copy); deleting designs from their own documents; siblings in a layout and a slot; wrapping in a row, a
+column and another state, and layers that can't be wrapped; unwrapping, and layers that aren't layouts; each order in a
+layout and a slot, and orders that wouldn't move; aligning on the cross and main axes in two states and in a slot;
+aligning designs by edges and centers, with a box offset from its position; distributing across and down whatever the
+selection's order; and moving designs in whole pixels.
+
+Gaps: the commands, menus and messages have no automated test. They didn't change when the rules moved into the package.
+
 ## Keyboard
 
 What the keys do on the canvas, and when they belong to a design or a field instead.
@@ -621,6 +658,47 @@ selected). End to end (PAR-202), `apps/desktop/e2e/keyboard.e2e.ts` (2): N from 
 so that Zoom to selection (Shift+2) after it doesn't move the view, and Shift+N goes back; and N from Members, the last
 screen, goes round to Member row, the first component.
 
+### Copy, paste and paste style (PAR-7)
+
+Copy (Ctrl+C) puts the selected layers, designs or note on the system clipboard, so they paste into another project or
+another Parity window. Paste (Ctrl+V) takes Parity's copies, an image or SVG markup (saved into the project), or plain
+text. Copy style (Ctrl+Alt+C) and Paste style keep their own clipboard inside the app.
+
+- **What's copied is what the frame shows.** A layer copied in a state other than the base carries that state's changes,
+  all the way down, slots included. Only the outermost selected layers are copied.
+- **The copy is an envelope** (`{"parity":"clipboard","version":1,"project":…,"payload":…}`) holding layers, designs or
+  notes, and the project they came from. Text that starts like a Parity copy but isn't a complete envelope of a known
+  kind, such as cut-off JSON or an unknown version, pastes nothing and shows a message. So does an envelope whose
+  layers, designs or notes are empty or don't match the `.par` schema, rather than failing halfway or pasting its JSON
+  as text.
+- **Pasted layers get fresh ids,** for them and everything in them. They go into the selected layout when it's the only
+  layer selected, else just after the last selected layer in its layout or slot, else into the design's root. With no
+  design selected, or a root that isn't a layout, they become a new screen called Pasted, laid out in a padded column.
+- **Pasted designs keep their ids unless taken,** when they get one from their name. Into the project they came from,
+  they go to the right of the originals (see Duplicating a design); elsewhere, in the middle of the view.
+- **Pasted notes get fresh ids** and sit a little below and right of where they were copied, as they sat together.
+- **Text pastes as a text layer** where layers would go, or as a note in the middle of the view. **SVG markup pastes as
+  a picture,** not as its source.
+- **Paste style gives each selected layer the copied style in place of its own,** in the state being edited.
+- **Layers naming components the project doesn't have** still paste, with a warning naming them.
+
+Code: the rules are in `packages/editor/src/clipboard.ts` (`@parity-app/editor`).
+`apps/desktop/src/renderer/canvas/clipboard.ts` reads and writes the system clipboard, saves images, places designs by
+their boxes on the canvas, applies the rules to the selection and the store, and shows the messages.
+
+Tests: `packages/editor/src/clipboard.test.ts`: writing and reading the envelope, and text, a cut-off envelope, another
+version, a project that isn't text, an unknown kind, a payload without its list or with an empty one, and invalid
+layers, designs and notes, all rejected; telling a Parity copy, readable or not, from other text; designs and notes read
+back; SVG markup, and text that only looks like it; copying the outermost layers as a state shows them; where layers
+paste (a lone selected layout, after the last selected layer, in a slot, the root, and a root that isn't a layout);
+fresh ids in order, last, inside copies and in a slot; the new screen; designs' ids, kept when free even when not made
+from the name, and whole-pixel moves; notes beside where they were and at a place; copying style in a state, and pasting
+it in the base and in another state; and missing components at any depth, and none while the project's aren't known.
+
+Gaps: reading and writing the system clipboard, images and the messages have no automated test. In a state other than
+the base, Paste style leaves the base's own style values under the copied ones, since a state's changes can't unset
+them; the test checks only that the copied values land.
+
 ### Paste over selection and paste to replace (CAN-39)
 
 Figma's two pastes that go where the selection is, both in Edit after Paste. Each is one undo step, and the copies end
@@ -653,16 +731,17 @@ nothing.
   commands share keys, and the main process's menu adds no keys of its own (its Developer items, including Reload, are
   built with `registerAccelerator: false`, and Electron's default menu, whose Force Reload took it, is replaced).
 
-Code: `apps/desktop/src/renderer/canvas/paste-over.ts` (`placeOver`, `designsAt` and `replaceLayers`) and, in
-`canvas/clipboard.ts`, `pasteOverSelection` and `pasteToReplace`, with reading the clipboard (`readClipboard`) and
-saving an image (`importImage`) shared with Paste.
+Code: `packages/editor/src/paste-over.ts` (`placeOver`, `designsAt` and `replaceLayers`) and, in
+`apps/desktop/src/renderer/canvas/clipboard.ts`, `pasteOverSelection` and `pasteToReplace`, with reading the clipboard
+(`readClipboard`) and saving an image (`importImage`) shared with Paste.
 
-Tests: `apps/desktop/src/renderer/canvas/paste-over.test.ts`. Paste over selection: after the selected layer with
-nothing removed, once after the last of several, beside a selected component, on top of an absolutely placed layer at
-its insets, in a component's slot, leaving the root and instances' layers alone, designs at the selection's corner as
-they sat, and new ids for designs whose ids are taken. Paste to replace: in place of one layer, fresh ids and states'
-changes dropped, each of several layers, in a component's slot, at an absolutely placed layer's insets, and leaving the
-root and instances' layers alone. `chrome/keymap.test.ts` checks both keys, and that Ctrl+R still renames.
+Tests: `packages/editor/src/paste-over.test.ts`. Paste over selection: after the selected layer with nothing removed,
+once after the last of several, beside a selected component, on top of an absolutely placed layer at its insets, in a
+component's slot, leaving the root and instances' layers alone, designs at the selection's corner as they sat, and new
+ids for designs whose ids are taken. Paste to replace: in place of one layer, fresh ids and states' changes dropped,
+each of several layers, in a component's slot, at an absolutely placed layer's insets, and leaving the root and
+instances' layers alone. `apps/desktop/src/renderer/chrome/keymap.test.ts` checks both keys, and that Ctrl+R still
+renames.
 
 End to end (PAR-202), with a stand-in for the clipboard on the page, `apps/desktop/e2e/keyboard.e2e.ts` (6):
 Ctrl+Shift+V after a link in Pricing's footer, removing nothing, and one undo; Ctrl+Shift+R in the link's place, without
