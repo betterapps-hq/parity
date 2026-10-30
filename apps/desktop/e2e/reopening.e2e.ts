@@ -69,12 +69,14 @@ describe("closing a project", () => {
     // The files after this one need the project open, so it opens again however this one ends.
     try {
       const closed = await nodes()
-      for (let round = 0; round < 2; round++) {
+      for (let round = 0; round < 3; round++) {
         await openProject(count)
         await closeProject()
       }
-      // A canvas kept in memory is every frame's elements, tens of thousands of nodes on the example project.
-      expect(await nodes()).toBeLessThan(closed + 3000)
+      // tldraw sometimes keeps the editor closed last, with its canvas, until another replaces it: about 3,600 nodes on
+      // the example project, whose frames showing bitmaps hold none of their own (PAR-445). That's one canvas however
+      // often the project opens, so it's allowed for. A canvas kept on each reopen comes to three of them.
+      expect(await nodes()).toBeLessThan(closed + 5000)
     } finally {
       await restoreProject(count)
     }

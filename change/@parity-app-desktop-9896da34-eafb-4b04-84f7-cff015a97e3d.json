@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Allow for the editor tldraw keeps after the last close in the reopening e2e test",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

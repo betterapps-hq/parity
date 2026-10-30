@@ -1423,14 +1423,16 @@ Code: `serveBuilder` and `restartBuilder` in `apps/desktop/src/utility/projects.
 `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`, which keys a reopened guest's bitmaps apart from the last one's;
 `ProjectView.tsx` and `chrome/TabBar.tsx`, which take a tab's id.
 
-Tests: `apps/desktop/e2e/reopening.e2e.ts` opens and closes the example project twice and checks the window ends within
-3,000 DOM nodes of where it started; with the old address on reopen it ended about 69,000 over.
-`apps/desktop/src/utility/guest-ports.test.ts` covers which port a builder takes, skipping ports guests had, and when
-the windows are told a guest moved, and told again after a move they couldn't load;
-`apps/desktop/src/renderer/workspace.test.ts` covers `moveGuest`, including a tab still loading, one reopened meanwhile
-and overlapping moves. Gaps: the offscreen renderer's side has no automated test, nor has `restartBuilder` sending
-`project.guestMoved` to the window. A project service started again forgets the ports, while the window keeps what it
-loaded from them.
+Tests: `apps/desktop/e2e/reopening.e2e.ts` opens and closes the example project three times and checks the window ends
+within 5,000 DOM nodes of where it started; with the old address on reopen it ended about 69,000 over after two. The
+allowance is for tldraw, which sometimes keeps the editor closed last, with its canvas, until another replaces it: about
+3,600 nodes, since frames showing bitmaps hold none of their own. That's one canvas however often the project opens, so
+a canvas kept on each reopen still fails the test (PAR-445). `apps/desktop/src/utility/guest-ports.test.ts` covers which
+port a builder takes, skipping ports guests had, and when the windows are told a guest moved, and told again after a
+move they couldn't load; `apps/desktop/src/renderer/workspace.test.ts` covers `moveGuest`, including a tab still
+loading, one reopened meanwhile and overlapping moves. Gaps: the offscreen renderer's side has no automated test, nor
+has `restartBuilder` sending `project.guestMoved` to the window. A project service started again forgets the ports,
+while the window keeps what it loaded from them.
 
 ### A tab closed while its project opens (PAR-427)
 
