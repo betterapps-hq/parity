@@ -291,8 +291,9 @@ export class App {
    * main frame's top left corner near the canvas's, with room above the board for its title.
    */
   async show(design: string, zoom: number, layer?: string, mode?: string): Promise<void> {
-    // A layer is found where it's drawn, so a design whose frames sleep, zoomed far out, comes into view first.
-    if (layer) await this.show(design, zoom)
+    // A layer is found where it's drawn, so the design comes into view first at 100%, where its frames wake even if
+    // they slept zoomed far out, and only then moves to the zoom asked for.
+    if (layer) await this.show(design, 1)
     await this.page.evaluate(
       ([design, zoom, layer, mode]) => {
         const e2e = window.e2e!
@@ -323,7 +324,8 @@ export class App {
 
   /**
    * Waits until the camera and a design's main frame stop moving or changing, over a few frames, and its board's frames
-   * are drawn: ones asleep, as frames are once zoomed far out, wake once the camera rests near them.
+   * are drawn where they would wake: frames asleep, as they are once zoomed far out, wake once the camera rests near
+   * them above the far line (25% on a 1x screen, and a little past it coming back in), or on the selected board.
    */
   async settle(design: string): Promise<void> {
     await this.page.evaluate(async (design) => {
@@ -338,7 +340,9 @@ export class App {
         const camera = e2e.session().editor!.getCamera()
         const elements = host.shadowRoot?.querySelectorAll("*").length
         const now = `${x},${y},${width},${height},${elements},${camera.x},${camera.y},${camera.z}`
-        const asleep = host.closest(".container-view")?.querySelector("[data-asleep]")
+        const board = host.closest(".container-view")
+        const wakes = camera.z * devicePixelRatio > 0.25 * 1.15 || !!board?.hasAttribute("data-live")
+        const asleep = wakes && !!board?.querySelector("[data-asleep]")
         still = now === last && !asleep ? still + 1 : 0
         last = now
       }
