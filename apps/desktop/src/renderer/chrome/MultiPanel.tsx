@@ -1,3 +1,4 @@
+import type { Alignment } from "@parity-app/editor"
 import {
   boardTarget,
   type ContainerSpec,
@@ -34,7 +35,6 @@ import { useStylePreview } from "../canvas/style-preview.ts"
 import type { ContainerEntry } from "../design-store.ts"
 import { useSelection } from "../selection.ts"
 import { spacingUnit, useTokenList } from "../tokens-store.ts"
-import type { Alignment } from "./arrange.ts"
 import { alignSelection, deleteSelection, distributeSelection, duplicateSelection, wrapSelection } from "./commands.ts"
 import { IconButton } from "./IconButton.tsx"
 import { keymap } from "./keymap.ts"

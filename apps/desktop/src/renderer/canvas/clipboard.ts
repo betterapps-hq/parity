@@ -1,26 +1,28 @@
 import {
-  boardTarget,
-  type CanvasDocument,
-  childEntries,
-  type ContainerSpec,
-  type DesignNode,
-  editNode,
-  findNode,
-  generateId,
-  insertNode,
-  locateNode,
-  nodeIds,
-  nodeInState,
-  type NodeStyle,
-  type NoteSpec,
-  type StateSpec,
-  topmostNodes,
-  uniqueId,
-  withFreshIds
-} from "@parity/core"
+  applyStyle,
+  type ClipboardEnvelope,
+  type ClipboardPayload,
+  copyDesigns,
+  copyLayers,
+  copyNotes,
+  designOfLayers,
+  designsAt,
+  isSvgMarkup,
+  missingComponents,
+  pasteLayers,
+  type PasteTarget,
+  pasteTarget,
+  placeOver,
+  readEnvelope,
+  replaceLayers,
+  styleOf,
+  textLayer,
+  writeEnvelope
+} from "@parity-app/editor"
+import type { CanvasDocument, ContainerSpec, DesignNode, NodeStyle, NoteSpec } from "@parity/core"
 import { toast } from "sonner"
 import { editingState } from "../chrome/LayerPanel.tsx"
-import { containerKey } from "../design-store.ts"
+import { type ContainerEntry, containerKey } from "../design-store.ts"
 import { designsSelection, layersSelection, selectedDesigns, selectedNodes } from "../selection.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
@@ -29,29 +31,16 @@ import { freeSpotBeside, takenBounds } from "./free-space.ts"
 import { hitTest, type Point } from "./hit.ts"
 import { nodeForItem } from "./insert.ts"
 import { measureHere, pasteHere } from "./paste-here.ts"
-import { designsAt, placeOver, replaceLayers } from "./paste-over.ts"
 
 /**
  * Copy and paste for layers, designs and text notes, through the system clipboard, so they paste into another
  * project or another Parity window too. What's copied is what the frame shows: a layer copied in a state other than
- * the base carries that state's changes. Pasted layers get fresh ids; pasted designs keep theirs unless taken.
+ * the base carries that state's changes. Pasted layers get fresh ids; pasted designs keep theirs unless taken. The rules
+ * are `@parity-app/editor`'s; this reads and writes the system clipboard and applies them to the selection and the store.
  */
 
-type Payload =
-  | { kind: "layers"; nodes: DesignNode[] }
-  | { kind: "designs"; designs: ContainerSpec[] }
-  | { kind: "notes"; notes: NoteSpec[] }
-
-interface Envelope {
-  parity: "clipboard"
-  version: 1
-  /** The project it was copied from, so a paste there can sit next to the original. */
-  project: string
-  payload: Payload
-}
-
 /** The last copy from this window, in case the system clipboard can't be read back. */
-let lastCopy: { text: string; envelope: Envelope } | undefined
+let lastCopy: { text: string; envelope: ClipboardEnvelope } | undefined
 /** Copy style and paste style use their own clipboard, inside the app. */
 let copiedStyle: NodeStyle | undefined
 
@@ -59,11 +48,9 @@ let copiedStyle: NodeStyle | undefined
 export async function copySelection(session: ProjectSession): Promise<boolean> {
   const payload = selectionPayload(session)
   if (!payload) return false
-  const envelope: Envelope = { parity: "clipboard", version: 1, project: session.info.root, payload }
-  const text = JSON.stringify(envelope)
-  lastCopy = { text, envelope }
+  lastCopy = writeEnvelope(session.info.root, payload)
   try {
-    await navigator.clipboard.writeText(text)
+    await navigator.clipboard.writeText(lastCopy.text)
   } catch (error) {
     console.warn("The system clipboard couldn't be written; pasting works in this window only", error)
   }
@@ -89,7 +76,7 @@ export async function pasteClipboard(session: ProjectSession): Promise<void> {
 }
 
 type ClipboardContent =
-  | { kind: "envelope"; envelope: Envelope }
+  | { kind: "envelope"; envelope: ClipboardEnvelope }
   | { kind: "image"; blob: Blob; name: string }
   | { kind: "text"; text: string }
   | { kind: "empty" }
@@ -102,13 +89,12 @@ async function readClipboard(): Promise<ClipboardContent> {
   } catch {
     text = lastCopy?.text ?? ""
   }
-  const envelope = text === lastCopy?.text ? lastCopy.envelope : parseEnvelope(text)
+  const envelope = text === lastCopy?.text ? lastCopy.envelope : readEnvelope(text)
   if (envelope) return { kind: "envelope", envelope }
   const image = await clipboardImage()
   if (image) return { kind: "image", blob: image, name: "pasted-image" }
   const plain = text.trim()
-  // SVG markup, as icon sites and design tools copy it, pastes as a picture rather than as its source.
-  if (/^(<\?xml[^>]*>\s*)?<svg[\s>]/i.test(plain) && plain.endsWith("</svg>")) {
+  if (isSvgMarkup(plain)) {
     return { kind: "image", blob: new Blob([plain], { type: "image/svg+xml" }), name: "pasted-vector" }
   }
   return plain ? { kind: "text", text: plain } : { kind: "empty" }
@@ -285,7 +271,7 @@ async function clipboardLayers(
     toast.info(notLayers)
     return undefined
   }
-  if (content.kind === "text") return [{ type: "text", id: "pasted", text: content.text }]
+  if (content.kind === "text") return [textLayer(content.text)]
   if (content.kind === "empty") {
     toast.info("There's nothing on the clipboard to paste")
     return undefined
@@ -378,9 +364,12 @@ export function duplicateDesigns(session: ProjectSession): boolean {
 export function copyStyle(session: ProjectSession): boolean {
   const current = session.selection.get()
   const entry = current.design ? session.store.getEntry(current.design) : undefined
-  const node = entry && current.node ? findNode(entry.container.root, current.node) : undefined
-  if (!entry || !node) return false
-  copiedStyle = { ...nodeInState(node, editingState(entry.container, current.state)).style }
+  const style =
+    entry && current.node
+      ? styleOf(entry.container, current.node, editingState(entry.container, current.state))
+      : undefined
+  if (!style) return false
+  copiedStyle = style
   toast.success("Copied the style", { duration: 1500 })
   return true
 }
@@ -399,30 +388,17 @@ export function pasteStyle(session: ProjectSession): void {
   session.store.updateContainer(
     entry.key,
     ids.length === 1 ? "Paste style" : `Paste style on ${ids.length} layers`,
-    (container) => {
-      let next = container
-      for (const id of ids) {
-        const node = findNode(next.root, id)
-        if (!node) continue
-        const cleared = Object.fromEntries(
-          Object.keys(nodeInState(node, state).style ?? {}).map((key) => [key, undefined])
-        )
-        next = editNode(next, boardTarget(next, state.id), id, { style: { ...cleared, ...style } })
-      }
-      return next
-    }
+    (container) => applyStyle(container, ids, state, style)
   )
 }
 
-function selectionPayload(session: ProjectSession): Payload | undefined {
+function selectionPayload(session: ProjectSession): ClipboardPayload | undefined {
   const { store, selection } = session
   const current = selection.get()
   const entry = current.design ? store.getEntry(current.design) : undefined
   const layers = selectedNodes(current)
   if (entry && layers.length > 0) {
-    const state = editingState(entry.container, current.state)
-    const nodes = topmostNodes(entry.container.root, layers).map((node) => asShown(node, state))
-    return nodes.length > 0 ? { kind: "layers", nodes } : undefined
+    return copyLayers(entry.container, layers, editingState(entry.container, current.state))
   }
   const designs = selectedDesigns(current).flatMap((key) => {
     const found = store.getEntry(key)
@@ -433,48 +409,14 @@ function selectionPayload(session: ProjectSession): Payload | undefined {
   return note ? { kind: "notes", notes: [structuredClone(note.note)] } : undefined
 }
 
-/** A node and everything in it as a state shows them. */
-function asShown(node: DesignNode, state: StateSpec | undefined): DesignNode {
-  const shown = nodeInState(node, state)
-  if (shown.type === "layout") return { ...shown, children: shown.children.map((child) => asShown(child, state)) }
-  if (shown.type === "component" && shown.slots) {
-    const slots = Object.fromEntries(
-      childEntries(shown).map(({ slot, nodes }) => [slot!, nodes.map((child) => asShown(child, state))])
-    )
-    return { ...shown, slots }
-  }
-  return shown
-}
-
-function parseEnvelope(text: string): Envelope | undefined {
-  if (!text.startsWith('{"parity":"clipboard"')) return undefined
-  try {
-    const value = JSON.parse(text) as Envelope
-    return value.parity === "clipboard" && value.version === 1 && value.payload ? value : undefined
-  } catch {
-    return undefined
-  }
-}
-
-/** Where pasted layers go: into a selected layout, else after the selected layers, else into the design's root. */
-function pasteTarget(
+/** Where layers would paste: into a selected layout, after the selected layers, or into the selected design's root. */
+function selectedPasteTarget(
   session: ProjectSession
-):
-  | { key: string; parent: string; index?: number; slot?: string; frame: { mode?: string; state?: string } }
-  | undefined {
+): { entry: ContainerEntry; target: PasteTarget; frame: { mode?: string; state?: string } } | undefined {
   const current = session.selection.get()
   const entry = current.design ? session.store.getEntry(current.design) : undefined
-  if (!entry) return undefined
-  const { root } = entry.container
-  const frame = { mode: current.mode, state: current.state }
-  const layers = topmostNodes(root, selectedNodes(current))
-  const primary = current.node ? findNode(root, current.node) : undefined
-  if (primary?.type === "layout" && layers.length === 1) return { key: entry.key, parent: primary.id, frame }
-  const last = layers.at(-1) && locateNode(root, layers.at(-1)!.id)
-  const parent = last?.ancestors.at(-1)
-  if (last && parent) return { key: entry.key, parent: parent.id, index: last.index + 1, slot: last.slot, frame }
-  if (root.type === "layout") return { key: entry.key, parent: root.id, frame }
-  return undefined
+  const target = entry && pasteTarget(entry.container, { node: current.node, nodes: selectedNodes(current) })
+  return entry && target ? { entry, target, frame: { mode: current.mode, state: current.state } } : undefined
 }
 
 /**
@@ -487,66 +429,36 @@ export function placeLayers(
   label?: string
 ): { design: string; ids: string[]; frame: { mode?: string; state?: string } } | undefined {
   const { store, selection, components } = session
-  const target = pasteTarget(session)
-  if (!target) {
+  const place = selectedPasteTarget(session)
+  if (!place) {
     pasteAsNewDesign(session, nodes)
     return undefined
   }
-  const entry = store.getEntry(target.key)!
-  const taken = nodeIds(entry.container.root)
-  const copies = nodes.map((node) => withFreshIds(node, taken))
+  const { entry, target, frame } = place
+  let copies: string[] = []
   store.updateContainer(
     entry.key,
-    label ?? (copies.length === 1 ? "Paste layer" : `Paste ${copies.length} layers`),
+    label ?? (nodes.length === 1 ? "Paste layer" : `Paste ${nodes.length} layers`),
     (container) => {
-      let root = container.root
-      for (const [offset, copy] of copies.entries()) {
-        root = insertNode(root, target.parent, copy, {
-          index: target.index === undefined ? undefined : target.index + offset,
-          slot: target.slot
-        })
-      }
-      return { ...container, root }
+      const pasted = pasteLayers(container, target, nodes)
+      copies = pasted.copies
+      return pasted.container
     }
   )
-  selection.set(
-    layersSelection(
-      entry.key,
-      copies.map((copy) => copy.id),
-      target.frame
-    )
-  )
-  warnUnknown(copies, components.get())
-  return { design: entry.key, ids: copies.map((copy) => copy.id), frame: target.frame }
+  selection.set(layersSelection(entry.key, copies, frame))
+  warnUnknown(nodes, components.get())
+  return { design: entry.key, ids: copies, frame }
 }
 
 /** Layers pasted with nothing to paste them into become a new screen, in the middle of the view unless placed `at`. */
 function pasteAsNewDesign(session: ProjectSession, nodes: DesignNode[], at = viewCenter(session)): void {
   const { store, selection } = session
-  const taken = new Set<string>()
-  const rootId = generateId(taken)
-  taken.add(rootId)
-  const id = uniqueId(
-    "Pasted",
-    store.getEntries().map((entry) => entry.container.id)
+  const design = designOfLayers(
+    nodes,
+    store.getEntries().map((entry) => entry.container.id),
+    at
   )
-  const key = store.addContainer(
-    store.mainPath,
-    {
-      id,
-      name: "Pasted",
-      position: at,
-      root: {
-        type: "layout",
-        id: rootId,
-        style: { padding: 6, gap: 4 },
-        children: nodes.map((node) => withFreshIds(node, taken))
-      },
-      states: [{ id: "default", name: "Default" }]
-    },
-    "Paste layers"
-  )
-  selection.set({ design: key })
+  selection.set({ design: store.addContainer(store.mainPath, design, "Paste layers") })
 }
 
 function pasteDesigns(session: ProjectSession, designs: ContainerSpec[], sameProject: boolean): void {
@@ -575,15 +487,7 @@ function pasteDesigns(session: ProjectSession, designs: ContainerSpec[], samePro
     ? freeSpotBeside({ minX: left, minY: top, maxX: right, maxY: bottom }, editor ? takenBounds(editor) : bounds)
     : undefined
   const shift = spot ? { x: spot.x - left, y: 0 } : { x: center.x - left, y: center.y - top }
-  const copies = designs.map((design) => {
-    const id = uniqueId(design.name, ids)
-    ids.push(id)
-    return {
-      ...design,
-      id,
-      position: { x: Math.round(design.position.x + shift.x), y: Math.round(design.position.y + shift.y) }
-    }
-  })
+  const copies = copyDesigns(designs, ids, shift)
   const path = store.mainPath
   store.change(copies.length === 1 ? "Paste design" : `Paste ${copies.length} designs`, (snapshot) => {
     const document: CanvasDocument = snapshot.documents.get(path) ?? { version: 3, containers: [] }
@@ -599,34 +503,20 @@ function pasteDesigns(session: ProjectSession, designs: ContainerSpec[], samePro
  */
 function pasteNotes(session: ProjectSession, notes: NoteSpec[], at?: { x: number; y: number }): void {
   const { store, selection } = session
-  const taken = new Set(store.getNotes().map((note) => note.note.id))
-  const left = Math.min(...notes.map((note) => note.position.x))
-  const top = Math.min(...notes.map((note) => note.position.y))
-  const shift = at ? { x: at.x - left, y: at.y - top } : { x: 24, y: 24 }
+  const taken = store.getNotes().map((note) => note.note.id)
   let last: string | undefined
-  for (const note of notes) {
-    const id = `note-${generateId(taken)}`
-    taken.add(id)
-    last = store.addNote(store.mainPath, {
-      ...note,
-      id,
-      position: { x: note.position.x + shift.x, y: note.position.y + shift.y }
-    })
-  }
+  for (const note of copyNotes(notes, taken, at)) last = store.addNote(store.mainPath, note)
   if (last) selection.set({ note: last })
 }
 
 /** Text from outside the app becomes a text layer where layers would paste, or a note on the canvas. */
 function pasteText(session: ProjectSession, text: string): void {
-  const target = pasteTarget(session)
-  if (!target) {
-    const { store, selection } = session
-    const taken = new Set(store.getNotes().map((note) => note.note.id))
-    const key = store.addNote(store.mainPath, { id: `note-${generateId(taken)}`, text, position: viewCenter(session) })
-    selection.set({ note: key })
+  if (!selectedPasteTarget(session)) {
+    const at = viewCenter(session)
+    pasteNotes(session, [{ id: "pasted", text, position: at }], at)
     return
   }
-  placeLayers(session, [{ type: "text", id: "pasted", text }])
+  placeLayers(session, [textLayer(text)])
 }
 
 function viewCenter(session: ProjectSession): { x: number; y: number } {
@@ -636,14 +526,6 @@ function viewCenter(session: ProjectSession): { x: number; y: number } {
 
 /** Layers from another project can name components this one doesn't have; they paste, with a warning. */
 function warnUnknown(nodes: DesignNode[], known: Record<string, unknown>): void {
-  if (Object.keys(known).length === 0) return
-  const missing = new Set<string>()
-  const visit = (node: DesignNode) => {
-    if (node.type === "component" && !(node.component in known)) missing.add(node.component)
-    for (const { nodes: children } of childEntries(node)) children.forEach(visit)
-  }
-  nodes.forEach(visit)
-  if (missing.size > 0) {
-    toast.warning("Some components aren't in this project", { description: [...missing].join(", ") })
-  }
+  const missing = missingComponents(nodes, known)
+  if (missing.length > 0) toast.warning("Some components aren't in this project", { description: missing.join(", ") })
 }

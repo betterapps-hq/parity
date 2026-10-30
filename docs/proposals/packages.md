@@ -1,7 +1,8 @@
 # Proposal: package boundaries
 
-Status: draft. `@parity/code` exists (PKG-3, 2026-10-29); nothing else has moved yet. The rule and the first items are
-in [decisions.md](../decisions.md) and in Linear's Package boundaries stream.
+Status: draft. `@parity/code` exists (PKG-3), project edits are in `@parity/project` (PAR-6), and `@parity-app/editor`
+has arranging and the clipboard (PAR-7), all on 2026-10-29. The rule and the first items are in
+[decisions.md](../decisions.md) and in Linear's Package boundaries stream.
 
 ## In one line
 
@@ -32,10 +33,10 @@ when it's spread through UI code. Today:
 
 1. **Editor rules live in the app.** These are model operations, mixed with views and the DOM:
    - [clipboard.ts](../../apps/desktop/src/renderer/canvas/clipboard.ts): the clipboard envelope, new ids on paste,
-     placing pasted layers, copying and pasting style;
+     placing pasted layers, copying and pasting style (in `@parity-app/editor` since PAR-7);
    - [layer-drag.ts](../../apps/desktop/src/renderer/canvas/layer-drag.ts): where a dragged layer can land;
    - [arrange.ts](../../apps/desktop/src/renderer/chrome/arrange.ts): deleting, duplicating, wrapping, unwrapping,
-     aligning, distributing;
+     aligning, distributing (in `@parity-app/editor` since PAR-7);
    - [insert.ts](../../apps/desktop/src/renderer/canvas/insert.ts),
      [components.ts](../../apps/desktop/src/renderer/chrome/components.ts) and
      [create.ts](../../apps/desktop/src/renderer/chrome/create.ts): inserting, Make component, where new designs go;
@@ -83,7 +84,7 @@ when it's spread through UI code. Today:
 | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | `@parity/code`                      | One TypeScript program per project. Listing components, props, file ownership by hash, writing a component file from a design, reading an edited file back, drift, review. | `project/components.ts`, `libgen/components.ts`, `@parity/props`, and the CMP items not built yet. |
 | Project edits, in `@parity/project` | File edits built as data, shown as a diff, applied together, undone together, remembered so the app ignores its own writes.                                                | The writes in `utility/projects.ts`, `utility/libraries.ts`, `utility/images.ts` and `cli/lib.ts`. |
-| `@parity/editor`                    | Editor behaviour without the views: clipboard, drop rules, arranging, inserting, Make component, placement, snapping, selection, undo and unsaved tracking.                | The renderer files listed above.                                                                   |
+| `@parity-app/editor`                | Editor behaviour without the views: clipboard, drop rules, arranging, inserting, Make component, placement, snapping, selection, undo and unsaved tracking.                | The renderer files listed above.                                                                   |
 | `@parity/models`, then one per lens | The lens schemas (PAR-15), then each lens's standards reader and model operations. Each adapter, such as Drizzle or TanStack Router, is a package of its own.              | New code.                                                                                          |
 | `@parity/storybook`                 | Everything Storybook-specific, behind the `StoryAdapter` in [storybook.md](../storybook.md).                                                                               | `project/storybook.ts` and `utility/storybook.ts` (PAR-114).                                       |
 | `@parity/tokens`, later             | Reading tokens (Tailwind, DTCG), editing them in stylesheets, and matching described tokens to custom properties.                                                          | `core/tokens.ts`, `core/tokens-dtcg.ts`, `core/css-source.ts`, the Tokens panel's matching.        |
@@ -126,7 +127,7 @@ itself with Beachball.
 - **This moves the diff-first part of PAR-293 into the foundations,** because components need it before any lens does.
   Writing back from the lenses (migrations, handlers, route files) keeps its place at the end of the order you set.
 
-### `@parity/editor`
+### `@parity-app/editor`
 
 - **It depends on core only.** The app keeps React components, tldraw shapes and tools, DOM hit-testing and measuring,
   and the hooks that subscribe to the stores.
@@ -155,7 +156,7 @@ itself with Beachball.
 3. **`@parity/code` from the three readers** (PKG-3), after FIND-1 and PROJ-5, which the Components Sync session has in
    progress on those files. It's the natural start of FIND-2, which already says to reuse libgen's finder. Generating
    files (PAR-85), the drift review (PAR-93) and reading back (PAR-90) are then built inside it.
-4. **`@parity/editor`,** file by file (PAR-7, then PAR-32 to PAR-34).
+4. **`@parity-app/editor`,** file by file (PAR-7, then PAR-32 to PAR-34).
 5. **`@parity/models` with PAR-15,** then a package per lens and adapter as each starts.
 6. **`@parity/storybook` with PAR-114.**
 7. **`@parity/tokens`** (PAR-35) when token work picks up, and the agent API's 1,320-line workspace split by area when

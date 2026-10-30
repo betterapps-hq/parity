@@ -32,6 +32,7 @@
     "unconfig": "^7.5.0"
   },
   "devDependencies": {
+    "@parity-app/editor": "workspace:*",
     "@parity/agent": "workspace:*",
     "@parity/builder-vite": "workspace:*",
     "@parity/code": "workspace:*",

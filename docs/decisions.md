@@ -1581,7 +1581,22 @@ How Parity's code is split, so the parts that change most are easy to find, repl
     it again reuses it, and undoing the paste leaves the file, as before.
   - Installing a library imports its styles through a project edit too, but doesn't offer Undo, since undoing the import
     would leave the package installed.
-- **Editor behaviour moves into `@parity/editor`,** one file at a time with tests: arranging and the clipboard first.
+- **Editor behaviour moves into `@parity-app/editor`,** one file at a time with tests: arranging and the clipboard first
+  (PAR-7). It's named in the `@parity-app` scope, the CLI's, because you asked on 2026-10-29 for every package to move
+  there (PAR-425); the rest keep `@parity/` until then. My calls in starting it:
+  - Each rule takes a design, or the documents designs are in, and returns it changed, with what the app needs next: the
+    copies' ids, the new layout's id, the layout to select. The same object back means nothing changed, so the store
+    records no step. The app keeps the undo labels, the messages, the selection, the system clipboard, saving images and
+    the designs' boxes on the canvas, which it measures with tldraw and passes in.
+  - The state being edited is passed in as a `StateSpec`. `editingState`, which picks it, stays in the app's
+    `LayerPanel.tsx` until a package needs to choose it.
+  - The rules have names of their own (`removeLayers`, `copyLayersInPlace`, `wrapInLayout`, `styleOf`, `applyStyle` and
+    so on), so the app's commands keep theirs and nothing is imported under another name.
+  - `paste-over.ts` moved with the clipboard, with its tests, since it was already pure and is where pasted layers go.
+    `paste-here.ts` stays until drop rules move (PAR-33), as it uses `drop-slot.ts`'s `slotAt`, and `free-space.ts`'s
+    `freeSpotBeside` until placement does (PAR-32).
+  - Reading the clipboard's envelope checks more than it did: the project must be text and the payload one of the three
+    kinds, since it's data from outside the app.
 - **Lenses and adapters never go in core.** Lens models are schemas in `@parity/models`, each lens is a package, and so
   is each adapter, such as Drizzle or TanStack Router.
 

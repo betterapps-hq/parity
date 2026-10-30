@@ -259,6 +259,9 @@ importers:
         specifier: ^7.5.0
         version: 7.5.0
     devDependencies:
+      '@parity-app/editor':
+        specifier: workspace:*
+        version: link:../../packages/editor
       '@parity/agent':
         specifier: workspace:*
         version: link:../../packages/agent
@@ -468,6 +471,12 @@ importers:
         version: 6.0.3
 
   packages/core: {}
+
+  packages/editor:
+    dependencies:
+      '@parity/core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/fixtures:
     dependencies:
