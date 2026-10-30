@@ -84,15 +84,16 @@ describe("the clipboard's envelope", () => {
     ).toBeUndefined()
   })
 
-  it("reads nothing when a payload doesn't hold the list its kind pastes", () => {
+  it("reads nothing when a payload doesn't hold the list its kind pastes, or it's empty", () => {
     const envelope = (kind: string, extra: object) =>
       readEnvelope(JSON.stringify({ parity: "clipboard", version: 1, project: "D:/acme", payload: { kind, ...extra } }))
     expect(envelope("layers", {})).toBeUndefined()
     expect(envelope("layers", { nodes: "heading" })).toBeUndefined()
     expect(envelope("designs", { nodes: [] })).toBeUndefined()
     expect(envelope("notes", { notes: null })).toBeUndefined()
-    expect(envelope("designs", { designs: [] })?.payload).toEqual({ kind: "designs", designs: [] })
-    expect(envelope("notes", { notes: [] })?.payload).toEqual({ kind: "notes", notes: [] })
+    expect(envelope("layers", { nodes: [] })).toBeUndefined()
+    expect(envelope("designs", { designs: [] })).toBeUndefined()
+    expect(envelope("notes", { notes: [] })).toBeUndefined()
   })
 
   it("reads nothing when what it holds doesn't match the .par schema", () => {

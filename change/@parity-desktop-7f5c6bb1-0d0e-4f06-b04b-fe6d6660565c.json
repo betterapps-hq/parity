@@ -1,6 +1,6 @@
 {
   "type": "patch",
-  "comment": "Arranging and copying, cutting and pasting designs now run on the shared editor package, and a Parity copy that can't be read says so instead of pasting its JSON.",
+  "comment": "Say so when a Parity copy on the clipboard can't be read, instead of pasting its JSON as text, and keep a pasted design's id when no other design has it.",
   "packageName": "@parity/desktop",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "patch"

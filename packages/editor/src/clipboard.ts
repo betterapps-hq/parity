@@ -83,19 +83,26 @@ export function readEnvelope(text: string): ClipboardEnvelope | undefined {
   }
 }
 
-/** A payload of a known kind, its list checked by core's parsers, which throw on anything that doesn't match. */
+/**
+ * A payload of a known kind, its list checked by core's parsers, which throw on anything that doesn't match. Parity
+ * never copies an empty list, so one isn't a copy to paste.
+ */
 function parsePayload(value: unknown): ClipboardPayload | undefined {
   if (typeof value !== "object" || value === null || !("kind" in value)) return undefined
-  if (value.kind === "layers" && "nodes" in value && Array.isArray(value.nodes)) {
+  if (value.kind === "layers" && "nodes" in value && isList(value.nodes)) {
     return { kind: "layers", nodes: value.nodes.map((node, index) => parseDesignNode(node, `/payload/nodes/${index}`)) }
   }
-  if (value.kind === "designs" && "designs" in value && Array.isArray(value.designs)) {
+  if (value.kind === "designs" && "designs" in value && isList(value.designs)) {
     return { kind: "designs", designs: parseCanvasDocument({ version: 3, containers: value.designs }).containers }
   }
-  if (value.kind === "notes" && "notes" in value && Array.isArray(value.notes)) {
+  if (value.kind === "notes" && "notes" in value && isList(value.notes)) {
     return { kind: "notes", notes: parseCanvasDocument({ version: 3, containers: [], notes: value.notes }).notes ?? [] }
   }
   return undefined
+}
+
+function isList(value: unknown): value is unknown[] {
+  return Array.isArray(value) && value.length > 0
 }
 
 /** SVG markup, as icon sites and design tools copy it, which pastes as a picture rather than as its source. */
