@@ -117,7 +117,12 @@ export function withLibraryContext(
   let placed: DesignNode = node
   const sample = source.sample
   if (sample) {
-    const { props, slots } = held({ ...sample.props, ...node.props }, sample.children)
+    // Text the sample gives as a prop (Chakra's `Highlight`) stands in for the label a new node is named with, though
+    // not for one set on purpose.
+    const label = node.component.split("/").at(-1)
+    const given = { ...node.props }
+    if (sample.props && "children" in sample.props && given.children === label) delete given.children
+    const { props, slots } = held({ ...sample.props, ...given }, sample.children)
     // Children the sample spells out stand in for the text label, and none (`[]`, an input's) leave it out.
     if (sample.children) delete props.children
     const { props: _label, ...rest } = node

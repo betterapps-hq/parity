@@ -23,4 +23,22 @@ describe("inserting a library part", () => {
     expect(cascader.type === "component" && cascader.props).toEqual({ placeholder: "Pick one" })
     expect(cascader.type === "component" && cascader.slots).toBeUndefined()
   })
+
+  it("takes the text a sample gives as a prop over the name, but not over text set on purpose", () => {
+    const sources = {
+      "acme/Highlight": {
+        path: "@acme/ui",
+        export: "Highlight",
+        library: "acme",
+        declaration: "",
+        sample: { props: { children: "Spotlight bulb" } }
+      }
+    }
+    const taken = new Set<string>()
+    const named = withLibraryContext(componentNode("acme/Highlight", takesChildren, taken), sources, [], taken)
+    expect(named.type === "component" && named.props).toEqual({ children: "Spotlight bulb" })
+    const node = { type: "component" as const, id: "mine", component: "acme/Highlight", props: { children: "Mine" } }
+    const written = withLibraryContext(node, sources, [], taken)
+    expect(written.type === "component" && written.props).toEqual({ children: "Mine" })
+  })
 })
