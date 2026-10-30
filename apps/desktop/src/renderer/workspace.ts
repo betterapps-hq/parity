@@ -210,11 +210,13 @@ export class Workspace {
    * for while the builder restarts, such as "Loading Nova".
    */
   async reload(id: string, step = "Reopening the project"): Promise<void> {
-    const tab = this.getTab(id)
+    const before = this.getTab(id)
     // A tab already opening or reopening gets its project from that, which closing the tab can still cancel.
+    if (!before || this.attempts.has(id)) return
+    if (before.session?.store.hasUnsaved() && !(await saveOrSay(before.session))) return
+    // The tab as it is after saving, which can have changed meanwhile, as when its guest moved.
+    const tab = this.getTab(id)
     if (!tab || this.attempts.has(id)) return
-    if (tab.session?.store.hasUnsaved() && !(await saveOrSay(tab.session))) return
-    if (this.attempts.has(id) || this.getTab(id) !== tab) return
     this.replace(id, { id, title: tab.title, status: "loading" })
     const attempt = this.startAttempt(id)
     // A tab that has opened is its project's id, so a reopen is known to be for it from the start.

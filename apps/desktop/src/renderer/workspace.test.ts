@@ -216,6 +216,24 @@ describe("a tab closed while its project opens", () => {
     expect(workspace.getTabs()).toEqual([])
   })
 
+  it("closes the project when a reopen's guest fails to load after its tab closed", async () => {
+    const workspace = new Workspace()
+    const opening = workspace.open(info.root)
+    opens[0]!(info)
+    await settle()
+    guest.loads[0]!(loaded)
+    await opening
+    const reloading = workspace.reload(info.id)
+    await settle()
+    opens[1]!(info)
+    await settle()
+    await workspace.close(info.id)
+    guest.failures[1]!(new Error("The guest didn't load"))
+    await reloading
+    expect(closes).toEqual([info.id, info.id])
+    expect(workspace.getTabs()).toEqual([])
+  })
+
   it("reopens once when asked again while it reopens, so closing the tab cancels it", async () => {
     const workspace = new Workspace()
     const opening = workspace.open(info.root)

@@ -1116,8 +1116,13 @@ Code: `closeNow`, `open` and `reload` in `apps/desktop/src/renderer/workspace.ts
 A reopen asked for while the tab is already opening or reopening is left to the one in flight, so closing the tab
 cancels it.
 
-Tests: `apps/desktop/src/renderer/workspace.test.ts` (12: closed before the service answers, closed while the guest
+Tests: `apps/desktop/src/renderer/workspace.test.ts` (13: closed before the service answers, closed while the guest
 loads, opened again before the first open finished, the reopened tab closed too before either open finished, the default
 project opened again in a tab that doesn't know it yet, and closed once that tab turns out to be another project, the
 guest failing after its tab closed, closed while a reopen closes the project, while it opens it again and while it loads
-the guest, a second reopen asked for during one, and a project that finished opening, closed with its tab).
+the guest, a reopen's guest failing after its tab closed, a second reopen asked for during one, and a project that
+finished opening, closed with its tab).
+
+Not tested: a tab changed or closed while a reopen saves its unsaved changes, and a reopen's `project.open` failing
+after its tab closed. Both were checked by reading `reload`: after saving it reads the tab again and stops only when
+it's gone or already reopening, and a failed `project.open` leaves no project to close.
