@@ -17,7 +17,7 @@ Features built before 2026-10-29 are being added under PAR-392 in Linear.
 ## Testing in the app (PAR-202)
 
 `pnpm test:app` drives a copy of Parity as a person does, with the system's own pointer and keyboard, and checks what
-the canvas, the panels and the project show: 75 tests, which take four to six minutes. It isn't part of `vp run test` or
+the canvas, the panels and the project show: 78 tests, which take four to six minutes. It isn't part of `vp run test` or
 `pnpm verify`. The pre-push hook runs it when the commits a push sends change the app, its packages, the example or the
 workspace's build files (`scripts/app-tests.ts`), and a failure stops the push. Every worktree's suite shares the same
 ports, so a push waits while another worktree's hook is running it (a lock file in the system's temp folder, taken over
@@ -1162,7 +1162,8 @@ separate setting that could disagree with them, and the resize handles change it
 - **Switching keeps it where it's drawn.** Auto width sets hug and drops the height (and the older `grow`). Auto height
   turns a hugging width into the width it's drawn at, rounded up to whole spacing steps so the text doesn't wrap again,
   keeps any other width, and drops the height. Fixed does the same for the width and fixes the height it's drawn at,
-  rounded up too, or keeps the one it has. Each is one undo step. Dragging a side handle of auto width text fixes its
+  rounded up too, or keeps the one it has. In a column, where the older `grow` fills the height, both drop it too; in a
+  row it fills the width, which they keep. Each is one undo step. Dragging a side handle of auto width text fixes its
   width, so it becomes auto height; dragging the bottom fixes its height, so it becomes fixed.
 - **Several layers, states and variants.** With several text layers selected, each is measured in its own box, so each
   keeps its own size. In a state, a variant or an instance, a height or `grow` the design sets would show again if the
@@ -1178,11 +1179,11 @@ agent's skill says how text sizes in `packages/cli/skills/document.md`.
 
 Tests:
 
-- `packages/editor/src/text-editing.test.ts` (11): the word holding a character, from any of its letters; a space or
+- `packages/editor/src/text-editing.test.ts` (12): the word holding a character, from any of its letters; a space or
   punctuation on its own; the end of the text and an empty one; apostrophes and digits kept in a word; the whole text
   without a point on it; the mode read from widths and heights; each switch, keeping fill and a fixed height; the height
-  set to hug and `grow` to false over the design's in a state; and every switch landing where `textSizing` reads it
-  back.
+  set to hug and `grow` to false over the design's in a state; `grow` dropped by auto height and fixed in a column and
+  kept in a row; and every switch landing where `textSizing` reads it back.
 - `packages/core/src/render.test.ts`, sizing: hug text drawn `max-content`, still wrapped by a maximum width, and other
   widths as before.
 - `apps/desktop/e2e/text.e2e.ts` (7), end to end (PAR-202), on Pricing's subtitle and FAQ heading: a double-click on

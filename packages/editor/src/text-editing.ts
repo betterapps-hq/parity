@@ -59,20 +59,23 @@ export type TextSizingValues = Pick<{ [K in keyof NodeStyle]: NodeStyle[K] | und
  * In a state, a variant or an instance, dropping a value would only take back that state's change and leave the
  * design's own height or `grow` showing, so with `explicit` they're set over it instead: the height to hug, which reads
  * as not fixed, and `grow` to false.
+ *
+ * `grow` fills along the parent's direction, so in a `column` it fills the height and goes for every mode; in a row it
+ * fills the width, which auto height and fixed keep.
  */
 export function withTextSizing(
   style: NodeStyle,
   sizing: TextSizing,
   measured: { width?: number; height?: number },
-  { explicit = false }: { explicit?: boolean } = {}
+  { explicit = false, column = false }: { explicit?: boolean; column?: boolean } = {}
 ): TextSizingValues {
   const noHeight = explicit && style.height !== undefined ? "hug" : undefined
-  if (sizing === "auto-width") {
-    return { width: "hug", height: noHeight, ...(style.grow ? { grow: explicit ? false : undefined } : {}) }
-  }
+  const noGrow = style.grow ? { grow: explicit ? false : undefined } : {}
+  if (sizing === "auto-width") return { width: "hug", height: noHeight, ...noGrow }
   const width = style.width === "hug" ? measured.width : style.width
-  if (sizing === "auto-height") return { width, height: noHeight }
-  return { width, height: fixedLength(style.height) ?? measured.height }
+  const grow = column ? noGrow : {}
+  if (sizing === "auto-height") return { width, height: noHeight, ...grow }
+  return { width, height: fixedLength(style.height) ?? measured.height, ...grow }
 }
 
 function fixedLength(size: Size | undefined): Length | undefined {

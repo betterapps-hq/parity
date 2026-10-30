@@ -912,7 +912,7 @@ function StrokeSection({ editor }: SectionProps) {
   )
 }
 
-function TextSection({ editor, node }: SectionProps) {
+function TextSection({ editor, node, parent }: SectionProps) {
   const { style, changed, reset, set, tokens } = editor
   const mixed = mixedOf(editor)
   return (
@@ -1009,7 +1009,7 @@ function TextSection({ editor, node }: SectionProps) {
             ))}
           </ToggleGroup>
         </Field>
-        {node.type === "text" && <TextResizing editor={editor} />}
+        {node.type === "text" && <TextResizing editor={editor} parent={parent} />}
         <Field
           label="Decoration"
           changed={changed("italic") || changed("decoration")}
@@ -1093,7 +1093,7 @@ function TextSection({ editor, node }: SectionProps) {
  * Figma's three ways a text layer sizes, which its width and height make up (see `textSizing`): picking one keeps the
  * layer the size it's drawn at, and Width and Height show what it set.
  */
-function TextResizing({ editor }: { editor: StyleEditor }) {
+function TextResizing({ editor, parent }: { editor: StyleEditor; parent?: ParentLayout }) {
   const { style, set, changed, reset } = editor
   const mixed = mixedOf(editor)
   const differs = mixed("width") || mixed("height") || mixed("grow")
@@ -1120,7 +1120,7 @@ function TextResizing({ editor }: { editor: StyleEditor }) {
                 style,
                 sizing.value,
                 { width: layer.measure("width", stepUp), height: layer.measure("height", stepUp) },
-                { explicit: !layer.base }
+                { explicit: !layer.base, column: parent?.direction === "column" }
               ),
             sizing.edit
           )

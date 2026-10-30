@@ -104,6 +104,26 @@ describe("withTextSizing", () => {
     expect(textSizing({ width: 40, height: "hug" })).toBe("auto-height")
   })
 
+  it("drops the older grow for auto height and fixed in a column, where it fills the height, and keeps it in a row", () => {
+    const column = { column: true }
+    expect(withTextSizing({ width: 40, grow: true }, "auto-height", measured, column)).toEqual({
+      width: 40,
+      height: undefined,
+      grow: undefined
+    })
+    expect(withTextSizing({ width: 40, grow: true }, "fixed", measured, column)).toEqual({
+      width: 40,
+      height: 14,
+      grow: undefined
+    })
+    expect(withTextSizing({ grow: true }, "auto-height", measured, { ...column, explicit: true })).toEqual({
+      width: undefined,
+      height: undefined,
+      grow: false
+    })
+    expect(withTextSizing({ grow: true }, "auto-height", measured)).toEqual({ width: undefined, height: undefined })
+  })
+
   it("lands each mode where textSizing reads it back", () => {
     for (const style of [{}, { width: "hug" }, { width: 40, height: 10 }, { width: "fill" }]) {
       for (const sizing of ["auto-width", "auto-height", "fixed"] as const) {
