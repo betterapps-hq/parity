@@ -32,6 +32,21 @@ export async function restartPort(
   return newGuestPort(used, ports)
 }
 
+/**
+ * Tells the windows where a project's guest is once its builder started again, when that isn't where they draw it, and
+ * resolves where they draw it now: the new address once they say they loaded it, else still `drawn`, so the next
+ * restart tells them again, even on the same port.
+ */
+export async function followGuest(
+  projectId: string,
+  drawn: string,
+  now: string,
+  tell: (moved: GuestMoved) => Promise<boolean>
+): Promise<string> {
+  const moved = guestMove(projectId, drawn, now)
+  return moved && (await tell(moved)) ? now : drawn
+}
+
 /** What to tell the windows once a builder started again: where its guest is now, unless it's where it was. */
 export function guestMove(projectId: string, before: string, after: string): GuestMoved | undefined {
   return before === after ? undefined : { projectId, guestUrl: after }

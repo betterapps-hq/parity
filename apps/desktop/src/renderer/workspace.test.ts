@@ -336,4 +336,36 @@ describe("moveGuest", () => {
     expect(workspace.getTab(info.id)!.session!.info.guestUrl).toBe(info.guestUrl)
     expect(guest.released).toEqual([])
   })
+
+  it("draws a tab that was still loading from where its guest moved, once it's ready", async () => {
+    const workspace = new Workspace()
+    const opening = workspace.open(info.root)
+    opens[0]!(info)
+    await settle()
+    // The service is told it didn't move, so the next restart tells the window again.
+    expect(await workspace.moveGuest(info.id, moved)).toBe(false)
+    guest.loads[0]!(loaded)
+    await opening
+    expect(guest.loads).toHaveLength(2)
+    guest.loads[1]!({ guest: { fresh: true }, sheet: {}, tokens: [] })
+    await settle()
+    expect(workspace.getTab(info.id)!.session!.info.guestUrl).toBe(moved)
+    expect(guest.released).toEqual([info.guestUrl])
+  })
+
+  it("lets go of the moved guest when the tab reopens while it loads", async () => {
+    const workspace = await opened()
+    const moving = workspace.moveGuest(info.id, moved)
+    const reloading = workspace.reload(info.id)
+    await settle()
+    const reopened = { ...info, guestUrl: "http://127.0.0.1:5004/guest" }
+    opens[1]!(reopened)
+    await settle()
+    guest.loads[2]!(loaded)
+    await reloading
+    guest.loads[1]!({ guest: { stale: true }, sheet: {}, tokens: [] })
+    expect(await moving).toBe(false)
+    expect(workspace.getTab(info.id)!.session!.info.guestUrl).toBe(reopened.guestUrl)
+    expect(guest.released).toEqual([info.guestUrl, moved])
+  })
 })

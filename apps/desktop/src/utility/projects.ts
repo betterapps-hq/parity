@@ -44,7 +44,7 @@ import type { ProjectEditResult, ProjectInfo, ServiceMethods, TokenChange, Windo
 import { startBuilder } from "./builders.ts"
 import { saveDetection, savedDetection } from "./detection-cache.ts"
 import { applyProjectEdit } from "./edits.ts"
-import { type GuestMoved, guestMove, newGuestPort, restartPort } from "./guest-ports.ts"
+import { followGuest, type GuestMoved, newGuestPort, restartPort } from "./guest-ports.ts"
 import { forgetProcess, forgetProject, trackProcess } from "./processes.ts"
 import { checkComponents, closeChecker, inferComponents } from "./props.ts"
 import { freePort, stopStorybook } from "./storybook.ts"
@@ -337,10 +337,9 @@ async function restartBuilder(root: string): Promise<void> {
   project.info.guestUrl = session.guestUrl
   // It has its old port back unless something took it; then the open windows load the guest from the new one. That's
   // checked against where they draw it, so a move they couldn't load is tried again when it's started again.
-  const moved = guestMove(root, project.drawnGuestUrl, session.guestUrl)
-  if (moved && (await notifyGuestMoved(moved)) && project.info.guestUrl === moved.guestUrl) {
-    project.drawnGuestUrl = moved.guestUrl
-  }
+  const drawn = await followGuest(root, project.drawnGuestUrl, session.guestUrl, notifyGuestMoved)
+  // Unless it was started again meanwhile, and what the windows were told is already out of date.
+  if (project.info.guestUrl === session.guestUrl) project.drawnGuestUrl = drawn
 }
 
 /** Sends the builder the components the guest imports, once they've changed in place. */

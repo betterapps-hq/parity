@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { guestMove, newGuestPort, restartPort } from "./guest-ports.ts"
+import { followGuest, type GuestMoved, guestMove, newGuestPort, restartPort } from "./guest-ports.ts"
 
 /** Hands out the given ports in turn, and calls free the ones not in `taken`. */
 function finder(handed: number[], taken: number[] = []) {
@@ -41,12 +41,40 @@ describe("guestMove", () => {
       guestUrl: "http://127.0.0.1:5402/guest.js"
     })
   })
+})
 
-  it("tells the windows again when a move they couldn't load is followed by a restart on the same port", () => {
-    // restartBuilder compares with where the windows draw the guest, which a failed move left at the old port.
-    expect(guestMove("D:/shop", "http://127.0.0.1:5400/guest.js", "http://127.0.0.1:5402/guest.js")).toEqual({
-      projectId: "D:/shop",
-      guestUrl: "http://127.0.0.1:5402/guest.js"
-    })
+describe("followGuest", () => {
+  const a = "http://127.0.0.1:5400/guest.js"
+  const b = "http://127.0.0.1:5402/guest.js"
+
+  /** A window that loads a moved guest or doesn't, as `answers` says in turn, and what it was told. */
+  function editorWindow(...answers: boolean[]) {
+    const told: GuestMoved[] = []
+    return {
+      told,
+      tell: (moved: GuestMoved) => {
+        told.push(moved)
+        return Promise.resolve(answers.shift()!)
+      }
+    }
+  }
+
+  it("tells the window again on a restart to the same port after it couldn't load the move", async () => {
+    const shown = editorWindow(false, true)
+    // Restarted onto b, which the window doesn't load, so it still draws a.
+    const drawn = await followGuest("D:/shop", a, b, shown.tell)
+    expect(drawn).toBe(a)
+    // Restarted again, back on b: the window is told again, and loads it this time.
+    expect(await followGuest("D:/shop", drawn, b, shown.tell)).toBe(b)
+    expect(shown.told).toEqual([
+      { projectId: "D:/shop", guestUrl: b },
+      { projectId: "D:/shop", guestUrl: b }
+    ])
+  })
+
+  it("tells the window nothing on a restart to where it already draws the guest", async () => {
+    const shown = editorWindow()
+    expect(await followGuest("D:/shop", b, b, shown.tell)).toBe(b)
+    expect(shown.told).toEqual([])
   })
 })
