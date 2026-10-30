@@ -89,7 +89,8 @@ beforeAll(async () => {
     format: "iife",
     globalName: "frame",
     platform: "browser",
-    define: { "process.env.NODE_ENV": '"development"', "import.meta.url": '"http://project.test/frame.js"' }
+    // React's production build, as frames run it (see builder-vite's productionDependencies).
+    define: { "process.env.NODE_ENV": '"production"', "import.meta.url": '"http://project.test/frame.js"' }
   })
   browser = await chromium.launch({ channel: "chrome", headless: true })
   page = await browser.newPage({ viewport: { width: 1000, height: 900 } })

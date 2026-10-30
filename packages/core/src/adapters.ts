@@ -29,6 +29,12 @@ export interface RendererAdapter {
   runtimePackages: string[]
   /** Modules the guest imports, so a builder can prepare them before the first render. */
   runtimeImports: string[]
+  /**
+   * Modules a builder serves in place of ones the framework's production build leaves empty, by how their specifier
+   * ends, with `$base` in the source standing for the rest of it. Frames run dependencies' production builds while the
+   * project's own code is still compiled for development, so what that code imports for development has to work too.
+   */
+  developmentStandIns?: Record<string, string>
   /** File extensions that can hold this framework's components. */
   componentExtensions: string[]
   /**
@@ -54,7 +60,7 @@ export interface ComponentExport {
  */
 export type BuilderRenderer = Pick<
   RendererAdapter,
-  "id" | "name" | "guestModule" | "runtimePackages" | "runtimeImports"
+  "id" | "name" | "guestModule" | "runtimePackages" | "runtimeImports" | "developmentStandIns"
 >
 
 export interface BuilderStartOptions {

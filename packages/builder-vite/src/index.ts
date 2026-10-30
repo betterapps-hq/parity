@@ -24,6 +24,8 @@ import { dependencySourceMaps } from "./dependency-maps.ts"
 const configPattern = /^vite\.config\.[cm]?[jt]s$/
 const guestId = "virtual:canvas/guest"
 const rendererId = "virtual:canvas/renderer"
+/** Followed by the specifier a development stand-in serves in place of. */
+const standInId = "virtual:canvas/stand-in/"
 const loopback = "127.0.0.1"
 
 /** Serves a project's components with the project's own Vite install and config. */
@@ -67,7 +69,8 @@ export const viteBuilder: BuilderAdapter = {
         ],
         entries: Object.values(options.config.components)
           .filter((component) => !component.library)
-          .map((component) => component.path)
+          .map((component) => component.path),
+        ...productionDependencies(vite)
       },
       plugins: [guestPlugin(options, vite.normalizePath(options.rendererGuestPath)), dependencySourceMaps()]
     })
@@ -106,6 +109,28 @@ export function portFree(port: number): Promise<boolean> {
   })
 }
 
+/**
+ * Prebundles dependencies as their production builds, React's among them, as the dependency optimizer's own setting
+ * (Rolldown's from Vite 8, esbuild's before). React's development build keeps a stack for every element it makes, which
+ * across a project's frames was 723 thousand stack frames on the example project, and its warnings are for the
+ * project's own dev server to show. The project's own modules are served as in development.
+ */
+export function productionDependencies(vite: Pick<typeof Vite, "version"> & { rolldownVersion?: string }) {
+  const define = { "process.env.NODE_ENV": JSON.stringify("production") }
+  return vite.rolldownVersion ? { rolldownOptions: { transform: { define } } } : { esbuildOptions: { define } }
+}
+
+/** The module a renderer serves in place of a bare specifier its production build leaves empty, if it does. */
+export function developmentStandIn(specifier: string, standIns: Record<string, string> = {}): string | undefined {
+  if (/^[./\0]/.test(specifier) || specifier.includes(":")) return undefined
+  for (const [end, source] of Object.entries(standIns)) {
+    if (specifier.endsWith(end) && specifier.length > end.length) {
+      return source.replaceAll("$base", specifier.slice(0, -end.length))
+    }
+  }
+  return undefined
+}
+
 function guestPlugin(options: BuilderStartOptions, rendererGuestPath: string): Vite.Plugin {
   return {
     name: "canvas:guest",
@@ -113,9 +138,13 @@ function guestPlugin(options: BuilderStartOptions, rendererGuestPath: string): V
     resolveId(id) {
       if (id === guestId) return `\0${guestId}`
       if (id === rendererId) return rendererGuestPath
+      if (developmentStandIn(id, options.renderer.developmentStandIns)) return `\0${standInId}${id}`
       return undefined
     },
     load(id) {
+      if (id.startsWith(`\0${standInId}`)) {
+        return developmentStandIn(id.slice(standInId.length + 1), options.renderer.developmentStandIns)
+      }
       // The canvas may add a cache-busting query when it retries a load.
       if (id.split("?")[0] !== `\0${guestId}`) return undefined
       return guestModuleSource(options.config)

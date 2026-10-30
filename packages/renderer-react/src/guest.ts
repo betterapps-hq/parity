@@ -13,7 +13,6 @@ import type {
 import {
   Component,
   type ComponentType,
-  createContext,
   createElement,
   Fragment,
   type Key,
@@ -26,7 +25,7 @@ import {
 import { flushSync } from "react-dom"
 import { createRoot, type Root } from "react-dom/client"
 import { currentRootFiber, type Fiber, indexDrawnNodes } from "./drawn-nodes.ts"
-import { type FrameWindow, frameWindow } from "./viewport.ts"
+import { FrameWindowContext, frameWindow } from "./viewport.ts"
 
 type Props = Record<string, unknown>
 
@@ -48,9 +47,6 @@ const missingStyle = {
   color: "#e11d48",
   font: "12px ui-monospace, monospace"
 }
-
-/** The window of the frame a component is drawn in. */
-const FrameWindowContext = createContext<FrameWindow | undefined>(undefined)
 
 /** Function components, and the objects `forwardRef`, `memo` and `lazy` return. */
 function isComponent(value: unknown): value is ComponentType<Props> {

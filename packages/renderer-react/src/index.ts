@@ -8,7 +8,11 @@ export const reactRenderer: RendererAdapter = {
   detect: (pkg) => hasDependency(pkg, "react") && hasDependency(pkg, "react-dom"),
   guestModule: "@parity-app/renderer-react/guest",
   runtimePackages: ["react", "react-dom"],
-  runtimeImports: ["react", "react/jsx-runtime", "react/jsx-dev-runtime", "react-dom", "react-dom/client"],
+  runtimeImports: ["react", "react/jsx-runtime", "react-dom", "react-dom/client"],
+  // React's production build exports no `jsxDEV`, which the project's JSX is compiled to call in development, and the
+  // same goes for packages that bring their own runtime (`@emotion/react/jsx-dev-runtime`). The extra arguments
+  // `jsxDEV` takes only feed development warnings.
+  developmentStandIns: { "/jsx-dev-runtime": 'export { Fragment, jsx as jsxDEV } from "$base/jsx-runtime"' },
   // `.ts` too: a component can be made with `createElement`, or be an alias such as `const Select = Primitive.Root`.
   componentExtensions: [".tsx", ".ts", ".jsx", ".js"],
   findComponents

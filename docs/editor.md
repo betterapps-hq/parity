@@ -1242,3 +1242,36 @@ Sign in's title.
 Gaps: a design that's hovered but not selected shows its menus, and they're in the tab order while they show. Nothing
 yet keeps a future panel from scrolling the page by putting a focusable element outside its scroller; the root's clip
 keeps the page still, but such an element would sit outside its panel.
+
+## Rendering frames
+
+How the project's code runs in the canvas's frames.
+
+### Frames run React's production build (PAR-198)
+
+Frames draw with the production builds of the project's dependencies, React's among them, so the window doesn't keep a
+stack for every element React makes: on the example project its JS heap is 33 MB smaller, 117 MB rather than 150 MB. The
+project's own modules are still served as in development, and its own dev server isn't touched. What's lost, and the
+numbers, are in [decisions.md](decisions.md) under "Frames run the production builds".
+
+- **Dependencies are prebundled as production:** the builder sets `process.env.NODE_ENV` to `production` in the
+  dependency optimizer's own `define`, Rolldown's from Vite 8 and esbuild's before. The project's modules keep its mode.
+- **JSX compiled for development still renders.** The renderer names modules React's production build leaves empty
+  (`developmentStandIns`), and the builder serves a stand-in for any `…/jsx-dev-runtime` a module imports: that
+  package's `jsx` as `jsxDEV`, with `Fragment`.
+- **Each frame's code still asks its own window,** in renders React starts itself and in the effects that follow,
+  without the development build's `getOwner`: while React has a dispatcher out, the frame is the one whose provider is
+  above the component, and a frame React renders becomes the one last drawn.
+- **Layers are still found from React's tree,** which reads only fields both builds keep.
+
+Code: `productionDependencies`, `developmentStandIn` and `guestPlugin` in `packages/builder-vite/src/index.ts`;
+`developmentStandIns` in `packages/renderer-react/src/index.ts`; `renderingIn` and `watchRenders` in
+`packages/renderer-react/src/viewport.ts`, and `FrameWindowContext`, which the guest provides at each frame's top.
+
+Tests: `packages/builder-vite/src/production.test.ts` (4: a Vite server prebundling a stand-in React as production while
+serving the project's module as development, and its `jsx-dev-runtime` through the stand-in; the stand-ins' matching;
+the optimizer setting for Vite 8 and before). `apps/desktop/src/renderer/frame.test.ts` and `frame-nodes.test.ts` bundle
+React's production build, so the frame's window and finding layers are checked on what frames run, including an effect
+of a render a timer started in one of two frames. Gaps: Vite 7 and earlier's esbuild setting is checked only as data in
+the tests; it was checked by hand on `fixtures/vite7-js` (Vite 7.3.7), whose React came prebundled as production and
+whose JSX went through the stand-in. The numbers were measured by hand with a script that isn't in the repository.

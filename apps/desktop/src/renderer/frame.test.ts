@@ -54,6 +54,20 @@ function useResizes() {
   return resizes
 }
 
+// Asks in an effect of a render that React started itself, once other frames have drawn, as after a fetch.
+function useLaterWidth() {
+  const [ready, setReady] = useState(false)
+  const [width, setWidth] = useState(0)
+  useEffect(() => {
+    const timer = setTimeout(() => setReady(true), 20)
+    return () => clearTimeout(timer)
+  }, [])
+  useEffect(() => {
+    if (ready) setWidth(window.innerWidth)
+  }, [ready])
+  return width
+}
+
 export function Probe() {
   const [clicks, setClicks] = useState(0)
   return createElement(
@@ -63,6 +77,7 @@ export function Probe() {
       "data-wide": String(useWide()),
       "data-resizes": String(useResizes()),
       "data-width": String(window.innerWidth),
+      "data-later": String(useLaterWidth()),
       "data-clicks": String(clicks),
       style: { minHeight: "10vh" },
       onClick: () => setClicks((count) => count + 1)
@@ -81,7 +96,8 @@ beforeAll(async () => {
     format: "iife",
     globalName: "frame",
     platform: "browser",
-    define: { "process.env.NODE_ENV": '"development"', "import.meta.url": '"http://project.test/frame.js"' }
+    // React's production build, as frames run it (see builder-vite's productionDependencies).
+    define: { "process.env.NODE_ENV": '"production"', "import.meta.url": '"http://project.test/frame.js"' }
   })
   browser = await chromium.launch({ channel: "chrome", headless: true })
   page = await browser.newPage({ viewport: { width: 1000, height: 700 } })
@@ -355,6 +371,11 @@ describe("a frame's window", () => {
     expect(await probe("phone")).toMatchObject({ mobile: "true", wide: "false", width: "390", height: "84.4" })
     expect(await probe("laptop")).toMatchObject({ mobile: "false", wide: "true", width: "1280", height: "80" })
     expect(errors).toEqual([])
+  })
+
+  it("answers for a frame in the effects of a render React started itself", async () => {
+    await expect.poll(() => probe("phone")).toMatchObject({ later: "390" })
+    expect(await probe("laptop")).toMatchObject({ later: "1280" })
   })
 
   it("leaves Parity's window to Parity's code", async () => {
