@@ -239,11 +239,13 @@ export async function relateParts(
       // example's did.
       const slot = renderSlotOf(examples.get(parent)?.sample)
       const inner = element
+      // What it's called with is spread onto the element, and given to the props it names over that, as in the app.
       const render = slot
-        ? (argument: unknown) =>
-            slot.render.pass
-              ? cloneElement(inner, Object.fromEntries(slot.render.pass.map((prop) => [prop, argument])))
-              : inner
+        ? (argument: unknown) => {
+            const spread = slot.render.spread && typeof argument === "object" && argument ? argument : {}
+            const named = Object.fromEntries((slot.render.pass ?? []).map((prop) => [prop, argument]))
+            return slot.render.pass || slot.render.spread ? cloneElement(inner, { ...spread, ...named }) : inner
+          }
         : undefined
       const props = liveProps(samples.get(parent))
       element =
@@ -698,33 +700,10 @@ export async function relateParts(
     }
   }
 
-  // A chain whose outermost parent needs parents of its own (`SubmenuTrigger` in a `MenuSection`, which goes in a
-  // `Menu`) starts outside them, as inserting the parent alone would.
-  // Parents guessed round in a circle (a part among its parent's parents) are left as they are.
-  for (const [name, relation] of relations) {
-    for (let round = 0; round < 4 && relation.parents?.length; round++) {
-      const outer = relations.get(relation.parents[0]!)
-      if (outer?.parents?.includes(name)) break
-      const added = (outer?.parents ?? []).filter((parent) => !relation.parents!.includes(parent))
-      if (added.length === 0) break
-      relation.parents = [...added, ...relation.parents]
-      const optional = (outer?.optionalParents ?? []).filter((parent) => added.includes(parent))
-      if (optional.length > 0)
-        relation.optionalParents = [...new Set([...(relation.optionalParents ?? []), ...optional])]
-    }
-  }
+  completeChains(relations)
 
   // A part with no children of its own takes those a parent's sample spells out for it (a table's `Row` its `Cell`s),
   // when it renders with them, rather than a text label its collection can't hold.
-  const spelledOut = (children: SampleChild[], name: string): SampleChild[] | undefined => {
-    for (const child of children) {
-      if (typeof child === "string" || isSampleRender(child)) continue
-      if (child.component === name && child.children?.length) return child.children
-      const inner = spelledOut(child.children ?? [], name)
-      if (inner) return inner
-    }
-    return undefined
-  }
   for (const [name, relation] of relations) {
     if (relation.sample?.children || !relation.parents?.length || relation.visual === false) continue
     for (const parent of [...relation.parents].reverse()) {
@@ -866,6 +845,37 @@ function namespaceOf(name: string): string | undefined {
 
 function message(error: unknown): string {
   return (error instanceof Error ? error.message : String(error)).split("\n")[0]!.slice(0, 300)
+}
+
+/**
+ * Starts each chain whose outermost parent needs parents of its own outside them (`SubmenuTrigger` in a `MenuSection`,
+ * which goes in a `Menu`), as inserting the parent alone would, with the levels optional there optional here too.
+ * Parents guessed round in a circle (a part among its parent's parents) are left as they are.
+ */
+export function completeChains(relations: Map<string, PartRelation>): void {
+  for (const [name, relation] of relations) {
+    for (let round = 0; round < 4 && relation.parents?.length; round++) {
+      const outer = relations.get(relation.parents[0]!)
+      if (outer?.parents?.includes(name)) break
+      const added = (outer?.parents ?? []).filter((parent) => !relation.parents!.includes(parent))
+      if (added.length === 0) break
+      relation.parents = [...added, ...relation.parents]
+      const optional = (outer?.optionalParents ?? []).filter((parent) => added.includes(parent))
+      if (optional.length > 0)
+        relation.optionalParents = [...new Set([...(relation.optionalParents ?? []), ...optional])]
+    }
+  }
+}
+
+/** The children a sample spells out for the first `name` in it that has any, at any depth (a table's `Row` its `Cell`s). */
+export function spelledOut(children: SampleChild[], name: string): SampleChild[] | undefined {
+  for (const child of children) {
+    if (typeof child === "string" || isSampleRender(child)) continue
+    if (child.component === name && child.children?.length) return child.children
+    const inner = spelledOut(child.children ?? [], name)
+    if (inner) return inner
+  }
+  return undefined
 }
 
 /**
