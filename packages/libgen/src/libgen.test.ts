@@ -238,6 +238,30 @@ describe("parts", () => {
     expect(relations.get("Badge")?.parents).toBeUndefined()
   })
 
+  it("gives a part whose children must be a string its text as the children prop", async () => {
+    const React = (await load("react")) as unknown as ReactLike
+    const library = {
+      Highlight: ({ children }: { children?: unknown }) => {
+        if (typeof children !== "string") throw new Error("The children prop of Highlight must be a string")
+        return React.createElement("mark", null, children)
+      }
+    }
+    const uses = readExamples(
+      [{ path: "highlight-demo.tsx", text: `<Highlight>Spotlight bulb</Highlight>` }],
+      ["Highlight"]
+    )
+    const { relations } = await relateParts(
+      async (specifier) => (specifier === "demo" ? library : load(specifier)),
+      "demo",
+      [{ name: "Highlight", export: "Highlight", samples: {} } as unknown as Parameters<typeof relateParts>[2][number]],
+      [],
+      {},
+      uses
+    )
+    // A text layer is an element on the canvas, so the text goes in the prop.
+    expect(relations.get("Highlight")?.sample).toEqual({ props: { children: "Spotlight bulb" } })
+  })
+
   it("places a part that needs the parts around it, and a collection's item that only draws a placeholder alone", async () => {
     const React = (await load("react")) as unknown as ReactLike
     const TableContext = React.createContext(false)

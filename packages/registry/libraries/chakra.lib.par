@@ -157608,13 +157608,9 @@
         "as": "function",
         "group": "DatePicker",
         "parents": [
-          "DatePicker.Root",
-          "Portal",
-          "DatePicker.Positioner",
-          "DatePicker.Content",
-          "DatePicker.View"
+          "DatePicker.Root"
         ],
-        "parentsFrom": "app",
+        "parentsFrom": "error",
         "fingerprint": "b1956ba3",
         "props": {
           "_active?": "c3f29d",
@@ -232880,12 +232876,10 @@
         "as": "forwardRef",
         "group": "FileUpload",
         "parents": [
-          "FileUpload.Context",
           "FileUpload.Root",
-          "VStack",
           "FileUpload.ItemGroup"
         ],
-        "parentsFrom": "app",
+        "parentsFrom": "error",
         "fingerprint": "fb4201b9",
         "props": {
           "_active?": "c3f29d",
@@ -523376,9 +523370,10 @@
         "parents": [
           "TreeView.Root",
           "TreeView.Tree",
-          "TreeView.Node"
+          "TreeView.Node",
+          "TreeView.Item"
         ],
-        "parentsFrom": "app",
+        "parentsFrom": "error",
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",

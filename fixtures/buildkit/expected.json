@@ -219,56 +219,56 @@
       "package": "@buildkitgg/shadcn-baseui-luma",
       "version": "0.4.1",
       "stylesImported": true,
-      "components": 363
+      "components": 371
     },
     {
       "id": "lyra",
       "package": "@buildkitgg/shadcn-baseui-lyra",
       "version": "0.4.1",
       "stylesImported": false,
-      "components": 363
+      "components": 371
     },
     {
       "id": "maia",
       "package": "@buildkitgg/shadcn-baseui-maia",
       "version": "0.4.1",
       "stylesImported": false,
-      "components": 363
+      "components": 371
     },
     {
       "id": "mira",
       "package": "@buildkitgg/shadcn-baseui-mira",
       "version": "0.4.1",
       "stylesImported": false,
-      "components": 363
+      "components": 371
     },
     {
       "id": "nova",
       "package": "@buildkitgg/shadcn-baseui-nova",
       "version": "0.4.1",
       "stylesImported": false,
-      "components": 363
+      "components": 371
     },
     {
       "id": "rhea",
       "package": "@buildkitgg/shadcn-baseui-rhea",
       "version": "0.4.1",
       "stylesImported": false,
-      "components": 363
+      "components": 371
     },
     {
       "id": "sera",
       "package": "@buildkitgg/shadcn-baseui-sera",
       "version": "0.4.0",
       "stylesImported": false,
-      "components": 363
+      "components": 371
     },
     {
       "id": "vega",
       "package": "@buildkitgg/shadcn-baseui-vega",
       "version": "0.4.0",
       "stylesImported": false,
-      "components": 363
+      "components": 371
     }
   ],
   "icons": [
@@ -283,14 +283,14 @@
     "styles from /src/main.tsx: src/index.css",
     "1 component in 2 files from tsconfig.json",
     "not read, since they mount the app: src/main.tsx",
-    "363 components from Shadcn Luma (@buildkitgg/shadcn-baseui-luma)",
-    "363 components from Shadcn Lyra (@buildkitgg/shadcn-baseui-lyra)",
-    "363 components from Shadcn Maia (@buildkitgg/shadcn-baseui-maia)",
-    "363 components from Shadcn Mira (@buildkitgg/shadcn-baseui-mira)",
-    "363 components from Shadcn Nova (@buildkitgg/shadcn-baseui-nova)",
-    "363 components from Shadcn Rhea (@buildkitgg/shadcn-baseui-rhea)",
-    "363 components from Shadcn Sera (@buildkitgg/shadcn-baseui-sera)",
-    "363 components from Shadcn Vega (@buildkitgg/shadcn-baseui-vega)",
+    "371 components from Shadcn Luma (@buildkitgg/shadcn-baseui-luma)",
+    "371 components from Shadcn Lyra (@buildkitgg/shadcn-baseui-lyra)",
+    "371 components from Shadcn Maia (@buildkitgg/shadcn-baseui-maia)",
+    "371 components from Shadcn Mira (@buildkitgg/shadcn-baseui-mira)",
+    "371 components from Shadcn Nova (@buildkitgg/shadcn-baseui-nova)",
+    "371 components from Shadcn Rhea (@buildkitgg/shadcn-baseui-rhea)",
+    "371 components from Shadcn Sera (@buildkitgg/shadcn-baseui-sera)",
+    "371 components from Shadcn Vega (@buildkitgg/shadcn-baseui-vega)",
     "0 components from Lucide (lucide-react)",
     "no .par project file yet"
   ]
