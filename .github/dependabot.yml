@@ -2,7 +2,7 @@
 # updates and one for GitHub Actions, as the agency monorepo, Buildkit and the shared pipelines do. Squash merging makes
 # a pull request's title the commit's subject, so the prefixes make conventional ones that `scripts/commits.ts title`
 # accepts: build(deps) and build(deps-dev) for npm, ci(deps) for Actions. Its pull requests need no change file, since
-# beachball.config.cjs ignores manifests on Dependabot's branches.
+# beachball.config.cjs ignores manifests on Dependabot's own pull requests.
 version: 2
 updates:
   # The pnpm workspace: the packages in apps/, packages/ and examples/, the catalog in pnpm-workspace.yaml and the
@@ -36,8 +36,9 @@ updates:
       - dependency-name: "@types/node"
         update-types: [version-update:semver-major]
 
-  # The fixtures stand in for customers' projects, each at the versions its tests expect, so nothing updates them:
-  # no version updates, and no security updates either.
+  # The fixtures stand in for customers' projects, each at the versions its tests expect, so nothing updates them. An
+  # ignore rule that names only the dependency also stops security updates, which version-only rules (update-types)
+  # don't, so this holds back the security pull requests too, such as #15's Vite 8 for fixtures/too-old.
   - package-ecosystem: npm
     directories: ["/fixtures/*"]
     schedule:

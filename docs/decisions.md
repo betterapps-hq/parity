@@ -1558,13 +1558,18 @@ the Repository, CI and releases stream in Linear.
     the three move together by hand. Every other `vite` is stock Vite on purpose, held by pnpm-workspace.yaml's
     overrides.
   - **It never updates the fixtures,** not even for security, since each stands in for a customer's project at the
-    versions its tests expect. The example project and builder-vite are updated, apart from their stock Vite.
+    versions its tests expect. An `ignore` rule naming only the dependency holds back security updates as well. The
+    example project and builder-vite are updated, apart from their stock Vite.
   - **TypeScript and `@types/node` take no majors:** the packages using the compiler API stay on TypeScript 6, and the
     Node types follow `.nvmrc`.
-  - **Its pull requests need no change file.** On a `dependabot/` branch, beachball.config.cjs ignores `package.json`,
-    which `scripts/changes.ts` reads too, so a dependency's new version ships with the next release rather than making
-    one. Code changed on such a branch still needs a change file. Dependabot can't write one, and a workflow that pushed
-    one would need a token other than `GITHUB_TOKEN` to start CI again, and would stop Dependabot rebasing.
+  - **Its pull requests need no change file.** On Dependabot's own pull requests, beachball.config.cjs ignores
+    `package.json`, which `scripts/changes.ts` reads too, so a dependency's new version ships with the next release
+    rather than making one. Code changed there still needs a change file. Dependabot can't write one, and a workflow
+    that pushed one would need a token other than `GITHUB_TOKEN` to start CI again, and would stop Dependabot rebasing.
+  - **In CI the bypass needs Dependabot on both ends:** a pull request it opened from a `dependabot/` branch of this
+    repository, checked on a push it made, all read from what GitHub sets. A person's branch with that name, a fork, or
+    a person's commit pushed onto Dependabot's pull request still needs change files; to bring one up to date, comment
+    `@dependabot rebase` rather than updating the branch. Locally the branch name is enough, since CI is the gate.
   - **Alerts and security updates are on** for the repository.
 - **`betterapps-hq/pipelines` started with the setup action and ci-verify (PAR-110).** My calls:
   - The setup action checks out without keeping credentials, and on Windows turns off `core.autocrlf` first, since the

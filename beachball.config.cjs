@@ -1,4 +1,5 @@
 const { execFileSync } = require("node:child_process")
+const { readFileSync } = require("node:fs")
 
 /**
  * Beachball versions the two packages that aren't private, the desktop app and the CLI, from change files. A commit that
@@ -21,20 +22,36 @@ function hasOriginMain() {
   }
 }
 
+const dependabot = "dependabot[bot]"
+
 /**
- * Whether this is one of Dependabot's branches: the pull request's branch in CI, whose checkout is detached, and the
- * branch checked out anywhere else.
+ * Whether the change being checked is Dependabot's own. In CI it must be a pull request Dependabot opened from a
+ * dependabot/ branch of this repository, checked on a push Dependabot made, so a person's branch named dependabot/…, a
+ * fork's pull request and a person's commit pushed onto Dependabot's pull request all still need change files. GitHub
+ * sets every value read here, and the event's file holds the pull request. Elsewhere the hooks only catch mistakes
+ * before CI does, so the checked-out branch's name is enough.
  */
-function onDependabotBranch() {
-  let branch = process.env.GITHUB_HEAD_REF
-  if (!branch) {
+function isDependabots() {
+  const { env } = process
+  if (env.GITHUB_ACTIONS === "true") {
+    if (env.GITHUB_EVENT_NAME !== "pull_request" || env.GITHUB_ACTOR !== dependabot) return false
     try {
-      branch = execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], { encoding: "utf8" }).trim()
+      const { pull_request: pr } = JSON.parse(readFileSync(env.GITHUB_EVENT_PATH ?? "", "utf8"))
+      return (
+        pr.user.login === dependabot &&
+        pr.head.repo.full_name === env.GITHUB_REPOSITORY &&
+        pr.head.ref.startsWith("dependabot/")
+      )
     } catch {
       return false
     }
   }
-  return branch.startsWith("dependabot/")
+  try {
+    const branch = execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], { encoding: "utf8" })
+    return branch.startsWith("dependabot/")
+  } catch {
+    return false
+  }
 }
 
 /** @type {import("beachball").BeachballConfig} */
@@ -58,9 +75,9 @@ module.exports = {
     "apps/desktop/scripts/**",
     "packages/cli/scripts/**",
     "apps/desktop/src/renderer/explorations/**",
-    // Dependabot changes only manifests and the lockfile, and can't write a change file, so on its branches a
+    // Dependabot changes only manifests and the lockfile, and can't write a change file, so on its pull requests a
     // dependency's new version ships with the next release rather than making one. Anything else changed there, such
     // as code fixed for a new major, still needs a change file. scripts/changes.ts reads these patterns too.
-    ...(onDependabotBranch() ? ["**/package.json"] : [])
+    ...(isDependabots() ? ["**/package.json"] : [])
   ]
 }

@@ -136,7 +136,7 @@ This is how Buildkit and the agency monorepo already release, and you asked for 
 - **A newer push cancels the run before it.** Release and deploy runs never cancel.
 - **Dependabot opens a weekly PR** for npm minor and patch updates, grouped, and one for Actions, which also keeps the
   shared pipelines' pinned versions current (PAR-394). It waits out a cooldown longer than pnpm's minimum release age,
-  and its pull requests need no change file, since Beachball's config ignores manifests on its branches.
+  and its pull requests need no change file, since Beachball's config ignores manifests on its own pull requests.
 
 ## Desktop releases
 
