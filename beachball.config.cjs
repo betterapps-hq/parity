@@ -21,6 +21,22 @@ function hasOriginMain() {
   }
 }
 
+/**
+ * Whether this is one of Dependabot's branches: the pull request's branch in CI, whose checkout is detached, and the
+ * branch checked out anywhere else.
+ */
+function onDependabotBranch() {
+  let branch = process.env.GITHUB_HEAD_REF
+  if (!branch) {
+    try {
+      branch = execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], { encoding: "utf8" }).trim()
+    } catch {
+      return false
+    }
+  }
+  return branch.startsWith("dependabot/")
+}
+
 /** @type {import("beachball").BeachballConfig} */
 module.exports = {
   // A name with a slash is used as written; without one, Beachball would add the remote.
@@ -41,6 +57,10 @@ module.exports = {
     "**/tsconfig*.json",
     "apps/desktop/scripts/**",
     "packages/cli/scripts/**",
-    "apps/desktop/src/renderer/explorations/**"
+    "apps/desktop/src/renderer/explorations/**",
+    // Dependabot changes only manifests and the lockfile, and can't write a change file, so on its branches a
+    // dependency's new version ships with the next release rather than making one. Anything else changed there, such
+    // as code fixed for a new major, still needs a change file. scripts/changes.ts reads these patterns too.
+    ...(onDependabotBranch() ? ["**/package.json"] : [])
   ]
 }

@@ -1545,6 +1545,27 @@ the Repository, CI and releases stream in Linear.
   - `types` isn't cached. On macOS Vite Task doesn't see the files TypeScript's Go compiler reads (vite-task#587, fixed
     with TypeScript 7.1), so it could replay a pass after a change broke the types. A run takes about 5 seconds, so
     little is lost; cache it once the TypeScript under `oxlint-tsgolint` is 7.1 or later.
+- **Dependabot keeps dependencies current (PAR-394),** from `.github/dependabot.yml`, as the agency monorepo, Buildkit
+  and the pipelines repository do. My calls:
+  - **Each week, one pull request for npm's minor and patch updates and one for GitHub Actions,** which also moves the
+    shared pipelines' pinned commits and their version comments. npm's major updates come one pull request each, at most
+    ten open, since each may need code to change.
+  - **It waits 3 days after a version is published,** longer than the day pnpm's `minimumReleaseAge` asks, so its
+    updates install. Security updates don't wait, and Better Apps' own actions come straight away.
+  - **Titles are conventional:** `build(deps)` and `build(deps-dev)` for npm, `ci(deps)` for Actions, which
+    `scripts/commits.ts title` accepts and squash merging makes the subject.
+  - **It leaves the Vite+ toolchain alone.** Vite+ pins its own Vitest and its core, which the catalog names `vite`, so
+    the three move together by hand. Every other `vite` is stock Vite on purpose, held by pnpm-workspace.yaml's
+    overrides.
+  - **It never updates the fixtures,** not even for security, since each stands in for a customer's project at the
+    versions its tests expect. The example project and builder-vite are updated, apart from their stock Vite.
+  - **TypeScript and `@types/node` take no majors:** the packages using the compiler API stay on TypeScript 6, and the
+    Node types follow `.nvmrc`.
+  - **Its pull requests need no change file.** On a `dependabot/` branch, beachball.config.cjs ignores `package.json`,
+    which `scripts/changes.ts` reads too, so a dependency's new version ships with the next release rather than making
+    one. Code changed on such a branch still needs a change file. Dependabot can't write one, and a workflow that pushed
+    one would need a token other than `GITHUB_TOKEN` to start CI again, and would stop Dependabot rebasing.
+  - **Alerts and security updates are on** for the repository.
 - **`betterapps-hq/pipelines` started with the setup action and ci-verify (PAR-110).** My calls:
   - The setup action checks out without keeping credentials, and on Windows turns off `core.autocrlf` first, since the
     runners' CRLF made Vite+'s formatter fail every file.
