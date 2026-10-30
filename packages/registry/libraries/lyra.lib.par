@@ -1,7 +1,7 @@
 {
   "version": 3,
   "id": "lyra",
-  "name": "Buildkit lyra",
+  "name": "Shadcn Lyra",
   "description": "Every shadcn component on Base UI, in the lyra style, kept in step with upstream.",
   "package": {
     "name": "@buildkitgg/shadcn-baseui-lyra",

@@ -1,7 +1,7 @@
 {
   "version": 3,
   "id": "rhea",
-  "name": "Buildkit rhea",
+  "name": "Shadcn Rhea",
   "description": "Every shadcn component on Base UI, in the rhea style, kept in step with upstream.",
   "package": {
     "name": "@buildkitgg/shadcn-baseui-rhea",

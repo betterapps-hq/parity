@@ -47,7 +47,7 @@ export const LoadingComponents: Story = opening({
 
 /** Opening again after a library was added, so the builder picks it up. */
 export const AddingALibrary: Story = opening({
-  progress: { steps: ["Loading shadcn/ui Nova", "Loading its components"], current: 0 }
+  progress: { steps: ["Loading Shadcn Nova", "Loading its components"], current: 0 }
 })
 
 /** The service couldn't open the project, and said why. */

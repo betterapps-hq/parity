@@ -1,7 +1,7 @@
 {
   "version": 3,
   "id": "maia",
-  "name": "Buildkit maia",
+  "name": "Shadcn Maia",
   "description": "Every shadcn component on Base UI, in the maia style, kept in step with upstream.",
   "package": {
     "name": "@buildkitgg/shadcn-baseui-maia",

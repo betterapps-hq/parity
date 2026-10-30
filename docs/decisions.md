@@ -559,7 +559,8 @@ recommended answer to each of its questions.
   widened by hand survives. Every icon set's file and Radix's came out the same as from the fixture projects.
 - **Every Buildkit Base UI style gets a registry file,** at your request: luma, lyra, maia, mira, nova, rhea, sera and
   vega. They share one set of hand edits (`buildkit-baseui.edits.json` in the registry), since only their styles differ,
-  and the Radix styles still aren't published.
+  and the Radix styles still aren't published. Parity names each one Shadcn and its style, capitalized (Shadcn Nova,
+  Shadcn Luma), as you asked on 2026-10-29; their packages keep their names (`@buildkitgg/shadcn-baseui-nova`).
 - **Parts are placed inside their parents,** from the library's own examples (below), then three signals: namespace
   exports (`Accordion.Item`), the "must be used within" error a part throws alone, and shared name prefixes
   (`AccordionItem` under `Accordion`), or a plural (`Tab` under `Tabs`). Each part records which signal placed it,

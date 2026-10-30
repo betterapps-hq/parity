@@ -78,7 +78,7 @@ const buildkit = Object.fromEntries(
       name,
       {
         id: style,
-        name: `Buildkit ${style}`,
+        name: `Shadcn ${style.charAt(0).toUpperCase()}${style.slice(1)}`,
         description: `Every shadcn component on Base UI, in the ${style} style, kept in step with upstream.`,
         styles: "tailwind.css",
         examples: { paths: ["apps/v4/examples/base/"], anatomy: ["apps/v4/content/docs/components/base/"] },
