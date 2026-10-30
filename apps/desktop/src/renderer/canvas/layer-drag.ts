@@ -7,6 +7,7 @@ import { layersSelection, selectedNodes } from "../selection.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { type DropAt, DragLayouts, dropInFrame } from "./drop-target.ts"
+import { holdCursor } from "./held-cursor.ts"
 import { frameAt, frameScale, type Point } from "./hit.ts"
 import { type DrawnSteps, shiftInsets } from "./insets.ts"
 import { kindColors } from "./kinds.tsx"
@@ -77,18 +78,20 @@ export function pressLayers(
   // Targets are found in the layouts as they were when the drag began, not as the preview reflows them.
   const layouts = new DragLayouts()
   let drawn: DrawnSteps | undefined
+  let releaseCursor: (() => void) | undefined
 
   const restore = () => {
     for (const element of elements) element.style.opacity = ""
     preview?.end()
     view = undefined
+    releaseCursor?.()
   }
   const onMove = (event: PointerEvent) => {
     delta = { x: event.clientX - start.clientX, y: event.clientY - start.clientY }
     if (!dragging) {
       if (Math.hypot(delta.x, delta.y) < threshold) return
       dragging = true
-      document.body.style.cursor = "grabbing"
+      releaseCursor = holdCursor("grabbing")
       if (absolute) {
         drawn = frameDrawn(area, entry.key, current, spacingUnit(session.tokens.get())).insets(ids[0]!)
         for (const element of elements) element.style.opacity = "0.35"
@@ -123,7 +126,6 @@ export function pressLayers(
     window.removeEventListener("pointermove", onMove, true)
     window.removeEventListener("pointerup", onUp, true)
     window.removeEventListener("keydown", onKey, true)
-    document.body.style.cursor = ""
     restore()
     if (!dragging) {
       if (drop) onClick()

@@ -45,6 +45,85 @@ describe("resolveDesign", () => {
     expect(page.children).toHaveLength(2)
   })
 
+  it("marks an empty layout with the axes its content would size, for the canvas to size it by", () => {
+    const empty = (id: string, style: DesignNode["style"]): DesignNode => ({ type: "layout", id, style, children: [] })
+    const [row] = resolveDesign(
+      {
+        type: "layout",
+        id: "row",
+        style: { direction: "row" },
+        children: [
+          empty("hugs", undefined),
+          empty("hugs-too", { width: "hug", height: "hug" }),
+          empty("spacer", { width: 2 }),
+          empty("least", { minHeight: 4 }),
+          // Growing and filling leave a layout at nothing in a grid, or with no space to share.
+          empty("grows", { grow: true }),
+          empty("fills", { width: "fill", height: 10 })
+        ]
+      },
+      undefined,
+      "desktop"
+    )
+    if (row?.kind !== "element") throw new Error("expected an element")
+    // The row has layers in it, so it isn't marked.
+    expect(row.attributes).toBeUndefined()
+    expect(row.children.map((child) => (child.kind === "element" ? child.attributes : undefined))).toEqual([
+      { "data-canvas-empty-layout": "width height" },
+      { "data-canvas-empty-layout": "width height" },
+      { "data-canvas-empty-layout": "height" },
+      { "data-canvas-empty-layout": "width" },
+      { "data-canvas-empty-layout": "width height" },
+      { "data-canvas-empty-layout": "width" }
+    ])
+  })
+
+  it("keeps a length an instance gives its component's empty root, and marks one it sets to hug over a fixed one", () => {
+    const gap: ContainerSpec = {
+      id: "gap",
+      name: "Gap",
+      kind: "component",
+      position: { x: 0, y: 0 },
+      root: { type: "layout", id: "root", style: { width: 6, height: 4 }, children: [] },
+      states: [{ id: "default", name: "Default" }]
+    }
+    const [row] = resolveDesign(
+      {
+        type: "layout",
+        id: "row",
+        style: { direction: "row" },
+        children: [
+          { type: "instance", id: "narrow", design: "gap", style: { width: 2 } },
+          { type: "instance", id: "fixed", design: "gap" },
+          { type: "instance", id: "hugs", design: "gap", style: { width: "hug", height: "hug" } }
+        ]
+      },
+      undefined,
+      "desktop",
+      componentLibrary([gap])
+    )
+    if (row?.kind !== "element") throw new Error("expected an element")
+    expect(row.children.map((child) => (child.kind === "element" ? child.attributes : undefined))).toEqual([
+      { "data-canvas-empty-layout": "" },
+      { "data-canvas-empty-layout": "" },
+      { "data-canvas-empty-layout": "width height" }
+    ])
+  })
+
+  it("marks a layout whose layers the state hides as empty", () => {
+    const column: DesignNode = {
+      type: "layout",
+      id: "column",
+      children: [{ type: "text", id: "note", text: "Saved" }]
+    }
+    const hidden = { id: "quiet", name: "Quiet", overrides: { note: { hidden: true } } }
+    expect(resolveDesign(column, undefined, "desktop")[0]).not.toHaveProperty("attributes")
+    expect(resolveDesign(column, hidden, "desktop")[0]).toMatchObject({
+      attributes: { "data-canvas-empty-layout": "width height" },
+      children: []
+    })
+  })
+
   it("applies responsive patches per viewport and lets states win", () => {
     const state = {
       id: "error",

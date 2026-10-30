@@ -67,6 +67,19 @@ interface HistoryEntry {
   time: number
 }
 
+/** A design and the history at one moment, to go back to (see `DesignStore.checkpoint`). */
+export interface Checkpoint {
+  readonly path: string
+  /** The design as it was. */
+  readonly container: ContainerSpec
+  /** The group the gesture's changes are made in. */
+  readonly group: string
+  readonly past: ReadonlySet<HistoryEntry>
+  /** When the last step before it was made, which a change merging into that step moves on. */
+  readonly last: number | undefined
+  readonly future: HistoryEntry[]
+}
+
 export interface HistoryState {
   canUndo: boolean
   canRedo: boolean
@@ -218,6 +231,50 @@ export class DesignStore {
       { persist: false }
     )
     return true
+  }
+
+  /**
+   * Where a design and the history are now, for a gesture that writes to it as it goes, in one group (see `change`), and
+   * can be cancelled: resizing writes each step as the pointer moves, and Escape takes it all back with `revert`.
+   */
+  checkpoint(key: string, group: string): Checkpoint | undefined {
+    const entry = this.getEntry(key)
+    if (!entry) return undefined
+    const { path, container } = entry
+    return {
+      path,
+      container,
+      group,
+      past: new Set(this.past),
+      last: this.past.at(-1)?.time,
+      future: this.future
+    }
+  }
+
+  /**
+   * Takes back the gesture's changes since a checkpoint as though it never made them: its design is as it was, and its
+   * steps leave undo, with Redo as it was. Anything else that changed meanwhile, such as another file an agent changed
+   * or another design in the same file, stays, with its undo step, which undoes to the gesture's design as it was.
+   * Views stay as they are now, as undo leaves them.
+   */
+  revert(checkpoint: Checkpoint): void {
+    const { path, container, group } = checkpoint
+    const current = this.snapshot()
+    const others = this.past.filter((step) => !checkpoint.past.has(step) && step.group !== group)
+    // Only the gesture's design goes back, in its file as the file is now, so other designs' changes there stay.
+    const withDesign = (snapshot: Snapshot): Snapshot => {
+      const document = snapshot.documents.get(path)
+      if (!document) return snapshot
+      const containers = document.containers.map((each) => (each.id === container.id ? container : each))
+      return { ...snapshot, documents: new Map(snapshot.documents).set(path, { ...document, containers }) }
+    }
+    for (const step of others) step.before = withDesign(step.before)
+    this.past = this.past.filter((step) => checkpoint.past.has(step) || step.group !== group)
+    // A gesture's first change can merge into the step before it (see `change`), which only moves that step's time.
+    const before = [...checkpoint.past].at(-1)
+    if (before && checkpoint.last !== undefined) before.time = checkpoint.last
+    if (others.length === 0) this.future = checkpoint.future
+    this.restore(keepViews(withDesign(current), current), current)
   }
 
   undo(): void {

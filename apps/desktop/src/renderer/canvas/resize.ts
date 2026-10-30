@@ -1,9 +1,6 @@
 import type { NodeStyle } from "@parity-app/core"
-import type { Rect } from "@parity-app/editor"
+import type { Edge, Rect } from "@parity-app/editor"
 import { type DrawnSteps, resizeInsets } from "./insets.ts"
-
-/** A side or corner a resize handle sits on. */
-export type Edge = "n" | "e" | "s" | "w" | "ne" | "se" | "sw" | "nw"
 
 /** The sizes a handle changes: a side's handle changes the one across it, a corner's both. */
 export function edgeAxes(edge: Edge): { width: boolean; height: boolean } {
