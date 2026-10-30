@@ -1134,7 +1134,9 @@ recommended answer to each of its questions.
   window's memory per reopen, which a page can't give back. Picking up code edits live (PAR-165) or a separate realm per
   project would avoid that too.
   - **A builder started again** from the processes list takes its last port when it's free, since the canvas it serves
-    is still open, and waits for a closing one of the same project to end first, so a project never has two.
+    is still open, and waits for a closing one of the same project to end first, so a project never has two. When the
+    port is taken it takes one no guest has had, and the open windows are told (`project.guestMoved`, PAR-433) and load
+    the guest from there.
   - **Builders no longer log what they served** (PAR-431). PAR-195 compared that log to tell a changed project from an
     unchanged one, and with every reopen on a new port nothing read it.
 - **Closing a project lets go of its guest in the window:** its `loadGuest` entry and the stylesheet the document

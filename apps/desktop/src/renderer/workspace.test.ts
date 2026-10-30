@@ -290,3 +290,100 @@ describe("a tab closed while its project opens", () => {
     expect(closes).toEqual([info.id])
   })
 })
+
+// docs/editor.md, Reopening loads the project afresh: a builder started again on a new port has the tab draw its guest
+// from there (PAR-433).
+describe("moveGuest", () => {
+  const moved = "http://127.0.0.1:5002/guest"
+
+  async function opened() {
+    const workspace = new Workspace()
+    const opening = workspace.open(info.root)
+    opens[0]!(info)
+    await settle()
+    guest.loads[0]!(loaded)
+    await opening
+    return workspace
+  }
+
+  it("draws the tab from its guest at the new address, and lets go of the old one", async () => {
+    const workspace = await opened()
+    const { tokens } = workspace.getTab(info.id)!.session!
+    const moving = workspace.moveGuest(info.id, moved)
+    expect(guest.loads).toHaveLength(2)
+    const fresh = { guest: { fresh: true }, sheet: {}, tokens: [] }
+    guest.loads[1]!(fresh)
+    expect(await moving).toBe(true)
+    const { session } = workspace.getTab(info.id)!
+    expect(session!.info.guestUrl).toBe(moved)
+    expect(session!.loaded).toBe(fresh)
+    expect(session!.tokens).not.toBe(tokens)
+    expect(guest.released).toEqual([info.guestUrl])
+  })
+
+  it("does nothing when the guest is where the tab already loads it from", async () => {
+    const workspace = await opened()
+    expect(await workspace.moveGuest(info.id, info.guestUrl)).toBe(true)
+    expect(guest.loads).toHaveLength(1)
+    expect(guest.released).toEqual([])
+  })
+
+  it("keeps the tab on its old guest, and says it didn't move, when the new address doesn't load", async () => {
+    const workspace = await opened()
+    const moving = workspace.moveGuest(info.id, moved)
+    guest.failures[1]!(new Error("The builder isn't answering"))
+    expect(await moving).toBe(false)
+    expect(workspace.getTab(info.id)!.session!.info.guestUrl).toBe(info.guestUrl)
+    expect(guest.released).toEqual([])
+  })
+
+  it("draws a tab that was still loading from where its guest moved, once it's ready", async () => {
+    const workspace = new Workspace()
+    const opening = workspace.open(info.root)
+    opens[0]!(info)
+    await settle()
+    // The service is told it didn't move, so the next restart tells the window again.
+    expect(await workspace.moveGuest(info.id, moved)).toBe(false)
+    guest.loads[0]!(loaded)
+    await opening
+    expect(guest.loads).toHaveLength(2)
+    guest.loads[1]!({ guest: { fresh: true }, sheet: {}, tokens: [] })
+    await settle()
+    expect(workspace.getTab(info.id)!.session!.info.guestUrl).toBe(moved)
+    expect(guest.released).toEqual([info.guestUrl])
+  })
+
+  for (const order of ["first", "last"] as const) {
+    it(`draws from the latest move when an earlier one's guest loads ${order}`, async () => {
+      const workspace = await opened()
+      const latest = "http://127.0.0.1:5006/guest"
+      const earlier = workspace.moveGuest(info.id, moved)
+      const later = workspace.moveGuest(info.id, latest)
+      const loadEarlier = () => guest.loads[1]!({ guest: { earlier: true }, sheet: {}, tokens: [] })
+      const loadLater = () => guest.loads[2]!({ guest: { later: true }, sheet: {}, tokens: [] })
+      if (order === "first") loadEarlier()
+      loadLater()
+      if (order === "last") loadEarlier()
+      expect(await Promise.all([earlier, later])).toEqual([false, true])
+      expect(workspace.getTab(info.id)!.session!.info.guestUrl).toBe(latest)
+      expect(workspace.getTab(info.id)!.session!.loaded.guest).toEqual({ later: true })
+      expect([...guest.released].sort()).toEqual([info.guestUrl, moved].sort())
+    })
+  }
+
+  it("lets go of the moved guest when the tab reopens while it loads", async () => {
+    const workspace = await opened()
+    const moving = workspace.moveGuest(info.id, moved)
+    const reloading = workspace.reload(info.id)
+    await settle()
+    const reopened = { ...info, guestUrl: "http://127.0.0.1:5004/guest" }
+    opens[1]!(reopened)
+    await settle()
+    guest.loads[2]!(loaded)
+    await reloading
+    guest.loads[1]!({ guest: { stale: true }, sheet: {}, tokens: [] })
+    expect(await moving).toBe(false)
+    expect(workspace.getTab(info.id)!.session!.info.guestUrl).toBe(reopened.guestUrl)
+    expect(guest.released).toEqual([info.guestUrl, moved])
+  })
+})
