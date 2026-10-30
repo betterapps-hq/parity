@@ -8,7 +8,7 @@ import {
   locateInner,
   nodeLabel,
   type StateSpec
-} from "@parity/core"
+} from "@parity-app/core"
 import { activeState } from "../canvas/view.ts"
 import type { ContainerEntry } from "../design-store.ts"
 import { layersSelection, selectedDesigns, selectedNodes, type Selection } from "../selection.ts"

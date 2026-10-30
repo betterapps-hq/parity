@@ -4,7 +4,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join, posix } from "node:path"
 import { promisify } from "node:util"
-import { type ComponentSample, isSampleRender, type SampleChild, type SampleRender } from "@parity/core"
+import { type ComponentSample, isSampleRender, type SampleChild, type SampleRender } from "@parity-app/core"
 import ts from "typescript"
 
 const run = promisify(execFile)

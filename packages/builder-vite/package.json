@@ -1,5 +1,5 @@
 {
-  "name": "@parity/builder-vite",
+  "name": "@parity-app/builder-vite",
   "version": "0.0.0",
   "license": "MIT",
   "private": true,
@@ -9,7 +9,7 @@
     "./dependency-maps": "./src/dependency-maps.ts"
   },
   "dependencies": {
-    "@parity/core": "workspace:*"
+    "@parity-app/core": "workspace:*"
   },
   "devDependencies": {
     "vite": "^8.3.5"

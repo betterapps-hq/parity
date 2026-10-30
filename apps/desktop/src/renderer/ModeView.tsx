@@ -1,4 +1,4 @@
-import { frameViewport, type MountHandle, modeGlobals, type RenderNode, type ResolvedMode } from "@parity/core"
+import { frameViewport, type MountHandle, modeGlobals, type RenderNode, type ResolvedMode } from "@parity-app/core"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { prepareFrame, setDrawnNodes, setFrameViewport } from "./frame.ts"
 import type { LoadedGuest } from "./guest.ts"

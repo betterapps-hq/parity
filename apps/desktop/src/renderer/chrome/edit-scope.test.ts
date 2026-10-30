@@ -1,4 +1,4 @@
-import type { ContainerSpec } from "@parity/core"
+import type { ContainerSpec } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { baseDesignNote } from "./edit-scope.ts"
 

@@ -37,7 +37,7 @@ import {
   type StateSpec,
   uniqueId,
   withFreshIds
-} from "@parity/core"
+} from "@parity-app/core"
 import type {
   AccessibilityFinding,
   AgentEvent,

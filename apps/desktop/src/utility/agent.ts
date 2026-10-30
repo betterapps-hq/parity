@@ -13,8 +13,8 @@ import {
   execute,
   type ExecRequest,
   type ExecResult
-} from "@parity/agent"
-import { describeRenderStatus, modeGlobals, renderProblem, resolveModes } from "@parity/core"
+} from "@parity-app/agent"
+import { describeRenderStatus, modeGlobals, renderProblem, resolveModes } from "@parity-app/core"
 import type { ServiceMethods, TabSnapshot, WindowMethods } from "../shared/protocol.ts"
 import { readConsole } from "./console.ts"
 import { renderOffscreen } from "./render.ts"

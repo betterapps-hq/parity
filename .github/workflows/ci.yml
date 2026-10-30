@@ -29,7 +29,7 @@ jobs:
           tools=$(mktemp -d)
           npm install --prefix "$tools" --no-audit --no-fund bun@1.4.3 corepack@0.35.0
           export PATH="$tools/node_modules/.bin:$PATH"
-          pnpm --filter @parity/fixtures install-projects
+          pnpm --filter @parity-app/fixtures install-projects
           for project in fixtures/*/; do
             if [ ! -d "${project}node_modules" ]; then (cd "$project" && npm ci --no-audit --no-fund); fi
           done

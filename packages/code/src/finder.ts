@@ -7,7 +7,7 @@ import {
   type ComponentSource,
   componentRole,
   type RendererAdapter
-} from "@parity/core"
+} from "@parity-app/core"
 import ts from "typescript"
 import { componentOptions, findComponents, reactProbe, withReactProbe } from "./checker.ts"
 import { type CheckResult, checkedChanges, componentIds, findAppComponents } from "./listing.ts"

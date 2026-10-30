@@ -1,6 +1,6 @@
 // Says which released packages a change needs a change file for, and writes or checks them. Beachball versions only the
 // packages that aren't private, the desktop app and the CLI, so on its own it would miss a change to a private package
-// they bundle, such as @parity/core. Like Beachball, it counts from where the branch left the one beachball.config.cjs
+// they bundle, such as @parity-app/core. Like Beachball, it counts from where the branch left the one beachball.config.cjs
 // names. Unlike it, it reads only the index or the commits, never the working tree, which sessions share.
 // Usage:
 //   node scripts/changes.ts write --type patch --message "…"  writes the change files that are missing (pnpm changefile)

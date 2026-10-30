@@ -1,4 +1,4 @@
-import type { ComponentSource, DesignNode } from "@parity/core"
+import type { ComponentSource, DesignNode } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { withLibraryContext } from "./insert.ts"
 

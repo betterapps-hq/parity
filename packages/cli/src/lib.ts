@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { dirname, join, relative, resolve } from "node:path"
-import type { GenerateReport as Report } from "@parity/libgen"
+import type { GenerateReport as Report } from "@parity-app/libgen"
 
 export interface LibOptions {
   root?: string
@@ -28,15 +28,15 @@ export interface LibOptions {
 export async function runLib(packageName: string | undefined, options: LibOptions): Promise<void> {
   // Loaded only here, so the other commands don't load TypeScript.
   const { appManifestPath, generateLibrary, manifestText, mergeManifest, reviseLibrary } =
-    await import("@parity/libgen")
-  const { covers, registryDir, registryEntries } = await import("@parity/registry")
+    await import("@parity-app/libgen")
+  const { covers, registryDir, registryEntries } = await import("@parity-app/registry")
   const spec = packageName === undefined ? undefined : packageSpec(packageName)
   let root = resolve(options.root ?? ".")
   // A package named with a version, or one written into the registry with no project given, is installed on its own at
   // that version, so describing it needs no project that has it. Regenerating a registry file reads the version it
   // covers; one new to the registry reads npm's latest.
   if (spec && (spec.version !== undefined || (options.registry && !options.root))) {
-    const { installedVersion, publishedVersion } = await import("@parity/libgen/published")
+    const { installedVersion, publishedVersion } = await import("@parity-app/libgen/published")
     const listed = (await registryEntries()).filter((entry) => entry.manifest.package?.name === spec.name)
     if (spec.version === undefined && listed.length > 1) {
       throw new Error(`The registry has ${listed.length} files for ${spec.name}; name a version, as ${spec.name}@1.2.3`)
@@ -45,7 +45,7 @@ export async function runLib(packageName: string | undefined, options: LibOption
     console.error(`Installing ${spec.name} ${version} on its own…`)
     root = await installedVersion(spec.name, version)
   }
-  const { parseLibraryEdits } = await import("@parity/libgen")
+  const { parseLibraryEdits } = await import("@parity-app/libgen")
   const trialEdits = options.edits
     ? parseLibraryEdits(JSON.parse(await readFile(resolve(options.edits), "utf8")))
     : undefined

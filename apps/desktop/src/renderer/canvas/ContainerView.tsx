@@ -8,7 +8,7 @@ import {
   resolveDesign,
   type StateSpec,
   variantChoices
-} from "@parity/core"
+} from "@parity-app/core"
 import { ChevronDown, Crown, Rows3 } from "lucide-react"
 import {
   type CSSProperties,

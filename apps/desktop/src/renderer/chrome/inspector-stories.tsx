@@ -6,7 +6,7 @@ import {
   nodeInState,
   type NodeStyle,
   resetOverride
-} from "@parity/core"
+} from "@parity-app/core"
 import type { ReactNode } from "react"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
 import { useProject } from "../canvas/context.ts"

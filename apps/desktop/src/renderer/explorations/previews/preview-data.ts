@@ -1,4 +1,4 @@
-import type { PreviewKind, TokenCategory } from "@parity/core"
+import type { PreviewKind, TokenCategory } from "@parity-app/core"
 import { drawn } from "../../chrome/token-previews.tsx"
 
 export interface SampleToken {

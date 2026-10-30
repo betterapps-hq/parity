@@ -1,5 +1,5 @@
-import type { AccessibilityFinding } from "@parity/agent"
-import { mapNode } from "@parity/core"
+import type { AccessibilityFinding } from "@parity-app/agent"
+import { mapNode } from "@parity-app/core"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { userEvent, within } from "storybook/test"
 import { design, example, node } from "../stories/fixtures.tsx"

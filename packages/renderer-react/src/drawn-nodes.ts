@@ -1,4 +1,4 @@
-import type { DrawnNodes } from "@parity/core"
+import type { DrawnNodes } from "@parity-app/core"
 
 /**
  * Finds the DOM each design node draws from React's own tree, the way React DevTools highlights a component, so a

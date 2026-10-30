@@ -5,7 +5,7 @@ import {
   themeFallbackCss,
   type ThemeVariable,
   type Token
-} from "@parity/core"
+} from "@parity-app/core"
 
 export interface LoadedGuest {
   guest: Guest

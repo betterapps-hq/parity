@@ -1,4 +1,4 @@
-import type { CanvasDocument, ContainerSpec, ContainerViewSettings } from "@parity/core"
+import type { CanvasDocument, ContainerSpec, ContainerViewSettings } from "@parity-app/core"
 
 /**
  * A design's view without what says nothing: every state not shown, no modes or variants beside the defaults, the

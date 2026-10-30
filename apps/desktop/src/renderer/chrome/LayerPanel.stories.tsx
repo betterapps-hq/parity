@@ -1,4 +1,4 @@
-import { insertNode, mapNode } from "@parity/core"
+import { insertNode, mapNode } from "@parity-app/core"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { userEvent, within } from "storybook/test"
 import { layersSelection } from "../selection.ts"

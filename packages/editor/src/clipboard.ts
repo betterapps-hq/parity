@@ -18,7 +18,7 @@ import {
   topmostNodes,
   uniqueId,
   withFreshIds
-} from "@parity/core"
+} from "@parity-app/core"
 
 /**
  * The clipboard's rules: what a copy holds, how it's written as text so it pastes into another project or another

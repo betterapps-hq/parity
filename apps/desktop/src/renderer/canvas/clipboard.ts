@@ -1,3 +1,4 @@
+import type { CanvasDocument, ContainerSpec, DesignNode, NodeStyle, NoteSpec } from "@parity-app/core"
 import {
   applyStyle,
   type ClipboardEnvelope,
@@ -20,7 +21,6 @@ import {
   textLayer,
   writeEnvelope
 } from "@parity-app/editor"
-import type { CanvasDocument, ContainerSpec, DesignNode, NodeStyle, NoteSpec } from "@parity/core"
 import { toast } from "sonner"
 import { editingState } from "../chrome/LayerPanel.tsx"
 import { type ContainerEntry, containerKey } from "../design-store.ts"

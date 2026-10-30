@@ -32,7 +32,7 @@ const externalizeDependencies: Plugin = {
   name: "externalize-dependencies",
   setup(build) {
     build.onResolve({ filter: /^[^./]/ }, (args) => {
-      if (args.kind === "entry-point" || args.path.startsWith("@parity/")) return undefined
+      if (args.kind === "entry-point" || args.path.startsWith("@parity-app/")) return undefined
       return { path: args.path, external: true }
     })
   }

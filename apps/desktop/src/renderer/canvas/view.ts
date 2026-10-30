@@ -5,7 +5,7 @@ import {
   type ResolvedMode,
   shownModes,
   type StateSpec
-} from "@parity/core"
+} from "@parity-app/core"
 
 /** Companion modes are drawn at most this wide, so the main frame stays the focus. */
 const companionWidth = 640

@@ -1,4 +1,4 @@
-import { type CanvasDocument, type ContainerSpec, defaultModeSettings } from "@parity/core"
+import { type CanvasDocument, type ContainerSpec, defaultModeSettings } from "@parity-app/core"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import type { TokenChange } from "../shared/protocol.ts"
 import { DesignStore } from "./design-store.ts"

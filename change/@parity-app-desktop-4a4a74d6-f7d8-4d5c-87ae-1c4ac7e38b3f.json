@@ -1,7 +1,7 @@
 {
   "type": "patch",
   "comment": "Give a reopened project a new port, so closing frees its canvas",
-  "packageName": "@parity/desktop",
+  "packageName": "@parity-app/desktop",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "patch"
 }

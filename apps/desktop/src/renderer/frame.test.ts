@@ -15,8 +15,8 @@ const errors: string[] = []
  */
 const entry = `
 export { prepareFrame, setFrameViewport } from "./frame.ts"
-export { prepareCanvasCss } from "@parity/core"
-export { createGuest } from "@parity/renderer-react/guest"
+export { prepareCanvasCss } from "@parity-app/core"
+export { createGuest } from "@parity-app/renderer-react/guest"
 import { createElement, useEffect, useState, useSyncExternalStore } from "react"
 
 // shadcn's useIsMobile.

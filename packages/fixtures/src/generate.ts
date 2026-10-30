@@ -9,8 +9,8 @@ import { fileURLToPath } from "node:url"
  * pinned versions, gets its own files laid over it from `overlays/<name>`, and is installed with its own package
  * manager so its lockfile is committed with it. A project's `expected.json` is kept when it's regenerated.
  *
- *   pnpm --filter @parity/fixtures generate [name...]   regenerates the named projects, or all of them
- *   pnpm --filter @parity/fixtures install-projects     installs every project from its committed lockfile
+ *   pnpm --filter @parity-app/fixtures generate [name...]   regenerates the named projects, or all of them
+ *   pnpm --filter @parity-app/fixtures install-projects     installs every project from its committed lockfile
  *
  * Projects are generated and installed one at a time, to keep memory down.
  */

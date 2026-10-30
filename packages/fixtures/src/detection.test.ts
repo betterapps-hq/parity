@@ -20,7 +20,7 @@ describe("detection snapshot", { timeout: 120_000 }, () => {
   it.each(projects)("%s", async (name) => {
     const source = join(fixturesDir, name)
     if (!(await exists(join(source, "node_modules")))) {
-      throw new Error(`fixtures/${name} isn't installed. Run: pnpm --filter @parity/fixtures install-projects`)
+      throw new Error(`fixtures/${name} isn't installed. Run: pnpm --filter @parity-app/fixtures install-projects`)
     }
     const root = await copyProject(source)
     try {

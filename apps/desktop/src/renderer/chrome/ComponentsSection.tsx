@@ -8,7 +8,7 @@ import {
   removeVariantOption,
   renameVariantOption,
   type RepeatCandidate
-} from "@parity/core"
+} from "@parity-app/core"
 import { Diamond, Plus, ScanSearch, Sparkles, Trash2, X } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { Button } from "@/components/ui/button"

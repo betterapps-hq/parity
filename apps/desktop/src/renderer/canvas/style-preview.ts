@@ -1,4 +1,4 @@
-import { boardRoot, type ContainerSpec, type RenderNode, resolveDesign, styleChanges } from "@parity/core"
+import { boardRoot, type ContainerSpec, type RenderNode, resolveDesign, styleChanges } from "@parity-app/core"
 import { useEffect, useMemo } from "react"
 import { findFrames, findNodeElement } from "../frame.ts"
 import type { ProjectSession } from "../workspace.ts"

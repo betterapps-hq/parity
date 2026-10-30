@@ -1,4 +1,4 @@
-import { modeGlobals, type RenderNode, type ResolvedMode } from "@parity/core"
+import { modeGlobals, type RenderNode, type ResolvedMode } from "@parity-app/core"
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react"
 import type { RenderJob } from "../../shared/protocol.ts"
 import type { ProjectSession } from "../workspace.ts"

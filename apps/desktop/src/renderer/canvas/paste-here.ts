@@ -9,7 +9,7 @@ import {
   shownVariants,
   type StateSpec,
   withFreshIds
-} from "@parity/core"
+} from "@parity-app/core"
 import { findNodeElement, nodeBox } from "../frame.ts"
 import { type Flow, flowOf, type Point, type Rect, type SlotChild, slotAt } from "./drop-slot.ts"
 import type { Hit } from "./hit.ts"

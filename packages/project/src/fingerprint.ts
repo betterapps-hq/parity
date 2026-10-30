@@ -2,8 +2,8 @@ import { createHash } from "node:crypto"
 import { existsSync } from "node:fs"
 import { readFile } from "node:fs/promises"
 import { dirname, join, relative, resolve } from "node:path"
-import type { ProjectTsconfig } from "@parity/code"
-import type { ComponentSource } from "@parity/core"
+import type { ProjectTsconfig } from "@parity-app/code"
+import type { ComponentSource } from "@parity-app/core"
 
 const lockfiles = ["pnpm-lock.yaml", "package-lock.json", "yarn.lock", "bun.lock", "bun.lockb"]
 

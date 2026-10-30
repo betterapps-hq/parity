@@ -1,7 +1,7 @@
 # Proposal: package boundaries
 
-Status: draft. `@parity/code` exists (PKG-3), project edits are in `@parity/project` (PAR-6), and `@parity-app/editor`
-has arranging and the clipboard (PAR-7), all on 2026-10-29. The rule and the first items are in
+Status: draft. `@parity-app/code` exists (PKG-3), project edits are in `@parity-app/project` (PAR-6), and
+`@parity-app/editor` has arranging and the clipboard (PAR-7), all on 2026-10-29. The rule and the first items are in
 [decisions.md](../decisions.md) and in Linear's Package boundaries stream.
 
 ## In one line
@@ -22,10 +22,10 @@ when it's spread through UI code. Today:
 
 ## What's clean today
 
-- **`@parity/core` is the `.par` model and the operations on it:** documents, edits, instances, render resolution,
+- **`@parity-app/core` is the `.par` model and the operations on it:** documents, edits, instances, render resolution,
   modes, tokens, CSS and the library manifest. It imports nothing from Node, Electron or React, and has 12 test files.
-- **Framework-specific code sits behind adapter interfaces:** `@parity/renderer-react`, `@parity/builder-vite` and
-  `@parity/styles-tailwind`.
+- **Framework-specific code sits behind adapter interfaces:** `@parity-app/renderer-react`, `@parity-app/builder-vite`
+  and `@parity-app/styles-tailwind`.
 - **The agent API calls core's edits** (`setContainer`, `insertNode`, `moveNode`, `applyChanges` and the rest) rather
   than reimplementing them.
 
@@ -46,8 +46,9 @@ when it's spread through UI code. Today:
 2. **Code is read three times, by three packages.** `project/components.ts` parses files to list components,
    `libgen/components.ts` runs TypeScript's checker to find them, and `@parity/props` runs it again for props. (They are
    [listing.ts](../../packages/code/src/listing.ts), [checker.ts](../../packages/code/src/checker.ts) and
-   [props.ts](../../packages/code/src/props.ts) in `@parity/code` now.) Reading an edited component back into its design
-   would be a fourth. The checker held about 1.8 GB on copacker, so one program per project matters for memory too.
+   [props.ts](../../packages/code/src/props.ts) in `@parity-app/code` now.) Reading an edited component back into its
+   design would be a fourth. The checker held about 1.8 GB on copacker, so one program per project matters for memory
+   too.
 3. **Writing into a project has no shared layer.** Token edits go into the stylesheet from
    [utility/projects.ts](../../apps/desktop/src/utility/projects.ts), library style imports from
    [utility/libraries.ts](../../apps/desktop/src/utility/libraries.ts), images from
@@ -63,11 +64,11 @@ when it's spread through UI code. Today:
 - **Logic packages take data and return data.** No Node, React, tldraw or Electron in them, and they depend only on
   other pure packages. Files, IPC and processes stay in the app's main and service processes, which call the packages. A
   package is pure unless it's named as a reader or at the edge, so a new package starts pure.
-- **Readers read a project's files but never write them or start processes:** `@parity/code`, `@parity/project` and
-  `@parity/registry`, since TypeScript's program and the project's discovery read the project as they go. A reader that
-  needs a file changed returns a project edit for the service to apply. Readers use no React and depend only on pure
-  packages and other readers.
-- **The edge is where Node and React belong:** the CLI, `@parity/libgen`, the agent runtime, the adapters
+- **Readers read a project's files but never write them or start processes:** `@parity-app/code`, `@parity-app/project`
+  and `@parity-app/registry`, since TypeScript's program and the project's discovery read the project as they go. A
+  reader that needs a file changed returns a project edit for the service to apply. Readers use no React and depend only
+  on pure packages and other readers.
+- **The edge is where Node and React belong:** the CLI, `@parity-app/libgen`, the agent runtime, the adapters
   (`renderer-react`, the only package with React, `builder-vite` and `styles-tailwind`) and the fixtures.
 - **Dependencies point one way:** the app uses packages, no package imports Electron, tldraw or the app, and core
   imports nothing.
@@ -80,16 +81,16 @@ when it's spread through UI code. Today:
 
 ## The packages
 
-| Package                             | What it owns                                                                                                                                                               | Comes from                                                                                         |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `@parity/code`                      | One TypeScript program per project. Listing components, props, file ownership by hash, writing a component file from a design, reading an edited file back, drift, review. | `project/components.ts`, `libgen/components.ts`, `@parity/props`, and the CMP items not built yet. |
-| Project edits, in `@parity/project` | File edits built as data, shown as a diff, applied together, undone together, remembered so the app ignores its own writes.                                                | The writes in `utility/projects.ts`, `utility/libraries.ts`, `utility/images.ts` and `cli/lib.ts`. |
-| `@parity-app/editor`                | Editor behaviour without the views: clipboard, drop rules, arranging, inserting, Make component, placement, snapping, selection, undo and unsaved tracking.                | The renderer files listed above.                                                                   |
-| `@parity/models`, then one per lens | The lens schemas (PAR-15), then each lens's standards reader and model operations. Each adapter, such as Drizzle or TanStack Router, is a package of its own.              | New code.                                                                                          |
-| `@parity/storybook`                 | Everything Storybook-specific, behind the `StoryAdapter` in [storybook.md](../storybook.md).                                                                               | `project/storybook.ts` and `utility/storybook.ts` (PAR-114).                                       |
-| `@parity/tokens`, later             | Reading tokens (Tailwind, DTCG), editing them in stylesheets, and matching described tokens to custom properties.                                                          | `core/tokens.ts`, `core/tokens-dtcg.ts`, `core/css-source.ts`, the Tokens panel's matching.        |
+| Package                                 | What it owns                                                                                                                                                               | Comes from                                                                                         |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `@parity-app/code`                      | One TypeScript program per project. Listing components, props, file ownership by hash, writing a component file from a design, reading an edited file back, drift, review. | `project/components.ts`, `libgen/components.ts`, `@parity/props`, and the CMP items not built yet. |
+| Project edits, in `@parity-app/project` | File edits built as data, shown as a diff, applied together, undone together, remembered so the app ignores its own writes.                                                | The writes in `utility/projects.ts`, `utility/libraries.ts`, `utility/images.ts` and `cli/lib.ts`. |
+| `@parity-app/editor`                    | Editor behaviour without the views: clipboard, drop rules, arranging, inserting, Make component, placement, snapping, selection, undo and unsaved tracking.                | The renderer files listed above.                                                                   |
+| `@parity-app/models`, then one per lens | The lens schemas (PAR-15), then each lens's standards reader and model operations. Each adapter, such as Drizzle or TanStack Router, is a package of its own.              | New code.                                                                                          |
+| `@parity-app/storybook`                 | Everything Storybook-specific, behind the `StoryAdapter` in [storybook.md](../storybook.md).                                                                               | `project/storybook.ts` and `utility/storybook.ts` (PAR-114).                                       |
+| `@parity-app/tokens`, later             | Reading tokens (Tailwind, DTCG), editing them in stylesheets, and matching described tokens to custom properties.                                                          | `core/tokens.ts`, `core/tokens-dtcg.ts`, `core/css-source.ts`, the Tokens panel's matching.        |
 
-### `@parity/code`: design and code, both ways
+### `@parity-app/code`: design and code, both ways
 
 This is the one you expect to iterate on most, so it gets the clearest boundary.
 
@@ -104,7 +105,7 @@ This is the one you expect to iterate on most, so it gets the clearest boundary.
   fixtures, reviewed like any other.
 - **React first, behind an interface:** `ComponentFinder` in [finder.ts](../../packages/code/src/finder.ts) (FIND-15),
   with `reactFinder` for React, so Vue or Svelte later is another adapter.
-- **`@parity/libgen` keeps generating `.lib.par` files** and uses `@parity/code` to find components.
+- **`@parity-app/libgen` keeps generating `.lib.par` files** and uses `@parity-app/code` to find components.
 
 ### Project edits
 
@@ -137,8 +138,8 @@ itself with Beachball.
 
 ### Lenses and adapters
 
-- **Core stays the `.par` model.** Lens models are JSON Schemas in `@parity/models`; each lens's reader and operations
-  are a package, starting with `@parity/lens-data`; the lens's views live in the app.
+- **Core stays the `.par` model.** Lens models are JSON Schemas in `@parity-app/models`; each lens's reader and
+  operations are a package, starting with `@parity-app/lens-data`; the lens's views live in the app.
 - **Each adapter is a package,** implementing PAR-341's interface. That's also what lets code adapters run in their own
   process later (PAR-348).
 
@@ -153,20 +154,20 @@ itself with Beachball.
 
 1. **The rule and its lint guard** (PAR-5).
 2. **Project edits** (PAR-6), with tokens, library imports and images moved onto them.
-3. **`@parity/code` from the three readers** (PKG-3), after FIND-1 and PROJ-5, which the Components Sync session has in
-   progress on those files. It's the natural start of FIND-2, which already says to reuse libgen's finder. Generating
+3. **`@parity-app/code` from the three readers** (PKG-3), after FIND-1 and PROJ-5, which the Components Sync session has
+   in progress on those files. It's the natural start of FIND-2, which already says to reuse libgen's finder. Generating
    files (PAR-85), the drift review (PAR-93) and reading back (PAR-90) are then built inside it.
 4. **`@parity-app/editor`,** file by file (PAR-7, then PAR-32 to PAR-34).
-5. **`@parity/models` with PAR-15,** then a package per lens and adapter as each starts.
-6. **`@parity/storybook` with PAR-114.**
-7. **`@parity/tokens`** (PAR-35) when token work picks up, and the agent API's 1,320-line workspace split by area when
-   it next grows.
+5. **`@parity-app/models` with PAR-15,** then a package per lens and adapter as each starts.
+6. **`@parity-app/storybook` with PAR-114.**
+7. **`@parity-app/tokens`** (PAR-35) when token work picks up, and the agent API's 1,320-line workspace split by area
+   when it next grows.
 
 ## Calls made here
 
 These are in decisions.md as my calls. Change any of them.
 
 - The rule above, and its lint guard.
-- `@parity/props` merges into `@parity/code`, since both need the same program.
+- `@parity/props` merges into `@parity-app/code`, since both need the same program.
 - Project edits come before the components work that needs them, so PAR-85 waits on PAR-6 and PKG-3.
 - Lenses and adapters never go in core.

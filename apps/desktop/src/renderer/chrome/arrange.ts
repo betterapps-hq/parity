@@ -1,3 +1,4 @@
+import { toggleHidden } from "@parity-app/core"
 import {
   alignBoxes,
   alignInLayouts,
@@ -15,7 +16,6 @@ import {
   unwrapLayout,
   wrapInLayout
 } from "@parity-app/editor"
-import { toggleHidden } from "@parity/core"
 import { toast } from "sonner"
 import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
 import type { ContainerEntry } from "../design-store.ts"

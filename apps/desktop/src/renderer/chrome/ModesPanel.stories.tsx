@@ -1,4 +1,4 @@
-import { defaultModeSettings, type ModeSettings, type ModeSpec } from "@parity/core"
+import { defaultModeSettings, type ModeSettings, type ModeSpec } from "@parity-app/core"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { userEvent, within } from "storybook/test"
 import type { ProjectInfo } from "../../shared/protocol.ts"

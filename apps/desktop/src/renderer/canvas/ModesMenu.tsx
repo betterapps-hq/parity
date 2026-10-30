@@ -1,4 +1,4 @@
-import type { ResolvedMode } from "@parity/core"
+import type { ResolvedMode } from "@parity-app/core"
 import { Check, ChevronDown, Moon, Sun } from "lucide-react"
 import {
   DropdownMenu,

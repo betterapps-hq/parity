@@ -34,9 +34,9 @@ with a type checker that runs on TypeScript 7. Its `vite:monorepo` template has 
 - **Three departures from the template:**
   - **Workspace packages stay source-only** (`exports: ./src/index.ts`). The app bundles them and Node strips their
     types, so they need no build. Only what's published gets `vp pack`: the CLI (see npm packages).
-  - **The example project, the fixtures and `@parity/builder-vite` stay on stock Vite.** `examples/shadcn-vite` stands
-    in for a customer's project, and builder-vite drives the customer's own Vite, so the override mustn't reach them.
-    The `prefer-vite-plus-imports` lint rule skips builder-vite for the same reason.
+  - **The example project, the fixtures and `@parity-app/builder-vite` stay on stock Vite.** `examples/shadcn-vite`
+    stands in for a customer's project, and builder-vite drives the customer's own Vite, so the override mustn't reach
+    them. The `prefer-vite-plus-imports` lint rule skips builder-vite for the same reason.
   - **`pnpm verify` keeps its name** and runs `vp check` and `vp test`, since AGENTS.md, work.md and every running
     session use it. Every repo using the shared pipelines has a `pnpm verify`, which is what the shared CI runs.
 - **Two steps, so running sessions aren't broken.** The configuration goes first (PAR-1), made in a worktree, because
@@ -105,8 +105,8 @@ This is how Buildkit and the agency monorepo already release, and you asked for 
   second.
 - **It's `@parity-app/cli`,** since the `@parity` scope on npm belongs to Parity Technologies (`@parity/api`,
   `@parity/abi`). You created the `parity-app` organization on 2026-10-29 (PAR-26). Its command is still `parity`. It
-  has that name in the repository too, since `publishConfig` can't rename a package, while the private workspace
-  packages keep their `@parity/*` names, since they're never published.
+  has that name in the repository too, since `publishConfig` can't rename a package. The private workspace packages
+  share the scope, so every package is `@parity-app/*` (PAR-425).
 - **Publishing uses npm's trusted publishing,** with provenance and no token: `pnpm publish --provenance` from a job
   with `id-token: write` in a protected `npm` environment, as Buildkit's `publish.yml` does (PAR-14). npm checks the
   _top-level_ workflow's file name, not a reusable one it calls, so each repository registers its own `cd-npm.yml` on
@@ -122,7 +122,7 @@ This is how Buildkit and the agency monorepo already release, and you asked for 
   Parity, since a public repository's runners are free on all three and Parity is developed on Windows. It sets up Vite+
   through `voidzero-dev/setup-vp`, pinned to an exact release, since its docs say the `v1` tag no longer gets updates.
 - **Parity's own steps go before it:** installing the fixture projects with npm, Yarn and Bun
-  (`pnpm --filter @parity/fixtures install-projects`), cached on their lockfiles. Without them `detection.test.ts`
+  (`pnpm --filter @parity-app/fixtures install-projects`), cached on their lockfiles. Without them `detection.test.ts`
   fails.
 - **Pull requests also run `beachball check`.**
 - **A newer push cancels the run before it.** Release and deploy runs never cancel.

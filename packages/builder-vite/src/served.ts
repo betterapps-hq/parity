@@ -1,12 +1,12 @@
 import { createHash } from "node:crypto"
 import { readdir, stat } from "node:fs/promises"
 import { dirname, isAbsolute, join } from "node:path"
-import type { FileStamp, ServedLog } from "@parity/core"
+import type { FileStamp, ServedLog } from "@parity-app/core"
 import type * as Vite from "vite"
 
 /*
  * What a project's builder served its pages, so a reopened project's next builder can tell whether the pages' copies
- * are current (see `@parity/core`'s served.ts). Each module is noted once its response is sent, with the files Vite
+ * are current (see `@parity-app/core`'s served.ts). Each module is noted once its response is sent, with the files Vite
  * made it from: its own file and what it imports, which for a stylesheet includes every file Tailwind scanned.
  */
 

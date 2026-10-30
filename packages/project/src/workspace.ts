@@ -1,7 +1,13 @@
 import { existsSync } from "node:fs"
 import { readdir, readFile } from "node:fs/promises"
 import { dirname, join, posix, relative, resolve } from "node:path"
-import type { ComponentEvidence, ComponentSource, LibraryInfo, PackageManifest, RendererAdapter } from "@parity/core"
+import type {
+  ComponentEvidence,
+  ComponentSource,
+  LibraryInfo,
+  PackageManifest,
+  RendererAdapter
+} from "@parity-app/core"
 import { parseJsonc } from "./jsonc.ts"
 
 /** A monorepo's root and the packages in it, by name. */

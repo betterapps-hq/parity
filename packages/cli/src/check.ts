@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
-import type { ComponentInfo, ComponentSource, DesignNode, LibraryManifest } from "@parity/core"
+import type { ComponentInfo, ComponentSource, DesignNode, LibraryManifest } from "@parity-app/core"
 import { call, type ExecResponse } from "./client.ts"
 
 export interface CheckOptions {
@@ -36,8 +36,8 @@ export interface CheckReport {
 export async function runCheck(library: string | undefined, options: CheckOptions): Promise<void> {
   if (!library) throw new Error("parity lib check <library> [--tab t] [--mode m]")
   const { applyLibraryEdits, componentNode, generateId, librarySource, parseLibraryEdits, withLibraryContext } =
-    await import("@parity/core")
-  const { registryDir, registryEntries } = await import("@parity/registry")
+    await import("@parity-app/core")
+  const { registryDir, registryEntries } = await import("@parity-app/registry")
   const entry = (await registryEntries()).find((item) => item.manifest.id === library)
   if (!entry) throw new Error(`The registry has no library "${library}"`)
   let manifest: LibraryManifest = entry.manifest

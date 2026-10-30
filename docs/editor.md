@@ -823,7 +823,7 @@ Code:
 - `packages/core/src/fields.ts`: reading what's typed (`readFieldInput`), working it out against a value
   (`applyFieldInput`), landing on the scale and the limits, steps (`stepFieldValue`), scrubbing (`scrubSteps`), showing
   a value (`formatFieldValue`) and what the field says (`describeFieldNote`, `summarizeFieldNotes`). It takes data and
-  returns data; it can move to `@parity/editor` when PAR-7 makes it.
+  returns data; it can move to `@parity-app/editor` when PAR-7 makes it.
 - `packages/core/src/style-changes.ts`: which inline styles an edit changes between two renders of a design
   (`styleChanges`).
 - `apps/desktop/src/renderer/chrome/number-field.ts`: the field's behaviour as a reducer (`reduceField`): drafts, Enter,

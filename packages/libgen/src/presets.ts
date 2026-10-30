@@ -1,4 +1,4 @@
-import type { LibraryDecorator, LibraryIcons } from "@parity/core"
+import type { LibraryDecorator, LibraryIcons } from "@parity-app/core"
 import type { ExampleHints } from "./examples.ts"
 import type { IconTagSource } from "./icon-tags.ts"
 import type { CollectedToken } from "./tokens.ts"
