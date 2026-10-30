@@ -19,9 +19,9 @@ export function sizeWhileShown(canvas: Sized, showing: () => boolean): { release
     Object.defineProperty(canvas, name, {
       configurable: true,
       enumerable: true,
-      get: () => own.get.call(canvas),
+      get: () => own.get(),
       set: (value: number) => {
-        set(canvas, own, showing() ? value : 0)
+        set(own, showing() ? value : 0)
       }
     })
     return { name, own }
@@ -29,7 +29,7 @@ export function sizeWhileShown(canvas: Sized, showing: () => boolean): { release
   return {
     release() {
       if (showing()) return
-      for (const { own } of dimensions) set(canvas, own, 0)
+      for (const { own } of dimensions) set(own, 0)
     },
     restore() {
       for (const { name } of dimensions) delete (canvas as Partial<Sized>)[name]
@@ -37,18 +37,32 @@ export function sizeWhileShown(canvas: Sized, showing: () => boolean): { release
   }
 }
 
-type Accessor = { get(this: Sized): number; set(this: Sized, value: number): void }
-
-/** Setting a dimension clears the bitmap even when it's unchanged, so only a change is set. */
-function set(canvas: Sized, own: Accessor, value: number): void {
-  if (own.get.call(canvas) !== value) own.set.call(canvas, value)
+interface Accessor {
+  get: () => number
+  set: (value: number) => void
 }
 
-/** The canvas's own accessor for a dimension, from the class it's made by. */
+/** Setting a dimension clears the bitmap even when it's unchanged, so only a change is set. */
+function set(own: Accessor, value: number): void {
+  if (own.get() !== value) own.set(value)
+}
+
+/** The canvas's own accessor for a dimension, from the class it's made by, called on the canvas. */
 function accessor(canvas: Sized, name: keyof Sized): Accessor {
-  for (let prototype = Object.getPrototypeOf(canvas); prototype; prototype = Object.getPrototypeOf(prototype)) {
+  for (
+    let prototype: object | null = Object.getPrototypeOf(canvas);
+    prototype;
+    prototype = Object.getPrototypeOf(prototype)
+  ) {
     const descriptor = Object.getOwnPropertyDescriptor(prototype, name)
-    if (descriptor?.get && descriptor.set) return { get: descriptor.get, set: descriptor.set }
+    if (!descriptor || !("get" in descriptor) || !("set" in descriptor)) continue
+    const from = prototype
+    return {
+      get: () => Reflect.get(from, name, canvas) as number,
+      set: (value) => {
+        Reflect.set(from, name, value, canvas)
+      }
+    }
   }
   throw new Error(`The canvas has no ${name} to size.`)
 }
