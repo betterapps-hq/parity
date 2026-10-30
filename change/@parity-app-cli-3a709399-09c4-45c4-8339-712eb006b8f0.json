@@ -1,6 +1,6 @@
 {
   "type": "none",
-  "comment": "Remove dependencies and code that nothing uses, found with knip",
+  "comment": "Remove unused dependencies and code; nothing people see changes",
   "packageName": "@parity-app/cli",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "none"
