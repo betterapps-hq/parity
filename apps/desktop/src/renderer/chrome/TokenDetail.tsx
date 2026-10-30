@@ -1,7 +1,7 @@
 // A token's detail, opened from its row in the Tokens panel: a large preview, the facts about it, and Edit and Copy.
 // docs/proposals/previews.md has the design; docs/editor.md says how it behaves.
 
-import { codeForms, substituteReferences, tokenReferences, valueParts } from "@parity/core"
+import { codeForms, substituteReferences, tokenReferences, valueParts } from "@parity-app/core"
 import { Check, ChevronDown, Pause, Pencil, Play } from "lucide-react"
 import { Fragment, useEffect, useId, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
