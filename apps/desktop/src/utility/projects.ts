@@ -23,7 +23,6 @@ import {
   parseLibraryManifest,
   type ProjectDetection,
   type RendererAdapter,
-  setCustomProperty,
   type StylesAdapter,
   type ThemeVariable,
   withLibraryCanvas
@@ -40,7 +39,8 @@ import {
 } from "@parity-app/project"
 import { reactRenderer } from "@parity-app/renderer-react"
 import { tailwindStyles } from "@parity-app/styles-tailwind"
-import type { ProjectEditResult, ProjectInfo, ServiceMethods, TokenChange, WindowMethods } from "../shared/protocol.ts"
+import { writeTokenChanges } from "@parity-app/tokens"
+import type { ProjectEditResult, ProjectInfo, ServiceMethods, WindowMethods } from "../shared/protocol.ts"
 import { startBuilder } from "./builders.ts"
 import { saveDetection, savedDetection } from "./detection-cache.ts"
 import { applyProjectEdit } from "./edits.ts"
@@ -457,8 +457,7 @@ export async function saveTokens({
   if (!stylesheet) throw new Error("The project has no stylesheet to write tokens to")
   const themeNames = new Set(project.info.theme.map((variable) => variable.name))
   const source = await readFile(join(project.info.root, stylesheet), "utf8")
-  let content = source
-  for (const change of changes) content = applyTokenChange(content, change, themeNames.has(change.name))
+  const content = writeTokenChanges(source, changes, themeNames)
   const edit = await applyProjectEdit(project, {
     label: changes.length === 1 ? "Edit a token" : `Edit ${changes.length} tokens`,
     files: [{ kind: "replace", path: stylesheet, expected: source, content }]
@@ -469,20 +468,6 @@ export async function saveTokens({
     if (variable && change.theme === "default") variable.value = change.value
   }
   return edit
-}
-
-function applyTokenChange(source: string, change: TokenChange, isTheme: boolean): string {
-  if (change.theme !== "default") {
-    const selector = `.${change.theme}`
-    return setCustomProperty(source, change.name, change.value, { blocks: [selector], create: selector })
-  }
-  if (isTheme) {
-    return setCustomProperty(source, change.name, change.value, {
-      blocks: ["@theme", "@theme inline", "@theme static", ":root"],
-      create: "@theme"
-    })
-  }
-  return setCustomProperty(source, change.name, change.value, { blocks: [":root", ":host"], create: ":root" })
 }
 
 /**

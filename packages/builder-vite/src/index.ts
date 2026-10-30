@@ -8,8 +8,6 @@ import {
   type BuilderDetection,
   type BuilderStartOptions,
   commandOption,
-  describedCategories,
-  describedTokenCss,
   iconStyleModules,
   isMadeValue,
   type LibraryInfo,
@@ -18,6 +16,7 @@ import {
   type ProjectConfig,
   scriptRunning
 } from "@parity-app/core"
+import { describedCategories, describedTokenCss } from "@parity-app/tokens"
 import type * as Vite from "vite"
 import { dependencySourceMaps } from "./dependency-maps.ts"
 

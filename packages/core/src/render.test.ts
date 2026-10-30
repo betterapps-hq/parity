@@ -2,7 +2,6 @@ import { describe, expect, it } from "vite-plus/test"
 import { type ContainerSpec, type DesignNode, parseCanvasDocument } from "./document.ts"
 import { defaultModeSettings, resolveModes } from "./modes.ts"
 import { componentLibrary, frameSize, frameViewport, placedDesigns, reachableLibrary, resolveDesign } from "./render.ts"
-import { extractTokens } from "./tokens.ts"
 
 const root: DesignNode = {
   type: "layout",
@@ -92,27 +91,6 @@ describe("parseCanvasDocument", () => {
   it("rejects overrides for nodes that don't exist", () => {
     const states = [{ id: "x", name: "X", overrides: { missing: { hidden: true } } }]
     expect(() => parseCanvasDocument(document({ states }))).toThrow("no node has this id")
-  })
-})
-
-describe("extractTokens", () => {
-  it("collects root and theme values and categorizes them", () => {
-    const css = [
-      "@layer theme { :host, :host { --spacing: 0.25rem; --text-sm: 0.875rem; --text-sm--line-height: 1.43; } }",
-      ":host { --background: oklch(1 0 0); --radius: 0.625rem; --tw-ring: 0; }",
-      ".dark { --background: oklch(0.145 0 0); }"
-    ].join("\n")
-    const tokens = extractTokens(css)
-    expect(tokens.find((t) => t.name === "background")).toEqual({
-      name: "background",
-      category: "color",
-      source: "semantic",
-      values: { default: "oklch(1 0 0)", dark: "oklch(0.145 0 0)" }
-    })
-    expect(tokens.find((t) => t.name === "spacing")?.category).toBe("spacing")
-    expect(tokens.find((t) => t.name === "text-sm")?.category).toBe("font-size")
-    expect(tokens.find((t) => t.name === "radius")?.category).toBe("radius")
-    expect(tokens.some((t) => t.name.startsWith("tw-"))).toBe(false)
   })
 })
 

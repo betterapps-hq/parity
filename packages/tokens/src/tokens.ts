@@ -1,22 +1,4 @@
-import type { ThemeVariable } from "./adapters.ts"
-import { collectCustomProperties } from "./css.ts"
-import type { DescribedToken } from "./tokens-dtcg.ts"
-
-export type TokenCategory =
-  | "color"
-  | "spacing"
-  | "radius"
-  | "font-size"
-  | "font"
-  | "font-weight"
-  | "tracking"
-  | "leading"
-  | "shadow"
-  | "breakpoint"
-  | "container"
-  | "effect"
-  | "motion"
-  | "other"
+import { collectCustomProperties, type DescribedToken, type ThemeVariable, type TokenCategory } from "@parity-app/core"
 
 export interface Token {
   /** Custom property name without `--`; what a design references. */

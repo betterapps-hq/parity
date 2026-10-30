@@ -7,9 +7,9 @@ import {
   scrubSteps,
   stepFieldValue,
   summarizeFieldNotes,
-  type Token,
   type TokenCategory
 } from "@parity-app/core"
+import { type Token } from "@parity-app/tokens"
 import { Check, ChevronsUpDown, RotateCcw } from "lucide-react"
 import {
   createContext,

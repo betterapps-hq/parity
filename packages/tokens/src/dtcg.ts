@@ -2,26 +2,7 @@
 // files, and resolvers that layer them into contexts such as light and dark themes. Parity reads them to describe a
 // library's tokens; the stylesheet stays what frames render with.
 
-/** A token as its file describes it, with its value in each context. */
-export interface DescribedToken {
-  /** Its path in the file, as in `color.primary`. */
-  path: string
-  type?: string
-  description?: string
-  /** Its value in each context, written as CSS: `default` for the resolver's defaults, else the context, as in `dark`. */
-  values: Record<string, string>
-  /**
-   * What Parity's own extension says about it (`$extensions.parity`): the custom property it compiles to, without
-   * `--`, the Tokens panel category it belongs in, and for a font size, the custom property of its line height.
-   */
-  parity?: TokenExtension
-}
-
-export interface TokenExtension {
-  var?: string
-  category?: string
-  lineHeight?: string
-}
+import type { DescribedToken, TokenExtension } from "@parity-app/core"
 
 /** Reads a JSON file that tokens refer to, by its path. */
 export type ReadTokenFile = (path: string) => Promise<unknown>

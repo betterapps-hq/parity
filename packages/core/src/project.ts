@@ -6,7 +6,7 @@ import type {
   LibraryDecorator,
   LibraryIcons
 } from "./library.ts"
-import type { DescribedToken } from "./tokens-dtcg.ts"
+import type { DescribedToken } from "./token-types.ts"
 
 /**
  * What the canvas knows about a project. It is inferred from the project itself (see `@parity-app/project`), never

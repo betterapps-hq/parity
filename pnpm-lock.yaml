@@ -289,6 +289,9 @@ importers:
       '@parity-app/styles-tailwind':
         specifier: workspace:*
         version: link:../../packages/styles-tailwind
+      '@parity-app/tokens':
+        specifier: workspace:*
+        version: link:../../packages/tokens
       '@storybook/react-vite':
         specifier: 10.6.5
         version: 10.6.5(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(@voidzero-dev/vite-plus-core@1.4.0(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(typescript@6.0.3)(yaml@2.9.1))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(storybook@10.6.5(@types/react@19.3.0)(prettier@3.9.10)(react@19.3.1)(vite-plus@1.4.0(@types/node@24.19.2)(@vitest/ui@5.0.5)(esbuild@0.28.2)(jiti@2.7.0)(typescript@6.0.3)(yaml@2.9.1)))(typescript@6.0.3)
@@ -431,12 +434,18 @@ importers:
       '@parity-app/icons':
         specifier: workspace:*
         version: link:../icons
+      '@parity-app/tokens':
+        specifier: workspace:*
+        version: link:../tokens
 
   packages/builder-vite:
     dependencies:
       '@parity-app/core':
         specifier: workspace:*
         version: link:../core
+      '@parity-app/tokens':
+        specifier: workspace:*
+        version: link:../tokens
     devDependencies:
       vite:
         specifier: ^8.3.5
@@ -495,6 +504,9 @@ importers:
       '@parity-app/styles-tailwind':
         specifier: workspace:*
         version: link:../styles-tailwind
+      '@parity-app/tokens':
+        specifier: workspace:*
+        version: link:../tokens
 
   packages/icons:
     dependencies:
@@ -516,6 +528,10 @@ importers:
       typescript:
         specifier: 6.0.3
         version: 6.0.3
+    devDependencies:
+      '@parity-app/tokens':
+        specifier: workspace:*
+        version: link:../tokens
 
   packages/project:
     dependencies:
@@ -528,6 +544,9 @@ importers:
       '@parity-app/registry':
         specifier: workspace:*
         version: link:../registry
+      '@parity-app/tokens':
+        specifier: workspace:*
+        version: link:../tokens
       package-manager-detector:
         specifier: ^1.9.0
         version: 1.9.0
@@ -581,6 +600,12 @@ importers:
         version: 19.3.1(react@19.3.1)
 
   packages/styles-tailwind:
+    dependencies:
+      '@parity-app/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/tokens:
     dependencies:
       '@parity-app/core':
         specifier: workspace:*

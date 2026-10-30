@@ -1,11 +1,5 @@
-import {
-  extractTokens,
-  type Guest,
-  prepareCanvasCss,
-  themeFallbackCss,
-  type ThemeVariable,
-  type Token
-} from "@parity-app/core"
+import { type Guest, prepareCanvasCss, type ThemeVariable } from "@parity-app/core"
+import { extractTokens, themeFallbackCss, type Token } from "@parity-app/tokens"
 
 export interface LoadedGuest {
   guest: Guest

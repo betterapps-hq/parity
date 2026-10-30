@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs"
 import { describe, expect, it } from "vite-plus/test"
+import { readDesignTokens } from "./dtcg.ts"
 import {
   codeForms,
   type PreviewKind,
@@ -8,8 +9,7 @@ import {
   tokenReferences,
   unclosedInValue,
   valueParts
-} from "./token-kinds.ts"
-import { readDesignTokens } from "./tokens-dtcg.ts"
+} from "./kinds.ts"
 import { describedCategories, describedTokenCss, describedTokenVar, extractTokens, type Token } from "./tokens.ts"
 
 /** Each token's kind, by name, reading tokens as the app does: compiled CSS, Tailwind's theme, a library's categories. */

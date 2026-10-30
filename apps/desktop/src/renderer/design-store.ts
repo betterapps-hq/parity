@@ -9,8 +9,8 @@ import {
   type NoteSpec,
   reachableLibrary
 } from "@parity-app/core"
+import type { TokenChange } from "@parity-app/tokens"
 import { useSyncExternalStore } from "react"
-import type { TokenChange } from "../shared/protocol.ts"
 import { sameDocument, withTidyView } from "./document-equality.ts"
 import {
   noTokenEdits,

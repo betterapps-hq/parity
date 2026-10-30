@@ -4,9 +4,9 @@ import type {
   LibraryIcons,
   ModeSettings,
   ResolvedMode,
-  ThemeVariable,
-  Token
+  ThemeVariable
 } from "@parity-app/core"
+import type { Token } from "@parity-app/tokens"
 
 /** What an agent call starts from: one tab's live state. */
 export interface AgentSnapshot {

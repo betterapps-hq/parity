@@ -11,6 +11,7 @@
     "@parity-app/code": "workspace:*",
     "@parity-app/core": "workspace:*",
     "@parity-app/registry": "workspace:*",
+    "@parity-app/tokens": "workspace:*",
     "package-manager-detector": "^1.9.0",
     "semver": "^7.8.5",
     "typescript": "6.0.3",

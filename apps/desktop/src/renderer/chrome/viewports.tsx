@@ -6,10 +6,10 @@ import {
   type LibraryInfo,
   type ModeSettings,
   type ResolvedMode,
-  type Token,
   uniqueId,
   type VariableOption
 } from "@parity-app/core"
+import { type Token } from "@parity-app/tokens"
 import { Laptop, Monitor, type LucideProps, Smartphone, Tablet } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"

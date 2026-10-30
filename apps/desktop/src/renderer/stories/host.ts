@@ -1,5 +1,6 @@
 import type { AccessibilityFinding } from "@parity-app/agent"
 import { type ComponentInfo, type ContainerSpec, defaultModeSettings, type DesignNode } from "@parity-app/core"
+import type { TokenChange } from "@parity-app/tokens"
 import discovered from "virtual:parity/example-project"
 import type {
   CanvasHost,
@@ -7,8 +8,7 @@ import type {
   ProjectInfo,
   ProjectProcess,
   ServiceMethod,
-  ServiceMethods,
-  TokenChange
+  ServiceMethods
 } from "../../shared/protocol.ts"
 
 /**
