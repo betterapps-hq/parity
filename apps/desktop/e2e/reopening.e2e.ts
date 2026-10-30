@@ -34,10 +34,6 @@ async function nodes(): Promise<number> {
 async function closeProject(): Promise<void> {
   await app.page.keyboard.press("Control+W")
   await expect.poll(frames).toBe(0)
-  // The pointer is in the window, as a person's is, whatever the tests before this file left. Only with it there did a
-  // frame style using `:empty` keep every closed canvas's frames (PAR-193), which this is to catch.
-  await app.page.mouse.move(8, 8)
-  await app.page.mouse.move(12, 12)
 }
 
 /** Opens the project again from the start page's recent projects, and waits for every frame to draw. */

@@ -538,16 +538,18 @@ content would size (`data-canvas-empty-layout="width height"`), and the frame's 
 `apps/desktop/src/renderer/frame.ts` gives it its least size (`emptyLayoutSize`) and dashes. The least size is
 `!important`, to beat the `min-width: 0` every layout is drawn with. The sheet finds empty layouts by that attribute,
 not by `:empty`: with `:empty` in it, a sheet every frame shares, closing a project with the pointer in the window kept
-its frames in memory, about 1,800 DOM nodes each time on the example, which `reopening.e2e.ts` caught.
+its frames in memory, about 1,800 DOM nodes each time on the example. `reopening.e2e.ts` caught it when the tests before
+it left the pointer on the canvas.
 
 Tests: `packages/core/src/render.test.ts`: which axes are marked for a layout that hugs, a fixed width, a least height,
 growing in a row, and filling with a fixed height; a layout with layers unmarked; and one whose only layer the state
 hides marked. End to end (PAR-202), `apps/desktop/e2e/moving.e2e.ts` (2), with an empty row added after New project:
 it's 24px wide and at least 24px high and is selected by a click, and a stat card dropped 6px inside its left edge at
-50% goes into it. Both failed before PAR-193: the row was 0px wide. `apps/desktop/e2e/reopening.e2e.ts` now moves the
-pointer into the window after each close, as a person's is, which is what made the leak above show.
+50% goes into it. Both failed before PAR-193: the row was 0px wide.
 
 Gaps: the size label and the inspector show the 24px the canvas gives it, not the 0 the app would draw.
+`reopening.e2e.ts` sees a leak like the one above only when the pointer is in the window, which depends on the tests run
+before it; moving the pointer in after each close would make it certain.
 
 ### Cursors and Escape during a gesture (PAR-193)
 
