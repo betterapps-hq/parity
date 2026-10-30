@@ -678,9 +678,9 @@ recommended answer to each of its questions.
   (`control={<Checkbox />}`), and inserted as a slot of that prop's name, which the canvas already passes as the prop.
 - **Fluent's slots are props, read by their shape (PAR-127).** A prop whose type is a union with a props object holding
   `as` is a slot (Fluent v9's `Slot<...>`), found by that shape rather than by the alias's name, which declarations
-  don't always keep. One that also takes text or elements takes content, so it's a node prop, set as `children` is:
-  text, or layers in a slot of its name. One that takes only its part's props (an `input`, an `img`) is an object. My
-  call: a content slot is listed with the component's own props though its package declares it, since it's one of the
+  don't always keep. One that also takes text, numbers or elements takes content, so it's a node prop, set as `children`
+  is: text, or layers in a slot of its name. One that takes only its part's props (an `input`, an `img`) is an object.
+  My call: a content slot is listed with the component's own props though its package declares it, since it's one of the
   component's parts and not an HTML attribute; `root` is the component itself, so it stays with the attributes. A
   library's other props, `children` included, still sit with the attributes, as before.
 - **A node prop held in a slot says so (PAR-127):** once its slot has layers, the Props panel says "Set in layers" in
