@@ -5,9 +5,10 @@ import {
   type ContainerSpec,
   type DesignNode,
   findNode,
+  generateId,
   nodeIds
 } from "@parity-app/core"
-import { describe, expect, it } from "vite-plus/test"
+import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import {
   componentLabel,
   dropAt,
@@ -124,9 +125,20 @@ describe("the layer an item becomes", () => {
     expect(node).not.toHaveProperty("credit")
   })
 
-  it("takes an id that isn't taken", () => {
-    const taken = new Set(["a", "b"])
-    expect(taken.has(nodeForItem({ kind: "instance", design: "badge" }, undefined, taken).id)).toBe(false)
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it("takes an id that isn't taken, past one that is", () => {
+    // Every draw the same, so the first id tried is known, and taken.
+    const random = vi.spyOn(Math, "random").mockReturnValue(0)
+    const first = generateId(new Set())
+    // The first five draws make that id again; the rest make another.
+    random.mockReturnValueOnce(0).mockReturnValueOnce(0).mockReturnValueOnce(0).mockReturnValueOnce(0)
+    random.mockReturnValueOnce(0).mockReturnValue(0.5)
+    const id = nodeForItem({ kind: "instance", design: "badge" }, undefined, new Set([first])).id
+    expect(id).not.toBe(first)
+    expect(id).toHaveLength(first.length)
   })
 })
 
