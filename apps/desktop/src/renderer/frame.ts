@@ -179,7 +179,26 @@ export function findNodeElement(host: Element, nodeId: string): HTMLElement | un
  * has an empty box at the frame's corner, so it's left out unless nothing else is drawn.
  */
 export function nodeBox(host: Element, nodeId: string): DOMRect | undefined {
-  return boxAround(findNodeElements(host, nodeId).map((element) => element.getBoundingClientRect()))
+  return boxAround(findNodeElements(host, nodeId).map(elementBox))
+}
+
+/** Whether each element is clipped to nothing, read once, since a hidden input stays hidden. */
+const clippedAway = new WeakMap<Element, boolean>()
+
+/**
+ * An element's box on screen, or an empty one where it is when it's visually hidden: clipped to nothing, as the hidden
+ * input a checkbox, radio, switch or select draws beside its control is. Such an input sits at the frame's corner, a
+ * pixel square, so counting it stretched its layer's box from the corner to the control, over the layers between.
+ */
+export function elementBox(element: Element): DOMRect {
+  const rect = element.getBoundingClientRect()
+  let hidden = clippedAway.get(element)
+  if (hidden === undefined) {
+    const style = getComputedStyle(element)
+    hidden = style.clip === "rect(0px, 0px, 0px, 0px)" || style.clipPath === "inset(50%)"
+    clippedAway.set(element, hidden)
+  }
+  return hidden ? new DOMRect(rect.left, rect.top, 0, 0) : rect
 }
 
 /** The box around a node's elements' boxes, leaving out empty ones unless they're all empty. */
@@ -207,12 +226,10 @@ export function nodesAt(host: Element, point: { x: number; y: number }): string[
     !!rect && point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom
   const drawn = drawnNodes(host)
   if (drawn) {
-    return drawn.ids.filter((id) =>
-      holds(boxAround(drawn.elements(id).map((element) => element.getBoundingClientRect())))
-    )
+    return drawn.ids.filter((id) => holds(boxAround(drawn.elements(id).map(elementBox))))
   }
   return attributeElements(host)
-    .filter((element) => holds(element.getBoundingClientRect()))
+    .filter((element) => holds(boxAround([elementBox(element)])))
     .map((element) => element.dataset.canvasNode!)
 }
 

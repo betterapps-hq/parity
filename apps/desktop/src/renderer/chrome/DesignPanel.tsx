@@ -31,7 +31,7 @@ export function DesignTab() {
       <div className="flex flex-col items-center gap-2 px-6 py-12 text-center text-sm text-muted-foreground">
         <MousePointerClick className="size-5" />
         Select a design on the canvas or in Layers.
-        <span className="text-xs">Double-click inside a design to select a layer.</span>
+        <span className="text-xs">Click inside a design to select a layer, and double-click to go deeper.</span>
       </div>
     )
   }

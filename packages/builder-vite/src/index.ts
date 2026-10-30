@@ -9,15 +9,20 @@ import {
   commandOption,
   describedCategories,
   describedTokenCss,
+  iconStyleModules,
   isMadeValue,
   type LibraryInfo,
   libraryImports,
   type PackageManifest,
   type ProjectConfig,
-  scriptRunning
+  scriptRunning,
+  ServedLog,
+  type ServedRecord,
+  servedChange
 } from "@parity/core"
 import type * as Vite from "vite"
 import { dependencySourceMaps } from "./dependency-maps.ts"
+import { buildFiles, hashCode, remake, servedModules, stampOf, stampsOf } from "./served.ts"
 
 /** Only used to explain a miss: the config itself is found by the project's own Vite. */
 const configPattern = /^vite\.config\.[cm]?[jt]s$/
@@ -34,7 +39,9 @@ export const viteBuilder: BuilderAdapter = {
     const vite = await loadProjectVite(options.root)
     const configFile = await scriptedConfig(options.root)
     // A reopened project gets its last port back when it can, so its guest URL is the one the canvas already loaded.
-    const port = options.port !== undefined && (await portFree(options.port)) ? options.port : await freePort()
+    const { port, carried } = await servingPort(options)
+    // Serving on the same address, it carries on the last builder's record, since the pages still hold what it served.
+    const log = new ServedLog(hashCode, carried)
     const server = await vite.createServer({
       root: options.root,
       ...(configFile ? { configFile } : {}),
@@ -62,15 +69,20 @@ export const viteBuilder: BuilderAdapter = {
           ...new Set(
             options.config.libraries
               .filter((library) => !library.workspace)
-              .flatMap((library) => [library.importName, ...libraryImports(library)])
+              .flatMap((library) => [library.importName, ...iconImports(library), ...libraryImports(library)])
           )
         ],
         entries: Object.values(options.config.components)
           .filter((component) => !component.library)
           .map((component) => component.path)
       },
-      plugins: [guestPlugin(options, vite.normalizePath(options.rendererGuestPath)), dependencySourceMaps()]
+      plugins: [
+        guestPlugin(options, vite.normalizePath(options.rendererGuestPath), log),
+        dependencySourceMaps(),
+        servedModules(log)
+      ]
     })
+    log.depend(await stampsOf(await buildFiles(server.config)))
     await server.listen()
     const origin = server.resolvedUrls?.local[0]
     if (!origin) {
@@ -80,6 +92,7 @@ export const viteBuilder: BuilderAdapter = {
     return {
       guestUrl: new URL(`/@id/__x00__${guestId}`, origin).href,
       toolVersion: vite.version,
+      served: () => log.record(stampOf, (url) => remake(server, url)),
       close: () => server.close()
     }
   }
@@ -106,7 +119,7 @@ export function portFree(port: number): Promise<boolean> {
   })
 }
 
-function guestPlugin(options: BuilderStartOptions, rendererGuestPath: string): Vite.Plugin {
+function guestPlugin(options: BuilderStartOptions, rendererGuestPath: string, log: ServedLog): Vite.Plugin {
   return {
     name: "canvas:guest",
     enforce: "pre",
@@ -117,9 +130,33 @@ function guestPlugin(options: BuilderStartOptions, rendererGuestPath: string): V
     },
     load(id) {
       // The canvas may add a cache-busting query when it retries a load.
-      return id.split("?")[0] === `\0${guestId}` ? guestModuleSource(options.config) : undefined
+      if (id.split("?")[0] !== `\0${guestId}`) return undefined
+      const source = guestModuleSource(options.config)
+      log.make(guestId, hashCode(source))
+      return source
     }
   }
+}
+
+/**
+ * The port to serve on: the project's last one when it's free and, for a reopened project, when the pages' copies of
+ * what its last builder served are all current. Otherwise any free one, so the pages load the project from a new
+ * address. Says what changed, when that's why.
+ */
+async function servingPort(options: BuilderStartOptions): Promise<{ port: number; carried?: ServedRecord }> {
+  const { port, served } = options
+  if (port === undefined) return { port: await freePort() }
+  if (served) {
+    const files = await stampsOf(Object.keys(served.files))
+    const change = servedChange(served, files, { [guestId]: hashCode(guestModuleSource(options.config)) })
+    if (change) {
+      const what = change === guestId ? "The guest's components, styles or libraries" : relative(options.root, change)
+      console.log(`[builder] ${what} changed since the project's pages loaded it, so they load it all again`)
+      return { port: await freePort() }
+    }
+  }
+  if (!(await portFree(port))) return { port: await freePort() }
+  return { port, ...(served ? { carried: served } : {}) }
 }
 
 /**
@@ -167,6 +204,11 @@ export function guestModuleSource(config: ProjectConfig): string {
     .map((library) => {
       const icons = library.icons
       const set = [`module: ${ref(importOf(library, icons?.import))}`]
+      // Its other styles' modules, by the key their icons' ids name them with (`heroicons/16/solid/CogIcon`).
+      const styles = iconStyleModules(icons, library.package).map(
+        (style) => `${JSON.stringify(style.key)}: ${ref(importOf(library, style.import))}`
+      )
+      if (styles.length > 0) set.push(`styles: { ${styles.join(", ")} }`)
       if (icons?.match) set.push(`match: ${JSON.stringify(icons.match)}`)
       if (icons?.exclude) set.push(`exclude: ${JSON.stringify(icons.exclude)}`)
       if (icons && icons.render !== "export") {
@@ -240,6 +282,14 @@ function member(path: string): string {
     .split(".")
     .map((part, index) => `${index === 0 ? "" : "?."}[${JSON.stringify(part)}]`)
     .join("")
+}
+
+/** The modules an icon set's icons are imported from: its own, and those of styles kept in modules of their own. */
+function iconImports(library: LibraryInfo): string[] {
+  if (library.kind !== "icons") return []
+  return [library.icons?.import, ...iconStyleModules(library.icons, library.package).map((style) => style.import)]
+    .filter((specifier) => specifier !== undefined)
+    .map((specifier) => importOf(library, specifier))
 }
 
 /** A library module by the name the project depends on it by, which can be an alias of the package. */

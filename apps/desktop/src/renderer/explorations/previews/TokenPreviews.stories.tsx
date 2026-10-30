@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, fireEvent, spyOn, userEvent, within } from "storybook/test"
+import { Keyframes, ReducedMotion } from "../../chrome/token-previews.tsx"
 import { CanvasBeside, Labeled, LeftPanelFrame, Stage } from "./frame.tsx"
-import { token } from "./preview-data.ts"
-import { ReducedMotion } from "./token-art.tsx"
+import { sampleKeyframes, token } from "./preview-data.ts"
 import { InspectorPickers, KindGallery, TokenDetail, TokensPanel } from "./token-panels.tsx"
 
 /**
@@ -13,7 +13,14 @@ import { InspectorPickers, KindGallery, TokenDetail, TokensPanel } from "./token
  */
 const meta = {
   title: "Parity/Explorations/Previews/Tokens",
-  parameters: { layout: "fullscreen" }
+  parameters: { layout: "fullscreen" },
+  decorators: [
+    (Story) => (
+      <Keyframes.Provider value={(name) => sampleKeyframes[name]}>
+        <Story />
+      </Keyframes.Provider>
+    )
+  ]
 } satisfies Meta
 
 export default meta
@@ -95,7 +102,7 @@ export const PanelSpacing: Story = {
  * Copying, likely what most people open the tab for. Each row has a copy button, shown while it's hovered or has the
  * keyboard, and Ctrl+C on a row does the same; both copy the name as CSS writes it, `--radius-md`, which Parity's fields
  * and the agent take. The button's icon turns into a green check either way. A palette shade copies when clicked, with
- * a bubble saying so. The detail's menu beside the name has the ways to write it in code.
+ * a bubble saying so. The detail's Copy button has the ways to write it in code under its arrow.
  */
 export const Copying: Story = {
   render: () => <Panel view="list" query="radius" />,
@@ -117,19 +124,36 @@ export const Copying: Story = {
 }
 
 /**
- * A token's detail, opened by clicking its row: a large preview, its name with a copy button and a menu of the ways to
- * write it in code, the tokens its value goes through and how many layers use it, then its value, which can't be
- * changed until Edit. Clicking away or Escape closes it.
+ * A token's detail, opened by clicking its row. Under the preview, the name, with what it comes to on the right as its
+ * row shows it; then one list: its value, the token it's built on and how many layers use it; then a bar with the two
+ * things to do with it. Edit changes the value in place. Copy copies the name, and its arrow opens the ways to write
+ * the token in code, each saying what it is. Clicking away or Escape closes it.
  */
 export const DetailFromRow: Story = {
   render: () => <Panel view="list" query="radius" open="radius-md" />,
   play: async () => {
     const dialog = await within(document.body).findByRole("dialog")
-    await expect(within(dialog).getByText("--radius-md")).toBeInTheDocument()
-    await expect(within(dialog).getByRole("button", { name: "Copy --radius-md" })).toBeInTheDocument()
-    await expect(within(dialog).getByRole("button", { name: "Copy for code" })).toBeInTheDocument()
-    await expect(within(dialog).getByText(/Comes to/)).toBeInTheDocument()
+    await expect(within(dialog).getByRole("heading", { name: "--radius-md" })).toBeInTheDocument()
+    await expect(within(dialog).getByText("8px")).toBeInTheDocument()
+    await expect(within(dialog).getByText("Built on")).toBeInTheDocument()
     await expect(within(dialog).getByRole("button", { name: "Edit" })).toBeInTheDocument()
+    await expect(within(dialog).getByRole("button", { name: "Copy --radius-md" })).toBeInTheDocument()
+    await expect(within(dialog).getByRole("button", { name: "Copy as" })).toBeInTheDocument()
+  }
+}
+
+/**
+ * The Copy button's arrow, open: `var()` under CSS, then the Tailwind classes that use the token, each named by what it
+ * sets. A color offers its background, text and border classes.
+ */
+export const DetailCopyAs: Story = {
+  render: () => <Panel view="list" query="primary" open="primary" />,
+  play: async () => {
+    const dialog = await within(document.body).findByRole("dialog")
+    await userEvent.click(within(dialog).getByRole("button", { name: "Copy as" }))
+    const menu = await within(document.body).findByRole("menu")
+    await expect(within(menu).getByText("bg-primary")).toBeInTheDocument()
+    await expect(within(menu).getByText("var(--primary)")).toBeInTheDocument()
   }
 }
 
@@ -161,7 +185,7 @@ export const DetailSaved: Story = {
     await userEvent.click(within(dialog).getByRole("button", { name: "Edit" }))
     const field = within(dialog).getByDisplayValue("0.625rem")
     await fireEvent.input(field, { target: { value: "0.75rem" } })
-    await expect(within(dialog).getByText(/Not saved yet/)).toBeInTheDocument()
+    await expect(within(dialog).getByText("Saves to src/index.css")).toBeInTheDocument()
     await userEvent.click(within(dialog).getByRole("button", { name: "Save" }))
     await expect(within(dialog).getByText(/Saved to src\/index.css/)).toBeInTheDocument()
     await expect(within(dialog).getByRole("button", { name: "Undo" })).toBeInTheDocument()

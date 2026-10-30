@@ -28,9 +28,19 @@ export {
   readChangedFiles
 } from "@parity/code"
 export { addCommand, cutoff, detectPackageManager, detectProject } from "./detect.ts"
+export {
+  diffFile,
+  EditConflict,
+  type FileChange,
+  type FileContent,
+  type FileEdit,
+  planEdit,
+  type ProjectEdit,
+  reverseEdit
+} from "./edits.ts"
 export { detectionFingerprint } from "./fingerprint.ts"
 export { parseJsonc } from "./jsonc.ts"
-export { installedPackage, type LibraryDefinition, libraryCatalog } from "./libraries.ts"
+export { installedPackage, type LibraryDefinition, libraryCatalog, withStylesImport } from "./libraries.ts"
 export { parseStoryFile } from "./storybook.ts"
 export { type ProjectTsconfig, readTsconfig, resolvePathAlias, type TsconfigFile } from "@parity/code"
 export { findWorkspace, type Workspace } from "./workspace.ts"

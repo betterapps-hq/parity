@@ -30,6 +30,7 @@ const actions: Record<string, { main: string; also?: string }> = {
   "cursor-question": { main: "Answer" },
   "ivy-access": { main: "Let Ivy comment", also: "Deny" },
   "noah-seat": { main: "Approve", also: "Deny" },
+  "ren-invite": { main: "Approve", also: "Deny" },
   "claude-run": { main: "See what changed" },
   "priya-review": { main: "Review" }
 }
@@ -54,7 +55,7 @@ function NeedsYouRow({ item }: { item: PortalEvent }) {
         </span>
         {item.quote && <span className="line-clamp-2 text-foreground/80">{item.quote}</span>}
       </span>
-      <span className="flex w-60 shrink-0 items-center justify-end gap-1">
+      <span className="flex w-56 shrink-0 items-center justify-end gap-1">
         {pr && (
           <span className="mr-1">
             <PullRequestLink pr={pr} />
@@ -86,7 +87,7 @@ export function ForYouPage() {
     <PortalPage active="home" path="kestrel">
       <div className="flex min-h-full">
         <main className="min-w-0 flex-1">
-          <div className="flex max-w-3xl flex-col gap-6 px-8 py-7">
+          <div className="flex max-w-4xl flex-col gap-6 px-8 py-7">
             <div className="flex flex-col gap-1">
               <PortalHeader title="For you" />
               <span className="text-sm text-muted-foreground">

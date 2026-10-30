@@ -1,38 +1,5 @@
-import type { TokenCategory } from "@parity/core"
-
-/**
- * How a token is drawn. Parity files tokens by category; a preview needs to know more, since Effects holds blurs and
- * aspect ratios, Shadows holds four kinds of shadow, and Other holds z-indexes, opacities, border widths and cursors.
- * The kind comes from the category, the name and the value, as `previewKind` in the proposal says.
- */
-export type PreviewKind =
-  | "color"
-  | "spacing"
-  | "radius"
-  | "border-width"
-  | "border"
-  | "shadow"
-  | "inset-shadow"
-  | "drop-shadow"
-  | "text-shadow"
-  | "font"
-  | "font-size"
-  | "font-weight"
-  | "leading"
-  | "tracking"
-  | "opacity"
-  | "blur"
-  | "backdrop-blur"
-  | "perspective"
-  | "aspect"
-  | "duration"
-  | "easing"
-  | "animation"
-  | "z-index"
-  | "breakpoint"
-  | "container"
-  | "cursor"
-  | "number"
+import type { PreviewKind, TokenCategory } from "@parity/core"
+import { drawn } from "../../chrome/token-previews.tsx"
 
 export interface SampleToken {
   /** The custom property, without `--`. */
@@ -442,57 +409,6 @@ export const others: SampleToken[] = [
   }
 ]
 
-/** The Tokens panel's sections, in order, each with the kinds it holds and a heading for each kind when it holds more. */
-export const tokenSections: { title: string; kinds: { kind: PreviewKind; heading?: string }[] }[] = [
-  { title: "Colors", kinds: [{ kind: "color" }] },
-  { title: "Fonts", kinds: [{ kind: "font" }] },
-  { title: "Font sizes", kinds: [{ kind: "font-size" }] },
-  { title: "Font weights", kinds: [{ kind: "font-weight" }] },
-  { title: "Line height", kinds: [{ kind: "leading" }] },
-  { title: "Letter spacing", kinds: [{ kind: "tracking" }] },
-  { title: "Spacing", kinds: [{ kind: "spacing" }] },
-  { title: "Radius", kinds: [{ kind: "radius" }] },
-  {
-    title: "Borders",
-    kinds: [
-      { kind: "border-width", heading: "Widths" },
-      { kind: "border", heading: "Width and style" }
-    ]
-  },
-  {
-    title: "Shadows",
-    kinds: [
-      { kind: "shadow", heading: "Box" },
-      { kind: "inset-shadow", heading: "Inset" },
-      { kind: "drop-shadow", heading: "Drop" },
-      { kind: "text-shadow", heading: "Text" }
-    ]
-  },
-  { title: "Opacity", kinds: [{ kind: "opacity" }] },
-  {
-    title: "Blur",
-    kinds: [
-      { kind: "blur", heading: "Layer" },
-      { kind: "backdrop-blur", heading: "Backdrop" }
-    ]
-  },
-  {
-    title: "Motion",
-    kinds: [
-      { kind: "duration", heading: "Durations" },
-      { kind: "easing", heading: "Easing" },
-      { kind: "animation", heading: "Animations" }
-    ]
-  },
-  { title: "Layers", kinds: [{ kind: "z-index" }] },
-  { title: "Breakpoints", kinds: [{ kind: "breakpoint" }] },
-  { title: "Containers", kinds: [{ kind: "container" }] },
-  { title: "Aspect ratios", kinds: [{ kind: "aspect" }] },
-  { title: "Perspective", kinds: [{ kind: "perspective" }] },
-  { title: "Cursors", kinds: [{ kind: "cursor" }] },
-  { title: "Other", kinds: [{ kind: "number" }] }
-]
-
 /** Every sample token, project colors first. */
 export const allTokens: SampleToken[] = [
   ...projectColors,
@@ -528,59 +444,10 @@ export function token(name: string): SampleToken {
   return found
 }
 
-/** The value a token draws with: what its references come to, else its own. */
-export function drawn(token: SampleToken, themeName = "default"): string {
-  return themeName === "default" ? (token.resolved ?? token.values.default!) : (token.values[themeName] ?? "")
-}
-
-const reference = /var\(\s*--([\w-]+)\s*(?:,([^()]*))?\)/g
-
-/** The tokens a value refers to with `var()`, in order. */
-export function references(value: string): string[] {
-  return [...value.matchAll(reference)].map((match) => match[1]!)
-}
-
-/**
- * A value with each `var()` replaced by what its token comes to, as the browser would: `calc(var(--radius) * 0.8)`
- * becomes `calc(0.625rem * 0.8)`. A reference to no token takes its fallback, or stays as written.
- */
-export function substituted(value: string): string {
-  return value.replace(reference, (whole, name: string, fallback?: string) => {
-    const found = allTokens.find((candidate) => candidate.name === name)
-    return found ? drawn(found) : (fallback?.trim() ?? whole)
-  })
-}
-
-/**
- * Each kind's Tailwind theme namespace and the utilities that read it. A token named in the namespace (`radius-md`)
- * gets the utility Tailwind makes for it (`rounded-md`); any other gets the utility with the variable
- * (`z-(--chakra-z-index-modal)`).
- */
-const utilities: Partial<Record<PreviewKind, [namespace: string, utilities: string[]]>> = {
-  color: ["color-", ["bg", "text", "border"]],
-  spacing: ["spacing-", ["p", "gap", "w"]],
-  radius: ["radius-", ["rounded"]],
-  "border-width": ["", ["border"]],
-  shadow: ["shadow-", ["shadow"]],
-  "inset-shadow": ["inset-shadow-", ["inset-shadow"]],
-  "drop-shadow": ["drop-shadow-", ["drop-shadow"]],
-  "text-shadow": ["text-shadow-", ["text-shadow"]],
-  font: ["font-", ["font"]],
-  "font-size": ["text-", ["text"]],
-  "font-weight": ["font-weight-", ["font"]],
-  leading: ["leading-", ["leading"]],
-  tracking: ["tracking-", ["tracking"]],
-  opacity: ["", ["opacity"]],
-  blur: ["blur-", ["blur"]],
-  "backdrop-blur": ["backdrop-blur-", ["backdrop-blur"]],
-  perspective: ["perspective-", ["perspective"]],
-  aspect: ["aspect-", ["aspect"]],
-  duration: ["", ["duration"]],
-  easing: ["ease-", ["ease"]],
-  animation: ["animate-", ["animate"]],
-  "z-index": ["", ["z"]],
-  container: ["container-", ["max-w"]],
-  cursor: ["", ["cursor"]]
+/** What a sample token comes to, by name, or undefined when there's no such token: the lookup value checks take. */
+export function sampleValue(name: string): string | undefined {
+  const found = allTokens.find((candidate) => candidate.name === name)
+  return found ? drawn(found) : undefined
 }
 
 /**
@@ -590,56 +457,26 @@ const utilities: Partial<Record<PreviewKind, [namespace: string, utilities: stri
 export const cssName = (token: SampleToken) => `--${token.name}`
 
 /**
- * The ways to write a token in code, for the detail's Copy for code menu: `var()`, which works anywhere CSS does, then
- * the Tailwind classes that use it. A breakpoint is a variant (`md:`), as `var()` can't go in a media query.
+ * The keyframes each sample animation runs. In the app these come from the project's own stylesheet, by the name the
+ * token gives, since the keyframes are wherever the token's styles are.
  */
-export function codeFor(token: SampleToken): string[] {
-  const css = `var(--${token.name})`
-  if (token.kind === "breakpoint") return [`${token.name.replace(/^breakpoint-/, "")}:`]
-  if (token.kind === "border") return [css, `[border:${css}]`]
-  const [namespace, names] = utilities[token.kind] ?? ["", []]
-  const step = namespace && token.name.startsWith(namespace) ? token.name.slice(namespace.length) : undefined
-  // A project's own colors reach Tailwind through `@theme inline`, by their own names (`bg-primary`).
-  const named = step ?? (token.kind === "color" ? token.name : undefined)
-  const classes = names.map((name) =>
-    named
-      ? `${name}-${named}`
-      : token.kind === "border-width"
-        ? `${name}-(length:--${token.name})`
-        : `${name}-(--${token.name})`
-  )
-  if (token.kind === "container" && step) classes.push(`@${step}:`)
-  // The spacing scale's base is what its steps are made of, not a length a class sets.
-  return token.kind === "spacing" && !step ? [css] : [css, ...classes]
-}
-
-/** A length in pixels, from px, rem or em, or from anything else the browser can work out, such as `calc()`. */
-export function px(value: string): number {
-  const match = /^(-?[\d.]+)(px|rem|em)?$/.exec(value.trim())
-  if (!match) return measured(value)
-  return Number(match[1]) * (match[2] === "rem" || match[2] === "em" ? 16 : 1)
-}
-
-const lengths = new Map<string, number>()
-
-/** A length the browser works out, by laying out an element that wide once; NaN when it isn't a length. */
-function measured(value: string): number {
-  const known = lengths.get(value)
-  if (known !== undefined) return known
-  if (typeof document === "undefined" || !CSS.supports("width", value)) return Number.NaN
-  const probe = document.createElement("div")
-  probe.style.cssText = `position: absolute; visibility: hidden; width: ${value}`
-  document.body.append(probe)
-  const length = probe.getBoundingClientRect().width
-  probe.remove()
-  lengths.set(value, length)
-  return length
-}
-
-/** A duration in milliseconds, from ms or s. */
-export function ms(value: string): number {
-  const match = /^([\d.]+)(ms|s)$/.exec(value.trim())
-  return match ? Number(match[1]) * (match[2] === "s" ? 1000 : 1) : Number.NaN
+export const sampleKeyframes: Record<string, Keyframe[]> = {
+  spin: [{ transform: "rotate(0deg)" }, { transform: "rotate(360deg)" }],
+  ping: [
+    { transform: "scale(1)", opacity: 1 },
+    { transform: "scale(2)", opacity: 0, offset: 0.75 },
+    { transform: "scale(2)", opacity: 0 }
+  ],
+  pulse: [{ opacity: 1 }, { opacity: 0.5, offset: 0.5 }, { opacity: 1 }],
+  bounce: [
+    { transform: "translateY(-25%)", easing: "cubic-bezier(0.8, 0, 1, 1)" },
+    { transform: "none", easing: "cubic-bezier(0, 0, 0.2, 1)", offset: 0.5 },
+    { transform: "translateY(-25%)" }
+  ],
+  "fade-in": [
+    { opacity: 0, transform: "translateY(4px)" },
+    { opacity: 1, transform: "none" }
+  ]
 }
 
 /**

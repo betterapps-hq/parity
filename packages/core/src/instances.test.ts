@@ -6,13 +6,17 @@ import {
   boardTarget,
   deleteNode,
   editNode,
+  findNode,
+  nodeOnBoard,
   removeVariantOption,
-  resetOverride
+  resetOverride,
+  toggleHidden
 } from "./edit.ts"
 import {
   detachInstance,
   editInner,
   innerChanges,
+  layerOnBoard,
   locateInner,
   overrideCount,
   pushOverrides,
@@ -302,5 +306,133 @@ describe("detach and swap", () => {
     })
     expect(textOf(render(swapped, swapped.states[0], lib), "first/about")).toBe("Leads design")
     expect(() => swapInstance(team, "first", "team", library)).toThrow(/contain itself/)
+  })
+})
+
+/** A stat card that shows a trend icon for each direction, picked by two boolean params, as the example's does. */
+const statCard: ContainerSpec = {
+  id: "stat-card",
+  name: "Stat card",
+  kind: "component",
+  position: { x: 0, y: 0 },
+  params: {
+    label: { type: "text", default: "Revenue" },
+    showRising: { type: "boolean", default: true },
+    showFalling: { type: "boolean", default: false }
+  },
+  root: {
+    type: "layout",
+    id: "card",
+    children: [
+      { type: "text", id: "label", text: "Revenue", bind: { text: "label" } },
+      { type: "component", id: "rising", component: "TrendingUp", bind: { visible: "showRising" } },
+      { type: "component", id: "falling", component: "TrendingDown", bind: { visible: "showFalling" } }
+    ]
+  },
+  states: [
+    { id: "default", name: "Default" },
+    { id: "loading", name: "Loading" }
+  ]
+}
+
+describe("a component's board", () => {
+  const stats = componentLibrary([statCard])
+  const dashboard: ContainerSpec = {
+    id: "dashboard",
+    name: "Dashboard",
+    position: { x: 0, y: 0 },
+    root: {
+      type: "layout",
+      id: "page",
+      children: [
+        { type: "instance", id: "revenue", design: "stat-card" },
+        { type: "instance", id: "churn", design: "stat-card", args: { showRising: false, showFalling: true } }
+      ]
+    },
+    states: [{ id: "default", name: "Default" }]
+  }
+
+  it("shows the trend icon its params select, as its instances do", () => {
+    const board = render(statCard, statCard.states[0], stats)
+    expect(rendered(board, "rising")).toBeDefined()
+    expect(rendered(board, "falling")).toBeUndefined()
+    const screen = render(dashboard, dashboard.states[0], stats)
+    expect(rendered(screen, "revenue/falling")).toBeUndefined()
+    expect(rendered(screen, "churn/falling")).toBeDefined()
+    expect(rendered(screen, "churn/rising")).toBeUndefined()
+  })
+
+  it("shows a bound text's default, and an edit to it in the design changes the default", () => {
+    expect(textOf(render(badge), "label")).toBe("New")
+    const edited = editNode(badge, "default", "label", { text: "Fresh" })
+    expect(edited.params?.label).toEqual({ type: "text", default: "Fresh" })
+    expect(textOf(render(edited), "label")).toBe("Fresh")
+    const lib = componentLibrary([edited, card, team])
+    const screen: ContainerSpec = { ...team, root: { type: "instance", id: "tag", design: "badge" } }
+    expect(textOf(render(screen, screen.states[0], lib), "tag/label")).toBe("Fresh")
+  })
+
+  it("leaves a param without a default, and variants, to the design's own values", () => {
+    const plain: ContainerSpec = { ...badge, params: { ...badge.params, label: { type: "text" } } }
+    expect(textOf(render(plain), "label")).toBe("Badge")
+    expect(editNode(plain, "default", "label", { text: "Fresh" }).params?.label).toEqual({ type: "text" })
+  })
+
+  it("says what the board shows in a state for one of its own layers and for a layer inside an instance", () => {
+    expect(nodeOnBoard(statCard, findNode(statCard.root, "falling")!, statCard.states[0])).toMatchObject({
+      hidden: true
+    })
+    const empty = card.states[1]
+    expect(layerOnBoard(card, "body", library, empty)).toMatchObject({ text: "Nothing yet" })
+    expect(layerOnBoard(card, "title", library, empty)).toMatchObject({ text: "Title" })
+    expect(layerOnBoard(card, "status/label", library, empty)).toMatchObject({ text: "Active" })
+    const danger = { ...badge, view: { variants: { tone: "danger" } } }
+    const shown = layerOnBoard(danger, "badge", library, danger.states[0])
+    expect(shown?.style).toMatchObject({ background: "destructive" })
+  })
+})
+
+describe("hiding a layer in a state", () => {
+  it("reads whether the board hides it, through the params it binds", () => {
+    // Falling shows nothing on the board, since showFalling is off: Hide or show shows it, and turns the default on.
+    const shown = toggleHidden(statCard, "default", ["falling"])
+    expect(shown.params?.showFalling).toEqual({ type: "boolean", default: true })
+    expect(rendered(render(shown, shown.states[0], componentLibrary([shown])), "falling")).toBeDefined()
+    expect(toggleHidden(shown, "default", ["falling"]).params?.showFalling?.default).toBe(false)
+  })
+
+  it("shows in a state what the board hides there, and hides it again", () => {
+    const shown = toggleHidden(statCard, "loading", ["falling"])
+    expect(shown.states[1]?.overrides).toEqual({ falling: { hidden: false } })
+    expect(shown.params).toEqual(statCard.params)
+    expect(rendered(render(shown, shown.states[1], componentLibrary([shown])), "falling")).toBeDefined()
+    expect(toggleHidden(shown, "loading", ["falling"]).states[1]?.overrides).toBeUndefined()
+  })
+
+  it("reads what the state and the variant shown hide", () => {
+    const loading = {
+      ...card,
+      states: [card.states[0]!, { id: "loading", name: "Loading", overrides: { body: { hidden: true } } }]
+    }
+    expect(toggleHidden(loading, "loading", ["body"]).states[1]?.overrides).toBeUndefined()
+    const quiet: ContainerSpec = {
+      ...badge,
+      params: {
+        ...badge.params,
+        tone: {
+          type: "variant",
+          options: [
+            { id: "neutral", name: "Neutral" },
+            { id: "quiet", name: "Quiet", overrides: { label: { hidden: true } } }
+          ]
+        }
+      },
+      view: { variants: { tone: "quiet" } }
+    }
+    const shown = toggleHidden(quiet, "default", ["label"])
+    expect(shown.params?.tone?.options?.[1]?.overrides).toBeUndefined()
+    // Another state shows it over the variant, so its change is kept.
+    const pressed = { ...quiet, states: [quiet.states[0]!, { id: "pressed", name: "Pressed" }] }
+    expect(toggleHidden(pressed, "pressed", ["label"]).states[1]?.overrides).toEqual({ label: { hidden: false } })
   })
 })

@@ -35,7 +35,7 @@ export function LeftPanel() {
       <TabsContent value="images" className="flex min-h-0 flex-col">
         <ImagesPanel />
       </TabsContent>
-      <TabsContent value="tokens" className="min-h-0 overflow-x-hidden overflow-y-auto">
+      <TabsContent value="tokens" className="flex min-h-0 flex-col">
         <TokensPanel />
       </TabsContent>
     </SidePanel>

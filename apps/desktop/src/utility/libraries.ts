@@ -1,8 +1,9 @@
 import { type ChildProcess, spawn } from "node:child_process"
-import { readFile, writeFile } from "node:fs/promises"
+import { readFile } from "node:fs/promises"
 import { join } from "node:path"
-import { addCommand, detectPackageManager, libraryCatalog } from "@parity/project"
-import type { ServiceMethods } from "../shared/protocol.ts"
+import { addCommand, detectPackageManager, libraryCatalog, withStylesImport } from "@parity/project"
+import type { ProjectEditResult, ServiceMethods } from "../shared/protocol.ts"
+import { applyProjectEdit } from "./edits.ts"
 import { killTree, trackProcess } from "./processes.ts"
 import { getProject, message } from "./projects.ts"
 
@@ -49,14 +50,11 @@ export async function addLibrary({
     { stop: () => child?.pid && killTree(child.pid) }
   )
   let log: string
+  let edit: ProjectEditResult | undefined
   try {
     log = await run(command, args, project.info.root, (spawned) => (child = spawned))
     if (definition.tailwindEntry) {
-      await importLibraryStyles(
-        project.info.root,
-        stylesheetOf(projectId),
-        `${definition.package}/${definition.tailwindEntry}`
-      )
+      edit = await importLibraryStyles(projectId, definition.name, `${definition.package}/${definition.tailwindEntry}`)
     }
   } catch (error) {
     if (task.stopping) {
@@ -67,16 +65,23 @@ export async function addLibrary({
     throw error
   }
   task.set("passed", { summary: `Added ${definition.package}` })
-  return { log }
+  return edit ? { log, edit } : { log }
 }
 
-export async function importStyles({ projectId, library }: ServiceMethods["library.importStyles"]["params"]) {
+export async function importStyles({
+  projectId,
+  library
+}: ServiceMethods["library.importStyles"]["params"]): Promise<ProjectEditResult | undefined> {
   const { info } = getProject(projectId)
   const installed = info.libraries.find((candidate) => candidate.id === library)
   if (!installed?.tailwindEntry) throw new Error(`${library} has no styles to import`)
-  await importLibraryStyles(info.root, stylesheetOf(projectId), `${installed.importName}/${installed.tailwindEntry}`)
+  const edit = await importLibraryStyles(
+    projectId,
+    installed.name,
+    `${installed.importName}/${installed.tailwindEntry}`
+  )
   installed.stylesImported = true
-  return undefined
+  return edit
 }
 
 function stylesheetOf(projectId: string): string {
@@ -86,19 +91,21 @@ function stylesheetOf(projectId: string): string {
   return stylesheet
 }
 
-/**
- * Imports a library's styles right after Tailwind, so the library's own token defaults come first and the project's
- * tokens, declared later in the file, still win.
- */
-async function importLibraryStyles(root: string, stylesheet: string, specifier: string): Promise<void> {
-  const path = join(root, stylesheet)
-  const source = await readFile(path, "utf8")
-  if (source.includes(specifier)) return
-  const line = `@import "${specifier}";`
-  const lines = source.split("\n")
-  const tailwind = lines.findIndex((text) => /^@import\s+["']tailwindcss["']/.test(text.trim()))
-  lines.splice(tailwind + 1, 0, line)
-  await writeFile(path, lines.join("\n"))
+/** Imports a library's styles into the project's stylesheet, unless it imports them already. */
+async function importLibraryStyles(
+  projectId: string,
+  name: string,
+  specifier: string
+): Promise<ProjectEditResult | undefined> {
+  const project = getProject(projectId)
+  const stylesheet = stylesheetOf(projectId)
+  const source = await readFile(join(project.info.root, stylesheet), "utf8")
+  const content = withStylesImport(source, specifier)
+  if (content === undefined) return undefined
+  return applyProjectEdit(project, {
+    label: `Import ${name}'s styles`,
+    files: [{ kind: "replace", path: stylesheet, expected: source, content }]
+  })
 }
 
 function run(command: string, args: string[], cwd: string, started: (child: ChildProcess) => void): Promise<string> {

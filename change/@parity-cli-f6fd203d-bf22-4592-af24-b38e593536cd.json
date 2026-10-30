@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Reopen a project without loading its code again when it hasn't changed, show the new code when it has, and free a closed project's styles",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

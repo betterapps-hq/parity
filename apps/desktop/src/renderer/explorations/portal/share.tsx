@@ -45,7 +45,7 @@ function ShareDialog() {
     { person: priya, why: "Owns the project", role: "owner" },
     { person: me, why: "Admin of Kestrel", role: "edit" },
     { person: maya, why: "Through the Web team", role: "edit" },
-    { person: noah, why: "Through the Web team. Views until the editor seat Noah asked for is approved", role: "view" }
+    { person: noah, why: "Through the Web team, waiting on an editor seat", role: "view" }
   ]
   const request = event("ivy-access")
   return (
@@ -85,7 +85,9 @@ function ShareDialog() {
             </span>
             <p className="border-l-2 pl-2.5 text-[13px] text-foreground/85">{request.quote}</p>
             <div className="flex gap-2">
-              <Button size="sm">Let Ivy comment</Button>
+              <Button size="sm" variant="outline">
+                Let Ivy comment
+              </Button>
               <Button size="sm" variant="ghost">
                 Deny
               </Button>

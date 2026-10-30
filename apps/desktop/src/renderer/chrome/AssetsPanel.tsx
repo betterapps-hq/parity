@@ -42,6 +42,7 @@ import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { type ProjectSession, workspace } from "../workspace.ts"
 import { Hint } from "./Hint.tsx"
 import { GuestIcon, iconCatalog, iconLibraries, iconStyles, iconsOf } from "./icons.tsx"
+import { announceEdit } from "./project-edits.tsx"
 import { hasStories, openInStorybook } from "./storybook.ts"
 
 /** Adds an item where the selection is, or says what to select first. */
@@ -522,17 +523,30 @@ function ImportStyles({ library }: { library: LibraryInfo }) {
       <button
         type="button"
         className="font-medium text-foreground underline-offset-2 hover:underline"
-        onClick={() =>
-          void window.canvasHost
-            .request("library.importStyles", { projectId: session.id, library: library.id })
-            .then(() => workspace.reload(session.id, `Loading ${library.name}'s styles`))
-            .catch((error: unknown) => toast.error("Couldn't import its styles", { description: message(error) }))
-        }
+        onClick={() => void importStyles(session, library)}
       >
         Import them
       </button>
     </div>
   )
+}
+
+/**
+ * Imports a library's styles into the project's stylesheet, then reopens the tab to draw with them, and says what it
+ * changed, to look at or undo.
+ */
+export async function importStyles(session: ProjectSession, library: LibraryInfo): Promise<void> {
+  try {
+    const edit = await window.canvasHost.request("library.importStyles", { projectId: session.id, library: library.id })
+    await workspace.reload(session.id, `Loading ${library.name}'s styles`)
+    if (edit) {
+      announceEdit(session.id, edit, {
+        afterUndo: () => workspace.reload(session.id, `Taking out ${library.name}'s styles`)
+      })
+    }
+  } catch (error) {
+    toast.error("Couldn't import its styles", { description: message(error) })
+  }
 }
 
 /** The smallest an icon's cell gets, in pixels: room to aim at its icon. Cells grow so each row fills the panel. */

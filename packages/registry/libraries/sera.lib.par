@@ -8018,6 +8018,7 @@
         "declaration": "dist/ui/field.d.ts",
         "group": "Field",
         "parents": [
+          "FieldGroup",
           "Field"
         ],
         "parentsFrom": "example",
@@ -14285,10 +14286,20 @@
         "declaration": "dist/ui/sidebar.d.ts",
         "group": "Sidebar",
         "parents": [
+          "SidebarProvider",
+          "Sidebar",
+          "SidebarContent",
+          "SidebarGroup",
+          "SidebarGroupContent",
           "SidebarMenu",
           "SidebarMenuItem"
         ],
         "parentsFrom": "example",
+        "optionalParents": [
+          "SidebarGroupContent",
+          "SidebarGroup",
+          "SidebarContent"
+        ],
         "sample": {
           "props": {
             "showIcon": true
@@ -15388,6 +15399,22 @@
           "Toast"
         ],
         "parentsFrom": "error",
+        "sample": {
+          "children": [
+            {
+              "component": "ToastTitle"
+            },
+            {
+              "component": "ToastDescription"
+            },
+            {
+              "component": "ToastAction"
+            },
+            {
+              "component": "ToastClose"
+            }
+          ]
+        },
         "fingerprint": "b60d1781",
         "props": {
           "className?": "2d0ada",

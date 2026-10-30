@@ -286,7 +286,11 @@ export async function relateParts(
     try {
       // React Aria draws a collection's parts outside one as placeholders for its collection to read (`<item>`,
       // `<tablebody>`), not the parts.
-      if (/^<(?:item|tablebody|tableheader|column|cell|loader|separator)[\s>]/.test(renderToStaticMarkup(element)))
+      if (
+        /^<(?:item|submenutrigger|tablebody|tableheader|column|cell|loader|separator)[\s>]/.test(
+          renderToStaticMarkup(element)
+        )
+      )
         return "Renders only as a placeholder outside a collection."
       return undefined
     } catch (error) {
@@ -697,6 +701,53 @@ export async function relateParts(
       if (Object.keys(generated).length > 0) sample.props = generated
       else delete sample.props
       if (!sample.props && !sample.children) delete relations.get(parent)!.sample
+    }
+  }
+
+  // A chain whose outermost parent needs parents of its own (`SubmenuTrigger` in a `MenuSection`, which goes in a
+  // `Menu`) starts outside them, as inserting the parent alone would.
+  // Parents guessed round in a circle (a part among its parent's parents) are left as they are.
+  for (const [name, relation] of relations) {
+    for (let round = 0; round < 4 && relation.parents?.length; round++) {
+      const outer = relations.get(relation.parents[0]!)
+      if (outer?.parents?.includes(name)) break
+      const added = (outer?.parents ?? []).filter((parent) => !relation.parents!.includes(parent))
+      if (added.length === 0) break
+      relation.parents = [...added, ...relation.parents]
+      const optional = (outer?.optionalParents ?? []).filter((parent) => added.includes(parent))
+      if (optional.length > 0)
+        relation.optionalParents = [...new Set([...(relation.optionalParents ?? []), ...optional])]
+    }
+  }
+
+  // A part with no children of its own takes those a parent's sample spells out for it (a table's `Row` its `Cell`s),
+  // when it renders with them, rather than a text label its collection can't hold.
+  const spelledOut = (children: SampleChild[], name: string): SampleChild[] | undefined => {
+    for (const child of children) {
+      if (typeof child === "string" || isSampleRender(child)) continue
+      if (child.component === name && child.children?.length) return child.children
+      const inner = spelledOut(child.children ?? [], name)
+      if (inner) return inner
+    }
+    return undefined
+  }
+  for (const [name, relation] of relations) {
+    if (relation.sample?.children || !relation.parents?.length || relation.visual === false) continue
+    for (const parent of [...relation.parents].reverse()) {
+      const children = spelledOut(relations.get(parent)?.sample?.children ?? [], name)
+      if (!children) continue
+      // Or inside the outermost parent's whole sample, where what they need is (the table's columns for a row's cells).
+      const parts = !attempt(relation.parents, name, children)
+        ? false
+        : !attempt(relation.parents, name, children, true)
+          ? true
+          : undefined
+      if (parts !== undefined) {
+        relation.sample = { ...relation.sample, children }
+        if (parts) relation.parentParts = true
+        delete relation.inside
+      }
+      break
     }
   }
 

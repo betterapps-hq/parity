@@ -41,6 +41,7 @@ export function useFrameBitmap(
   const { guestUrl, theme } = session.info
   const job = useMemo<RenderJob>(
     () => ({
+      projectId: session.id,
       guestUrl,
       theme,
       tree,
@@ -54,11 +55,11 @@ export function useFrameBitmap(
       scale: bitmapScale * scale,
       ...(previews.length > 0 ? { previews: [...previews] } : {})
     }),
-    [guestUrl, theme, tree, mode, width, height, scale, previews]
+    [session.id, guestUrl, theme, tree, mode, width, height, scale, previews]
   )
   const previewsKey = useMemo(() => JSON.stringify(previews), [previews])
   const key = [
-    guestId(session.loaded),
+    guestId(session.loaded.guest),
     guestUrl,
     previewsKey,
     width,
@@ -117,12 +118,15 @@ function want(key: string, change: 1 | -1): void {
   else wanted.delete(key)
 }
 
-/** The project's guest as loaded this time, since reopening it after a code change draws frames differently. */
-function guestId(loaded: object): number {
-  let id = guests.get(loaded)
+/**
+ * The project's guest module as the page loaded it: a reopened project whose code hasn't changed loads the same one, at
+ * the same address, so its bitmaps still show its frames.
+ */
+function guestId(guest: object): number {
+  let id = guests.get(guest)
   if (id === undefined) {
     id = nextGuest++
-    guests.set(loaded, id)
+    guests.set(guest, id)
   }
   return id
 }

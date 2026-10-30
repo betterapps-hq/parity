@@ -2,7 +2,7 @@
   "version": 3,
   "id": "heroicons",
   "name": "Heroicons",
-  "description": "Hand-crafted SVG icons from the makers of Tailwind CSS, in the 24px outline style.",
+  "description": "Hand-crafted SVG icons from the makers of Tailwind CSS, outline and solid, at 24, 20 and 16px.",
   "package": {
     "name": "@heroicons/react",
     "version": "2.2.0",
@@ -11,6 +11,23 @@
   "icons": {
     "render": "export",
     "import": "@heroicons/react/24/outline",
+    "variants": {
+      "modules": {
+        "16 Solid": "@heroicons/react/16/solid",
+        "20 Solid": "@heroicons/react/20/solid",
+        "24 Outline": "@heroicons/react/24/outline",
+        "24 Solid": "@heroicons/react/24/solid"
+      },
+      "styles": [
+        "16 Solid",
+        "20 Solid",
+        "24 Outline",
+        "24 Solid"
+      ],
+      "default": {
+        "style": "24 Outline"
+      }
+    },
     "count": 324
   }
 }

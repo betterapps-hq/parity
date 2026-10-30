@@ -5,7 +5,7 @@ import { defineConfig } from "vite-plus"
  * it takes data and returns data, with nothing from Node, React, tldraw or Electron, so a new package starts pure.
  */
 
-/** Packages that read a project's files but never write them or start processes; writes go through changesets. */
+/** Packages that read a project's files but never write them or start processes; writes go through project edits. */
 const readers = ["code", "project", "registry"]
 
 /** Packages at the edge, where Node and React belong: the CLI, generators, the agent runtime, adapters and fixtures. */
@@ -45,7 +45,7 @@ const fileWrites = [
   "writeFile"
 ]
 const readOnly =
-  "Reader packages read files but never write them: return a changeset and let the project service apply it."
+  "Reader packages read files but never write them: return a project edit and let the project service apply it."
 
 /**
  * The workspace's format, lint, type-check, test and task settings, which `vp check`, `vp test` and `vp run` read from
@@ -205,7 +205,9 @@ export default defineConfig({
       "scripts/*.test.ts"
     ],
     // CI's runners have four cores. Locally twelve, which Copacker's tests settled on for this machine.
-    maxWorkers: process.env.CI ? 4 : 12
+    maxWorkers: process.env.CI ? 4 : 12,
+    // Closing Chrome after the browser tests takes more than the default 10 seconds on CI's macOS runners.
+    hookTimeout: 30_000
   },
   run: {
     cache: true

@@ -5,7 +5,7 @@ import { type RenderNode, screenHeightForWidth } from "@parity/core"
 import axe, { type NodeResult, type RunOptions } from "axe-core"
 import type { MeasuredNode, RenderedFrame, RenderJob } from "../shared/protocol.ts"
 import { drawnNodeIds, findNodeElement, nodeBox, nodeOfElement, prepareFrame, setDrawnNodes } from "./frame.ts"
-import { loadGuest, previewToken } from "./guest.ts"
+import { loadGuest, previewToken, releaseGuest } from "./guest.ts"
 
 declare global {
   interface Window {
@@ -18,6 +18,8 @@ declare global {
 let current: { unmount(): void } | undefined
 /** The frame drawn last, for the audit that may follow once the window is as tall as the frame. */
 let currentHost: HTMLElement | undefined
+/** The guest each project's frames were drawn with last, to let go of when its project reopens at a new address. */
+const projectGuests = new Map<string, string>()
 
 window.canvasSettle = async () => {
   await document.fonts.ready
@@ -29,6 +31,11 @@ window.canvasRender = async (job) => {
   current = undefined
   currentHost = undefined
   document.body.replaceChildren()
+  const last = projectGuests.get(job.projectId)
+  if (last !== job.guestUrl) {
+    if (last) releaseGuest(last)
+    projectGuests.set(job.projectId, job.guestUrl)
+  }
   try {
     const loaded = await loadGuest(job.guestUrl, job.theme)
     for (const change of job.previews ?? []) previewToken(loaded.sheet, change.name, change.theme, change.value)

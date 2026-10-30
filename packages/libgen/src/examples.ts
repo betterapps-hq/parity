@@ -2,7 +2,7 @@ import { execFile } from "node:child_process"
 import { existsSync } from "node:fs"
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { homedir } from "node:os"
-import { join } from "node:path"
+import { join, posix } from "node:path"
 import { promisify } from "node:util"
 import { type ComponentSample, isSampleRender, type SampleChild, type SampleRender } from "@parity/core"
 import ts from "typescript"
@@ -278,7 +278,9 @@ export function readExamples(
   files: ExampleFile[],
   names: string[],
   /** The library's package, whose own functions an example calls for a prop's value (`createTreeCollection`). */
-  pkg?: string
+  pkg?: string,
+  /** The functions the package exports, called from it though an example imports them from elsewhere. */
+  reexported: Set<string> = new Set()
 ): Map<string, ExampleUse> {
   const known = new Set(names)
   const flat = new Map(names.map((name) => [name.replaceAll(".", ""), name]))
@@ -288,6 +290,13 @@ export function readExamples(
   /** How many uses of each part set each prop. */
   const setBy = new Map<string, Map<string, number>>()
   let kin = new Map<string, string>()
+  const sourceOf = (file: ExampleFile) => {
+    const source =
+      sources.get(file) ?? ts.createSourceFile(file.path, file.text, ts.ScriptTarget.Latest, false, ts.ScriptKind.TSX)
+    sources.set(file, source)
+    return source
+  }
+  const imported = importedWrappers(files, sourceOf, resolve)
   // Twice: where each part is placed first, then its samples, which keep the parts of its family, and a family takes in
   // the parts the examples only ever place inside it (a table's `Row`, `Cell` and `Column`).
   for (const sampling of [false, true]) {
@@ -297,10 +306,8 @@ export function readExamples(
       // A quick look first: most files in a large repository use none of these components.
       if (!sampling && !names.some((name) => file.text.includes(name.split(".").at(-1)!))) continue
       if (sampling && !sources.has(file)) continue
-      const source =
-        sources.get(file) ?? ts.createSourceFile(file.path, file.text, ts.ScriptTarget.Latest, false, ts.ScriptKind.TSX)
-      sources.set(file, source)
-      readSource(source, uses, resolve, sampling ? family : undefined, setBy, pkg)
+      const source = sourceOf(file)
+      readSource(source, uses, resolve, sampling ? family : undefined, setBy, pkg, imported(source), reexported)
     }
   }
   // A part's sample props are its defaults wherever it's drawn, so one that only a single use, or under a quarter of
@@ -333,9 +340,11 @@ function readSource(
   base: (tag: string) => string | undefined,
   family?: (name: string) => string,
   setBy?: Map<string, Map<string, number>>,
-  pkg?: string
+  pkg?: string,
+  imported: Map<string, Wrapper> = new Map(),
+  reexported: Set<string> = new Set()
 ): void {
-  const wrapping = wrappers(source, base)
+  const wrapping = new Map([...imported, ...wrappers(source, base)])
   // The example's own wrapper of a part (`<CustomTab>`) is that part where the example places it.
   const resolve = (tag: string) => base(tag) ?? wrapping.get(tag)?.name
   const wrapped = new Set([...wrapping.values()].map((wrapper) => wrapper.root))
@@ -345,7 +354,7 @@ function readSource(
     scope: declarations(source),
     env: new Map(),
     wrapping,
-    ...(pkg ? { imports: packageImports(source, pkg) } : {})
+    ...(pkg ? { imports: packageImports(source, pkg, reexported) } : {})
   }
   const placedHere = new Set<string>()
   const hooked = hookResults(source)
@@ -448,7 +457,7 @@ function kinOf(uses: Map<string, ExampleUse>): Map<string, string> {
   for (let round = 0; round < 4; round++) {
     let changed = false
     for (const [name, use] of uses) {
-      if (use.count < 2 || use.topLevel * 10 > use.count) continue
+      if (use.count < 2) continue
       // One whose own family is around it (`Toggle.Indicator` in a `Button` in `Toggle.Root`) stays in its own.
       const own = use.paths.filter((path) => path.some((parent) => familyOf(parent) === familyOf(name))).length
       if (own * 2 >= use.paths.length) continue
@@ -461,7 +470,10 @@ function kinOf(uses: Map<string, ExampleUse>): Map<string, string> {
       }
       const [family, count] = [...families].sort((a, b) => b[1] - a[1])[0] ?? []
       if (!family || !count || count < placed * 0.75 || family === familyOf(name) || kin.get(name) === family) continue
-      if (generic(family)) continue
+      // A part named for the family (`SubmenuTrigger` in a `Menu`) joins it even where examples also draw it alone, and
+      // though the family holds many others.
+      const namedFor = name.toLowerCase().includes(family.toLowerCase())
+      if (!namedFor && (use.topLevel * 10 > use.count || generic(family))) continue
       kin.set(name, family)
       changed = true
     }
@@ -470,15 +482,61 @@ function kinOf(uses: Map<string, ExampleUse>): Map<string, string> {
   return kin
 }
 
+/** An example's own component that draws one of the library's parts. */
+interface Wrapper {
+  name: string
+  root: ts.Node
+  spread: boolean
+}
+
+/**
+ * The wrappers a file imports from another example file beside it (React Aria's stories take `MyMenuItem` from
+ * `./utils`). Only ones that pass their props on count: a wrapper's own element is sampled from its file, not this one.
+ */
+function importedWrappers(
+  files: ExampleFile[],
+  sourceOf: (file: ExampleFile) => ts.SourceFile,
+  resolve: (tag: string) => string | undefined
+): (source: ts.SourceFile) => Map<string, Wrapper> {
+  const byPath = new Map(files.map((file) => [file.path.replaceAll("\\", "/"), file]))
+  const declared = new Map<ExampleFile, Map<string, Wrapper>>()
+  return (source) => {
+    const found = new Map<string, Wrapper>()
+    for (const statement of source.statements) {
+      if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue
+      const specifier = statement.moduleSpecifier.text
+      const bindings = statement.importClause?.namedBindings
+      if (!specifier.startsWith(".") || !bindings || !ts.isNamedImports(bindings)) continue
+      const base = posix.join(posix.dirname(source.fileName.replaceAll("\\", "/")), specifier)
+      const file = ["", ".tsx", ".ts", ".jsx", ".js", "/index.tsx", "/index.ts"]
+        .map((extension) => byPath.get(base + extension))
+        .find((item) => item !== undefined)
+      if (!file) continue
+      let theirs = declared.get(file)
+      if (!theirs) {
+        theirs = wrappers(sourceOf(file), resolve, false)
+        declared.set(file, theirs)
+      }
+      for (const element of bindings.elements) {
+        const wrapper = theirs.get((element.propertyName ?? element.name).text)
+        if (wrapper?.spread) found.set(element.name.text, wrapper)
+      }
+    }
+    return found
+  }
+}
+
 /**
  * The example's own components that return one of the library's parts and no other element (`const CustomTab = (props)
- * => <Tab {...props} />`), each with the part, its element, and whether it hands its props on. Only those the file places.
+ * => <Tab {...props} />`), each with the part, its element, and whether it hands its props on. With `usedHere`, only
+ * those the file places, as against ones it declares for other files.
  */
 function wrappers(
   source: ts.SourceFile,
-  resolve: (tag: string) => string | undefined
-): Map<string, { name: string; root: ts.Node; spread: boolean }> {
-  const found = new Map<string, { name: string; root: ts.Node; spread: boolean }>()
+  resolve: (tag: string) => string | undefined,
+  usedHere = true
+): Map<string, Wrapper> {
+  const found = new Map<string, Wrapper>()
   const tags = new Set<string>()
   const visit = (node: ts.Node) => {
     if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) tags.add(node.tagName.getText(source))
@@ -507,7 +565,7 @@ function wrappers(
     ts.forEachChild(node, visit)
   }
   visit(source)
-  for (const declared of found.keys()) if (!tags.has(declared)) found.delete(declared)
+  if (usedHere) for (const declared of found.keys()) if (!tags.has(declared)) found.delete(declared)
   return found
 }
 
@@ -528,16 +586,23 @@ interface Context {
 }
 
 /** The names a file imports from a package or its subpaths (`@base-ui/react/toast`), with what each is there. */
-function packageImports(source: ts.SourceFile, pkg: string): Map<string, { import: string; export: string }> {
+function packageImports(
+  source: ts.SourceFile,
+  pkg: string,
+  reexported: Set<string> = new Set()
+): Map<string, { import: string; export: string }> {
   const found = new Map<string, { import: string; export: string }>()
   for (const statement of source.statements) {
     if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue
     const from = statement.moduleSpecifier.text
-    if (from !== pkg && !from.startsWith(`${pkg}/`)) continue
+    const own = from === pkg || from.startsWith(`${pkg}/`)
     const bindings = statement.importClause?.namedBindings
-    if (!bindings || !ts.isNamedImports(bindings)) continue
+    if (from.startsWith(".") || !bindings || !ts.isNamedImports(bindings)) continue
     for (const element of bindings.elements) {
-      found.set(element.name.text, { import: from, export: (element.propertyName ?? element.name).text })
+      const name = (element.propertyName ?? element.name).text
+      // One the package exports too is called from the package, which the project has.
+      if (own) found.set(element.name.text, { import: from, export: name })
+      else if (reexported.has(name)) found.set(element.name.text, { import: pkg, export: name })
     }
   }
   return found

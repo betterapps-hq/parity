@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
+import { expect, fireEvent, spyOn, userEvent, waitFor, within } from "storybook/test"
 import { example, openProjects, ProjectStage } from "../stories/fixtures.tsx"
 import { service } from "../stories/host.ts"
 import { setLayout } from "./layout.ts"
@@ -7,8 +7,9 @@ import { LeftPanel } from "./LeftPanel.tsx"
 import { TokensPanel } from "./TokensPanel.tsx"
 
 /**
- * The Tokens tab: the project's own variables and its styling framework's theme, by kind. Any value can be edited,
- * and the change is written to the project's stylesheet. Shown in the left panel, as the app shows it.
+ * The Tokens tab: the project's own variables and its styling framework's theme, in sections by what they're for, each
+ * drawn as it looks. Any value can be edited; the change is undoable, and saving the project writes it to the project's
+ * stylesheet. A token's name copies from its row. Shown in the left panel, as the app shows it.
  */
 const meta = {
   title: "Parity/Left panel/Tokens",
@@ -64,9 +65,61 @@ async function retype(dialog: HTMLElement, theme: string, value: string): Promis
 
 /**
  * Every token, as the tab opens: the project's colors with a swatch for each theme, then the theme's palette as a
- * grid, then type, spacing, radii, shadows and the rest, each section counted.
+ * grid, then fonts, type, spacing, radii, shadows, blur, motion and the rest, each section counted and each row with
+ * its preview. Nothing moves until a motion token is hovered.
  */
-export const AllTokens: Story = { loaders: [openTokens] }
+export const AllTokens: Story = {
+  loaders: [openTokens],
+  play: async ({ canvasElement }) => {
+    await within(canvasElement).findByText("Project colors")
+    await expect(document.getAnimations()).toHaveLength(0)
+  }
+}
+
+/** The same tokens as tiles, two across, each a larger preview with its name and what it comes to. */
+export const Tiles: Story = {
+  loaders: [openTokens],
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole("radio", { name: "Tiles" }))
+    await search(canvasElement, "shadow")
+  }
+}
+
+/**
+ * Copying a token's name: its row's button, or Ctrl+C on the row, copies it as CSS writes it, and the button turns
+ * into a check. A palette shade copies on a click, and says so.
+ */
+export const Copying: Story = {
+  loaders: [openTokens],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    // Stands in for the clipboard while the checks run, then puts it back so the story copies for real.
+    const writes = spyOn(navigator.clipboard, "writeText").mockResolvedValue()
+    try {
+      await userEvent.click(await canvas.findByRole("button", { name: "Copy --primary" }))
+      await expect(writes).toHaveBeenLastCalledWith("--primary")
+      await expect(canvas.getByRole("button", { name: "Copy --primary" })).toHaveAttribute("data-copied", "copied")
+      canvas.getByText("secondary").closest("button")!.focus()
+      await userEvent.keyboard("{Control>}c{/Control}")
+      await expect(writes).toHaveBeenLastCalledWith("--secondary")
+      // The theme's tokens on their own put the palette at the top.
+      await userEvent.click(canvas.getByText(/^Theme \d+$/))
+      await userEvent.click(await canvas.findByRole("button", { name: "Copy --color-blue-500" }))
+      await expect(writes).toHaveBeenLastCalledWith("--color-blue-500")
+      await waitFor(() => expect(within(document.body).getAllByText("Copied").length).toBeGreaterThan(0))
+    } finally {
+      writes.mockRestore()
+    }
+  }
+}
+
+/** The motion tokens: durations, easings and animations, which play while hovered. */
+export const Motion: Story = {
+  loaders: [openTokens],
+  play: async ({ canvasElement }) => {
+    await search(canvasElement, "ease")
+  }
+}
 
 /** Only the project's own variables, such as shadcn's `primary` and `background`. */
 export const ProjectTokens: Story = {
@@ -144,10 +197,14 @@ export const EditingAColor: Story = {
   }
 }
 
-/** Editing one of the palette's shades, which has a single value. */
+/**
+ * Editing one of the palette's shades, which has a single value. In the grid a click copies a shade, so a search lists
+ * the shades that match as rows, which open the editor.
+ */
 export const EditingAPaletteShade: Story = {
   loaders: [openTokens],
   play: async ({ canvasElement }) => {
+    await search(canvasElement, "blue-500")
     await edit(canvasElement, "color-blue-500")
   }
 }
@@ -161,31 +218,55 @@ export const SpacingStep: Story = {
   }
 }
 
-/** A color token given something that isn't a color, refused before anything is saved. */
+/** A color token given something that isn't a color, refused before it changes anything. */
 export const InvalidValue: Story = {
   loaders: [openTokens],
   play: async ({ canvasElement }) => {
     const dialog = await edit(canvasElement, "primary")
     await retype(dialog, "default", "very dark blue")
-    await userEvent.click(within(dialog).getByRole("button", { name: "Save to stylesheet" }))
-    await within(dialog).findByText(/isn't a valid color/)
+    await userEvent.click(within(dialog).getByRole("button", { name: "Apply" }))
+    await within(dialog).findByText("That isn't a color. Try oklch(0.6 0.2 250) or #2563eb.")
   }
 }
 
-/** A color token set to another token: a reference is always allowed, whatever the other token holds. */
+/**
+ * A value with a bracket left open, which the browser would close by itself and take: refused, saying what's missing,
+ * as is a reference to a token there isn't. Neither changes anything.
+ */
+export const UnclosedBracket: Story = {
+  loaders: [openTokens],
+  play: async ({ canvasElement }) => {
+    await search(canvasElement, "radius")
+    const dialog = await edit(canvasElement, "radius")
+    await retype(dialog, "default", "calc(var(--spacing) * 2.6")
+    await userEvent.click(within(dialog).getByRole("button", { name: "Apply" }))
+    await within(dialog).findByText("A bracket isn't closed. Add ) at the end.")
+    await retype(dialog, "default", "calc(var(--radius-huge) * 2)")
+    await userEvent.click(within(dialog).getByRole("button", { name: "Apply" }))
+    await within(dialog).findByText("There's no token named --radius-huge.")
+    await expect(dialog).toHaveAttribute("data-state", "open")
+  }
+}
+
+/**
+ * A color token set to another token: a reference is always allowed, whatever the other token holds. The change is
+ * unsaved, like any edit, and Undo takes it back.
+ */
 export const ReferenceToAnotherToken: Story = {
   loaders: [openTokens],
   play: async ({ canvasElement }) => {
     const dialog = await edit(canvasElement, "primary")
     await retype(dialog, "default", "var(--chart-1)")
-    await userEvent.click(within(dialog).getByRole("button", { name: "Save to stylesheet" }))
+    await userEvent.click(within(dialog).getByRole("button", { name: "Apply" }))
     await waitFor(() => expect(dialog).toHaveAttribute("data-state", "closed"))
+    await expect(example().store.getHistory().undoLabel).toBe("Edit --primary")
+    await expect(example().store.hasUnsaved()).toBe(true)
   }
 }
 
 /**
- * Saving a color when the stylesheet can't be written. The editor closes on Save, so the error only shows when it is
- * opened again, and the swatch keeps the value that wasn't saved.
+ * Saving a color when the stylesheet can't be written: the panel says which token couldn't be written and why, with a
+ * way to try again, marks its row, and the canvas keeps the value, unsaved.
  */
 export const SaveFails: Story = {
   loaders: [
@@ -197,9 +278,14 @@ export const SaveFails: Story = {
   play: async ({ canvasElement }) => {
     const dialog = await edit(canvasElement, "primary")
     await retype(dialog, "default", "oklch(0.55 0.2 260)")
-    await userEvent.click(within(dialog).getByRole("button", { name: "Save to stylesheet" }))
-    const reopened = await edit(canvasElement, "primary")
-    await within(reopened).findByText(/EPERM/)
+    await userEvent.click(within(dialog).getByRole("button", { name: "Apply" }))
+    await example()
+      .store.flush()
+      .catch(() => undefined)
+    const canvas = within(canvasElement)
+    const title = await canvas.findByText(/^Couldn't write --primary to .+\.css$/)
+    await expect(title.closest('[role="alert"]')).toHaveTextContent(/EPERM/)
+    await canvas.findByText("Not written to the stylesheet")
   }
 }
 
@@ -253,12 +339,17 @@ export const DescribedTokens: Story = {
   ]
 }
 
-/** The same described tokens, scrolled to the ones no variable in the stylesheet matches, which frames can't use. */
+/**
+ * The same described tokens, scrolled to the end, where the ones no variable in the stylesheet matches are listed, as
+ * frames can't use them. The list draws only the rows in view, so they're there once it's scrolled.
+ */
 export const DescribedOnly: Story = {
   loaders: DescribedTokens.loaders,
   play: async ({ canvasElement }) => {
-    const heading = await within(canvasElement).findByText("Described only")
-    heading.scrollIntoView({ block: "start" })
+    const list = canvasElement.querySelector("[data-tokens-list]")!
+    list.scrollTop = list.scrollHeight
+    await within(canvasElement).findByText("Described only")
+    await within(canvasElement).findByText("color.brand-accent")
   }
 }
 

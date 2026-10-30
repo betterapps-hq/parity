@@ -1,6 +1,6 @@
 import type { ContainerSpec, DesignNode, NodePatch, NodeStyle, StateSpec } from "./document.ts"
 import { uniqueId } from "./modes.ts"
-import { layeredPatch, optionPatches, type PatchLayer, variantChoices } from "./render.ts"
+import { boardArgs, layeredPatch, optionPatches, type PatchLayer, variantChoices } from "./render.ts"
 
 /** Where a node sits in a design's tree. */
 export interface NodeLocation {
@@ -219,20 +219,32 @@ export function patchSize(patch: NodePatch): number {
 
 /**
  * A node as the board shows it: the variants' patches, then the state's, applied (viewport patches aside). `variants`
- * are the design's chosen options; leave them out for a design without variants.
+ * are the design's chosen options; leave them out for a design without variants. `args` fill in the params the node
+ * binds, as `boardArgs` gives them.
  */
 export function nodeInState(
   node: DesignNode,
   state: StateSpec | undefined,
-  variants: readonly PatchLayer[] = []
+  variants: readonly PatchLayer[] = [],
+  args?: Record<string, unknown>
 ): DesignNode {
   const patch = layeredPatch([...variants, state?.overrides], node.id)
-  return applyPatch(node, patch)
+  return applyPatch(node, patch, args)
 }
 
 /** The patches of the variant options a design's board shows. */
 export function shownVariants(container: ContainerSpec): PatchLayer[] {
   return optionPatches(container.params, variantChoices(container.params, container.view?.variants))
+}
+
+/**
+ * One of a design's own nodes as its board shows it in a state: with the variant options the board shows, the state's
+ * changes, and the defaults of the params it binds. This is what the board draws, so it's what the inspector, the text
+ * editor and Hide start from.
+ */
+export function nodeOnBoard(container: ContainerSpec, node: DesignNode, state: StateSpec | undefined): DesignNode {
+  const choices = variantChoices(container.params, container.view?.variants)
+  return nodeInState(node, state, optionPatches(container.params, choices), boardArgs(container.params, choices))
 }
 
 /**
@@ -358,9 +370,63 @@ export function editNode(
   const base = findNode(container.root, nodeId)
   if (!base) throw new Error(`No node "${nodeId}" in ${container.name}`)
   if (editsDesign(container, target)) {
-    return { ...container, root: mapNode(container.root, nodeId, (node) => applyChange(node, change)) }
+    const root = mapNode(container.root, nodeId, (node) => applyChange(node, change))
+    return withBoundDefaults({ ...container, root }, base, change)
   }
-  return withTargetPatches(container, target, patchWith(targetPatches(container, target), nodeId, base, change))
+  // A state's or variant's patch is kept against the node as the board shows it, with the params it binds filled in,
+  // a state's over the variants shown, which it sits above, and a variant option's over the options before its param.
+  const choices = variantChoices(container.params, container.view?.variants)
+  const { state, variant } = toEditTarget(target)
+  const shown = optionPatches(container.params, choices)
+  const variants = !isBaseState(container, state)
+    ? shown
+    : variant
+      ? shown.slice(0, Object.keys(choices).indexOf(variant.param))
+      : []
+  const under = nodeInState(base, undefined, variants, boardArgs(container.params, choices))
+  return withTargetPatches(container, target, patchWith(targetPatches(container, target), nodeId, under, change))
+}
+
+/**
+ * Hides nodes in a state, or shows them again when they're all hidden there. Each is read as the board shows it in
+ * that state, with its variants, the state's changes and the params it binds, so a layer a state hides counts as
+ * hidden there however the design has it.
+ */
+export function toggleHidden(container: ContainerSpec, stateId: string, ids: readonly string[]): ContainerSpec {
+  const state = findState(container, stateId)
+  const hidden = (id: string) => {
+    const node = findNode(container.root, id)
+    return node ? (nodeOnBoard(container, node, state).hidden ?? false) : false
+  }
+  const hide = !ids.every(hidden)
+  return ids.reduce((next, id) => editNode(next, boardTarget(next, stateId), id, { hidden: hide }), container)
+}
+
+/**
+ * A component's board shows each param's default where a node binds it, so a change to a bound text, prop or
+ * visibility in the design changes that default too, and the instances that don't set the param follow it. A param
+ * without a default already follows the node's own value; variants are picked, not typed, so they're left alone.
+ */
+function withBoundDefaults(container: ContainerSpec, node: DesignNode, change: NodeChange): ContainerSpec {
+  const bind = node.bind
+  const params = container.params
+  if (!bind || !params) return container
+  const values: [param: string, value: unknown][] = []
+  if (Object.hasOwn(change, "text") && bind.text && change.text !== undefined) values.push([bind.text, change.text])
+  if (Object.hasOwn(change, "hidden") && bind.visible) values.push([bind.visible, !change.hidden])
+  for (const [prop, param] of Object.entries(bind.props ?? {})) {
+    if (change.props && Object.hasOwn(change.props, prop)) values.push([param, change.props[prop]])
+  }
+  let next = params
+  for (const [name, value] of values) {
+    const param = next[name]
+    if (!param || param.type === "variant" || param.default === undefined || sameValue(param.default, value)) continue
+    const updated = { ...param }
+    if (value === undefined) delete updated.default
+    else updated.default = value
+    next = { ...next, [name]: updated }
+  }
+  return next === params ? container : { ...container, params: next }
 }
 
 /**

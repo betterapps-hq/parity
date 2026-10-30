@@ -25,9 +25,12 @@
   "include": [
     "apps/*/src",
     "apps/*/scripts",
+    "apps/*/e2e",
     "apps/*/.storybook/*.ts",
     "apps/*/*.ts",
     "packages/*/src",
+    "packages/*/scripts",
+    "packages/*/*.ts",
     "scripts",
     "vite.config.ts"
   ]

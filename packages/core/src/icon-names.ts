@@ -30,6 +30,34 @@ interface Parsed {
   style?: string
 }
 
+/** A style an icon set keeps in a module of its own, as Heroicons keeps its solid icons. */
+export interface IconStyleModule {
+  style: string
+  /** The module, as the set's manifest names it: `@heroicons/react/16/solid`. */
+  import: string
+  /** What its icons' ids call it, between the set and the icon: its path in the package, `16/solid`. */
+  key: string
+}
+
+/**
+ * The styles a set keeps in modules of their own, besides its default style: that one is drawn from the set's own
+ * module, and its icons' ids name no module, as in `heroicons/CogIcon` beside `heroicons/16/solid/CogIcon`.
+ */
+export function iconStyleModules(icons: LibraryIcons | undefined, packageName: string): IconStyleModule[] {
+  const variants = icons?.variants
+  return Object.entries(variants?.modules ?? {}).flatMap(([style, specifier]) =>
+    style === variants?.default?.style || specifier === (icons?.import ?? packageName)
+      ? []
+      : [
+          {
+            style,
+            import: specifier,
+            key: specifier.startsWith(`${packageName}/`) ? specifier.slice(packageName.length + 1) : specifier
+          }
+        ]
+  )
+}
+
 /**
  * Each export's icon, size and style, for a set whose names carry them (Fluent's `Add24Regular`). Digits before the
  * style are a size only when they're one of the set's sizes and the name before them is an icon the set exports

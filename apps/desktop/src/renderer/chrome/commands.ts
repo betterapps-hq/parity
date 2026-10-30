@@ -11,8 +11,9 @@ import {
   pasteToReplace
 } from "../canvas/clipboard.ts"
 import { layerLabel } from "../canvas/kinds.tsx"
-import { firstChildLayer, parentLayer, projectLibrary, siblingLayer } from "../canvas/layers.ts"
+import { parentLayer, projectLibrary, siblingLayer } from "../canvas/layers.ts"
 import { arrowOf, frameDrawn, nudgeSelection } from "../canvas/nudge.ts"
+import { enterTarget } from "../canvas/pick.ts"
 import { adjacentDesign, inverseSelection, matchingSelection } from "../canvas/select.ts"
 import { selectedDesigns } from "../selection.ts"
 import { spacingUnit } from "../tokens-store.ts"
@@ -344,15 +345,16 @@ export function selectParent(session = activeSession()): void {
   )
 }
 
-/** The first layer inside the selected layer, or inside the selected design. */
+/**
+ * Enter, as in Figma: starts editing the selected text layer, or selects every layer inside the selected layers, or
+ * inside the selected design (see `enterTarget`).
+ */
 export function selectChildren(session = activeSession()): void {
   if (!session) return
-  const { store, selection } = session
-  const current = selection.get()
-  const entry = current.design ? store.getEntry(current.design) : undefined
-  if (!entry) return
-  const child = firstChildLayer(store, entry.container, current.node ?? entry.container.root.id)
-  if (child) selection.set({ design: entry.key, node: child, mode: current.mode, state: current.state })
+  const target = enterTarget(session.store, session.selection.get())
+  if (!target) return
+  if ("edit" in target) session.selection.setEditing(target.edit)
+  else session.selection.set(target.select)
 }
 
 /** The next layer beside the selected one, or the one before it with a step of -1. */

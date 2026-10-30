@@ -70592,6 +70592,7 @@
         "as": "forwardRef",
         "group": "CheckboxCard",
         "parents": [
+          "Checkbox.Root",
           "Checkbox.Group",
           "For",
           "Stack",
@@ -505541,6 +505542,11 @@
           "Timeline.Connector"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": [
+            "1"
+          ]
+        },
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",

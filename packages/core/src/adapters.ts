@@ -2,6 +2,7 @@ import type { ComponentEvidence, LibraryDecorator } from "./library.ts"
 import type { ComponentSource, ProjectConfig } from "./project.ts"
 import type { ComponentRenderStatus } from "./render-status.ts"
 import type { RenderNode } from "./render.ts"
+import type { ServedRecord } from "./served.ts"
 import type { TokenCategory } from "./tokens.ts"
 
 /** The parts of a project's package.json that adapters use to detect a stack. */
@@ -66,10 +67,13 @@ export interface BuilderStartOptions {
   /** Origins allowed to load the guest module (the canvas UI). */
   allowedOrigins: string[]
   /**
-   * The port to serve on if it's free, as the one a reopened project had, so its guest URL stays the same. Otherwise,
-   * or when it's unset, any free port.
+   * The port to serve on if it's free, as the one the project last had, so its guest URL stays the same. With `served`,
+   * only when nothing in it has changed either, so a reopened project's pages draw with the modules they hold.
+   * Otherwise, or when it's unset, any free port.
    */
   port?: number
+  /** What the project's last builder served its pages, which a builder that serves on `port` again carries on. */
+  served?: ServedRecord
 }
 
 /**
@@ -99,6 +103,11 @@ export interface BuilderSession {
   guestUrl: string
   /** Version of the customer's build tool. */
   toolVersion: string
+  /**
+   * What it has served the pages, for the project's next builder: see `served.ts`. Asked as it closes, while it can
+   * still make modules. A builder that can't say makes every reopen load the project's modules again.
+   */
+  served?(): Promise<ServedRecord>
   close(): Promise<void>
 }
 
@@ -107,7 +116,10 @@ export interface GuestInit {
   components: Record<string, unknown>
   /** Components loaded the first time they're drawn: each resolves to the component, or one that shows why it can't. */
   lazyComponents?: Record<string, () => Promise<unknown>>
-  /** Icon packages by library id, whole: an icon is `lucide/Heart`, looked up by name when it's used. */
+  /**
+   * Icon packages by library id, whole: an icon is `lucide/Heart`, or `heroicons/16/solid/CogIcon` in a style kept in
+   * a module of its own, looked up by name when it's used.
+   */
   iconSets?: Record<string, GuestIconSet>
   /** The project's compiled styles, before canvas preparation. */
   css: string
@@ -126,6 +138,8 @@ export interface GuestInit {
 export interface GuestIconSet {
   /** The package's module: its exports are the icons, or the data a renderer draws. */
   module: Record<string, unknown>
+  /** The modules of styles it keeps in modules of their own, by the key its icons' ids name each with. */
+  styles?: Record<string, Record<string, unknown>>
   /** Exports that are icons, as a regular expression. Defaults to every export that can be one. */
   match?: string
   /** Exports that look like icons but aren't. */
@@ -165,10 +179,13 @@ export interface Guest {
     get(): Record<string, ComponentRenderStatus>
     subscribe(listener: () => void): () => void
   }
-  /** The names of an icon set's icons, as in `Heart` for `lucide/Heart`. */
-  iconNames?(library: string): string[]
+  /**
+   * The names of an icon set's icons, as in `Heart` for `lucide/Heart`; in a style it keeps in a module of its own,
+   * those that module exports, by the style's key (`16/solid` for `heroicons/16/solid/CogIcon`).
+   */
+  iconNames?(library: string, style?: string): string[]
   /** The other names an icon set exports its icons under, by the name `iconNames` gives, for search. */
-  iconAliases?(library: string): Record<string, string[]>
+  iconAliases?(library: string, style?: string): Record<string, string[]>
   css: string
   packageCss?: string
   tokenCategories?: Record<string, TokenCategory>

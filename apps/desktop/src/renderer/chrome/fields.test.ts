@@ -100,7 +100,8 @@ const focused = () => page.evaluate(() => document.activeElement?.getAttribute("
 async function typeInto(name: string, text: string) {
   const input = page.getByRole("textbox", { name })
   await input.click()
-  await input.press("Control+a")
+  // Command+A on macOS, where Control+A moves to the start of the line instead.
+  await input.press("ControlOrMeta+a")
   await input.pressSequentially(text)
 }
 

@@ -2,6 +2,7 @@
 import { readFile } from "node:fs/promises"
 import { resolve } from "node:path"
 import { parseArgs } from "node:util"
+import { runCheck } from "./check.ts"
 import {
   type AccessibilityResponse,
   call,
@@ -65,6 +66,11 @@ const usage = `parity: drive the Parity app from a terminal or an agent
                                             so is one written with --registry and no --root, at the version its
                                             registry file covers. A file written over keeps its range while it
                                             covers the version read
+  parity lib check <library> [--mode m] [--json] [--tab t]
+                                            insert every component of a registry library file into the tab's
+                                            project, once alone and once as the Assets panel inserts it, inside its
+                                            parents with its sample, and report the parts that fail alone but render
+                                            inside; exits with 1 below the library's floor in the registry's in-app.json
   parity open <folder>                      open a project in a new tab
   parity skill [file]                       print the design skill, or one of its files
   parity mcp                                serve these as MCP tools on stdio
@@ -130,6 +136,13 @@ async function main(): Promise<void> {
       serveMcp()
       return
     case "lib":
+      if (rest[0] === "check") {
+        return runCheck(rest[1], {
+          ...(values.tab ? { tab: values.tab } : {}),
+          ...(values.mode?.[0] ? { mode: values.mode[0] } : {}),
+          ...(values.json ? { json: true } : {})
+        })
+      }
       return runLib(rest[0], {
         ...(values.root ? { root: values.root } : {}),
         ...(values.out ? { out: values.out } : {}),

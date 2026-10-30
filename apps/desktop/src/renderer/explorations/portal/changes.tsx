@@ -481,7 +481,12 @@ export const inGameComparison: Comparison = {
   you: {
     as: "drift",
     builder: sam,
-    note: <>Updating makes v6 from what main draws, for Jonas to approve. Asking Sam opens a thread on #139.</>
+    note: (
+      <>
+        Updating makes a new version from what main draws, for Lena or Jonas to approve. Asking Sam opens a thread on
+        #139.
+      </>
+    )
   }
 }
 

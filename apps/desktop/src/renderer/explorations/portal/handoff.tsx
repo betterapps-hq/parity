@@ -1,11 +1,12 @@
 /**
  * Handoff, for developers: every board by where it stands between design and code, one row each, with the board you
  * pick open at the side. Statuses come from Parity's own versions, so they work without git: an approval is of one
- * version, and an edit after it shows as Changed since approval wherever the board's status does. Each row says who
+ * version, and a newer version marked ready while the approved one is still being built shows as Changed since
+ * approval wherever the board's status does. Each row says who
  * approved it and who's writing its code, under headers that mean the same thing on every row. What each board
  * delivers comes from the same list as Inspect and What changed (`boards.ts`), so they always agree.
  */
-import { Bot, ChevronDown, Ellipsis, GitBranch, Search, TriangleAlert, X } from "lucide-react"
+import { ChevronDown, Ellipsis, GitBranch, Search, TriangleAlert, X } from "lucide-react"
 import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { me } from "../explore-data.ts"
@@ -43,7 +44,10 @@ function capital(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
-/** What a developer does first with a board, by where it stands. */
+/**
+ * What a developer does first with a board, by where it stands. It's the side panel's one filled button: rows carry no
+ * buttons, since picking a row opens its board at the side.
+ */
 const mainAction: Partial<Record<Handoff, string>> = {
   "Ready to build": "Pick it up",
   Building: "Inspect",
@@ -57,7 +61,7 @@ const order: Handoff[] = ["Ready to build", "Building", "Changed since approval"
 /** The board open at the side. */
 const picked = "website/Pricing"
 
-const columns = "grid grid-cols-[minmax(0,1fr)_160px_140px_140px] items-center gap-4"
+const columns = "grid grid-cols-[minmax(0,1fr)_200px_170px_28px] items-center gap-4"
 
 /** A cell of two lines: what it is, then when or where. */
 function Cell({ avatar, top, bottom }: { avatar?: { name: string; hue: number }; top: ReactNode; bottom: ReactNode }) {
@@ -72,7 +76,7 @@ function Cell({ avatar, top, bottom }: { avatar?: { name: string; hue: number };
   )
 }
 
-/** Who approved the version, or who asked for a review while there's no approval yet. */
+/** Who approved the version, or while it's in review, who it waits on, who asked and how long ago. */
 function Approval({ board }: { board: Deliverable }) {
   if (board.approved)
     return (
@@ -81,9 +85,9 @@ function Approval({ board }: { board: Deliverable }) {
   const asked = board.review!
   return (
     <Cell
-      avatar={asked.who}
-      top={`Asked by ${who(asked.who)}`}
-      bottom={`${asked.for ? `for ${asked.for.name.split(" ")[0]}, ` : ""}${asked.when}`}
+      avatar={asked.reviewer}
+      top={`Waiting on ${who(asked.reviewer)}`}
+      bottom={`${capital(who(asked.who))} asked ${asked.when}`}
     />
   )
 }
@@ -110,13 +114,12 @@ function BoardRow({ board, status }: { board: Deliverable; status: Handoff }) {
   const shown = portalProject(board.project)
   const design = designOf(shown, board.design)
   const key = `${board.project}/${board.design}`
-  const action = mainAction[status]
   const latest = board.since?.at(-1)?.version
   const selected = key === picked
   const now = editing(board)
   return (
     <div
-      className={`${columns} rounded-lg px-2 py-2 ${selected ? "bg-muted/60 ring-1 ring-border" : "hover:bg-muted/30"} ${status === "Built" ? "opacity-60" : ""}`}
+      className={`group/row ${columns} cursor-pointer rounded-lg px-2 py-2 ${selected ? "bg-muted/60 ring-1 ring-border" : "hover:bg-muted/30"} ${status === "Built" ? "opacity-60" : ""}`}
     >
       <span className="flex min-w-0 items-center gap-3">
         <span className="w-14 shrink-0 overflow-hidden rounded-[3px] ring-1 ring-border">
@@ -140,16 +143,14 @@ function BoardRow({ board, status }: { board: Deliverable; status: Handoff }) {
       </span>
       <Approval board={board} />
       <CodeCell board={board} />
-      <span className="flex items-center justify-end gap-1">
-        {action && (
-          <Button size="sm" variant={selected ? "default" : "ghost"} className="h-7 text-xs">
-            {action}
-          </Button>
-        )}
-        <Button size="icon-sm" variant="ghost" aria-label={`More for ${design.name}`}>
-          <Ellipsis />
-        </Button>
-      </span>
+      <Button
+        size="icon-sm"
+        variant="ghost"
+        aria-label={`More for ${design.name}`}
+        className={`text-muted-foreground ${selected ? "" : "opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"}`}
+      >
+        <Ellipsis />
+      </Button>
     </div>
   )
 }
@@ -173,6 +174,8 @@ function Detail({ board }: { board: Deliverable }) {
   const also = board.parts.filter((part) => !part.change)
   const latest = board.since?.at(-1)?.version
   const yours = board.code?.doing === "Building" && board.code.who === me
+  const main =
+    status === "Changed since approval" ? `See what changed, v${board.version} to v${latest}` : mainAction[status]
   return (
     <aside className="flex w-[24rem] shrink-0 flex-col border-l bg-background">
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
@@ -183,6 +186,13 @@ function Detail({ board }: { board: Deliverable }) {
               <span className="text-xs text-muted-foreground">in {shown.name}</span>
             </span>
             <HandoffPill status={status} />
+            <Button
+              size="icon-xs"
+              variant="ghost"
+              aria-label={`More for ${design.name}, such as giving it to your agent`}
+            >
+              <Ellipsis />
+            </Button>
             <Button size="icon-xs" variant="ghost" aria-label="Close">
               <X />
             </Button>
@@ -212,7 +222,7 @@ function Detail({ board }: { board: Deliverable }) {
                     <span>{change.what}</span>
                     <span className="text-muted-foreground">
                       v{change.version}, {change.when},{" "}
-                      {change.ready ? `ready for review by ${change.ready.reviewer.name}` : "a draft"}
+                      {change.ready ? `waiting on ${change.ready.reviewer.name}'s review` : "a draft"}
                     </span>
                   </span>
                 </span>
@@ -221,9 +231,6 @@ function Detail({ board }: { board: Deliverable }) {
                 <TriangleAlert className="size-3.5 shrink-0" />
                 Jonas's question on the toggle, on phones, is still open
               </span>
-              <Button size="sm" variant="outline" className="w-fit">
-                See what changed, v{board.version} to v{latest}
-              </Button>
             </div>
           </Part>
         )}
@@ -292,16 +299,15 @@ function Detail({ board }: { board: Deliverable }) {
           )}
         </Part>
       </div>
-      <div className="flex flex-col gap-2 border-t px-5 py-4">
-        <Button size="sm">{yours ? `Keep building v${board.version}` : `Build v${board.version}, as approved`}</Button>
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline" className="flex-1 gap-1.5">
-            <Search /> Inspect v{board.version}
+      <div className="flex gap-2 border-t px-5 py-4">
+        {main && main !== "Inspect" && (
+          <Button size="sm" className="flex-1">
+            {main}
           </Button>
-          <Button size="sm" variant="ghost" className="flex-1 gap-1.5">
-            <Bot /> Give to your agent
-          </Button>
-        </div>
+        )}
+        <Button size="sm" variant={main === "Inspect" ? "default" : "outline"} className="gap-1.5">
+          <Search /> Inspect v{board.version}
+        </Button>
       </div>
     </aside>
   )
@@ -318,7 +324,7 @@ export function HandoffPage() {
             <div className="flex flex-col gap-1">
               <PortalHeader title="Handoff" />
               <span className="text-sm text-muted-foreground">
-                Every board at its approved version, by where it stands between design and code.
+                Every board by where it stands between design and code, at the version approved or in review.
               </span>
             </div>
             <div className="flex items-center gap-3">

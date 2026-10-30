@@ -15,30 +15,58 @@ export interface LoadedGuest {
   tokens: Token[]
 }
 
-const guests = new Map<string, Promise<LoadedGuest>>()
+interface Loading {
+  loaded: Promise<LoadedGuest>
+  /** The stylesheet the document adopted for the guest's rules that can't go in a shadow root, once made. */
+  global?: CSSStyleSheet
+  released?: boolean
+}
+
+const guests = new Map<string, Loading>()
 
 /**
  * Imports a project's guest module from its builder and prepares its styles for shadow roots. Theme variables the
- * compiled CSS left out are declared too, so designs can use any token. Each URL loads once per page.
+ * compiled CSS left out are declared too, so designs can use any token. Each URL loads once per page until it's
+ * released.
  */
 export function loadGuest(url: string, theme: readonly ThemeVariable[]): Promise<LoadedGuest> {
   let loading = guests.get(url)
   if (!loading) {
-    loading = load(url, theme)
-    loading.catch(() => guests.delete(url))
-    guests.set(url, loading)
+    const entry = {} as Loading
+    entry.loaded = load(url, theme, entry)
+    entry.loaded.catch(() => {
+      if (guests.get(url) === entry) guests.delete(url)
+    })
+    guests.set(url, entry)
+    loading = entry
   }
-  return loading
+  return loading.loaded
 }
 
-async function load(url: string, theme: readonly ThemeVariable[]): Promise<LoadedGuest> {
+/**
+ * Lets go of a guest the page no longer draws: its entry, and the stylesheet the document adopted for it. The page keeps
+ * the guest's modules, which nothing can unload, so loading the same URL again only makes its stylesheets anew.
+ */
+export function releaseGuest(url: string): void {
+  const entry = guests.get(url)
+  if (!entry) return
+  guests.delete(url)
+  entry.released = true
+  const { global } = entry
+  if (global) document.adoptedStyleSheets = document.adoptedStyleSheets.filter((sheet) => sheet !== global)
+}
+
+async function load(url: string, theme: readonly ThemeVariable[], entry: Loading): Promise<LoadedGuest> {
   const guest = await importWithRetry(url)
   const css = prepareCanvasCss(guest.css, { baseUrl: new URL(url).origin })
   // Packages' stylesheets draw first, as the app imports them first, and aren't tokens: see `GuestInit.packageCss`.
   const packages = prepareCanvasCss(guest.packageCss ?? "", { baseUrl: new URL(url).origin })
   const global = new CSSStyleSheet()
   global.replaceSync(packages.global + css.global)
-  document.adoptedStyleSheets = [...document.adoptedStyleSheets, global]
+  if (!entry.released) {
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, global]
+    entry.global = global
+  }
   const sheet = new CSSStyleSheet()
   sheet.replaceSync(themeFallbackCss(css.scoped, theme) + packages.scoped + css.scoped)
   return { guest, sheet, tokens: extractTokens(css.scoped, theme, guest.tokenCategories) }

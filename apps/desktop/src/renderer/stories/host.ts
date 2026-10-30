@@ -1,7 +1,15 @@
 import type { AccessibilityFinding } from "@parity/agent"
 import { type ComponentInfo, type ContainerSpec, defaultModeSettings, type DesignNode } from "@parity/core"
 import discovered from "virtual:parity/example-project"
-import type { CanvasHost, ProjectInfo, ProjectProcess, ServiceMethod, ServiceMethods } from "../../shared/protocol.ts"
+import type {
+  CanvasHost,
+  ProjectEditResult,
+  ProjectInfo,
+  ProjectProcess,
+  ServiceMethod,
+  ServiceMethods,
+  TokenChange
+} from "../../shared/protocol.ts"
 
 /**
  * What the service's `project.open` and `project.components` answer for the example. Its guest URL is the module
@@ -295,9 +303,39 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
     case "document.saveCopy":
       if (service.saveFails) throw new Error("EPERM: operation not permitted, open 'shadcn-vite.par'")
       return undefined
-    case "tokens.save":
+    case "tokens.save": {
       if (service.saveFails) throw new Error("EPERM: operation not permitted, open 'src/index.css'")
-      return { files: ["src/index.css"] }
+      const changes = params.changes as TokenChange[]
+      const [change] = changes
+      return edited(changes.length === 1 ? "Edit a token" : `Edit ${changes.length} tokens`, [
+        "@@ -7,7 +7,7 @@",
+        " :root {",
+        "   --radius: 0.625rem;",
+        "   --background: oklch(1 0 0);",
+        `-  --${change?.name}: oklch(0.205 0 0);`,
+        `+  --${change?.name}: ${change?.value};`,
+        "   --primary-foreground: oklch(0.985 0 0);",
+        "   --secondary: oklch(0.97 0 0);"
+      ])
+    }
+    case "library.importStyles":
+      return edited("Import Buildkit nova's styles", [
+        "@@ -1,3 +1,4 @@",
+        ' @import "tailwindcss";',
+        '+@import "@buildkitgg/shadcn-baseui-nova/styles.css";',
+        ' @import "tw-animate-css";',
+        " "
+      ])
+    case "project.undoEdit": {
+      const edit = edits.get(String(params.id))
+      if (!edit) throw new Error("That change is too old to undo, or was undone already")
+      edits.delete(edit.id)
+      return {
+        ...edit,
+        label: `Undo ${edit.label.charAt(0).toLowerCase()}${edit.label.slice(1)}`,
+        files: edit.files.map((file) => ({ path: file.path, diff: reversed(file.diff) }))
+      }
+    }
     case "images.import":
       return { src: `/images/${String(params.name)}`, path: `public/images/${String(params.name)}` }
     case "storybook.open":
@@ -312,6 +350,35 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
     default:
       return undefined
   }
+}
+
+/** The edits the stand-in service made to the example's stylesheet, by id, to undo. */
+const edits = new Map<string, ProjectEditResult>()
+
+/** An edit to the example's stylesheet, as the service describes one it made, with its diff's hunks. */
+function edited(label: string, hunk: string[]): ProjectEditResult {
+  const path = "src/index.css"
+  const edit = {
+    id: `edit-${edits.size + 1}`,
+    label,
+    files: [{ path, diff: [`--- a/${path}`, `+++ b/${path}`, ...hunk].join("\n") }]
+  }
+  edits.set(edit.id, edit)
+  return edit
+}
+
+/** A diff the other way round, as undoing its edit gives it. */
+function reversed(diff: string): string {
+  return diff
+    .split("\n")
+    .map((line) => {
+      const hunk = /^@@ -(\S+) \+(\S+) @@$/.exec(line)
+      if (hunk) return `@@ -${hunk[2]} +${hunk[1]} @@`
+      if (line.startsWith("+") && !line.startsWith("+++")) return `-${line.slice(1)}`
+      if (line.startsWith("-") && !line.startsWith("---")) return `+${line.slice(1)}`
+      return line
+    })
+    .join("\n")
 }
 
 /**

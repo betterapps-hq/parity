@@ -95,17 +95,18 @@ export function siblingLayer(
   return inner ? `${id.slice(0, id.lastIndexOf("/"))}/${next.id}` : next.id
 }
 
-/** The first layer inside a layer, going into instances too: what Enter selects. */
-export function firstChildLayer(store: DesignStore, container: ContainerSpec, id: string): string | undefined {
+/**
+ * Every layer inside a layer, in order, going into instances too: what Enter selects. Inside an instance they're the
+ * component's layers, by path (`card/title`).
+ */
+export function childLayers(store: DesignStore, container: ContainerSpec, id: string): string[] {
   const library = projectLibrary(store)
   const node = isInnerPath(id) ? locateInner(container, id, library)?.node : findNode(container.root, id)
-  if (!node) return undefined
+  if (!node) return []
   if (node.type === "instance") {
     const root = library.get(node.design)?.root
-    const child = root && childNodes(root)[0]
-    return child && `${id}/${child.id}`
+    return root ? childNodes(root).map((child) => `${id}/${child.id}`) : []
   }
-  const child = childNodes(node)[0]
-  if (!child) return undefined
-  return isInnerPath(id) ? `${id.slice(0, id.lastIndexOf("/"))}/${child.id}` : child.id
+  const prefix = isInnerPath(id) ? id.slice(0, id.lastIndexOf("/") + 1) : ""
+  return childNodes(node).map((child) => `${prefix}${child.id}`)
 }

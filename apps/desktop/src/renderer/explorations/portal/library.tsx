@@ -232,14 +232,16 @@ export function LibraryPage() {
               </span>
               <span className="flex flex-col gap-0.5">
                 <h1 className="text-xl font-semibold tracking-tight">{library.name}</h1>
-                <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  2.4, published by <Avatar person={lena} size={16} /> Lena Fischer{" "}
-                  {event("lena-publish").when.toLowerCase()}. Used in 5 projects.
+                <span className="text-sm text-muted-foreground">
+                  2.4, published by{" "}
+                  <span className="inline-flex align-[-3px]">
+                    <Avatar person={lena} size={16} />
+                  </span>{" "}
+                  Lena Fischer {event("lena-publish").when.toLowerCase()}. Nothing new since. Used in 5 projects.
                 </span>
               </span>
               <span className="ml-auto flex gap-2">
                 <Button variant="outline">Open the canvas</Button>
-                <Button>Publish 2.5</Button>
               </span>
             </div>
             <Tabs tabs={["Components", "Tokens", "Releases", "Used in"]} active="Components" />

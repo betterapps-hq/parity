@@ -1,7 +1,7 @@
 {
   "type": "minor",
   "comment": "parity lib gives examples the values the package's own functions make, such as a Chakra tree view's collection",
-  "packageName": "@parity/cli",
+  "packageName": "@parity-app/cli",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "patch"
 }

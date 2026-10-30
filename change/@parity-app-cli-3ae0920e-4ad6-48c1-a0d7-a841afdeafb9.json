@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Publish to npm as @parity-app/cli, with the registry's library files inside",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

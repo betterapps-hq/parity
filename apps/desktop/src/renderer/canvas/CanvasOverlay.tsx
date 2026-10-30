@@ -1,13 +1,13 @@
 import {
   boardTarget,
   type ContainerSpec,
-  type DesignNode,
   editNode,
   type FrameSize,
   frameSize,
   generateId,
   insertNode,
   isInnerPath,
+  layerOnBoard,
   locateNode,
   nodeIds,
   nodeInState,
@@ -29,17 +29,19 @@ import {
   hitInFrame,
   hitTest,
   nodeInFrames,
-  pickDeeper,
-  pickNode,
   type Point,
-  selectionFrame
+  selectedIn,
+  selectionFrame,
+  underPoint
 } from "./hit.ts"
 import { designColor, kindColors, layerLabel, nodeColor } from "./kinds.tsx"
 import { type DragView, getDragView, pressLayers } from "./layer-drag.ts"
 import { editLayer, findLayer } from "./layers.ts"
 import { frameDrawn } from "./nudge.ts"
+import { editableText, hoverTarget, pickDeeper, pressTarget } from "./pick.ts"
 import { type Edge, edgeAxes, resizeGesture } from "./resize.ts"
 import { resizeCursors, ResizeHandles } from "./ResizeHandles.tsx"
+import { pressBackground } from "./select-box.ts"
 
 interface Box {
   x: number
@@ -138,44 +140,52 @@ export function CanvasOverlay() {
         selection.setTool("select")
         return
       }
+      // Outside a design's frames, and on a free text note over one, the press is tldraw's: it selects and moves
+      // boards and notes. A board is selected by its title or its background around the frames.
+      if (!hit || overNote(session, point)) return
+      // Inside a frame a press selects what's under the pointer, as in Figma's top-level frames: the top-level layer,
+      // or with a layer of this design selected, its sibling; Ctrl goes to the deepest layer (see pick.ts).
       const current = selection.get()
-      const deep = event.ctrlKey || event.metaKey
-      if (!hit) return
-      const sameDesign = current.design === hit.entry.key
-      if (!deep && !(sameDesign && current.node)) return
-      const node = pickNode(hit, sameDesign ? current.node : undefined, deep)
+      const press = pressTarget(
+        underPoint(hit),
+        selectedIn(hit, current),
+        current.design === hit.entry.key ? selectedNodes(current) : [],
+        { deep: event.ctrlKey || event.metaKey, shift: event.shiftKey }
+      )
       event.stopPropagation()
       event.preventDefault()
-      const layer = node && node !== hit.entry.container.root.id ? node : undefined
-      // Shift adds a layer to the selection, or takes it out.
-      if (event.shiftKey) {
-        if (layer) selection.set(toggleLayer(current, hit.entry.key, layer, hit))
+      // On the frame's background a click selects the board, and a drag draws a box.
+      if (press.kind === "background") {
+        pressBackground(session, event, hit)
         return
       }
-      // Pressing a layer that's already selected keeps the whole selection, to drag it; a click without dragging
-      // then selects just that layer.
-      const already = sameDesign && !!layer && selectedNodes(current).includes(layer)
-      if (!already) selectHit(session, hit, node)
-      if (layer && tool === "select") pressLayers(session, area, event, () => already && selectHit(session, hit, layer))
+      if (press.kind === "toggle") {
+        selection.set(toggleLayer(current, hit.entry.key, press.node, hit))
+        return
+      }
+      // A layer that isn't selected is selected as it's pressed, so dragging moves it rather than the board. Pressing
+      // one that's selected keeps the whole selection, to drag it; a click without dragging then selects just it.
+      if (press.kind === "select") selectHit(session, hit, press.node)
+      pressLayers(session, area, event, () => press.kind === "keep" && selectHit(session, hit, press.node))
     }
 
     const onDoubleClick = (event: MouseEvent) => {
       if (interactive(event.target) || selection.getTool() !== "select") return
-      const hit = hitTest(area, store, { x: event.clientX, y: event.clientY }, session.editor)
-      if (!hit) return
-      const current = selection.get()
-      const selected = current.design === hit.entry.key ? current.node : undefined
+      const point = { x: event.clientX, y: event.clientY }
+      const hit = hitTest(area, store, point, session.editor)
+      if (!hit || overNote(session, point)) return
+      const selected = selectedIn(hit, selection.get())
       event.stopPropagation()
-      // Drilling in comes first, as in Figma: a double-click edits text only on a selected text layer that's the
-      // deepest thing under the pointer, so there's nothing further to go into.
-      const node = selected ? findLayer(store, hit.entry.container, selected) : undefined
-      const deepest = hit.path.at(-1) === selected
+      // Its first click selected what's under the pointer; the double-click goes one level deeper, as in Figma. It
+      // edits text only on a selected text layer that's the deepest thing under the pointer, with nothing deeper.
+      const node = selected ? findLayer(store, hit.entry.container, selected.node) : undefined
+      const deepest = !!selected && hit.path.at(-1) === selected.node
       if (selected && node && deepest && editableText(node) !== undefined) {
-        selection.set({ design: hit.entry.key, node: selected, mode: hit.mode, state: hit.state })
-        selection.setEditing({ design: hit.entry.key, node: selected, mode: hit.mode, state: hit.state })
+        selection.set({ design: hit.entry.key, node: selected.node, mode: hit.mode, state: hit.state })
+        selection.setEditing({ design: hit.entry.key, node: selected.node, mode: hit.mode, state: hit.state })
         return
       }
-      const deeper = pickDeeper(hit, selected)
+      const deeper = pickDeeper(underPoint(hit), selected)
       if (deeper) selectHit(session, hit, deeper)
     }
 
@@ -190,17 +200,16 @@ export function CanvasOverlay() {
         selection.setHover(undefined)
         return
       }
-      const current = selection.get()
-      // Hovering another design highlights nothing, unless Ctrl reaches into it or Alt measures it, so its layers aren't
-      // measured.
+      // Hovering outlines what a click would select, in the frame under the pointer, in any design. Over a frame's
+      // background, or around the frames, nothing is, and tldraw outlines the board.
       const frame = frameAt(area, store, pointer.current.point!, session.editor)
-      if (!frame || (current.design !== frame.entry.key && !pointer.current.deep && !pointer.current.alt)) {
+      if (!frame) {
         selection.setHover(undefined)
         return
       }
       const hit = hitInFrame(frame.entry, frame.host, pointer.current.point!)
-      const node = pointer.current.alt ? hit.path.at(-1) : pickNode(hit, current.node, pointer.current.deep)
-      selection.setHover(node ? { design: hit.entry.key, node } : undefined)
+      const node = hoverTarget(underPoint(hit), selectedIn(hit, selection.get()), pointer.current)
+      selection.setHover(node ? { design: hit.entry.key, node, mode: hit.mode, state: hit.state } : undefined)
     }
     const onPointerLeave = () => {
       pointer.current = { ...pointer.current, point: undefined }
@@ -412,7 +421,15 @@ function TextEditor() {
   useEffect(() => {
     const area = ref.current?.closest(".canvas-area")
     const entry = store.getEntry(editing.design)
-    const node = entry && findLayer(store, entry.container, editing.node)
+    // The text as the frame shows it: the state's and the variant's, or the param's default it's bound to.
+    const node =
+      entry &&
+      layerOnBoard(
+        entry.container,
+        editing.node,
+        store.getLibrary(entry.key),
+        editingState(entry.container, editing.state)
+      )
     const host = area && selectionFrame(area, editing.design, editing)
     const element = host && nodeInFrames(area, editing.design, editing.node, host).find((item) => item.picked)?.element
     const text = node && editableText(node)
@@ -517,13 +534,6 @@ function selectHit(session: ProjectSession, hit: Hit, node: string | undefined):
   else session.selection.set({ design: hit.entry.key, node, mode: hit.mode, state: hit.state })
 }
 
-/** The text a layer shows, when it's editable in place: a text layer, or a component whose child is a string. */
-function editableText(node: DesignNode): string | undefined {
-  if (node.type === "text") return node.text
-  if (node.type === "component" && typeof node.props?.children === "string") return node.props.children
-  return undefined
-}
-
 function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Model {
   const { selection, store, editor } = session
   if (!editor) return empty
@@ -620,7 +630,13 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
   if (hover?.node && !(hover.design === current.design && hover.node === current.node)) {
     const hoverEntry = store.getEntry(hover.design)
     const node = hoverEntry && findLayer(store, hoverEntry.container, hover.node)
-    const frame = hover.design === current.design ? picked : selectionFrame(area, hover.design, {})
+    // In the frame under the pointer; hovered in Layers, in the frame the selection was picked in.
+    const frame =
+      hover.mode !== undefined
+        ? findFrames(area, hover.design, { mode: hover.mode, state: hover.state })[0]
+        : hover.design === current.design
+          ? picked
+          : selectionFrame(area, hover.design, {})
     const target = nodeInFrames(area, hover.design, hover.node, frame).find((item) => item.picked)
     if (target && node) {
       const { rect } = target
@@ -635,8 +651,15 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
         y1: line.y1 - areaRect.top,
         y2: line.y2 - areaRect.top
       })
-      if (alt && selectedRect && picked && target.host === picked) {
-        model.redlines = redlines(selectedRect, rect, scale, unit).map(toArea)
+      // Measured from the selected layer as the hovered frame draws it.
+      const from =
+        target.host === picked
+          ? selectedRect
+          : hover.design === current.design && current.node && !getDragView()
+            ? nodeBox(target.host, current.node)
+            : undefined
+      if (alt && from) {
+        model.redlines = redlines(from, rect, scale, unit).map(toArea)
       } else if (alt && !selectedRect && hoverEntry) {
         // Nothing selected to measure from: Alt shows the hovered layer's distances to the edges of its parent.
         const parent = locateNode(hoverEntry.container.root, hover.node)?.ancestors.at(-1)

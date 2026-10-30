@@ -5,23 +5,23 @@ import { Button } from "@/components/ui/button"
 import type { ThreadData } from "../collaboration/collab-data.ts"
 import { Thread } from "../collaboration/comments.tsx"
 import { CommentPin } from "../collaboration/pins.tsx"
-import { me, people } from "../explore-data.ts"
+import { people } from "../explore-data.ts"
 import { ActivityRow } from "../start-page-parts.tsx"
-import { DesignRender } from "../start/renders.tsx"
-import { designOf, event, needsYou, portalProject } from "./data.ts"
+import { event, needsYou, portalProject } from "./data.ts"
 import { Pills, PortalPage } from "./parts.tsx"
+import { PricingPhoneAt } from "./pricing-render.tsx"
 
-const { maya, jonas, priya, lena } = people
+const { maya, jonas, priya } = people
 
 /** What's for you but doesn't need you, newest first: a reply, a resolved thread, an invite. */
 const earlier = ["jonas-reply", "lena-resolve", "sam-reply"].map(event)
 
-/** The thread Jonas mentioned you in, on Pricing as it is at v14, with Save 20% in the toggle. */
+/** The thread Jonas mentioned you in, on Pricing's phone board at v14, with Save 20% in the toggle. */
 const toggleThread: ThreadData = {
   id: "toggle",
   design: "Pricing",
   layer: "Billing toggle",
-  frame: "Desktop",
+  frame: "Phone",
   unread: true,
   comments: [
     {
@@ -51,7 +51,6 @@ function Pin({ left, top, children }: { left: string; top: string; children: Rea
 
 export function InboxPage() {
   const website = portalProject("website")
-  const pricing = designOf(website, "Pricing")
   return (
     <PortalPage active="inbox" path="kestrel/inbox">
       <div className="flex h-full">
@@ -61,7 +60,7 @@ export function InboxPage() {
             <span className="text-xs text-muted-foreground">Mark all read</span>
           </div>
           <div className="px-1">
-            <Pills options={["All", "Mentions", "Reviews", "Requests"]} />
+            <Pills options={["All", "Mentions", "Reviews", "Requests", "Agents"]} />
           </div>
           <h2 className="px-1 pt-1 text-xs font-medium text-muted-foreground">Needs you, {needsYou.length}</h2>
           <div className="flex flex-col gap-1">
@@ -103,25 +102,19 @@ export function InboxPage() {
                   background: `radial-gradient(60% 50% at 30% 20%, oklch(0.55 0.14 ${website.look.hue} / 0.16), transparent 70%)`
                 }}
               />
-              <div className="relative mx-auto max-w-[860px]">
+              <div className="relative mx-auto w-[280px]">
                 <span className="text-[11px] font-medium text-white/55">
-                  Pricing <span className="text-white/35">Desktop</span>
+                  Pricing <span className="text-white/35">Phone, v14</span>
                 </span>
                 <div className="relative mt-2">
                   <div className="overflow-hidden rounded-[5px] shadow-[0_16px_40px_-10px_rgb(0_0_0/0.7)] ring-1 ring-white/10">
-                    <DesignRender kind={pricing.kind} look={website.look} />
+                    <PricingPhoneAt look={website.look} version={14} />
                   </div>
-                  <Pin left="61%" top="42%">
+                  <Pin left="80%" top="32%">
                     <CommentPin people={[jonas, maya]} state="selected" replies={1} />
                   </Pin>
-                  <Pin left="40%" top="62%">
-                    <CommentPin people={[priya, me]} state="working" replies={1} />
-                  </Pin>
-                  <Pin left="90%" top="12%">
-                    <CommentPin people={[lena]} state="unread" />
-                  </Pin>
                 </div>
-                <p className="mt-5 text-center text-xs text-white/45">The board as it is now, with its threads.</p>
+                <p className="mt-5 text-center text-xs text-white/45">The board as it is now, with its open thread.</p>
               </div>
             </div>
             <div className="w-[23.5rem] shrink-0 overflow-y-auto border-l p-3">

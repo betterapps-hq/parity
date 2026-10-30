@@ -40,9 +40,10 @@ import {
 } from "@parity/project"
 import { reactRenderer } from "@parity/renderer-react"
 import { tailwindStyles } from "@parity/styles-tailwind"
-import type { ProjectInfo, ServiceMethods, TokenChange, WindowMethods } from "../shared/protocol.ts"
+import type { ProjectEditResult, ProjectInfo, ServiceMethods, TokenChange, WindowMethods } from "../shared/protocol.ts"
 import { startBuilder } from "./builders.ts"
 import { saveDetection, savedDetection } from "./detection-cache.ts"
+import { applyProjectEdit } from "./edits.ts"
 import { forgetProcess, forgetProject, trackProcess } from "./processes.ts"
 import { checkComponents, closeChecker, inferComponents } from "./props.ts"
 import { stopStorybook } from "./storybook.ts"
@@ -426,21 +427,24 @@ export async function saveDocumentCopy({
 export async function saveTokens({
   projectId,
   changes
-}: ServiceMethods["tokens.save"]["params"]): Promise<{ files: string[] }> {
+}: ServiceMethods["tokens.save"]["params"]): Promise<ProjectEditResult> {
   const project = getProject(projectId)
   const stylesheet = project.info.styles?.stylesheet ?? project.stylesheets[0]
   if (!stylesheet) throw new Error("The project has no stylesheet to write tokens to")
-  const path = join(project.info.root, stylesheet)
   const themeNames = new Set(project.info.theme.map((variable) => variable.name))
-  let source = await readFile(path, "utf8")
-  for (const change of changes) source = applyTokenChange(source, change, themeNames.has(change.name))
-  await writeFile(path, source)
+  const source = await readFile(join(project.info.root, stylesheet), "utf8")
+  let content = source
+  for (const change of changes) content = applyTokenChange(content, change, themeNames.has(change.name))
+  const edit = await applyProjectEdit(project, {
+    label: changes.length === 1 ? "Edit a token" : `Edit ${changes.length} tokens`,
+    files: [{ kind: "replace", path: stylesheet, expected: source, content }]
+  })
   // Keep the theme in step, so a reopened tab sees the new values before the builder recompiles.
   for (const change of changes) {
     const variable = project.info.theme.find((candidate) => candidate.name === change.name)
     if (variable && change.theme === "default") variable.value = change.value
   }
-  return { files: [stylesheet] }
+  return edit
 }
 
 function applyTokenChange(source: string, change: TokenChange, isTheme: boolean): string {

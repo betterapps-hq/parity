@@ -1,3 +1,7 @@
+// What each kind of token looks like: a drawing from the token's own value, in a box of any size, so no frame renders
+// for it. The Tokens panel's rows and tiles draw with these. docs/proposals/previews.md has the design.
+
+import { type PreviewKind, substituteReferences, tokenReferences, unclosedInValue } from "@parity/core"
 import { Ban, Hand, MousePointer2, TextCursor } from "lucide-react"
 import {
   createContext,
@@ -9,16 +13,102 @@ import {
   useRef,
   useState
 } from "react"
-import {
-  allTokens,
-  drawn,
-  ms,
-  type PreviewKind,
-  px,
-  references,
-  type SampleToken,
-  substituted
-} from "./preview-data.ts"
+
+/** A token as its preview draws it. */
+export interface PreviewToken {
+  /** The custom property, without `--`. */
+  name: string
+  kind: PreviewKind
+  /** Its value in each theme, `default` being the root, with the tokens it refers to filled in. */
+  values: Record<string, string>
+  /** What the root value comes to, where `values` has it as written. */
+  resolved?: string
+}
+
+/** The value a token draws with in a theme. */
+export function drawn(token: PreviewToken, theme = "default"): string {
+  return theme === "default" ? (token.resolved ?? token.values.default ?? "") : (token.values[theme] ?? "")
+}
+
+/** The panel's sections, in order, each with the kinds it holds and a heading for each kind when it holds more. */
+export const tokenSections: { title: string; kinds: { kind: PreviewKind; heading?: string }[] }[] = [
+  { title: "Colors", kinds: [{ kind: "color" }] },
+  { title: "Fonts", kinds: [{ kind: "font" }] },
+  { title: "Font sizes", kinds: [{ kind: "font-size" }] },
+  { title: "Font weights", kinds: [{ kind: "font-weight" }] },
+  { title: "Line height", kinds: [{ kind: "leading" }] },
+  { title: "Letter spacing", kinds: [{ kind: "tracking" }] },
+  { title: "Spacing", kinds: [{ kind: "spacing" }] },
+  { title: "Radius", kinds: [{ kind: "radius" }] },
+  {
+    title: "Borders",
+    kinds: [
+      { kind: "border-width", heading: "Widths" },
+      { kind: "border", heading: "Width and style" }
+    ]
+  },
+  {
+    title: "Shadows",
+    kinds: [
+      { kind: "shadow", heading: "Box" },
+      { kind: "inset-shadow", heading: "Inset" },
+      { kind: "drop-shadow", heading: "Drop" },
+      { kind: "text-shadow", heading: "Text" }
+    ]
+  },
+  { title: "Opacity", kinds: [{ kind: "opacity" }] },
+  {
+    title: "Blur",
+    kinds: [
+      { kind: "blur", heading: "Layer" },
+      { kind: "backdrop-blur", heading: "Backdrop" }
+    ]
+  },
+  {
+    title: "Motion",
+    kinds: [
+      { kind: "duration", heading: "Durations" },
+      { kind: "easing", heading: "Easing" },
+      { kind: "animation", heading: "Animations" }
+    ]
+  },
+  { title: "Layers", kinds: [{ kind: "z-index" }] },
+  { title: "Breakpoints", kinds: [{ kind: "breakpoint" }] },
+  { title: "Containers", kinds: [{ kind: "container" }] },
+  { title: "Aspect ratios", kinds: [{ kind: "aspect" }] },
+  { title: "Perspective", kinds: [{ kind: "perspective" }] },
+  { title: "Cursors", kinds: [{ kind: "cursor" }] },
+  { title: "Other", kinds: [{ kind: "number" }] }
+]
+
+/** A length in pixels, from px, rem or em, or from anything else the browser can work out, such as `calc()`. */
+export function px(value: string): number {
+  const match = /^(-?[\d.]+)(px|rem|em)?$/.exec(value.trim())
+  if (!match) return measured(value)
+  return Number(match[1]) * (match[2] === "rem" || match[2] === "em" ? 16 : 1)
+}
+
+const lengths = new Map<string, number>()
+
+/** A length the browser works out, by laying out an element that wide once; NaN when it isn't a length. */
+function measured(value: string): number {
+  const known = lengths.get(value)
+  if (known !== undefined) return known
+  if (typeof document === "undefined" || !CSS.supports("width", value)) return Number.NaN
+  const probe = document.createElement("div")
+  probe.style.cssText = `position: absolute; visibility: hidden; width: ${value}`
+  document.body.append(probe)
+  const length = probe.getBoundingClientRect().width
+  probe.remove()
+  lengths.set(value, length)
+  return length
+}
+
+/** A duration in milliseconds, from ms or s. */
+export function ms(value: string): number {
+  const match = /^([\d.]+)(ms|s)$/.exec(value.trim())
+  return match ? Number(match[1]) * (match[2] === "s" ? 1000 : 1) : Number.NaN
+}
 
 /**
  * The project's own light theme, which designs draw on. Previews of how something looks on a design (shadows, blur,
@@ -50,6 +140,9 @@ export const onPaper = new Set<PreviewKind>([
   "tracking"
 ])
 
+/** Kinds that move, and so play while hovered, focused or open. */
+export const moving = new Set<PreviewKind>(["duration", "easing", "animation"])
+
 export const checker: CSSProperties = {
   backgroundColor: "#fff",
   backgroundImage: "repeating-conic-gradient(oklch(0.88 0 0) 0 25%, transparent 0 50%)",
@@ -58,6 +151,12 @@ export const checker: CSSProperties = {
 
 /** Holds reduced motion on or off for what's inside, so a story can show both without changing the computer's setting. */
 export const ReducedMotion = createContext<boolean | undefined>(undefined)
+
+/**
+ * The keyframes an animation token runs, by the name its value gives. The app reads them from the project's
+ * stylesheet; an animation whose keyframes aren't known holds still.
+ */
+export const Keyframes = createContext<(name: string) => Keyframe[] | undefined>(() => undefined)
 
 /** Whether the computer asks for reduced motion, as previews then hold still unless played on purpose. */
 export function useReducedMotion(): boolean {
@@ -70,6 +169,19 @@ export function useReducedMotion(): boolean {
     return () => query.removeEventListener("change", change)
   }, [])
   return forced ?? reduced
+}
+
+/**
+ * Plays a token's motion while the pointer or keyboard is on it, unless the computer asks for reduced motion. `forced`
+ * holds it playing, for stories that show a hovered row.
+ */
+export function useHoverPlay(kind: PreviewKind, forced = false) {
+  const reduced = useReducedMotion()
+  const [hovered, setHovered] = useState(false)
+  const playing = moving.has(kind) && !reduced && (hovered || forced)
+  const on = () => setHovered(true)
+  const off = () => setHovered(false)
+  return { playing, handlers: { onPointerEnter: on, onPointerLeave: off, onFocus: on, onBlur: off } }
 }
 
 /**
@@ -157,29 +269,6 @@ export function animationParts(value: string): { name: string; duration: number;
   const duration = parts.map(ms).find((time) => !Number.isNaN(time)) ?? 1000
   const easing = parts.find((part) => /^(cubic-bezier|linear)\(/.test(part) || part in easingKeywords) ?? "ease"
   return { name: parts[0] ?? "", duration, easing, infinite: parts.includes("infinite") }
-}
-
-/**
- * The keyframes each sample animation runs. In the app these come from the project's own stylesheet, by the name the
- * token gives, since the keyframes are wherever the token's styles are.
- */
-const keyframes: Record<string, Keyframe[]> = {
-  spin: [{ transform: "rotate(0deg)" }, { transform: "rotate(360deg)" }],
-  ping: [
-    { transform: "scale(1)", opacity: 1 },
-    { transform: "scale(2)", opacity: 0, offset: 0.75 },
-    { transform: "scale(2)", opacity: 0 }
-  ],
-  pulse: [{ opacity: 1 }, { opacity: 0.5, offset: 0.5 }, { opacity: 1 }],
-  bounce: [
-    { transform: "translateY(-25%)", easing: "cubic-bezier(0.8, 0, 1, 1)" },
-    { transform: "none", easing: "cubic-bezier(0, 0, 0.2, 1)", offset: 0.5 },
-    { transform: "translateY(-25%)" }
-  ],
-  "fade-in": [
-    { opacity: 0, transform: "translateY(4px)" },
-    { opacity: 1, transform: "none" }
-  ]
 }
 
 /** The curve of an easing as an SVG path in a box, progress up. Overshoot past 0 and 1 stays inside the padding. */
@@ -297,10 +386,12 @@ export function DurationArt({
   const loop = period ?? time + rest
   usePlayback(
     dot,
-    {
-      frames: looped({ transform: "translateX(0)" }, { transform: `translateX(${travel}px)` }, time, easing, loop),
-      timing: { duration: loop, iterations: Number.POSITIVE_INFINITY }
-    },
+    Number.isNaN(time)
+      ? undefined
+      : {
+          frames: looped({ transform: "translateX(0)" }, { transform: `translateX(${travel}px)` }, time, easing, loop),
+          timing: { duration: loop, iterations: Number.POSITIVE_INFINITY }
+        },
     playing
   )
   return (
@@ -309,7 +400,7 @@ export function DurationArt({
       {/* At rest, the track's fill says how long it is against half a second. */}
       <span
         className="absolute left-0 h-[3px] rounded-full bg-current opacity-60"
-        style={{ width: `${Math.min(1, time / 500) * 100}%`, visibility: playing ? "hidden" : "visible" }}
+        style={{ width: `${Math.min(1, (time || 0) / 500) * 100}%`, visibility: playing ? "hidden" : "visible" }}
       />
       <span
         ref={dot}
@@ -329,15 +420,17 @@ export function DurationArt({
 export function AnimationArt({ value, size, playing }: { value: string; size: number; playing: boolean }) {
   const mark = useRef<HTMLSpanElement>(null)
   const { name, duration, easing, infinite } = animationParts(value)
-  const frames = keyframes[name]
+  const frames = useContext(Keyframes)(name)
   usePlayback(
     mark,
-    frames && {
-      frames: infinite ? frames : looped(frames[0]!, frames.at(-1)!, duration, easing),
-      timing: infinite
-        ? { duration, easing, iterations: Number.POSITIVE_INFINITY }
-        : { duration: duration + rest, iterations: Number.POSITIVE_INFINITY }
-    },
+    frames?.length
+      ? {
+          frames: infinite ? frames : looped(frames[0]!, frames.at(-1)!, duration, easing),
+          timing: infinite
+            ? { duration, easing, iterations: Number.POSITIVE_INFINITY }
+            : { duration: duration + rest, iterations: Number.POSITIVE_INFINITY }
+        }
+      : undefined,
     playing
   )
   const s = size
@@ -416,11 +509,6 @@ function Shrunk({
   )
 }
 
-/** The fonts a design uses come from the project's stylesheet; Geist is Parity's too, so it draws here as it would there. */
-function fontOf(token: SampleToken): string {
-  return drawn(token)
-}
-
 /**
  * One token's preview, drawn into a box of any size: the row glyph, a tile and the detail card all draw with it. Motion
  * only moves while `playing`.
@@ -432,7 +520,7 @@ export function TokenArt({
   playing = false,
   theme = "default"
 }: {
-  token: SampleToken
+  token: PreviewToken
   width: number
   height: number
   playing?: boolean
@@ -561,7 +649,7 @@ export function TokenArt({
       return (
         <span
           className="grid size-full place-items-center leading-none"
-          style={{ fontFamily: fontOf(token), color: paper.ink, fontSize: large ? 34 : 15 }}
+          style={{ fontFamily: value, color: paper.ink, fontSize: large ? 34 : 15 }}
         >
           Ag
         </span>
@@ -574,7 +662,7 @@ export function TokenArt({
           className="flex size-full items-center justify-center overflow-hidden leading-none"
           style={{ color: paper.ink }}
         >
-          <span style={{ fontSize: shown }}>Aa</span>
+          <span style={{ fontSize: Number.isFinite(shown) ? shown : undefined }}>Aa</span>
         </span>
       )
     }
@@ -599,7 +687,7 @@ export function TokenArt({
     case "leading": {
       // Lines of text as bars, a line height apart, to show how loose the text sits.
       const size = large ? 12 : 5
-      const pitch = Number(value) * size
+      const pitch = (Number(value) || 1.5) * size
       const lines = Math.max(2, Math.floor((height - 4) / pitch))
       return (
         <span className="flex size-full flex-col justify-center px-[15%]">
@@ -680,7 +768,7 @@ export function TokenArt({
       )
     }
     case "aspect": {
-      const [w, h] = value.split("/").map((part) => Number(part.trim())) as [number, number]
+      const [w = 1, h = 1] = value.split("/").map((part) => Number(part.trim()) || 1)
       const fit = Math.min((width - 6) / w, (height - 6) / h)
       return (
         <span className="grid size-full place-items-center">
@@ -714,7 +802,7 @@ export function TokenArt({
     case "breakpoint":
     case "container": {
       const widest = token.kind === "breakpoint" ? 1536 : 1280
-      const share = Math.min(1, px(value) / widest)
+      const share = Math.min(1, Math.max(0, px(value) / widest || 0))
       return token.kind === "breakpoint" ? (
         <span className="relative flex size-full items-center text-muted-foreground">
           <span className="absolute inset-x-0.5 h-px bg-current opacity-30" />
@@ -752,11 +840,11 @@ export function TokenArt({
   }
 }
 
-/** A z-index among its scale: sheets stacked back to front, with this token's sheet lit at its place in the order. */
-function LayersArt({ token, width, height }: { token: SampleToken; width: number; height: number }) {
-  // The sample scale is listed top first; where this one falls decides which of four sheets lights up.
+/** A z-index among the usual layers: sheets stacked back to front, with this token's sheet lit at its place. */
+function LayersArt({ token, width, height }: { token: PreviewToken; width: number; height: number }) {
+  // The layers libraries name, top first; where this one falls decides which of four sheets lights up.
   const order = ["tooltip", "toast", "popover", "modal", "overlay", "sticky", "dropdown", "docked", "base", "hide"]
-  const rank = order.findIndex((name) => token.name.endsWith(name))
+  const rank = order.findIndex((name) => token.name.toLowerCase().endsWith(name))
   const lit = rank < 0 ? 0 : Math.round(((order.length - 1 - rank) / (order.length - 1)) * 3)
   const sheet = { width: width * 0.46, height: height * 0.42 }
   return (
@@ -784,8 +872,8 @@ function LayersArt({ token, width, height }: { token: SampleToken; width: number
  * as a break, so a cut bar never passes for its true size.
  */
 export function SpacingBar({ length, room, dim = false }: { length: number; room: number; dim?: boolean }) {
-  const fits = length <= room
-  const shown = fits ? Math.max(1, length) : Math.max(1, room - 14)
+  const fits = !(length > room)
+  const shown = fits ? Math.max(1, length || 0) : Math.max(1, room - 14)
   const fill = { background: dim ? "currentColor" : "var(--canvas-layer)", opacity: dim ? 0.35 : 0.85 }
   return (
     <span className="flex h-2.5 shrink-0 items-center text-muted-foreground">
@@ -807,6 +895,19 @@ export function SpacingBar({ length, room, dim = false }: { length: number; room
       )}
     </span>
   )
+}
+
+/** The longest length a spacing row draws at its true size; a longer one is drawn cut, with a break in its bar. */
+const longestBar = 128
+
+/**
+ * How wide a section's spacing previews are: as wide as its longest length, so every bar is its true size, up to
+ * `longestBar`. Names still line up within the section. Nothing for a section without spacing.
+ */
+export function spacingSlot(tokens: readonly PreviewToken[]): number | undefined {
+  const lengths = tokens.filter((token) => token.kind === "spacing").map((token) => px(drawn(token)))
+  const longest = Math.max(0, ...lengths.filter(Number.isFinite))
+  return lengths.length > 0 ? Math.min(longestBar + 4, Math.max(40, Math.ceil(longest) + 6)) : undefined
 }
 
 const valueChecks: Partial<
@@ -844,46 +945,40 @@ const valueChecks: Partial<
  * Why a value can't be this kind of token, in words, or nothing when it can. `CSS.supports` alone isn't enough: the
  * browser closes whatever is left open at the end of a value, so it takes `calc(var(--radius) * 2.6` as complete, and
  * any value holding `var()` passes, since a variable can't be checked until it's known. So brackets and quotes are
- * checked here, each `var()` must name a token, and the value is checked with every reference replaced by its value.
+ * checked first, each `var()` must name a token, and the value is checked with every reference replaced by what
+ * `lookup` says its token comes to (undefined for a token there isn't).
  */
-export function valueProblem(kind: PreviewKind, value: string): string | undefined {
+export function valueProblem(
+  kind: PreviewKind,
+  value: string,
+  lookup: (name: string) => string | undefined
+): string | undefined {
   const text = value.trim()
   if (!text) return "Enter a value."
-  const open = unclosed(text)
+  const open = unclosedInValue(text)
   if (open) return open
-  const missing = references(text).find((name) => !allTokens.some((token) => token.name === name))
+  const missing = tokenReferences(text).find((name) => lookup(name) === undefined)
   if (missing) return `There's no token named --${missing}.`
   const check = valueChecks[kind]
   if (!check) return undefined
   const [property, noun, example, wrap] = check
-  const resolved = substituted(text)
+  const resolved = substituteReferences(text, lookup)
   return CSS.supports(property, wrap ? wrap(resolved) : resolved) ? undefined : `That isn't a ${noun}. Try ${example}.`
-}
-
-/** What a value leaves open or closes twice: a bracket or a quote, in words. */
-function unclosed(text: string): string | undefined {
-  const closers: string[] = []
-  let quote: string | undefined
-  for (const char of text) {
-    if (quote) {
-      if (char === quote) quote = undefined
-    } else if (char === '"' || char === "'") quote = char
-    else if (char === "(" || char === "[") closers.push(char === "(" ? ")" : "]")
-    else if ((char === ")" || char === "]") && closers.pop() !== char) return `There's a ${char} with nothing to close.`
-  }
-  if (quote) return "A quote isn't closed."
-  if (closers.length > 0) return `A bracket isn't closed. Add ${closers.reverse().join("")} at the end.`
-  return undefined
 }
 
 /**
  * What a row shows beside the name: the value in the unit people think in (pixels, milliseconds, percent), or nothing
  * where the preview says it all.
  */
-export function valueLabel(token: SampleToken): string | undefined {
+export function valueLabel(token: PreviewToken): string | undefined {
   const value = drawn(token)
   switch (token.kind) {
     case "color":
+    case "shadow":
+    case "inset-shadow":
+    case "drop-shadow":
+    case "text-shadow":
+    case "easing":
       return undefined
     case "spacing":
     case "radius":
@@ -892,23 +987,20 @@ export function valueLabel(token: SampleToken): string | undefined {
     case "container":
     case "blur":
     case "backdrop-blur":
-    case "border-width":
-      return Number.isNaN(px(value)) ? value : `${px(value)}px`
-    case "opacity":
-      return `${Math.round(Number(value) * 100)}%`
+    case "border-width": {
+      const length = px(value)
+      return Number.isNaN(length) ? value : `${Number(length.toFixed(2))}px`
+    }
+    case "opacity": {
+      const share = Number(value)
+      return Number.isNaN(share) ? value : `${Math.round(share * 100)}%`
+    }
     case "leading":
-      return `${value}×`
+      return Number.isNaN(Number(value)) ? value : `${value}×`
     case "aspect":
       return value.replace(/\s*\/\s*/, ":")
-    case "shadow":
-    case "inset-shadow":
-    case "drop-shadow":
-    case "text-shadow":
-      return undefined
     case "font":
       return value.split(",")[0]!.replaceAll(/['"]/g, "").replace(" Variable", "")
-    case "easing":
-      return undefined
     case "animation": {
       const { duration, infinite } = animationParts(value)
       return `${duration}ms${infinite ? ", loops" : ""}`
@@ -928,7 +1020,7 @@ export function TokenGlyph({
   themes = ["default"],
   width = 40
 }: {
-  token: SampleToken
+  token: PreviewToken
   playing?: boolean
   /** Colors show a swatch for each theme. */
   themes?: string[]
@@ -967,14 +1059,14 @@ export function TokenTile({
   playing = false,
   theme
 }: {
-  token: SampleToken
+  token: PreviewToken
   width?: number
   height?: number
   playing?: boolean
   /** One theme; a color shows every theme it has, side by side, without one. */
   theme?: string
 }) {
-  const themeGiven = theme !== undefined
+  const themes = Object.keys(token.values)
   return (
     <span
       className="relative block shrink-0 overflow-hidden rounded-md border"
@@ -986,16 +1078,10 @@ export function TokenTile({
           : { background: "var(--muted)" })
       }}
     >
-      {token.kind === "color" && !themeGiven ? (
+      {token.kind === "color" && theme === undefined ? (
         <span className="flex size-full">
-          {Object.keys(token.values).map((each) => (
-            <TokenArt
-              key={each}
-              token={token}
-              width={(width - 2) / Object.keys(token.values).length}
-              height={height - 2}
-              theme={each}
-            />
+          {themes.map((each) => (
+            <TokenArt key={each} token={token} width={(width - 2) / themes.length} height={height - 2} theme={each} />
           ))}
         </span>
       ) : (

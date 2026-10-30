@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs"
 import { readdir, readFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { dirname, join } from "node:path"
@@ -24,10 +25,13 @@ export interface RegistryEntry {
 const require = createRequire(import.meta.url)
 
 /**
- * The folder the registry's files are in. Found through the package's own `package.json`, so it's the same whether
- * this module runs from source or bundled into the app.
+ * The folder the registry's files are in. The published CLI bundles this module and ships the files beside it, where
+ * the package can't be resolved. Otherwise they're found through the package's own `package.json`, so it's the same
+ * whether this module runs from source or bundled into the app.
  */
 export function registryDir(): string {
+  const bundled = join(import.meta.dirname, "libraries")
+  if (existsSync(bundled)) return bundled
   return join(dirname(require.resolve("@parity/registry/package.json")), "libraries")
 }
 

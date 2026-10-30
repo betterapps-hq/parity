@@ -64,7 +64,7 @@ when it's spread through UI code. Today:
   package is pure unless it's named as a reader or at the edge, so a new package starts pure.
 - **Readers read a project's files but never write them or start processes:** `@parity/code`, `@parity/project` and
   `@parity/registry`, since TypeScript's program and the project's discovery read the project as they go. A reader that
-  needs a file changed returns a changeset for the service to apply. Readers use no React and depend only on pure
+  needs a file changed returns a project edit for the service to apply. Readers use no React and depend only on pure
   packages and other readers.
 - **The edge is where Node and React belong:** the CLI, `@parity/libgen`, the agent runtime, the adapters
   (`renderer-react`, the only package with React, `builder-vite` and `styles-tailwind`) and the fixtures.
@@ -82,7 +82,7 @@ when it's spread through UI code. Today:
 | Package                             | What it owns                                                                                                                                                               | Comes from                                                                                         |
 | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | `@parity/code`                      | One TypeScript program per project. Listing components, props, file ownership by hash, writing a component file from a design, reading an edited file back, drift, review. | `project/components.ts`, `libgen/components.ts`, `@parity/props`, and the CMP items not built yet. |
-| Changesets, in `@parity/project`    | File edits built as data, shown as a diff, applied together, undone together, remembered so the app ignores its own writes.                                                | The writes in `utility/projects.ts`, `utility/libraries.ts`, `utility/images.ts` and `cli/lib.ts`. |
+| Project edits, in `@parity/project` | File edits built as data, shown as a diff, applied together, undone together, remembered so the app ignores its own writes.                                                | The writes in `utility/projects.ts`, `utility/libraries.ts`, `utility/images.ts` and `cli/lib.ts`. |
 | `@parity/editor`                    | Editor behaviour without the views: clipboard, drop rules, arranging, inserting, Make component, placement, snapping, selection, undo and unsaved tracking.                | The renderer files listed above.                                                                   |
 | `@parity/models`, then one per lens | The lens schemas (PAR-15), then each lens's standards reader and model operations. Each adapter, such as Drizzle or TanStack Router, is a package of its own.              | New code.                                                                                          |
 | `@parity/storybook`                 | Everything Storybook-specific, behind the `StoryAdapter` in [storybook.md](../storybook.md).                                                                               | `project/storybook.ts` and `utility/storybook.ts` (PAR-114).                                       |
@@ -105,13 +105,24 @@ This is the one you expect to iterate on most, so it gets the clearest boundary.
   with `reactFinder` for React, so Vue or Svelte later is another adapter.
 - **`@parity/libgen` keeps generating `.lib.par` files** and uses `@parity/code` to find components.
 
-### Changesets
+### Project edits
 
-- **A changeset is a list of file edits:** create, replace or patch, each with the text it expects to find. Building and
-  diffing one is pure, in `@parity/project`. The service applies it through one function, which also records the write
-  so the watcher ignores it, as `.par` saves already do.
-- **Everything that writes goes through it:** tokens, library imports, images, `.lib.par`, generated components and
-  stories, `.parity/` files, and later migrations, handlers, route files and recipes.
+Built in PAR-6 (2026-10-29). They were called changesets until then, which read as the versioning tool; Parity versions
+itself with Beachball.
+
+- **A project edit is a list of file edits:** create, replace, patch or delete, each with what it expects to find, so a
+  file changed since the edit was built is left alone rather than overwritten. Planning one against what the files hold,
+  diffing it and reversing it are pure, in [edits.ts](../../packages/project/src/edits.ts).
+- **The service applies it through one function,** `applyProjectEdit` in
+  [utility/edits.ts](../../apps/desktop/src/utility/edits.ts): it checks every file first, writes them all, puts back
+  the ones written if a write fails, and records what it wrote so the watcher ignores it, as `.par` saves do. It keeps a
+  project's latest 50 edits to undo by id, through `project.undoEdit`, as long as their files still hold what was
+  written.
+- **Token writes, library style imports and pasted images go through it.** Importing a library's styles says which file
+  changed, with its diff and Undo. Token edits take their undo from the design's history, which PAR-164 is building, and
+  a pasted image's file stays when its layer is undone, as before.
+- **Still to move onto it:** `.lib.par` files from `cli/lib.ts` and `.par` saves (PAR-423), and then generated
+  components and stories, `.parity/` files, and later migrations, handlers, route files and recipes.
 - **This moves the diff-first part of PAR-293 into the foundations,** because components need it before any lens does.
   Writing back from the lenses (migrations, handlers, route files) keeps its place at the end of the order you set.
 
@@ -133,14 +144,14 @@ This is the one you expect to iterate on most, so it gets the clearest boundary.
 ## What stays in the app
 
 - **Main:** windows, menus, the render window and process lifecycles.
-- **The project service:** reading and watching files, applying changesets, starting processes and answering IPC. The
+- **The project service:** reading and watching files, applying project edits, starting processes and answering IPC. The
   logic it runs comes from packages.
 - **The renderer:** views, tldraw wiring, hooks, and DOM measuring.
 
 ## Order
 
 1. **The rule and its lint guard** (PAR-5).
-2. **Changesets** (PAR-6), with tokens, library imports and images moved onto them.
+2. **Project edits** (PAR-6), with tokens, library imports and images moved onto them.
 3. **`@parity/code` from the three readers** (PKG-3), after FIND-1 and PROJ-5, which the Components Sync session has in
    progress on those files. It's the natural start of FIND-2, which already says to reuse libgen's finder. Generating
    files (PAR-85), the drift review (PAR-93) and reading back (PAR-90) are then built inside it.
@@ -156,5 +167,5 @@ These are in decisions.md as my calls. Change any of them.
 
 - The rule above, and its lint guard.
 - `@parity/props` merges into `@parity/code`, since both need the same program.
-- Changesets come before the components work that needs them, so PAR-85 waits on PAR-6 and PKG-3.
+- Project edits come before the components work that needs them, so PAR-85 waits on PAR-6 and PKG-3.
 - Lenses and adapters never go in core.

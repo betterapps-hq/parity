@@ -64,7 +64,8 @@ keeping the designs there, so ask before running that in someone's project.
    themselves with the Interact tool (I), which hands their mouse and keyboard to the real components.
 
 Your changes to designs are on the canvas but not saved: the person saves (Ctrl+S) or undoes them, as with their own
-edits. Don't say they're saved. `SetTokens` is different: it writes the project's stylesheets straight away.
+edits. Don't say they're saved. Token values from `SetTokens` are the same: they show at once, and go into the project's
+stylesheet when the person saves.
 
 ## Rules
 

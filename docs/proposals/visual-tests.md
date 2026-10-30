@@ -169,19 +169,19 @@ jobs:
           key: parity-visual-${{ github.sha }}
           restore-keys: parity-visual-
       - id: plan
-        run: npx @parity/cli test plan --github-output
+        run: npx @parity-app/cli test plan --github-output
       - if: steps.plan.outputs.render == 'true'
         run: corepack enable && pnpm install --frozen-lockfile
       - if: steps.plan.outputs.render == 'true'
-        run: npx @parity/cli test render
-      - run: npx @parity/cli test report --ci
+        run: npx @parity-app/cli test render
+      - run: npx @parity-app/cli test report --ci
       - if: always()
         uses: actions/upload-artifact@v4
         with: { name: parity-visual, path: .parity/visual/out }
 ```
 
-`@parity/cli` stands in for the CLI's npm package, whose name is PAR-26. A sharded version adds a plan job whose output
-is the render jobs' matrix. PAR-239 writes both, and the Azure DevOps equivalents.
+The CLI publishes as `@parity-app/cli` (PAR-26). A sharded version adds a plan job whose output is the render jobs'
+matrix. PAR-239 writes both, and the Azure DevOps equivalents.
 
 ## When code changes under a design
 

@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
@@ -26,7 +26,8 @@ async function fixture(files: Record<string, string>, { vite = true } = {}) {
 }
 
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), "parity-vite-"))
+  // The real path: Windows runners' tmpdir can use a short (8.3) name, which crashes libuv's watcher.
+  root = await realpath(await mkdtemp(join(tmpdir(), "parity-vite-")))
 })
 
 afterEach(async () => {

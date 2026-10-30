@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import type { RendererAdapter } from "@parity/core"
@@ -23,7 +23,9 @@ async function write(path: string, content: string) {
 }
 
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), "canvas-project-"))
+  // Libraries are found by their real paths, and the temporary folder isn't one on macOS (/var is a link to
+  // /private/var) or on Windows runners (whose TEMP is a short 8.3 name).
+  root = await realpath(await mkdtemp(join(tmpdir(), "canvas-project-")))
 })
 
 afterEach(async () => {

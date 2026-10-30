@@ -8,12 +8,13 @@ import { type Design, project, type StartProject } from "../start/data.ts"
 
 export const kestrel: Organization = { id: "kestrel", name: "Kestrel", members: 8, hue: 200 }
 
-const renamed: Record<string, { name: string; brand: string; first?: string }> = {
+const renamed: Record<string, { name: string; brand: string; first?: string; edited?: string }> = {
   // Its landing page carries the start page's own tagline, so it opens on Pricing.
   website: { name: "Kestrel website", brand: "Kestrel", first: "Pricing" },
   dashboard: { name: "Cloud console", brand: "Kestrel Cloud" },
   docs: { name: "Help center", brand: "Kestrel Help" },
-  library: { name: "Kestrel UI", brand: "Kestrel UI" },
+  // Lena published 2.4 yesterday, which was its last edit.
+  library: { name: "Kestrel UI", brand: "Kestrel UI", edited: "Yesterday" },
   spawnkit: { name: "Ember Caves", brand: "Ember Caves" },
   copilot: { name: "Relay", brand: "Relay" }
 }
@@ -29,7 +30,13 @@ export function portalProject(id: string): StartProject {
   if (!names) return shown
   const first = shown.designs.filter((design) => design.name === names.first)
   const designs = [...first, ...shown.designs.filter((design) => !first.includes(design))]
-  return { ...shown, name: names.name, look: { ...shown.look, brand: names.brand, org: kestrel.name }, designs }
+  return {
+    ...shown,
+    name: names.name,
+    edited: names.edited ?? shown.edited,
+    look: { ...shown.look, brand: names.brand, org: kestrel.name },
+    designs
+  }
 }
 
 /** One of a project's designs, by name. */
@@ -64,8 +71,9 @@ export const teams = {
  * makes a version, but only one its designer marks ready for review moves a board: edits in between are drafts, shown
  * only as someone editing. In review: a version is ready and waiting on a reviewer. Ready to build: a version was
  * approved and nobody's building it yet. Building: someone picked it up. Changed since approval: a newer version than
- * the approved one is ready for review, so it needs another look first. Built: the project's code draws the approved
- * version as designed. Code differs: the code changed after it was built. Branches and pull requests show too, where a
+ * the approved one is ready for review while the approved one is still to build or being built, so whoever builds it
+ * looks first. Once the approved version is built, a newer one ready for review is just In review. Built: the
+ * project's code draws the approved version as designed. Code differs: the code changed after it was built. Branches and pull requests show too, where a
  * project has them.
  */
 export type Handoff = "In review" | "Ready to build" | "Building" | "Changed since approval" | "Built" | "Code differs"
@@ -140,7 +148,7 @@ export const owners: Record<string, Person> = {
 
 /** What changed on Pricing since v12, the version you approved and are building. */
 export const pricingSince =
-  "You're building v12. v14 moves Save 20% into the billing toggle, makes Team's card Most popular, and takes out Compare all plans."
+  "You're building v12. v14, which Priya Raman reviews, moves Save 20% into the billing toggle, makes Team's card Most popular, and takes out Compare all plans."
 
 /** What Sam asked Claude Code to do in the Cloud console, which it now wants reviewed. */
 export const claudeTask = "Move the console to the green brand"
@@ -169,7 +177,7 @@ export const events: PortalEvent[] = [
     who: maya,
     project: "Kestrel website",
     design: "Pricing",
-    action: "asked Priya Raman to review v14 of",
+    action: "marked v14 ready for review on",
     quote: pricingSince,
     when: "12 min ago",
     day: "Today",
@@ -348,6 +356,20 @@ export const events: PortalEvent[] = [
     quote: "Perfect.",
     when: "Yesterday",
     day: "Yesterday",
+    team: "web"
+  },
+  {
+    id: "ren-invite",
+    ago: 2880,
+    kind: "invite",
+    who: priya,
+    project: "Kestrel",
+    action: "invited ren@kestrel.dev as an editor to",
+    quote: "Ren is drawing the Help center's illustrations with me.",
+    when: "2 days ago",
+    day: "This week",
+    unread: true,
+    needsYou: true,
     team: "web"
   },
   {

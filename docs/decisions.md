@@ -29,9 +29,15 @@ still need your call.
 - **Open:** Buildkit's nova `tokens.json`, which isn't DTCG yet.
 - **Saving is explicit, as in a document editor.** Edits stay unsaved until Save (Ctrl+S). The tab shows a dot (it turns
   into the close button on hover). The status bar only says when a save failed, and clicking that tries again: you asked
-  to remove its "Saved" and "Unsaved changes", as the tab's dot already shows them. Undoing back to what was saved makes
-  the file clean again. Edit > Settings > Save automatically turns on saving each edit about 300ms after it's made, and
-  is off by default.
+  to remove its "Saved" and "Unsaved changes", as the tab's dot already shows them. A file that's the same as what was
+  saved is clean, however it got there: undoing back, or turning Show every state on and off again (PAR-164), since
+  views are tidied as they're written, leaving out every-state off, no modes or variants beside, and the base state.
+  Edit > Settings > Save automatically turns on saving each edit about 300ms after it's made, and is off by default.
+- **Token edits are ordinary edits** (PAR-164): they undo and redo with the designs, and reach the project's stylesheet
+  only on Save (or autosave), an agent's `SetTokens` included, in the same undo step as its designs. The token editor's
+  button is Apply, with a line saying Save writes it to the stylesheet. Don't save writes nothing. A failed write names
+  the token and the file in the save notice, the status bar and the Tokens panel, where its row is marked and a banner
+  offers Try again; a stylesheet changed since it was read fails the same way.
 - **Closing a tab or quitting with unsaved changes asks** Save, Don't save or Cancel, with Save focused so Enter does
   it. Quitting with several projects unsaved asks once, with Save all.
 - **Changes from outside reload as one undoable step.** That covers agents, git and text editors. A file with unsaved
@@ -109,6 +115,18 @@ still need your call.
   in Settings). Files are named after the design, plus the state and mode when there's more than one. It exports the
   designs as they are on the canvas, saved or not, and doesn't save them.
 - **Recent projects:** the last 10 that opened successfully.
+- **The canvas's right-click menu follows Figma's order** (PAR-168): Select layer, then copying and pasting, ordering,
+  Wrap, Make component and Go to the main component, then Hide. Items that don't apply to what's selected are left out;
+  items that apply but can't act right now are greyed. Lock joins it with PAR-192, and Open in editor and Copy as JSX
+  with PAR-166. The empty canvas gets Paste here, Select all and Zoom to fit, a text note over a board gets the empty
+  canvas's menu, and Interact gets none.
+- **A right-click selects what a click would** (PAR-168), unless it lands inside the selection or on a selected layer's
+  resize handle. The menu reads the selection and its target when the right button goes down, because tldraw selects the
+  board on release.
+- **Paste here ignores the selection** (PAR-168): designs and notes go at the pointer, and layers go into the deepest
+  layout of the design under the pointer, in the slot there, or at the pointer in an absolutely placed one, in half
+  steps of the spacing scale. It never pastes into a layout inside an instance. Select layer lists the design first,
+  then every layer under the pointer, those inside instances included.
 
 ## Canvas
 
@@ -129,8 +147,17 @@ still need your call.
   and formatting.
 - **Snapping is on by default.** Designs lock to each other's edges and centres within 8 screen pixels. Hold Ctrl to
   move freely, or turn it off under View.
-- **Double-click drills in first, as in Figma.** It edits text only on a selected text layer that's the deepest thing
-  under the pointer.
+- **A click inside a board selects what's under the pointer, as in Figma's top-level frames** (PAR-163, which replaced
+  double-click drilling in first). A click selects the top-level layer, or, with a layer of that design selected, its
+  sibling there. The board is selected by its title or background, and a click on a frame's background selects it too.
+  Each double-click goes one level deeper than the selection, and edits text only on a selected text layer that's the
+  deepest thing under the pointer. Ctrl-click selects the deepest layer, Enter selects the layers inside or edits a text
+  layer, and hovering outlines what a click would select, in the frame under the pointer. A press drags what a click
+  would select, so a board never moves by a frame's background, where Figma moves a selected frame dragged from inside
+  it. Free text notes keep tldraw's click and double-click.
+- **A box drawn from a frame's background selects the top-level layers it touches** (PAR-163), as Figma's and tldraw's
+  do, live, drawn with tldraw's own box; Shift adds to the selection and Escape restores it. Ctrl doesn't make it go
+  deeper yet. With several designs selected, Enter works in the one picked last.
 - **Side panels have one row of tabs, Pen style.** The open tab shows its name and the rest show only their icons. The
   left panel's tabs are Layers, Components, Icons, Images and Tokens; the right's are Design, Modes and Accessibility.
   Each panel remembers its open tab.
@@ -228,9 +255,9 @@ still need your call.
   hovering only measures boxes.
 - **A layer's box is what it draws at its top level** (CAN-45): one element for most layers, each root of a fragment,
   and for a provider, the top-level elements of the layers inside it. A point belongs to the innermost layer. Undrawn
-  (0×0) elements are left out unless every element is undrawn, content portaled out of the frame doesn't count, a slot
-  drawn twice is one layer covering every copy, and a component that draws nothing has no box and is selected from
-  Layers.
+  (0×0) elements and elements clipped to nothing, such as a checkbox's hidden input, are left out unless every element
+  is undrawn (PAR-163), content portaled out of the frame doesn't count, a slot drawn twice is one layer covering every
+  copy, and a component that draws nothing has no box and is selected from Layers.
 - **When a component's props have no `style`, the inspector says sizes and styles won't change it** and offers Wrap in
   layout (CAN-45). It's read from the props type, so it doesn't show for `any`, `object`, index signatures or type
   parameters.
@@ -281,6 +308,17 @@ section has the details. The user asked for "variants, instance overrides and th
   adding an override.
 - **A component's board shows one combination of variants,** picked in its title bar. With a non-default option showing,
   base-state edits go to that option.
+- **A component's board shows each param's default,** as an instance with no args does (PAR-164, my call; it changes
+  what main boards show, which showed the design's own values). So the Stat card's board shows only the trend icon its
+  params select. Editing a bound text, prop or visibility on the board in the base state changes that default, which
+  matches the Params section's "Defaults show on this board".
+- **Edits that can't be per state or variant say so before they're made** (PAR-164): an image's file, alt text and fit,
+  and an instance's state, Reset all, Swap and Detach. A tinted note styled like the "Editing Monthly changes the
+  design" control reads, for example, "File, alt text and fit change the design in every state, not only Yearly", and
+  shows only while edits would otherwise go to a state or variant.
+- **Prop and param fields follow the declared type** (PAR-164), not the value's: a number param with no value takes a
+  number, JSON that doesn't parse is refused with the reason rather than saved as text, and an empty field clears the
+  value.
 - **The variant grid shows each variant on its own, plus combinations someone pins.** You chose this on 2026-10-28 over
   every combination, which multiplies fast.
 - **A component design in `.par` stays the source, linked to a real component file.** You set the direction on
@@ -479,6 +517,14 @@ recommended answer to each of its questions.
   declared under rather than an alias (Lucide's `TriangleAlert`, not `AlertTriangle`; Tabler's `IconBrandKakaoTalk`, not
   the misspelled `IconBrandKakoTalk`). The panel shows the inserted name without an `Icon` its other names don't have,
   so Phosphor's icons still read as Gear.
+- **A style kept in a module of its own is found from the package's entry points (LIB-32).** My call: `parity lib` loads
+  each path the package's `exports` lists, and one that exports at least half the set's icons and draws them differently
+  from its default module is a style, named by its path (`16/solid` is 16 Solid) and recorded in
+  `icons.variants.modules`. Entry points that draw the same icons the same way (Phosphor's `ssr`, Lucide's `icons`) are
+  other ways in, and ones that don't load as a module (Fluent's `fonts`) or export few icons are left out, so of the six
+  sets only Heroicons has such styles: 24 Outline, its default, 24 Solid, 20 Solid and 16 Solid. An icon in the default
+  style stays `heroicons/CogIcon`; in another it names the module between the set and the icon, as its import does
+  (`heroicons/16/solid/CogIcon`), and the guest imports each style's module.
 - **Icon search is Parity's own ranking, not Fuse.js or MiniSearch.** My call, from a benchmark of 50 queries people
   type ("gear", "close", "down arrow", "calender") over Lucide with its tags, checked against 50 more it wasn't tuned
   on. Parity's search put the icon meant first for 39 of the held-out 50 and in the first row for all 50, in about 5 ms;
@@ -684,6 +730,29 @@ recommended answer to each of its questions.
 - **The in-app backtest runs its own instance:** `PARITY_UI_PORT`, `PARITY_DEBUG_PORT`, `PARITY_AGENT_FILE` and
   `PARITY_USER_DATA` give it its own ports, CLI channel and settings, so it runs beside another session's Parity instead
   of driving it.
+- **`parity lib check <library>` is the in-app check (PAR-408):** it inserts every component of a registry library file
+  into a design in the tab's project, once bare and once the way the Assets panel inserts it, and counts the parts that
+  fail bare but render inside their parents. It builds nodes with core's `componentNode` and `withLibraryContext`, the
+  same code the canvas inserts with, so the check can't drift from the app. Each library's floor, the least share of
+  placed parts that must render, is in `packages/registry/in-app.json`; below it the command exits with 1.
+- **A render function's arguments go to the node it returns (PAR-409):** a `$render` slot's `pass` and `$renderWith`
+  props are given to the node itself, not cloned onto the error boundary around it, which dropped them (React Aria's
+  `CalendarCell` lost its `date`, `DateSegment` its `segment`).
+- **Generated parents and samples (PAR-409):**
+  - A wrapper an example imports from a file beside it (`MyMenuItem` from `./utils`) counts as the part it passes its
+    props to, as a wrapper in the same file does.
+  - React Aria's `<submenutrigger>` markup is a placeholder, like `<item>`, so the part fails alone and gets parents.
+  - A part named for a family (`SubmenuTrigger`, `Menu`) joins it even when examples also draw it alone and the family
+    holds many others.
+  - A chain whose outermost parent has parents of its own starts outside them, unless they're circular.
+  - A part with no children of its own takes those its parent's sample spells out for it (a table's `Row` its `Cell`s),
+    going into the outermost parent's whole sample when only that renders.
+  - A function the library re-exports (Chakra's `parseDate`) is called from the library when an example imports it from
+    elsewhere.
+- **A part that hands its children to an input gets no text label (PAR-418):** the canvas gives a part with a `children`
+  prop its own name as text, which an `<input>` can't hold (Mantine's `Cascader`, Nova's `ComboboxChipsInput`). The
+  generator tries each part with text inside; one that then fails as a void or self-closing element, but renders without
+  it, gets a sample of `children: []`. Inserting reads a sample's children, empty ones included, in place of the label.
 - **`parity lib` tries parts with React's server renderer,** from the project's own React, rather than in the app: it
   needs no window, runs in seconds, and still throws the context errors that name a part's parents. The library's
   decorator providers wrap each try, with their imports and calls made, a mode's default value, and no frame, so
@@ -812,16 +881,20 @@ recommended answer to each of its questions.
 - **Handoff is for developers: every board by where it stands between design and code, from Parity's own versions** (my
   calls, after the design reviews), so it works without git, as history does. A board is In review, Ready to build,
   Building, Changed since approval, Built, or Code differs. An approval is of one version, so a newer version marked
-  ready turns the board to Changed since approval wherever its status shows, and the developer can build the approved
-  version or look at what changed. Handoff is a list, one row per board grouped by status, with the board you pick open
-  at the side: its version, its page and components and their files (new ones and new props marked), its tokens and
-  their values, its states and sizes, and its code; branches, pull requests and tracker issues show too where a project
-  has them. Each row has the same two columns (my call, after the fourth review): Approval, who approved the version or
-  who asked for its review, and Code, who's building it, built it, or made it with the design. An agent that changes a
-  design and its code together, as Claude Code did for the Cloud console, leaves the code already in a pull request, so
-  approving that design leaves only the merge, and its boards are Built once it merges. Only the picked row's action is
-  a filled button. Handoff, Inspect and What changed read what a board delivers from one list (`portal/boards.ts`), so
-  they always name the same components and tokens.
+  ready while the approved one is still to build or being built turns the board to Changed since approval wherever its
+  status shows, and the developer can build the approved version or look at what changed; once the approved version is
+  built, a newer one is just In review (my call, after the seventh review). Handoff is a list, one row per board grouped
+  by status, with the board you pick open at the side: its version, its page and components and their files (new ones
+  and new props marked), its tokens and their values, its states and sizes, and its code; branches, pull requests and
+  tracker issues show too where a project has them. Each row has the same two columns (my call, after the fourth
+  review): Approval, who approved the version, or while it's in review, whom it waits on and who asked when, and Code,
+  who's building it, built it, or made it with the design. An agent that changes a design and its code together, as
+  Claude Code did for the Cloud console, leaves the code already in a pull request, so approving that design leaves only
+  the merge, and its boards are Built once it merges. Rows carry no buttons (your call, 2026-10-29, that a filled button
+  in a row is out of place; my call on what replaces it): picking a row opens its board at the side, whose footer has
+  the board's next step as its one filled button, beside Inspect. Actions in other lists stay quiet, outlined and never
+  filled, with the yes before the no. Handoff, Inspect and What changed read what a board delivers from one list
+  (`portal/boards.ts`), so they always name the same components and tokens.
 - **Every change makes a version, but only one its designer marks ready moves a board** (your call, 2026-10-29, after
   the fifth review). Marking a version ready asks one of the team's reviewers; the versions in between are drafts, and
   someone working on a board shows in Handoff as just that, without its status moving or anyone being told. So builders
@@ -853,8 +926,11 @@ recommended answer to each of its questions.
   boards by status, and each team's boards by status and what it approved this week, so a large org can find work and
   see where each team stands. Recents stays the file browser of what you've been in.
 - **Removing someone says what happens first** (my call, after the fifth review): their seat opens and is paid for until
-  the renewal, the projects they own go to someone you pick, the agents they connected lose access, their work stays
-  under their name, and without SCIM they're to be removed from the identity provider too.
+  the renewal, the projects they own go to someone you pick, the agents they connected lose access (anyone else's
+  connection of the same agent keeps working), their work stays under their name, their teams are told who's left to
+  review, and without SCIM they're to be removed from the identity provider too.
+- **Seat requests wait in one place** (my call, after the seventh review): Members lists every editor seat waiting on an
+  admin, invites and requests alike, with how long each has waited, and each is in the admins' Needs you.
 - **Libraries take Drafts' place in the nav** (my call): Parity's projects live in repositories, so there are no drafts.
   A library's page shows its components as the code renders them, which version each project uses and on which boards,
   and its releases; a project behind the latest version can be updated from there, or the update given to an agent.
@@ -867,10 +943,11 @@ recommended answer to each of its questions.
 - **Inspect is Parity's Dev Mode** (my call): a board at its approved version, read-only, opened from Handoff and
   leading back to it. Picking anything shows its component and file, its props as code, its states, its text and size as
   the code writes them (classes, with pixels beside), its tokens, and hovering something else measures to it. New and
-  changed are against main. What the version asks for and the designer's notes come first (my call, after the sixth
-  review); the board's page file and what there is to export show too, files open on GitHub, and Give to your agent
-  hands the board to the developer's own coding agent. There's usually nothing to export: icons come from the project's
-  icon package and the rest is drawn in code.
+  changed are against main, and a value that isn't one of the project's tokens says so (my call, after the seventh
+  review). What the version asks for and the designer's notes come first (my call, after the sixth review); the board's
+  page file and what there is to export show too, files open on GitHub, and Give to your agent hands the board to the
+  developer's own coding agent. There's usually nothing to export: icons come from the project's icon package and the
+  rest is drawn in code.
 - **What changed compares two of the project's versions** (my calls, after the design reviews). Parity records versions
   itself, and only a change makes one: a comment doesn't. Every place a change shows is marked, found from what the
   render draws with the changed token rather than placed by hand, so a token change marks every board that uses it. A
@@ -887,8 +964,9 @@ recommended answer to each of its questions.
   who build from designs don't need a seat. A seat request uses the open seats first, and buying more is offered only
   past them.
 - **Four roles, each shown with what it can do** (my calls): admins can do everything; billing admins look after the
-  plan, invoices and seats; members work on every project; guests only on what they're invited to. Members can invite,
-  and an admin or billing admin approves each editor seat. Nobody approves their own design, or their own agent's.
+  plan, invoices and seats; members, and billing admins beyond billing, work on their teams' projects and what's shared
+  with them (my call, after the seventh review); guests only on what they're invited to. Members can invite, and an
+  admin or billing admin approves each editor seat. Nobody approves their own design, or their own agent's.
 - **An agent can never do more than the person who runs it** (my call): a viewer's agent only comments. Security lists
   which agents can connect, with sign-in, sharing, guests and an audit log of who changed what.
 - **Agents aren't part of billing at all** (your call, 2026-10-29). Parity has no agents of its own: the ones people
@@ -1014,9 +1092,33 @@ recommended answer to each of its questions.
 - **A builder that stops by itself shows as crashed** in the status bar's processes, with the end of what it printed,
   and can be started again from there. One that stops before its server answers fails the project's opening with that
   error, as a builder that throws does.
-- **A reopened project gets its builder's last port back when it's free,** so its guest URL stays the same, which
-  PAR-195 relies on; otherwise any free port, as before. The service remembers each project's port while it runs, and a
-  reopen waits for the closing builder's process to end first.
+- **A reopened project gets its builder's last port back when it's free and its code hasn't changed** (PAR-195), so its
+  guest URL stays the same and the pages draw with the modules they hold; otherwise any free port. The service remembers
+  each project's port while it runs, and a reopen waits for the closing builder's process to end first. With the port
+  back on every reopen, as CAN-81 had it, a reopen after a code change showed the old code: a page never loads a URL
+  twice, so the window kept the modules it had. My call on how a builder tells, in `@parity/core`'s
+  [served.ts](../packages/core/src/served.ts) with the Vite side in `builder-vite/src/served.ts`:
+  - **It logs what it serves the pages:** each module as first sent, with the files Vite made it from as they were then
+    (its own and what it imports, which for the stylesheet is every file Tailwind scanned, design files included), and
+    the files the whole build depends on (its config, the lockfiles in the root and above, the environment files, the
+    root's package.json and TypeScript configs). It hands the log to the service as it closes.
+  - **The next builder compares it with the files,** and with the guest module it would make now, before it listens. Any
+    difference, or no log at all (a builder that crashed or didn't close in time), means a new port, and its log says
+    which file changed.
+  - **A file changed while the project was open still counts as unchanged** when every module made from it comes out the
+    same when made again at close, so saving a design that uses no new class keeps the address. Build files never get
+    this.
+  - **The builder that takes the address carries the log on,** since the pages still hold what the last one served. One
+    started again from the processes list takes its port whenever it's free; if it can't, the windows are told
+    (`project.guestMoved`) and load the guest from the new one.
+  - **A reopen after a code change still loads every module again,** the example project's 33 scripts and 6.9 M
+    characters, which a page can't give back. Only picking up code edits live (PAR-165) or a separate realm per project
+    would avoid that.
+- **Closing a project lets go of its guest in the window:** its `loadGuest` entry and the stylesheet the document
+  adopted for it (PAR-195), so the next open makes its stylesheets anew, without the last session's token previews. The
+  offscreen renderer lets go of a project's last guest when its jobs come with a new address, since it doesn't hear of
+  closes, and closes when idle anyway. Frame bitmaps are keyed by the guest module, which a same-address reopen gets
+  back, so they still show.
 - **The performance stats count each project's builder,** as "Vite for shop", since its memory used to count in the
   service's: the service asks each builder for its CPU time, and the system reads its memory as it does Electron's own
   processes'. Storybook and the other servers Parity starts still aren't counted.
@@ -1141,7 +1243,9 @@ recommended answer to each of its questions.
   status too.
 - **The CLI will be public on npm** (your call, 2026-10-29), so a CI pipeline gets Parity with `npx` and nothing else to
   download. Visual tests in CI rely on it (PAR-239). It can't be published as `@parity/cli`, because the `@parity` scope
-  on npm belongs to Parity Technologies, so its name is PAR-26.
+  on npm belongs to Parity Technologies, so it's `@parity-app/cli`, under the `parity-app` npm organization you created
+  on 2026-10-29 (PAR-26). Its command stays `parity`. It has that name inside the repository too, since pnpm's
+  `publishConfig` can't rename a package when it's packed (PAR-13).
 - **A project's Vite server keeps its own dependency cache,** `node_modules/.vite-parity`. With Vite's default, the
   project's own dev server, often running alongside, re-optimized into the same folder, and each server then served
   stale dependencies ("Outdated Optimize Dep"). Opening Parity's own app as a project broke every offscreen render this
@@ -1192,24 +1296,32 @@ to PAR-209 build it.
   value went, with Undo.
 - **A value is checked before it can be saved:** brackets and quotes must close, each `var()` must name a token, and the
   value with its references replaced must be the kind's value. You found `calc(var(--radius) * 2.6` saved without its
-  `)`; the browser closes it silently, and `CSS.supports` passes anything holding `var()`. Today's `validTokenValue` has
-  both holes, so PAR-143 replaces it.
+  `)`; the browser closes it silently, and `CSS.supports` passes anything holding `var()`. `validTokenValue` had both
+  holes; the Tokens panel's editor has checked values this way since PAR-141.
 - **Spacing draws at its true size,** in rows and in the detail's scale, as you asked on 2026-10-29: rows widen to the
   section's longest length, up to 128 pixels, and only a longer one is drawn cut, with a break in its bar.
 - **Copying a token takes one step, and copies its name,** since you judged it's why most people open the tab: a copy
   button on each row and tile, Ctrl+C on a row, and a click on a palette shade copy `--radius-md`. You chose the name
   over `var()` on 2026-10-29, since Parity is for designers and vibe coders, who rarely open the code: Parity's fields
   take the name, with or without the dashes, and refuse `var()` (PAR-401 makes them take it), and the dashes keep it
-  from reading as a Tailwind class in a message to the agent. The detail keeps `var()` and the Tailwind classes in a
-  Copy for code menu beside the name.
+  from reading as a Tailwind class in a message to the agent. The detail's Copy is a split button: its arrow opens Copy
+  as, with `var()` and the Tailwind classes, each named by what it sets.
 - **Every copy says how it went, through two shared parts** in `chrome/Copy.tsx`, which you asked for on 2026-10-29
   after a copy showed nothing: `CopyButton`, whose icon springs into a green check and back, or a red cross with
   "Couldn't copy", and `CopyOnClick`, for things with no room for a button, which raises a "Copied" bubble from what was
   clicked. Both share `useCopy`, so another way of copying the same thing (Ctrl+C, a menu) shows its result on the same
   button. My call: where the Clipboard API refuses, as in a frame without focus, they copy from a hidden field beside
   what has focus, so an open popover stays open. PAR-402 moves Parity's other copies onto them.
-- **The detail has no caption under the name.** You found "Font sizes, theme scale" awkward and of little use: the kind
-  and source repeat the section heading and the filter. Only a library's name stays.
+- **In the app, a palette shade copies on a click, and a search makes it editable.** My call, moving the previews into
+  the Tokens panel: a shade in the grid opened the editor before; now a click copies it, as the exploration has it, and
+  while searching the palette's matches list as rows, which open the editor. The list draws only the rows in view, with
+  the search and filters fixed above it.
+- **The detail says each thing once, in a fixed order:** the preview; the name, with what it comes to on the right as
+  its row shows it; one labeled list of facts (the value in each theme, Built on, From, Used by); and a bar with Edit
+  and Copy. You found the first pass disorganized on 2026-10-29: the value showed in three places, and its actions were
+  scattered. Editing turns the values into fields in place and the bar into Cancel and Save; a motion token's Play sits
+  on its preview, as on a video. There's no caption under the name: "Font sizes, theme scale" only repeated the section
+  heading and the filter, so a library's name moved into the list as From.
 
 ## The app icon
 
@@ -1246,6 +1358,12 @@ to PAR-209 build it.
   CAN-39, CAN-47 and CAN-48 that need design first moved to new items: Copy as PNG (PAR-190), find (PAR-191), lock
   (PAR-192), the finer gesture work (PAR-193) and lengths off the spacing scale (PAR-194). Until PAR-194, nudging moves
   an absolutely placed layer by one spacing step, or ten with Shift, since 1px would leave the scale.
+- **The editor's end-to-end tests are `pnpm test:app`** (PAR-202), kept out of `pnpm test`. Files are `*.e2e.ts` with
+  their own Vitest config, run one at a time against one copy of Parity on a temp copy of the example, its
+  `node_modules` linked rather than copied, and a component that ignores its props added only in the copy. It uses ports
+  5385 and 9385, or ports the system picks. Tests read results from the page's state, drive real pointer and keyboard
+  input with presses tldraw sees kept 500 ms apart, use a stand-in clipboard, and undo everything after each test. A
+  full run takes about five minutes.
 - **Packages and scripts use only TypeScript that Node can strip,** because the CLI and scripts run them with plain
   `node`: no parameter properties, namespaces or enums. oxlint rejects the first two in `packages/**` and
   `apps/*/scripts/**`; the app's bundled code may use them. The Library files session found CAN-48's parser had broken
@@ -1301,7 +1419,20 @@ the Repository, CI and releases stream in Linear.
     working tree, so in the folder sessions share it blocked commits on other sessions' unfinished edits. The commit
     hook runs `scripts/changes.ts check` on what's staged, the push hook `--committed` on the branch's commits, and CI
     both that and `beachball check` on its clean checkout.
-  - **npm gets the packages whose package.json has a `publishConfig`,** which the CLI gets with its npm name (PAR-13).
+  - **npm gets the packages whose package.json has a `publishConfig`,** which the CLI gets with its npm name,
+    `@parity-app/cli` (PAR-13).
+- **The CLI is packed for npm with `vp pack` (PAR-13).** My calls:
+  - **The private packages it uses are bundled in, and npm installs only semver and TypeScript,** its dependencies. The
+    build fails on any other package it would bundle, so a new one gets declared.
+  - **The registry's files and `in-app.json` ship in `dist`,** where @parity/registry looks before resolving its own
+    package, which the published CLI doesn't have.
+  - **pnpm's `publishConfig` points `bin` and `exports` at `dist` when it packs,** so the workspace still runs the CLI
+    from source.
+  - **It needs Node 24,** as the repository does.
+  - **Provenance comes from the CD workflow's `--provenance`, not `publishConfig`,** since npm only makes it in CI and
+    the first version is published by hand, which npm needs before it can trust the workflow.
+  - **`pnpm --filter @parity-app/cli try-packed` installs the packed tarball in an empty folder and runs it.** CI runs
+    it on each system. The packed tarball is 2.6 MB.
 - **Hooks keep what doesn't belong out of pull requests (PAR-3),** as you asked on 2026-10-29. My calls:
   - **A commit lints and formats its staged files, fixing what it can, and its subject must be conventional,** at most
     100 characters (4 of the last 400 were longer) and not work in progress. A fixup commit can be made but not pushed.
@@ -1318,8 +1449,11 @@ the Repository, CI and releases stream in Linear.
     before merging, and a review that stops on an error fails rather than passing unreviewed.
   - **Merges squash,** so the title becomes the commit's subject, and CI checks it with `scripts/commits.ts title`.
   - **Nobody force-pushes to or deletes `main`,** and nobody bypasses the ruleset.
-  - **Terraform writes the ruleset,** as it writes the GitHub settings the pipelines read, from a shared module so
-    Buildkit, Better Apps and Copacker can take the same rules.
+  - **Terraform writes the ruleset,** as it writes the GitHub settings the pipelines read, from the pipelines'
+    `github-repository-rules` module (v1.2.0) so Buildkit, Better Apps and Copacker can take the same rules. Parity's
+    `infra/github` uses it. Its two rulesets were made by hand on 2026-10-29 to match the module, so `main` was
+    protected before Terraform could run here, and import blocks adopt them when `terraform-apply` first runs. The
+    required checks are `CI passes`, the gate over CI's jobs, and `CodeRabbit`.
   - **`.coderabbit.yaml` reviews assertively,** with AGENTS.md and conventions.md as its guidelines, and leaves lint,
     format, types, tests and change files to CI, so its own linters are off. Its Linear integration stays off, which
     keeps private issues out of public comments.
@@ -1367,18 +1501,34 @@ the Repository, CI and releases stream in Linear.
     on every system, and `npm ci` for the five fixtures `install-projects` doesn't know (buildkit, chakra, fluent,
     headless, mui). Their `node_modules`, about 2 GB per system, are cached on their lockfiles.
   - Runners get 45 minutes, since a run that installs the fixtures can outlast 30 on Windows.
-  - Vite Task's cache isn't kept yet: `pnpm verify` doesn't go through `vp run`, and ci-verify's extra cache can't
-    restore from an older key. CI's `beachball check` and `scripts/changes.ts check --committed` (PAR-4) compare with
-    `origin/main`, so they need `fetch-depth: 0`.
+  - After `pnpm verify`, each system also installs and runs the CLI's packed tarball (`try-packed`, PAR-13).
+  - A second ci-verify call, `checks`, runs once on Ubuntu with full history: `pnpm check:types`, and on pull requests
+    `beachball check`, `scripts/changes.ts check --committed` and `scripts/commits.ts title`. The title comes from the
+    event's file, never through an expression. It has a concurrency key of its own, so it never cancels verify's run.
+  - A `CI passes` job over both is the one check main's ruleset requires, with CodeRabbit, so the ruleset needn't change
+    when jobs or systems do.
+  - Vite Task's cache isn't kept: `pnpm verify` runs `vp check` and `vp test` directly, not through `vp run`.
 - **`betterapps-hq/pipelines` started with the setup action and ci-verify (PAR-110).** My calls:
   - The setup action checks out without keeping credentials, and on Windows turns off `core.autocrlf` first, since the
     runners' CRLF made Vite+'s formatter fail every file.
   - It picks Vite+ when the workspace names `vite-plus`, and plain pnpm otherwise.
-  - Templates name the repository's own actions at an exact release tag, never a moving `v1`, so a caller pinned to a
-    release's commit gets that release's actions too.
+  - Templates name the repository's own actions by a release's commit, which Dependabot moves, as they pin third-party
+    actions. A tag under the old `Fencing-Club` name would have resolved to whoever claimed that name. And with pull
+    requests required, a release's commit is only tagged after it merges, so a template pins the release before.
   - A caller's extra steps before verifying, such as Parity's fixture installs, go in ci-verify's `prepare` input, with
     their own cache.
   - It's MIT licensed, as Parity is.
+- **ci-verify grew what onboarding the other repositories needed (v1.2.0).** My calls:
+  - `env` takes `NAME=value` lines set before the install, since a caller's own workflow-level env doesn't reach a
+    reusable workflow. Agency needs its registry overridden before `pnpm install`.
+  - `NODE_OPTIONS` has an input of its own, because GitHub won't set it through `GITHUB_ENV`. It reaches only the
+    caller's `prepare` and `command`, so an option like `--require` can't break the checkout.
+  - Turborepo's `TURBO_TOKEN` and signature key are optional secrets passed by name. They reach only `prepare` and
+    `command`, never the install and its scripts.
+  - `concurrency-key` replaces the branch in the run's group, so Copacker's runs on main stop cancelling each other, and
+    Parity's two calls stay apart.
+  - Where a branch rule needs a check's older name, as Buildkit's needs `verify`, a small gate job keeps it, since a
+    called workflow's checks are named `<calling job> / Verify (<runner>)`.
 - **Pipelines are shared across Parity, Buildkit, Better Apps and Copacker,** from one repository of templates, as you
   asked on 2026-10-29. Each repository has thin top-level pipelines, one per stage (CI, previews, the release PR, and CD
   split by what's delivered: npm packages, the desktop app, web apps), calling reusable workflows and composite actions
@@ -1408,16 +1558,29 @@ How Parity's code is split, so the parts that change most are easy to find, repl
     packages. A new package starts pure, so nobody has to remember to guard it.
   - `@parity/code`, `@parity/project` and `@parity/registry` are readers. They read a project's files, since
     TypeScript's program and the project's discovery read as they go, but never write them or start processes; a reader
-    that needs a file changed returns a changeset. They use no React and depend only on pure packages and other readers.
+    that needs a file changed returns a project edit. They use no React and depend only on pure packages and other
+    readers.
   - The CLI, libgen, the agent runtime, the adapters and the fixtures are the edge, where Node belongs, and
     renderer-react uses React.
   - No package imports Electron, tldraw or the app. Tests may use Node to set up files.
 - **Design and code sync gets one package, `@parity/code`,** which also takes over the three component readers
   (`project/components.ts`, `libgen/components.ts` and `@parity/props`), so one TypeScript program per project serves
   them all. Generating component files, reading them back and the drift review are built there, with golden-file tests.
-- **Every write into a project goes through changesets** (PAR-6): edits built as data, shown as a diff, applied and
+- **Every write into a project goes through project edits** (PAR-6): edits built as data, shown as a diff, applied and
   undone together. They come before the components work, so PAR-85 waits on them. Writing back from the lenses keeps its
-  place at the end of the lens order.
+  place at the end of the lens order. They were called changesets until you asked on 2026-10-29, since the word read as
+  the versioning tool and Parity versions with Beachball. My calls in building them:
+  - An edit expects what it finds: a file that changed since the edit was built is left alone, and the whole edit with
+    it, rather than overwritten. Undo is the edit reversed, so it refuses the same way once a file has changed again.
+  - The service keeps a project's latest 50 edits to undo, and no more than 64 MB of the files they wrote, since a
+    pasted image can be 20 MB. They outlast the project closing, because the window reopens a project to pick up what an
+    edit changed.
+  - Only importing a library's styles says what it wrote, with the diff and Undo, as it's a one-off change to the
+    project's own stylesheet. Token edits take their undo from the design's history (PAR-164), and saving them goes
+    through a project edit underneath. A pasted image stays a design step: its file is named by its content, so pasting
+    it again reuses it, and undoing the paste leaves the file, as before.
+  - Installing a library imports its styles through a project edit too, but doesn't offer Undo, since undoing the import
+    would leave the package installed.
 - **Editor behaviour moves into `@parity/editor`,** one file at a time with tests: arranging and the clipboard first.
 - **Lenses and adapters never go in core.** Lens models are schemas in `@parity/models`, each lens is a package, and so
   is each adapter, such as Drizzle or TanStack Router.

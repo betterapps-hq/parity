@@ -1,21 +1,50 @@
 import type { Token } from "@parity/core"
 import { useSyncExternalStore } from "react"
 import type { TokenChange } from "../shared/protocol.ts"
+import type { DesignStore, TokenFailure } from "./design-store.ts"
 import { previewToken } from "./guest.ts"
+import {
+  noTokenEdits,
+  type TokenEdit,
+  type TokenEdits,
+  tokenDifferences,
+  tokenKey,
+  tokensWithEdits
+} from "./token-edits.ts"
 
 /**
- * A project's tokens, editable. A change shows in every frame at once (the shared stylesheet is edited in place) and is
- * written to the project's stylesheet, so the project's own build picks it up too.
+ * A project's tokens, editable. An edit is a change like any other, in the design store's history: it shows in every
+ * frame at once (the shared stylesheet is edited in place), undo and redo take it back and forth, and Save writes it
+ * to the project's stylesheet, so the project's own build picks it up then. Closing without saving leaves the
+ * stylesheet as it was.
  */
 export class TokenStore {
   private readonly listeners = new Set<() => void>()
+  private tokens: Token[]
+  /** The edits the shared stylesheet shows now. */
+  private shown: TokenEdits = noTokenEdits
   private previewed: readonly TokenChange[] = []
+  private readonly unfollow: () => void
 
   constructor(
-    private tokens: Token[],
+    /** The tokens as the project's stylesheet had them when its guest loaded. */
+    private readonly loaded: Token[],
     private readonly sheet: CSSStyleSheet,
-    private readonly save: (changes: TokenChange[]) => Promise<unknown>
-  ) {}
+    write: (changes: TokenChange[]) => Promise<unknown>,
+    private readonly history: DesignStore,
+    /** The stylesheet the tokens are written to, as the project names it. */
+    readonly stylesheet = "the stylesheet"
+  ) {
+    this.tokens = loaded
+    history.writeTokensWith({ path: stylesheet, write })
+    this.follow()
+    this.unfollow = history.subscribe(() => this.follow())
+  }
+
+  /** Stops following the design store, once a new guest's token store has taken this one's place. */
+  dispose(): void {
+    this.unfollow()
+  }
 
   subscribe = (listener: () => void) => {
     this.listeners.add(listener)
@@ -30,26 +59,95 @@ export class TokenStore {
    */
   previews = () => this.previewed
 
-  async set(changes: TokenChange[]): Promise<void> {
+  /** The keyframes the project's stylesheet declares by this name, which an animation token's preview runs. */
+  keyframes = (name: string): Keyframe[] | undefined => keyframesNamed(this.sheet.cssRules, name)
+
+  /** Why the last save couldn't write some token values, and which. It changes with saving, in the design store. */
+  failure = (): TokenFailure | undefined => this.history.getTokenFailure()
+  subscribeToSaves = (listener: () => void) => this.history.subscribe(listener)
+
+  /** Changes token values as one undoable step, unsaved until the project is saved. */
+  set(changes: TokenChange[], label = editLabel(changes)): void {
     if (changes.length === 0) return
-    for (const change of changes) previewToken(this.sheet, change.name, change.theme, change.value)
-    const latest = new Map(this.previewed.map((change) => [`${change.name} ${change.theme}`, change]))
-    for (const change of changes) latest.set(`${change.name} ${change.theme}`, change)
-    this.previewed = [...latest.values()]
-    this.tokens = this.tokens.map((token) => {
-      const mine = changes.filter((change) => change.name === token.name)
-      if (mine.length === 0) return token
-      const values = { ...token.values }
-      for (const change of mine) values[change.theme] = change.value
-      return { ...token, values }
-    })
-    for (const listener of this.listeners) listener()
-    await this.save(changes)
+    this.history.changeTokens(label, this.edits(changes))
   }
+
+  /** Changes as edits, each with the value the stylesheet had when the guest loaded, to undo to. */
+  edits(changes: readonly TokenChange[]): TokenEdit[] {
+    return changes.map((change) => {
+      const original = this.loaded.find((token) => token.name === change.name)?.values[change.theme]
+      return original === undefined ? { ...change } : { ...change, original }
+    })
+  }
+
+  /** Shows the store's token edits in the shared stylesheet and the token list, after an edit, undo or redo. */
+  private follow(): void {
+    const edits = this.history.getTokenEdits()
+    if (edits === this.shown) return
+    const differences = tokenDifferences(this.shown, edits)
+    // A value set to nothing takes the declaration out again, which a value the sheet never had leaves alone.
+    for (const { name, theme, value } of differences) previewToken(this.sheet, name, theme, value ?? "")
+    this.shown = edits
+    this.tokens = tokensWithEdits(this.loaded, edits)
+    const latest = new Map(this.previewed.map((change) => [tokenKey(change.name, change.theme), change]))
+    for (const { name, theme, value } of differences) {
+      if (value === undefined) latest.delete(tokenKey(name, theme))
+      else latest.set(tokenKey(name, theme), { name, theme, value })
+    }
+    this.previewed = [...latest.values()]
+    for (const listener of this.listeners) listener()
+  }
+}
+
+/**
+ * The `@keyframes` of this name in a stylesheet's rules, also inside `@layer` and `@media`, as keyframes the Web
+ * Animations API runs: each step's declarations, its timing function as its easing. The last of the name wins, as in
+ * CSS. Undefined when there are none.
+ */
+export function keyframesNamed(rules: CSSRuleList, name: string): Keyframe[] | undefined {
+  let found: Keyframe[] | undefined
+  for (const rule of rules) {
+    if (rule instanceof CSSKeyframesRule) {
+      if (rule.name === name) found = keyframesOf(rule)
+    } else if (rule instanceof CSSGroupingRule) {
+      found = keyframesNamed(rule.cssRules, name) ?? found
+    }
+  }
+  return found
+}
+
+function keyframesOf(rule: CSSKeyframesRule): Keyframe[] {
+  const frames = [...rule.cssRules].flatMap((step) => {
+    const { keyText, style } = step as CSSKeyframeRule
+    const declared: Keyframe = {}
+    for (let index = 0; index < style.length; index++) {
+      const property = style.item(index)
+      // A custom property means nothing to the element the preview animates.
+      if (property.startsWith("--")) continue
+      const value = style.getPropertyValue(property)
+      if (property === "animation-timing-function") declared.easing = value
+      else declared[property.replaceAll(/-([a-z])/g, (_, letter: string) => letter.toUpperCase())] = value
+    }
+    return keyText.split(",").map((key) => {
+      const at = key.trim()
+      return { ...declared, offset: at === "from" ? 0 : at === "to" ? 1 : Number.parseFloat(at) / 100 }
+    })
+  })
+  return frames.toSorted((a, b) => (a.offset ?? 0) - (b.offset ?? 0))
+}
+
+function editLabel(changes: readonly TokenChange[]): string {
+  const names = new Set(changes.map((change) => change.name))
+  return names.size === 1 ? `Edit --${[...names][0]}` : `Edit ${names.size} tokens`
 }
 
 export function useTokenList(store: TokenStore): Token[] {
   return useSyncExternalStore(store.subscribe, store.get)
+}
+
+/** Why the last save couldn't write some of the project's token values, and which; undefined once one succeeds. */
+export function useTokenFailure(store: TokenStore): TokenFailure | undefined {
+  return useSyncExternalStore(store.subscribeToSaves, store.failure)
 }
 
 /** A token's value in a theme, following `var(--x)` references so swatches show the real color. */

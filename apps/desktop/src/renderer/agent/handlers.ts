@@ -33,6 +33,11 @@ export function serveAgents(): void {
         tab?.session?.components.set(components)
         return undefined
       }
+      case "project.guestMoved": {
+        const { projectId, guestUrl } = params as WindowMethods["project.guestMoved"]["params"]
+        await workspace.moveGuest(projectId, guestUrl)
+        return undefined
+      }
       case "project.fileChanged": {
         const { projectId, path, document } = params as WindowMethods["project.fileChanged"]["params"]
         const store = workspace.getTabs().find((tab) => tab.session?.id === projectId)?.session?.store
@@ -112,11 +117,12 @@ function snapshot(reference: string | undefined): TabSnapshot {
   }
 }
 
+/** An agent's call is one undoable step, its designs and tokens together, saved when the project is. */
 async function apply(changes: AgentChanges): Promise<undefined> {
   const session = ready(findTab(changes.tab))
-  if (changes.documents.length > 0 || changes.modes) {
-    session.store.applyDocuments(changes.label, changes.documents, changes.modes)
+  const tokens = session.tokens.edits(changes.tokens ?? [])
+  if (changes.documents.length > 0 || changes.modes || tokens.length > 0) {
+    session.store.applyDocuments(changes.label, changes.documents, changes.modes, tokens)
   }
-  if (changes.tokens?.length) await session.tokens.set(changes.tokens)
   return undefined
 }
