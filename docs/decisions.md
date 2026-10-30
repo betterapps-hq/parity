@@ -381,7 +381,9 @@ still need your call.
   layers, since auto width text never wraps for its parent, only at a maximum width, as Figma's doesn't. No text layer
   in the example hugged before this. A text layer with no width wraps at the width its layout gives it, so it reads as
   auto height, which is what new text in a layout starts as. Switching to auto height or fixed keeps the layer the size
-  it's drawn at, rounded up to whole spacing steps so the text doesn't wrap again; fixed text that runs past its height
+  it's drawn at, rounded up to whole spacing steps so the text doesn't wrap again (past a thousandth of a step of
+  measuring noise), and in a state or variant auto width and auto height write `height: "hug"` over a height the design
+  sets, since dropping the state's change would leave the design's showing; fixed text that runs past its height
   overflows, as in Figma.
 
 ## Main components and instances

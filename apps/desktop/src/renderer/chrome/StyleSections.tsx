@@ -50,12 +50,20 @@ import { PanelSection } from "./PanelSection.tsx"
 /** Style properties to set; `undefined` clears one. */
 export type StyleValues = Partial<{ [K in keyof NodeStyle]: NodeStyle[K] | undefined }>
 
+/** What an edit worked out per layer knows about the layer besides its style. */
+export interface EditedLayer {
+  /** Whether the edit changes the design itself, rather than a state's, a variant's or a copy's changes to it. */
+  base: boolean
+  /** The layer's own rendered length, in spacing steps, rounded as `StyleEditor.measure` rounds. */
+  measure: (axis: "width" | "height", round?: (steps: number) => number) => number | undefined
+}
+
 /** Properties to set, or how to work them out from each selected layer's own style, as `Mixed+8` does. */
-export type StyleEdit = StyleValues | ((style: NodeStyle) => StyleValues)
+export type StyleEdit = StyleValues | ((style: NodeStyle, layer: EditedLayer) => StyleValues)
 
 /** An edit's values for one layer, from its style as shown in the state being edited. */
-export function styleValues(edit: StyleEdit, style: NodeStyle): StyleValues {
-  return typeof edit === "function" ? edit(style) : edit
+export function styleValues(edit: StyleEdit, style: NodeStyle, layer: EditedLayer): StyleValues {
+  return typeof edit === "function" ? edit(style, layer) : edit
 }
 
 /** Reads and writes one node's style in the state being edited. */
@@ -1107,11 +1115,13 @@ function TextResizing({ editor }: { editor: StyleEditor }) {
           const sizing = textSizingOptions.find((option) => option.value === value)
           if (!sizing) return
           set(
-            (layer) =>
-              withTextSizing(layer, sizing.value, {
-                width: editor.measure("width", stepUp),
-                height: editor.measure("height", stepUp)
-              }),
+            (style, layer) =>
+              withTextSizing(
+                style,
+                sizing.value,
+                { width: layer.measure("width", stepUp), height: layer.measure("height", stepUp) },
+                { explicit: !layer.base }
+              ),
             sizing.edit
           )
         }}

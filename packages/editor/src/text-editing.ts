@@ -55,15 +55,23 @@ export type TextSizingValues = Pick<{ [K in keyof NodeStyle]: NodeStyle[K] | und
  * The style that puts a text layer in a mode, keeping it the size it's drawn at, in spacing steps (`measured`): auto
  * width hugs its text and drops a fixed height; auto height fixes a hugging width where it is and drops the height;
  * fixed also fixes the height. A width that fills or that its layout gives it is kept.
+ *
+ * In a state, a variant or an instance, dropping a value would only take back that state's change and leave the
+ * design's own height or `grow` showing, so with `explicit` they're set over it instead: the height to hug, which reads
+ * as not fixed, and `grow` to false.
  */
 export function withTextSizing(
   style: NodeStyle,
   sizing: TextSizing,
-  measured: { width?: number; height?: number }
+  measured: { width?: number; height?: number },
+  { explicit = false }: { explicit?: boolean } = {}
 ): TextSizingValues {
-  if (sizing === "auto-width") return { width: "hug", height: undefined, ...(style.grow ? { grow: undefined } : {}) }
+  const noHeight = explicit && style.height !== undefined ? "hug" : undefined
+  if (sizing === "auto-width") {
+    return { width: "hug", height: noHeight, ...(style.grow ? { grow: explicit ? false : undefined } : {}) }
+  }
   const width = style.width === "hug" ? measured.width : style.width
-  if (sizing === "auto-height") return { width, height: undefined }
+  if (sizing === "auto-height") return { width, height: noHeight }
   return { width, height: fixedLength(style.height) ?? measured.height }
 }
 

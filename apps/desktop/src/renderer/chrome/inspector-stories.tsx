@@ -91,7 +91,7 @@ function useSelectedLayer() {
     changed: (name) => override?.style?.[name] !== undefined,
     reset: (name) => reset({ kind: "style", key: name }),
     set: (edit, label = "Change style") => {
-      const values = styleValues(edit, node.style ?? {}) as NodeStyle
+      const values = styleValues(edit, node.style ?? {}, { base: true, measure: () => undefined }) as NodeStyle
       change(label, { style: values }, `style.${Object.keys(values).join(",")}`)
     },
     tokens,

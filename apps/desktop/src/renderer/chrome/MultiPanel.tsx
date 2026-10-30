@@ -1,5 +1,6 @@
 import {
   boardTarget,
+  editsDesign,
   type ContainerSpec,
   type DesignNode,
   editNode,
@@ -38,9 +39,9 @@ import { spacingUnit, useTokenList } from "../tokens-store.ts"
 import { alignSelection, deleteSelection, distributeSelection, duplicateSelection, wrapSelection } from "./commands.ts"
 import { IconButton } from "./IconButton.tsx"
 import { keymap } from "./keymap.ts"
-import { editingState } from "./LayerPanel.tsx"
+import { editingState, measureNode } from "./LayerPanel.tsx"
 import { PanelSection } from "./PanelSection.tsx"
-import { type StyleEdit, type StyleEditor, StyleSections, styleValues } from "./StyleSections.tsx"
+import { type EditedLayer, type StyleEdit, type StyleEditor, StyleSections, styleValues } from "./StyleSections.tsx"
 
 const alignments: { value: Alignment; label: string; shortcut: string; icon: typeof AlignStartVertical }[] = [
   { value: "left", label: "Align left", shortcut: keymap.alignLeft.keys[0], icon: AlignStartVertical },
@@ -142,9 +143,18 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
   const preview = useStylePreview(session, key)
   const primary = nodes.at(-1)
   if (!primary) return <p className="p-4 text-sm text-muted-foreground">These layers no longer exist.</p>
+  const unit = spacingUnit(tokens)
+  // Each layer measured in the frame the selection was picked in, so a size worked out from it is its own.
+  const layers: EditedLayer[] = present.map((id) => ({
+    base: editsDesign(container, target),
+    measure: (axis, round = Math.round) => {
+      const size = measureNode(session, key, id, selected)
+      return size && Math.max(1, round(size[axis] / unit))
+    }
+  }))
   /** An edit worked out for each layer from its own style, once, and how to apply it to the design. */
   const edited = (edit: StyleEdit) => {
-    const values = nodes.map((node) => styleValues(edit, node.style ?? {}) as NodeStyle)
+    const values = nodes.map((node, index) => styleValues(edit, node.style ?? {}, layers[index]!) as NodeStyle)
     const apply = (current: ContainerSpec) =>
       present.reduce(
         (next, id, index) => editNode(next, boardTarget(next, state.id), id, { style: values[index] }),

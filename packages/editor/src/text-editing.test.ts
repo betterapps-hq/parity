@@ -85,6 +85,25 @@ describe("withTextSizing", () => {
     })
   })
 
+  it("sets values over the design's in a state or variant, where dropping them would show the design's again", () => {
+    const explicit = { explicit: true }
+    expect(withTextSizing({ width: 40, height: 10, grow: true }, "auto-width", measured, explicit)).toEqual({
+      width: "hug",
+      height: "hug",
+      grow: false
+    })
+    expect(withTextSizing({ width: 40, height: 10 }, "auto-height", measured, explicit)).toEqual({
+      width: 40,
+      height: "hug"
+    })
+    // Nothing to set over: no height shows, so none is written.
+    expect(withTextSizing({ width: "hug" }, "auto-height", measured, explicit)).toEqual({
+      width: 52.5,
+      height: undefined
+    })
+    expect(textSizing({ width: 40, height: "hug" })).toBe("auto-height")
+  })
+
   it("lands each mode where textSizing reads it back", () => {
     for (const style of [{}, { width: "hug" }, { width: 40, height: 10 }, { width: "fill" }]) {
       for (const sizing of ["auto-width", "auto-height", "fixed"] as const) {

@@ -1164,6 +1164,9 @@ separate setting that could disagree with them, and the resize handles change it
   keeps any other width, and drops the height. Fixed does the same for the width and fixes the height it's drawn at,
   rounded up too, or keeps the one it has. Each is one undo step. Dragging a side handle of auto width text fixes its
   width, so it becomes auto height; dragging the bottom fixes its height, so it becomes fixed.
+- **Several layers, states and variants.** With several text layers selected, each is measured in its own box, so each
+  keeps its own size. In a state, a variant or an instance, a height or `grow` the design sets would show again if the
+  change only dropped it, so auto width and auto height set the height to hug, and `grow` to false, over it.
 
 Code: what the editor selects, the modes and switching between them are `packages/editor/src/text-editing.ts` (`wordAt`,
 `openingSelection`, `textSizing`, `withTextSizing`). Drawing hug text as `max-content` is `textCss` in
@@ -1175,10 +1178,11 @@ agent's skill says how text sizes in `packages/cli/skills/document.md`.
 
 Tests:
 
-- `packages/editor/src/text-editing.test.ts` (10): the word holding a character, from any of its letters; a space or
+- `packages/editor/src/text-editing.test.ts` (11): the word holding a character, from any of its letters; a space or
   punctuation on its own; the end of the text and an empty one; apostrophes and digits kept in a word; the whole text
-  without a point on it; the mode read from widths and heights; each switch, keeping fill and a fixed height; and every
-  switch landing where `textSizing` reads it back.
+  without a point on it; the mode read from widths and heights; each switch, keeping fill and a fixed height; the height
+  set to hug and `grow` to false over the design's in a state; and every switch landing where `textSizing` reads it
+  back.
 - `packages/core/src/render.test.ts`, sizing: hug text drawn `max-content`, still wrapped by a maximum width, and other
   widths as before.
 - `apps/desktop/e2e/text.e2e.ts` (7), end to end (PAR-202), on Pricing's subtitle and FAQ heading: a double-click on
