@@ -1015,7 +1015,8 @@
         "sample": {
           "props": {
             "placeholder": "e.g. Michael"
-          }
+          },
+          "children": []
         },
         "fingerprint": "68636594",
         "props": {
@@ -2476,7 +2477,8 @@
           "props": {
             "required": true,
             "placeholder": "e.g. alice132"
-          }
+          },
+          "children": []
         },
         "fingerprint": "b315f5d7",
         "props": {
@@ -2730,7 +2732,8 @@
         "sample": {
           "props": {
             "placeholder": "e.g. Colm Tuite"
-          }
+          },
+          "children": []
         },
         "fingerprint": "d250135b",
         "props": {
@@ -4950,6 +4953,9 @@
           "NumberField.Group"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": []
+        },
         "fingerprint": "13c83108",
         "props": {
           "aria-roledescription?": "0bf956",
@@ -5067,6 +5073,9 @@
           "OTPField.Root"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": []
+        },
         "fingerprint": "2b99fc45",
         "props": {
           "className?": "549e3a",
@@ -7852,6 +7861,9 @@
           "Toolbar.Root"
         ],
         "parentsFrom": "error",
+        "sample": {
+          "children": []
+        },
         "fingerprint": "6af7f835",
         "props": {
           "className?": "c9692b",

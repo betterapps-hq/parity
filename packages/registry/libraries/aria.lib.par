@@ -5204,6 +5204,9 @@
         "as": "function",
         "declaration": "dist/types/src/Input.d.ts",
         "group": "Input",
+        "sample": {
+          "children": []
+        },
         "fingerprint": "6f70bb1b",
         "props": {
           "className?": "45b1e9",

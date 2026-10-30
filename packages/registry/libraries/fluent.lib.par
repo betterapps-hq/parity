@@ -24618,7 +24618,8 @@
               "v": 0.8,
               "a": 0.75
             }
-          }
+          },
+          "children": []
         },
         "fingerprint": "62c18c49",
         "props": {
@@ -25851,7 +25852,8 @@
           "props": {
             "label": "open",
             "checked": false
-          }
+          },
+          "children": []
         },
         "fingerprint": "1522d1a9",
         "props": {
@@ -25965,7 +25967,8 @@
               "v": 0.8,
               "a": 0.75
             }
-          }
+          },
+          "children": []
         },
         "fingerprint": "1e730585",
         "props": {
@@ -27340,7 +27343,8 @@
           "props": {
             "alt": "Amanda's avatar",
             "src": "https://fabricweb.azureedge.net/fabric-website/assets/images/avatar/AmandaBrady.jpg"
-          }
+          },
+          "children": []
         },
         "fingerprint": "d8fc8688",
         "props": {
@@ -27440,6 +27444,9 @@
       "Input": {
         "as": "forwardRef",
         "group": "Input",
+        "sample": {
+          "children": []
+        },
         "fingerprint": "420e56fe",
         "props": {
           "appearance?": "9424de",
@@ -29678,7 +29685,8 @@
           "props": {
             "value": "free",
             "label": {}
-          }
+          },
+          "children": []
         },
         "fingerprint": "323daf4e",
         "props": {
@@ -29847,6 +29855,9 @@
       "SearchBox": {
         "as": "forwardRef",
         "group": "Search",
+        "sample": {
+          "children": []
+        },
         "fingerprint": "d7d715de",
         "props": {
           "appearance?": "9424de",
@@ -29970,7 +29981,8 @@
             "min": 0,
             "max": 100,
             "value": 42
-          }
+          },
+          "children": []
         },
         "fingerprint": "56b48ce0",
         "props": {
@@ -29992,6 +30004,9 @@
       "SpinButton": {
         "as": "forwardRef",
         "group": "Spinbutton",
+        "sample": {
+          "children": []
+        },
         "fingerprint": "0f7ad41e",
         "props": {
           "appearance?": "5955d2",
@@ -30305,7 +30320,8 @@
         "sample": {
           "props": {
             "label": {}
-          }
+          },
+          "children": []
         },
         "fingerprint": "cb31ee40",
         "props": {

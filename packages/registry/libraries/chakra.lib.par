@@ -24853,7 +24853,8 @@
         "sample": {
           "props": {
             "src": "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=100"
-          }
+          },
+          "children": []
         },
         "fingerprint": "44deb6b9",
         "props": {
@@ -60958,6 +60959,9 @@
           "Checkbox.Root"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": []
+        },
         "fingerprint": "efd83dfe",
         "props": {
           "asChild?": "31e5d9"
@@ -67951,6 +67955,9 @@
           "CheckboxCard.Root"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": []
+        },
         "fingerprint": "efd83dfe",
         "props": {
           "asChild?": "31e5d9"
@@ -75810,7 +75817,8 @@
         "sample": {
           "props": {
             "asChild": true
-          }
+          },
+          "children": []
         },
         "fingerprint": "44deb6b9",
         "props": {
@@ -102063,7 +102071,8 @@
             "height": "7",
             "textStyle": "xs",
             "textAlign": "center"
-          }
+          },
+          "children": []
         },
         "fingerprint": "9f041ff7",
         "props": {
@@ -113448,6 +113457,9 @@
           "ColorPicker.Root"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": []
+        },
         "fingerprint": "efd83dfe",
         "props": {
           "asChild?": "31e5d9"
@@ -113461,6 +113473,9 @@
           "ColorPicker.Control"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": []
+        },
         "fingerprint": "20fc19ff",
         "props": {
           "_active?": "c3f29d",
@@ -133715,7 +133730,8 @@
         "sample": {
           "props": {
             "placeholder": "Search status"
-          }
+          },
+          "children": []
         },
         "fingerprint": "ca28c419",
         "props": {
@@ -148712,6 +148728,9 @@
           "DateInput.Root"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": []
+        },
         "fingerprint": "a177cc90",
         "props": {
           "_active?": "c3f29d",
@@ -160112,6 +160131,9 @@
           "DatePicker.Control"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": []
+        },
         "fingerprint": "f3050808",
         "props": {
           "_active?": "c3f29d",
@@ -208384,6 +208406,9 @@
           "Editable.Root"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": []
+        },
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",
@@ -232698,6 +232723,9 @@
           "FileUpload.Root"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": []
+        },
         "fingerprint": "efd83dfe",
         "props": {
           "asChild?": "31e5d9"
@@ -267899,7 +267927,8 @@
             "src": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=160&h=160&fit=crop",
             "alt": "Euphoric Echoes",
             "objectFit": "cover"
-          }
+          },
+          "children": []
         },
         "fingerprint": "db9b2a4a",
         "props": {
@@ -268758,7 +268787,8 @@
         "sample": {
           "props": {
             "placeholder": "Enter URL"
-          }
+          },
+          "children": []
         },
         "fingerprint": "bfb6d7c8",
         "props": {
@@ -280212,7 +280242,8 @@
           "props": {
             "minH": "10",
             "outline": "0"
-          }
+          },
+          "children": []
         },
         "fingerprint": "6f94c5b9",
         "props": {
@@ -317258,6 +317289,9 @@
           "NumberInput.Root"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": []
+        },
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",
@@ -329498,6 +329532,9 @@
           "PinInput.Root"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": []
+        },
         "fingerprint": "efd83dfe",
         "props": {
           "asChild?": "31e5d9"
@@ -329514,7 +329551,8 @@
         "sample": {
           "props": {
             "index": 0
-          }
+          },
+          "children": []
         },
         "fingerprint": "7d35c010",
         "props": {
@@ -366361,6 +366399,9 @@
           "RadioCard.Item"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": []
+        },
         "fingerprint": "efd83dfe",
         "props": {
           "asChild?": "31e5d9"
@@ -372496,6 +372537,9 @@
           "RadioGroup.Item"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": []
+        },
         "fingerprint": "efd83dfe",
         "props": {
           "asChild?": "31e5d9"
@@ -378649,6 +378693,9 @@
           "RatingGroup.Root"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": []
+        },
         "fingerprint": "efd83dfe",
         "props": {
           "asChild?": "31e5d9"
@@ -391779,6 +391826,9 @@
           "SegmentGroup.Item"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": []
+        },
         "fingerprint": "efd83dfe",
         "props": {
           "asChild?": "31e5d9"
@@ -463905,6 +463955,9 @@
           "Switch.Root"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": []
+        },
         "fingerprint": "efd83dfe",
         "props": {
           "asChild?": "31e5d9"
@@ -471834,7 +471887,8 @@
         "sample": {
           "props": {
             "htmlWidth": "50%"
-          }
+          },
+          "children": []
         },
         "fingerprint": "ca28c419",
         "props": {
@@ -491597,6 +491651,9 @@
           "TagsInput.Root"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": []
+        },
         "fingerprint": "efd83dfe",
         "props": {
           "asChild?": "31e5d9"
@@ -491613,7 +491670,8 @@
         "sample": {
           "props": {
             "placeholder": "Add tag..."
-          }
+          },
+          "children": []
         },
         "fingerprint": "ca28c419",
         "props": {
@@ -494229,6 +494287,9 @@
           "TagsInput.Item"
         ],
         "parentsFrom": "error",
+        "sample": {
+          "children": []
+        },
         "fingerprint": "ca28c419",
         "props": {
           "_active?": "c3f29d",

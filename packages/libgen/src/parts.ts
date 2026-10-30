@@ -765,6 +765,16 @@ export async function relateParts(
     }))
     if (!attempt(relation.parents ?? [], parent, children)) relation.sample = { ...relation.sample, children }
   }
+  // A part that passes its children to an `<input>` (Mantine's `Cascader`) can't take the text label the canvas gives
+  // a part with children, so its sample says it has none.
+  for (const [name, relation] of relations) {
+    if (relation.visual === false || relation.sample?.children) continue
+    const parents = relation.parents ?? []
+    const failed = attempt(parents, name, ["Text"])
+    if (failed && /void element|self-closing tag/.test(failed) && !attempt(parents, name, [])) {
+      relation.sample = { ...relation.sample, children: [] }
+    }
+  }
   // The parts inside a drawn part's sample, so they're placed as part of it.
   const drawnTree = new Set([...drawnParts, ...[...drawnInside.values()].flatMap((inside) => [...inside])])
   return {

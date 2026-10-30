@@ -162,7 +162,8 @@ describe("parts", () => {
         return React.createElement("button", null, "Open")
       },
       Badge: () => React.createElement("span", null, "New"),
-      BadgeContext: AccordionContext.Consumer
+      BadgeContext: AccordionContext.Consumer,
+      Field: (props: Record<string, unknown>) => React.createElement("input", props)
     }
     const loadLibrary = async (specifier: string) => (specifier === "demo" ? library : load(specifier))
     const found = (name: string) =>
@@ -170,7 +171,7 @@ describe("parts", () => {
     const { relations, tried } = await relateParts(
       loadLibrary,
       "demo",
-      ["Accordion", "AccordionItem", "AccordionTrigger", "Badge", "BadgeContext"].map(found)
+      ["Accordion", "AccordionItem", "AccordionTrigger", "Badge", "BadgeContext", "Field"].map(found)
     )
     expect(tried).toBe(true)
     expect(relations.get("AccordionTrigger")).toMatchObject({
@@ -181,6 +182,9 @@ describe("parts", () => {
     expect(relations.get("AccordionTrigger")?.inside).toBeUndefined()
     expect(relations.get("Badge")?.parents).toBeUndefined()
     expect(relations.get("BadgeContext")?.visual).toBe(false)
+    // One that hands its children to an input has none, so it isn't given a text label.
+    expect(relations.get("Field")?.sample).toEqual({ children: [] })
+    expect(relations.get("Badge")?.sample).toBeUndefined()
     // A family's root is placed with its parts in it.
     expect(relations.get("Accordion")?.sample?.children).toEqual([
       { component: "AccordionItem", children: [{ component: "AccordionTrigger" }] }

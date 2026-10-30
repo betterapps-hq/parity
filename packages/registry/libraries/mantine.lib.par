@@ -8416,7 +8416,8 @@
                 ]
               }
             ]
-          }
+          },
+          "children": []
         },
         "fingerprint": "a5784447",
         "props": {
@@ -9831,7 +9832,8 @@
               "jp",
               "tokyo"
             ]
-          }
+          },
+          "children": []
         },
         "fingerprint": "cc93d6bc",
         "props": {
@@ -10077,7 +10079,8 @@
         "sample": {
           "props": {
             "label": "autoContrast checkbox"
-          }
+          },
+          "children": []
         },
         "fingerprint": "6d899548",
         "props": {
@@ -10893,7 +10896,8 @@
           "props": {
             "placeholder": "Pick color",
             "label": "Your favorite color"
-          }
+          },
+          "children": []
         },
         "fingerprint": "86b6abab",
         "props": {
@@ -12195,7 +12199,8 @@
         "sample": {
           "props": {
             "value": "Text"
-          }
+          },
+          "children": []
         },
         "fingerprint": "d9b73a29",
         "props": {
@@ -16120,7 +16125,8 @@
             "radius": "md",
             "h": 200,
             "src": "https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/images/bg-9.png"
-          }
+          },
+          "children": []
         },
         "fingerprint": "fc865bad",
         "props": {
@@ -16325,6 +16331,9 @@
         "as": "function",
         "declaration": "lib/components/Input/Input.d.ts",
         "group": "Input",
+        "sample": {
+          "children": []
+        },
         "fingerprint": "2c3ccfb4",
         "props": {
           "__bottomSection?": "75c961",
@@ -18190,7 +18199,8 @@
             "mask": "#hhhhhh",
             "label": "Hex color",
             "placeholder": "#______"
-          }
+          },
+          "children": []
         },
         "fingerprint": "99d58bbf",
         "props": {
@@ -21588,7 +21598,8 @@
                 ]
               }
             ]
-          }
+          },
+          "children": []
         },
         "fingerprint": "0759033f",
         "props": {
@@ -22162,7 +22173,8 @@
           "props": {
             "label": "Click buttons to change value",
             "placeholder": "Click the buttons"
-          }
+          },
+          "children": []
         },
         "fingerprint": "805e9e0d",
         "props": {
@@ -23502,7 +23514,8 @@
           "props": {
             "label": "Label",
             "placeholder": "PasswordInput"
-          }
+          },
+          "children": []
         },
         "fingerprint": "054d6e0a",
         "props": {
@@ -24000,7 +24013,8 @@
         "sample": {
           "props": {
             "placeholder": "Search values"
-          }
+          },
+          "children": []
         },
         "fingerprint": "ab0db764",
         "props": {
@@ -24871,7 +24885,8 @@
             "label": "Custom icon color",
             "value": "check",
             "defaultChecked": true
-          }
+          },
+          "children": []
         },
         "fingerprint": "c2eca7ac",
         "props": {
@@ -26175,7 +26190,8 @@
               "Vue",
               "Svelte"
             ]
-          }
+          },
+          "children": []
         },
         "fingerprint": "fd414e03",
         "props": {
@@ -27559,7 +27575,8 @@
           "props": {
             "value": "value",
             "label": "Disabled checked switch"
-          }
+          },
+          "children": []
         },
         "fingerprint": "b37fd41e",
         "props": {
@@ -29499,7 +29516,8 @@
                 ]
               }
             ]
-          }
+          },
+          "children": []
         },
         "fingerprint": "7a8c39c4",
         "props": {
@@ -29900,7 +29918,8 @@
             "mt": "md",
             "placeholder": "Without error styles on input",
             "label": "Without error styles on input"
-          }
+          },
+          "children": []
         },
         "fingerprint": "7b9ec01d",
         "props": {
@@ -32425,7 +32444,8 @@
             "label": "Categories",
             "placeholder": "Pick categories",
             "defaultExpandAll": true
-          }
+          },
+          "children": []
         },
         "fingerprint": "a936af70",
         "props": {

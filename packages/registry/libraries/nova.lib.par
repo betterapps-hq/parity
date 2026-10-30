@@ -4255,6 +4255,9 @@
           "ComboboxValue"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": []
+        },
         "fingerprint": "b03b2302",
         "props": {
           "className?": "a8d02a",
@@ -8478,7 +8481,8 @@
             "id": "email",
             "type": "email",
             "placeholder": "m@example.com"
-          }
+          },
+          "children": []
         },
         "fingerprint": "c218e39e"
       },
@@ -8634,7 +8638,8 @@
         "sample": {
           "props": {
             "id": "time-from"
-          }
+          },
+          "children": []
         },
         "fingerprint": "c218e39e"
       },
@@ -12115,7 +12120,8 @@
           "props": {
             "aria-label": "Another agent feature",
             "placeholder": "Describe another feature…"
-          }
+          },
+          "children": []
         },
         "fingerprint": "098bc024",
         "props": {
@@ -14006,6 +14012,9 @@
         "as": "function",
         "declaration": "dist/ui/sidebar.d.ts",
         "group": "Sidebar",
+        "sample": {
+          "children": []
+        },
         "fingerprint": "c218e39e"
       },
       "SidebarInset": {
