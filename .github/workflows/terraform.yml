@@ -1,0 +1,41 @@
+name: Terraform
+
+on:
+  pull_request:
+    paths: ["infra/**", ".github/workflows/terraform.yml"]
+  push:
+    branches: [main]
+    paths: ["infra/**", ".github/workflows/terraform.yml"]
+
+permissions:
+  contents: read
+
+# infra/github, the repository's rulesets, through the shared templates. The state bucket and its R2 endpoint are
+# repository variables. Until they and the credentials exist, the templates validate the project and skip the plan with
+# a notice.
+jobs:
+  plan:
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: betterapps-hq/pipelines/.github/workflows/terraform-plan.yml@c3b85f070cf22fbf7a4dae841461f82e2b16ea20 # v1.2.0
+    with:
+      working-directory: infra/github
+      state-bucket: ${{ vars.TF_STATE_BUCKET }}
+      state-endpoint: ${{ vars.TF_STATE_ENDPOINT }}
+    # Read-only credentials, since any branch's pull request plans with them.
+    secrets:
+      TF_STATE_ACCESS_KEY_ID: ${{ secrets.TF_STATE_READ_ACCESS_KEY_ID }}
+      TF_STATE_SECRET_ACCESS_KEY: ${{ secrets.TF_STATE_READ_SECRET_ACCESS_KEY }}
+      TF_GITHUB_TOKEN: ${{ secrets.TF_GITHUB_READ_TOKEN }}
+
+  # The infrastructure environment holds the write credentials, kept to main by its branch rules.
+  apply:
+    if: github.event_name == 'push'
+    uses: betterapps-hq/pipelines/.github/workflows/terraform-apply.yml@c3b85f070cf22fbf7a4dae841461f82e2b16ea20 # v1.2.0
+    with:
+      environment: infrastructure
+      working-directory: infra/github
+      state-bucket: ${{ vars.TF_STATE_BUCKET }}
+      state-endpoint: ${{ vars.TF_STATE_ENDPOINT }}

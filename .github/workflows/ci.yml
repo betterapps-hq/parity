@@ -58,7 +58,8 @@ jobs:
       command: |
         pnpm check:types
         if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
-          pnpm exec beachball check
+          # Beachball rejects its own release commit, which scripts/changes.ts accepts.
+          if [ "$GITHUB_HEAD_REF" != beachball/release ]; then pnpm exec beachball check; fi
           node scripts/changes.ts check --committed
           node scripts/commits.ts title "$(jq -r .pull_request.title "$GITHUB_EVENT_PATH")"
         fi
