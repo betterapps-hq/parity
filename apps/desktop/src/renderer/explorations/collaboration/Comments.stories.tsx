@@ -155,7 +155,7 @@ export const Attaching: Story = {
 export const Attachments: Story = {
   render: () => (
     <Stage className="flex items-start gap-8">
-      <Thread thread={heroThread} onClose={() => {}} />
+      <Thread thread={heroThread} onClose={() => undefined} />
       <div className="h-[30rem] overflow-hidden rounded-xl border">
         <CommentsPanel threads={[heroThread, ...threads]} selected="hero" />
       </div>
@@ -170,7 +170,7 @@ export const Attachments: Story = {
 export const Editing: Story = {
   render: () => (
     <Stage>
-      <Thread thread={heroThread} onClose={() => {}} />
+      <Thread thread={heroThread} onClose={() => undefined} />
     </Stage>
   ),
   play: async ({ canvasElement }) => {
@@ -188,7 +188,7 @@ export const Editing: Story = {
 export const Deleting: Story = {
   render: () => (
     <Stage>
-      <Thread thread={heroThread} onClose={() => {}} />
+      <Thread thread={heroThread} onClose={() => undefined} />
     </Stage>
   ),
   play: async ({ canvasElement }) => {
@@ -203,7 +203,7 @@ export const Deleting: Story = {
 export const OpenThread: Story = {
   render: () => (
     <Stage>
-      <Thread thread={thread("toggle")} onClose={() => {}} />
+      <Thread thread={thread("toggle")} onClose={() => undefined} />
     </Stage>
   )
 }
@@ -212,7 +212,7 @@ export const OpenThread: Story = {
 export const AgentWorking: Story = {
   render: () => (
     <Stage>
-      <Thread thread={thread("wrap")} onClose={() => {}} />
+      <Thread thread={thread("wrap")} onClose={() => undefined} />
     </Stage>
   )
 }
@@ -221,7 +221,7 @@ export const AgentWorking: Story = {
 export const Resolved: Story = {
   render: () => (
     <Stage>
-      <Thread thread={thread("coupon")} onClose={() => {}} />
+      <Thread thread={thread("coupon")} onClose={() => undefined} />
     </Stage>
   )
 }
@@ -233,7 +233,7 @@ export const NewComment: Story = {
       <div className="pt-[22rem]">
         <Thread
           thread={{ id: "new", design: "Pricing", layer: "Plan cards", frame: "Desktop, Dark", comments: [] }}
-          onClose={() => {}}
+          onClose={() => undefined}
         />
       </div>
     </Stage>
@@ -260,7 +260,7 @@ export const LongThread: Story = {
               }
             ]
           }}
-          onClose={() => {}}
+          onClose={() => undefined}
         />
       </Stage>
     )

@@ -138,7 +138,7 @@ const callouts: {
           ["Padding", "20"]
         ]}
       >
-        Cards keep equal heights; the featured one doesn't grow.
+        Cards keep equal heights; the featured one doesn&apos;t grow.
       </Callout>
     )
   },
@@ -292,7 +292,7 @@ export const SectionsOnTheCanvas: Story = {
           <SmallBoard name="Welcome" kind="collab" hue={300} />
           <SmallBoard name="Invite your team" kind="library" hue={300} />
           <StickyNote color="pink" author={me} size={150}>
-            Copy isn't final
+            Copy isn&apos;t final
           </StickyNote>
         </div>
       </Section>

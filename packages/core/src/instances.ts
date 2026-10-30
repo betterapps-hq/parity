@@ -273,11 +273,9 @@ export function innerChanges(
   // The values given to the params of the instance directly around the node.
   const holder = holderPath(path)
   const outer = inner.chain.length > 1 ? inner.instance.overrides?.[holder.slice(holder.indexOf("/") + 1)] : undefined
-  const given = design
-    ? inner.chain.length > 1
-      ? outer?.props
-      : inner.instance.args
-    : targetPatches(container, target)?.[holder]?.props
+  let given: Record<string, unknown> | undefined
+  if (design) given = inner.chain.length > 1 ? outer?.props : inner.instance.args
+  else given = targetPatches(container, target)?.[holder]?.props
   const bind = inner.node.bind
   const changes: NodePatch = { ...own }
   // A value the copy gives a param counts when it differs from the param's default, as in Figma.

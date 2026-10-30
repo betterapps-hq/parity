@@ -610,6 +610,7 @@ function parseDecorator(value: unknown, index: number): LibraryDecorator {
 function expectPattern(value: unknown, path: string): string {
   const pattern = expectString(value, path)
   try {
+    // oxlint-disable-next-line eslint/no-new -- constructing the expression is the check: it throws when it's invalid
     new RegExp(pattern)
   } catch {
     throw new TypeError(`${path}: expected a regular expression`)

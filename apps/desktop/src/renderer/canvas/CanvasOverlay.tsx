@@ -557,7 +557,9 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
   for (const id of layers) {
     const node = findLayer(store, entry!.container, id)
     // Inside an instance everything is the component's, so it's drawn in the component's color.
-    const color = isInnerPath(id) ? kindColors.component : node ? nodeColor(node) : kindColors.layer
+    let color: string = kindColors.layer
+    if (isInnerPath(id)) color = kindColors.component
+    else if (node) color = nodeColor(node)
     for (const { host, rect, picked: isPicked } of nodeInFrames(area, entry!.key, id, picked)) {
       model.outlines.push({
         key: `sel:${id}:${host.dataset.mode}:${host.dataset.state}`,
@@ -631,12 +633,9 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
     const hoverEntry = store.getEntry(hover.design)
     const node = hoverEntry && findLayer(store, hoverEntry.container, hover.node)
     // In the frame under the pointer; hovered in Layers, in the frame the selection was picked in.
-    const frame =
-      hover.mode !== undefined
-        ? findFrames(area, hover.design, { mode: hover.mode, state: hover.state })[0]
-        : hover.design === current.design
-          ? picked
-          : selectionFrame(area, hover.design, {})
+    let frame
+    if (hover.mode !== undefined) frame = findFrames(area, hover.design, { mode: hover.mode, state: hover.state })[0]
+    else frame = hover.design === current.design ? picked : selectionFrame(area, hover.design, {})
     const target = nodeInFrames(area, hover.design, hover.node, frame).find((item) => item.picked)
     if (target && node) {
       const { rect } = target
@@ -652,12 +651,10 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
         y2: line.y2 - areaRect.top
       })
       // Measured from the selected layer as the hovered frame draws it.
-      const from =
-        target.host === picked
-          ? selectedRect
-          : hover.design === current.design && current.node && !getDragView()
-            ? nodeBox(target.host, current.node)
-            : undefined
+      let from: DOMRect | undefined
+      if (target.host === picked) from = selectedRect
+      else if (hover.design === current.design && current.node && !getDragView())
+        from = nodeBox(target.host, current.node)
       if (alt && from) {
         model.redlines = redlines(from, rect, scale, unit).map(toArea)
       } else if (alt && !selectedRect && hoverEntry) {
@@ -786,12 +783,9 @@ function layoutColumns(area: HTMLElement, zoom: number, toBox: (rect: DOMRect) =
     if (rect.right < view.left || rect.left > view.right || rect.bottom < view.top || rect.top > view.bottom) continue
     const scale = zoom * frameScale(host)
     const width = rect.width / scale
-    const grid =
-      width < 600
-        ? { count: 4, margin: 16, gutter: 16 }
-        : width < 1024
-          ? { count: 8, margin: 24, gutter: 24 }
-          : { count: 12, margin: 32, gutter: 24 }
+    let grid = { count: 12, margin: 32, gutter: 24 }
+    if (width < 600) grid = { count: 4, margin: 16, gutter: 16 }
+    else if (width < 1024) grid = { count: 8, margin: 24, gutter: 24 }
     const column = (width - grid.margin * 2 - grid.gutter * (grid.count - 1)) / grid.count
     if (column <= 0) continue
     for (let index = 0; index < grid.count; index++) {

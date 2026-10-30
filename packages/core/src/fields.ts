@@ -107,9 +107,10 @@ export function applyFieldInput(input: FieldInput, current: number | undefined, 
 export function stepFieldValue(current: number, count: number, rules: FieldRules): number {
   const value = Math.round(current * 1e9) / 1e9
   let next: number
-  if (rules.kind === "length")
-    next = count === 0 ? value : count > 0 ? Math.floor(value) + count : Math.ceil(value) + count
-  else if (rules.kind === "count") next = Math.round(value) + count
+  if (rules.kind === "length") {
+    if (count === 0) next = value
+    else next = count > 0 ? Math.floor(value) + count : Math.ceil(value) + count
+  } else if (rules.kind === "count") next = Math.round(value) + count
   else next = value + count
   return clamp(next, rules)
 }
@@ -129,8 +130,7 @@ export function formatFieldValue(value: number | string | undefined, rules: Fiel
 
 /** What the field says about a note, as it shows values. */
 export function describeFieldNote(note: FieldNote, rules: FieldRules): string {
-  const shown = (value: number) =>
-    `${formatNumber(value)}${rules.kind === "length" ? "px" : rules.kind === "percent" ? "%" : ""}`
+  const shown = (value: number) => `${formatNumber(value)}${shownUnit(rules)}`
   switch (note.kind) {
     case "snapped":
       return `Snapped to ${shown(note.to)}, the nearest step on the spacing scale`
@@ -281,8 +281,15 @@ function unitFor(name: string, rules: FieldRules): FieldUnit | { reason: string 
   return { reason: `"${name}" isn't a unit ${rules.label ? `${rules.label} takes` : "here"}: ${expects(rules)}` }
 }
 
+/** The unit a value is shown with. */
+function shownUnit(rules: FieldRules): string {
+  if (rules.kind === "length") return "px"
+  return rules.kind === "percent" ? "%" : ""
+}
+
 function noun(rules: FieldRules): string {
-  return rules.kind === "percent" ? "a percentage" : rules.kind === "count" ? "a whole number" : "a number"
+  if (rules.kind === "percent") return "a percentage"
+  return rules.kind === "count" ? "a whole number" : "a number"
 }
 
 function expects(rules: FieldRules): string {
@@ -416,14 +423,11 @@ function evaluate(
       const right = evaluate(expression.right, current, rules)
       if (typeof right !== "number") return right
       if (expression.op === "/" && right === 0) return { reason: "Can't divide by zero" }
-      const result =
-        expression.op === "+"
-          ? left + right
-          : expression.op === "-"
-            ? left - right
-            : expression.op === "*"
-              ? left * right
-              : left / right
+      let result: number
+      if (expression.op === "+") result = left + right
+      else if (expression.op === "-") result = left - right
+      else if (expression.op === "*") result = left * right
+      else result = left / right
       return Number.isFinite(result) ? result : { reason: "That number is too big" }
     }
   }

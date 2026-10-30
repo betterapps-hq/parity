@@ -16,7 +16,9 @@ import { closeDialog, useOpenDialog } from "./app-dialogs.ts"
 /** The parts of Parity a bug report needs: its version, and the Electron and Chromium it runs on. */
 function buildDetails(userAgent = navigator.userAgent): { label: string; value: string }[] {
   const version = (name: string) => new RegExp(`${name}/([\\d.]+)`).exec(userAgent)?.[1] ?? "unknown"
-  const system = /Mac/.test(userAgent) ? "macOS" : /Windows/.test(userAgent) ? "Windows" : "Linux"
+  let system = "Linux"
+  if (/Mac/.test(userAgent)) system = "macOS"
+  else if (/Windows/.test(userAgent)) system = "Windows"
   return [
     { label: "Version", value: `${desktop.version}${import.meta.env.DEV ? " (development build)" : ""}` },
     { label: "Electron", value: version("Electron") },

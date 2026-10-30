@@ -167,6 +167,7 @@ describe("ServedLog", () => {
     log.depend(stamps("/app/.env"))
     log.serve("/src/button.tsx", "button v1", stamps("/app/src/button.tsx"))
     const record = await log.record(stamp, () => Promise.resolve(undefined))
+    // oxlint-disable-next-line unicorn/prefer-structured-clone -- the test checks the record survives JSON
     expect(JSON.parse(JSON.stringify(record))).toEqual(record)
     expect(record.files["/app/.env"]).toBeNull()
   })

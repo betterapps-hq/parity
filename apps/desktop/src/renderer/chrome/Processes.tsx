@@ -357,6 +357,9 @@ function ProcessRow({
   const time =
     task && done ? ago(now - (process.stoppedAt ?? now)) : formatUptime((process.stoppedAt ?? now) - process.startedAt)
   const hasActions = process.canStop || process.canRestart || canOpen(process) || done
+  let again = "Restart"
+  if (task) again = "Run again"
+  else if (done) again = "Start again"
   return (
     <li className="group/row px-1.5" style={{ animation: "process-row-in 220ms ease-out both" }} data-process-motion>
       <div className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors group-hover/row:bg-accent/60">
@@ -406,10 +409,7 @@ function ProcessRow({
                     </Action>
                   )}
                   {process.canRestart && (
-                    <Action
-                      label={task ? "Run again" : done ? "Start again" : "Restart"}
-                      onClick={() => void restartProcess(process)}
-                    >
+                    <Action label={again} onClick={() => void restartProcess(process)}>
                       <RotateCw />
                     </Action>
                   )}
@@ -498,7 +498,10 @@ function TaskLine({ process }: { process: ProjectProcess }) {
 }
 
 function StatusWord({ status, children }: { status: ProcessStatus; children: ReactNode }) {
-  const color = `var(--process-${status === "stopping" ? "starting" : status === "canceled" ? "stopped" : status})`
+  let shown: string = status
+  if (status === "stopping") shown = "starting"
+  else if (status === "canceled") shown = "stopped"
+  const color = `var(--process-${shown})`
   const moving = status === "starting" || status === "stopping"
   return (
     <span

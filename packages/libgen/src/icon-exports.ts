@@ -27,7 +27,7 @@ export function preferredExports(
       declared: target.name === symbol.name
     })
   }
-  const shortest = (a: string, b: string) => a.length - b.length || (a < b ? -1 : a > b ? 1 : 0)
+  const shortest = (a: string, b: string) => a.length - b.length || byCodeUnit(a, b)
   const preferred: string[] = []
   for (const group of groups) {
     const names = group.filter(usable)
@@ -51,4 +51,10 @@ export function typesFor(specifier: string, from: string): string | undefined {
     ts.sys
   ).resolvedModule?.resolvedFileName
   return resolved && /\.d\.[cm]?ts$/.test(resolved) ? resolved : undefined
+}
+
+/** Compares two strings by their UTF-16 code units, as `sort` does without a comparer. */
+function byCodeUnit(a: string, b: string): number {
+  if (a < b) return -1
+  return a > b ? 1 : 0
 }

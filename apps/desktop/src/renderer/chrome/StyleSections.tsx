@@ -645,13 +645,16 @@ function SizeInput({
 }) {
   const fixed = value !== undefined && value !== "fill" && value !== "hug"
   const mode = fixed ? "fixed" : (value ?? "auto")
+  let placeholder = "Hug"
+  if (mode === "auto") placeholder = "Auto"
+  else if (mode === "fill") placeholder = "Fill"
   return (
     <div className="grid grid-cols-[1fr_92px] items-start gap-1">
       <LengthInput
         editor={editor}
         title={axis === "width" ? "Width" : "Height"}
         value={fixed ? value : undefined}
-        placeholder={mode === "auto" ? "Auto" : mode === "fill" ? "Fill" : "Hug"}
+        placeholder={placeholder}
         blank={() => editor.measure(axis)}
         {...edits}
       />
@@ -663,7 +666,10 @@ function SizeInput({
           { value: "hug", label: "Hug" }
         ]}
         placeholder="Auto"
-        onChange={(next) => onChange(next === "fixed" ? (fixed ? value : (editor.measure(axis) ?? 64)) : next)}
+        onChange={(next) => {
+          if (next === "fixed") onChange(fixed ? value : (editor.measure(axis) ?? 64))
+          else onChange(next)
+        }}
       />
     </div>
   )

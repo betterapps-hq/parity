@@ -54,6 +54,23 @@ export function ProposalCard({
     )
   }
 
+  let actions: ReactNode
+  if (!canApprove) actions = <span className="text-xs text-muted-foreground">Waiting for an editor to approve it.</span>
+  else if (declining)
+    actions = (
+      <DeclineBox agent={agent} onCancel={() => setDeclining(false)} onDecline={(reason) => onDecline?.(reason)} />
+    )
+  else
+    actions = (
+      <div className="flex gap-1.5">
+        <Button size="xs" className="gap-1" onClick={onApprove}>
+          <Check /> Approve
+        </Button>
+        <Button size="xs" variant="ghost" onClick={() => setDeclining(true)}>
+          Decline
+        </Button>
+      </div>
+    )
   return (
     <div
       className="flex flex-col gap-2.5 rounded-lg border p-2.5"
@@ -73,20 +90,7 @@ export function ProposalCard({
           </li>
         ))}
       </ul>
-      {!canApprove ? (
-        <span className="text-xs text-muted-foreground">Waiting for an editor to approve it.</span>
-      ) : declining ? (
-        <DeclineBox agent={agent} onCancel={() => setDeclining(false)} onDecline={(reason) => onDecline?.(reason)} />
-      ) : (
-        <div className="flex gap-1.5">
-          <Button size="xs" className="gap-1" onClick={onApprove}>
-            <Check /> Approve
-          </Button>
-          <Button size="xs" variant="ghost" onClick={() => setDeclining(true)}>
-            Decline
-          </Button>
-        </div>
-      )}
+      {actions}
     </div>
   )
 }

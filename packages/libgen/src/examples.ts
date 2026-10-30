@@ -554,8 +554,7 @@ function wrappers(
           ? body.children.filter((child) => ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child))
           : []
       const root = elements.length === 1 ? elements[0] : body
-      const opening =
-        root && (ts.isJsxElement(root) ? root.openingElement : ts.isJsxSelfClosingElement(root) ? root : undefined)
+      const opening = root && openingOf(root)
       const name = opening && resolve(opening.tagName.getText(source))
       if (root && opening && name) {
         const spread = opening.attributes.properties.some(ts.isJsxSpreadAttribute)
@@ -730,11 +729,11 @@ function pushExpression(expression: ts.Expression, context: Context, depth: numb
     if (!body) return
     const list = listOf(expression.expression.expression, context)
     // A list the file doesn't spell out still shows what goes in it, once.
-    const items = Array.isArray(list)
-      ? list.slice(0, 3)
-      : context.hookItem && context.hooked && hookMapped(expression, context.hooked, context.source)
-        ? [itemFor(callback, context.hookItem, context.source)]
-        : [undefined]
+    let items: unknown[]
+    if (Array.isArray(list)) items = list.slice(0, 3)
+    else if (context.hookItem && context.hooked && hookMapped(expression, context.hooked, context.source))
+      items = [itemFor(callback, context.hookItem, context.source)]
+    else items = [undefined]
     items.forEach((item, index) => {
       const env = new Map(context.env)
       if (item !== undefined) bind(callback.parameters[0]?.name, item, env)
@@ -765,7 +764,7 @@ function renderOf(
   pushExpression(body, context, depth, inner)
   if (inner.length === 0) return undefined
   const first = callback.parameters[0]?.name
-  const opening = ts.isJsxElement(body) ? body.openingElement : ts.isJsxSelfClosingElement(body) ? body : undefined
+  const opening = openingOf(body)
   const argument = first && ts.isIdentifier(first) ? first.text : undefined
   const takes = (expression: ts.Expression | undefined) =>
     !!argument && !!expression && ts.isIdentifier(expression) && expression.text === argument
@@ -1007,14 +1006,17 @@ function firstParameter(node: ts.Node): ts.BindingName | undefined {
   return undefined
 }
 
+/** The opening tag of a JSX element, or the element itself when it closes itself. */
+function openingOf(node: ts.Node): ts.JsxOpeningElement | ts.JsxSelfClosingElement | undefined {
+  if (ts.isJsxElement(node)) return node.openingElement
+  return ts.isJsxSelfClosingElement(node) ? node : undefined
+}
+
 /** The name of a component a file declares: `function Name()` or `const Name = ...`, capitalised. */
 function declaredName(node: ts.Node): string | undefined {
-  const name =
-    ts.isFunctionDeclaration(node) && node.name
-      ? node.name.text
-      : ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer
-        ? node.name.text
-        : undefined
+  let name: string | undefined
+  if (ts.isFunctionDeclaration(node) && node.name) name = node.name.text
+  else if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) name = node.name.text
   return name && /^[A-Z]/.test(name) ? name : undefined
 }
 
@@ -1161,11 +1163,9 @@ function evaluate(expression: ts.Expression, context: Context, depth: number): u
           ? property.name.text
           : undefined
       if (!key) continue
-      const value = ts.isPropertyAssignment(property)
-        ? evaluate(property.initializer, context, depth + 1)
-        : ts.isShorthandPropertyAssignment(property)
-          ? evaluate(property.name, context, depth + 1)
-          : undefined
+      let value: unknown
+      if (ts.isPropertyAssignment(property)) value = evaluate(property.initializer, context, depth + 1)
+      else if (ts.isShorthandPropertyAssignment(property)) value = evaluate(property.name, context, depth + 1)
       if (value !== undefined) object[key] = value
     }
     return object
@@ -1208,16 +1208,10 @@ function sampleWeight(sample: ComponentSample): number {
   return (
     children.length * 2 +
     Object.keys(sample.props ?? {}).length +
-    children.reduce(
-      (sum, child) =>
-        sum +
-        (typeof child === "string"
-          ? 0
-          : isSampleRender(child)
-            ? sampleWeight({ children: child.$render })
-            : sampleWeight(child)),
-      0
-    )
+    children.reduce((sum, child) => {
+      if (typeof child === "string") return sum
+      return sum + (isSampleRender(child) ? sampleWeight({ children: child.$render }) : sampleWeight(child))
+    }, 0)
   )
 }
 
@@ -1310,17 +1304,16 @@ export function familySample(
   family: string,
   familyIn: (name: string) => string = familyOf
 ): ComponentSample {
-  const keep = (child: SampleChild): SampleChild | undefined =>
-    typeof child === "string"
-      ? child
-      : isSampleRender(child)
-        ? (() => {
-            const inner = child.$render.flatMap((item) => keep(item) ?? [])
-            return inner.length > 0 ? { ...child, $render: inner } : undefined
-          })()
-        : familyIn(child.component) === family
-          ? { ...child, ...(child.children ? { children: child.children.flatMap((inner) => keep(inner) ?? []) } : {}) }
-          : undefined
+  const keep = (child: SampleChild): SampleChild | undefined => {
+    if (typeof child === "string") return child
+    if (isSampleRender(child)) {
+      const inner = child.$render.flatMap((item) => keep(item) ?? [])
+      return inner.length > 0 ? { ...child, $render: inner } : undefined
+    }
+    return familyIn(child.component) === family
+      ? { ...child, ...(child.children ? { children: child.children.flatMap((inner) => keep(inner) ?? []) } : {}) }
+      : undefined
+  }
   const children = (sample.children ?? []).flatMap((child) => keep(child) ?? [])
   return { ...(sample.props ? { props: sample.props } : {}), ...(children.length > 0 ? { children } : {}) }
 }

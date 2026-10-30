@@ -473,7 +473,7 @@ export const inGameComparison: Comparison = {
   why: (
     <>
       <span className="text-foreground">Sam Okafor</span>, in #139, merged 9 days ago: “Hearts at the bottom sat under
-      players' thumbs.” Nobody changed the design to match.
+      players&apos; thumbs.” Nobody changed the design to match.
     </>
   ),
   also: [],
@@ -500,6 +500,12 @@ function Number({ n, active }: { n: number; active?: boolean }) {
       {n}
     </span>
   )
+}
+
+/** Where a change's number sits: on its corner, or beside it when it would cover a small place. */
+function numberPlace(right: boolean | undefined, area: Area): string {
+  if (right) return "top-1/2 left-full ml-1 -translate-y-1/2"
+  return parseFloat(area.width) >= 15 ? "-top-2 -left-2" : "top-1/2 right-full mr-1 -translate-y-1/2"
 }
 
 /**
@@ -553,9 +559,7 @@ function Board({
               {/* A change in several places is numbered once, at its first. */}
               {/* A small place gets its number beside it, so the number doesn't cover what changed. */}
               {index === 0 && (!before || change.kind) && (
-                <span
-                  className={`absolute ${change.numberRight ? "top-1/2 left-full ml-1 -translate-y-1/2" : parseFloat(area.width) >= 15 ? "-top-2 -left-2" : "top-1/2 right-full mr-1 -translate-y-1/2"}`}
-                >
+                <span className={`absolute ${numberPlace(change.numberRight, area)}`}>
                   <Number n={change.n} />
                 </span>
               )}
@@ -726,6 +730,12 @@ function TokenChange({ token }: { token: NonNullable<Comparison["token"]> }) {
   )
 }
 
+function viewLabel(view: View): string {
+  if (view === "before") return "Before"
+  if (view === "after") return "After"
+  return "Side by side"
+}
+
 export function ChangesPage({ comparison }: { comparison: Comparison }) {
   const project = portalProject(comparison.project)
   const [from, setFrom] = useState(comparison.from)
@@ -794,7 +804,7 @@ export function ChangesPage({ comparison }: { comparison: Comparison }) {
                     onClick={() => setView(option)}
                     className={`rounded-[5px] px-2 py-0.5 ${view === option ? "bg-white/15 text-white" : "text-white/55 hover:text-white/80"}`}
                   >
-                    {option === "before" ? "Before" : option === "after" ? "After" : "Side by side"}
+                    {viewLabel(option)}
                   </button>
                 ))}
               </div>
@@ -938,18 +948,30 @@ function Foot({
   asking: boolean
   onAsk(asking: boolean): void
 }) {
-  const ask =
-    you.as === "reviewer"
-      ? "Ask for changes"
-      : you.as === "builder"
-        ? `Ask ${first(you.designer)}`
-        : `Ask ${first(you.builder)}`
-  const placeholder =
-    you.as === "reviewer"
-      ? "What should change? It goes to everyone who made these versions."
-      : you.as === "builder"
-        ? `Ask ${first(you.designer)} about these changes`
-        : `What should ${first(you.builder)} change back?`
+  let ask: string
+  let placeholder: string
+  let primary: ReactNode
+  let note: ReactNode
+  if (you.as === "reviewer") {
+    ask = "Ask for changes"
+    placeholder = "What should change? It goes to everyone who made these versions."
+    primary = (
+      <>
+        <Check /> {you.boards ? `Approve ${you.boards.length} boards` : `Approve v${to}`}
+      </>
+    )
+    note = you.approves
+  } else if (you.as === "builder") {
+    ask = `Ask ${first(you.designer)}`
+    placeholder = `Ask ${first(you.designer)} about these changes`
+    primary = `Keep building v${you.building}`
+    note = `When ${first(you.reviewer)} approves v${to}, your build moves to it with these ${changes} changes. Until then, v${you.building} is the approved version.`
+  } else {
+    ask = `Ask ${first(you.builder)}`
+    placeholder = `What should ${first(you.builder)} change back?`
+    primary = "Update the design"
+    note = you.note
+  }
   return (
     <>
       {you.as !== "drift" && (
@@ -988,28 +1010,14 @@ function Foot({
       ) : (
         <div className="flex gap-2">
           <Button size="sm" className="flex-1 gap-1.5">
-            {you.as === "reviewer" ? (
-              <>
-                <Check /> {you.boards ? `Approve ${you.boards.length} boards` : `Approve v${to}`}
-              </>
-            ) : you.as === "builder" ? (
-              `Keep building v${you.building}`
-            ) : (
-              "Update the design"
-            )}
+            {primary}
           </Button>
           <Button size="sm" variant="ghost" className="flex-1" onClick={() => onAsk(true)}>
             {ask}
           </Button>
         </div>
       )}
-      <span className="text-[11px] leading-relaxed text-muted-foreground">
-        {you.as === "reviewer"
-          ? you.approves
-          : you.as === "builder"
-            ? `When ${first(you.reviewer)} approves v${to}, your build moves to it with these ${changes} changes. Until then, v${you.building} is the approved version.`
-            : you.note}
-      </span>
+      <span className="text-[11px] leading-relaxed text-muted-foreground">{note}</span>
     </>
   )
 }

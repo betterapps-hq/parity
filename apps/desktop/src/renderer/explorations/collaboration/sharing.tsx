@@ -117,7 +117,7 @@ const startingAgents: { agent: Person; by: Person; role: AgentRole }[] = [
 
 /** Copies text, quietly doing nothing where the clipboard isn't allowed. */
 function copy(text: string) {
-  navigator.clipboard?.writeText(text).catch(() => {})
+  navigator.clipboard?.writeText(text).catch(() => undefined)
 }
 
 const projectLink = "parity://buildkit/website"
@@ -311,8 +311,8 @@ export function ShareDialog({ onClose }: { onClose?(): void }) {
           <p className="mx-2 flex gap-2 rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
             <Info className="mt-px size-3.5 shrink-0" />
             <span>
-              {noPush.map((member) => member.person?.name ?? member.email).join(" and ")} can edit here but can't push
-              to buildkitgg/website, so their changes open a pull request.
+              {noPush.map((member) => member.person?.name ?? member.email).join(" and ")} can edit here but can&apos;t
+              push to buildkitgg/website, so their changes open a pull request.
             </span>
           </p>
         )}
@@ -507,7 +507,9 @@ export function AccessRequest() {
           <span className="block text-xs">sam@okafor.studio, outside Buildkit</span>
         </span>
       </div>
-      <p className="border-l-2 pl-2.5 text-[13px] text-foreground/85">I'm picking up the checkout flow this week.</p>
+      <p className="border-l-2 pl-2.5 text-[13px] text-foreground/85">
+        I&apos;m picking up the checkout flow this week.
+      </p>
       {answer ? (
         <span className="flex items-center gap-1.5 text-sm text-emerald-400">
           <Check className="size-4" /> {answer}
@@ -534,8 +536,8 @@ export function BrowserBanner() {
   return (
     <div className="flex items-center gap-3 border-b bg-muted/40 px-4 py-2 text-sm">
       <span className="flex-1 text-muted-foreground">
-        <span className="font-medium text-foreground">You're viewing in a browser.</span> You can comment and follow
-        along here. Open Parity to edit.
+        <span className="font-medium text-foreground">You&apos;re viewing in a browser.</span> You can comment and
+        follow along here. Open Parity to edit.
       </span>
       <Button size="sm" className="gap-1.5">
         <ExternalLink /> Open in Parity

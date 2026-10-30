@@ -1399,6 +1399,17 @@ the Repository, CI and releases stream in Linear.
     alias.
   - **No two files in a folder may differ only by case and extension.** Beside `Processes.tsx`, `processes.ts` made the
     checker on Windows mistake one for the other, so it's now `process-store.ts`.
+- **The agency monorepo's stricter lint rules are on** (PAR-396), from its `@repo/oxlint-config`, without `curly`,
+  `no-console` and `no-bitwise` as you chose, and without the React Compiler rule, since Parity doesn't run the
+  compiler. My calls:
+  - **Only the rules beyond oxlint's correctness category are listed** in `vite.config.ts`, since that category is on
+    already. `react/exhaustive-deps` stays an error there rather than the agency's warning.
+  - **Unused names starting with `_` are allowed,** as the agency allows them.
+  - **A nested ternary becomes an `if` chain or a small named function,** not a disable comment. A callback that does
+    nothing, as stories pass, returns `undefined` rather than having an empty body.
+  - **Disable comments, each with its reason,** are left only where the flagged code is the point: `new RegExp` checking
+    a pattern, a test running generated source with `new Function`, tests that round-trip through JSON on purpose, and
+    the modes panel's render callback, which the rule takes for a component.
 - **Versions come from Beachball change files,** as Buildkit and the agency monorepo do it, which you asked for on
   2026-10-29. This replaces my earlier call for release-please. My calls on how:
   - **Only the desktop app and the CLI are versioned.** The workspace packages they bundle are `private` again, as you

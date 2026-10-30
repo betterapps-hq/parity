@@ -159,7 +159,8 @@ async function main(): Promise<void> {
       })
     case "exec": {
       const editId = values["edit-id"]
-      const code = editId ? undefined : rest[0] ? await readFile(rest[0], "utf8") : await stdin()
+      let code: string | undefined
+      if (!editId) code = rest[0] ? await readFile(rest[0], "utf8") : await stdin()
       const edits = values.edits ? (JSON.parse(values.edits) as Edit[]) : undefined
       const result = await call<ExecResponse>("exec", {
         tab: values.tab,

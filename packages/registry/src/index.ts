@@ -99,6 +99,9 @@ export function covers(manifest: LibraryManifest, version: string | undefined): 
 function compareGenerated(a: LibraryManifest, b: LibraryManifest): number {
   const left = semver.coerce(a.package?.version)
   const right = semver.coerce(b.package?.version)
-  if (!left || !right) return left ? 1 : right ? -1 : 0
+  if (!left || !right) {
+    if (left) return 1
+    return right ? -1 : 0
+  }
   return semver.compare(left, right)
 }

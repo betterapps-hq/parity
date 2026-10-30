@@ -73,8 +73,9 @@ function ComponentItem({
 }) {
   const hover = useHoverCard(card ?? false)
   const about = meta(component)
-  const item =
-    view === "grid" ? (
+  let item: ReactNode
+  if (view === "grid")
+    item = (
       <button
         type="button"
         onPointerEnter={hover.enter}
@@ -88,7 +89,9 @@ function ComponentItem({
           <span className="truncate">{component.name}</span>
         </span>
       </button>
-    ) : view === "list" ? (
+    )
+  else if (view === "list")
+    item = (
       <button
         type="button"
         onPointerEnter={hover.enter}
@@ -104,7 +107,9 @@ function ComponentItem({
           )}
         </span>
       </button>
-    ) : (
+    )
+  else
+    item = (
       <button
         type="button"
         onPointerEnter={hover.enter}
@@ -419,6 +424,23 @@ export function InsertPicker({ highlighted = "Project card", query }: { highligh
   const current = insertable.find((component) => component.name === active)
   const basic = basics.find((entry) => entry.label === active)
   const groups = Map.groupBy(insertable, (component) => component.group)
+  let detail: ReactNode = <div className="flex-1" />
+  if (current)
+    detail = (
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <ComponentCard component={current} insert={false} />
+      </div>
+    )
+  else if (basic)
+    detail = (
+      <div className="flex flex-1 flex-col gap-2 p-3">
+        <span className="grid h-44 place-items-center rounded-md border bg-muted/40 [&>*]:scale-[3]">{basic.art}</span>
+        <span className="flex items-center gap-2 px-1 text-sm font-medium">
+          <basic.icon className="size-3.5" /> {basic.label}
+        </span>
+        <span className="px-1 text-xs text-muted-foreground">Goes where a paste would: into the selected layout.</span>
+      </div>
+    )
   return (
     <div className="flex h-[490px] w-[760px] overflow-hidden rounded-xl border bg-popover text-popover-foreground shadow-2xl">
       <Command value={active} onValueChange={setActive} loop className="w-[400px] shrink-0 rounded-none border-r">
@@ -459,25 +481,7 @@ export function InsertPicker({ highlighted = "Project card", query }: { highligh
         </CommandList>
       </Command>
       <div className="flex min-w-0 flex-1 flex-col">
-        {current ? (
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <ComponentCard component={current} insert={false} />
-          </div>
-        ) : basic ? (
-          <div className="flex flex-1 flex-col gap-2 p-3">
-            <span className="grid h-44 place-items-center rounded-md border bg-muted/40 [&>*]:scale-[3]">
-              {basic.art}
-            </span>
-            <span className="flex items-center gap-2 px-1 text-sm font-medium">
-              <basic.icon className="size-3.5" /> {basic.label}
-            </span>
-            <span className="px-1 text-xs text-muted-foreground">
-              Goes where a paste would: into the selected layout.
-            </span>
-          </div>
-        ) : (
-          <div className="flex-1" />
-        )}
+        {detail}
         <div className="flex items-center gap-3 border-t px-3 py-2 text-[11px] text-muted-foreground">
           <span className="flex items-center gap-1">
             <Kbd>Enter</Kbd> Insert

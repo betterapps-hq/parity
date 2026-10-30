@@ -122,8 +122,13 @@ export function Levels({ look }: { look: Look }) {
         />
       </svg>
       {levelNodes.map((node, index) => {
-        const size = node.boss ? 92 : node.current ? 78 : 64
+        let size = 64
+        if (node.boss) size = 92
+        else if (node.current) size = 78
         const locked = index > 5
+        let mark: ReactNode = index + 1
+        if (node.boss) mark = <Skull className="size-10" />
+        else if (locked) mark = <Lock className="size-6" />
         return (
           <div
             key={index}
@@ -146,7 +151,7 @@ export function Levels({ look }: { look: Look }) {
                   : undefined
               }}
             >
-              {node.boss ? <Skull className="size-10" /> : locked ? <Lock className="size-6" /> : index + 1}
+              {mark}
             </span>
             {"stars" in node && (
               <span className="flex gap-0.5">
@@ -837,6 +842,12 @@ export function MobileListings({ look }: { look: Look }) {
   )
 }
 
+/** A day in the booking calendar: the chosen one in the brand color, the days before it faint. */
+function dayTone(day: number | undefined): string {
+  if (day === 28) return "bg-(--r-brand) font-semibold text-(--r-brand-fg)"
+  return day && day < 28 ? "text-(--r-faint)" : ""
+}
+
 /** A listing: the walker, their reviews, and booking a walk. */
 export function Walker({ look }: { look: Look }) {
   const days = Array.from({ length: 30 }, (_, index) => index + 1)
@@ -871,8 +882,8 @@ export function Walker({ look }: { look: Look }) {
             </span>
           </div>
           <p className="max-w-[560px] leading-relaxed text-(--r-muted)">
-            I've walked dogs around Shoreditch for six years, from tiny puppies to very large lurchers. Every walk is at
-            least an hour, with photos along the way.
+            I&apos;ve walked dogs around Shoreditch for six years, from tiny puppies to very large lurchers. Every walk
+            is at least an hour, with photos along the way.
           </p>
           <span className="flex gap-2">
             {["Puppies", "Big dogs", "First aid trained", "Insured"].map((chip) => (
@@ -904,16 +915,7 @@ export function Walker({ look }: { look: Look }) {
             </span>
             <span className="grid grid-cols-7 gap-y-1 text-center text-[13px]">
               {[undefined, undefined, undefined, undefined, undefined, undefined, ...days].map((day, index) => (
-                <span
-                  key={index}
-                  className={`mx-auto grid size-8 place-items-center rounded-full ${
-                    day === 28
-                      ? "bg-(--r-brand) font-semibold text-(--r-brand-fg)"
-                      : day && day < 28
-                        ? "text-(--r-faint)"
-                        : ""
-                  }`}
-                >
+                <span key={index} className={`mx-auto grid size-8 place-items-center rounded-full ${dayTone(day)}`}>
                   {day}
                 </span>
               ))}
@@ -932,7 +934,7 @@ export function Walker({ look }: { look: Look }) {
           <span className="rounded-xl bg-(--r-brand) py-3 text-center text-[15px] font-semibold text-(--r-brand-fg)">
             Request walk
           </span>
-          <span className="text-center text-[12px] text-(--r-muted)">You won't be charged until Ama accepts.</span>
+          <span className="text-center text-[12px] text-(--r-muted)">You won&apos;t be charged until Ama accepts.</span>
         </div>
       </div>
     </div>

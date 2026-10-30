@@ -434,49 +434,58 @@ export function AnimationArt({ value, size, playing }: { value: string; size: nu
     playing
   )
   const s = size
+  let art: ReactNode
+  if (name === "spin")
+    art = (
+      <span
+        ref={mark}
+        className="block rounded-full border-2"
+        style={{
+          width: s * 0.6,
+          height: s * 0.6,
+          borderColor: "currentColor",
+          borderTopColor: "var(--canvas-layer)"
+        }}
+      />
+    )
+  else if (name === "ping")
+    art = (
+      <>
+        <span
+          ref={mark}
+          className="absolute rounded-full"
+          style={{ width: s * 0.36, height: s * 0.36, background: "var(--canvas-layer)", opacity: 0.6 }}
+        />
+        <span
+          className="rounded-full"
+          style={{ width: s * 0.36, height: s * 0.36, background: "var(--canvas-layer)" }}
+        />
+      </>
+    )
+  else if (name === "bounce")
+    art = (
+      <span
+        ref={mark}
+        className="block rounded-full"
+        style={{
+          width: s * 0.36,
+          height: s * 0.36,
+          background: "var(--canvas-layer)",
+          transform: "translateY(-25%)"
+        }}
+      />
+    )
+  else
+    art = (
+      <span
+        ref={mark}
+        className="block rounded-[3px]"
+        style={{ width: s * 0.6, height: s * 0.42, background: "currentColor", opacity: name === "pulse" ? 0.7 : 1 }}
+      />
+    )
   return (
     <span className="relative grid place-items-center" style={{ width: s, height: s }}>
-      {name === "spin" ? (
-        <span
-          ref={mark}
-          className="block rounded-full border-2"
-          style={{
-            width: s * 0.6,
-            height: s * 0.6,
-            borderColor: "currentColor",
-            borderTopColor: "var(--canvas-layer)"
-          }}
-        />
-      ) : name === "ping" ? (
-        <>
-          <span
-            ref={mark}
-            className="absolute rounded-full"
-            style={{ width: s * 0.36, height: s * 0.36, background: "var(--canvas-layer)", opacity: 0.6 }}
-          />
-          <span
-            className="rounded-full"
-            style={{ width: s * 0.36, height: s * 0.36, background: "var(--canvas-layer)" }}
-          />
-        </>
-      ) : name === "bounce" ? (
-        <span
-          ref={mark}
-          className="block rounded-full"
-          style={{
-            width: s * 0.36,
-            height: s * 0.36,
-            background: "var(--canvas-layer)",
-            transform: "translateY(-25%)"
-          }}
-        />
-      ) : (
-        <span
-          ref={mark}
-          className="block rounded-[3px]"
-          style={{ width: s * 0.6, height: s * 0.42, background: "currentColor", opacity: name === "pulse" ? 0.7 : 1 }}
-        />
-      )}
+      {art}
     </span>
   )
 }

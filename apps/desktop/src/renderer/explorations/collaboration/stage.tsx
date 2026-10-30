@@ -149,7 +149,7 @@ export function InviteDialogDesign({ mark = plain }: { mark?: Marker }) {
           <div className="flex items-start justify-between gap-4">
             <div className="flex flex-col gap-1">
               {mark("title", <h2 className="text-lg font-semibold">Invite teammates</h2>)}
-              <p className="text-sm text-neutral-500">They'll join Buildkit and see its projects.</p>
+              <p className="text-sm text-neutral-500">They&apos;ll join Buildkit and see its projects.</p>
             </div>
             {mark(
               "close",

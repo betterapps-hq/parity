@@ -95,12 +95,10 @@ describe("typing in a length field", () => {
     await app.page.evaluate((brand) => {
       const e2e = window.e2e!
       e2e.session().store.updateContainer(e2e.key("Pricing"), "Agent", (container) => {
-        const edit = (node: typeof container.root): typeof container.root =>
-          node.id === brand
-            ? { ...node, style: { ...node.style, width: 10 } }
-            : node.type === "layout"
-              ? { ...node, children: node.children.map(edit) }
-              : node
+        const edit = (node: typeof container.root): typeof container.root => {
+          if (node.id === brand) return { ...node, style: { ...node.style, width: 10 } }
+          return node.type === "layout" ? { ...node, children: node.children.map(edit) } : node
+        }
         return { ...container, root: edit(container.root) }
       })
     }, brand)

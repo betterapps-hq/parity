@@ -193,8 +193,8 @@ export function RequestAccessPage() {
           <div className="flex flex-col gap-1">
             <h2 className="text-base font-semibold">You need access to Help center</h2>
             <p className="text-sm text-muted-foreground">
-              It belongs to Kestrel, where you're a guest on Kestrel website. Priya Raman owns it, and Priya and
-              Kestrel's admins will get your request.
+              It belongs to Kestrel, where you&apos;re a guest on Kestrel website. Priya Raman owns it, and Priya and
+              Kestrel&apos;s admins will get your request.
             </p>
           </div>
           <div className="flex w-full rounded-lg bg-muted p-0.5 text-xs">

@@ -10,7 +10,7 @@ import {
   type RepeatCandidate
 } from "@parity/core"
 import { Diamond, Plus, ScanSearch, Sparkles, Trash2, X } from "lucide-react"
-import { useState } from "react"
+import { type ReactNode, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useProject } from "../canvas/context.ts"
@@ -30,31 +30,39 @@ import { revealSelection } from "./reveal.ts"
  */
 export function ComponentsSection({ entry }: { entry: ContainerEntry }) {
   const [candidates, setCandidates] = useState<RepeatCandidate[]>()
+  let content: ReactNode
+  if (candidates === undefined) {
+    content = (
+      <Button variant="outline" size="sm" onClick={() => setCandidates(findRepeats(entry.container.root))}>
+        <ScanSearch /> Find repeated parts
+      </Button>
+    )
+  } else if (candidates.length === 0) {
+    content = (
+      <p className="px-1 text-xs text-muted-foreground">
+        Nothing repeats with the same structure. Select a layer and use Make component to extract a part used once.
+      </p>
+    )
+  } else {
+    content = (
+      <ul className="flex flex-col gap-2">
+        {candidates.map((candidate) => (
+          <CandidateCard
+            key={candidate.nodes.join()}
+            entry={entry}
+            candidate={candidate}
+            onDone={() => setCandidates(undefined)}
+          />
+        ))}
+      </ul>
+    )
+  }
   return (
     <PanelSection
       title="Components"
       description="Find parts that repeat and turn them into component designs. Each copy becomes an instance with its own content."
     >
-      {candidates === undefined ? (
-        <Button variant="outline" size="sm" onClick={() => setCandidates(findRepeats(entry.container.root))}>
-          <ScanSearch /> Find repeated parts
-        </Button>
-      ) : candidates.length === 0 ? (
-        <p className="px-1 text-xs text-muted-foreground">
-          Nothing repeats with the same structure. Select a layer and use Make component to extract a part used once.
-        </p>
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {candidates.map((candidate) => (
-            <CandidateCard
-              key={candidate.nodes.join()}
-              entry={entry}
-              candidate={candidate}
-              onDone={() => setCandidates(undefined)}
-            />
-          ))}
-        </ul>
-      )}
+      {content}
     </PanelSection>
   )
 }

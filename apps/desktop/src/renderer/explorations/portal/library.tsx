@@ -200,8 +200,8 @@ function ToggleDetail() {
           )
         })}
         <span className="pt-1 text-xs text-muted-foreground">
-          {behind.length} projects still use 2.3. Updating opens each project's boards at 2.4 to check before anyone
-          builds it.
+          {behind.length} projects still use 2.3. Updating opens each project&apos;s boards at 2.4 to check before
+          anyone builds it.
         </span>
       </section>
       <div className="mt-auto flex flex-col gap-2 px-5 py-4">

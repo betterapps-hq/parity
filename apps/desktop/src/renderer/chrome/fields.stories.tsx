@@ -43,6 +43,12 @@ const meta = {
 } satisfies Meta<typeof EveryField>
 
 export default meta
+
+/** What kind of value a field holds, for its label. */
+function kindOf(value: unknown): string {
+  if (value === null) return "null"
+  return Array.isArray(value) ? "array" : typeof value
+}
 type Story = StoryObj<typeof meta>
 
 const percentRules: FieldRules = { kind: "percent", min: 0, max: 100, label: "Opacity" }
@@ -215,10 +221,7 @@ export const AnyValue: Story = {
     <PanelSection title="Any value">
       <div className="flex flex-col gap-1">
         {[true, 42, "Billed yearly", ["monthly", "yearly"], { seats: 3 }, null].map((value) => (
-          <Field
-            key={JSON.stringify(value)}
-            label={value === null ? "null" : Array.isArray(value) ? "array" : typeof value}
-          >
+          <Field key={JSON.stringify(value)} label={kindOf(value)}>
             <ValueInput value={value} onCommit={() => undefined} />
           </Field>
         ))}

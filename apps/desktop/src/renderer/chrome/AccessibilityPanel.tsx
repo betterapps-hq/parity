@@ -254,14 +254,14 @@ function Findings({ entry, check }: { entry: ContainerEntry; check: Extract<Chec
   const modeName = (id: string) => modes.find((mode) => mode.id === id)?.name ?? id
   const stateName = (id: string) => check.container.states.find((state) => state.id === id)?.name ?? id
   // Name only what varies: the states when there's one mode, the modes when there's one state.
-  const frameName = ({ state, mode }: Frame) =>
-    modes.length === 1
-      ? stateName(state)
-      : check.container.states.length === 1
-        ? modeName(mode)
-        : `${stateName(state)} in ${modeName(mode)}`
-  const every =
-    modes.length === 1 ? "Every state" : check.container.states.length === 1 ? "Every mode" : "Every state and mode"
+  const frameName = ({ state, mode }: Frame) => {
+    if (modes.length === 1) return stateName(state)
+    if (check.container.states.length === 1) return modeName(mode)
+    return `${stateName(state)} in ${modeName(mode)}`
+  }
+  let every = "Every state and mode"
+  if (modes.length === 1) every = "Every state"
+  else if (check.container.states.length === 1) every = "Every mode"
   const frames = check.frames === 1 ? "1 frame" : `${check.frames} frames`
   const toggle = (rule: string) =>
     setCollapsed((current) => {

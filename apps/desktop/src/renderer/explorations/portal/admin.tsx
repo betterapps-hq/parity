@@ -216,7 +216,7 @@ function SeatRequests() {
         ))}
       </div>
       <span className="text-xs text-muted-foreground">
-        Members can invite; an admin or billing admin approves each editor seat. Both fit in Kestrel's open seats.
+        Members can invite; an admin or billing admin approves each editor seat. Both fit in Kestrel&apos;s open seats.
       </span>
     </section>
   )
@@ -273,13 +273,13 @@ export function MembersPage({ overlay }: { overlay?: ReactNode }) {
           filled={editors / paidSeats}
         >
           <span className="text-xs text-muted-foreground">
-            Enough for Noah's request and the invite for ren@kestrel.dev. No editor has been idle for 60 days.
+            Enough for Noah&apos;s request and the invite for ren@kestrel.dev. No editor has been idle for 60 days.
           </span>
         </Meter>
         <Meter label="Viewers and commenters" value="2" of="free">
           <span className="text-xs text-muted-foreground">
-            Only editors pay. Viewing, commenting and inspecting are free, so developers who build from designs don't
-            need a seat.
+            Only editors pay. Viewing, commenting and inspecting are free, so developers who build from designs
+            don&apos;t need a seat.
           </span>
         </Meter>
       </div>
@@ -339,15 +339,12 @@ export function MembersPage({ overlay }: { overlay?: ReactNode }) {
                   <td className="py-2.5 pr-4">{row.what}</td>
                   {(["Admin", "Billing admin", "Member", "Guest"] as const).map((role) => {
                     const value = row.roles[role]
+                    let cell: ReactNode = value
+                    if (value === true) cell = <Check className="size-4 text-foreground" aria-label="Yes" />
+                    else if (value === false) cell = <Minus className="size-4 opacity-40" aria-label="No" />
                     return (
                       <td key={role} className="py-2.5 pr-4 text-xs text-muted-foreground">
-                        {value === true ? (
-                          <Check className="size-4 text-foreground" aria-label="Yes" />
-                        ) : value === false ? (
-                          <Minus className="size-4 opacity-40" aria-label="No" />
-                        ) : (
-                          value
-                        )}
+                        {cell}
                       </td>
                     )
                   })}
@@ -527,8 +524,8 @@ export function AddSeatsPage() {
           <div className="flex flex-col gap-1">
             <h2 className="text-lg font-semibold">Add editor seats</h2>
             <span className="text-sm text-muted-foreground">
-              Noah Park's request and the invite for ren@kestrel.dev will take Kestrel's last {openSeats} open seats, so
-              anyone who asks after them would need a new one.
+              Noah Park&apos;s request and the invite for ren@kestrel.dev will take Kestrel&apos;s last {openSeats} open
+              seats, so anyone who asks after them would need a new one.
             </span>
           </div>
           <div className="flex items-center justify-between rounded-xl border p-3">
@@ -627,6 +624,18 @@ const plans: {
   }
 ]
 
+/** What a plan's card offers: nothing for the current one, a conversation for Enterprise, a move for the rest. */
+function planAction(plan: (typeof plans)[number]): ReactNode {
+  if (plan.current)
+    return (
+      <Button variant="outline" disabled>
+        Current plan
+      </Button>
+    )
+  if (plan.name === "Enterprise") return <Button>Talk to us</Button>
+  return <Button variant="ghost">Move to {plan.name}</Button>
+}
+
 /** Changing plan: the four plans side by side, with the one Kestrel is on marked, and what a downgrade would cost. */
 export function PlansPage() {
   return (
@@ -675,15 +684,7 @@ export function PlansPage() {
                 {plan.warning}
               </span>
             )}
-            {plan.current ? (
-              <Button variant="outline" disabled>
-                Current plan
-              </Button>
-            ) : plan.name === "Enterprise" ? (
-              <Button>Talk to us</Button>
-            ) : (
-              <Button variant="ghost">Move to {plan.name}</Button>
-            )}
+            {planAction(plan)}
           </div>
         ))}
       </div>
@@ -745,7 +746,7 @@ export function RemoveMemberPage() {
             </div>
             <div className="flex flex-col gap-4">
               <Consequence icon={<Armchair />}>
-                Jonas's editor seat will open. Kestrel pays for it until the renewal on Jan 1, 2027, and it goes to
+                Jonas&apos;s editor seat will open. Kestrel pays for it until the renewal on Jan 1, 2027, and it goes to
                 whoever asks next.
               </Consequence>
               <Consequence icon={<FolderOpen />}>
@@ -754,10 +755,11 @@ export function RemoveMemberPage() {
                 <span className="text-xs text-muted-foreground">Requests for access go to the new owner.</span>
               </Consequence>
               <Consequence icon={<Bot />}>
-                Jonas's Cursor will lose access; yours keeps working. What Jonas's made stays, under Jonas's name.
+                Jonas&apos;s Cursor will lose access; yours keeps working. What Jonas&apos;s made stays, under
+                Jonas&apos;s name.
               </Consequence>
               <Consequence icon={<History />}>
-                Jonas's versions, comments and approvals stay as they are, and in the audit log. Apps keeps two
+                Jonas&apos;s versions, comments and approvals stay as they are, and in the audit log. Apps keeps two
                 reviewers, you and Lena.
               </Consequence>
               <Consequence icon={<KeyRound />}>

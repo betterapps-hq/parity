@@ -25,12 +25,10 @@ type Request =
 
 parentPort?.on("message", (request: Request) => {
   try {
-    const result =
-      request.kind === "close"
-        ? void checkers.delete(request.root)
-        : request.kind === "check"
-          ? check(request.root, request.files, request.known ?? [])
-          : props(request.root, request.components, [...(request.files ?? []), ...(request.known ?? [])])
+    let result: ReturnType<typeof check> | ReturnType<typeof props> | undefined
+    if (request.kind === "close") checkers.delete(request.root)
+    else if (request.kind === "check") result = check(request.root, request.files, request.known ?? [])
+    else result = props(request.root, request.components, [...(request.files ?? []), ...(request.known ?? [])])
     parentPort?.postMessage({ id: request.id, result })
   } catch (error) {
     parentPort?.postMessage({ id: request.id, error: error instanceof Error ? error.message : String(error) })

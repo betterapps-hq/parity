@@ -70,7 +70,10 @@ export async function findAppComponents(
       found.push(...parsed.filter((component) => component.as || component.uiKit))
     })
   )
-  found.sort((a, b) => (a.path === b.path ? a.name.localeCompare(b.name, "en") : a.path < b.path ? -1 : 1))
+  found.sort((a, b) => {
+    if (a.path === b.path) return a.name.localeCompare(b.name, "en")
+    return a.path < b.path ? -1 : 1
+  })
   notes.push(`${count(found.length, "component")} in ${count(unique.length, "file")} from ${from}`)
   if (entries.length > 0) notes.push(`not read, since they mount the app: ${entries.sort().join(", ")}`)
   return { found, files: read.sort() }

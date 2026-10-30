@@ -222,7 +222,7 @@ export function describeTokens(tokens: TokenInfo[]): string {
     for (const token of list) {
       // The default theme first, then the others, such as dark.
       const values = Object.entries(token.values)
-        .sort(([a], [b]) => (a === "default" ? -1 : b === "default" ? 1 : a.localeCompare(b)))
+        .sort(([a], [b]) => first("default", a, b))
         .map(([theme, value]) => `${theme} ${value}`)
       lines.push(`  ${token.name}: ${values.join(", ")}`)
     }
@@ -268,7 +268,7 @@ export function describeComponents({
     groups.set(group, [...(groups.get(group) ?? []), slash > 0 ? component.slice(slash + 1) : component])
   }
   const lines: string[] = []
-  for (const [group, names] of [...groups].sort(([a], [b]) => (a === "" ? -1 : b === "" ? 1 : a.localeCompare(b)))) {
+  for (const [group, names] of [...groups].sort(([a], [b]) => first("", a, b))) {
     lines.push(group ? `${group}, as ${group}/Name:` : "The project's own:", `  ${names.join(", ")}`, "")
   }
   if (iconLibraries.length > 0) {
@@ -364,6 +364,13 @@ export function describeConsole(result: ConsoleResponse): string {
     lines.push(`  at ${scriptPath(entry.source)}:${entry.line}${offscreen}`)
   }
   return lines.join("\n")
+}
+
+/** Compares two names alphabetically, with `name` before every other. */
+function first(name: string, a: string, b: string): number {
+  if (a === name) return -1
+  if (b === name) return 1
+  return a.localeCompare(b)
 }
 
 /** A script's path on its server, without the cache-busting query Vite adds. */

@@ -750,7 +750,7 @@ async function exportedIcons(
   const kept = [...byValue.values()].flatMap((names) => {
     const name = names
       .filter((candidate) => pattern.test(candidate))
-      .sort((a, b) => a.length - b.length || (a < b ? -1 : a > b ? 1 : 0))[0]
+      .sort((a, b) => a.length - b.length || byCodeUnit(a, b))[0]
     return name ? [{ name, names }] : []
   })
   const read = icons.variants?.pattern
@@ -771,6 +771,12 @@ async function exportedIcons(
     icons: [...byLabel].map(([label, names]) => ({ label, names: [...names] })),
     groups: kept.map(({ names }) => names)
   }
+}
+
+/** Compares two strings by their UTF-16 code units, as `sort` does without a comparer. */
+function byCodeUnit(a: string, b: string): number {
+  if (a < b) return -1
+  return a > b ? 1 : 0
 }
 
 /** Draws an icon with the project's own React, to tell a set's styles apart; nothing draws where React can't load. */

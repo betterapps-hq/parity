@@ -374,8 +374,9 @@ export const styleKeys = [
 /** Calls `visit` for every node in a tree, depth first, including nodes in slots. */
 export function walkNodes(node: DesignNode, visit: (node: DesignNode, depth: number) => void, depth = 0): void {
   visit(node, depth)
-  const children =
-    node.type === "layout" ? node.children : node.type === "component" ? Object.values(node.slots ?? {}).flat() : []
+  let children: DesignNode[] = []
+  if (node.type === "layout") children = node.children
+  else if (node.type === "component") children = Object.values(node.slots ?? {}).flat()
   for (const child of children) walkNodes(child, visit, depth + 1)
 }
 

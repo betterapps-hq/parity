@@ -433,7 +433,7 @@ function NoStyleNote({ component, wrap }: { component: string; wrap: boolean }) 
   return (
     <div className="flex flex-col gap-2 border-b px-4 py-2.5">
       <p className="text-xs text-muted-foreground">
-        {component} doesn't take a <code>style</code>, so the size and styles below don't change it.
+        {component} doesn&apos;t take a <code>style</code>, so the size and styles below don&apos;t change it.
         {wrap ? " Wrap it in a layout and size that instead." : ""}
       </p>
       {wrap && (
@@ -513,7 +513,9 @@ function InstanceSection({
   if (!component) {
     return (
       <PanelSection title="Instance">
-        <p className="px-1 text-xs text-destructive">The component design "{node.design}" doesn't exist.</p>
+        <p className="px-1 text-xs text-destructive">
+          The component design &quot;{node.design}&quot; doesn&apos;t exist.
+        </p>
       </PanelSection>
     )
   }
@@ -667,6 +669,9 @@ function StateTarget({ entry, state, target }: { entry: ContainerEntry; state: S
     target.variant &&
     entry.container.params?.[target.variant.param]?.options?.find((option) => option.id === target.variant!.option)
   const variantOnly = !base && variant && state.id === entry.container.states[0]!.id
+  let changes = "changes only this state"
+  if (base) changes = "changes the design"
+  else if (variantOnly) changes = `changes only the ${variant.name} variant`
   return (
     <div
       className="mt-3 flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs"
@@ -698,13 +703,7 @@ function StateTarget({ entry, state, target }: { entry: ContainerEntry; state: S
           ))}
         </SelectContent>
       </Select>
-      <span className="shrink-0 text-muted-foreground">
-        {base
-          ? "changes the design"
-          : variantOnly
-            ? `changes only the ${variant.name} variant`
-            : "changes only this state"}
-      </span>
+      <span className="shrink-0 text-muted-foreground">{changes}</span>
     </div>
   )
 }

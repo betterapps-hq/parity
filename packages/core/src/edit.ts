@@ -378,11 +378,9 @@ export function editNode(
   const choices = variantChoices(container.params, container.view?.variants)
   const { state, variant } = toEditTarget(target)
   const shown = optionPatches(container.params, choices)
-  const variants = !isBaseState(container, state)
-    ? shown
-    : variant
-      ? shown.slice(0, Object.keys(choices).indexOf(variant.param))
-      : []
+  let variants = shown
+  if (isBaseState(container, state))
+    variants = variant ? shown.slice(0, Object.keys(choices).indexOf(variant.param)) : []
   const under = nodeInState(base, undefined, variants, boardArgs(container.params, choices))
   return withTargetPatches(container, target, patchWith(targetPatches(container, target), nodeId, under, change))
 }
@@ -448,8 +446,9 @@ export function patchWith(
       change.text === undefined || (under.type === "text" && change.text === under.text) ? undefined : change.text
   }
   if (change.props) {
-    const baseProps =
-      under.type === "component" ? (under.props ?? {}) : under.type === "instance" ? (under.args ?? {}) : {}
+    let baseProps: Record<string, unknown> = {}
+    if (under.type === "component") baseProps = under.props ?? {}
+    else if (under.type === "instance") baseProps = under.args ?? {}
     patch.props = mergeValues(patch.props, change.props, baseProps)
   }
   if (change.style) patch.style = mergeValues(patch.style as Values, change.style, (under.style ?? {}) as Values)
@@ -676,12 +675,9 @@ export function moveNodes(
   if (!parent) throw new Error(`No node "${parentId}" in this design`)
   let index = options.index
   if (index !== undefined) {
-    const siblings =
-      parent.type === "layout"
-        ? parent.children
-        : parent.type === "component"
-          ? (parent.slots?.[options.slot ?? "children"] ?? [])
-          : []
+    let siblings: DesignNode[] = []
+    if (parent.type === "layout") siblings = parent.children
+    else if (parent.type === "component") siblings = parent.slots?.[options.slot ?? "children"] ?? []
     const moving = new Set(nodes.map((node) => node.id))
     index = siblings.slice(0, index).filter((node) => !moving.has(node.id)).length
   }

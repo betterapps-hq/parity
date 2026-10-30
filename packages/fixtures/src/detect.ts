@@ -157,7 +157,7 @@ export async function snapshotProject(root: string): Promise<ProjectSnapshot> {
         tokens.filter((token) => token.source === "semantic").map((token) => [token.name, token.values])
       )
     },
-    themes: [...themes].sort((a, b) => (a === "default" ? -1 : b === "default" ? 1 : a.localeCompare(b, "en"))),
+    themes: [...themes].sort(defaultFirst),
     breakpoints,
     components: sorted(Object.fromEntries(components.filter(([, source]) => !source.library))),
     libraries: libraries
@@ -176,6 +176,13 @@ export async function snapshotProject(root: string): Promise<ProjectSnapshot> {
     notes: config?.notes ?? []
   }
   return withoutRoot(snapshot, root)
+}
+
+/** Compares theme names alphabetically, with the default theme first. */
+function defaultFirst(a: string, b: string): number {
+  if (a === "default") return -1
+  if (b === "default") return 1
+  return a.localeCompare(b, "en")
 }
 
 function sorted<T>(record: Record<string, T>): Record<string, T> {

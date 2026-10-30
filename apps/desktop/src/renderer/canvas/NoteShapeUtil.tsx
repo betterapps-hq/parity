@@ -93,9 +93,10 @@ function NoteContent({ shape }: { shape: NoteShape }) {
 
   const commit = (text: string) => {
     editor.setEditingShape(null)
-    store.updateNote(shape.props.key, text.trim() ? "Edit text" : "Delete text", (current) =>
-      text.trim() ? (current.text === text ? current : { ...current, text }) : undefined
-    )
+    store.updateNote(shape.props.key, text.trim() ? "Edit text" : "Delete text", (current) => {
+      if (!text.trim()) return undefined
+      return current.text === text ? current : { ...current, text }
+    })
   }
 
   const style = { width: note?.width, maxWidth: note?.width ? undefined : 720 }

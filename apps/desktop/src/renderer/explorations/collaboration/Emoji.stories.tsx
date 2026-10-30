@@ -89,7 +89,7 @@ export const Shortcodes: Story = {
 export const ReactingInAThread: Story = {
   render: () => (
     <Stage>
-      <Thread thread={thread("toggle")} onClose={() => {}} />
+      <Thread thread={thread("toggle")} onClose={() => undefined} />
     </Stage>
   ),
   play: async ({ canvasElement }) => {

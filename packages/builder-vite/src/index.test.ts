@@ -32,6 +32,7 @@ describe("guestModuleSource", () => {
     }
     // Runs the module with `load` standing in for the dev server, which fails on the broken file as on a syntax error.
     const body = source.replace("export default ", "return ").replaceAll("import(", "load(")
+    // oxlint-disable-next-line eslint/no-new-func -- the test runs the generated module's source, which is a string
     const run = new Function("load", `return (async () => { ${body} })()`) as (
       load: (id: string) => Promise<unknown>
     ) => Promise<{ components: Record<string, unknown> }>

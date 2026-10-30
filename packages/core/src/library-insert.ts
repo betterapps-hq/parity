@@ -160,7 +160,9 @@ export function withLibraryContext(
    */
   function inOuterSample(chain: string[], part: DesignNode): DesignNode {
     const inside = (level: number, given: SampleChild[] | undefined): DesignNode[] => {
-      const name = level < chain.length ? chain[level]! : part.type === "component" ? part.component : ""
+      let name = ""
+      if (level < chain.length) name = chain[level]!
+      else if (part.type === "component") name = part.component
       const items = (given ?? []).filter((item): item is Exclude<SampleChild, SampleRender> => !isSampleRender(item))
       const at = items.findIndex((item) => typeof item === "object" && item.component === name)
       const found = at === -1 ? undefined : (items[at] as Exclude<SampleChild, string | SampleRender>)
@@ -215,31 +217,24 @@ export function sampleIds(
   library: string,
   imported: (specifier: string) => string = (specifier) => specifier
 ): ComponentSample {
-  const child = (node: SampleChild): SampleChild =>
-    typeof node === "string"
-      ? node
-      : isSampleRender(node)
-        ? { ...node, $render: node.$render.map(child) }
-        : {
-            ...node,
-            component: /^[a-z]/.test(node.component) ? node.component : `${library}/${node.component}`,
-            ...(node.props ? { props: propIds(node.props) } : {}),
-            ...(node.children ? { children: node.children.map(child) } : {})
-          }
+  const child = (node: SampleChild): SampleChild => {
+    if (typeof node === "string") return node
+    if (isSampleRender(node)) return { ...node, $render: node.$render.map(child) }
+    return {
+      ...node,
+      component: /^[a-z]/.test(node.component) ? node.component : `${library}/${node.component}`,
+      ...(node.props ? { props: propIds(node.props) } : {}),
+      ...(node.children ? { children: node.children.map(child) } : {})
+    }
+  }
   // A render function in a prop (`renderInput`) names components too.
+  const propId = (item: unknown): unknown => {
+    if (isSampleRender(item)) return { ...item, $render: item.$render.map(child) }
+    if (isSampleElement(item)) return { $element: item.$element.map(child) }
+    return isMadeValue(item) ? { ...item, $call: { ...item.$call, import: imported(item.$call.import) } } : item
+  }
   const propIds = (props: Record<string, unknown>) =>
-    Object.fromEntries(
-      Object.entries(props).map(([key, item]) => [
-        key,
-        isSampleRender(item)
-          ? { ...item, $render: item.$render.map(child) }
-          : isSampleElement(item)
-            ? { $element: item.$element.map(child) }
-            : isMadeValue(item)
-              ? { ...item, $call: { ...item.$call, import: imported(item.$call.import) } }
-              : item
-      ])
-    )
+    Object.fromEntries(Object.entries(props).map(([key, item]) => [key, propId(item)]))
   return {
     ...sample,
     ...(sample.props ? { props: propIds(sample.props) } : {}),

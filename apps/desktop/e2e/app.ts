@@ -514,8 +514,10 @@ function install(): void {
     if (!found) throw new Error(`No design ${key}`)
     return found
   }
-  const inside = (node: DesignNode): DesignNode[] =>
-    node.type === "layout" ? node.children : node.type === "component" ? Object.values(node.slots ?? {}).flat() : []
+  const inside = (node: DesignNode): DesignNode[] => {
+    if (node.type === "layout") return node.children
+    return node.type === "component" ? Object.values(node.slots ?? {}).flat() : []
+  }
   const path = (node: DesignNode, id: string): DesignNode[] | undefined => {
     if (node.id === id) return [node]
     for (const child of inside(node)) {

@@ -220,13 +220,10 @@ function contrastOf(data: unknown): ContrastDetail | undefined {
 }
 
 function componentsIn(tree: RenderNode[]): string[] {
-  return tree.flatMap((node) =>
-    node.kind === "component"
-      ? [node.component, ...Object.values(node.slots).flatMap(componentsIn)]
-      : node.kind === "element"
-        ? componentsIn(node.children)
-        : []
-  )
+  return tree.flatMap((node) => {
+    if (node.kind === "component") return [node.component, ...Object.values(node.slots).flatMap(componentsIn)]
+    return node.kind === "element" ? componentsIn(node.children) : []
+  })
 }
 
 /** Whether an ancestor that hides overflow cuts part of the element off. */

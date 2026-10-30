@@ -130,7 +130,11 @@ function keyframesOf(rule: CSSKeyframesRule): Keyframe[] {
     }
     return keyText.split(",").map((key) => {
       const at = key.trim()
-      return { ...declared, offset: at === "from" ? 0 : at === "to" ? 1 : Number.parseFloat(at) / 100 }
+      let offset: number
+      if (at === "from") offset = 0
+      else if (at === "to") offset = 1
+      else offset = Number.parseFloat(at) / 100
+      return { ...declared, offset }
     })
   })
   return frames.toSorted((a, b) => (a.offset ?? 0) - (b.offset ?? 0))

@@ -249,8 +249,8 @@ export function InspectPage() {
                 </div>
               </div>
               <p className="mt-4 text-center text-xs text-white/55">
-                Pick anything on the board to inspect it, and hover something else to measure to it. It's read-only, at
-                the approved version.
+                Pick anything on the board to inspect it, and hover something else to measure to it. It&apos;s
+                read-only, at the approved version.
               </p>
             </div>
           </div>
@@ -293,7 +293,7 @@ export function InspectPage() {
                   </span>
                 ))}
               </div>
-              <span className="text-xs text-muted-foreground">Level 4 has 3 stars, so it's Cleared.</span>
+              <span className="text-xs text-muted-foreground">Level 4 has 3 stars, so it&apos;s Cleared.</span>
             </Section>
             <Section title="Text" action={<CopyButton label="Copy the classes" />}>
               <div className="flex flex-col gap-2 text-xs">
@@ -301,7 +301,7 @@ export function InspectPage() {
                   <span className="text-muted-foreground">The level number</span>
                   <code className="font-mono text-[11px]">text-[26px] font-black text-white</code>
                   <span className="text-[11px] text-[oklch(0.8_0.15_80)]">
-                    26px and white aren't Ember Caves tokens
+                    26px and white aren&apos;t Ember Caves tokens
                   </span>
                 </span>
                 <span className="flex flex-col gap-0.5">
@@ -353,8 +353,8 @@ export function InspectPage() {
             </Section>
             <Section title="Assets">
               <span className="text-xs text-muted-foreground">
-                Nothing to export. The lock and stars are lucide-react's <span className="font-mono">Lock</span> and{" "}
-                <span className="font-mono">Star</span>, and the tile and map are drawn in code.
+                Nothing to export. The lock and stars are lucide-react&apos;s <span className="font-mono">Lock</span>{" "}
+                and <span className="font-mono">Star</span>, and the tile and map are drawn in code.
               </span>
             </Section>
             <div className="mt-auto flex flex-col gap-2 border-t p-4">

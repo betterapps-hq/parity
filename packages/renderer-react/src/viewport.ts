@@ -355,12 +355,11 @@ function sizeCondition(part: string): ((viewport: FrameViewport) => boolean) | u
     const value = (name === "aspect-ratio" ? ratio : length)(raw!)
     if (value === undefined) return null
     const measure = measurer(name!)
-    return (viewport) =>
-      bound === "min-"
-        ? measure(viewport) >= value
-        : bound === "max-"
-          ? measure(viewport) <= value
-          : measure(viewport) === value
+    return (viewport) => {
+      if (bound === "min-") return measure(viewport) >= value
+      if (bound === "max-") return measure(viewport) <= value
+      return measure(viewport) === value
+    }
   }
   const orientation = /^orientation\s*:\s*(portrait|landscape)$/.exec(inner)?.[1]
   if (orientation) return (viewport) => (viewport.height >= viewport.width ? "portrait" : "landscape") === orientation

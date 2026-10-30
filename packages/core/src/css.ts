@@ -240,12 +240,10 @@ function rewriteLengths(text: string): string {
   return text.replace(viewportLength, (_match, before: string, number: string, kind: string, unit: string) => {
     const width = `var(${viewportWidthProperty}, 1${kind}vw)`
     const height = `var(${viewportHeightProperty}, 1${kind}vh)`
-    const one =
-      unit === "vw" || unit === "vi"
-        ? width
-        : unit === "vh" || unit === "vb"
-          ? height
-          : `${unit === "vmin" ? "min" : "max"}(${width}, ${height})`
+    let one: string
+    if (unit === "vw" || unit === "vi") one = width
+    else if (unit === "vh" || unit === "vb") one = height
+    else one = `${unit === "vmin" ? "min" : "max"}(${width}, ${height})`
     return `${before}calc(${number} * ${one})`
   })
 }

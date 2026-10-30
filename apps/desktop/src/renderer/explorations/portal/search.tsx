@@ -157,7 +157,7 @@ export function SearchPage() {
             </span>
           ))}
           <span className="text-xs text-muted-foreground">
-            Search finds what you can open. Projects you can't see stay out of the results.
+            Search finds what you can open. Projects you can&apos;t see stay out of the results.
           </span>
         </aside>
       </div>

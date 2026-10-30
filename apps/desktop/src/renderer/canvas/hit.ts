@@ -53,11 +53,9 @@ export function frameAt(
     hitInside: true,
     filter: (shape) => shape.type === "canvas-container"
   })
-  const hosts = !editor
-    ? area.querySelectorAll<HTMLElement>("[data-frame]")
-    : board?.type === "canvas-container"
-      ? findFrames(area, board.props.key)
-      : []
+  let hosts: Iterable<HTMLElement> = []
+  if (!editor) hosts = area.querySelectorAll<HTMLElement>("[data-frame]")
+  else if (board?.type === "canvas-container") hosts = findFrames(area, board.props.key)
   for (const host of hosts) {
     if (!inside(host.getBoundingClientRect(), point)) continue
     const entry = store.getEntry(host.dataset.design ?? "")

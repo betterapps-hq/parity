@@ -347,7 +347,7 @@ function AccountMenu() {
           <BookOpen /> Docs
         </DropdownMenuItem>
         <DropdownMenuItem>
-          <Sparkles /> What's new
+          <Sparkles /> What&apos;s new
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem>
@@ -587,7 +587,7 @@ function ProjectMenu({
           <CopyPlus /> New project from this
         </DropdownMenuItem>
         <DropdownMenuItem
-          onSelect={() => void navigator.clipboard?.writeText(`parity://${project.id}`).catch(() => {})}
+          onSelect={() => void navigator.clipboard?.writeText(`parity://${project.id}`).catch(() => undefined)}
         >
           <Link /> Copy link
         </DropdownMenuItem>

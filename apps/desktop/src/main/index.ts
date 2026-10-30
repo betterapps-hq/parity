@@ -323,20 +323,13 @@ ipcMain.handle("canvas:metrics", async (event): Promise<ProcessUsage[]> => {
   const privates = await privateMemory([...metrics.map((metric) => metric.pid), ...builders.map(({ pid }) => pid)])
   const usage = metrics.map((metric): ProcessUsage => {
     const page = pages.get(metric.pid)
-    const role: ProcessUsage["role"] =
-      metric.type === "Browser"
-        ? "app"
-        : metric.type === "GPU"
-          ? "gpu"
-          : metric.name === serviceName
-            ? "service"
-            : page && page === renderWindow?.webContents
-              ? "offscreen"
-              : page === event.sender
-                ? "this-window"
-                : page
-                  ? "window"
-                  : "helper"
+    let role: ProcessUsage["role"]
+    if (metric.type === "Browser") role = "app"
+    else if (metric.type === "GPU") role = "gpu"
+    else if (metric.name === serviceName) role = "service"
+    else if (page && page === renderWindow?.webContents) role = "offscreen"
+    else if (page === event.sender) role = "this-window"
+    else role = page ? "window" : "helper"
     const names: Record<ProcessUsage["role"], string> = {
       app: "Parity",
       "this-window": "This window",

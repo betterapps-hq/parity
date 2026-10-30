@@ -216,13 +216,10 @@ function judge(checker: ts.TypeChecker, type: ts.Type, node: ts.Type | undefined
   }
   // forwardRef, memo and lazy return objects React recognises by `$$typeof`.
   if (type.getProperty("$$typeof")) {
-    const as: ComponentEvidence = /ForwardRef/.test(written)
-      ? "forwardRef"
-      : /Memo|NamedExotic/.test(written)
-        ? "memo"
-        : /Lazy/.test(written)
-          ? "lazy"
-          : "exotic"
+    let as: ComponentEvidence = "exotic"
+    if (/ForwardRef/.test(written)) as = "forwardRef"
+    else if (/Memo|NamedExotic/.test(written)) as = "memo"
+    else if (/Lazy/.test(written)) as = "lazy"
     return { as, ...propsOf(checker, type.getCallSignatures()[0]) }
   }
   const constructs = type.getConstructSignatures()

@@ -277,7 +277,7 @@ export function Inbox({ initial = notices, className = "" }: { initial?: Notice[
           {paused && (
             <div className="flex items-center gap-2 border-b bg-muted/40 py-1.5 pr-2 pl-4 text-xs text-muted-foreground">
               <BellOff className="size-3.5" />
-              <span className="flex-1">Paused {paused}. They'll be here when you look.</span>
+              <span className="flex-1">Paused {paused}. They&apos;ll be here when you look.</span>
               <Button size="xs" variant="ghost" className="text-foreground" onClick={() => setPaused(undefined)}>
                 Resume
               </Button>
@@ -323,6 +323,28 @@ export function Inbox({ initial = notices, className = "" }: { initial?: Notice[
 export function NoticeToast({ notice, onDismiss }: { notice: Notice; onDismiss?(): void }) {
   const [replying, setReplying] = useState(false)
   const [sent, setSent] = useState(false)
+  let reply: ReactNode
+  if (sent)
+    reply = (
+      <span className="flex items-center gap-1.5 pl-10 text-xs text-muted-foreground">
+        <Check className="size-3.5 text-emerald-400" /> Replied
+      </span>
+    )
+  else if (replying)
+    reply = (
+      <Composer placeholder={`Reply to ${notice.who.name.split(" ")[0]}`} focusOnMount onSend={() => setSent(true)} />
+    )
+  else
+    reply = (
+      <div className="flex gap-2 pl-10">
+        <Button size="xs" onClick={() => setReplying(true)}>
+          Reply
+        </Button>
+        <Button size="xs" variant="outline">
+          Open
+        </Button>
+      </div>
+    )
   return (
     <div className="flex w-[23rem] flex-col gap-2.5 rounded-xl border bg-popover p-3 text-popover-foreground shadow-2xl motion-safe:animate-in motion-safe:slide-in-from-bottom-2 motion-safe:fade-in-0">
       <div className="flex gap-3">
@@ -340,22 +362,7 @@ export function NoticeToast({ notice, onDismiss }: { notice: Notice; onDismiss?(
           <X />
         </Button>
       </div>
-      {sent ? (
-        <span className="flex items-center gap-1.5 pl-10 text-xs text-muted-foreground">
-          <Check className="size-3.5 text-emerald-400" /> Replied
-        </span>
-      ) : replying ? (
-        <Composer placeholder={`Reply to ${notice.who.name.split(" ")[0]}`} focusOnMount onSend={() => setSent(true)} />
-      ) : (
-        <div className="flex gap-2 pl-10">
-          <Button size="xs" onClick={() => setReplying(true)}>
-            Reply
-          </Button>
-          <Button size="xs" variant="outline">
-            Open
-          </Button>
-        </div>
-      )}
+      {reply}
     </div>
   )
 }

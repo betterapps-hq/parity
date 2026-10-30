@@ -16,7 +16,7 @@ export function StartScreen() {
         <div className="flex flex-col gap-1.5">
           <h1 className="text-2xl font-semibold tracking-tight">Open a project</h1>
           <p className="text-sm text-muted-foreground">
-            Parity opens a React app's folder and puts its components on a canvas.
+            Parity opens a React app&apos;s folder and puts its components on a canvas.
           </p>
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -106,5 +106,5 @@ function Choice({
 }
 
 function basename(path: string): string {
-  return path.split(/[\\/]/).filter(Boolean).at(-1) ?? path
+  return path.split(/[\\/]/).findLast(Boolean) ?? path
 }

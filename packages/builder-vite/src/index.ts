@@ -67,9 +67,9 @@ export const viteBuilder: BuilderAdapter = {
         include: [
           ...options.renderer.runtimeImports,
           ...new Set(
-            options.config.libraries
-              .filter((library) => !library.workspace)
-              .flatMap((library) => [library.importName, ...iconImports(library), ...libraryImports(library)])
+            options.config.libraries.flatMap((library) =>
+              library.workspace ? [] : [library.importName, ...iconImports(library), ...libraryImports(library)]
+            )
           )
         ],
         entries: Object.values(options.config.components)

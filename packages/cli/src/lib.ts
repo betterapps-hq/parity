@@ -61,16 +61,12 @@ export async function runLib(packageName: string | undefined, options: LibOption
     ...(options.range ? { range: options.range } : {})
   })
   const id = String(generated.manifest.id)
-  const target =
-    options.out === "-"
-      ? undefined
-      : options.out
-        ? resolve(options.out)
-        : options.registry
-          ? join(registryDir(), `${id}.lib.par`)
-          : packageName
-            ? resolve(`${id}.lib.par`)
-            : await appManifestPath(root)
+  let target: string | undefined
+  if (options.out === "-") target = undefined
+  else if (options.out) target = resolve(options.out)
+  else if (options.registry) target = join(registryDir(), `${id}.lib.par`)
+  else if (packageName) target = resolve(`${id}.lib.par`)
+  else target = await appManifestPath(root)
   // The file being replaced, for what changed and the hand edits it keeps.
   const existing = target
     ? await readFile(target, "utf8").then(
@@ -87,8 +83,9 @@ export async function runLib(packageName: string | undefined, options: LibOption
       )
     if (range) generated.manifest.package = { ...read, range }
   }
-  const only =
-    !options.only || options.only === "all" ? "all" : options.only === "new" ? "new" : options.only.split(",")
+  let only: "all" | "new" | string[]
+  if (!options.only || options.only === "all") only = "all"
+  else only = options.only === "new" ? "new" : options.only.split(",")
   const edits = options.edits && relative(dirname(target ?? resolve(".")), resolve(options.edits)).replaceAll("\\", "/")
   const { manifest, report } = await reviseLibrary(generated, {
     root,
@@ -140,7 +137,9 @@ export function packageSpec(text: string): { name: string; version?: string } {
 export function describeReport(report: Report): string {
   const lines: string[] = []
   const from = report.package ? ` from ${report.package.name} ${report.package.version}` : ""
-  const kind = report.kind === "icons" ? "an icon set" : report.kind === "app" ? "an app" : "a component library"
+  let kind = "a component library"
+  if (report.kind === "icons") kind = "an icon set"
+  else if (report.kind === "app") kind = "an app"
   lines.push(`Described ${kind}${from}.`)
   if (report.kind === "icons") lines.push(`  ${report.icons ?? 0} icons`)
   if (report.iconTags) {

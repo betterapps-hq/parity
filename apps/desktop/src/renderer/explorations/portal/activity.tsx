@@ -82,8 +82,8 @@ export function ActivityPage() {
               }
             >
               <span className="text-sm text-muted-foreground">
-                Save 20% moved into the billing toggle, Team's card is Most popular, and Compare all plans is gone. v13
-                was a draft; Maya asked Priya Raman to review v14.
+                Save 20% moved into the billing toggle, Team&apos;s card is Most popular, and Compare all plans is gone.
+                v13 was a draft; Maya asked Priya Raman to review v14.
               </span>
               <div className="grid grid-cols-[1fr_0.42fr_1fr] items-end gap-4">
                 <DesignTile project="website" design="Pricing" changed />

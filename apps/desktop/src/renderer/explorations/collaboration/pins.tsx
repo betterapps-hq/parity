@@ -56,6 +56,33 @@ export function CommentPin({
     elsewhere: "ring-1 ring-white/10 opacity-55",
     waiting: "ring-2 ring-[oklch(0.8_0.14_75)]"
   }[state]
+  let faces: ReactNode
+  if (state === "resolved")
+    faces = (
+      <span className="grid size-[22px] place-items-center rounded-full bg-emerald-500/20 text-emerald-400">
+        <Check className="size-3.5" />
+      </span>
+    )
+  else if (state === "draft")
+    faces = (
+      <>
+        <Avatar person={me} size={22} />
+        <Plus className="mx-1 size-3.5" />
+      </>
+    )
+  else
+    faces = people
+      .slice(0, 3)
+      .map((person, index) => (
+        <Avatar
+          key={person.name}
+          person={person}
+          size={22}
+          className={
+            index > 0 ? `-ml-2 ring-2 ${state === "selected" ? "ring-[oklch(0.6_0.19_255)]" : "ring-popover"}` : ""
+          }
+        />
+      ))
   return (
     <span
       className={`relative inline-flex items-center p-[3px] shadow-[0_4px_14px_rgb(0_0_0/0.45)] transition-[scale,background-color,box-shadow,opacity] duration-200 ease-out ${teardrop} ${ring} ${
@@ -70,29 +97,7 @@ export function CommentPin({
           : undefined
       }
     >
-      {state === "resolved" ? (
-        <span className="grid size-[22px] place-items-center rounded-full bg-emerald-500/20 text-emerald-400">
-          <Check className="size-3.5" />
-        </span>
-      ) : state === "draft" ? (
-        <>
-          <Avatar person={me} size={22} />
-          <Plus className="mx-1 size-3.5" />
-        </>
-      ) : (
-        people
-          .slice(0, 3)
-          .map((person, index) => (
-            <Avatar
-              key={person.name}
-              person={person}
-              size={22}
-              className={
-                index > 0 ? `-ml-2 ring-2 ${state === "selected" ? "ring-[oklch(0.6_0.19_255)]" : "ring-popover"}` : ""
-              }
-            />
-          ))
-      )}
+      {faces}
       {replies !== undefined && state !== "resolved" && state !== "draft" && (
         <span
           className={`px-1.5 text-[11px] font-semibold tabular-nums ${state === "selected" ? "" : "text-muted-foreground"}`}

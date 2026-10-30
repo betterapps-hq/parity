@@ -64,6 +64,7 @@ async function open(start: BuilderStartOptions, load = ["/src/button.js"]) {
 async function closed(session: BuilderSession): Promise<ServedRecord> {
   const served = await session.served!()
   await session.close()
+  // oxlint-disable-next-line unicorn/prefer-structured-clone -- what's served is saved as JSON, so the tests go through it
   return JSON.parse(JSON.stringify(served)) as ServedRecord
 }
 

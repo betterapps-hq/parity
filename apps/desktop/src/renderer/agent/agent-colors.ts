@@ -43,17 +43,14 @@ class AgentColors {
     const preferred = hash(name) % agentPalettes.length
     const distance = (index: number) => Math.min(Infinity, ...taken.map((other) => apart(index, other)))
     const free = agentPalettes.map((_, index) => index).filter((index) => !taken.includes(index))
-    const index =
-      free.length === 0
-        ? preferred
-        : distance(preferred) >= 3
-          ? preferred
-          : free.reduce((best, candidate) =>
-              distance(candidate) > distance(best) ||
-              (distance(candidate) === distance(best) && apart(candidate, preferred) < apart(best, preferred))
-                ? candidate
-                : best
-            )
+    let index = preferred
+    if (free.length > 0 && distance(preferred) < 3)
+      index = free.reduce((best, candidate) =>
+        distance(candidate) > distance(best) ||
+        (distance(candidate) === distance(best) && apart(candidate, preferred) < apart(best, preferred))
+          ? candidate
+          : best
+      )
     this.claimed.set(agentId, index)
     return agentPalettes[index]!
   }

@@ -123,7 +123,7 @@ export function EmojiPicker({
     const grid = gridRef.current
     if (!grid || query.trim()) return
     const wrappers = [...grid.querySelectorAll<HTMLElement>("[data-section]")]
-    const last = wrappers.filter((wrapper) => wrapper.offsetTop <= grid.scrollTop + 4).at(-1)
+    const last = wrappers.findLast((wrapper) => wrapper.offsetTop <= grid.scrollTop + 4)
     if (last) setSection(last.dataset.section!)
   }
 

@@ -69,13 +69,12 @@ const overTitle: MenuTarget = { design, path: ["root", "header", "title"], mode:
 
 /** Each entry as a line: an item's action and whether it's available, a line between sections, the submenu. */
 function outline(entries: MenuEntry[]): string[] {
-  return entries.map((entry) =>
-    entry.kind === "separator"
-      ? "---"
-      : entry.kind === "select-layer"
-        ? `${entry.label} >`
-        : `${entry.action}${entry.enabled ? "" : " (unavailable)"}`
-  )
+  return entries.map((entry) => {
+    if (entry.kind === "separator") return "---"
+    return entry.kind === "select-layer"
+      ? `${entry.label} >`
+      : `${entry.action}${entry.enabled ? "" : " (unavailable)"}`
+  })
 }
 
 function labelOf(entries: MenuEntry[], action: string): string | undefined {

@@ -135,15 +135,11 @@ function componentProps(
     const options = variants.has(prop.name)
       ? (variants.get(prop.name)?.options ?? classified.options)
       : classified.options
-    const group: PropGroup = variants.has(prop.name)
-      ? "variant"
-      : declared && !declared.includes("/node_modules/")
-        ? "own"
-        : prop.name.startsWith("aria-")
-          ? "aria"
-          : kind === "function" && /^on[A-Z]/.test(prop.name)
-            ? "event"
-            : "html"
+    let group: PropGroup = "html"
+    if (variants.has(prop.name)) group = "variant"
+    else if (declared && !declared.includes("/node_modules/")) group = "own"
+    else if (prop.name.startsWith("aria-")) group = "aria"
+    else if (kind === "function" && /^on[A-Z]/.test(prop.name)) group = "event"
     const entry: ComponentProp = { name: prop.name, kind, group }
     if (options) entry.options = options
     const fallback = defaults.get(prop.name) ?? variants.get(prop.name)?.default

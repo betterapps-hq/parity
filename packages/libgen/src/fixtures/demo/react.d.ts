@@ -9,8 +9,8 @@ export interface ExoticComponent<P> {
   (props: P): ReactNode
   readonly $$typeof: symbol
 }
-export interface ForwardRefExoticComponent<P> extends ExoticComponent<P> {}
-export interface MemoExoticComponent<P> extends ExoticComponent<P> {}
+export type ForwardRefExoticComponent<P> = ExoticComponent<P>
+export type MemoExoticComponent<P> = ExoticComponent<P>
 export interface Context<T> extends ExoticComponent<{ value: T; children?: ReactNode }> {
   Provider: ExoticComponent<{ value: T; children?: ReactNode }>
   Consumer: ExoticComponent<{ children: (value: T) => ReactNode }>

@@ -62,6 +62,13 @@ export const Idle: Story = { args: { state: "idle", kind: undefined, label: "" }
 /** Over a light design, as it often is. */
 export const OnLight: Story = { args: { light: true } }
 
+/** The badge beside the pointer in each state; idle shows none. */
+const badges = {
+  rest: { kind: "read", label: "Review pricing" },
+  pressed: { kind: "move", label: "Tidy the layout" },
+  idle: undefined
+} as const
+
 /** Every state side by side, in every palette. */
 export const AllStates: Story = {
   render: () => (
@@ -77,8 +84,8 @@ export const AllStates: Story = {
               <AgentBadge
                 palette={palette}
                 agent="Claude Code"
-                kind={state === "idle" ? undefined : state === "pressed" ? "move" : "read"}
-                label={state === "idle" ? undefined : state === "pressed" ? "Tidy the layout" : "Review pricing"}
+                kind={badges[state]?.kind}
+                label={badges[state]?.label}
               />
             </div>
           </div>
