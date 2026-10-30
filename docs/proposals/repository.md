@@ -35,9 +35,9 @@ to npm and of unsigned installers to GitHub Releases, as betas first and to ever
   publishes `@parity-app/cli` through npm's trusted publishing with provenance. `0.0.0` was published by hand, and npm
   trusts `cd-npm.yml` with the `npm` environment, which `infra/github` keeps to `main`. Until the release GitHub App's
   `RELEASE_APP_CLIENT_ID` variable and `RELEASE_APP_PRIVATE_KEY` secret exist, `release.yml` skips with a notice, and
-  until Terraform's credentials exist, nothing makes the `npm` environment. The first release PR also waits on the
-  templates' v1.6.1, whose `release-prepare` gives the hooks `origin/main` to compare the release commit with.
-  CodeRabbit skips the changelogs, so the release PR has nothing for it to hold up.
+  until Terraform's credentials exist, nothing makes the `npm` environment. They call the templates at v1.6.1, whose
+  `release-prepare` gives the hooks `origin/main` to compare the release commit with. CodeRabbit skips the changelogs,
+  so the release PR has nothing for it to hold up.
 
 ## Vite+
 

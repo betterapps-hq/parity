@@ -1682,7 +1682,8 @@ the Repository, CI and releases stream in Linear.
   makes installers, signs them and serves updates, and only the desktop app makes GitHub Releases, so the updater never
   mistakes a CLI release for an app update.
   - **`release.yml` and `cd-npm.yml` call the shared templates** (PAR-10, PAR-14), `release-prepare`, `release-merge`
-    and `cd-npm-publish`, as `betterapps-hq/pipelines`' README shows, after CI passes for a push to `main`. My calls:
+    and `cd-npm-publish` at v1.6.1, as `betterapps-hq/pipelines`' README shows, after CI passes for a push to `main`.
+    v1.6.1 gives the release commit's hooks `origin/main`, which `scripts/changes.ts` compares with. My calls:
     - **A GitHub App pushes and merges the release PR,** not a personal access token, so the release commits aren't
       yours and nothing expires with a person's token. It needs read and write access to contents and pull requests,
       installed on this repository only.
