@@ -420,5 +420,7 @@ describe("props a component hands to its slot", () => {
       { className: "tag given", slot: undefined, index: "0" },
       { className: "tag given", slot: undefined, index: "1" }
     ])
+    // Each copy keeps the key the component gave it.
+    expect(errors.filter((error) => error.includes("same key"))).toEqual([])
   })
 })

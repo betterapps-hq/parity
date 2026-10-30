@@ -25,8 +25,9 @@ handle input. Each feature's tests below name the end-to-end ones that cover it.
   its `node_modules` rather than copying them, and adds a Members screen: three `MemberRow({ member })` rows, a fragment
   and an email field. It starts Parity on the copy through `scripts/dev.ts`, with its own user data, agent file and a
   1440 by 900 window, on ports 5385 and 9385, or on ports the system picks when those are taken. When the run ends it
-  stops that copy by its process id and removes the folder, and the build a picked port made. The example itself, and
-  any other copy of Parity running, are left alone.
+  stops that copy by its process id and removes the folder. On a picked port it also removes the build and dependency
+  cache that port made, which the suite's own port keeps. The example itself, and any other copy of Parity running, are
+  left alone.
 - **How a test drives it.** The files run one after another against that one window, through the DevTools protocol with
   playwright-core. `App`, in `e2e/app.ts`, has the gestures: `click`, `rightClick`, `drag`, `selectDesign` by its title,
   and `selectLayer`, which clicks a layer and double-clicks down to it as a person does. Every test selects layers

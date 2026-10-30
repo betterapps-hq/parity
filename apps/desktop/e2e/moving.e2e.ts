@@ -151,9 +151,8 @@ describe("resize handles", () => {
     await expect.poll(() => hint.isVisible()).toBe(true)
     const during = await app.drag(handle, { x: handle.x + 48, y: handle.y + 3 }, () => hint.isVisible())
     expect(during).toBe(false)
-    const style = await app.style("Dashboard", button)
-    expect(style.width).toBe(Math.round((box.width + 48) / 4))
-    expect(style.height).toBeUndefined()
+    await expect.poll(async () => (await app.style("Dashboard", button)).width).toBe(Math.round((box.width + 48) / 4))
+    expect((await app.style("Dashboard", button)).height).toBeUndefined()
     expect(await hint.isVisible()).toBe(false)
   })
 

@@ -210,6 +210,7 @@ export class Workspace {
             ...current,
             session: { ...current.session, info, loaded, tokens: tokenStore(info, loaded, current.session.store) }
           })
+          current.session.tokens.dispose()
           if (before !== info.guestUrl) releaseGuest(before)
         } catch (error) {
           toast.error(`Couldn't reopen ${session.info.name}`, {
@@ -225,15 +226,17 @@ export class Workspace {
     const tab = this.tabs.find((candidate) => candidate.session?.id === projectId)
     if (!tab?.session || tab.session.info.guestUrl === guestUrl) return
     try {
-      const info = { ...tab.session.info, guestUrl }
-      const loaded = await loadGuest(guestUrl, info.theme)
+      const loaded = await loadGuest(guestUrl, tab.session.info.theme)
       const current = this.getTab(tab.id)
       if (!current?.session) return
+      // From the session as it is now, since its sources can change while the guest loads.
+      const info = { ...current.session.info, guestUrl }
       const before = current.session.info.guestUrl
       this.replace(tab.id, {
         ...current,
         session: { ...current.session, info, loaded, tokens: tokenStore(info, loaded, current.session.store) }
       })
+      current.session.tokens.dispose()
       releaseGuest(before)
     } catch (error) {
       toast.error(`Couldn't load ${tab.session.info.name} from its restarted builder`, {

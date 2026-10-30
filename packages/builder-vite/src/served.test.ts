@@ -3,7 +3,7 @@ import { createRequire } from "node:module"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import type { BuilderSession, BuilderStartOptions, RendererAdapter, ServedRecord } from "@parity/core"
-import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { viteBuilder } from "./index.ts"
 import { moduleUrl } from "./served.ts"
 
@@ -53,8 +53,11 @@ async function open(start: BuilderStartOptions, load = ["/src/button.js"]) {
     expect(response.status).toBe(200)
     await response.text()
   }
-  // Noted once each response is sent.
-  await new Promise((resolve) => setTimeout(resolve, 100))
+  // Noted a little after each response is sent.
+  const loaded = 1 + load.length
+  await vi.waitFor(async () =>
+    expect(Object.keys((await session.served!()).modules).length).toBeGreaterThanOrEqual(loaded)
+  )
   return { session, port, close: () => closed(session) }
 }
 

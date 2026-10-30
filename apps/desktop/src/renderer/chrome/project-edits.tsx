@@ -36,12 +36,19 @@ async function undo(
   afterUndo: (() => Promise<unknown>) | undefined
 ): Promise<void> {
   toast.loading(`Putting back ${files(edit)}…`, { id, description: undefined, action: undefined })
+  let undone: ProjectEditResult
   try {
-    const undone = await window.canvasHost.request("project.undoEdit", { projectId, id: edit.id })
+    undone = await window.canvasHost.request("project.undoEdit", { projectId, id: edit.id })
+  } catch (error) {
+    toast.error("Couldn't undo it", { id, description: message(error) })
+    return
+  }
+  // The files are back by now, so a failure from here on isn't a failed undo.
+  try {
     await afterUndo?.()
     showEdit(`Put back ${files(undone)}`, undone, id)
   } catch (error) {
-    toast.error("Couldn't undo it", { id, description: message(error) })
+    toast.error(`Put back ${files(undone)}, but couldn't reload the project`, { id, description: message(error) })
   }
 }
 

@@ -6,13 +6,15 @@ describe("failures", () => {
     const failed = failures(
       [
         { problem: "Rendering failed:\naria/Cell: Cell count must match column count\nnova/Button: no" },
-        { problem: "aria/Cell: later\naria/DatePicker.Trigger: reading 'calendar'" }
+        { problem: "aria/Cell: later\naria/DatePicker.Trigger: reading 'calendar'" },
+        { problem: `"aria/Toast" isn't one of the project's components` }
       ],
       "aria"
     )
     expect(Object.fromEntries(failed)).toEqual({
       Cell: "Cell count must match column count",
-      "DatePicker.Trigger": "reading 'calendar'"
+      "DatePicker.Trigger": "reading 'calendar'",
+      Toast: "isn't one of the project's components"
     })
   })
 })

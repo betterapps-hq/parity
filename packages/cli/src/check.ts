@@ -106,11 +106,14 @@ Print(JSON.stringify(await Problems(id, { mode: ${JSON.stringify(mode)} })))`
   if (report.floor !== undefined && report.score < report.floor) process.exitCode = 1
 }
 
-/** The components of a library that a design's problems name, by why: `aria/Cell: Cell count must match…`. */
+/**
+ * The components of a library that a design's problems name, by why: `aria/Cell: Cell count must match…`, or
+ * `"aria/Cell" isn't one of the project's components` for one the project doesn't have.
+ */
 export function failures(problems: { problem: string }[], library: string): Map<string, string> {
   const failed = new Map<string, string>()
   const escaped = library.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&")
-  const pattern = new RegExp(`${escaped}/([\\w.]+): (.*)`)
+  const pattern = new RegExp(`${escaped}/([\\w.]+)(?:: |" )(.*)`)
   for (const { problem } of problems) {
     for (const line of problem.split("\n")) {
       const match = pattern.exec(line)

@@ -249,6 +249,18 @@ function joinLabel(where: Whereabouts): string {
   return where.who.agent ? "Watch" : "Join"
 }
 
+/** Their name, and an agent's owner after it. */
+function WhoFor({ where }: { where: Whereabouts }) {
+  return (
+    <>
+      {where.who.name}
+      {where.for && (
+        <span className="text-muted-foreground"> for {where.for === me ? "you" : where.for.name.split(" ")[0]}</span>
+      )}
+    </>
+  )
+}
+
 /** A teammate in the side list: where they are, and a way to join them on the canvas. */
 export function WhereaboutsRow({ where }: { where: Whereabouts }) {
   return (
@@ -256,13 +268,7 @@ export function WhereaboutsRow({ where }: { where: Whereabouts }) {
       <HereAvatar person={where.who} away={!!where.away} />
       <span className="flex min-w-0 flex-1 flex-col text-sm">
         <span className="truncate">
-          {where.who.name}
-          {where.for && (
-            <span className="text-muted-foreground">
-              {" "}
-              for {where.for === me ? "you" : where.for.name.split(" ")[0]}
-            </span>
-          )}
+          <WhoFor where={where} />
         </span>
         <span className="truncate text-xs text-muted-foreground">{whereabouts(where)}</span>
       </span>
@@ -294,7 +300,9 @@ export function TeammateCard({ where }: { where: Whereabouts }) {
       <div className="flex items-center gap-3">
         <HereAvatar person={where.who} size={32} away={!!where.away} />
         <span className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate text-sm font-medium">{where.who.name}</span>
+          <span className="truncate text-sm font-medium">
+            <WhoFor where={where} />
+          </span>
           <span className="truncate text-xs text-muted-foreground">{whereabouts(where)}</span>
         </span>
         {!where.away && (

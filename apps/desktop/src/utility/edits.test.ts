@@ -68,6 +68,18 @@ describe("applyProjectEdit", () => {
       })
     ).rejects.toThrow(/EEXIST|ENOTDIR/)
     expect(await read("index.css")).toBe('@import "tailwindcss";\n')
+    expect(project.known.has("index.css")).toBe(false)
+    expect(project.known.has("index.css/inner.css")).toBe(false)
+  })
+
+  it("applies edits made at once one after another", async () => {
+    const add = (line: string) =>
+      applyProjectEdit(project, {
+        label: "Add a line",
+        files: [{ kind: "patch", path: "index.css", find: '"tailwindcss";\n', replace: `"tailwindcss";\n${line}\n` }]
+      })
+    await Promise.all([add("a"), add("b")])
+    expect(await read("index.css")).toBe('@import "tailwindcss";\nb\na\n')
   })
 
   it("refuses a path outside the project", async () => {

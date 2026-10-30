@@ -120,6 +120,8 @@ export class App {
    */
   async reset(): Promise<void> {
     await this.page.mouse.up()
+    // A test that failed while holding a modifier would otherwise leave it held for the tests after it.
+    for (const key of ["Shift", "Control", "Alt", "Meta"]) await this.page.keyboard.up(key)
     for (let press = 0; press < 3; press++) await this.page.keyboard.press("Escape")
     await this.page.evaluate(() => {
       const e2e = window.e2e!

@@ -24,6 +24,7 @@ export class TokenStore {
   /** The edits the shared stylesheet shows now. */
   private shown: TokenEdits = noTokenEdits
   private previewed: readonly TokenChange[] = []
+  private readonly unfollow: () => void
 
   constructor(
     /** The tokens as the project's stylesheet had them when its guest loaded. */
@@ -37,7 +38,12 @@ export class TokenStore {
     this.tokens = loaded
     history.writeTokensWith({ path: stylesheet, write })
     this.follow()
-    history.subscribe(() => this.follow())
+    this.unfollow = history.subscribe(() => this.follow())
+  }
+
+  /** Stops following the design store, once a new guest's token store has taken this one's place. */
+  dispose(): void {
+    this.unfollow()
   }
 
   subscribe = (listener: () => void) => {

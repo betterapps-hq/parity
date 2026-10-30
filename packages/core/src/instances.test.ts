@@ -431,5 +431,8 @@ describe("hiding a layer in a state", () => {
     }
     const shown = toggleHidden(quiet, "default", ["label"])
     expect(shown.params?.tone?.options?.[1]?.overrides).toBeUndefined()
+    // Another state shows it over the variant, so its change is kept.
+    const pressed = { ...quiet, states: [quiet.states[0]!, { id: "pressed", name: "Pressed" }] }
+    expect(toggleHidden(pressed, "pressed", ["label"]).states[1]?.overrides).toEqual({ label: { hidden: false } })
   })
 })

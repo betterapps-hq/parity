@@ -431,6 +431,11 @@ export class DesignStore {
     this.documents = persist ? this.adoptSaved(next.documents, changed) : next.documents
     this.modes = next.modes
     this.tokens = next.tokens
+    if (!this.tokensUnsaved()) {
+      // Back at what the stylesheet holds, so nothing is left that failed to write.
+      this.tokenFailure = undefined
+      this.failures.delete(this.stylesheet())
+    }
     this.index()
     if (next.modes !== previous.modes && !changed.includes(this.mainPath)) changed.push(this.mainPath)
     if (!persist) {

@@ -173,7 +173,7 @@ describe("next and previous design", () => {
     expect(await settledCamera()).toEqual(afterN)
     await app.page.keyboard.press("Shift+N")
     await expect.poll(async () => (await app.selection()).design).toBe(await app.key("Pricing"))
-    await expect.poll(() => app.camera()).not.toEqual(afterN)
+    await expect.poll(settledCamera).not.toEqual(afterN)
   })
 
   it("goes round from the last design to the first, components first", async () => {

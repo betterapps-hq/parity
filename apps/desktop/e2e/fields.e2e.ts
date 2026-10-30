@@ -28,7 +28,7 @@ async function selectBrand(): Promise<void> {
 /** Focuses a field and selects its text, ready to type over it. */
 async function typeOver(field: ReturnType<typeof width>, text: string): Promise<void> {
   await field.click()
-  await field.press("Control+a")
+  await field.press("ControlOrMeta+a")
   await field.pressSequentially(text, { delay: 20 })
 }
 
@@ -36,7 +36,7 @@ describe("typing in a length field", () => {
   it("previews each keystroke on the canvas, and Enter makes it one undo step, keeping the field", async () => {
     await selectBrand()
     await width().click()
-    await width().press("Control+a")
+    await width().press("ControlOrMeta+a")
     for (const [key, shown] of [
       ["3", 4],
       ["2", 32],

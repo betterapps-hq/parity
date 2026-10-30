@@ -373,12 +373,11 @@ export function editNode(
     const root = mapNode(container.root, nodeId, (node) => applyChange(node, change))
     return withBoundDefaults({ ...container, root }, base, change)
   }
-  // A state's or variant's patch is kept against the node as the board shows it, with the params it binds filled in.
-  const under = applyPatch(
-    base,
-    {},
-    boardArgs(container.params, variantChoices(container.params, container.view?.variants))
-  )
+  // A state's or variant's patch is kept against the node as the board shows it, with the params it binds filled in,
+  // and a state's over the variants shown, which it sits above.
+  const choices = variantChoices(container.params, container.view?.variants)
+  const variants = isBaseState(container, toEditTarget(target).state) ? [] : optionPatches(container.params, choices)
+  const under = nodeInState(base, undefined, variants, boardArgs(container.params, choices))
   return withTargetPatches(container, target, patchWith(targetPatches(container, target), nodeId, under, change))
 }
 

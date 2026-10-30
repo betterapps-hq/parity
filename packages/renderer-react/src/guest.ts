@@ -311,16 +311,20 @@ export function createGuest(init: GuestInit): Guest {
     Object.fromEntries(Object.entries(props ?? {}).map(([name, value]) => [name, madeValue(value)]))
 
   // `extra` is what a render function passes on: given to the node itself, since a component is wrapped in its boundary.
-  const toReact = (node: RenderNode, key?: number, extra?: Props): ReactNode => {
+  // A key or style it passes is kept: a list keys the copies it renders, and a virtual list places each by its style.
+  const toReact = (node: RenderNode, index?: number, extra?: Props): ReactNode => {
+    const given = extra?.key
+    const key = typeof given === "string" || typeof given === "number" ? given : index
     switch (node.kind) {
       case "text":
         return node.text
       case "element": {
+        const style = extra?.style
         const props = {
           ...attributesFor(node.tag, node.attributes),
           ...extra,
           key,
-          style: node.style,
+          style: typeof style === "object" && style !== null ? { ...node.style, ...style } : node.style,
           "data-canvas-node": node.nodeId
         }
         // Void elements like img take no children, not even an empty list.
