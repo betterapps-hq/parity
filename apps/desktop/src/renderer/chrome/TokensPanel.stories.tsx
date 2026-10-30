@@ -284,6 +284,30 @@ export const Detail: Story = {
 }
 
 /**
+ * A token's detail from the keyboard: the right arrow on its row opens it with the keyboard inside, and Escape closes it
+ * and gives the keyboard back to the row. Pressed while a hover has the detail open, the arrow moves the keyboard in.
+ */
+export const DetailFromTheKeyboard: Story = {
+  loaders: [openTokens],
+  play: async ({ canvasElement }) => {
+    await within(canvasElement).findByText("primary")
+    const row = rowOf(canvasElement, "primary")
+    row.focus()
+    await userEvent.keyboard("{ArrowRight}")
+    const dialog = await within(document.body).findByRole("dialog")
+    await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement))
+    await userEvent.keyboard("{Escape}")
+    await waitFor(() => expect(row).toHaveFocus())
+    // Opened by a hover, focus stays on the row until the arrow moves it in.
+    await userEvent.hover(row)
+    const hovered = await within(document.body).findByRole("dialog", undefined, { timeout: 2000 })
+    await expect(row).toHaveFocus()
+    await userEvent.keyboard("{ArrowRight}")
+    await waitFor(() => expect(hovered).toContainElement(document.activeElement as HTMLElement))
+  }
+}
+
+/**
  * A color whose value is the same in both themes still shows a swatch for each, in its row, its tile and its detail,
  * so it reads like every other two-theme color: `chart-3` is `oklch(0.439 0 0)` in Light and Dark.
  */

@@ -537,6 +537,7 @@ function TokenRow({
           type="button"
           aria-haspopup="dialog"
           aria-expanded={card.open}
+          aria-controls={card.open ? card.id : undefined}
           onClick={() => copying.copy(name)}
           onKeyDown={tokenKeys(() => copying.copy(name), card)}
           onPointerEnter={card.enter}
@@ -602,6 +603,7 @@ function TokenTileButton({
           type="button"
           aria-haspopup="dialog"
           aria-expanded={card.open}
+          aria-controls={card.open ? card.id : undefined}
           onClick={() => copying.copy(name)}
           onKeyDown={tokenKeys(() => copying.copy(name), card)}
           onPointerEnter={card.enter}
@@ -696,7 +698,8 @@ function DescribedRow({ token }: { token: LibraryToken }) {
 
 /**
  * A token's detail beside its row or tile, opened by resting the pointer on it, as a component's card is. Opened from
- * the keyboard, the keyboard goes into it; opened by the pointer, focus stays where it was.
+ * the keyboard, the keyboard goes into it and, when it closes, back to the row; opened by the pointer, focus stays where
+ * it was.
  */
 function TokenPopover({
   entry,
@@ -715,9 +718,9 @@ function TokenPopover({
         align="start"
         side="right"
         sideOffset={12}
-        onOpenAutoFocus={(event) => {
-          if (!card.takesFocus()) event.preventDefault()
-        }}
+        id={card.id}
+        onOpenAutoFocus={card.takesFocus}
+        onCloseAutoFocus={card.returnFocus}
         onEscapeKeyDown={keepEditing}
         onPointerEnter={card.stay}
         onPointerLeave={card.leave}
