@@ -101,7 +101,12 @@ export function TokenDetail({
   const problems: Record<string, string | undefined> = Object.fromEntries(
     themes.map((theme) => [
       theme,
-      drafts ? valueProblem(kind, drafts[theme] ?? "", (name) => lookup(name, theme)) : undefined
+      drafts
+        ? // A token built on itself comes to nothing, though its name looks up its old value.
+          tokenReferences(drafts[theme] ?? "").includes(preview.name)
+          ? `--${preview.name} can't be built on itself.`
+          : valueProblem(kind, drafts[theme] ?? "", (name) => lookup(name, theme))
+        : undefined
     ])
   )
   const valid = themes.every((theme) => !problems[theme])
@@ -119,6 +124,8 @@ export function TokenDetail({
     drafts && valid && changed
       ? {
           ...preview,
+          // The values below are filled in already, so the root's old outcome mustn't stand in for what's typed.
+          resolved: undefined,
           values: Object.fromEntries(
             themes.map((theme) => [
               theme,
@@ -131,7 +138,10 @@ export function TokenDetail({
   const label = valueLabel(shown)
   const comesTo = label === values.default ? undefined : label
   const playing = moving.has(kind) && (play ?? !reduced)
-  const built = token.derived ? [token.derived.from] : tokenReferences(values.default ?? "")
+  // The tokens any theme's value uses, as a theme can be built on one the root isn't.
+  const built = token.derived
+    ? [token.derived.from]
+    : [...new Set(themes.flatMap((theme) => tokenReferences(values[theme] ?? "")))]
   // Cancel, Apply and Undo take away what had the keyboard (a field, or the button pressed), so it goes back to Edit
   // rather than dropping out of the detail.
   const editButton = useRef<HTMLButtonElement>(null)
@@ -302,10 +312,8 @@ export function TokenDetail({
                     size="sm"
                     ref={editButton}
                     disabled={Boolean(token.derived)}
-                    onClick={() => {
-                      setDrafts(values)
-                      setApplied(false)
-                    }}
+                    // Applied stays while editing, so Cancel brings back its Undo; a new Apply is the step it names.
+                    onClick={() => setDrafts(values)}
                   >
                     <Pencil /> Edit
                   </Button>

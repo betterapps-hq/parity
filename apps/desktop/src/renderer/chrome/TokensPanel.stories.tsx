@@ -295,6 +295,10 @@ export const InvalidValue: Story = {
     await retype(dialog, "default", "very dark blue")
     await within(dialog).findByText("That isn't a color. Try oklch(0.6 0.2 250) or #2563eb.")
     await expect(within(dialog).getByRole("button", { name: "Apply" })).toBeDisabled()
+    // A token built on itself would come to nothing, though its own name looks up its old value.
+    await retype(dialog, "default", "var(--primary)")
+    await within(dialog).findByText("--primary can't be built on itself.")
+    await expect(within(dialog).getByRole("button", { name: "Apply" })).toBeDisabled()
   }
 }
 
@@ -330,6 +334,10 @@ export const ReferenceToAnotherToken: Story = {
     await waitFor(() => expect(within(dialog).getByRole("button", { name: "Edit" })).toHaveFocus())
     await expect(example().store.getHistory().undoLabel).toBe("Edit --primary")
     await expect(example().store.hasUnsaved()).toBe(true)
+    // Editing again and cancelling changes nothing, so Undo is still there.
+    await userEvent.click(within(dialog).getByRole("button", { name: "Edit" }))
+    await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }))
+    await within(dialog).findByText("Applied. Saving writes it to src/index.css.")
     // The detail's Undo takes it back, as Ctrl+Z would.
     await userEvent.click(within(dialog).getByRole("button", { name: "Undo" }))
     await within(dialog).findByText("oklch(0.205 0 0)")
