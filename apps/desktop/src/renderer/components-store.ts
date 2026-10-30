@@ -19,11 +19,6 @@ export class ComponentStore {
   }
 }
 
-export function useComponentInfo(store: ComponentStore, name: string | undefined): ComponentInfo | undefined {
-  const components = useSyncExternalStore(store.subscribe, store.get)
-  return name ? components[name] : undefined
-}
-
 export function useComponents(store: ComponentStore): Readonly<Record<string, ComponentInfo>> {
   return useSyncExternalStore(store.subscribe, store.get)
 }
