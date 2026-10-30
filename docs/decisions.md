@@ -936,7 +936,7 @@ recommended answer to each of its questions.
   line with what they said and its one or two actions (Reply, Approve, Let Ivy comment, See what changed), so most of it
   can be answered from there, and what happened since you were last here follows close under it, with what was said. The
   inbox has the full thread beside its board. Requests to let someone in or give them a seat are admin chores, so For
-  you sums them up in one line and the inbox and Members list them (my call, after the eighth review).
+  you sums them up in one line, and the inbox lists them all (my call, after the eighth review).
 - **Every page shares one left edge, and tabs and filters look different** (my calls, after the third review): tabs move
   between the parts of one place (a team, settings, a library), and quiet pills filter a list.
 - **Handoff is for developers: every board by where it stands between design and code, from Parity's own versions** (my

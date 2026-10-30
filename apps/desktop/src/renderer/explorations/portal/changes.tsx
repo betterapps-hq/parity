@@ -984,6 +984,10 @@ function Foot({
   asking: boolean
   onAsk: (asking: boolean) => void
 }) {
+  // The boards ticked to approve. A board with open threads starts unticked.
+  const [ticked, setTicked] = useState(
+    () => new Set(you.as === "reviewer" ? you.boards?.filter((board) => !board.open).map((board) => board.name) : [])
+  )
   let ask: string
   let placeholder: string
   let primary: ReactNode
@@ -993,7 +997,7 @@ function Foot({
     placeholder = "What should change? It goes to everyone who made these versions."
     primary = (
       <>
-        <Check /> {you.boards ? `Approve ${you.boards.filter((board) => !board.open).length} boards` : `Approve v${to}`}
+        <Check /> {you.boards ? `Approve ${ticked.size} ${ticked.size === 1 ? "board" : "boards"}` : `Approve v${to}`}
       </>
     )
     note = you.approves
@@ -1021,7 +1025,17 @@ function Foot({
         <div className="flex flex-col gap-1">
           {you.boards.map((board) => (
             <label key={board.name} className="flex items-center gap-2 text-xs">
-              <input type="checkbox" defaultChecked={!board.open} className="size-3.5 accent-foreground" />
+              <input
+                type="checkbox"
+                checked={ticked.has(board.name)}
+                onChange={(input) => {
+                  const next = new Set(ticked)
+                  if (input.target.checked) next.add(board.name)
+                  else next.delete(board.name)
+                  setTicked(next)
+                }}
+                className="size-3.5 accent-foreground"
+              />
               {board.name}
               {board.open && <span className="text-muted-foreground">{board.open}</span>}
             </label>

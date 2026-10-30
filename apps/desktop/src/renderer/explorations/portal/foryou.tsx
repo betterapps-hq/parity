@@ -78,7 +78,7 @@ function NeedsYouRow({ item }: { item: PortalEvent }) {
 
 /**
  * Requests to let someone in, or give them a seat, are admin chores rather than design work, so For you sums them up
- * in one line and the inbox and Members list them.
+ * in one line, and the inbox lists them all.
  */
 const requests = needsYou.filter((item) => item.kind === "invite")
 const work = needsYou.filter((item) => item.kind !== "invite")
@@ -99,7 +99,7 @@ function RequestsRow() {
       </span>
       <span className="flex w-56 shrink-0 justify-end">
         <Button size="sm" variant="outline" className="h-7 text-xs">
-          Review in Members
+          See them in the inbox
         </Button>
       </span>
       <span className="w-16 shrink-0 text-right text-xs text-muted-foreground">{newest.when}</span>
@@ -120,14 +120,14 @@ export function ForYouPage() {
             <div className="flex flex-col gap-1">
               <PortalHeader title="For you" />
               <span className="text-sm text-muted-foreground">
-                {work.length} things need you, and {requests.length} requests. {since.length} more happened in your
-                projects since you were last here.
+                {needsYou.length} things need you, {requests.length} of them requests. {since.length} more happened in
+                your projects since you were last here.
               </span>
             </div>
             <section className="flex flex-col gap-1">
               <div className="flex items-center justify-between px-3 pb-1">
                 <h2 className="text-sm font-semibold">
-                  Needs you <span className="font-normal text-muted-foreground tabular-nums">{work.length}</span>
+                  Needs you <span className="font-normal text-muted-foreground tabular-nums">{needsYou.length}</span>
                 </h2>
                 <SeeAll>Inbox</SeeAll>
               </div>

@@ -4,7 +4,7 @@
  * Inspect and What changed all read from here, so they always name the same things.
  */
 import { me, type Person, people } from "../explore-data.ts"
-import { claudeTask, event, handoff } from "./data.ts"
+import { claudeTask, event, events, handoff } from "./data.ts"
 
 const { maya, sam, lena, claude, priya, jonas } = people
 
@@ -339,15 +339,21 @@ export function approvedThisWeek(projects?: string[]): number {
  */
 export const handoffWaiting = Object.values(deliverables).filter((board) => {
   const status = handoff[`${board.project}/${board.design}`]
-  if (status === "Ready to build") return true
+  // Ready to build and Code differs are anyone's to act on: pick it up, or update the design or ask the builder.
+  if (status === "Ready to build" || status === "Code differs") return true
   if (status === "In review") return board.review?.reviewer === me
   return status === "Changed since approval" && board.code?.who === me
 }).length
 
-/** How many boards' code was built as designed this week, from Monday, October 26. */
-export const builtThisWeek = Object.values(deliverables).filter(
-  (board) => board.code?.doing === "Built" && /min ago|h ago|yesterday|^[23] days ago$/.test(board.code.when)
-).length
+/**
+ * How many boards' code was built as designed this week, from Monday, October 26: boards whose build is the latest thing
+ * that happened to them, and merges that built a board that has since moved on, as #142 built Billing before Claude
+ * Code's new version of it.
+ */
+export const builtThisWeek =
+  Object.values(deliverables).filter(
+    (board) => board.code?.doing === "Built" && /min ago|h ago|yesterday|^[23] days ago$/.test(board.code.when)
+  ).length + events.filter((item) => item.kind === "merge" && item.ago < 4 * 24 * 60).length
 
 /** One board's deliverable, by project and design. */
 export function deliverable(project: string, design: string): Deliverable {
