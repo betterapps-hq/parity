@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, symlink, utimes, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, realpath, rm, symlink, utimes, writeFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
@@ -13,7 +13,8 @@ let root: string
 let options: BuilderStartOptions
 
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), "parity-served-"))
+  // The real path: macOS's tmpdir is under a /var link, and Windows runners' can use a short (8.3) name.
+  root = await realpath(await mkdtemp(join(tmpdir(), "parity-served-")))
   const files: Record<string, string> = {
     "package.json": JSON.stringify({ name: "fixture", type: "module" }),
     "guest.js": "export function createGuest(init) { return init }\n",
