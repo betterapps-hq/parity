@@ -64,6 +64,23 @@ describe("inferTokenKind", () => {
     expect(inferTokenKind("brand", "#fff", "color")).toBe("color")
   })
 
+  it("reads the group after the name, leaves 0 a length when typed a number, and lets the name decide a bare var()", () => {
+    expect(inferTokenKind("brand-lg", "12px", undefined, "spacing")).toBe("spacing")
+    expect(inferTokenKind("radius-lg", "12px", undefined, "spacing")).toBe("radius")
+    expect(inferTokenKind("radius-none", "0", "number")).toBe("radius")
+    expect(inferTokenKind("brand", "0", "dimension", "spacing")).toBe("spacing")
+    expect(inferTokenKind("radius-md", "var(--unknown)")).toBe("radius")
+    expect(inferTokenKind("brand", "var(--unknown)")).toBe("setting")
+    expect(inferTokenKind("font-size-inherit", "inherit")).toBe("font-size")
+  })
+
+  it("takes a shadow with a named color or a variable as one", () => {
+    expect(inferTokenKind("shadow-sm", "0 1px 2px black")).toBe("shadow")
+    expect(inferTokenKind("ring", "0 0 0 1px currentColor")).toBe("setting")
+    expect(inferTokenKind("shadow-ring", "0 0 0 1px currentColor")).toBe("shadow")
+    expect(inferTokenKind("shadow-md", "0 1px 2px var(--unknown)")).toBe("shadow")
+  })
+
   it("works out a simple calc() in pixels", () => {
     expect(simplifyCalc("calc(1rem * 1.5)")).toBe("24px")
     expect(simplifyCalc("calc(0.625rem - 4px)")).toBe("6px")

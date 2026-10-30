@@ -193,7 +193,9 @@ function valueKinds(raw: string): InferredKind[] {
   if (/^inset\s/.test(value)) return ["inset-shadow"]
   const words = value.split(/\s+(?![^(]*\))/)
   const lengths = words.filter((word) => lengthText.test(word) || word === "0")
-  if (lengths.length >= 2 && (words.some((word) => colorFunction.test(word)) || value.includes(","))) {
+  // A color in any form says it's a shadow: a function, a name, or a variable (`0 1px 2px black`, `var(--ink)`).
+  const colored = words.some((word) => colorFunction.test(word) || namedColor.test(word) || word.startsWith("var("))
+  if (lengths.length >= 2 && (colored || value.includes(","))) {
     return ["shadow", "drop-shadow", "text-shadow"]
   }
   if (value === "none") return ["shadow", "gradient", "blur", "radius", "setting"]

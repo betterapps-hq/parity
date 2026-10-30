@@ -659,8 +659,10 @@ export function TokenArt({
       // The style's own family and weight, at its size up to what the box holds.
       const size = px(/(-?\d*\.?\d+(?:px|rem|em))\s*\//.exec(value)?.[1] ?? "")
       const most = large ? 34 : 15
+      // Keyed by the value, so a new one sets every property again: the shorthand alone would undo the size.
       return (
         <span
+          key={value}
           className="grid size-full place-items-center overflow-hidden"
           style={{
             font: value,

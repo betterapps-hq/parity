@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test"
 import { readDesignTokens } from "./dtcg.ts"
 import {
   codeForms,
+  defaultValues,
   type PreviewKind,
   previewKind,
   substituteReferences,
@@ -12,16 +13,10 @@ import {
 } from "./kinds.ts"
 import { describedCategories, describedTokenCss, describedTokenVar, extractTokens, type Token } from "./tokens.ts"
 
-/** What each token comes to, by name, as the panel looks up a reference. */
-function valuesOf(tokens: Token[]): (name: string) => string | undefined {
-  const values = new Map(tokens.map((token) => [token.name, token.values.default]))
-  return (name) => values.get(name)
-}
-
 /** Each token's kind, by name, reading tokens as the app does: compiled CSS, Tailwind's theme, a library's categories. */
 function kinds(css: string, theme: { name: string; value: string }[] = [], types = new Map<string, string>()) {
   const tokens = extractTokens(css, theme)
-  const lookup = valuesOf(tokens)
+  const lookup = defaultValues(tokens)
   return Object.fromEntries(tokens.map((token) => [token.name, previewKind(token, types.get(token.name), lookup)]))
 }
 
@@ -33,7 +28,7 @@ async function registryKinds(library: string): Promise<Record<string, PreviewKin
   )
   const types = new Map(described.map((token) => [describedTokenVar(token), token.type]))
   const tokens = extractTokens(describedTokenCss(described), [], describedCategories(described))
-  const lookup = valuesOf(tokens)
+  const lookup = defaultValues(tokens)
   return Object.fromEntries(tokens.map((token) => [token.name, previewKind(token, types.get(token.name), lookup)]))
 }
 

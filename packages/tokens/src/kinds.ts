@@ -40,14 +40,19 @@ export type PreviewKind =
   | "cursor"
   | "number"
 
-/** The preview each inferred kind draws, where the names differ: a size is drawn as a container, a setting as itself. */
-const previewOf: Partial<Record<InferredKind, PreviewKind>> = {
+/**
+ * The preview each inferred kind draws, where the names differ: a size is drawn as a container, a setting as itself.
+ * Every other kind is a preview kind of the same name, which `previewKind`'s return type checks.
+ */
+const previewOf = {
   "font-family": "font",
   "line-height": "leading",
   "letter-spacing": "tracking",
   size: "container",
   setting: "number"
-}
+} as const satisfies Partial<Record<InferredKind, PreviewKind>>
+
+const isMapped = (kind: InferredKind): kind is keyof typeof previewOf => kind in previewOf
 
 /**
  * A token's preview kind, inferred from its value, then its name, else none (`inference.ts`): a DTCG type the
@@ -65,7 +70,13 @@ export function previewKind(
   if (kind === "blur" && token.name.toLowerCase().replaceAll(/[-_.]/g, "").includes("backdropblur")) {
     return "backdrop-blur"
   }
-  return previewOf[kind] ?? (kind as PreviewKind)
+  return isMapped(kind) ? previewOf[kind] : kind
+}
+
+/** What each token comes to in its default theme, by name: the lookup `previewKind` resolves references with. */
+export function defaultValues(tokens: readonly Pick<Token, "name" | "values">[]): (name: string) => string | undefined {
+  const values = new Map(tokens.map((token) => [token.name, token.values.default]))
+  return (name) => values.get(name)
 }
 
 /**
