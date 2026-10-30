@@ -6,6 +6,7 @@ import {
   type Padding,
   type Size
 } from "@parity-app/core"
+import { type TextSizing, textSizing, withTextSizing } from "@parity-app/editor"
 import { spacingStepName, type Token } from "@parity-app/tokens"
 import {
   AlignCenter,
@@ -17,6 +18,9 @@ import {
   ChevronDown,
   Grid3x3,
   Italic,
+  MoveHorizontal,
+  MoveVertical,
+  Scan,
   Square,
   SquareDashed,
   Strikethrough,
@@ -46,12 +50,24 @@ import { PanelSection } from "./PanelSection.tsx"
 /** Style properties to set; `undefined` clears one. */
 export type StyleValues = Partial<{ [K in keyof NodeStyle]: NodeStyle[K] | undefined }>
 
+/** What an edit worked out per layer knows about the layer besides its style. */
+export interface EditedLayer {
+  /** Whether the edit changes the design itself, rather than a state's, a variant's or a copy's changes to it. */
+  base: boolean
+  /** The layer's own rendered length, in spacing steps, rounded as `StyleEditor.measure` rounds. */
+  measure: (axis: "width" | "height", round?: (steps: number) => number) => number | undefined
+  /** What kind of layer it is, so an edit for one kind (text's Resizing) leaves the others in a mixed selection alone. */
+  type: DesignNode["type"]
+  /** Whether it sits in a column, where `grow` fills its height. Several layers can each sit in a different one. */
+  column: boolean
+}
+
 /** Properties to set, or how to work them out from each selected layer's own style, as `Mixed+8` does. */
-export type StyleEdit = StyleValues | ((style: NodeStyle) => StyleValues)
+export type StyleEdit = StyleValues | ((style: NodeStyle, layer: EditedLayer) => StyleValues)
 
 /** An edit's values for one layer, from its style as shown in the state being edited. */
-export function styleValues(edit: StyleEdit, style: NodeStyle): StyleValues {
-  return typeof edit === "function" ? edit(style) : edit
+export function styleValues(edit: StyleEdit, style: NodeStyle, layer: EditedLayer): StyleValues {
+  return typeof edit === "function" ? edit(style, layer) : edit
 }
 
 /** Reads and writes one node's style in the state being edited. */
@@ -70,8 +86,11 @@ export interface StyleEditor {
   tokens: Token[]
   /** Pixels per spacing step. */
   unit: number
-  /** The node's rendered length, in whole spacing steps, so switching to a fixed size keeps it where it is. */
-  measure(axis: "width" | "height"): number | undefined
+  /**
+   * The node's rendered length, in whole spacing steps, so switching to a fixed size keeps it where it is: the nearest
+   * step, or the one above with `Math.ceil`, so text fixed at it doesn't wrap again.
+   */
+  measure(axis: "width" | "height", round?: (steps: number) => number): number | undefined
   /** With several layers selected: whether they have different values for a property. */
   mixed?(name: keyof NodeStyle): boolean
 }
@@ -994,6 +1013,7 @@ function TextSection({ editor, node }: SectionProps) {
             ))}
           </ToggleGroup>
         </Field>
+        {node.type === "text" && <TextResizing editor={editor} />}
         <Field
           label="Decoration"
           changed={changed("italic") || changed("decoration")}
@@ -1072,6 +1092,72 @@ function TextSection({ editor, node }: SectionProps) {
     </PanelSection>
   )
 }
+
+/**
+ * Figma's three ways a text layer sizes, which its width and height make up (see `textSizing`): picking one keeps the
+ * layer the size it's drawn at, and Width and Height show what it set.
+ */
+function TextResizing({ editor }: { editor: StyleEditor }) {
+  const { style, set, changed, reset } = editor
+  const mixed = mixedOf(editor)
+  const differs = mixed("width") || mixed("height") || mixed("grow")
+  return (
+    <Field
+      label="Resizing"
+      hint="Auto width grows along its line, auto height wraps at its width and grows down, fixed keeps its size"
+      changed={changed("width") || changed("height")}
+      mixed={differs}
+      onReset={() => (reset("width"), reset("height"))}
+    >
+      <ToggleGroup
+        type="single"
+        variant="outline"
+        size="sm"
+        spacing={0}
+        value={differs ? "" : textSizing(style)}
+        onValueChange={(value) => {
+          const sizing = textSizingOptions.find((option) => option.value === value)
+          if (!sizing) return
+          set(
+            // Only the text layers of a mixed selection, each by its own parent.
+            (style, layer) =>
+              layer.type !== "text"
+                ? {}
+                : withTextSizing(
+                    style,
+                    sizing.value,
+                    { width: layer.measure("width", stepUp), height: layer.measure("height", stepUp) },
+                    { explicit: !layer.base, column: layer.column }
+                  ),
+            sizing.edit
+          )
+        }}
+      >
+        {textSizingOptions.map(({ value, label, Icon }) => (
+          <Hint key={value} label={label}>
+            <ToggleGroupItem value={value} aria-label={label} className="h-7 px-2 aria-checked:bg-muted">
+              <Icon />
+            </ToggleGroupItem>
+          </Hint>
+        ))}
+      </ToggleGroup>
+    </Field>
+  )
+}
+
+/**
+ * The whole step at or above a measured length. A thousandth of a step (0.004px at 4px) is measuring noise from the zoom
+ * and the frame's scale: it's under the 1/64px browsers lay text out in, so a length truly past a step still rounds up.
+ */
+function stepUp(steps: number): number {
+  return Math.ceil(steps - 0.001)
+}
+
+const textSizingOptions = [
+  { value: "auto-width", label: "Auto width", edit: "Make text auto width", Icon: MoveHorizontal },
+  { value: "auto-height", label: "Auto height", edit: "Make text auto height", Icon: MoveVertical },
+  { value: "fixed", label: "Fixed size", edit: "Fix text size", Icon: Scan }
+] as const satisfies readonly { value: TextSizing; label: string; edit: string; Icon: unknown }[]
 
 /**
  * A length, typed and shown in pixels (320 is 320px) and kept as steps of the spacing scale, or one of the project's

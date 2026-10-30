@@ -17,7 +17,7 @@ Features built before 2026-10-29 are being added under PAR-392 in Linear.
 ## Testing in the app (PAR-202)
 
 `pnpm test:app` drives a copy of Parity as a person does, with the system's own pointer and keyboard, and checks what
-the canvas, the panels and the project show: 85 tests, which take five to eight minutes. It isn't part of `vp run test`
+the canvas, the panels and the project show: 92 tests, which take five to eight minutes. It isn't part of `vp run test`
 or `pnpm verify`. The pre-push hook runs it when the commits a push sends change the app, its packages, the example or
 the workspace's build files (`scripts/app-tests.ts`), and a failure stops the push. Every worktree's suite shares the
 same ports, so a push waits while another worktree's hook is running it (a lock file in the system's temp folder, taken
@@ -45,11 +45,11 @@ it.
   puts an empty part of the canvas in view, and `reset`, which undoes everything after each test. Copy and paste go
   through a stand-in for the clipboard on the page; the system's clipboard is never read or written.
 - **Adding a test.** Put it in its area's file (`selecting`, `menus`, `inserting`, `moving`, `keyboard`, `fields`,
-  `dropping`, `reopening` or `sleeping`), or in a new `apps/desktop/e2e/<area>.e2e.ts` that connects before all, resets
-  after each test and closes after all, as the others do. Start with `app.show(design, zoom)`, act through `App`'s
-  gestures or `app.page.keyboard`, and wait for what changes with `expect.poll`, since the app answers a frame or more
-  later. Change the project only through edits Undo takes back, so `reset` can put it back. Then name the test in its
-  feature's section here.
+  `dropping`, `text`, `reopening` or `sleeping`), or in a new `apps/desktop/e2e/<area>.e2e.ts` that connects before all,
+  resets after each test and closes after all, as the others do. Start with `app.show(design, zoom)`, act through
+  `App`'s gestures or `app.page.keyboard`, and wait for what changes with `expect.poll`, since the app answers a frame
+  or more later. Change the project only through edits Undo takes back, so `reset` can put it back. Then name the test
+  in its feature's section here.
 - **The page never scrolls.** `App` counts each time the window's page scrolls, and `reset` fails the test it ran in if
   it did, or if the page isn't at the top, then puts it back so the tests after start clean. A scrolled page moves the
   canvas without tldraw noticing, so every click after it lands off by as much (PAR-424, "The window", below). Until
@@ -1285,6 +1285,98 @@ isolated copy of the app on that project, the same day, a Button with a text lay
 label and its Props section said `icon` was set in layers, and an Input's `contentBefore` took `$` as text and drew it
 in the field, with `contentAfter` offering "Text, or layers in its slot".
 
+## Text
+
+Editing a text layer's words on the canvas, and how a text layer sizes.
+
+### Editing text in place (PAR-175)
+
+Double-clicking a selected text layer, or Enter on it, opens an editor over the text, as Figma's does. It also opens on
+a component whose only child is text, such as a button's label, and on text just added with the text tool or the insert
+picker.
+
+- **What's selected when it opens.** A double-click selects the word under the pointer, as a browser does: the word
+  holding that character, or the space or punctuation there when it isn't a word, on any line. Enter, the text tool and
+  the insert picker select the whole text, so typing replaces it. A double-click that lands off the characters (between
+  lines, in padding) selects the whole text too.
+- **It stays on the text.** The editor is measured against the text every frame while it's open, so it moves and scales
+  with the camera as the canvas pans and zooms, and with the layout when something around the text moves. The text it
+  covers is hidden meanwhile, and shows again when the editor closes.
+- **It wraps where the text wraps.** Text that wraps (auto height, fixed, or a component's text that wraps) is edited in
+  its content box at its own width, and grows down as more is typed. Text that stays on one line (auto width, or a
+  component that doesn't wrap its text, as a button doesn't) is edited from where its characters are and grows along the
+  line, up to its maximum width if it has one, where it wraps as the text does. Its font, size, weight, line height,
+  letter spacing, alignment, case and decoration follow the text's at the zoom shown.
+- **Leaving keeps the edit.** Escape keeps what's typed, as notes do, and so do Enter and clicking away. Shift+Enter
+  types a new line. The layer stays selected. An edit is one undo step, Edit text, written to the state and variant the
+  editor opened on (PAR-164, below); leaving without a change writes nothing.
+- **Input methods.** While an input method is composing (Japanese, Chinese, Korean), Enter and Escape are left to it, to
+  take or drop what's composed, and don't close the editor. The editor tracks composition by its `compositionstart` and
+  `compositionend` events, and by the key event's own `isComposing`.
+
+### Auto width, auto height and fixed text (PAR-175)
+
+A text layer sizes in one of Figma's three ways, picked under Text > Resizing in the inspector (for a text layer; a
+component's text sizes as the component does). The mode is read from the layer's width and height, so it isn't a
+separate setting that could disagree with them, and the resize handles change it as Figma's do.
+
+- **Auto width:** `width: "hug"`. The layer is as wide as its line and never wraps for its parent, only at a maximum
+  width if it has one, as in Figma. It's drawn `width: max-content`, Tailwind's `w-max`; hug on other layers stays
+  `fit-content`.
+- **Auto height:** any other width, or none, and no height. It wraps at its width and grows down. A text layer with no
+  width wraps at the one its layout gives it, so that's auto height too, which is what text added to a layout starts as.
+- **Fixed:** a height as well, a length, a token or fill. It keeps that height whatever the text, and text past it
+  overflows, as in Figma.
+- **Switching keeps it where it's drawn.** Auto width sets hug and drops the height (and the older `grow`). Auto height
+  turns a hugging width into the width it's drawn at, rounded up to whole spacing steps so the text doesn't wrap again,
+  keeps any other width, and drops the height. Fixed does the same for the width and fixes the height it's drawn at,
+  rounded up too, or keeps the one it has. In a column, where the older `grow` fills the height, both drop it too; in a
+  row it fills the width, which they keep. Each is one undo step. Dragging a side handle of auto width text fixes its
+  width, so it becomes auto height; dragging the bottom fixes its height, so it becomes fixed.
+- **Several layers, states and variants.** With several text layers selected, each is measured in its own box, so each
+  keeps its own size, and each one's own parent decides whether `grow` goes. In a selection of text and other layers,
+  Resizing changes only the text. In a state, a variant or an instance, a height or `grow` the design sets would show
+  again if the change only dropped it, so auto width and auto height set the height to hug, and `grow` to false, over
+  it.
+
+Code: what the editor selects, the modes and switching between them are `packages/editor/src/text-editing.ts` (`wordAt`,
+`openingSelection`, `textSizing`, `withTextSizing`). Drawing hug text as `max-content` is `textCss` in
+`packages/core/src/render.ts`. The editor is `apps/desktop/src/renderer/canvas/TextEditor.tsx`: it finds the character
+under the double-click from the text's own ranges, measures the text each frame, and handles the keys. The double-click
+passes its point through `SelectionStore.setEditing` (`selection.ts`), from `canvas/CanvasOverlay.tsx`. The Resizing
+control is `TextResizing` in `chrome/StyleSections.tsx`, and `measure` in `chrome/LayerPanel.tsx` rounds up for it. The
+agent's skill says how text sizes in `packages/cli/skills/document.md`.
+
+Tests:
+
+- `packages/editor/src/text-editing.test.ts` (12): the word holding a character, from any of its letters; a space or
+  punctuation on its own; the end of the text and an empty one; apostrophes and digits kept in a word; the whole text
+  without a point on it; the mode read from widths and heights; each switch, keeping fill and a fixed height; the height
+  set to hug and `grow` to false over the design's in a state; `grow` dropped by auto height and fixed in a column and
+  kept in a row; and every switch landing where `textSizing` reads it back.
+- `packages/core/src/render.test.ts`, sizing: hug text drawn `max-content`, still wrapped by a maximum width, and other
+  widths as before.
+- `apps/desktop/e2e/text.e2e.ts` (7), end to end (PAR-202), on Pricing's subtitle and FAQ heading: a double-click on
+  "upgrade" and on "viewers", on the second line, selects that word; Enter selects the whole text; the editor sits over
+  the text's 560px box, on its two lines, and grows down as it's typed in; it follows the text as the wheel pans and
+  Ctrl and the wheel zoom, with its font scaled to match and the selection kept; Escape keeps the edit as one Edit text
+  step with the layer still selected; Enter and Escape during a composition leave it open and change nothing, and Enter
+  after `compositionend` keeps it; and Resizing switches the heading, fixed at 80px, to auto width on one line, then
+  auto height at the width it's drawn at, then fixed at its height. Six of the seven fail against the code before
+  PAR-175; Enter already selected the whole text.
+
+Gaps: the composition test sends `compositionstart` and `compositionend` itself, so a real input method's keys haven't
+been tried. With several layers selected, Resizing measures each text layer in its own box, changes only the text layers
+of a mixed selection, and reads each one's own parent for `grow`; none of that has a test of its own, as the panel's
+edits are only driven end to end. Clicking two modes within a second makes one undo step, as other edits of the same
+field do. The resize handles changing the mode follows from reading it from the width and height, and has no test of its
+own. A text layer's own new lines, typed with Shift+Enter, are kept in the text but drawn as spaces, since text layers
+don't preserve white space (older than PAR-175). While the editor is open the text under it doesn't reflow as it's typed
+in, so layers after it move only once the edit is kept. Checked in an isolated copy of the app on 2026-10-30: a
+double-click on "upgrade" selected it, the editor followed a wheel pan and a zoom to 110% with "upgrade" still selected,
+Escape kept "grow" as one Edit text step with Lede still selected, and Resizing showed Auto height pressed and switched
+Lede to auto width, which its 560px maximum still wraps.
+
 ## Saving and undo
 
 What goes through Save and Undo, and where an edit lands when the board shows a state or a variant.
@@ -1388,11 +1480,11 @@ as that state's or variant's changes ("changes only this state", "changes only t
 Code: in `packages/core`, `edit.ts` (`nodeOnBoard`, `toggleHidden`, `editNode` keeping the bound param's default in step
 and a state's patch against the board) and `render.ts` (`boardArgs`, which `resolveDesign` gives a board, and
 `paramDefaults`, shared with instances); `instances.ts` (`layerOnBoard`, for one of a design's own layers or one inside
-an instance). In the app, `canvas/CanvasOverlay.tsx` (`TextEditor`), `chrome/arrange.ts` (`toggleHiddenLayers`),
-`chrome/LayerTree.tsx` (the row's hidden mark and its Hide in menu item), `chrome/LayerPanel.tsx` (the layer as the
-board shows it, `BaseDesignNote` in the Image and Instance sections), `chrome/edit-scope.ts` (`baseDesignNote`, the
-note's words), `chrome/prop-values.ts` (`valueKind`, `readValue`) and `chrome/fields.tsx` (`ValueInput`), used by
-`PropsSection.tsx`, `LayerPanel.tsx`'s instance params and `ComponentsSection.tsx`'s defaults.
+an instance). In the app, `canvas/TextEditor.tsx`, `chrome/arrange.ts` (`toggleHiddenLayers`), `chrome/LayerTree.tsx`
+(the row's hidden mark and its Hide in menu item), `chrome/LayerPanel.tsx` (the layer as the board shows it,
+`BaseDesignNote` in the Image and Instance sections), `chrome/edit-scope.ts` (`baseDesignNote`, the note's words),
+`chrome/prop-values.ts` (`valueKind`, `readValue`) and `chrome/fields.tsx` (`ValueInput`), used by `PropsSection.tsx`,
+`LayerPanel.tsx`'s instance params and `ComponentsSection.tsx`'s defaults.
 
 Tests:
 
@@ -1483,12 +1575,16 @@ to draw, so its row shows the number. Beside the name is what the token comes to
 - **Tiles.** The List and Tiles buttons beside the search switch views. Tiles are two across, each a larger preview with
   the name and what it comes to under it. A bare number stays a row, as a tile of only a name says less. The palette
   stays a grid in both.
-- **Copying.** A row's or tile's copy button, which shows in place of the value while the row is hovered or has the
-  keyboard, so the name never gives up room for it, copies the token's name (`radius-md`), which Parity's fields take,
-  and its icon springs into a green check. Ctrl+C (Cmd+C on a Mac) on a row or tile does the same. A palette shade's
-  tooltip is its name, and a click copies it, with a "Copied" bubble, as there's little else to do with one of 242.
-- **Editing.** Clicking a row or tile opens the token's detail (below), where Edit changes it. A palette shade is edited
-  from a search: while searching, the palette's matches list as rows.
+- **Folding.** Each section's title folds it, and again opens it; a folded section keeps its title and count. Starting
+  or clearing a search unfolds every section, so nothing that matches is hidden.
+- **Copying.** A click on a row or tile copies the token's name (`radius-md`), which Parity's fields take, and the row
+  says Copied where its value was, for a moment, so the name never gives up room for a button. A detail a hover opened
+  stays open through the click. Ctrl+C (Cmd+C on a Mac) on a row or tile does the same. A palette shade's tooltip is its
+  name, and a click copies it, with a "Copied" bubble, as there's little else to do with one of 242.
+- **Editing.** Resting the pointer on a row or tile opens the token's detail (below), as a component's card opens, and
+  the right arrow opens it from the keyboard, or moves the keyboard into one a hover opened, past a disabled Edit. Edit
+  in the detail changes the token. A palette shade is edited from a search: while searching, the palette's matches list
+  as rows.
 - **Motion plays only while it's looked at:** a duration, easing or animation runs while its row or tile is hovered or
   has the keyboard, through the Web Animations API, and stops when that ends, so an idle tab runs no animations. With
   reduced motion it holds still. An animation runs the project's own `@keyframes`, read by name from its stylesheet,
@@ -1533,10 +1629,14 @@ Tests:
 - `chrome/token-previews.test.ts` (4): a spacing bar's true and squeezed lengths.
 - `apps/desktop/src/renderer/tokens-store.test.ts` (1 of its 4), in Chrome: an animation's keyframes read from a
   stylesheet, inside `@layer` too, with each step's timing function as its easing.
-- `chrome/TokensPanel.stories.tsx`: AllTokens (no animation running with nothing hovered), Tiles, Copying (the row's
-  button, Ctrl+C, a palette shade), Motion, EditingAPaletteShade (from a search), InvalidValue, UnclosedBracket (a
-  bracket left open and a missing token, refused) and DescribedOnly (the end of the list, drawn once scrolled to). All
-  22 of the file's stories played in Storybook on 2026-10-29.
+- `chrome/TokensPanel.stories.tsx`: AllTokens (no animation running with nothing hovered), FoldedSections (a title folds
+  its section, a search unfolds it), Tiles, Copying (a click on the row, keeping a hovered detail open, Ctrl+C, a
+  palette shade), DetailFromTheKeyboard (the right arrow in and Escape back, past a spacing step's disabled Edit),
+  Motion, EditingAPaletteShade (from a search), InvalidValue, UnclosedBracket (a bracket left open and a missing token,
+  refused) and DescribedOnly (the end of the list, drawn once scrolled to). All 29 of the file's stories played in
+  Storybook on 2026-10-30. Gap: FoldedSections clears the search with the section already open, so no story folds one
+  during a search and then clears it. That clearing unfolds it was checked in the code: the search field's `onChange`
+  empties the folded set whenever the search goes from empty to not, or back.
 - `explorations/previews/TokenPreviews.stories.tsx`: all 18 played on 2026-10-29, drawing with the app's module.
 - `chrome/TokensPanel.stories.tsx` EqualThemes (PAR-435): `chart-3`, equal in Light and Dark, has two swatches in its
   row, its tile and its detail, each named for its theme.
@@ -1552,7 +1652,8 @@ order) and through the core and `token-values.ts` tests above, not in Storybook 
 
 ### A token's detail (PAR-143)
 
-Clicking a token's row or tile opens its detail beside the panel, top to bottom:
+Resting the pointer on a token's row or tile opens its detail beside the panel (the right arrow opens it from the
+keyboard); a click on the row copies the token's name. The detail, top to bottom:
 
 - **A large preview.** A color shows each theme side by side, named. A spacing step is drawn at its true size among up
   to eight of its neighbours on the scale; a duration races the others; an easing is drawn over the rest, faintly; a

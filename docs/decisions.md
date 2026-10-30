@@ -399,6 +399,34 @@ still need your call.
   tldraw's drawn ones.
 - **A duplicated design goes to the first free space to the right along its row,** 160px clear of every design and note,
   as do designs pasted into their own project (CAN-47). Bringing it into view when that's off screen is PAR-204.
+- **The text editor opens on the double-clicked word, or the whole text** (PAR-175). A double-click selects what a
+  browser's would: the word holding the character under the pointer, or the space or punctuation there. Enter, the text
+  tool and the insert picker select the whole text, so typing replaces it.
+- **Escape keeps a text edit, as notes do, and so does Enter** (PAR-175). My call: Enter still keeps it and Shift+Enter
+  types a new line, as before, where Figma's Enter types a new line; text layers here are mostly one line of a
+  component, and a new line is drawn as a space until text layers keep white space. While an input method is composing,
+  Enter and Escape are left to it.
+- **The text editor is measured against the text every frame,** not once (PAR-175), so it follows the camera and the
+  layout. Text that wraps is edited in its content box at its own width; text that stays on one line grows from where
+  its characters are, up to its maximum width.
+- **Text layers size as Figma's do: auto width, auto height or fixed** (PAR-175). The mode is read from the width and
+  height, not stored beside them, so the resize handles change it as Figma's do and nothing can disagree. Each maps to
+  the Tailwind classes Parity writes for those sizes:
+
+  | Mode        | Width and height                                                      | Tailwind                                            |
+  | ----------- | --------------------------------------------------------------------- | --------------------------------------------------- |
+  | Auto width  | `width: "hug"`, no height                                             | `w-max`, and `max-w-*` when it has a maximum        |
+  | Auto height | a length (`w-80`), fill (`w-full` or `flex-1`) or no width, no height | the width's class only; the height follows the text |
+  | Fixed       | a width as for auto height, and a height (`h-12`, a token, or fill)   | the width's class and `h-*`, `h-full` or `flex-1`   |
+
+  My calls: hug on a text layer is drawn `max-content` (`w-max`) rather than the `fit-content` (`w-fit`) hug is on other
+  layers, since auto width text never wraps for its parent, only at a maximum width, as Figma's doesn't. No text layer
+  in the example hugged before this. A text layer with no width wraps at the width its layout gives it, so it reads as
+  auto height, which is what new text in a layout starts as. Switching to auto height or fixed keeps the layer the size
+  it's drawn at, rounded up to whole spacing steps so the text doesn't wrap again (past a thousandth of a step of
+  measuring noise), and in a state or variant auto width and auto height write `height: "hug"` over a height the design
+  sets, since dropping the state's change would leave the design's showing; fixed text that runs past its height
+  overflows, as in Figma.
 
 ## Main components and instances
 
@@ -1546,14 +1574,22 @@ to PAR-209 build it.
 - **The panels hold up when narrow.** You found on 2026-10-29 that the Tokens panel's header ran out of its boxes and
   the open tab's name ran over the next tab. My call: the left panel's least width goes from 200 to 232 pixels, the open
   tab names itself only when there's room, filters drop their counts first, and a row's copy button takes the value's
-  place while it shows rather than keeping room for itself.
-- **Copying a token takes one step, and copies its name,** since you judged it's why most people open the tab: a copy
-  button on each row and tile, Ctrl+C on a row, and a click on a palette shade copy `radius-md`. You chose the name over
-  `var()` on 2026-10-29, since Parity is for designers and vibe coders, who rarely open the code, and the name is what
-  Parity's fields take (they refuse `var()`; PAR-401 makes them take it). You chose the bare name over `--radius-md` the
-  same day, so the panel, the detail's heading, its messages and every copy name a token one way, the way a field
-  expects it. The detail's Copy is a split button: its arrow opens Copy as, with `var()` under CSS and the name under
-  Token.
+  place while it shows rather than keeping room for itself. (The button went with PAR-444, below.)
+- **Copying a token takes one step, and copies its name,** since you judged it's why most people open the tab: a click
+  on a row, tile or palette shade, or Ctrl+C on a row, copies `radius-md`. The row says Copied where its value was, for
+  a moment. You chose the name over `var()` on 2026-10-29, since Parity is for designers and vibe coders, who rarely
+  open the code, and the name is what Parity's fields take (they refuse `var()`; PAR-401 makes them take it). You chose
+  the bare name over `--radius-md` the same day, so the panel, the detail's heading, its messages and every copy name a
+  token one way, the way a field expects it. The detail's Copy is a split button: its arrow opens Copy as, with `var()`
+  under CSS and the name under Token.
+- **A token's detail opens on hover, and a click on its row copies** (PAR-444). You asked on 2026-10-30 for the Tokens
+  panel to work like the component previews: the copy button that showed on hover hid the value, the most important
+  thing in the row. Resting the pointer on a row or tile for half a second opens its detail, which stays while the
+  pointer is on it and, once something in it has focus (as when editing), until a click elsewhere or Escape. The right
+  arrow opens it from the keyboard. The hover card's timing is one hook, `chrome/hover-card.ts`, shared with the
+  component previews.
+- **Each section of the Tokens panel folds** from its title (PAR-443), which you asked for on 2026-10-30. Starting or
+  clearing a search unfolds them all, so matches always show, as the Components panel does.
 - **Every copy says how it went, through two shared parts** in `chrome/Copy.tsx`, which you asked for on 2026-10-29
   after a copy showed nothing: `CopyButton`, whose icon springs into a green check and back, or a red cross with
   "Couldn't copy", and `CopyOnClick`, for things with no room for a button, which raises a "Copied" bubble from what was

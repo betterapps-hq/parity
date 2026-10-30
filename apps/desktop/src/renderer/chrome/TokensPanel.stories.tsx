@@ -47,13 +47,18 @@ async function search(canvasElement: HTMLElement, text: string): Promise<void> {
   await enter(within(canvasElement).getByPlaceholderText("Search tokens"), text)
 }
 
-/** Opens a token's detail from its row, found by the token's name. */
-async function open(canvasElement: HTMLElement, token: string): Promise<HTMLElement> {
+/** A token's row, found by the token's name. */
+function rowOf(canvasElement: HTMLElement, token: string): HTMLElement {
   const canvas = within(canvasElement)
-  const trigger = canvas.queryByRole("button", { name: token }) ?? canvas.getByText(token).closest("button")
-  if (!trigger) throw new Error(`No token named ${token} shows`)
-  await userEvent.click(trigger)
-  return within(document.body).findByRole("dialog")
+  const row = canvas.queryByRole("button", { name: token }) ?? canvas.getByText(token).closest("button")
+  if (!row) throw new Error(`No token named ${token} shows`)
+  return row
+}
+
+/** Opens a token's detail by resting the pointer on its row. */
+async function open(canvasElement: HTMLElement, token: string): Promise<HTMLElement> {
+  await userEvent.hover(rowOf(canvasElement, token))
+  return within(document.body).findByRole("dialog", undefined, { timeout: 2000 })
 }
 
 /** Opens a token's detail and presses Edit, which turns its values into fields. */
@@ -83,6 +88,26 @@ export const AllTokens: Story = {
   }
 }
 
+/**
+ * Folding sections: a section's title folds it to the title alone, and again unfolds it. Starting a search unfolds
+ * every section, so its matches show.
+ */
+export const FoldedSections: Story = {
+  loaders: [openTokens],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const title = await canvas.findByRole("button", { name: /^Semantic colors/ })
+    await expect(title).toHaveAttribute("aria-expanded", "true")
+    await userEvent.click(title)
+    await expect(title).toHaveAttribute("aria-expanded", "false")
+    await waitFor(() => expect(canvas.queryByText("secondary")).not.toBeInTheDocument())
+    await search(canvasElement, "secondary")
+    await canvas.findByText("secondary")
+    await search(canvasElement, "")
+    await userEvent.click(canvas.getByRole("button", { name: /^Palette/ }))
+  }
+}
+
 /** The same tokens as tiles, two across, each a larger preview with its name and what it comes to. */
 export const Tiles: Story = {
   loaders: [openTokens],
@@ -93,8 +118,8 @@ export const Tiles: Story = {
 }
 
 /**
- * Copying a token's name: its row's button, or Ctrl+C on the row, copies it as CSS writes it, and the button turns
- * into a check. A palette shade copies on a click, and says so.
+ * Copying a token's name: a click on its row, or Ctrl+C on it, copies the name, and the row says Copied where its value
+ * was, for a moment, and a detail that's open stays. A palette shade copies on a click, and says so.
  */
 export const Copying: Story = {
   loaders: [openTokens],
@@ -103,10 +128,18 @@ export const Copying: Story = {
     // Stands in for the clipboard while the checks run, then puts it back so the story copies for real.
     const writes = spyOn(navigator.clipboard, "writeText").mockResolvedValue()
     try {
-      await userEvent.click(await canvas.findByRole("button", { name: "Copy primary" }))
+      await canvas.findByText("primary")
+      const row = rowOf(canvasElement, "primary")
+      await userEvent.click(row)
       await expect(writes).toHaveBeenLastCalledWith("primary")
-      await expect(canvas.getByRole("button", { name: "Copy primary" })).toHaveAttribute("data-copied", "copied")
-      canvas.getByText("secondary").closest("button")!.focus()
+      await within(row).findByText("Copied")
+      // A click on a row whose detail a hover opened copies it and leaves the detail open.
+      const dialog = await open(canvasElement, "primary")
+      await userEvent.click(row)
+      await expect(writes).toHaveBeenLastCalledWith("primary")
+      await expect(dialog).toBeInTheDocument()
+      await userEvent.keyboard("{Escape}")
+      rowOf(canvasElement, "secondary").focus()
       await userEvent.keyboard("{Control>}c{/Control}")
       await expect(writes).toHaveBeenLastCalledWith("secondary")
       // The theme's tokens on their own put the palette at the top.
@@ -257,6 +290,39 @@ export const Detail: Story = {
 }
 
 /**
+ * A token's detail from the keyboard: the right arrow on its row opens it with the keyboard inside, and Escape closes it
+ * and gives the keyboard back to the row. Pressed while a hover has the detail open, the arrow moves the keyboard in.
+ */
+export const DetailFromTheKeyboard: Story = {
+  loaders: [openTokens],
+  play: async ({ canvasElement }) => {
+    await within(canvasElement).findByText("primary")
+    const row = rowOf(canvasElement, "primary")
+    row.focus()
+    await userEvent.keyboard("{ArrowRight}")
+    const dialog = await within(document.body).findByRole("dialog")
+    await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement))
+    await userEvent.keyboard("{Escape}")
+    await waitFor(() => expect(row).toHaveFocus())
+    // Opened by a hover, focus stays on the row until the arrow moves it in.
+    await userEvent.hover(row)
+    const hovered = await within(document.body).findByRole("dialog", undefined, { timeout: 2000 })
+    await expect(row).toHaveFocus()
+    await userEvent.keyboard("{ArrowRight}")
+    await waitFor(() => expect(hovered).toContainElement(document.activeElement as HTMLElement))
+    await userEvent.keyboard("{Escape}")
+    // A spacing step's Edit is disabled, so the arrow passes over it to the first control that can take the keyboard.
+    await search(canvasElement, "spacing-4")
+    const step = rowOf(canvasElement, "spacing-4")
+    await userEvent.hover(step)
+    const derived = await within(document.body).findByRole("dialog", undefined, { timeout: 2000 })
+    step.focus()
+    await userEvent.keyboard("{ArrowRight}")
+    await waitFor(() => expect(derived).toContainElement(document.activeElement as HTMLElement))
+  }
+}
+
+/**
  * A color whose value is the same in both themes still shows a swatch for each, in its row, its tile and its detail,
  * so it reads like every other two-theme color: `chart-3` is `oklch(0.439 0 0)` in Light and Dark.
  */
@@ -381,11 +447,8 @@ export const ReferenceLoop: Story = {
     await retype(first, "default", "var(--chart-1)")
     await userEvent.click(within(first).getByRole("button", { name: "Apply" }))
     await within(first).findByText("Applied. Saving writes it to src/index.css.")
-    // Pressing --chart-1's row closes this detail and opens its own, which may overlap as this one animates out.
-    const canvas = within(canvasElement)
-    const row = canvas.queryByRole("button", { name: "chart-1" }) ?? canvas.getByText("chart-1").closest("button")
-    if (!row) throw new Error("No token named chart-1 shows")
-    await userEvent.click(row)
+    // Resting on --chart-1's row opens its own detail; this one stays, as something in it has focus.
+    await userEvent.hover(rowOf(canvasElement, "chart-1"))
     const dialog = await waitFor(() => {
       const found = within(document.body)
         .getAllByRole("dialog")

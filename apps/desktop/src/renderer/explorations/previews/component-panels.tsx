@@ -13,7 +13,7 @@ import {
   StretchHorizontal,
   Type
 } from "lucide-react"
-import { type ReactNode, useRef, useState } from "react"
+import { type ReactNode, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Input } from "@/components/ui/input"
@@ -21,6 +21,7 @@ import { Kbd } from "@/components/ui/kbd"
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Hint } from "../../chrome/Hint.tsx"
+import { useHoverCard } from "../../chrome/hover-card.ts"
 import { ComponentPreview, KindIcon, stateWords } from "./component-art.tsx"
 import { components, groupTitles, type PreviewState, type SampleComponent } from "./preview-data.ts"
 
@@ -40,25 +41,6 @@ function meta(component: SampleComponent): { text: string; tone?: string } | und
   if (variants > 0) return { text: `${Object.keys(component.variants!).join(" and ")}, ${variants} options` }
   if (component.family && component.group !== "kit") return { text: component.family }
   return undefined
-}
-
-/**
- * Opens a card beside an element once the pointer has rested on it, and closes it shortly after the pointer leaves
- * both, so moving down a list doesn't open one per row, and moving onto the card keeps it.
- */
-function useHoverCard(initial: boolean) {
-  const [open, setOpen] = useState(initial)
-  const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
-  const enter = () => {
-    clearTimeout(timer.current)
-    timer.current = setTimeout(() => setOpen(true), 500)
-  }
-  const leave = () => {
-    clearTimeout(timer.current)
-    timer.current = setTimeout(() => setOpen(false), 150)
-  }
-  const stay = () => clearTimeout(timer.current)
-  return { open, setOpen, enter, leave, stay }
 }
 
 /** A component in the panel, in the chosen view, with its card on hover. */

@@ -201,6 +201,26 @@ describe("sizing", () => {
     expect(sized("row", { height: "hug" })).toMatchObject({ height: "fit-content" })
   })
 
+  it("draws a hugging text on its own line, never wrapping for its parent, as Figma's auto width does", () => {
+    const text = (style: DesignNode["style"]) => {
+      const [page] = resolveDesign(
+        { type: "layout", id: "page", children: [{ type: "text", id: "title", text: "Plans", style }] },
+        undefined,
+        "desktop"
+      )
+      if (page?.kind !== "element" || page.children[0]?.kind !== "element") throw new Error("expected elements")
+      return page.children[0].style
+    }
+    expect(text({ width: "hug" }).width).toBe("max-content")
+    // A maximum still wraps it, as it does in Figma.
+    expect(text({ width: "hug", maxWidth: 80 })).toMatchObject({
+      width: "max-content",
+      maxWidth: "calc(var(--spacing) * 80)"
+    })
+    expect(text({ width: 40 }).width).toBe("calc(var(--spacing) * 40)")
+    expect(text({}).width).toBeUndefined()
+  })
+
   it("writes padding per side, appearance and type from tokens", () => {
     expect(
       sized("row", {
