@@ -90,6 +90,7 @@ export function ModesPanel() {
                 <Plus />
               </Button>
             }
+            // oxlint-disable-next-line react/no-unstable-nested-components -- a render callback ViewportPicker calls, not a component
             extra={(close) => (
               <CommandGroup>
                 <CommandItem

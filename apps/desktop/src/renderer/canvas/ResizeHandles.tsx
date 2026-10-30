@@ -37,21 +37,28 @@ export function ResizeHandles({ handles, onStart, onReset }: ResizeHandlesProps)
   const square = 8
   return edges.map((edge) => {
     const corner = edge.length === 2
-    const x = edge.includes("w") ? box.x : edge.includes("e") ? box.x + box.w : box.x + box.w / 2
-    const y = edge.includes("n") ? box.y : edge.includes("s") ? box.y + box.h : box.y + box.h / 2
-    const style: CSSProperties = corner
-      ? {
-          left: x - square / 2,
-          top: y - square / 2,
-          width: square,
-          height: square,
-          background: "white",
-          border: `1.5px solid ${color}`,
-          borderRadius: 2
-        }
-      : edge === "n" || edge === "s"
-        ? { left: box.x + square, top: y - strip / 2, width: Math.max(0, box.w - square * 2), height: strip }
-        : { left: x - strip / 2, top: box.y + square, width: strip, height: Math.max(0, box.h - square * 2) }
+    let x = box.x + box.w / 2
+    if (edge.includes("w")) x = box.x
+    else if (edge.includes("e")) x = box.x + box.w
+    let y = box.y + box.h / 2
+    if (edge.includes("n")) y = box.y
+    else if (edge.includes("s")) y = box.y + box.h
+    let style: CSSProperties
+    if (corner) {
+      style = {
+        left: x - square / 2,
+        top: y - square / 2,
+        width: square,
+        height: square,
+        background: "white",
+        border: `1.5px solid ${color}`,
+        borderRadius: 2
+      }
+    } else if (edge === "n" || edge === "s") {
+      style = { left: box.x + square, top: y - strip / 2, width: Math.max(0, box.w - square * 2), height: strip }
+    } else {
+      style = { left: x - strip / 2, top: box.y + square, width: strip, height: Math.max(0, box.h - square * 2) }
+    }
     return (
       <Hint
         key={edge}

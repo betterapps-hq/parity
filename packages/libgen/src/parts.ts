@@ -132,14 +132,11 @@ export async function relateParts(
   // Values the package makes (`createTreeCollection(...)`), called once each before parts are tried, as the canvas does.
   const made = new Map<unknown, unknown>()
   const byCall = new Map<string, unknown>()
-  const callsIn = (value: unknown): unknown[] =>
-    isMadeValue(value)
-      ? [value]
-      : Array.isArray(value)
-        ? value.flatMap(callsIn)
-        : typeof value === "object" && value !== null
-          ? Object.values(value).flatMap(callsIn)
-          : []
+  const callsIn = (value: unknown): unknown[] => {
+    if (isMadeValue(value)) return [value]
+    if (Array.isArray(value)) return value.flatMap(callsIn)
+    return typeof value === "object" && value !== null ? Object.values(value).flatMap(callsIn) : []
+  }
   for (const use of examples.values()) {
     for (const call of callsIn(use.sample)) {
       const key = JSON.stringify(call)
@@ -172,22 +169,17 @@ export async function relateParts(
     const elements = value.$element.map((item) => build(item))
     return elements.length === 1 ? elements[0] : elements
   }
+  const liveValue = (item: unknown): unknown => {
+    if (isSampleRender(item)) return live(item)
+    if (isSampleElement(item)) return element(item)
+    if (isMadeValue(item)) return made.get(item)
+    // In a list too (Fluent's `columns={[createTableColumn(...)]}`).
+    return Array.isArray(item) && item.some(isMadeValue)
+      ? item.map((each) => (isMadeValue(each) ? made.get(each) : each))
+      : item
+  }
   const liveProps = (props: Record<string, unknown> | undefined) =>
-    Object.fromEntries(
-      Object.entries(props ?? {}).map(([key, item]) => [
-        key,
-        isSampleRender(item)
-          ? live(item)
-          : isSampleElement(item)
-            ? element(item)
-            : isMadeValue(item)
-              ? made.get(item)
-              : // In a list too (Fluent's `columns={[createTableColumn(...)]}`).
-                Array.isArray(item) && item.some(isMadeValue)
-                ? item.map((each) => (isMadeValue(each) ? made.get(each) : each))
-                : item
-      ])
-    )
+    Object.fromEntries(Object.entries(props ?? {}).map(([key, item]) => [key, liveValue(item)]))
   /**
    * A sample child's element. The part being tried takes its sample's props; a child a sample spells out (with props or
    * children) is as written, as the app inserts it, and only a bare one takes its own sample's.
@@ -264,8 +256,8 @@ export async function relateParts(
   /** What an element renders on the server, or undefined when it throws. */
   const markup = (element: unknown): string | undefined => {
     const quiet = [console.error, console.warn]
-    console.error = () => {}
-    console.warn = () => {}
+    console.error = () => undefined
+    console.warn = () => undefined
     try {
       return renderToStaticMarkup(element).replace(/_R_\w+_/g, "")
     } catch {
@@ -281,8 +273,8 @@ export async function relateParts(
       }
     }
     const quiet = [console.error, console.warn]
-    console.error = () => {}
-    console.warn = () => {}
+    console.error = () => undefined
+    console.warn = () => undefined
     try {
       // React Aria draws a collection's parts outside one as placeholders for its collection to read (`<item>`,
       // `<tablebody>`), not the parts.
@@ -609,7 +601,9 @@ export async function relateParts(
       const owner = { ...samples.get(call.owner), ...examples.get(call.owner)?.sample?.props }
       const props: Record<string, unknown> = { ...component.samples }
       for (const [key, passed] of Object.entries(call.props)) {
-        const value = "forward" in passed ? owner[passed.forward] : "value" in passed ? passed.value : undefined
+        let value: unknown
+        if ("forward" in passed) value = owner[passed.forward]
+        else if ("value" in passed) value = passed.value
         if (value !== undefined) props[key] = value
       }
       const before = samples.get(component.name)
@@ -884,8 +878,10 @@ async function trialValue(load: Load, value: unknown): Promise<unknown> {
     return typeof fn === "function" ? (fn as (...args: unknown[]) => unknown)(...args) : undefined
   }
   if (typeof record.$global === "string") return trialValue(load, record.default)
-  if (typeof record.$frame === "string")
-    return record.$frame === "dir" ? "ltr" : record.$frame === "lang" ? "en-US" : undefined
+  if (typeof record.$frame === "string") {
+    if (record.$frame === "dir") return "ltr"
+    return record.$frame === "lang" ? "en-US" : undefined
+  }
   if ("$function" in record) {
     const result = await trialValue(load, record.$function)
     return () => result

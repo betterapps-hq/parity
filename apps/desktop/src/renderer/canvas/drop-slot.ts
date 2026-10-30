@@ -70,7 +70,9 @@ export function slotAt(children: readonly SlotChild[], point: Point, flow: Flow,
   const before = pastEnd ? undefined : line.find((child) => along < (axis.start(child.box) + axis.end(child.box)) / 2)
   const last = line.at(-1)
   // After a line's last child is before the next line's first; after the last line's, the end.
-  const index = before ? before.index : last && line !== lines.at(-1) ? last.index + 1 : count
+  let index = count
+  if (before) index = before.index
+  else if (last && line !== lines.at(-1)) index = last.index + 1
   return { index, line: marker(before, last, row, flow.wraps, layout) }
 }
 
@@ -157,12 +159,16 @@ function marker(
 ): Slot["line"] {
   const reference = before ?? last
   if (row) {
-    const x = before ? before.box.left - 2 : last ? last.box.right + 1 : layout.left + 4
+    let x = layout.left + 4
+    if (before) x = before.box.left - 2
+    else if (last) x = last.box.right + 1
     return reference
       ? { x, y: reference.box.top, w: 2, h: reference.box.bottom - reference.box.top }
       : { x, y: layout.top + 4, w: 2, h: Math.max(8, layout.bottom - layout.top - 8) }
   }
-  const y = before ? before.box.top - 2 : last ? last.box.bottom + 1 : layout.top + 4
+  let y = layout.top + 4
+  if (before) y = before.box.top - 2
+  else if (last) y = last.box.bottom + 1
   return wraps && reference
     ? { x: reference.box.left, y, w: reference.box.right - reference.box.left, h: 2 }
     : { x: layout.left + 4, y, w: Math.max(8, layout.right - layout.left - 8), h: 2 }

@@ -4,7 +4,7 @@ import { expect, userEvent, within } from "storybook/test"
 import { me, people } from "../explore-data.ts"
 import { type CommentData, proposalThread, type ThreadData } from "./collab-data.ts"
 import { Thread } from "./comments.tsx"
-import { CommentPin } from "./pins.tsx"
+import { CommentPin, type PinState } from "./pins.tsx"
 import { Stage } from "./stage.tsx"
 
 /**
@@ -23,15 +23,19 @@ type Story = StoryObj<typeof meta>
 /** What the agent says once it has an answer: done after approving, understood after declining. */
 function followUp(proposing: CommentData): CommentData {
   const approved = proposing.proposal!.status === "approved"
+  let text: string
+  if (approved)
+    text =
+      "Done. Toggle above is a new state on Pricing: the {Billing toggle} sits above the {Plan cards} as a segmented control."
+  else
+    text = proposing.proposal!.reason
+      ? "Understood. I'll leave the toggle where it is, and won't try this again unless someone asks."
+      : "Okay, I'll leave the toggle where it is."
   return {
     id: `${proposing.id}-reply`,
     author: proposing.author,
     when: "Just now",
-    text: approved
-      ? "Done. Toggle above is a new state on Pricing: the {Billing toggle} sits above the {Plan cards} as a segmented control."
-      : proposing.proposal!.reason
-        ? "Understood. I'll leave the toggle where it is, and won't try this again unless someone asks."
-        : "Okay, I'll leave the toggle where it is."
+    text
   }
 }
 
@@ -61,16 +65,15 @@ function Live({ initial, canApprove = true }: { initial: ThreadData; canApprove?
   const [thread, setThread] = useState(initial)
   useAgent(thread, setThread)
   const waiting = thread.comments.some((comment) => comment.proposal?.status === "waiting")
+  let state: PinState = "selected"
+  if (waiting) state = "waiting"
+  else if (thread.working) state = "working"
   return (
     <Stage className="flex items-start gap-4">
       <div className="pt-1">
-        <CommentPin
-          people={[people.maya, people.claude]}
-          replies={thread.comments.length - 1}
-          state={waiting ? "waiting" : thread.working ? "working" : "selected"}
-        />
+        <CommentPin people={[people.maya, people.claude]} replies={thread.comments.length - 1} state={state} />
       </div>
-      <Thread thread={thread} onChange={setThread} canApprove={canApprove} onClose={() => {}} />
+      <Thread thread={thread} onChange={setThread} canApprove={canApprove} onClose={() => undefined} />
     </Stage>
   )
 }
@@ -112,10 +115,10 @@ const decided = (status: "approved" | "declined", reason?: string): ThreadData =
 export const Decided: Story = {
   render: () => (
     <Stage className="flex flex-wrap items-start gap-8">
-      <Thread thread={decided("approved")} onClose={() => {}} />
+      <Thread thread={decided("approved")} onClose={() => undefined} />
       <Thread
         thread={decided("declined", "The toggle needs to stay next to the prices, or people miss it.")}
-        onClose={() => {}}
+        onClose={() => undefined}
       />
     </Stage>
   )

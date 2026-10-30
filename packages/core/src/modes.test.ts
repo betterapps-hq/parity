@@ -18,6 +18,7 @@ describe("default modes", () => {
   })
 
   it("round-trip through the parser", () => {
+    // oxlint-disable-next-line unicorn/prefer-structured-clone -- settings are saved as JSON, so the test goes through it
     expect(parseModeSettings(JSON.parse(JSON.stringify(defaultModeSettings)))).toEqual(defaultModeSettings)
   })
 })

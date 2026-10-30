@@ -262,6 +262,9 @@ function ObjectItems() {
   const design = selectedDesign()
   const instance = selectedInstance()
   const current = activeSession()?.selection.get() ?? {}
+  let makeComponent = "Make component"
+  if (design?.container.kind === "component") makeComponent = "Make it a screen"
+  else if (design) makeComponent = "Make it a component"
   return (
     <>
       <Item command="insert" icon={SquarePlus}>
@@ -272,11 +275,7 @@ function ObjectItems() {
       <Item command="unwrap" icon={Ungroup} />
       <MenubarSeparator />
       <Item command="makeComponent" icon={Diamond}>
-        {design?.container.kind === "component"
-          ? "Make it a screen"
-          : design
-            ? "Make it a component"
-            : "Make component"}
+        {makeComponent}
       </Item>
       <Item command="goToMain" icon={Diamond}>
         {instance ? `Go to ${mainName(instance.node.design)}` : "Go to the main component"}
@@ -356,5 +355,5 @@ function mainName(design: string): string {
 }
 
 function basename(path: string): string {
-  return path.split(/[\\/]/).filter(Boolean).at(-1) ?? path
+  return path.split(/[\\/]/).findLast(Boolean) ?? path
 }

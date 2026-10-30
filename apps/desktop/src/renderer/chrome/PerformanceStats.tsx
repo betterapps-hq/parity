@@ -28,7 +28,8 @@ function percent(value: number): string {
 
 /** Below 50 frames a second is worth a look, below 30 the app feels slow. */
 function fpsTone(fps: number): string {
-  return fps < 30 ? "text-destructive" : fps < 50 ? "text-amber-600 dark:text-amber-400" : "text-foreground"
+  if (fps < 30) return "text-destructive"
+  return fps < 50 ? "text-amber-600 dark:text-amber-400" : "text-foreground"
 }
 
 /**

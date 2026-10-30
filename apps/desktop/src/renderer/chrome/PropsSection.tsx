@@ -1,6 +1,6 @@
 import { type ComponentInfo, type ComponentProp, type DesignNode, isMadeValue } from "@parity/core"
 import { Plus, X } from "lucide-react"
-import { useState } from "react"
+import { type ReactNode, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -60,6 +60,11 @@ export function PropsSection({ node, info, changed, onChange, onReset }: PropsSe
         ))}
         {extra.map((name) => {
           const prop = known.get(name)
+          let input: ReactNode
+          if (isMadeValue(values[name])) input = <MadeValue value={values[name]} />
+          else if (prop)
+            input = <PropInput prop={prop} value={values[name]} onChange={(value) => onChange(name, value)} />
+          else input = <ValueInput value={values[name]} onCommit={(value) => onChange(name, value)} />
           return (
             <div key={name} className="group relative">
               <Field
@@ -68,13 +73,7 @@ export function PropsSection({ node, info, changed, onChange, onReset }: PropsSe
                 onReset={() => onReset(name)}
                 hint={prop ? groupTitles[prop.group as keyof typeof groupTitles] : "Not a prop this component declares"}
               >
-                {isMadeValue(values[name]) ? (
-                  <MadeValue value={values[name]} />
-                ) : prop ? (
-                  <PropInput prop={prop} value={values[name]} onChange={(value) => onChange(name, value)} />
-                ) : (
-                  <ValueInput value={values[name]} onCommit={(value) => onChange(name, value)} />
-                )}
+                {input}
               </Field>
               {!changed(name) && (
                 <button

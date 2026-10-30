@@ -86,12 +86,9 @@ export const Swap: Story = onCanvas(
         const root = example().store.getEntry(design("Sign in"))?.container.root.id
         if (!root || !JSON.stringify(job.tree).includes(`"nodeId":"${root}"`)) return {}
         await new Promise((resolve) => setTimeout(resolve, 3000))
-        const bitmap =
-          job.mode.width < 768
-            ? signInBitmaps.mobile
-            : job.mode.classNames.includes("dark")
-              ? signInBitmaps["desktop-dark"]
-              : signInBitmaps["desktop-light"]
+        let bitmap = signInBitmaps["desktop-light"]
+        if (job.mode.width < 768) bitmap = signInBitmaps.mobile
+        else if (job.mode.classNames.includes("dark")) bitmap = signInBitmaps["desktop-dark"]
         return { png: bitmap.split(",")[1] }
       }
     }),

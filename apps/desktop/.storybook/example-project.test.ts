@@ -57,7 +57,9 @@ beforeAll(async () => {
       errors.push(`404 ${path}`)
       return route.fulfill({ status: 404 })
     }
-    const type = path.endsWith(".js") ? "text/javascript" : path.endsWith(".css") ? "text/css" : undefined
+    let type: string | undefined
+    if (path.endsWith(".js")) type = "text/javascript"
+    else if (path.endsWith(".css")) type = "text/css"
     return route.fulfill({
       ...(type ? { contentType: type } : {}),
       body: file.type === "chunk" ? file.code : Buffer.from(file.source)

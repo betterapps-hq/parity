@@ -71,14 +71,10 @@ const placement = new Set<keyof NodeStyle>([
  * files, an instance's values and the layers inside are left out, as Figma leaves out content.
  */
 export function matchKey(node: DesignNode): string {
-  const kind =
-    node.type === "component"
-      ? `component:${node.component}`
-      : node.type === "instance"
-        ? `instance:${node.design}`
-        : node.type === "text"
-          ? `text:${node.tag ?? ""}`
-          : node.type
+  let kind: string = node.type
+  if (node.type === "component") kind = `component:${node.component}`
+  else if (node.type === "instance") kind = `instance:${node.design}`
+  else if (node.type === "text") kind = `text:${node.tag ?? ""}`
   const style = Object.entries(node.style ?? {})
     .filter(([key, value]) => value !== undefined && !placement.has(key as keyof NodeStyle))
     .toSorted(([a], [b]) => a.localeCompare(b))

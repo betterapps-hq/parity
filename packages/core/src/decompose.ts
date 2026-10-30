@@ -324,17 +324,11 @@ function bindTemplate(node: DesignNode, params: Param[]): DesignNode {
 }
 
 function paramName(slot: Slot, taken: Set<string>): string {
-  const base = camel(
-    slot.node.name ??
-      (slot.node.type === "component" ? slot.node.component : slot.node.type === "text" ? "text" : "item")
-  )
+  const base = camel(slot.node.name ?? kindName(slot.node))
   const prop = slot.field.startsWith("props.") ? slot.field.slice(6) : undefined
-  let name =
-    slot.field === "visible"
-      ? `show${capitalize(base)}`
-      : prop && prop !== "children"
-        ? `${base}${capitalize(prop)}`
-        : base
+  let name = base
+  if (slot.field === "visible") name = `show${capitalize(base)}`
+  else if (prop && prop !== "children") name = `${base}${capitalize(prop)}`
   if (taken.has(name)) {
     let counter = 2
     while (taken.has(`${name}${counter}`)) counter++
@@ -355,6 +349,12 @@ function typeOf(value: unknown): ParamSpec["type"] {
   if (typeof value === "boolean") return "boolean"
   if (typeof value === "number") return "number"
   return "value"
+}
+
+/** What a node is called when it has no name of its own. */
+function kindName(node: DesignNode): string {
+  if (node.type === "component") return node.component
+  return node.type === "text" ? "text" : "item"
 }
 
 function camel(text: string): string {

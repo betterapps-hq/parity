@@ -478,7 +478,7 @@ function tokenStore(info: ProjectInfo, loaded: LoadedGuest, store: DesignStore):
 }
 
 function basename(path: string): string {
-  return path.split(/[\\/]/).filter(Boolean).at(-1) ?? path
+  return path.split(/[\\/]/).findLast(Boolean) ?? path
 }
 
 export const workspace = new Workspace()

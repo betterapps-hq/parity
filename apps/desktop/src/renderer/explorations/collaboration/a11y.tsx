@@ -190,6 +190,14 @@ export function Annotate({
   )
 }
 
+/** 1st, 2nd, 3rd, then 4th onward. */
+function ordinal(n: number): string {
+  if (n === 1) return "1st"
+  if (n === 2) return "2nd"
+  if (n === 3) return "3rd"
+  return `${n}th`
+}
+
 /**
  * A stop in the intended focus order: the element outlined and numbered at its corner, like Show tab order. When the
  * render visits it at another place, that place shows beside the number, in amber.
@@ -223,7 +231,7 @@ export function FocusStop({
         </span>
         {rendered && (
           <span
-            title={`Tab visits it ${rendered === 1 ? "1st" : rendered === 2 ? "2nd" : rendered === 3 ? "3rd" : `${rendered}th`} in the render`}
+            title={`Tab visits it ${ordinal(rendered)} in the render`}
             className="flex h-[18px] items-center gap-0.5 rounded-full bg-[oklch(0.3_0.05_60)] pr-1.5 pl-1 text-[10px] font-semibold text-amber-300 tabular-nums shadow-sm"
           >
             <TriangleAlert className="size-2.5" strokeWidth={2.5} />
@@ -282,6 +290,22 @@ export interface A11yNote {
 export function A11yNoteRow({ note }: { note: A11yNote }) {
   const info = a11yKinds[note.kind]
   const Icon = info.icon
+  let tone: string
+  let mark: ReactNode
+  let detail: ReactNode
+  if (note.status === "matches") {
+    tone = "text-emerald-400"
+    mark = <Check className="size-3" />
+    detail = "Matches the render"
+  } else if (note.status === "differs") {
+    tone = "text-amber-300"
+    mark = <TriangleAlert className="size-3" />
+    detail = note.detail
+  } else {
+    tone = "text-muted-foreground"
+    mark = <CircleDashed className="size-3" />
+    detail = note.detail ?? "Check by hand"
+  }
   return (
     <button type="button" className="flex w-full gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-muted/40">
       <span
@@ -293,21 +317,9 @@ export function A11yNoteRow({ note }: { note: A11yNote }) {
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="text-[13px] font-medium">{note.layer}</span>
         <span className="text-xs text-foreground/80">{note.value}</span>
-        <span
-          className={`flex items-center gap-1 text-xs ${note.status === "matches" ? "text-emerald-400" : note.status === "differs" ? "text-amber-300" : "text-muted-foreground"}`}
-        >
-          {note.status === "matches" ? (
-            <Check className="size-3" />
-          ) : note.status === "differs" ? (
-            <TriangleAlert className="size-3" />
-          ) : (
-            <CircleDashed className="size-3" />
-          )}
-          {note.status === "matches"
-            ? "Matches the render"
-            : note.status === "differs"
-              ? note.detail
-              : (note.detail ?? "Check by hand")}
+        <span className={`flex items-center gap-1 text-xs ${tone}`}>
+          {mark}
+          {detail}
         </span>
       </span>
     </button>

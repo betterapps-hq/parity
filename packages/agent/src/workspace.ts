@@ -1258,13 +1258,10 @@ function applyState(node: DesignNode, state: StateSpec): DesignNode {
 function elide(node: DesignNode, depth: number | undefined, level = 0): unknown {
   if (depth === undefined) return node
   const copy = { ...node } as Values
-  if (node.type === "layout")
-    copy.children =
-      level >= depth
-        ? node.children.length > 0
-          ? ["…"]
-          : []
-        : node.children.map((child) => elide(child, depth, level + 1))
+  if (node.type === "layout") {
+    if (level < depth) copy.children = node.children.map((child) => elide(child, depth, level + 1))
+    else copy.children = node.children.length > 0 ? ["…"] : []
+  }
   if (node.type === "component" && node.slots) {
     copy.slots = Object.fromEntries(
       Object.entries(node.slots).map(([slot, nodes]) => [

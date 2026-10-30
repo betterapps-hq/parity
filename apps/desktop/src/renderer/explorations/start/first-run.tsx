@@ -54,7 +54,7 @@ export function FirstRunPage() {
           <div className="flex flex-col gap-1">
             <h1 className="text-2xl font-semibold tracking-tight">Welcome to Parity, Andrew</h1>
             <p className="text-sm text-muted-foreground">
-              Design with your app's real components, beside your team and your agents.
+              Design with your app&apos;s real components, beside your team and your agents.
             </p>
           </div>
           <div className="flex items-center gap-2">

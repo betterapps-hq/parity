@@ -19,6 +19,7 @@ to npm and of unsigned installers to GitHub Releases, as betas first and to ever
   `pnpm dev`.
 - **Only the desktop app and the CLI are versioned,** from Beachball change files (PAR-4). The packages they bundle stay
   `private`, and the CLI still runs from source.
+- **The agency monorepo's stricter lint rules are on** (PAR-396), apart from the three left out below.
 - **Hooks check what a commit stages and what a push sends** (PAR-3), so other sessions' unfinished work no longer fails
   a commit. `pnpm verify` still checks the whole folder.
 
@@ -262,8 +263,8 @@ The agency monorepo (`D:\agency`) is set up the same way. What Parity takes from
   (PAR-2, PAR-394, PAR-11).
 - **knip for unused files, dependencies and exports** (PAR-395), which matters more as code moves into packages.
 - **Its stricter lint rules** (PAR-396), without `curly` (2,623 hits: Parity writes one-line `if (x) return`),
-  `no-console` (the CLI and scripts print) and `no-bitwise`. That leaves about 250 to fix, most of them nested
-  ternaries.
+  `no-console` (the CLI and scripts print) and `no-bitwise`. They flagged 261 places, 158 of them nested ternaries, all
+  fixed when the rules went on.
 - **pnpm's `verifyDepsBeforeRun: error`,** so a script stops when another session changed the dependencies without
   installing them, and **shared versions in a pnpm catalog** (both in PAR-1).
 - **Editor settings in `.vscode`:** the oxc extension formatting on save, and TypeScript's native preview (PAR-1).

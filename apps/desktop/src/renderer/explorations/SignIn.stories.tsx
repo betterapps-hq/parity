@@ -222,7 +222,7 @@ function Showcase() {
             <ParityMark size={40} />
             <div className="flex flex-col gap-1.5">
               <h1 className="text-2xl font-semibold tracking-tight">Welcome to Parity</h1>
-              <p className="text-sm text-muted-foreground">Sign in to open your team's projects.</p>
+              <p className="text-sm text-muted-foreground">Sign in to open your team&apos;s projects.</p>
             </div>
           </div>
           <SignInForm />
@@ -238,12 +238,16 @@ export const LiveCanvas: Story = { render: () => <Showcase /> }
 
 type Step = "email" | "sso" | "code"
 
+/** The email already typed when a story starts at a step: none, a company's, or a personal one. */
+function startingEmail(step: Step): string {
+  if (step === "email") return ""
+  return step === "sso" ? "andrew@buildkit.dev" : "andrew@hey.com"
+}
+
 /** One question at a time: an email first, and WorkOS decides what comes next. */
 function EmailFirst({ initial }: { initial: Step }) {
   const [step, setStep] = useState<Step>(initial)
-  const [email, setEmail] = useState(
-    initial === "email" ? "" : initial === "sso" ? "andrew@buildkit.dev" : "andrew@hey.com"
-  )
+  const [email, setEmail] = useState(startingEmail(initial))
   return (
     <ExploreWindow>
       <div className="flex h-full flex-col items-center justify-center px-6" style={glow}>
@@ -258,8 +262,10 @@ function EmailFirst({ initial }: { initial: Step }) {
               }}
             >
               <div className="flex flex-col gap-1.5">
-                <h1 className="text-2xl font-semibold tracking-tight">What's your email?</h1>
-                <p className="text-sm text-muted-foreground">We'll sign you in, or set you up if you're new.</p>
+                <h1 className="text-2xl font-semibold tracking-tight">What&apos;s your email?</h1>
+                <p className="text-sm text-muted-foreground">
+                  We&apos;ll sign you in, or set you up if you&apos;re new.
+                </p>
               </div>
               <div className="flex gap-2">
                 <Input
@@ -293,7 +299,7 @@ function EmailFirst({ initial }: { initial: Step }) {
               <div className="flex flex-col gap-1.5">
                 <h1 className="text-2xl font-semibold tracking-tight">Buildkit uses single sign-on</h1>
                 <p className="text-sm text-muted-foreground">
-                  {email} signs in through your company's Okta, so your access follows your company account.
+                  {email} signs in through your company&apos;s Okta, so your access follows your company account.
                 </p>
               </div>
               <div className="flex items-center gap-3 rounded-xl border bg-card p-4">
@@ -385,7 +391,7 @@ export const WaitingForBrowser: Story = {
         <div className="flex max-w-sm flex-col items-center gap-2 text-center">
           <h1 className="text-xl font-semibold tracking-tight">Continue in your browser</h1>
           <p className="text-sm text-muted-foreground">
-            We opened Google sign-in in your browser. When you're done there, you'll come straight back here.
+            We opened Google sign-in in your browser. When you&apos;re done there, you&apos;ll come straight back here.
           </p>
         </div>
         <div className="flex gap-2">

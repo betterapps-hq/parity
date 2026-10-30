@@ -599,14 +599,10 @@ export class DesignStore {
 
   private refreshSaveState(): void {
     const failure = this.failure()
-    const next: SaveState =
-      this.writing.size > 0
-        ? { status: "saving" }
-        : failure
-          ? { status: "failed", error: failure }
-          : this.hasUnsaved()
-            ? { status: "unsaved" }
-            : { status: "saved" }
+    let next: SaveState
+    if (this.writing.size > 0) next = { status: "saving" }
+    else if (failure) next = { status: "failed", error: failure }
+    else next = this.hasUnsaved() ? { status: "unsaved" } : { status: "saved" }
     const same =
       next.status === this.saveState.status &&
       (next.status !== "failed" || (this.saveState.status === "failed" && this.saveState.error === next.error))

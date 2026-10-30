@@ -64,15 +64,16 @@ export function PresenceAvatar({ here, size = 26, following }: { here: Here; siz
 /** Who someone is, where they are and what they're doing, with Follow and Go to. Opens from their avatar. */
 export function PresenceCard({ here, following }: { here: Here; following?: boolean }) {
   const palette = paletteOf(here.person)
+  let role: string
+  if (here.away) role = `Away for ${here.away}`
+  else role = here.person.agent ? "Agent, connected through MCP" : "Editor"
   return (
     <div className="flex w-72 flex-col gap-3 text-popover-foreground">
       <div className="flex items-center gap-3">
         <Avatar person={here.person} size={36} className={here.away ? "opacity-60" : ""} />
         <div className="flex min-w-0 flex-col">
           <span className="truncate text-sm font-medium">{here.person.name}</span>
-          <span className="truncate text-xs text-muted-foreground">
-            {here.away ? `Away for ${here.away}` : here.person.agent ? "Agent, connected through MCP" : "Editor"}
-          </span>
+          <span className="truncate text-xs text-muted-foreground">{role}</span>
         </div>
       </div>
       <div className="flex flex-col gap-1.5 rounded-lg bg-muted/50 px-3 py-2 text-xs">
@@ -232,7 +233,7 @@ export function Spotlight({ presenter, following }: { presenter: Person; followi
       <div className="flex w-fit items-center gap-3 rounded-xl border bg-popover py-2 pr-2 pl-3 text-sm shadow-xl">
         <MonitorPlay className="size-4" style={{ color: palette.color }} />
         <span>
-          <span className="font-medium">You're presenting.</span>{" "}
+          <span className="font-medium">You&apos;re presenting.</span>{" "}
           <span className="text-muted-foreground">{following?.length ?? 0} people are following you.</span>
         </span>
         <Button size="sm" variant="secondary">

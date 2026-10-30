@@ -72,11 +72,9 @@ export function TrackerMark({ id, size = 16, className = "" }: { id: TrackerId; 
 
 /** An issue's status as its tracker words it: grey while open, amber while someone's on it, violet once done. */
 function IssueStatus({ status }: { status: LinkedIssue["status"] }) {
-  const tone = status.done
-    ? "bg-[oklch(0.62_0.18_300/0.18)] text-[oklch(0.8_0.12_300)]"
-    : status.active
-      ? "bg-[oklch(0.8_0.14_75/0.16)] text-[oklch(0.85_0.12_75)]"
-      : "bg-muted text-muted-foreground"
+  let tone = "bg-muted text-muted-foreground"
+  if (status.done) tone = "bg-[oklch(0.62_0.18_300/0.18)] text-[oklch(0.8_0.12_300)]"
+  else if (status.active) tone = "bg-[oklch(0.8_0.14_75/0.16)] text-[oklch(0.85_0.12_75)]"
   return <span className={`shrink-0 rounded-full px-1.5 py-px text-[11px] font-medium ${tone}`}>{status.label}</span>
 }
 
@@ -133,6 +131,13 @@ function suggestedTitle(thread: ThreadData): string {
 }
 
 let nextNumber = 142
+
+/** What a tracker calls the place an issue goes. */
+function placeLabel(id: TrackerId): string {
+  if (id === "github") return "Repository"
+  if (id === "linear") return "Team"
+  return "Project"
+}
 
 function newKey(tracker: Tracker, place: string): string {
   const number = nextNumber++
@@ -246,9 +251,7 @@ export function IssueDialog({
           {mode === "create" ? (
             <>
               <div className="flex flex-col gap-1.5">
-                <Label className="text-xs text-muted-foreground">
-                  {tracker.id === "github" ? "Repository" : tracker.id === "linear" ? "Team" : "Project"}
-                </Label>
+                <Label className="text-xs text-muted-foreground">{placeLabel(tracker.id)}</Label>
                 <Select value={place} onValueChange={setPlace}>
                   <SelectTrigger className="w-full">
                     <SelectValue />
@@ -340,7 +343,7 @@ export function OrgTrackers({ added, onChange }: { added: Tracker[]; onChange(ad
       <div className="flex flex-col gap-0.5 border-b px-4 py-3">
         <span className="text-sm font-medium">Issue trackers</span>
         <span className="text-xs text-muted-foreground">
-          Threads in Kestrel's projects can become issues in these. Admins add and remove them.
+          Threads in Kestrel&apos;s projects can become issues in these. Admins add and remove them.
         </span>
       </div>
       <div className="flex flex-col p-1.5">

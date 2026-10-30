@@ -70,14 +70,10 @@ function Button({ variant = "default", children = "Button" }: { variant?: string
 }
 
 function Badge({ variant = "default", children = "Badge" }: { variant?: string; children?: ReactNode }) {
-  const tone =
-    variant === "outline"
-      ? "border border-(--a-border)"
-      : variant === "secondary"
-        ? "bg-(--a-muted)"
-        : variant === "destructive"
-          ? "bg-(--a-destructive) text-white"
-          : "bg-(--a-primary) text-(--a-primary-fg)"
+  let tone = "bg-(--a-primary) text-(--a-primary-fg)"
+  if (variant === "outline") tone = "border border-(--a-border)"
+  else if (variant === "secondary") tone = "bg-(--a-muted)"
+  else if (variant === "destructive") tone = "bg-(--a-destructive) text-white"
   return (
     <span className={`inline-flex h-[22px] items-center rounded-md px-2 text-xs font-medium whitespace-nowrap ${tone}`}>
       {children}
@@ -429,6 +425,8 @@ export function BitmapStandIn({
   const least = width < 160 ? 0.2 : 0
   const cropped = !page && fit < least
   const scale = page ? width / naturalWidth : Math.max(fit, least)
+  let left = 0
+  if (!page) left = cropped ? pad : (width - naturalWidth * scale) / 2
   return (
     <span
       aria-hidden
@@ -443,7 +441,7 @@ export function BitmapStandIn({
           ...look,
           width: naturalWidth,
           height: Math.max(naturalHeight, 1),
-          left: page ? 0 : cropped ? pad : (width - naturalWidth * scale) / 2,
+          left,
           top:
             page || (cropped && naturalHeight * scale > height)
               ? pad
@@ -489,7 +487,9 @@ const stateTones: Partial<Record<PreviewState, string>> = {
 
 /** The icon a component's kind has everywhere: a diamond for a component design, a page for a page. */
 export function KindIcon({ component, className = "size-3.5" }: { component: SampleComponent; className?: string }) {
-  const Icon = component.group === "designs" ? Diamond : component.group === "pages" ? MonitorSmartphone : ComponentIcon
+  let Icon = ComponentIcon
+  if (component.group === "designs") Icon = Diamond
+  else if (component.group === "pages") Icon = MonitorSmartphone
   return (
     <Icon
       className={`${className} shrink-0`}

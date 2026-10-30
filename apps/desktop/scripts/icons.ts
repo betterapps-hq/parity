@@ -23,7 +23,7 @@ try {
   const page = await browser.newPage()
 
   /** Draws an icon at a size, inside a margin on each side. */
-  async function draw(svg: string, size: number, margin = 0): Promise<Drawn> {
+  const draw = async (svg: string, size: number, margin = 0): Promise<Drawn> => {
     // Drawn at the size it's shown, rather than scaled from the size its file gives.
     const inner = size - margin * 2
     const source = svg.replace(/ width="\d+" height="\d+"/, ` width="${inner}" height="${inner}"`)

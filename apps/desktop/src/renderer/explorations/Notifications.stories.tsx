@@ -124,7 +124,7 @@ function ToastDemo() {
     <ExploreWindow tabs={tabs} active="dashboard" actions={<TitleBarActions />}>
       <Project>
         <div className="absolute top-[30%] left-[40%] z-10">
-          <Thread thread={thread("toggle")} onClose={() => {}} />
+          <Thread thread={thread("toggle")} onClose={() => undefined} />
         </div>
       </Project>
       {shown && (

@@ -37,14 +37,8 @@ export function shiftInsets(
     ["top", "bottom", dy]
   ] as const) {
     if (by === 0) continue
-    const placed: Side[] =
-      style[start] === undefined
-        ? style[end] === undefined
-          ? [start]
-          : [end]
-        : style[end] === undefined
-          ? [start]
-          : [start, end]
+    let placed: Side[] = [start]
+    if (style[end] !== undefined) placed = style[start] === undefined ? [end] : [start, end]
     const at = (side: Side): number | undefined => {
       const value = style[side]
       if (typeof value === "number") return value

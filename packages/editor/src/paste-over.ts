@@ -56,9 +56,7 @@ export function placeOver(
   nodes: readonly DesignNode[],
   state: StateSpec
 ): { container: ContainerSpec; copies: string[] } {
-  const target = topmostNodes(container.root, ids)
-    .filter((node) => node.id !== container.root.id)
-    .at(-1)
+  const target = topmostNodes(container.root, ids).findLast((node) => node.id !== container.root.id)
   const location = target && locateNode(container.root, target.id)
   const parent = location?.ancestors.at(-1)
   if (!location || !parent) return { container, copies: [] }

@@ -271,7 +271,7 @@ export function createGuest(init: GuestInit): Guest {
       else byValue.set(value, [name])
     }
     list = { names: [], aliases: {} }
-    const shorter = (a: string, b: string) => a.length - b.length || (a < b ? -1 : a > b ? 1 : 0)
+    const shorter = (a: string, b: string) => a.length - b.length || byCodeUnit(a, b)
     for (const group of byValue.values()) {
       const kept = group.filter((name) => match.test(name)).sort(shorter)[0]
       if (!kept) continue
@@ -487,6 +487,12 @@ export function createGuest(init: GuestInit): Guest {
       }
     }
   }
+}
+
+/** Compares two strings by their UTF-16 code units, as `sort` does without a comparer. */
+function byCodeUnit(a: string, b: string): number {
+  if (a < b) return -1
+  return a > b ? 1 : 0
 }
 
 /** Tells a frame's node index that React committed the frame, which can move a node's id to other DOM. */

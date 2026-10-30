@@ -131,6 +131,9 @@ function StateRow({
   onDelete
 }: StateRowProps) {
   const changes = changeCount(state)
+  let summary = `${changes} change${changes === 1 ? "" : "s"}`
+  if (base) summary = "Base"
+  else if (changes === 0) summary = "No changes"
   return (
     <li
       className={`group flex h-8 items-center gap-1 rounded-md pr-1 text-sm ${
@@ -164,9 +167,7 @@ function StateRow({
           <span className="min-w-0 flex-1 truncate">{state.name}</span>
         </button>
       )}
-      <span className="shrink-0 px-1 text-xs text-muted-foreground">
-        {base ? "Base" : changes === 0 ? "No changes" : `${changes} change${changes === 1 ? "" : "s"}`}
-      </span>
+      <span className="shrink-0 px-1 text-xs text-muted-foreground">{summary}</span>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button

@@ -141,7 +141,7 @@ export const LostTheirPlace: Story = {
             <span className="text-xs text-white/45">{label}</span>
             <div className="flex items-start gap-3">
               <div className="pt-1">{pin}</div>
-              <Thread thread={lostThread} onClose={() => {}} />
+              <Thread thread={lostThread} onClose={() => undefined} />
             </div>
           </div>
         ))}

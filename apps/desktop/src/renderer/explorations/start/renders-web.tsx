@@ -855,7 +855,7 @@ export function SignIn({ look }: { look: Look }) {
         </span>
         <div className="relative flex max-w-[560px] flex-col gap-6">
           <p className={`text-[34px] leading-snug font-medium tracking-tight ${display}`}>
-            “We shipped billing in a week, not a quarter. It's the first tool our whole team opens every morning.”
+            “We shipped billing in a week, not a quarter. It&apos;s the first tool our whole team opens every morning.”
           </p>
           <span className="flex items-center gap-3 text-[15px]">
             <Face name="Dana Ortiz" hue={20} size={40} />
@@ -978,7 +978,7 @@ export function Docs({ look }: { look: Look }) {
           </div>
           <h2 className="pt-2 text-[22px] font-semibold tracking-tight">Add a custom domain</h2>
           <p className="text-(--r-muted)">
-            Point your domain's DNS at {orgOf(look)}, and its certificates renew on their own.
+            Point your domain&apos;s DNS at {orgOf(look)}, and its certificates renew on their own.
           </p>
         </article>
         <aside className="flex w-[220px] shrink-0 flex-col gap-2 py-10 text-[13px] text-(--r-muted)">
@@ -1122,7 +1122,7 @@ export function Inbox({ look }: { look: Look }) {
             <div className="flex flex-col gap-1">
               <span className="rounded-2xl rounded-tl-md bg-(--r-raised) px-4 py-3 leading-relaxed">
                 Hi, my order arrived damaged. The glass on the lamp is cracked. Can I get a replacement before Friday?
-                It's a gift.
+                It&apos;s a gift.
               </span>
               <span className="text-[12px] text-(--r-faint)">9:41 AM</span>
             </div>
@@ -1135,8 +1135,8 @@ export function Inbox({ look }: { look: Look }) {
               <Sparkles className="size-4" /> Copilot drafted a reply
             </span>
             <p className="leading-relaxed">
-              I'm so sorry the lamp arrived cracked, Maria. I've sent a replacement by express shipping, so it arrives
-              Thursday, before Friday. You don't need to send the damaged one back.
+              I&apos;m so sorry the lamp arrived cracked, Maria. I&apos;ve sent a replacement by express shipping, so it
+              arrives Thursday, before Friday. You don&apos;t need to send the damaged one back.
             </p>
             <span className="flex gap-1.5 text-[12px]">
               {["Returns policy", "Order #4821", "Express shipping"].map((source) => (

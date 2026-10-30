@@ -139,7 +139,9 @@ function wordScore(word: string, icon: Indexed, near?: Map<string, number>): num
 
 /** The set's words a typo away from one of the query's: one edit for five letters or more, two for eight or more. */
 function typosOf(index: IconIndex, word: string): Map<string, number> {
-  const allowed = word.length >= 8 ? 2 : word.length >= 5 ? 1 : 0
+  let allowed = 0
+  if (word.length >= 8) allowed = 2
+  else if (word.length >= 5) allowed = 1
   const near = new Map<string, number>()
   if (!allowed) return near
   for (const known of index.vocabulary) {

@@ -557,7 +557,9 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
   for (const id of layers) {
     const node = findLayer(store, entry!.container, id)
     // Inside an instance everything is the component's, so it's drawn in the component's color.
-    const color = isInnerPath(id) ? kindColors.component : node ? nodeColor(node) : kindColors.layer
+    let color: string = kindColors.layer
+    if (isInnerPath(id)) color = kindColors.component
+    else if (node) color = nodeColor(node)
     for (const { host, rect, picked: isPicked } of nodeInFrames(area, entry!.key, id, picked)) {
       model.outlines.push({
         key: `sel:${id}:${host.dataset.mode}:${host.dataset.state}`,
@@ -786,12 +788,9 @@ function layoutColumns(area: HTMLElement, zoom: number, toBox: (rect: DOMRect) =
     if (rect.right < view.left || rect.left > view.right || rect.bottom < view.top || rect.top > view.bottom) continue
     const scale = zoom * frameScale(host)
     const width = rect.width / scale
-    const grid =
-      width < 600
-        ? { count: 4, margin: 16, gutter: 16 }
-        : width < 1024
-          ? { count: 8, margin: 24, gutter: 24 }
-          : { count: 12, margin: 32, gutter: 24 }
+    let grid = { count: 12, margin: 32, gutter: 24 }
+    if (width < 600) grid = { count: 4, margin: 16, gutter: 16 }
+    else if (width < 1024) grid = { count: 8, margin: 24, gutter: 24 }
     const column = (width - grid.margin * 2 - grid.gutter * (grid.count - 1)) / grid.count
     if (column <= 0) continue
     for (let index = 0; index < grid.count; index++) {

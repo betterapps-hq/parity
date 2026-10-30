@@ -252,11 +252,10 @@ export function CanvasEditor({ onEditor }: { onEditor(editor: Editor | undefined
       })
       const followSelection = () => {
         const current = selection.get()
-        const keys = current.note
-          ? [current.note]
-          : current.design && (current.node || current.mode)
-            ? [current.design]
-            : selectedDesigns(current)
+        let keys: string[]
+        if (current.note) keys = [current.note]
+        else if (current.design && (current.node || current.mode)) keys = [current.design]
+        else keys = selectedDesigns(current)
         const wanted = keys.map(shapeIdFor).filter((id) => editor.getShape(id))
         const ids = editor.getSelectedShapeIds()
         if (ids.length !== wanted.length || ids.some((id, index) => id !== wanted[index])) {
@@ -264,13 +263,10 @@ export function CanvasEditor({ onEditor }: { onEditor(editor: Editor | undefined
         }
         // Each kind of thing has its own selection color.
         const entry = current.design ? store.getEntry(current.design) : undefined
-        const color = current.node
-          ? kindColors.layer
-          : current.mode
-            ? kindColors.mode
-            : entry
-              ? designColor(entry.container.kind)
-              : kindColors.screen
+        let color: string = kindColors.screen
+        if (current.node) color = kindColors.layer
+        else if (current.mode) color = kindColors.mode
+        else if (entry) color = designColor(entry.container.kind)
         setSelectionColor(editor, color)
       }
       const stopFollowing = selection.subscribe(followSelection)

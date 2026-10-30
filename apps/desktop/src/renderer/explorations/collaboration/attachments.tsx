@@ -12,7 +12,7 @@ import {
   TriangleAlert,
   X
 } from "lucide-react"
-import { useEffect, useState } from "react"
+import { type ReactNode, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
 import { accent, MiniScreen } from "../parts.tsx"
@@ -58,7 +58,9 @@ export function AttachmentChip({
 }) {
   const kind = fileKind(attachment.name)
   const Icon = attachment.error ? TriangleAlert : kind.icon
-  const color = attachment.error ? "oklch(0.72 0.17 30)" : kind.hue ? accent(kind.hue, 0.75, 0.13) : undefined
+  let color: string | undefined
+  if (attachment.error) color = "oklch(0.72 0.17 30)"
+  else if (kind.hue) color = accent(kind.hue, 0.75, 0.13)
   const uploading = attachment.progress !== undefined
   return (
     <div
@@ -113,15 +115,11 @@ function Progress({ value }: { value: number }) {
 
 /** The picture itself: a file you attached, or a made-up screen for the explorations. */
 function Picture({ attachment, className = "" }: { attachment: Attachment; className?: string }) {
-  return (
-    <span className={`relative block overflow-hidden bg-muted ${className}`}>
-      {attachment.url ? (
-        <img src={attachment.url} alt={attachment.name} className="absolute inset-0 size-full object-cover" />
-      ) : attachment.screen ? (
-        <MiniScreen {...attachment.screen} />
-      ) : null}
-    </span>
-  )
+  let picture: ReactNode = null
+  if (attachment.url)
+    picture = <img src={attachment.url} alt={attachment.name} className="absolute inset-0 size-full object-cover" />
+  else if (attachment.screen) picture = <MiniScreen {...attachment.screen} />
+  return <span className={`relative block overflow-hidden bg-muted ${className}`}>{picture}</span>
 }
 
 /** A picture waiting to be sent: a small preview, a bar while it uploads, and remove. */

@@ -37,7 +37,8 @@ function Code({ children }: { children: ReactNode }) {
 
 /** You, someone's first name, or an agent's whole name. */
 function who(person: { name: string; agent?: boolean }): string {
-  return person === me ? "you" : person.agent ? person.name : person.name.split(" ")[0]!
+  if (person === me) return "you"
+  return person.agent ? person.name : person.name.split(" ")[0]!
 }
 
 function capital(text: string): string {
@@ -99,14 +100,9 @@ function CodeCell({ board }: { board: Deliverable }) {
     return (
       <Cell top={<span className="text-muted-foreground">Nobody yet</span>} bottom={board.issue ?? "Not tracked"} />
     )
-  const top =
-    code.doing === "Building"
-      ? code.who === me
-        ? "You're building it"
-        : `${who(code.who)} is building it`
-      : code.doing === "Built"
-        ? `Built by ${who(code.who)}`
-        : "Already in code"
+  let top: string
+  if (code.doing === "Building") top = code.who === me ? "You're building it" : `${who(code.who)} is building it`
+  else top = code.doing === "Built" ? `Built by ${who(code.who)}` : "Already in code"
   return <Cell avatar={code.who} top={top} bottom={code.pr ? <PullRequestLink pr={code.pr} /> : code.when} />
 }
 
@@ -205,7 +201,8 @@ function Detail({ board }: { board: Deliverable }) {
           {board.approved && (
             <span className="flex items-center gap-2 text-xs text-muted-foreground">
               <Avatar person={board.approved.who} size={16} />
-              {capital(who(board.approved.who))} approved v{board.version}, as it's drawn here, {board.approved.when}
+              {capital(who(board.approved.who))} approved v{board.version}, as it&apos;s drawn here,{" "}
+              {board.approved.when}
             </span>
           )}
         </div>
@@ -229,7 +226,7 @@ function Detail({ board }: { board: Deliverable }) {
               ))}
               <span className="flex items-center gap-2 text-xs" style={{ color: violet }}>
                 <TriangleAlert className="size-3.5 shrink-0" />
-                Jonas's question on the toggle, on phones, is still open
+                Jonas&apos;s question on the toggle, on phones, is still open
               </span>
             </div>
           </Part>
@@ -285,8 +282,8 @@ function Detail({ board }: { board: Deliverable }) {
                 {latest && (
                   <span>
                     Keep building v{board.version} as approved, or wait for v{latest}:{" "}
-                    {board.since?.at(-1)?.ready?.reviewer.name} reviews it, and you hear when it's approved. Drafts
-                    don't reach you; versions marked ready do.
+                    {board.since?.at(-1)?.ready?.reviewer.name} reviews it, and you hear when it&apos;s approved. Drafts
+                    don&apos;t reach you; versions marked ready do.
                   </span>
                 )}
               </span>

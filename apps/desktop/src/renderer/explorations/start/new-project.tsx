@@ -421,6 +421,12 @@ function slugOf(name: string): string {
     .replaceAll(/^-|-$/g, "")
 }
 
+/** The physics a template starts with, from what it adds. */
+function startingPhysics(adds: readonly string[]): string {
+  if (adds.includes("Rapier 3D")) return "Rapier 3D"
+  return adds.includes("Arcade physics") ? "Arcade" : "None"
+}
+
 /** A template picked: its designs beside the questions it still has, then Create. */
 function TemplateSetup({ template, onBack }: { template: Template; onBack(): void }) {
   const stack = findStack(template.stack)
@@ -431,9 +437,7 @@ function TemplateSetup({ template, onBack }: { template: Template; onBack(): voi
   const [mode, setMode] = useState(template.mode ?? stack.modes[0] ?? "")
   const [database, setDatabase] = useState(template.database ?? "None")
   const [jobs, setJobs] = useState(template.jobs ?? "None")
-  const [physics, setPhysics] = useState(
-    template.adds.includes("Rapier 3D") ? "Rapier 3D" : template.adds.includes("Arcade physics") ? "Arcade" : "None"
-  )
+  const [physics, setPhysics] = useState(startingPhysics(template.adds))
   const start = useStart()
   const chosen = audiences.find((candidate) => candidate.id === audience)!
   const owner = org === "kestrel" ? "kestrel" : "andrew-craswell"
@@ -548,7 +552,7 @@ function TemplateSetup({ template, onBack }: { template: Template; onBack(): voi
           </Field>
           {template.audience && (
             <fieldset className="flex flex-col">
-              <legend className="mb-2 text-sm font-medium">Who it's for</legend>
+              <legend className="mb-2 text-sm font-medium">Who it&apos;s for</legend>
               <RadioGroup
                 value={audience}
                 onValueChange={(value) => setAudience(value as AudienceId)}
@@ -799,7 +803,7 @@ function FromProject({ initial }: { initial: string }) {
             ))}
           </fieldset>
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Comments, history and who it's shared with stay with {chosen.name}.
+            Comments, history and who it&apos;s shared with stay with {chosen.name}.
           </p>
         </div>
         <footer className="border-t p-4">

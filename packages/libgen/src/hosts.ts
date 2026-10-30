@@ -152,6 +152,12 @@ interface Params {
   items: Set<string>
 }
 
+/** The expression an attribute gives: `{expression}` or a string. */
+function attributeExpression(value: ts.JsxAttributeValue | undefined): ts.Expression | undefined {
+  if (value && ts.isJsxExpression(value)) return value.expression
+  return value && ts.isStringLiteral(value) ? value : undefined
+}
+
 function paramsOf(node: ts.Node): Params {
   const params: Params = { locals: new Map(), objects: new Set(), items: new Set() }
   // The function itself, or the one a call wraps (`forwardRef(function (props, ref) {...})`).
@@ -189,10 +195,7 @@ function passedProps(node: ts.Node, params: Params): Record<string, PassedProp> 
     for (const attribute of node.attributes.properties) {
       if (!ts.isJsxAttribute(attribute)) continue
       const value = attribute.initializer
-      entries.push([
-        attribute.name.getText(),
-        value && ts.isJsxExpression(value) ? value.expression : value && ts.isStringLiteral(value) ? value : undefined
-      ])
+      entries.push([attribute.name.getText(), attributeExpression(value)])
     }
   }
   for (const [key, value] of entries) {

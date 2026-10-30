@@ -59,7 +59,9 @@ export function ShortcutsDialog() {
         </DialogHeader>
         <div className="-mx-4 overflow-y-auto px-4">
           {sections.length === 0 ? (
-            <p className="py-10 text-center text-sm text-muted-foreground">No shortcut matches "{query.trim()}".</p>
+            <p className="py-10 text-center text-sm text-muted-foreground">
+              No shortcut matches &quot;{query.trim()}&quot;.
+            </p>
           ) : (
             <div className="columns-1 gap-8 sm:columns-2">
               {sections.map(({ group, rows }) => (

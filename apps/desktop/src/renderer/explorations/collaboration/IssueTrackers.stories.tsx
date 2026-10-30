@@ -24,7 +24,7 @@ function FromAThreadDemo() {
   return (
     <Stage className="flex items-start gap-10">
       <OrgTrackers added={added} onChange={setAdded} />
-      <Thread thread={thread("toggle")} trackers={added} onClose={() => {}} />
+      <Thread thread={thread("toggle")} trackers={added} onClose={() => undefined} />
     </Stage>
   )
 }
@@ -55,7 +55,7 @@ function DialogDemo({ tracker, mode }: { tracker: "github" | "linear" | "azure";
         thread={thread("toggle")}
         available={Object.values(trackers)}
         initial={{ tracker, mode }}
-        onLink={() => {}}
+        onLink={() => undefined}
       />
     </Stage>
   )
@@ -116,9 +116,9 @@ const azure: ThreadData = {
 export const LinkedIssues: Story = {
   render: () => (
     <Stage className="flex flex-wrap items-start gap-8">
-      <Thread thread={linked} onClose={() => {}} />
-      <Thread thread={done} onClose={() => {}} />
-      <Thread thread={azure} trackers={[trackers.azure]} onClose={() => {}} />
+      <Thread thread={linked} onClose={() => undefined} />
+      <Thread thread={done} onClose={() => undefined} />
+      <Thread thread={azure} trackers={[trackers.azure]} onClose={() => undefined} />
     </Stage>
   )
 }
@@ -127,7 +127,7 @@ export const LinkedIssues: Story = {
 export const NoTrackersYet: Story = {
   render: () => (
     <Stage>
-      <Thread thread={thread("toggle")} trackers={[]} onClose={() => {}} />
+      <Thread thread={thread("toggle")} trackers={[]} onClose={() => undefined} />
     </Stage>
   ),
   play: async ({ canvasElement }) => {

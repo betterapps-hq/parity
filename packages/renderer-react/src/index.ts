@@ -82,7 +82,9 @@ export function findComponents(source: string, file: string): ComponentExport[] 
     const node = entry.local === undefined ? entry.node : locals.get(entry.local)
     // Without a declaration here to read, as in `export { Root as Select }` with `Root` imported, the checker decides.
     const unread = entry.local === undefined || !locals.has(entry.local)
-    const verdict = node ? evidence(node, locals) : unread ? "maybe" : undefined
+    let verdict: ComponentEvidence | "maybe" | undefined
+    if (node) verdict = evidence(node, locals)
+    else if (unread) verdict = "maybe"
     if (verdict === "maybe") found.push({ name: entry.name, export: entry.export })
     else if (verdict) found.push({ name: entry.name, export: entry.export, as: verdict })
   }
@@ -112,11 +114,9 @@ function evidence(
   }
   if (ts.isCallExpression(value)) {
     const callee = unwrap(value.expression)
-    const name = ts.isIdentifier(callee)
-      ? callee.text
-      : ts.isPropertyAccessExpression(callee)
-        ? callee.name.text
-        : undefined
+    let name: string | undefined
+    if (ts.isIdentifier(callee)) name = callee.text
+    else if (ts.isPropertyAccessExpression(callee)) name = callee.name.text
     return (name === undefined ? undefined : wrappers[name]) ?? "maybe"
   }
   if (ts.isIdentifier(value)) {

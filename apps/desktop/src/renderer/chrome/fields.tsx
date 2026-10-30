@@ -289,7 +289,10 @@ export function NumberField({
   const shown = mixed && value === undefined ? "Mixed" : formatFieldValue(value, rules)
 
   /** A value as a number to work from: its own, or what unset counts as; a token has none. */
-  const numeric = (from: FieldValue) => (typeof from === "number" ? from : from === undefined ? blank?.() : undefined)
+  const numeric = (from: FieldValue) => {
+    if (typeof from === "number") return from
+    return from === undefined ? blank?.() : undefined
+  }
 
   const read = (text: string): Reading => {
     const typed = readFieldInput(text, rules, tokens)

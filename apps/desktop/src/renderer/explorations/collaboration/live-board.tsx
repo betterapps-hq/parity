@@ -80,8 +80,11 @@ function LivePin({
   if (!shownPin.shown && !shownThread.shown) return null
   const people = [...new Set(pin.thread.comments.map((comment) => comment.author))]
   const first = people[0]
+  let layer = "z-10"
+  if (open) layer = "z-30"
+  else if (hovered) layer = "z-20"
   return (
-    <div className={`absolute ${open ? "z-30" : hovered ? "z-20" : "z-10"}`} style={{ left: pin.x, top: pin.y }}>
+    <div className={`absolute ${layer}`} style={{ left: pin.x, top: pin.y }}>
       <span className="absolute top-[-28px] left-0 block">
         {shownPin.shown && (
           <button
@@ -135,7 +138,7 @@ const commentCursor = `url("data:image/svg+xml,${encodeURIComponent(
 )}") 2 24, crosshair`
 
 function copy(text: string) {
-  navigator.clipboard?.writeText(text).catch(() => {})
+  navigator.clipboard?.writeText(text).catch(() => undefined)
 }
 
 /**
@@ -322,8 +325,8 @@ export function LiveBoard({
             draft
             hovered={false}
             onToggle={() => setDraft(undefined)}
-            onHover={() => {}}
-            onLeave={() => {}}
+            onHover={() => undefined}
+            onLeave={() => undefined}
           >
             <Thread
               thread={draft.thread}

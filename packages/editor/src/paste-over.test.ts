@@ -42,9 +42,10 @@ const icon: DesignNode = {
 const base = form().states[0]!
 const children = (container: ContainerSpec, id = "root") => {
   const node = findNode(container.root, id)!
-  return (node.type === "layout" ? node.children : node.type === "component" ? node.slots!.children! : []).map(
-    (child) => (child.type === "component" ? child.component : child.id)
-  )
+  let nodes: DesignNode[] = []
+  if (node.type === "layout") nodes = node.children
+  else if (node.type === "component") nodes = node.slots!.children!
+  return nodes.map((child) => (child.type === "component" ? child.component : child.id))
 }
 
 describe("paste over selection", () => {

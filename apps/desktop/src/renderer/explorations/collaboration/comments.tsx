@@ -359,12 +359,9 @@ export function MentionMenu({
   return (
     <div className={`w-72 rounded-lg border bg-popover p-1 text-popover-foreground shadow-xl ${className}`}>
       {options.map((option, index) => {
-        const heading =
-          index === 0 || options[index - 1]!.person.agent !== option.person.agent
-            ? option.person.agent
-              ? "Agents"
-              : "People"
-            : undefined
+        let heading: string | undefined
+        if (index === 0 || options[index - 1]!.person.agent !== option.person.agent)
+          heading = option.person.agent ? "Agents" : "People"
         return (
           <Fragment key={option.person.name}>
             {heading && <div className="px-2 pt-1.5 pb-1 text-[11px] font-medium text-muted-foreground">{heading}</div>}
@@ -729,7 +726,7 @@ export function PlaceNote({ place, layer }: { place: Place; layer?: string }) {
       case "frame":
         return {
           icon: MonitorSmartphone,
-          text: <>Left on a different frame. You're looking at {strong(place.seen)}.</>,
+          text: <>Left on a different frame. You&apos;re looking at {strong(place.seen)}.</>,
           action: "Switch"
         }
       case "component":
@@ -831,7 +828,9 @@ function ThreadMenu({
                   <Link2 /> Link an existing issue
                 </DropdownMenuItem>
               ) : (
-                <p className="px-2 py-1.5 text-xs text-muted-foreground">Your org hasn't added an issue tracker yet.</p>
+                <p className="px-2 py-1.5 text-xs text-muted-foreground">
+                  Your org hasn&apos;t added an issue tracker yet.
+                </p>
               )}
               <DropdownMenuSeparator />
               <DropdownMenuItem>

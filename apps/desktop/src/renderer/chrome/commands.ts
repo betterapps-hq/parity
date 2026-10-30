@@ -97,7 +97,8 @@ export async function exportImages(scope: "selection" | "all", session = activeS
   if (!session) return
   const { store, selection } = session
   const selected = selection.get().design
-  const designs = scope === "all" ? store.getEntries().map((entry) => entry.key) : selected ? [selected] : []
+  let designs: string[] = selected ? [selected] : []
+  if (scope === "all") designs = store.getEntries().map((entry) => entry.key)
   if (designs.length === 0) {
     toast.info(scope === "all" ? "There are no designs to export" : "Select a design to export it")
     return

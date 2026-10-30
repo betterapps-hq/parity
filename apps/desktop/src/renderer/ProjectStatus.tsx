@@ -34,11 +34,7 @@ export function OpeningProject({ tab }: { tab: Tab }) {
           </div>
           <ol className="flex flex-col gap-2.5 text-sm">
             {steps.map((step, index) => (
-              <Step
-                key={step}
-                label={step}
-                state={index < current ? "done" : index === current ? "active" : "pending"}
-              />
+              <Step key={step} label={step} state={stepState(index, current)} />
             ))}
           </ol>
         </div>
@@ -47,8 +43,16 @@ export function OpeningProject({ tab }: { tab: Tab }) {
   )
 }
 
+/** Where a step is, given the step under way. */
+function stepState(index: number, current: number): "done" | "active" | "pending" {
+  if (index < current) return "done"
+  return index === current ? "active" : "pending"
+}
+
 function Step({ label, state }: { label: string; state: "done" | "active" | "pending" }) {
-  const Icon = state === "done" ? Check : state === "active" ? LoaderCircle : Circle
+  let Icon = Circle
+  if (state === "done") Icon = Check
+  else if (state === "active") Icon = LoaderCircle
   return (
     <li
       className={`flex items-center gap-2.5 ${state === "active" ? "text-foreground" : "text-muted-foreground"} ${
