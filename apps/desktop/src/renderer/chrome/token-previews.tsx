@@ -36,6 +36,8 @@ export function drawn(token: PreviewToken, theme = "default"): string {
 /** The panel's sections, in order, each with the kinds it holds and a heading for each kind when it holds more. */
 export const tokenSections: { title: string; kinds: { kind: PreviewKind; heading?: string }[] }[] = [
   { title: "Colors", kinds: [{ kind: "color" }] },
+  { title: "Gradients", kinds: [{ kind: "gradient" }] },
+  { title: "Text styles", kinds: [{ kind: "type-style" }] },
   { title: "Fonts", kinds: [{ kind: "font" }] },
   { title: "Font sizes", kinds: [{ kind: "font-size" }] },
   { title: "Font weights", kinds: [{ kind: "font-weight" }] },
@@ -77,7 +79,7 @@ export const tokenSections: { title: string; kinds: { kind: PreviewKind; heading
   },
   { title: "Layers", kinds: [{ kind: "z-index" }] },
   { title: "Breakpoints", kinds: [{ kind: "breakpoint" }] },
-  { title: "Containers", kinds: [{ kind: "container" }] },
+  { title: "Sizes", kinds: [{ kind: "container" }] },
   { title: "Aspect ratios", kinds: [{ kind: "aspect" }] },
   { title: "Perspective", kinds: [{ kind: "perspective" }] },
   { title: "Cursors", kinds: [{ kind: "cursor" }] },
@@ -114,6 +116,7 @@ export const onPaper = new Set<PreviewKind>([
   "backdrop-blur",
   "perspective",
   "font",
+  "type-style",
   "font-size",
   "font-weight",
   "leading",
@@ -645,6 +648,31 @@ export function TokenArt({
           Aa
         </span>
       )
+    case "gradient":
+      return (
+        <span
+          className="block size-full rounded-[inherit]"
+          style={{ backgroundImage: value, boxShadow: `inset 0 0 0 1px ${hairline}` }}
+        />
+      )
+    case "type-style": {
+      // The style's own family and weight, at its size up to what the box holds.
+      const size = px(/(-?\d*\.?\d+(?:px|rem|em))\s*\//.exec(value)?.[1] ?? "")
+      const most = large ? 34 : 15
+      return (
+        <span
+          className="grid size-full place-items-center overflow-hidden"
+          style={{
+            font: value,
+            lineHeight: 1,
+            color: paper.ink,
+            fontSize: Number.isFinite(size) ? Math.min(size, most) : most
+          }}
+        >
+          Ag
+        </span>
+      )
+    }
     case "font":
       return (
         <span
@@ -920,6 +948,8 @@ const valueChecks: Partial<
   Record<PreviewKind, [property: string, noun: string, example: string, wrap?: (value: string) => string]>
 > = {
   color: ["color", "color", "oklch(0.6 0.2 250) or #2563eb"],
+  gradient: ["background-image", "gradient", "linear-gradient(#fff, #000)"],
+  "type-style": ["font", "font shorthand", "600 1rem/1.5 Inter, sans-serif"],
   spacing: ["width", "length", "1rem or 16px"],
   radius: ["border-radius", "radius", "0.5rem or 8px"],
   "border-width": ["border-width", "border width", "1px"],
@@ -980,6 +1010,7 @@ export function valueLabel(token: PreviewToken): string | undefined {
   const value = drawn(token)
   switch (token.kind) {
     case "color":
+    case "gradient":
     case "shadow":
     case "inset-shadow":
     case "drop-shadow":

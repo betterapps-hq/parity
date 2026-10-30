@@ -134,8 +134,12 @@ export function TokensPanel() {
   const themes = useMemo(() => [...new Set(tokens.flatMap((token) => Object.keys(token.values)))], [tokens])
   const described = useMemo(() => matchDescribed(info.describedTokens, tokens), [info.describedTokens, tokens])
   const kinded = useMemo(
-    () => tokens.map((token) => ({ token, kind: previewKind(token, described.byName.get(token.name)?.type) })),
-    [tokens, described]
+    () =>
+      tokens.map((token) => ({
+        token,
+        kind: previewKind(token, described.byName.get(token.name)?.type, (name) => byName.get(name)?.values.default)
+      })),
+    [tokens, described, byName]
   )
   const matches = kinded.filter(
     ({ token }) =>
