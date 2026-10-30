@@ -1568,9 +1568,14 @@ the Repository, CI and releases stream in Linear.
     that pushed one would need a token other than `GITHUB_TOKEN` to start CI again, and would stop Dependabot rebasing.
   - **In CI the bypass needs Dependabot on both ends:** a pull request it opened from a `dependabot/` branch of this
     repository, checked on a push it made, all read from what GitHub sets. A person's branch with that name, a fork, or
-    a person's commit pushed onto Dependabot's pull request still needs change files; to bring one up to date, comment
-    `@dependabot rebase` rather than updating the branch. Locally the branch name is enough, since CI is the gate.
-  - **Alerts and security updates are on** for the repository.
+    a person's commit pushed onto Dependabot's pull request still needs change files; to bring one up to date or check
+    it again after reopening it, comment `@dependabot rebase` rather than updating the branch. Locally the branch name
+    is enough, since CI is the gate.
+  - **Alerts and security updates are on** for the repository, but they don't see the pnpm workspace's resolved versions
+    yet. pnpm 12 writes `pnpm-lock.yaml` as two YAML documents, and GitHub's dependency graph read it with no
+    dependencies on 2026-10-30, so it knows only the manifests' ranges and the fixtures' lockfiles. Version updates read
+    the workspace themselves, so their first run shows whether they read that lockfile. Submitting the workspace's
+    dependencies is PAR-432.
 - **`betterapps-hq/pipelines` started with the setup action and ci-verify (PAR-110).** My calls:
   - The setup action checks out without keeping credentials, and on Windows turns off `core.autocrlf` first, since the
     runners' CRLF made Vite+'s formatter fail every file.
