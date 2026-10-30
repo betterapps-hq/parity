@@ -1071,9 +1071,10 @@ What opening a project loads into the windows, and what closing it gives back.
 
 ### Reopening loads the project afresh (PAR-195, PAR-422)
 
-A reopened project's builder serves it at a new address, so the window and the offscreen renderer load its modules again
-rather than drawing with the ones they kept from the last open. Closing a project gives back its canvas, however often
-it's opened again.
+A reopened project's builder serves it at a new address, one no guest has had since the project service started, even
+when the system would hand an old one out again, so the window and the offscreen renderer load its modules again rather
+than drawing with the ones they kept from the last open. Closing a project gives back its canvas, however often it's
+opened again.
 
 - **Why a new address every time:** drawing a reopened project with the modules from before, its React included, kept
   every closed canvas in the window, about 34,000 DOM nodes and 125 MB of heap on the example project each time. Which
@@ -1087,10 +1088,14 @@ it's opened again.
 - **A builder started again** from the processes list keeps its address when it's free, since the canvas it serves is
   still open; when it isn't, windows that open the project from then on find the new one.
 
-Code: `serveBuilder` in `apps/desktop/src/utility/projects.ts`; `releaseGuest` in `apps/desktop/src/renderer/guest.ts`,
-called from `workspace.ts` and `render.ts`; `ProjectView.tsx` and `chrome/TabBar.tsx`, which take a tab's id.
+Code: `serveBuilder` and `newGuestPort` in `apps/desktop/src/utility/projects.ts`; `releaseGuest` in
+`apps/desktop/src/renderer/guest.ts`, called from `workspace.ts` and `render.ts`; `guestId` in
+`apps/desktop/src/renderer/canvas/frame-bitmaps.ts`, which keys a reopened guest's bitmaps apart from the last one's;
+`ProjectView.tsx` and `chrome/TabBar.tsx`, which take a tab's id.
 
 Tests: `apps/desktop/e2e/reopening.e2e.ts` opens and closes the example project twice and checks the window ends within
 3,000 DOM nodes of where it started; with the old address on reopen it ended about 69,000 over. Gaps: the offscreen
 renderer's side has no automated test, and what a builder records of what it served (`packages/core/src/served.ts`,
-`packages/builder-vite/src/served.ts`) is no longer used to choose a port.
+`packages/builder-vite/src/served.ts`) is no longer used to choose a port. Skipping ports guests had has no test of its
+own, as the system handing an old port out again can't be made to happen; it was checked by reading `newGuestPort`. A
+project service started again forgets the ports, while the window keeps what it loaded from them.

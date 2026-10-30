@@ -263,7 +263,8 @@ function portFree(port: number): Promise<boolean> {
   })
 }
 
-function freePort(): Promise<number> {
+/** A port nothing listens on now, as the system hands one out. */
+export function freePort(): Promise<number> {
   return new Promise((resolve, reject) => {
     const server = createServer()
     server.once("error", reject)

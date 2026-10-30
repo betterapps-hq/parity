@@ -1,6 +1,6 @@
 import { basename } from "node:path"
 import { afterAll, beforeAll, describe, expect, inject, it } from "vite-plus/test"
-import { App } from "./app.ts"
+import { App, settled } from "./app.ts"
 
 // docs/editor.md, Opening and closing projects: closing a project gives back its canvas, however often it's opened
 // again (PAR-422).
@@ -44,8 +44,9 @@ async function openProject(count: number): Promise<void> {
     .click()
   // Counted through a locator, which holds on to no element; a handle to one would keep its whole canvas.
   await expect.poll(frames, { timeout: 120_000 }).toBe(count)
-  // Its frames draw, and its bitmaps are taken, before it closes.
-  await app.page.waitForTimeout(5000)
+  // Its frames finish drawing, and then its bitmaps are taken, before it closes.
+  await app.page.evaluate(settled)
+  await app.page.waitForTimeout(2000)
 }
 
 describe("closing a project", () => {
@@ -53,13 +54,17 @@ describe("closing a project", () => {
     const count = await frames()
     expect(count).toBeGreaterThan(0)
     await closeProject()
-    const closed = await nodes()
-    for (let round = 0; round < 2; round++) {
-      await openProject(count)
-      await closeProject()
+    // The files after this one need the project open, so it opens again however this one ends.
+    try {
+      const closed = await nodes()
+      for (let round = 0; round < 2; round++) {
+        await openProject(count)
+        await closeProject()
+      }
+      // A canvas kept in memory is every frame's elements, tens of thousands of nodes on the example project.
+      expect(await nodes()).toBeLessThan(closed + 3000)
+    } finally {
+      if ((await frames()) === 0) await openProject(count)
     }
-    // A canvas kept in memory is every frame's elements, tens of thousands of nodes on the example project.
-    expect(await nodes()).toBeLessThan(closed + 3000)
-    await openProject(count)
   })
 })
