@@ -28,6 +28,17 @@ beforeEach(async () => {
     ].join("\n"),
     "src/mode.js": "export const mode = process.env.NODE_ENV\n",
     "src/badge.js": 'export { Badge } from "devlib"\n',
+    // A workspace package's component, compiled for development against the JSX runtime its own folder installs.
+    "ui/card.js": 'import { jsxDEV } from "uikit/jsx-dev-runtime"\nexport const Card = () => jsxDEV("div", {})\n',
+    "ui/node_modules/uikit/package.json": JSON.stringify({ name: "uikit", version: "1.0.0", type: "module" }),
+    "ui/node_modules/uikit/jsx-runtime.js":
+      'export const Fragment = "fragment"\nexport const jsx = () => "the ui runtime"\n',
+    "ui/node_modules/uikit/jsx-dev-runtime.js": "export const jsxDEV = undefined\n",
+    // And another copy at the root, which the workspace package isn't built against.
+    "node_modules/uikit/package.json": JSON.stringify({ name: "uikit", version: "2.0.0", type: "module" }),
+    "node_modules/uikit/jsx-runtime.js":
+      'export const Fragment = "fragment"\nexport const jsx = () => "the root runtime"\n',
+    "node_modules/uikit/jsx-dev-runtime.js": "export const jsxDEV = undefined\n",
     // A package shipped with its JSX compiled for development, which the optimizer bundles.
     "node_modules/devlib/package.json": JSON.stringify({ name: "devlib", version: "1.0.0", main: "index.js" }),
     "node_modules/devlib/index.js": [
@@ -72,7 +83,8 @@ beforeEach(async () => {
       components: {
         Button: { path: "src/button.js", export: "Button" },
         Mode: { path: "src/mode.js", export: "mode" },
-        Badge: { path: "src/badge.js", export: "Badge" }
+        Badge: { path: "src/badge.js", export: "Badge" },
+        Card: { path: "ui/card.js", export: "Card" }
       },
       documents: [],
       libraries: []
@@ -90,7 +102,8 @@ beforeEach(async () => {
 afterEach(async () => {
   await session?.close()
   session = undefined
-  await rm(root, { recursive: true, force: true })
+  // The optimizer can still be writing its folder just after the server closes.
+  await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
 })
 
 /** Fetches a module the builder serves, as the canvas would. */
@@ -113,7 +126,7 @@ describe("frames on dependencies' production builds", () => {
     expect(await served("/src/mode.js")).toContain(`"${process.env.NODE_ENV ?? "development"}"`)
     const button = await served("/src/button.js")
     const standIn = importsOf(button).find((url) => url.includes("stand-in"))
-    expect(standIn).toBe("/@id/__x00__virtual:canvas/stand-in/react/jsx-dev-runtime")
+    expect(standIn).toMatch(/^\/@id\/__x00__virtual:canvas\/stand-in\/react\/jsx-dev-runtime\?from=/)
     const runtime = importsOf(await served(standIn!)).find((url) => url.includes("react_jsx-runtime"))
     expect(runtime).toBeDefined()
     // With what it imports, as the optimizer splits what dependencies share into chunks.
@@ -121,6 +134,17 @@ describe("frames on dependencies' production builds", () => {
     const bundled = [entry, ...(await Promise.all(importsOf(entry).map(served)))].join("\n")
     expect(bundled).toContain('"production"')
     expect(bundled).not.toContain(`"${process.env.NODE_ENV ?? "development"}"`)
+  }, 30_000)
+
+  it("resolves what a stand-in imports from the folder of the module importing it", async () => {
+    // Left out of prebundling, as the optimizer keeps one copy of each package, whoever imports it.
+    await writeFile(join(root, "vite.config.js"), 'export default { optimizeDeps: { exclude: ["uikit"] } }\n')
+    session = await viteBuilder.start(options)
+    await served(session.guestUrl)
+    const standIn = importsOf(await served("/ui/card.js")).find((url) => url.includes("stand-in"))
+    const runtime = importsOf(await served(standIn!)).find((url) => url.includes("uikit"))
+    expect(runtime).toContain("/ui/node_modules/uikit/jsx-runtime.js")
+    expect(await served(runtime!)).toContain("the ui runtime")
   }, 30_000)
 
   it("gives a prebundled dependency the stand-in too", async () => {
@@ -159,13 +183,22 @@ describe("developmentStandIn", () => {
 describe("productionDependencies", () => {
   it("sets the optimizer's own define and stand-ins: Rolldown's from Vite 8, esbuild's before", () => {
     const define = { "process.env.NODE_ENV": '"production"' }
-    const plugins = [{ name: "canvas:stand-ins" }]
+    const plugins = [{ name: expect.stringMatching(/^canvas:stand-ins:/) }]
     expect(productionDependencies({ version: "8.3.5", rolldownVersion: "1.0.0" }, root, standIns)).toMatchObject({
       rolldownOptions: { transform: { define }, plugins }
     })
     expect(productionDependencies({ version: "7.1.0" }, root, standIns)).toMatchObject({
       esbuildOptions: { define, plugins }
     })
+  })
+
+  it("names its optimizer plugin after the stand-ins, so other stand-ins bundle dependencies again", () => {
+    const vite = { version: "8.3.5", rolldownVersion: "1.0.0" }
+    const name = (given: Record<string, string>) =>
+      (productionDependencies(vite, root, given) as { rolldownOptions: { plugins: { name: string }[] } })
+        .rolldownOptions.plugins[0]!.name
+    expect(name(standIns)).toBe(name({ ...standIns }))
+    expect(name(standIns)).not.toBe(name({ "/jsx-dev-runtime": 'export { jsx as jsxDEV } from "$base/jsx-runtime"' }))
   })
 
   it("serves the stand-in through esbuild's plugin before Vite 8", () => {

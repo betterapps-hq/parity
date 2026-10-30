@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import { readdir, readFile, realpath, stat } from "node:fs/promises"
 import { type AddressInfo, createServer as createNetServer } from "node:net"
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path"
@@ -24,7 +25,7 @@ import { dependencySourceMaps } from "./dependency-maps.ts"
 const configPattern = /^vite\.config\.[cm]?[jt]s$/
 const guestId = "virtual:canvas/guest"
 const rendererId = "virtual:canvas/renderer"
-/** Followed by the specifier a development stand-in serves in place of. */
+/** Followed by the specifier a development stand-in serves in place of, and the folder of the module importing it. */
 const standInId = "virtual:canvas/stand-in/"
 const loopback = "127.0.0.1"
 
@@ -128,9 +129,11 @@ export function productionDependencies(
     join(importer && isAbsolute(importer) ? dirname(importer) : root, encodeURIComponent(specifier) + standInFile)
   const source = (path: string) =>
     developmentStandIn(decodeURIComponent(basename(path).slice(0, -standInFile.length)), standIns)
+  // Vite keys its prebundled dependencies by its plugins' names, among the rest, so other stand-ins bundle them again.
+  const name = `canvas:stand-ins:${createHash("sha1").update(JSON.stringify(standIns)).digest("base64url").slice(0, 8)}`
   if (vite.rolldownVersion) {
     const plugin = {
-      name: "canvas:stand-ins",
+      name,
       resolveId: (id: string, importer?: string) => (developmentStandIn(id, standIns) ? beside(importer, id) : null),
       load: (id: string) => (id.endsWith(standInFile) ? source(id) : null)
     }
@@ -138,7 +141,7 @@ export function productionDependencies(
   }
   const ends = Object.keys(standIns).map((end) => end.replaceAll(/[.*+?^${}()|[\]\\/]/g, "\\$&"))
   const plugin = {
-    name: "canvas:stand-ins",
+    name,
     setup(build: EsbuildBuild) {
       if (ends.length === 0) return
       build.onResolve({ filter: new RegExp(`(?:${ends.join("|")})$`) }, ({ path, importer }) =>
@@ -184,15 +187,21 @@ function guestPlugin(options: BuilderStartOptions, rendererGuestPath: string): V
   return {
     name: "canvas:guest",
     enforce: "pre",
-    resolveId(id) {
+    async resolveId(id, importer) {
       if (id === guestId) return `\0${guestId}`
       if (id === rendererId) return rendererGuestPath
-      if (developmentStandIn(id, options.renderer.developmentStandIns)) return `\0${standInId}${id}`
-      return undefined
+      // What a stand-in imports resolves as from the module that imported the stand-in, which its id names, so a
+      // workspace package's own runtime is the one it gets. Vite resolves from an importer's folder only when it exists.
+      const from = importer?.startsWith(`\0${standInId}`) && new URLSearchParams(importer.split("?")[1]).get("from")
+      if (from) return this.resolve(id, from, { skipSelf: true })
+      if (!developmentStandIn(id, options.renderer.developmentStandIns)) return undefined
+      const file = importer?.split("?")[0]
+      return `\0${standInId}${id}${file && isAbsolute(file) ? `?from=${encodeURIComponent(file)}` : ""}`
     },
     load(id) {
       if (id.startsWith(`\0${standInId}`)) {
-        return developmentStandIn(id.slice(standInId.length + 1), options.renderer.developmentStandIns)
+        const specifier = id.slice(standInId.length + 1).split("?")[0] ?? ""
+        return developmentStandIn(specifier, options.renderer.developmentStandIns)
       }
       // The canvas may add a cache-busting query when it retries a load.
       if (id.split("?")[0] !== `\0${guestId}`) return undefined
