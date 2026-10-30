@@ -14,6 +14,7 @@ import {
   type NodeStyle,
   resolveModes
 } from "@parity-app/core"
+import type { Edge } from "@parity-app/editor"
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react"
 import { editingState } from "../chrome/LayerPanel.tsx"
 import { getPreferences, subscribePreferences } from "../chrome/preferences.ts"
@@ -22,6 +23,7 @@ import { selectedNodes, toggleLayer, useEditing } from "../selection.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { useProject } from "./context.ts"
+import { holdCursor } from "./held-cursor.ts"
 import {
   frameAt,
   frameScale,
@@ -39,7 +41,7 @@ import { type DragView, getDragView, pressLayers } from "./layer-drag.ts"
 import { editLayer, findLayer } from "./layers.ts"
 import { frameDrawn } from "./nudge.ts"
 import { editableText, hoverTarget, pickDeeper, pressTarget } from "./pick.ts"
-import { type Edge, edgeAxes, resizeGesture } from "./resize.ts"
+import { edgeAxes, resizeGesture } from "./resize.ts"
 import { resizeCursors, ResizeHandles } from "./ResizeHandles.tsx"
 import { pressBackground } from "./select-box.ts"
 
@@ -837,23 +839,36 @@ export function redlines(a: DOMRect, b: DOMRect, scale: number, unit: number): R
   return lines
 }
 
-/** Follows the pointer until it's released. */
-function drag(cursor: string, move: (event: PointerEvent) => void): void {
-  const previous = document.body.style.cursor
-  document.body.style.cursor = cursor
+/**
+ * Follows the pointer until it's released, showing a cursor wherever it goes. Escape cancels: everything the drag wrote
+ * is taken back, leaving nothing to undo, and the release that follows does nothing.
+ */
+function drag(session: ProjectSession, cursor: string, move: (event: PointerEvent) => void): void {
+  const { store } = session
+  const checkpoint = store.checkpoint()
+  const releaseCursor = holdCursor(cursor)
   const onMove = (event: PointerEvent) => {
     event.preventDefault()
     move(event)
   }
-  const onUp = () => {
-    document.body.style.cursor = previous
+  const end = () => {
+    releaseCursor()
     window.removeEventListener("pointermove", onMove)
-    window.removeEventListener("pointerup", onUp)
-    window.removeEventListener("pointercancel", onUp)
+    window.removeEventListener("pointerup", end)
+    window.removeEventListener("pointercancel", end)
+    window.removeEventListener("keydown", onKey, true)
+  }
+  const onKey = (event: KeyboardEvent) => {
+    if (event.key !== "Escape") return
+    event.preventDefault()
+    event.stopImmediatePropagation()
+    end()
+    store.revert(checkpoint)
   }
   window.addEventListener("pointermove", onMove)
-  window.addEventListener("pointerup", onUp)
-  window.addEventListener("pointercancel", onUp)
+  window.addEventListener("pointerup", end)
+  window.addEventListener("pointercancel", end)
+  window.addEventListener("keydown", onKey, true)
 }
 
 /** How close, in screen pixels, an edge has to come to snap. */
@@ -863,7 +878,7 @@ const snapDistance = 6
  * Resizing by a handle. A frame takes a size in pixels for its viewport, snapping back to the viewport's width and the
  * content's height. A layer takes a fixed size in whole spacing steps, or fill when its edge comes back to the inside
  * of its parent, changing only the handle's own axes (see `resizeGesture`); an absolutely placed layer keeps its far
- * edge where it was. Shift on a corner keeps its proportions. A drag is one undo step.
+ * edge where it was. Shift on a corner keeps its proportions, and Escape takes the whole drag back.
  */
 function startResize(
   session: ProjectSession,
@@ -889,7 +904,7 @@ function startResize(
     // Starting from the content's height, coming back to it snaps to hugging it again.
     const content = size.height === undefined ? rect.height / scale : undefined
     const startHeight = size.height ?? rect.height / scale
-    drag(resizeCursors[edge], (moveEvent) => {
+    drag(session, resizeCursors[edge], (moveEvent) => {
       const next: FrameSize = { ...entry.container.frames?.[mode.viewport] }
       if (horizontal) {
         const width = Math.round(size.width + (moveEvent.clientX - start.x) / scale)
@@ -935,7 +950,7 @@ function startResize(
     absolute: drawn ? { style: node.style ?? {}, drawn } : undefined
   })
 
-  drag(resizeCursors[edge], (moveEvent) => {
+  drag(session, resizeCursors[edge], (moveEvent) => {
     const change = gesture({
       dx: moveEvent.clientX - start.x,
       dy: moveEvent.clientY - start.y,

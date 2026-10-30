@@ -67,6 +67,15 @@ interface HistoryEntry {
   time: number
 }
 
+/** The designs and their history at one moment, to go back to (see `DesignStore.checkpoint`). */
+export interface Checkpoint {
+  readonly snapshot: Snapshot
+  readonly past: HistoryEntry[]
+  /** When the last step before it was made, which a change merging into that step moves on. */
+  readonly last: number | undefined
+  readonly future: HistoryEntry[]
+}
+
 export interface HistoryState {
   canUndo: boolean
   canRedo: boolean
@@ -218,6 +227,28 @@ export class DesignStore {
       { persist: false }
     )
     return true
+  }
+
+  /**
+   * Where the designs and their history are now, for a gesture that writes as it goes and can be cancelled: resizing
+   * writes each step as the pointer moves, and Escape takes it all back with `revert`.
+   */
+  checkpoint(): Checkpoint {
+    return { snapshot: this.snapshot(), past: [...this.past], last: this.past.at(-1)?.time, future: this.future }
+  }
+
+  /**
+   * Takes back every change since a checkpoint as though it was never made: the designs are as they were, and so are
+   * undo and redo, with no step for what was taken back. Views stay as they are now, as undo leaves them.
+   */
+  revert(checkpoint: Checkpoint): void {
+    const current = this.snapshot()
+    // A gesture's first change can merge into the step before it (see `change`), which only moves that step's time.
+    const last = checkpoint.past.at(-1)
+    if (last && checkpoint.last !== undefined) last.time = checkpoint.last
+    this.past = checkpoint.past
+    this.future = checkpoint.future
+    this.restore(keepViews(checkpoint.snapshot, current), current)
   }
 
   undo(): void {

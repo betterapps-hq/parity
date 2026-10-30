@@ -355,6 +355,24 @@ still need your call.
   inside and come back, so pressing a handle never changes the other axis (CAN-47). Absolutely placed layers resize by
   their insets and never fill: a token inset on the side that moves becomes a number of steps, since a token can't be
   offset, and the other sides keep theirs. The resize hint closes when a handle is pressed.
+- **An empty layout takes 24px on the canvas along each axis its content would size** (PAR-193), outlined in dashes, so
+  it can be seen, selected and dropped into. My calls: it's the canvas's alone, as Webflow and Framer show an empty
+  container, not a change to the design or its code; an axis the design sizes (a width, a least size, growing) keeps
+  that size, so an empty spacer stays as thin as it was made; and core marks an empty layout's element with which axes
+  those are (`data-canvas-empty-layout`), since CSS can't tell an empty layout from a component's empty divider, and
+  `:empty` in the sheet every frame shares kept closed projects' frames in memory. The size label shows the 24px.
+- **Resize handles sit outside a layer along an axis where it's under 24 screen pixels** (PAR-193), so a press on a
+  small layer drags it. My call: per axis, so a wide, short button keeps its side strips on its ends, as every wide
+  layer does, and only its corners, top and bottom move out. Where handles go is `handleBoxes` in `@parity-app/editor`.
+- **Escape cancels a resize and a title drag** (PAR-193), as it already did a layer drag and a box. My call: a resize
+  still writes as it goes (one undo step per gesture is PAR-441), so Escape goes back to a checkpoint the store takes
+  when the drag begins, restoring the designs and the undo and redo history as they were, rather than undoing however
+  many steps the drag made. `DesignStore.checkpoint` and `revert` move with the history when PAR-34 takes it into
+  `@parity-app/editor`.
+- **A gesture's cursor is held by a transparent layer over the window** (PAR-193): grabbing for a drag, the handle's
+  arrows for a resize. My calls: a layer rather than a rule on every element, which would restyle the whole page twice
+  per gesture; and the browser's own grabbing, resize and text cursors, as the handles already showed, rather than
+  tldraw's drawn ones.
 - **A duplicated design goes to the first free space to the right along its row,** 160px clear of every design and note,
   as do designs pasted into their own project (CAN-47). Bringing it into view when that's off screen is PAR-204.
 

@@ -45,6 +45,52 @@ describe("resolveDesign", () => {
     expect(page.children).toHaveLength(2)
   })
 
+  it("marks an empty layout with the axes its content would size, for the canvas to size it by", () => {
+    const empty = (id: string, style: DesignNode["style"]): DesignNode => ({ type: "layout", id, style, children: [] })
+    const [row] = resolveDesign(
+      {
+        type: "layout",
+        id: "row",
+        style: { direction: "row" },
+        children: [
+          empty("hugs", undefined),
+          empty("hugs-too", { width: "hug", height: "hug" }),
+          empty("spacer", { width: 2 }),
+          empty("least", { minHeight: 4 }),
+          empty("grows", { grow: true }),
+          empty("fills", { width: "fill", height: 10 })
+        ]
+      },
+      undefined,
+      "desktop"
+    )
+    if (row?.kind !== "element") throw new Error("expected an element")
+    // The row has layers in it, so it isn't marked.
+    expect(row.attributes).toBeUndefined()
+    expect(row.children.map((child) => (child.kind === "element" ? child.attributes : undefined))).toEqual([
+      { "data-canvas-empty-layout": "width height" },
+      { "data-canvas-empty-layout": "width height" },
+      { "data-canvas-empty-layout": "height" },
+      { "data-canvas-empty-layout": "width" },
+      { "data-canvas-empty-layout": "height" },
+      { "data-canvas-empty-layout": "" }
+    ])
+  })
+
+  it("marks a layout whose layers the state hides as empty", () => {
+    const column: DesignNode = {
+      type: "layout",
+      id: "column",
+      children: [{ type: "text", id: "note", text: "Saved" }]
+    }
+    const hidden = { id: "quiet", name: "Quiet", overrides: { note: { hidden: true } } }
+    expect(resolveDesign(column, undefined, "desktop")[0]).not.toHaveProperty("attributes")
+    expect(resolveDesign(column, hidden, "desktop")[0]).toMatchObject({
+      attributes: { "data-canvas-empty-layout": "width height" },
+      children: []
+    })
+  })
+
   it("applies responsive patches per viewport and lets states win", () => {
     const state = {
       id: "error",

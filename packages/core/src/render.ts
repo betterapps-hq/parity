@@ -36,6 +36,25 @@ export type RenderNode =
       slots: Record<string, RenderNode[]>
     }
 
+/**
+ * Marks the element of a layout that draws nothing inside it, in this state and viewport, so the canvas can give it a
+ * size of its own there, which no other empty element, such as a component's divider, gets. Its value lists the axes,
+ * `width` and `height`, that the layout's content would size; along the others the design gives it a size, which the
+ * canvas keeps, so an empty layout used as an 8px spacer stays 8px. Only what's resolved for a frame carries it.
+ */
+export const emptyLayoutAttribute = "data-canvas-empty-layout"
+
+/** The axes a layout's content sizes: neither a size, a least size nor growing sets them. */
+function contentAxes(style: NodeStyle, parent: Direction | undefined): ("width" | "height")[] {
+  // Growing fills the parent's main axis, as `boxCss` draws it.
+  const along = parent === "column" ? "height" : "width"
+  return (["width", "height"] as const).filter((axis) => {
+    const size = style[axis]
+    const least = axis === "width" ? style.minWidth : style.minHeight
+    return (size === undefined || size === "hug") && least === undefined && !(style.grow && axis === along)
+  })
+}
+
 /** Component designs by id, for expanding instances. */
 export type ComponentLibrary = ReadonlyMap<string, ContainerSpec>
 
@@ -276,16 +295,22 @@ function resolveTree(
     const style = { ...node.style, ...patch.style }
 
     switch (node.type) {
-      case "layout":
+      case "layout": {
+        const children = node.children.flatMap((child) => resolve(child, style.direction ?? "column"))
         return [
           {
             kind: "element",
             nodeId: id(node),
             tag: "div",
             style: layoutCss(style, parent),
-            children: node.children.flatMap((child) => resolve(child, style.direction ?? "column"))
+            // The canvas gives an empty layout a size to see, select and drop into (see `emptyLayoutAttribute`).
+            ...(children.length === 0
+              ? { attributes: { [emptyLayoutAttribute]: contentAxes(style, parent).join(" ") } }
+              : {}),
+            children
           }
         ]
+      }
       case "text": {
         const text = bound(node.bind?.text)
         return [

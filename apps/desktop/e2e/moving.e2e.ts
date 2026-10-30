@@ -1,8 +1,9 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/test"
 import { App, type Box, center } from "./app.ts"
 
-// docs/editor.md, Moving, reordering and resizing (CAN-47): dragging layers, where they land, moving an absolutely
-// placed layer, resize handles and duplicating a design, on the example's Dashboard and Calendar.
+// docs/editor.md, Moving, reordering and resizing (CAN-47, PAR-193): dragging layers, where they land, moving an
+// absolutely placed layer, resize handles, empty layouts, cursors and Escape during a gesture, and duplicating a design,
+// on the example's Dashboard and Calendar.
 
 let app: App
 
@@ -183,6 +184,182 @@ describe("resize handles", () => {
     const left = { x: box.x, y: box.y + box.height / 2 }
     await app.drag(left, { x: left.x + 12, y: left.y })
     await expect.poll(() => app.style("Calendar", review)).toMatchObject({ left: 3, right: 0, top: 40, height: 16 })
+  })
+
+  it("takes the whole resize back when Escape is pressed mid-drag, leaving nothing to undo (PAR-193)", async () => {
+    await app.show("Dashboard", 1, button)
+    await app.selectLayer("Dashboard", button)
+    const box = await app.box("Dashboard", button)
+    const handle = { x: box.x + box.width, y: box.y + box.height / 2 }
+    // Slowly, in two moves, so the drag writes more than once on its way.
+    await app.drag(
+      handle,
+      [
+        { x: handle.x + 24, y: handle.y },
+        { x: handle.x + 48, y: handle.y }
+      ],
+      async () => {
+        await expect.poll(async () => (await app.style("Dashboard", button)).width).toBeDefined()
+        await app.page.keyboard.press("Escape")
+        await app.frames(2)
+      }
+    )
+    expect(await app.style("Dashboard", button)).toEqual({})
+    expect(await app.undoLabel()).toBeUndefined()
+    expect((await app.box("Dashboard", button)).width).toBeCloseTo(box.width, 0)
+    // Escape went to the resize alone: the button is still selected, rather than its parent.
+    expect((await app.selection()).node).toBe(button)
+  })
+
+  it("sits outside a layer under 24px, so a press just inside its edge drags it (PAR-193)", async () => {
+    // At 50%, New project is 16px high, so its top and bottom handles and its corners sit above and below it.
+    await app.show("Dashboard", zoom)
+    await app.selectLayer("Dashboard", button)
+    const box = await app.box("Dashboard", button)
+    expect(box.height).toBeLessThan(24)
+    const handles = await app.handles()
+    expect(handles).toHaveLength(8)
+    const inside = handles.filter(
+      (handle) =>
+        handle.y < box.y + box.height - 0.5 &&
+        handle.y + handle.height > box.y + 0.5 &&
+        handle.x < box.x + box.width - 0.5 &&
+        handle.x + handle.width > box.x + 0.5
+    )
+    // Only the left and right strips, which straddle the button's ends as on any layer wide enough.
+    expect(inside).toHaveLength(2)
+    for (const handle of inside) expect(handle.width).toBeLessThanOrEqual(8)
+    // A press 3px inside its top edge, where its top handle was, moves it past Export.
+    const from = { x: box.x + box.width / 2, y: box.y + 3 }
+    await app.drag(from, at(await app.box("Dashboard", "DQRUg"), 0.2, 0.5))
+    await expect.poll(() => app.children("Dashboard", "JWWeK")).toEqual(["C7E9z", "DQRUg"])
+    expect((await app.style("Dashboard", button)).height).toBeUndefined()
+  })
+})
+
+describe("empty layouts (PAR-193)", () => {
+  /** Puts an empty row at the end of the header's actions, after New project, as an edit Undo takes back. */
+  async function addEmptyRow(): Promise<void> {
+    await app.page.evaluate(() => {
+      const e2e = window.e2e!
+      const key = e2e.key("Dashboard")
+      e2e.session().store.updateContainer(key, "Add an empty row", (container) => {
+        const edit = (node: typeof container.root): typeof container.root => {
+          if (node.type !== "layout") return node
+          const children = node.children.map(edit)
+          if (node.id === "JWWeK")
+            children.push({ type: "layout", id: "empty", style: { direction: "row" }, children: [] })
+          return { ...node, children }
+        }
+        return { ...container, root: edit(container.root) }
+      })
+    })
+  }
+
+  it("have a size of their own, and are selected by a click", async () => {
+    await addEmptyRow()
+    await app.show("Dashboard", 1, "empty")
+    const size = await app.size("Dashboard", "empty")
+    expect(size?.width).toBe(24)
+    expect(size?.height).toBeGreaterThanOrEqual(24)
+    await app.selectLayer("Dashboard", "empty")
+    expect((await app.selection()).node).toBe("empty")
+  })
+
+  it("take a layer dropped anywhere on them", async () => {
+    await addEmptyRow()
+    await app.show("Dashboard", zoom)
+    await app.selectLayer("Dashboard", users)
+    // 6px in from its left edge, which is half its least size at 50%: a layout drawn with no width has nothing there.
+    const empty = await app.box("Dashboard", "empty")
+    await app.drag(center(await app.box("Dashboard", users)), { x: empty.x + 6, y: empty.y + empty.height / 2 })
+    await expect.poll(() => app.children("Dashboard", "empty")).toEqual([users])
+    expect(await app.children("Dashboard", stats)).toEqual([revenue, issues, uptime])
+  })
+})
+
+/** Where a design's title is, which a press drags it by. */
+async function titleOf(design: string): Promise<Box> {
+  const box = await app.page
+    .locator(".design-title > div > button")
+    .filter({ hasText: new RegExp(`^${design}$`) })
+    .boundingBox()
+  if (!box) throw new Error(`${design}'s title isn't drawn`)
+  return box
+}
+
+describe("dragging a design by its title", () => {
+  /** Where tldraw has the design's board on the page. */
+  async function board(design: string): Promise<{ x: number; y: number }> {
+    const key = await app.key(design)
+    return app.page.evaluate((key) => {
+      const shape = window
+        .e2e!.session()
+        .editor!.getCurrentPageShapes()
+        .find((candidate) => candidate.id.endsWith(encodeURIComponent(key)))
+      if (!shape) throw new Error(`No board for ${key}`)
+      return { x: shape.x, y: shape.y }
+    }, key)
+  }
+
+  it("puts the design back when Escape is pressed mid-drag, saving nothing (PAR-193)", async () => {
+    await app.show("Dashboard", zoom)
+    const before = (await app.designs()).find((design) => design.name === "Dashboard")!.position
+    const where = await board("Dashboard")
+    const from = center(await titleOf("Dashboard"))
+    await app.drag(from, { x: from.x + 160, y: from.y + 60 }, async () => {
+      await expect.poll(async () => (await board("Dashboard")).x).not.toBe(where.x)
+      await app.page.keyboard.press("Escape")
+      await app.frames(2)
+    })
+    expect(await board("Dashboard")).toEqual(where)
+    expect((await app.designs()).find((design) => design.name === "Dashboard")!.position).toEqual(before)
+    expect(await app.undoLabel()).toBeUndefined()
+    expect((await app.selection()).design).toBe(await app.key("Dashboard"))
+  })
+})
+
+describe("the cursor over the canvas (PAR-193)", () => {
+  it("is grabbing while a layer is dragged", async () => {
+    await app.show("Dashboard", zoom)
+    await app.selectLayer("Dashboard", users)
+    const to = at(await app.box("Dashboard", issues), 0.8, 0.3)
+    const cursor = await app.drag(center(await app.box("Dashboard", users)), to, () => app.cursorAt(to))
+    expect(cursor).toBe("grabbing")
+  })
+
+  it("is grabbing while a design is dragged by its title, over the title and off it", async () => {
+    await app.show("Dashboard", zoom)
+    const from = center(await titleOf("Dashboard"))
+    const to = { x: from.x + 120, y: from.y + 40 }
+    const cursors = await app.drag(from, to, async () => [
+      await app.cursorAt(to),
+      await app.cursorAt({ x: to.x + 200, y: to.y + 200 })
+    ])
+    expect(cursors).toEqual(["grabbing", "grabbing"])
+  })
+
+  it("shows the handle's arrows while resizing, wherever the pointer goes", async () => {
+    const button = "C7E9z"
+    await app.show("Dashboard", 1, button)
+    await app.selectLayer("Dashboard", button)
+    const box = await app.box("Dashboard", button)
+    const handle = { x: box.x + box.width, y: box.y + box.height / 2 }
+    // Well below the handle, over the design: a right handle follows the pointer across only.
+    const to = { x: handle.x + 48, y: handle.y + 80 }
+    const cursor = await app.drag(handle, to, () => app.cursorAt(to))
+    expect(cursor).toBe("ew-resize")
+    // And it's let go once the resize ends.
+    expect(await app.cursorAt(to)).not.toBe("ew-resize")
+  })
+
+  it("is the text cursor over a design with the text tool", async () => {
+    await app.show("Dashboard", zoom)
+    await app.page.keyboard.press("t")
+    await expect.poll(() => app.tool()).toBe("text")
+    const point = center(await app.box("Dashboard", stats))
+    await app.page.mouse.move(point.x, point.y)
+    expect(await app.cursorAt(point)).toMatch(/\btext$/)
   })
 })
 

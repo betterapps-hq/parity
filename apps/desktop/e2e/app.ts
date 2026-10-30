@@ -275,6 +275,27 @@ export class App {
     )
   }
 
+  /**
+   * The cursor the window shows at a point: what the element the browser finds there asks for. Frames take no pointer
+   * events outside Interact, so over a design that's the canvas's own element, or whatever a gesture puts over it.
+   */
+  cursorAt(point: Point): Promise<string> {
+    return this.page.evaluate(({ x, y }) => {
+      const element = document.elementFromPoint(x, y)
+      return element ? getComputedStyle(element).cursor : ""
+    }, point)
+  }
+
+  /** The resize handles drawn around the selection, in the window's pixels. */
+  handles(): Promise<Box[]> {
+    return this.page.evaluate(() =>
+      [...document.querySelectorAll<HTMLElement>(".resize-handle")].map((element) => {
+        const { x, y, width, height } = element.getBoundingClientRect()
+        return { x, y, width, height }
+      })
+    )
+  }
+
   clipboard(): Promise<string> {
     return this.page.evaluate(() => window.e2e!.clipboard.text)
   }

@@ -245,6 +245,14 @@ textarea,
   --tw-shadow: 0 0 #0000;
 }
 
+/*
+ * With the text tool, the canvas shows the text cursor. tldraw's canvas takes the cursor its own tool wants, so a
+ * cursor set around the canvas didn't show over it.
+ */
+.canvas-area[data-tool="text"] .tl-canvas {
+  cursor: text;
+}
+
 /* Interacting, the designs take the pointer as in a browser, with their own cursors and text selection. */
 .canvas-area[data-tool="interact"] [data-frame] {
   pointer-events: auto;

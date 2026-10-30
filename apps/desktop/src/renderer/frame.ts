@@ -2,6 +2,7 @@ import {
   bodyAttribute,
   type DrawnNodes,
   type FrameViewport,
+  emptyLayoutAttribute,
   rewriteSheetViewportUnits,
   rewriteViewportUnits,
   viewportContainerName,
@@ -18,12 +19,21 @@ export interface FrameEnvironment {
 
 let rootSheet: CSSStyleSheet | undefined
 
+/** The least an empty layout takes on the canvas each way, in the design's pixels. */
+export const emptyLayoutSize = 24
+
 /**
  * A frame's root starts from what a browser gives a page's root, not from the canvas around it. Otherwise text that sets
  * no size of its own takes the canvas's 12px and 18px line height instead of a browser's 16px and normal, and the
  * canvas's color scheme and font. Its body has a browser's 8px margin, which, as at a page's root, stays inside the
  * frame. It's the first layer, so the project's own `html` and `body` rules still win. Pointer events, the cursor and
  * text selection stay inherited, since the canvas decides those.
+ *
+ * A layout with nothing in it would draw nothing, where it can't be seen, selected or dropped into, so on the canvas it
+ * takes at least `emptyLayoutSize` along each axis its content would size, dashed. Along an axis the design sizes it
+ * keeps that size (see core's `emptyLayoutAttribute`). The least size has to be important to beat the `min-width: 0`
+ * every layout is drawn with. It's found by the attribute core puts on empty layouts, not by `:empty`: that pseudo-class
+ * in this sheet, shared by every frame, kept closed projects' frames in memory (PAR-193).
  *
  * The root is also the size container the project's (rewritten) media queries ask, so they respond to the frame's
  * width. A container lays out on its own, as a page's root does, and fixed elements place themselves in it, as in a
@@ -42,6 +52,12 @@ function frameRootSheet(): CSSStyleSheet {
     user-select: inherit;
   }
   [${bodyAttribute}] { margin: 8px; }
+  [${emptyLayoutAttribute}] {
+    outline: 1px dashed color-mix(in oklab, currentColor 35%, transparent);
+    outline-offset: -1px;
+  }
+  [${emptyLayoutAttribute}~="width"] { min-width: ${emptyLayoutSize}px !important; }
+  [${emptyLayoutAttribute}~="height"] { min-height: ${emptyLayoutSize}px !important; }
 }`)
   return rootSheet
 }
