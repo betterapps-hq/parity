@@ -17,7 +17,7 @@ Features built before 2026-10-29 are being added under PAR-392 in Linear.
 ## Testing in the app (PAR-202)
 
 `pnpm test:app` drives a copy of Parity as a person does, with the system's own pointer and keyboard, and checks what
-the canvas, the panels and the project show: 58 tests, which take four to six minutes. It isn't part of `pnpm test` or
+the canvas, the panels and the project show: 58 tests, which take four to six minutes. It isn't part of `vp run test` or
 `pnpm verify`, so run it after changing how the canvas, its overlay, the keymap, the menus or the inspector's fields
 handle input. Each feature's tests below name the end-to-end ones that cover it.
 

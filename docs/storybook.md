@@ -260,7 +260,7 @@ the canvas.
 
 ## Tests
 
-**Covered,** all in `pnpm test`:
+**Covered,** all in `vp run test`:
 
 - Mapping stories to components in [project/src/index.test.ts](../packages/project/src/index.test.ts): a custom port and
   config folder, aliased and renamed imports, a stray story file, a story with only a title, and no config at all.
@@ -270,7 +270,7 @@ the canvas.
   `too-old` on 8, and `vite7-js` and `mantine` without one. The fixtures must be installed first.
 
 Parity's own Storybook has play functions for the UI's Storybook states (opening, opened, failed, no Storybook) in the
-status bar and the Components panel. They run against the stand-in service and aren't part of `pnpm test`. The layer
+status bar and the Components panel. They run against the stand-in service and aren't part of `vp run test`. The layer
 panel's button has no story.
 
 **Not covered:** all of [utility/storybook.ts](../apps/desktop/src/utility/storybook.ts). Reusing a server, starting

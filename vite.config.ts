@@ -48,6 +48,14 @@ const readOnly =
   "Reader packages read files but never write them: return a project edit and let the project service apply it."
 
 /**
+ * What invalidates a task's cache: every file it reads, but not the listings of `node_modules` and `node_modules/.vite`.
+ * On Windows Vite Task records those listings, and Vite and Vitest add folders to them as they run (`.vite-temp`,
+ * `.vitest-cache`, `.vite/vitest`), so without this every task misses on a fresh checkout and `check` misses after
+ * `test`. The files a task reads inside `node_modules` still count, so an install that changes them reruns it.
+ */
+const trackedInputs = [{ auto: true }, "!node_modules", "!node_modules/.vite/**"]
+
+/**
  * The workspace's format, lint, type-check, test and task settings, which `vp check`, `vp test` and `vp run` read from
  * the root. Each app keeps its own Vite settings in its folder.
  */
@@ -213,8 +221,18 @@ export default defineConfig({
     // Closing Chrome after the browser tests takes more than the default 10 seconds on CI's macOS runners.
     hookTimeout: 30_000
   },
+  // The checks, as tasks so Vite Task replays one whose inputs haven't changed since it last passed, here and in CI.
+  // `pnpm verify` runs `check` and `test`, and `pnpm check:types` runs `types`; a task can't share a script's name.
   run: {
-    cache: true
+    cache: true,
+    tasks: {
+      // Format and lint, without types.
+      check: { command: "vp check", cache: { input: trackedInputs } },
+      // The unit tests, without the end-to-end suite that `pnpm test:app` runs.
+      test: { command: "vp test run", cache: { input: trackedInputs } },
+      // Lint with the type-aware rules, and type errors, which the push and CI check.
+      types: { command: "vp lint --type-aware --type-check", cache: { input: trackedInputs } }
+    }
   },
   // The pre-commit hook checks only what the commit stages, fixing what it can, so other sessions' unfinished work in
   // the same folder never fails it; types wait for the push. CI checks everything on a clean checkout. Lint and format

@@ -14,11 +14,9 @@
     "perf": "pnpm --filter @parity/desktop perf",
     "storybook": "pnpm --filter @parity/desktop storybook",
     "format": "vp fmt",
-    "check": "vp check",
-    "check:types": "vp lint --type-aware --type-check",
-    "test": "vp test run",
+    "check:types": "vp run types",
     "test:app": "vp test run --config apps/desktop/e2e/vite.config.ts",
-    "verify": "vp check && vp test run",
+    "verify": "vp run check && vp run test",
     "changefile": "node scripts/changes.ts write",
     "prepare": "vp config --hooks --no-agent"
   },

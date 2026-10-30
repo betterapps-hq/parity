@@ -1358,7 +1358,7 @@ to PAR-209 build it.
   CAN-39, CAN-47 and CAN-48 that need design first moved to new items: Copy as PNG (PAR-190), find (PAR-191), lock
   (PAR-192), the finer gesture work (PAR-193) and lengths off the spacing scale (PAR-194). Until PAR-194, nudging moves
   an absolutely placed layer by one spacing step, or ten with Shift, since 1px would leave the scale.
-- **The editor's end-to-end tests are `pnpm test:app`** (PAR-202), kept out of `pnpm test`. Files are `*.e2e.ts` with
+- **The editor's end-to-end tests are `pnpm test:app`** (PAR-202), kept out of `vp run test`. Files are `*.e2e.ts` with
   their own Vitest config, run one at a time against one copy of Parity on a temp copy of the example, its
   `node_modules` linked rather than copied, and a component that ignores its props added only in the copy. It uses ports
   5385 and 9385, or ports the system picks. Tests read results from the page's state, drive real pointer and keyboard
@@ -1392,8 +1392,8 @@ the Repository, CI and releases stream in Linear.
   calls: workspace packages stay source-only, the example project, fixtures and builder-vite stay on stock Vite because
   they stand in for or drive customers' projects, and `pnpm verify` keeps its name.
 - **Parity runs on Vite+ since `5020d8f`** (REPO-1, PAR-1). My calls as it landed:
-  - **One root `vite.config.ts`** holds the format, lint, type-check, test and task settings. `pnpm verify` is
-    `vp check && vp test run`, and `pnpm check` and `pnpm format` run `vp check` and `vp fmt`.
+  - **One root `vite.config.ts`** holds the format, lint, type-check, test and task settings. `pnpm verify` runs the
+    `check` and `test` tasks (PAR-405), and `pnpm format` runs `vp fmt`.
   - **Shared versions are in a catalog.** pnpm sets Vite (Vite+'s core), Vite+ and Vitest once, and a script stops when
     the dependencies changed but weren't installed: run `pnpm install`.
   - **The desktop app runs on Vite+'s core.** A pnpm override keeps stock Vite 8 for the example project and
@@ -1508,7 +1508,20 @@ the Repository, CI and releases stream in Linear.
     event's file, never through an expression. It has a concurrency key of its own, so it never cancels verify's run.
   - A `CI passes` job over both is the one check main's ruleset requires, with CodeRabbit, so the ruleset needn't change
     when jobs or systems do.
-  - Vite Task's cache isn't kept: `pnpm verify` runs `vp check` and `vp test` directly, not through `vp run`.
+  - Vite Task's cache isn't kept between runs yet. `pnpm verify` runs through `vp run` since PAR-405, and ci-verify's
+    `vite-task-cache` input turns the rest on.
+- **Parity's checks are Vite+ tasks, so Vite Task replays one whose inputs haven't changed (PAR-405).** My calls:
+  - The root `vite.config.ts` defines `check` (`vp check`), `test` (`vp test run`) and `types`
+    (`vp lint --type-aware --type-check`). `pnpm verify` is `vp run check && vp run test`, `pnpm check:types` is
+    `vp run types`, and the pre-push hook runs `vp run types`. The `check` and `test` scripts are gone, since a task
+    can't share a script's name; that's also why the type task is `types`, so `pnpm check:types` keeps working.
+  - Each task's inputs leave out the listings of `node_modules` and `node_modules/.vite`. On Windows Vite Task records
+    them, and Vite and Vitest add folders there as they run, so every task missed on a fresh checkout and `check` missed
+    after `test`. Files read inside `node_modules` still count.
+  - `test` tracks what it reads, including the fixtures' installs, and stays cached: on this machine a miss took about
+    1.5 seconds longer than `vp test run` alone (15.6 against 14.1), and a hit takes 1.3 to 2.1 seconds instead of 14. A
+    change to a package's source or to a fixture reruns it.
+  - Vite Task keeps one entry per task, so undoing a change reruns the task once more.
 - **`betterapps-hq/pipelines` started with the setup action and ci-verify (PAR-110).** My calls:
   - The setup action checks out without keeping credentials, and on Windows turns off `core.autocrlf` first, since the
     runners' CRLF made Vite+'s formatter fail every file.

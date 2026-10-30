@@ -2,7 +2,7 @@ import { defineConfig } from "vite-plus"
 
 /**
  * The end-to-end tests, which `pnpm test:app` runs against a copy of Parity that global-setup.ts starts. They're kept
- * out of `pnpm test`, whose unit tests run without the app. How to run and add them is in docs/editor.md.
+ * out of `vp run test`, whose unit tests run without the app. How to run and add them is in docs/editor.md.
  */
 export default defineConfig({
   root: import.meta.dirname,

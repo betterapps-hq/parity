@@ -44,7 +44,7 @@ jobs:
         pnpm --filter @parity-app/cli try-packed
       # A run that installs the fixture projects and caches their 2 GB can outlast the default 30 minutes on Windows.
       timeout-minutes: 45
-      # Vite Task's cache isn't kept between runs: pnpm verify runs vp check and vp test directly, not through vp run.
+      # pnpm verify runs the check and test tasks through vp run, but Vite Task's cache isn't kept between runs yet.
 
   # What needs only one system and the branch's history: types, and on pull requests the change files Beachball and
   # scripts/changes.ts check, and the title squash merging makes the commit's subject. Both compare with origin/main,
