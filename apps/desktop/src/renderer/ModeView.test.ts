@@ -38,13 +38,13 @@ const loaded = { guest: createGuest({ components: { Field }, css: "" }), sheet, 
 const mode = resolveModes(defaultModeSettings)[0]
 let root
 
-/** Shows a design in one frame, as the canvas does, interactive or not. */
-export function show(container, { interactive = false, scale = 1 } = {}) {
+/** Shows a design in one frame, as the canvas does, interactive or not, or asleep. */
+export function show(container, { interactive = false, scale = 1, asleep = false } = {}) {
   root ??= createRoot(document.querySelector("#area"))
   const tree = resolveDesign(container.root, container.states[0], mode.viewport, new Map())
   flushSync(() =>
     root.render(
-      createElement(ModeView, { loaded, tree, mode, width: 390, design: container.id, state: "default", primary: true, scale, interactive })
+      createElement(ModeView, { loaded, tree, mode, width: 390, design: container.id, state: "default", primary: true, scale, interactive, asleep })
     )
   )
 }
@@ -98,7 +98,7 @@ const form = {
 }
 
 /** Shows a design and lets its effects run. */
-async function show(container: unknown, options: { interactive?: boolean; scale?: number } = {}) {
+async function show(container: unknown, options: { interactive?: boolean; scale?: number; asleep?: boolean } = {}) {
   // @ts-expect-error The bundle's global.
   await page.evaluate(({ container, options }) => app.show(container, options), { container, options })
   await page.waitForTimeout(50)
@@ -194,6 +194,33 @@ const card = {
   },
   states: [{ id: "default", name: "Default" }]
 }
+
+describe("a frame asleep", () => {
+  /** The frame's host, what it holds, and how tall the frame is laid out. */
+  const frame = () =>
+    page.evaluate(() => {
+      const host = document.querySelector<HTMLElement>("[data-frame]")!
+      return {
+        design: host.dataset.design,
+        elements: host.shadowRoot?.querySelectorAll("*").length ?? 0,
+        field: !!host.shadowRoot?.querySelector("input"),
+        height: document.querySelector<HTMLElement>(".mode-frame")!.offsetHeight
+      }
+    })
+
+  it("lets go of its design and keeps its host and height, and draws it again when it wakes", async () => {
+    await show(form)
+    const awake = await frame()
+    expect(awake.field).toBe(true)
+    expect(awake.height).toBeGreaterThan(0)
+
+    await show(form, { asleep: true })
+    expect(await frame()).toEqual({ design: "form", elements: 0, field: false, height: awake.height })
+
+    await show(form)
+    expect(await frame()).toEqual(awake)
+  })
+})
 
 describe("what the canvas reads from an inert frame", () => {
   it("still finds the layers under the pointer, by their boxes", async () => {

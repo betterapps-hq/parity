@@ -226,6 +226,20 @@ textarea,
   }
 }
 
+/*
+ * A frame asleep (see frame-sleep.ts) draws nothing of its own, so it shows its bitmap at any zoom until it wakes. It
+ * skips drawing as a board out of view does, keeping the size it last had when drawn, rather than noting an empty
+ * frame's size, which it would take each time it next skipped drawing.
+ */
+[data-asleep] [data-frame] {
+  content-visibility: hidden;
+}
+
+[data-asleep] .frame-bitmap,
+[data-asleep]:not([data-bitmap]) .frame-skeleton {
+  display: block;
+}
+
 /* Further out, boards and frames drop their shadows, which are the most costly part to draw and barely show. */
 .canvas-area[data-tiny] :is(.container-view, .mode-frame) {
   --tw-shadow: 0 0 #0000;
