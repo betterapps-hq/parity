@@ -96,10 +96,6 @@ export default defineConfig({
       "*.md"
     ],
     rules: {
-      "typescript/no-explicit-any": "error",
-      "typescript/ban-ts-comment": "error",
-      "typescript/consistent-type-imports": "error",
-      "eslint/no-console": "off",
       // The agency monorepo's rules beyond the correctness category (PAR-396, docs/proposals/repository.md: From the
       // agency monorepo), without `curly`, `no-console`, `no-bitwise` and the React Compiler rule.
       "typescript/no-inferrable-types": "error",
@@ -148,6 +144,10 @@ export default defineConfig({
       "react/no-unescaped-entities": "error",
       "react/no-unknown-property": "error",
       "react/require-render-return": "error",
+      "typescript/no-explicit-any": "error",
+      "typescript/ban-ts-comment": "error",
+      "typescript/consistent-type-imports": "error",
+      "eslint/no-console": "off",
       "vite-plus/prefer-vite-plus-imports": "error",
       // Type-aware rules that flagged 229 places on 2026-10-29, left for REPO-7 to turn on with the fixes.
       "typescript/unbound-method": "off",
