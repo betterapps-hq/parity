@@ -1,4 +1,11 @@
-import { type ComponentInfo, type ComponentProp, type DesignNode, isMadeValue, propsPanel } from "@parity-app/core"
+import {
+  type ComponentInfo,
+  type ComponentProp,
+  type DesignNode,
+  isMadeValue,
+  nodePropInput,
+  propsPanel
+} from "@parity-app/core"
 import { Plus, X } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -147,6 +154,7 @@ function PropInput({
       return (
         <SwitchInput
           value={typeof value === "boolean" ? value : prop.default === true}
+          label={prop.name}
           onChange={(next) => onChange(next === (prop.default ?? false) ? undefined : next)}
         />
       )
@@ -171,9 +179,11 @@ function PropInput({
         />
       )
     case "node":
-      if (inSlot) return <span className="text-xs text-muted-foreground">Set in layers</span>
+      if (nodePropInput(value, inSlot) === "layers") {
+        return <span className="text-xs text-muted-foreground">Set in layers</span>
+      }
       // A value that isn't text (a number, `null`) is edited as one, as before slots were nodes.
-      if (typeof value !== "string" && value !== undefined) {
+      if (nodePropInput(value, inSlot) === "value") {
         return <ValueInput value={value} kind={valueKind(value, prop.kind)} title={prop.name} onCommit={onChange} />
       }
       return (

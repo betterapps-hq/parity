@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 import type { DesignNode } from "./document.ts"
-import { type ComponentInfo, propsPanel } from "./props.ts"
+import { type ComponentInfo, nodePropInput, propsPanel } from "./props.ts"
 
 /** A Fluent Button as the props reader sees it: its `icon` slot is its own, its children and attributes aren't. */
 const button: ComponentInfo = {
@@ -42,6 +42,16 @@ describe("propsPanel", () => {
     const panel = propsPanel(button, { slots: { children: [icon] } })
     expect(panel.extra).toEqual([])
     expect(panel.inSlot.has("children")).toBe(true)
+  })
+
+  it("edits a node prop as layers, text or a typed value", () => {
+    expect(nodePropInput(undefined, false)).toBe("text")
+    expect(nodePropInput("+", false)).toBe("text")
+    expect(nodePropInput(2, false)).toBe("value")
+    expect(nodePropInput(null, false)).toBe("value")
+    // Layers in its slot win over whatever value it also holds.
+    expect(nodePropInput(2, true)).toBe("layers")
+    expect(nodePropInput(undefined, true)).toBe("layers")
   })
 
   it("keeps a text label out of the list and functions out of what can be added", () => {

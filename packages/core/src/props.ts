@@ -51,6 +51,15 @@ export interface PropsHolder {
   slots?: Record<string, readonly unknown[]>
 }
 
+/**
+ * How a node prop's field edits it: `layers` when its slot holds layers, which the canvas passes in place of a value;
+ * `text` for text or no value; `value` for anything else (a number, `null`), edited as a typed value.
+ */
+export function nodePropInput(value: unknown, inSlot: boolean): "layers" | "text" | "value" {
+  if (inSlot) return "layers"
+  return typeof value === "string" || value === undefined ? "text" : "value"
+}
+
 /** What the Props panel lists for a component layer. */
 export interface PropsPanel {
   /** Variants and own props, always listed. */

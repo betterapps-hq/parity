@@ -903,16 +903,17 @@ layer where it used to take a value of unknown type.
   value is, rather than taken for layers.
 
 Code: `packages/code/src/props.ts` (`classify` and `slotKind`, and the group a slot takes in `componentProps`),
-`packages/core/src/props.ts` (`propsPanel`, what the section lists), and `chrome/PropsSection.tsx` in the app.
+`packages/core/src/props.ts` (`propsPanel`, what the section lists, and `nodePropInput`, how a node prop's field edits
+it), and `chrome/PropsSection.tsx` in the app.
 
 Tests:
 
 - `packages/code/src/props.test.ts`, Fluent's slots (4): a declaration in a package's `node_modules` written as Fluent
   writes `Slot`, with a content slot read as an own node prop typed `Slot<'span'>`, a void element's slot as an object,
   the root slot left with the attributes, and the library's other props read as before.
-- `packages/core/src/props.test.ts` (5): a content slot listed and taking text, set in layers once its slot holds them
-  and not offered again, an attribute's slot with layers among the set props, a library's children in layers left to the
-  Layers panel, and a text label and functions left out.
+- `packages/core/src/props.test.ts` (6): a node prop edited as layers, text or a typed value; a content slot listed and
+  taking text, set in layers once its slot holds them and not offered again, an attribute's slot with layers among the
+  set props, a library's children in layers left to the Layers panel, and a text label and functions left out.
 
 Gaps: the section's wiring has no automated DOM test. The reader was run against `fixtures/fluent`'s installed
 `@fluentui/react-components` on 2026-10-30: Button's `icon`, Input's `contentBefore` and `contentAfter`, CardHeader's
