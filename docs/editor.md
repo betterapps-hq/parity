@@ -14,6 +14,34 @@ Features built before 2026-10-29 are being added under PAR-392 in Linear.
   regression nobody will notice.
 - **Name the gaps.** When part of a feature has no automated test, its section says so and how it was checked instead.
 
+## Testing in the app (PAR-202)
+
+`pnpm test:app` drives a copy of Parity as a person does, with the system's own pointer and keyboard, and checks what
+the canvas, the panels and the project show: 58 tests, which take four to six minutes. It isn't part of `pnpm test` or
+`pnpm verify`, so run it after changing how the canvas, its overlay, the keymap, the menus or the inspector's fields
+handle input. Each feature's tests below name the end-to-end ones that cover it.
+
+- **What it starts.** `apps/desktop/e2e/global-setup.ts` copies `examples/shadcn-vite` to a temporary folder, linking
+  its `node_modules` rather than copying them, and adds a Members screen: three `MemberRow({ member })` rows, a fragment
+  and an email field. It starts Parity on the copy through `scripts/dev.ts`, with its own user data, agent file and a
+  1440 by 900 window, on ports 5385 and 9385, or on ports the system picks when those are taken. When the run ends it
+  stops that copy by its process id and removes the folder, and the build a picked port made. The example itself, and
+  any other copy of Parity running, are left alone.
+- **How a test drives it.** The files run one after another against that one window, through the DevTools protocol with
+  playwright-core. `App`, in `e2e/app.ts`, has the gestures: `click`, `rightClick`, `drag`, `selectDesign` by its title,
+  and `selectLayer`, which clicks a layer and double-clicks down to it as a person does. Every test selects layers
+  through it, so a change to clicking is made there alone. `App` reads what happened from the page (`children`, `style`,
+  `selection`, `drawn`, `outlines`, `labels`, `undoLabel`) and never sets state to make something happen, apart from
+  `show`, which puts a design in view at a zoom, and `reset`, which undoes everything after each test. Copy and paste go
+  through a stand-in for the clipboard on the page; the system's clipboard is never read or written.
+- **Adding a test.** Put it in its area's file (`selecting`, `menus`, `moving`, `keyboard` or `fields`), or in a new
+  `apps/desktop/e2e/<area>.e2e.ts` that connects before all, resets after each test and closes after all, as the others
+  do. Start with `app.show(design, zoom)`, act through `App`'s gestures or `app.page.keyboard`, and wait for what
+  changes with `expect.poll`, since the app answers a frame or more later. Change the project only through edits Undo
+  takes back, so `reset` can put it back. Then name the test in its feature's section here.
+- **What it can't see.** What tldraw draws on its own canvas, such as a board's hover outline, isn't in the page, so
+  it's read through tldraw's editor (its box) or not at all.
+
 ## Selecting
 
 How a click, a drag or a key picks layers and designs, and how the canvas finds and outlines them.
@@ -83,11 +111,13 @@ Tests:
   `$renderWith:` slot, and keeps the two cases below that don't work yet as `it.fails`.
 - `packages/code/src/props.test.ts`: whether a component's props take a `style`.
 - `chrome/LayerPanel.stories.tsx`, ComponentWithoutStyle: the note, and wrapping the component from it.
+- `apps/desktop/e2e/selecting.e2e.ts` (6), end to end (PAR-202), on the Members screen the run adds: hovering a
+  `MemberRow` outlines it; a click selects it, with its outline, its name and size, and the inspector's note; Wrap in
+  layout from the note; dragging it to reorder, with the copy where it lands, and one undo; the email field outlined
+  around its input; and the fragment around both of its elements.
 
-Gaps: no automated test drives the canvas's pointer handling over such a component. Hovering, double-clicking to select,
-the outline and size label, dragging to reorder, the inspector's note and its Wrap in layout were checked in an isolated
-copy of the app, on a copy of the example with a `MemberRow({ member })`, a fragment and an email field added, on
-2026-10-29. A component that declares `style` but puts it on an inner element, as a field passing it to its input, is
+Gaps: the canvas's pointer handling over such a component, first checked by hand on 2026-10-29, is now the end-to-end
+test above. A component that declares `style` but puts it on an inner element, as a field passing it to its input, is
 outlined around the field but sized at the input, and the note doesn't say so. A component layer in a slot doesn't get
 the props its parent hands it: a `Button asChild` around a `Link` layer leaves the link without the button's class,
 attributes and handlers, and a `$renderWith:` slot's component layer without what it's rendered with. Both clone the
@@ -163,18 +193,25 @@ Tests:
   dragging an unselected layer moves it, a box selects what it touches in its frame and Escape puts the selection back,
   and hovering outlines what a click would in the frame under the pointer, and nothing over the background. All but
   Ctrl's and the board's own background fail against the overlay as it was.
+- `apps/desktop/e2e/selecting.e2e.ts` (9), end to end with tldraw (PAR-202): a click on a stat card selects Main and
+  leaves the board where it was; three double-clicks reach the card, and a Ctrl-click above its header the card itself;
+  a click on a frame's background selects the board; the board moves by its own background and by its title; a box from
+  Sign in's background selects the card and the terms, with tldraw's box there while it's drawn and gone after; Enter on
+  Stats selects its four cards, and on the greeting edits it; an unselected layer dragged moves without the board; a
+  card Ctrl-dragged by its edge moves; and hovering a card in an unselected design's dark frame outlines Main there.
 
-Gaps: tldraw isn't in the Chrome test, so the board's hover outline, tldraw's box drawn as the box, the board moved by
-its background and title, and the Enter key itself were checked in an isolated copy of the app on the example project on
-2026-10-29. There, a click on a stat card selected Main; a box from Sign in's background over its card and terms
-selected both, with tldraw's box drawn and gone after; a click there selected the board and a drag on the board's own
-background moved it; Enter on Stats selected its four cards and on the greeting started editing it; Sign in's terms
-dragged above the card moved, and the Revenue card Ctrl-dragged past Issues moved, each with the board left where it
-was; hovering a card in the dark frame outlined Main there and not the board. Ctrl-clicking the stat card took 333 to
-497 ms from the press to the frame after the selection drew (two runs of five), and three double-clicks 1.3 to 2.1 s,
-sent as soon as each selection drew; the five selections the old way made, set one after another as fast as they drew,
-took 1.06 to 1.37 s, before counting the gestures. Ctrl doesn't change what a box selects, where Figma's selects the
-layers deeper inside. Right-click's Select layer, listing everything under the pointer, is PAR-168.
+Gaps: tldraw isn't in the Chrome test; its box, the board moved by its background and title, and Enter are in the
+end-to-end test. The board's hover outline is drawn on tldraw's canvas, out of the test's reach, so it was checked in an
+isolated copy of the app on the example project on 2026-10-29, with the rest. There, a click on a stat card selected
+Main; a box from Sign in's background over its card and terms selected both, with tldraw's box drawn and gone after; a
+click there selected the board and a drag on the board's own background moved it; Enter on Stats selected its four cards
+and on the greeting started editing it; Sign in's terms dragged above the card moved, and the Revenue card Ctrl-dragged
+past Issues moved, each with the board left where it was; hovering a card in the dark frame outlined Main there and not
+the board. Ctrl-clicking the stat card took 333 to 497 ms from the press to the frame after the selection drew (two runs
+of five), and three double-clicks 1.3 to 2.1 s, sent as soon as each selection drew; the five selections the old way
+made, set one after another as fast as they drew, took 1.06 to 1.37 s, before counting the gestures. Ctrl doesn't change
+what a box selects, where Figma's selects the layers deeper inside. Right-click's Select layer, listing everything under
+the pointer, is PAR-168.
 
 ### Right-click menus (PAR-168)
 
@@ -247,15 +284,22 @@ Tests:
   Instance, SeveralLayers, Design, EmptyCanvas, SelectLayer and Interacting. Each right-clicks through tldraw's pointer
   events and checks the selection, the items, what's unavailable and the keys; SelectLayer checks the list and the
   outline. All seven played without errors in headless Chrome on 2026-10-29.
+- `apps/desktop/e2e/menus.e2e.ts` (4), end to end with the system's right button (PAR-202): a right-click on a
+  `MemberRow` selects it and lists its items in order, with their keys and the lines between groups, and Duplicate runs
+  as one undo step; from a stat card, Select layer lists Dashboard, Main, Content, Stats and Users card with Main
+  checked, and picks the card; Paste here below the lede in Pricing's Hero pastes the copied headline at that slot, from
+  the stand-in clipboard, as "Paste layer here", and Undo takes it out; and in Interact a right-click reaches the design
+  and no menu opens.
 
-Gaps: the system's real right button, panning and the stand-in clipboard were checked in an isolated copy of the app on
-the example project on 2026-10-29: each item ran and undid as one step, Paste here landed in Hero after Lede, in
-Calendar's absolutely placed Events at the pointer, and a design and a note at the pointer, and Interact mode and the
-design's title opened no canvas menu. There's no end-to-end test for the menu yet (PAR-202). A component's slots aren't
-Paste here targets. Several copies pasted into an absolutely placed layout all land at the pointer, on top of each
-other. A copy that stretches between its insets loses its right and bottom when it's placed at the pointer. A
-right-click while the menu is open closes it, and another opens it. The menubar still offers Copy, Duplicate, the order,
-Wrap in layout and Hide for a layer inside an instance, which they don't act on; the canvas menu greys them.
+Gaps: the end-to-end test covers the right button, Select layer, Paste here into a layout and Interact. Panning with the
+right button, Paste here into an absolutely placed layout, a design and a note pasted at the pointer, and the design's
+title keeping its own menu were checked in an isolated copy of the app on the example project on 2026-10-29: each item
+ran and undid as one step, Paste here landed in Calendar's absolutely placed Events at the pointer, and a design and a
+note at the pointer, and the design's title opened no canvas menu. A component's slots aren't Paste here targets.
+Several copies pasted into an absolutely placed layout all land at the pointer, on top of each other. A copy that
+stretches between its insets loses its right and bottom when it's placed at the pointer. A right-click while the menu is
+open closes it, and another opens it. The menubar still offers Copy, Duplicate, the order, Wrap in layout and Hide for a
+layer inside an instance, which they don't act on; the canvas menu greys them.
 
 ## Moving, reordering and resizing
 
@@ -302,12 +346,15 @@ Tests:
   slid there, against the same layout measured after the card was hidden (which jumps it past the neighbour, as before
   CAN-47); a card dragged over neighbours that are layouts changing places with them; and a layout outside its own still
   taking the drop.
+- `apps/desktop/e2e/moving.e2e.ts` (6), end to end (PAR-202), on the dashboard: Users dragged right past Issues, with
+  the card hidden and its copy where it lands, then undone; Issues dragged left past Revenue; the header's Export past
+  New project; Feb among the revenue bars nudged a little (no change and nothing to undo) and past March (they swap, and
+  March keeps its two children); a drag shorter than the threshold changing nothing; and Escape mid-drag putting
+  everything back.
 
-Gaps: the pointer handling in `pressLayers` (the threshold, Escape, the preview) has no automated test. It was checked
-in an isolated copy of the app on the example project on 2026-10-29: the stat cards in both directions, the header's
-Export past New project, and Feb among the revenue bars, nudged a little (no change) and past March (they swap, and
-March keeps its two children). Dropping a component from the Components panel (`canvas/insert.ts`, `dropTarget`) still
-goes by the older one-line rule, so it lands wrongly in a grid of more than one row.
+Gaps: the pointer handling in `pressLayers` (the threshold, Escape, the preview), first checked by hand on 2026-10-29,
+is now the end-to-end test above. Dropping a component from the Components panel (`canvas/insert.ts`, `dropTarget`)
+still goes by the older one-line rule, so it lands wrongly in a grid of more than one row.
 
 ### Moving an absolutely placed layer by dragging (CAN-47)
 
@@ -328,10 +375,12 @@ with `frameDrawn` (`canvas/nudge.ts`) and rounds the drag to half steps.
 
 Tests: `canvas/insets.test.ts`, moving: by the side it's placed from, both sides of a stretched layer (the Review slot),
 negative insets kept and going negative, half steps, tokens and unset sides from where they're drawn (a negative side
-with a token on the other), and an axis with a token that isn't drawn staying put.
+with a token on the other), and an axis with a token that isn't drawn staying put. End to end (PAR-202),
+`apps/desktop/e2e/moving.e2e.ts` (2) drags Calendar's Review slot 24px right to left 6 and right -6, and, with left -2
+and both right and top set to the `spacing` token, 16px right to left 2 and right -3, with top still `spacing` and the
+width unchanged.
 
-Gaps: dragging itself was checked in the app, on the Review slot as it is and with left -2 and both right and top set to
-the `spacing` token: dragged 16px right it became left 2 and right -3, with top still `spacing` and the width unchanged.
+Gaps: none known. Dragging itself was first checked by hand, as the end-to-end test now does it.
 
 ### Resize handles (CAN-47)
 
@@ -371,13 +420,15 @@ Tests:
 - `canvas/ResizeHandles.test.ts`, in Chrome: the hint opens on hover, closes on press and stays closed through a drag
   into the hint itself and after release (this fails as the handles were before), opens again on the next hover, and a
   double-click still resets.
+- `apps/desktop/e2e/moving.e2e.ts` (4), end to end (PAR-202): New project's right handle, named by its hint when the
+  pointer rests on it, dragged 48px right changes the width alone, in steps, with no hint during the drag or after; its
+  top handle dragged sideways changes nothing and adds no undo step; the Review slot's top handle dragged up 16px gives
+  top 36 and height 20 with the bottom edge where it was, and its left handle dragged right gives left 3 with right
+  still 0.
 
-Gaps: a frame's own handles (a design's width and height) aren't covered by these tests. In the app on 2026-10-29, New
-project's right handle dragged 50px right gave a width of 49 steps and no height, with no hint during the drag; its top
-handle dragged sideways changed nothing; the Review slot's top handle dragged up 16px gave top 36 and height 20 with the
-bottom edge where it was, and its left handle dragged right gave left 3 with right still 0. A resize writes as the
-pointer moves, and in a development build those writes can be more than a second apart, so one drag can take several
-undos; one undo step per gesture is PAR-193.
+Gaps: a frame's own handles (a design's width and height) aren't covered by these tests. A resize writes as the pointer
+moves, and in a development build those writes can be more than a second apart, so one drag can take several undos; one
+undo step per gesture is PAR-193.
 
 ### Duplicating a design (CAN-47)
 
@@ -391,10 +442,10 @@ shapes), used by `chrome/designs.ts` (`duplicateDesign`) and `canvas/clipboard.t
 
 Tests: `canvas/free-space.test.ts`: the original alone, the example's Dashboard with Projects 176px to its right, a run
 of designs and gaps too narrow for the copy, a gap wide enough, designs well above or below the row, and one just inside
-the gap below it.
+the gap below it. End to end (PAR-202), `apps/desktop/e2e/moving.e2e.ts` (1) presses Ctrl+D on Dashboard: the copy is
+selected, top-aligned with it to its right, with no design or note within 160px, and Undo takes it away.
 
-Gaps: the Ctrl+D wiring was checked in the app on 2026-10-29: Dashboard's copy went to the end of its row, past Search,
-with nothing within 160px. The view doesn't follow a copy that lands off screen.
+Gaps: the view doesn't follow a copy that lands off screen.
 
 ## Keyboard
 
@@ -418,7 +469,9 @@ Code: `formatKeys` in `apps/desktop/src/renderer/chrome/keys.ts`, called by `com
 `context-menu.tsx`, `dropdown-menu.tsx` and `command.tsx`.
 
 Tests: `chrome/keymap.test.ts`, `formatKeys`: joining with `+`, naming `+` and `-`, the Mac's symbols, text left alone,
-and every key in the keymap showing as one chord off a Mac.
+and every key in the keymap showing as one chord off a Mac. End to end (PAR-202), `apps/desktop/e2e/keyboard.e2e.ts` (2)
+reads the Edit and View menus' items as plain text joined by `+`, and the nudges and the new keys in the Keyboard
+shortcuts dialog as keycaps; `e2e/menus.e2e.ts` reads the canvas menu's.
 
 ### Keys stay out of designs outside Interact (CAN-54)
 
@@ -448,9 +501,11 @@ component's own `focus()` does nothing; in Interact, Tab reaches the field and t
 when Interact stops. The first three fail without `inert`; letting go of focus is `ModeView`'s own, so it doesn't wait
 for the browser to notice the frame went inert. It also checks that an inert frame still gives the canvas the layers
 under a point (`hitInFrame`), its tab order (`tabOrder`) and what nudging reads (`frameDrawn`).
+`apps/desktop/e2e/keyboard.e2e.ts` (2) runs the whole flow end to end (PAR-202): with Sign in selected every frame is
+inert, Tab never reaches its fields and N still works after it; in Interact a click and typing go into its field, N
+included, and Escape twice gives the canvas its keys back, with the frames inert and nothing in them focused.
 
-Gaps: none known. The whole flow (Tab on the Sign in screen, N after it, typing in Interact, Escape back) was also
-checked in an isolated copy of the app on the example project.
+Gaps: none known.
 
 ### Nudging (CAN-39)
 
@@ -502,10 +557,13 @@ Tests:
 - `apps/desktop/src/renderer/ModeView.test.ts`: `frameDrawn` reads a row, a column and a grid's columns from a design
   rendered as the canvas renders it, and an absolutely placed layer's insets in steps, at full size and at half scale.
 - `apps/desktop/src/renderer/chrome/keymap.test.ts`: the arrows match with and without Shift, and show as `⇧←` on a Mac.
+- `apps/desktop/e2e/keyboard.e2e.ts` (3), end to end (PAR-202): a link in Pricing's footer moved two places right by two
+  presses, nothing across the row, and one undo; Calendar's Planning slot moved down a step, then ten with Shift, and
+  right on both of its sides; and Pricing moved 1px and 10px, with Ctrl and Alt arrows moving neither the design nor
+  tldraw's board.
 
-Gaps: the key handler's wiring (an arrow reaching `nudge`, Ctrl and Alt arrows kept from tldraw, the layer kept in view)
-has no automated test; it was checked in an isolated copy of the app on the example project, with a row of Pricing's
-texts, a stretched layer on Calendar, and the Pricing design.
+Gaps: the key handler's wiring is the end-to-end test above, apart from keeping a moved layer in view, which was checked
+in an isolated copy of the app on the example project.
 
 ### Select inverse and select matching layers (CAN-39)
 
@@ -535,9 +593,13 @@ Code: `apps/desktop/src/renderer/canvas/select.ts` (`inverseSelection`, `matchKe
 Tests: `apps/desktop/src/renderer/canvas/select.test.ts` covers inverting layers, everything selected, designs, a mode
 column, nothing selected and an instance's layers; and matching cards' titles however they're placed, the cards
 themselves, text of another style or tag, a state's changes, instances and components, several selected layers, the
-layer picked last, and designs by kind. `chrome/keymap.test.ts` checks the keys, Option for Alt on a Mac included.
+layer picked last, and designs by kind. `chrome/keymap.test.ts` checks the keys, Option for Alt on a Mac included. End
+to end (PAR-202), `apps/desktop/e2e/keyboard.e2e.ts` (3): Ctrl+Shift+A on a link in Pricing's footer selects the other
+two, Ctrl+Alt+A on a plan card selects all three and keeps it the one the inspector shows, and Select inverse runs from
+the Edit menu.
 
-Gaps: the menu items were checked by hand in an isolated copy of the app; no story covers them.
+Gaps: Select matching layers from the Edit menu was checked by hand in an isolated copy of the app; no story covers the
+menu items.
 
 ### Next and previous design (CAN-39)
 
@@ -554,7 +616,9 @@ Code: `adjacentDesign` and `designOrder` in `apps/desktop/src/renderer/canvas/se
 `chrome/commands.ts`, which zooms with `zoomToSelection`.
 
 Tests: `apps/desktop/src/renderer/canvas/select.test.ts` (the order, going round, from a layer, and with nothing
-selected). The zoom was checked in an isolated copy of the app.
+selected). End to end (PAR-202), `apps/desktop/e2e/keyboard.e2e.ts` (2): N from Pricing selects Sign up and zooms to it,
+so that Zoom to selection (Shift+2) after it doesn't move the view, and Shift+N goes back; and N from Members, the last
+screen, goes round to Member row, the first component.
 
 ### Paste over selection and paste to replace (CAN-39)
 
@@ -599,9 +663,13 @@ they sat, and new ids for designs whose ids are taken. Paste to replace: in plac
 changes dropped, each of several layers, in a component's slot, at an absolutely placed layer's insets, and leaving the
 root and instances' layers alone. `chrome/keymap.test.ts` checks both keys, and that Ctrl+R still renames.
 
-Gaps: reading the clipboard and the messages have no automated test. Both pastes, over layers and designs, and
-Ctrl+Shift+R not reloading the window, were checked in an isolated copy of the app, with the page's clipboard standing
-in for the system's.
+End to end (PAR-202), with a stand-in for the clipboard on the page, `apps/desktop/e2e/keyboard.e2e.ts` (6):
+Ctrl+Shift+V after a link in Pricing's footer, removing nothing, and one undo; Ctrl+Shift+R in the link's place, without
+reloading the window; Ctrl+Shift+V over Calendar's absolutely placed Planning slot, at its insets; copied Pricing over
+Sign in, at its position and on top of it; the message when designs are copied and layers selected; and plain text
+replacing a layer as a text layer.
+
+Gaps: the system's own clipboard isn't read in the tests, and pasting an image or SVG is covered by neither.
 
 ## Fields
 
@@ -708,16 +776,18 @@ Tests:
   state that sets its own width left alone, a later preview putting back what it doesn't change, taking it back exactly,
   settling for the change, and nothing written for no change.
 - `chrome/fields.stories.tsx`: a Length row in every look, and TypingMaths, SnappedToTheScale, CantRead and Stepping.
+- `apps/desktop/e2e/fields.e2e.ts` (8), end to end on Pricing's Brand mark (PAR-202), the inspector's wiring against the
+  real store and frames: 320 typed in Width drawn at each keystroke (4, 32 and 320px) while the design keeps its width,
+  and Enter making 80 steps as one undo step, with the field focused and its text selected; `16px`; 281 landing on 282px
+  with its note; `abc` kept with its reason, and Escape putting the value back; a value set underneath leaving `12` in
+  the field; Up, Shift+Up and Down as one undo step; `50-10` in Opacity; scrubbing the Width label, drawn while dragging
+  and one undo step on release; and `Mixed+8` on Brand mark and Plans.
 
-Gaps: the inspector's wiring (`LayerPanel`, `MultiPanel` and `StylePreview` against the real store and frames) has no
-automated test. It was checked in an isolated copy of the app on the example project on 2026-10-29, on Pricing's Brand
-mark: typing 320 in Width previewed at each keystroke in 25, 25 and 41 ms (a commit took 291 ms to show before) and
-Enter made 320px as one undo step, with focus kept; `16px` gave 16px; 281 gave 282px with its note; `abc` stayed with
-its reason; a value set underneath left `12` in the field; Up, Shift+Up and Down gave 36, 76 and 72px as one undo step;
-`50-10` in Opacity gave 40; scrubbing the Width label previewed in 22 ms and made one undo step; and `Mixed+8` on Brand
-mark and Plans gave 40px and 1208px. The stories' play functions weren't run in Storybook. Number props don't preview,
-since a prop change has to draw the component again; they take maths and are made on Enter, as before. In a 320px
-inspector, Width and Height show about three characters of what's typed (PAR-189).
+Gaps: the timings were measured by hand in an isolated copy of the app on 2026-10-29: typing 320 in Width previewed at
+each keystroke in 25, 25 and 41 ms (a commit took 291 ms to show before), and scrubbing in 22 ms. The stories' play
+functions weren't run in Storybook. Number props don't preview, since a prop change has to draw the component again;
+they take maths and are made on Enter, as before. In a 320px inspector, Width and Height show about three characters of
+what's typed (PAR-189).
 
 ## Saving and undo
 

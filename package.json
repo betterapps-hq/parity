@@ -17,6 +17,7 @@
     "check": "vp check",
     "check:types": "vp lint --type-aware --type-check",
     "test": "vp test run",
+    "test:app": "vp test run --config apps/desktop/e2e/vite.config.ts",
     "verify": "vp check && vp test run",
     "changefile": "node scripts/changes.ts write",
     "prepare": "vp config --hooks --no-agent"
