@@ -63,10 +63,13 @@ interface RenderReport {
 interface BoundaryState {
   error?: Error
   name?: string
+  source?: number
 }
 
 interface BoundaryProps {
   name: string
+  /** How many times the component has come from a new file, so one that failed starts over once it does. */
+  source: number
   /** The design node it draws, which is how the canvas finds the component's DOM in React's tree. */
   nodeId: string
   report: RenderReport
@@ -84,9 +87,12 @@ class ComponentBoundary extends Component<BoundaryProps, BoundaryState> {
   static getDerivedStateFromError(error: unknown) {
     return { error: error instanceof Error ? error : new Error(String(error)) }
   }
-  // Boundaries are keyed by position, so one whose node was removed draws the next component: it starts over.
-  static getDerivedStateFromProps(props: { name: string }, state: BoundaryState) {
-    return props.name === state.name ? null : { name: props.name, error: undefined }
+  // Boundaries are keyed by position, so one whose node was removed draws the next component: it starts over. So does
+  // one whose component now comes from another file, which may not fail.
+  static getDerivedStateFromProps(props: { name: string; source: number }, state: BoundaryState) {
+    return props.name === state.name && props.source === state.source
+      ? null
+      : { name: props.name, source: props.source, error: undefined }
   }
   override componentDidMount() {
     if (!this.state.error) this.props.report.drawn(this.props.name)
@@ -127,6 +133,12 @@ export function createGuest(init: GuestInit): Guest {
   const loadedOnDemand = new Set<string>()
   const failing = new Map<string, { count: number; error: string }>()
   const listeners = new Set<() => void>()
+  /** Where each component added since the guest loaded comes from, so adding one again from the same file changes nothing. */
+  const added = new Map<string, string>()
+  /** How many times each component has come from a new file, for its boundaries. */
+  const moves = new Map<string, number>()
+  let revision = 0
+  const revisionListeners = new Set<() => void>()
   let statuses: Record<string, ComponentRenderStatus> = {}
   let pending = false
   const changed = () => {
@@ -380,7 +392,7 @@ export function createGuest(init: GuestInit): Guest {
         const element = children ? createElement(component, props, ...children) : createElement(component, props)
         return createElement(
           ComponentBoundary,
-          { key: keyed, name: node.component, nodeId: node.nodeId, report },
+          { key: keyed, name: node.component, source: moves.get(node.component) ?? 0, nodeId: node.nodeId, report },
           element
         )
       }
@@ -402,18 +414,36 @@ export function createGuest(init: GuestInit): Guest {
       }
     },
     addComponents(sources) {
+      let moved = false
       for (const [id, source] of Object.entries(sources)) {
+        const from = `${source.path}#${source.export}`
+        if (added.get(id) === from) continue
+        added.set(id, from)
+        moves.set(id, (moves.get(id) ?? 0) + 1)
+        moved = true
         // The dev server builds any of the project's files when it's asked for one, as it does for the app.
-        const url = new URL(`/${source.path.replace(/^\.?\//, "")}`, projectOrigin).href
         loaders[id] = () =>
-          import(/* @vite-ignore */ url).then((module: Record<string, unknown>) =>
-            source.export.split(".").reduce<unknown>((value, key) => (value as Record<string, unknown>)?.[key], module)
+          import(/* @vite-ignore */ new URL(`/${source.path.replace(/^\.?\//, "")}`, projectOrigin).href).then(
+            (module: Record<string, unknown>) =>
+              source.export
+                .split(".")
+                .reduce<unknown>((value, key) => (value as Record<string, unknown>)?.[key], module)
           )
         // One it had already has moved to another file, so it's drawn from there from now on.
         delete components[id]
         deferred.delete(id)
         loadedOnDemand.delete(id)
         if (!names.includes(id)) names.push(id)
+      }
+      if (!moved) return
+      revision++
+      for (const listener of revisionListeners) listener()
+    },
+    revision: {
+      get: () => revision,
+      subscribe(listener) {
+        revisionListeners.add(listener)
+        return () => revisionListeners.delete(listener)
       }
     },
     renderStatus: {

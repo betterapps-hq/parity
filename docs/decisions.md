@@ -245,6 +245,18 @@ still need your call.
     last had when drawn; noting an empty frame's size instead shrank a board to its padding the next time it skipped.
   - **A frame whose design changes while it sleeps wakes wherever it is,** so its board lays out the new size that
     agents' snapshots read, and sleeps again once its new bitmap is taken. A token edit wakes every frame, one a frame.
+- **What a frame shows is keyed once, with the guest's code revision (PAR-439).** `useFrameShows` works out each frame's
+  keys and offscreen job together, so the live frame, its bitmap, its skeleton and its sleep can't disagree about when
+  it changed. Before, `ModeView` and the bitmap each keyed the frame their own way, and neither knew the guest's code: a
+  component the type checker found, or found moved, left frames and bitmaps as drawn.
+  - **One revision for the project's code, not one per component.** It goes up only when a component comes from a new
+    file, which is rare, and then every frame draws again and every bitmap is retaken in the background. Keying each
+    frame by the components it uses would redraw fewer, but needs the components inside instances too; it can go behind
+    the same key if redrawing everything proves costly.
+  - **The live frame draws again on what its design renders,** not on its size or previewed tokens, which it follows by
+    itself, so a token preview doesn't draw every frame's React tree again. Bitmaps go by both.
+  - **Redrawn in place, not rebuilt.** The guest looks each component up as it draws, and dropping the old loader's
+    component makes the next draw use the new one, so the frame keeps its other components' state.
 - **The canvas doesn't restyle its elements while the camera moves.** tldraw's `--tl-zoom` changes only once zooming
   stops, titles and labels size themselves from the zoom directly, selection colours go through tldraw's theme rather
   than custom properties, and the layer the camera moves is composited, so panning and zooming move what's already drawn

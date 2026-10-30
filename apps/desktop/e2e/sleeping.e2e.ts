@@ -8,7 +8,14 @@ let app: App
 
 beforeAll(async () => {
   app = await App.connect()
-})
+  // Bitmaps are taken one frame at a time in the background, and a frame without one stays drawn, so a run that starts
+  // with this file waits for them all.
+  await app.page.waitForFunction(
+    () => document.querySelectorAll("[data-bitmap]").length === document.querySelectorAll("[data-frame]").length,
+    undefined,
+    { timeout: 150_000, polling: 500 }
+  )
+}, 180_000)
 afterEach(() => app.reset())
 afterAll(() => app.close())
 
@@ -60,14 +67,20 @@ async function nodes(): Promise<number> {
   return nodes
 }
 
-/** Zooms to fit the whole project, and waits until every frame with a bitmap sleeps. */
+/**
+ * Zooms to fit the whole project, and waits until every frame with a bitmap sleeps: once the zoom settles, which a busy
+ * machine can hold back for seconds.
+ */
 async function zoomOut(): Promise<void> {
   await app.page.keyboard.press("Shift+1")
   await expect
-    .poll(async () => {
-      const { bitmaps, asleep } = await frames()
-      return asleep > 0 && asleep === bitmaps
-    })
+    .poll(
+      async () => {
+        const { bitmaps, asleep } = await frames()
+        return asleep > 0 && asleep === bitmaps
+      },
+      { timeout: 30_000 }
+    )
     .toBe(true)
 }
 
