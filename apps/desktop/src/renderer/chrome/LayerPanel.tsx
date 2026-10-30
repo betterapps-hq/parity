@@ -57,7 +57,7 @@ import { valueKind } from "./prop-values.ts"
 import { PropsSection } from "./PropsSection.tsx"
 import { revealSelection } from "./reveal.ts"
 import { hasStories, openInStorybook } from "./storybook.ts"
-import { type StyleEditor, StyleSections, styleValues } from "./StyleSections.tsx"
+import { type EditedLayer, type StyleEditor, StyleSections, styleValues } from "./StyleSections.tsx"
 
 /** The state edits go to: the one the layer was picked in, else the one the design shows. */
 export function editingState(container: ContainerSpec, picked: string | undefined): StateSpec {
@@ -342,23 +342,32 @@ function LayerSections({
       ? editLayer(session.store, current, target, nodeId, { style })
       : editNode(current, target, nodeId, { style })
   }
+  // Inside an instance, edits are the copy's changes; elsewhere they change the design unless a state or variant shows.
+  const layer: EditedLayer = {
+    base:
+      !inner &&
+      editsDesign(entry.container, boardTarget(entry.container, editingState(entry.container, selected.state).id)),
+    measure: (axis, round = Math.round) => {
+      const size = measureNode(session, entry.key, nodeId, selected)
+      return size && Math.max(1, round(size[axis] / spacingUnit(tokens)))
+    },
+    type: node.type,
+    column: parentLayout?.direction === "column"
+  }
   const styleEditor: StyleEditor = {
     style: node.style ?? {},
     changed: (name) => override?.style?.[name] !== undefined,
     reset: (name) => reset({ kind: "style", key: name }),
     set: (edit, label = "Change style") => {
-      const values = styleValues(edit, node.style ?? {}) as NodeStyle
+      const values = styleValues(edit, node.style ?? {}, layer) as NodeStyle
       preview.settle(edited(values))
       change(label, { style: values }, `style.${Object.keys(values).join(",")}`)
     },
-    preview: (edit) => preview.show(edited(styleValues(edit, node.style ?? {}) as NodeStyle)),
+    preview: (edit) => preview.show(edited(styleValues(edit, node.style ?? {}, layer) as NodeStyle)),
     endPreview: () => preview.cancel(),
     tokens,
     unit: spacingUnit(tokens),
-    measure: (axis) => {
-      const size = measureNode(session, entry.key, nodeId, selected)
-      return size && Math.max(1, Math.round(size[axis] / spacingUnit(tokens)))
-    }
+    measure: layer.measure
   }
 
   return (

@@ -120,6 +120,10 @@ type name a token from `GetTokens()`, without the `--`.
 | `transform`, `decoration`, `italic`              | `uppercase` and the like, `underline` or `line-through`, `true`           |
 | `lines`                                          | Lines of text before an ellipsis                                          |
 
+A text layer sizes as Figma's text does, by its `width` and `height`: `width: "hug"` is auto width, one line as wide as
+its text, wrapped only by a `maxWidth`; any other width, or none, with no `height` is auto height, wrapping at its width
+and growing down; a `height` as well is fixed.
+
 Type set on a layout applies to the text inside it. A component's own look comes from its props, so reach for a variant
 (`variant: "secondary"`) before styling a component from outside.
 

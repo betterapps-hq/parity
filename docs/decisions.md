@@ -399,6 +399,34 @@ still need your call.
   tldraw's drawn ones.
 - **A duplicated design goes to the first free space to the right along its row,** 160px clear of every design and note,
   as do designs pasted into their own project (CAN-47). Bringing it into view when that's off screen is PAR-204.
+- **The text editor opens on the double-clicked word, or the whole text** (PAR-175). A double-click selects what a
+  browser's would: the word holding the character under the pointer, or the space or punctuation there. Enter, the text
+  tool and the insert picker select the whole text, so typing replaces it.
+- **Escape keeps a text edit, as notes do, and so does Enter** (PAR-175). My call: Enter still keeps it and Shift+Enter
+  types a new line, as before, where Figma's Enter types a new line; text layers here are mostly one line of a
+  component, and a new line is drawn as a space until text layers keep white space. While an input method is composing,
+  Enter and Escape are left to it.
+- **The text editor is measured against the text every frame,** not once (PAR-175), so it follows the camera and the
+  layout. Text that wraps is edited in its content box at its own width; text that stays on one line grows from where
+  its characters are, up to its maximum width.
+- **Text layers size as Figma's do: auto width, auto height or fixed** (PAR-175). The mode is read from the width and
+  height, not stored beside them, so the resize handles change it as Figma's do and nothing can disagree. Each maps to
+  the Tailwind classes Parity writes for those sizes:
+
+  | Mode        | Width and height                                                      | Tailwind                                            |
+  | ----------- | --------------------------------------------------------------------- | --------------------------------------------------- |
+  | Auto width  | `width: "hug"`, no height                                             | `w-max`, and `max-w-*` when it has a maximum        |
+  | Auto height | a length (`w-80`), fill (`w-full` or `flex-1`) or no width, no height | the width's class only; the height follows the text |
+  | Fixed       | a width as for auto height, and a height (`h-12`, a token, or fill)   | the width's class and `h-*`, `h-full` or `flex-1`   |
+
+  My calls: hug on a text layer is drawn `max-content` (`w-max`) rather than the `fit-content` (`w-fit`) hug is on other
+  layers, since auto width text never wraps for its parent, only at a maximum width, as Figma's doesn't. No text layer
+  in the example hugged before this. A text layer with no width wraps at the width its layout gives it, so it reads as
+  auto height, which is what new text in a layout starts as. Switching to auto height or fixed keeps the layer the size
+  it's drawn at, rounded up to whole spacing steps so the text doesn't wrap again (past a thousandth of a step of
+  measuring noise), and in a state or variant auto width and auto height write `height: "hug"` over a height the design
+  sets, since dropping the state's change would leave the design's showing; fixed text that runs past its height
+  overflows, as in Figma.
 
 ## Main components and instances
 
