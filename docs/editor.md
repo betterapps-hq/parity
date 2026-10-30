@@ -878,6 +878,49 @@ functions weren't run in Storybook. Number props don't preview, since a prop cha
 they take maths and are made on Enter, as before. In a 320px inspector, Width and Height show about three characters of
 what's typed (PAR-189).
 
+## Component props
+
+What the Props section of a component layer lists, and how each kind of prop is set there.
+
+### Slots shown the way children is (PAR-127)
+
+A prop that takes content is set as `children` is: text typed in its field, or layers in a slot of its name, which the
+canvas passes as the prop. Fluent v9's slots (`icon`, `contentBefore`, `media`, `header` and the like) are such props:
+the type checker reads them as nodes, so a Fluent Button's `icon` or an Input's `contentBefore` takes text or an icon
+layer where it used to take a value of unknown type.
+
+- **Which slots.** A prop whose type is a union with a props object holding `as` (Fluent's `Slot<'span'>`,
+  `Slot<typeof Label>`) is a slot. One that also takes text, numbers or elements takes content, so it's a node; one that
+  takes only its part's props (a Checkbox's `input`, an Avatar's `image`, both void elements) is an object, set as JSON.
+- **Where they're listed.** A slot that takes content is the component's own, listed with its own props wherever the
+  library declares it, with its type as Fluent writes it (`Slot<'span'>`). Its `root` slot is the component itself, so
+  it stays with the attributes, as `children` does for a library's components.
+- **Set in layers.** Once a node prop's slot holds layers (a sample's `icon={<CalendarRegular />}`), its field says "Set
+  in layers" in place of a text field, whether the prop's a slot or `children`, and it isn't offered under Add a prop
+  again, since the slot's layers are what the canvas passes. An attribute's slot with layers is listed among the set
+  props, without a Remove button: its layers are removed in the Layers panel. A library's `children` in layers stays in
+  the Layers panel alone, as before.
+
+Code: `packages/code/src/props.ts` (`classify` and `slotKind`, and the group a slot takes in `componentProps`),
+`packages/core/src/props.ts` (`propsPanel`, what the section lists), and `chrome/PropsSection.tsx` in the app.
+
+Tests:
+
+- `packages/code/src/props.test.ts`, Fluent's slots (4): a declaration in a package's `node_modules` written as Fluent
+  writes `Slot`, with a content slot read as an own node prop typed `Slot<'span'>`, a void element's slot as an object,
+  the root slot left with the attributes, and the library's other props read as before.
+- `packages/core/src/props.test.ts` (5): a content slot listed and taking text, set in layers once its slot holds them
+  and not offered again, an attribute's slot with layers among the set props, a library's children in layers left to the
+  Layers panel, and a text label and functions left out.
+
+Gaps: the section's wiring has no automated DOM test. The reader was run against `fixtures/fluent`'s installed
+`@fluentui/react-components` on 2026-10-30: Button's `icon`, Input's `contentBefore` and `contentAfter`, CardHeader's
+`header`, `image`, `description` and `action`, Avatar's `icon`, `initials` and `badge`, and Checkbox's `label` and
+`indicator` read as own nodes; Checkbox's and Input's `input`, Card's `checkbox` and Avatar's `image` as objects. In an
+isolated copy of the app on that project, the same day, a Button with a text layer in its `icon` slot drew it before its
+label and its Props section said `icon` was set in layers, and an Input's `contentBefore` took `$` as text and drew it
+in the field, with `contentAfter` offering "Text, or layers in its slot".
+
 ## Saving and undo
 
 What goes through Save and Undo, and where an edit lands when the board shows a state or a variant.

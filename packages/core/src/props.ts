@@ -44,3 +44,47 @@ export type PropGroup = "variant" | "own" | "html" | "aria" | "event"
 export function editableProps(info: ComponentInfo | undefined): ComponentProp[] {
   return (info?.props ?? []).filter((prop) => prop.kind !== "function")
 }
+
+/** A component layer as the Props panel reads it: the props it's given, and the layers in its slots. */
+export interface PropsHolder {
+  props?: Record<string, unknown>
+  slots?: Record<string, readonly unknown[]>
+}
+
+/** What the Props panel lists for a component layer. */
+export interface PropsPanel {
+  /** Variants and own props, always listed. */
+  main: ComponentProp[]
+  /** Other props the layer has: set ones, and node props other than `children` whose slot holds layers. */
+  extra: string[]
+  /** Props that can still be added. */
+  addable: ComponentProp[]
+  /** Node props whose layers are in a slot of their name, which the canvas passes as the prop. */
+  inSlot: Set<string>
+}
+
+/**
+ * What the Props panel lists for a component layer. Every node prop shows as `children` does: text set as its value,
+ * or "set in layers" once its slot holds layers (a Fluent Button's `icon`, a Card's `header`). Text in `children` is the
+ * layer's label, so it isn't listed, and a prop held in a slot can't be added again.
+ */
+export function propsPanel(info: ComponentInfo | undefined, node: PropsHolder): PropsPanel {
+  const values = node.props ?? {}
+  const props = info?.props ?? []
+  const inSlot = new Set(
+    props.filter((prop) => prop.kind === "node" && (node.slots?.[prop.name]?.length ?? 0) > 0).map((prop) => prop.name)
+  )
+  const isLabel = (name: string) => name === "children" && typeof values.children === "string"
+  const main = props.filter(
+    (prop) => (prop.group === "variant" || prop.group === "own") && prop.kind !== "function" && !isLabel(prop.name)
+  )
+  const shown = new Set(main.map((prop) => prop.name))
+  // A library's children in layers stay in the Layers panel alone, as they always have.
+  const slotted = [...inSlot].filter((name) => name !== "children")
+  const extra = [...new Set([...Object.keys(values), ...slotted])].filter((name) => !shown.has(name) && !isLabel(name))
+  const addable = props.filter(
+    (prop) =>
+      !shown.has(prop.name) && !Object.hasOwn(values, prop.name) && !inSlot.has(prop.name) && prop.kind !== "function"
+  )
+  return { main, extra, addable, inSlot }
+}

@@ -676,6 +676,15 @@ recommended answer to each of its questions.
   portals don't run. Examples put them in every menu, so before this Radix rendered 108 of 118 in the app; after, 117.
 - **Elements as a prop's value are samples (LIB-37):** `{ "$element": [...] }`, read from examples' JSX in props
   (`control={<Checkbox />}`), and inserted as a slot of that prop's name, which the canvas already passes as the prop.
+- **Fluent's slots are props, read by their shape (PAR-127).** A prop whose type is a union with a props object holding
+  `as` is a slot (Fluent v9's `Slot<...>`), found by that shape rather than by the alias's name, which declarations
+  don't always keep. One that also takes text or elements takes content, so it's a node prop, set as `children` is:
+  text, or layers in a slot of its name. One that takes only its part's props (an `input`, an `img`) is an object. My
+  call: a content slot is listed with the component's own props though its package declares it, since it's one of the
+  component's parts and not an HTML attribute; `root` is the component itself, so it stays with the attributes. A
+  library's other props, `children` included, still sit with the attributes, as before.
+- **A node prop held in a slot says so (PAR-127):** once its slot has layers, the Props panel says "Set in layers" in
+  place of a text field and doesn't offer the prop again, since the canvas passes the slot's layers over a value.
 - **Components declared but missing when they run are left out (LIB-37):** MUI's types declare `BadgeRoot`, `ModalRoot`
   and others its build doesn't export; they're `visual: false`, and the report names them.
 - **Parts every example draws from a hook's list are found, not hidden (LIB-38, changed by LIB-39):** when each use of a

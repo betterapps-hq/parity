@@ -1,4 +1,4 @@
-import { type ComponentInfo, type ComponentProp, type DesignNode, isMadeValue } from "@parity-app/core"
+import { type ComponentInfo, type ComponentProp, type DesignNode, isMadeValue, propsPanel } from "@parity-app/core"
 import { Plus, X } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -22,20 +22,13 @@ const groupTitles = { html: "Attributes", aria: "Accessibility", event: "Events"
 /**
  * A component's props, from what its source declares: variants offer their options, booleans a switch, and every prop
  * shows its default when unset. Attributes it passes to its element are added one at a time from a searchable list.
+ * Node props, `children` and a Fluent slot alike, take text or say they're set in layers (see `propsPanel`).
  */
 export function PropsSection({ node, info, changed, onChange, onReset }: PropsSectionProps) {
   const values = node.props ?? {}
   const known = new Map((info?.props ?? []).map((prop) => [prop.name, prop]))
-  const isLabel = (name: string) => name === "children" && typeof values.children === "string"
   // Variants and own props always show; pass-through attributes only once set.
-  const main = (info?.props ?? []).filter(
-    (prop) => (prop.group === "variant" || prop.group === "own") && prop.kind !== "function" && !isLabel(prop.name)
-  )
-  const shown = new Set(main.map((prop) => prop.name))
-  const extra = Object.keys(values).filter((name) => !shown.has(name) && !isLabel(name))
-  const addable = (info?.props ?? []).filter(
-    (prop) => !shown.has(prop.name) && !Object.hasOwn(values, prop.name) && prop.kind !== "function"
-  )
+  const { main, extra, addable, inSlot } = propsPanel(info, node)
 
   return (
     <PanelSection
@@ -55,7 +48,12 @@ export function PropsSection({ node, info, changed, onChange, onReset }: PropsSe
             onReset={() => onReset(prop.name)}
             hint={prop.description ?? prop.type}
           >
-            <PropInput prop={prop} value={values[prop.name]} onChange={(value) => onChange(prop.name, value)} />
+            <PropInput
+              prop={prop}
+              value={values[prop.name]}
+              inSlot={inSlot.has(prop.name)}
+              onChange={(value) => onChange(prop.name, value)}
+            />
           </Field>
         ))}
         {extra.map((name) => {
@@ -63,7 +61,14 @@ export function PropsSection({ node, info, changed, onChange, onReset }: PropsSe
           let input: ReactNode
           if (isMadeValue(values[name])) input = <MadeValue value={values[name]} />
           else if (prop)
-            input = <PropInput prop={prop} value={values[name]} onChange={(value) => onChange(name, value)} />
+            input = (
+              <PropInput
+                prop={prop}
+                value={values[name]}
+                inSlot={inSlot.has(name)}
+                onChange={(value) => onChange(name, value)}
+              />
+            )
           else input = <ValueInput value={values[name]} onCommit={(value) => onChange(name, value)} />
           return (
             <div key={name} className="group relative">
@@ -75,7 +80,7 @@ export function PropsSection({ node, info, changed, onChange, onReset }: PropsSe
               >
                 {input}
               </Field>
-              {!changed(name) && (
+              {!changed(name) && !inSlot.has(name) && (
                 <button
                   type="button"
                   onClick={() => onChange(name, undefined)}
@@ -113,10 +118,13 @@ function MadeValue({ value }: { value: unknown }) {
 function PropInput({
   prop,
   value,
+  inSlot = false,
   onChange
 }: {
   prop: ComponentProp
   value: unknown
+  /** Whether its layers are in a slot of its name, which the canvas passes in place of the value. */
+  inSlot?: boolean
   onChange: (value: unknown) => void
 }) {
   if (isMadeValue(value)) return <MadeValue value={value} />
@@ -163,7 +171,7 @@ function PropInput({
         />
       )
     case "node":
-      return typeof value === "string" || value === undefined ? (
+      return !inSlot && (typeof value === "string" || value === undefined) ? (
         <TextInput
           value={typeof value === "string" ? value : ""}
           placeholder="Text, or layers in its slot"
