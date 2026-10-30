@@ -1151,10 +1151,10 @@ it land where they're aimed.
   end-to-end suite found the page 1139 px tall in a 903 px window, and focusing a design's title below the fold scrolled
   it by 235 px: the menubar and tabs went out of view, and every canvas click after it landed 235 px off, selecting
   nothing or the wrong layer.
-- **The cause** was the Layers panel's group headings. Their New component and New screen buttons are hidden for screen
-  readers (`sr-only`, which places them absolutely) until hovered or focused, and the heading wasn't positioned, so the
-  buttons were placed against the window rather than inside the panel, and the panel's scroll didn't clip them. The
-  heading is now `relative`.
+- **The cause** was the Layers panel's group headings. Their New component and New screen buttons are visually hidden,
+  left to screen readers (`sr-only`, which places them absolutely), until hovered or focused, and the heading wasn't
+  positioned, so the buttons were placed against the window rather than inside the panel, and the panel's scroll didn't
+  clip them. The heading is now `relative`.
 - **The guard.** The app's root (`#root` in `styles.css`) is positioned and has `overflow: clip`, so nothing inside it,
   even an absolutely placed element with no positioned ancestor, can make the page bigger than the window. `hidden`
   wouldn't do: the page already had `overflow: hidden` (from the body), and the browser still scrolls a hidden page to
