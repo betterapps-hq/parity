@@ -317,7 +317,7 @@ export function TokensPanel() {
             <Input
               value={query}
               onChange={(event) => setQuery(event.currentTarget.value)}
-              placeholder={`Search ${tokens.length} tokens`}
+              placeholder="Search tokens"
               className="h-8 pl-8"
             />
           </div>

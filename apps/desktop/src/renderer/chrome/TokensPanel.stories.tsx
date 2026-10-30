@@ -44,7 +44,7 @@ async function enter(field: HTMLElement, text: string): Promise<void> {
 
 /** Searches the tokens. */
 async function search(canvasElement: HTMLElement, text: string): Promise<void> {
-  await enter(within(canvasElement).getByPlaceholderText(/^Search \d+ tokens$/), text)
+  await enter(within(canvasElement).getByPlaceholderText("Search tokens"), text)
 }
 
 /** Opens a token's detail from its row, found by the token's name. */

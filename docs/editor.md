@@ -1070,7 +1070,8 @@ to draw, so its row shows the number. Beside the name is what the token comes to
   stay above the list as it scrolls.
 - **Narrow panels.** The left panel is at least 232 pixels wide, enough for every tab's icon and the collapse button.
   The open tab shows its name only when the tab strip has room for it, and is otherwise an icon like the rest, with its
-  name in the tooltip. The filters drop their counts before their names, and every count is in the filter's tooltip.
+  name in the tooltip. The filters drop their counts before their names, and every count is in the filter's tooltip. The
+  search says "Search tokens", without a count, which didn't fit (PAR-437).
 
 Code: the drawings are `apps/desktop/src/renderer/chrome/token-previews.tsx` (`TokenArt`, `TokenGlyph`, `TokenTile`,
 `valueLabel`, `valueProblem`, `spacingSlot`, `tokenSections`, `useHoverPlay`); the panel is `chrome/TokensPanel.tsx`
