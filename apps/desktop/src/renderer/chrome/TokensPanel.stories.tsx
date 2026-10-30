@@ -119,7 +119,7 @@ export const Tiles: Story = {
 
 /**
  * Copying a token's name: a click on its row, or Ctrl+C on it, copies the name, and the row says Copied where its value
- * was, for a moment. A palette shade copies on a click, and says so.
+ * was, for a moment, and a detail that's open stays. A palette shade copies on a click, and says so.
  */
 export const Copying: Story = {
   loaders: [openTokens],
@@ -133,6 +133,12 @@ export const Copying: Story = {
       await userEvent.click(row)
       await expect(writes).toHaveBeenLastCalledWith("primary")
       await within(row).findByText("Copied")
+      // A click on a row whose detail a hover opened copies it and leaves the detail open.
+      const dialog = await open(canvasElement, "primary")
+      await userEvent.click(row)
+      await expect(writes).toHaveBeenLastCalledWith("primary")
+      await expect(dialog).toBeInTheDocument()
+      await userEvent.keyboard("{Escape}")
       rowOf(canvasElement, "secondary").focus()
       await userEvent.keyboard("{Control>}c{/Control}")
       await expect(writes).toHaveBeenLastCalledWith("secondary")
@@ -304,6 +310,15 @@ export const DetailFromTheKeyboard: Story = {
     await expect(row).toHaveFocus()
     await userEvent.keyboard("{ArrowRight}")
     await waitFor(() => expect(hovered).toContainElement(document.activeElement as HTMLElement))
+    await userEvent.keyboard("{Escape}")
+    // A spacing step's Edit is disabled, so the arrow passes over it to the first control that can take the keyboard.
+    await search(canvasElement, "spacing-4")
+    const step = rowOf(canvasElement, "spacing-4")
+    await userEvent.hover(step)
+    const derived = await within(document.body).findByRole("dialog", undefined, { timeout: 2000 })
+    step.focus()
+    await userEvent.keyboard("{ArrowRight}")
+    await waitFor(() => expect(derived).toContainElement(document.activeElement as HTMLElement))
   }
 }
 

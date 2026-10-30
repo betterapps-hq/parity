@@ -4,8 +4,12 @@ import { useEffect, useId, useRef, useState } from "react"
 const rest = 500
 const linger = 150
 
-/** What can take the keyboard in a card, the first of which gets it when a key opens the card. */
-const focusable = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+/**
+ * What can take the keyboard in a card, the first of which gets it when a key opens the card. A disabled control can't,
+ * as a derived token's Edit button is.
+ */
+const focusable =
+  'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
 
 /**
  * Opens a card beside an element once the pointer has rested on it, and closes it shortly after the pointer leaves
@@ -17,7 +21,7 @@ const focusable = 'button, [href], input, select, textarea, [tabindex]:not([tabi
  * `openWithKeyboard` is for a key on the item: it opens the card, or, when hovering already opened it, moves the
  * keyboard into it. Give `takesFocus` to the card's `onOpenAutoFocus`, so only a key moves focus into it and a hover
  * never takes focus from what has it, and `returnFocus` to its `onCloseAutoFocus`, which gives focus back to the item
- * a key opened it from, unless something else took it.
+ * a key opened it from, unless something else took it. `keepForItem` goes to the card's `onInteractOutside`.
  */
 export function useHoverCard(initial = false) {
   const [open, setOpen] = useState(initial)
@@ -73,5 +77,25 @@ export function useHoverCard(initial = false) {
     const lost = !document.activeElement || document.activeElement === document.body
     if (item?.isConnected && (lost || content()?.contains(document.activeElement))) item.focus()
   }
-  return { open, setOpen: change, enter, leave, stay, hold, id, openWithKeyboard, takesFocus, returnFocus }
+  /**
+   * For the card's `onInteractOutside`: a press on the item the card belongs to, as a click that copies it, isn't
+   * outside it, so the card stays.
+   */
+  const keepForItem = (event: Event) => {
+    const target = event.target
+    if (target instanceof Element && target.closest(`[aria-controls="${CSS.escape(id)}"]`)) event.preventDefault()
+  }
+  return {
+    open,
+    setOpen: change,
+    enter,
+    leave,
+    stay,
+    hold,
+    id,
+    openWithKeyboard,
+    takesFocus,
+    returnFocus,
+    keepForItem
+  }
 }

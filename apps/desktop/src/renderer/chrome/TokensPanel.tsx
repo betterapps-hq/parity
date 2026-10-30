@@ -722,6 +722,7 @@ function TokenPopover({
         onOpenAutoFocus={card.takesFocus}
         onCloseAutoFocus={card.returnFocus}
         onEscapeKeyDown={keepEditing}
+        onInteractOutside={card.keepForItem}
         onPointerEnter={card.stay}
         onPointerLeave={card.leave}
         onFocusCapture={card.hold}
