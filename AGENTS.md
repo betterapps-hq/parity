@@ -18,8 +18,8 @@
 - **Commit your work when you judge it's ready,** without waiting to be asked: an issue done, a fix in, a doc finished,
   with `pnpm verify` passing. Write conventional messages (`feat(core): …`, `fix(desktop): …`, `docs: …`). Then push the
   branch and open a pull request whose title is the squashed commit's subject, in the same form. Answer CodeRabbit's
-  threads by fixing or replying. The user merges unless they say otherwise; once it's merged, remove the worktree and
-  its branch.
+  threads by fixing or replying. Once it passes, squash-merge it yourself (`gh pr merge --squash`), without waiting to
+  be asked, then remove the worktree and its branch.
 - **Commits are checked by hooks.** A commit gets lint and formatting on the files it stages, fixed where they can be, a
   conventional subject of at most 100 characters that isn't work in progress, and a change file for each versioned
   package it touches. After staging, run `pnpm changefile --type patch --message "what changed, for the changelog"`
