@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { ProjectInfo } from "../shared/protocol.ts"
 
 // docs/editor.md, Opening and closing projects: a tab closed while its project opens, as tabs restored at launch can
