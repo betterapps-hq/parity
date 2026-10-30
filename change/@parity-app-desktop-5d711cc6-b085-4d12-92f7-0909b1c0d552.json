@@ -1,6 +1,6 @@
 {
   "type": "minor",
-  "comment": "Open the insert picker in a tenth of the time, the project's own components first, internal parts, providers and app plumbing left out until searched for by name, and a component found in two places listed once",
+  "comment": "Open the insert picker in a tenth of the time, the project's own components first, internal parts, providers and app plumbing left out until searched for by name, and a component found in two places listed once. The Components panel searches the same way, and lists hidden components last in each source under a heading of their own",
   "packageName": "@parity-app/desktop",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "patch"

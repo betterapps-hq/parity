@@ -14,12 +14,14 @@ import {
   type LibraryInfo
 } from "@parity-app/core"
 import {
+  compareRanked,
   componentLabel,
   type HiddenReason,
   hiddenHeading,
   hiddenReason,
   type InsertItem,
   type InsertOrigin,
+  isLate,
   searchOption
 } from "@parity-app/editor"
 import { useVirtualizer } from "@tanstack/react-virtual"
@@ -269,7 +271,7 @@ export function componentSources(info: ProjectInfo, entries: readonly ContainerE
  * the families with the best matches first.
  */
 function searchFamilies(source: Source, query: string): Family[] {
-  const found = source.families.flatMap((family) => {
+  const found = source.families.flatMap((family, place) => {
     const items = family.items.flatMap((entry, index) => {
       const match = searchOption(
         {
@@ -284,14 +286,15 @@ function searchFamilies(source: Source, query: string): Family[] {
         query
       )
       // As in the picker, a hidden one the search only partly names comes after the rest.
-      return match ? [{ entry, tier: match.tier, late: !!entry.hidden && match.tier > 0, index }] : []
+      return match ? [{ entry, tier: match.tier, late: isLate(entry, match), index }] : []
     })
     if (items.length === 0) return []
-    items.sort((a, b) => a.tier - b.tier || a.index - b.index)
-    const late = items.every((item) => item.late)
-    return [{ family: { ...family, items: items.map(({ entry }) => entry) }, tier: items[0]!.tier, late }]
+    items.sort((a, b) => compareRanked(a, b) || a.index - b.index)
+    // The family ranks as its best match, which comes first, and keeps its place among families that rank the same.
+    const { tier, late } = items[0]!
+    return [{ family: { ...family, items: items.map(({ entry }) => entry) }, tier, late, index: place }]
   })
-  return found.sort((a, b) => Number(a.late) - Number(b.late) || a.tier - b.tier).map(({ family }) => family)
+  return found.sort((a, b) => compareRanked(a, b) || a.index - b.index).map(({ family }) => family)
 }
 
 /** Components to drag into designs: component designs, the project's own, then each library's. */

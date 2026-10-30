@@ -27,7 +27,7 @@ import {
   DialogPortal,
   DialogTitle
 } from "@/components/ui/dialog"
-import { InputGroup, InputGroupAddon } from "@/components/ui/input-group"
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
 import { placeLayers } from "../canvas/clipboard.ts"
 import { insertAtSelection } from "../canvas/insert.ts"
 import { kindColors } from "../canvas/kinds.tsx"
@@ -90,17 +90,17 @@ interface Offer {
 /**
  * Each session's offer, kept while its project info and its component designs stay the same, so opening the picker
  * builds nothing (PAR-178). Edits to designs change every entry but none of this, so the designs are compared by their
- * keys and names.
+ * keys and names. It's kept by the project's info, which is replaced when its components or libraries change (the
+ * session itself is replaced whenever any part of it does), and goes with it.
  */
-// By the session's id, as the session itself is replaced whenever any part of it changes.
-const offers = new Map<string, { info: unknown; designs: string; offer: Offer }>()
+const offers = new WeakMap<ProjectSession["info"], { designs: string; offer: Offer }>()
 
 function offerOf(session: ProjectSession, entries: readonly ContainerEntry[]): Offer {
   const designs = entries
     .map(({ key, container }) => `${key} ${container.id} ${container.kind ?? ""} ${container.name}`)
     .join("\n")
-  const kept = offers.get(session.id)
-  if (kept && kept.info === session.info && kept.designs === designs) return kept.offer
+  const kept = offers.get(session.info)
+  if (kept?.designs === designs) return kept.offer
   const options: InsertOption[] = []
   const actions = new Map<string, Action>()
   for (const basic of basics) {
@@ -128,24 +128,24 @@ function offerOf(session: ProjectSession, entries: readonly ContainerEntry[]): O
     }
   }
   const offer = { options, actions }
-  offers.set(session.id, { info: session.info, designs, offer })
+  offers.set(session.info, { designs, offer })
   return offer
 }
 
 /** Each session's icon sets in the style each shows first, kept while its libraries stay the same. */
-const iconSetCache = new Map<
-  string,
-  { loaded: unknown; libraries: unknown; sets: { library: LibraryInfo; catalog: IconCatalog }[] }
+const iconSetCache = new WeakMap<
+  ProjectSession["loaded"],
+  { libraries: unknown; sets: { library: LibraryInfo; catalog: IconCatalog }[] }
 >()
 
 function iconSetsOf(session: ProjectSession): { library: LibraryInfo; catalog: IconCatalog }[] {
-  const kept = iconSetCache.get(session.id)
-  if (kept?.loaded === session.loaded && kept.libraries === session.info.libraries) return kept.sets
+  const kept = iconSetCache.get(session.loaded)
+  if (kept?.libraries === session.info.libraries) return kept.sets
   const sets = iconLibraries(session.info.libraries).map((library) => ({
     library,
     catalog: iconCatalog(session.loaded, library, iconStyles(library).initial)
   }))
-  iconSetCache.set(session.id, { loaded: session.loaded, libraries: session.info.libraries, sets })
+  iconSetCache.set(session.loaded, { libraries: session.info.libraries, sets })
   return sets
 }
 
@@ -238,7 +238,10 @@ function InsertList({ session }: { session: ProjectSession }) {
     for (const row of rows) {
       // Browsing, rows sit under their source; a search ranks them across sources, each row naming its own.
       const source = row.options[0]!.sourceName
-      if (!search && source !== heading) list.push({ type: "heading", key: `heading:${source}`, label: source })
+      // A source can come round again, as a library's designs and its components, so its key has its place too.
+      if (!search && source !== heading) {
+        list.push({ type: "heading", key: `heading:${list.length}:${source}`, label: source })
+      }
       heading = source
       list.push({ type: "row", key: row.key, row })
     }
@@ -312,7 +315,7 @@ function InsertList({ session }: { session: ProjectSession }) {
     <div className="flex flex-col p-1 text-popover-foreground">
       <div className="p-1 pb-0">
         <InputGroup className="h-8! rounded-lg! border-input/30 bg-input/30 shadow-none! *:data-[slot=input-group-addon]:pl-2!">
-          <input
+          <InputGroupInput
             role="combobox"
             aria-expanded
             aria-controls={listId}
@@ -323,7 +326,7 @@ function InsertList({ session }: { session: ProjectSession }) {
             onChange={(event) => setQuery(event.currentTarget.value)}
             onKeyDown={onKeyDown}
             placeholder="Insert a layer, component or icon"
-            className="w-full bg-transparent text-sm outline-hidden"
+            className="h-auto text-sm"
             spellCheck={false}
             autoComplete="off"
           />

@@ -95,21 +95,19 @@ export interface Match {
   sourceWords: number
 }
 
-/** A name's words, lowercased: `AlertDialogTrigger` is alert, dialog and trigger; `Dialog.Root` is dialog and root. */
+/**
+ * A name's words, lowercased: `AlertDialogTrigger` is alert, dialog and trigger; `Dialog.Root` is dialog and root.
+ * Letters and digits of any script count, so `Résumé` and `日本語` are words too.
+ */
 export function nameWords(name: string): string[] {
-  return name
-    .replace(/([a-z\d])([A-Z])/g, "$1 $2")
-    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
-    .toLowerCase()
-    .split(/[^a-z\d]+/)
-    .filter(Boolean)
+  return queryWords(name.replace(/([\p{Ll}\p{N}])(\p{Lu})/gu, "$1 $2").replace(/(\p{Lu}+)(\p{Lu}\p{Ll})/gu, "$1 $2"))
 }
 
 /** A search's words, lowercased, without punctuation. */
 function queryWords(query: string): string[] {
   return query
     .toLowerCase()
-    .split(/[^a-z\d]+/)
+    .split(/[^\p{L}\p{N}]+/u)
     .filter(Boolean)
 }
 
@@ -124,10 +122,13 @@ function nameTier(words: string[], typed: string): 0 | 1 | 2 | 3 | undefined {
   return whole.includes(typed) ? 3 : undefined
 }
 
-/** How a search matches an option, or undefined when it doesn't. An empty search matches everything at tier 0. */
+/**
+ * How a search matches an option, or undefined when it doesn't. An empty search matches everything at tier 0; one of
+ * only punctuation matches nothing.
+ */
 export function matchOption(option: InsertOption, query: string): Match | undefined {
   const typed = queryWords(query)
-  if (typed.length === 0) return { tier: 0, closeness: 0, sourceWords: 0 }
+  if (typed.length === 0) return query.trim() ? undefined : { tier: 0, closeness: 0, sourceWords: 0 }
   const name = nameWords(option.name)
   const source = nameWords(option.sourceName)
   const described = [...source, ...nameWords(option.description ?? "")]
@@ -155,6 +156,27 @@ export function searchOption(option: InsertOption, query: string): Match | undef
   const match = matchOption(option, query)
   if (!match || !option.hidden) return match
   return queryWords(query).length > 0 && match.tier <= 4 ? match : undefined
+}
+
+/** Where a match ranks before anything else separates it: its tier, and whether it's hidden and only partly named. */
+export interface Ranked {
+  tier: number
+  /** Hidden, and the search names only part of it: it comes after everything else that matches (`dialog`). */
+  late: boolean
+}
+
+/** Whether a hidden option a search found is only partly named by it, and so comes after the rest. */
+export function isLate(option: Pick<InsertOption, "hidden">, match: Pick<Match, "tier">): boolean {
+  return !!option.hidden && match.tier > 0
+}
+
+/**
+ * The order the picker and the Components panel share: what's late after the rest, then by tier. Ties are left to the
+ * caller: the picker breaks them by closeness, the source a search names and where things come from, the panel by
+ * where they're listed.
+ */
+export function compareRanked(a: Ranked, b: Ranked): number {
+  return Number(a.late) - Number(b.late) || a.tier - b.tier
 }
 
 /** Basic layers and component designs are their own things; components with one name are one component. */
@@ -204,13 +226,12 @@ export function insertRows(options: readonly InsertOption[], query = ""): Insert
     )
     const { tier, closeness } = best.match
     // A hidden row a search names in full ranks with the rest; one it only partly names comes after them.
-    const hidden = members.every((member) => member.option.hidden) && tier > 0
-    return { members: sorted, tier, closeness, hidden }
+    const late = members.every((member) => isLate(member.option, best.match))
+    return { members: sorted, tier, closeness, late }
   })
   ranked.sort(
     (a, b) =>
-      Number(a.hidden) - Number(b.hidden) ||
-      a.tier - b.tier ||
+      compareRanked(a, b) ||
       a.closeness - b.closeness ||
       b.members[0]!.match.sourceWords - a.members[0]!.match.sourceWords ||
       originRank[a.members[0]!.option.origin] - originRank[b.members[0]!.option.origin] ||

@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vite-plus/test"
 import {
+  compareRanked,
   hiddenHeading,
   hiddenReason,
   type InsertOption,
   type InsertOrigin,
   insertRows,
+  isLate,
   matchOption,
   nameWords
 } from "./insert-search.ts"
@@ -99,6 +101,11 @@ describe("nameWords", () => {
     expect(nameWords("HTMLInputField")).toEqual(["html", "input", "field"])
     expect(nameWords("alert-dialog")).toEqual(["alert", "dialog"])
   })
+
+  it("keeps letters of any script", () => {
+    expect(nameWords("RésuméCard")).toEqual(["résumé", "card"])
+    expect(nameWords("日本語の見出し")).toEqual(["日本語の見出し"])
+  })
 })
 
 describe("matchOption", () => {
@@ -126,8 +133,38 @@ describe("matchOption", () => {
     expect(matchOption(trigger, "badge")).toBeUndefined()
   })
 
+  it("matches names in any script", () => {
+    const heading = option("designs", "heading", { name: "日本語の見出し" })
+    expect(matchOption(heading, "見出し")?.tier).toBe(3)
+    expect(matchOption(option("designs", "cv", { name: "Résumé card" }), "résumé")?.tier).toBe(1)
+    expect(matchOption(heading, "badge")).toBeUndefined()
+  })
+
+  it("matches nothing for a search of only punctuation", () => {
+    expect(matchOption(trigger, "...")).toBeUndefined()
+    expect(insertRows(example, "-/")).toEqual([])
+  })
+
   it("matches everything for an empty search", () => {
     expect(matchOption(trigger, "  ")).toEqual({ tier: 0, closeness: 0, sourceWords: 0 })
+  })
+})
+
+describe("compareRanked", () => {
+  it("puts hidden matches a search only partly names last, then orders by tier", () => {
+    const hidden = { hidden: "internal" as const }
+    expect(isLate(hidden, { tier: 1 })).toBe(true)
+    expect(isLate(hidden, { tier: 0 })).toBe(false)
+    expect(isLate({}, { tier: 3 })).toBe(false)
+    // As the Components panel orders a source's families for `dialog`: Dialog's, AlertDialog's, then internal parts.
+    const families = [
+      { name: "Internal parts", tier: 1, late: true },
+      { name: "alert-dialog", tier: 2, late: false },
+      { name: "dialog", tier: 0, late: false },
+      { name: "providers", tier: 0, late: false }
+    ]
+    const ordered = [...families].sort(compareRanked).map((family) => family.name)
+    expect(ordered).toEqual(["dialog", "providers", "alert-dialog", "Internal parts"])
   })
 })
 

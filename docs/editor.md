@@ -407,11 +407,12 @@ from `componentSources` in `chrome/AssetsPanel.tsx`, which also marks hidden com
 
 Tests:
 
-- `packages/editor/src/insert-search.test.ts` (23): what's hidden and why, and the panel's heading for it; splitting
-  names into words; each match tier, descriptions after names, and the audit's "badge" no longer matching
-  AlertDialogTrigger; the browsing order; hidden ones left out, found by name, not by folder, and ranked after the rest
-  when only partly named; Badge once with both sources, the project's first; a search naming a source; two components of
-  one name in one source, and a design and a component of one name, kept apart; and the audit's searches.
+- `packages/editor/src/insert-search.test.ts` (27): what's hidden and why, and the panel's heading for it; splitting
+  names into words in any script; each match tier, nothing for a search of only punctuation, the order the picker and
+  the panel share, descriptions after names, and the audit's "badge" no longer matching AlertDialogTrigger; the browsing
+  order; hidden ones left out, found by name, not by folder, and ranked after the rest when only partly named; Badge
+  once with both sources, the project's first; a search naming a source; two components of one name in one source, and a
+  design and a component of one name, kept apart; and the audit's searches.
 - `apps/desktop/e2e/inserting.e2e.ts` (5), end to end (PAR-202): opening seven times, the fastest under 100ms and the
   median under 150ms (25 to 50ms on a quiet machine); the browsing order, read a screen at a time; "badge" finding
   Badge, AvatarBadge and SidebarMenuBadge only, Badge with the UI kit and Shadcn Nova; App and ThemeProvider left out of
