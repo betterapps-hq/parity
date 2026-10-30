@@ -28,9 +28,6 @@ const actions: Record<string, { main: string; also?: string }> = {
   "jonas-mention": { main: "Reply" },
   "maya-change": { main: "See what changed" },
   "cursor-question": { main: "Answer" },
-  "ivy-access": { main: "Let Ivy comment", also: "Deny" },
-  "noah-seat": { main: "Approve", also: "Deny" },
-  "ren-invite": { main: "Approve", also: "Deny" },
   "claude-run": { main: "See what changed" },
   "priya-review": { main: "Review" }
 }
@@ -79,6 +76,38 @@ function NeedsYouRow({ item }: { item: PortalEvent }) {
   )
 }
 
+/**
+ * Requests to let someone in, or give them a seat, are admin chores rather than design work, so For you sums them up
+ * in one line, and the inbox lists them all.
+ */
+const requests = needsYou.filter((item) => item.kind === "invite")
+const work = needsYou.filter((item) => item.kind !== "invite")
+
+/** The requests waiting on you, as one line: who's asking for what, and where to answer them. */
+function RequestsRow() {
+  const newest = requests[0]!
+  return (
+    <div className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-muted/40">
+      <span className="flex shrink-0 -space-x-2">
+        {requests.map((item) => (
+          <Avatar key={item.id} person={item.who} size={22} className="ring-2 ring-background" />
+        ))}
+      </span>
+      <span className="min-w-0 flex-1 text-[13px] leading-snug text-muted-foreground">
+        <span className="text-foreground">{requests.length} requests:</span> Ivy Lopez to comment on Help center, and
+        editor seats for Noah Park and ren@kestrel.dev
+      </span>
+      <span className="flex w-56 shrink-0 justify-end">
+        <Button size="sm" variant="outline" className="h-7 text-xs">
+          See them in the inbox
+        </Button>
+      </span>
+      <span className="w-16 shrink-0 text-right text-xs text-muted-foreground">{newest.when}</span>
+      <span className="size-2 shrink-0 rounded-full bg-[oklch(0.65_0.18_250)]" aria-label="Unread" />
+    </div>
+  )
+}
+
 /** Since you were last here: what happened in your projects that doesn't need you. */
 const since = events.filter((item) => !item.needsYou && item.who !== me && item.ago < 24 * 60)
 
@@ -91,8 +120,8 @@ export function ForYouPage() {
             <div className="flex flex-col gap-1">
               <PortalHeader title="For you" />
               <span className="text-sm text-muted-foreground">
-                {needsYou.length} things need you. {since.length} more happened in your projects since you were last
-                here.
+                {needsYou.length} things need you, {requests.length} of them requests. {since.length} more happened in
+                your projects since you were last here.
               </span>
             </div>
             <section className="flex flex-col gap-1">
@@ -103,9 +132,10 @@ export function ForYouPage() {
                 <SeeAll>Inbox</SeeAll>
               </div>
               <div className="-mx-3 flex flex-col">
-                {needsYou.map((item) => (
+                {work.map((item) => (
                   <NeedsYouRow key={item.id} item={item} />
                 ))}
+                <RequestsRow />
               </div>
             </section>
             <section className="flex flex-col gap-1">
@@ -115,7 +145,7 @@ export function ForYouPage() {
               </div>
               <div className="-mx-3 flex flex-col">
                 {since.map((item) => (
-                  <ActivityRow key={item.id} item={item} compact />
+                  <ActivityRow key={item.id} item={item} />
                 ))}
               </div>
             </section>

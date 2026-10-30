@@ -11,8 +11,8 @@ import { AgentBadge } from "../../agent/AgentPointer.tsx"
 import { Avatar } from "../parts.tsx"
 import { ActivityRow, OrgBadge } from "../start-page-parts.tsx"
 import { CanvasArt } from "../start/page.tsx"
-import { approvedThisWeek } from "./boards.ts"
-import { claudeTask, event, noah, portalProject, type PortalEvent, readyToBuild, teams } from "./data.ts"
+import { approvedThisWeek, builtThisWeek } from "./boards.ts"
+import { claudeTask, event, noah, portalProject, type PortalEvent, teams } from "./data.ts"
 import { DesignTile, FeedCard, Name, Pills, PortalHeader, PortalPage, SeeAll } from "./parts.tsx"
 
 /** A count for the week, big, with what it counts under it. */
@@ -51,11 +51,12 @@ function Card({ item, line, children }: { item: PortalEvent; line?: ReactNode; c
   )
 }
 
-/** An event as a plain row, for replies and other small things. */
+/** An event as a plain row, for replies and other small things, worded as the org sees it, with what was said. */
 function Row({ id }: { id: string }) {
+  const item = event(id)
   return (
     <div className="-mx-3">
-      <ActivityRow item={{ ...event(id), unread: false }} compact />
+      <ActivityRow item={{ ...item, ...item.forTeam, unread: false }} />
     </div>
   )
 }
@@ -142,7 +143,7 @@ export function ActivityPage() {
               </div>
               <div className="flex items-center justify-between rounded-lg border bg-background px-3 py-2.5 text-sm">
                 <span>
-                  Used in 5 projects. <span className="text-muted-foreground">2 still use the old Toggle.</span>
+                  Used in 5 projects. <span className="text-muted-foreground">2 are still on 2.3.</span>
                 </span>
                 <SeeAll>See where</SeeAll>
               </div>
@@ -182,7 +183,7 @@ export function ActivityPage() {
               <Tally value="14" label="Versions made" />
               <Tally value="18" label="Threads resolved" />
               <Tally value={`${approvedThisWeek()}`} label="Designs approved" />
-              <Tally value={`${readyToBuild}`} label="Ready to build" />
+              <Tally value={`${builtThisWeek}`} label="Built as designed" />
             </div>
           </section>
           <section className="flex flex-col gap-3">

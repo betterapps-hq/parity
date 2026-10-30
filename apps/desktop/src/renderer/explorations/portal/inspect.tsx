@@ -346,6 +346,9 @@ export function InspectPage() {
                   </Fragment>
                 ))}
               </div>
+              <span className="text-[11px] text-[oklch(0.8_0.15_80)]">
+                78px isn&apos;t on Ember Caves&apos; spacing scale
+              </span>
               <span className="text-[11px] text-muted-foreground">
                 Levels sit where the map puts them, in <span className="font-mono">src/levels/map.ts</span>, so the
                 space between tiles comes from there, not from a class.

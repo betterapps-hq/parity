@@ -30,6 +30,9 @@ function editing(board: Deliverable) {
 
 const violet = "oklch(0.72 0.16 290)"
 
+/** Kestrel UI's latest version, which Lena published yesterday. */
+const libraryLatest = "2.4"
+
 /** Code, as code: a component, a token, a branch. */
 function Code({ children }: { children: ReactNode }) {
   return <span className="rounded-md border bg-background px-1.5 py-0.5 font-mono text-[11px]">{children}</span>
@@ -96,6 +99,14 @@ function Approval({ board }: { board: Deliverable }) {
 /** Who's writing the code: building it, built it, or made it with the design, with the pull request. */
 function CodeCell({ board }: { board: Deliverable }) {
   const code = board.code
+  if (board.drift)
+    return (
+      <Cell
+        avatar={board.drift.who}
+        top={`Changed ${board.drift.when}`}
+        bottom={<PullRequestLink pr={board.drift.pr} />}
+      />
+    )
   if (!code)
     return (
       <Cell top={<span className="text-muted-foreground">Nobody yet</span>} bottom={board.issue ?? "Not tracked"} />
@@ -113,6 +124,7 @@ function BoardRow({ board, status }: { board: Deliverable; status: Handoff }) {
   const latest = board.since?.at(-1)?.version
   const selected = key === picked
   const now = editing(board)
+  const behind = board.parts.find((part) => part.library && part.library !== `Kestrel UI ${libraryLatest}`)
   return (
     <div
       className={`group/row ${columns} cursor-pointer rounded-lg px-2 py-2 ${selected ? "bg-muted/60 ring-1 ring-border" : "hover:bg-muted/30"} ${status === "Built" ? "opacity-60" : ""}`}
@@ -133,6 +145,11 @@ function BoardRow({ board, status }: { board: Deliverable; status: Handoff }) {
                 ? `${now.for === me ? "Your" : `${who(now.for!)}'s`} ${now.who.name}`
                 : now.who.name.split(" ")[0]}{" "}
               is working on it
+            </span>
+          )}
+          {behind && (
+            <span className="truncate text-[11px] text-[oklch(0.8_0.15_80)]">
+              {behind.name} is on {behind.library}; {libraryLatest} is out
             </span>
           )}
         </span>
