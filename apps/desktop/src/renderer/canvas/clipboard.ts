@@ -7,6 +7,7 @@ import {
   copyNotes,
   designOfLayers,
   designsAt,
+  isParityCopy,
   isSvgMarkup,
   missingComponents,
   pasteLayers,
@@ -73,15 +74,22 @@ export async function pasteClipboard(session: ProjectSession): Promise<void> {
   }
   if (content.kind === "image") return pasteImage(session, content.blob, content.name)
   if (content.kind === "text") pasteText(session, content.text)
+  if (content.kind === "unreadable") toast.error(unreadableCopy)
 }
 
 type ClipboardContent =
   | { kind: "envelope"; envelope: ClipboardEnvelope }
   | { kind: "image"; blob: Blob; name: string }
   | { kind: "text"; text: string }
+  | { kind: "unreadable" }
   | { kind: "empty" }
 
-/** What's on the system clipboard: Parity's own copy, an image or SVG markup, or plain text. */
+const unreadableCopy = "The copy on the clipboard couldn't be read, so nothing was pasted"
+
+/**
+ * What's on the system clipboard: Parity's own copy, an image or SVG markup, or plain text. A Parity copy that can't be
+ * read, such as one from a newer version, is unreadable rather than text, so its JSON never pastes as a text layer.
+ */
 async function readClipboard(): Promise<ClipboardContent> {
   let text = ""
   try {
@@ -91,6 +99,7 @@ async function readClipboard(): Promise<ClipboardContent> {
   }
   const envelope = text === lastCopy?.text ? lastCopy.envelope : readEnvelope(text)
   if (envelope) return { kind: "envelope", envelope }
+  if (isParityCopy(text)) return { kind: "unreadable" }
   const image = await clipboardImage()
   if (image) return { kind: "image", blob: image, name: "pasted-image" }
   const plain = text.trim()
@@ -135,6 +144,10 @@ export async function pasteOverSelection(session: ProjectSession): Promise<void>
   const selected = selectedDesigns(current).flatMap((key) => store.getEntry(key) ?? [])
   if (selected.length === 0) return
   const content = await readClipboard()
+  if (content.kind === "unreadable") {
+    toast.error(unreadableCopy)
+    return
+  }
   if (content.kind !== "envelope" || content.envelope.payload.kind !== "designs") {
     toast.info("Copy designs to paste them over designs")
     return
@@ -208,6 +221,10 @@ export async function pasteAtPointer(session: ProjectSession, point: Point): Pro
     toast.info("There's nothing on the clipboard to paste")
     return
   }
+  if (content.kind === "unreadable") {
+    toast.error(unreadableCopy)
+    return
+  }
   if (content.kind === "envelope" && content.envelope.payload.kind === "designs") {
     const copies = designsAt(
       content.envelope.payload.designs,
@@ -274,6 +291,10 @@ async function clipboardLayers(
   if (content.kind === "text") return [textLayer(content.text)]
   if (content.kind === "empty") {
     toast.info("There's nothing on the clipboard to paste")
+    return undefined
+  }
+  if (content.kind === "unreadable") {
+    toast.error(unreadableCopy)
     return undefined
   }
   const progress = toast.loading("Adding the image…")

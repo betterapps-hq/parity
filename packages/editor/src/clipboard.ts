@@ -49,12 +49,17 @@ export function writeEnvelope(
   return { text: JSON.stringify(envelope), envelope }
 }
 
+/** Whether the clipboard's text is a Parity copy, readable or not, rather than text to paste as it is. */
+export function isParityCopy(text: string): boolean {
+  return text.startsWith('{"parity":"clipboard"')
+}
+
 /**
  * Parity's own copy, read back from the clipboard's text. Its layers, designs and notes are checked against the `.par`
  * schema, as a file's are, since they come from outside the app. Undefined for anything else.
  */
 export function readEnvelope(text: string): ClipboardEnvelope | undefined {
-  if (!text.startsWith('{"parity":"clipboard"')) return undefined
+  if (!isParityCopy(text)) return undefined
   try {
     const value: unknown = JSON.parse(text)
     if (

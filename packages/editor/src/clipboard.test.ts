@@ -7,6 +7,7 @@ import {
   copyLayers,
   copyNotes,
   designOfLayers,
+  isParityCopy,
   isSvgMarkup,
   missingComponents,
   pasteLayers,
@@ -103,6 +104,15 @@ describe("the clipboard's envelope", () => {
     const { position: _position, ...unplaced } = form()
     expect(envelope({ kind: "designs", designs: [unplaced] })).toBeUndefined()
     expect(envelope({ kind: "notes", notes: [{ id: "note-a", text: "Flow starts here" }] })).toBeUndefined()
+  })
+
+  it("tells a Parity copy that can't be read from other text, so it never pastes as text", () => {
+    const broken = JSON.stringify({ parity: "clipboard", version: 1, project: "D:/acme", payload: { kind: "rows" } })
+    expect(readEnvelope(broken)).toBeUndefined()
+    expect(isParityCopy(broken)).toBe(true)
+    expect(isParityCopy(writeEnvelope("D:/acme", { kind: "layers", nodes: [text("heading")] }).text)).toBe(true)
+    expect(isParityCopy('{"parity":"app"}')).toBe(false)
+    expect(isParityCopy("Sign in")).toBe(false)
   })
 
   it("reads back designs and notes that match it", () => {
