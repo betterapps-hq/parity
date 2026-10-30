@@ -151,7 +151,7 @@ Mark a layout inside a component design as a **slot**: `children` by default, or
 A library's `.lib.par` already describes the library, and its canvas can hold **component designs**: ready-made
 compositions such as "Settings row" or "Empty state" built from the library's own components. You decided on 2026-10-28
 that they show in apps that install the library, in the library's section of the Components panel, placed as linked
-instances or detached copies.
+instances or detached copies. That's built (PAR-124 to PAR-126): [editor.md](../editor.md), Libraries, describes it.
 
 ## Suggested order
 

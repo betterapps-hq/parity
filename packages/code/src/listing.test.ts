@@ -155,6 +155,30 @@ describe("component ids", () => {
     ])
     expect(ids).toEqual({ Badge: { path: "src/badge.tsx", export: "Badge", lazy: true } })
   })
+
+  it("start with a library's namespace in its own project, as the apps that install it name them", () => {
+    const ids = componentIds(
+      [
+        found("src/components/ui/button.tsx", "Button"),
+        found("src/components/ui/field.tsx", "FieldError", true),
+        found("src/demos/field.tsx", "FieldError")
+      ],
+      new Set(["nova/Button", "lucide/Heart"]),
+      "nova"
+    )
+    expect(Object.keys(ids)).toEqual(["nova/ui/Button", "nova/FieldError", "nova/demos/FieldError"])
+    expect(Object.keys(componentIds([found("src/card.tsx", "Card")], new Set(), "nova"))).toEqual(["nova/Card"])
+  })
+
+  it("keep a library project's namespace as files change, the checker reads them and the person lists more", () => {
+    const sources = { "nova/Card": { path: "src/card.tsx", export: "Card", as: "function" as const } }
+    const read = new Map([["src/badge.tsx", [{ ...found("src/badge.tsx", "Badge"), as: "function" as const }]]])
+    expect(filesChanged(sources, read, "nova").added).toEqual(["nova/Badge"])
+    const checked = [{ name: "Tabs", path: "src/tabs.tsx", export: "Tabs", as: "function" as const }]
+    expect(Object.keys(checkedChanges(sources, checked, undefined, "nova").added)).toEqual(["nova/Tabs"])
+    const corrected = correctedSources(sources, { include: [{ path: "src/promo.tsx", export: "Promo" }] }, "nova")
+    expect(Object.keys(corrected)).toEqual(["nova/Card", "nova/Promo"])
+  })
 })
 
 describe("readTsconfig", () => {

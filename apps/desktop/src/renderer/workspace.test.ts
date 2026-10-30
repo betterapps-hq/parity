@@ -31,7 +31,8 @@ const info = {
   documents: [],
   mainDocument: "app.par",
   modes: { settings: {}, custom: false },
-  sources: {}
+  sources: {},
+  libraries: []
 } as unknown as ProjectInfo
 const loaded = { guest: {}, sheet: {}, tokens: [] }
 

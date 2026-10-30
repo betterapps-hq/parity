@@ -26,6 +26,19 @@ still need your call.
 - **A library's designs show in the projects that use it,** under the library's section in Components, placed as linked
   instances that follow the library or as detached copies. You chose this on 2026-10-28. Their components are named as
   the library's (`nova/Button`).
+- **A library's own project names its components by the library (PAR-124),** as `nova/Button`, so the designs on its
+  canvas refer to them as the apps that install it do and work there unchanged. The id is the file's `id`, else the
+  package's name without its scope, the rule apps already used. My call: every one of the project's components gets it,
+  the UI kit's and the rest of its code's, rather than only those the package exports, as which those are isn't known
+  until it's built. Designs saved before with plain names aren't renamed, since no library has shipped a canvas yet.
+- **Only component designs travel (PAR-125).** My call: an app lists the component designs on a library's canvas, named
+  `nova/settings-row` so they never clash with its own, and leaves out its screens, which are the author's showcase.
+  They aren't the app's: they're never written to its files and change only when the library does. A design of the app's
+  with the same id wins.
+- **A click or a drag places a library's design linked; its right-click menu also places a detached copy (PAR-126).** My
+  call: linked is the default because it's what keeps an app following the library, and a copy is Detach done at once,
+  with the same rules. A linked copy can't go to its main component or push overrides to it, as the main is the
+  library's. The agent's edit API doesn't see library designs yet.
 - **Open:** Buildkit's nova `tokens.json`, which isn't DTCG yet.
 - **Saving is explicit, as in a document editor.** Edits stay unsaved until Save (Ctrl+S). The tab shows a dot (it turns
   into the close button on hover). The status bar only says when a save failed, and clicking that tries again: you asked

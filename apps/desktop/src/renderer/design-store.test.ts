@@ -62,6 +62,35 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
+describe("library designs", () => {
+  it("reach the designs that place them, and are never written to the project's files", async () => {
+    const row = { ...design("nova/settings-row"), kind: "component" as const }
+    const home = {
+      ...design("home"),
+      root: { type: "instance" as const, id: "row", design: "nova/settings-row" }
+    }
+    const writes: string[][] = []
+    const persistence = {
+      saveDocument: async (_path: string, document: CanvasDocument) =>
+        void writes.push(document.containers.map((container) => container.id)),
+      autosave: () => false
+    }
+    const store = new DesignStore(
+      [{ path: "app.par", document: { version: 3, containers: [home] } }],
+      defaultModeSettings,
+      "app.par",
+      persistence,
+      [row]
+    )
+    expect(store.getComponentLibrary().get("nova/settings-row")).toBe(row)
+    expect([...store.getLibrary("app.par#home").keys()]).toEqual(["nova/settings-row"])
+    expect(store.getEntries().map((entry) => entry.container.id)).toEqual(["home"])
+    store.updateContainer("app.par#home", "Rename", (container) => ({ ...container, name: "Home" }))
+    await store.flush()
+    expect(writes).toEqual([["home"]])
+  })
+})
+
 describe("saving", () => {
   it("keeps changes unsaved until Save writes them", async () => {
     const { store, writes } = setup()

@@ -2,6 +2,7 @@ import {
   type ComponentInfo,
   componentNode,
   type DesignNode,
+  detachInstance,
   type ImageCredit,
   generateId,
   insertNode,
@@ -29,7 +30,12 @@ export type InsertItem =
       /** Props it starts with, such as the weight a Phosphor icon is drawn in. */
       props?: Record<string, unknown>
     }
-  | { kind: "instance"; design: string }
+  | {
+      kind: "instance"
+      design: string
+      /** Placed as a copy of what it shows, no longer linked, as a library's design can be. */
+      detached?: true
+    }
   | { kind: "image"; src: string; alt?: string; credit?: ImageCredit; width: number; height: number }
 
 /** Images go in this many spacing steps wide (320px at 4px a step), their height following their shape. */
@@ -126,11 +132,17 @@ export function insertItem(
   const node = withLibraryContext(part, session.info.sources, around, taken)
   let label = "image"
   if (item.kind === "component") label = componentLabel(item.component)
-  else if (item.kind === "instance") label = "component"
-  store.updateContainer(target.entry.key, `Add ${label}`, (container: ContainerSpec) => ({
-    ...container,
-    root: insertNode(container.root, target.parent, node, { index: target.index, slot: target.slot })
-  }))
+  else if (item.kind === "instance") label = item.detached ? "copy" : "component"
+  store.updateContainer(target.entry.key, `Add ${label}`, (container: ContainerSpec) => {
+    const placed = {
+      ...container,
+      root: insertNode(container.root, target.parent, node, { index: target.index, slot: target.slot })
+    }
+    // A detached copy keeps the instance's id, so it's selected the same way.
+    return item.kind === "instance" && item.detached
+      ? detachInstance(placed, part.id, store.getComponentLibrary())
+      : placed
+  })
   selection.set({ design: target.entry.key, node: part.id, mode: target.mode, state: target.state })
   return part.id
 }

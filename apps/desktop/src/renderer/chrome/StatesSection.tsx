@@ -236,7 +236,9 @@ function ChangesList({ entry, state }: { entry: ContainerEntry; state: StateSpec
                     ) : (
                       <Pencil className="size-3.5 shrink-0" />
                     )}
-                    <span className="truncate">{node ? layerLabel(node, entries) : nodeId}</span>
+                    <span className="truncate">
+                      {node ? layerLabel(node, entries, store.getComponentLibrary()) : nodeId}
+                    </span>
                   </button>
                   <Hint label="Reset every change to this layer">
                     <Button

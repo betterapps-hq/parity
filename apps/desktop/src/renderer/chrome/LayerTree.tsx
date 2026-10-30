@@ -396,7 +396,7 @@ function LayerRow({
   const state = activeState(container)
   const color = row.node ? nodeColor(row.node) : designColor(container.kind)
   const entries = useContainerEntries(session.store)
-  const label = row.node ? layerLabel(row.node, entries) : container.name
+  const label = row.node ? layerLabel(row.node, entries, session.store.getComponentLibrary()) : container.name
   const changed = row.node && state.overrides?.[row.node.id]
   const viewports = row.node ? Object.keys(row.node.responsive ?? {}) : []
   // Whether the board hides it in the state it shows, as Hide and Show read it.

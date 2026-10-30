@@ -1147,6 +1147,82 @@ keeping Undo, then the detail's Undo), ReferenceLoop (refused through another to
 file's stories played in Storybook on 2026-10-29. Gaps: the inspector's pickers don't show previews yet, the rest of
 PAR-143.
 
+## Libraries
+
+How a library's own designs reach the projects that install it.
+
+### A library's components are named by the library in its own project (PAR-124)
+
+A project with a `.lib.par` at its root is a library's own project, and its own components are named by the library, as
+`nova/Button`, the way the apps that install it name them. So a design the author makes on the library's canvas, which
+Save writes into the file's `canvas`, refers to `nova/Button` and works unchanged in those apps.
+
+- **The library's id** is the file's `id`, else the package's name without its scope (`@acme/charts` is `charts`), the
+  same rule the apps use for the library's section and its components' ids.
+- **Every id gets it,** including ids that gained folders on a clash (`nova/demos/FieldError`), and so do components
+  that show up later: a file changing, the type checker finding one the parse missed, or the person listing one by hand.
+- **Only at the root.** A `.lib.par` anywhere else describes another package, and the project's components keep their
+  plain names. A file that can't be read leaves them plain too, and the project's notes say why.
+
+Code: `componentIds`, `filesChanged`, `checkedChanges` and `correctedSources` in `packages/code/src/listing.ts`, which
+take the namespace; `discoverProject` in `packages/project/src/index.ts`, which reads it (`ProjectConfig.namespace`);
+`libraryId` in `packages/core/src/library.ts`; the project service in `apps/desktop/src/utility/projects.ts`, which
+passes it on as files change.
+
+Tests: `packages/code/src/listing.test.ts` (2: ids start with the namespace, including qualified ones and ids libraries
+have taken; and they keep it as files change, the checker adds one and the person lists one).
+`packages/project/src/index.test.ts` (1: a library's own components are named by its `id`, else by its package's name).
+`packages/core/src/library.test.ts` (1: `libraryId`).
+
+### A library's component designs in the Components panel (PAR-125)
+
+The component designs in a dependency's `.lib.par` canvas show in that library's section of the Components panel, under
+"Component designs", before its components. Screens on the library's canvas aren't listed; they're the author's own
+showcase.
+
+- **They're named by the library:** `settings-row` is `nova/settings-row`, so it never clashes with the project's own
+  designs, and instances inside it that place the library's other designs point at their new names. A project design
+  with the same id wins, and the library's isn't listed.
+- **They aren't the project's.** They don't show on the canvas or in the Layers panel, and Save never writes them; they
+  change when the library does. A design that places one draws it the way it draws the project's own instances.
+- **Search** finds them by name, as it does components.
+
+Code: `libraryDesigns` in `packages/core/src/library.ts`; `findLibraries` in `packages/project/src/libraries.ts`, which
+puts them on the library (`LibraryInfo.designs`); `DesignStore` in `apps/desktop/src/renderer/design-store.ts`, which
+adds them to the designs instances can place (`getComponentLibrary`); `componentSources` in
+`apps/desktop/src/renderer/chrome/AssetsPanel.tsx`.
+
+Tests: `packages/core/src/library.test.ts` (1: component designs named by the library, their instances following,
+screens left out). `packages/project/src/index.test.ts` (1: a dependency's canvas designs on its library).
+`apps/desktop/src/renderer/design-store.test.ts` (1: a project design reaches a library design it places, which isn't an
+entry and isn't saved). Gaps: the panel's section has no automated test. It was checked in an isolated copy of the app
+on 2026-10-29, with a dependency whose `.lib.par` canvas held a component design and a screen: the library's section
+listed the design under Component designs and left the screen out.
+
+### Placing a library's design, linked or detached (PAR-126)
+
+A library's design is placed like the project's own: drag it onto a design, or click it to add it to the selection. That
+places a **linked instance**, which follows the library: when the library's design changes, so does every copy. Its
+right-click menu has **Insert linked instance** and **Insert detached copy**. A detached copy is plain layers, baked
+from what the design shows, with fresh ids, to change freely.
+
+- **A linked instance** has the Instance section as any other: its variants and params, its state, overrides with Reset
+  all, and Detach. It can't go to its main component or push overrides to it, as that's in the library; the section
+  names the design, and its hint says which library it's linked to. Layers, the canvas's labels and the inspector call
+  it by the design's name, as they do the project's own.
+- **A detached copy** is what Detach makes of a linked instance (see "Main components and instances" in
+  [decisions.md](decisions.md)): the root keeps the instance's id, so it's selected the same way, and it's one undo
+  step, "Add copy". A library design nested inside stays a linked instance.
+
+Code: `insertItem` in `apps/desktop/src/renderer/canvas/insert.ts` (an `instance` item with `detached`); the library
+rows' menu in `AssetsPanel.tsx`; `InstanceSection` in `apps/desktop/src/renderer/chrome/LayerPanel.tsx`.
+
+Tests: `packages/core/src/library.test.ts` (1: a library design placed in an app draws its components and params,
+linked, and the same once detached, with no link left). Gaps: inserting from the panel and the Instance section for a
+library's instance have no automated test. Both were tried in the same copy of the app: a click placed a linked instance
+drawing the library's Switch and Button with its param's default, named by the design in the Layers and Instance
+sections, and Insert detached copy placed plain layers.
+
 ## Zooming far out
 
 What the canvas draws, and what it lets go of, once it's zoomed out far enough for frames to show their bitmaps.
