@@ -34,7 +34,7 @@ export function ModesMenu({
   beside: ResolvedMode[]
   /** The trigger's look, to match the menus beside it. */
   triggerClassName?: string
-  onChange(main: string, shown: string[]): void
+  onChange: (main: string, shown: string[]) => void
 }) {
   const frames = [main, ...beside]
   const shown = frames.map((mode) => mode.id)

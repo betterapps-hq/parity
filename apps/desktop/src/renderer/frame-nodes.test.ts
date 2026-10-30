@@ -71,7 +71,8 @@ export function Link({ className, ...props }) {
 // Draws its item twice, handing each copy props through renderItem, as a list does.
 export function Repeat({ renderItem }) {
   return createElement("ul", { className: "repeat" },
-    [0, 1].map((index) => renderItem({ key: index, className: "given", "data-index": String(index) })))
+    [0, 1].map((index) =>
+      renderItem({ key: index, className: "given", "data-index": String(index), style: { marginLeft: index + "px" } })))
 }
 
 export function Tag(props) {
@@ -107,7 +108,8 @@ beforeAll(async () => {
   )
   await page.goto("http://parity.test/")
   // @ts-expect-error The bundle's global.
-  if (!(await page.evaluate(() => typeof frame === "object"))) throw new Error(`The page didn't load: ${errors}`)
+  if (!(await page.evaluate(() => typeof frame === "object")))
+    throw new Error(`The page didn't load: ${errors.join(",")}`)
   await mount(design)
 }, 30_000)
 
@@ -167,11 +169,11 @@ async function mount(tree: Node[]) {
     // @ts-expect-error The bundle's global.
     const bundle = frame as Record<string, unknown>
     const { createGuest, prepareFrame, setDrawnNodes } = bundle as unknown as {
-      createGuest(init: unknown): {
-        mount(target: unknown, tree: unknown, options: unknown): { drawnNodes?(): unknown }
+      createGuest: (init: unknown) => {
+        mount(target: unknown, tree: unknown, options: unknown): { drawnNodes?: () => unknown }
       }
-      prepareFrame(host: Element, sheet: CSSStyleSheet, environment: unknown): HTMLElement
-      setDrawnNodes(host: Element, read: unknown): void
+      prepareFrame: (host: Element, sheet: CSSStyleSheet, environment: unknown) => HTMLElement
+      setDrawnNodes: (host: Element, read: unknown) => void
     }
     // The bundle's components are its exports named in capitals.
     const components = Object.fromEntries(Object.entries(bundle).filter(([name]) => /^[A-Z]/.test(name)))
@@ -376,7 +378,23 @@ describe("props a component hands to its slot", () => {
           {},
           {
             "$renderWith:renderItem": [
-              { kind: "element", nodeId: "item-element", tag: "li", style: {}, children: [{ kind: "text", text: "C" }] }
+              {
+                kind: "element",
+                nodeId: "item-element",
+                tag: "li",
+                style: { paddingTop: "1px" },
+                children: [{ kind: "text", text: "C" }]
+              }
+            ]
+          }
+        ),
+        component(
+          "repeat-both",
+          "Repeat",
+          {},
+          {
+            "$renderWith:renderItem?pass=data-arg": [
+              { kind: "element", nodeId: "item-both", tag: "li", style: {}, children: [{ kind: "text", text: "D" }] }
             ]
           }
         ),
@@ -409,9 +427,38 @@ describe("props a component hands to its slot", () => {
   })
 
   it("gives an element in a $renderWith: slot what the component renders it with", async () => {
-    expect(await drawn("ul.repeat > li:not(.tag)")).toEqual([
+    expect(await drawn("li[data-canvas-node=item-element]")).toEqual([
       { className: "given", slot: undefined, index: "0" },
       { className: "given", slot: undefined, index: "1" }
+    ])
+  })
+
+  it("keeps the node's style with the one it's rendered with, and each copy's own key", async () => {
+    await mount(slots)
+    const styles = await page.evaluate(() =>
+      [
+        ...document
+          .querySelector("#host")!
+          .shadowRoot!.querySelectorAll<HTMLElement>("li[data-canvas-node=item-element]")
+      ].map((element) => [element.style.paddingTop, element.style.marginLeft])
+    )
+    expect(styles).toEqual([
+      ["1px", "0px"],
+      ["1px", "1px"]
+    ])
+    expect(errors.filter((error) => /same key/.test(error))).toEqual([])
+  })
+
+  it("gives what's spread and what's named both, when a slot does both", async () => {
+    await mount(slots)
+    const both = await page.evaluate(() =>
+      [
+        ...document.querySelector("#host")!.shadowRoot!.querySelectorAll<HTMLElement>("li[data-canvas-node=item-both]")
+      ].map((element) => [element.className, element.dataset.arg])
+    )
+    expect(both).toEqual([
+      ["given", "[object Object]"],
+      ["given", "[object Object]"]
     ])
   })
 

@@ -105,7 +105,7 @@ function SearchField({
   placeholder
 }: {
   value: string
-  onChange(value: string): void
+  onChange: (value: string) => void
   placeholder: string
 }) {
   return (

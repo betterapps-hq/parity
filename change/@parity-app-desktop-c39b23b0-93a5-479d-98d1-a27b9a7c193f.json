@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "The Tokens panel opens a token's detail, orders tokens by value and stays whole when narrow.",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

@@ -70,7 +70,7 @@ export function SearchPalette({
   initialQuery = ""
 }: {
   open: boolean
-  onOpenChange?(open: boolean): void
+  onOpenChange?: (open: boolean) => void
   initialQuery?: string
 }) {
   const start = useStart()

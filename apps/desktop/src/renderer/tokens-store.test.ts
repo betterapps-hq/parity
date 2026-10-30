@@ -76,7 +76,8 @@ beforeAll(async () => {
   )
   await page.goto("http://parity.test/")
   // @ts-expect-error The bundle's global.
-  if (!(await page.evaluate(() => typeof tokens === "object"))) throw new Error(`The page didn't load: ${errors}`)
+  if (!(await page.evaluate(() => typeof tokens === "object")))
+    throw new Error(`The page didn't load: ${errors.join(",")}`)
 }, 30_000)
 
 afterAll(async () => {
@@ -106,7 +107,7 @@ describe("editing tokens", () => {
       steps.saved = [written, store.hasUnsaved()]
       return steps
     })
-    expect(result.edited).toEqual(["red", "pink", "Edit --primary", true, 0])
+    expect(result.edited).toEqual(["red", "pink", "Edit primary", true, 0])
     expect(result.listed).toEqual({ default: "red", dark: "pink" })
     expect(result.undone).toEqual(["black", "white", false, "black"])
     expect(result.redone).toEqual(["red", 2])

@@ -143,7 +143,7 @@ export const typing = { delay: 40 }
  */
 export async function search(input: HTMLElement, text: string): Promise<void> {
   await userEvent.click(input)
-  fireEvent.input(input, { target: { value: text } })
+  await fireEvent.input(input, { target: { value: text } })
   await waitFor(() => expect(input).toHaveValue(text))
 }
 

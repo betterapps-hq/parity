@@ -1,0 +1,76 @@
+// Unused files, dependencies and exports, found by `pnpm check:unused` (PAR-395). Each workspace names what starts its
+// code; knip follows imports from there. The example project and fixtures/ stand in for customers' projects, so they're
+// left out: fixtures/ isn't a workspace, and the example project is ignored below.
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignoreExportsUsedInFile": true,
+  "ignoreWorkspaces": ["examples/*"],
+  "workspaces": {
+    ".": {
+      // scripts/*.ts are what `pnpm changefile` and the hooks in .vite-hooks run. The root vite.config.ts comes from
+      // knip's Vite and Vitest plugins.
+      "entry": ["scripts/*.ts", "beachball.config.cjs"],
+      "project": ["scripts/**/*.ts", "*.{ts,cjs}"]
+    },
+    "apps/desktop": {
+      "entry": [
+        // The processes scripts/dev.ts bundles: main, the preload script, and the project service with its workers.
+        "src/main/index.ts",
+        "src/preload/index.ts",
+        "src/utility/{index,props-worker,builder-process}.ts",
+        // The renderer's pages, index.html and render.html, load these.
+        "src/renderer/{main.tsx,render.ts}",
+        // What the package's scripts and the docs run: dev, inspect, perf, drive, snap and icons.
+        "scripts/*.ts",
+        ".storybook/{main,preview}.ts",
+        "src/**/*.stories.tsx",
+        "src/**/*.test.ts",
+        ".storybook/*.test.ts",
+        // The end-to-end tests `pnpm test:app` runs, with the config and setup that start the app for them.
+        "e2e/*.e2e.ts",
+        "e2e/{vite.config,global-setup}.ts"
+      ],
+      // CSS too, so its imports of tailwindcss, tw-animate-css, shadcn and Geist count as uses.
+      "project": ["src/**/*.{ts,tsx,css}", "scripts/**/*.ts", ".storybook/*.ts", "e2e/**/*.ts", "*.ts"],
+      "ignoreDependencies": [
+        // Imported by @parity-app/project, which scripts/dev.ts bundles while leaving these out, so the bundled
+        // service loads them from the app's own node_modules.
+        "package-manager-detector",
+        "semver",
+        "unconfig",
+        // @parity-app/registry finds its libraries through require.resolve("@parity-app/registry/package.json"),
+        // which the bundled service runs from the app's folder.
+        "@parity-app/registry"
+      ],
+      // macOS's own commands: plutil and sips name and brand the dev Electron, top reads memory.
+      "ignoreBinaries": ["plutil", "sips", "top"],
+      "ignoreIssues": {
+        // shadcn's components, kept as `shadcn add` writes them so they update cleanly. Their unused parts are its
+        // API, and scroll-area.tsx came with the set.
+        "src/renderer/components/ui/**": ["files", "exports"],
+        // Design explorations drawn in Storybook. Their shared parts and sample data are a kit for stories still being
+        // drawn.
+        "src/renderer/explorations/**": ["exports"]
+      }
+    },
+    "packages/cli": {
+      // The bin comes from package.json, and knip's Vite plugin finds vite.config.ts, the `vp pack` config.
+      // scripts/try-packed.ts tries the packed CLI.
+      "entry": ["src/**/*.test.ts", "scripts/*.ts"],
+      // Imported by @parity-app/project and @parity-app/registry, which `vp pack` bundles while leaving semver out,
+      // so npm installs it beside the published CLI.
+      "ignoreDependencies": ["semver"]
+    },
+    "packages/libgen": {
+      "entry": ["src/**/*.test.ts"],
+      "project": ["src/**/*.ts"],
+      // A demo library's type declarations, which libgen.test.ts reads by path.
+      "ignore": ["src/fixtures/**"]
+    },
+    "packages/*": {
+      // Each package's exports and scripts come from its package.json.
+      "entry": ["src/**/*.test.ts"],
+      "project": ["src/**/*.{ts,tsx}"]
+    }
+  }
+}

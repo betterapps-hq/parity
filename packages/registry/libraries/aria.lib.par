@@ -1607,10 +1607,6 @@
       "CollectionBuilder": {
         "as": "function",
         "group": "CollectionBuilder",
-        "parents": [
-          "Collection"
-        ],
-        "parentsFrom": "prefix",
         "fingerprint": "73e5322a",
         "props": {
           "children": "90d984",
@@ -5204,6 +5200,9 @@
         "as": "function",
         "declaration": "dist/types/src/Input.d.ts",
         "group": "Input",
+        "sample": {
+          "children": []
+        },
         "fingerprint": "6f70bb1b",
         "props": {
           "className?": "45b1e9",
@@ -8834,9 +8833,11 @@
         "declaration": "dist/types/src/SelectionIndicator.d.ts",
         "group": "SelectionIndicator",
         "parents": [
-          "SharedElementTransition"
+          "Tabs",
+          "TabList",
+          "Tab"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
         "fingerprint": "d21eafde",
         "props": {
           "children?": "e8b5b4",
@@ -8983,9 +8984,6 @@
             "children": "Text"
           },
           "children": [
-            {
-              "component": "SelectionIndicator"
-            },
             {
               "component": "SharedElement",
               "props": {

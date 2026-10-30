@@ -1,10 +1,10 @@
 {
-  "aria": 88,
-  "chakra": 94,
-  "mantine": 93,
+  "aria": 90,
+  "chakra": 95,
+  "mantine": 98,
   "mui": 88,
   "fluent": 98,
-  "baseui": 93,
+  "baseui": 95,
   "radix": 94,
-  "nova": 94
+  "nova": 96
 }

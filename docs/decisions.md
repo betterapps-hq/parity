@@ -158,6 +158,18 @@ still need your call.
 - **A box drawn from a frame's background selects the top-level layers it touches** (PAR-163), as Figma's and tldraw's
   do, live, drawn with tldraw's own box; Shift adds to the selection and Escape restores it. Ctrl doesn't make it go
   deeper yet. With several designs selected, Enter works in the one picked last.
+- **The window's page never scrolls; only panels do** (PAR-424). My call: the guard is `overflow: clip` on the app's
+  positioned root, not `overflow: hidden` on the document, which the page already had through the body and which the
+  browser still scrolls to show what's focused. `clip` can't be scrolled at all, and holding the root positioned keeps
+  even an absolutely placed element with no positioned ancestor inside it. Menus, dialogs and toasts are portaled to the
+  body and fixed, so they're unaffected.
+- **Tab on the canvas reaches only the selected design's own controls** (PAR-424). My call, from the issue's "Tab should
+  leave the canvas": its title, menus, mode captions and state labels are in the tab order, and every other design's are
+  out of it, reached by N, Layers or a click. Captions stay reachable because nothing else selects a mode column, as
+  CodeRabbit's review pointed out. Enter on a menu, caption or label is the control's, and on the title it still selects
+  the layers inside. A hovered design's menus are in the tab order while they show.
+- **A closing menu's keys are the canvas's** (PAR-424). My call: a menu, list or dialog playing its closing animation
+  counts as closed for shortcuts, a field in it included, so Ctrl+Z straight after a menu item undoes it.
 - **Side panels have one row of tabs, Pen style.** The open tab shows its name and the rest show only their icons. The
   left panel's tabs are Layers, Components, Icons, Images and Tokens; the right's are Design, Modes and Accessibility.
   Each panel remembers its open tab.
@@ -762,6 +774,26 @@ recommended answer to each of its questions.
   prop its own name as text, which an `<input>` can't hold (Mantine's `Cascader`, Nova's `ComboboxChipsInput`). The
   generator tries each part with text inside; one that then fails as a void or self-closing element, but renders without
   it, gets a sample of `children: []`. Inserting reads a sample's children, empty ones included, in place of the label.
+- **Errors from the app name parents the server can't see (PAR-409):** a part inside a closed menu or a portal renders
+  nothing on the server, so nothing there says it's misplaced. `parity lib check --record` keeps each failing part's
+  error from the app in `packages/registry/app-errors/<library>.json`, adding to what's kept, and
+  `parity lib --registry` reads it back: the parent the error names goes in the part's chain (parents from `app`),
+  inside that parent's own when it's of the part's family, or inside the chain it has when it's another's (Base UI's
+  `Menu.Portal` for a `ContextMenu.Positioner`). An error that names nothing adds nothing, and one about a void element
+  takes the part's text label off.
+- **More generator rules (PAR-409):**
+  - Example checkout also fetches the repository's files the examples import, relatively or by a mapped path (Chakra's
+    `compositions/ui/toaster`).
+  - A part imported under another name (`Toaster as ChakraToaster`) is that part.
+  - A made value carries the methods other examples call on it with arguments (`toaster.create({ title })`), as
+    `methods`, which the canvas and the generator call once after making it; calls with none (`dismiss()`) are left out.
+    Chakra's toaster is drawn with its toasts.
+  - A value the package makes is kept from any use of a part, however few set it.
+  - A part whose children must be a function (Base UI's `Field.Validity`) gets a render function that draws text.
+  - Nothing goes inside a part whose sample takes no children.
+  - A value an owner part works out for a part it draws is tried with each value the examples make.
+- **A render function's arguments go over the node's own (PAR-418):** its props over the node's props and slots, its
+  style merged over the node's, its key on the returned node, and a slot that both spreads and names props gives both.
 - **`parity lib` tries parts with React's server renderer,** from the project's own React, rather than in the app: it
   needs no window, runs in seconds, and still throws the context errors that name a part's parents. The library's
   decorator providers wrap each try, with their imports and calls made, a mode's default value, and no frame, so
@@ -1111,9 +1143,8 @@ recommended answer to each of its questions.
   project would avoid that too.
   - **A builder started again** from the processes list takes its last port when it's free, since the canvas it serves
     is still open, and waits for a closing one of the same project to end first, so a project never has two.
-  - **What a builder logs of what it served** (`@parity-app/core`'s [served.ts](../packages/core/src/served.ts), the
-    Vite side in `builder-vite/src/served.ts`), which PAR-195 compared to tell a changed project from an unchanged one,
-    no longer chooses the port.
+  - **Builders no longer log what they served** (PAR-431). PAR-195 compared that log to tell a changed project from an
+    unchanged one, and with every reopen on a new port nothing read it.
 - **Closing a project lets go of its guest in the window:** its `loadGuest` entry and the stylesheet the document
   adopted for it (PAR-195), so the next open makes its stylesheets anew, without the last session's token previews. The
   offscreen renderer lets go of a project's last guest when its jobs come with a new address, since it doesn't hear of
@@ -1299,14 +1330,45 @@ to PAR-209 build it.
   value with its references replaced must be the kind's value. You found `calc(var(--radius) * 2.6` saved without its
   `)`; the browser closes it silently, and `CSS.supports` passes anything holding `var()`. `validTokenValue` had both
   holes; the Tokens panel's editor has checked values this way since PAR-141.
-- **Spacing draws at its true size,** in rows and in the detail's scale, as you asked on 2026-10-29: rows widen to the
-  section's longest length, up to 128 pixels, and only a longer one is drawn cut, with a break in its bar.
+- **Spacing draws at its true size in the detail, and within the usual box in rows.** You asked on 2026-10-29 for true
+  sizes, and rows widened to the section's longest length, up to 128 pixels; in the app's 256-pixel panel that cut the
+  spacing names to a letter, so you asked the same day to go back. Rows keep the box every kind has, the pixels are
+  beside the name, and the detail draws the true size among its neighbours. A longer bar was drawn cut with a break,
+  which you found didn't say it was cut; of the ways we drew up, you chose the compressed tail the same day: true size
+  up to 16 pixels short of the box, then the rest squeezed, hatched, into those pixels, on a log scale up to 384.
+- **Tokens are Semantic or Primitive, as Figma names them.** You asked on 2026-10-29 why shadcn's variables were
+  "Project colors": the label said where they were declared, not what they are. The filters, section headings and
+  pickers now say Semantic (named for what they're for, as `primary`) and Primitive (the raw scale, as `color-red-500`),
+  the pair Figma's variable collections use; Fluent's alias and global, Material's system and reference are the same
+  split. Which tier a token is still follows where it's declared until a library says (PAR-143's audit).
+- **A measured kind lists smallest first.** You found the font weights out of order on 2026-10-29: they were by name, so
+  black came before bold and thin last. Weights, sizes, lengths, durations, opacities, layers and ratios now list by
+  value; colors, fonts, easings, animations and cursors stay by name, having no one order. Shadows stayed by name too,
+  until you found them out of order the same day: they list by how far they reach past their box, the furthest layer's
+  offset plus its blur and spread, measured from the value so any library's shadows order alike, not by size names. You
+  then asked that every group with a size or a number list smallest to largest: animations go by duration, a value that
+  is a duration makes a duration whatever its name (`animation-delay-75` had sat among the animations), and ties and the
+  kinds with no measure go by name with numbers by value and size words smallest first, in the forms most libraries
+  write them, rather than by the order the stylesheet had them.
+- **An animation is drawn the same way whichever library it's from:** one plain block runs its keyframes, over a dashed
+  outline of where it rests. You found on 2026-10-29 that some vanished when hovered (Radix's accordion keyframes
+  collapse to a height only its page knows) and that the drawings were a ring, a ball or a square by Tailwind's names,
+  which wouldn't carry to other libraries.
+- **Copy as offers `var()` under CSS and the token's name under Token, and no classes,** as you asked on 2026-10-29.
+  Parity supports any number of frameworks and token sets, and a variable says only that it can be used as a variable,
+  not which classes or props use it; the name is what Parity's own fields take. Classes, under Class in a Tailwind
+  project, went the same day.
+- **The panels hold up when narrow.** You found on 2026-10-29 that the Tokens panel's header ran out of its boxes and
+  the open tab's name ran over the next tab. My call: the left panel's least width goes from 200 to 232 pixels, the open
+  tab names itself only when there's room, filters drop their counts first, and a row's copy button takes the value's
+  place while it shows rather than keeping room for itself.
 - **Copying a token takes one step, and copies its name,** since you judged it's why most people open the tab: a copy
-  button on each row and tile, Ctrl+C on a row, and a click on a palette shade copy `--radius-md`. You chose the name
-  over `var()` on 2026-10-29, since Parity is for designers and vibe coders, who rarely open the code: Parity's fields
-  take the name, with or without the dashes, and refuse `var()` (PAR-401 makes them take it), and the dashes keep it
-  from reading as a Tailwind class in a message to the agent. The detail's Copy is a split button: its arrow opens Copy
-  as, with `var()` and the Tailwind classes, each named by what it sets.
+  button on each row and tile, Ctrl+C on a row, and a click on a palette shade copy `radius-md`. You chose the name over
+  `var()` on 2026-10-29, since Parity is for designers and vibe coders, who rarely open the code, and the name is what
+  Parity's fields take (they refuse `var()`; PAR-401 makes them take it). You chose the bare name over `--radius-md` the
+  same day, so the panel, the detail's heading, its messages and every copy name a token one way, the way a field
+  expects it. The detail's Copy is a split button: its arrow opens Copy as, with `var()` under CSS and the name under
+  Token.
 - **Every copy says how it went, through two shared parts** in `chrome/Copy.tsx`, which you asked for on 2026-10-29
   after a copy showed nothing: `CopyButton`, whose icon springs into a green check and back, or a red cross with
   "Couldn't copy", and `CopyOnClick`, for things with no room for a button, which raises a "Copied" bubble from what was
@@ -1315,8 +1377,17 @@ to PAR-209 build it.
   what has focus, so an open popover stays open. PAR-402 moves Parity's other copies onto them.
 - **In the app, a palette shade copies on a click, and a search makes it editable.** My call, moving the previews into
   the Tokens panel: a shade in the grid opened the editor before; now a click copies it, as the exploration has it, and
-  while searching the palette's matches list as rows, which open the editor. The list draws only the rows in view, with
-  the search and filters fixed above it.
+  while searching the palette's matches list as rows, which open the editor. Its tooltip is just its name, as you asked
+  on 2026-10-29, since that's what a click copies. The list draws only the rows in view, with the search and filters
+  fixed above it.
+- **Themes are named as the modes name them, never by their class.** You asked on 2026-10-29 why the token editor said
+  "Theme .dark": the class is how a theme reaches a frame (shadcn's `.dark`, or the class Parity writes for each of a
+  library's DTCG contexts, such as Fluent's `teams-high-contrast`), not what anyone calls it. My call: a token's values
+  are still keyed by the class, as the stylesheet keys them, and the detail names each by the theme option that adds
+  that class in the Modes panel (Dark), the root's by the option that adds none (Light), and any other from its key.
+- **In the app, Apply replaces the exploration's Save.** The detail's design came before PAR-164 put every change
+  through Save and Undo, so its Save wrote the stylesheet at once. In the app Apply changes the canvas as one undoable
+  step and the project's Save writes it; the line under the value says so, with Undo while it's the last step.
 - **The detail says each thing once, in a fixed order:** the preview; the name, with what it comes to on the right as
   its row shows it; one labeled list of facts (the value in each theme, Built on, From, Used by); and a bar with Edit
   and Copy. You found the first pass disorganized on 2026-10-29: the value showed in three places, and its actions were
@@ -1405,8 +1476,9 @@ the Repository, CI and releases stream in Linear.
   - **The desktop app runs on Vite+'s core.** A pnpm override keeps stock Vite 8 for the example project and
     builder-vite, as the call above says.
   - **Types are checked by `pnpm check:types`,** which runs `vp lint --type-aware --type-check` on TypeScript 7, on push
-    and in CI rather than in `vp check` (see the hooks below). The eight type-aware rules that flagged 229 places are
-    off until PAR-396 fixes them.
+    and in CI rather than in `vp check` (see the hooks below). Its type-aware rules are all on since PAR-396 fixed the
+    places they flagged. A disable comment can't silence one, since `vp check` lints without types and reports the
+    comment unused, so a deliberate exception is a `lint.overrides` entry for its file, with a comment saying why.
   - **Tests import from `vite-plus/test`** since PAR-393, and `prefer-vite-plus-imports` is an error everywhere but
     builder-vite, whose tests run a stock Vite and keep `vitest`.
   - **`.storybook` is type-checked now.** Outside any tsconfig, the checker had given it a program without the `@`
@@ -1460,6 +1532,16 @@ the Repository, CI and releases stream in Linear.
     skipped its hooks. It took 9 seconds.
   - **Focused tests and `debugger` were lint errors already.**
   - **Tests run on twelve workers locally and four in CI,** as Copacker's do, which you said suits your machine.
+- **knip finds unused files, dependencies and exports (PAR-395),** as in the agency monorepo. My calls:
+  - **`pnpm check:unused` runs it, and `pnpm verify` doesn't yet.** CI runs `pnpm verify`, and CI belongs to the CI
+    session, which can add `pnpm check:unused`.
+  - **Its config is `knip.jsonc`,** so each entry and ignore says why, and its version is in the catalog.
+  - **The example project and `fixtures/` are left out,** since they stand in for customers' projects.
+  - **Kept on purpose:** the app's runtime dependencies that the bundled project service loads from its folder, the
+    CLI's `semver`, which npm installs beside the packed CLI for the packages it bundles, shadcn's components whole, the
+    Storybook explorations' shared parts, libgen's demo declarations and macOS's own commands.
+  - **Removed:** `clsx` and `tailwind-merge`, which `cn` replaced, the app's `@parity-app/libgen` and libgen's
+    `@parity-app/registry`, which nothing imports, and three functions nothing calls.
 - **Pull requests are required on `main`, and CodeRabbit reviews each one,** as you asked on 2026-10-29. The ruleset
   comes with the repository (PAR-398). My calls:
   - **A pull request merges once CI, CodeRabbit's status and the title check pass and every thread is resolved,** with
@@ -1542,6 +1624,39 @@ the Repository, CI and releases stream in Linear.
   - `types` isn't cached. On macOS Vite Task doesn't see the files TypeScript's Go compiler reads (vite-task#587, fixed
     with TypeScript 7.1), so it could replay a pass after a change broke the types. A run takes about 5 seconds, so
     little is lost; cache it once the TypeScript under `oxlint-tsgolint` is 7.1 or later.
+- **Dependabot keeps dependencies current (PAR-394),** from `.github/dependabot.yml`, as the agency monorepo, Buildkit
+  and the pipelines repository do. My calls:
+  - **Each week, one pull request for npm's minor and patch updates and one for GitHub Actions,** which also moves the
+    shared pipelines' pinned commits and their version comments. npm's major updates come one pull request each, at most
+    ten open, since each may need code to change.
+  - **It waits 3 days before offering a direct dependency's new version,** longer than the day pnpm's
+    `minimumReleaseAge` asks. That doesn't cover the transitive versions its lockfile refresh resolves, which pnpm also
+    checks, so one published within the day can still fail CI's frozen install: re-run it once the version is a day old.
+    Security updates don't wait, and Better Apps' own actions come straight away.
+  - **Titles are conventional:** `build(deps)` and `build(deps-dev)` for npm, `ci(deps)` for Actions, which
+    `scripts/commits.ts title` accepts and squash merging makes the subject.
+  - **It leaves the Vite+ toolchain alone.** Vite+ pins its own Vitest and its core, which the catalog names `vite`, so
+    the three move together by hand. Every other `vite` is stock Vite on purpose, held by pnpm-workspace.yaml's
+    overrides.
+  - **It never updates the fixtures,** not even for security, since each stands in for a customer's project at the
+    versions its tests expect. An `ignore` rule naming only the dependency holds back security updates as well. The
+    example project and builder-vite are updated, apart from their stock Vite.
+  - **TypeScript and `@types/node` take no majors:** the packages using the compiler API stay on TypeScript 6, and the
+    Node types follow `.nvmrc`.
+  - **Its pull requests need no change file.** On Dependabot's own pull requests, beachball.config.cjs ignores
+    `package.json`, which `scripts/changes.ts` reads too, so a dependency's new version ships with the next release
+    rather than making one. Code changed there still needs a change file. Dependabot can't write one, and a workflow
+    that pushed one would need a token other than `GITHUB_TOKEN` to start CI again, and would stop Dependabot rebasing.
+  - **In CI the bypass needs Dependabot on both ends:** a pull request it opened from a `dependabot/` branch of this
+    repository, checked on a push it made, all read from what GitHub sets. A person's branch with that name, a fork, or
+    a person's commit pushed onto Dependabot's pull request still needs change files; to bring one up to date or check
+    it again after reopening it, comment `@dependabot rebase` rather than updating the branch. Locally the branch name
+    is enough, since CI is the gate.
+  - **Alerts and security updates are on** for the repository, but they don't see the pnpm workspace's resolved versions
+    yet. pnpm 12 writes `pnpm-lock.yaml` as two YAML documents, and GitHub's dependency graph read it with no
+    dependencies on 2026-10-30, so it knows only the manifests' ranges and the fixtures' lockfiles. Version updates read
+    the workspace themselves, so their first run shows whether they read that lockfile. Submitting the workspace's
+    dependencies is PAR-432.
 - **`betterapps-hq/pipelines` started with the setup action and ci-verify (PAR-110).** My calls:
   - The setup action checks out without keeping credentials, and on Windows turns off `core.autocrlf` first, since the
     runners' CRLF made Vite+'s formatter fail every file.

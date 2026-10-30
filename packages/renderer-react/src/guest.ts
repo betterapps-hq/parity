@@ -16,6 +16,7 @@ import {
   createContext,
   createElement,
   Fragment,
+  type Key,
   type ReactNode,
   useContext,
   useEffect,
@@ -301,7 +302,13 @@ export function createGuest(init: GuestInit): Guest {
       const fn = exported(init.decorators, callee.import, callee.export)
       if (typeof fn !== "function") throw new Error(`${callee.import} has no function ${callee.export}`)
       const args = (value as Props).args
-      made.set(key, (fn as (...args: unknown[]) => unknown)(...(Array.isArray(args) ? args.map(madeValue) : [])))
+      const result = (fn as (...args: unknown[]) => unknown)(...(Array.isArray(args) ? args.map(madeValue) : []))
+      // The methods the examples call on it (`toaster.create({ title })`), once.
+      for (const step of ((value as Props).methods ?? []) as { method: string; args?: unknown[] }[]) {
+        const method = (result as Record<string, unknown> | null | undefined)?.[step.method]
+        if (typeof method === "function") method.apply(result, (step.args ?? []).map(madeValue))
+      }
+      made.set(key, result)
     }
     return made.get(key)
   }
@@ -310,25 +317,27 @@ export function createGuest(init: GuestInit): Guest {
   const madeProps = (props: Props | undefined): Props =>
     Object.fromEntries(Object.entries(props ?? {}).map(([name, value]) => [name, madeValue(value)]))
 
-  // `extra` is what a render function passes on: given to the node itself, since a component is wrapped in its boundary.
-  // A key or style it passes is kept: a list keys the copies it renders, and a virtual list places each by its style.
-  const toReact = (node: RenderNode, index?: number, extra?: Props): ReactNode => {
-    const given = extra?.key
-    const key = typeof given === "string" || typeof given === "number" ? given : index
+  /**
+   * What a render function passes on (`extra`) goes to the node itself, as cloning the element it returns would, since a
+   * component is wrapped in its boundary: over the node's own props and slots, its style over the node's, and its key
+   * on what's returned.
+   */
+  const toReact = (node: RenderNode, key?: Key, extra?: Props): ReactNode => {
+    const { key: given, style: givenStyle, ...passed } = extra ?? {}
+    const keyed = (given as Key | undefined) ?? key
     switch (node.kind) {
       case "text":
         return node.text
       case "element": {
-        const style = extra?.style
         const props = {
           ...attributesFor(node.tag, node.attributes),
-          ...extra,
-          key,
-          style: typeof style === "object" && style !== null ? { ...node.style, ...style } : node.style,
+          ...passed,
+          key: keyed,
+          style: givenStyle ? { ...node.style, ...(givenStyle as object) } : node.style,
           "data-canvas-node": node.nodeId
         }
-        // Void elements like img take no children, not even an empty list.
-        if (node.children.length === 0) return createElement(node.tag, props)
+        // Void elements like img take no children, not even an empty list; nor does one given its children.
+        if (node.children.length === 0 || "children" in passed) return createElement(node.tag, props)
         return createElement(node.tag, props, ...node.children.map((child, index) => toReact(child, index)))
       }
       case "component": {
@@ -336,27 +345,29 @@ export function createGuest(init: GuestInit): Guest {
         if (!component) {
           return createElement(
             "div",
-            { key, style: missingStyle, "data-canvas-node": node.nodeId },
+            { key: keyed, style: missingStyle, "data-canvas-node": node.nodeId },
             `Unknown component "${node.component}"`
           )
         }
         // The canvas finds a component by its boundary, below, not by this prop: a component may not render it, or
         // render it on an inner element. It still marks the DOM of components that pass it on, for scripts that look.
-        const props: Props = { ...madeProps(node.props), ...extra, "data-canvas-node": node.nodeId }
+        const props: Props = { ...madeProps(node.props), "data-canvas-node": node.nodeId }
+        if (givenStyle) props.style = { ...(props.style as object | undefined), ...(givenStyle as object) }
         let children: ReactNode[] | undefined
         for (const [slot, nodes] of Object.entries(node.slots)) {
           // A `$render:` slot is a function the component calls (`renderInput`, function children); `$renderWith:`
-          // spreads what it's called with onto the one element it returns, and `?pass=a,b` gives it to those props.
+          // spreads what it's called with onto the one element it returns, and `?pass=a,b` gives it to those props, over
+          // what's spread, as JSX would.
           const render = /^\$render(With)?:([^?]+)(?:\?pass=(.+))?$/.exec(slot)
           if (render) {
             const [, spread, prop, pass] = render
             props[prop!] = (argument: unknown) => {
-              let given: Props | undefined
-              if (pass) given = Object.fromEntries(pass.split(",").map((name) => [name, argument]))
-              else if (spread && typeof argument === "object" && argument) given = argument as Props
+              const spreadProps = spread && typeof argument === "object" && argument ? (argument as Props) : {}
+              const named = pass ? Object.fromEntries(pass.split(",").map((name) => [name, argument])) : {}
+              const passing = spread || pass ? { ...spreadProps, ...named } : undefined
               // Only the one element a function returns takes what it's called with.
               const rendered = nodes.map((child, index) =>
-                toReact(child, index, nodes.length === 1 ? given : undefined)
+                toReact(child, index, nodes.length === 1 ? passing : undefined)
               )
               return rendered.length === 1 ? rendered[0] : rendered
             }
@@ -367,8 +378,15 @@ export function createGuest(init: GuestInit): Guest {
           if (slot === "children") children = rendered
           else props[slot] = rendered.length === 1 ? rendered[0] : rendered
         }
+        Object.assign(props, passed)
+        // Children it's given replace the slot's.
+        if ("children" in passed) children = undefined
         const element = children ? createElement(component, props, ...children) : createElement(component, props)
-        return createElement(ComponentBoundary, { key, name: node.component, nodeId: node.nodeId, report }, element)
+        return createElement(
+          ComponentBoundary,
+          { key: keyed, name: node.component, nodeId: node.nodeId, report },
+          element
+        )
       }
     }
   }
@@ -514,17 +532,17 @@ function watchDrawnNodes(root: Root, target: HTMLElement) {
   })
   observer.observe(frame, { childList: true, subtree: true })
   return {
-    read(): DrawnNodes | undefined {
+    read: (): DrawnNodes | undefined => {
       if (observer.takeRecords().length > 0) stale = true
       if (!stale) return drawn
       stale = false
       drawn = readDrawnNodes(root, target, frame)
       return drawn
     },
-    changed() {
+    changed: () => {
       stale = true
     },
-    dispose() {
+    dispose: () => {
       observer.disconnect()
     }
   }
@@ -627,7 +645,7 @@ function compile(decorator: LibraryDecorator, setup: GuestDecorators, frame: Fra
   const value = (raw: unknown) => resolve(raw, setup, frame)
   const { undos } = frame
   if (decorator.class !== undefined) {
-    const names = String(value(decorator.class) ?? "")
+    const names = String((value(decorator.class) ?? "") as unknown)
       .split(/\s+/)
       .filter((name) => name && !frame.body.classList.contains(name))
     frame.body.classList.add(...names)
@@ -639,7 +657,7 @@ function compile(decorator: LibraryDecorator, setup: GuestDecorators, frame: Fra
       const previous = frame.body.getAttribute(name)
       const next = value(raw)
       if (next === undefined || next === null || next === false) continue
-      frame.body.setAttribute(name, String(next))
+      frame.body.setAttribute(name, String(next as unknown))
       undos.push(() => (previous === null ? frame.body.removeAttribute(name) : frame.body.setAttribute(name, previous)))
     }
     return undefined
@@ -649,7 +667,7 @@ function compile(decorator: LibraryDecorator, setup: GuestDecorators, frame: Fra
       const next = value(raw)
       if (next === undefined || next === null) continue
       const previous = frame.body.style.getPropertyValue(name)
-      frame.body.style.setProperty(name, String(next))
+      frame.body.style.setProperty(name, String(next as unknown))
       undos.push(() => frame.body.style.setProperty(name, previous))
     }
     return undefined
@@ -668,7 +686,8 @@ function resolve(raw: unknown, setup: GuestDecorators, frame: Frame): unknown {
   if (Array.isArray(raw)) return raw.map((item) => resolve(item, setup, frame))
   if (typeof raw !== "object" || raw === null) return raw
   const record = raw as Record<string, unknown>
-  if (typeof record.$import === "string") return exported(setup, record.$import, String(record.export ?? "default"))
+  if (typeof record.$import === "string")
+    return exported(setup, record.$import, String((record.export ?? "default") as unknown))
   if (typeof record.$call === "object" && record.$call !== null) {
     const key = JSON.stringify(record)
     if (!frame.made.has(key)) {

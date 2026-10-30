@@ -26,7 +26,8 @@ What's decided goes in [decisions.md](decisions.md), designs in [proposals](prop
    calls you made in decisions.md. Commit as [AGENTS.md](../AGENTS.md) says.
 6. **Close it once the work is on main,** with a comment saying what landed: the files, the tests, the doc section and
    the commit. Work lands through a pull request on GitHub (betterapps-hq/parity), as [AGENTS.md](../AGENTS.md) says;
-   never commit to or push `main` itself. A pull request closes its issue when it merges, since Linear is connected to
+   never commit to or push `main` itself. Once the work is verified, push its branch and open the pull request yourself,
+   without waiting to be asked. A pull request closes its issue when it merges, since Linear is connected to
    betterapps-hq: after it merges, check the issue moved to Done and has that comment, and move it or add the comment if
    not. Work that's only partly landed stays In Progress, with a comment saying what's left.
 7. **Found more work?** Create an issue in the Parity project, written as below.

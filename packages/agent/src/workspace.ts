@@ -425,7 +425,11 @@ export class AgentWorkspace {
   private insert(parent: string, input: unknown, options: PlaceOptions = {}): string {
     if (parent === "document") {
       const node = input as Values
-      return this.createDesign({ name: String(node.name ?? "Untitled"), root: input, ...(options as object) })
+      return this.createDesign({
+        name: String((node.name ?? "Untitled") as unknown),
+        root: input,
+        ...(options as object)
+      })
     }
     const target = this.tryDesign(parent)
     const found = target ? { ...target, node: target.container.root } : this.findNode(parent)
@@ -453,7 +457,11 @@ export class AgentWorkspace {
       throw new Error("A state can only change hidden, text, props and style")
     }
     if (node.type === "component" && change.props) {
-      this.checkProps(String(change.component ?? node.component), change.props as Values, `${container.id}/${node.id}`)
+      this.checkProps(
+        String((change.component ?? node.component) as unknown),
+        change.props as Values,
+        `${container.id}/${node.id}`
+      )
     }
     let next = editNode(container, stateId, node.id, toChange(change))
     if (base && ("name" in change || "tag" in change || "component" in change)) {
@@ -463,7 +471,7 @@ export class AgentWorkspace {
           const updated = { ...current } as DesignNode & Values
           if ("name" in change) {
             if (change.name === null) delete updated.name
-            else updated.name = String(change.name)
+            else updated.name = String(change.name as unknown)
           }
           if ("tag" in change && updated.type === "text") updated.tag = change.tag as never
           if ("component" in change && updated.type === "component") updated.component = String(change.component)
@@ -1276,7 +1284,7 @@ function elide(node: DesignNode, depth: number | undefined, level = 0): unknown 
 function toChange(change: Values): NodeChange {
   const result: NodeChange = {}
   if ("hidden" in change) result.hidden = change.hidden === null ? undefined : Boolean(change.hidden)
-  if ("text" in change) result.text = change.text === null ? undefined : String(change.text)
+  if ("text" in change) result.text = change.text === null ? undefined : String(change.text as unknown)
   if (change.props !== undefined) result.props = nullsToUndefined(expectObject(change.props, "props"))
   if (change.style !== undefined)
     result.style = nullsToUndefined(expectObject(change.style, "style")) as NodeChange["style"]

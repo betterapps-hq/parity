@@ -142,7 +142,7 @@ function keyframesOf(rule: CSSKeyframesRule): Keyframe[] {
 
 function editLabel(changes: readonly TokenChange[]): string {
   const names = new Set(changes.map((change) => change.name))
-  return names.size === 1 ? `Edit --${[...names][0]}` : `Edit ${names.size} tokens`
+  return names.size === 1 ? `Edit ${[...names][0]}` : `Edit ${names.size} tokens`
 }
 
 export function useTokenList(store: TokenStore): Token[] {

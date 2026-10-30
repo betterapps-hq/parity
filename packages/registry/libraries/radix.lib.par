@@ -2461,7 +2461,8 @@
             "type": "email",
             "required": true,
             "placeholder": "rolli@example.com"
-          }
+          },
+          "children": []
         },
         "fingerprint": "efd83dfe",
         "props": {

@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Turn on the type-aware lint rules and fix what they flag",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

@@ -247,7 +247,9 @@ function clipped(element: HTMLElement, rect: DOMRect, body: HTMLElement): boolea
 
 function imagesLoaded(host: HTMLElement): Promise<unknown> {
   const images = [...(host.shadowRoot?.querySelectorAll("img") ?? [])]
-  return Promise.all(images.map((image) => (image.complete ? undefined : image.decode().catch(() => undefined))))
+  return Promise.all(
+    images.map((image) => (image.complete ? Promise.resolve() : image.decode().catch(() => undefined)))
+  )
 }
 
 function round(value: number): number {

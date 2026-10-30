@@ -1015,7 +1015,8 @@
         "sample": {
           "props": {
             "placeholder": "e.g. Michael"
-          }
+          },
+          "children": []
         },
         "fingerprint": "68636594",
         "props": {
@@ -1661,9 +1662,19 @@
         "as": "forwardRef",
         "group": "ContextMenu",
         "parents": [
-          "ContextMenu.Root"
+          "ContextMenu.Root",
+          "Menu.Portal"
         ],
-        "parentsFrom": "error",
+        "parentsFrom": "example",
+        "sample": {
+          "props": {
+            "alignOffset": -4,
+            "sideOffset": -4
+          },
+          "children": [
+            "Get Up! Inside Out Night Beats New playlist…"
+          ]
+        },
         "fingerprint": "7177807f",
         "props": {
           "align?": "ddc1fb",
@@ -2476,7 +2487,8 @@
           "props": {
             "required": true,
             "placeholder": "e.g. alice132"
-          }
+          },
+          "children": []
         },
         "fingerprint": "b315f5d7",
         "props": {
@@ -2629,6 +2641,15 @@
           "Field.Root"
         ],
         "parentsFrom": "error",
+        "sample": {
+          "children": [
+            {
+              "$render": [
+                "Text"
+              ]
+            }
+          ]
+        },
         "fingerprint": "1df82ab1",
         "props": {
           "children": "1377fd"
@@ -2730,7 +2751,8 @@
         "sample": {
           "props": {
             "placeholder": "e.g. Colm Tuite"
-          }
+          },
+          "children": []
         },
         "fingerprint": "d250135b",
         "props": {
@@ -4950,6 +4972,9 @@
           "NumberField.Group"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": []
+        },
         "fingerprint": "13c83108",
         "props": {
           "aria-roledescription?": "0bf956",
@@ -5067,6 +5092,9 @@
           "OTPField.Root"
         ],
         "parentsFrom": "example",
+        "sample": {
+          "children": []
+        },
         "fingerprint": "2b99fc45",
         "props": {
           "className?": "549e3a",
@@ -7852,6 +7880,9 @@
           "Toolbar.Root"
         ],
         "parentsFrom": "error",
+        "sample": {
+          "children": []
+        },
         "fingerprint": "6af7f835",
         "props": {
           "className?": "c9692b",

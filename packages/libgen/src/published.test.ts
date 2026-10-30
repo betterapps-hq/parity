@@ -69,12 +69,12 @@ describe("installedVersion", () => {
   it("keeps each version once installed, and takes only names npm could publish", async () => {
     const { mkdtemp, mkdir, rm, writeFile } = await import("node:fs/promises")
     const { tmpdir } = await import("node:os")
-    const { join } = await import("node:path")
-    const cache = await mkdtemp(join(tmpdir(), "parity-packages-"))
+    const path = await import("node:path")
+    const cache = await mkdtemp(path.join(tmpdir(), "parity-packages-"))
     try {
-      const dir = join(cache, "@tabler+icons-react@3.50.0")
+      const dir = path.join(cache, "@tabler+icons-react@3.50.0")
       await mkdir(dir, { recursive: true })
-      await writeFile(join(dir, ".parity-installed"), "@tabler/icons-react@3.50.0\n")
+      await writeFile(path.join(dir, ".parity-installed"), "@tabler/icons-react@3.50.0\n")
       expect(await installedVersion("@tabler/icons-react", "3.50.0", cache)).toBe(dir)
       await expect(installedVersion("x && calc", "1.0.0", cache)).rejects.toThrow(/isn't a package name/)
       await expect(installedVersion("x", "1.0.0 | calc", cache)).rejects.toThrow(/isn't a package name/)

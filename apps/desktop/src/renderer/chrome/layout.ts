@@ -13,7 +13,7 @@ export interface PanelLayout {
 
 const storageKey = "parity.layout"
 const defaults: PanelLayout = { left: true, right: true, leftWidth: 256, rightWidth: 320 }
-export const panelLimits = { left: [200, 480], right: [260, 520] } as const
+export const panelLimits = { left: [232, 480], right: [260, 520] } as const
 
 let layout = load()
 const listeners = new Set<() => void>()

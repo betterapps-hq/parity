@@ -135,6 +135,19 @@ body,
   height: 100%;
 }
 
+/*
+ * The window's page never scrolls; each panel scrolls on its own (PAR-424). `overflow: hidden` on the page isn't
+ * enough, since the browser still scrolls a hidden page to show what's focused or revealed below the window, and tldraw
+ * doesn't notice, so canvas clicks land off by as much. So nothing may make the page bigger than the window: the app's
+ * root clips what it holds, and is positioned so it holds even what's placed absolutely without a positioned ancestor.
+ * `clip` can't be scrolled at all, where `hidden` would only move the problem here. Menus, popovers, dialogs and toasts
+ * are portaled to the body and fixed to the window, so they're unaffected.
+ */
+#root {
+  position: relative;
+  overflow: clip;
+}
+
 /* Selection colors, one per kind of thing on the canvas. */
 :root {
   --canvas-screen: oklch(0.64 0.18 256);

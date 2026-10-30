@@ -1,0 +1,13 @@
+{
+  "DateInput.Segment": "Cannot read properties of undefined (reading 'isEditable')",
+  "DatePicker.DayTable": "Invalid time value",
+  "DatePicker.TableCell": "Cannot read properties of undefined (reading 'compare')",
+  "FileUpload.Item": "Cannot read properties of undefined (reading 'name')",
+  "Highlight": "The children prop of Highlight must be a string",
+  "Toast.ActionTrigger": "useToastStyles returned is 'undefined'. Seems you forgot to wrap the components in \"<Toast.Root />\" ",
+  "Toast.CloseTrigger": "useToastStyles returned is 'undefined'. Seems you forgot to wrap the components in \"<Toast.Root />\" ",
+  "Toast.Description": "useToastStyles returned is 'undefined'. Seems you forgot to wrap the components in \"<Toast.Root />\" ",
+  "Toast.Indicator": "useToastStyles returned is 'undefined'. Seems you forgot to wrap the components in \"<Toast.Root />\" ",
+  "Toast.Title": "useToastStyles returned is 'undefined'. Seems you forgot to wrap the components in \"<Toast.Root />\" ",
+  "TreeView.BranchContent": "useCollapsibleContext returned `undefined`. Seems you forgot to wrap component within <CollapsibleProvider />"
+}

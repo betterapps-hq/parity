@@ -89,7 +89,7 @@ export function IssueLink({
 }: {
   issue: LinkedIssue
   resolved?: boolean
-  onResolve?(): void
+  onResolve?: () => void
 }) {
   const tracker = trackers[issue.tracker]
   return (
@@ -176,11 +176,11 @@ export function IssueDialog({
   onLink
 }: {
   open: boolean
-  onOpenChange(open: boolean): void
+  onOpenChange: (open: boolean) => void
   thread: ThreadData
   available: Tracker[]
   initial?: { tracker: TrackerId; mode: "create" | "link" }
-  onLink(issue: LinkedIssue): void
+  onLink: (issue: LinkedIssue) => void
 }) {
   const [mode, setMode] = useState(initial.mode)
   const [chosen, setChosen] = useState(initial.tracker)
@@ -337,7 +337,7 @@ export function IssueDialog({
  * The org's issue trackers, in its settings in the portal: what's added, as which account, and Add or Remove for
  * admins. A thread's Create issue lists only these.
  */
-export function OrgTrackers({ added, onChange }: { added: Tracker[]; onChange(added: Tracker[]): void }) {
+export function OrgTrackers({ added, onChange }: { added: Tracker[]; onChange: (added: Tracker[]) => void }) {
   return (
     <div className="flex w-[24rem] flex-col rounded-xl border bg-popover text-popover-foreground">
       <div className="flex flex-col gap-0.5 border-b px-4 py-3">

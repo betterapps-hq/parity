@@ -68,9 +68,9 @@ function LivePin({
   open: boolean
   hovered: boolean
   draft?: boolean
-  onToggle(): void
-  onHover(): void
-  onLeave(): void
+  onToggle: () => void
+  onHover: () => void
+  onLeave: () => void
   /** The thread, while it's open. */
   children: ReactNode
 }) {
@@ -157,7 +157,7 @@ export function LiveBoard({
   frame?: string
   initial: Pinned[]
   /** The design, given a marker that outlines the layer of the pin that's hovered or open. */
-  design(mark: Marker): ReactNode
+  design: (mark: Marker) => ReactNode
 }) {
   const [pins, setPins] = useState(initial)
   const [open, setOpen] = useState<string>()

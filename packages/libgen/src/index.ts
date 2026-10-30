@@ -69,6 +69,8 @@ export interface GenerateOptions {
   examples?: boolean
   /** Whether to read an icon set's tags from its published metadata, at the installed version. Defaults to yes. */
   tags?: boolean
+  /** Why parts failed in the running app, by part, as `parity lib check --record` keeps them. */
+  appErrors?: Record<string, string>
 }
 
 /** What generating found, for the person to check: counts, and what couldn't be decided. */
@@ -309,7 +311,8 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
       uses,
       renderedIn(renders),
       calls,
-      listItem
+      listItem,
+      options.appErrors
     )
     if (parts.note) notes.push(parts.note)
     // Parts only a host the decorators add renders, and no example places, aren't for placing, unless they render with

@@ -58,10 +58,10 @@ export function styleValues(edit: StyleEdit, style: NodeStyle): StyleValues {
 /** Reads and writes one node's style in the state being edited. */
 export interface StyleEditor {
   style: NodeStyle
-  changed(name: keyof NodeStyle): boolean
-  reset(name: keyof NodeStyle): void
+  changed: (name: keyof NodeStyle) => boolean
+  reset: (name: keyof NodeStyle) => void
   /** Several properties as one undoable change. `undefined` clears a property. */
-  set(values: StyleEdit, label?: string): void
+  set: (values: StyleEdit, label?: string) => void
   /**
    * Shows properties on the canvas at once, without changing the design, while a field is typed in or scrubbed:
    * `set` then makes them, or `endPreview` takes them back.
@@ -640,7 +640,7 @@ function SizeInput({
   axis: "width" | "height"
   value: Size | undefined
   canFill: boolean
-  onChange(value: Size | undefined): void
+  onChange: (value: Size | undefined) => void
   edits: Pick<NumberFieldProps, "onPreview" | "onCancel" | "onCommit">
 }) {
   const fixed = value !== undefined && value !== "fill" && value !== "hug"
@@ -1144,7 +1144,7 @@ export function LengthInput({
               <CommandList className="max-h-72">
                 <CommandEmpty>No length matches.</CommandEmpty>
                 {named.length > 0 && (
-                  <CommandGroup heading="Project tokens">
+                  <CommandGroup heading="Semantic">
                     {named.map((token) => (
                       <CommandItem
                         key={token.name}

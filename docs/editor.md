@@ -17,7 +17,7 @@ Features built before 2026-10-29 are being added under PAR-392 in Linear.
 ## Testing in the app (PAR-202)
 
 `pnpm test:app` drives a copy of Parity as a person does, with the system's own pointer and keyboard, and checks what
-the canvas, the panels and the project show: 58 tests, which take four to six minutes. It isn't part of `vp run test` or
+the canvas, the panels and the project show: 61 tests, which take four to six minutes. It isn't part of `vp run test` or
 `pnpm verify`, so run it after changing how the canvas, its overlay, the keymap, the menus or the inspector's fields
 handle input. Each feature's tests below name the end-to-end ones that cover it.
 
@@ -40,6 +40,10 @@ handle input. Each feature's tests below name the end-to-end ones that cover it.
   do. Start with `app.show(design, zoom)`, act through `App`'s gestures or `app.page.keyboard`, and wait for what
   changes with `expect.poll`, since the app answers a frame or more later. Change the project only through edits Undo
   takes back, so `reset` can put it back. Then name the test in its feature's section here.
+- **The page never scrolls.** `App` counts each time the window's page scrolls, and `reset` fails the test it ran in if
+  it did, or if the page isn't at the top, then puts it back so the tests after start clean. A scrolled page moves the
+  canvas without tldraw noticing, so every click after it lands off by as much (PAR-424, "The window", below). Until
+  PAR-424 the harness put the page back at once and only warned, which hid the bug.
 - **What it can't see.** What tldraw draws on its own canvas, such as a board's hover outline, isn't in the page, so
   it's read through tldraw's editor (its box) or not at all.
 
@@ -258,6 +262,10 @@ menubar's command. The Layers panel's menu is unchanged.
   when the button goes down. A design's title keeps its own menu, and state labels, toolbars and text being edited open
   none. A text note over a board gets the menu for around the designs.
 - **Interact mode:** the design gets the right-click, and no menu opens.
+- **Keys after an item** are the canvas's at once (PAR-424). A menu holds focus for the 100 ms or so it takes to fade
+  out, so the canvas's shortcuts treat a menu, list or dialog that's closing (`data-state="closed"`) as gone, a field in
+  it included: Ctrl+Z pressed straight after Duplicate undoes it, where it used to go to the closing menu and do
+  nothing. This holds for the menubar's and the title's menus, and dialogs, too.
 
 Code: the menu's contents are `canvasMenu` in `apps/desktop/src/renderer/chrome/canvas-menu.ts`, which takes the
 selection and the design under the pointer and returns the items, available or not, in order, with Select layer's list;
@@ -266,7 +274,7 @@ area in `ProjectView.tsx`: it records the right button's press, finds the design
 `pickLayer`, outlines Select layer's entries through the hover, and runs items through `actions.ts`. Paste here is
 `pasteAtPointer` in `canvas/clipboard.ts`, which reads the clipboard and places designs, notes and text; layers go
 through `canvas/paste-here.ts`, where `measureHere` measures the layout under the pointer in its frame and `pasteHere`
-places the copies.
+places the copies. Which keys an open menu keeps is `inMenu` in `canvas/shortcuts.ts`.
 
 Tests:
 
@@ -285,12 +293,13 @@ Tests:
   Instance, SeveralLayers, Design, EmptyCanvas, SelectLayer and Interacting. Each right-clicks through tldraw's pointer
   events and checks the selection, the items, what's unavailable and the keys; SelectLayer checks the list and the
   outline. All seven played without errors in headless Chrome on 2026-10-29.
-- `apps/desktop/e2e/menus.e2e.ts` (4), end to end with the system's right button (PAR-202): a right-click on a
+- `apps/desktop/e2e/menus.e2e.ts` (5), end to end with the system's right button (PAR-202): a right-click on a
   `MemberRow` selects it and lists its items in order, with their keys and the lines between groups, and Duplicate runs
-  as one undo step; from a stat card, Select layer lists Dashboard, Main, Content, Stats and Users card with Main
-  checked, and picks the card; Paste here below the lede in Pricing's Hero pastes the copied headline at that slot, from
-  the stand-in clipboard, as "Paste layer here", and Undo takes it out; and in Interact a right-click reaches the design
-  and no menu opens.
+  as one undo step; Ctrl+Z pressed at once after Duplicate, with focus still in the closing menu, undoes it (PAR-424,
+  which fails without the fix); from a stat card, Select layer lists Dashboard, Main, Content, Stats and Users card with
+  Main checked, and picks the card; Paste here below the lede in Pricing's Hero pastes the copied headline at that slot,
+  from the stand-in clipboard, as "Paste layer here", and Undo takes it out; and in Interact a right-click reaches the
+  design and no menu opens.
 
 Gaps: the end-to-end test covers the right button, Select layer, Paste here into a layout and Interact. Panning with the
 right button, Paste here into an absolutely placed layout, a design and a note pasted at the pointer, and the design's
@@ -1025,13 +1034,13 @@ What the Tokens tab shows, and how a token is copied and edited from it.
 Every row in the Tokens tab draws its token as it looks, in one fixed box, so the names line up whatever the kind. A
 color shows a swatch for each theme; spacing, a bar at its true size; a radius, a rounded corner; a shadow, a card's
 corner on the design's sheet; type, "Aa" in its size, weight, spacing or font; line height, lines of text; opacity and
-blur, shapes on the design's sheet; a duration, a track; an easing, its curve; an animation, a mark; a z-index, where it
-falls among stacked sheets; breakpoints and containers, their share of a wide screen; an aspect ratio, a box of that
-shape; a cursor, its icon, and hovering it shows the real cursor. A bare number has nothing to draw, so its row shows
-the number. Beside the name is what the token comes to, in the unit people think in (`16px`, `50%`, `1.5×`, the first
-font, `1000ms, loops`), or nothing where the preview says it all.
+blur, shapes on the design's sheet; a duration, a track; an easing, its curve; an animation, one plain block running its
+keyframes; a z-index, where it falls among stacked sheets; breakpoints and containers, their share of a wide screen; an
+aspect ratio, a box of that shape; a cursor, its icon, and hovering it shows the real cursor. A bare number has nothing
+to draw, so its row shows the number. Beside the name is what the token comes to, in the unit people think in (`16px`,
+`50%`, `1.5×`, the first font, `1000ms, loops`), or nothing where the preview says it all.
 
-- **Sections follow what a token is for,** not where Parity files it: Colors (Project colors, then the Palette), Fonts,
+- **Sections follow what a token is for,** not where Parity files it: Colors (Semantic colors, then the Palette), Fonts,
   Font sizes, Font weights, Line height, Letter spacing, Spacing, Radius, Borders (Widths, Width and style), Shadows
   (Box, Inset, Drop, Text), Opacity, Blur (Layer, Backdrop), Motion (Durations, Easing, Animations), Layers,
   Breakpoints, Containers, Aspect ratios, Perspective, Cursors and Other. Effects and Other no longer hold blurs,
@@ -1040,29 +1049,42 @@ font, `1000ms, loops`), or nothing where the preview says it all.
 - **Values are what the token comes to.** A reference is followed to the value at the end, through `calc()` too, in each
   theme (`--radius-lg: calc(var(--radius) + 4px)` draws at 14px), and a step of the spacing scale is the scale times its
   factor. The project's custom properties are never set on Parity's own elements, since shadcn's names are Parity's too.
-- **Spacing draws at its true size.** Rows widen to the section's longest length, up to 128 pixels; only a longer one is
-  drawn cut, with a break in its bar, so a cut bar never passes for its true size.
+- **Spacing keeps the usual box.** A bar is drawn at its true size up to 16 pixels short of its box. Past that, a longer
+  one is drawn true to there and the rest squeezed, hatched, into those last pixels, on a log scale up to 384 pixels, so
+  a squeezed bar never passes for its true size and a longer length still ends further along; the pixels beside the name
+  say how long it is. The detail draws the scale the same way with more room, so most steps are at their true size.
+- **Each measured kind lists smallest first:** font weights from thin to black, font sizes from `text-xs` up, shadows by
+  how far they reach past their box (for the furthest layer, the offset plus the blur and spread, read from the value
+  rather than a size name), then spacing, radii, letter spacing, line heights, border widths, blurs, opacities,
+  durations, layers, breakpoints, containers, perspective and aspect ratios by value, and animations by their duration.
+  A value that is a duration is a duration whatever its name, so tw-animate-css's `animation-delay-75` lists with the
+  durations. Tokens of the same value, and the kinds with no one order (colors, fonts, easings, cursors), go by name the
+  way people count: numbers by value (`chart-2` before `chart-10`) and size words smallest first (`2xs`, `xs`, `sm`,
+  `md`, `lg`, `xl`, `2xl`, and Fluent's `XXS` to `XXL` and `Small` to `XLarge`). A value that can't be measured goes
+  after the rest, by name the same way.
 - **What a design shows sits on the design's sheet:** shadows, blur, opacity and type are drawn on white in the light
   theme, as in a frame, not on Parity's dark chrome. Measurements are diagrams in Parity's ink.
 - **Tiles.** The List and Tiles buttons beside the search switch views. Tiles are two across, each a larger preview with
   the name and what it comes to under it. A bare number stays a row, as a tile of only a name says less. The palette
   stays a grid in both.
-- **Copying.** A row's or tile's copy button, which shows while it's hovered or has the keyboard, copies the token's
-  name as CSS writes it (`--radius-md`), which Parity's fields take, and its icon springs into a green check. Ctrl+C
-  (Cmd+C on a Mac) on a row or tile does the same. A palette shade copies on a click, with a "Copied" bubble, as there's
-  little else to do with one of 242.
-- **Editing.** Clicking a row or tile opens the token's editor, as before (see "One history, saved together"). A palette
-  shade is edited from a search: while searching, the palette's matches list as rows. A value is checked before anything
-  changes, and the field says what's wrong: a bracket or quote left open ("A bracket isn't closed. Add ) at the end."),
-  which the browser would close by itself and take; a `var()` naming no token ("There's no token named --radius-huge.");
-  and a value that, with its references filled in, isn't the kind's ("That isn't a color. Try oklch(0.6 0.2 250) or
-  #2563eb."). This replaces `validTokenValue`, which passed anything holding `var()`.
+- **Copying.** A row's or tile's copy button, which shows in place of the value while the row is hovered or has the
+  keyboard, so the name never gives up room for it, copies the token's name (`radius-md`), which Parity's fields take,
+  and its icon springs into a green check. Ctrl+C (Cmd+C on a Mac) on a row or tile does the same. A palette shade's
+  tooltip is its name, and a click copies it, with a "Copied" bubble, as there's little else to do with one of 242.
+- **Editing.** Clicking a row or tile opens the token's detail (below), where Edit changes it. A palette shade is edited
+  from a search: while searching, the palette's matches list as rows.
 - **Motion plays only while it's looked at:** a duration, easing or animation runs while its row or tile is hovered or
   has the keyboard, through the Web Animations API, and stops when that ends, so an idle tab runs no animations. With
   reduced motion it holds still. An animation runs the project's own `@keyframes`, read by name from its stylesheet,
-  inside `@layer` and `@media` too; one whose keyframes aren't there holds still.
+  inside `@layer` and `@media` too; one whose keyframes aren't there holds still. Every animation, whichever library
+  it's from, runs on the same plain block, with a dashed outline where the block rests, so one that fades, shrinks or
+  collapses still shows against where it was. A keyframe value reading a variable only its page has (Radix's
+  `--radix-accordion-content-height`) takes the variable's fallback, or, for a size, the block's own.
 - **Only the rows in view are drawn,** so the theme's 500 tokens cost what a screenful does. The search and the filters
   stay above the list as it scrolls.
+- **Narrow panels.** The left panel is at least 232 pixels wide, enough for every tab's icon and the collapse button.
+  The open tab shows its name only when the tab strip has room for it, and is otherwise an icon like the rest, with its
+  name in the tooltip. The filters drop their counts before their names, and every count is in the filter's tooltip.
 
 Code: the drawings are `apps/desktop/src/renderer/chrome/token-previews.tsx` (`TokenArt`, `TokenGlyph`, `TokenTile`,
 `valueLabel`, `valueProblem`, `spacingSlot`, `tokenSections`, `useHoverPlay`); the panel is `chrome/TokensPanel.tsx`
@@ -1087,6 +1109,52 @@ Tests:
 Gaps: the previews themselves are checked by eye in Storybook, not by pixels. Opacity, blur and border width are still
 filed under Other and Effects as categories, so the inspector's pickers don't offer them by kind yet; the panel's
 sections already split them.
+
+### A token's detail (PAR-143)
+
+Clicking a token's row or tile opens its detail beside the panel, top to bottom:
+
+- **A large preview.** A color shows each theme side by side, named. A spacing step is drawn at its true size among up
+  to eight of its neighbours on the scale; a duration races the others; an easing is drawn over the rest, faintly; a
+  font or size is set in a specimen; a z-index is marked in its stack; a breakpoint on a ruler with phone, tablet and
+  laptop widths. Motion plays while the detail is open, with a Pause button on the preview; with reduced motion it waits
+  for Play.
+- **The name** (`--primary`), with what it comes to on the right as its row shows it, left out where the value already
+  says just that, and what a `.lib.par` says it's for.
+- **One list of facts:** its value in each theme, a shadow's layers or a font stack one part to a line; Built on, the
+  tokens its values refer to in any theme, each with what it comes to (a spacing step shows `spacing × 4`); and From,
+  the library that describes it. A value the last save couldn't write says "Not written to the stylesheet".
+- **A bar with Edit and Copy.** Copy copies the name, as rows do; its arrow opens Copy as, with `var()` under CSS and
+  the name under Token. It offers nothing a framework adds, such as a class, since a variable says only that it can be
+  used as one, whichever framework defined it. A spacing step has no value of its own, so its Edit is off, and its hint
+  says to change `--spacing` instead.
+
+Themes are named as the Modes panel names them: the root's values are the theme option that adds no class (Light), and
+`.dark`'s are the option whose class is `dark` (Dark). A library's themes take their options' names too, and a theme no
+option switches on is named from its key (`teams-high-contrast` is Teams high contrast). The class itself never shows.
+
+Edit turns the values into fields in place, checked as they're typed, with what's wrong under the field: a bracket or
+quote left open ("A bracket isn't closed. Add ) at the end."), which the browser would close by itself and take; a
+`var()` naming no token ("There's no token named radius-huge."), each reference read in its own theme; a `var()` naming
+the token itself ("primary can't be built on itself.") or one built on it ("primary is built on chart-1, so this would
+loop."), in another `var()`'s fallback too, which the old values alone would let through; and a value that, with its
+references filled in, isn't the kind's ("That isn't a color. Try oklch(0.6 0.2 250) or #2563eb."). The preview follows
+what's typed while it can draw it. Apply is off until something changed and every value is right; Cancel or Escape in a
+field leaves editing without changing anything, and Escape from the buttons closes the detail. Apply changes every frame
+at once as one undoable step, unsaved, as any edit is (see "One history, saved together"): the detail then says
+"Applied. Saving writes it to src/index.css.", with Undo while that's still the last step, even after Edit and Cancel.
+
+Code: `apps/desktop/src/renderer/chrome/TokenDetail.tsx` (`TokenDetail`, `DetailPreview`, `themeLabel`, `CopyMenu`); the
+panel's `TokenPopover` and `Detail` in `chrome/TokensPanel.tsx`, which name themes with `themeNamesOf` from the
+project's modes and apply through `TokenStore.set`. The Storybook exploration's own detail
+(`explorations/previews/token-panels.tsx`) is the design it came from, with Save in place of Apply.
+
+Tests: `chrome/TokensPanel.stories.tsx`: Detail (Light and Dark, never `.dark`; Copy and Copy as), EditingAColor,
+EditingAPaletteShade, SpacingStep (Built on `--spacing × 4`, Edit off), InvalidValue and UnclosedBracket (refused as
+typed, a token built on itself too, Apply off), ReferenceToAnotherToken (Apply as one unsaved step, Edit and Cancel
+keeping Undo, then the detail's Undo), ReferenceLoop (refused through another token), and SaveFails. All 24 of the
+file's stories played in Storybook on 2026-10-29. Gaps: the inspector's pickers don't show previews yet, the rest of
+PAR-143.
 
 ## Opening and closing projects
 
@@ -1118,10 +1186,9 @@ Code: `serveBuilder` and `newGuestPort` in `apps/desktop/src/utility/projects.ts
 
 Tests: `apps/desktop/e2e/reopening.e2e.ts` opens and closes the example project twice and checks the window ends within
 3,000 DOM nodes of where it started; with the old address on reopen it ended about 69,000 over. Gaps: the offscreen
-renderer's side has no automated test, and what a builder records of what it served (`packages/core/src/served.ts`,
-`packages/builder-vite/src/served.ts`) is no longer used to choose a port. Skipping ports guests had has no test of its
-own, as the system handing an old port out again can't be made to happen; it was checked by reading `newGuestPort`. A
-project service started again forgets the ports, while the window keeps what it loaded from them.
+renderer's side has no automated test. Skipping ports guests had has no test of its own, as the system handing an old
+port out again can't be made to happen; it was checked by reading `newGuestPort`. A project service started again
+forgets the ports, while the window keeps what it loaded from them.
 
 ### A tab closed while its project opens (PAR-427)
 
@@ -1149,3 +1216,52 @@ finished opening, closed with its tab).
 Not tested: a tab changed or closed while a reopen saves its unsaved changes, and a reopen's `project.open` failing
 after its tab closed. Both were checked by reading `reload`: after saving it reads the tab again and stops only when
 it's gone or already reopening, and a failed `project.open` leaves no project to close.
+
+## The window
+
+How the app's window holds the canvas and the panels around it.
+
+### The page never scrolls (PAR-424)
+
+The window's page is always exactly the window: no part of the chrome makes it taller or wider, so it never scrolls.
+Each panel scrolls on its own, so revealing or focusing something out of a panel's view, such as a Layers row or the
+Screens heading's New screen button, scrolls only that panel. The canvas stays where tldraw measured it, and clicks on
+it land where they're aimed.
+
+- **Why it matters.** tldraw measures where the canvas is when it mounts or resizes, not when the page scrolls. The
+  end-to-end suite found the page 1139 px tall in a 903 px window, and focusing a design's title below the fold scrolled
+  it by 235 px: the menubar and tabs went out of view, and every canvas click after it landed 235 px off, selecting
+  nothing or the wrong layer.
+- **The cause** was the Layers panel's group headings. Their New component and New screen buttons are visually hidden,
+  left to screen readers (`sr-only`, which places them absolutely), until hovered or focused, and the heading wasn't
+  positioned, so the buttons were placed against the window rather than inside the panel, and the panel's scroll didn't
+  clip them. The heading is now `relative`.
+- **The guard.** The app's root (`#root` in `styles.css`) is positioned and has `overflow: clip`, so nothing inside it,
+  even an absolutely placed element with no positioned ancestor, can make the page bigger than the window. `hidden`
+  wouldn't do: the page already had `overflow: hidden` (from the body), and the browser still scrolls a hidden page to
+  show what's focused. `clip` makes it impossible to scroll at all. Menus, popovers, dialogs, tooltips and toasts are
+  portaled to the body and fixed to the window, so they're unaffected.
+- **Tab from a design's title** goes through that design's own controls and then leaves the canvas (PAR-424). Only the
+  selected design's title, its variant, state and modes menus while they show, and its board's mode captions and state
+  labels are in the tab order; every other design's are out of it (`tabIndex={-1}`), reached by N, Layers or a click,
+  except the menus of a design that's hovered, which are in the tab order while they show. Enter and the arrows on the
+  menus, captions and labels are theirs (`data-canvas-control`), so Enter on a caption selects its mode column as a
+  click does; on the title itself Enter still selects the layers inside. Before, Tab from a title went through every
+  other design's title in turn, and focusing one off screen was what scrolled the page.
+
+Code: `#root` in `apps/desktop/src/renderer/styles.css`, the group heading in `chrome/LayerTree.tsx`, the tab order in
+`canvas/ContainerView.tsx` (`TitleButton`, `TitleControls`, `StateLabel`, `FrameTile`'s caption), and which keys a
+canvas control keeps in `canvas/shortcuts.ts`.
+
+Tests: end to end, `apps/desktop/e2e/window.e2e.ts` (1): with a Members layer selected, Layers is scrolled and the page
+neither overflows nor scrolls; Shift+Tab back from Members' title to the New screen button scrolls Layers up to it and
+not the page; Tab on from the title leaves the page still; and a click on a layer then selects it. It fails without the
+fix, at the first check. `e2e/keyboard.e2e.ts`, "Tab from a design's title": from Members' title Tab goes to its State
+and Modes menus and its mode caption, where Enter selects the mode column, then out of the canvas without reaching
+another title or board, where before it went on to the next design's title. Every end-to-end test also fails if the page
+scrolled during it (see "Testing in the app" above); before the fix that also failed the older test that tabs on from
+Sign in's title.
+
+Gaps: a design that's hovered but not selected shows its menus, and they're in the tab order while they show. Nothing
+yet keeps a future panel from scrolling the page by putting a focusable element outside its scroller; the root's clip
+keeps the page still, but such an element would sit outside its panel.

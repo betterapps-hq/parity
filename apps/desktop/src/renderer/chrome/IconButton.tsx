@@ -8,7 +8,7 @@ interface IconButtonProps {
   shortcut?: string
   disabled?: boolean
   className?: string
-  onClick(): void
+  onClick: () => void
   children: ReactNode
 }
 
