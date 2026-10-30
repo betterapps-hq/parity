@@ -53,6 +53,9 @@ export class TokenStore {
    */
   previews = () => this.previewed
 
+  /** The keyframes the project's stylesheet declares by this name, which an animation token's preview runs. */
+  keyframes = (name: string): Keyframe[] | undefined => keyframesNamed(this.sheet.cssRules, name)
+
   /** Why the last save couldn't write some token values, and which. It changes with saving, in the design store. */
   failure = (): TokenFailure | undefined => this.history.getTokenFailure()
   subscribeToSaves = (listener: () => void) => this.history.subscribe(listener)
@@ -88,6 +91,43 @@ export class TokenStore {
     this.previewed = [...latest.values()]
     for (const listener of this.listeners) listener()
   }
+}
+
+/**
+ * The `@keyframes` of this name in a stylesheet's rules, also inside `@layer` and `@media`, as keyframes the Web
+ * Animations API runs: each step's declarations, its timing function as its easing. The last of the name wins, as in
+ * CSS. Undefined when there are none.
+ */
+export function keyframesNamed(rules: CSSRuleList, name: string): Keyframe[] | undefined {
+  let found: Keyframe[] | undefined
+  for (const rule of rules) {
+    if (rule instanceof CSSKeyframesRule) {
+      if (rule.name === name) found = keyframesOf(rule)
+    } else if (rule instanceof CSSGroupingRule) {
+      found = keyframesNamed(rule.cssRules, name) ?? found
+    }
+  }
+  return found
+}
+
+function keyframesOf(rule: CSSKeyframesRule): Keyframe[] {
+  const frames = [...rule.cssRules].flatMap((step) => {
+    const { keyText, style } = step as CSSKeyframeRule
+    const declared: Keyframe = {}
+    for (let index = 0; index < style.length; index++) {
+      const property = style.item(index)
+      // A custom property means nothing to the element the preview animates.
+      if (property.startsWith("--")) continue
+      const value = style.getPropertyValue(property)
+      if (property === "animation-timing-function") declared.easing = value
+      else declared[property.replaceAll(/-([a-z])/g, (_, letter: string) => letter.toUpperCase())] = value
+    }
+    return keyText.split(",").map((key) => {
+      const at = key.trim()
+      return { ...declared, offset: at === "from" ? 0 : at === "to" ? 1 : Number.parseFloat(at) / 100 }
+    })
+  })
+  return frames.toSorted((a, b) => (a.offset ?? 0) - (b.offset ?? 0))
 }
 
 function editLabel(changes: readonly TokenChange[]): string {

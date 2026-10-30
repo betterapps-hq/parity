@@ -843,6 +843,78 @@ gave the number 12. Known limits:
   rather than setting the prop, so a prop the base design sets can't be turned off in one state.
 - The stylesheet changing on disk isn't read back into the tokens until the project reopens, as before.
 
+## Tokens
+
+What the Tokens tab shows, and how a token is copied and edited from it.
+
+### Previews of every kind of token (PAR-141)
+
+Every row in the Tokens tab draws its token as it looks, in one fixed box, so the names line up whatever the kind. A
+color shows a swatch for each theme; spacing, a bar at its true size; a radius, a rounded corner; a shadow, a card's
+corner on the design's sheet; type, "Aa" in its size, weight, spacing or font; line height, lines of text; opacity and
+blur, shapes on the design's sheet; a duration, a track; an easing, its curve; an animation, a mark; a z-index, where it
+falls among stacked sheets; breakpoints and containers, their share of a wide screen; an aspect ratio, a box of that
+shape; a cursor, its icon, and hovering it shows the real cursor. A bare number has nothing to draw, so its row shows
+the number. Beside the name is what the token comes to, in the unit people think in (`16px`, `50%`, `1.5×`, the first
+font, `1000ms, loops`), or nothing where the preview says it all.
+
+- **Sections follow what a token is for,** not where Parity files it: Colors (Project colors, then the Palette), Fonts,
+  Font sizes, Font weights, Line height, Letter spacing, Spacing, Radius, Borders (Widths, Width and style), Shadows
+  (Box, Inset, Drop, Text), Opacity, Blur (Layer, Backdrop), Motion (Durations, Easing, Animations), Layers,
+  Breakpoints, Containers, Aspect ratios, Perspective, Cursors and Other. Effects and Other no longer hold blurs,
+  z-indexes, border widths and the like. A token's kind comes from core's `previewKind`: its category, its name whatever
+  its case or separators, its value, and the DTCG type a `.lib.par` gives it.
+- **Values are what the token comes to.** A reference is followed to the value at the end, through `calc()` too, in each
+  theme (`--radius-lg: calc(var(--radius) + 4px)` draws at 14px), and a step of the spacing scale is the scale times its
+  factor. The project's custom properties are never set on Parity's own elements, since shadcn's names are Parity's too.
+- **Spacing draws at its true size.** Rows widen to the section's longest length, up to 128 pixels; only a longer one is
+  drawn cut, with a break in its bar, so a cut bar never passes for its true size.
+- **What a design shows sits on the design's sheet:** shadows, blur, opacity and type are drawn on white in the light
+  theme, as in a frame, not on Parity's dark chrome. Measurements are diagrams in Parity's ink.
+- **Tiles.** The List and Tiles buttons beside the search switch views. Tiles are two across, each a larger preview with
+  the name and what it comes to under it. A bare number stays a row, as a tile of only a name says less. The palette
+  stays a grid in both.
+- **Copying.** A row's or tile's copy button, which shows while it's hovered or has the keyboard, copies the token's
+  name as CSS writes it (`--radius-md`), which Parity's fields take, and its icon springs into a green check. Ctrl+C
+  (Cmd+C on a Mac) on a row or tile does the same. A palette shade copies on a click, with a "Copied" bubble, as there's
+  little else to do with one of 242.
+- **Editing.** Clicking a row or tile opens the token's editor, as before (see "One history, saved together"). A palette
+  shade is edited from a search: while searching, the palette's matches list as rows. A value is checked before anything
+  changes, and the field says what's wrong: a bracket or quote left open ("A bracket isn't closed. Add ) at the end."),
+  which the browser would close by itself and take; a `var()` naming no token ("There's no token named --radius-huge.");
+  and a value that, with its references filled in, isn't the kind's ("That isn't a color. Try oklch(0.6 0.2 250) or
+  #2563eb."). This replaces `validTokenValue`, which passed anything holding `var()`.
+- **Motion plays only while it's looked at:** a duration, easing or animation runs while its row or tile is hovered or
+  has the keyboard, through the Web Animations API, and stops when that ends, so an idle tab runs no animations. With
+  reduced motion it holds still. An animation runs the project's own `@keyframes`, read by name from its stylesheet,
+  inside `@layer` and `@media` too; one whose keyframes aren't there holds still.
+- **Only the rows in view are drawn,** so the theme's 500 tokens cost what a screenful does. The search and the filters
+  stay above the list as it scrolls.
+
+Code: the drawings are `apps/desktop/src/renderer/chrome/token-previews.tsx` (`TokenArt`, `TokenGlyph`, `TokenTile`,
+`valueLabel`, `valueProblem`, `spacingSlot`, `tokenSections`, `useHoverPlay`); the panel is `chrome/TokensPanel.tsx`
+(`comesTo`, `panelItems`, the virtualized list, `TokenRow`, `TokenTileButton`, `PaletteShade`, `TokenEditor`); the copy
+parts are `chrome/Copy.tsx`; the keyframes are `tokens-store.ts` (`keyframesNamed`, `TokenStore.keyframes`); a token's
+kind, the Copy as forms and the value helpers are `packages/core/src/token-kinds.ts`. The Storybook explorations under
+`explorations/previews` draw with the same module, from sample tokens.
+
+Tests:
+
+- `packages/core/src/token-kinds.test.ts` (12): kinds over Tailwind's theme, a project's own tokens, and the Chakra,
+  Fluent and Mantine registries, where no Chakra or Fluent token is left a bare number; Copy as forms; brackets and
+  quotes left open; references listed and filled in; values split at their top-level commas.
+- `apps/desktop/src/renderer/tokens-store.test.ts` (1 of its 4), in Chrome: an animation's keyframes read from a
+  stylesheet, inside `@layer` too, with each step's timing function as its easing.
+- `chrome/TokensPanel.stories.tsx`: AllTokens (no animation running with nothing hovered), Tiles, Copying (the row's
+  button, Ctrl+C, a palette shade), Motion, EditingAPaletteShade (from a search), InvalidValue, UnclosedBracket (a
+  bracket left open and a missing token, refused) and DescribedOnly (the end of the list, drawn once scrolled to). All
+  22 of the file's stories played in Storybook on 2026-10-29.
+- `explorations/previews/TokenPreviews.stories.tsx`: all 18 played on 2026-10-29, drawing with the app's module.
+
+Gaps: the previews themselves are checked by eye in Storybook, not by pixels. Opacity, blur and border width are still
+filed under Other and Effects as categories, so the inspector's pickers don't offer them by kind yet; the panel's
+sections already split them.
+
 ## Opening and closing projects
 
 What opening a project loads into the windows, and what closing it gives back.

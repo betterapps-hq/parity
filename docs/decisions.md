@@ -1296,8 +1296,8 @@ to PAR-209 build it.
   value went, with Undo.
 - **A value is checked before it can be saved:** brackets and quotes must close, each `var()` must name a token, and the
   value with its references replaced must be the kind's value. You found `calc(var(--radius) * 2.6` saved without its
-  `)`; the browser closes it silently, and `CSS.supports` passes anything holding `var()`. Today's `validTokenValue` has
-  both holes, so PAR-143 replaces it.
+  `)`; the browser closes it silently, and `CSS.supports` passes anything holding `var()`. `validTokenValue` had both
+  holes; the Tokens panel's editor has checked values this way since PAR-141.
 - **Spacing draws at its true size,** in rows and in the detail's scale, as you asked on 2026-10-29: rows widen to the
   section's longest length, up to 128 pixels, and only a longer one is drawn cut, with a break in its bar.
 - **Copying a token takes one step, and copies its name,** since you judged it's why most people open the tab: a copy
@@ -1312,6 +1312,10 @@ to PAR-209 build it.
   clicked. Both share `useCopy`, so another way of copying the same thing (Ctrl+C, a menu) shows its result on the same
   button. My call: where the Clipboard API refuses, as in a frame without focus, they copy from a hidden field beside
   what has focus, so an open popover stays open. PAR-402 moves Parity's other copies onto them.
+- **In the app, a palette shade copies on a click, and a search makes it editable.** My call, moving the previews into
+  the Tokens panel: a shade in the grid opened the editor before; now a click copies it, as the exploration has it, and
+  while searching the palette's matches list as rows, which open the editor. The list draws only the rows in view, with
+  the search and filters fixed above it.
 - **The detail says each thing once, in a fixed order:** the preview; the name, with what it comes to on the right as
   its row shows it; one labeled list of facts (the value in each theme, Built on, From, Used by); and a bar with Edit
   and Copy. You found the first pass disorganized on 2026-10-29: the value showed in three places, and its actions were

@@ -1,3 +1,4 @@
+import { codeForms, type PreviewKind, substituteReferences, tokenReferences, valueParts } from "@parity/core"
 import { Check, ChevronDown, ChevronsUpDown, LayoutGrid, List, Pause, Pencil, Play, Search } from "lucide-react"
 import { Fragment, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, useId, useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -19,66 +20,50 @@ import { Field, Swatch } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import {
-  allTokens,
-  breakpoints,
-  codeFor,
-  cssName,
-  drawn,
-  durations,
-  easings,
-  ms,
-  type PreviewKind,
-  px,
-  references,
-  type SampleToken,
-  substituted,
-  token as tokenNamed,
-  tokenSections,
-  tokensOfKind,
-  zIndexes
-} from "./preview-data.ts"
-import {
   AnimationArt,
+  drawn,
   DurationArt,
   EasingArt,
+  moving,
+  ms,
   onPaper,
   paper,
+  px,
   rest,
   SpacingBar,
+  spacingSlot,
   TokenArt,
   TokenGlyph,
+  tokenSections,
   TokenTile,
+  useHoverPlay,
   useReducedMotion,
   valueLabel,
   valueProblem
-} from "./token-art.tsx"
-
-/** Kinds that move, and so play while hovered, focused or open. */
-export const moving = new Set<PreviewKind>(["duration", "easing", "animation"])
+} from "../../chrome/token-previews.tsx"
+import {
+  allTokens,
+  breakpoints,
+  cssName,
+  durations,
+  easings,
+  type SampleToken,
+  sampleValue,
+  token as tokenNamed,
+  tokensOfKind,
+  zIndexes
+} from "./preview-data.ts"
 
 const themesOf = (token: SampleToken) => (token.source === "semantic" ? Object.keys(token.values) : ["default"])
-
-/**
- * Plays a token's motion while the pointer or keyboard is on it, unless the computer asks for reduced motion. `forced`
- * holds it playing, for stories that show a hovered row.
- */
-function useHoverPlay(token: SampleToken, forced = false) {
-  const reduced = useReducedMotion()
-  const [hovered, setHovered] = useState(false)
-  const playing = moving.has(token.kind) && !reduced && (hovered || forced)
-  const on = () => setHovered(true)
-  const off = () => setHovered(false)
-  return { playing, handlers: { onPointerEnter: on, onPointerLeave: off, onFocus: on, onBlur: off } }
-}
 
 /** A token as edited: a changed value draws as typed, so its previews show what every frame now shows. */
 function edited(token: SampleToken, values: Record<string, string>): SampleToken {
   if (Object.entries(values).every(([theme, value]) => token.values[theme] === value)) return token
-  const value = substituted(values.default ?? "")
+  const value = substituteReferences(values.default ?? "", sampleValue)
   // A length the token showed in pixels still comes to pixels, as the browser works it out.
   const length = token.resolved?.endsWith("px") ? px(value) : Number.NaN
   const resolved = Number.isFinite(length) ? `${Number(length.toFixed(2))}px` : value
-  return { ...token, values, resolved, via: references(values.default ?? "") }
+  return { ...token, values, resolved, via: tokenReferences(values.default ?? "") }
 }
 
 /** Ctrl+C, or Cmd+C on a Mac, on a token's row or tile copies it, as its copy button does. */
@@ -106,7 +91,7 @@ function revealed(copying: ReturnType<typeof useCopy>): string {
 function CopyMenu({ token }: { token: SampleToken }) {
   const copying = useCopy()
   const name = cssName(token)
-  const groups = Map.groupBy(codeFor(token), (form) => form.group)
+  const groups = Map.groupBy(codeForms(token.name, token.kind, drawn(token)), (form) => form.group)
   return (
     <div className="flex items-center rounded-lg border bg-background shadow-xs dark:border-input dark:bg-input/30">
       <CopyButton text={name} copying={copying} className="rounded-r-none">
@@ -155,7 +140,7 @@ export function TokenRow({
 }) {
   const [values, setValues] = useState(original.values)
   const token = edited(original, values)
-  const { playing, handlers } = useHoverPlay(token, forced)
+  const { playing, handlers } = useHoverPlay(token.kind, forced)
   const value = valueLabel(token)
   const copying = useCopy()
   const name = cssName(token)
@@ -196,7 +181,7 @@ export function TokenRow({
 function TokenTileButton({ token: original, playing: forced }: { token: SampleToken; playing?: boolean }) {
   const [values, setValues] = useState(original.values)
   const token = edited(original, values)
-  const { playing, handlers } = useHoverPlay(token, forced)
+  const { playing, handlers } = useHoverPlay(token.kind, forced)
   const value = valueLabel(token)
   const copying = useCopy()
   const name = cssName(token)
@@ -445,19 +430,6 @@ function TokenList({
   )
 }
 
-/** The longest length a spacing row draws at its true size; a longer one is drawn cut, with a break in its bar. */
-const longestBar = 128
-
-/**
- * How wide spacing rows' previews are: as wide as the section's longest length, so every bar is its true size, up to
- * `longestBar`. Names still line up within the section.
- */
-function spacingSlot(tokens: SampleToken[]): number | undefined {
-  const lengths = tokens.filter((token) => token.kind === "spacing").map((token) => px(drawn(token)))
-  const longest = Math.max(0, ...lengths.filter(Number.isFinite))
-  return lengths.length > 0 ? Math.min(longestBar + 4, Math.max(40, Math.ceil(longest) + 6)) : undefined
-}
-
 /**
  * A token's detail, opened from its row. A large preview; the name, with what it comes to on the right as its row
  * shows it, and its description; one list of facts (its value in each theme, the tokens it's built on, where it's from,
@@ -493,7 +465,7 @@ export function TokenDetail({
   const themes = themesOf(token)
   const editing = editor && drafts !== undefined
   const problems: Record<string, string | undefined> = Object.fromEntries(
-    themes.map((theme) => [theme, drafts ? valueProblem(token.kind, drafts[theme] ?? "") : undefined])
+    themes.map((theme) => [theme, drafts ? valueProblem(token.kind, drafts[theme] ?? "", sampleValue) : undefined])
   )
   const valid = themes.every((theme) => !problems[theme])
   const changed = drafts !== undefined && themes.some((theme) => (drafts[theme] ?? "").trim() !== saved[theme])
@@ -669,7 +641,7 @@ export function TokenDetail({
  * it means to rather than in the middle of a number.
  */
 function ValueText({ value }: { value: string }) {
-  const parts = listParts(value)
+  const parts = valueParts(value)
   return (
     <code className="flex min-w-0 flex-col font-mono wrap-anywhere">
       {parts.map((part, index) => (
@@ -681,23 +653,6 @@ function ValueText({ value }: { value: string }) {
       ))}
     </code>
   )
-}
-
-/** A value's top-level parts, split at the commas outside brackets: `0 1px red, 0 2px blue` is two. */
-function listParts(value: string): string[] {
-  const parts: string[] = []
-  let depth = 0
-  let start = 0
-  for (const [index, char] of [...value].entries()) {
-    if (char === "(") depth += 1
-    else if (char === ")") depth -= 1
-    else if (char === "," && depth === 0) {
-      parts.push(value.slice(start, index).trim())
-      start = index + 1
-    }
-  }
-  parts.push(value.slice(start).trim())
-  return parts
 }
 
 /** Where the example's tokens are written. */
@@ -1106,7 +1061,7 @@ const exemplars = [
 const catchAll: Partial<Record<string, string>> = { other: "Under Other today", effect: "Under Effects today" }
 
 function KindCard({ token }: { token: SampleToken }) {
-  const { playing, handlers } = useHoverPlay(token)
+  const { playing, handlers } = useHoverPlay(token.kind)
   const today = catchAll[token.category]
   const section = tokenSections.find((entry) => entry.kinds.some((kind) => kind.kind === token.kind))
   const heading = section?.kinds.find((kind) => kind.kind === token.kind)?.heading

@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, fireEvent, spyOn, userEvent, within } from "storybook/test"
+import { Keyframes, ReducedMotion } from "../../chrome/token-previews.tsx"
 import { CanvasBeside, Labeled, LeftPanelFrame, Stage } from "./frame.tsx"
-import { token } from "./preview-data.ts"
-import { ReducedMotion } from "./token-art.tsx"
+import { sampleKeyframes, token } from "./preview-data.ts"
 import { InspectorPickers, KindGallery, TokenDetail, TokensPanel } from "./token-panels.tsx"
 
 /**
@@ -13,7 +13,14 @@ import { InspectorPickers, KindGallery, TokenDetail, TokensPanel } from "./token
  */
 const meta = {
   title: "Parity/Explorations/Previews/Tokens",
-  parameters: { layout: "fullscreen" }
+  parameters: { layout: "fullscreen" },
+  decorators: [
+    (Story) => (
+      <Keyframes.Provider value={(name) => sampleKeyframes[name]}>
+        <Story />
+      </Keyframes.Provider>
+    )
+  ]
 } satisfies Meta
 
 export default meta

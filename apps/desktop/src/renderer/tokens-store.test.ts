@@ -15,7 +15,7 @@ const errors: string[] = []
  */
 const entry = `
 import { DesignStore } from "./design-store.ts"
-import { TokenStore } from "./tokens-store.ts"
+import { keyframesNamed, TokenStore } from "./tokens-store.ts"
 import { defaultModeSettings } from "@parity/core"
 
 const tokens = [
@@ -25,6 +25,7 @@ const tokens = [
 const css = ":host { --primary: black; --radius: 0.5rem; } .dark { --primary: white; }"
 
 export const written = []
+export { keyframesNamed }
 
 export function open() {
   const store = new DesignStore([], defaultModeSettings, "app.par", {
@@ -146,5 +147,31 @@ describe("editing tokens", () => {
       return [shown, written.length, store.hasUnsaved()]
     })
     expect(result).toEqual(["red", 1, false])
+  })
+})
+
+describe("animation keyframes", () => {
+  it("reads an animation token's keyframes from the stylesheet, also inside a layer, as the Web Animations API runs them", async () => {
+    const frames = await page.evaluate(() => {
+      // @ts-expect-error The bundle's global.
+      const { keyframesNamed } = tokens
+      const sheet = new CSSStyleSheet()
+      sheet.replaceSync(`@keyframes spin { to { transform: rotate(360deg) } }
+        @layer theme {
+          @keyframes bounce {
+            0%, 100% { transform: translateY(-25%); animation-timing-function: cubic-bezier(0.8, 0, 1, 1) }
+            50% { transform: none; animation-timing-function: cubic-bezier(0, 0, 0.2, 1) }
+          }
+        }`)
+      const named = (name: string) => keyframesNamed(sheet.cssRules, name) ?? null
+      return { bounce: named("bounce"), spin: named("spin"), pulse: named("pulse") }
+    })
+    expect(frames.bounce).toEqual([
+      { transform: "translateY(-25%)", easing: "cubic-bezier(0.8, 0, 1, 1)", offset: 0 },
+      { transform: "none", easing: "cubic-bezier(0, 0, 0.2, 1)", offset: 0.5 },
+      { transform: "translateY(-25%)", easing: "cubic-bezier(0.8, 0, 1, 1)", offset: 1 }
+    ])
+    expect(frames.spin).toEqual([{ transform: "rotate(360deg)", offset: 1 }])
+    expect(frames.pulse).toBeNull()
   })
 })
