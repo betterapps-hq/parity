@@ -1107,10 +1107,13 @@ it: its builder stops, it leaves the processes list, and the window lets go of t
 service finished opening it and kept it, with its builder running and no tab. Opening the project again before the first
 open finishes keeps it open in the new tab. The same holds for a tab closed while it reopens, and for a guest that fails
 to load after its tab closed. Each open is tracked on its own, so an earlier open that was abandoned can't close or fill
-a newer tab for the same project.
+a newer tab for the same project. While another tab's open hasn't heard which project it is, as one opening the default
+project or a `.par` file hasn't, the close waits for it, since it may be the same project.
 
-Code: `closeNow`, `open` and `reload` in `apps/desktop/src/renderer/workspace.ts`, through its `attempts`.
+Code: `closeNow`, `open` and `reload` in `apps/desktop/src/renderer/workspace.ts`, through its `attempts` and
+`settleDrops`.
 
-Tests: `apps/desktop/src/renderer/workspace.test.ts` (7: closed before the service answers, closed while the guest
-loads, opened again before the first open finished, the reopened tab closed too before either open finished, the guest
-failing after its tab closed, closed while it reopens, and a project that finished opening, closed with its tab).
+Tests: `apps/desktop/src/renderer/workspace.test.ts` (9: closed before the service answers, closed while the guest
+loads, opened again before the first open finished, the reopened tab closed too before either open finished, the default
+project opened again in a tab that doesn't know it yet, and closed once that tab turns out to be another project, the
+guest failing after its tab closed, closed while it reopens, and a project that finished opening, closed with its tab).

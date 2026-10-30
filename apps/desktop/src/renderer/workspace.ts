@@ -42,6 +42,8 @@ export interface Tab {
 /** One open or reopen of a tab's project, which closing the tab abandons. */
 interface Attempt {
   abandoned: boolean
+  /** The project the service opened for it, once it says. */
+  projectId?: string
 }
 
 /** Whether a tab is still waiting for the service to say which project it opened: it has no folder yet. */
@@ -64,6 +66,8 @@ export class Workspace {
    * that open, and only that one, closes its project once the service has it.
    */
   private readonly attempts = new Map<string, Attempt>()
+  /** Projects abandoned opens got, to close once nothing in flight could still be for them, with guests to let go of. */
+  private readonly drops = new Map<string, string | undefined>()
   private readonly listeners = new Set<() => void>()
 
   subscribe = (listener: () => void) => {
@@ -113,6 +117,7 @@ export class Workspace {
     try {
       const info = await window.canvasHost.request("project.open", { root })
       opened = info.id
+      attempt.projectId = info.id
       if (attempt.abandoned) {
         this.dropAbandoned(info.id)
         return opening
@@ -189,6 +194,7 @@ export class Workspace {
     if (attempt) {
       attempt.abandoned = true
       this.attempts.delete(id)
+      this.settleDrops()
     }
     if (tab.session) {
       void window.canvasHost.request("project.close", { projectId: tab.session.id })
@@ -209,6 +215,8 @@ export class Workspace {
     if (tab.session?.store.hasUnsaved() && !(await saveOrSay(tab.session))) return
     this.replace(id, { id, title: tab.title, status: "loading" })
     const attempt = this.startAttempt(id)
+    // A tab that has opened is its project's id, so a reopen is known to be for it from the start.
+    attempt.projectId = id
     this.setProgress(id, [step, "Loading its components"], 0)
     await window.canvasHost.request("project.close", { projectId: id }).catch(() => undefined)
     // Its stylesheets are made anew, without the last session's token previews; its modules come back as they were
@@ -373,22 +381,41 @@ export class Workspace {
 
   /** Follows an open's tab from its placeholder to the project's id. */
   private moveAttempt(attempt: Attempt, from: string, to: string): void {
-    this.endAttempt(attempt, from)
+    if (this.attempts.get(from) === attempt) this.attempts.delete(from)
     this.attempts.set(to, attempt)
+    this.settleDrops()
   }
 
   private endAttempt(attempt: Attempt, id: string): void {
     if (this.attempts.get(id) === attempt) this.attempts.delete(id)
+    this.settleDrops()
+  }
+
+  /** Closes the project an abandoned open got, and lets go of its guest, once nothing else could still want it. */
+  private dropAbandoned(projectId: string, guestUrl?: string): void {
+    this.drops.set(projectId, guestUrl ?? this.drops.get(projectId))
+    this.settleDrops()
   }
 
   /**
-   * Closes the project an abandoned open got, and lets go of its guest, unless the project has a tab again or is
-   * opening in one: the service gives both opens the same project, which that tab keeps.
+   * Closes the projects abandoned opens got. One that has a tab again, or an open in flight for it, is that tab's: the
+   * service gives both opens the same project. While an open in flight hasn't heard which project it is, as a tab
+   * opening the default project or a `.par` file hasn't, the close waits, since it may be the same one.
    */
-  private dropAbandoned(projectId: string, guestUrl?: string): void {
-    if (this.getTab(projectId) || this.attempts.has(projectId)) return
-    void window.canvasHost.request("project.close", { projectId })
-    if (guestUrl) releaseGuest(guestUrl)
+  private settleDrops(): void {
+    if (this.drops.size === 0) return
+    const inFlight = [...this.attempts.values()]
+    const undecided = inFlight.some((attempt) => attempt.projectId === undefined)
+    for (const [projectId, guestUrl] of this.drops) {
+      if (this.getTab(projectId) || inFlight.some((attempt) => attempt.projectId === projectId)) {
+        this.drops.delete(projectId)
+        continue
+      }
+      if (undecided) continue
+      this.drops.delete(projectId)
+      void window.canvasHost.request("project.close", { projectId })
+      if (guestUrl) releaseGuest(guestUrl)
+    }
   }
 
   private replace(id: string, tab: Tab): void {

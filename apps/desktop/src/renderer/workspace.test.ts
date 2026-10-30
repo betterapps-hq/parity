@@ -119,6 +119,38 @@ describe("a tab closed while its project opens", () => {
     expect(workspace.getTabs()).toEqual([])
   })
 
+  it("leaves the default project open for a tab that opened it again and doesn't know it yet", async () => {
+    const workspace = new Workspace()
+    const first = workspace.open(undefined)
+    await workspace.close(workspace.getTabs()[0]!.id)
+    const second = workspace.open(undefined)
+    opens[0]!(info)
+    await first
+    expect(closes).toEqual([])
+    opens[1]!(info)
+    await settle()
+    guest.loads[0]!(loaded)
+    await second
+    expect(closes).toEqual([])
+    expect(workspace.getTab(info.id)?.status).toBe("ready")
+  })
+
+  it("closes it once the tab opening meanwhile turns out to be another project", async () => {
+    const workspace = new Workspace()
+    const first = workspace.open(undefined)
+    await workspace.close(workspace.getTabs()[0]!.id)
+    const second = workspace.open(undefined)
+    opens[0]!(info)
+    await first
+    expect(closes).toEqual([])
+    opens[1]!({ ...info, id: "/projects/other", root: "/projects/other", name: "other" })
+    await settle()
+    expect(closes).toEqual([info.id])
+    guest.loads[0]!(loaded)
+    await second
+    expect(workspace.getTab("/projects/other")?.status).toBe("ready")
+  })
+
   it("closes the project when its guest fails to load after the tab closed", async () => {
     const workspace = new Workspace()
     const opening = workspace.open(info.root)
