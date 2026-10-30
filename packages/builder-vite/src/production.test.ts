@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
@@ -15,7 +15,8 @@ let options: BuilderStartOptions
 let session: BuilderSession | undefined
 
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), "parity-production-"))
+  // The real path: Windows runners' tmpdir can use a short (8.3) name, which crashes libuv's watcher.
+  root = await realpath(await mkdtemp(join(tmpdir(), "parity-production-")))
   // A stand-in for React, which says which build it is, as React picks its build by `process.env.NODE_ENV`.
   const files: Record<string, string> = {
     "package.json": JSON.stringify({ name: "fixture", type: "module" }),
