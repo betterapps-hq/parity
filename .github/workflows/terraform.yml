@@ -19,7 +19,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-    uses: betterapps-hq/pipelines/.github/workflows/terraform-plan.yml@ed34ffcba2ef6748b0210c763582e8995c81501b # v1.6.0
+    uses: betterapps-hq/pipelines/.github/workflows/terraform-plan.yml@127016e9eaa157353b3f5ddbe82a32564a28cc08 # v1.7.0
     with:
       working-directory: infra/github
       state-bucket: ${{ vars.TF_STATE_BUCKET }}
@@ -33,7 +33,7 @@ jobs:
   # The infrastructure environment holds the write credentials, kept to main by its branch rules.
   apply:
     if: github.event_name == 'push'
-    uses: betterapps-hq/pipelines/.github/workflows/terraform-apply.yml@ed34ffcba2ef6748b0210c763582e8995c81501b # v1.6.0
+    uses: betterapps-hq/pipelines/.github/workflows/terraform-apply.yml@127016e9eaa157353b3f5ddbe82a32564a28cc08 # v1.7.0
     with:
       environment: infrastructure
       working-directory: infra/github

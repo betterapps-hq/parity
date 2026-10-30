@@ -12,7 +12,7 @@ jobs:
   # pnpm verify on each system, through the shared template. A newer push to the same branch or pull request cancels
   # the run before it.
   verify:
-    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@ed34ffcba2ef6748b0210c763582e8995c81501b # v1.6.0
+    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@127016e9eaa157353b3f5ddbe82a32564a28cc08 # v1.7.0
     with:
       os: '["ubuntu-latest", "windows-latest", "macos-latest"]'
       # The detection tests need every project in fixtures/ installed, each with its own package manager. Their
@@ -52,7 +52,7 @@ jobs:
   # scripts/changes.ts check, and the title squash merging makes the commit's subject. Both compare with origin/main,
   # which a shallow checkout doesn't have. The title comes from the event's file, never through an expression.
   checks:
-    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@ed34ffcba2ef6748b0210c763582e8995c81501b # v1.6.0
+    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@127016e9eaa157353b3f5ddbe82a32564a28cc08 # v1.7.0
     with:
       fetch-depth: 0
       # A group of its own, so it never cancels verify's run on Ubuntu.
@@ -77,7 +77,7 @@ jobs:
   # verify's run there. It doesn't block
   # merging yet, since `CI passes` leaves it out until it runs reliably on the runner (PAR-438).
   app:
-    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@ed34ffcba2ef6748b0210c763582e8995c81501b # v1.6.0
+    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@127016e9eaa157353b3f5ddbe82a32564a28cc08 # v1.7.0
     with:
       os: '["windows-latest"]'
       concurrency-key: app-${{ github.ref }}
