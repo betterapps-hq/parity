@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { componentNode, withLibraryContext } from "./library-insert.ts"
 import type { ComponentInfo } from "./props.ts"
 
