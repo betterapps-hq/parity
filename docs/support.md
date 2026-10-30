@@ -483,7 +483,7 @@ The same checks run on every project, from fastest to slowest:
 
 1. **Detection snapshot.** Parity's detection runs on its own, with no window, and its result is compared with the
    project's committed `expected.json`: build tool and version, config file, styles, tokens, themes, breakpoints,
-   components, libraries, icons, package manager, Storybook, and the lenses' sources. It runs in `pnpm test`, from
+   components, libraries, icons, package manager, Storybook, and the lenses' sources. It runs in `vp run test`, from
    `packages/fixtures/src/detection.test.ts`. Tokens come from the stylesheets' sources there, where the app reads the
    CSS Vite compiles from them.
 2. **Render sweep.** Every component with its default props, and every design in every state and mode, is drawn as a

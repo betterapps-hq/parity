@@ -12,7 +12,7 @@ jobs:
   # pnpm verify on each system, through the shared template. A newer push to the same branch or pull request cancels
   # the run before it.
   verify:
-    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@c3b85f070cf22fbf7a4dae841461f82e2b16ea20 # v1.2.0
+    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@ed34ffcba2ef6748b0210c763582e8995c81501b # v1.6.0
     with:
       os: '["ubuntu-latest", "windows-latest", "macos-latest"]'
       # The detection tests need every project in fixtures/ installed, each with its own package manager. Their
@@ -44,13 +44,15 @@ jobs:
         pnpm --filter @parity-app/cli try-packed
       # A run that installs the fixture projects and caches their 2 GB can outlast the default 30 minutes on Windows.
       timeout-minutes: 45
-      # Vite Task's cache isn't kept between runs: pnpm verify runs vp check and vp test directly, not through vp run.
+      # pnpm verify runs the check and test tasks through vp run, so their cache is kept between runs, under each
+      # system's newest. checks doesn't keep one: its types task would save only about 4 seconds.
+      vite-task-cache: true
 
   # What needs only one system and the branch's history: types, and on pull requests the change files Beachball and
   # scripts/changes.ts check, and the title squash merging makes the commit's subject. Both compare with origin/main,
   # which a shallow checkout doesn't have. The title comes from the event's file, never through an expression.
   checks:
-    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@c3b85f070cf22fbf7a4dae841461f82e2b16ea20 # v1.2.0
+    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@ed34ffcba2ef6748b0210c763582e8995c81501b # v1.6.0
     with:
       fetch-depth: 0
       # A group of its own, so it never cancels verify's run on Ubuntu.
