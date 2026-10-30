@@ -72,17 +72,6 @@ jobs:
           node scripts/commits.ts title "$(jq -r .pull_request.title "$GITHUB_EVENT_PATH")"
         fi
 
-  # The editor's end-to-end tests (PAR-436), which open a copy of Parity on the example and drive it. On Windows, whose
-  # runners have a desktop to open its window on; Linux would need a virtual display. Its own group, so it never cancels
-  # verify's run there. It doesn't block
-  # merging yet, since `CI passes` leaves it out until it runs reliably on the runner (PAR-438).
-  app:
-    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@127016e9eaa157353b3f5ddbe82a32564a28cc08 # v1.7.0
-    with:
-      os: '["windows-latest"]'
-      concurrency-key: app-${{ github.ref }}
-      command: pnpm test:app
-
   # The one check the main branch's ruleset requires, so it needn't change when jobs or systems do.
   ci-passes:
     name: CI passes

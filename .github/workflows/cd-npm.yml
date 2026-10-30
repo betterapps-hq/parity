@@ -20,8 +20,8 @@ jobs:
   publish:
     # CI's runs for pushes to main only, never a pull request's branch that happens to be called main.
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+      github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push')
     permissions:
       contents: read
       # Reads CI's runs, to check a run by hand publishes a commit CI passed on.
