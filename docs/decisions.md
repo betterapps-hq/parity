@@ -1358,6 +1358,12 @@ to PAR-209 build it.
   CAN-39, CAN-47 and CAN-48 that need design first moved to new items: Copy as PNG (PAR-190), find (PAR-191), lock
   (PAR-192), the finer gesture work (PAR-193) and lengths off the spacing scale (PAR-194). Until PAR-194, nudging moves
   an absolutely placed layer by one spacing step, or ten with Shift, since 1px would leave the scale.
+- **The editor's end-to-end tests are `pnpm test:app`** (PAR-202), kept out of `pnpm test`. Files are `*.e2e.ts` with
+  their own Vitest config, run one at a time against one copy of Parity on a temp copy of the example, its
+  `node_modules` linked rather than copied, and a component that ignores its props added only in the copy. It uses ports
+  5385 and 9385, or ports the system picks. Tests read results from the page's state, drive real pointer and keyboard
+  input with presses tldraw sees kept 500 ms apart, use a stand-in clipboard, and undo everything after each test. A
+  full run takes about five minutes.
 - **Packages and scripts use only TypeScript that Node can strip,** because the CLI and scripts run them with plain
   `node`: no parameter properties, namespaces or enums. oxlint rejects the first two in `packages/**` and
   `apps/*/scripts/**`; the app's bundled code may use them. The Library files session found CAN-48's parser had broken
