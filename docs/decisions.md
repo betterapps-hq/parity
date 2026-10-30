@@ -1501,18 +1501,34 @@ the Repository, CI and releases stream in Linear.
     on every system, and `npm ci` for the five fixtures `install-projects` doesn't know (buildkit, chakra, fluent,
     headless, mui). Their `node_modules`, about 2 GB per system, are cached on their lockfiles.
   - Runners get 45 minutes, since a run that installs the fixtures can outlast 30 on Windows.
-  - Vite Task's cache isn't kept yet: `pnpm verify` doesn't go through `vp run`, and ci-verify's extra cache can't
-    restore from an older key. CI's `beachball check` and `scripts/changes.ts check --committed` (PAR-4) compare with
-    `origin/main`, so they need `fetch-depth: 0`.
+  - After `pnpm verify`, each system also installs and runs the CLI's packed tarball (`try-packed`, PAR-13).
+  - A second ci-verify call, `checks`, runs once on Ubuntu with full history: `pnpm check:types`, and on pull requests
+    `beachball check`, `scripts/changes.ts check --committed` and `scripts/commits.ts title`. The title comes from the
+    event's file, never through an expression. It has a concurrency key of its own, so it never cancels verify's run.
+  - A `CI passes` job over both is the one check main's ruleset requires, with CodeRabbit, so the ruleset needn't change
+    when jobs or systems do.
+  - Vite Task's cache isn't kept: `pnpm verify` runs `vp check` and `vp test` directly, not through `vp run`.
 - **`betterapps-hq/pipelines` started with the setup action and ci-verify (PAR-110).** My calls:
   - The setup action checks out without keeping credentials, and on Windows turns off `core.autocrlf` first, since the
     runners' CRLF made Vite+'s formatter fail every file.
   - It picks Vite+ when the workspace names `vite-plus`, and plain pnpm otherwise.
-  - Templates name the repository's own actions at an exact release tag, never a moving `v1`, so a caller pinned to a
-    release's commit gets that release's actions too.
+  - Templates name the repository's own actions by a release's commit, which Dependabot moves, as they pin third-party
+    actions. A tag under the old `Fencing-Club` name would have resolved to whoever claimed that name. And with pull
+    requests required, a release's commit is only tagged after it merges, so a template pins the release before.
   - A caller's extra steps before verifying, such as Parity's fixture installs, go in ci-verify's `prepare` input, with
     their own cache.
   - It's MIT licensed, as Parity is.
+- **ci-verify grew what onboarding the other repositories needed (v1.2.0).** My calls:
+  - `env` takes `NAME=value` lines set before the install, since a caller's own workflow-level env doesn't reach a
+    reusable workflow. Agency needs its registry overridden before `pnpm install`.
+  - `NODE_OPTIONS` has an input of its own, because GitHub won't set it through `GITHUB_ENV`. It reaches only the
+    caller's `prepare` and `command`, so an option like `--require` can't break the checkout.
+  - Turborepo's `TURBO_TOKEN` and signature key are optional secrets passed by name. They reach only `prepare` and
+    `command`, never the install and its scripts.
+  - `concurrency-key` replaces the branch in the run's group, so Copacker's runs on main stop cancelling each other, and
+    Parity's two calls stay apart.
+  - Where a branch rule needs a check's older name, as Buildkit's needs `verify`, a small gate job keeps it, since a
+    called workflow's checks are named `<calling job> / Verify (<runner>)`.
 - **Pipelines are shared across Parity, Buildkit, Better Apps and Copacker,** from one repository of templates, as you
   asked on 2026-10-29. Each repository has thin top-level pipelines, one per stage (CI, previews, the release PR, and CD
   split by what's delivered: npm packages, the desktop app, web apps), calling reusable workflows and composite actions
