@@ -1,17 +1,18 @@
 import type { DescribedTokens } from "@parity-app/core"
-import type { Token } from "@parity-app/tokens"
-import type { TokenChange } from "@parity-app/tokens"
-import { useSyncExternalStore } from "react"
-import type { DesignStore, TokenFailure } from "./design-store.ts"
-import { previewToken } from "./guest.ts"
 import {
   noTokenEdits,
+  type TokenChange,
   type TokenEdit,
   type TokenEdits,
+  type TokenFailure,
   tokenDifferences,
   tokenKey,
   tokensWithEdits
-} from "./token-edits.ts"
+} from "@parity-app/editor"
+import type { Token } from "@parity-app/tokens"
+import { useSyncExternalStore } from "react"
+import type { DesignStore } from "./design-store.ts"
+import { previewToken } from "./guest.ts"
 import { inTokenOrder } from "./token-values.ts"
 
 /**

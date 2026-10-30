@@ -1314,31 +1314,41 @@ decisions.md's "Saving is explicit" sets out.
 - **The token editor** says this before anything changes: "Every frame shows it at once. Saving the project writes it to
   src/index.css, and Undo takes it back." Its button is Apply.
 
-Code: the history and what's unsaved are `apps/desktop/src/renderer/design-store.ts` (`changeTokens`, `writeTokensWith`,
-`getTokenFailure`, `applyDocuments` taking tokens, `updateView` tidying the view, and `adoptSaved`, which takes a file
-changed back to what's saved as saved); token values as data are `token-edits.ts` (`withTokenEdits`, which keeps the
+Code: the history, what's unsaved and the save state are `packages/editor/src/history.ts` in `@parity-app/editor`
+(`recordChange`, `undoChange`, `redoChange`, `reloadFile`, `unsavedPaths`, `fileWrite`, `writeSucceeded` and
+`writeFailed`, and `adoptSaved`, which takes a file changed back to what's saved as saved), and the changes made to
+designs and notes are `design-changes.ts` there. `apps/desktop/src/renderer/design-store.ts` holds the history for the
+canvas and panels: it writes the files and the stylesheet the history says to, with the timers for saving automatically,
+and its `changeTokens`, `writeTokensWith`, `getTokenFailure`, `applyDocuments` taking tokens and `updateView` tidying
+the view call the package. Token values as data are the package's `token-edits.ts` (`withTokenEdits`, which keeps the
 value each token had before its first edit, `tokenDifferences`, `tokenWrites`, `tokensWithEdits`); comparing files with
-views tidied is `document-equality.ts`. `tokens-store.ts` previews the history's token values in the shared stylesheet
-after each edit, undo or redo, and gives the design store its writer; `workspace.ts` makes one per guest, so a guest
-loaded again shows the unsaved values too. The agent's call is `agent/handlers.ts` (`apply`), the panel
+views tidied is its `document-equality.ts`. `tokens-store.ts` previews the history's token values in the shared
+stylesheet after each edit, undo or redo, and gives the design store its writer; `workspace.ts` makes one per guest, so
+a guest loaded again shows the unsaved values too. The agent's call is `agent/handlers.ts` (`apply`), the panel
 `chrome/TokensPanel.tsx`. Saving writes the values into the stylesheet with `writeTokenChanges` in
 `packages/tokens/src/stylesheet.ts`, which `saveTokens` in `apps/desktop/src/utility/projects.ts` applies as a project
 edit.
 
 Tests:
 
-- `apps/desktop/src/renderer/design-store.test.ts` (10 of its 16): token edits undone, redone and saved with a design;
-  nothing written when they're back at the stylesheet's value; the stylesheet's value written back after undoing past a
-  save; a failed write naming the token and the file and clearing on success; a stylesheet that changed since it was
-  read; saving automatically; an agent's call as one step; Show every state off again leaving the file clean; another
-  state and back from a file with its view written out in full; and a file that differs in more than its view staying
-  unsaved until undone.
+- `packages/editor/src/history.test.ts` (33): undo and redo with their labels; a group's changes less than a second
+  apart as one step; the 200-step limit; what a board shows left alone by Undo and not recorded; token edits undone,
+  redone and saved; nothing to write when they're back at the stylesheet's value; the stylesheet's value written back
+  after undoing past a save; a failed write naming the token and the file and clearing on success; several tokens
+  failing together; Save starting again after a failed write was undone back to the file being saved; an agent's call as
+  one step; Show every state off again leaving the file clean; another state and back from a file with its view written
+  out in full; a file that differs in more than its view staying unsaved until undone; and files changed on disk taken
+  as saved, unless they have unsaved changes.
+- `packages/editor/src/design-changes.test.ts` (6): changing, moving, adding and deleting designs, and notes.
+- `apps/desktop/src/renderer/design-store.test.ts` (11 of its 17): Save writing the files and the stylesheet, saving
+  automatically a moment later, a failed save thrown and cleared, a reload cancelling a save waiting to happen, and
+  library designs never written.
 - `packages/tokens/src/stylesheet.test.ts` (8 of its 11): a value replaced in place, keeping comments and formatting; a
   theme's own declaration; a missing one added at the block's indentation, or in a new block; no match on a prefix or a
   nested block; a semantic token written to the root and a theme's value to its class; a theme scale token to the
   `@theme` block that declares it, else a new one; and a token the stylesheet doesn't declare added to the root.
-- `apps/desktop/src/renderer/token-edits.test.ts` (4): the first edit's original kept, what Save writes, a theme value
-  that wasn't there, and the token list with edits.
+- `packages/editor/src/token-edits.test.ts` (4): the first edit's original kept, what Save writes, a theme value that
+  wasn't there, and the token list with edits.
 - `apps/desktop/src/renderer/tokens-store.test.ts` (3), in Chrome: an edit previewed in the stylesheet in both themes,
   undo and redo taking it back and forth, Save writing it; a theme value taken out again on undo; and a guest loaded
   again showing, then saving, an unsaved edit.

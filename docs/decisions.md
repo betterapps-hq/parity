@@ -2049,7 +2049,7 @@ How Parity's code is split, so the parts that change most are easy to find, repl
     `@parity-app/tokens`. `TokenChange` moved from the app's protocol into the package with `writeTokenChanges`.
   - The Tailwind adapter (`@parity-app/styles-tailwind`) stays an adapter at the edge, as it loads Tailwind with Node.
     Libgen's token collecting (`libgen/src/tokens.ts`), which writes DTCG, and the editor's token edit history
-    (`renderer/token-edits.ts`) stay where they are for now.
+    (`renderer/token-edits.ts`) stay where they are for now; the second moved with the history (PAR-34, below).
 - **Drop rules and snapping are in `@parity-app/editor`** (PAR-33): `slotAt` and `flowOf`, where a dragged layer lands
   (`dropTargetAt`), moving it there (`moveLayersWithin`, `moveLayersAcross`), Paste here's `pasteHere`, and snapping a
   dragged design (`snapBox`). My calls in moving them:
@@ -2070,6 +2070,27 @@ How Parity's code is split, so the parts that change most are easy to find, repl
   - `pasteHere` and `slotHere` moved with `slotAt`, their tests with them. The Chrome tests of measuring
     (`drop-target.test.ts` and `paste-here-frame.test.ts`) stay in the app and call the package, and the rules gained
     tests from boxes.
+- **The design store's history is `@parity-app/editor`'s too** (PAR-34, 2026-10-30): undo, what's unsaved and the save
+  state. My calls in moving it:
+  - The model is one value, `DesignHistory`: the documents, modes and token values, the steps to undo and redo, what the
+    files hold, which writes are under way and why the last ones failed. Each function takes it and returns the next
+    (`recordChange`, `undoChange`, `redoChange`, `reloadFile`, `writeStarted`, `writeSucceeded`, `writeFailed`), with
+    the files a step changed for saving automatically. It's given the time rather than reading the clock, so tests can
+    say when changes happen.
+  - The app's `DesignStore` keeps its methods, so nothing that calls it changed. It holds the history, sends the writes
+    the history describes (`fileWrite`) to the files and the stylesheet, runs the timers for saving automatically, logs
+    a failed write, and indexes the designs and their libraries for the canvas.
+  - The changes the store makes to designs and notes moved with it, as `design-changes.ts`, and so did `token-edits.ts`
+    and `document-equality.ts`, which the history needs. `token-edits.ts` takes `TokenChange` and `Token` from
+    `@parity-app/tokens` (PAR-35), so the editor package depends on it, and re-exports `TokenChange` for the history's
+    callers.
+  - A finished write updates what the files hold and the save state together, where the store did the second a microtask
+    later. Listeners hear of it once, as before, and what it says is the same.
+  - Cancelling a resize (`checkpoint` and `revertTo`, PAR-193) moved too. The steps are plain values now, so a
+    checkpoint keeps the arrays of steps it saw and `revertTo` builds new ones: a step from before it is found by its
+    `before` snapshot, which a change merging into it keeps, and goes back to the step as it was, time included. The
+    store's `checkpoint(key, group)` and `revert(checkpoint)` are the same as before, and their tests stay in
+    `design-store.test.ts`, against the store.
 - **Lenses and adapters never go in core.** Lens models are schemas in `@parity-app/models`, each lens is a package, and
   so is each adapter, such as Drizzle or TanStack Router.
 
