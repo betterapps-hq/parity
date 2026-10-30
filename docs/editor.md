@@ -17,7 +17,7 @@ Features built before 2026-10-29 are being added under PAR-392 in Linear.
 ## Testing in the app (PAR-202)
 
 `pnpm test:app` drives a copy of Parity as a person does, with the system's own pointer and keyboard, and checks what
-the canvas, the panels and the project show: 80 tests, which take five to eight minutes. It isn't part of `vp run test`
+the canvas, the panels and the project show: 85 tests, which take five to eight minutes. It isn't part of `vp run test`
 or `pnpm verify`. The pre-push hook runs it when the commits a push sends change the app, its packages, the example or
 the workspace's build files (`scripts/app-tests.ts`), and a failure stops the push. Every worktree's suite shares the
 same ports, so a push waits while another worktree's hook is running it (a lock file in the system's temp folder, taken
@@ -44,12 +44,12 @@ it.
   state to make something happen, apart from `show`, which puts a design in view at a zoom, `showEmptyCanvas`, which
   puts an empty part of the canvas in view, and `reset`, which undoes everything after each test. Copy and paste go
   through a stand-in for the clipboard on the page; the system's clipboard is never read or written.
-- **Adding a test.** Put it in its area's file (`selecting`, `menus`, `moving`, `keyboard`, `fields`, `dropping`,
-  `reopening` or `sleeping`), or in a new `apps/desktop/e2e/<area>.e2e.ts` that connects before all, resets after each
-  test and closes after all, as the others do. Start with `app.show(design, zoom)`, act through `App`'s gestures or
-  `app.page.keyboard`, and wait for what changes with `expect.poll`, since the app answers a frame or more later. Change
-  the project only through edits Undo takes back, so `reset` can put it back. Then name the test in its feature's
-  section here.
+- **Adding a test.** Put it in its area's file (`selecting`, `menus`, `inserting`, `moving`, `keyboard`, `fields`,
+  `dropping`, `reopening` or `sleeping`), or in a new `apps/desktop/e2e/<area>.e2e.ts` that connects before all, resets
+  after each test and closes after all, as the others do. Start with `app.show(design, zoom)`, act through `App`'s
+  gestures or `app.page.keyboard`, and wait for what changes with `expect.poll`, since the app answers a frame or more
+  later. Change the project only through edits Undo takes back, so `reset` can put it back. Then name the test in its
+  feature's section here.
 - **The page never scrolls.** `App` counts each time the window's page scrolls, and `reset` fails the test it ran in if
   it did, or if the page isn't at the top, then puts it back so the tests after start clean. A scrolled page moves the
   canvas without tldraw noticing, so every click after it lands off by as much (PAR-424, "The window", below). Until
@@ -352,6 +352,83 @@ bitmap once it's let go). Gaps: hover outlines and snap lines have no automated 
 isolated copy of the app on 2026-10-30, by reading the canvas's size over the DevTools protocol: it took the window's
 size while a board was hovered, and none once the pointer left. Snap lines haven't been checked; they show only while a
 design is dragged, when tldraw's snap overlay util is active, so the canvas has its size then.
+
+## Inserting
+
+How layers, components and icons are found and put into a design.
+
+### The insert picker and the Components panel, fast and in order (PAR-178)
+
+`/` or Shift+I on the canvas opens the insert picker. It opens in 20 to 50ms in development, where it took 390 to 490ms
+(770ms the first time) and the audit timed 1.28s by hand. Browsing, it lists the basic layers, then the project's
+component designs, its UI kit, the rest of its components and its pages, then each library's designs and components,
+each under its source. A search ranks across sources instead, each row saying where it's from.
+
+- **Names before descriptions.** A search matches a name exactly, then at its start, then at the start of a word in it
+  (`badge` in AvatarBadge, `dialog trig` in AlertDialogTrigger), then anywhere in it. After those come rows where some
+  of the search's words are in the name and the rest in its file, folder or source (`nova badge`), and last rows only
+  their file, folder or source match. Within each, the project's own come first. Letters scattered through a name don't
+  match, as they did with the old fuzzy match, whose "badge" found AlertDialogTrigger and BreadcrumbPage.
+- **Left out until searched for by name:** a library's internal parts (the `.lib.par`'s `internal`, such as
+  DialogOverlay and ProgressIndicator) and portals, providers (ThemeProvider, TooltipProvider, Radix's
+  `Tooltip.Provider`), and the app's plumbing (App, Router, Routes and error boundaries). A search with a word in the
+  name finds them: one naming it in full (`ThemeProvider`, `dialog overlay`) ranks it with the rest, and one that only
+  starts it (`dialog`) puts it after every other match. A search matching only their folder never shows them.
+- **One component in two places is one row.** Components with the same name from different sources, as the UI kit's
+  Badge and Shadcn Nova's, are one row. Browsing, it says "Also in Shadcn Nova"; searching, it shows both sources. Enter
+  inserts the project's own; clicking a source inserts that one, and a search naming a source (`nova badge`) puts it
+  first. Component designs and basic layers are never merged with components, and two components of one name in one
+  source (`(portal)/ErrorPage`, `app/ErrorPage`) stay two rows.
+- **The keyboard.** The search field keeps focus. Up and Down move through the rows and go round at the ends, Page Up
+  and Page Down move eight, Enter inserts, Escape closes, and Tab does nothing, so focus can't reach the window behind.
+  The pointer picks the row it's over. Enter inserts a row's first source; to insert another from the keyboard, name it
+  in the search (`nova badge`), which puts it first. The row's text, which a screen reader reads, names every source,
+  but the source buttons themselves are for the pointer: no key moves between them. Icons are searched once two letters
+  are typed, up to 48 a set, after the components.
+- **The Components panel** searches the same way: in each source, families with the best matches first and the best
+  matches first in each, hidden components only when a word of the search is in their name. Browsing, each source lists
+  what the picker hides last, under a heading saying what it is ("Providers and app plumbing", "Internal parts and
+  providers"), as libraries' internal parts already were.
+
+What made it slow, measured on the example in an isolated copy on 2026-10-30, from the key until the list was laid out:
+
+- **Every row was drawn.** cmdk drew all 610 rows, each with its icons, about 350ms of the 400ms key press. The list now
+  draws only the rows in view, with `@tanstack/react-virtual`, so it costs the same for 10 components or 600.
+- **The dialog was modal.** A modal Radix dialog locks the page's scrolling and stops the pointer on the body, which
+  restyled all of the window's 6,000 elements, about 100ms (it showed as Radix's animation check and the scroll lock's
+  `clientWidth`). The picker is a non-modal dialog with a backdrop of its own, which takes clicks outside and closes it.
+- **The list was rebuilt on every open,** and so were the icon sets, whose names the guest lists in 40 to 50ms. Both are
+  kept per project until its components, libraries or component designs change, and built while the window is idle after
+  a project opens or its components change, so even the first `/` finds them ready.
+
+Code: ranking, hiding and merging are pure, in `packages/editor/src/insert-search.ts` (`insertRows`, `searchOption`,
+`hiddenReason`, `hiddenHeading`). The picker is `apps/desktop/src/renderer/chrome/QuickInsert.tsx`; what it offers comes
+from `componentSources` in `chrome/AssetsPanel.tsx`, which also marks hidden components and puts them last in the panel
+(`families`, `searchFamilies`). Inserting itself is `packages/editor/src/insert.ts` (PAR-32), with the app's
+`canvas/insert.ts` applying it, which this doesn't change.
+
+Tests:
+
+- `packages/editor/src/insert-search.test.ts` (27): what's hidden and why, and the panel's heading for it; splitting
+  names into words in any script; each match tier, nothing for a search of only punctuation, the order the picker and
+  the panel share, descriptions after names, and the audit's "badge" no longer matching AlertDialogTrigger; the browsing
+  order; hidden ones left out, found by name, not by folder, and ranked after the rest when only partly named; Badge
+  once with both sources, the project's first; a search naming a source; two components of one name in one source, and a
+  design and a component of one name, kept apart; and the audit's searches.
+- `apps/desktop/e2e/inserting.e2e.ts` (5), end to end (PAR-202): opening seven times, the fastest under 100ms and the
+  median under 150ms (25 to 50ms on a quiet machine); the browsing order, read a screen at a time; "badge" finding
+  Badge, AvatarBadge and SidebarMenuBadge only, Badge with the UI kit and Shadcn Nova; App and ThemeProvider left out of
+  a folder search and found by name, and Dialog's overlay after every dialog part placed; and Enter inserting the UI
+  kit's Badge, and the Shadcn Nova source inserting Nova's.
+- `chrome/QuickInsert.stories.tsx`: Open, Searching, FoundInTwoPlaces, SearchedByName, SearchingIcons, NoResults and
+  NothingToInsertInto.
+
+Gaps: the Components panel's ordering and hidden heading are covered by the shared module's tests and were checked in
+the app (searching "badge", "theme" and "dialog"), but have no test of their own. Radix Primitives isn't hidden: nothing
+in a library's `.lib.par` says it's unstyled primitives that the project's own components wrap, so it's listed last, as
+a library, rather than left out. Previews are PAR-208. The time is measured to the list being laid out, not to the frame
+that shows it, since in a window in the background frames come about once a second; the trace showed the key press
+taking 31ms and the frame after it 18ms.
 
 ## Moving, reordering and resizing
 
