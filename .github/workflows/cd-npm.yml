@@ -9,8 +9,9 @@ on:
     workflows: [CI]
     types: [completed]
     branches: [main]
-# There's no workflow_dispatch, since a run by hand could publish a commit whose CI failed. A failed publish is retried
-# with Re-run, which keeps the CI run it started from, or caught up by the next CI pass on main.
+  # A run by hand publishes only from main, and only a commit CI passed on as a push to main, which the template checks
+  # through ci-workflow. Re-run also retries a failed publish, with the CI run it started from.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -18,13 +19,18 @@ permissions:
 jobs:
   publish:
     # CI's runs for pushes to main only, never a pull request's branch that happens to be called main.
-    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     permissions:
       contents: read
+      # Reads CI's runs, to check a run by hand publishes a commit CI passed on.
+      actions: read
       # npm's trusted publishing exchanges the run's OIDC token for a short-lived one, and signs provenance with it.
       id-token: write
-    uses: betterapps-hq/pipelines/.github/workflows/cd-npm-publish.yml@127016e9eaa157353b3f5ddbe82a32564a28cc08 # v1.7.0
+    uses: betterapps-hq/pipelines/.github/workflows/cd-npm-publish.yml@d8e6eeab409f6bd88c691c1685e2a1fb1608d146 # v1.7.1
     with:
       # The desktop app is versioned but not published, so only packages with a publishConfig go: the CLI.
       require-publish-config: true
       environment: npm
+      ci-workflow: ci.yml

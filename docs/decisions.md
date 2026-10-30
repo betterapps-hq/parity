@@ -1726,9 +1726,9 @@ the Repository, CI and releases stream in Linear.
       bypass it, and with no approval, since every merged release PR ships.
     - **`cd-npm.yml` runs on every CI pass on `main`,** not only when a version changes, since the template publishes
       only versions npm doesn't have: a run without one publishes nothing and asks for no approval, and a failed run is
-      caught up by the next. It has no `workflow_dispatch`, unlike the README's example, since the template doesn't
-      check CI on a run by hand, which could then publish a commit whose CI failed. Re-run retries a failed publish with
-      the CI run it started from.
+      caught up by the next. It also runs by hand, through `workflow_dispatch`, from template v1.7.1 on (PAR-14):
+      the template publishes such a run only from `main`, and only a commit `ci.yml` passed on as a push to `main`,
+      which it reads with `actions: read`. Re-run also retries a failed publish with the CI run it started from.
     - **CodeRabbit skips `CHANGELOG.md` and `CHANGELOG.json`,** whose wording it reviewed in the change files, so a
       thread on a changelog can't hold up the release PR.
     - **Four change files written under the old name `@parity/desktop` were renamed** to `@parity-app/desktop`, since
