@@ -396,6 +396,11 @@ export const presets: Record<string, Preset> = {
       return { tokens: [...tokens.values()] }
     }
   },
+  recharts: {
+    id: "recharts",
+    name: "Recharts",
+    description: "Charts, axes, series and grids to compose, as shadcn's charts are."
+  },
   "lucide-react": {
     id: "lucide",
     name: "Lucide",
