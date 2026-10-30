@@ -263,7 +263,9 @@ export function LayerTree() {
     <div className="flex flex-col py-2 text-[13px]" role="tree" aria-label="Layers" tabIndex={0} onKeyDown={onKeyDown}>
       {groups.map((group) => (
         <div key={group.title} className="mb-2">
-          <div className="group/heading flex h-7 items-center gap-1 pr-1.5 pl-3 text-xs text-muted-foreground">
+          {/* Positioned, so its button stays inside the scroller while it's hidden for screen readers (sr-only is
+              absolute), rather than being placed against the window, where it made the page taller (PAR-424). */}
+          <div className="group/heading relative flex h-7 items-center gap-1 pr-1.5 pl-3 text-xs text-muted-foreground">
             <span className="flex-1">{group.title}</span>
             <span className="tabular-nums group-focus-within/heading:hidden group-hover/heading:hidden">
               {group.entries.length}

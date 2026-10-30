@@ -38,7 +38,7 @@ interface PageHelpers {
   drawn(key: string, id: string): string[]
   /** The page's stand-in for the system clipboard, which is never read or written. */
   clipboard: { text: string }
-  /** How many times the window's page has scrolled and been put back (see `install`). */
+  /** How many times the window's page has scrolled since the last test ended (see `install` and `reset`). */
   scrolls: { count: number }
 }
 
@@ -75,8 +75,6 @@ export const about = (box: Box) => ({
 export class App {
   readonly page: Page
   private readonly browser: Browser
-  /** How many times the page had scrolled when this file connected. */
-  private scrolled = 0
 
   private constructor(browser: Browser, page: Page) {
     this.browser = browser
@@ -99,26 +97,31 @@ export class App {
     await page.evaluate(settled)
     await page.evaluate(importModules)
     await page.evaluate(install)
-    app.scrolled = await page.evaluate(() => window.e2e!.scrolls.count)
     await page.bringToFront()
     await app.reset()
     return app
   }
 
   async close(): Promise<void> {
-    const scrolled = (await this.page.evaluate(() => window.e2e!.scrolls.count)) - this.scrolled
-    if (scrolled > 0) {
-      console.warn(`The window's page scrolled ${scrolled === 1 ? "once" : `${scrolled} times`}, and was put back`)
-    }
     // Only the connection closes; the app keeps running for the next file.
     await this.browser.close()
   }
 
   /**
    * Puts everything back as the project opened: every change undone, nothing selected, Move and select, no menu or
-   * field open, Layers on the left, and an empty clipboard.
+   * field open, Layers on the left, and an empty clipboard. It fails the test that ran before it if the window's page
+   * scrolled during it, since the page never should (PAR-424): tldraw doesn't notice, so the canvas takes every click
+   * after it as somewhere else.
    */
   async reset(): Promise<void> {
+    const scrolled = await this.page.evaluate(() => {
+      const page = document.scrollingElement
+      const seen = { count: window.e2e!.scrolls.count, top: page?.scrollTop ?? 0, left: page?.scrollLeft ?? 0 }
+      window.e2e!.scrolls.count = 0
+      // Put back only so the tests after this one start as they should; this one fails below.
+      page?.scrollTo(0, 0)
+      return seen
+    })
     await this.page.mouse.up()
     // A test that failed while holding a modifier would otherwise leave it held for the tests after it.
     for (const key of ["Shift", "Control", "Alt", "Meta"]) await this.page.keyboard.up(key)
@@ -133,11 +136,16 @@ export class App {
       selection.setHover(undefined)
       e2e.clipboard.text = ""
       if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
-      document.scrollingElement?.scrollTo(0, 0)
     })
     await this.page.keyboard.press("Alt+1")
     const unsaved = await this.unsaved()
     if (unsaved.length > 0) throw new Error(`Undoing everything left changes in ${unsaved.join(", ")}`)
+    if (scrolled.count > 0 || scrolled.top !== 0 || scrolled.left !== 0) {
+      const times = scrolled.count === 1 ? "once" : `${scrolled.count} times`
+      throw new Error(
+        `The window's page scrolled ${times}, to ${scrolled.left},${scrolled.top}, and should never scroll`
+      )
+    }
   }
 
   // Reading what happened.
@@ -539,17 +547,14 @@ function install(): void {
     }
   })
   for (const type of ["copy", "cut", "paste"]) document.addEventListener(type, (event) => event.preventDefault(), true)
-  // The window's page is taller than the window while Layers is scrolled, since a group heading's button is placed
-  // outside its scroller, so the page scrolls when something below the window is focused or revealed. tldraw doesn't
-  // notice, and the pointer then lands off by as much on the canvas. Until that's fixed, the page is put back at once.
+  // The window's page never scrolls; only panels do. Each time it scrolls away from the top is counted, and fails the
+  // test (see `reset`). Putting it back isn't counted, so a test after one that failed this way starts clean.
   const scrolls = { count: 0 }
   document.addEventListener(
     "scroll",
     (event) => {
       const page = document.scrollingElement
-      if (event.target !== document || !page || (page.scrollTop === 0 && page.scrollLeft === 0)) return
-      scrolls.count++
-      page.scrollTo(0, 0)
+      if (event.target === document && page && (page.scrollTop !== 0 || page.scrollLeft !== 0)) scrolls.count++
     },
     true
   )

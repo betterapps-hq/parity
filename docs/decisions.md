@@ -158,6 +158,18 @@ still need your call.
 - **A box drawn from a frame's background selects the top-level layers it touches** (PAR-163), as Figma's and tldraw's
   do, live, drawn with tldraw's own box; Shift adds to the selection and Escape restores it. Ctrl doesn't make it go
   deeper yet. With several designs selected, Enter works in the one picked last.
+- **The window's page never scrolls; only panels do** (PAR-424). My call: the guard is `overflow: clip` on the app's
+  positioned root, not `overflow: hidden` on the document, which the page already had through the body and which the
+  browser still scrolls to show what's focused. `clip` can't be scrolled at all, and holding the root positioned keeps
+  even an absolutely placed element with no positioned ancestor inside it. Menus, dialogs and toasts are portaled to the
+  body and fixed, so they're unaffected.
+- **Tab on the canvas reaches only the selected design's own controls** (PAR-424). My call, from the issue's "Tab should
+  leave the canvas": its title, menus, mode captions and state labels are in the tab order, and every other design's are
+  out of it, reached by N, Layers or a click. Captions stay reachable because nothing else selects a mode column, as
+  CodeRabbit's review pointed out. Enter on a menu, caption or label is the control's, and on the title it still selects
+  the layers inside. A hovered design's menus are in the tab order while they show.
+- **A closing menu's keys are the canvas's** (PAR-424). My call: a menu, list or dialog playing its closing animation
+  counts as closed for shortcuts, a field in it included, so Ctrl+Z straight after a menu item undoes it.
 - **Side panels have one row of tabs, Pen style.** The open tab shows its name and the rest show only their icons. The
   left panel's tabs are Layers, Components, Icons, Images and Tokens; the right's are Design, Modes and Accessibility.
   Each panel remembers its open tab.
