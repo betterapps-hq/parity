@@ -291,6 +291,8 @@ export class App {
    * main frame's top left corner near the canvas's, with room above the board for its title.
    */
   async show(design: string, zoom: number, layer?: string, mode?: string): Promise<void> {
+    // A layer is found where it's drawn, so a design whose frames sleep, zoomed far out, comes into view first.
+    if (layer) await this.show(design, zoom)
     await this.page.evaluate(
       ([design, zoom, layer, mode]) => {
         const e2e = window.e2e!
@@ -319,20 +321,25 @@ export class App {
     await this.settle(design)
   }
 
-  /** Waits until the camera and a design's main frame stop moving or changing, over a few frames. */
+  /**
+   * Waits until the camera and a design's main frame stop moving or changing, over a few frames, and its board's frames
+   * are drawn: ones asleep, as frames are once zoomed far out, wake once the camera rests near them.
+   */
   async settle(design: string): Promise<void> {
     await this.page.evaluate(async (design) => {
       const e2e = window.e2e!
       const key = e2e.key(design)
       const frame = () => new Promise((resolve) => requestAnimationFrame(resolve))
       let last = ""
-      for (let still = 0, tries = 0; still < 4 && tries < 200; tries++) {
+      for (let still = 0, tries = 0; still < 4 && tries < 400; tries++) {
         await frame()
-        const { x, y, width, height } = e2e.frame(key).getBoundingClientRect()
+        const host = e2e.frame(key)
+        const { x, y, width, height } = host.getBoundingClientRect()
         const camera = e2e.session().editor!.getCamera()
-        const elements = e2e.frame(key).shadowRoot?.querySelectorAll("*").length
+        const elements = host.shadowRoot?.querySelectorAll("*").length
         const now = `${x},${y},${width},${height},${elements},${camera.x},${camera.y},${camera.z}`
-        still = now === last ? still + 1 : 0
+        const asleep = host.closest(".container-view")?.querySelector("[data-asleep]")
+        still = now === last && !asleep ? still + 1 : 0
         last = now
       }
     }, design)

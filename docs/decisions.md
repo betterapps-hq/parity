@@ -210,6 +210,27 @@ still need your call.
   bars in the text's colour and its cards, fields, buttons and images as flat shapes, drawn as a few SVG paths per
   frame, and keeping the frame's measured height. A frame not measured yet stays live. Bitmaps and skeletons are kept in
   memory only, so a code change never shows a stale one. Below about 5%, boards and frames also drop their shadows.
+- **Frames showing bitmaps sleep (PAR-197).** Once the zoom settles past that line, a frame showing its bitmap unmounts
+  its design's React root and its elements, keeping its host, its height and its bitmap; it wakes as its board comes
+  near the view, one frame each animation frame. On the example project (119 frames, 1440×900 window, 1x screen),
+  measured with the DevTools protocol after collecting garbage: zoomed out, the window's DOM nodes went from 32,458 to
+  6,503 and its JavaScript heap from 146 MB to 101 MB, about 0.38 MB a frame; zoomed in on one design, the same, since
+  only the frames near the view wake. Zooming in from fit to 100% drew the frames in view in 250 ms, its longest frame
+  50 ms, and to 40% in 300 ms, longest 33 ms, with no board changing size. Those times are from before sleeping hosts
+  skipped drawing and changed frames woke; a later run's window was throttled to a frame a second, so its times don't
+  count, though its memory matched. The issue's 0.85 MB a frame wasn't all heap: the elements' own memory is the
+  renderer's, outside the heap, so the heap gives back less than half of it.
+  - **Sleep waits for the zoom to settle,** rather than the zoom at each frame as `data-far` does, so zooming through
+    the line doesn't unmount and remount a project's frames on the way.
+  - **Only frames near the view wake, one each animation frame.** Remounting all 119 at once, as PAR-153 tried for a
+    hidden tab, kept the page busy for 4 s; a frame costs tens of milliseconds to mount in development.
+  - **Where a board is reaches its frames as tldraw signals,** not props: passing whether a board was near the view as a
+    prop drew all 119 boards again each time the camera crossed one, 350 ms in one frame on zooming in.
+  - **A frame keeps its host element,** empty, so selection, hit testing and agents' cursors still find the frame and
+    its design. A sleeping frame's host skips drawing, as a board out of view does, so the browser keeps the size it
+    last had when drawn; noting an empty frame's size instead shrank a board to its padding the next time it skipped.
+  - **A frame whose design changes while it sleeps wakes wherever it is,** so its board lays out the new size that
+    agents' snapshots read, and sleeps again once its new bitmap is taken. A token edit wakes every frame, one a frame.
 - **The canvas doesn't restyle its elements while the camera moves.** tldraw's `--tl-zoom` changes only once zooming
   stops, titles and labels size themselves from the zoom directly, selection colours go through tldraw's theme rather
   than custom properties, and the layer the camera moves is composited, so panning and zooming move what's already drawn

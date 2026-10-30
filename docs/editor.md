@@ -17,7 +17,7 @@ Features built before 2026-10-29 are being added under PAR-392 in Linear.
 ## Testing in the app (PAR-202)
 
 `pnpm test:app` drives a copy of Parity as a person does, with the system's own pointer and keyboard, and checks what
-the canvas, the panels and the project show: 61 tests, which take four to six minutes. It isn't part of `vp run test` or
+the canvas, the panels and the project show: 63 tests, which take four to six minutes. It isn't part of `vp run test` or
 `pnpm verify`, so run it after changing how the canvas, its overlay, the keymap, the menus or the inspector's fields
 handle input. Each feature's tests below name the end-to-end ones that cover it.
 
@@ -35,11 +35,11 @@ handle input. Each feature's tests below name the end-to-end ones that cover it.
   `selection`, `drawn`, `outlines`, `labels`, `undoLabel`) and never sets state to make something happen, apart from
   `show`, which puts a design in view at a zoom, and `reset`, which undoes everything after each test. Copy and paste go
   through a stand-in for the clipboard on the page; the system's clipboard is never read or written.
-- **Adding a test.** Put it in its area's file (`selecting`, `menus`, `moving`, `keyboard` or `fields`), or in a new
-  `apps/desktop/e2e/<area>.e2e.ts` that connects before all, resets after each test and closes after all, as the others
-  do. Start with `app.show(design, zoom)`, act through `App`'s gestures or `app.page.keyboard`, and wait for what
-  changes with `expect.poll`, since the app answers a frame or more later. Change the project only through edits Undo
-  takes back, so `reset` can put it back. Then name the test in its feature's section here.
+- **Adding a test.** Put it in its area's file (`selecting`, `menus`, `moving`, `keyboard`, `fields`, `reopening` or
+  `sleeping`), or in a new `apps/desktop/e2e/<area>.e2e.ts` that connects before all, resets after each test and closes
+  after all, as the others do. Start with `app.show(design, zoom)`, act through `App`'s gestures or `app.page.keyboard`,
+  and wait for what changes with `expect.poll`, since the app answers a frame or more later. Change the project only
+  through edits Undo takes back, so `reset` can put it back. Then name the test in its feature's section here.
 - **The page never scrolls.** `App` counts each time the window's page scrolls, and `reset` fails the test it ran in if
   it did, or if the page isn't at the top, then puts it back so the tests after start clean. A scrolled page moves the
   canvas without tldraw noticing, so every click after it lands off by as much (PAR-424, "The window", below). Until
@@ -1132,6 +1132,49 @@ typed, a token built on itself too, Apply off), ReferenceToAnotherToken (Apply a
 keeping Undo, then the detail's Undo), ReferenceLoop (refused through another token), and SaveFails. All 24 of the
 file's stories played in Storybook on 2026-10-29. Gaps: the inspector's pickers don't show previews yet, the rest of
 PAR-143.
+
+## Zooming far out
+
+What the canvas draws, and what it lets go of, once it's zoomed out far enough for frames to show their bitmaps.
+
+### Frames sleep while their bitmaps show (PAR-197)
+
+Once the camera comes to rest zoomed far enough out that frames are drawn no larger than their bitmaps (25% on a 1x
+screen), every frame showing its bitmap sleeps: its design's React root is unmounted and the elements it drew are
+removed, which is most of what a frame holds. The frame keeps its host element, its size and its bitmap, and its board
+keeps its size, so agents' snapshots, hit testing at the frame's edges and the layout around it are unchanged. Zooming
+back in, a sleeping frame keeps showing its bitmap until it wakes, then draws its design again at the size it had.
+
+- **What sleeps:** a frame showing its bitmap, once the zoom has settled past the line, so a zoom passing through puts
+  nothing to sleep. Not the selected board's frames, which outlines and panels measure, and nothing while interacting. A
+  frame whose design doesn't render has no bitmap, so it never sleeps.
+- **What wakes:** a sleeping frame wakes once it's no longer to sleep and its board is near the view (within a quarter
+  of the view's size, as boards out of view are), one frame each animation frame, in the order they asked. A frame out
+  of view stays asleep, still showing its bitmap, until it comes near. Selecting a board wakes its frames at any zoom.
+- **A frame whose design changes while it sleeps** (an agent's edit, a token, a reloaded project) wakes wherever it is,
+  so its board lays out the new size, and sleeps again once its new bitmap is taken.
+- **Sizes hold through sleep and waking.** The frame's element keeps the height it had when it fell asleep until it's
+  drawn again, and its host skips drawing while it sleeps, as a board out of view does, so the browser keeps the size it
+  last had when drawn rather than an empty frame's.
+- **What reads a sleeping frame's DOM** finds its host, empty: hit testing finds the frame and its design but no layers,
+  as over a frame's background, and an agent's cursor pointing at a layer there points at the frame instead. Anything
+  that measures layers does so on the selected board, which never sleeps.
+
+Code: `useAwake` in `apps/desktop/src/renderer/canvas/frame-sleep.ts`; `FrameTile` in `canvas/ContainerView.tsx`, which
+decides from its bitmap and passes `asleep` to `ModeView.tsx`, which unmounts the guest and holds the frame's height;
+the board's `near` and `dormant` signals in `canvas/ContainerShapeUtil.tsx`; `isRestingFar` in
+`canvas/CanvasEditor.tsx`; the `[data-asleep]` rules in `styles.css`.
+
+Tests: `apps/desktop/e2e/sleeping.e2e.ts` (2: zoomed out, every frame with a bitmap sleeps, the window's DOM nodes fall
+by at least the elements the awake frames held, and no board changes size; back at 100% the design's frames draw again
+with their layers while boards out of view stay asleep, still at the same sizes; and the selected board's frames wake at
+a far zoom and sleep again once nothing is selected). `apps/desktop/src/renderer/ModeView.test.ts` (1: a frame put to
+sleep keeps its host and height with nothing inside, and draws its design again when it wakes). `App.settle` in
+`e2e/app.ts` waits for a design's board to wake, and `App.show` brings a design into view before finding a layer in it,
+so the other files' tests work on frames that slept. Gaps: the order frames wake in, and waking on a changed design,
+have no test of their own; the first was checked by reading `wakeNext`, the second by reading `useAwake`. The memory it
+gives back and the time waking takes were measured by hand in a debug copy (see [decisions.md](decisions.md), Canvas),
+not by the suite.
 
 ## Opening and closing projects
 

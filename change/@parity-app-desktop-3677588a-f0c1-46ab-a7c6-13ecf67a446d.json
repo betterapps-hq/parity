@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Frames zoomed far out let go of their designs while their bitmaps show, and draw them again as they come into view",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
