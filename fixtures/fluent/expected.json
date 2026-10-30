@@ -61,7 +61,7 @@
       "package": "@fluentui/react-components",
       "version": "9.75.0",
       "stylesImported": true,
-      "components": 218
+      "components": 256
     }
   ],
   "icons": [
@@ -76,7 +76,7 @@
     "styles from /src/main.tsx: src/index.css",
     "1 component in 2 files from tsconfig.json",
     "not read, since they mount the app: src/main.tsx",
-    "218 components from Fluent UI (@fluentui/react-components)",
+    "256 components from Fluent UI (@fluentui/react-components)",
     "0 components from Fluent icons (@fluentui/react-icons)",
     "no .par project file yet"
   ]

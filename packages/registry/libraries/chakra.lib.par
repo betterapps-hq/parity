@@ -168082,6 +168082,48 @@
         "as": "forwardRef",
         "group": "DatePicker",
         "sample": {
+          "props": {
+            "min": {
+              "$call": {
+                "import": "@chakra-ui/react",
+                "export": "parseDate"
+              },
+              "args": [
+                "2025-03-05"
+              ]
+            },
+            "max": {
+              "$call": {
+                "import": "@chakra-ui/react",
+                "export": "parseDate"
+              },
+              "args": [
+                "2025-03-25"
+              ]
+            },
+            "value": [
+              {
+                "$call": {
+                  "import": "@chakra-ui/react",
+                  "export": "parseDate"
+                },
+                "args": [
+                  "2025-03-15"
+                ]
+              }
+            ],
+            "defaultValue": [
+              {
+                "$call": {
+                  "import": "@chakra-ui/react",
+                  "export": "parseDate"
+                },
+                "args": [
+                  "2025-03-15"
+                ]
+              }
+            ]
+          },
           "children": [
             {
               "component": "DatePicker.Label",
@@ -260971,15 +261013,12 @@
         "sample": {
           "props": {
             "query": "spot",
-            "children": "Text",
+            "children": "Spotlight bulb",
             "ignoreCase": true,
             "styles": {
               "fontWeight": "semibold"
             }
-          },
-          "children": [
-            "Spotlight bulb"
-          ]
+          }
         },
         "fingerprint": "6bdcac2a",
         "props": {

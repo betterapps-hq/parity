@@ -183,7 +183,7 @@ export async function findLibraries(
         }
       }
       for (const [name, component] of Object.entries(listed.list)) {
-        if (older?.gone.has(name) || component.visual === false) continue
+        if (older?.gone.has(name)) continue
         const declaration = component.declaration ? join(packageDir, component.declaration) : entry
         result.components[`${definition.id}/${name}`] = {
           ...librarySource(

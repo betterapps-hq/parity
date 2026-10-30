@@ -95,7 +95,7 @@
       "package": "@mantine/core",
       "version": "9.7.3",
       "stylesImported": true,
-      "components": 286
+      "components": 291
     }
   ],
   "icons": [],
@@ -105,7 +105,7 @@
     "the UI kit is in src/components",
     "3 components in 4 files from tsconfig.app.json",
     "not read, since they mount the app: src/main.tsx",
-    "286 components from Mantine (@mantine/core)",
+    "291 components from Mantine (@mantine/core)",
     "no .par project file yet"
   ]
 }

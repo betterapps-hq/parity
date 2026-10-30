@@ -182,7 +182,8 @@ function ownSources(info: ProjectInfo, all: [string, ComponentSource][]): Source
  * component library's. Exported for other pickers, like quick insert.
  */
 export function componentSources(info: ProjectInfo, entries: readonly ContainerEntry[]): Source[] {
-  const all = Object.entries(info.sources)
+  // A provider or context draws nothing, so it's only ever inserted around the parts that need it.
+  const all = Object.entries(info.sources).filter(([, source]) => source.visual !== false)
   const designs = entries.filter((entry) => entry.container.kind === "component")
   const list: Source[] = []
   if (designs.length > 0) {

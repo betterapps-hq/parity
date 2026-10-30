@@ -58,7 +58,9 @@ describe("library files", () => {
     })
 
     const found = await findLibraries(root, { dependencies: { "@acme/ui": "1.0.0" } }, [], renderer)
-    expect(Object.keys(found.components).sort()).toEqual(["acme/Menu", "acme/MenuItem"])
+    // A part that draws nothing stays listed, so the parts placed inside it can be, and says so.
+    expect(Object.keys(found.components).sort()).toEqual(["acme/Menu", "acme/MenuContext", "acme/MenuItem"])
+    expect(found.components["acme/MenuContext"]?.visual).toBe(false)
     expect(found.notes).toEqual(["@acme/ui: hand edits for exports it no longer has: Gone"])
   })
 
