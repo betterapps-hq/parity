@@ -1585,6 +1585,39 @@ the Repository, CI and releases stream in Linear.
   - `types` isn't cached. On macOS Vite Task doesn't see the files TypeScript's Go compiler reads (vite-task#587, fixed
     with TypeScript 7.1), so it could replay a pass after a change broke the types. A run takes about 5 seconds, so
     little is lost; cache it once the TypeScript under `oxlint-tsgolint` is 7.1 or later.
+- **Dependabot keeps dependencies current (PAR-394),** from `.github/dependabot.yml`, as the agency monorepo, Buildkit
+  and the pipelines repository do. My calls:
+  - **Each week, one pull request for npm's minor and patch updates and one for GitHub Actions,** which also moves the
+    shared pipelines' pinned commits and their version comments. npm's major updates come one pull request each, at most
+    ten open, since each may need code to change.
+  - **It waits 3 days before offering a direct dependency's new version,** longer than the day pnpm's
+    `minimumReleaseAge` asks. That doesn't cover the transitive versions its lockfile refresh resolves, which pnpm also
+    checks, so one published within the day can still fail CI's frozen install: re-run it once the version is a day old.
+    Security updates don't wait, and Better Apps' own actions come straight away.
+  - **Titles are conventional:** `build(deps)` and `build(deps-dev)` for npm, `ci(deps)` for Actions, which
+    `scripts/commits.ts title` accepts and squash merging makes the subject.
+  - **It leaves the Vite+ toolchain alone.** Vite+ pins its own Vitest and its core, which the catalog names `vite`, so
+    the three move together by hand. Every other `vite` is stock Vite on purpose, held by pnpm-workspace.yaml's
+    overrides.
+  - **It never updates the fixtures,** not even for security, since each stands in for a customer's project at the
+    versions its tests expect. An `ignore` rule naming only the dependency holds back security updates as well. The
+    example project and builder-vite are updated, apart from their stock Vite.
+  - **TypeScript and `@types/node` take no majors:** the packages using the compiler API stay on TypeScript 6, and the
+    Node types follow `.nvmrc`.
+  - **Its pull requests need no change file.** On Dependabot's own pull requests, beachball.config.cjs ignores
+    `package.json`, which `scripts/changes.ts` reads too, so a dependency's new version ships with the next release
+    rather than making one. Code changed there still needs a change file. Dependabot can't write one, and a workflow
+    that pushed one would need a token other than `GITHUB_TOKEN` to start CI again, and would stop Dependabot rebasing.
+  - **In CI the bypass needs Dependabot on both ends:** a pull request it opened from a `dependabot/` branch of this
+    repository, checked on a push it made, all read from what GitHub sets. A person's branch with that name, a fork, or
+    a person's commit pushed onto Dependabot's pull request still needs change files; to bring one up to date or check
+    it again after reopening it, comment `@dependabot rebase` rather than updating the branch. Locally the branch name
+    is enough, since CI is the gate.
+  - **Alerts and security updates are on** for the repository, but they don't see the pnpm workspace's resolved versions
+    yet. pnpm 12 writes `pnpm-lock.yaml` as two YAML documents, and GitHub's dependency graph read it with no
+    dependencies on 2026-10-30, so it knows only the manifests' ranges and the fixtures' lockfiles. Version updates read
+    the workspace themselves, so their first run shows whether they read that lockfile. Submitting the workspace's
+    dependencies is PAR-432.
 - **`betterapps-hq/pipelines` started with the setup action and ci-verify (PAR-110).** My calls:
   - The setup action checks out without keeping credentials, and on Windows turns off `core.autocrlf` first, since the
     runners' CRLF made Vite+'s formatter fail every file.

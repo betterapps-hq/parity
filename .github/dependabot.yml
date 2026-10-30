@@ -1,0 +1,72 @@
+# Dependabot keeps Parity's dependencies current (PAR-394): each week, one pull request for npm's minor and patch
+# updates and one for GitHub Actions, as the agency monorepo, Buildkit and the shared pipelines do. Squash merging makes
+# a pull request's title the commit's subject, so the prefixes make conventional ones that `scripts/commits.ts title`
+# accepts: build(deps) and build(deps-dev) for npm, ci(deps) for Actions. Its pull requests need no change file, since
+# beachball.config.cjs ignores manifests on Dependabot's own pull requests.
+version: 2
+updates:
+  # The pnpm workspace: the packages in apps/, packages/ and examples/, the catalog in pnpm-workspace.yaml and the
+  # lockfile. Major updates come one pull request each, since each may need code to change.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    # pnpm won't install a version published less than a day ago (its minimumReleaseAge), so Dependabot waits longer
+    # than that before offering one. That covers direct dependencies, not the transitive versions a lockfile refresh
+    # picks up, so a pull request can still fail CI's install until those are a day old. Security updates don't wait.
+    cooldown:
+      default-days: 3
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: build
+      include: scope
+    groups:
+      npm:
+        update-types: [minor, patch]
+    ignore:
+      # Vite+ pins its own Vitest and its core, which the catalog names `vite`, so the three move together, by hand.
+      # Every other `vite` is stock Vite on purpose: the example project and builder-vite stand in for and drive a
+      # customer's own, and pnpm-workspace.yaml's overrides hold them there.
+      - dependency-name: vite
+      - dependency-name: vite-plus
+      - dependency-name: vitest
+      # The packages that use TypeScript's compiler API stay on 6, which TypeScript 7 doesn't have.
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+      # @types/node follows the Node in .nvmrc, not ahead of it.
+      - dependency-name: "@types/node"
+        update-types: [version-update:semver-major]
+
+  # The fixtures stand in for customers' projects, each at the versions its tests expect, so nothing updates them. An
+  # ignore rule that names only the dependency also stops security updates, which version-only rules (update-types)
+  # don't, so this holds back the security pull requests too, such as #15's Vite 8 for fixtures/too-old.
+  - package-ecosystem: npm
+    directories: ["/fixtures/*"]
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    ignore:
+      - dependency-name: "*"
+  - package-ecosystem: bun
+    directory: /fixtures/mantine
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    ignore:
+      - dependency-name: "*"
+
+  # The workflows call the shared pipelines' templates pinned to a commit, with the version in a comment, and Dependabot
+  # moves both. Better Apps' own releases come straight away; other actions wait out the same cooldown as npm.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 3
+      exclude: ["betterapps-hq/*"]
+    commit-message:
+      prefix: ci
+      include: scope
+    groups:
+      actions:
+        patterns: ["*"]
