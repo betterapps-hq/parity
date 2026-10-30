@@ -49,6 +49,18 @@ async function openProject(count: number): Promise<void> {
   await app.page.waitForTimeout(2000)
 }
 
+/** Opens the project again for the files after this one, unless it's open. */
+async function restoreProject(count: number): Promise<void> {
+  if ((await frames()) > 0) return
+  // An open that failed leaves its tab, with an error and no frames, which hides the start page it opens from.
+  const tabs = app.page.getByRole("tab")
+  for (let left = await tabs.count(); left > 0; left--) {
+    await app.page.keyboard.press("Control+W")
+    await expect.poll(() => tabs.count()).toBe(left - 1)
+  }
+  await openProject(count)
+}
+
 describe("closing a project", () => {
   it("gives back its canvas each time it's opened again", { timeout: 360_000 }, async () => {
     const count = await frames()
@@ -64,7 +76,7 @@ describe("closing a project", () => {
       // A canvas kept in memory is every frame's elements, tens of thousands of nodes on the example project.
       expect(await nodes()).toBeLessThan(closed + 3000)
     } finally {
-      if ((await frames()) === 0) await openProject(count)
+      await restoreProject(count)
     }
   })
 })
