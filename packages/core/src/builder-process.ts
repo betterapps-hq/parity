@@ -148,7 +148,7 @@ export interface BuilderProcessClient {
 
 export interface BuilderProcessClientOptions {
   /** Called when the process ends by itself after its builder started, with why. */
-  onCrash?(reason: string): void
+  onCrash?: (reason: string) => void
   /** How long a builder has to close before its process is ended, in milliseconds. */
   closeTimeout?: number
   /** How long a usage reading is waited for, in milliseconds. */

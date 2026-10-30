@@ -524,7 +524,7 @@ function Board({
   side: "before" | "after"
   marks: Mark[]
   focus?: number
-  onFocus(n: number | undefined): void
+  onFocus: (n: number | undefined) => void
 }) {
   return (
     <div className="relative rounded-[5px] shadow-[0_16px_40px_-12px_rgb(0_0_0/0.6)] ring-1 ring-white/[0.06]">
@@ -625,7 +625,7 @@ function VersionPicker({
   side: "before" | "after"
   value: number
   other: number
-  onPick(n: number): void
+  onPick: (n: number) => void
 }) {
   const { versions, named } = comparison
   const describe = (n: number) =>
@@ -946,7 +946,7 @@ function Foot({
   to: number
   changes: number
   asking: boolean
-  onAsk(asking: boolean): void
+  onAsk: (asking: boolean) => void
 }) {
   let ask: string
   let placeholder: string

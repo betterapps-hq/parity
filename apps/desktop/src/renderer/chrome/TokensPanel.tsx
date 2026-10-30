@@ -368,7 +368,7 @@ function panelItems({
   searching: boolean
   unmatched: Described[]
   /** How wide a list's spacing previews are. */
-  spacing(list: Kinded[]): number | undefined
+  spacing: (list: Kinded[]) => number | undefined
 }): Item[] {
   const items: Item[] = []
   const section = (title: string, count: number) =>
@@ -682,7 +682,8 @@ function TokenEditor({
             event.preventDefault()
             const data = new FormData(event.currentTarget)
             const changes = editable.flatMap((theme) => {
-              const value = String(data.get(theme) ?? "").trim()
+              const entry = data.get(theme)
+              const value = (typeof entry === "string" ? entry : "").trim()
               const current = token.values[theme] ?? ""
               return value && value !== current ? [{ name: token.name, theme, value }] : []
             })

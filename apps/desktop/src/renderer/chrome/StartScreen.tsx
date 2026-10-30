@@ -82,7 +82,7 @@ function Choice({
   title: string
   detail: string
   shortcut: string
-  onClick(): Promise<void>
+  onClick: () => Promise<void>
 }) {
   return (
     <button

@@ -298,7 +298,7 @@ export function Play({ look }: { look: Look }) {
       </svg>
       <div className="absolute inset-x-0 bottom-0" style={{ height: tiles.length * size }}>
         {tiles.flatMap((row, y) =>
-          [...row].map((kind, x) =>
+          row.split("").map((kind, x) =>
             kind === "." ? null : (
               <span
                 key={`${x}-${y}`}

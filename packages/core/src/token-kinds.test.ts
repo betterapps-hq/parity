@@ -194,4 +194,9 @@ describe("values", () => {
     ])
     expect(valueParts("cubic-bezier(0.4, 0, 0.2, 1)")).toEqual(["cubic-bezier(0.4, 0, 0.2, 1)"])
   })
+
+  it("splits after a character outside the Basic Multilingual Plane where the comma is", () => {
+    expect(valueParts("😀, b")).toEqual(["😀", "b"])
+    expect(valueParts('"🎨 Brand", sans-serif')).toEqual(['"🎨 Brand"', "sans-serif"])
+  })
 })

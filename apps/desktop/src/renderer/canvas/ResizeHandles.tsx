@@ -21,8 +21,8 @@ export interface ResizeHandlesProps {
     color: string
     edges: Edge[]
   }
-  onStart(edge: Edge, event: ReactPointerEvent): void
-  onReset(edge: Edge): void
+  onStart: (edge: Edge, event: ReactPointerEvent) => void
+  onReset: (edge: Edge) => void
 }
 
 /**

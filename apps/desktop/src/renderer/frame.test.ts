@@ -111,7 +111,8 @@ beforeAll(async () => {
   )
   await page.goto("http://parity.test/")
   // @ts-expect-error The bundle's global.
-  if (!(await page.evaluate(() => typeof frame === "object"))) throw new Error(`The page didn't load: ${errors}`)
+  if (!(await page.evaluate(() => typeof frame === "object")))
+    throw new Error(`The page didn't load: ${errors.join(",")}`)
 }, 30_000)
 
 afterAll(async () => {
@@ -342,7 +343,10 @@ describe("a frame's window", () => {
     await page.waitForTimeout(50)
     return page.evaluate((id) => {
       const button = document.querySelector(`#${id}`)!.shadowRoot!.querySelector("button")!
-      return { ...button.dataset, height: String(Math.round(button.getBoundingClientRect().height * 10) / 10) }
+      return {
+        ...Object.fromEntries(Object.entries(button.dataset)),
+        height: String(Math.round(button.getBoundingClientRect().height * 10) / 10)
+      }
     }, id)
   }
 

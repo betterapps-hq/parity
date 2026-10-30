@@ -83,7 +83,7 @@ export interface StartActions {
   /** Open a project that was just made, cloned or opened from a folder. */
   create?(project: StartProject): void
   newProject?(start?: NewProjectStart): void
-  search?(): void
+  search?: () => void
   /** For you items already dealt with, and the way to deal with them. */
   done?: readonly string[]
   markDone?(...ids: string[]): void
@@ -120,9 +120,9 @@ export function StartWindow({
   canvas?: boolean
   /** Show what's waiting in the inbox; off before there's anything to wait for. */
   inbox?: boolean
-  onSelect?(id: string): void
-  onClose?(id: string): void
-  onNew?(): void
+  onSelect?: (id: string) => void
+  onClose?: (id: string) => void
+  onNew?: () => void
   children: ReactNode
 }) {
   return (
@@ -164,9 +164,9 @@ function StartMenus({
   onHome
 }: {
   canvas?: boolean
-  onNewTab?(): void
-  onCloseTab?(): void
-  onHome?(): void
+  onNewTab?: () => void
+  onCloseTab?: () => void
+  onHome?: () => void
 }) {
   const start = useStart()
   return (
@@ -560,8 +560,8 @@ function ProjectMenu({
 }: {
   project: StartProject
   starred?: boolean
-  onStar?(): void
-  onRemove?(): void
+  onStar?: () => void
+  onRemove?: () => void
   className?: string
 }) {
   const start = useStart()
@@ -618,9 +618,9 @@ export function ProjectCard({
   project: StartProject
   showOrg?: boolean
   starred?: boolean
-  onStar?(): void
+  onStar?: () => void
   /** Take it off the list it's on. */
-  onRemove?(): void
+  onRemove?: () => void
 }) {
   const start = useStart()
   const art = useRef<HTMLDivElement>(null)
@@ -752,7 +752,7 @@ export function ContinueCard({ visit }: { visit: Visit }) {
 }
 
 /** One thing waiting for you. The row opens it; the button does the one thing it asks and clears it. */
-function ForYouRow({ item, onOpen }: { item: ForYouItem; onOpen?(): void }) {
+function ForYouRow({ item, onOpen }: { item: ForYouItem; onOpen?: () => void }) {
   const start = useStart()
   const target = projects.find((candidate) => candidate.name === item.project)
   const open = () => {
@@ -827,7 +827,7 @@ export function TextTabs<T extends string>({
 }: {
   options: { id: NoInfer<T>; label: ReactNode }[]
   value: T
-  onChange(value: NoInfer<T>): void
+  onChange: (value: NoInfer<T>) => void
 }) {
   return (
     <span className="flex items-center gap-4 text-sm">
@@ -854,7 +854,7 @@ export function Segmented<T extends string>({
 }: {
   options: { id: NoInfer<T>; label: ReactNode }[]
   value: T
-  onChange(value: NoInfer<T>): void
+  onChange: (value: NoInfer<T>) => void
 }) {
   return (
     <span className="flex items-center gap-0.5 rounded-lg bg-muted/50 p-0.5">
@@ -969,7 +969,7 @@ export function StackMark({ stack, size = 20 }: { stack: Stack; size?: number })
 }
 
 /** A template: its first design, drawn in the template's own look, then its name and the stack it's on. */
-export function TemplateCard({ template, onPick }: { template: Template; onPick?(template: Template): void }) {
+export function TemplateCard({ template, onPick }: { template: Template; onPick?: (template: Template) => void }) {
   const start = useStart()
   return (
     <button
@@ -997,7 +997,7 @@ export function TemplateCard({ template, onPick }: { template: Template; onPick?
 }
 
 /** Looks like a field, opens search: projects, designs, components, people and commands. */
-export function SearchButton({ large, onOpen }: { large?: boolean; onOpen?(): void }) {
+export function SearchButton({ large, onOpen }: { large?: boolean; onOpen?: () => void }) {
   const start = useStart()
   return (
     <button
@@ -1047,7 +1047,7 @@ export function OpenMenu({ size = "lg" }: { size?: "lg" | "default" }) {
   )
 }
 
-export function NewProjectButton({ onClick, size = "lg" }: { onClick?(): void; size?: "lg" | "default" }) {
+export function NewProjectButton({ onClick, size = "lg" }: { onClick?: () => void; size?: "lg" | "default" }) {
   const start = useStart()
   return (
     <Button size={size} onClick={onClick ?? (() => start.newProject?.())}>
@@ -1057,7 +1057,7 @@ export function NewProjectButton({ onClick, size = "lg" }: { onClick?(): void; s
 }
 
 /** Which organization's projects the page shows, and the way to switch. */
-export function OrgSwitcher({ value = "kestrel", onChange }: { value?: OrgId; onChange?(org: OrgId): void }) {
+export function OrgSwitcher({ value = "kestrel", onChange }: { value?: OrgId; onChange?: (org: OrgId) => void }) {
   const org = organizations[value]
   return (
     <DropdownMenu>

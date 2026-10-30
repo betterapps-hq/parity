@@ -117,7 +117,7 @@ export function toggleReaction(reactions: Reaction[] = [], emoji: string): React
 }
 
 /** Emoji reactions under a comment, with who reacted on hover. Yours are tinted; the smiley after them adds one. */
-export function Reactions({ reactions, onToggle }: { reactions: Reaction[]; onToggle?(emoji: string): void }) {
+export function Reactions({ reactions, onToggle }: { reactions: Reaction[]; onToggle?: (emoji: string) => void }) {
   return (
     <div className="flex flex-wrap gap-1">
       {reactions.map((reaction) => {
@@ -146,7 +146,7 @@ export function Reactions({ reactions, onToggle }: { reactions: Reaction[]; onTo
 }
 
 /** A snapshot of the frame, taken with the comment so it still makes sense after the design changes. */
-export function Snapshot({ frame, onRemove }: { frame: string; onRemove?(): void }) {
+export function Snapshot({ frame, onRemove }: { frame: string; onRemove?: () => void }) {
   return (
     <div className="flex w-fit items-center gap-2.5 rounded-lg border bg-background/60 p-1.5 pr-2 text-xs">
       <span className="flex h-11 w-8 flex-col gap-1 rounded bg-white p-1 ring-1 ring-border">
@@ -186,10 +186,10 @@ export function Comment({
   first?: boolean
   /** You can edit, so you can approve what's proposed. */
   canApprove?: boolean
-  onReact?(emoji: string): void
-  onEdit?(draft: Draft): void
-  onDelete?(): void
-  onDecide?(status: "approved" | "declined", reason?: string): void
+  onReact?: (emoji: string) => void
+  onEdit?: (draft: Draft) => void
+  onDelete?: () => void
+  onDecide?: (status: "approved" | "declined", reason?: string) => void
 }) {
   const [mode, setMode] = useState<"view" | "edit" | "delete">("view")
   // Leaving the menu for the edit box or the delete check keeps focus there, not on the menu's button.
@@ -303,7 +303,7 @@ export function Comment({
 }
 
 /** A second look before a comment goes, saying when the whole thread goes with it. Esc changes your mind. */
-function ConfirmDelete({ first, onCancel, onDelete }: { first?: boolean; onCancel(): void; onDelete(): void }) {
+function ConfirmDelete({ first, onCancel, onDelete }: { first?: boolean; onCancel: () => void; onDelete: () => void }) {
   const cancel = useRef<HTMLButtonElement>(null)
   useEffect(() => cancel.current?.focus(), [])
   const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
@@ -352,7 +352,7 @@ export function MentionMenu({
 }: {
   query?: string
   active?: number
-  onPick?(person: Person): void
+  onPick?: (person: Person) => void
   className?: string
 }) {
   const options = mentionOptions(query)
@@ -427,8 +427,8 @@ export function Composer({
   menuSide?: "top" | "bottom"
   /** Puts the caret at the end of the text as soon as it shows, as editing a comment does. */
   focusOnMount?: boolean
-  onSend?(draft: Draft): void
-  onCancel?(): void
+  onSend?: (draft: Draft) => void
+  onCancel?: () => void
   className?: string
 }) {
   const [text, setText] = useState(initial)
@@ -770,12 +770,12 @@ function ThreadMenu({
   /** The key of the issue the thread became, if it has. */
   issue?: string
   trackers: Tracker[]
-  onMarkUnread?(): void
-  onCopyLink?(): void
-  onMute(): void
-  onIssue(tracker: TrackerId | undefined, mode: "create" | "link"): void
-  onUnlink(): void
-  onDelete?(): void
+  onMarkUnread?: () => void
+  onCopyLink?: () => void
+  onMute: () => void
+  onIssue: (tracker: TrackerId | undefined, mode: "create" | "link") => void
+  onUnlink: () => void
+  onDelete?: () => void
 }) {
   // A dialog opened from the menu keeps focus; handing it back to the menu's button would close the dialog again.
   const leaving = useRef(false)
@@ -865,11 +865,11 @@ export function Thread({
   className = ""
 }: {
   thread: ThreadData
-  onChange?(thread: ThreadData): void
-  onClose?(): void
-  onMarkUnread?(): void
-  onCopyLink?(): void
-  onDelete?(): void
+  onChange?: (thread: ThreadData) => void
+  onClose?: () => void
+  onMarkUnread?: () => void
+  onCopyLink?: () => void
+  onDelete?: () => void
   /** The issue trackers the org has added, which Create issue offers. */
   trackers?: Tracker[]
   /** You can edit, so you can approve what's proposed; someone who can only comment can't. */
@@ -1115,7 +1115,7 @@ export function ThreadRow({ thread, selected }: { thread: ThreadData; selected?:
 
 type Filter = "open" | "you" | "resolved"
 
-const filters: { id: Filter; title: string; matches(thread: ThreadData): boolean }[] = [
+const filters: { id: Filter; title: string; matches: (thread: ThreadData) => boolean }[] = [
   { id: "open", title: "Open", matches: (thread) => !thread.resolved },
   {
     id: "you",

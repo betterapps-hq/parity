@@ -41,7 +41,7 @@ export interface StartedBuilder {
  */
 export function startBuilder(
   options: BuilderProcessOptions,
-  { builder, project, onCrash }: { builder: string; project: string; onCrash(error: string): void }
+  { builder, project, onCrash }: { builder: string; project: string; onCrash: (error: string) => void }
 ): StartedBuilder {
   const child = fork(script, [], {
     // Electron runs as plain Node here.

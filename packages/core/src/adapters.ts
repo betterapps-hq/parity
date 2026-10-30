@@ -176,8 +176,8 @@ export interface Guest {
    * `subscribe` hears when that changes.
    */
   renderStatus?: {
-    get(): Record<string, ComponentRenderStatus>
-    subscribe(listener: () => void): () => void
+    get: () => Record<string, ComponentRenderStatus>
+    subscribe: (listener: () => void) => () => void
   }
   /**
    * The names of an icon set's icons, as in `Heart` for `lucide/Heart`; in a style it keeps in a module of its own,

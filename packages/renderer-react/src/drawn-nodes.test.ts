@@ -30,7 +30,7 @@ function build(specs: Spec[]) {
     let below = parent
     if ("host" in spec) {
       const element: FakeElement = { nodeType: 1, tag: spec.host, parentElement: spec.outside ? null : parent }
-      elements.set(String(spec.props?.id ?? spec.host), element)
+      elements.set(String((spec.props?.id ?? spec.host) as unknown), element)
       if (spec.outside) outside.add(element)
       Object.assign(fiber, { type: spec.host, stateNode: element, memoizedProps: spec.props ?? {} })
       children = spec.children ?? []

@@ -583,7 +583,7 @@ function Action({
   children
 }: {
   label: string
-  onClick(): void
+  onClick: () => void
   danger?: boolean
   children: ReactNode
 }) {
@@ -613,8 +613,8 @@ function StopConfirm({
 }: {
   label: string
   keep: string
-  onStop(): void
-  onCancel(): void
+  onStop: () => void
+  onCancel: () => void
 }) {
   const stopRef = useRef<HTMLButtonElement>(null)
   useEffect(() => stopRef.current?.focus(), [])
@@ -647,7 +647,7 @@ function StopConfirm({
 }
 
 /** A button that asks once more before it acts. */
-function ConfirmButton({ label, confirm, onConfirm }: { label: string; confirm: string; onConfirm(): void }) {
+function ConfirmButton({ label, confirm, onConfirm }: { label: string; confirm: string; onConfirm: () => void }) {
   const [asking, setAsking] = useState(false)
   useEffect(() => {
     if (!asking) return

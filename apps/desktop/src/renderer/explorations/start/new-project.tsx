@@ -62,7 +62,7 @@ export function NewProjectDialog({
 }: {
   start: NewProjectStart
   open: boolean
-  onOpenChange?(open: boolean): void
+  onOpenChange?: (open: boolean) => void
 }) {
   const [tab, setTab] = useState(start.tab)
   return (
@@ -121,7 +121,7 @@ function SideItem({
   count
 }: {
   selected: boolean
-  onSelect(): void
+  onSelect: () => void
   icon: ReactNode
   title: string
   detail: string
@@ -244,7 +244,7 @@ function TemplateFlow({ initialStack, initialTemplate }: { initialStack?: StackI
 }
 
 /** A template in the picker: its first design, what it's for and what it adds to the stack. */
-function TemplateTile({ template, onPick }: { template: Template; onPick(template: Template): void }) {
+function TemplateTile({ template, onPick }: { template: Template; onPick: (template: Template) => void }) {
   const extra = template.adds.length - 3
   const first = template.designs[0]
   return (
@@ -345,7 +345,7 @@ function SlotSelect({
   label: string
   value: string
   options: string[]
-  onChange(value: string): void
+  onChange: (value: string) => void
 }) {
   return (
     <Field label={label} htmlFor={id}>
@@ -428,7 +428,7 @@ function startingPhysics(adds: readonly string[]): string {
 }
 
 /** A template picked: its designs beside the questions it still has, then Create. */
-function TemplateSetup({ template, onBack }: { template: Template; onBack(): void }) {
+function TemplateSetup({ template, onBack }: { template: Template; onBack: () => void }) {
   const stack = findStack(template.stack)
   const [shown, setShown] = useState(0)
   const [name, setName] = useState(starterNames[template.id] ?? "New app")

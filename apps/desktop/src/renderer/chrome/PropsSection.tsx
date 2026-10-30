@@ -12,9 +12,9 @@ interface PropsSectionProps {
   node: Extract<DesignNode, { type: "component" }>
   /** What the component accepts, when its source could be read. */
   info: ComponentInfo | undefined
-  changed(name: string): boolean
-  onChange(name: string, value: unknown): void
-  onReset(name: string): void
+  changed: (name: string) => boolean
+  onChange: (name: string, value: unknown) => void
+  onReset: (name: string) => void
 }
 
 const groupTitles = { html: "Attributes", aria: "Accessibility", event: "Events" } as const
@@ -110,14 +110,22 @@ function MadeValue({ value }: { value: unknown }) {
 }
 
 /** The right control for a prop's kind of value, with its default as the placeholder. */
-function PropInput({ prop, value, onChange }: { prop: ComponentProp; value: unknown; onChange(value: unknown): void }) {
+function PropInput({
+  prop,
+  value,
+  onChange
+}: {
+  prop: ComponentProp
+  value: unknown
+  onChange: (value: unknown) => void
+}) {
   if (isMadeValue(value)) return <MadeValue value={value} />
   const fallback = prop.default === undefined || prop.default === null ? undefined : String(prop.default)
   switch (prop.kind) {
     case "enum":
       return (
         <ChoiceInput
-          value={value === undefined ? undefined : String(value)}
+          value={value === undefined ? undefined : String(value as unknown)}
           // Options that print the same, such as `true` and `"true"`, are one choice.
           options={[...new Set((prop.options ?? []).map(String))].map((option) => ({ value: option, label: option }))}
           placeholder={fallback ? `${fallback} (default)` : "Not set"}
@@ -178,7 +186,7 @@ function AddProp({
 }: {
   props: ComponentProp[]
   free: boolean
-  onAdd(name: string, value: unknown): void
+  onAdd: (name: string, value: unknown) => void
 }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")

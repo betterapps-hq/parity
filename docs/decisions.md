@@ -1397,8 +1397,9 @@ the Repository, CI and releases stream in Linear.
   - **The desktop app runs on Vite+'s core.** A pnpm override keeps stock Vite 8 for the example project and
     builder-vite, as the call above says.
   - **Types are checked by `pnpm check:types`,** which runs `vp lint --type-aware --type-check` on TypeScript 7, on push
-    and in CI rather than in `vp check` (see the hooks below). The eight type-aware rules that flagged 229 places are
-    off until PAR-396 fixes them.
+    and in CI rather than in `vp check` (see the hooks below). Its type-aware rules are all on since PAR-396 fixed the
+    places they flagged. A disable comment can't silence one, since `vp check` lints without types and reports the
+    comment unused, so a deliberate exception is a `lint.overrides` entry for its file, with a comment saying why.
   - **Tests import from `vite-plus/test`** since PAR-393, and `prefer-vite-plus-imports` is an error everywhere but
     builder-vite, whose tests run a stock Vite and keep `vitest`.
   - **`.storybook` is type-checked now.** Outside any tsconfig, the checker had given it a program without the `@`

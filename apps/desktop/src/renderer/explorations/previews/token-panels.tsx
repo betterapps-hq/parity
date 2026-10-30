@@ -449,7 +449,7 @@ export function TokenDetail({
   editor?: boolean
   /** Its saved values, when what opened it shows them too; otherwise the detail keeps its own. */
   values?: Record<string, string>
-  onValues?(values: Record<string, string>): void
+  onValues?: (values: Record<string, string>) => void
   /** Opens it already editing, with these values typed, for a story. */
   draft?: Record<string, string>
 }) {

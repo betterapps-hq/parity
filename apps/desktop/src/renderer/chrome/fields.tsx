@@ -174,7 +174,7 @@ export function TextInput({
   mono = false
 }: {
   value: string
-  onCommit(value: string): void
+  onCommit: (value: string) => void
   placeholder?: string
   multiline?: boolean
   mono?: boolean
@@ -245,11 +245,11 @@ export interface NumberFieldProps {
   /** Said on hovering the field, such as the step a length is. */
   hint?: string
   /** Shows an edit on the canvas while it's typed or scrubbed, without making it. */
-  onPreview?(update: FieldUpdate): void
+  onPreview?: (update: FieldUpdate) => void
   /** Takes the preview back. */
-  onCancel?(): void
+  onCancel?: () => void
   /** Makes the edit, as one undo step. */
-  onCommit(update: FieldUpdate): void
+  onCommit: (update: FieldUpdate) => void
 }
 
 /**
@@ -548,7 +548,7 @@ export function ChoiceInput<T extends string>({
 }: {
   value: T | undefined
   options: { value: T; label: string }[]
-  onChange(value: T | undefined): void
+  onChange: (value: T | undefined) => void
   placeholder?: string
 }) {
   const mixed = useMixed()
@@ -574,7 +574,7 @@ export function ChoiceInput<T extends string>({
   )
 }
 
-export function SwitchInput({ value, onChange }: { value: boolean; onChange(value: boolean): void }) {
+export function SwitchInput({ value, onChange }: { value: boolean; onChange: (value: boolean) => void }) {
   return <Switch size="sm" checked={value} onCheckedChange={onChange} />
 }
 
@@ -595,7 +595,7 @@ export function ValueInput({
   value: unknown
   title?: string
   kind?: ValueKind
-  onCommit(value: unknown): void
+  onCommit: (value: unknown) => void
 }) {
   if (kind === "boolean") return <SwitchInput value={value === true} onChange={onCommit} />
   if (kind === "number") {
@@ -613,7 +613,7 @@ export function ValueInput({
     )
   }
   if (kind === "text") {
-    return <TextInput value={value === undefined ? "" : String(value)} onCommit={onCommit} />
+    return <TextInput value={value === undefined ? "" : String(value as unknown)} onCommit={onCommit} />
   }
   return <ParsedInput value={value} kind={kind} title={title} onCommit={onCommit} />
 }
@@ -631,7 +631,7 @@ function ParsedInput({
   value: unknown
   kind: "json" | "any"
   title: string
-  onCommit(value: unknown): void
+  onCommit: (value: unknown) => void
 }) {
   const shown = showValue(value, kind)
   const [error, setError] = useState<string>()
@@ -676,7 +676,7 @@ export function TokenInput({
   value: string | undefined
   tokens: Token[]
   categories: TokenCategory[]
-  onChange(value: string | undefined): void
+  onChange: (value: string | undefined) => void
 }) {
   const [open, setOpen] = useState(false)
   const mixed = useMixed()

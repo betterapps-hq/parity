@@ -316,8 +316,8 @@ function LayerSections({
   node: DesignNode
   /** What the state, variant or copy being edited changes about it, to mark and reset. */
   override: NodePatch | undefined
-  change(label: string, value: NodeChange, field: string): void
-  reset(field?: PatchField): void
+  change: (label: string, value: NodeChange, field: string) => void
+  reset: (field?: PatchField) => void
   parentStyle: NodeStyle | undefined
   /** Inside an instance, where an image's file and description belong to the component. */
   inner?: boolean
@@ -373,7 +373,7 @@ function LayerSections({
             >
               <TextInput
                 multiline
-                value={String(node.props?.children ?? "")}
+                value={String((node.props?.children ?? "") as unknown)}
                 onCommit={(children) => change("Edit label", { props: { children } }, "props.children")}
               />
             </Field>
@@ -463,7 +463,8 @@ function MakeComponent({ entry, nodeId }: { entry: ContainerEntry; nodeId: strin
       className="mt-2 flex flex-col gap-1.5"
       onSubmit={(event) => {
         event.preventDefault()
-        const name = String(new FormData(event.currentTarget).get("name") ?? "").trim()
+        const field = new FormData(event.currentTarget).get("name")
+        const name = (typeof field === "string" ? field : "").trim()
         if (!name) return
         try {
           const key = extractIntoComponent(session, entry, [nodeId], name)
@@ -502,9 +503,9 @@ function InstanceSection({
   node: InstanceNode
   /** The instance as the design has it, when it's one of the design's own nodes rather than a nested one. */
   own?: InstanceNode
-  changed(name: string): boolean
-  onChange(name: string, value: unknown): void
-  onReset(name: string): void
+  changed: (name: string) => boolean
+  onChange: (name: string, value: unknown) => void
+  onReset: (name: string) => void
 }) {
   const session = useProject()
   const { store, selection } = session

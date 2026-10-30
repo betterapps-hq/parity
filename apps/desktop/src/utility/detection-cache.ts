@@ -56,7 +56,7 @@ export async function saveDetection(
     await writeFile(cacheFile(root), JSON.stringify({ fingerprint, ...found }))
   } catch (error) {
     console.warn(
-      `[service] couldn't save what the type checker found: ${error instanceof Error ? error.message : error}`
+      `[service] couldn't save what the type checker found: ${error instanceof Error ? error.message : String(error)}`
     )
   }
 }

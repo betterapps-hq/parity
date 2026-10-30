@@ -162,7 +162,7 @@ function NoticeAvatar({ notice }: { notice: Notice }) {
  * One notification: who, what and where, what they said, and when; unread ones are dotted. Some can be answered from
  * the row, such as reviewing an agent's work or letting someone in. Opening it goes to the thread and marks it read.
  */
-export function NoticeRow({ notice, onOpen }: { notice: Notice; onOpen?(): void }) {
+export function NoticeRow({ notice, onOpen }: { notice: Notice; onOpen?: () => void }) {
   const { verb } = verbs[notice.kind]
   return (
     <div
@@ -202,7 +202,7 @@ export function NoticeRow({ notice, onOpen }: { notice: Notice; onOpen?(): void 
 
 type InboxView = "you" | "all" | "agents"
 
-const views: { id: InboxView; title: string; icon: LucideIcon; matches(notice: Notice): boolean }[] = [
+const views: { id: InboxView; title: string; icon: LucideIcon; matches: (notice: Notice) => boolean }[] = [
   {
     id: "you",
     title: "For you",
@@ -320,7 +320,7 @@ export function Inbox({ initial = notices, className = "" }: { initial?: Notice[
  * A notification that arrives while you work, for mentions and replies only. Reply answers in place without leaving
  * what you're doing; Open goes to the thread.
  */
-export function NoticeToast({ notice, onDismiss }: { notice: Notice; onDismiss?(): void }) {
+export function NoticeToast({ notice, onDismiss }: { notice: Notice; onDismiss?: () => void }) {
   const [replying, setReplying] = useState(false)
   const [sent, setSent] = useState(false)
   let reply: ReactNode
@@ -376,7 +376,7 @@ function SettingRow({
   title: string
   detail?: string
   checked: boolean
-  onChange(checked: boolean): void
+  onChange: (checked: boolean) => void
 }) {
   return (
     <label className="flex cursor-pointer items-start gap-3 rounded-lg px-2 py-2 hover:bg-muted/30">

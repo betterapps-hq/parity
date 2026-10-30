@@ -82,13 +82,15 @@ export function reactProbe(root: string): string {
 /** A compiler host that also serves `reactProbe(root)`. */
 export function withReactProbe(host: ts.CompilerHost, root: string): ts.CompilerHost {
   const probe = reactProbe(root)
-  const { getSourceFile, fileExists, readFile } = host
+  const getSourceFile = host.getSourceFile.bind(host)
+  const fileExists = host.fileExists.bind(host)
+  const readFile = host.readFile.bind(host)
   host.getSourceFile = (fileName, language, onError, create) =>
     slashes(fileName) === probe
       ? ts.createSourceFile(fileName, probeText, language, true)
-      : getSourceFile.call(host, fileName, language, onError, create)
-  host.fileExists = (fileName) => slashes(fileName) === probe || fileExists.call(host, fileName)
-  host.readFile = (fileName) => (slashes(fileName) === probe ? probeText : readFile.call(host, fileName))
+      : getSourceFile(fileName, language, onError, create)
+  host.fileExists = (fileName) => slashes(fileName) === probe || fileExists(fileName)
+  host.readFile = (fileName) => (slashes(fileName) === probe ? probeText : readFile(fileName))
   return host
 }
 

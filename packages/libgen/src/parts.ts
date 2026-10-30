@@ -868,7 +868,7 @@ async function trialValue(load: Load, value: unknown): Promise<unknown> {
   if (typeof value !== "object" || value === null) return value
   const record = value as Record<string, unknown>
   if (typeof record.$import === "string")
-    return exported(await load(record.$import), String(record.export ?? "default"))
+    return exported(await load(record.$import), String((record.export ?? "default") as unknown))
   if (typeof record.$call === "object" && record.$call !== null) {
     const call = record.$call as { import: string; export?: string }
     const fn = exported(await load(call.import), call.export ?? "default")
