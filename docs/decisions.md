@@ -1515,6 +1515,21 @@ to PAR-209 build it.
   box, inset, drop and text, motion into durations, easings and animations, and what's under Effects and Other today
   gets sections of its own: blur, aspect ratios, perspective, border widths, opacity, layers (z-index) and cursors.
   Opacity, blur and border width also become categories, since the inspector picks by category; the rest stay kinds.
+- **A token's kind comes from its value, then its name, else none (PAR-442).** You approved this method ("method E") on
+  2026-10-30, in the Design Token Previews session:
+  1. The value is resolved through the tokens it refers to, with simple `calc()` worked out.
+  2. Its shape gives the kinds it allows.
+  3. When only one fits, that's the kind.
+  4. Otherwise the name's words choose among those, and then the group it's filed under. The name never overrides the
+     value: Mantine's `color-text` is `#000`, so it's a color.
+  5. When nothing settles it, it's a setting (Other, a plain value with no preview), never a guess.
+
+  A DTCG `$type` the author states decides first. It reads CSS values and generic English words only, never a
+  framework's names. `tokens/fixtures/token-categories.json` holds every token of Chakra, Fluent, Mantine, MUI and Nova,
+  which the rules were made from, and of Primer, which they weren't. Primer is labelled from its own `$type` and Figma
+  scopes, and came to 99.7% before it was added. A test reports each library's accuracy, all at 100%. Gradients and type
+  styles have sections of their own, and Containers is now Sizes.
+
 - **What a design shows sits on the design's sheet.** Shadows, blur, opacity and type are previewed on the project's
   background in its default theme, not Parity's dark chrome; measurements (spacing, radius, z-index, motion) are
   diagrams in Parity's ink.

@@ -36,6 +36,8 @@ export function drawn(token: PreviewToken, theme = "default"): string {
 /** The panel's sections, in order, each with the kinds it holds and a heading for each kind when it holds more. */
 export const tokenSections: { title: string; kinds: { kind: PreviewKind; heading?: string }[] }[] = [
   { title: "Colors", kinds: [{ kind: "color" }] },
+  { title: "Gradients", kinds: [{ kind: "gradient" }] },
+  { title: "Text styles", kinds: [{ kind: "type-style" }] },
   { title: "Fonts", kinds: [{ kind: "font" }] },
   { title: "Font sizes", kinds: [{ kind: "font-size" }] },
   { title: "Font weights", kinds: [{ kind: "font-weight" }] },
@@ -77,7 +79,7 @@ export const tokenSections: { title: string; kinds: { kind: PreviewKind; heading
   },
   { title: "Layers", kinds: [{ kind: "z-index" }] },
   { title: "Breakpoints", kinds: [{ kind: "breakpoint" }] },
-  { title: "Containers", kinds: [{ kind: "container" }] },
+  { title: "Sizes", kinds: [{ kind: "container" }] },
   { title: "Aspect ratios", kinds: [{ kind: "aspect" }] },
   { title: "Perspective", kinds: [{ kind: "perspective" }] },
   { title: "Cursors", kinds: [{ kind: "cursor" }] },
@@ -114,6 +116,7 @@ export const onPaper = new Set<PreviewKind>([
   "backdrop-blur",
   "perspective",
   "font",
+  "type-style",
   "font-size",
   "font-weight",
   "leading",
@@ -540,7 +543,7 @@ export function TokenArt({
     case "spacing":
       return (
         <span className={`flex size-full items-center ${large ? "px-2" : "px-0.5"}`}>
-          <SpacingBar length={px(value)} room={width - (large ? 16 : 4)} />
+          <SpacingBar length={spacingPx(value)} room={width - (large ? 16 : 4)} />
         </span>
       )
     case "radius": {
@@ -645,6 +648,33 @@ export function TokenArt({
           Aa
         </span>
       )
+    case "gradient":
+      return (
+        <span
+          className="block size-full rounded-[inherit]"
+          style={{ backgroundImage: value, boxShadow: `inset 0 0 0 1px ${hairline}` }}
+        />
+      )
+    case "type-style": {
+      // The style's own family and weight, at its size up to what the box holds.
+      const size = fontSizePx(value)
+      const most = large ? 34 : 15
+      // Keyed by the value, so a new one sets every property again: the shorthand alone would undo the size.
+      return (
+        <span
+          key={value}
+          className="grid size-full place-items-center overflow-hidden"
+          style={{
+            font: value,
+            lineHeight: 1,
+            color: paper.ink,
+            fontSize: Number.isFinite(size) ? Math.min(size, most) : most
+          }}
+        >
+          Ag
+        </span>
+      )
+    }
     case "font":
       return (
         <span
@@ -916,11 +946,59 @@ export function SpacingBar({ length, room, dim = false }: { length: number; room
   )
 }
 
+/** The browser's sizes for the font-size keywords, in pixels, at the default 16px. */
+const fontSizeKeywords: Record<string, number> = {
+  "xx-small": 9,
+  "x-small": 10,
+  small: 13,
+  medium: 16,
+  large: 18,
+  "x-large": 24,
+  "xx-large": 32,
+  "xxx-large": 48,
+  smaller: 16 / 1.2,
+  larger: 16 * 1.2
+}
+
+/**
+ * The font size a `font` shorthand gives, as written: the first length, percentage or size keyword, with or without a
+ * line height after it (`600 12px Inter`, `400 1ch/1.5 …`, `400 120%/1.2 …`, `bold large serif`).
+ */
+export function fontSizeText(font: string): string | undefined {
+  const keywords = Object.keys(fontSizeKeywords).join("|")
+  const size = new RegExp(String.raw`(?:^|\s)(\d*\.?\d+(?:[a-z]+|%)|${keywords})(?=\s*\/|\s|$)`, "i")
+  return size.exec(font)?.[1]
+}
+
+/** The font size a `font` shorthand gives, in pixels: a percentage or keyword is of the default 16px. NaN for none. */
+export function fontSizePx(font: string): number {
+  const text = fontSizeText(font)?.toLowerCase()
+  if (!text) return Number.NaN
+  if (text.endsWith("%")) return (Number.parseFloat(text) / 100) * 16
+  return fontSizeKeywords[text] ?? px(text)
+}
+
+/**
+ * A spacing token's length in pixels: its largest side when it gives one to four (`4px 8px`, as a padding does), so
+ * the bar shows how far it reaches. NaN when no side is a length.
+ */
+export function spacingPx(value: string): number {
+  const sides = value
+    .trim()
+    .split(/\s+(?![^(]*\))/)
+    .map((side) => px(side))
+    .filter((side) => Number.isFinite(side))
+  return sides.length > 0 ? Math.max(...sides) : Number.NaN
+}
+
 const valueChecks: Partial<
   Record<PreviewKind, [property: string, noun: string, example: string, wrap?: (value: string) => string]>
 > = {
   color: ["color", "color", "oklch(0.6 0.2 250) or #2563eb"],
-  spacing: ["width", "length", "1rem or 16px"],
+  gradient: ["background-image", "gradient", "linear-gradient(#fff, #000)"],
+  "type-style": ["font", "font shorthand", "600 1rem/1.5 Inter, sans-serif"],
+  // Padding takes one to four lengths, as a spacing token may (`4px 8px`), and no negative ones, as width doesn't.
+  spacing: ["padding", "length", "1rem or 16px"],
   radius: ["border-radius", "radius", "0.5rem or 8px"],
   "border-width": ["border-width", "border width", "1px"],
   border: ["border", "border", "1px solid"],
@@ -980,6 +1058,7 @@ export function valueLabel(token: PreviewToken): string | undefined {
   const value = drawn(token)
   switch (token.kind) {
     case "color":
+    case "gradient":
     case "shadow":
     case "inset-shadow":
     case "drop-shadow":

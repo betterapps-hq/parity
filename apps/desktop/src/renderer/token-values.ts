@@ -1,5 +1,12 @@
 import type { DescribedTokens } from "@parity-app/core"
-import { matchDescribed, orderTokens, previewKind, substituteReferences, type Token } from "@parity-app/tokens"
+import {
+  defaultValues,
+  matchDescribed,
+  orderTokens,
+  previewKind,
+  substituteReferences,
+  type Token
+} from "@parity-app/tokens"
 import { px } from "./lengths.ts"
 
 /** Tokens by name, to look up what a reference comes to. */
@@ -35,11 +42,12 @@ export function inTokenOrder(
 ): Token[] {
   const byName = new Map(tokens.map((token) => [token.name, token]))
   const types = matchDescribed(described, tokens).byName
+  const lookup = defaultValues(tokens)
   return orderTokens(
     tokens,
     (token) => ({
       name: token.name,
-      kind: previewKind(token, types.get(token.name)?.type),
+      kind: previewKind(token, types.get(token.name)?.type, lookup),
       value: comesTo(byName, token.name) ?? ""
     }),
     length

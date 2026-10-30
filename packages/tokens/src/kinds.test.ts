@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test"
 import { readDesignTokens } from "./dtcg.ts"
 import {
   codeForms,
+  defaultValues,
   type PreviewKind,
   previewKind,
   substituteReferences,
@@ -14,9 +15,9 @@ import { describedCategories, describedTokenCss, describedTokenVar, extractToken
 
 /** Each token's kind, by name, reading tokens as the app does: compiled CSS, Tailwind's theme, a library's categories. */
 function kinds(css: string, theme: { name: string; value: string }[] = [], types = new Map<string, string>()) {
-  return Object.fromEntries(
-    extractTokens(css, theme).map((token) => [token.name, previewKind(token, types.get(token.name))])
-  )
+  const tokens = extractTokens(css, theme)
+  const lookup = defaultValues(tokens)
+  return Object.fromEntries(tokens.map((token) => [token.name, previewKind(token, types.get(token.name), lookup)]))
 }
 
 /** A registry library's tokens, read and categorized as the app reads them, by name. */
@@ -27,8 +28,43 @@ async function registryKinds(library: string): Promise<Record<string, PreviewKin
   )
   const types = new Map(described.map((token) => [describedTokenVar(token), token.type]))
   const tokens = extractTokens(describedTokenCss(described), [], describedCategories(described))
-  return Object.fromEntries(tokens.map((token) => [token.name, previewKind(token, types.get(token.name))]))
+  const lookup = defaultValues(tokens)
+  return Object.fromEntries(tokens.map((token) => [token.name, previewKind(token, types.get(token.name), lookup)]))
 }
+
+describe("defaultValues", () => {
+  it("looks a token up by its default value, or the first it has when only a dark theme sets it", () => {
+    const lookup = defaultValues([
+      { name: "radius", values: { default: "4px" } },
+      { name: "glow", values: { dark: "0 0 8px white" } }
+    ])
+    expect([lookup("radius"), lookup("glow"), lookup("missing")]).toEqual(["4px", "0 0 8px white", undefined])
+  })
+
+  it("looks a token up in a theme, else its default, and not in a theme it isn't set in", () => {
+    const lookup = defaultValues([
+      { name: "radius", values: { default: "4px", dark: "6px" } },
+      { name: "glow", values: { dark: "0 0 8px white" } }
+    ])
+    expect([lookup("radius", "dark"), lookup("radius", "contrast"), lookup("glow", "default")]).toEqual([
+      "6px",
+      "4px",
+      undefined
+    ])
+  })
+
+  it("resolves a reference in the theme the token is read in, so a dark-only token doesn't shadow a fallback", () => {
+    const tokens: Pick<Token, "name" | "values">[] = [
+      { name: "brand-surface", values: { default: "var(--brand-gradient, linear-gradient(red, blue))" } },
+      { name: "brand-gradient", values: { dark: "none" } },
+      { name: "hero", values: { dark: "var(--hero-fill)" } },
+      { name: "hero-fill", values: { default: "linear-gradient(black, navy)" } }
+    ]
+    const lookup = defaultValues(tokens)
+    expect(previewKind({ ...tokens[0]!, category: "other" }, undefined, lookup)).toBe("gradient")
+    expect(previewKind({ ...tokens[2]!, category: "other" }, undefined, lookup)).toBe("gradient")
+  })
+})
 
 describe("previewKind", () => {
   it("splits Tailwind's theme finer than its categories", () => {

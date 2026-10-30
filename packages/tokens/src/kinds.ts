@@ -1,6 +1,7 @@
 // What a token's preview draws, and the ways to write a token in code. The Tokens panel, the inspector's pickers and
 // the agent read these; the drawings themselves are the app's. docs/proposals/previews.md has the design.
 
+import { type InferredKind, inferTokenKind } from "./inference.ts"
 import type { Token } from "./tokens.ts"
 
 /**
@@ -10,6 +11,7 @@ import type { Token } from "./tokens.ts"
  */
 export type PreviewKind =
   | "color"
+  | "gradient"
   | "spacing"
   | "radius"
   | "border-width"
@@ -23,6 +25,7 @@ export type PreviewKind =
   | "font-weight"
   | "leading"
   | "tracking"
+  | "type-style"
   | "opacity"
   | "blur"
   | "backdrop-blur"
@@ -37,75 +40,71 @@ export type PreviewKind =
   | "cursor"
   | "number"
 
-const duration = /^-?\d*\.?\d+m?s$/
-const easing = /^(?:cubic-bezier|linear|steps)\(|^(?:ease|ease-in|ease-out|ease-in-out|linear|step-start|step-end)$/
-const ratio = /^\d*\.?\d+\s*\/\s*\d*\.?\d+$/
-const borderStyle = /\b(?:solid|dashed|dotted|double|groove|ridge|inset|outset|none|hidden)\b/
-const colorValue = /^(?:#[\da-f]{3,8}$|(?:rgba?|hsla?|oklch|oklab|lab|lch|hwb|color|color-mix)\()/i
+/**
+ * The preview each inferred kind draws, where the names differ: a size is drawn as a container, a setting as itself.
+ * Every other kind is a preview kind of the same name, which `previewKind`'s return type checks.
+ */
+const previewOf = {
+  "font-family": "font",
+  "line-height": "leading",
+  "letter-spacing": "tracking",
+  size: "container",
+  setting: "number"
+} as const satisfies Partial<Record<InferredKind, PreviewKind>>
+
+const isMapped = (kind: InferredKind): kind is keyof typeof previewOf => kind in previewOf
 
 /**
- * A token's preview kind, from its category, its name, its value and, for a token a library describes, its DTCG type.
- * The name is read whatever its case or separators, so Fluent's `strokeWidthThin` and Chakra's `--chakra-z-index-modal`
- * land where Tailwind's names would.
+ * A token's preview kind, inferred from its value, then its name, else none (`inference.ts`): a DTCG type the
+ * author gives decides first, and the group it's filed under (its category) is read after its own name. `lookup` gives
+ * the tokens it refers to, so `calc(var(--radius) * 0.8)` is read as the length it comes to.
  */
-export function previewKind(token: Pick<Token, "name" | "category" | "values">, type?: string): PreviewKind {
-  const name = token.name.toLowerCase().replaceAll(/[-_.]/g, "")
-  const value = (token.values.default ?? Object.values(token.values)[0] ?? "").trim()
-  switch (token.category) {
-    case "color":
-    case "spacing":
-    case "radius":
-    case "font-size":
-    case "font":
-    case "font-weight":
-    case "tracking":
-    case "leading":
-    case "breakpoint":
-    case "container":
-      return token.category
-    case "shadow":
-      if (name.includes("insetshadow") || value.startsWith("inset")) return "inset-shadow"
-      if (name.includes("dropshadow")) return "drop-shadow"
-      if (name.includes("textshadow")) return "text-shadow"
-      return "shadow"
-    case "motion":
-      // A value that is a duration or a curve says what the token is, whatever it's named: tw-animate-css's
-      // `--animation-delay-75: 75ms` is a duration.
-      if (type === "duration" || duration.test(value)) return "duration"
-      if (type === "cubicBezier" || easing.test(value)) return "easing"
-      if (name.includes("animat")) return "animation"
-      return otherKind(name, value, type)
-    default:
-      return otherKind(name, value, type)
+export function previewKind(
+  token: Pick<Token, "name" | "category" | "values">,
+  type?: string,
+  lookup?: (name: string, theme?: string) => string | undefined
+): PreviewKind {
+  // The theme the value is read in: the default, or the first a token only some theme sets has.
+  const theme = "default" in token.values ? "default" : Object.keys(token.values)[0]
+  const written = ((theme && token.values[theme]) ?? "").trim()
+  const value = lookup ? resolveReferences(written, (name) => lookup(name, theme)) : written
+  const kind = inferTokenKind(token.name, value, type, token.category)
+  if (kind === "blur" && token.name.toLowerCase().replaceAll(/[-_.]/g, "").includes("backdropblur")) {
+    return "backdrop-blur"
+  }
+  return isMapped(kind) ? previewOf[kind] : kind
+}
+
+/**
+ * What each token comes to, by name: the lookup `previewKind` resolves references with. Given a theme, a token comes
+ * to its value in that theme, else its default (which every other theme inherits), so a token only a dark theme sets
+ * is unknown to the default theme and a reference to it there takes its fallback, as in CSS. With no theme, a token
+ * comes to its default value, or the first it has (one only a dark theme sets).
+ */
+export function defaultValues(
+  tokens: readonly Pick<Token, "name" | "values">[]
+): (name: string, theme?: string) => string | undefined {
+  const values = new Map(tokens.map((token) => [token.name, token.values]))
+  return (name, theme) => {
+    const found = values.get(name)
+    if (!found) return undefined
+    if (theme === undefined) return found.default ?? Object.values(found)[0]
+    return found[theme] ?? found.default
   }
 }
 
 /**
- * The kind of a token under Effects or Other, which hold whatever the category's names didn't place. A color value
- * wins over a name, so Mantine's `--rp-curve-root-color` is a color, not an easing.
+ * A value with the tokens it refers to replaced by what they come to, through tokens that refer to others in turn; a
+ * reference `lookup` doesn't know takes its fallback, or stays as written.
  */
-function otherKind(name: string, value: string, type: string | undefined): PreviewKind {
-  // A named color, such as Chakra's `--chakra-colors-blue-contrast: white`, is known by its name.
-  if (type === "color" || colorValue.test(value) || name.includes("color")) return "color"
-  if (type === "duration" || duration.test(value)) return "duration"
-  if (name.includes("animat")) return "animation"
-  if (name.includes("backdropblur")) return "backdrop-blur"
-  if (name.includes("blur")) return "blur"
-  if (name.includes("perspective")) return "perspective"
-  if (name.includes("aspect") || ratio.test(value)) return "aspect"
-  if (name.includes("zindex")) return "z-index"
-  if (name.includes("breakpoint")) return "breakpoint"
-  if (name.includes("opacity")) return "opacity"
-  if (name.includes("cursor")) return "cursor"
-  if (/strokewidth|borderwidth|borders?(?:xs|sm|md|lg|xl|\d|thin|thick)/.test(name)) {
-    return borderStyle.test(value) ? "border" : "border-width"
+export function resolveReferences(value: string, lookup: (name: string) => string | undefined): string {
+  let resolved = value
+  for (let depth = 0; depth < 8 && resolved.includes("var("); depth++) {
+    const next = substituteReferences(resolved, lookup)
+    if (next === resolved) break
+    resolved = next
   }
-  if (type === "duration" || name.includes("duration") || duration.test(value)) return "duration"
-  if (type === "cubicBezier" || name.includes("ease") || name.includes("curve") || easing.test(value)) return "easing"
-  if (type === "shadow") return "shadow"
-  if (type === "fontFamily") return "font"
-  if (type === "fontWeight") return "font-weight"
-  return "number"
+  return resolved
 }
 
 /**

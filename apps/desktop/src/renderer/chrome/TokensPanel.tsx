@@ -1,5 +1,5 @@
 import { type ModeSettings } from "@parity-app/core"
-import { type PreviewKind, previewKind, type Token, tokenReferences } from "@parity-app/tokens"
+import { defaultValues, type PreviewKind, previewKind, type Token, tokenReferences } from "@parity-app/tokens"
 import { type LibraryToken, matchDescribed, type TokenChange } from "@parity-app/tokens"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { Check, LayoutGrid, List, Search, X } from "lucide-react"
@@ -142,10 +142,10 @@ export function TokensPanel() {
   const byName = useMemo(() => new Map(tokens.map((token) => [token.name, token])), [tokens])
   const themes = useMemo(() => [...new Set(tokens.flatMap((token) => Object.keys(token.values)))], [tokens])
   const described = useMemo(() => matchDescribed(info.describedTokens, tokens), [info.describedTokens, tokens])
-  const kinded = useMemo(
-    () => tokens.map((token) => ({ token, kind: previewKind(token, described.byName.get(token.name)?.type) })),
-    [tokens, described]
-  )
+  const kinded = useMemo(() => {
+    const lookup = defaultValues(tokens)
+    return tokens.map((token) => ({ token, kind: previewKind(token, described.byName.get(token.name)?.type, lookup) }))
+  }, [tokens, described])
   const matches = kinded.filter(
     ({ token }) =>
       (source === "all" || token.source === source) && (!needle || token.name.toLowerCase().includes(needle))
