@@ -1,6 +1,6 @@
 {
   "type": "patch",
-  "comment": "A token's code forms group its classes as Class rather than Tailwind.",
+  "comment": "A token's code forms are its CSS variable and its name, with no framework's classes.",
   "packageName": "@parity-app/cli",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "patch"

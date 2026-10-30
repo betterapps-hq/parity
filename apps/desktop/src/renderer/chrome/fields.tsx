@@ -664,7 +664,7 @@ function ParsedInput({
   )
 }
 
-const groupTitles: Record<string, string> = { semantic: "Project tokens", theme: "Theme scale" }
+const groupTitles: Record<string, string> = { semantic: "Semantic", theme: "Primitive" }
 
 /** Picks a token by name, searching the project's tokens of the given categories. Colors show swatches. */
 export function TokenInput({

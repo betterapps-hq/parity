@@ -10,7 +10,7 @@ import {
   valueParts
 } from "./token-kinds.ts"
 import { readDesignTokens } from "./tokens-dtcg.ts"
-import { describedCategories, describedTokenCss, describedTokenVar, extractTokens } from "./tokens.ts"
+import { describedCategories, describedTokenCss, describedTokenVar, extractTokens, type Token } from "./tokens.ts"
 
 /** Each token's kind, by name, reading tokens as the app does: compiled CSS, Tailwind's theme, a library's categories. */
 function kinds(css: string, theme: { name: string; value: string }[] = [], types = new Map<string, string>()) {
@@ -133,39 +133,35 @@ describe("previewKind", () => {
   })
 })
 
+describe("a value that is a duration", () => {
+  it("makes a duration, whatever the token is named", () => {
+    const token = (name: string, value: string, category: Token["category"]) => ({
+      name,
+      category,
+      values: { default: value }
+    })
+    expect(previewKind(token("animation-delay-75", "75ms", "motion"))).toBe("duration")
+    expect(previewKind(token("animation-delay-1000", "1s", "other"))).toBe("duration")
+    expect(previewKind(token("animate-spin", "spin 1s linear infinite", "motion"))).toBe("animation")
+  })
+})
+
 describe("codeForms", () => {
-  it("writes a token as var(), then the classes that use it, each saying what it sets", () => {
+  it("writes a token as var() and as its name, whichever framework it's from", () => {
     expect(codeForms("radius-md", "radius", "0.375rem")).toEqual([
       { group: "CSS", label: "Variable", text: "var(--radius-md)" },
-      { group: "Class", label: "Corner radius", text: "rounded-md" }
+      { group: "Token", label: "Name", text: "radius-md" }
     ])
-    expect(codeForms("primary", "color", "oklch(0.205 0 0)").map((form) => form.text)).toEqual([
-      "var(--primary)",
-      "bg-primary",
-      "text-primary",
-      "border-primary"
+    expect(codeForms("colorNeutralForeground1", "color", "#242424").map((form) => form.text)).toEqual([
+      "var(--colorNeutralForeground1)",
+      "colorNeutralForeground1"
     ])
-  })
-
-  it("gives a token outside Tailwind's names the class with its variable", () => {
-    expect(codeForms("chakra-z-index-modal", "z-index", "1400").at(-1)?.text).toBe("z-(--chakra-z-index-modal)")
-    expect(codeForms("strokeWidthThin", "border-width", "1px").at(-1)?.text).toBe("border-(length:--strokeWidthThin)")
   })
 
   it("writes a breakpoint as a query, since var() can't go in one", () => {
     expect(codeForms("breakpoint-md", "breakpoint", "48rem").map((form) => form.text)).toEqual([
       "@media (width >= 48rem)",
-      "md:"
-    ])
-  })
-
-  it("leaves the spacing scale's base without a class", () => {
-    expect(codeForms("spacing", "spacing", "0.25rem").map((form) => form.text)).toEqual(["var(--spacing)"])
-    expect(codeForms("spacing-4", "spacing", "1rem").map((form) => form.text)).toEqual([
-      "var(--spacing-4)",
-      "p-4",
-      "gap-4",
-      "w-4"
+      "breakpoint-md"
     ])
   })
 })
@@ -185,6 +181,19 @@ describe("values", () => {
     expect(substituteReferences("calc(var(--radius) * 0.8 + var(--gap, 2px))", (name) => values[name])).toBe(
       "calc(0.625rem * 0.8 + 2px)"
     )
+  })
+
+  it("reads a var() in another one's fallback, so a loop can't hide in one", () => {
+    expect(tokenReferences("var(--chart-1, var(--safe))")).toEqual(["chart-1", "safe"])
+    expect(tokenReferences("calc(var(--a, calc(var(--b) * 2)) + var(--c))")).toEqual(["a", "b", "c"])
+    expect(tokenReferences("var(--a, var(--b)")).toEqual(["a", "b"])
+    const values: Record<string, string> = { radius: "0.625rem" }
+    const lookup = (name: string) => values[name]
+    expect(substituteReferences("var(--missing, var(--radius))", lookup)).toBe("0.625rem")
+    expect(substituteReferences("calc(var(--missing, calc(var(--radius) * 2)) + 1px)", lookup)).toBe(
+      "calc(calc(0.625rem * 2) + 1px)"
+    )
+    expect(substituteReferences("var(--missing, var(--unknown))", lookup)).toBe("var(--unknown)")
   })
 
   it("splits a value at the commas outside brackets", () => {

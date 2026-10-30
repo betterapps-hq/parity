@@ -351,7 +351,7 @@ export function TokensPanel({
               return (
                 <div key="colors">
                   {own.length > 0 && (
-                    <PanelSection title="Project colors" count={own.length}>
+                    <PanelSection title="Semantic colors" count={own.length}>
                       <TokenList tokens={own} view={view} playing={playing} open={open} />
                     </PanelSection>
                   )}
@@ -910,7 +910,7 @@ export function TokenPicker({
           <CommandList className="max-h-64">
             <CommandEmpty>No token matches.</CommandEmpty>
             {[...groups].map(([source, list]) => (
-              <CommandGroup key={source} heading={source === "semantic" ? "Project tokens" : "Theme scale"}>
+              <CommandGroup key={source} heading={source === "semantic" ? "Semantic" : "Primitive"}>
                 {list.map((token) => (
                   <CommandItem
                     key={token.name}

@@ -1144,7 +1144,7 @@ export function LengthInput({
               <CommandList className="max-h-72">
                 <CommandEmpty>No length matches.</CommandEmpty>
                 {named.length > 0 && (
-                  <CommandGroup heading="Project tokens">
+                  <CommandGroup heading="Semantic">
                     {named.map((token) => (
                       <CommandItem
                         key={token.name}

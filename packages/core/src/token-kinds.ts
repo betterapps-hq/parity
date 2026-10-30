@@ -69,9 +69,11 @@ export function previewKind(token: Pick<Token, "name" | "category" | "values">, 
       if (name.includes("textshadow")) return "text-shadow"
       return "shadow"
     case "motion":
-      if (name.includes("animat")) return "animation"
+      // A value that is a duration or a curve says what the token is, whatever it's named: tw-animate-css's
+      // `--animation-delay-75: 75ms` is a duration.
       if (type === "duration" || duration.test(value)) return "duration"
       if (type === "cubicBezier" || easing.test(value)) return "easing"
+      if (name.includes("animat")) return "animation"
       return otherKind(name, value, type)
     default:
       return otherKind(name, value, type)
@@ -85,6 +87,7 @@ export function previewKind(token: Pick<Token, "name" | "category" | "values">, 
 function otherKind(name: string, value: string, type: string | undefined): PreviewKind {
   // A named color, such as Chakra's `--chakra-colors-blue-contrast: white`, is known by its name.
   if (type === "color" || colorValue.test(value) || name.includes("color")) return "color"
+  if (type === "duration" || duration.test(value)) return "duration"
   if (name.includes("animat")) return "animation"
   if (name.includes("backdropblur")) return "backdrop-blur"
   if (name.includes("blur")) return "blur"
@@ -106,109 +109,77 @@ function otherKind(name: string, value: string, type: string | undefined): Previ
 }
 
 /**
- * One way to write a token in code, saying what it sets, and the text itself: in CSS, which works anywhere, or as a
- * class, which works where the project styles with Tailwind.
+ * One way to write a token, saying what it is, and the text itself: in CSS, as `var()`, since a token is a CSS variable
+ * whichever framework defined it, or as the token's name (`radius-md`), which Parity's own fields take as a value.
  */
 export interface CodeForm {
-  group: "CSS" | "Class"
+  group: "CSS" | "Token"
   label: string
   text: string
 }
 
 /**
- * Each kind's Tailwind theme namespace and the utilities that read it, each with what it sets. A token named in the
- * namespace (`radius-md`) gets the utility Tailwind makes for it (`rounded-md`); any other gets the utility with the
- * variable (`z-(--chakra-z-index-modal)`).
+ * The ways to write a token, for the detail's Copy as menu: `var()`, which works anywhere CSS does, and the token's
+ * name. Nothing a framework adds, such as a class, since a variable doesn't say what else uses it. A breakpoint is a
+ * media query instead, as `var()` can't go in one; `value` is what the token comes to, which the query is written with.
  */
-const utilities: Partial<Record<PreviewKind, [namespace: string, utilities: [utility: string, sets: string][]]>> = {
-  color: [
-    "color-",
-    [
-      ["bg", "Background"],
-      ["text", "Text"],
-      ["border", "Border"]
-    ]
-  ],
-  spacing: [
-    "spacing-",
-    [
-      ["p", "Padding"],
-      ["gap", "Gap"],
-      ["w", "Width"]
-    ]
-  ],
-  radius: ["radius-", [["rounded", "Corner radius"]]],
-  "border-width": ["", [["border", "Border width"]]],
-  shadow: ["shadow-", [["shadow", "Shadow"]]],
-  "inset-shadow": ["inset-shadow-", [["inset-shadow", "Inset shadow"]]],
-  "drop-shadow": ["drop-shadow-", [["drop-shadow", "Drop shadow"]]],
-  "text-shadow": ["text-shadow-", [["text-shadow", "Text shadow"]]],
-  font: ["font-", [["font", "Font"]]],
-  "font-size": ["text-", [["text", "Font size"]]],
-  "font-weight": ["font-weight-", [["font", "Font weight"]]],
-  leading: ["leading-", [["leading", "Line height"]]],
-  tracking: ["tracking-", [["tracking", "Letter spacing"]]],
-  opacity: ["", [["opacity", "Opacity"]]],
-  blur: ["blur-", [["blur", "Blur"]]],
-  "backdrop-blur": ["blur-", [["backdrop-blur", "Backdrop blur"]]],
-  perspective: ["perspective-", [["perspective", "Perspective"]]],
-  aspect: ["aspect-", [["aspect", "Aspect ratio"]]],
-  duration: ["", [["duration", "Duration"]]],
-  easing: ["ease-", [["ease", "Easing"]]],
-  animation: ["animate-", [["animate", "Animation"]]],
-  "z-index": ["", [["z", "Stacking"]]],
-  container: ["container-", [["max-w", "Max width"]]],
-  cursor: ["", [["cursor", "Cursor"]]]
+export function codeForms(name: string, kind: PreviewKind, value: string): CodeForm[] {
+  const css: CodeForm =
+    kind === "breakpoint"
+      ? { group: "CSS", label: "Media query", text: `@media (width >= ${value})` }
+      : { group: "CSS", label: "Variable", text: `var(--${name})` }
+  return [css, { group: "Token", label: "Name", text: name }]
 }
 
 /**
- * The ways to write a token in code, for the detail's Copy as menu: `var()`, which works anywhere CSS does, then the
- * classes that use it, which are Tailwind's, so the menu offers them only to a project that styles with it. A breakpoint is a query instead (`@media (width >= 48rem)`, `md:`), as `var()` can't
- * go in one. `value` is what the token comes to, which a breakpoint's media query is written with.
+ * Each outermost `var()` in a value: where it starts and ends, its token, and its fallback as written. A fallback runs
+ * to the bracket that closes its `var()`, so it can hold brackets and `var()`s of its own (`var(--a, var(--b))`).
  */
-export function codeForms(name: string, kind: PreviewKind, value: string): CodeForm[] {
-  const css: CodeForm = { group: "CSS", label: "Variable", text: `var(--${name})` }
-  const step = (namespace: string) => (namespace && name.startsWith(namespace) ? name.slice(namespace.length) : "")
-  if (kind === "breakpoint") {
-    return [
-      { group: "CSS", label: "Media query", text: `@media (width >= ${value})` },
-      { group: "Class", label: "Variant", text: `${step("breakpoint-") || name}:` }
-    ]
+function outerReferences(value: string): { start: number; end: number; name: string; fallback?: string }[] {
+  const found: { start: number; end: number; name: string; fallback?: string }[] = []
+  const opening = /var\(\s*--([\w-]+)\s*([,)])/g
+  for (let match = opening.exec(value); match; match = opening.exec(value)) {
+    const [, name = "", after] = match
+    if (after === ")") {
+      found.push({ start: match.index, end: opening.lastIndex, name })
+      continue
+    }
+    let depth = 1
+    let at = opening.lastIndex
+    for (; at < value.length; at++) {
+      if (value[at] === "(") depth++
+      else if (value[at] === ")" && --depth === 0) break
+    }
+    // A fallback left open has no end to substitute up to, though its token is still referred to.
+    if (depth > 0) {
+      found.push({ start: match.index, end: value.length, name, fallback: value.slice(opening.lastIndex) })
+      break
+    }
+    found.push({ start: match.index, end: at + 1, name, fallback: value.slice(opening.lastIndex, at) })
+    opening.lastIndex = at + 1
   }
-  if (kind === "border") return [css, { group: "Class", label: "Border", text: `[border:${css.text}]` }]
-  const [namespace, names] = utilities[kind] ?? ["", []]
-  const named = step(namespace) || undefined
-  // A project's own colors reach Tailwind through `@theme inline`, by their own names (`bg-primary`).
-  const own = named ?? (kind === "color" ? name : undefined)
-  const classes = names.map(([utility, label]): CodeForm => ({
-    group: "Class",
-    label,
-    text: tailwindClass(utility, own, kind, name)
-  }))
-  if (kind === "container" && named) classes.push({ group: "Class", label: "Container query", text: `@${named}:` })
-  // The spacing scale's base is what its steps are made of, not a length a class sets.
-  return kind === "spacing" && !named ? [css] : [css, ...classes]
+  return found
 }
 
-/** A Tailwind class for a token: by its own name when it has one, otherwise through its variable. */
-function tailwindClass(utility: string, own: string | undefined, kind: PreviewKind, name: string): string {
-  if (own) return `${utility}-${own}`
-  return kind === "border-width" ? `${utility}-(length:--${name})` : `${utility}-(--${name})`
-}
-
-const reference = /var\(\s*--([\w-]+)\s*(?:,([^()]*))?\)/g
-
-/** The tokens a value refers to with `var()`, in order. */
+/** The tokens a value refers to with `var()`, in order, including those in another's fallback. */
 export function tokenReferences(value: string): string[] {
-  return [...value.matchAll(reference)].map((match) => match[1]!)
+  return outerReferences(value).flatMap(({ name, fallback }) => [name, ...(fallback ? tokenReferences(fallback) : [])])
 }
 
 /**
  * A value with each `var()` replaced by what `lookup` gives for its token: `calc(var(--radius) * 0.8)` becomes
- * `calc(0.625rem * 0.8)`. A reference `lookup` doesn't know takes its fallback, or stays as written.
+ * `calc(0.625rem * 0.8)`. A reference `lookup` doesn't know takes its fallback, itself substituted, or stays as written.
  */
 export function substituteReferences(value: string, lookup: (name: string) => string | undefined): string {
-  return value.replace(reference, (whole, name: string, fallback?: string) => lookup(name) ?? fallback?.trim() ?? whole)
+  let substituted = ""
+  let last = 0
+  for (const { start, end, name, fallback } of outerReferences(value)) {
+    const written = value.slice(start, end)
+    const own = lookup(name) ?? (fallback === undefined ? written : substituteReferences(fallback.trim(), lookup))
+    substituted += value.slice(last, start) + own
+    last = end
+  }
+  return substituted + value.slice(last)
 }
 
 /**

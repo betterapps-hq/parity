@@ -78,7 +78,7 @@ async function retype(dialog: HTMLElement, theme: string, value: string): Promis
 export const AllTokens: Story = {
   loaders: [openTokens],
   play: async ({ canvasElement }) => {
-    await within(canvasElement).findByText("Project colors")
+    await within(canvasElement).findByText("Semantic colors")
     await expect(document.getAnimations()).toHaveLength(0)
   }
 }
@@ -103,16 +103,16 @@ export const Copying: Story = {
     // Stands in for the clipboard while the checks run, then puts it back so the story copies for real.
     const writes = spyOn(navigator.clipboard, "writeText").mockResolvedValue()
     try {
-      await userEvent.click(await canvas.findByRole("button", { name: "Copy --primary" }))
-      await expect(writes).toHaveBeenLastCalledWith("--primary")
-      await expect(canvas.getByRole("button", { name: "Copy --primary" })).toHaveAttribute("data-copied", "copied")
+      await userEvent.click(await canvas.findByRole("button", { name: "Copy primary" }))
+      await expect(writes).toHaveBeenLastCalledWith("primary")
+      await expect(canvas.getByRole("button", { name: "Copy primary" })).toHaveAttribute("data-copied", "copied")
       canvas.getByText("secondary").closest("button")!.focus()
       await userEvent.keyboard("{Control>}c{/Control}")
-      await expect(writes).toHaveBeenLastCalledWith("--secondary")
+      await expect(writes).toHaveBeenLastCalledWith("secondary")
       // The theme's tokens on their own put the palette at the top.
-      await userEvent.click(canvas.getByRole("radio", { name: /^Theme/ }))
-      await userEvent.click(await canvas.findByRole("button", { name: "Copy --color-blue-500" }))
-      await expect(writes).toHaveBeenLastCalledWith("--color-blue-500")
+      await userEvent.click(canvas.getByRole("radio", { name: /^Primitive/ }))
+      await userEvent.click(await canvas.findByRole("button", { name: "Copy color-blue-500" }))
+      await expect(writes).toHaveBeenLastCalledWith("color-blue-500")
       await waitFor(() => expect(within(document.body).getAllByText("Copied").length).toBeGreaterThan(0))
     } finally {
       writes.mockRestore()
@@ -132,7 +132,7 @@ export const Motion: Story = {
 export const ProjectTokens: Story = {
   loaders: [openTokens],
   play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByRole("radio", { name: /^Project/ }))
+    await userEvent.click(within(canvasElement).getByRole("radio", { name: /^Semantic/ }))
   }
 }
 
@@ -140,7 +140,7 @@ export const ProjectTokens: Story = {
 export const ThemeScale: Story = {
   loaders: [openTokens],
   play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByRole("radio", { name: /^Theme/ }))
+    await userEvent.click(within(canvasElement).getByRole("radio", { name: /^Primitive/ }))
   }
 }
 
@@ -220,7 +220,7 @@ export const Narrow: Story = {
   },
   play: async ({ canvasElement }) => {
     const panel = within(canvasElement)
-    await panel.findByText("Project colors")
+    await panel.findByText("Semantic colors")
     const filters = panel.getAllByRole("radio")
     for (const filter of filters) await expect(filter.scrollWidth).toBeLessThanOrEqual(filter.clientWidth + 1)
     const tabs = panel.getByRole("tablist")
@@ -247,11 +247,11 @@ export const Detail: Story = {
   play: async ({ canvasElement }) => {
     const dialog = await open(canvasElement, "primary")
     const detail = within(dialog)
-    await detail.findByRole("heading", { name: "--primary" })
+    await detail.findByRole("heading", { name: "primary" })
     await expect(detail.getAllByText("Light").length).toBeGreaterThan(0)
     await expect(detail.getAllByText("Dark").length).toBeGreaterThan(0)
     await expect(dialog).not.toHaveTextContent(".dark")
-    await expect(detail.getByRole("button", { name: "Copy --primary" })).toBeInTheDocument()
+    await expect(detail.getByRole("button", { name: "Copy primary" })).toBeInTheDocument()
     await expect(detail.getByRole("button", { name: "Copy as" })).toBeInTheDocument()
   }
 }
@@ -282,7 +282,7 @@ export const SpacingStep: Story = {
   play: async ({ canvasElement }) => {
     await search(canvasElement, "spacing-4")
     const dialog = await open(canvasElement, "spacing-4")
-    await within(dialog).findByText("--spacing × 4")
+    await within(dialog).findByText("spacing × 4")
     await expect(within(dialog).getByRole("button", { name: "Edit" })).toBeDisabled()
   }
 }
@@ -297,7 +297,7 @@ export const InvalidValue: Story = {
     await expect(within(dialog).getByRole("button", { name: "Apply" })).toBeDisabled()
     // A token built on itself would come to nothing, though its own name looks up its old value.
     await retype(dialog, "default", "var(--primary)")
-    await within(dialog).findByText("--primary can't be built on itself.")
+    await within(dialog).findByText("primary can't be built on itself.")
     await expect(within(dialog).getByRole("button", { name: "Apply" })).toBeDisabled()
   }
 }
@@ -314,7 +314,7 @@ export const UnclosedBracket: Story = {
     await retype(dialog, "default", "calc(var(--spacing) * 2.6")
     await within(dialog).findByText("A bracket isn't closed. Add ) at the end.")
     await retype(dialog, "default", "calc(var(--radius-huge) * 2)")
-    await within(dialog).findByText("There's no token named --radius-huge.")
+    await within(dialog).findByText("There's no token named radius-huge.")
     await expect(within(dialog).getByRole("button", { name: "Apply" })).toBeDisabled()
   }
 }
@@ -332,7 +332,7 @@ export const ReferenceToAnotherToken: Story = {
     await within(dialog).findByText("Applied. Saving writes it to src/index.css.")
     // Apply took away the button that had the keyboard, so Edit has it now.
     await waitFor(() => expect(within(dialog).getByRole("button", { name: "Edit" })).toHaveFocus())
-    await expect(example().store.getHistory().undoLabel).toBe("Edit --primary")
+    await expect(example().store.getHistory().undoLabel).toBe("Edit primary")
     await expect(example().store.hasUnsaved()).toBe(true)
     // Editing again and cancelling changes nothing, so Undo is still there.
     await userEvent.click(within(dialog).getByRole("button", { name: "Edit" }))
@@ -347,7 +347,8 @@ export const ReferenceToAnotherToken: Story = {
 
 /**
  * A value that would loop back to the token through another: with --primary built on --chart-1, --chart-1 can't be
- * built on --primary, though checked against --primary's old value it would pass.
+ * built on --primary, though checked against --primary's old value it would pass, nor on a value with --primary in a
+ * fallback.
  */
 export const ReferenceLoop: Story = {
   loaders: [openTokens],
@@ -364,13 +365,19 @@ export const ReferenceLoop: Story = {
     const dialog = await waitFor(() => {
       const found = within(document.body)
         .getAllByRole("dialog")
-        .find((open) => within(open).queryByRole("heading", { name: "--chart-1" }))
-      if (!found) throw new Error("--chart-1's detail isn't open")
+        .find((open) => within(open).queryByRole("heading", { name: "chart-1" }))
+      if (!found) throw new Error("chart-1's detail isn't open")
       return found
     })
     await userEvent.click(within(dialog).getByRole("button", { name: "Edit" }))
     await retype(dialog, "default", "var(--primary)")
-    await within(dialog).findByText("--primary is built on --chart-1, so this would loop.")
+    await within(dialog).findByText("primary is built on chart-1, so this would loop.")
+    await expect(within(dialog).getByRole("button", { name: "Apply" })).toBeDisabled()
+    // A loop in another var()'s fallback is a loop too.
+    await retype(dialog, "default", "var(--chart-2)")
+    await waitFor(() => expect(within(dialog).getByRole("button", { name: "Apply" })).toBeEnabled())
+    await retype(dialog, "default", "var(--chart-2, var(--primary))")
+    await within(dialog).findByText("primary is built on chart-1, so this would loop.")
     await expect(within(dialog).getByRole("button", { name: "Apply" })).toBeDisabled()
   }
 }
@@ -394,7 +401,7 @@ export const SaveFails: Story = {
       .store.flush()
       .catch(() => undefined)
     const canvas = within(canvasElement)
-    const title = await canvas.findByText(/^Couldn't write --primary to .+\.css$/)
+    const title = await canvas.findByText(/^Couldn't write primary to .+\.css$/)
     await expect(title.closest('[role="alert"]')).toHaveTextContent(/EPERM/)
     await waitFor(() => expect(canvas.getAllByText("Not written to the stylesheet").length).toBeGreaterThan(0))
   }

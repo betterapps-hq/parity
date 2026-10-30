@@ -31,6 +31,7 @@ import {
   rest,
   SpacingBar,
   TokenArt,
+  themesByValue,
   TokenTile,
   useReducedMotion,
   valueLabel,
@@ -65,7 +66,6 @@ export function TokenDetail({
   themeNames,
   scale,
   stylesheet,
-  classes,
   lookup,
   references,
   onApply,
@@ -79,8 +79,6 @@ export function TokenDetail({
   scale: readonly PreviewToken[]
   /** Where saving the project writes it. */
   stylesheet: string
-  /** Whether the project styles with Tailwind, so Copy as offers the classes that use the token. */
-  classes: boolean
   /** What another token comes to in a theme, or undefined when there's no token of that name. */
   lookup(name: string, theme: string): string | undefined
   /** The tokens another token's value in a theme is built on, as written, so a value that loops back is refused. */
@@ -178,7 +176,7 @@ export function TokenDetail({
       </div>
       <header className="flex flex-col gap-0.5 p-3">
         <div className="flex items-baseline gap-3">
-          <h3 className="min-w-0 flex-1 truncate font-mono text-sm font-medium">--{preview.name}</h3>
+          <h3 className="min-w-0 flex-1 truncate font-mono text-sm font-medium">{preview.name}</h3>
           {comesTo && <span className="shrink-0 font-mono text-sm text-muted-foreground tabular-nums">{comesTo}</span>}
         </div>
         {token.description && <p className="text-xs text-muted-foreground">{token.description}</p>}
@@ -269,7 +267,7 @@ export function TokenDetail({
                 {built.map((name) => (
                   <span key={name} className="flex min-w-0 items-baseline gap-2">
                     <code className="shrink-0 font-mono whitespace-nowrap">
-                      --{name}
+                      {name}
                       {token.derived && ` × ${token.derived.factor}`}
                     </code>
                     <code className="truncate font-mono text-muted-foreground">{lookup(name, "default")}</code>
@@ -301,9 +299,7 @@ export function TokenDetail({
           ) : (
             <>
               <Hint
-                label={
-                  token.derived ? `It follows --${token.derived.from}: change that to resize every step` : undefined
-                }
+                label={token.derived ? `It follows ${token.derived.from}: change that to resize every step` : undefined}
               >
                 {/* A disabled button takes no pointer, so its hint is on a wrapper. */}
                 <span className="-ml-2">
@@ -321,7 +317,7 @@ export function TokenDetail({
                 </span>
               </Hint>
               <span className="flex-1" />
-              <CopyMenu token={preview} classes={classes} />
+              <CopyMenu token={preview} />
             </>
           )}
         </footer>
@@ -339,12 +335,12 @@ export function TokenDetail({
   references: (name: string) => readonly string[]
 ): string | undefined {
   for (const start of new Set(tokenReferences(value))) {
-    if (start === self) return `--${self} can't be built on itself.`
+    if (start === self) return `${self} can't be built on itself.`
     const seen = new Set<string>()
     const next = [start]
     while (next.length > 0) {
       const name = next.pop()!
-      if (name === self) return `--${start} is built on --${self}, so this would loop.`
+      if (name === self) return `${start} is built on ${self}, so this would loop.`
       if (seen.has(name)) continue
       seen.add(name)
       next.push(...references(name))
@@ -376,16 +372,16 @@ export function themeLabel(theme: string, themes: readonly string[], names: Read
 
 /**
  * The detail's copy control, a split button. Its main half copies the name, as rows do; its arrow opens the other ways
- * to write the token, in CSS and, in a Tailwind project, as classes, each saying what it sets. Whichever is copied, the main half's check says
- * so, and its tooltip names what was copied.
+ * to write the token: `var()` under CSS, and its name under Token. Whichever is copied,
+ * the main half's check says so, and its tooltip names what was copied.
  */
-function CopyMenu({ token, classes }: { token: PreviewToken; classes: boolean }) {
+function CopyMenu({ token }: { token: PreviewToken }) {
   const copying = useCopy()
-  const forms = codeForms(token.name, token.kind, drawn(token)).filter((form) => classes || form.group === "CSS")
+  const forms = codeForms(token.name, token.kind, drawn(token))
   const groups = Map.groupBy(forms, (form) => form.group)
   return (
     <div className="flex items-center rounded-lg border bg-background shadow-xs dark:border-input dark:bg-input/30">
-      <CopyButton text={`--${token.name}`} copying={copying} className="rounded-r-none">
+      <CopyButton text={token.name} copying={copying} className="rounded-r-none">
         Copy
       </CopyButton>
       <span aria-hidden className="h-4 w-px bg-border" />
@@ -451,18 +447,20 @@ export function DetailPreview({
   const others = scale.filter((other) => other.name !== token.name)
   switch (token.kind) {
     case "color": {
+      // Themes that share a value are one swatch, named for each ("Light and Dark"); different ones are split by a gap.
       const themes = Object.keys(token.values)
+      const groups = themesByValue(token, themes)
       return (
-        <div className="flex h-24 overflow-hidden rounded-md border border-white/10">
-          {themes.map((theme) => (
-            <div key={theme} className="relative flex-1">
-              <TokenArt token={token} width={width / themes.length} height={96} theme={theme} />
+        <div className="flex h-24 gap-px overflow-hidden rounded-md border border-white/10">
+          {groups.map((group) => (
+            <div key={group[0]} className="relative flex-1">
+              <TokenArt token={token} width={width / groups.length} height={96} theme={group[0]} />
               {themes.length > 1 && (
                 <span
                   className="absolute bottom-1.5 left-2 rounded px-1 text-[10px]"
                   style={{ background: "rgb(0 0 0 / 0.55)", color: "white" }}
                 >
-                  {themeLabel(theme, themes, themeNames)}
+                  {listed(group.map((theme) => themeLabel(theme, themes, themeNames)))}
                 </span>
               )}
             </div>
@@ -504,6 +502,11 @@ export function DetailPreview({
     default:
       return <TokenTile token={token} width={width} height={120} playing={playing} />
   }
+}
+
+/** Names as a sentence lists them: "Light", "Light and Dark", "Light, Dark and High contrast". */
+function listed(names: readonly string[]): string {
+  return names.length < 2 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`
 }
 
 /** Up to nine of a scale's steps around this one, in order, so a long scale doesn't push the facts off the screen. */

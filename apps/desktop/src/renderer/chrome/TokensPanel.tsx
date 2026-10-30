@@ -15,6 +15,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   useContext,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState
@@ -220,6 +221,19 @@ export function TokensPanel() {
     getItemKey: (index) => items[index]!.key,
     overscan: 8
   })
+  // Tiles are two to a row, each as wide as its column: the list's width less its padding and the gap, halved, less the
+  // tile button's own padding. A fixed width ran each tile into the next in a narrow panel.
+  const [tileWidth, setTileWidth] = useState(104)
+  useLayoutEffect(() => {
+    const element = scroller.current
+    if (!element) return undefined
+    const observer = new ResizeObserver(([entry]) => {
+      const column = (entry!.contentRect.width - 24 - 4) / 2
+      setTileWidth(Math.max(48, Math.floor(column - 8)))
+    })
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
 
   const draw = (item: Item): ReactNode => {
     switch (item.type) {
@@ -256,6 +270,7 @@ export function TokensPanel() {
                 entry={entry}
                 tokens={byName}
                 themes={themes}
+                width={tileWidth}
                 unwritten={unwritten.has(entry.token.name)}
               />
             ))}
@@ -265,7 +280,7 @@ export function TokensPanel() {
         return (
           <div className="flex items-center gap-1.5 px-3 pb-1">
             <span className="w-14 shrink-0 truncate px-1 text-[11px] text-muted-foreground">{item.hue}</span>
-            <div className="flex flex-1 gap-px overflow-hidden rounded-sm">
+            <div className="flex flex-1 gap-px">
               {item.shades.map((shade) => (
                 <PaletteShade
                   key={shade.name}
@@ -338,15 +353,18 @@ export function TokensPanel() {
           <ToggleGroupItem value="all" className="h-7 min-w-0 flex-1 px-1.5 text-xs">
             All
           </ToggleGroupItem>
-          <Hint label={`The project's own variables, ${counts.semantic}`} wait>
+          <Hint label={`Semantic tokens, named for what they're for, ${counts.semantic}`} wait>
             <ToggleGroupItem value="semantic" className="h-7 min-w-0 flex-1 gap-1 px-1.5 text-xs aria-checked:bg-muted">
-              <span className="truncate">Project</span>
+              <span className="truncate">Semantic</span>
               <SourceCount count={counts.semantic} />
             </ToggleGroupItem>
           </Hint>
-          <Hint label={`${info.styles ? `${info.styles.name}'s theme` : "The theme scale"}, ${counts.theme}`} wait>
+          <Hint
+            label={`Primitive tokens, the raw scale${info.styles ? ` from ${info.styles.name}'s theme` : ""}, ${counts.theme}`}
+            wait
+          >
             <ToggleGroupItem value="theme" className="h-7 min-w-0 flex-1 gap-1 px-1.5 text-xs aria-checked:bg-muted">
-              <span className="truncate">Theme</span>
+              <span className="truncate">Primitive</span>
               <SourceCount count={counts.theme} />
             </ToggleGroupItem>
           </Hint>
@@ -448,9 +466,9 @@ function panelItems({
       const own = groups[0]!.entries.filter((entry) => entry.token.source === "semantic")
       const scale = groups[0]!.entries.filter((entry) => entry.token.source === "theme")
       if (own.length > 0) {
-        section("Project colors", own.length)
+        section("Semantic colors", own.length)
         list(own)
-        end("Project colors")
+        end("Semantic colors")
       }
       if (scale.length > 0) {
         section("Palette", scale.length)
@@ -538,7 +556,7 @@ function TokenRow({
   const preview = previewOf(entry, tokens, themes)
   const { playing, handlers } = useHoverPlay(kind)
   const copying = useCopy()
-  const name = `--${token.name}`
+  const name = token.name
   const value = valueLabel(preview)
   return (
     <div {...handlers} className="group/token relative flex items-center">
@@ -583,18 +601,21 @@ function TokenTileButton({
   entry,
   tokens,
   themes,
+  width,
   unwritten = false
 }: {
   entry: Kinded
   tokens: TokenMap
   themes: string[]
+  /** The preview's width: its column's, so tiles side by side never overlap. */
+  width: number
   unwritten?: boolean
 }) {
   const { token, kind } = entry
   const preview = previewOf(entry, tokens, themes)
   const { playing, handlers } = useHoverPlay(kind)
   const copying = useCopy()
-  const name = `--${token.name}`
+  const name = token.name
   const value = unwritten ? "Not written" : valueLabel(preview)
   return (
     <div {...handlers} className="group/token relative flex min-w-0">
@@ -604,7 +625,7 @@ function TokenTileButton({
           onKeyDown={copyKey(() => copying.copy(name))}
           className="flex min-w-0 flex-1 flex-col gap-1 rounded-md p-1 text-left group-hover/token:bg-accent/50 aria-expanded:bg-accent"
         >
-          <TokenTile token={preview} width={120} height={58} playing={playing} />
+          <TokenTile token={preview} width={width} height={58} playing={playing} />
           <span className="flex min-w-0 items-baseline gap-1 px-0.5">
             <span className="min-w-0 flex-1 truncate font-mono text-[11px]">{token.name}</span>
             {value && (
@@ -627,21 +648,18 @@ function TokenTileButton({
 }
 
 /**
- * A shade in the palette grid: a click copies its name, as there's little else to do with one of 242. Searching lists
- * the shades that match as rows, which open the editor.
+ * A shade in the palette grid: its tooltip is its name, and a click copies that name, as there's little else to do with
+ * one of 242. Hovered or focused, it rises above its neighbours with a ring set off by the panel's color, so the ring
+ * shows whole on a light shade or a dark one. Searching lists the shades that match as rows, which open the editor.
  */
 function PaletteShade({ token, value, unwritten }: { token: Token; value: string; unwritten: boolean }) {
-  const name = `--${token.name}`
+  const name = token.name
   return (
-    <CopyOnClick
-      text={name}
-      hint={`${token.name}: ${value}${unwritten ? ", not written to the stylesheet" : ""}`}
-      detail="Click to copy"
-    >
+    <CopyOnClick text={name} hint={name}>
       <button
         type="button"
         aria-label={`Copy ${name}`}
-        className={`h-5 flex-1 hover:outline-2 hover:outline-offset-1 hover:outline-foreground ${
+        className={`relative h-5 flex-1 first:rounded-l-sm last:rounded-r-sm hover:z-10 hover:ring-1 hover:ring-foreground hover:ring-offset-1 hover:ring-offset-background focus-visible:z-10 focus-visible:ring-1 focus-visible:ring-foreground focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none ${
           unwritten ? "outline-2 -outline-offset-2 outline-destructive" : ""
         }`}
         style={{ background: value }}
@@ -733,7 +751,6 @@ function Detail({ entry }: { entry: Kinded }) {
         (other) => other
       )}
       stylesheet={store.stylesheet}
-      classes={session.info.styles?.id === "tailwind"}
       lookup={(name, theme) => comesTo(panel.tokens, name, theme)}
       references={(name, theme) => {
         const other = panel.tokens.get(name)
@@ -744,7 +761,7 @@ function Detail({ entry }: { entry: Kinded }) {
       onApply={(changes) =>
         store.set(Object.entries(changes).map(([theme, value]) => ({ name: token.name, theme, value })))
       }
-      undo={undoLabel === `Edit --${token.name}` ? () => session.store.undo() : undefined}
+      undo={undoLabel === `Edit ${token.name}` ? () => session.store.undo() : undefined}
     />
   )
 }
@@ -752,5 +769,5 @@ function Detail({ entry }: { entry: Kinded }) {
 /** The tokens a save couldn't write, by name: one, or how many. */
 function failedNames(changes: readonly TokenChange[]): string {
   const names = [...new Set(changes.map((change) => change.name))]
-  return names.length === 1 ? `--${names[0]}` : `${names.length} tokens`
+  return names.length === 1 ? names[0]! : `${names.length} tokens`
 }

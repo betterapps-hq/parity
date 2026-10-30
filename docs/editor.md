@@ -1008,7 +1008,7 @@ aspect ratio, a box of that shape; a cursor, its icon, and hovering it shows the
 to draw, so its row shows the number. Beside the name is what the token comes to, in the unit people think in (`16px`,
 `50%`, `1.5×`, the first font, `1000ms, loops`), or nothing where the preview says it all.
 
-- **Sections follow what a token is for,** not where Parity files it: Colors (Project colors, then the Palette), Fonts,
+- **Sections follow what a token is for,** not where Parity files it: Colors (Semantic colors, then the Palette), Fonts,
   Font sizes, Font weights, Line height, Letter spacing, Spacing, Radius, Borders (Widths, Width and style), Shadows
   (Box, Inset, Drop, Text), Opacity, Blur (Layer, Backdrop), Motion (Durations, Easing, Animations), Layers,
   Breakpoints, Containers, Aspect ratios, Perspective, Cursors and Other. Effects and Other no longer hold blurs,
@@ -1017,22 +1017,28 @@ to draw, so its row shows the number. Beside the name is what the token comes to
 - **Values are what the token comes to.** A reference is followed to the value at the end, through `calc()` too, in each
   theme (`--radius-lg: calc(var(--radius) + 4px)` draws at 14px), and a step of the spacing scale is the scale times its
   factor. The project's custom properties are never set on Parity's own elements, since shadcn's names are Parity's too.
-- **Spacing keeps the usual box.** A bar is drawn at its true size while it fits the row's box; a longer one is drawn
-  cut, with a break in its bar, so a cut bar never passes for its true size, and the pixels beside the name say how long
-  it is. The detail draws it at its true size among its neighbours.
-- **Each measured kind lists smallest first:** font weights from thin to black, font sizes from `text-xs` up, then
-  spacing, radii, letter spacing, line heights, border widths, blurs, opacities, durations, layers, breakpoints,
-  containers, perspective and aspect ratios by value. Colors, fonts, shadows, easings, animations and cursors have no
-  one order, so they stay by name, as does a value that can't be measured, after the rest.
+- **Spacing keeps the usual box.** A bar is drawn at its true size up to 16 pixels short of its box. Past that, a longer
+  one is drawn true to there and the rest squeezed, hatched, into those last pixels, on a log scale up to 384 pixels, so
+  a squeezed bar never passes for its true size and a longer length still ends further along; the pixels beside the name
+  say how long it is. The detail draws the scale the same way with more room, so most steps are at their true size.
+- **Each measured kind lists smallest first:** font weights from thin to black, font sizes from `text-xs` up, shadows by
+  how far they reach past their box (for the furthest layer, the offset plus the blur and spread, read from the value
+  rather than a size name), then spacing, radii, letter spacing, line heights, border widths, blurs, opacities,
+  durations, layers, breakpoints, containers, perspective and aspect ratios by value, and animations by their duration.
+  A value that is a duration is a duration whatever its name, so tw-animate-css's `animation-delay-75` lists with the
+  durations. Tokens of the same value, and the kinds with no one order (colors, fonts, easings, cursors), go by name the
+  way people count: numbers by value (`chart-2` before `chart-10`) and size words smallest first (`2xs`, `xs`, `sm`,
+  `md`, `lg`, `xl`, `2xl`, and Fluent's `XXS` to `XXL` and `Small` to `XLarge`). A value that can't be measured goes
+  after the rest, by name the same way.
 - **What a design shows sits on the design's sheet:** shadows, blur, opacity and type are drawn on white in the light
   theme, as in a frame, not on Parity's dark chrome. Measurements are diagrams in Parity's ink.
 - **Tiles.** The List and Tiles buttons beside the search switch views. Tiles are two across, each a larger preview with
   the name and what it comes to under it. A bare number stays a row, as a tile of only a name says less. The palette
   stays a grid in both.
 - **Copying.** A row's or tile's copy button, which shows in place of the value while the row is hovered or has the
-  keyboard, so the name never gives up room for it, copies the token's name as CSS writes it (`--radius-md`), which
-  Parity's fields take, and its icon springs into a green check. Ctrl+C (Cmd+C on a Mac) on a row or tile does the same.
-  A palette shade copies on a click, with a "Copied" bubble, as there's little else to do with one of 242.
+  keyboard, so the name never gives up room for it, copies the token's name (`radius-md`), which Parity's fields take,
+  and its icon springs into a green check. Ctrl+C (Cmd+C on a Mac) on a row or tile does the same. A palette shade's
+  tooltip is its name, and a click copies it, with a "Copied" bubble, as there's little else to do with one of 242.
 - **Editing.** Clicking a row or tile opens the token's detail (below), where Edit changes it. A palette shade is edited
   from a search: while searching, the palette's matches list as rows.
 - **Motion plays only while it's looked at:** a duration, easing or animation runs while its row or tile is hovered or
@@ -1084,11 +1090,12 @@ Clicking a token's row or tile opens its detail beside the panel, top to bottom:
 - **The name** (`--primary`), with what it comes to on the right as its row shows it, left out where the value already
   says just that, and what a `.lib.par` says it's for.
 - **One list of facts:** its value in each theme, a shadow's layers or a font stack one part to a line; Built on, the
-  tokens its values refer to in any theme, each with what it comes to (a spacing step shows `--spacing × 4`); and From,
+  tokens its values refer to in any theme, each with what it comes to (a spacing step shows `spacing × 4`); and From,
   the library that describes it. A value the last save couldn't write says "Not written to the stylesheet".
-- **A bar with Edit and Copy.** Copy copies the name, as rows do; its arrow opens Copy as, with `var()` under CSS and,
-  in a project that styles with Tailwind, the classes that use the token, each named by what it sets. A spacing step has
-  no value of its own, so its Edit is off, and its hint says to change `--spacing` instead.
+- **A bar with Edit and Copy.** Copy copies the name, as rows do; its arrow opens Copy as, with `var()` under CSS and
+  the name under Token. It offers nothing a framework adds, such as a class, since a variable says only that it can be
+  used as one, whichever framework defined it. A spacing step has no value of its own, so its Edit is off, and its hint
+  says to change `--spacing` instead.
 
 Themes are named as the Modes panel names them: the root's values are the theme option that adds no class (Light), and
 `.dark`'s are the option whose class is `dark` (Dark). A library's themes take their options' names too, and a theme no
@@ -1096,14 +1103,14 @@ option switches on is named from its key (`teams-high-contrast` is Teams high co
 
 Edit turns the values into fields in place, checked as they're typed, with what's wrong under the field: a bracket or
 quote left open ("A bracket isn't closed. Add ) at the end."), which the browser would close by itself and take; a
-`var()` naming no token ("There's no token named --radius-huge."), each reference read in its own theme; a `var()`
-naming the token itself ("--primary can't be built on itself.") or one built on it ("--primary is built on --chart-1, so
-this would loop."), which the old values alone would let through; and a value that, with its references filled in, isn't
-the kind's ("That isn't a color. Try oklch(0.6 0.2 250) or #2563eb."). The preview follows what's typed while it can
-draw it. Apply is off until something changed and every value is right; Cancel or Escape in a field leaves editing
-without changing anything, and Escape from the buttons closes the detail. Apply changes every frame at once as one
-undoable step, unsaved, as any edit is (see "One history, saved together"): the detail then says "Applied. Saving writes
-it to src/index.css.", with Undo while that's still the last step, even after Edit and Cancel.
+`var()` naming no token ("There's no token named radius-huge."), each reference read in its own theme; a `var()` naming
+the token itself ("primary can't be built on itself.") or one built on it ("primary is built on chart-1, so this would
+loop."), in another `var()`'s fallback too, which the old values alone would let through; and a value that, with its
+references filled in, isn't the kind's ("That isn't a color. Try oklch(0.6 0.2 250) or #2563eb."). The preview follows
+what's typed while it can draw it. Apply is off until something changed and every value is right; Cancel or Escape in a
+field leaves editing without changing anything, and Escape from the buttons closes the detail. Apply changes every frame
+at once as one undoable step, unsaved, as any edit is (see "One history, saved together"): the detail then says
+"Applied. Saving writes it to src/index.css.", with Undo while that's still the last step, even after Edit and Cancel.
 
 Code: `apps/desktop/src/renderer/chrome/TokenDetail.tsx` (`TokenDetail`, `DetailPreview`, `themeLabel`, `CopyMenu`); the
 panel's `TokenPopover` and `Detail` in `chrome/TokensPanel.tsx`, which name themes with `themeNamesOf` from the

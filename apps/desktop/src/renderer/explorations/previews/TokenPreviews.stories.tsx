@@ -143,8 +143,7 @@ export const DetailFromRow: Story = {
 }
 
 /**
- * The Copy button's arrow, open: `var()` under CSS, then the Tailwind classes that use the token, each named by what it
- * sets. A color offers its background, text and border classes.
+ * The Copy button's arrow, open: `var()` under CSS, and the token's name under Token.
  */
 export const DetailCopyAs: Story = {
   render: () => <Panel view="list" query="primary" open="primary" />,
@@ -152,7 +151,7 @@ export const DetailCopyAs: Story = {
     const dialog = await within(document.body).findByRole("dialog")
     await userEvent.click(within(dialog).getByRole("button", { name: "Copy as" }))
     const menu = await within(document.body).findByRole("menu")
-    await expect(within(menu).getByText("bg-primary")).toBeInTheDocument()
+    await expect(within(menu).getByText("primary")).toBeInTheDocument()
     await expect(within(menu).getByText("var(--primary)")).toBeInTheDocument()
   }
 }
