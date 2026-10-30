@@ -709,6 +709,15 @@ recommended answer to each of its questions.
   portals don't run. Examples put them in every menu, so before this Radix rendered 108 of 118 in the app; after, 117.
 - **Elements as a prop's value are samples (LIB-37):** `{ "$element": [...] }`, read from examples' JSX in props
   (`control={<Checkbox />}`), and inserted as a slot of that prop's name, which the canvas already passes as the prop.
+- **Fluent's slots are props, read by their shape (PAR-127).** A prop whose type is a union with a props object holding
+  `as` is a slot (Fluent v9's `Slot<...>`), found by that shape rather than by the alias's name, which declarations
+  don't always keep. One that also takes text, numbers or elements takes content, so it's a node prop, set as `children`
+  is: text, or layers in a slot of its name. One that takes only its part's props (an `input`, an `img`) is an object.
+  My call: a content slot is listed with the component's own props though its package declares it, since it's one of the
+  component's parts and not an HTML attribute; `root` is the component itself, so it stays with the attributes. A
+  library's other props, `children` included, still sit with the attributes, as before.
+- **A node prop held in a slot says so (PAR-127):** once its slot has layers, the Props panel says "Set in layers" in
+  place of a text field and doesn't offer the prop again, since the canvas passes the slot's layers over a value.
 - **Components declared but missing when they run are left out (LIB-37):** MUI's types declare `BadgeRoot`, `ModalRoot`
   and others its build doesn't export; they're `visual: false`, and the report names them.
 - **Parts every example draws from a hook's list are found, not hidden (LIB-38, changed by LIB-39):** when each use of a
@@ -971,13 +980,14 @@ recommended answer to each of its questions.
   projects as a file browser), a team page that opens on who's working where now, each on the canvas they're in, with
   Join for people and Watch for agents; the Inbox (the open item beside its board, pins and all, with its thread); the
   org's Activity (changes shown as the designs, merges, published components, new people, and the week in versions,
-  threads and approvals); Handoff and Inspect; the canvas opened on what changed, or on how the code differs from the
-  design; All projects, by team; a library's page; sharing and asking for access; search results; and the admin pages
-  Members (with removing someone), Billing, Add seats, Plans and Security.
+  threads, approvals and boards built); Handoff and Inspect; the canvas opened on what changed, or on how the code
+  differs from the design; All projects, by team; a library's page; sharing and asking for access; search results; and
+  the admin pages Members (with removing someone), Billing, Add seats, Plans and Security.
 - **For you is a digest, as the start page's is** (my call, after the fourth review): each thing waiting on you is one
   line with what they said and its one or two actions (Reply, Approve, Let Ivy comment, See what changed), so most of it
-  can be answered from there, and what happened since you were last here follows close under it. The inbox has the full
-  thread beside its board.
+  can be answered from there, and what happened since you were last here follows close under it, with what was said. The
+  inbox has the full thread beside its board. Requests to let someone in or give them a seat are admin chores, so For
+  you sums them up in one line, and the inbox lists them all (my call, after the eighth review).
 - **Every page shares one left edge, and tabs and filters look different** (my calls, after the third review): tabs move
   between the parts of one place (a team, settings, a library), and quiet pills filter a list.
 - **Handoff is for developers: every board by where it stands between design and code, from Parity's own versions** (my
@@ -992,11 +1002,13 @@ recommended answer to each of its questions.
   review): Approval, who approved the version, or while it's in review, whom it waits on and who asked when, and Code,
   who's building it, built it, or made it with the design. An agent that changes a design and its code together, as
   Claude Code did for the Cloud console, leaves the code already in a pull request, so approving that design leaves only
-  the merge, and its boards are Built once it merges. Rows carry no buttons (your call, 2026-10-29, that a filled button
-  in a row is out of place; my call on what replaces it): picking a row opens its board at the side, whose footer has
-  the board's next step as its one filled button, beside Inspect. Actions in other lists stay quiet, outlined and never
-  filled, with the yes before the no. Handoff, Inspect and What changed read what a board delivers from one list
-  (`portal/boards.ts`), so they always name the same components and tokens.
+  the merge, and its boards are Built once it merges. A board on an older version of a library says a newer one is out,
+  and code that moved away from its design names the pull request that moved it. The nav counts every row that you, or
+  anyone, can act on now (my calls, after the eighth review). Rows carry no buttons (your call, 2026-10-29, that a
+  filled button in a row is out of place; my call on what replaces it): picking a row opens its board at the side, whose
+  footer has the board's next step as its one filled button, beside Inspect. Actions in other lists stay quiet, outlined
+  and never filled, with the yes before the no. Handoff, Inspect and What changed read what a board delivers from one
+  list (`portal/boards.ts`), so they always name the same components and tokens.
 - **Every change makes a version, but only one its designer marks ready moves a board** (your call, 2026-10-29, after
   the fifth review). Marking a version ready asks one of the team's reviewers; the versions in between are drafts, and
   someone working on a board shows in Handoff as just that, without its status moving or anyone being told. So builders
@@ -1018,9 +1030,10 @@ recommended answer to each of its questions.
   review), never their own or their own agent's. Kestrel's: Andrew, Lena and Jonas for Apps; Andrew and Priya for Web;
   Maya and Lena for the design system.
 - **What you can do with a comparison depends on who you are to it** (my call, after the fifth review): a reviewer who
-  was asked approves it or asks for changes, with its open threads shown; whoever's building the older version keeps
-  building it or asks the designer, and moves to the newer one only once it's approved; free viewers, such as developers
-  without a seat, see the same comparison.
+  was asked approves it or asks for changes, with each open thread shown on the change it's about, and a board with open
+  threads starts unticked, so approving past a question takes a choice (my call, after the eighth review); whoever's
+  building the older version keeps building it or asks the designer, and moves to the newer one only once it's approved;
+  free viewers, such as developers without a seat, see the same comparison.
 - **Code that's moved away from its design gets the same comparison** (my call, after the fifth review): Code differs
   opens the approved version beside what main draws now, each difference marked with the code change behind it, and
   either the design is updated to match, making a new version, or the builder is asked to match the design.
@@ -1057,8 +1070,10 @@ recommended answer to each of its questions.
   it was on both (my call, after the fourth review). The side says who made the changes and why (the version notes, or
   the task someone gave their agent), the token's values before and after, and each change's components and files with
   their props before and after, as a diff; each change can be commented on. Approve approves the design at the newer
-  version, and Ask for changes takes a note. Its link names both versions, so it can go in a pull request. Kestrel's
-  examples are Claude Code's token change to three Cloud console boards and Maya's v13 and v14 of Pricing.
+  version, and Ask for changes takes a note. Its link names each board's two versions, and main by its commit, so it
+  means the same thing when it's opened from a pull request later (my call, after the eighth review). Each component
+  names the file it lives in, and the file where it's used when the change was made there. Kestrel's examples are Claude
+  Code's token change to three Cloud console boards and Maya's v13 and v14 of Pricing.
 - **What changed stays quiet so the changes are the focus** (your call, 2026-10-29). No glow, pills or rings on the
   boards; the branch, pull request and links, opening the canvas among them, sit in a menu; hovering a change brings it
   forward on both boards and in the list. There's no timeline: the version labels above the boards pick what's compared.
@@ -1663,7 +1678,8 @@ the Repository, CI and releases stream in Linear.
     from source.
   - **It needs Node 24,** as the repository does.
   - **Provenance comes from the CD workflow's `--provenance`, not `publishConfig`,** since npm only makes it in CI and
-    the first version is published by hand, which npm needs before it can trust the workflow.
+    the first version is published by hand, which npm needs before it can trust the workflow. 0.0.0 went up by hand on
+    2026-10-30, and `npm trust` then named `cd-npm.yml` and the `npm` environment as its only publisher.
   - **`pnpm --filter @parity-app/cli try-packed` installs the packed tarball in an empty folder and runs it.** CI runs
     it on each system. The packed tarball is 2.6 MB.
 - **Hooks keep what doesn't belong out of pull requests (PAR-3),** as you asked on 2026-10-29. My calls:
@@ -1708,6 +1724,23 @@ the Repository, CI and releases stream in Linear.
   provenance, and the desktop app to GitHub Releases. My calls: installers come from electron-builder, since one tool
   makes installers, signs them and serves updates, and only the desktop app makes GitHub Releases, so the updater never
   mistakes a CLI release for an app update.
+  - **`release.yml` and `cd-npm.yml` call the shared templates** (PAR-10, PAR-14), `release-prepare`, `release-merge`
+    and `cd-npm-publish` at v1.6.1, as `betterapps-hq/pipelines`' README shows, after CI passes for a push to `main`.
+    v1.6.1 gives the release commit's hooks `origin/main`, which `scripts/changes.ts` compares with. My calls:
+    - **A GitHub App pushes and merges the release PR,** not a personal access token, so the release commits aren't
+      yours and nothing expires with a person's token. It needs read and write access to contents and pull requests,
+      installed on this repository only.
+    - **The `npm` environment comes from Terraform,** in `infra/github`, kept to `main` with administrators unable to
+      bypass it, and with no approval, since every merged release PR ships.
+    - **`cd-npm.yml` runs on every CI pass on `main`,** not only when a version changes, since the template publishes
+      only versions npm doesn't have: a run without one publishes nothing and asks for no approval, and a failed run is
+      caught up by the next. It has no `workflow_dispatch`, unlike the README's example, since the template doesn't
+      check CI on a run by hand, which could then publish a commit whose CI failed. Re-run retries a failed publish with
+      the CI run it started from.
+    - **CodeRabbit skips `CHANGELOG.md` and `CHANGELOG.json`,** whose wording it reviewed in the change files, so a
+      thread on a changelog can't hold up the release PR.
+    - **Four change files written under the old name `@parity/desktop` were renamed** to `@parity-app/desktop`, since
+      `beachball bump` skips a change file for a package that doesn't exist, leaving it and dropping its changelog line.
 - **Desktop releases reach the beta first, and everyone when promoted,** as you asked on 2026-10-29: beta builds and
   production releases, promoted the way the web apps go from staging to production. My calls: a release is a GitHub
   pre-release until it's promoted, and promoting marks that same release a full one, so nothing is rebuilt; the beta is

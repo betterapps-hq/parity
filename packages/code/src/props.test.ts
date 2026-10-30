@@ -1,6 +1,7 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
+import type { ComponentProp } from "@parity-app/core"
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
 import { inferProps } from "./index.ts"
 
@@ -55,6 +56,56 @@ describe("inferProps", () => {
     expect(components.Badge?.props.find((prop) => prop.name === "variant")?.kind).toBe("enum")
   })
 }, 60_000)
+
+describe("Fluent's slots", () => {
+  let root: string
+  let props: ComponentProp[]
+
+  // The shape of Fluent v9's `Slot` type, from @fluentui/react-utilities, in a package as a library's would be.
+  const declarations = [
+    "type ReactElement = { type: unknown; props: unknown; key: string | null }",
+    "type ReactNode = ReactElement | string | number | Iterable<ReactNode> | null | undefined",
+    "type SlotShorthandValue = ReactElement | string | number | Iterable<ReactNode>",
+    'type WithSlotShorthandValue<Props> = Props | ("children" extends keyof Props ? Extract<SlotShorthandValue, Props["children"]> : never)',
+    'type Slot<Type extends "span" | "input"> = WithSlotShorthandValue<{ as?: Type } & (Type extends "input" ? { value?: string } : { id?: string; children?: ReactNode })> | null',
+    "type ButtonSlots = { root: NonNullable<Slot<'span'>>; icon?: Slot<'span'>; input?: Slot<'input'> }",
+    'export type ButtonProps = Omit<ButtonSlots, never> & { appearance?: "primary" | "subtle"; children?: ReactNode }',
+    "export declare function Button(props: ButtonProps): null"
+  ]
+
+  beforeAll(async () => {
+    root = (await mkdtemp(join(tmpdir(), "canvas-slots-"))).replaceAll("\\", "/")
+    await mkdir(join(root, "node_modules", "slots"), { recursive: true })
+    await writeFile(join(root, "node_modules", "slots", "index.d.ts"), declarations.join("\n"))
+    const found = inferProps(root, {
+      Button: { path: "slots", export: "Button", library: "slots", declaration: "node_modules/slots/index.d.ts" }
+    })
+    props = found.Button?.props ?? []
+  })
+
+  afterAll(async () => {
+    await rm(root, { recursive: true, force: true })
+  })
+
+  const prop = (name: string) => props.find((candidate) => candidate.name === name)
+
+  it("shows a slot that takes content the way children shows, as one of the component's own props", () => {
+    expect(prop("icon")).toMatchObject({ kind: "node", group: "own", type: "Slot<'span'>" })
+    expect(prop("children")).toMatchObject({ kind: "node" })
+  })
+
+  it("reads a slot that takes only its part's props as an object", () => {
+    expect(prop("input")).toMatchObject({ kind: "object", group: "html" })
+  })
+
+  it("leaves the root slot with the attributes, since it's the component itself", () => {
+    expect(prop("root")).toMatchObject({ kind: "node", group: "html", required: true })
+  })
+
+  it("still reads a library's other props as before", () => {
+    expect(prop("appearance")).toMatchObject({ kind: "enum", options: ["primary", "subtle"], group: "html" })
+  })
+})
 
 describe("whether a component takes a style", () => {
   let root: string

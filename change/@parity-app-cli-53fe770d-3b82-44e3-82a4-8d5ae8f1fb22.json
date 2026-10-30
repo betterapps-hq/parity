@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Show Fluent slots such as icon, contentBefore and header the way children shows: text, or layers in their slot",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

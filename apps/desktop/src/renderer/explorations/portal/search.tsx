@@ -42,7 +42,7 @@ function Group({ title, count, children }: { title: string; count: number; child
 const designs: { project: string; design: string; found: string }[] = [
   { project: "website", design: "Pricing", found: "Plans that grow with your team" },
   { project: "dashboard", design: "Billing", found: "Team plan, and the plan cards" },
-  { project: "library", design: "Components", found: "PlanCard in Kestrel UI's examples" }
+  { project: "dashboard", design: "Overview", found: "Usage against your plan" }
 ]
 
 const components: { name: string; project: string; file: string; uses: string }[] = [
