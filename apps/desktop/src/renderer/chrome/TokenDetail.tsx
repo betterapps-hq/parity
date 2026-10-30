@@ -286,9 +286,7 @@ export function TokenDetail({
         <footer className="flex min-h-11 items-center gap-2 border-t px-3 py-2">
           {editing ? (
             <>
-              <p className="min-w-0 flex-1 text-[11px] text-muted-foreground">
-                {!valid ? "Fix the value to apply" : changed ? "Every frame shows it at once" : "Nothing to apply yet"}
-              </p>
+              <p className="min-w-0 flex-1 text-[11px] text-muted-foreground">{applyHint(valid, changed)}</p>
               <Button type="button" variant="ghost" size="sm" onClick={cancel}>
                 Cancel
               </Button>
@@ -368,6 +366,12 @@ export function themeLabel(theme: string, themes: readonly string[], names: Read
   if (theme === "default") return "Default"
   const words = theme.replaceAll(/[-_]+/g, " ")
   return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
+/** What the edit bar says beside Apply: why it can't apply yet, or what applying does. */
+function applyHint(valid: boolean, changed: boolean): string {
+  if (!valid) return "Fix the value to apply"
+  return changed ? "Every frame shows it at once" : "Nothing to apply yet"
 }
 
 /**

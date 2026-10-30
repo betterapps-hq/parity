@@ -1104,12 +1104,10 @@ export function compareNames(a: string, b: string): number {
     const x = left[index]!
     const y = right[index]!
     const [xSize, ySize] = [sizeRank(x), sizeRank(y)]
-    const order =
-      xSize !== undefined && ySize !== undefined
-        ? xSize - ySize
-        : /^\d*\.?\d+$/.test(x) && /^\d*\.?\d+$/.test(y)
-          ? Number(x) - Number(y)
-          : collator.compare(x, y)
+    let order: number
+    if (xSize !== undefined && ySize !== undefined) order = xSize - ySize
+    else if (/^\d*\.?\d+$/.test(x) && /^\d*\.?\d+$/.test(y)) order = Number(x) - Number(y)
+    else order = collator.compare(x, y)
     if (order) return order
   }
   return left.length - right.length
@@ -1128,7 +1126,9 @@ function sizeRank(word: string): number | undefined {
   const match = /^(?:(\d+)x|(x*))(s|sm|small|m|md|medium|base|l|lg|large)$/i.exec(word)
   if (!match) return undefined
   const size = match[3]!.toLowerCase()
-  const side = ["s", "sm", "small"].includes(size) ? -1 : ["l", "lg", "large"].includes(size) ? 1 : 0
+  let side = 0
+  if (["s", "sm", "small"].includes(size)) side = -1
+  else if (["l", "lg", "large"].includes(size)) side = 1
   const steps = match[1] ? Number(match[1]) : match[2]!.length
   return side * (1 + steps)
 }
