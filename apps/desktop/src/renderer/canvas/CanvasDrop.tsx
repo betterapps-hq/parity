@@ -1,10 +1,10 @@
-import { dropHint, mayBeImage } from "@parity-app/editor"
+import { dropHint, type InsertItem, mayBeImage } from "@parity-app/editor"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { useProject } from "./context.ts"
 import { carriesFiles, draggedTypes, dropFiles, type FileDrop, fileDropAt, overFileField } from "./drop-files.ts"
 import type { Point } from "./hit.ts"
-import { dropTarget, type InsertItem, insertItem, insertMime } from "./insert.ts"
+import { dropTarget, insertItem, insertMime } from "./insert.ts"
 import { kindColors } from "./kinds.tsx"
 
 type Box = { x: number; y: number; w: number; h: number }

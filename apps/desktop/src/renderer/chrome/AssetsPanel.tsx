@@ -13,6 +13,7 @@ import {
   type LeftOutExport,
   type LibraryInfo
 } from "@parity-app/core"
+import { componentLabel, type InsertItem } from "@parity-app/editor"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import {
   BookOpen,
@@ -36,7 +37,7 @@ import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import type { ProjectInfo } from "../../shared/protocol.ts"
 import { useProject } from "../canvas/context.ts"
-import { componentLabel, type InsertItem, insertAtSelection, insertMime } from "../canvas/insert.ts"
+import { insertAtSelection, insertMime } from "../canvas/insert.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { type ProjectSession, workspace } from "../workspace.ts"

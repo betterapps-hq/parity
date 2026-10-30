@@ -8,9 +8,11 @@ import {
   copyNotes,
   designOfLayers,
   designsAt,
+  freeSpotBeside,
   isParityCopy,
   isSvgMarkup,
   missingComponents,
+  nodeForItem,
   pasteLayers,
   type PasteTarget,
   pasteTarget,
@@ -28,9 +30,8 @@ import { designsSelection, layersSelection, selectedDesigns, selectedNodes } fro
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { shapeIdFor } from "./CanvasEditor.tsx"
-import { freeSpotBeside, takenBounds } from "./free-space.ts"
+import { takenBounds } from "./free-space.ts"
 import { hitTest, type Point } from "./hit.ts"
-import { nodeForItem } from "./insert.ts"
 import { measureHere, pasteHere } from "./paste-here.ts"
 
 /**

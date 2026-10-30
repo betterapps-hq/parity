@@ -1,6 +1,7 @@
 import { type ContainerKind, uniqueId } from "@parity-app/core"
+import { designGap, freeSpotBeside } from "@parity-app/editor"
 import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
-import { designGap, freeSpotBeside, takenBounds } from "../canvas/free-space.ts"
+import { takenBounds } from "../canvas/free-space.ts"
 import type { ContainerEntry } from "../design-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 

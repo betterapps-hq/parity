@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { type Bounds, freeSpotBeside } from "./free-space.ts"
+import { aboveEverything, type Bounds, freeSpotBeside, rightOfEverything } from "./placement.ts"
 
 const at = (x: number, y: number, w: number, h: number): Bounds => ({ minX: x, minY: y, maxX: x + w, maxY: y + h })
 
@@ -41,5 +41,42 @@ describe("placing a duplicate design", () => {
     const original = at(0, 1000, 1000, 800)
     const below = at(1200, 1900, 600, 800)
     expect(freeSpotBeside(original, [original, below])).toEqual({ x: 1960, y: 1000 })
+  })
+})
+
+describe("placing a new design", () => {
+  it("goes to the right of every design's box, top-aligned with the topmost design", () => {
+    const designs = [
+      { position: { x: 0, y: 200 }, bounds: at(0, 180, 1280, 900) },
+      { position: { x: 1500, y: -40 }, bounds: at(1500, -60, 1300, 800) }
+    ]
+    expect(rightOfEverything(designs)).toEqual({ x: 3040, y: -40 })
+    expect(rightOfEverything(designs, 100)).toEqual({ x: 2900, y: -40 })
+  })
+
+  it("counts a design the canvas hasn't drawn as 1400px wide, and rounds to whole pixels", () => {
+    expect(rightOfEverything([{ position: { x: 100.4, y: 30 } }])).toEqual({ x: 1740, y: 30 })
+  })
+
+  it("starts beside the origin on an empty canvas", () => {
+    expect(rightOfEverything([])).toEqual({ x: 240, y: 0 })
+  })
+})
+
+describe("placing a component made from layers", () => {
+  it("goes 640px above the topmost design, lined up with the one it came from", () => {
+    const designs = [
+      { position: { x: 0, y: 0 }, bounds: at(0, -20.4, 1280, 900) },
+      { position: { x: 1500, y: 300 }, bounds: at(1500, 300, 1300, 800) }
+    ]
+    expect(aboveEverything({ x: 1500, y: 300 }, designs)).toEqual({ x: 1500, y: -660 })
+  })
+
+  it("goes by a design's position when the canvas hasn't drawn it", () => {
+    expect(aboveEverything({ x: 40, y: 500 }, [{ position: { x: 0, y: 100 } }])).toEqual({ x: 40, y: -540 })
+  })
+
+  it("goes above the design it came from on an otherwise empty canvas", () => {
+    expect(aboveEverything({ x: 40, y: 500 }, [])).toEqual({ x: 40, y: -140 })
   })
 })

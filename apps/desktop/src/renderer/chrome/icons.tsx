@@ -1,4 +1,5 @@
 import { iconStyleModules, type LibraryInfo, type RenderNode } from "@parity-app/core"
+import type { InsertItem } from "@parity-app/editor"
 import {
   type IconIndex,
   iconIndex,
@@ -8,7 +9,6 @@ import {
   searchIcons
 } from "@parity-app/icons"
 import { type CSSProperties, useEffect, useMemo, useRef } from "react"
-import type { InsertItem } from "../canvas/insert.ts"
 import type { LoadedGuest } from "../guest.ts"
 
 /** One icon as the panel lists it: its name, and what inserting it adds. */
