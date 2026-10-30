@@ -1190,6 +1190,39 @@ have no test of their own; the first was checked by reading `wakeNext`, the seco
 gives back and the time waking takes were measured by hand in a debug copy (see [decisions.md](decisions.md), Canvas),
 not by the suite.
 
+### What a frame shows, keyed once (PAR-439)
+
+When the type checker finds a component the guest didn't have, or finds that one moved to another file, every frame
+draws again with it: the live frame in place, keeping the state of its other components, and its bitmap is taken again
+with the same code offscreen, so zoomed out it doesn't keep showing the old one. A frame asleep wakes for it, as for any
+change to what it shows, and sleeps again once its new bitmap is taken. Before, the guest swapped the component's loader
+and nothing else, so frames and bitmaps kept what they had drawn until their design next changed.
+
+- **One place says what a frame shows.** `useFrameShows` works out, for each frame, `drawn` (the guest, the revision of
+  its code, the mode and the design's tree) and `key` (that, with the size and the tokens previewed), and the job that
+  draws it offscreen. The live frame draws again when `drawn` changes; its bitmap, its skeleton and its sleep go by
+  `key`. The live frame follows size and previewed tokens by itself, so a token preview doesn't draw every frame's React
+  tree again.
+- **The guest's code revision** goes up only when `addComponents` changes where a component comes from: a component
+  given again from the same file, as each type-checker pass and each offscreen render does, changes nothing, and its
+  module isn't loaded again. One revision covers the project, so a component that moves redraws every frame and retakes
+  every bitmap, one at a time in the background; frames whose design doesn't use it draw the same as before. That's rare
+  next to saves, which don't change it.
+- **The offscreen renderer gets the components too.** The bitmap job carries the components the guest was given since it
+  loaded, as agents' renders already did, so a frame using one isn't drawn offscreen without it.
+
+Code: `useFrameShows` and `useFrameBitmap` in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `FrameTile` in
+`canvas/ContainerView.tsx`, which passes `drawn` to `ModeView`'s `shows`; `revision` and `addComponents` in
+`packages/renderer-react/src/guest.ts`, declared on `Guest` in `packages/core/src/adapters.ts`.
+
+Tests: `packages/renderer-react/src/guest.test.ts` (1: the revision goes up when a component comes from a new file,
+moved or added, and not when it's given the same file again or nothing, and subscribers hear each change).
+`apps/desktop/src/renderer/ModeView.test.ts` (1: a component moved to another file is drawn from there once the frame's
+`shows` changes, and not while it stays the same). Gaps: that `FrameTile`'s keys follow the revision, and that the
+bitmap job carries the added components, have no test of their own; both were checked by reading `useFrameShows`. A
+component moving in the running app wasn't tried, since it means changing the example's files, which other sessions
+share; `ModeView.test.ts` drives the guest's side of it, from `addComponents` on.
+
 ## What the editor itself loads
 
 What Parity's own UI costs the window, apart from the projects it shows.

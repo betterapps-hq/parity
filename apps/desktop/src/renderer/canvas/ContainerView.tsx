@@ -47,7 +47,7 @@ import { useLibrary, useModeSettings } from "../design-store.ts"
 import { ModeView } from "../ModeView.tsx"
 import { useDesignSelection, useInteracting, useInteractions, useRenameRequest } from "../selection.ts"
 import { useProject } from "./context.ts"
-import { useFrameBitmap } from "./frame-bitmaps.ts"
+import { useFrameBitmap, useFrameShows } from "./frame-bitmaps.ts"
 import { useFrameSkeleton } from "./frame-skeletons.ts"
 import { type BoardRest, useAwake } from "./frame-sleep.ts"
 import { FrameSkeleton } from "./FrameSkeleton.tsx"
@@ -519,7 +519,10 @@ const FrameTile = memo(function FrameTile({
     [container, state, mode.viewport, library]
   )
   const tile = useRef<HTMLDivElement>(null)
-  const { key, bitmap } = useFrameBitmap(session, tree, mode, size.width, size.height, scale)
+  // What the frame shows, worked out once, which the live frame, its bitmap, its skeleton and its sleep all go by.
+  const shows = useFrameShows(session, tree, mode, size.width, size.height, scale)
+  const { key } = shows
+  const bitmap = useFrameBitmap(shows)
   // The bitmap shows once it's decoded, so the frame doesn't go blank in between; until then, its skeleton, which then
   // leaves the page.
   const [decoded, setDecoded] = useState<string>()
@@ -587,6 +590,7 @@ const FrameTile = memo(function FrameTile({
           interactions={interactions}
           interactive={interactive}
           asleep={!awake}
+          shows={shows.drawn}
         />
         {skeleton && !shown && <FrameSkeleton skeleton={skeleton} />}
         {bitmap && (

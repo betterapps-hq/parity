@@ -131,6 +131,10 @@ export function createGuest(init: GuestInit): Guest {
   const loadedOnDemand = new Set<string>()
   const failing = new Map<string, { count: number; error: string }>()
   const listeners = new Set<() => void>()
+  /** Where each component added since the guest loaded comes from, so adding one again from the same file changes nothing. */
+  const added = new Map<string, string>()
+  let revision = 0
+  const revisionListeners = new Set<() => void>()
   let statuses: Record<string, ComponentRenderStatus> = {}
   let pending = false
   const changed = () => {
@@ -406,18 +410,35 @@ export function createGuest(init: GuestInit): Guest {
       }
     },
     addComponents(sources) {
+      let moved = false
       for (const [id, source] of Object.entries(sources)) {
+        const from = `${source.path}#${source.export}`
+        if (added.get(id) === from) continue
+        added.set(id, from)
+        moved = true
         // The dev server builds any of the project's files when it's asked for one, as it does for the app.
-        const url = new URL(`/${source.path.replace(/^\.?\//, "")}`, projectOrigin).href
         loaders[id] = () =>
-          import(/* @vite-ignore */ url).then((module: Record<string, unknown>) =>
-            source.export.split(".").reduce<unknown>((value, key) => (value as Record<string, unknown>)?.[key], module)
+          import(/* @vite-ignore */ new URL(`/${source.path.replace(/^\.?\//, "")}`, projectOrigin).href).then(
+            (module: Record<string, unknown>) =>
+              source.export
+                .split(".")
+                .reduce<unknown>((value, key) => (value as Record<string, unknown>)?.[key], module)
           )
         // One it had already has moved to another file, so it's drawn from there from now on.
         delete components[id]
         deferred.delete(id)
         loadedOnDemand.delete(id)
         if (!names.includes(id)) names.push(id)
+      }
+      if (!moved) return
+      revision++
+      for (const listener of revisionListeners) listener()
+    },
+    revision: {
+      get: () => revision,
+      subscribe(listener) {
+        revisionListeners.add(listener)
+        return () => revisionListeners.delete(listener)
       }
     },
     renderStatus: {

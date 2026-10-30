@@ -30,6 +30,12 @@ interface ModeViewProps {
    * canvas/frame-sleep.ts). Its design is mounted again when it wakes.
    */
   asleep?: boolean
+  /**
+   * What the frame's design renders, as the canvas keys it (`drawn` in canvas/frame-bitmaps.ts): when it changes, the
+   * design is drawn again in place, as when the guest's code changed under the same tree. Without it, the tree and the
+   * mode key it.
+   */
+  shows?: string
 }
 
 /** What the canvas and tldraw would otherwise act on too, when the pointer or keys are the design's. */
@@ -61,7 +67,8 @@ export function ModeView({
   primary = false,
   interactions = 0,
   interactive = false,
-  asleep = false
+  asleep = false,
+  shows
 }: ModeViewProps) {
   const frameRef = useRef<HTMLDivElement>(null)
   const hostRef = useRef<HTMLDivElement>(null)
@@ -72,7 +79,7 @@ export function ModeView({
   // A whole screen's tree, so it's written out only when it's a different one.
   const treeKey = useMemo(() => JSON.stringify(tree), [tree])
   const environmentKey = JSON.stringify([mode.classNames, mode.attributes, modeGlobals(mode)])
-  const renderKey = `${environmentKey}|${treeKey}`
+  const renderKey = shows ?? `${environmentKey}|${treeKey}`
   // Errors belong to the render that raised them, so a changed design starts clean.
   const [error, setError] = useState<{ key: string; message: string }>()
 
