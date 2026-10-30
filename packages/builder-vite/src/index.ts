@@ -1,6 +1,6 @@
 import { readdir, readFile, realpath, stat } from "node:fs/promises"
 import { type AddressInfo, createServer as createNetServer } from "node:net"
-import { dirname, join, relative, resolve } from "node:path"
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path"
 import { pathToFileURL } from "node:url"
 import {
   type BuilderAdapter,
@@ -115,7 +115,8 @@ export function portFree(port: number): Promise<boolean> {
  * across a project's frames was 723 thousand stack frames on the example project, and its warnings are for the
  * project's own dev server to show. The project's own modules are served as in development. A dependency that imports
  * what the production build leaves empty gets the renderer's stand-in, as the project's modules do: the optimizer runs
- * only its own plugins, not the server's.
+ * only its own plugins, not the server's. Its stand-in is placed beside the module importing it, so what the stand-in
+ * imports (`@emotion/react/jsx-runtime`) is the copy that module would find, even one installed only below it.
  */
 export function productionDependencies(
   vite: Pick<typeof Vite, "version"> & { rolldownVersion?: string },
@@ -123,12 +124,15 @@ export function productionDependencies(
   standIns: Record<string, string> = {}
 ) {
   const define = { "process.env.NODE_ENV": JSON.stringify("production") }
+  const beside = (importer: string | undefined, specifier: string) =>
+    join(importer && isAbsolute(importer) ? dirname(importer) : root, encodeURIComponent(specifier) + standInFile)
+  const source = (path: string) =>
+    developmentStandIn(decodeURIComponent(basename(path).slice(0, -standInFile.length)), standIns)
   if (vite.rolldownVersion) {
     const plugin = {
       name: "canvas:stand-ins",
-      resolveId: (id: string) => (developmentStandIn(id, standIns) ? `\0${standInId}${id}` : null),
-      load: (id: string) =>
-        id.startsWith(`\0${standInId}`) ? developmentStandIn(id.slice(standInId.length + 1), standIns) : null
+      resolveId: (id: string, importer?: string) => (developmentStandIn(id, standIns) ? beside(importer, id) : null),
+      load: (id: string) => (id.endsWith(standInFile) ? source(id) : null)
     }
     return { rolldownOptions: { transform: { define }, plugins: [plugin] } }
   }
@@ -137,24 +141,27 @@ export function productionDependencies(
     name: "canvas:stand-ins",
     setup(build: EsbuildBuild) {
       if (ends.length === 0) return
-      build.onResolve({ filter: new RegExp(`(?:${ends.join("|")})$`) }, ({ path }) =>
-        developmentStandIn(path, standIns) ? { path, namespace: "canvas-stand-in" } : undefined
+      build.onResolve({ filter: new RegExp(`(?:${ends.join("|")})$`) }, ({ path, importer }) =>
+        developmentStandIn(path, standIns) ? { path: beside(importer, path), namespace: "canvas-stand-in" } : undefined
       )
       build.onLoad({ filter: /.*/, namespace: "canvas-stand-in" }, ({ path }) => ({
-        contents: developmentStandIn(path, standIns),
+        contents: source(path),
         loader: "js",
-        resolveDir: root
+        resolveDir: dirname(path)
       }))
     }
   }
   return { esbuildOptions: { define, plugins: [plugin] } }
 }
 
+/** How the optimizer names a stand-in it places beside the module importing it, after the specifier it stands in for. */
+const standInFile = ".canvas-stand-in.js"
+
 /** The parts of esbuild's plugin build a stand-in uses, since the builder doesn't depend on esbuild itself. */
 interface EsbuildBuild {
   onResolve(
     options: { filter: RegExp },
-    resolve: (args: { path: string }) => { path: string; namespace: string } | undefined
+    resolve: (args: { path: string; importer: string }) => { path: string; namespace: string } | undefined
   ): void
   onLoad(
     options: { filter: RegExp; namespace: string },

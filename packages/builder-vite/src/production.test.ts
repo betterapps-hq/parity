@@ -32,9 +32,19 @@ beforeEach(async () => {
     "node_modules/devlib/package.json": JSON.stringify({ name: "devlib", version: "1.0.0", main: "index.js" }),
     "node_modules/devlib/index.js": [
       'const { jsxDEV } = require("react/jsx-dev-runtime")',
+      'const nested = require("nested/jsx-dev-runtime")',
       'exports.Badge = () => jsxDEV("span", { children: "New" }, undefined, false, {}, undefined)',
+      "exports.nested = nested.jsxDEV",
       ""
     ].join("\n"),
+    // A JSX runtime installed only below the package importing it, as a package can bring its own copy.
+    "node_modules/devlib/node_modules/nested/package.json": JSON.stringify({ name: "nested", version: "1.0.0" }),
+    "node_modules/devlib/node_modules/nested/jsx-runtime.js": [
+      'exports.Fragment = "fragment"',
+      'exports.jsx = () => "the nested runtime"',
+      ""
+    ].join("\n"),
+    "node_modules/devlib/node_modules/nested/jsx-dev-runtime.js": "exports.jsxDEV = undefined\n",
     "node_modules/react/package.json": JSON.stringify({ name: "react", version: "19.0.0", main: "index.js" }),
     "node_modules/react/index.js": "exports.build = process.env.NODE_ENV\n",
     "node_modules/react/jsx-runtime.js": [
@@ -118,7 +128,11 @@ describe("frames on dependencies' production builds", () => {
     await served(session.guestUrl)
     const devlib = importsOf(await served("/src/badge.js")).find((url) => url.includes("devlib"))
     expect(devlib).toBeDefined()
-    expect(await served(devlib!)).not.toContain("the development runtime")
+    const entry = await served(devlib!)
+    const bundled = [entry, ...(await Promise.all(importsOf(entry).map(served)))].join("\n")
+    expect(bundled).not.toContain("the development runtime")
+    // What the stand-in imports is the copy below the package, not one from the project's root.
+    expect(bundled).toContain("the nested runtime")
   }, 30_000)
 })
 
@@ -158,23 +172,26 @@ describe("productionDependencies", () => {
     const { esbuildOptions } = productionDependencies({ version: "7.1.0" }, root, standIns) as {
       esbuildOptions: { plugins: { setup(build: unknown): void }[] }
     }
-    let resolve: { filter: RegExp; to(args: { path: string }): unknown } | undefined
+    let resolve: { filter: RegExp; to(args: { path: string; importer: string }): unknown } | undefined
     let load: ((args: { path: string }) => unknown) | undefined
     esbuildOptions.plugins[0]!.setup({
-      onResolve: (options: { filter: RegExp }, to: (args: { path: string }) => unknown) =>
+      onResolve: (options: { filter: RegExp }, to: (args: { path: string; importer: string }) => unknown) =>
         (resolve = { ...options, to }),
       onLoad: (_options: unknown, made: (args: { path: string }) => unknown) => (load = made)
     })
     expect(resolve!.filter.test("react/jsx-dev-runtime")).toBe(true)
     expect(resolve!.filter.test("react/jsx-runtime")).toBe(false)
-    expect(resolve!.to({ path: "react/jsx-dev-runtime" })).toEqual({
-      path: "react/jsx-dev-runtime",
+    // Beside the module importing it, so what it imports resolves from there.
+    const importer = join(root, "node_modules", "devlib", "index.js")
+    const beside = join(root, "node_modules", "devlib", "%40emotion%2Freact%2Fjsx-dev-runtime.canvas-stand-in.js")
+    expect(resolve!.to({ path: "@emotion/react/jsx-dev-runtime", importer })).toEqual({
+      path: beside,
       namespace: "canvas-stand-in"
     })
-    expect(load!({ path: "@emotion/react/jsx-dev-runtime" })).toEqual({
+    expect(load!({ path: beside })).toEqual({
       contents: 'export { Fragment, jsx as jsxDEV } from "@emotion/react/jsx-runtime"',
       loader: "js",
-      resolveDir: root
+      resolveDir: dirname(importer)
     })
   })
 })

@@ -1172,7 +1172,8 @@ recommended answer to each of its questions.
     out. The renderer names stand-ins for what it leaves out (`developmentStandIns`), and the builder serves
     `react/jsx-dev-runtime`, or any `…/jsx-dev-runtime`, as that package's `jsx`. The dependency optimizer gets the same
     stand-in as a plugin of its own (Rolldown's or esbuild's), since it doesn't run the server's, so a package shipped
-    with its JSX compiled for development renders too.
+    with its JSX compiled for development renders too. That stand-in is placed beside the module importing it, so the
+    runtime it imports is the copy that module would find, even one installed only below it.
 
 - **The performance stats count each project's builder,** as "Vite for shop", since its memory used to count in the
   service's: the service asks each builder for its CPU time, and the system reads its memory as it does Electron's own
