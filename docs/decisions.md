@@ -1092,33 +1092,25 @@ recommended answer to each of its questions.
 - **A builder that stops by itself shows as crashed** in the status bar's processes, with the end of what it printed,
   and can be started again from there. One that stops before its server answers fails the project's opening with that
   error, as a builder that throws does.
-- **A reopened project gets its builder's last port back when it's free and its code hasn't changed** (PAR-195), so its
-  guest URL stays the same and the pages draw with the modules they hold; otherwise any free port. The service remembers
-  each project's port while it runs, and a reopen waits for the closing builder's process to end first. With the port
-  back on every reopen, as CAN-81 had it, a reopen after a code change showed the old code: a page never loads a URL
-  twice, so the window kept the modules it had. My call on how a builder tells, in `@parity/core`'s
-  [served.ts](../packages/core/src/served.ts) with the Vite side in `builder-vite/src/served.ts`:
-  - **It logs what it serves the pages:** each module as first sent, with the files Vite made it from as they were then
-    (its own and what it imports, which for the stylesheet is every file Tailwind scanned, design files included), and
-    the files the whole build depends on (its config, the lockfiles in the root and above, the environment files, the
-    root's package.json and TypeScript configs). It hands the log to the service as it closes.
-  - **The next builder compares it with the files,** and with the guest module it would make now, before it listens. Any
-    difference, or no log at all (a builder that crashed or didn't close in time), means a new port, and its log says
-    which file changed.
-  - **A file changed while the project was open still counts as unchanged** when every module made from it comes out the
-    same when made again at close, so saving a design that uses no new class keeps the address. Build files never get
-    this.
-  - **The builder that takes the address carries the log on,** since the pages still hold what the last one served. One
-    started again from the processes list takes its port whenever it's free; if it can't, the windows are told
-    (`project.guestMoved`) and load the guest from the new one.
-  - **A reopen after a code change still loads every module again,** the example project's 33 scripts and 6.9 M
-    characters, which a page can't give back. Only picking up code edits live (PAR-165) or a separate realm per project
-    would avoid that.
+- **A reopened project's builder takes a new port** (PAR-422), so its guest URL changes and the pages load the project's
+  modules again. PAR-195 had it take its last port back when the code hadn't changed, so the pages drew with the modules
+  they held, but drawing with the same copy of the project's React kept every closed canvas in the window: about 34,000
+  DOM nodes and 125 MB of heap per reopen on the example project, measured on 2026-10-29. Heap snapshots pointed at the
+  guest's React DOM module state, its scheduler's queue and SVG animation timelines, without pinning which held it; a
+  new address never kept one. It costs a fresh copy of the modules instead, about 15 MB of heap and 40 MB of the
+  window's memory per reopen, which a page can't give back. Picking up code edits live (PAR-165) or a separate realm per
+  project would avoid that too.
+  - **A builder started again** from the processes list takes its last port when it's free, since the canvas it serves
+    is still open, and waits for a closing one of the same project to end first, so a project never has two.
+  - **What a builder logs of what it served** (`@parity/core`'s [served.ts](../packages/core/src/served.ts), the Vite
+    side in `builder-vite/src/served.ts`), which PAR-195 compared to tell a changed project from an unchanged one, no
+    longer chooses the port.
 - **Closing a project lets go of its guest in the window:** its `loadGuest` entry and the stylesheet the document
   adopted for it (PAR-195), so the next open makes its stylesheets anew, without the last session's token previews. The
   offscreen renderer lets go of a project's last guest when its jobs come with a new address, since it doesn't hear of
-  closes, and closes when idle anyway. Frame bitmaps are keyed by the guest module, which a same-address reopen gets
-  back, so they still show.
+  closes, and closes when idle anyway. The tab bar and each tab's view are given a tab's id rather than the tab
+  (PAR-422), since React keeps the props a list's parent drew last, which for a closed tab would be its session and
+  canvas.
 - **The performance stats count each project's builder,** as "Vite for shop", since its memory used to count in the
   service's: the service asks each builder for its CPU time, and the system reads its memory as it does Electron's own
   processes'. Storybook and the other servers Parity starts still aren't counted.

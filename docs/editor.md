@@ -1069,36 +1069,33 @@ sections already split them.
 
 What opening a project loads into the windows, and what closing it gives back.
 
-### Reopening reuses the guest the pages hold (PAR-195)
+### Reopening loads the project afresh (PAR-195, PAR-422)
 
-A page can't unload a module, so the window and the offscreen renderer keep every module of a project's guest they
-loaded. Reopening a project whose code hasn't changed serves it at the same address, so they draw with what they hold
-instead of loading the project's modules again; reopening it after a code change serves it at a new one, so the frames
-and their bitmaps show the new code.
+A reopened project's builder serves it at a new address, one no guest has had since the project service started, even
+when the system would hand an old one out again, so the window and the offscreen renderer load its modules again rather
+than drawing with the ones they kept from the last open. Closing a project gives back its canvas, however often it's
+opened again.
 
-- **What counts as a change:** a file a module the pages loaded was made from, Tailwind's scanned files included, or one
-  the whole build depends on (its config, lockfiles, environment files, package.json, TypeScript configs), or the guest
-  module the builder would make now. A file changed while open that makes the same modules again, such as a design saved
-  with no new class, doesn't count. A builder that crashed leaves nothing to compare, so the next reopen gets a new
-  address.
+- **Why a new address every time:** drawing a reopened project with the modules from before, its React included, kept
+  every closed canvas in the window, about 34,000 DOM nodes and 125 MB of heap on the example project each time. Which
+  of the browser's or React's references held it wasn't pinned down. A new address costs the window a fresh copy of the
+  project's modules instead, about 15 MB of heap and 40 MB of memory per reopen, which a page can't give back.
 - **Closing a project** drops its guest's entry and the stylesheet the document adopted for it, so the next open makes
   its stylesheets anew. The offscreen renderer drops a project's last guest when that project's jobs come with a new
-  address.
-- **A builder started again** from the processes list keeps its address when it can; when it can't, the windows load the
-  guest from the new one.
+  address. A reopen waits for the closing builder's process to end, so a project never has two.
+- **Tabs and their views are given a tab's id,** not the tab: React keeps the props a list's parent drew last, so a
+  closed tab passed whole would keep its session, canvas included, until the window drew again.
+- **A builder started again** from the processes list keeps its address when it's free, since the canvas it serves is
+  still open; when it isn't, windows that open the project from then on find the new one.
 
-Code: `ServedLog` and `servedChange` in `packages/core/src/served.ts`, the hand-off in `builder-process.ts`; the Vite
-side in `packages/builder-vite/src/served.ts` and `servingPort` in its `index.ts`; the service's memory per project in
-`apps/desktop/src/utility/projects.ts`; `releaseGuest` in `apps/desktop/src/renderer/guest.ts`, called from
-`workspace.ts` and `render.ts`.
+Code: `serveBuilder` and `newGuestPort` in `apps/desktop/src/utility/projects.ts`; `releaseGuest` in
+`apps/desktop/src/renderer/guest.ts`, called from `workspace.ts` and `render.ts`; `guestId` in
+`apps/desktop/src/renderer/canvas/frame-bitmaps.ts`, which keys a reopened guest's bitmaps apart from the last one's;
+`ProjectView.tsx` and `chrome/TabBar.tsx`, which take a tab's id.
 
-Tests: `packages/core/src/served.test.ts` (12: stamps, what counts as changed, first serves count, a changed file that
-makes the same module, one that doesn't or can't be made, build files, made modules, carrying a record on, merging),
-`builder-process.test.ts` (the record handed on as the builder closes, and none from one that can't say or crashed), and
-`packages/builder-vite/src/served.test.ts` (6 against real Vite servers: what's listed, the same address with nothing
-changed and the record carried on, a new one after an edit while closed, other components, a touched file that makes the
-same module, and an edit while open). Gaps: the window's and offscreen renderer's side has no automated test. It was
-checked in an isolated copy of the app on the example project on 2026-10-29: five reopens kept one address and one copy
-of the project's 33 scripts in the window, closing left no guest stylesheet, and after an edit to Badge the reopen moved
-address, and all 65 badge frames and their bitmaps showed the new text. The window still grew by about 130 MB per reopen
-in that run, from something other than the guest's modules, which isn't found yet.
+Tests: `apps/desktop/e2e/reopening.e2e.ts` opens and closes the example project twice and checks the window ends within
+3,000 DOM nodes of where it started; with the old address on reopen it ended about 69,000 over. Gaps: the offscreen
+renderer's side has no automated test, and what a builder records of what it served (`packages/core/src/served.ts`,
+`packages/builder-vite/src/served.ts`) is no longer used to choose a port. Skipping ports guests had has no test of its
+own, as the system handing an old port out again can't be made to happen; it was checked by reading `newGuestPort`. A
+project service started again forgets the ports, while the window keeps what it loaded from them.

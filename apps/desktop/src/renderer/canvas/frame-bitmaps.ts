@@ -119,8 +119,8 @@ function want(key: string, change: 1 | -1): void {
 }
 
 /**
- * The project's guest module as the page loaded it: a reopened project whose code hasn't changed loads the same one, at
- * the same address, so its bitmaps still show its frames.
+ * The project's guest module as the page loaded it. A reopened project loads a new one, at a new address, so bitmaps
+ * drawn before never stand in for its frames.
  */
 function guestId(guest: object): number {
   let id = guests.get(guest)

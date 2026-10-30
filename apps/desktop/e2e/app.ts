@@ -467,7 +467,7 @@ export class App {
  * Runs in the page: waits until the frames have mounted, loaded their components and sized themselves, when nothing
  * more is drawn in them for three seconds, as `pnpm perf` waits. Quick once they have.
  */
-async function settled(): Promise<void> {
+export async function settled(): Promise<void> {
   const count = () =>
     [...document.querySelectorAll("[data-frame]")].reduce(
       (total, host) => total + (host.shadowRoot?.querySelectorAll("*").length ?? 0),

@@ -43,7 +43,7 @@ export function AppWindow() {
         {tabs.length === 0 ? (
           <StartScreen />
         ) : (
-          tabs.map((tab) => <ProjectView key={tab.id} tab={tab} active={tab.id === active} />)
+          tabs.map((tab) => <ProjectView key={tab.id} id={tab.id} active={tab.id === active} />)
         )}
       </div>
       <Toaster position="bottom-right" offset={{ bottom: 40, right: 16 }} />

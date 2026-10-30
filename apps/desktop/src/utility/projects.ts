@@ -46,7 +46,7 @@ import { saveDetection, savedDetection } from "./detection-cache.ts"
 import { applyProjectEdit } from "./edits.ts"
 import { forgetProcess, forgetProject, trackProcess } from "./processes.ts"
 import { checkComponents, closeChecker, inferComponents } from "./props.ts"
-import { stopStorybook } from "./storybook.ts"
+import { freePort, stopStorybook } from "./storybook.ts"
 
 const renderers: RendererAdapter[] = [reactRenderer]
 const builders: BuilderAdapter[] = [viteBuilder]
@@ -102,8 +102,21 @@ const projects = new Map<string, OpenProject>()
 const opening = new Map<string, Promise<ProjectInfo>>()
 /** Closed projects whose builder's process hasn't ended yet, by root. */
 const closing = new Map<string, Promise<void>>()
-/** The port each project's builder last served on, so a reopened project's guest URL stays the same. */
+/** The port each open project's builder last served on, which a builder started again takes back when it's free. */
 const lastPorts = new Map<string, number>()
+/**
+ * Every port a builder has served a guest on. The windows keep the modules they loaded from each address, so a project
+ * opened again never gets one of them, even one the system would hand out again.
+ */
+const guestPorts = new Set<number>()
+
+/** A free port no guest has been served on. */
+async function newGuestPort(): Promise<number> {
+  for (;;) {
+    const port = await freePort()
+    if (!guestPorts.has(port)) return port
+  }
+}
 
 /** A project's root from a folder, or from one of its `.par` files: the nearest folder above it with a package.json. */
 export function projectRootFor(root: string | undefined): string {
@@ -134,7 +147,7 @@ export async function closeProject(projectId: string): Promise<undefined> {
   forgetProject(projectId)
   project?.watcher?.close()
   if (project) {
-    // Ending the builder's process frees the port it had, which a reopen waits for to have it again.
+    // A reopen waits for the builder's process to end, so a project never has two builders at once.
     const closed = project.session.close()
     closing.set(projectId, closed)
     await closed
@@ -201,7 +214,7 @@ async function start(root: string): Promise<ProjectInfo> {
     rendererGuestPath: require.resolve(renderer.guestModule),
     allowedOrigins
   }
-  // The same project's last builder, closing, may still have the port it would have again.
+  // The same project's last builder may still be closing.
   await closing.get(root)
   const serving = serveBuilder(root, pkg.name ?? basename(root), builder, startOptions)
   const [session, styles] = await Promise.all([
@@ -268,8 +281,8 @@ async function start(root: string): Promise<ProjectInfo> {
 }
 
 /**
- * Starts a project's builder in a process of its own and lists it, on the port it last had if that's free. One that
- * stops by itself shows as crashed, with why, and can be started again from the list.
+ * Starts a project's builder in a process of its own and lists it. One that stops by itself shows as crashed, with why,
+ * and can be started again from the list, on the port it had if that's free.
  */
 async function serveBuilder(
   root: string,
@@ -279,7 +292,9 @@ async function serveBuilder(
   again = false
 ): Promise<BuilderProcessSession> {
   const id = builderProcessId(root)
-  const port = lastPorts.get(root)
+  // A reopened project gets a new port, so the windows load its code afresh. On its last address they'd draw with the
+  // project's React from before, which kept every closed canvas's frames in memory: about 130 MB each time.
+  const port = again ? lastPorts.get(root) : await newGuestPort()
   const tracking = trackProcess(
     { id, kind: "builder", shape: "server", name: builder.name, projectId: root, project: name, status: "starting" },
     { restart: () => restartBuilder(root) }
@@ -297,6 +312,7 @@ async function serveBuilder(
     const session = await started.session
     const url = new URL(session.guestUrl)
     lastPorts.set(root, Number(url.port))
+    guestPorts.add(Number(url.port))
     tracking.set("running", { url: url.origin })
     return session
   } catch (error) {
