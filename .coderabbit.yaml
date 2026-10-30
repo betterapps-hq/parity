@@ -26,16 +26,16 @@ reviews:
     # Generated: pnpm writes the lockfile and `parity lib` the registry's libraries.
     - "!pnpm-lock.yaml"
     - "!packages/registry/libraries/*.lib.par"
+    # Beachball writes the changelogs in the release pull request, from change files whose wording was reviewed when
+    # they were added. A thread on one would keep the release from merging itself until someone resolved it.
+    - "!**/CHANGELOG.md"
+    - "!**/CHANGELOG.json"
   path_instructions:
     - path: "change/*.json"
       instructions: >-
         A Beachball change file. Its comment is a line in the changelog people read, so check it says what changed for
         someone using Parity ("Snap layers to the spacing scale", not "Refactor snap.ts"), and that its type fits: minor
         for a feature, patch for a fix, none for a change that doesn't ship.
-    - path: "**/CHANGELOG.{md,json}"
-      instructions: >-
-        Beachball writes these from change files in the release pull request. Their wording was reviewed in the change
-        files, so don't comment on it here.
     - path: "packages/**"
       instructions: >-
         Packages take data and return data (docs/proposals/packages.md). Flag Electron, tldraw or React outside

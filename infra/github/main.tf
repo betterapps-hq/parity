@@ -1,6 +1,7 @@
 # Parity's repository rules on GitHub, from the shared github-repository-rules module: main takes changes only through
-# squashed pull requests that pass CI and CodeRabbit with every thread resolved, and release tags never move. The
-# terraform-apply workflow runs it with its state in R2, as Copacker's projects run.
+# squashed pull requests that pass CI and CodeRabbit with every thread resolved, and release tags never move. It also
+# keeps the npm environment, which publishes the CLI, to main. The terraform-apply workflow runs it with its state in R2,
+# as Copacker's projects run.
 terraform {
   required_version = "= 1.16.6"
   required_providers {
@@ -45,4 +46,24 @@ import {
 import {
   to = module.rules.github_repository_ruleset.release_tags[0]
   id = "parity:26170708"
+}
+
+# cd-npm.yml publishes the CLI from the npm environment, which @parity-app/cli's trusted publisher on npmjs.com names
+# (PAR-14). Only main deploys to it, administrators included, so no other branch's run can publish. The publish job
+# names it, so a run before this is applied would make it unprotected; applying then protects the same environment.
+resource "github_repository_environment" "npm" {
+  repository        = "parity"
+  environment       = "npm"
+  can_admins_bypass = false
+
+  deployment_branch_policy {
+    protected_branches     = false
+    custom_branch_policies = true
+  }
+}
+
+resource "github_repository_environment_deployment_policy" "npm_main" {
+  repository     = "parity"
+  environment    = github_repository_environment.npm.environment
+  branch_pattern = "main"
 }
