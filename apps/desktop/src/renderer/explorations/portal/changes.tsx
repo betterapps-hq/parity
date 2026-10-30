@@ -53,10 +53,14 @@ interface Area {
   height: string
 }
 
-/** A component a change touched, its file, and how its use changed, as lines of a diff. */
+/**
+ * A component a change touched, the file it lives in, and how its use changed, as lines of a diff. When the change is
+ * where it's used rather than in the component, that file is named too.
+ */
 interface Touched {
   name: string
   file: string
+  usedIn?: string
   diff?: string[]
 }
 
@@ -79,8 +83,8 @@ interface Change {
   where: string
   what: string
   parts: Touched[]
-  /** Open threads on it. */
-  threads?: number
+  /** Open threads on it, each shown under the change with its first line. */
+  threads?: { who: Person; text: string }[]
   /** The same change on other boards: the same page at another size. */
   elsewhere?: { board: string; areas: Area[]; was?: Area[] }[]
   /** Put its number to the right of a small place, where the left would cover what changed. */
@@ -109,7 +113,7 @@ interface Version {
  * moved away from the design, either side can give way.
  */
 type Viewer =
-  | { as: "reviewer"; threads: string; approves: ReactNode; boards?: string[] }
+  | { as: "reviewer"; threads: string; approves: ReactNode; boards?: { name: string; open?: string }[] }
   | { as: "builder"; building: number; reviewer: Person; designer: Person; threads: string; yours: string }
   | { as: "drift"; builder: Person; note: ReactNode }
 
@@ -163,7 +167,9 @@ const consoleBoards = (["Billing", "Overview", "Sign in"] as const).map((name) =
 export const consoleComparison: Comparison = {
   project: "dashboard",
   slug: "cloud-console",
-  compare: "approved...ready",
+  compare: consoleBoards
+    .map((board) => `${board.design.toLowerCase().replace(" ", "-")}/v${board.approvedBefore}...v${board.version}`)
+    .join(","),
   versions: [{ n: 1, who: claude, label: "Ready for review", when: event("claude-run").when }],
   from: 0,
   to: 1,
@@ -206,7 +212,8 @@ export const consoleComparison: Comparison = {
       areas: [at(21.8, 22.8, 39.2, 14.6), at(21.8, 57.8, 36.4, 3.8)],
       where: "Plan and usage",
       what: "The plan badge and the meters that aren't near their limit",
-      parts: [fromConsole("PlanBadge"), fromConsole("UsageMeter")]
+      parts: [fromConsole("PlanBadge"), fromConsole("UsageMeter")],
+      threads: [{ who: sam, text: event("sam-comment").quote! }]
     },
     {
       n: 4,
@@ -216,7 +223,8 @@ export const consoleComparison: Comparison = {
       areas: [at(21.6, 64.6, 76.6, 23.2)],
       where: "Plans",
       what: "The current plan's ring and check, and every plan's ticks",
-      parts: [fromConsole("PlanCard")]
+      parts: [fromConsole("PlanCard")],
+      threads: [{ who: maya, text: event("maya-comment").quote! }]
     },
     {
       n: 5,
@@ -305,16 +313,17 @@ export const consoleComparison: Comparison = {
     now: "oklch(0.62 0.15 158)",
     note: "Every component on these boards that uses it follows it. No component changed."
   },
-  also: [
-    { at: 1, who: maya, text: <>commented on Billing: “{event("maya-comment").quote}”</> },
-    { at: 1, who: sam, text: <>commented on Billing: “{event("sam-comment").quote}”</> }
-  ],
+  also: [],
   code: { label: "Already in code", branch: "claude/green-brand", pr: { number: 148, state: "open" } },
   you: {
     as: "reviewer",
-    threads: "2 open threads on Billing, Maya's and Sam's.",
+    threads: "2 open threads on Billing, Sam's on change 3 and Maya's on change 4.",
     approves: <>The code is already in #148, so each board you approve is Built when #148 merges.</>,
-    boards: consoleBoards.map((board) => `${board.design}, v${board.version}`)
+    // A board with open threads starts unticked, so approving past a question takes a choice.
+    boards: consoleBoards.map((board) => ({
+      name: `${board.design}, v${board.version}`,
+      open: board.design === "Billing" ? "2 open threads" : undefined
+    }))
   }
 }
 
@@ -364,7 +373,7 @@ export const pricingComparison: Comparison = {
         { name: "PlanCard", file: pricingFiles.PlanCard!, diff: ['- badge="Save 20%"'] },
         { name: "BillingToggle", file: pricingFiles.BillingToggle!, diff: ['+ saving="20%"'] }
       ],
-      threads: 1
+      threads: [{ who: jonas, text: event("jonas-mention").quote!.replace("@Andrew ", "") }]
     },
     {
       n: 2,
@@ -386,7 +395,14 @@ export const pricingComparison: Comparison = {
       areas: [at(43.8, 94.1, 12.3, 4.2)],
       where: "Compare all plans",
       what: "Taken out from under the cards",
-      parts: [{ name: "ComparePlansLink", file: pricing.page, diff: ["- <ComparePlansLink />"] }]
+      parts: [
+        {
+          name: "ComparePlansLink",
+          file: pricingFiles.ComparePlansLink!,
+          usedIn: pricing.page,
+          diff: ["- <ComparePlansLink />"]
+        }
+      ]
     }
   ],
   summary: (shown) =>
@@ -412,7 +428,8 @@ export const pricingComparison: Comparison = {
     reviewer: priya,
     designer: maya,
     threads: "1 open thread, Jonas's on the toggle",
-    yours: "#150 builds all 3 components this changes, and adds the ComparePlansLink v14 takes out."
+    yours:
+      "#150 builds PlanCard and ComparePlansLink as v12 has them. v14 changes PlanCard and BillingToggle, and takes ComparePlansLink out."
   }
 }
 
@@ -426,15 +443,15 @@ export const inGameComparison: Comparison = {
   project: "spawnkit",
   slug: "ember-caves/in-game",
   title: "Code against design",
-  compare: "v5...main",
+  compare: "v5...3f2c1a9",
   versions: [
-    { n: 6, who: sam, label: "main, after #139", when: "9 days ago" },
+    { n: 6, who: sam, label: "main at 3f2c1a9, after #139", when: "9 days ago" },
     { n: 5, who: jonas, label: "v5, approved and built", when: "3 weeks ago" }
   ],
   from: 5,
   to: 6,
   named: {},
-  sides: { before: "v5, as approved and built in #128", after: "main now, after #139" },
+  sides: { before: "v5, as approved and built in #128", after: "main at 3f2c1a9, after #139" },
   boards: [{ name: "In game", draw: (n) => <InGameAt look={caves.look} as={n === 5 ? "design" : "code"} /> }],
   changes: [
     {
@@ -450,7 +467,8 @@ export const inGameComparison: Comparison = {
       parts: [
         {
           name: "HealthBar",
-          file: "src/routes/play.tsx",
+          file: "src/hud/HealthBar.tsx",
+          usedIn: "src/routes/play.tsx",
           diff: ['- <HealthBar placement="bottom" />', '+ <HealthBar placement="top" />']
         }
       ]
@@ -464,7 +482,7 @@ export const inGameComparison: Comparison = {
       was: [at(2, 2.4, 13.3, 4.6)],
       areas: [at(2, 7.4, 13.3, 4.6)],
       where: "Score",
-      what: "Down, under the hearts",
+      what: "Pushed down under the hearts, with no change of its own",
       parts: [{ name: "GameHud", file: "src/hud/GameHud.tsx" }]
     }
   ],
@@ -688,6 +706,11 @@ function TouchedPart({ part }: { part: Touched }) {
         <span className="truncate underline decoration-muted-foreground/40 underline-offset-2">{part.file}</span>
         <ExternalLink className="size-3 shrink-0 opacity-60" aria-label="Opens on GitHub" />
       </span>
+      {part.usedIn && (
+        <span className="break-all text-muted-foreground/80">
+          changed where it&apos;s used, in <span className="font-mono">{part.usedIn}</span>
+        </span>
+      )}
       {part.diff?.map((line) => (
         <span
           key={line}
@@ -817,7 +840,7 @@ export function ChangesPage({ comparison }: { comparison: Comparison }) {
                     {board.from !== undefined && (
                       <span className="font-normal text-white/40">
                         {" "}
-                        v{board.from}, approved, and v{board.to}
+                        v{board.from} approved, v{board.to} for review
                       </span>
                     )}
                   </span>
@@ -880,6 +903,15 @@ export function ChangesPage({ comparison }: { comparison: Comparison }) {
                               {change.parts.map((part) => (
                                 <TouchedPart key={part.name} part={part} />
                               ))}
+                              {change.threads?.map((thread) => (
+                                <span key={thread.who.name} className="flex items-start gap-1.5 pt-0.5 text-xs">
+                                  <Avatar person={thread.who} size={14} />
+                                  <span className="line-clamp-2 text-muted-foreground">
+                                    <span className="text-foreground">{thread.who.name.split(" ")[0]}:</span>{" "}
+                                    {thread.text}
+                                  </span>
+                                </span>
+                              ))}
                             </span>
                           </button>
                           {/* Comment on a change: it pins to the change on the board, at the newer version. */}
@@ -890,7 +922,9 @@ export function ChangesPage({ comparison }: { comparison: Comparison }) {
                             className={`absolute top-2 right-1 gap-1 text-muted-foreground ${change.threads ? "w-auto px-1.5" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"}`}
                           >
                             <MessageSquare />
-                            {change.threads && <span className="text-[11px] tabular-nums">{change.threads}</span>}
+                            {change.threads && (
+                              <span className="text-[11px] tabular-nums">{change.threads.length}</span>
+                            )}
                           </Button>
                         </li>
                       )
@@ -921,6 +955,8 @@ export function ChangesPage({ comparison }: { comparison: Comparison }) {
                   )}
                 </div>
               )}
+              {/* A fade at the foot says the list goes on under the actions. */}
+              <div className="pointer-events-none sticky -bottom-5 -mx-5 -mt-5 h-8 shrink-0 bg-gradient-to-t from-background to-transparent" />
             </div>
             {shown.length > 0 && (
               <div className="flex flex-col gap-2 border-t px-5 py-4">
@@ -957,7 +993,7 @@ function Foot({
     placeholder = "What should change? It goes to everyone who made these versions."
     primary = (
       <>
-        <Check /> {you.boards ? `Approve ${you.boards.length} boards` : `Approve v${to}`}
+        <Check /> {you.boards ? `Approve ${you.boards.filter((board) => !board.open).length} boards` : `Approve v${to}`}
       </>
     )
     note = you.approves
@@ -965,7 +1001,7 @@ function Foot({
     ask = `Ask ${first(you.designer)}`
     placeholder = `Ask ${first(you.designer)} about these changes`
     primary = `Keep building v${you.building}`
-    note = `When ${first(you.reviewer)} approves v${to}, your build moves to it with these ${changes} changes. Until then, v${you.building} is the approved version.`
+    note = `Keeping v${you.building} clears this from your inbox. When ${first(you.reviewer)} approves v${to}, Handoff asks you to build it, and #150 still needs these ${changes} changes.`
   } else {
     ask = `Ask ${first(you.builder)}`
     placeholder = `What should ${first(you.builder)} change back?`
@@ -984,9 +1020,10 @@ function Foot({
       {you.as === "reviewer" && you.boards && !asking && (
         <div className="flex flex-col gap-1">
           {you.boards.map((board) => (
-            <label key={board} className="flex items-center gap-2 text-xs">
-              <input type="checkbox" defaultChecked className="size-3.5 accent-foreground" />
-              {board}
+            <label key={board.name} className="flex items-center gap-2 text-xs">
+              <input type="checkbox" defaultChecked={!board.open} className="size-3.5 accent-foreground" />
+              {board.name}
+              {board.open && <span className="text-muted-foreground">{board.open}</span>}
             </label>
           ))}
         </div>

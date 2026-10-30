@@ -203,7 +203,9 @@ function SeatRequests() {
               <span className="font-medium">{request.name}</span>
               <span className="truncate text-xs text-muted-foreground">{request.line}</span>
             </span>
-            <span className="ml-auto shrink-0 text-xs text-muted-foreground">Waiting {request.waited}</span>
+            <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+              Waiting {request.waited.replace(/ ago$/, "")}
+            </span>
             <span className="flex shrink-0 gap-2">
               <Button size="sm" variant="outline">
                 {request.approve}
@@ -294,7 +296,7 @@ export function MembersPage({ overlay }: { overlay?: ReactNode }) {
           <Button variant="ghost" className="gap-1.5">
             <Download /> Export
           </Button>
-          <Button className="gap-1.5">
+          <Button variant="outline" className="gap-1.5">
             <UserPlus /> Invite
           </Button>
         </span>
@@ -550,6 +552,7 @@ export function AddSeatsPage() {
             <Sum label={`2027, ${paidSeats + adding} seats at $${seatPrice} a month`} amount="$3,354.00" />
             <span className="my-1 border-t" />
             <Sum label="On the January 1 invoice, before tax" amount="$3,471.62" strong />
+            <Sum label={`Of which these ${adding} seats add`} amount="$788.42" />
             <span className="text-xs text-muted-foreground">
               Nothing is charged today. It goes on Mastercard ending 0417 when the invoice is issued.
             </span>
@@ -755,7 +758,7 @@ export function RemoveMemberPage() {
                 <span className="text-xs text-muted-foreground">Requests for access go to the new owner.</span>
               </Consequence>
               <Consequence icon={<Bot />}>
-                Jonas&apos;s Cursor will lose access; yours keeps working. What Jonas&apos;s made stays, under
+                Jonas&apos;s Cursor will lose access; yours keeps working. What Jonas&apos;s Cursor made stays, under
                 Jonas&apos;s name.
               </Consequence>
               <Consequence icon={<History />}>
@@ -780,7 +783,9 @@ export function RemoveMemberPage() {
 
 /** Who changed what, newest first. The seats Sam added on Sep 18 are the 2 on that quarter's invoice. */
 const audit = [
+  { who: me, what: "approved", target: "v8 of Level select in Ember Caves", when: "Today, 3:52 PM" },
   { who: priya, what: "added", target: "Noah Park to Kestrel, as a viewer", when: "Yesterday, 4:20 PM" },
+  { who: lena, what: "approved", target: "v21 of Inbox in Relay", when: "Yesterday, 11:05 AM" },
   { who: priya, what: "invited", target: "ren@kestrel.dev as an editor", when: "Oct 27, 10:12 AM" },
   { who: jonas, what: "connected the agent", target: "Cursor", when: "Oct 27, 9:40 AM" },
   { who: sam, what: "changed the payment card to", target: "Mastercard ending 0417", when: "Oct 21, 4:55 PM" },

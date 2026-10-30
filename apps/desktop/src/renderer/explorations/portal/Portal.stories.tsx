@@ -104,7 +104,7 @@ function TeamPage() {
           </div>
           <div className="-mx-3 grid grid-cols-2 gap-x-6">
             {week.map((item) => (
-              <ActivityRow key={item.id} item={item} compact />
+              <ActivityRow key={item.id} item={item} />
             ))}
           </div>
         </section>

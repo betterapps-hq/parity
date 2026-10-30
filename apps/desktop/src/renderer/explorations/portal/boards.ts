@@ -89,6 +89,8 @@ export interface Deliverable {
   issue?: string
   /** What the designer wants the builder to know that the board can't show. */
   notes?: { who: Person; text: string }
+  /** For code that's moved away from its design: the pull request that moved it. */
+  drift?: { who: Person; when: string; pr: PullRequest }
 }
 
 /** The Cloud console's components that use its brand color, with their files. */
@@ -164,7 +166,7 @@ export const deliverables: Record<string, Deliverable> = {
     },
     notes: {
       who: jonas,
-      text: "Locked tiles ignore taps and show the lock instead of the number. Stars always sit under the tile, even at 0."
+      text: "Locked tiles ignore taps and show the lock instead of the number. Every played tile has its stars under it, even 0; the current one has none until it's played."
     }
   },
   "copilot/Inbox": {
@@ -233,7 +235,8 @@ export const deliverables: Record<string, Deliverable> = {
     tokens: [{ name: "--health", value: "oklch(0.68 0.22 25)", usedBy: ["HealthBar"] }],
     states: ["Playing", "Paused"],
     sizes: ["Phone"],
-    code: { who: sam, doing: "Built", when: "2 weeks ago", pr: { number: 128, state: "merged" } }
+    code: { who: sam, doing: "Built", when: "2 weeks ago", pr: { number: 128, state: "merged" } },
+    drift: { who: sam, when: "9 days ago", pr: { number: 139, state: "merged" } }
   },
   "dashboard/Billing": {
     project: "dashboard",
@@ -330,11 +333,21 @@ export function approvedThisWeek(projects?: string[]): number {
   ).length
 }
 
-/** Boards waiting on a developer, as the nav counts them: ready to pick up, or changed under you while you build. */
+/**
+ * What Handoff's nav counts: boards ready for anyone to pick up, reviews waiting on you, and boards that changed under
+ * you while you build them. It's every row that says you, or anyone, can act now.
+ */
 export const handoffWaiting = Object.values(deliverables).filter((board) => {
   const status = handoff[`${board.project}/${board.design}`]
-  return status === "Ready to build" || (status === "Changed since approval" && board.code?.who === me)
+  if (status === "Ready to build") return true
+  if (status === "In review") return board.review?.reviewer === me
+  return status === "Changed since approval" && board.code?.who === me
 }).length
+
+/** How many boards' code was built as designed this week, from Monday, October 26. */
+export const builtThisWeek = Object.values(deliverables).filter(
+  (board) => board.code?.doing === "Built" && /min ago|h ago|yesterday|^[23] days ago$/.test(board.code.when)
+).length
 
 /** One board's deliverable, by project and design. */
 export function deliverable(project: string, design: string): Deliverable {

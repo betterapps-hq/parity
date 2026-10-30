@@ -135,7 +135,7 @@ function ShareDialog() {
           </Row>
         </Section>
         <Section title="Agents">
-          <Row who={<Avatar person={cursor} size={28} />} name="Cursor" why="Working for you on Docs home">
+          <Row who={<Avatar person={cursor} size={28} />} name="Cursor" why="Yours, so it can do what you can here">
             <RoleMenu value="propose" options={agentRoles} />
           </Row>
         </Section>
