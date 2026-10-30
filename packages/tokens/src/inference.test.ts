@@ -73,6 +73,9 @@ describe("inferTokenKind", () => {
     expect(inferTokenKind("radius-md", "var(--unknown)")).toBe("radius")
     expect(inferTokenKind("brand", "var(--unknown)")).toBe("setting")
     expect(inferTokenKind("font-size-inherit", "inherit")).toBe("font-size")
+    // A text color, as Mantine names one, not a font size, when the value allows both.
+    expect(inferTokenKind("color-text", "var(--external)")).toBe("color")
+    expect(inferTokenKind("mantine-color-text", "inherit")).toBe("color")
   })
 
   it("takes a shadow with a named color or a variable as one", () => {

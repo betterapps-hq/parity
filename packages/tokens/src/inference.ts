@@ -243,8 +243,9 @@ const hints: [string[], InferredKind][] = [
   [["stroke", "strokewidth", "borderwidth"], "border-width"],
   [["shadow", "shadows", "elevation"], "shadow"],
   [["overlay", "overlays", "gradient"], "gradient"],
-  [["text", "fontsize", "fontsizes"], "font-size"],
+  // Before text: a name with both, as `color-text` is, is a text color, whatever its value allows.
   [["color", "colors", "palette", "bg", "fg", "background", "foreground"], "color"],
+  [["text", "fontsize", "fontsizes"], "font-size"],
   [["font"], "font-family"]
 ]
 
