@@ -9,7 +9,7 @@ import { describe, expect, it } from "vite-plus/test"
 import { checkAnatomy, readAnatomy } from "./anatomy.ts"
 import { readExamples } from "./examples.ts"
 import { hostedParts, type RenderCall, readRenders, renderedIn } from "./hosts.ts"
-import { compareComponents, selectComponents } from "./index.ts"
+import { compareComponents, loader, selectComponents } from "./index.ts"
 import { completeChains, guessParent, type PartRelation, relateParts, spelledOut } from "./parts.ts"
 import { categorizeVar, cssTokens, pairLineHeights, toDtcg } from "./tokens.ts"
 
@@ -488,6 +488,28 @@ describe("parts", () => {
     expect(guessParent("TabPanels", ["Tab", "Tabs", "TabPanels"])).toEqual(["Tabs", "prefix"])
     expect(guessParent("Tab", names)).toEqual(["Tabs", "prefix"])
     expect(guessParent("Card", names)).toEqual([undefined, undefined])
+  })
+})
+
+describe("loading a package", () => {
+  it("loads through main when the module entry doesn't run in Node, as Recharts' es6 build doesn't", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "parity-loader-"))
+    const pkg = join(dir, "node_modules", "charts")
+    try {
+      await mkdir(join(pkg, "es6"), { recursive: true })
+      await mkdir(join(pkg, "lib"))
+      await writeFile(join(dir, "package.json"), "{}")
+      await writeFile(
+        join(pkg, "package.json"),
+        JSON.stringify({ name: "charts", main: "lib/index.js", module: "es6/index.js" })
+      )
+      // Importing a file Node can't find, as Recharts' es6 build imports its files without their extensions.
+      await writeFile(join(pkg, "es6", "index.js"), `export { Bar } from "./Bar"\n`)
+      await writeFile(join(pkg, "lib", "index.js"), `exports.Bar = "lib"\n`)
+      expect((await loader(dir, pkg)("charts")).Bar).toBe("lib")
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
   })
 })
 

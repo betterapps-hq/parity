@@ -818,11 +818,21 @@ function exportsByName(file: string, name: string): boolean {
  * Imports a module from the project, as the project's code would, for reading theme objects and counting icons.
  * Packages a library depends on, such as Fluent's `@fluentui/tokens`, may only be reachable from the library itself.
  */
-function loader(root: string, packageDir: string): Load {
+export function loader(root: string, packageDir: string): Load {
   return async (specifier) => {
     for (const from of [root, packageDir]) {
-      const path = (await resolveImport(from, specifier)) ?? resolveRequire(from, specifier)
-      if (path) return (await import(pathToFileURL(path).href)) as Record<string, unknown>
+      const esm = await resolveImport(from, specifier)
+      const cjs = resolveRequire(from, specifier)
+      const path = esm ?? cjs
+      if (!path) continue
+      try {
+        return (await import(pathToFileURL(path).href)) as Record<string, unknown>
+      } catch (error) {
+        // A `module` entry Node can't run, as Recharts' `es6` build imports its files without extensions, loads
+        // through `main` instead, as bundlers fall back to it.
+        if (!cjs || cjs === path) throw error
+        return (await import(pathToFileURL(cjs).href)) as Record<string, unknown>
+      }
     }
     throw new Error(`Can't find ${specifier} from ${root}`)
   }

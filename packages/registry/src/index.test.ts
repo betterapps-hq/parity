@@ -1,6 +1,7 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { applyLibraryEdits, type LibraryEdits } from "@parity-app/core"
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
 import { covers, registryDir, registryEntries, registryEntryFor } from "./index.ts"
 
@@ -79,7 +80,8 @@ describe("the registry", () => {
       "@heroicons/react",
       "@phosphor-icons/react",
       "@tabler/icons-react",
-      "@fluentui/react-icons"
+      "@fluentui/react-icons",
+      "recharts"
     ]) {
       const manifest = packages[name]
       expect({
@@ -88,5 +90,36 @@ describe("the registry", () => {
         describes: Boolean(manifest?.components ?? manifest?.icons)
       }).toEqual({ name, version: expect.stringMatching(/^\d+\.\d+\.\d+/), describes: true })
     }
+  })
+
+  it("samples Recharts' bar, line and area charts with data, sized by what holds them", async () => {
+    const entry = (await registryEntries(registryDir())).find((each) => each.manifest.package?.name === "recharts")!
+    const edits = entry.manifest.edits
+    if (typeof edits !== "object") throw new Error("Recharts' file keeps its edits in itself")
+    const { manifest, orphans } = applyLibraryEdits(entry.manifest, edits satisfies LibraryEdits)
+    expect(orphans).toEqual([])
+    const list = manifest.components!.list
+    for (const [chart, series] of [
+      ["BarChart", "Bar"],
+      ["LineChart", "Line"],
+      ["AreaChart", "Area"]
+    ] as const) {
+      const sample = list[chart]!.sample!
+      expect(list[chart]!.group).toBe("Charts")
+      expect(sample.props).toMatchObject({ responsive: true, width: "100%" })
+      expect(sample.props!.data).toEqual(expect.arrayContaining([expect.objectContaining({ month: "January" })]))
+      expect(
+        sample.children!.map((child) => typeof child === "object" && "component" in child && child.component)
+      ).toEqual(["CartesianGrid", "XAxis", series])
+      expect(list[series]!.parents).toEqual([chart])
+      // Frames are still pictures, so a series draws whole rather than mid-animation.
+      expect(list[series]!.sample!.props).toMatchObject({ isAnimationActive: false })
+    }
+    expect([list.XAxis!.group, list.YAxis!.group, list.CartesianGrid!.group, list.Bar!.group]).toEqual([
+      "Axes",
+      "Axes",
+      "Grids",
+      "Series"
+    ])
   })
 })

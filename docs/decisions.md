@@ -595,6 +595,15 @@ recommended answer to each of its questions.
   vega. They share one set of hand edits (`buildkit-baseui.edits.json` in the registry), since only their styles differ,
   and the Radix styles still aren't published. Parity names each one Shadcn and its style, capitalized (Shadcn Nova,
   Shadcn Luma), as you asked on 2026-10-29; their packages keep their names (`@buildkitgg/shadcn-baseui-nova`).
+- **Charts come from Recharts' own registry file (PAR-130),** so Nova's ChartContainer has something to hold. My call:
+  Recharts is a library when the project depends on `recharts`, as shadcn's chart docs have it install, not when it only
+  comes in under a Buildkit style, since the project's code can't import it then. Its hand edits group its parts as
+  Charts, Series, Axes and Grids, and give BarChart, LineChart and AreaChart six months of sample data with a grid, an x
+  axis and their series. Charts are sized with `responsive`, `width: "100%"` and `height: 240`, which a ChartContainer's
+  size overrides, and series draw with `isAnimationActive: false`, since a frame is a still picture and Recharts would
+  otherwise be caught mid-animation. Colours are `var(--chart-1)`, with a fallback for projects without it.
+- **`parity lib` loads a package through `main` when its `module` entry won't run in Node,** as Recharts' `es6` build
+  imports its files without extensions, so its parts are tried and placed like any other library's.
 - **Parts are placed inside their parents,** from the library's own examples (below), then three signals: namespace
   exports (`Accordion.Item`), the "must be used within" error a part throws alone, and shared name prefixes
   (`AccordionItem` under `Accordion`), or a plural (`Tab` under `Tabs`). Each part records which signal placed it,

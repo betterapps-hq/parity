@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Charts, axes, series and grids from Recharts, so a ChartContainer can hold a bar, line or area chart",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
