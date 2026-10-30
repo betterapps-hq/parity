@@ -326,6 +326,8 @@ export const ReferenceToAnotherToken: Story = {
     await retype(dialog, "default", "var(--chart-1)")
     await userEvent.click(within(dialog).getByRole("button", { name: "Apply" }))
     await within(dialog).findByText("Applied. Saving writes it to src/index.css.")
+    // Apply took away the button that had the keyboard, so Edit has it now.
+    await waitFor(() => expect(within(dialog).getByRole("button", { name: "Edit" })).toHaveFocus())
     await expect(example().store.getHistory().undoLabel).toBe("Edit --primary")
     await expect(example().store.hasUnsaved()).toBe(true)
     // The detail's Undo takes it back, as Ctrl+Z would.

@@ -3,7 +3,7 @@
 
 import { codeForms, substituteReferences, tokenReferences, valueParts } from "@parity/core"
 import { Check, ChevronDown, Pause, Pencil, Play } from "lucide-react"
-import { Fragment, useId, useState } from "react"
+import { Fragment, useEffect, useId, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -132,7 +132,19 @@ export function TokenDetail({
   const comesTo = label === values.default ? undefined : label
   const playing = moving.has(kind) && (play ?? !reduced)
   const built = token.derived ? [token.derived.from] : tokenReferences(values.default ?? "")
-  const cancel = () => setDrafts(undefined)
+  // Cancel, Apply and Undo take away what had the keyboard (a field, or the button pressed), so it goes back to Edit
+  // rather than dropping out of the detail.
+  const editButton = useRef<HTMLButtonElement>(null)
+  const refocus = useRef(false)
+  useEffect(() => {
+    if (!refocus.current || drafts !== undefined) return
+    refocus.current = false
+    editButton.current?.focus()
+  })
+  const cancel = () => {
+    refocus.current = true
+    setDrafts(undefined)
+  }
   return (
     <div className="flex flex-col">
       <div className="group/preview relative px-3 pt-3">
@@ -168,6 +180,7 @@ export function TokenDetail({
           onApply(changes)
           setDrafts(undefined)
           setApplied(true)
+          refocus.current = true
         }}
       >
         <dl className="grid grid-cols-[4.25rem_minmax(0,1fr)] items-baseline gap-x-3 gap-y-2 border-t px-3 py-3 text-xs">
@@ -230,6 +243,7 @@ export function TokenDetail({
                   onClick={() => {
                     undo()
                     setApplied(false)
+                    refocus.current = true
                   }}
                 >
                   Undo
@@ -286,6 +300,7 @@ export function TokenDetail({
                     type="button"
                     variant="ghost"
                     size="sm"
+                    ref={editButton}
                     disabled={Boolean(token.derived)}
                     onClick={() => {
                       setDrafts(values)
