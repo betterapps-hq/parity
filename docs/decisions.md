@@ -1471,9 +1471,9 @@ to PAR-209 build it.
   example or the workspace's build files, and not for docs, unit tests, scripts or CI alone (`scripts/app-tests.ts`).
   You asked on 2026-10-30: sessions ran the whole suite as a routine check, so a Parity window opened every few minutes
   and runs from several sessions at once took the same ports and failed each other's. Sessions run only the files a
-  change touches while working. CI runs them too, on Windows only, whose runners have a desktop for the window, as an
-  `app` job. It doesn't block merging yet: on its first run the example never opened on the runner within 180 s, so
-  `CI passes` leaves it out until it runs reliably there (PAR-438).
+  change touches while working. CI runs them too, for every pull request and push to main, on Windows only, whose
+  runners have a desktop for the window, as an `app` job. It doesn't block merging yet: on its first run the example
+  never opened on the runner within 180 s, so `CI passes` leaves it out until it runs reliably there (PAR-438).
 - **Packages and scripts use only TypeScript that Node can strip,** because the CLI and scripts run them with plain
   `node`: no parameter properties, namespaces or enums. oxlint rejects the first two in `packages/**` and
   `apps/*/scripts/**`; the app's bundled code may use them. The Library files session found CAN-48's parser had broken
