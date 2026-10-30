@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { createServer } from "vite"
@@ -44,7 +44,8 @@ describe("dependencySourceMaps", () => {
   let root: string
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), "parity-maps-"))
+    // The real path: Windows runners' tmpdir can use a short (8.3) name, which crashes libuv's watcher.
+    root = await realpath(await mkdtemp(join(tmpdir(), "parity-maps-")))
     const files: Record<string, string> = {
       "package.json": JSON.stringify({ name: "fixture", type: "module" }),
       "main.js":
