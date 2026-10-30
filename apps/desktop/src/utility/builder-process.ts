@@ -1,7 +1,7 @@
 // One project's builder, in a process of its own that the project service starts (see builders.ts). Ending it when the
 // project closes is what gives back the build tool's memory, which closing its server doesn't.
-import { viteBuilder } from "@parity/builder-vite"
-import { type BuilderProcessRequest, serveBuilderProcess } from "@parity/core"
+import { viteBuilder } from "@parity-app/builder-vite"
+import { type BuilderProcessRequest, serveBuilderProcess } from "@parity-app/core"
 
 const serve = serveBuilderProcess(
   {

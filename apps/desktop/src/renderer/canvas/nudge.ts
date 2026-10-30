@@ -11,7 +11,7 @@ import {
   shownVariants,
   type StateSpec,
   topmostNodes
-} from "@parity/core"
+} from "@parity-app/core"
 import type { DesignStore } from "../design-store.ts"
 import { findNodeElement } from "../frame.ts"
 import { selectedDesigns, selectedNodes, type Selection, type SelectionStore } from "../selection.ts"

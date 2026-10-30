@@ -5,7 +5,7 @@ import {
   resolveMode,
   uniqueId,
   type VariableOption
-} from "@parity/core"
+} from "@parity-app/core"
 import {
   Copy,
   Crown,

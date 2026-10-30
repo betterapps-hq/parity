@@ -1,7 +1,7 @@
 {
   "version": 3,
   "id": "vega",
-  "name": "Buildkit vega",
+  "name": "Shadcn Vega",
   "description": "Every shadcn component on Base UI, in the vega style, kept in step with upstream.",
   "package": {
     "name": "@buildkitgg/shadcn-baseui-vega",

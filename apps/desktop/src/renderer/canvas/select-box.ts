@@ -1,4 +1,4 @@
-import { childNodes } from "@parity/core"
+import { childNodes } from "@parity-app/core"
 import { nodeBox } from "../frame.ts"
 import type { ProjectSession } from "../workspace.ts"
 import type { Hit } from "./hit.ts"

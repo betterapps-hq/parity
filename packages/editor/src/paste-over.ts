@@ -11,7 +11,7 @@ import {
   type StateSpec,
   topmostNodes,
   withFreshIds
-} from "@parity/core"
+} from "@parity-app/core"
 import { copyDesigns } from "./clipboard.ts"
 
 /**

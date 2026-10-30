@@ -1,4 +1,4 @@
-import { iconStyleModules, type LibraryInfo, type RenderNode } from "@parity/core"
+import { iconStyleModules, type LibraryInfo, type RenderNode } from "@parity-app/core"
 import {
   type IconIndex,
   iconIndex,
@@ -6,7 +6,7 @@ import {
   iconEntries as setEntries,
   iconStyles as setStyles,
   searchIcons
-} from "@parity/icons"
+} from "@parity-app/icons"
 import { type CSSProperties, useEffect, useMemo, useRef } from "react"
 import type { InsertItem } from "../canvas/insert.ts"
 import type { LoadedGuest } from "../guest.ts"

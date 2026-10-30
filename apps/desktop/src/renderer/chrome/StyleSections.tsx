@@ -7,7 +7,7 @@ import {
   type Size,
   spacingStepName,
   type Token
-} from "@parity/core"
+} from "@parity-app/core"
 import {
   AlignCenter,
   AlignJustify,
@@ -1076,7 +1076,7 @@ function TextSection({ editor, node }: SectionProps) {
 
 /**
  * A length, typed and shown in pixels (320 is 320px) and kept as steps of the spacing scale, or one of the project's
- * length tokens by name. The list beside it picks a step or a token. What it reads is in `@parity/core`'s fields.ts.
+ * length tokens by name. The list beside it picks a step or a token. What it reads is in `@parity-app/core`'s fields.ts.
  */
 export function LengthInput({
   editor,

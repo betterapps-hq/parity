@@ -1,5 +1,5 @@
 {
-  "name": "@parity/registry",
+  "name": "@parity-app/registry",
   "version": "0.0.0",
   "license": "MIT",
   "private": true,
@@ -10,7 +10,7 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "@parity/core": "workspace:*",
+    "@parity-app/core": "workspace:*",
     "semver": "^7.8.5"
   },
   "devDependencies": {

@@ -1,7 +1,7 @@
 {
   "type": "none",
   "comment": "Tests import from vite-plus/test",
-  "packageName": "@parity/desktop",
+  "packageName": "@parity-app/desktop",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "none"
 }

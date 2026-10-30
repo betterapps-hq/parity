@@ -7,7 +7,7 @@ import type {
   DetectionCorrections,
   LeftOutExport,
   RendererAdapter
-} from "@parity/core"
+} from "@parity-app/core"
 import { type ProjectTsconfig, resolvePathAlias } from "./tsconfig.ts"
 
 /** A component found in the app's source, before it has an id. */

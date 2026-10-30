@@ -5,7 +5,7 @@ import {
   previewKind,
   substituteReferences,
   type Token
-} from "@parity/core"
+} from "@parity-app/core"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { LayoutGrid, List, Search } from "lucide-react"
 import { type KeyboardEvent as ReactKeyboardEvent, type ReactNode, useMemo, useRef, useState } from "react"

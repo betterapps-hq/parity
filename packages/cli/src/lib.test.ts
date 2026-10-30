@@ -1,4 +1,4 @@
-import { covers } from "@parity/registry"
+import { covers } from "@parity-app/registry"
 import { describe, expect, it } from "vite-plus/test"
 import { keptRange, packageSpec } from "./lib.ts"
 

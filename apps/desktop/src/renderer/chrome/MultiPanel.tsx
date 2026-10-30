@@ -1,4 +1,3 @@
-import type { Alignment } from "@parity-app/editor"
 import {
   boardTarget,
   type ContainerSpec,
@@ -13,7 +12,8 @@ import {
   shownVariants,
   styleKeys,
   targetPatches
-} from "@parity/core"
+} from "@parity-app/core"
+import type { Alignment } from "@parity-app/editor"
 import {
   AlignCenterHorizontal,
   AlignCenterVertical,

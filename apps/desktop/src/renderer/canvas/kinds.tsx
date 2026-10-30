@@ -1,4 +1,4 @@
-import { type ContainerKind, type DesignNode, nodeLabel } from "@parity/core"
+import { type ContainerKind, type DesignNode, nodeLabel } from "@parity-app/core"
 import {
   Box,
   Columns3,

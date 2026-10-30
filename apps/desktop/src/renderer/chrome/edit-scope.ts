@@ -1,4 +1,4 @@
-import { boardTarget, type ContainerSpec, editsDesign, isBaseState, type StateSpec } from "@parity/core"
+import { boardTarget, type ContainerSpec, editsDesign, isBaseState, type StateSpec } from "@parity-app/core"
 
 /**
  * What the inspector says above controls that always change the design itself, when the state or variant being edited

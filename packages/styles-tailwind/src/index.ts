@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { pathToFileURL } from "node:url"
-import type { StylesAdapter, ThemeVariable } from "@parity/core"
+import type { StylesAdapter, ThemeVariable } from "@parity-app/core"
 import { installedPackage, packageEntry } from "./installed.ts"
 
 interface TailwindNode {

@@ -1,4 +1,4 @@
-import { editNode } from "@parity/core"
+import { editNode } from "@parity-app/core"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { userEvent, within } from "storybook/test"
 import { useProject } from "../canvas/context.ts"

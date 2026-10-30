@@ -1,7 +1,7 @@
 {
   "version": 3,
   "id": "luma",
-  "name": "Buildkit luma",
+  "name": "Shadcn Luma",
   "description": "Every shadcn component on Base UI, in the luma style, kept in step with upstream.",
   "package": {
     "name": "@buildkitgg/shadcn-baseui-luma",

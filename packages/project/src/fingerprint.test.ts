@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
-import { readTsconfig } from "@parity/code"
+import { readTsconfig } from "@parity-app/code"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 import { detectionFingerprint } from "./fingerprint.ts"
 

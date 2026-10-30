@@ -1,4 +1,4 @@
-import { childNodes, type ComponentRenderStatus, type DesignNode } from "@parity/core"
+import { childNodes, type ComponentRenderStatus, type DesignNode } from "@parity-app/core"
 import type { ReactNode } from "react"
 import { toast } from "sonner"
 import { userEvent, waitFor, within } from "storybook/test"

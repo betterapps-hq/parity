@@ -1,4 +1,4 @@
-import { type ContainerSpec, type DesignNode, findNode, nodeIds, nodeInState, type NoteSpec } from "@parity/core"
+import { type ContainerSpec, type DesignNode, findNode, nodeIds, nodeInState, type NoteSpec } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import {
   applyStyle,

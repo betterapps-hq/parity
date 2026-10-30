@@ -1,7 +1,7 @@
 // The offscreen render window's page. The main process asks it to draw one frame, measures it, and captures it, so
 // agents can lay out and screenshot any state in any mode without touching the person's canvas.
-import type { AccessibilityIssue, ContrastDetail } from "@parity/agent"
-import { type RenderNode, screenHeightForWidth } from "@parity/core"
+import type { AccessibilityIssue, ContrastDetail } from "@parity-app/agent"
+import { type RenderNode, screenHeightForWidth } from "@parity-app/core"
 import axe, { type NodeResult, type RunOptions } from "axe-core"
 import type { MeasuredNode, RenderedFrame, RenderJob } from "../shared/protocol.ts"
 import { drawnNodeIds, findNodeElement, nodeBox, nodeOfElement, prepareFrame, setDrawnNodes } from "./frame.ts"

@@ -1,4 +1,4 @@
-import type { Token } from "@parity/core"
+import type { Token } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import {
   noTokenEdits,

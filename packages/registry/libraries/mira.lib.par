@@ -1,7 +1,7 @@
 {
   "version": 3,
   "id": "mira",
-  "name": "Buildkit mira",
+  "name": "Shadcn Mira",
   "description": "Every shadcn component on Base UI, in the mira style, kept in step with upstream.",
   "package": {
     "name": "@buildkitgg/shadcn-baseui-mira",

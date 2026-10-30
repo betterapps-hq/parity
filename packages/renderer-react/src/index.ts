@@ -1,12 +1,12 @@
 import { basename, dirname } from "node:path"
-import type { ComponentEvidence, ComponentExport, PackageManifest, RendererAdapter } from "@parity/core"
+import type { ComponentEvidence, ComponentExport, PackageManifest, RendererAdapter } from "@parity-app/core"
 import ts from "typescript"
 
 export const reactRenderer: RendererAdapter = {
   id: "react",
   name: "React",
   detect: (pkg) => hasDependency(pkg, "react") && hasDependency(pkg, "react-dom"),
-  guestModule: "@parity/renderer-react/guest",
+  guestModule: "@parity-app/renderer-react/guest",
   runtimePackages: ["react", "react-dom"],
   runtimeImports: ["react", "react/jsx-runtime", "react/jsx-dev-runtime", "react-dom", "react-dom/client"],
   // `.ts` too: a component can be made with `createElement`, or be an alias such as `const Select = Primitive.Root`.

@@ -1,4 +1,4 @@
-import { defaultModeSettings, type ResolvedMode, resolveModes } from "@parity/core"
+import { defaultModeSettings, type ResolvedMode, resolveModes } from "@parity-app/core"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { userEvent, within } from "storybook/test"

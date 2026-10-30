@@ -1,4 +1,4 @@
-import { type DesignNode, locateNode, walkNodes } from "@parity/core"
+import { type DesignNode, locateNode, walkNodes } from "@parity-app/core"
 import type { ContainerEntry } from "../design-store.ts"
 import { findNodeElement, nodeBox } from "../frame.ts"
 import { flowOf, type Point, type Rect, slotAt } from "./drop-slot.ts"

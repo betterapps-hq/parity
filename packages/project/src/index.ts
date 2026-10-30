@@ -1,6 +1,6 @@
 import { readdir, readFile } from "node:fs/promises"
 import { dirname, extname, join, relative } from "node:path"
-import { componentIds, findAppComponents, type ProjectTsconfig, readTsconfig, resolvePathAlias } from "@parity/code"
+import { componentIds, findAppComponents, type ProjectTsconfig, readTsconfig, resolvePathAlias } from "@parity-app/code"
 import {
   type ComponentSource,
   type DescribedTokens,
@@ -10,7 +10,7 @@ import {
   parseLibraryManifest,
   type ProjectConfig,
   type RendererAdapter
-} from "@parity/core"
+} from "@parity-app/core"
 import { loadConfig } from "./configs.ts"
 import { parseJsonc } from "./jsonc.ts"
 import { describedTokens, findLibraries } from "./libraries.ts"
@@ -26,7 +26,7 @@ export {
   importersOf,
   type ParsedComponent,
   readChangedFiles
-} from "@parity/code"
+} from "@parity-app/code"
 export { addCommand, cutoff, detectPackageManager, detectProject } from "./detect.ts"
 export {
   diffFile,
@@ -42,7 +42,7 @@ export { detectionFingerprint } from "./fingerprint.ts"
 export { parseJsonc } from "./jsonc.ts"
 export { installedPackage, type LibraryDefinition, libraryCatalog, withStylesImport } from "./libraries.ts"
 export { parseStoryFile } from "./storybook.ts"
-export { type ProjectTsconfig, readTsconfig, resolvePathAlias, type TsconfigFile } from "@parity/code"
+export { type ProjectTsconfig, readTsconfig, resolvePathAlias, type TsconfigFile } from "@parity-app/code"
 export { findWorkspace, type Workspace } from "./workspace.ts"
 
 export interface DiscoveredProject extends ProjectConfig {

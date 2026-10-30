@@ -180,7 +180,7 @@ catalogs:
 overrides:
   vite@*: npm:@voidzero-dev/vite-plus-core@1.4.0
   shadcn-vite>vite: ^8.3.5
-  '@parity/builder-vite>vite': ^8.3.5
+  '@parity-app/builder-vite>vite': ^8.3.5
 
 importers:
 
@@ -259,37 +259,37 @@ importers:
         specifier: ^7.5.0
         version: 7.5.0
     devDependencies:
+      '@parity-app/agent':
+        specifier: workspace:*
+        version: link:../../packages/agent
+      '@parity-app/builder-vite':
+        specifier: workspace:*
+        version: link:../../packages/builder-vite
+      '@parity-app/code':
+        specifier: workspace:*
+        version: link:../../packages/code
+      '@parity-app/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@parity-app/editor':
         specifier: workspace:*
         version: link:../../packages/editor
-      '@parity/agent':
-        specifier: workspace:*
-        version: link:../../packages/agent
-      '@parity/builder-vite':
-        specifier: workspace:*
-        version: link:../../packages/builder-vite
-      '@parity/code':
-        specifier: workspace:*
-        version: link:../../packages/code
-      '@parity/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@parity/icons':
+      '@parity-app/icons':
         specifier: workspace:*
         version: link:../../packages/icons
-      '@parity/libgen':
+      '@parity-app/libgen':
         specifier: workspace:*
         version: link:../../packages/libgen
-      '@parity/project':
+      '@parity-app/project':
         specifier: workspace:*
         version: link:../../packages/project
-      '@parity/registry':
+      '@parity-app/registry':
         specifier: workspace:*
         version: link:../../packages/registry
-      '@parity/renderer-react':
+      '@parity-app/renderer-react':
         specifier: workspace:*
         version: link:../../packages/renderer-react
-      '@parity/styles-tailwind':
+      '@parity-app/styles-tailwind':
         specifier: workspace:*
         version: link:../../packages/styles-tailwind
       '@storybook/react-vite':
@@ -428,13 +428,13 @@ importers:
 
   packages/agent:
     dependencies:
-      '@parity/core':
+      '@parity-app/core':
         specifier: workspace:*
         version: link:../core
 
   packages/builder-vite:
     dependencies:
-      '@parity/core':
+      '@parity-app/core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -451,19 +451,19 @@ importers:
         specifier: 6.0.3
         version: 6.0.3
     devDependencies:
-      '@parity/core':
+      '@parity-app/core':
         specifier: workspace:*
         version: link:../core
-      '@parity/libgen':
+      '@parity-app/libgen':
         specifier: workspace:*
         version: link:../libgen
-      '@parity/registry':
+      '@parity-app/registry':
         specifier: workspace:*
         version: link:../registry
 
   packages/code:
     dependencies:
-      '@parity/core':
+      '@parity-app/core':
         specifier: workspace:*
         version: link:../core
       typescript:
@@ -474,46 +474,46 @@ importers:
 
   packages/editor:
     dependencies:
-      '@parity/core':
+      '@parity-app/core':
         specifier: workspace:*
         version: link:../core
 
   packages/fixtures:
     dependencies:
-      '@parity/builder-vite':
+      '@parity-app/builder-vite':
         specifier: workspace:*
         version: link:../builder-vite
-      '@parity/core':
+      '@parity-app/core':
         specifier: workspace:*
         version: link:../core
-      '@parity/project':
+      '@parity-app/project':
         specifier: workspace:*
         version: link:../project
-      '@parity/renderer-react':
+      '@parity-app/renderer-react':
         specifier: workspace:*
         version: link:../renderer-react
-      '@parity/styles-tailwind':
+      '@parity-app/styles-tailwind':
         specifier: workspace:*
         version: link:../styles-tailwind
 
   packages/icons:
     dependencies:
-      '@parity/core':
+      '@parity-app/core':
         specifier: workspace:*
         version: link:../core
 
   packages/libgen:
     dependencies:
-      '@parity/code':
+      '@parity-app/code':
         specifier: workspace:*
         version: link:../code
-      '@parity/core':
+      '@parity-app/core':
         specifier: workspace:*
         version: link:../core
-      '@parity/project':
+      '@parity-app/project':
         specifier: workspace:*
         version: link:../project
-      '@parity/registry':
+      '@parity-app/registry':
         specifier: workspace:*
         version: link:../registry
       typescript:
@@ -522,13 +522,13 @@ importers:
 
   packages/project:
     dependencies:
-      '@parity/code':
+      '@parity-app/code':
         specifier: workspace:*
         version: link:../code
-      '@parity/core':
+      '@parity-app/core':
         specifier: workspace:*
         version: link:../core
-      '@parity/registry':
+      '@parity-app/registry':
         specifier: workspace:*
         version: link:../registry
       package-manager-detector:
@@ -550,7 +550,7 @@ importers:
 
   packages/registry:
     dependencies:
-      '@parity/core':
+      '@parity-app/core':
         specifier: workspace:*
         version: link:../core
       semver:
@@ -563,7 +563,7 @@ importers:
 
   packages/renderer-react:
     dependencies:
-      '@parity/core':
+      '@parity-app/core':
         specifier: workspace:*
         version: link:../core
       typescript:
@@ -585,7 +585,7 @@ importers:
 
   packages/styles-tailwind:
     dependencies:
-      '@parity/core':
+      '@parity-app/core':
         specifier: workspace:*
         version: link:../core
 

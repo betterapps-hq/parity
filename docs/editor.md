@@ -823,7 +823,7 @@ Code:
 - `packages/core/src/fields.ts`: reading what's typed (`readFieldInput`), working it out against a value
   (`applyFieldInput`), landing on the scale and the limits, steps (`stepFieldValue`), scrubbing (`scrubSteps`), showing
   a value (`formatFieldValue`) and what the field says (`describeFieldNote`, `summarizeFieldNotes`). It takes data and
-  returns data; it can move to `@parity/editor` when PAR-7 makes it.
+  returns data; it can move to `@parity-app/editor` when PAR-7 makes it.
 - `packages/core/src/style-changes.ts`: which inline styles an edit changes between two renders of a design
   (`styleChanges`).
 - `apps/desktop/src/renderer/chrome/number-field.ts`: the field's behaviour as a reducer (`reduceField`): drafts, Enter,
@@ -1098,3 +1098,30 @@ Tests: `apps/desktop/e2e/reopening.e2e.ts` opens and closes the example project 
 renderer's side has no automated test. Skipping ports guests had has no test of its own, as the system handing an old
 port out again can't be made to happen; it was checked by reading `newGuestPort`. A project service started again
 forgets the ports, while the window keeps what it loaded from them.
+
+### A tab closed while its project opens (PAR-427)
+
+Closing a tab whose project is still opening, as tabs restored at launch can be, closes the project once the service has
+it: its builder stops, it leaves the processes list, and the window lets go of the guest it loaded for it. Before, the
+service finished opening it and kept it, with its builder running and no tab. Opening the project again before the first
+open finishes keeps it open in the new tab. The same holds for a tab closed while it reopens, and for a guest that fails
+to load after its tab closed. Each open is tracked on its own, so an earlier open that was abandoned can't close or fill
+a newer tab for the same project. While another tab's open hasn't heard which project it is, as one opening the default
+project or a `.par` file hasn't, the close waits for it, since it may be the same project.
+
+Code: `closeNow`, `open` and `reload` in `apps/desktop/src/renderer/workspace.ts`, through its `attempts` and
+`settleDrops`.
+
+A reopen asked for while the tab is already opening or reopening is left to the one in flight, so closing the tab
+cancels it.
+
+Tests: `apps/desktop/src/renderer/workspace.test.ts` (13: closed before the service answers, closed while the guest
+loads, opened again before the first open finished, the reopened tab closed too before either open finished, the default
+project opened again in a tab that doesn't know it yet, and closed once that tab turns out to be another project, the
+guest failing after its tab closed, closed while a reopen closes the project, while it opens it again and while it loads
+the guest, a reopen's guest failing after its tab closed, a second reopen asked for during one, and a project that
+finished opening, closed with its tab).
+
+Not tested: a tab changed or closed while a reopen saves its unsaved changes, and a reopen's `project.open` failing
+after its tab closed. Both were checked by reading `reload`: after saving it reads the tab again and stops only when
+it's gone or already reopening, and a failed `project.open` leaves no project to close.

@@ -1,4 +1,4 @@
-import type { ContainerSpec, DesignNode } from "@parity/core"
+import type { ContainerSpec, DesignNode } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import type { ContainerEntry } from "../design-store.ts"
 import { designsSelection, layersSelection, type Selection } from "../selection.ts"

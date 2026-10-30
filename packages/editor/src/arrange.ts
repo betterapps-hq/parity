@@ -18,7 +18,7 @@ import {
   unwrapNode,
   withFreshIds,
   wrapNodes
-} from "@parity/core"
+} from "@parity-app/core"
 
 /**
  * Arranging layers and designs: deleting, duplicating, wrapping in a layout and unwrapping, ordering, aligning and

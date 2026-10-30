@@ -9,7 +9,7 @@ import {
   type Token,
   uniqueId,
   type VariableOption
-} from "@parity/core"
+} from "@parity-app/core"
 import { Laptop, Monitor, type LucideProps, Smartphone, Tablet } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"

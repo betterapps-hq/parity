@@ -1,5 +1,5 @@
 {
-  "name": "@parity/renderer-react",
+  "name": "@parity-app/renderer-react",
   "version": "0.0.0",
   "license": "MIT",
   "private": true,
@@ -9,7 +9,7 @@
     "./guest": "./src/guest.ts"
   },
   "dependencies": {
-    "@parity/core": "workspace:*",
+    "@parity-app/core": "workspace:*",
     "typescript": "6.0.3"
   },
   "devDependencies": {

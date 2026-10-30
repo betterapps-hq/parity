@@ -9,7 +9,7 @@ import {
   summarizeFieldNotes,
   type Token,
   type TokenCategory
-} from "@parity/core"
+} from "@parity-app/core"
 import { Check, ChevronsUpDown, RotateCcw } from "lucide-react"
 import {
   createContext,
@@ -256,7 +256,7 @@ export interface NumberFieldProps {
  * A number or length field that takes what people type: units, maths, the value there (`+8`, `Mixed+8`), Up and Down
  * (Shift for ten), and dragging its label to scrub. The canvas previews while typing or scrubbing; Enter commits and
  * keeps focus; input it can't read stays, with the reason under it; and what's typed survives the value changing
- * underneath. The rules are in `@parity/core`'s fields.ts and the behaviour in number-field.ts.
+ * underneath. The rules are in `@parity-app/core`'s fields.ts and the behaviour in number-field.ts.
  */
 export function NumberField({
   value,

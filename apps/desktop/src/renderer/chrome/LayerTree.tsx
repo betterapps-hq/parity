@@ -8,7 +8,7 @@ import {
   nodeOnBoard,
   toggleHidden,
   withFreshIds
-} from "@parity/core"
+} from "@parity-app/core"
 import { ChevronRight, EyeOff, FileWarning, Plus, MonitorSmartphone, PenLine, StickyNote } from "lucide-react"
 import { type DragEvent, type KeyboardEvent, type MouseEvent, useEffect, useMemo, useState } from "react"
 import {

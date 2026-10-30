@@ -9,7 +9,7 @@ import type {
   LibraryDecorator,
   MountHandle,
   RenderNode
-} from "@parity/core"
+} from "@parity-app/core"
 import {
   Component,
   type ComponentType,

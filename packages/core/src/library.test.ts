@@ -7,7 +7,7 @@ describe("parseLibraryManifest", () => {
     const manifest = parseLibraryManifest({
       version: 1,
       id: "nova",
-      name: "Buildkit nova",
+      name: "Shadcn Nova",
       styles: "tailwind.css",
       breakpoints: [
         { id: "lg", name: "Large", width: 1024 },
@@ -17,7 +17,7 @@ describe("parseLibraryManifest", () => {
     expect(manifest).toEqual({
       version: 1,
       id: "nova",
-      name: "Buildkit nova",
+      name: "Shadcn Nova",
       styles: "tailwind.css",
       breakpoints: [
         { id: "sm", name: "Small", width: 640 },

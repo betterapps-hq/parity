@@ -7,7 +7,7 @@ import {
   scriptRunning,
   type StorybookInfo,
   type StoryFile
-} from "@parity/core"
+} from "@parity-app/core"
 import { findConfig } from "./configs.ts"
 
 /** Storybook's own config: `main` in its config folder, with any extension Storybook accepts. */

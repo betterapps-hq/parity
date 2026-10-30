@@ -1,4 +1,4 @@
-import { type CanvasDocument, type ContainerSpec, type DesignNode, findNode, nodeInState } from "@parity/core"
+import { type CanvasDocument, type ContainerSpec, type DesignNode, findNode, nodeInState } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import {
   alignBoxes,

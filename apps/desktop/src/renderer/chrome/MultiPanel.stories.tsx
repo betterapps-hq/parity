@@ -1,4 +1,4 @@
-import { findNode } from "@parity/core"
+import { findNode } from "@parity-app/core"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { userEvent, within } from "storybook/test"
 import { designsSelection, layersSelection } from "../selection.ts"

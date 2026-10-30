@@ -12,7 +12,7 @@ import {
   groupComponents,
   type LeftOutExport,
   type LibraryInfo
-} from "@parity/core"
+} from "@parity-app/core"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import {
   BookOpen,

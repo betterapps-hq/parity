@@ -13,8 +13,8 @@ import {
   readDesignTokens,
   type RendererAdapter,
   librarySource
-} from "@parity/core"
-import { type RegistryEntry, registryEntries, registryEntryFor } from "@parity/registry"
+} from "@parity-app/core"
+import { type RegistryEntry, registryEntries, registryEntryFor } from "@parity-app/registry"
 import { parseJsonc } from "./jsonc.ts"
 
 /** A library that can be added to a project from the canvas: one Parity's registry describes. */
@@ -74,7 +74,7 @@ function buildkitDefinition(packageName: string): LibraryDefinition | undefined 
   const [, primitives, name] = style as unknown as [string, string, string]
   return {
     id: name,
-    name: `Buildkit ${name}`,
+    name: `Shadcn ${name.charAt(0).toUpperCase()}${name.slice(1)}`,
     description: `Every shadcn component on ${primitives === "baseui" ? "Base UI" : "Radix"}, in the ${name} style.`,
     package: packageName,
     tailwindEntry: "tailwind.css"

@@ -1,6 +1,6 @@
 // Compiled by the customer's build tool, with the guest: this runs in the same window as the canvas, and `react` is the
 // customer's copy.
-import type { FrameViewport } from "@parity/core"
+import type { FrameViewport } from "@parity-app/core"
 import * as React from "react"
 
 /**

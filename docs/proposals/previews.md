@@ -174,10 +174,10 @@ passes for a picture.
 
 ## Where the logic goes
 
-Following [packages.md](packages.md): `previewKind`, easing curves and value labels go in `@parity/tokens` (PAR-35), or
-`@parity/core` until it exists. Preview keys, invalidation from a changed-file set and the job order are pure and go in
-`@parity/core` beside `builder-process.ts`, tested without Electron. The disk store, the protocol and the queue's wiring
-stay in the main process; the views stay in the app.
+Following [packages.md](packages.md): `previewKind`, easing curves and value labels go in `@parity-app/tokens` (PAR-35),
+or `@parity-app/core` until it exists. Preview keys, invalidation from a changed-file set and the job order are pure and
+go in `@parity-app/core` beside `builder-process.ts`, tested without Electron. The disk store, the protocol and the
+queue's wiring stay in the main process; the views stay in the app.
 
 ## Calls made here
 

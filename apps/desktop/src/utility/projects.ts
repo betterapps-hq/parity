@@ -2,8 +2,8 @@ import { existsSync, type FSWatcher, watch } from "node:fs"
 import { readFile, writeFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { basename, dirname, isAbsolute, join, normalize, resolve } from "node:path"
-import { viteBuilder } from "@parity/builder-vite"
-import { correctedSources, leftOutChanges } from "@parity/code"
+import { viteBuilder } from "@parity-app/builder-vite"
+import { correctedSources, leftOutChanges } from "@parity-app/code"
 import {
   type BuilderAdapter,
   type BuilderDetection,
@@ -27,7 +27,7 @@ import {
   type StylesAdapter,
   type ThemeVariable,
   withLibraryCanvas
-} from "@parity/core"
+} from "@parity-app/core"
 import {
   appFiles,
   checkedChanges,
@@ -37,9 +37,9 @@ import {
   importersOf,
   readChangedFiles,
   readTsconfig
-} from "@parity/project"
-import { reactRenderer } from "@parity/renderer-react"
-import { tailwindStyles } from "@parity/styles-tailwind"
+} from "@parity-app/project"
+import { reactRenderer } from "@parity-app/renderer-react"
+import { tailwindStyles } from "@parity-app/styles-tailwind"
 import type { ProjectEditResult, ProjectInfo, ServiceMethods, TokenChange, WindowMethods } from "../shared/protocol.ts"
 import { startBuilder } from "./builders.ts"
 import { saveDetection, savedDetection } from "./detection-cache.ts"

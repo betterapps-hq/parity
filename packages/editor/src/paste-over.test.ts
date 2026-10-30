@@ -1,4 +1,4 @@
-import { type ContainerSpec, type DesignNode, findNode, nodeIds, type NodeStyle } from "@parity/core"
+import { type ContainerSpec, type DesignNode, findNode, nodeIds, type NodeStyle } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { designsAt, placeOver, replaceLayers } from "./paste-over.ts"
 

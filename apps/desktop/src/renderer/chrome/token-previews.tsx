@@ -1,7 +1,7 @@
 // What each kind of token looks like: a drawing from the token's own value, in a box of any size, so no frame renders
 // for it. The Tokens panel's rows and tiles draw with these. docs/proposals/previews.md has the design.
 
-import { type PreviewKind, substituteReferences, tokenReferences, unclosedInValue } from "@parity/core"
+import { type PreviewKind, substituteReferences, tokenReferences, unclosedInValue } from "@parity-app/core"
 import { Ban, Hand, MousePointer2, TextCursor } from "lucide-react"
 import {
   createContext,

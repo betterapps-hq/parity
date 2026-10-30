@@ -8,6 +8,6 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@parity/core": "workspace:*"
+    "@parity-app/core": "workspace:*"
   }
 }

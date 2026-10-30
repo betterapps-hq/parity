@@ -2,7 +2,7 @@ import { existsSync } from "node:fs"
 import { readdir, readFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { dirname, join } from "node:path"
-import { type LibraryManifest, libraryManifestExtension, parseLibraryManifest } from "@parity/core"
+import { type LibraryManifest, libraryManifestExtension, parseLibraryManifest } from "@parity-app/core"
 import semver from "semver"
 
 /**
@@ -32,7 +32,7 @@ const require = createRequire(import.meta.url)
 export function registryDir(): string {
   const bundled = join(import.meta.dirname, "libraries")
   if (existsSync(bundled)) return bundled
-  return join(dirname(require.resolve("@parity/registry/package.json")), "libraries")
+  return join(dirname(require.resolve("@parity-app/registry/package.json")), "libraries")
 }
 
 let cache: Promise<RegistryEntry[]> | undefined

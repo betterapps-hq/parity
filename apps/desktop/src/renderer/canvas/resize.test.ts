@@ -1,4 +1,4 @@
-import type { NodeStyle } from "@parity/core"
+import type { NodeStyle } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import type { Rect } from "./drop-slot.ts"
 import { type Edge, edgeAxes, type ResizeStart, resizeGesture } from "./resize.ts"

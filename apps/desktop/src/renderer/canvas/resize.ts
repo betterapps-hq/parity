@@ -1,4 +1,4 @@
-import type { NodeStyle } from "@parity/core"
+import type { NodeStyle } from "@parity-app/core"
 import type { Rect } from "./drop-slot.ts"
 import { type DrawnSteps, resizeInsets } from "./insets.ts"
 

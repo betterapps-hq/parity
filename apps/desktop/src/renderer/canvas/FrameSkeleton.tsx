@@ -1,4 +1,4 @@
-import type { FrameSkeleton as Skeleton } from "@parity/core"
+import type { FrameSkeleton as Skeleton } from "@parity-app/core"
 import { memo } from "react"
 
 /**

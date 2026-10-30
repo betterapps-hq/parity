@@ -11,7 +11,7 @@ from the agency monorepo's guidelines on 2026-10-29, keeping what fits Parity; w
 - **Fix forward.** Parity has no releases yet, so an obsolete contract or implementation is replaced outright: no `V2`,
   `legacy` or compatibility names, shims or dual paths. Once releases ship, the files people save (`.par`, `.lib.par`)
   are the exception, and a change to their format still reads the old one.
-- **Reuse before building.** Check whether `@parity/core`, another package or an installed library already does it.
+- **Reuse before building.** Check whether `@parity-app/core`, another package or an installed library already does it.
 - **A new dependency needs the user's agreement.** Ask before adding a library Parity doesn't already use, saying what
   it's for and what it replaces.
 - **A change to a versioned package carries a change file** in the same commit, written by `pnpm changefile`. Its

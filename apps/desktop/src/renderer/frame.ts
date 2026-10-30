@@ -7,7 +7,7 @@ import {
   viewportContainerName,
   viewportHeightProperty,
   viewportWidthProperty
-} from "@parity/core"
+} from "@parity-app/core"
 
 export interface FrameEnvironment {
   classNames: string[]

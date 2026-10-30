@@ -1,5 +1,5 @@
 {
-  "name": "@parity/fixtures",
+  "name": "@parity-app/fixtures",
   "version": "0.0.0",
   "license": "MIT",
   "private": true,
@@ -9,10 +9,10 @@
     "install-projects": "node src/generate.ts --install"
   },
   "dependencies": {
-    "@parity/builder-vite": "workspace:*",
-    "@parity/core": "workspace:*",
-    "@parity/project": "workspace:*",
-    "@parity/renderer-react": "workspace:*",
-    "@parity/styles-tailwind": "workspace:*"
+    "@parity-app/builder-vite": "workspace:*",
+    "@parity-app/core": "workspace:*",
+    "@parity-app/project": "workspace:*",
+    "@parity-app/renderer-react": "workspace:*",
+    "@parity-app/styles-tailwind": "workspace:*"
   }
 }

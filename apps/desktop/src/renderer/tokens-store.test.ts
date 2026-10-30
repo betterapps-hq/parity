@@ -16,7 +16,7 @@ const errors: string[] = []
 const entry = `
 import { DesignStore } from "./design-store.ts"
 import { keyframesNamed, TokenStore } from "./tokens-store.ts"
-import { defaultModeSettings } from "@parity/core"
+import { defaultModeSettings } from "@parity-app/core"
 
 const tokens = [
   { name: "primary", category: "color", source: "semantic", values: { default: "black", dark: "white" } },
