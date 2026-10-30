@@ -4,7 +4,12 @@
 //
 //   node scripts/app-tests.ts <remote>   reads the refs git gives the pre-push hook on stdin
 import { execFileSync, spawnSync } from "node:child_process"
-import { readFileSync } from "node:fs"
+import { readFileSync, rmSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+
+/** One lock for the whole machine: every worktree's suite shares its ports, so two at once fail each other. */
+const lockFile = join(tmpdir(), "parity-app-tests.lock")
 
 /** Whether a file the push changes is part of what the end-to-end tests run: the app, its packages or the example. */
 export function runsInApp(path: string): boolean {
@@ -62,11 +67,54 @@ function main(): void {
   const changed = pushedFiles(readFileSync(0, "utf8"), remote).filter(runsInApp)
   if (changed.length === 0) return
   console.log(`Running the editor's end-to-end tests, since this push changes ${changed.length} of the app's files.`)
+  takeLock()
   // Through the shell, which finds pnpm's own script on Windows; a whole command, since arguments wouldn't be escaped.
   const run = spawnSync("pnpm test:app", { stdio: "inherit", shell: true })
+  rmSync(lockFile, { force: true })
   if (run.status === 0) return
   console.error("The editor's end-to-end tests failed, so nothing was pushed. Fix them, then push again.")
   process.exit(run.status ?? 1)
+}
+
+/**
+ * Waits while another worktree's hook runs the suite, then takes the lock. A lock whose process has gone, as when a
+ * push was stopped, is taken over.
+ */
+function takeLock(): void {
+  let waiting = false
+  for (;;) {
+    try {
+      writeFileSync(lockFile, String(process.pid), { flag: "wx" })
+      return
+    } catch {
+      const holder = Number(readLockHolder())
+      if (!holder || !isRunning(holder)) {
+        rmSync(lockFile, { force: true })
+        continue
+      }
+      if (!waiting) console.log(`Waiting for another worktree's end-to-end run (process ${holder}) to finish.`)
+      waiting = true
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10_000)
+    }
+  }
+}
+
+function readLockHolder(): string {
+  try {
+    return readFileSync(lockFile, "utf8")
+  } catch {
+    return ""
+  }
+}
+
+function isRunning(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    // EPERM means it's running as someone else.
+    return (error as NodeJS.ErrnoException).code === "EPERM"
+  }
 }
 
 if (process.argv[1] && import.meta.filename === process.argv[1]) main()
