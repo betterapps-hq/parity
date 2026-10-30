@@ -62,10 +62,12 @@ const isMapped = (kind: InferredKind): kind is keyof typeof previewOf => kind in
 export function previewKind(
   token: Pick<Token, "name" | "category" | "values">,
   type?: string,
-  lookup?: (name: string) => string | undefined
+  lookup?: (name: string, theme?: string) => string | undefined
 ): PreviewKind {
-  const written = (token.values.default ?? Object.values(token.values)[0] ?? "").trim()
-  const value = lookup ? resolveReferences(written, lookup) : written
+  // The theme the value is read in: the default, or the first a token only some theme sets has.
+  const theme = "default" in token.values ? "default" : Object.keys(token.values)[0]
+  const written = ((theme && token.values[theme]) ?? "").trim()
+  const value = lookup ? resolveReferences(written, (name) => lookup(name, theme)) : written
   const kind = inferTokenKind(token.name, value, type, token.category)
   if (kind === "blur" && token.name.toLowerCase().replaceAll(/[-_.]/g, "").includes("backdropblur")) {
     return "backdrop-blur"
@@ -74,12 +76,21 @@ export function previewKind(
 }
 
 /**
- * What each token comes to in its default theme, or the first it has (one only a dark theme sets), by name: the lookup
- * `previewKind` resolves references with.
+ * What each token comes to, by name: the lookup `previewKind` resolves references with. Given a theme, a token comes
+ * to its value in that theme, else its default (which every other theme inherits), so a token only a dark theme sets
+ * is unknown to the default theme and a reference to it there takes its fallback, as in CSS. With no theme, a token
+ * comes to its default value, or the first it has (one only a dark theme sets).
  */
-export function defaultValues(tokens: readonly Pick<Token, "name" | "values">[]): (name: string) => string | undefined {
-  const values = new Map(tokens.map((token) => [token.name, token.values.default ?? Object.values(token.values)[0]]))
-  return (name) => values.get(name)
+export function defaultValues(
+  tokens: readonly Pick<Token, "name" | "values">[]
+): (name: string, theme?: string) => string | undefined {
+  const values = new Map(tokens.map((token) => [token.name, token.values]))
+  return (name, theme) => {
+    const found = values.get(name)
+    if (!found) return undefined
+    if (theme === undefined) return found.default ?? Object.values(found)[0]
+    return found[theme] ?? found.default
+  }
 }
 
 /**

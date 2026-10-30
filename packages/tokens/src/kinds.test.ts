@@ -40,6 +40,30 @@ describe("defaultValues", () => {
     ])
     expect([lookup("radius"), lookup("glow"), lookup("missing")]).toEqual(["4px", "0 0 8px white", undefined])
   })
+
+  it("looks a token up in a theme, else its default, and not in a theme it isn't set in", () => {
+    const lookup = defaultValues([
+      { name: "radius", values: { default: "4px", dark: "6px" } },
+      { name: "glow", values: { dark: "0 0 8px white" } }
+    ])
+    expect([lookup("radius", "dark"), lookup("radius", "contrast"), lookup("glow", "default")]).toEqual([
+      "6px",
+      "4px",
+      undefined
+    ])
+  })
+
+  it("resolves a reference in the theme the token is read in, so a dark-only token doesn't shadow a fallback", () => {
+    const tokens = [
+      { name: "brand-surface", values: { default: "var(--brand-gradient, linear-gradient(red, blue))" } },
+      { name: "brand-gradient", values: { dark: "none" } },
+      { name: "hero", values: { dark: "var(--hero-fill)" } },
+      { name: "hero-fill", values: { default: "linear-gradient(black, navy)" } }
+    ]
+    const lookup = defaultValues(tokens)
+    expect(previewKind({ ...tokens[0]!, category: "other" }, undefined, lookup)).toBe("gradient")
+    expect(previewKind({ ...tokens[2]!, category: "other" }, undefined, lookup)).toBe("gradient")
+  })
 })
 
 describe("previewKind", () => {
