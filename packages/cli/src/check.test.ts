@@ -7,14 +7,16 @@ describe("failures", () => {
       [
         { problem: "Rendering failed:\naria/Cell: Cell count must match column count\nnova/Button: no" },
         { problem: "aria/Cell: later\naria/DatePicker.Trigger: reading 'calendar'" },
-        { problem: `"aria/Toast" isn't one of the project's components` }
+        { problem: `"aria/Toast" isn't one of the project's components` },
+        { problem: "render error: aria/Button$: render failed" }
       ],
       "aria"
     )
     expect(Object.fromEntries(failed)).toEqual({
       Cell: "Cell count must match column count",
       "DatePicker.Trigger": "reading 'calendar'",
-      Toast: "isn't one of the project's components"
+      Toast: "isn't one of the project's components",
+      Button$: "render failed"
     })
   })
 })

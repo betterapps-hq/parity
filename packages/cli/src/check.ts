@@ -113,7 +113,8 @@ Print(JSON.stringify(await Problems(id, { mode: ${JSON.stringify(mode)} })))`
 export function failures(problems: { problem: string }[], library: string): Map<string, string> {
   const failed = new Map<string, string>()
   const escaped = library.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&")
-  const pattern = new RegExp(`${escaped}/([\\w.]+)(?:: |" )(.*)`)
+  // Component names are identifiers, so `$` counts too.
+  const pattern = new RegExp(`${escaped}/([\\w.$]+)(?:: |" )(.*)`)
   for (const { problem } of problems) {
     for (const line of problem.split("\n")) {
       const match = pattern.exec(line)
