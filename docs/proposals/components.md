@@ -15,8 +15,8 @@ them, Figma style, while staying linked to the main component.
 
 Parity already has two kinds of component.
 
-- **Code components.** React components from the project or from a library such as Buildkit nova. Parity reads their
-  props from TypeScript (variants, defaults, groups) and renders the real thing.
+- **Code components.** React components from the project or from a library such as Shadcn Nova. Parity reads their props
+  from TypeScript (variants, defaults, groups) and renders the real thing.
 - **Component designs.** Designs of kind `component` in a `.par` file, built from code components and layouts.
   - A component design has **params** (text, boolean, number, value). Nodes inside bind to them through `bind`.
   - It has **states**: patches on its nodes, such as Loading or Empty.

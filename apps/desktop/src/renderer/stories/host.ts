@@ -230,7 +230,7 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
       return [
         {
           id: "nova",
-          name: "shadcn/ui Nova",
+          name: "Shadcn Nova",
           description: "shadcn/ui's components on Base UI",
           package: "@buildkitgg/shadcn-baseui-nova",
           kind: "components",
@@ -319,7 +319,7 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
       ])
     }
     case "library.importStyles":
-      return edited("Import Buildkit nova's styles", [
+      return edited("Import Shadcn Nova's styles", [
         "@@ -1,3 +1,4 @@",
         ' @import "tailwindcss";',
         '+@import "@buildkitgg/shadcn-baseui-nova/styles.css";',
