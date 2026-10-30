@@ -1095,7 +1095,6 @@ Code: `serveBuilder` and `newGuestPort` in `apps/desktop/src/utility/projects.ts
 
 Tests: `apps/desktop/e2e/reopening.e2e.ts` opens and closes the example project twice and checks the window ends within
 3,000 DOM nodes of where it started; with the old address on reopen it ended about 69,000 over. Gaps: the offscreen
-renderer's side has no automated test, and what a builder records of what it served (`packages/core/src/served.ts`,
-`packages/builder-vite/src/served.ts`) is no longer used to choose a port. Skipping ports guests had has no test of its
-own, as the system handing an old port out again can't be made to happen; it was checked by reading `newGuestPort`. A
-project service started again forgets the ports, while the window keeps what it loaded from them.
+renderer's side has no automated test. Skipping ports guests had has no test of its own, as the system handing an old
+port out again can't be made to happen; it was checked by reading `newGuestPort`. A project service started again
+forgets the ports, while the window keeps what it loaded from them.

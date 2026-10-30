@@ -10,7 +10,6 @@ import {
   type ProcessTimes,
   serveBuilderProcess
 } from "./builder-process.ts"
-import type { ServedRecord } from "./served.ts"
 
 const renderer: RendererAdapter = {
   id: "react",
@@ -37,8 +36,8 @@ const startOptions: BuilderStartOptions = {
   port: 5400
 }
 
-/** A builder that records what it was started with, and closes when told, saying what it served with `served`. */
-function fakeBuilder(start?: (options: BuilderStartOptions) => Promise<void>, served?: () => Promise<ServedRecord>) {
+/** A builder that records what it was started with, and closes when told. */
+function fakeBuilder(start?: (options: BuilderStartOptions) => Promise<void>) {
   const started: BuilderStartOptions[] = []
   const close = vi.fn<() => Promise<void>>(() => Promise.resolve())
   const builder: BuilderAdapter = {
@@ -51,19 +50,11 @@ function fakeBuilder(start?: (options: BuilderStartOptions) => Promise<void>, se
       return {
         guestUrl: `http://127.0.0.1:${options.port ?? 5173}/guest`,
         toolVersion: "8.0.0",
-        close,
-        ...(served ? { served } : {})
+        close
       }
     }
   }
   return { builder, started, close }
-}
-
-const servedRecord: ServedRecord = {
-  files: { "/app/src/button.tsx": { mtime: 1, size: 120 } },
-  modules: { "/src/button.tsx": { hash: "abc", files: ["/app/src/button.tsx"] } },
-  made: { "virtual:canvas/guest": "def" },
-  build: []
 }
 
 /**
@@ -147,36 +138,6 @@ describe("a builder in its own process", () => {
     await session.close()
     expect(close).toHaveBeenCalledTimes(1)
     expect(exit).toHaveBeenCalledWith("exit code 0")
-  })
-
-  it("hands on what the builder served as it closes, asked before the builder closes", async () => {
-    const order: string[] = []
-    const { builder, close } = fakeBuilder(undefined, () => {
-      order.push("served")
-      return Promise.resolve(servedRecord)
-    })
-    close.mockImplementation(() => {
-      order.push("close")
-      return Promise.resolve()
-    })
-    const { client } = connect(builder)
-    const session = await client.session
-    expect(session.servedRecord()).toBeUndefined()
-    await session.close()
-    expect(session.servedRecord()).toEqual(servedRecord)
-    expect(order).toEqual(["served", "close"])
-  })
-
-  it("has no record from a builder that can't say what it served, or that ended by itself", async () => {
-    const silent = await connect(fakeBuilder().builder).client.session
-    await silent.close()
-    expect(silent.servedRecord()).toBeUndefined()
-
-    const crashing = connect(fakeBuilder(undefined, () => Promise.resolve(servedRecord)).builder)
-    const crashed = await crashing.client.session
-    crashing.client.exited("Vite stopped by itself, with exit code 1")
-    await crashed.close()
-    expect(crashed.servedRecord()).toBeUndefined()
   })
 
   it("ends a process whose builder doesn't close in time", async () => {

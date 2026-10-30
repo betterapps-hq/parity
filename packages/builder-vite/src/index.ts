@@ -15,14 +15,10 @@ import {
   libraryImports,
   type PackageManifest,
   type ProjectConfig,
-  scriptRunning,
-  ServedLog,
-  type ServedRecord,
-  servedChange
+  scriptRunning
 } from "@parity/core"
 import type * as Vite from "vite"
 import { dependencySourceMaps } from "./dependency-maps.ts"
-import { buildFiles, hashCode, remake, servedModules, stampOf, stampsOf } from "./served.ts"
 
 /** Only used to explain a miss: the config itself is found by the project's own Vite. */
 const configPattern = /^vite\.config\.[cm]?[jt]s$/
@@ -38,10 +34,7 @@ export const viteBuilder: BuilderAdapter = {
   async start(options) {
     const vite = await loadProjectVite(options.root)
     const configFile = await scriptedConfig(options.root)
-    // A reopened project gets its last port back when it can, so its guest URL is the one the canvas already loaded.
-    const { port, carried } = await servingPort(options)
-    // Serving on the same address, it carries on the last builder's record, since the pages still hold what it served.
-    const log = new ServedLog(hashCode, carried)
+    const port = options.port !== undefined && (await portFree(options.port)) ? options.port : await freePort()
     const server = await vite.createServer({
       root: options.root,
       ...(configFile ? { configFile } : {}),
@@ -76,13 +69,8 @@ export const viteBuilder: BuilderAdapter = {
           .filter((component) => !component.library)
           .map((component) => component.path)
       },
-      plugins: [
-        guestPlugin(options, vite.normalizePath(options.rendererGuestPath), log),
-        dependencySourceMaps(),
-        servedModules(log)
-      ]
+      plugins: [guestPlugin(options, vite.normalizePath(options.rendererGuestPath)), dependencySourceMaps()]
     })
-    log.depend(await stampsOf(await buildFiles(server.config)))
     await server.listen()
     const origin = server.resolvedUrls?.local[0]
     if (!origin) {
@@ -92,7 +80,6 @@ export const viteBuilder: BuilderAdapter = {
     return {
       guestUrl: new URL(`/@id/__x00__${guestId}`, origin).href,
       toolVersion: vite.version,
-      served: () => log.record(stampOf, (url) => remake(server, url)),
       close: () => server.close()
     }
   }
@@ -119,7 +106,7 @@ export function portFree(port: number): Promise<boolean> {
   })
 }
 
-function guestPlugin(options: BuilderStartOptions, rendererGuestPath: string, log: ServedLog): Vite.Plugin {
+function guestPlugin(options: BuilderStartOptions, rendererGuestPath: string): Vite.Plugin {
   return {
     name: "canvas:guest",
     enforce: "pre",
@@ -131,32 +118,9 @@ function guestPlugin(options: BuilderStartOptions, rendererGuestPath: string, lo
     load(id) {
       // The canvas may add a cache-busting query when it retries a load.
       if (id.split("?")[0] !== `\0${guestId}`) return undefined
-      const source = guestModuleSource(options.config)
-      log.make(guestId, hashCode(source))
-      return source
+      return guestModuleSource(options.config)
     }
   }
-}
-
-/**
- * The port to serve on: the project's last one when it's free and, for a reopened project, when the pages' copies of
- * what its last builder served are all current. Otherwise any free one, so the pages load the project from a new
- * address. Says what changed, when that's why.
- */
-async function servingPort(options: BuilderStartOptions): Promise<{ port: number; carried?: ServedRecord }> {
-  const { port, served } = options
-  if (port === undefined) return { port: await freePort() }
-  if (served) {
-    const files = await stampsOf(Object.keys(served.files))
-    const change = servedChange(served, files, { [guestId]: hashCode(guestModuleSource(options.config)) })
-    if (change) {
-      const what = change === guestId ? "The guest's components, styles or libraries" : relative(options.root, change)
-      console.log(`[builder] ${what} changed since the project's pages loaded it, so they load it all again`)
-      return { port: await freePort() }
-    }
-  }
-  if (!(await portFree(port))) return { port: await freePort() }
-  return { port, ...(served ? { carried: served } : {}) }
 }
 
 /**
