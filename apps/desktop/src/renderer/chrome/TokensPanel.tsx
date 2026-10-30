@@ -2,7 +2,7 @@ import { type ModeSettings } from "@parity-app/core"
 import { type PreviewKind, previewKind, type Token, tokenReferences } from "@parity-app/tokens"
 import { type LibraryToken, matchDescribed, type TokenChange } from "@parity-app/tokens"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { LayoutGrid, List, Search } from "lucide-react"
+import { Check, LayoutGrid, List, Search, X } from "lucide-react"
 import {
   createContext,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -15,15 +15,16 @@ import {
 } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { useProject } from "../canvas/context.ts"
 import { useHistory, useModeSettings } from "../design-store.ts"
 import { comesTo, type TokenMap } from "../token-values.ts"
 import { useTokenFailure, useTokenList } from "../tokens-store.ts"
 import { save } from "./commands.ts"
-import { CopyButton, CopyOnClick, useCopy } from "./Copy.tsx"
+import { Announce, CopyOnClick, useCopy } from "./Copy.tsx"
 import { Hint } from "./Hint.tsx"
+import { useHoverCard } from "./hover-card.ts"
 import { PanelError } from "./PanelError.tsx"
 import { PanelSectionTitle } from "./PanelSection.tsx"
 import {
@@ -91,7 +92,7 @@ function previewOf({ token, kind }: Kinded, tokens: TokenMap, themes: string[]):
 
 /** One line of the virtualized list: a section's title, a kind's heading under it, a row, tiles or a palette hue. */
 type Item =
-  | { type: "section"; key: string; title: string; count: number; first: boolean }
+  | { type: "section"; key: string; title: string; count: number; first: boolean; open: boolean }
   | { type: "heading"; key: string; text: string; first: boolean }
   | { type: "row"; key: string; entry: Kinded; gap?: boolean }
   | { type: "tiles"; key: string; entries: Kinded[] }
@@ -129,7 +130,15 @@ export function TokensPanel() {
   const [query, setQuery] = useState("")
   const [source, setSource] = useState<Source>("all")
   const [view, setView] = useState<View>("list")
+  // The sections folded closed, by title. Starting or clearing a search unfolds them, so matches always show.
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
   const needle = query.trim().toLowerCase()
+  const toggle = (title: string) =>
+    setCollapsed((current) => {
+      const next = new Set(current)
+      if (!next.delete(title)) next.add(title)
+      return next
+    })
   const byName = useMemo(() => new Map(tokens.map((token) => [token.name, token])), [tokens])
   const themes = useMemo(() => [...new Set(tokens.flatMap((token) => Object.keys(token.values)))], [tokens])
   const described = useMemo(() => matchDescribed(info.describedTokens, tokens), [info.describedTokens, tokens])
@@ -150,7 +159,8 @@ export function TokensPanel() {
     matches,
     view,
     searching: Boolean(needle),
-    unmatched: source === "all" ? unmatched : []
+    unmatched: source === "all" ? unmatched : [],
+    collapsed
   })
 
   const scroller = useRef<HTMLDivElement>(null)
@@ -181,8 +191,13 @@ export function TokensPanel() {
     switch (item.type) {
       case "section":
         return (
-          <div className={`px-3 pt-4 ${item.first ? "" : "border-t"}`}>
-            <PanelSectionTitle title={item.title} count={item.count} />
+          <div className={`px-3 ${item.open ? "pt-3 pb-2" : "py-2"} ${item.first ? "" : "border-t"}`}>
+            <PanelSectionTitle
+              title={item.title}
+              count={item.count}
+              open={item.open}
+              onToggle={() => toggle(item.title)}
+            />
           </div>
         )
       case "heading":
@@ -257,7 +272,11 @@ export function TokensPanel() {
             <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={query}
-              onChange={(event) => setQuery(event.currentTarget.value)}
+              onChange={(event) => {
+                const next = event.currentTarget.value
+                if (Boolean(next.trim()) !== Boolean(needle)) setCollapsed(new Set())
+                setQuery(next)
+              }}
               placeholder="Search tokens"
               className="h-8 pl-8"
             />
@@ -358,23 +377,30 @@ export function TokensPanel() {
 /**
  * The panel's lines, section by section in `tokenSections`' order. The project's colors come first, then the palette
  * as a grid of hues, or, while searching, its matches as rows, so a shade can be edited. In tiles, a kind with nothing
- * to draw stays in rows, as a tile of only a name says less than a row.
+ * to draw stays in rows, as a tile of only a name says less than a row. A folded section is its title alone.
  */
 function panelItems({
   matches,
   view,
   searching,
-  unmatched
+  unmatched,
+  collapsed
 }: {
   /** The tokens to list, in the order every list of them shares, which filtering keeps. */
   matches: Kinded[]
   view: View
   searching: boolean
   unmatched: LibraryToken[]
+  /** The titles of the sections folded closed. */
+  collapsed: ReadonlySet<string>
 }): Item[] {
   const items: Item[] = []
-  const section = (title: string, count: number) =>
-    items.push({ type: "section", key: `section ${title}`, title, count, first: items.length === 0 })
+  /** Adds a section's title, and says whether it's open, so its lines follow. */
+  const section = (title: string, count: number) => {
+    const open = !collapsed.has(title)
+    items.push({ type: "section", key: `section ${title}`, title, count, first: items.length === 0, open })
+    return open
+  }
   const list = (entries: Kinded[], gap = false) => {
     if (view === "tiles" && entries.every((entry) => entry.kind !== "number")) {
       for (let index = 0; index < entries.length; index += 2) {
@@ -403,13 +429,11 @@ function panelItems({
     if (title === "Colors") {
       const own = groups[0]!.entries.filter((entry) => entry.token.source === "semantic")
       const scale = groups[0]!.entries.filter((entry) => entry.token.source === "theme")
-      if (own.length > 0) {
-        section("Semantic colors", own.length)
+      if (own.length > 0 && section("Semantic colors", own.length)) {
         list(own)
         end("Semantic colors")
       }
-      if (scale.length > 0) {
-        section("Palette", scale.length)
+      if (scale.length > 0 && section("Palette", scale.length)) {
         if (searching) list(scale)
         else {
           const hues = Map.groupBy(scale, (entry) => /^color-([a-z]+)-\d+$/.exec(entry.token.name)?.[1] ?? "")
@@ -424,7 +448,7 @@ function panelItems({
       }
       continue
     }
-    section(title, count)
+    if (!section(title, count)) continue
     for (const [index, { heading, entries }] of groups.entries()) {
       if (heading && groups.length > 1) {
         items.push({ type: "heading", key: `heading ${title} ${heading}`, text: heading, first: index === 0 })
@@ -433,8 +457,7 @@ function panelItems({
     }
     end(title)
   }
-  if (unmatched.length > 0) {
-    section("Described only", unmatched.length)
+  if (unmatched.length > 0 && section("Described only", unmatched.length)) {
     items.push({
       type: "note",
       key: "note described only",
@@ -454,26 +477,36 @@ function SourceCount({ count }: { count: number }) {
   return <span className="hidden text-muted-foreground tabular-nums @[16rem]:inline">{count}</span>
 }
 
-/** Ctrl+C, or Cmd+C on a Mac, on a token's row or tile copies its name, as its copy button does. */
-function copyKey(copy: () => void) {
+/**
+ * Keys on a token's row or tile: Ctrl+C, or Cmd+C on a Mac, copies its name, as a click does, and the right arrow opens
+ * its detail with the keyboard in it, as resting the pointer on it opens it.
+ */
+function tokenKeys(copy: () => void, card: ReturnType<typeof useHoverCard>) {
   return (event: ReactKeyboardEvent) => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c") {
       event.preventDefault()
       copy()
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault()
+      card.openWithKeyboard()
     }
   }
 }
 
-/** A row's or tile's copy button shows while it's hovered or has the keyboard, and stays while it says how it went. */
-function revealed(copying: ReturnType<typeof useCopy>): string {
-  return copying.status
-    ? ""
-    : "opacity-0 group-focus-within/token:opacity-100 group-hover/token:opacity-100 focus-visible:opacity-100"
+/** Where a row or tile shows its value, a click on it says it copied, or couldn't, for a moment. */
+function Copied({ copying }: { copying: ReturnType<typeof useCopy> }) {
+  const ok = copying.status?.ok
+  return (
+    <span className={`flex items-center gap-0.5 ${ok ? "text-(--process-running)" : "text-destructive"}`}>
+      {ok ? <Check className="size-3" /> : <X className="size-3" />}
+      {ok ? "Copied" : "Couldn't copy"}
+    </span>
+  )
 }
 
 /**
- * A token's row: its preview, its name and what it comes to, in the unit people think in. Clicking it opens its
- * editor; its copy button, or Ctrl+C, copies its name as CSS writes it (`--radius-md`), which Parity's fields take.
+ * A token's row: its preview, its name and what it comes to, in the unit people think in. Clicking it, or Ctrl+C,
+ * copies its name, which Parity's fields take; resting the pointer on it opens its detail, where it can be edited.
  */
 function TokenRow({
   entry,
@@ -494,42 +527,48 @@ function TokenRow({
   const preview = previewOf(entry, tokens, themes)
   const { playing, handlers } = useHoverPlay(kind)
   const copying = useCopy()
+  const card = useHoverCard()
   const name = token.name
   const value = valueLabel(preview)
   return (
     <div {...handlers} className="group/token relative flex items-center">
-      <TokenPopover entry={entry}>
-        <Hint label={described?.description ? `${described.description} (${described.library})` : undefined} wait>
-          <button
-            type="button"
-            onKeyDown={copyKey(() => copying.copy(name))}
-            className="flex min-h-8 w-full min-w-0 items-center gap-2 rounded-md py-1 pr-1.5 pl-1.5 text-left text-xs group-hover/token:bg-accent/50 aria-expanded:bg-accent"
-          >
-            <TokenGlyph
-              token={preview}
-              playing={playing}
-              themes={kind === "color" ? themesOf(token, themes) : undefined}
-            />
-            <span
-              className={`flex min-w-0 flex-1 flex-col ${value ? "" : "group-focus-within/token:pr-6 group-hover/token:pr-6"}`}
-            >
-              <span className="truncate font-mono">{token.name}</span>
-              {described?.description && (
-                <span className="truncate text-[11px] text-muted-foreground">{described.description}</span>
-              )}
-              {unwritten && <span className="text-[11px] text-destructive">Not written to the stylesheet</span>}
+      <TokenPopover entry={entry} card={card}>
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          aria-expanded={card.open}
+          onClick={() => copying.copy(name)}
+          onKeyDown={tokenKeys(() => copying.copy(name), card)}
+          onPointerEnter={card.enter}
+          onPointerLeave={card.leave}
+          className="flex min-h-8 w-full min-w-0 items-center gap-2 rounded-md py-1 pr-1.5 pl-1.5 text-left text-xs hover:bg-accent/50 aria-expanded:bg-accent"
+        >
+          <TokenGlyph
+            token={preview}
+            playing={playing}
+            themes={kind === "color" ? themesOf(token, themes) : undefined}
+          />
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate font-mono">{token.name}</span>
+            {described?.description && (
+              <span className="truncate text-[11px] text-muted-foreground">{described.description}</span>
+            )}
+            {unwritten && <span className="text-[11px] text-destructive">Not written to the stylesheet</span>}
+          </span>
+          {copying.status ? (
+            <span className="shrink-0">
+              <Copied copying={copying} />
             </span>
-            {value && (
-              <span
-                className={`max-w-20 min-w-6 shrink-0 truncate text-right text-muted-foreground tabular-nums group-focus-within/token:invisible group-hover/token:invisible ${copying.status ? "invisible" : ""}`}
-              >
+          ) : (
+            value && (
+              <span className="max-w-20 min-w-6 shrink-0 truncate text-right text-muted-foreground tabular-nums">
                 {value}
               </span>
-            )}
-          </button>
-        </Hint>
+            )
+          )}
+        </button>
       </TokenPopover>
-      <CopyButton text={name} copying={copying} className={`absolute right-1 size-6 ${revealed(copying)}`} />
+      <Announce status={copying.status} />
     </div>
   )
 }
@@ -553,34 +592,42 @@ function TokenTileButton({
   const preview = previewOf(entry, tokens, themes)
   const { playing, handlers } = useHoverPlay(kind)
   const copying = useCopy()
+  const card = useHoverCard()
   const name = token.name
   const value = unwritten ? "Not written" : valueLabel(preview)
   return (
     <div {...handlers} className="group/token relative flex min-w-0">
-      <TokenPopover entry={entry}>
+      <TokenPopover entry={entry} card={card}>
         <button
           type="button"
-          onKeyDown={copyKey(() => copying.copy(name))}
-          className="flex min-w-0 flex-1 flex-col gap-1 rounded-md p-1 text-left group-hover/token:bg-accent/50 aria-expanded:bg-accent"
+          aria-haspopup="dialog"
+          aria-expanded={card.open}
+          onClick={() => copying.copy(name)}
+          onKeyDown={tokenKeys(() => copying.copy(name), card)}
+          onPointerEnter={card.enter}
+          onPointerLeave={card.leave}
+          className="flex min-w-0 flex-1 flex-col gap-1 rounded-md p-1 text-left hover:bg-accent/50 aria-expanded:bg-accent"
         >
           <TokenTile token={preview} width={width} height={58} playing={playing} />
           <span className="flex min-w-0 items-baseline gap-1 px-0.5">
             <span className="min-w-0 flex-1 truncate font-mono text-[11px]">{token.name}</span>
-            {value && (
-              <span
-                className={`shrink-0 text-[10px] tabular-nums ${unwritten ? "text-destructive" : "text-muted-foreground"}`}
-              >
-                {value}
+            {copying.status ? (
+              <span className="shrink-0 text-[10px]">
+                <Copied copying={copying} />
               </span>
+            ) : (
+              value && (
+                <span
+                  className={`shrink-0 text-[10px] tabular-nums ${unwritten ? "text-destructive" : "text-muted-foreground"}`}
+                >
+                  {value}
+                </span>
+              )
             )}
           </span>
         </button>
       </TokenPopover>
-      <CopyButton
-        text={name}
-        copying={copying}
-        className={`absolute top-2 right-2 size-6 bg-popover/90 shadow-sm hover:bg-popover ${revealed(copying)}`}
-      />
+      <Announce status={copying.status} />
     </div>
   )
 }
@@ -647,12 +694,35 @@ function DescribedRow({ token }: { token: LibraryToken }) {
   )
 }
 
-/** Opens a token's detail from its row or tile. */
-function TokenPopover({ entry, children }: { entry: Kinded; children: React.ReactElement }) {
+/**
+ * A token's detail beside its row or tile, opened by resting the pointer on it, as a component's card is. Opened from
+ * the keyboard, the keyboard goes into it; opened by the pointer, focus stays where it was.
+ */
+function TokenPopover({
+  entry,
+  card,
+  children
+}: {
+  entry: Kinded
+  card: ReturnType<typeof useHoverCard>
+  children: React.ReactElement
+}) {
   return (
-    <Popover>
-      <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="start" side="right" sideOffset={12} onEscapeKeyDown={keepEditing}>
+    <Popover open={card.open} onOpenChange={card.setOpen} modal={false}>
+      <PopoverAnchor asChild>{children}</PopoverAnchor>
+      <PopoverContent
+        className="w-80 p-0"
+        align="start"
+        side="right"
+        sideOffset={12}
+        onOpenAutoFocus={(event) => {
+          if (!card.takesFocus()) event.preventDefault()
+        }}
+        onEscapeKeyDown={keepEditing}
+        onPointerEnter={card.stay}
+        onPointerLeave={card.leave}
+        onFocusCapture={card.hold}
+      >
         <Detail entry={entry} />
       </PopoverContent>
     </Popover>

@@ -1504,14 +1504,22 @@ to PAR-209 build it.
 - **The panels hold up when narrow.** You found on 2026-10-29 that the Tokens panel's header ran out of its boxes and
   the open tab's name ran over the next tab. My call: the left panel's least width goes from 200 to 232 pixels, the open
   tab names itself only when there's room, filters drop their counts first, and a row's copy button takes the value's
-  place while it shows rather than keeping room for itself.
-- **Copying a token takes one step, and copies its name,** since you judged it's why most people open the tab: a copy
-  button on each row and tile, Ctrl+C on a row, and a click on a palette shade copy `radius-md`. You chose the name over
-  `var()` on 2026-10-29, since Parity is for designers and vibe coders, who rarely open the code, and the name is what
-  Parity's fields take (they refuse `var()`; PAR-401 makes them take it). You chose the bare name over `--radius-md` the
-  same day, so the panel, the detail's heading, its messages and every copy name a token one way, the way a field
-  expects it. The detail's Copy is a split button: its arrow opens Copy as, with `var()` under CSS and the name under
-  Token.
+  place while it shows rather than keeping room for itself. (The button went with PAR-444, below.)
+- **Copying a token takes one step, and copies its name,** since you judged it's why most people open the tab: a click
+  on a row, tile or palette shade, or Ctrl+C on a row, copies `radius-md`. The row says Copied where its value was, for
+  a moment. You chose the name over `var()` on 2026-10-29, since Parity is for designers and vibe coders, who rarely
+  open the code, and the name is what Parity's fields take (they refuse `var()`; PAR-401 makes them take it). You chose
+  the bare name over `--radius-md` the same day, so the panel, the detail's heading, its messages and every copy name a
+  token one way, the way a field expects it. The detail's Copy is a split button: its arrow opens Copy as, with `var()`
+  under CSS and the name under Token.
+- **A token's detail opens on hover, and a click on its row copies** (PAR-444). You asked on 2026-10-30 for the Tokens
+  panel to work like the component previews: the copy button that showed on hover hid the value, the most important
+  thing in the row. Resting the pointer on a row or tile for half a second opens its detail, which stays while the
+  pointer is on it and, once something in it has focus (as when editing), until a click elsewhere or Escape. The right
+  arrow opens it from the keyboard. The hover card's timing is one hook, `chrome/hover-card.ts`, shared with the
+  component previews.
+- **Each section of the Tokens panel folds** from its title (PAR-443), which you asked for on 2026-10-30. Starting or
+  clearing a search unfolds them all, so matches always show, as the Components panel does.
 - **Every copy says how it went, through two shared parts** in `chrome/Copy.tsx`, which you asked for on 2026-10-29
   after a copy showed nothing: `CopyButton`, whose icon springs into a green check and back, or a red cross with
   "Couldn't copy", and `CopyOnClick`, for things with no room for a button, which raises a "Copied" bubble from what was

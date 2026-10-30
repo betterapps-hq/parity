@@ -1321,10 +1321,11 @@ Tests:
 - `chrome/token-previews.test.ts` (4): a spacing bar's true and squeezed lengths.
 - `apps/desktop/src/renderer/tokens-store.test.ts` (1 of its 4), in Chrome: an animation's keyframes read from a
   stylesheet, inside `@layer` too, with each step's timing function as its easing.
-- `chrome/TokensPanel.stories.tsx`: AllTokens (no animation running with nothing hovered), Tiles, Copying (the row's
-  button, Ctrl+C, a palette shade), Motion, EditingAPaletteShade (from a search), InvalidValue, UnclosedBracket (a
-  bracket left open and a missing token, refused) and DescribedOnly (the end of the list, drawn once scrolled to). All
-  22 of the file's stories played in Storybook on 2026-10-29.
+- `chrome/TokensPanel.stories.tsx`: AllTokens (no animation running with nothing hovered), FoldedSections (a title folds
+  its section, a search unfolds it), Tiles, Copying (a click on the row, Ctrl+C, a palette shade), Motion,
+  EditingAPaletteShade (from a search), InvalidValue, UnclosedBracket (a bracket left open and a missing token, refused)
+  and DescribedOnly (the end of the list, drawn once scrolled to). All 22 of the file's stories played in Storybook on
+  2026-10-29.
 - `explorations/previews/TokenPreviews.stories.tsx`: all 18 played on 2026-10-29, drawing with the app's module.
 - `chrome/TokensPanel.stories.tsx` EqualThemes (PAR-435): `chart-3`, equal in Light and Dark, has two swatches in its
   row, its tile and its detail, each named for its theme.
@@ -1340,7 +1341,8 @@ order) and through the core and `token-values.ts` tests above, not in Storybook 
 
 ### A token's detail (PAR-143)
 
-Clicking a token's row or tile opens its detail beside the panel, top to bottom:
+Resting the pointer on a token's row or tile opens its detail beside the panel (the right arrow opens it from the
+keyboard); a click on the row copies the token's name. The detail, top to bottom:
 
 - **A large preview.** A color shows each theme side by side, named. A spacing step is drawn at its true size among up
   to eight of its neighbours on the scale; a duration races the others; an easing is drawn over the rest, faintly; a

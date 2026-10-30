@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "The Tokens panel's sections fold from their titles, a token's detail opens on hover, and a click on its row copies its name",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
