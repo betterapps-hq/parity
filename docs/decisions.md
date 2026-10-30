@@ -1522,6 +1522,9 @@ the Repository, CI and releases stream in Linear.
     1.5 seconds longer than `vp test run` alone (15.6 against 14.1), and a hit takes 1.3 to 2.1 seconds instead of 14. A
     change to a package's source or to a fixture reruns it.
   - Vite Task keeps one entry per task, so undoing a change reruns the task once more.
+  - `types` isn't cached. On macOS Vite Task doesn't see the files TypeScript's Go compiler reads (vite-task#587, fixed
+    with TypeScript 7.1), so it could replay a pass after a change broke the types. A run takes about 5 seconds, so
+    little is lost; cache it once the TypeScript under `oxlint-tsgolint` is 7.1 or later.
 - **`betterapps-hq/pipelines` started with the setup action and ci-verify (PAR-110).** My calls:
   - The setup action checks out without keeping credentials, and on Windows turns off `core.autocrlf` first, since the
     runners' CRLF made Vite+'s formatter fail every file.

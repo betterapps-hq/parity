@@ -230,8 +230,10 @@ export default defineConfig({
       check: { command: "vp check", cache: { input: trackedInputs } },
       // The unit tests, without the end-to-end suite that `pnpm test:app` runs.
       test: { command: "vp test run", cache: { input: trackedInputs } },
-      // Lint with the type-aware rules, and type errors, which the push and CI check.
-      types: { command: "vp lint --type-aware --type-check", cache: { input: trackedInputs } }
+      // Lint with the type-aware rules, and type errors, which the push and CI check. Not cached: on macOS, Vite Task
+      // doesn't see the files TypeScript's Go compiler reads (vite-task#587, fixed with TypeScript 7.1), so it could
+      // replay a pass after a change broke the types. A run takes about 5 seconds.
+      types: { command: "vp lint --type-aware --type-check", cache: false }
     }
   },
   // The pre-commit hook checks only what the commit stages, fixing what it can, so other sessions' unfinished work in
