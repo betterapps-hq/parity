@@ -17,7 +17,7 @@ Features built before 2026-10-29 are being added under PAR-392 in Linear.
 ## Testing in the app (PAR-202)
 
 `pnpm test:app` drives a copy of Parity as a person does, with the system's own pointer and keyboard, and checks what
-the canvas, the panels and the project show: 73 tests, which take four to six minutes. It isn't part of `vp run test` or
+the canvas, the panels and the project show: 76 tests, which take four to six minutes. It isn't part of `vp run test` or
 `pnpm verify`. The pre-push hook runs it when the commits a push sends change the app, its packages, the example or the
 workspace's build files (`scripts/app-tests.ts`), and a failure stops the push. Every worktree's suite shares the same
 ports, so a push waits while another worktree's hook is running it (a lock file in the system's temp folder, taken over
