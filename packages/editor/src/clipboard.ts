@@ -58,8 +58,6 @@ export function readEnvelope(text: string): ClipboardEnvelope | undefined {
   }
 }
 
-const payloadKinds = new Set(["layers", "designs", "notes"])
-
 function isEnvelope(value: unknown): value is ClipboardEnvelope {
   return (
     typeof value === "object" &&
@@ -71,12 +69,17 @@ function isEnvelope(value: unknown): value is ClipboardEnvelope {
     "project" in value &&
     typeof value.project === "string" &&
     "payload" in value &&
-    typeof value.payload === "object" &&
-    value.payload !== null &&
-    "kind" in value.payload &&
-    typeof value.payload.kind === "string" &&
-    payloadKinds.has(value.payload.kind)
+    isPayload(value.payload)
   )
+}
+
+/** A payload of a known kind, holding the list that kind pastes. */
+function isPayload(value: unknown): boolean {
+  if (typeof value !== "object" || value === null || !("kind" in value)) return false
+  if (value.kind === "layers") return "nodes" in value && Array.isArray(value.nodes)
+  if (value.kind === "designs") return "designs" in value && Array.isArray(value.designs)
+  if (value.kind === "notes") return "notes" in value && Array.isArray(value.notes)
+  return false
 }
 
 /** SVG markup, as icon sites and design tools copy it, which pastes as a picture rather than as its source. */

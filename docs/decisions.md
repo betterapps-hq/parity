@@ -1596,7 +1596,7 @@ How Parity's code is split, so the parts that change most are easy to find, repl
     `paste-here.ts` stays until drop rules move (PAR-33), as it uses `drop-slot.ts`'s `slotAt`, and `free-space.ts`'s
     `freeSpotBeside` until placement does (PAR-32).
   - Reading the clipboard's envelope checks more than it did: the project must be text and the payload one of the three
-    kinds, since it's data from outside the app.
+    kinds, holding the list that kind pastes, since it's data from outside the app.
 - **Lenses and adapters never go in core.** Lens models are schemas in `@parity/models`, each lens is a package, and so
   is each adapter, such as Drizzle or TanStack Router.
 

@@ -667,7 +667,8 @@ text. Copy style (Ctrl+Alt+C) and Paste style keep their own clipboard inside th
 - **What's copied is what the frame shows.** A layer copied in a state other than the base carries that state's changes,
   all the way down, slots included. Only the outermost selected layers are copied.
 - **The copy is an envelope** (`{"parity":"clipboard","version":1,"project":…,"payload":…}`) holding layers, designs or
-  notes, and the project they came from. Text that isn't a whole envelope of a known kind isn't read as one.
+  notes, and the project they came from. Text that isn't a whole envelope of a known kind, holding the list that kind
+  pastes, isn't read as one.
 - **Pasted layers get fresh ids,** for them and everything in them. They go into the selected layout when it's the only
   layer selected, else just after the last selected layer in its layout or slot, else into the design's root. With no
   design selected, or a root that isn't a layout, they become a new screen called Pasted, laid out in a padded column.
@@ -684,11 +685,12 @@ Code: the rules are in `packages/editor/src/clipboard.ts` (`@parity-app/editor`)
 their boxes on the canvas, applies the rules to the selection and the store, and shows the messages.
 
 Tests: `packages/editor/src/clipboard.test.ts`: writing and reading the envelope, and text, a cut-off envelope, another
-version and an unknown kind that aren't one; SVG markup, and text that only looks like it; copying the outermost layers
-as a state shows them; where layers paste (a lone selected layout, after the last selected layer, in a slot, the root,
-and a root that isn't a layout); fresh ids in order, last, inside copies and in a slot; the new screen; designs' ids and
-whole-pixel moves; notes beside where they were and at a place; copying style in a state, and pasting it in the base and
-in another state; and missing components at any depth, and none while the project's aren't known.
+version, a project that isn't text, an unknown kind and a payload without its list that aren't one; SVG markup, and text
+that only looks like it; copying the outermost layers as a state shows them; where layers paste (a lone selected layout,
+after the last selected layer, in a slot, the root, and a root that isn't a layout); fresh ids in order, last, inside
+copies and in a slot; the new screen; designs' ids and whole-pixel moves; notes beside where they were and at a place;
+copying style in a state, and pasting it in the base and in another state; and missing components at any depth, and none
+while the project's aren't known.
 
 Gaps: reading and writing the system clipboard, images and the messages have no automated test. In a state other than
 the base, Paste style leaves the base's own style values under the copied ones, since a state's changes can't unset

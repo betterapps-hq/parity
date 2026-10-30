@@ -76,9 +76,21 @@ describe("the clipboard's envelope", () => {
     expect(readEnvelope(JSON.stringify({ parity: "clipboard", version: 2, project: "D:/acme", payload }))).toBe(
       undefined
     )
+    expect(readEnvelope(JSON.stringify({ parity: "clipboard", version: 1, project: 7, payload }))).toBeUndefined()
     expect(
       readEnvelope(JSON.stringify({ parity: "clipboard", version: 1, project: "D:/acme", payload: { kind: "rows" } }))
     ).toBeUndefined()
+  })
+
+  it("reads nothing when a payload doesn't hold the list its kind pastes", () => {
+    const envelope = (kind: string, extra: object) =>
+      readEnvelope(JSON.stringify({ parity: "clipboard", version: 1, project: "D:/acme", payload: { kind, ...extra } }))
+    expect(envelope("layers", {})).toBeUndefined()
+    expect(envelope("layers", { nodes: "heading" })).toBeUndefined()
+    expect(envelope("designs", { nodes: [] })).toBeUndefined()
+    expect(envelope("notes", { notes: null })).toBeUndefined()
+    expect(envelope("designs", { designs: [] })?.payload).toEqual({ kind: "designs", designs: [] })
+    expect(envelope("notes", { notes: [] })?.payload).toEqual({ kind: "notes", notes: [] })
   })
 })
 
