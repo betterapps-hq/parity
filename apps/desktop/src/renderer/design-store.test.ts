@@ -239,6 +239,23 @@ describe("reverting to a checkpoint", () => {
     expect(store.getHistory().canUndo).toBe(false)
   })
 
+  it("keeps another design in the same file changed meanwhile, with its undo step", () => {
+    const { store } = setup()
+    const checkpoint = start(store)
+    rename(store, "During", "resize")
+    // An agent adds a design to the same file mid-gesture.
+    store.addContainer("app.par", design("about"))
+    rename(store, "Still during", "resize")
+    store.revert(checkpoint)
+    expect(name(store)).toBe("home")
+    expect(store.getEntry("app.par#about")).toBeDefined()
+    expect(store.getHistory()).toMatchObject({ canUndo: true, undoLabel: "Add design" })
+    store.undo()
+    expect(store.getEntry("app.par#about")).toBeUndefined()
+    expect(name(store)).toBe("home")
+    expect(store.getHistory().canUndo).toBe(false)
+  })
+
   it("changes nothing when nothing changed since it", () => {
     const { store } = setup()
     rename(store, "Before")

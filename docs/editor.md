@@ -17,13 +17,13 @@ Features built before 2026-10-29 are being added under PAR-392 in Linear.
 ## Testing in the app (PAR-202)
 
 `pnpm test:app` drives a copy of Parity as a person does, with the system's own pointer and keyboard, and checks what
-the canvas, the panels and the project show: 77 tests, which take five to eight minutes. It isn't part of `vp run test` or
-`pnpm verify`. The pre-push hook runs it when the commits a push sends change the app, its packages, the example or the
-workspace's build files (`scripts/app-tests.ts`), and a failure stops the push. Every worktree's suite shares the same
-ports, so a push waits while another worktree's hook is running it (a lock file in the system's temp folder, taken over
-when its process has gone and left alone when it can't be read; `scripts/app-tests.test.ts` covers each of those, while
-two hooks taking over one stale lock at once was checked by reading the code, since a test can't time it). CI runs it on
-Windows for every pull request and every push to main, without blocking the merge until it runs reliably there
+the canvas, the panels and the project show: 80 tests, which take five to eight minutes. It isn't part of `vp run test`
+or `pnpm verify`. The pre-push hook runs it when the commits a push sends change the app, its packages, the example or
+the workspace's build files (`scripts/app-tests.ts`), and a failure stops the push. Every worktree's suite shares the
+same ports, so a push waits while another worktree's hook is running it (a lock file in the system's temp folder, taken
+over when its process has gone and left alone when it can't be read; `scripts/app-tests.test.ts` covers each of those,
+while two hooks taking over one stale lock at once was checked by reading the code, since a test can't time it). CI runs
+it on Windows for every pull request and every push to main, without blocking the merge until it runs reliably there
 (PAR-438). While working, run only the files a change touches, such as `pnpm test:app keyboard`, rather than the whole
 suite after each change: each run opens a Parity window. Each feature's tests below name the end-to-end ones that cover
 it.
@@ -471,13 +471,14 @@ design has them on its frames' right and bottom.
   the pointer next rests on a handle.
 - **Small layers keep their middle** (PAR-193). Along an axis where a layer is under 24 screen pixels, its handles sit
   just outside it: the corners and the top and bottom strips above and below a layer that's short, the corners and the
-  side strips beside one that's narrow, with the strips running its whole length. So a press anywhere on it drags it.
-  New project at 50% is 16px high: its corners, top and bottom sit above and below it, and only its left and right
-  strips, 4px into each end as on any wide layer, are on it. A layer 24px or more keeps its handles on its edges.
+  side strips beside one that's narrow, with the strips running its whole length. So a press anywhere on a layer small
+  both ways drags it; one small along only one axis keeps its other axis's strips on it. New project at 50% is 16px
+  high: its corners, top and bottom sit above and below it, and only its left and right strips, 4px into each end as on
+  any wide layer, are on it. A layer 24px or more keeps its handles on its edges.
 - **Escape takes a resize back** (PAR-193), a layer's or a frame's: everything the drag wrote is undone without leaving
   a step to undo or clearing what Redo had, the layer stays selected, and the release that follows does nothing. Escape
-  goes to the resize alone, not to the canvas, where it would select the parent. Only the design's own file goes back:
-  another file an agent changed during the drag keeps its change and its undo step.
+  goes to the resize alone, not to the canvas, where it would select the parent. Only the resized design goes back:
+  another file an agent changed during the drag, or another design in the same file, keeps its change and its undo step.
 - **The cursor** shows the handle's arrows wherever the pointer goes during the drag, over the canvas, the frames and
   the panels, until it ends (see "Cursors and Escape during a gesture", below).
 
@@ -507,7 +508,7 @@ Tests:
 - `apps/desktop/src/renderer/design-store.test.ts`, reverting to a checkpoint: a gesture's writes more than a second
   apart taken back with nothing left to undo for them; Redo kept; a first write that merged into the step before it
   leaving that step as it was; another file reloaded mid-gesture kept, with its undo step undoing to the design as it
-  was; and nothing changed since.
+  was; another design added to the same file mid-gesture kept, with its undo step; and nothing changed since.
 - `apps/desktop/e2e/moving.e2e.ts` (6), end to end (PAR-202): New project's right handle, named by its hint when the
   pointer rests on it, dragged 48px right changes the width alone, in steps, with no hint during the drag or after; its
   top handle dragged sideways changes nothing and adds no undo step; the Review slot's top handle dragged up 16px gives

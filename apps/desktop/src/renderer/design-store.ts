@@ -67,10 +67,11 @@ interface HistoryEntry {
   time: number
 }
 
-/** A design's file and the history at one moment, to go back to (see `DesignStore.checkpoint`). */
+/** A design and the history at one moment, to go back to (see `DesignStore.checkpoint`). */
 export interface Checkpoint {
   readonly path: string
-  readonly document: CanvasDocument | undefined
+  /** The design as it was. */
+  readonly container: ContainerSpec
   /** The group the gesture's changes are made in. */
   readonly group: string
   readonly past: ReadonlySet<HistoryEntry>
@@ -239,10 +240,10 @@ export class DesignStore {
   checkpoint(key: string, group: string): Checkpoint | undefined {
     const entry = this.getEntry(key)
     if (!entry) return undefined
-    const { path } = entry
+    const { path, container } = entry
     return {
       path,
-      document: this.documents.get(path),
+      container,
       group,
       past: new Set(this.past),
       last: this.past.at(-1)?.time,
@@ -251,28 +252,29 @@ export class DesignStore {
   }
 
   /**
-   * Takes back the gesture's changes since a checkpoint as though it never made them: its design's file is as it was,
-   * and its steps leave undo, with Redo as it was. Anything else that changed meanwhile, such as another file an agent
-   * changed, stays, with its undo step, which undoes to the gesture's file as it was. Views stay as they are now, as
-   * undo leaves them.
+   * Takes back the gesture's changes since a checkpoint as though it never made them: its design is as it was, and its
+   * steps leave undo, with Redo as it was. Anything else that changed meanwhile, such as another file an agent changed
+   * or another design in the same file, stays, with its undo step, which undoes to the gesture's design as it was.
+   * Views stay as they are now, as undo leaves them.
    */
   revert(checkpoint: Checkpoint): void {
-    const { path, document, group } = checkpoint
+    const { path, container, group } = checkpoint
     const current = this.snapshot()
     const others = this.past.filter((step) => !checkpoint.past.has(step) && step.group !== group)
-    const withFile = (snapshot: Snapshot): Snapshot => {
-      const documents = new Map(snapshot.documents)
-      if (document) documents.set(path, document)
-      else documents.delete(path)
-      return { ...snapshot, documents }
+    // Only the gesture's design goes back, in its file as the file is now, so other designs' changes there stay.
+    const withDesign = (snapshot: Snapshot): Snapshot => {
+      const document = snapshot.documents.get(path)
+      if (!document) return snapshot
+      const containers = document.containers.map((each) => (each.id === container.id ? container : each))
+      return { ...snapshot, documents: new Map(snapshot.documents).set(path, { ...document, containers }) }
     }
-    for (const step of others) step.before = withFile(step.before)
+    for (const step of others) step.before = withDesign(step.before)
     this.past = this.past.filter((step) => checkpoint.past.has(step) || step.group !== group)
     // A gesture's first change can merge into the step before it (see `change`), which only moves that step's time.
     const before = [...checkpoint.past].at(-1)
     if (before && checkpoint.last !== undefined) before.time = checkpoint.last
     if (others.length === 0) this.future = checkpoint.future
-    this.restore(keepViews(withFile(current), current), current)
+    this.restore(keepViews(withDesign(current), current), current)
   }
 
   undo(): void {

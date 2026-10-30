@@ -78,13 +78,13 @@ describe("resolveDesign", () => {
     ])
   })
 
-  it("keeps a length an instance gives its component's empty root", () => {
+  it("keeps a length an instance gives its component's empty root, and marks one it sets to hug over a fixed one", () => {
     const gap: ContainerSpec = {
       id: "gap",
       name: "Gap",
       kind: "component",
       position: { x: 0, y: 0 },
-      root: { type: "layout", id: "root", style: { height: 4 }, children: [] },
+      root: { type: "layout", id: "root", style: { width: 6, height: 4 }, children: [] },
       states: [{ id: "default", name: "Default" }]
     }
     const [row] = resolveDesign(
@@ -94,7 +94,8 @@ describe("resolveDesign", () => {
         style: { direction: "row" },
         children: [
           { type: "instance", id: "narrow", design: "gap", style: { width: 2 } },
-          { type: "instance", id: "free", design: "gap" }
+          { type: "instance", id: "fixed", design: "gap" },
+          { type: "instance", id: "hugs", design: "gap", style: { width: "hug", height: "hug" } }
         ]
       },
       undefined,
@@ -104,7 +105,8 @@ describe("resolveDesign", () => {
     if (row?.kind !== "element") throw new Error("expected an element")
     expect(row.children.map((child) => (child.kind === "element" ? child.attributes : undefined))).toEqual([
       { "data-canvas-empty-layout": "" },
-      { "data-canvas-empty-layout": "width" }
+      { "data-canvas-empty-layout": "" },
+      { "data-canvas-empty-layout": "width height" }
     ])
   })
 

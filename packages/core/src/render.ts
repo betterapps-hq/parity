@@ -369,10 +369,18 @@ function resolveTree(
           first.nodeId = id(node)
           if (first.kind === "element") {
             first.style = { ...first.style, ...box }
-            // An empty root keeps a length the instance gives it as well as one its component does.
+            // An empty root is unsized along an axis the instance sizes only as the instance sizes it, so a length the
+            // instance gives it counts, and so does hugging over its component's fixed one; on another axis, as its
+            // component sizes it.
             const unsized = first.attributes?.[emptyLayoutAttribute]
             if (unsized !== undefined) {
-              const axes = unsized.split(" ").filter((axis) => unsizedAxes(style).some((other) => other === axis))
+              const own = unsizedAxes(style)
+              const axes = (["width", "height"] as const).filter((axis) => {
+                const least = axis === "width" ? style.minWidth : style.minHeight
+                return style[axis] !== undefined || least !== undefined
+                  ? own.includes(axis)
+                  : unsized.split(" ").includes(axis)
+              })
               first.attributes = { ...first.attributes, [emptyLayoutAttribute]: axes.join(" ") }
             }
           } else if (Object.keys(box).length > 0)
