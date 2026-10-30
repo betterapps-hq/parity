@@ -1434,6 +1434,30 @@ to PAR-209 build it.
   `apps/*/scripts/**`; the app's bundled code may use them. The Library files session found CAN-48's parser had broken
   the CLI this way, fixed in `f743864`.
 
+- **Parity's UI imports each lucide icon from its own file** (PAR-199). Vite prebundles a dependency whole, and
+  lucide-react's index imports every icon, so the window held all of them, 1.73 M characters in one script, for the 137
+  the chrome uses. A plugin in the UI's Vite config (`apps/desktop/scripts/icon-imports.ts`) rewrites
+  `import { Plus } from "lucide-react"` to the icon's own module and keeps the package out of prebundling, so the window
+  loads 149 small files, 0.28 M characters. The Icons panel doesn't need the full set: it lists the project's own icon
+  library, served by the project's builder. My call: a plugin over per-icon imports in the code, so the code imports
+  icons as shadcn's components do, and over an alias, which can't pick the file per name.
+- **The UI's prebundled dependencies are minified** (PAR-199). tldraw went from 3.53 M characters to 1.68 M and React
+  DOM's client from 0.91 M to 0.39 M; their source maps still take DevTools to the code as published, and Parity's own
+  code is served as written. With the icons, the window's scripts went from 19.3 M characters to 14.9 M and its heap
+  after a collection from 151 MB to about 141 MB, on the example project; the window's process memory moves by more than
+  that between runs, so it isn't the measure. My call: minifying in Vite's optimizer rather than a production build of
+  the UI now. A production build would also drop React's development build and Vite's client, the larger saving, but
+  costs reloading in place while Parity is worked on, so it waits for a packaged app, where it comes with the rest of
+  the build.
+- **The service keeps TypeScript in both its threads** (PAR-199). The two copies are the service's main thread, which
+  parses component files and reads tsconfigs on every open and change (`@parity/renderer-react`, `@parity/code`), and
+  the type checker's worker (`utility/props-worker.ts`). They're one version, 6.0.3; a thread can't share a module with
+  another. The worker's copy costs about 12 MB, only while the worker runs, which is up to five minutes after its last
+  answer, and not at all when an open finds what the checker found last time saved. One copy would mean either the
+  checker on the main thread, which blocks the service for seconds on a large project, or the parse and every import
+  that reaches TypeScript (`@parity/project` and `@parity/code` import it at their top) moving into the worker, a
+  restructuring of both packages for those 12 MB. My call: neither; it's measured and left.
+
 ## Repository and releases
 
 How Parity goes public and ships. The proposal is [proposals/repository.md](proposals/repository.md), and the work is

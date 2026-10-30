@@ -3,6 +3,7 @@ import { dependencySourceMaps } from "@parity-app/builder-vite/dependency-maps"
 import tailwindcss from "@tailwindcss/vite"
 import react from "@vitejs/plugin-react"
 import { defineConfig, lazyPlugins } from "vite-plus"
+import { iconImportsPlugin } from "./scripts/icon-imports.ts"
 
 /**
  * A second copy of the app, such as the one `pnpm perf` starts, runs on its own port, with its own dependency cache so
@@ -18,11 +19,15 @@ export default defineConfig({
   // Settings such as the tldraw license key come from `.env.local` beside this file, for the app and Storybook alike.
   envDir: import.meta.dirname,
   base: "./",
-  // Dependencies come without their source maps inlined, which cost the window more memory than their code.
-  plugins: lazyPlugins(() => [react(), tailwindcss(), dependencySourceMaps()]),
+  // Dependencies come without their source maps inlined, which cost the window more memory than their code, and each
+  // lucide icon loads on its own rather than every one with the first.
+  plugins: lazyPlugins(() => [react(), tailwindcss(), dependencySourceMaps(), iconImportsPlugin()]),
   resolve: {
     alias: { "@": resolve(import.meta.dirname, "src/renderer") }
   },
+  // Prebundled dependencies are minified, which halves what the window holds of tldraw and React DOM. Their source maps
+  // still lead DevTools to the code as published; only the app's own code is served as written.
+  optimizeDeps: { rolldownOptions: { output: { minify: true } } },
   ...(port === 5310 ? {} : { cacheDir: resolve(import.meta.dirname, `node_modules/.vite-${port}`) }),
   server: {
     port,

@@ -259,6 +259,7 @@ export default defineConfig({
       "packages/*/src/**/*.test.ts",
       "apps/*/src/**/*.test.ts",
       "apps/*/.storybook/*.test.ts",
+      "apps/*/scripts/*.test.ts",
       "scripts/*.test.ts"
     ],
     // CI's runners have four cores. Locally twelve, which Copacker's tests settled on for this machine.
