@@ -899,7 +899,8 @@ layer where it used to take a value of unknown type.
   in layers" in place of a text field, whether the prop's a slot or `children`, and it isn't offered under Add a prop
   again, since the slot's layers are what the canvas passes. An attribute's slot with layers is listed among the set
   props, without a Remove button: its layers are removed in the Layers panel. A library's `children` in layers stays in
-  the Layers panel alone, as before.
+  the Layers panel alone, as before. With no layers, a value that isn't text (a number, `null`) is edited as any typed
+  value is, rather than taken for layers.
 
 Code: `packages/code/src/props.ts` (`classify` and `slotKind`, and the group a slot takes in `componentProps`),
 `packages/core/src/props.ts` (`propsPanel`, what the section lists), and `chrome/PropsSection.tsx` in the app.

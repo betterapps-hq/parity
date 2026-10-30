@@ -171,14 +171,17 @@ function PropInput({
         />
       )
     case "node":
-      return !inSlot && (typeof value === "string" || value === undefined) ? (
+      if (inSlot) return <span className="text-xs text-muted-foreground">Set in layers</span>
+      // A value that isn't text (a number, `null`) is edited as one, as before slots were nodes.
+      if (typeof value !== "string" && value !== undefined) {
+        return <ValueInput value={value} kind={valueKind(value, prop.kind)} title={prop.name} onCommit={onChange} />
+      }
+      return (
         <TextInput
           value={typeof value === "string" ? value : ""}
           placeholder="Text, or layers in its slot"
           onCommit={(next) => onChange(next === "" ? undefined : next)}
         />
-      ) : (
-        <span className="text-xs text-muted-foreground">Set in layers</span>
       )
     default:
       // An object prop takes JSON; one whose type isn't known takes whatever's typed, as JSON when it reads as JSON.
