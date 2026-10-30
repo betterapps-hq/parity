@@ -1102,7 +1102,9 @@ recommended answer to each of its questions.
   window's memory per reopen, which a page can't give back. Picking up code edits live (PAR-165) or a separate realm per
   project would avoid that too.
   - **A builder started again** from the processes list takes its last port when it's free, since the canvas it serves
-    is still open, and waits for a closing one of the same project to end first, so a project never has two.
+    is still open, and waits for a closing one of the same project to end first, so a project never has two. When the
+    port is taken it takes one no guest has had, and the open windows are told (`project.guestMoved`, PAR-433) and load
+    the guest from there.
   - **What a builder logs of what it served** (`@parity-app/core`'s [served.ts](../packages/core/src/served.ts), the
     Vite side in `builder-vite/src/served.ts`), which PAR-195 compared to tell a changed project from an unchanged one,
     no longer chooses the port.

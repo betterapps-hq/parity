@@ -127,6 +127,9 @@ onFileChange(
   },
   (change) => {
     editor?.request("project.componentsChanged", change).catch(() => undefined)
+  },
+  (change) => {
+    editor?.request("project.guestMoved", change).catch(() => undefined)
   }
 )
 

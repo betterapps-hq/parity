@@ -2,7 +2,7 @@ import { existsSync, type FSWatcher, watch } from "node:fs"
 import { readFile, writeFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { basename, dirname, isAbsolute, join, normalize, resolve } from "node:path"
-import { viteBuilder } from "@parity-app/builder-vite"
+import { portFree, viteBuilder } from "@parity-app/builder-vite"
 import { correctedSources, leftOutChanges } from "@parity-app/code"
 import {
   type BuilderAdapter,
@@ -44,6 +44,7 @@ import type { ProjectEditResult, ProjectInfo, ServiceMethods, TokenChange, Windo
 import { startBuilder } from "./builders.ts"
 import { saveDetection, savedDetection } from "./detection-cache.ts"
 import { applyProjectEdit } from "./edits.ts"
+import { type GuestMoved, guestMove, newGuestPort, restartPort } from "./guest-ports.ts"
 import { forgetProcess, forgetProject, trackProcess } from "./processes.ts"
 import { checkComponents, closeChecker, inferComponents } from "./props.ts"
 import { freePort, stopStorybook } from "./storybook.ts"
@@ -80,14 +81,20 @@ type FileChange = WindowMethods["project.fileChanged"]["params"]
 type ComponentsChange = WindowMethods["project.componentsChanged"]["params"]
 let notifyFileChange: (change: FileChange) => void = () => undefined
 let notifyComponents: (change: ComponentsChange) => void = () => undefined
+let notifyGuestMoved: (change: GuestMoved) => void = () => undefined
 
-/** Where changes to project files made outside the canvas are reported, and props re-inferred after a source edit. */
+/**
+ * Where changes to project files made outside the canvas are reported, props re-inferred after a source edit, and a
+ * guest that moved to a new port when its builder was started again.
+ */
 export function onFileChange(
   listener: (change: FileChange) => void,
-  components: (change: ComponentsChange) => void
+  components: (change: ComponentsChange) => void,
+  guestMoved: (change: GuestMoved) => void
 ): void {
   notifyFileChange = listener
   notifyComponents = components
+  notifyGuestMoved = guestMoved
 }
 
 /** The project's components with their props, once inferred. */
@@ -104,19 +111,9 @@ const opening = new Map<string, Promise<ProjectInfo>>()
 const closing = new Map<string, Promise<void>>()
 /** The port each open project's builder last served on, which a builder started again takes back when it's free. */
 const lastPorts = new Map<string, number>()
-/**
- * Every port a builder has served a guest on. The windows keep the modules they loaded from each address, so a project
- * opened again never gets one of them, even one the system would hand out again.
- */
+/** Every port a builder has served a guest on, which no new address takes: see `newGuestPort`. */
 const guestPorts = new Set<number>()
-
-/** A free port no guest has been served on. */
-async function newGuestPort(): Promise<number> {
-  for (;;) {
-    const port = await freePort()
-    if (!guestPorts.has(port)) return port
-  }
-}
+const ports = { free: freePort, isFree: portFree }
 
 /** A project's root from a folder, or from one of its `.par` files: the nearest folder above it with a package.json. */
 export function projectRootFor(root: string | undefined): string {
@@ -294,12 +291,12 @@ async function serveBuilder(
   const id = builderProcessId(root)
   // A reopened project gets a new port, so the windows load its code afresh. On its last address they'd draw with the
   // project's React from before, which kept every closed canvas's frames in memory: about 130 MB each time.
-  const port = again ? lastPorts.get(root) : await newGuestPort()
+  const port = again ? await restartPort(lastPorts.get(root), guestPorts, ports) : await newGuestPort(guestPorts, ports)
   const tracking = trackProcess(
     { id, kind: "builder", shape: "server", name: builder.name, projectId: root, project: name, status: "starting" },
     { restart: () => restartBuilder(root) }
   )
-  const started = startBuilder(builderProcessOptions(builder, { ...options, ...(port ? { port } : {}) }), {
+  const started = startBuilder(builderProcessOptions(builder, { ...options, port }), {
     builder: builder.name,
     project: name,
     onCrash: (error) => {
@@ -333,8 +330,11 @@ async function restartBuilder(root: string): Promise<void> {
     return
   }
   project.session = session
-  // It has its old port back unless something took it; then windows that open the project from now on find the new one.
+  // It has its old port back unless something took it; then the open windows load the guest from the new one.
+  const moved = guestMove(root, project.info.guestUrl, session.guestUrl)
+  if (!moved) return
   project.info.guestUrl = session.guestUrl
+  notifyGuestMoved(moved)
 }
 
 /** Sends the builder the components the guest imports, once they've changed in place. */
