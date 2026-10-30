@@ -70,6 +70,8 @@ export class Workspace {
   private readonly drops = new Map<string, string | undefined>()
   /** Guests that moved while their tab was still loading, by project, to draw from once the tab is ready. */
   private readonly moves = new Map<string, string>()
+  /** The address each project's guest last moved to while one loads, so a move a later one overtook is let go. */
+  private readonly latestMoves = new Map<string, string>()
   private readonly listeners = new Set<() => void>()
 
   subscribe = (listener: () => void) => {
@@ -194,6 +196,7 @@ export class Workspace {
     // A tab closed while its project opens has nothing to show it in, so its open closes the project once the service
     // has it, and its builder stops with it.
     this.moves.delete(id)
+    this.latestMoves.delete(id)
     const attempt = this.attempts.get(id)
     if (attempt) {
       attempt.abandoned = true
@@ -225,6 +228,7 @@ export class Workspace {
     this.replace(id, { id, title: tab.title, status: "loading" })
     // The project opens again with a builder of its own, so where the last one moved to no longer matters.
     this.moves.delete(id)
+    this.latestMoves.delete(id)
     const attempt = this.startAttempt(id)
     // A tab that has opened is its project's id, so a reopen is known to be for it from the start.
     attempt.projectId = id
@@ -304,12 +308,20 @@ export class Workspace {
     }
     const before = tab.session.info.guestUrl
     if (before === guestUrl) return true
+    this.latestMoves.set(projectId, guestUrl)
+    // Whether no move came after this one, nor a reopen or close, which forget the last move; it's settled either way.
+    const latest = () => {
+      const last = this.latestMoves.get(projectId) === guestUrl
+      if (last) this.latestMoves.delete(projectId)
+      return last
+    }
     try {
       const loaded = await loadGuest(guestUrl, tab.session.info.theme)
       const current = this.getTab(tab.id)
       const now = current?.session?.info.guestUrl
-      // A tab closed or reopened meanwhile draws what it has now, so the guest loaded here is no one's.
-      if (!current?.session || now !== before) {
+      // A tab closed or reopened meanwhile draws what it has now, and one that moved again draws from there once that
+      // guest loads, so the guest loaded here is no one's.
+      if (!latest() || !current?.session || now !== before) {
         if (now !== guestUrl) releaseGuest(guestUrl)
         return !current?.session || now === guestUrl
       }
@@ -323,6 +335,7 @@ export class Workspace {
       releaseGuest(before)
       return true
     } catch (error) {
+      if (!latest()) return false
       toast.error(`Couldn't load ${tab.session.info.name} from its restarted builder`, {
         description: error instanceof Error ? error.message : String(error)
       })

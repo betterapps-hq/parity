@@ -353,6 +353,24 @@ describe("moveGuest", () => {
     expect(guest.released).toEqual([info.guestUrl])
   })
 
+  for (const order of ["first", "last"] as const) {
+    it(`draws from the latest move when an earlier one's guest loads ${order}`, async () => {
+      const workspace = await opened()
+      const latest = "http://127.0.0.1:5006/guest"
+      const earlier = workspace.moveGuest(info.id, moved)
+      const later = workspace.moveGuest(info.id, latest)
+      const loadEarlier = () => guest.loads[1]!({ guest: { earlier: true }, sheet: {}, tokens: [] })
+      const loadLater = () => guest.loads[2]!({ guest: { later: true }, sheet: {}, tokens: [] })
+      if (order === "first") loadEarlier()
+      loadLater()
+      if (order === "last") loadEarlier()
+      expect(await Promise.all([earlier, later])).toEqual([false, true])
+      expect(workspace.getTab(info.id)!.session!.info.guestUrl).toBe(latest)
+      expect(workspace.getTab(info.id)!.session!.loaded.guest).toEqual({ later: true })
+      expect([...guest.released].sort()).toEqual([info.guestUrl, moved].sort())
+    })
+  }
+
   it("lets go of the moved guest when the tab reopens while it loads", async () => {
     const workspace = await opened()
     const moving = workspace.moveGuest(info.id, moved)

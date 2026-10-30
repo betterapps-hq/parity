@@ -1091,7 +1091,8 @@ opened again.
   load keeps the old one and says so, and the service tells it again the next time the builder starts again, even on the
   same port, as it compares with where the window draws the guest (`followGuest`). A tab still loading when its guest
   moves draws from the new address once it's ready; one reopened while the moved guest loads keeps what the reopen
-  loaded and lets the moved one go.
+  loaded and lets the moved one go. When restarts overlap, the tab draws from the latest move, whichever guest loads
+  first.
 
 Code: `serveBuilder` and `restartBuilder` in `apps/desktop/src/utility/projects.ts`, with `newGuestPort`, `restartPort`,
 `guestMove` and `followGuest` in `guest-ports.ts`; `moveGuest` in `apps/desktop/src/renderer/workspace.ts`;
