@@ -660,12 +660,16 @@ function PaletteShade({ token, value, unwritten }: { token: Token; value: string
       <button
         type="button"
         aria-label={`Copy ${name}`}
-        className={`relative h-5 flex-1 first-of-type:rounded-l-sm last-of-type:rounded-r-sm hover:z-10 hover:ring-1 hover:ring-foreground hover:ring-offset-1 hover:ring-offset-background focus-visible:z-10 focus-visible:ring-1 focus-visible:ring-foreground focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none ${
-          unwritten ? "outline-2 -outline-offset-2 outline-destructive" : ""
-        }`}
+        className="relative h-5 flex-1 first-of-type:rounded-l-sm last-of-type:rounded-r-sm hover:z-10 hover:ring-1 hover:ring-foreground hover:ring-offset-1 hover:ring-offset-background focus-visible:z-10 focus-visible:ring-1 focus-visible:ring-foreground focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none"
       >
-        {/* The edge is its own layer, as the hover ring is the button's shadow. */}
-        <span className="pointer-events-none absolute inset-0 rounded-[inherit]" style={swatch(value)} />
+        {/* The edge is its own layer, as the hover ring is the button's shadow; an unwritten shade's outline is on it,
+            so the swatch never covers it. */}
+        <span
+          className={`pointer-events-none absolute inset-0 rounded-[inherit] ${
+            unwritten ? "outline-2 -outline-offset-2 outline-destructive" : ""
+          }`}
+          style={swatch(value)}
+        />
       </button>
     </CopyOnClick>
   )

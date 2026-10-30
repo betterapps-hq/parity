@@ -156,12 +156,16 @@ export const checker: CSSProperties = {
  * what's behind it and a rounded corner has a single edge, and a hairline over both in Parity's own text color, faint.
  * The hairline is light in the dark UI and dark in the light one, so black and white swatches stand off the panel while
  * the colors between look unchanged. It's an inset shadow, so it follows the element's radius.
+ *
+ * The color goes through `--swatch` with a see-through fallback, so a value the browser can't read, or a `var()` that
+ * Parity's own document doesn't define, leaves the checkerboard showing rather than voiding the whole background.
  */
-export function swatch(value: string): CSSProperties {
-  const color = value || "transparent"
+export function swatch(value: string): CSSProperties & { "--swatch": string } {
+  const color = typeof document !== "undefined" && CSS.supports("color", value) ? value : "transparent"
   return {
+    "--swatch": color,
     backgroundColor: "#fff",
-    backgroundImage: `linear-gradient(${color}, ${color}), ${checkerboard}`,
+    backgroundImage: `linear-gradient(var(--swatch, transparent), var(--swatch, transparent)), ${checkerboard}`,
     backgroundSize: "auto, 8px 8px",
     boxShadow: `inset 0 0 0 1px ${hairline}`
   }
