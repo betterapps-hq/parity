@@ -61,6 +61,7 @@ export function useShortcuts(session: ProjectSession | undefined, active: boolea
       // are controls (`data-canvas-control`).
       const control =
         !!target &&
+        !closing &&
         target !== document.body &&
         (!target.closest(".tl-container") || !!target.closest("[data-canvas-control]")) &&
         !!target.closest("button, a[href], [role], [tabindex]")

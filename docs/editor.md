@@ -1135,10 +1135,11 @@ it land where they're aimed.
   portaled to the body and fixed to the window, so they're unaffected.
 - **Tab from a design's title** goes through that design's own controls and then leaves the canvas (PAR-424). Only the
   selected design's title, its variant, state and modes menus while they show, and its board's mode captions and state
-  labels are in the tab order; every other design's are out of it (`tabIndex={-1}`), reached by N, Layers or a click.
-  Enter and the arrows on the menus, captions and labels are theirs (`data-canvas-control`), so Enter on a caption
-  selects its mode column as a click does; on the title itself Enter still selects the layers inside. Before, Tab from a
-  title went through every other design's title in turn, and focusing one off screen was what scrolled the page.
+  labels are in the tab order; every other design's are out of it (`tabIndex={-1}`), reached by N, Layers or a click,
+  except the menus of a design that's hovered, which are in the tab order while they show. Enter and the arrows on the
+  menus, captions and labels are theirs (`data-canvas-control`), so Enter on a caption selects its mode column as a
+  click does; on the title itself Enter still selects the layers inside. Before, Tab from a title went through every
+  other design's title in turn, and focusing one off screen was what scrolled the page.
 
 Code: `#root` in `apps/desktop/src/renderer/styles.css`, the group heading in `chrome/LayerTree.tsx`, the tab order in
 `canvas/ContainerView.tsx` (`TitleButton`, `TitleControls`, `StateLabel`, `FrameTile`'s caption), and which keys a
