@@ -727,6 +727,8 @@ export async function relateParts(
       if (!relation.sample?.children) relation.sample = { ...relation.sample, children: [] }
       continue
     }
+    // A hand edit's parents are used as written.
+    if (relation.parentsFrom === "edit") continue
     const parents = relation.parents ?? []
     const needed = named(error, name, parents, false)
     if (!needed) continue
@@ -951,7 +953,13 @@ async function trialValue(load: Load, value: unknown): Promise<unknown> {
     const made = (fn as (...args: unknown[]) => unknown)(...args)
     for (const step of (record.methods ?? []) as { method: string; args?: unknown[] }[]) {
       const method = (made as Record<string, unknown> | null | undefined)?.[step.method]
-      if (typeof method === "function") method.apply(made, (await trialValue(load, step.args ?? [])) as unknown[])
+      if (typeof method !== "function") continue
+      const args = (await trialValue(load, step.args ?? [])) as unknown[]
+      try {
+        method.apply(made, args)
+      } catch {
+        // A call the examples make may need what the app has; the made value is still usable.
+      }
     }
     return made
   }

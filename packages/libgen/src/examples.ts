@@ -284,8 +284,11 @@ function localResolver(tree: string[]): (from: string, specifier: string) => str
   }
   return (from, specifier) => {
     if (specifier.startsWith(".")) return byStem.get(posix.join(posix.dirname(from.replaceAll("\\", "/")), specifier))
-    // A package's name has at most one slash after its scope; a mapped path has more, or no scope.
-    if (specifier.startsWith("@") ? specifier.split("/").length < 3 : !specifier.includes("/")) return undefined
+    // A package's name has at most one slash after its scope; a mapped path has more, or no scope, or is `@/`.
+    const isPackage =
+      !specifier.startsWith("@/") &&
+      (specifier.startsWith("@") ? specifier.split("/").length < 3 : !specifier.includes("/"))
+    if (isPackage) return undefined
     return bySuffix.get(specifier.replace(/^[@~]\//, ""))
   }
 }
