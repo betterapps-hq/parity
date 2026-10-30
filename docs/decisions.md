@@ -1410,6 +1410,21 @@ to PAR-209 build it.
   scattered. Editing turns the values into fields in place and the bar into Cancel and Save; a motion token's Play sits
   on its preview, as on a video. There's no caption under the name: "Font sizes, theme scale" only repeated the section
   heading and the filter, so a library's name moved into the list as From.
+- **Every color swatch has one edge: a faint hairline in Parity's own text color, over the color.** You found on
+  2026-10-29 that dark swatches showed white corners and that black ones vanished into the dark panel. The corners came
+  from the checkerboard (for see-through colors) and the color being two elements, each antialiased at the rounded
+  corner, so the checker's white showed through; the edge meant to fix it was painted under the color. Now one element
+  paints the color over the checkerboard and draws the hairline over both, 14% of `--foreground`, so it's light in the
+  dark UI and dark in the light one. You chose that over a black or white border picked by each color's lightness: black
+  and white swatches stand off the panel, the colors between look unchanged, and the edge never jumps between two colors
+  that are nearly alike. It's on rows, tiles, the detail's preview and values, the palette's shades and a library's
+  described tokens (PAR-435).
+- **A color shows a swatch for each theme, even where two themes share a value.** PAR-143 drew equal themes as one
+  swatch named for both ("Light and Dark"), since equal halves with no gap between them ran together. You found on
+  2026-10-29 that a single block named for two themes looked broken, and that in a row it looked like a token with one
+  theme. With each swatch edged and split by a gap, equal halves no longer run together, so every color in a two-theme
+  project shows two swatches, Light then Dark, in rows, tiles and the detail, and matching halves say the value is the
+  same (PAR-435).
 
 ## The app icon
 

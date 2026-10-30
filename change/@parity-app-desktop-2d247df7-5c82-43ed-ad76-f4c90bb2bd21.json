@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Give every color swatch in the Tokens panel one clean edge: no white corners on dark swatches, and a faint hairline so black and white ones stand off the panel",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

@@ -1041,6 +1041,15 @@ to draw, so its row shows the number. Beside the name is what the token comes to
   after the rest, by name the same way.
 - **What a design shows sits on the design's sheet:** shadows, blur, opacity and type are drawn on white in the light
   theme, as in a frame, not on Parity's dark chrome. Measurements are diagrams in Parity's ink.
+- **Every color swatch has one clean edge (PAR-435).** One element paints the color over a checkerboard, which shows
+  through a see-through color, and draws a hairline over both in 14% of Parity's text color, following the swatch's
+  radius (`swatch` in `token-previews.tsx`). It's light in the dark UI and dark in the light one, so black, white and
+  `foreground`-like swatches stand off the panel, with no white corners on dark ones. Rows, tiles, the detail's preview
+  and value dots (`Swatch` in `chrome/fields.tsx`, which the inspector's token picker shares), palette shades and a
+  library's described tokens all draw it. A token has a swatch for each theme, split by a 1px gap, even where two themes
+  share a value, in rows, tiles and the detail, whose swatches are each named for their theme. A palette row's last
+  shade is rounded too: each shade's copy helper follows it in the row, so the rounding goes by the last button rather
+  than the last element.
 - **Tiles.** The List and Tiles buttons beside the search switch views. Tiles are two across, each a larger preview with
   the name and what it comes to under it. A bare number stays a row, as a tile of only a name says less. The palette
   stays a grid in both.
@@ -1061,7 +1070,8 @@ to draw, so its row shows the number. Beside the name is what the token comes to
   stay above the list as it scrolls.
 - **Narrow panels.** The left panel is at least 232 pixels wide, enough for every tab's icon and the collapse button.
   The open tab shows its name only when the tab strip has room for it, and is otherwise an icon like the rest, with its
-  name in the tooltip. The filters drop their counts before their names, and every count is in the filter's tooltip.
+  name in the tooltip. The filters drop their counts before their names, and every count is in the filter's tooltip. The
+  search says "Search tokens", without a count, which didn't fit (PAR-437).
 
 Code: the drawings are `apps/desktop/src/renderer/chrome/token-previews.tsx` (`TokenArt`, `TokenGlyph`, `TokenTile`,
 `valueLabel`, `valueProblem`, `spacingSlot`, `tokenSections`, `useHoverPlay`); the panel is `chrome/TokensPanel.tsx`
@@ -1082,6 +1092,10 @@ Tests:
   bracket left open and a missing token, refused) and DescribedOnly (the end of the list, drawn once scrolled to). All
   22 of the file's stories played in Storybook on 2026-10-29.
 - `explorations/previews/TokenPreviews.stories.tsx`: all 18 played on 2026-10-29, drawing with the app's module.
+- `chrome/TokensPanel.stories.tsx` EqualThemes (PAR-435): `chart-3`, equal in Light and Dark, has two swatches in its
+  row, its tile and its detail, each named for its theme.
+- Swatch edges (PAR-435) were checked by eye on 2026-10-29 in AllTokens, Detail, Tiles and DescribedTokens, dark and
+  light: black, white and destructive swatches each with one edge, and the palette's rows rounded at both ends.
 
 Gaps: the previews themselves are checked by eye in Storybook, not by pixels. Opacity, blur and border width are still
 filed under Other and Effects as categories, so the inspector's pickers don't offer them by kind yet; the panel's
