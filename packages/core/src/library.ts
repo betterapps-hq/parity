@@ -629,7 +629,8 @@ function expectPattern(value: unknown, path: string): string {
  * unchanged in the apps that install it.
  */
 export function libraryId(manifest: Pick<LibraryManifest, "id">, packageName: string): string {
-  return manifest.id ?? packageName.replace(/^@[^/]+\//, "")
+  // An empty id would name nothing, so it counts as none.
+  return manifest.id || packageName.replace(/^@[^/]+\//, "")
 }
 
 /**

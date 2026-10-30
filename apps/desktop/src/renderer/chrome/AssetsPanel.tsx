@@ -206,13 +206,16 @@ export function componentSources(info: ProjectInfo, entries: readonly ContainerE
     const own = all.filter(([, source]) => source.library === library.id)
     // Parts the library renders inside its own components come last, apart, so the list leads with what's placed.
     const internal = own.filter(([, source]) => source.internal)
-    // Its ready-made compositions come first, placed as linked instances, or as copies from their menu.
-    const designed: Family[] = library.designs?.length
+    // Its ready-made compositions come first, placed as linked instances, or as copies from their menu. One a project
+    // design has the id of is left out, since placing it would place the project's.
+    const ownIds = new Set(entries.map((entry) => entry.container.id))
+    const offered = (library.designs ?? []).filter((design) => !ownIds.has(design.id))
+    const designed: Family[] = offered.length
       ? [
           {
             name: "Component designs",
             heading: true,
-            items: library.designs.map((design) => ({
+            items: offered.map((design) => ({
               key: design.id,
               label: design.name,
               item: { kind: "instance", design: design.id }

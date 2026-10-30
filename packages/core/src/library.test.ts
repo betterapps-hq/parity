@@ -72,6 +72,7 @@ describe("libraryId", () => {
     expect(libraryId({ id: "nova" }, "@buildkitgg/shadcn-baseui-nova")).toBe("nova")
     expect(libraryId({}, "@acme/charts-kit")).toBe("charts-kit")
     expect(libraryId({}, "charts-kit")).toBe("charts-kit")
+    expect(libraryId({ id: "" }, "@acme/charts-kit")).toBe("charts-kit")
   })
 })
 

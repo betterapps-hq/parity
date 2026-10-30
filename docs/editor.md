@@ -1168,7 +1168,7 @@ showcase.
 
 - **They're named by the library:** `settings-row` is `nova/settings-row`, so it never clashes with the project's own
   designs, and instances inside it that place the library's other designs point at their new names. A project design
-  with the same id wins.
+  with the same id wins, and the library's isn't listed.
 - **They aren't the project's.** They don't show on the canvas or in the Layers panel, and Save never writes them; they
   change when the library does. A design that places one draws it the way it draws the project's own instances.
 - **Search** finds them by name, as it does components.
