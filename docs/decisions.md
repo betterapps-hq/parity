@@ -1135,9 +1135,8 @@ recommended answer to each of its questions.
   project would avoid that too.
   - **A builder started again** from the processes list takes its last port when it's free, since the canvas it serves
     is still open, and waits for a closing one of the same project to end first, so a project never has two.
-  - **What a builder logs of what it served** (`@parity-app/core`'s [served.ts](../packages/core/src/served.ts), the
-    Vite side in `builder-vite/src/served.ts`), which PAR-195 compared to tell a changed project from an unchanged one,
-    no longer chooses the port.
+  - **Builders no longer log what they served** (PAR-431). PAR-195 compared that log to tell a changed project from an
+    unchanged one, and with every reopen on a new port nothing read it.
 - **Closing a project lets go of its guest in the window:** its `loadGuest` entry and the stylesheet the document
   adopted for it (PAR-195), so the next open makes its stylesheets anew, without the last session's token previews. The
   offscreen renderer lets go of a project's last guest when its jobs come with a new address, since it doesn't hear of

@@ -2,7 +2,6 @@ import type { ComponentEvidence, LibraryDecorator } from "./library.ts"
 import type { ComponentSource, ProjectConfig } from "./project.ts"
 import type { ComponentRenderStatus } from "./render-status.ts"
 import type { RenderNode } from "./render.ts"
-import type { ServedRecord } from "./served.ts"
 import type { TokenCategory } from "./tokens.ts"
 
 /** The parts of a project's package.json that adapters use to detect a stack. */
@@ -66,14 +65,8 @@ export interface BuilderStartOptions {
   rendererGuestPath: string
   /** Origins allowed to load the guest module (the canvas UI). */
   allowedOrigins: string[]
-  /**
-   * The port to serve on if it's free, as the one the project last had, so its guest URL stays the same. With `served`,
-   * only when nothing in it has changed either, so a reopened project's pages draw with the modules they hold.
-   * Otherwise, or when it's unset, any free port.
-   */
+  /** The port to serve on when it's free. Otherwise, or when it's unset, any free port. */
   port?: number
-  /** What the project's last builder served its pages, which a builder that serves on `port` again carries on. */
-  served?: ServedRecord
 }
 
 /**
@@ -103,11 +96,6 @@ export interface BuilderSession {
   guestUrl: string
   /** Version of the customer's build tool. */
   toolVersion: string
-  /**
-   * What it has served the pages, for the project's next builder: see `served.ts`. Asked as it closes, while it can
-   * still make modules. A builder that can't say makes every reopen load the project's modules again.
-   */
-  served?(): Promise<ServedRecord>
   close(): Promise<void>
 }
 
