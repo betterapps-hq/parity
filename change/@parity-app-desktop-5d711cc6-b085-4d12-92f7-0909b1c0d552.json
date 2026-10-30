@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Open the insert picker in a tenth of the time, the project's own components first, internal parts, providers and app plumbing left out until searched for by name, and a component found in two places listed once",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
