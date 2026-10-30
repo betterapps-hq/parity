@@ -1525,8 +1525,10 @@ the Repository, CI and releases stream in Linear.
   - **Focused tests and `debugger` were lint errors already.**
   - **Tests run on twelve workers locally and four in CI,** as Copacker's do, which you said suits your machine.
 - **knip finds unused files, dependencies and exports (PAR-395),** as in the agency monorepo. My calls:
-  - **`pnpm check:unused` runs it, and `pnpm verify` doesn't yet.** CI runs `pnpm verify`, and CI belongs to the CI
-    session, which can add `pnpm check:unused`.
+  - **`pnpm check:unused` runs it, in CI's checks job on Ubuntu, beside the type check.** `pnpm verify` leaves it out,
+    as it does types, since one system is enough for both.
+  - **The Storybook explorations stay, as you asked on 2026-10-30,** with their unused exports ignored. shadcn's
+    `scroll-area.tsx`, which nothing imports, stays undecided; knip ignores it with the rest of `components/ui`.
   - **Its config is `knip.jsonc`,** so each entry and ignore says why, and its version is in the catalog.
   - **The example project and `fixtures/` are left out,** since they stand in for customers' projects.
   - **Kept on purpose:** the app's runtime dependencies that the bundled project service loads from its folder, the
