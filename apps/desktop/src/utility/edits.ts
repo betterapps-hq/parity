@@ -10,7 +10,7 @@ import {
   planEdit,
   type ProjectEdit,
   reverseEdit
-} from "@parity/project"
+} from "@parity-app/project"
 import type { ProjectEditResult } from "../shared/protocol.ts"
 
 /** What an edit needs of an open project: where it is, and what its files last held as the service wrote them. */

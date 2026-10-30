@@ -1,4 +1,4 @@
-import { type ContainerSpec, defaultModeSettings } from "@parity/core"
+import { type ContainerSpec, defaultModeSettings } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { DesignStore } from "../design-store.ts"
 import {

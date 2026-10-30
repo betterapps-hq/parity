@@ -12,7 +12,7 @@ import {
   nodeInState,
   topmostNodes,
   withFreshIds
-} from "@parity/core"
+} from "@parity-app/core"
 import { editingState } from "../chrome/LayerPanel.tsx"
 import { type ContainerEntry, containerKey } from "../design-store.ts"
 import { findFrames, findNodeElement, findNodeElements, nodeBox } from "../frame.ts"

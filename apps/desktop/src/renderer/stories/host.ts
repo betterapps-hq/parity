@@ -1,5 +1,5 @@
-import type { AccessibilityFinding } from "@parity/agent"
-import { type ComponentInfo, type ContainerSpec, defaultModeSettings, type DesignNode } from "@parity/core"
+import type { AccessibilityFinding } from "@parity-app/agent"
+import { type ComponentInfo, type ContainerSpec, defaultModeSettings, type DesignNode } from "@parity-app/core"
 import discovered from "virtual:parity/example-project"
 import type {
   CanvasHost,

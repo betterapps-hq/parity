@@ -1,12 +1,12 @@
 import { readFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { dirname, join, relative, resolve } from "node:path"
-import { guestModuleSource } from "@parity/builder-vite"
-import { inferProps } from "@parity/code"
-import { type ComponentInfo, defaultModeSettings, type PackageManifest, parseCanvasDocument } from "@parity/core"
-import { detectProject, discoverProject } from "@parity/project"
-import { reactRenderer } from "@parity/renderer-react"
-import { tailwindStyles } from "@parity/styles-tailwind"
+import { guestModuleSource } from "@parity-app/builder-vite"
+import { inferProps } from "@parity-app/code"
+import { type ComponentInfo, defaultModeSettings, type PackageManifest, parseCanvasDocument } from "@parity-app/core"
+import { detectProject, discoverProject } from "@parity-app/project"
+import { reactRenderer } from "@parity-app/renderer-react"
+import { tailwindStyles } from "@parity-app/styles-tailwind"
 import type { Plugin } from "vite"
 import type { ProjectInfo } from "../src/shared/protocol.ts"
 
@@ -50,7 +50,7 @@ export function exampleProject(): Plugin {
       if (source === projectId || source === guestId) return `\0${source}`
       if (importer !== `\0${guestId}`) return undefined
       // The guest module imports the renderer's runtime, the project's files by root path, and libraries by name.
-      if (source === rendererId) return require.resolve("@parity/renderer-react/guest")
+      if (source === rendererId) return require.resolve("@parity-app/renderer-react/guest")
       if (source.startsWith("/")) return join(root, source)
       return this.resolve(source, join(root, "src", "main.tsx"), { skipSelf: true })
     },

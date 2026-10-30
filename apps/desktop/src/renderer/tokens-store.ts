@@ -1,4 +1,4 @@
-import type { Token } from "@parity/core"
+import type { Token } from "@parity-app/core"
 import { useSyncExternalStore } from "react"
 import type { TokenChange } from "../shared/protocol.ts"
 import type { DesignStore, TokenFailure } from "./design-store.ts"

@@ -16,7 +16,7 @@ import {
   resetInner,
   resetOverride,
   type StateSpec
-} from "@parity/core"
+} from "@parity-app/core"
 import type { DesignStore } from "../design-store.ts"
 
 /** Every design in the project by id, for expanding instances. */

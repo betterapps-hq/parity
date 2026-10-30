@@ -3,8 +3,15 @@ import { statSync } from "node:fs"
 import { freemem } from "node:os"
 import { resolve } from "node:path"
 import { parentPort } from "node:worker_threads"
-import { type CheckResult, componentOptions, reactFinder, reactProbe, readTsconfig, withReactProbe } from "@parity/code"
-import type { ComponentSource } from "@parity/core"
+import {
+  type CheckResult,
+  componentOptions,
+  reactFinder,
+  reactProbe,
+  readTsconfig,
+  withReactProbe
+} from "@parity-app/code"
+import type { ComponentSource } from "@parity-app/core"
 import ts from "typescript"
 
 /**

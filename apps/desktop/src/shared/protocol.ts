@@ -1,4 +1,4 @@
-import type { AccessibilityFinding, AccessibilityIssue, AgentEvent } from "@parity/agent"
+import type { AccessibilityFinding, AccessibilityIssue, AgentEvent } from "@parity-app/agent"
 import type {
   CanvasDocument,
   ComponentInfo,
@@ -13,7 +13,7 @@ import type {
   StorybookInfo,
   ThemeVariable,
   Token
-} from "@parity/core"
+} from "@parity-app/core"
 
 /**
  * An edit the service made to a project's files: what it was for, each file's change as a unified diff (or a binary

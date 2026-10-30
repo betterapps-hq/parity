@@ -9,7 +9,7 @@ import {
   type StateSpec,
   topmostNodes,
   walkNodes
-} from "@parity/core"
+} from "@parity-app/core"
 import type { ContainerEntry, DesignStore } from "../design-store.ts"
 import { designsSelection, layersSelection, selectedDesigns, selectedNodes, type Selection } from "../selection.ts"
 import { activeState } from "./view.ts"

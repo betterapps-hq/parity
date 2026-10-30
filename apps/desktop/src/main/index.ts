@@ -32,8 +32,9 @@ if (process.env.PARITY_DEBUG_PORT) app.commandLine.appendSwitch("remote-debuggin
 // A copy being measured keeps drawing while other windows cover it, which a window otherwise stops doing on Windows.
 if (process.env.PARITY_WINDOW_SIZE) app.commandLine.appendSwitch("disable-features", "CalculateNativeWinOcclusion")
 // A second copy, such as the one `pnpm perf` starts, keeps its own tabs, storage and theme. The app's own stay where
-// its package's name put them, under @parity/desktop, now that the app is named Parity.
-app.setPath("userData", process.env.PARITY_USER_DATA ?? app.getPath("userData"))
+// its package's first name put them, under @parity/desktop, now that the app is named Parity and the package
+// @parity-app/desktop (PAR-425).
+app.setPath("userData", process.env.PARITY_USER_DATA ?? join(app.getPath("appData"), "@parity", "desktop"))
 app.setName("Parity")
 
 let service: UtilityProcess | undefined

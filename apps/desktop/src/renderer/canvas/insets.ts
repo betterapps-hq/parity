@@ -1,4 +1,4 @@
-import type { NodeStyle } from "@parity/core"
+import type { NodeStyle } from "@parity-app/core"
 
 /**
  * Moving and resizing an absolutely placed layer by its insets, the distances from its parent's edges it's placed at,

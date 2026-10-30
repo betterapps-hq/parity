@@ -1,4 +1,4 @@
-import { type DesignNode, isInnerPath, locateNode } from "@parity/core"
+import { type DesignNode, isInnerPath, locateNode } from "@parity-app/core"
 import type { Editor } from "tldraw"
 import type { ContainerEntry, DesignStore } from "../design-store.ts"
 import { boxAround, elementBox, findFrames, findNodeElements, nodeParent, nodesAt } from "../frame.ts"

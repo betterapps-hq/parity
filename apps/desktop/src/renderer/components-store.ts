@@ -1,4 +1,4 @@
-import type { ComponentInfo } from "@parity/core"
+import type { ComponentInfo } from "@parity-app/core"
 import { useSyncExternalStore } from "react"
 
 /** The project's components with their inferred props. Empty until the service has read them from source. */

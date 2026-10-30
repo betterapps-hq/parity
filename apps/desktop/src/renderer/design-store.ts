@@ -8,7 +8,7 @@ import {
   type ModeSettings,
   type NoteSpec,
   reachableLibrary
-} from "@parity/core"
+} from "@parity-app/core"
 import { useSyncExternalStore } from "react"
 import type { TokenChange } from "../shared/protocol.ts"
 import { sameDocument, withTidyView } from "./document-equality.ts"

@@ -9,7 +9,7 @@ import {
   nodeIds,
   type ContainerSpec,
   withLibraryContext
-} from "@parity/core"
+} from "@parity-app/core"
 import type { ContainerEntry, DesignStore } from "../design-store.ts"
 import { findNodeElement, nodeBox } from "../frame.ts"
 import type { ProjectSession } from "../workspace.ts"

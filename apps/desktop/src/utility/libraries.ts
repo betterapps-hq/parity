@@ -1,7 +1,7 @@
 import { type ChildProcess, spawn } from "node:child_process"
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
-import { addCommand, detectPackageManager, libraryCatalog, withStylesImport } from "@parity/project"
+import { addCommand, detectPackageManager, libraryCatalog, withStylesImport } from "@parity-app/project"
 import type { ProjectEditResult, ServiceMethods } from "../shared/protocol.ts"
 import { applyProjectEdit } from "./edits.ts"
 import { killTree, trackProcess } from "./processes.ts"

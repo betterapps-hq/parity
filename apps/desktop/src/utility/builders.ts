@@ -7,7 +7,7 @@ import {
   type BuilderProcessReply,
   type BuilderProcessSession,
   connectBuilderProcess
-} from "@parity/core"
+} from "@parity-app/core"
 import type { BuilderReading } from "../shared/service.ts"
 import { killTree } from "./processes.ts"
 

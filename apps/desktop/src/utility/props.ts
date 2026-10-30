@@ -2,8 +2,8 @@ import { createHash } from "node:crypto"
 import { readFileSync } from "node:fs"
 import { totalmem } from "node:os"
 import { Worker } from "node:worker_threads"
-import type { CheckResult } from "@parity/code"
-import type { ComponentInfo, ComponentSource } from "@parity/core"
+import type { CheckResult } from "@parity-app/code"
+import type { ComponentInfo, ComponentSource } from "@parity-app/core"
 import { type WorkerClient, workerClient } from "./worker-client.ts"
 
 const workerUrl = new URL("./props-worker.mjs", import.meta.url)

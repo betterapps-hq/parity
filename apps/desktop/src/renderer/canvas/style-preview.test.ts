@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url"
-import type { ContainerSpec } from "@parity/core"
+import type { ContainerSpec } from "@parity-app/core"
 import { build } from "esbuild"
 import { type Browser, chromium, type Page } from "playwright-core"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vite-plus/test"
@@ -39,7 +39,7 @@ const design: ContainerSpec = {
  */
 const entry = `
 export { StylePreview } from "./style-preview.ts"
-import { boardRoot, editNode, resolveDesign } from "@parity/core"
+import { boardRoot, editNode, resolveDesign } from "@parity-app/core"
 export { editNode }
 
 export function draw(design) {

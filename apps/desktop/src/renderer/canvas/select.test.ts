@@ -1,4 +1,4 @@
-import { type ContainerSpec, type DesignNode, defaultModeSettings, type NodeStyle } from "@parity/core"
+import { type ContainerSpec, type DesignNode, defaultModeSettings, type NodeStyle } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { DesignStore } from "../design-store.ts"
 import { adjacentDesign, designOrder, inverseSelection, matchingLayers, matchingSelection } from "./select.ts"

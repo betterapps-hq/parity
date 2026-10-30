@@ -13,7 +13,7 @@ import {
   nodeInState,
   type NodeStyle,
   resolveModes
-} from "@parity/core"
+} from "@parity-app/core"
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react"
 import { editingState } from "../chrome/LayerPanel.tsx"
 import { getPreferences, subscribePreferences } from "../chrome/preferences.ts"

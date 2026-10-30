@@ -13,7 +13,7 @@ const errors: string[] = []
 const entry = `
 export { prepareFrame, setDrawnNodes, findNodeElement, findNodeElements, nodeBox, nodesAt, nodeParent, nodeOfElement,
   drawnNodeIds } from "./frame.ts"
-export { createGuest } from "@parity/renderer-react/guest"
+export { createGuest } from "@parity-app/renderer-react/guest"
 import { createElement, Fragment, useState } from "react"
 import { Slot } from "radix-ui"
 
