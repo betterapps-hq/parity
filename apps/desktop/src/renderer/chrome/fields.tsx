@@ -575,8 +575,17 @@ export function ChoiceInput<T extends string>({
   )
 }
 
-export function SwitchInput({ value, onChange }: { value: boolean; onChange: (value: boolean) => void }) {
-  return <Switch size="sm" checked={value} onCheckedChange={onChange} />
+export function SwitchInput({
+  value,
+  label,
+  onChange
+}: {
+  value: boolean
+  /** Its accessible name, when no label names it. */
+  label?: string
+  onChange: (value: boolean) => void
+}) {
+  return <Switch size="sm" checked={value} aria-label={label} onCheckedChange={onChange} />
 }
 
 /** Rules for a number a prop or param takes: any number, with maths. */
@@ -598,7 +607,7 @@ export function ValueInput({
   kind?: ValueKind
   onCommit: (value: unknown) => void
 }) {
-  if (kind === "boolean") return <SwitchInput value={value === true} onChange={onCommit} />
+  if (kind === "boolean") return <SwitchInput value={value === true} label={title} onChange={onCommit} />
   if (kind === "number") {
     const current = typeof value === "number" ? value : undefined
     return (

@@ -138,6 +138,8 @@ function componentProps(
     let group: PropGroup = "html"
     if (variants.has(prop.name)) group = "variant"
     else if (declared && !declared.includes("/node_modules/")) group = "own"
+    // A slot that takes content is one of the component's own parts, wherever it's declared; its root is the component.
+    else if (classified.slot && kind === "node" && prop.name !== "root") group = "own"
     else if (prop.name.startsWith("aria-")) group = "aria"
     else if (kind === "function" && /^on[A-Z]/.test(prop.name)) group = "event"
     const entry: ComponentProp = { name: prop.name, kind, group }
@@ -146,7 +148,10 @@ function componentProps(
     if (fallback !== undefined) entry.default = fallback
     if (!(prop.flags & ts.SymbolFlags.Optional)) entry.required = true
     if (group === "variant" || group === "own") {
-      entry.type = shorten(checker.typeToString(checker.getNonNullableType(type)))
+      // A slot's type spelled out is a long union of what it takes; it's written as the source names it.
+      entry.type = classified.slot
+        ? shorten(classified.slot)
+        : shorten(checker.typeToString(checker.getNonNullableType(type)))
       const description = ts.displayPartsToString(prop.getDocumentationComment(checker)).trim()
       if (description) entry.description = shorten(description, 240)
     }
@@ -180,14 +185,16 @@ function classify(
   type: ts.Type,
   declaration: ts.Declaration | undefined,
   name: string
-): { kind: PropKind; options?: (string | number | boolean)[] } {
+): { kind: PropKind; options?: (string | number | boolean)[]; slot?: string } {
   const value = checker.getNonNullableType(type)
   const written = declaration && "type" in declaration ? (declaration.type as ts.TypeNode | undefined)?.getText() : ""
+  const parts = value.isUnion() ? value.types : [value]
+  const slot = name === "children" ? undefined : slotKind(checker, parts)
+  if (slot) return { kind: slot, slot: written?.startsWith("Slot<") ? written : "Slot" }
   if (name === "children" || /ReactNode|ReactElement|JSX\.Element/.test(written ?? "")) return { kind: "node" }
   if (/ReactNode|ReactElement/.test(checker.typeToString(value))) return { kind: "node" }
   if (value.getCallSignatures().length > 0) return { kind: "function" }
 
-  const parts = value.isUnion() ? value.types : [value]
   if (parts.every((part) => part.flags & ts.TypeFlags.BooleanLike)) return { kind: "boolean" }
   const literals = parts.map(literalOf)
   if (literals.every((literal) => literal !== undefined)) {
@@ -200,6 +207,26 @@ function classify(
   }
   if (value.flags & ts.TypeFlags.Object) return { kind: "object" }
   return { kind: "unknown" }
+}
+
+/**
+ * A Fluent slot (`Slot<'span'>`, `Slot<typeof Label>`): a union of the part's props, an object with `as`, and, when the
+ * part takes children, shorthand content for it (text, a number, elements). One that takes content is a `node`, shown
+ * as children is; one that takes only props, such as a Checkbox's `input`, is an `object`. Anything else isn't a slot.
+ */
+function slotKind(checker: ts.TypeChecker, parts: readonly ts.Type[]): "node" | "object" | undefined {
+  const partProps = (part: ts.Type) =>
+    part.flags & (ts.TypeFlags.Object | ts.TypeFlags.Intersection) &&
+    part.getCallSignatures().length === 0 &&
+    checker.getPropertyOfType(part, "as") !== undefined
+  if (!parts.some(partProps)) return undefined
+  const content = parts.some(
+    (part) =>
+      !partProps(part) &&
+      (part.flags & (ts.TypeFlags.StringLike | ts.TypeFlags.NumberLike) ||
+        /ReactElement|ReactNode|ReactPortal|Iterable/.test(checker.typeToString(part)))
+  )
+  return content ? "node" : "object"
 }
 
 function literalOf(type: ts.Type): string | number | boolean | undefined {
