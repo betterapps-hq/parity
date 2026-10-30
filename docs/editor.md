@@ -556,6 +556,7 @@ design has them on its frames' right and bottom.
   a step to undo or clearing what Redo had, the layer stays selected, and the release that follows does nothing. Escape
   goes to the resize alone, not to the canvas, where it would select the parent. Only the resized design goes back:
   another file an agent changed during the drag, or another design in the same file, keeps its change and its undo step.
+  Such a change clears Redo, as any new step does, so Redo comes back only when nothing else changed during the drag.
 - **The cursor** shows the handle's arrows wherever the pointer goes during the drag, over the canvas, the frames and
   the panels, until it ends (see "Cursors and Escape during a gesture", below).
 
