@@ -586,7 +586,8 @@ Tests:
 - `apps/desktop/src/renderer/design-store.test.ts`, reverting to a checkpoint: a gesture's writes more than a second
   apart taken back with nothing left to undo for them; Redo kept; a first write that merged into the step before it
   leaving that step as it was; another file reloaded mid-gesture kept, with its undo step undoing to the design as it
-  was; another design added to the same file mid-gesture kept, with its undo step; and nothing changed since.
+  was; another design added to the same file mid-gesture kept, with its undo step; every step before the gesture kept
+  when its first write pushed the oldest out at the undo limit; and nothing changed since.
 - `apps/desktop/e2e/moving.e2e.ts` (6), end to end (PAR-202): New project's right handle, named by its hint when the
   pointer rests on it, dragged 48px right changes the width alone, in steps, with no hint during the drag or after; its
   top handle dragged sideways changes nothing and adds no undo step; the Review slot's top handle dragged up 16px gives
@@ -1432,7 +1433,7 @@ Tests:
   out in full; a file that differs in more than its view staying unsaved until undone; and files changed on disk taken
   as saved, unless they have unsaved changes.
 - `packages/editor/src/design-changes.test.ts` (6): changing, moving, adding and deleting designs, and notes.
-- `apps/desktop/src/renderer/design-store.test.ts` (11 of its 17): Save writing the files and the stylesheet, saving
+- `apps/desktop/src/renderer/design-store.test.ts` (11 of its 18): Save writing the files and the stylesheet, saving
   automatically a moment later, a failed save thrown and cleared, a reload cancelling a save waiting to happen, and
   library designs never written.
 - `packages/tokens/src/stylesheet.test.ts` (8 of its 11): a value replaced in place, keeping comments and formatting; a

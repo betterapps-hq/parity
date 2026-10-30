@@ -218,17 +218,13 @@ export function revertTo(history: DesignHistory, checkpoint: Checkpoint): Design
     const containers = document.containers.map((each) => (each.id === container.id ? container : each))
     return { ...snapshot, documents: new Map(snapshot.documents).set(path, { ...document, containers }) }
   }
-  let others = 0
-  const past: HistoryEntry[] = []
-  for (const step of history.past) {
-    const before = earlier.get(step.before)
-    if (before) past.push(before)
-    else if (step.group !== group) {
-      others++
-      past.push({ ...step, before: withDesign(step.before) })
-    }
-  }
-  const future = others === 0 ? checkpoint.future : history.future
+  // Undo as the checkpoint saw it, whole, since a gesture's own steps can push its oldest out at the limit, then what
+  // else changed since, which keeps the limit.
+  const others = history.past
+    .filter((step) => !earlier.has(step.before) && step.group !== group)
+    .map((step) => ({ ...step, before: withDesign(step.before) }))
+  const past = [...checkpoint.past, ...others].slice(-historyLimit)
+  const future = others.length === 0 ? checkpoint.future : history.future
   const current = history.current
   return restore({ ...history, past, future }, keepViews(withDesign(current), current))
 }

@@ -1,5 +1,5 @@
 import { type CanvasDocument, type ContainerSpec, defaultModeSettings } from "@parity-app/core"
-import type { TokenChange, TokenEdit } from "@parity-app/editor"
+import { historyLimit, type TokenChange, type TokenEdit } from "@parity-app/editor"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { DesignStore } from "./design-store.ts"
 
@@ -174,6 +174,18 @@ describe("reverting to a checkpoint", () => {
     if (!checkpoint) throw new Error("No design home")
     return checkpoint
   }
+
+  it("keeps every step before the gesture when its first change pushed the oldest out at the undo limit", () => {
+    const { store } = setup()
+    for (let step = 1; step <= historyLimit; step++) rename(store, String(step))
+    const checkpoint = start(store)
+    rename(store, "During", "resize")
+    store.revert(checkpoint)
+    expect(name(store)).toBe(String(historyLimit))
+    for (let step = 0; step < historyLimit; step++) store.undo()
+    expect(name(store)).toBe("home")
+    expect(store.getHistory().canUndo).toBe(false)
+  })
 
   it("takes back a cancelled gesture's changes, leaving no step to undo for them", () => {
     vi.useFakeTimers()
