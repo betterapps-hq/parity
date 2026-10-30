@@ -754,6 +754,26 @@ recommended answer to each of its questions.
   prop its own name as text, which an `<input>` can't hold (Mantine's `Cascader`, Nova's `ComboboxChipsInput`). The
   generator tries each part with text inside; one that then fails as a void or self-closing element, but renders without
   it, gets a sample of `children: []`. Inserting reads a sample's children, empty ones included, in place of the label.
+- **Errors from the app name parents the server can't see (PAR-409):** a part inside a closed menu or a portal renders
+  nothing on the server, so nothing there says it's misplaced. `parity lib check --record` keeps each failing part's
+  error from the app in `packages/registry/app-errors/<library>.json`, adding to what's kept, and
+  `parity lib --registry` reads it back: the parent the error names goes in the part's chain (parents from `app`),
+  inside that parent's own when it's of the part's family, or inside the chain it has when it's another's (Base UI's
+  `Menu.Portal` for a `ContextMenu.Positioner`). An error that names nothing adds nothing, and one about a void element
+  takes the part's text label off.
+- **More generator rules (PAR-409):**
+  - Example checkout also fetches the repository's files the examples import, relatively or by a mapped path (Chakra's
+    `compositions/ui/toaster`).
+  - A part imported under another name (`Toaster as ChakraToaster`) is that part.
+  - A made value carries the methods other examples call on it with arguments (`toaster.create({ title })`), as
+    `methods`, which the canvas and the generator call once after making it; calls with none (`dismiss()`) are left out.
+    Chakra's toaster is drawn with its toasts.
+  - A value the package makes is kept from any use of a part, however few set it.
+  - A part whose children must be a function (Base UI's `Field.Validity`) gets a render function that draws text.
+  - Nothing goes inside a part whose sample takes no children.
+  - A value an owner part works out for a part it draws is tried with each value the examples make.
+- **A render function's arguments go over the node's own (PAR-418):** its props over the node's props and slots, its
+  style merged over the node's, its key on the returned node, and a slot that both spreads and names props gives both.
 - **`parity lib` tries parts with React's server renderer,** from the project's own React, rather than in the app: it
   needs no window, runs in seconds, and still throws the context errors that name a part's parents. The library's
   decorator providers wrap each try, with their imports and calls made, a mode's default value, and no frame, so

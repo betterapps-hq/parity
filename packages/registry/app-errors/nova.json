@@ -1,0 +1,5 @@
+{
+  "ComboboxTrigger": "el?.getRootNode is not a function",
+  "SidebarMenuButton": "useSidebar must be used within a SidebarProvider.",
+  "TraceCollapsibleTrigger": "Base UI: CollapsibleRootContext is missing. Collapsible parts must be placed within <Collapsible.Root>."
+}

@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises"
+import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import type { ComponentInfo, ComponentSource, DesignNode, LibraryManifest } from "@parity-app/core"
 import { call, type ExecResponse } from "./client.ts"
@@ -8,6 +8,8 @@ export interface CheckOptions {
   /** The mode the designs are checked in. */
   mode?: string
   json?: boolean
+  /** Keeps why parts failed in the registry's `app-errors`, for making the library's file again. */
+  record?: boolean
 }
 
 /** What `parity lib check` found for one library. */
@@ -101,9 +103,40 @@ Print(JSON.stringify(await Problems(id, { mode: ${JSON.stringify(mode)} })))`
   const report = score(library, mode, names.length, failAlone, failInside, list)
   const floors = JSON.parse(await readFile(join(registryDir(), "..", "in-app.json"), "utf8")) as Record<string, number>
   report.floor = floors[library]
+  if (options.record) {
+    const kept = await recordAppErrors(registryDir(), library, report)
+    console.error(`Kept ${kept} errors from the app for ${library}; run parity lib with --registry to use them.`)
+  }
   if (options.json) console.log(JSON.stringify(report, null, 2))
   else console.log(describeCheck(report))
   if (report.floor !== undefined && report.score < report.floor) process.exitCode = 1
+}
+
+/** Where a library's errors from the app are kept: `app-errors/<id>.json` beside the registry's files. */
+function appErrorsPath(registry: string, library: string): string {
+  return join(registry, "..", "app-errors", `${library}.json`)
+}
+
+/** The app's errors kept for a library, by part, or none. */
+export async function readAppErrors(registry: string, library: string): Promise<Record<string, string> | undefined> {
+  return readFile(appErrorsPath(registry, library), "utf8").then(
+    (text) => JSON.parse(text) as Record<string, string>,
+    () => undefined
+  )
+}
+
+/**
+ * Adds the parts that failed in the app to those kept before, with their own errors rather than a parent's: one kept
+ * from an earlier check stays, so the parent its error named stays in the part's chain once it renders.
+ */
+async function recordAppErrors(registry: string, library: string, report: CheckReport): Promise<number> {
+  const kept = { ...(await readAppErrors(registry, library)) }
+  for (const [name, why] of Object.entries(report.misses)) if (!why.startsWith("inside ")) kept[name] = why
+  const path = appErrorsPath(registry, library)
+  await mkdir(dirname(path), { recursive: true })
+  const sorted = Object.fromEntries(Object.entries(kept).sort(([a], [b]) => a.localeCompare(b, "en")))
+  await writeFile(path, `${JSON.stringify(sorted, null, 2)}\n`)
+  return Object.keys(sorted).length
 }
 
 /**

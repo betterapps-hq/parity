@@ -118,7 +118,8 @@ export function withLibraryContext(
   const sample = source.sample
   if (sample) {
     const { props, slots } = held({ ...sample.props, ...node.props }, sample.children)
-    if (sample.children?.length) delete props.children
+    // Children the sample spells out stand in for the text label, and none (`[]`, an input's) leave it out.
+    if (sample.children) delete props.children
     const { props: _label, ...rest } = node
     placed = {
       ...rest,

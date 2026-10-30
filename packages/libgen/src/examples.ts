@@ -4,7 +4,14 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join, posix } from "node:path"
 import { promisify } from "node:util"
-import { type ComponentSample, isSampleRender, type SampleChild, type SampleRender } from "@parity-app/core"
+import {
+  type ComponentSample,
+  isMadeValue,
+  isSampleRender,
+  type MadeValue,
+  type SampleChild,
+  type SampleRender
+} from "@parity-app/core"
 import ts from "typescript"
 
 const run = promisify(execFile)
@@ -181,6 +188,7 @@ async function checkoutExamples(
   const done = join(dir, ".parity-examples")
   const key = [
     commit,
+    "imports",
     ...(paths ?? []),
     ...demos.map((demo) => `demos:${demo}`),
     ...anatomy.map((folder) => `anatomy:${folder}`)
@@ -203,16 +211,35 @@ async function checkoutExamples(
           (/\.mdx?$/.test(path) && anatomy.some((prefix) => path.startsWith(prefix)))
       )
       .slice(0, 5000)
-    await writeFile(join(dir, ".parity-wanted"), wanted.join("\n"))
-    if (wanted.length > 0) {
+    const checkout = async (paths: string[]) => {
       await git(
         ["sparse-checkout", "set", "--no-cone", "--stdin"],
         dir,
         60_000,
-        wanted.map((path) => `/${path}`).join("\n")
+        paths.map((path) => `/${path}`).join("\n")
       )
       await git(["checkout", "-q", "FETCH_HEAD"], dir, 600_000)
     }
+    if (wanted.length > 0) {
+      await checkout(wanted)
+      // The repository's own files the examples import (Chakra's `compositions/ui/toaster`, which makes its toaster
+      // and draws its toasts), as an example of how the parts go together.
+      const tree = stdout.split("\n").filter((path) => /\.[jt]sx?$/.test(path) && !skipped.test(path))
+      // And the files those import in turn, up to 500 in all.
+      let scan = [...wanted]
+      for (let added = 0; scan.length > 0 && added < 500;) {
+        const texts = await Promise.all(scan.map((path) => readFile(join(dir, path), "utf8").catch(() => "")))
+        const imported = localImports(scan, texts, tree)
+          .filter((path) => !wanted.includes(path))
+          .slice(0, 500 - added)
+        if (imported.length === 0) break
+        wanted.push(...imported)
+        added += imported.length
+        await checkout(wanted)
+        scan = imported
+      }
+    }
+    await writeFile(join(dir, ".parity-wanted"), wanted.join("\n"))
     await writeFile(done, key)
   }
   const wanted = (await readFile(join(dir, ".parity-wanted"), "utf8")).split("\n").filter(Boolean)
@@ -222,6 +249,114 @@ async function checkoutExamples(
     if (text !== undefined) files.push({ path, text })
   }
   return files
+}
+
+/**
+ * The files of a repository's tree that its example files import, relatively (`./utils`) or by a path the repository
+ * maps (`compositions/ui/toaster`, matched by the end of a file's path), but not packages (`react`, `@chakra-ui/react`).
+ */
+export function localImports(paths: string[], texts: string[], tree: string[]): string[] {
+  const local = localResolver(tree)
+  const found = new Set<string>()
+  paths.forEach((path, index) => {
+    for (const match of texts[index]!.matchAll(/\bfrom\s+["']([^"']+)["']/g)) {
+      const target = local(path, match[1]!)
+      if (target) found.add(target)
+    }
+  })
+  return [...found]
+}
+
+/** The file of a tree an import names, relatively or by a mapped path, or none for a package. */
+function localResolver(tree: string[]): (from: string, specifier: string) => string | undefined {
+  const byStem = new Map<string, string>()
+  for (const path of tree) byStem.set(path.replaceAll("\\", "/").replace(/(?:\/index)?\.[jt]sx?$/, ""), path)
+  // Each file by every end of its path, the first file a suffix fits keeping it, for imports by a mapped path. A
+  // workspace package's files are under its `src` (`apps/compositions/src/ui/toaster` for `compositions/ui/toaster`).
+  const bySuffix = new Map<string, string>()
+  for (const [stemmed, target] of byStem) {
+    const candidate = stemmed.replace(/\/src(?=\/)/g, "")
+    for (let at = -1; at < candidate.length; at = candidate.indexOf("/", at + 1)) {
+      const suffix = candidate.slice(at + 1)
+      if (!bySuffix.has(suffix)) bySuffix.set(suffix, target)
+      if (!candidate.includes("/", at + 1)) break
+    }
+  }
+  return (from, specifier) => {
+    if (specifier.startsWith(".")) return byStem.get(posix.join(posix.dirname(from.replaceAll("\\", "/")), specifier))
+    // A package's name has at most one slash after its scope; a mapped path has more, or no scope, or is `@/`.
+    const isPackage =
+      !specifier.startsWith("@/") &&
+      (specifier.startsWith("@") ? specifier.split("/").length < 3 : !specifier.includes("/"))
+    if (isPackage) return undefined
+    return bySuffix.get(specifier.replace(/^[@~]\//, ""))
+  }
+}
+
+/**
+ * The methods example files call on a value another file makes and exports (Chakra's `toaster.create({ title, type })`
+ * on `compositions/ui/toaster`'s `toaster`), by that file and the name it exports, with arguments the caller spells out:
+ * for each method, its fullest call.
+ */
+function methodCallsOn(
+  files: ExampleFile[],
+  sourceOf: (file: ExampleFile) => ts.SourceFile,
+  pkg: string | undefined,
+  reexported: Set<string>
+): Map<string, Map<string, MethodCall[]>> {
+  const local = localResolver(files.map((file) => file.path))
+  const found = new Map<string, Map<string, Map<string, MethodCall>>>()
+  for (const file of files) {
+    if (!/\.\w+\(/.test(file.text) || !/\bfrom\s+["'](?:\.|[^"'@]+\/|@\/)/.test(file.text)) continue
+    const source = sourceOf(file)
+    const imported = new Map<string, { file: string; name: string }>()
+    for (const statement of source.statements) {
+      if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue
+      const target = local(file.path, statement.moduleSpecifier.text)
+      const bindings = statement.importClause?.namedBindings
+      if (!target || !bindings || !ts.isNamedImports(bindings)) continue
+      for (const element of bindings.elements) {
+        imported.set(element.name.text, { file: target, name: (element.propertyName ?? element.name).text })
+      }
+    }
+    if (imported.size === 0) continue
+    const context: Context = {
+      source,
+      resolve: () => undefined,
+      scope: declarations(source),
+      env: new Map(),
+      ...(pkg ? { imports: packageImports(source, pkg, reexported) } : {})
+    }
+    const visit = (node: ts.Node) => {
+      if (
+        ts.isCallExpression(node) &&
+        ts.isPropertyAccessExpression(node.expression) &&
+        ts.isIdentifier(node.expression.expression)
+      ) {
+        const on = imported.get(node.expression.expression.text)
+        const args = node.arguments.map((argument) => evaluate(argument, context, 0))
+        // Only calls that hand it something (`create({ title })`), not ones that clear it (`dismiss()`).
+        if (on && args.length > 0 && !args.some((argument) => argument === undefined)) {
+          const method = node.expression.name.text
+          const byName = found.get(on.file) ?? new Map<string, Map<string, MethodCall>>()
+          const calls = byName.get(on.name) ?? new Map<string, MethodCall>()
+          const call: MethodCall = { method, ...(args.length > 0 ? { args } : {}) }
+          const before = calls.get(method)
+          if (!before || JSON.stringify(call).length > JSON.stringify(before).length) calls.set(method, call)
+          byName.set(on.name, calls)
+          found.set(on.file, byName)
+        }
+      }
+      ts.forEachChild(node, visit)
+    }
+    visit(source)
+  }
+  return new Map(
+    [...found].map(([path, byName]) => [
+      path,
+      new Map([...byName].map(([name, calls]) => [name, [...calls.values()].slice(0, 3)]))
+    ])
+  )
 }
 
 async function git(args: string[], cwd?: string, timeout = 60_000, input?: string): Promise<{ stdout: string }> {
@@ -266,6 +401,8 @@ export interface ExampleUse {
   family?: string
   /** Props the sample's use set that only it set, left out of the sample, for a part that can't draw without them. */
   rare?: Record<string, unknown>
+  /** The values the package makes that any use gives it, by prop, first seen first (a date picker's dates). */
+  made?: Record<string, unknown>
 }
 
 /**
@@ -297,6 +434,7 @@ export function readExamples(
     return source
   }
   const imported = importedWrappers(files, sourceOf, resolve)
+  const calledOn = methodCallsOn(files, sourceOf, pkg, reexported)
   // Twice: where each part is placed first, then its samples, which keep the parts of its family, and a family takes in
   // the parts the examples only ever place inside it (a table's `Row`, `Cell` and `Column`).
   for (const sampling of [false, true]) {
@@ -307,7 +445,17 @@ export function readExamples(
       if (!sampling && !names.some((name) => file.text.includes(name.split(".").at(-1)!))) continue
       if (sampling && !sources.has(file)) continue
       const source = sourceOf(file)
-      readSource(source, uses, resolve, sampling ? family : undefined, setBy, pkg, imported(source), reexported)
+      readSource(
+        source,
+        uses,
+        resolve,
+        sampling ? family : undefined,
+        setBy,
+        pkg,
+        imported(source),
+        reexported,
+        calledOn.get(file.path)
+      )
     }
   }
   // A part's sample props are its defaults wherever it's drawn, so one that only a single use, or under a quarter of
@@ -316,10 +464,19 @@ export function readExamples(
     const use = uses.get(name)
     if (use) use.family = family
   }
+  // A value the package makes for a part, from any of its uses, goes in its sample: the fullest use may not set the
+  // dates a date picker's days need.
+  for (const use of uses.values()) {
+    if (!use.made || !use.sample) continue
+    const missing = Object.entries(use.made).filter(([prop]) => !(prop in (use.sample!.props ?? {})))
+    if (missing.length > 0) use.sample.props = { ...Object.fromEntries(missing), ...use.sample.props }
+  }
   for (const [name, use] of uses) {
     const props = use.sample?.props
     if (!props || use.count < 5) continue
     for (const prop of Object.keys(props)) {
+      // A value the package makes is kept however few set it: a date picker's dates are what its days need.
+      if (madeIn(props[prop])) continue
       const set = setBy.get(name)?.get(prop) ?? 0
       if (set >= 2 && set * 4 >= use.usePaths.length) continue
       use.rare = { ...use.rare, [prop]: props[prop] }
@@ -342,8 +499,13 @@ function readSource(
   setBy?: Map<string, Map<string, number>>,
   pkg?: string,
   imported: Map<string, Wrapper> = new Map(),
-  reexported: Set<string> = new Set()
+  reexported: Set<string> = new Set(),
+  calledOn?: Map<string, MethodCall[]>
 ): void {
+  // A part imported under another name (`Toaster as ChakraToaster`) is that part.
+  const aliases = pkg ? importAliases(source, pkg) : new Map<string, string>()
+  const own = base
+  base = (tag: string) => own(aliases.get(tag) ?? tag)
   const wrapping = new Map([...imported, ...wrappers(source, base)])
   // The example's own wrapper of a part (`<CustomTab>`) is that part where the example places it.
   const resolve = (tag: string) => base(tag) ?? wrapping.get(tag)?.name
@@ -354,7 +516,8 @@ function readSource(
     scope: declarations(source),
     env: new Map(),
     wrapping,
-    ...(pkg ? { imports: packageImports(source, pkg, reexported) } : {})
+    ...(pkg ? { imports: packageImports(source, pkg, reexported) } : {}),
+    ...(calledOn ? { calledOn } : {})
   }
   const placedHere = new Set<string>()
   const hooked = hookResults(source)
@@ -397,7 +560,10 @@ function readSource(
         if (family) {
           const sample = familySample(usedSample(node, { ...context, env }, 0), family(name), family)
           const counts = setBy?.get(name) ?? new Map<string, number>()
-          for (const prop of Object.keys(sample.props ?? {})) counts.set(prop, (counts.get(prop) ?? 0) + 1)
+          for (const [prop, value] of Object.entries(sample.props ?? {})) {
+            counts.set(prop, (counts.get(prop) ?? 0) + 1)
+            if (madeIn(value) && !(prop in (use.made ?? {}))) use.made = { ...use.made, [prop]: value }
+          }
           setBy?.set(name, counts)
           const size = sampleWeight(sample)
           if (size > use.sampleSize) {
@@ -582,9 +748,33 @@ interface Context {
   wrapping?: Map<string, { name: string; root: ts.Node; spread: boolean }>
   /** The functions the file imports from the library's package, by the name it uses, with where they come from. */
   imports?: Map<string, { import: string; export: string }>
+  /** The methods other files call on the values this one makes, by the name it declares them under. */
+  calledOn?: Map<string, MethodCall[]>
 }
 
+type MethodCall = NonNullable<MadeValue["methods"]>[number]
+
 /** The names a file imports from a package or its subpaths (`@base-ui/react/toast`), with what each is there. */
+/** Whether a prop's value is one the package makes, or a list holding one. */
+function madeIn(value: unknown): boolean {
+  return isMadeValue(value) || (Array.isArray(value) && value.some(isMadeValue))
+}
+
+/** The library's parts a file imports under names of its own, by those names. */
+function importAliases(source: ts.SourceFile, pkg: string): Map<string, string> {
+  const found = new Map<string, string>()
+  for (const statement of source.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue
+    const from = statement.moduleSpecifier.text
+    const bindings = statement.importClause?.namedBindings
+    if ((from !== pkg && !from.startsWith(`${pkg}/`)) || !bindings || !ts.isNamedImports(bindings)) continue
+    for (const element of bindings.elements) {
+      if (element.propertyName) found.set(element.name.text, element.propertyName.text)
+    }
+  }
+  return found
+}
+
 function packageImports(
   source: ts.SourceFile,
   pkg: string,
@@ -1135,7 +1325,9 @@ function evaluate(expression: ts.Expression, context: Context, depth: number): u
   if (ts.isIdentifier(expression)) {
     if (context.env.has(expression.text)) return context.env.get(expression.text)
     const declared = context.scope.get(expression.text)
-    return declared ? evaluate(declared, context, depth + 1) : undefined
+    const value = declared ? evaluate(declared, context, depth + 1) : undefined
+    const methods = context.calledOn?.get(expression.text)
+    return methods && isMadeValue(value) ? { ...value, methods } : value
   }
   if (ts.isArrayLiteralExpression(expression)) {
     const items = expression.elements

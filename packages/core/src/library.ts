@@ -120,7 +120,7 @@ export interface LibraryComponent {
  * (`Accordion.Item`), the error it throws alone ("must be used within `Accordion`"), a shared name prefix
  * (`AccordionItem` under `Accordion`), or a hand edit.
  */
-export const parentSignals = ["example", "source", "namespace", "error", "prefix", "edit"] as const
+export const parentSignals = ["example", "source", "namespace", "error", "prefix", "edit", "app"] as const
 export type ParentSignal = (typeof parentSignals)[number]
 
 export interface ComponentSample {
@@ -168,6 +168,11 @@ export function isSampleElement(value: unknown): value is SampleElement {
 export interface MadeValue {
   $call: { import: string; export: string }
   args?: unknown[]
+  /**
+   * Methods called on what it makes, in order, as the examples call them (Chakra's `toaster.create({ title })`), so a
+   * toaster is drawn with a toast in it.
+   */
+  methods?: { method: string; args?: unknown[] }[]
 }
 
 /** Whether a sample's prop value is one the package makes. */
