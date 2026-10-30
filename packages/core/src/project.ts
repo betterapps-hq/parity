@@ -98,6 +98,8 @@ export interface ComponentSource {
   parentParts?: true
   /** A part its library renders inside its own components, listed apart in the Components panel. */
   internal?: true
+  /** A provider or context that draws nothing: listed so parts go inside it, not offered to insert on its own. */
+  visual?: false
   /** What a library component is inserted with: sample props, and children by component id or as text. */
   sample?: ComponentSample
 }

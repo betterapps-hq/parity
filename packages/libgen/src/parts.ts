@@ -712,7 +712,12 @@ export async function relateParts(
       const sample = relations.get(parent)?.sample
       if (!generated || !sample) continue
       loose.delete(parent)
-      if (Object.keys(generated).length > 0) sample.props = generated
+      // The values the package makes stay (a date picker's dates), which its parts need in the app if not here.
+      const made = Object.entries(sample.props ?? {}).filter(
+        ([, value]) => isMadeValue(value) || (Array.isArray(value) && value.some(isMadeValue))
+      )
+      const kept = { ...generated, ...Object.fromEntries(made) }
+      if (Object.keys(kept).length > 0) sample.props = kept
       else delete sample.props
       if (!sample.props && !sample.children) delete relations.get(parent)!.sample
     }
@@ -731,7 +736,18 @@ export async function relateParts(
     if (relation.parentsFrom === "edit") continue
     const parents = relation.parents ?? []
     const needed = named(error, name, parents, false)
-    if (!needed) continue
+    // An error that names nothing still says the chain is wrong: the examples' own goes in its place, when it's
+    // another (Chakra's `TreeView.BranchContent`, in a `TreeView.Branch` rather than the `TreeView.Item` an error on the
+    // server led to).
+    if (!needed) {
+      const shown = exampleChain(name)
+      if (shown && shown.join() !== parents.join()) {
+        relation.parents = shown
+        relation.parentsFrom = "app"
+        delete relation.optionalParents
+      }
+      continue
+    }
     // One of its own family goes inside that parent's own chain; another's (Base UI's `Menu.Portal` for a
     // `ContextMenu.Positioner`) goes inside the chain it has.
     const outer = (relations.get(needed)?.parents ?? []).filter((parent) => parent !== name)
@@ -799,6 +815,17 @@ export async function relateParts(
       delete relation.inside
     }
   }
+  // One whose children must be plain text (Chakra's `Highlight`) can't hold a text layer, which the canvas draws as an
+  // element: its text goes in its `children` prop.
+  for (const [name, relation] of relations) {
+    const texts = relation.sample?.children
+    if (!texts?.length || !texts.every((child) => typeof child === "string")) continue
+    const parents = relation.parents ?? []
+    if (!attempt(parents, name, [{ component: "p", children: texts }]) || attempt(parents, name, texts)) continue
+    const { children: _, ...sample } = relation.sample!
+    relation.sample = { ...sample, props: { ...sample.props, children: texts.join("") } }
+  }
+
   // Nothing goes inside a part that takes no children (Mantine's `TreeSelectOption`, guessed into a `TreeSelect` by its
   // name, which draws its options itself).
   for (const relation of relations.values()) {

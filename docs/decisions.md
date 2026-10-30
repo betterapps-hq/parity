@@ -857,6 +857,14 @@ recommended answer to each of its questions.
   list), a single element child for parts that clone theirs, and a family's parts as its root's sample. Contexts,
   consumers and `RootProvider`s are marked `visual: false` and left out of the Components panel. The rest are listed for
   a hand edit.
+- **A part that draws nothing is still one of the project's components (PAR-428),** marked `visual: false`, so the parts
+  whose chains need it (Chakra's `CodeBlock.AdapterProvider`, Base UI's `Tooltip.Provider`) insert inside it with its
+  sample. Only the Components panel leaves it out. Leaving it off the project's list made every part inside one fail.
+- **More generator rules (PAR-428):**
+  - A failing part's error from the app that names no parent puts the examples' own chain in place of the one it has,
+    when that's another.
+  - Clearing a parent's generated props keeps the values the package makes.
+  - A part whose children must be a string (Chakra's `Highlight`) gets its text as the `children` prop.
 - **Hand edits to a library file survive regenerating it.** They're kept apart from what `parity lib` writes, keyed by
   export name, in the file's `edits` or a shared file it names, and merged over it: a field replaces the generated one,
   `false` leaves a component out, and decorators given there replace the generated ones. `--edits <file>` points a file

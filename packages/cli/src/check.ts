@@ -53,8 +53,12 @@ export async function runCheck(library: string | undefined, options: CheckOption
   const list = manifest.components?.list ?? {}
   const names = Object.keys(list).filter((name) => list[name]!.visual !== false)
   const id = (name: string) => `${library}/${name}`
+  // Providers stay in, as the app lists them, so the parts that need one are inserted inside it with its sample.
   const sources: Record<string, ComponentSource> = Object.fromEntries(
-    names.map((name) => [id(name), { ...librarySource(library, name, list[name]!, library), declaration: "" }])
+    Object.keys(list).map((name) => [
+      id(name),
+      { ...librarySource(library, name, list[name]!, library), declaration: "" }
+    ])
   )
   const mode = options.mode ?? "desktop-light"
   const exec = async (label: string, code: string): Promise<string> => {

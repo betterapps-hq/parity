@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "List providers so the parts inside them insert, and place more library parts from the app's errors",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

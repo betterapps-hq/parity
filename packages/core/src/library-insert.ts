@@ -201,6 +201,7 @@ export function librarySource(
     ...(component.group ? { group: component.group } : {}),
     ...(component.parents ? { parents: component.parents.map((parent) => `${library}/${parent}`) } : {}),
     ...(component.internal ? { internal: true as const } : {}),
+    ...(component.visual === false ? { visual: false as const } : {}),
     ...(component.optionalParents
       ? { optionalParents: component.optionalParents.map((parent) => `${library}/${parent}`) }
       : {}),

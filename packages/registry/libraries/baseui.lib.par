@@ -1662,10 +1662,9 @@
         "as": "forwardRef",
         "group": "ContextMenu",
         "parents": [
-          "ContextMenu.Root",
-          "Menu.Portal"
+          "ContextMenu.Root"
         ],
-        "parentsFrom": "example",
+        "parentsFrom": "app",
         "sample": {
           "props": {
             "alignOffset": -4,
