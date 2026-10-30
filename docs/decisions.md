@@ -1458,8 +1458,9 @@ the Repository, CI and releases stream in Linear.
     session, which can add `pnpm check:unused`.
   - **Its config is `knip.jsonc`,** so each entry and ignore says why, and its version is in the catalog.
   - **The example project and `fixtures/` are left out,** since they stand in for customers' projects.
-  - **Kept on purpose:** the app's runtime dependencies that the bundled project service loads from its folder, shadcn's
-    components whole, the Storybook explorations' shared parts, libgen's demo declarations and macOS's own commands.
+  - **Kept on purpose:** the app's runtime dependencies that the bundled project service loads from its folder, the
+    CLI's `semver`, which npm installs beside the packed CLI for the packages it bundles, shadcn's components whole, the
+    Storybook explorations' shared parts, libgen's demo declarations and macOS's own commands.
   - **Removed:** `clsx` and `tailwind-merge`, which `cn` replaced, the app's `@parity/libgen` and libgen's
     `@parity/registry`, which nothing imports, and three functions nothing calls.
 - **Pull requests are required on `main`, and CodeRabbit reviews each one,** as you asked on 2026-10-29. The ruleset

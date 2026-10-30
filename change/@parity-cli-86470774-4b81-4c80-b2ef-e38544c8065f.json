@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Find unused files, dependencies and exports with knip, and remove what nothing uses",
-  "packageName": "@parity/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

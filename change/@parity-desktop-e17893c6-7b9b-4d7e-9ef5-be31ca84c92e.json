@@ -1,6 +1,6 @@
 {
   "type": "none",
-  "comment": "Find unused files, dependencies and exports with knip, and remove what nothing uses",
+  "comment": "Remove dependencies and code that nothing uses, found with knip",
   "packageName": "@parity/desktop",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "none"
