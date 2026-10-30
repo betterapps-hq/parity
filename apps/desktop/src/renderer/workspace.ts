@@ -39,6 +39,13 @@ export interface Tab {
   session?: ProjectSession
 }
 
+/** One open or reopen of a tab's project, which closing the tab abandons. */
+interface Attempt {
+  abandoned: boolean
+  /** The project the service opened for it, once it says. */
+  projectId?: string
+}
+
 /** Whether a tab is still waiting for the service to say which project it opened: it has no folder yet. */
 export function isPlaceholder(id: string): boolean {
   return id.startsWith("opening-")
@@ -54,6 +61,13 @@ export class Workspace {
   private recent: readonly string[] = loadRecent()
   private activeId: string | undefined
   private nextPlaceholder = 1
+  /**
+   * Opens and reopens in flight, by the id of the tab they load into. Closing that tab marks its open abandoned, so
+   * that open, and only that one, closes its project once the service has it.
+   */
+  private readonly attempts = new Map<string, Attempt>()
+  /** Projects abandoned opens got, to close once nothing in flight could still be for them, with guests to let go of. */
+  private readonly drops = new Map<string, string | undefined>()
   private readonly listeners = new Set<() => void>()
 
   subscribe = (listener: () => void) => {
@@ -92,29 +106,50 @@ export class Workspace {
       return existing
     }
     const placeholder = root ?? `opening-${this.nextPlaceholder++}`
-    this.update([...this.tabs, { id: placeholder, title: root ? basename(root) : "Opening…", status: "loading" }])
+    const opening: Tab = { id: placeholder, title: root ? basename(root) : "Opening…", status: "loading" }
+    this.update([...this.tabs, opening])
+    const attempt = this.startAttempt(placeholder)
     if (activate || !this.activeId) this.activate(placeholder)
     this.setProgress(placeholder, ["Starting the project's builder", "Loading its components"], 0)
 
     let current = placeholder
+    let opened: string | undefined
     try {
       const info = await window.canvasHost.request("project.open", { root })
+      opened = info.id
+      attempt.projectId = info.id
+      if (attempt.abandoned) {
+        this.dropAbandoned(info.id)
+        return opening
+      }
       const duplicate = info.id !== placeholder ? this.getTab(info.id) : undefined
       if (duplicate) {
+        this.endAttempt(attempt, placeholder)
         this.remove(placeholder)
         if (activate) this.activate(duplicate.id)
         return duplicate
       }
       this.replace(placeholder, { id: info.id, title: info.name, status: "loading" })
+      this.moveAttempt(attempt, placeholder, info.id)
       current = info.id
       const builder = info.builder.name
       this.setProgress(info.id, [`Starting ${builder}`, `Loading components from ${builder}`], 1)
       const session = await createSession(info)
+      if (attempt.abandoned) {
+        this.dropAbandoned(info.id, info.guestUrl)
+        return opening
+      }
+      this.endAttempt(attempt, info.id)
       this.replace(info.id, { id: info.id, title: info.name, status: "ready", session })
       this.remember(info.root)
       return this.getTab(info.id)!
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
+      this.endAttempt(attempt, current)
+      if (attempt.abandoned) {
+        if (opened) this.dropAbandoned(opened)
+        return { ...opening, status: "error", message }
+      }
       this.replace(current, { ...this.getTab(current)!, status: "error", message })
       return this.getTab(current)!
     }
@@ -153,6 +188,14 @@ export class Workspace {
     const tab = this.tabs[index]!
     this.update(this.tabs.filter((candidate) => candidate !== tab))
     if (this.activeId === id) this.activeId = (this.tabs[index] ?? this.tabs[index - 1])?.id
+    // A tab closed while its project opens has nothing to show it in, so its open closes the project once the service
+    // has it, and its builder stops with it.
+    const attempt = this.attempts.get(id)
+    if (attempt) {
+      attempt.abandoned = true
+      this.attempts.delete(id)
+      this.settleDrops()
+    }
     if (tab.session) {
       void window.canvasHost.request("project.close", { projectId: tab.session.id })
       releaseGuest(tab.session.info.guestUrl)
@@ -167,21 +210,40 @@ export class Workspace {
    * for while the builder restarts, such as "Loading Nova".
    */
   async reload(id: string, step = "Reopening the project"): Promise<void> {
+    const before = this.getTab(id)
+    // A tab already opening or reopening gets its project from that, which closing the tab can still cancel.
+    if (!before || this.attempts.has(id)) return
+    if (before.session?.store.hasUnsaved() && !(await saveOrSay(before.session))) return
+    // The tab as it is after saving, which can have changed meanwhile, as when its guest moved. One closed and opened
+    // again while saving has a session of its own, which this reload mustn't replace.
     const tab = this.getTab(id)
-    if (!tab) return
-    if (tab.session?.store.hasUnsaved() && !(await saveOrSay(tab.session))) return
+    if (!tab || this.attempts.has(id) || tab.session?.store !== before.session?.store) return
     this.replace(id, { id, title: tab.title, status: "loading" })
+    const attempt = this.startAttempt(id)
+    // A tab that has opened is its project's id, so a reopen is known to be for it from the start.
+    attempt.projectId = id
     this.setProgress(id, [step, "Loading its components"], 0)
     await window.canvasHost.request("project.close", { projectId: id }).catch(() => undefined)
     // Its stylesheets are made anew, without the last session's token previews; its modules come back as they were
     // when the project's code hasn't changed.
     if (tab.session) releaseGuest(tab.session.info.guestUrl)
+    if (attempt.abandoned) return
+    let opened: string | undefined
     try {
       const info = await window.canvasHost.request("project.open", { root: id })
+      opened = info.id
+      if (attempt.abandoned) return this.dropAbandoned(info.id)
       this.setProgress(id, [step, `Loading components from ${info.builder.name}`], 1)
       const session = await createSession(info)
+      if (attempt.abandoned) return this.dropAbandoned(info.id, info.guestUrl)
+      this.endAttempt(attempt, id)
       this.replace(id, { id, title: info.name, status: "ready", session })
     } catch (error) {
+      this.endAttempt(attempt, id)
+      if (attempt.abandoned) {
+        if (opened) this.dropAbandoned(opened)
+        return
+      }
       this.replace(id, {
         id,
         title: tab.title,
@@ -314,6 +376,51 @@ export class Workspace {
   private setProgress(id: string, steps: string[], current: number): void {
     const tab = this.getTab(id)
     if (tab) this.replace(id, { ...tab, progress: { steps, current }, message: `${steps[current]}…` })
+  }
+
+  private startAttempt(id: string): Attempt {
+    const attempt: Attempt = { abandoned: false }
+    this.attempts.set(id, attempt)
+    return attempt
+  }
+
+  /** Follows an open's tab from its placeholder to the project's id. */
+  private moveAttempt(attempt: Attempt, from: string, to: string): void {
+    if (this.attempts.get(from) === attempt) this.attempts.delete(from)
+    this.attempts.set(to, attempt)
+    this.settleDrops()
+  }
+
+  private endAttempt(attempt: Attempt, id: string): void {
+    if (this.attempts.get(id) === attempt) this.attempts.delete(id)
+    this.settleDrops()
+  }
+
+  /** Closes the project an abandoned open got, and lets go of its guest, once nothing else could still want it. */
+  private dropAbandoned(projectId: string, guestUrl?: string): void {
+    this.drops.set(projectId, guestUrl ?? this.drops.get(projectId))
+    this.settleDrops()
+  }
+
+  /**
+   * Closes the projects abandoned opens got. One that has a tab again, or an open in flight for it, is that tab's: the
+   * service gives both opens the same project. While an open in flight hasn't heard which project it is, as a tab
+   * opening the default project or a `.par` file hasn't, the close waits, since it may be the same one.
+   */
+  private settleDrops(): void {
+    if (this.drops.size === 0) return
+    const inFlight = [...this.attempts.values()]
+    const undecided = inFlight.some((attempt) => attempt.projectId === undefined)
+    for (const [projectId, guestUrl] of this.drops) {
+      if (this.getTab(projectId) || inFlight.some((attempt) => attempt.projectId === projectId)) {
+        this.drops.delete(projectId)
+        continue
+      }
+      if (undecided) continue
+      this.drops.delete(projectId)
+      void window.canvasHost.request("project.close", { projectId })
+      if (guestUrl) releaseGuest(guestUrl)
+    }
   }
 
   private replace(id: string, tab: Tab): void {
