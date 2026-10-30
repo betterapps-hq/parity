@@ -33,14 +33,14 @@
       // CSS too, so its imports of tailwindcss, tw-animate-css, shadcn and Geist count as uses.
       "project": ["src/**/*.{ts,tsx,css}", "scripts/**/*.ts", ".storybook/*.ts", "e2e/**/*.ts", "*.ts"],
       "ignoreDependencies": [
-        // Imported by @parity/project, which scripts/dev.ts bundles while leaving these out, so the bundled service
-        // loads them from the app's own node_modules.
+        // Imported by @parity-app/project, which scripts/dev.ts bundles while leaving these out, so the bundled
+        // service loads them from the app's own node_modules.
         "package-manager-detector",
         "semver",
         "unconfig",
-        // @parity/registry finds its libraries through require.resolve("@parity/registry/package.json"), which the
-        // bundled service runs from the app's folder.
-        "@parity/registry"
+        // @parity-app/registry finds its libraries through require.resolve("@parity-app/registry/package.json"),
+        // which the bundled service runs from the app's folder.
+        "@parity-app/registry"
       ],
       // macOS's own commands: plutil and sips name and brand the dev Electron, top reads memory.
       "ignoreBinaries": ["plutil", "sips", "top"],
@@ -57,8 +57,8 @@
       // The bin comes from package.json, and knip's Vite plugin finds vite.config.ts, the `vp pack` config.
       // scripts/try-packed.ts tries the packed CLI.
       "entry": ["src/**/*.test.ts", "scripts/*.ts"],
-      // Imported by @parity/project and @parity/registry, which `vp pack` bundles while leaving semver out, so npm
-      // installs it beside the published CLI.
+      // Imported by @parity-app/project and @parity-app/registry, which `vp pack` bundles while leaving semver out,
+      // so npm installs it beside the published CLI.
       "ignoreDependencies": ["semver"]
     },
     "packages/libgen": {

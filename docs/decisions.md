@@ -1461,8 +1461,8 @@ the Repository, CI and releases stream in Linear.
   - **Kept on purpose:** the app's runtime dependencies that the bundled project service loads from its folder, the
     CLI's `semver`, which npm installs beside the packed CLI for the packages it bundles, shadcn's components whole, the
     Storybook explorations' shared parts, libgen's demo declarations and macOS's own commands.
-  - **Removed:** `clsx` and `tailwind-merge`, which `cn` replaced, the app's `@parity/libgen` and libgen's
-    `@parity/registry`, which nothing imports, and three functions nothing calls.
+  - **Removed:** `clsx` and `tailwind-merge`, which `cn` replaced, the app's `@parity-app/libgen` and libgen's
+    `@parity-app/registry`, which nothing imports, and three functions nothing calls.
 - **Pull requests are required on `main`, and CodeRabbit reviews each one,** as you asked on 2026-10-29. The ruleset
   comes with the repository (PAR-398). My calls:
   - **A pull request merges once CI, CodeRabbit's status and the title check pass and every thread is resolved,** with
