@@ -125,12 +125,16 @@ describe("viteBuilder.start", () => {
       port
     }
     const first = await viteBuilder.start(options)
-    const second = await viteBuilder.start(options)
     try {
       expect(new URL(first.guestUrl).port).toBe(String(port))
-      expect(new URL(second.guestUrl).port).not.toBe(String(port))
+      const second = await viteBuilder.start(options)
+      try {
+        expect(new URL(second.guestUrl).port).not.toBe(String(port))
+      } finally {
+        await second.close()
+      }
     } finally {
-      await Promise.all([first.close(), second.close()])
+      await first.close()
     }
   })
 })
