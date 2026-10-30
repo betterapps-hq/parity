@@ -8,7 +8,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vite-plus
 let browser: Browser
 let page: Page
 
-const entry = `export { measureHere, pasteHere } from "./paste-here.ts"`
+const entry = `export { pasteHere } from "@parity-app/editor"
+export { measureHere } from "./paste-here.ts"`
 
 /**
  * The dashboard's stat cards in a four-column grid, a day of a calendar whose Events layout is placed absolutely and

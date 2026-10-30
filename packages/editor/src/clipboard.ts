@@ -126,8 +126,8 @@ export function copyLayers(
   return nodes.length > 0 ? { kind: "layers", nodes } : undefined
 }
 
-/** A node and everything in it as a state shows them. */
-function asShown(node: DesignNode, state: StateSpec | undefined): DesignNode {
+/** A node and everything in it as a state shows them, for copying it or moving it to a design without that state. */
+export function asShown(node: DesignNode, state: StateSpec | undefined): DesignNode {
   const shown = nodeInState(node, state)
   if (shown.type === "layout") return { ...shown, children: shown.children.map((child) => asShown(child, state)) }
   if (shown.type === "component" && shown.slots) {

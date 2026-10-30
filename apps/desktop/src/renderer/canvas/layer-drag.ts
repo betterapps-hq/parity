@@ -1,25 +1,12 @@
-import {
-  boardTarget,
-  type CanvasDocument,
-  deleteNode,
-  type DesignNode,
-  editNode,
-  findNode,
-  insertNode,
-  locateNode,
-  moveNodes,
-  nodeIds,
-  nodeInState,
-  topmostNodes,
-  withFreshIds
-} from "@parity-app/core"
+import { boardTarget, editNode, findNode, locateNode, nodeInState, topmostNodes } from "@parity-app/core"
+import { moveLayersAcross, moveLayersWithin, type MoveTarget } from "@parity-app/editor"
 import { editingState } from "../chrome/LayerPanel.tsx"
 import { type ContainerEntry, containerKey } from "../design-store.ts"
 import { findFrames, findNodeElement, findNodeElements, nodeBox } from "../frame.ts"
 import { layersSelection, selectedNodes } from "../selection.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
-import { type DropAt, DragLayouts, dropTargetAt, type MoveTarget } from "./drop-target.ts"
+import { type DropAt, DragLayouts, dropInFrame } from "./drop-target.ts"
 import { frameAt, frameScale, type Point } from "./hit.ts"
 import { type DrawnSteps, shiftInsets } from "./insets.ts"
 import { kindColors } from "./kinds.tsx"
@@ -28,10 +15,12 @@ import { frameDrawn } from "./nudge.ts"
 /**
  * Moving layers by dragging them, on the canvas or in the Layers panel. In a layout they go wherever they're dropped,
  * between other layers or into another layout, in the same design or another. A layer placed absolutely moves by its
- * insets instead, in steps of the spacing scale.
+ * insets instead, in steps of the spacing scale. Where they land and how they move are `@parity-app/editor`'s
+ * (`dropTargetAt`, `moveLayersWithin`, `moveLayersAcross`); this follows the pointer, measures the frames, shows the
+ * preview and applies the move to the store and the selection.
  */
 
-export type { MoveTarget } from "./drop-target.ts"
+export type { MoveTarget } from "@parity-app/editor"
 
 /** What the canvas draws while layers are dragged: where they'd go, and an outline following the pointer. */
 export interface DragView {
@@ -170,7 +159,7 @@ export function moveTarget(
   layouts: DragLayouts
 ): DropAt | undefined {
   const frame = frameAt(area, session.store, point, session.editor)
-  return frame && dropTargetAt(layouts, frame.entry, frame.host, point, source.key, ids)
+  return frame && dropInFrame(layouts, frame.entry, frame.host, point, source.key, ids)
 }
 
 /**
@@ -249,69 +238,22 @@ export function moveLayers(
   const frame = { mode: selection.get().mode, state: selection.get().state }
   const label = ids.length === 1 ? "Move layer" : `Move ${ids.length} layers`
   if (target.design === source.key) {
-    const before = JSON.stringify(source.container.root)
-    let moved = source.container.root
-    try {
-      moved = moveNodes(source.container.root, ids, target.parent, { index: target.index, slot: target.slot })
-    } catch {
-      return
-    }
-    if (JSON.stringify(moved) === before) return
-    store.updateContainer(source.key, label, (container) => ({
-      ...container,
-      root: moveNodes(container.root, ids, target.parent, { index: target.index, slot: target.slot })
-    }))
+    if (moveLayersWithin(source.container, ids, target) === source.container) return
+    store.updateContainer(source.key, label, (container) => moveLayersWithin(container, ids, target))
     selection.set(layersSelection(source.key, [...ids], frame))
     return
   }
   const destination = store.getEntry(target.design)
   if (!destination) return
   const state = editingState(source.container, frame.state)
-  const taken = nodeIds(destination.container.root)
-  const copies: DesignNode[] = topmostNodes(source.container.root, ids).map((node) =>
-    withFreshIds(shown(node, state), taken)
-  )
-  store.change(label, (snapshot) => {
-    const documents = new Map(snapshot.documents)
-    const update = (entry: ContainerEntry, change: (container: typeof entry.container) => typeof entry.container) => {
-      const document: CanvasDocument | undefined = documents.get(entry.path)
-      if (!document) return
-      const containers = document.containers.map((container) =>
-        container.id === entry.container.id ? change(container) : container
-      )
-      documents.set(entry.path, { ...document, containers })
-    }
-    update(source, (container) =>
-      ids.reduce((next, id) => (findNode(next.root, id) ? deleteNode(next, id) : next), container)
-    )
-    update(destination, (container) => {
-      let root = container.root
-      for (const [offset, copy] of copies.entries()) {
-        root = insertNode(root, target.parent, copy, { index: target.index + offset, slot: target.slot })
-      }
-      return { ...container, root }
-    })
-    return { ...snapshot, documents }
+  let copies: string[] = []
+  store.updateContainers([source.key, destination.key], label, ([from, to]) => {
+    const moved = moveLayersAcross(from!, to!, ids, target, state)
+    copies = moved.copies
+    return [moved.source, moved.destination]
   })
-  selection.set(
-    layersSelection(
-      containerKey(destination.path, destination.container.id),
-      copies.map((copy) => copy.id)
-    )
-  )
-}
-
-/** A node and what's inside it as a state shows them, for moving it to a design that doesn't have that state. */
-function shown(node: DesignNode, state: ReturnType<typeof editingState>): DesignNode {
-  const next = nodeInState(node, state)
-  if (next.type === "layout") return { ...next, children: next.children.map((child) => shown(child, state)) }
-  if (next.type === "component" && next.slots) {
-    const slots = Object.fromEntries(
-      Object.entries(next.slots).map(([slot, nodes]) => [slot, nodes.map((child) => shown(child, state))])
-    )
-    return { ...next, slots }
-  }
-  return next
+  if (copies.length === 0) return
+  selection.set(layersSelection(containerKey(destination.path, destination.container.id), copies))
 }
 
 /**

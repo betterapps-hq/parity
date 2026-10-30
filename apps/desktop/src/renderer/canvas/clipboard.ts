@@ -13,6 +13,7 @@ import {
   isSvgMarkup,
   missingComponents,
   nodeForItem,
+  pasteHere,
   pasteLayers,
   type PasteTarget,
   pasteTarget,
@@ -32,7 +33,7 @@ import type { ProjectSession } from "../workspace.ts"
 import { shapeIdFor } from "./CanvasEditor.tsx"
 import { takenBounds } from "./free-space.ts"
 import { hitTest, type Point } from "./hit.ts"
-import { measureHere, pasteHere } from "./paste-here.ts"
+import { measureHere } from "./paste-here.ts"
 
 /**
  * Copy and paste for layers, designs and text notes, through the system clipboard, so they paste into another
