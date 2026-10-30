@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { prepareCanvasCss, rewriteMedia, rewriteSheetViewportUnits, rewriteViewportUnits } from "./css.ts"
 
 const options = { baseUrl: "http://localhost:5555/" }

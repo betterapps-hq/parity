@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { correctDetection, parseCanvasDocument } from "./document.ts"
 
 const toaster = { path: "src/components/ui/sonner.tsx", export: "Toaster" }

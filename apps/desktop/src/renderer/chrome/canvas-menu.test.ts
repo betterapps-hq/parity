@@ -1,5 +1,5 @@
 import type { ContainerSpec, DesignNode } from "@parity/core"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import type { ContainerEntry } from "../design-store.ts"
 import { designsSelection, layersSelection, type Selection } from "../selection.ts"
 import { canvasMenu, type MenuEntry, type MenuTarget, rightClickSelection } from "./canvas-menu.ts"

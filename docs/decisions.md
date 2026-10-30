@@ -1401,7 +1401,8 @@ the Repository, CI and releases stream in Linear.
   - **Types are checked by `pnpm check:types`,** which runs `vp lint --type-aware --type-check` on TypeScript 7, on push
     and in CI rather than in `vp check` (see the hooks below). The eight type-aware rules that flagged 229 places are
     off until PAR-396 fixes them.
-  - **Tests still import from `vitest`** until PAR-393. Until then `prefer-vite-plus-imports` is off.
+  - **Tests import from `vite-plus/test`** since PAR-393, and `prefer-vite-plus-imports` is an error everywhere but
+    builder-vite, whose tests run a stock Vite and keep `vitest`.
   - **`.storybook` is type-checked now.** Outside any tsconfig, the checker had given it a program without the `@`
     alias.
   - **No two files in a folder may differ only by case and extension.** Beside `Processes.tsx`, `processes.ts` made the

@@ -1,5 +1,5 @@
 import { defaultModeSettings, resolveModes } from "@parity/core"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { toggleShownMode, withShownModes } from "./view.ts"
 
 const all = resolveModes(defaultModeSettings)

@@ -1,5 +1,5 @@
 import { Worker } from "node:worker_threads"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it } from "vite-plus/test"
 import { type WorkerClientOptions, workerClient } from "./worker-client.ts"
 
 /**

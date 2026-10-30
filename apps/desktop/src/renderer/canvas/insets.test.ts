@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { type DrawnSteps, resizeInsets, shiftInsets } from "./insets.ts"
 
 /** Where a layer's sides are drawn, in steps. */

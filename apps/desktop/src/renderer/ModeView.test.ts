@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url"
 import { build } from "esbuild"
 import { type Browser, chromium, type Page } from "playwright-core"
-import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
 
 // Focus, Tab and inertness are the browser's, so this renders frames in Chrome as the canvas does: ModeView, a project's
 // components through the React guest, and the canvas's own readers of a frame. It needs Chrome installed.

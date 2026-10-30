@@ -6,7 +6,7 @@ import {
   type NodeStyle,
   type NoteSpec
 } from "@parity/core"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { DesignStore } from "../design-store.ts"
 import { SelectionStore } from "../selection.ts"
 import {

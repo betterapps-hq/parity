@@ -39,8 +39,8 @@ with a type checker that runs on TypeScript 7. Its `vite:monorepo` template has 
   - **`pnpm verify` keeps its name** and runs `vp check` and `vp test`, since AGENTS.md, work.md and every running
     session use it. Every repo using the shared pipelines has a `pnpm verify`, which is what the shared CI runs.
 - **Two steps, so running sessions aren't broken.** The configuration goes first (PAR-1), made in a worktree, because
-  `vp migrate` reinstalls `node_modules` under any running `pnpm dev`. The 75 test files' imports move to
-  `vite-plus/test` later, when sessions have committed (PAR-393).
+  `vp migrate` reinstalls `node_modules` under any running `pnpm dev`. The test files' imports moved to `vite-plus/test`
+  afterwards (PAR-393), and `prefer-vite-plus-imports` is on everywhere but builder-vite.
 
 ## Checks on commit and push
 

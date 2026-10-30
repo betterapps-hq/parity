@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { type FileStamp, mergeServed, ServedLog, type ServedRecord, sameStamp, servedChange } from "./served.ts"
 
 /** Not a real hash, but tells codes apart, which is all the log needs. */

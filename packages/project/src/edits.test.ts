@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { diffFile, EditConflict, type FileContent, planEdit, reverseEdit } from "./edits.ts"
 import { withStylesImport } from "./libraries.ts"
 

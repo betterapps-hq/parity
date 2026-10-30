@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { bundledBy, onlyVersionChanged, releasesFor, type WorkspacePackage } from "./changes.ts"
 
 const workspace: WorkspacePackage[] = [

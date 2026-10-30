@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { type DrawnBox, frameSkeleton } from "./skeleton.ts"
 
 const frame = { width: 400, height: 300 }

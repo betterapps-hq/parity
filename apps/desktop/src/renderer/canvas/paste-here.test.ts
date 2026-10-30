@@ -1,5 +1,5 @@
 import { type ContainerSpec, type DesignNode, findNode, nodeIds, type NodeStyle } from "@parity/core"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import type { Rect } from "./drop-slot.ts"
 import { type HereLayout, pasteHere } from "./paste-here.ts"
 

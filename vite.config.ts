@@ -100,9 +100,7 @@ export default defineConfig({
       "typescript/ban-ts-comment": "error",
       "typescript/consistent-type-imports": "error",
       "eslint/no-console": "off",
-      // Tests import from vitest until REPO-2 moves them to vite-plus/test. When this turns on, builder-vite stays off
-      // it, since it drives a customer's own Vite.
-      "vite-plus/prefer-vite-plus-imports": "off",
+      "vite-plus/prefer-vite-plus-imports": "error",
       // Type-aware rules that flagged 229 places on 2026-10-29, left for REPO-7 to turn on with the fixes.
       "typescript/unbound-method": "off",
       "typescript/no-base-to-string": "off",
@@ -189,6 +187,12 @@ export default defineConfig({
       {
         files: packageFiles(edge),
         rules: { "eslint/no-restricted-imports": ["error", { patterns: [appOnly] }] }
+      },
+      {
+        // builder-vite drives a customer's own Vite, and its tests start a stock Vite server outside the Vite+ override
+        // (pnpm-workspace.yaml), so it keeps stock `vite` and `vitest` imports.
+        files: ["packages/builder-vite/**"],
+        rules: { "vite-plus/prefer-vite-plus-imports": "off" }
       },
       {
         // Tests may use Node to set up files and folders.
