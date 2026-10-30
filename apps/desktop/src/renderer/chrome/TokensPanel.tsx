@@ -368,7 +368,7 @@ function panelItems({
   searching: boolean
   unmatched: Described[]
   /** How wide a list's spacing previews are. */
-  spacing(list: Kinded[]): number | undefined
+  spacing: (list: Kinded[]) => number | undefined
 }): Item[] {
   const items: Item[] = []
   const section = (title: string, count: number) =>

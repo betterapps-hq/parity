@@ -233,7 +233,7 @@ export function valueParts(value: string): string[] {
   const parts: string[] = []
   let depth = 0
   let start = 0
-  for (const [index, char] of [...value].entries()) {
+  for (const [index, char] of value.split("").entries()) {
     if (char === "(") depth += 1
     else if (char === ")") depth -= 1
     else if (char === "," && depth === 0) {

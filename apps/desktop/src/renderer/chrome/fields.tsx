@@ -613,7 +613,7 @@ export function ValueInput({
     )
   }
   if (kind === "text") {
-    return <TextInput value={value === undefined ? "" : String(value)} onCommit={onCommit} />
+    return <TextInput value={value === undefined ? "" : String(value as unknown)} onCommit={onCommit} />
   }
   return <ParsedInput value={value} kind={kind} title={title} onCommit={onCommit} />
 }
@@ -631,7 +631,7 @@ function ParsedInput({
   value: unknown
   kind: "json" | "any"
   title: string
-  onCommit(value: unknown): void
+  onCommit: (value: unknown) => void
 }) {
   const shown = showValue(value, kind)
   const [error, setError] = useState<string>()
