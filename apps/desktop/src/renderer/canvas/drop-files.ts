@@ -1,3 +1,4 @@
+import type { DesignNode } from "@parity-app/core"
 import { designOfImages, dropLabel, fileBaseName, skippedMessage, sortDrop } from "@parity-app/editor"
 import { toast } from "sonner"
 import { editingState } from "../chrome/LayerPanel.tsx"
@@ -70,15 +71,18 @@ export async function dropFiles(session: ProjectSession, target: FileDrop, files
     return
   }
   const progress = toast.loading(images.length === 1 ? "Adding the image…" : `Adding ${images.length} images…`)
-  const saved = await Promise.allSettled(
-    images.map(({ index, type }) => importImage(session, files[index]!, fileBaseName(files[index]!.name), type))
-  )
-  const added = saved.flatMap((result, at) =>
-    result.status === "fulfilled" ? [{ node: result.value, name: files[images[at]!.index]!.name }] : []
-  )
-  const failed = saved.flatMap((result, at) =>
-    result.status === "rejected" ? [{ name: files[images[at]!.index]!.name, error: result.reason }] : []
-  )
+  const added: { node: DesignNode; name: string }[] = []
+  const failed: { name: string; error: unknown }[] = []
+  // One at a time, in the order dropped: each is read whole before it's sent, so a folder of large photos isn't all in
+  // memory at once, and the same image dropped twice reuses the file the first one saved.
+  for (const { index, type } of images) {
+    const file = files[index]!
+    try {
+      added.push({ node: await importImage(session, file, fileBaseName(file.name), type), name: file.name })
+    } catch (error) {
+      failed.push({ name: file.name, error })
+    }
+  }
   if (failed.length > 0) {
     const reason = (error: unknown) => (error instanceof Error ? error.message : String(error))
     toast.error(failed.length === 1 ? `Couldn't add ${failed[0]!.name}` : `Couldn't add ${failed.length} images`, {
@@ -130,16 +134,18 @@ export function draggedTypes(event: DragEvent): string[] {
   return [...(event.dataTransfer?.items ?? [])].flatMap((item) => (item.kind === "file" ? [item.type] : []))
 }
 
+/** Whether a drag is over a file field, which takes a dropped file by itself, as one in a design in Interact does. */
+export function overFileField(event: DragEvent): boolean {
+  const at = event.composedPath()[0]
+  return at instanceof HTMLInputElement && at.type === "file"
+}
+
 /**
  * Keeps a file dropped where the app doesn't take it from opening in the window in Parity's place, which is what
  * Electron does with a drop nothing cancels. Over such places the pointer shows that it can't be dropped.
  */
 export function keepFilesFromOpening(target: Window): () => void {
-  // A file field takes a dropped file by itself, as one in a design in Interact does.
-  const ours = (event: DragEvent) => {
-    const at = event.composedPath()[0]
-    return carriesFiles(event) && !(at instanceof HTMLInputElement && at.type === "file")
-  }
+  const ours = (event: DragEvent) => carriesFiles(event) && !overFileField(event)
   const onDragOver = (event: DragEvent) => {
     if (event.defaultPrevented || !ours(event)) return
     event.preventDefault()

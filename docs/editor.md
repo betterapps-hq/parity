@@ -790,8 +790,9 @@ project under `public/images/` through `images.import`, as a pasted image is, an
 - **Each image** is 80 steps wide (320px at 4px a step) and as tall as its proportions make it, as a pasted one is, and
   is named after its file with a short hash of its content, so dropping the same file again reuses it. The ones dropped
   end up selected.
-- **One undo step** places them all ("Drop image", "Drop 2 images"). The files are written as they're dropped, before
-  the step, as a paste writes them, and undoing it leaves them, as undoing a paste does.
+- **One undo step** places them all ("Drop image", "Drop 2 images"). The files are written as they're dropped, one at a
+  time in the order dropped, before the step, as a paste writes them, and undoing it leaves them, as undoing a paste
+  does.
 - **Files that aren't taken** are named in a message, with why: not one of the five types ("notes.txt isn't a PNG, JPEG,
   GIF, WebP or SVG image."), or larger than 20 MB. The rest are still added. A file the system gives no type is taken by
   its extension. One that fails to save gets a message too, and the rest are placed.
@@ -801,8 +802,9 @@ project under `public/images/` through `images.import`, as a pasted image is, an
   at the pointer, a corner marks their top left. It goes when the drag leaves the canvas, when it's dropped, or a second
   after the drag stops sending updates, as one called off can end without saying so.
 - **Edge cases.** tldraw never sees the files, so it doesn't add pictures of its own. In Interact the design under the
-  pointer gets the drop, as a file field in it would. A file dropped anywhere else in the window, such as on a panel, is
-  refused rather than opened in the window in Parity's place, which is what Electron does with a drop nothing takes.
+  pointer gets the drop, and a file field in it takes the file as it would in a browser. A file dropped anywhere else in
+  the window, such as on a panel, is refused rather than opened in the window in Parity's place, which is what Electron
+  does with a drop nothing takes.
 
 Code: which files are taken (`imageTypeOf`, `sortDrop`, by the `imageTypes` and `imageLimit` that `images.import` uses
 too), the message (`skippedMessage`), the label (`dropHint`), the undo label and the new screen (`designOfImages`) are
