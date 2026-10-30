@@ -34,7 +34,12 @@ function Field() {
 
 const sheet = new CSSStyleSheet()
 sheet.replaceSync(":host { --spacing: 4px; --header: 40px }")
-const loaded = { guest: createGuest({ components: { Field }, css: "" }), sheet, tokens: [] }
+// A component that throws, until it's found in another file.
+function Broken() {
+  throw new Error("Not built yet")
+}
+
+const loaded = { guest: createGuest({ components: { Field, Broken }, css: "" }), sheet, tokens: [] }
 const mode = resolveModes(defaultModeSettings)[0]
 let root
 
@@ -74,6 +79,9 @@ beforeAll(async () => {
   })
   page.on("pageerror", (error) => errors.push(error.message))
   // A file a component moves to, as the project's dev server would build it: a component drawing plain text.
+  await page.route("http://parity.test/src/fixed.js", (route) =>
+    route.fulfill({ contentType: "text/javascript", body: 'export function Broken() { return "Fixed" }' })
+  )
   await page.route("http://parity.test/src/moved.js", (route) =>
     route.fulfill({ contentType: "text/javascript", body: 'export function Field() { return "Moved" }' })
   )
@@ -300,5 +308,25 @@ describe("a component moved to another file", () => {
     await show(form, { shows: "after" })
     await expect.poll(drawn).toContain("Moved")
     expect(errors).toEqual([])
+  })
+})
+
+describe("a component that failed, moved to another file", () => {
+  it("draws from there instead of its error", async () => {
+    const broken = {
+      id: "broken",
+      name: "Broken",
+      position: { x: 0, y: 0 },
+      root: { type: "layout", id: "root", children: [{ type: "component", id: "broken", component: "Broken" }] },
+      states: [{ id: "default", name: "Default" }]
+    }
+    const drawn = () => page.evaluate(() => document.querySelector("[data-frame]")!.shadowRoot!.textContent)
+    await show(broken, { shows: "failing" })
+    await expect.poll(drawn).toContain("Broken: Not built yet")
+    // @ts-expect-error The bundle's global.
+    await page.evaluate(() => app.addComponents({ Broken: { path: "src/fixed.js", export: "Broken" } }))
+    await show(broken, { shows: "fixed" })
+    await expect.poll(drawn).toContain("Fixed")
+    expect(await drawn()).not.toContain("Not built yet")
   })
 })

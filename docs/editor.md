@@ -1207,7 +1207,8 @@ and nothing else, so frames and bitmaps kept what they had drawn until their des
   given again from the same file, as each type-checker pass and each offscreen render does, changes nothing, and its
   module isn't loaded again. One revision covers the project, so a component that moves redraws every frame and retakes
   every bitmap, one at a time in the background; frames whose design doesn't use it draw the same as before. That's rare
-  next to saves, which don't change it.
+  next to saves, which don't change it. A component's own boundary also counts its moves, so one that failed starts over
+  when it comes from a new file rather than keeping its error.
 - **The offscreen renderer gets the components too.** The bitmap job carries the components the guest was given since it
   loaded, as agents' renders already did, so a frame using one isn't drawn offscreen without it.
 
@@ -1217,11 +1218,12 @@ Code: `useFrameShows` and `useFrameBitmap` in `apps/desktop/src/renderer/canvas/
 
 Tests: `packages/renderer-react/src/guest.test.ts` (1: the revision goes up when a component comes from a new file,
 moved or added, and not when it's given the same file again or nothing, and subscribers hear each change).
-`apps/desktop/src/renderer/ModeView.test.ts` (1: a component moved to another file is drawn from there once the frame's
-`shows` changes, and not while it stays the same). Gaps: that `FrameTile`'s keys follow the revision, and that the
-bitmap job carries the added components, have no test of their own; both were checked by reading `useFrameShows`. A
-component moving in the running app wasn't tried, since it means changing the example's files, which other sessions
-share; `ModeView.test.ts` drives the guest's side of it, from `addComponents` on.
+`apps/desktop/src/renderer/ModeView.test.ts` (2: a component moved to another file is drawn from there once the frame's
+`shows` changes, and not while it stays the same; and one that failed draws from its new file instead of its error).
+Gaps: that `FrameTile`'s keys follow the revision, and that the bitmap job carries the added components, have no test of
+their own; both were checked by reading `useFrameShows`. A component moving in the running app wasn't tried, since it
+means changing the example's files, which other sessions share; `ModeView.test.ts` drives the guest's side of it, from
+`addComponents` on.
 
 ## What the editor itself loads
 
