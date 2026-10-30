@@ -17,9 +17,12 @@ Features built before 2026-10-29 are being added under PAR-392 in Linear.
 ## Testing in the app (PAR-202)
 
 `pnpm test:app` drives a copy of Parity as a person does, with the system's own pointer and keyboard, and checks what
-the canvas, the panels and the project show: 61 tests, which take four to six minutes. It isn't part of `vp run test` or
-`pnpm verify`, so run it after changing how the canvas, its overlay, the keymap, the menus or the inspector's fields
-handle input. Each feature's tests below name the end-to-end ones that cover it.
+the canvas, the panels and the project show: 63 tests, which take four to six minutes. It isn't part of `vp run test` or
+`pnpm verify`. The pre-push hook runs it when the commits a push sends change the app, its packages, the example or the
+workspace's build files (`scripts/app-tests.ts`), and a failure stops the push. CI runs it on Windows for every pull
+request and every push to main, without blocking the merge until it runs reliably there (PAR-438). While working, run
+only the files a change touches, such as `pnpm test:app keyboard`, rather than the whole suite after each change: each
+run opens a Parity window. Each feature's tests below name the end-to-end ones that cover it.
 
 - **What it starts.** `apps/desktop/e2e/global-setup.ts` copies `examples/shadcn-vite` to a temporary folder, linking
   its `node_modules` rather than copying them, and adds a Members screen: three `MemberRow({ member })` rows, a fragment
@@ -35,11 +38,11 @@ handle input. Each feature's tests below name the end-to-end ones that cover it.
   `selection`, `drawn`, `outlines`, `labels`, `undoLabel`) and never sets state to make something happen, apart from
   `show`, which puts a design in view at a zoom, and `reset`, which undoes everything after each test. Copy and paste go
   through a stand-in for the clipboard on the page; the system's clipboard is never read or written.
-- **Adding a test.** Put it in its area's file (`selecting`, `menus`, `moving`, `keyboard` or `fields`), or in a new
-  `apps/desktop/e2e/<area>.e2e.ts` that connects before all, resets after each test and closes after all, as the others
-  do. Start with `app.show(design, zoom)`, act through `App`'s gestures or `app.page.keyboard`, and wait for what
-  changes with `expect.poll`, since the app answers a frame or more later. Change the project only through edits Undo
-  takes back, so `reset` can put it back. Then name the test in its feature's section here.
+- **Adding a test.** Put it in its area's file (`selecting`, `menus`, `moving`, `keyboard`, `fields`, `reopening` or
+  `sleeping`), or in a new `apps/desktop/e2e/<area>.e2e.ts` that connects before all, resets after each test and closes
+  after all, as the others do. Start with `app.show(design, zoom)`, act through `App`'s gestures or `app.page.keyboard`,
+  and wait for what changes with `expect.poll`, since the app answers a frame or more later. Change the project only
+  through edits Undo takes back, so `reset` can put it back. Then name the test in its feature's section here.
 - **The page never scrolls.** `App` counts each time the window's page scrolls, and `reset` fails the test it ran in if
   it did, or if the page isn't at the top, then puts it back so the tests after start clean. A scrolled page moves the
   canvas without tldraw noticing, so every click after it lands off by as much (PAR-424, "The window", below). Until
@@ -1068,6 +1071,15 @@ to draw, so its row shows the number. Beside the name is what the token comes to
   after the rest, by name the same way.
 - **What a design shows sits on the design's sheet:** shadows, blur, opacity and type are drawn on white in the light
   theme, as in a frame, not on Parity's dark chrome. Measurements are diagrams in Parity's ink.
+- **Every color swatch has one clean edge (PAR-435).** One element paints the color over a checkerboard, which shows
+  through a see-through color, and draws a hairline over both in 14% of Parity's text color, following the swatch's
+  radius (`swatch` in `token-previews.tsx`). It's light in the dark UI and dark in the light one, so black, white and
+  `foreground`-like swatches stand off the panel, with no white corners on dark ones. Rows, tiles, the detail's preview
+  and value dots (`Swatch` in `chrome/fields.tsx`, which the inspector's token picker shares), palette shades and a
+  library's described tokens all draw it. A token has a swatch for each theme, split by a 1px gap, even where two themes
+  share a value, in rows, tiles and the detail, whose swatches are each named for their theme. A palette row's last
+  shade is rounded too: each shade's copy helper follows it in the row, so the rounding goes by the last button rather
+  than the last element.
 - **Tiles.** The List and Tiles buttons beside the search switch views. Tiles are two across, each a larger preview with
   the name and what it comes to under it. A bare number stays a row, as a tile of only a name says less. The palette
   stays a grid in both.
@@ -1088,7 +1100,8 @@ to draw, so its row shows the number. Beside the name is what the token comes to
   stay above the list as it scrolls.
 - **Narrow panels.** The left panel is at least 232 pixels wide, enough for every tab's icon and the collapse button.
   The open tab shows its name only when the tab strip has room for it, and is otherwise an icon like the rest, with its
-  name in the tooltip. The filters drop their counts before their names, and every count is in the filter's tooltip.
+  name in the tooltip. The filters drop their counts before their names, and every count is in the filter's tooltip. The
+  search says "Search tokens", without a count, which didn't fit (PAR-437).
 
 Code: the drawings are `apps/desktop/src/renderer/chrome/token-previews.tsx` (`TokenArt`, `TokenGlyph`, `TokenTile`,
 `valueLabel`, `valueProblem`, `spacingSlot`, `tokenSections`, `useHoverPlay`); the panel is `chrome/TokensPanel.tsx`
@@ -1109,6 +1122,10 @@ Tests:
   bracket left open and a missing token, refused) and DescribedOnly (the end of the list, drawn once scrolled to). All
   22 of the file's stories played in Storybook on 2026-10-29.
 - `explorations/previews/TokenPreviews.stories.tsx`: all 18 played on 2026-10-29, drawing with the app's module.
+- `chrome/TokensPanel.stories.tsx` EqualThemes (PAR-435): `chart-3`, equal in Light and Dark, has two swatches in its
+  row, its tile and its detail, each named for its theme.
+- Swatch edges (PAR-435) were checked by eye on 2026-10-29 in AllTokens, Detail, Tiles and DescribedTokens, dark and
+  light: black, white and destructive swatches each with one edge, and the palette's rows rounded at both ends.
 
 Gaps: the previews themselves are checked by eye in Storybook, not by pixels. Opacity, blur and border width are still
 filed under Other and Effects as categories, so the inspector's pickers don't offer them by kind yet; the panel's
@@ -1160,11 +1177,195 @@ keeping Undo, then the detail's Undo), ReferenceLoop (refused through another to
 file's stories played in Storybook on 2026-10-29. Gaps: the inspector's pickers don't show previews yet, the rest of
 PAR-143.
 
+## Libraries
+
+How a library's own designs reach the projects that install it.
+
+### A library's components are named by the library in its own project (PAR-124)
+
+A project with a `.lib.par` at its root is a library's own project, and its own components are named by the library, as
+`nova/Button`, the way the apps that install it name them. So a design the author makes on the library's canvas, which
+Save writes into the file's `canvas`, refers to `nova/Button` and works unchanged in those apps.
+
+- **The library's id** is the file's `id`, else the package's name without its scope (`@acme/charts` is `charts`), the
+  same rule the apps use for the library's section and its components' ids.
+- **Every id gets it,** including ids that gained folders on a clash (`nova/demos/FieldError`), and so do components
+  that show up later: a file changing, the type checker finding one the parse missed, or the person listing one by hand.
+- **Only at the root.** A `.lib.par` anywhere else describes another package, and the project's components keep their
+  plain names. A file that can't be read leaves them plain too, and the project's notes say why.
+
+Code: `componentIds`, `filesChanged`, `checkedChanges` and `correctedSources` in `packages/code/src/listing.ts`, which
+take the namespace; `discoverProject` in `packages/project/src/index.ts`, which reads it (`ProjectConfig.namespace`);
+`libraryId` in `packages/core/src/library.ts`; the project service in `apps/desktop/src/utility/projects.ts`, which
+passes it on as files change.
+
+Tests: `packages/code/src/listing.test.ts` (2: ids start with the namespace, including qualified ones and ids libraries
+have taken; and they keep it as files change, the checker adds one and the person lists one).
+`packages/project/src/index.test.ts` (1: a library's own components are named by its `id`, else by its package's name).
+`packages/core/src/library.test.ts` (1: `libraryId`).
+
+### A library's component designs in the Components panel (PAR-125)
+
+The component designs in a dependency's `.lib.par` canvas show in that library's section of the Components panel, under
+"Component designs", before its components. Screens on the library's canvas aren't listed; they're the author's own
+showcase.
+
+- **They're named by the library:** `settings-row` is `nova/settings-row`, so it never clashes with the project's own
+  designs, and instances inside it that place the library's other designs point at their new names. A project design
+  with the same id wins, and the library's isn't listed.
+- **They aren't the project's.** They don't show on the canvas or in the Layers panel, and Save never writes them; they
+  change when the library does. A design that places one draws it the way it draws the project's own instances.
+- **Search** finds them by name, as it does components.
+
+Code: `libraryDesigns` in `packages/core/src/library.ts`; `findLibraries` in `packages/project/src/libraries.ts`, which
+puts them on the library (`LibraryInfo.designs`); `DesignStore` in `apps/desktop/src/renderer/design-store.ts`, which
+adds them to the designs instances can place (`getComponentLibrary`); `componentSources` in
+`apps/desktop/src/renderer/chrome/AssetsPanel.tsx`.
+
+Tests: `packages/core/src/library.test.ts` (1: component designs named by the library, their instances following,
+screens left out). `packages/project/src/index.test.ts` (1: a dependency's canvas designs on its library).
+`apps/desktop/src/renderer/design-store.test.ts` (1: a project design reaches a library design it places, which isn't an
+entry and isn't saved). Gaps: the panel's section has no automated test. It was checked in an isolated copy of the app
+on 2026-10-29, with a dependency whose `.lib.par` canvas held a component design and a screen: the library's section
+listed the design under Component designs and left the screen out.
+
+### Placing a library's design, linked or detached (PAR-126)
+
+A library's design is placed like the project's own: drag it onto a design, or click it to add it to the selection. That
+places a **linked instance**, which follows the library: when the library's design changes, so does every copy. Its
+right-click menu has **Insert linked instance** and **Insert detached copy**. A detached copy is plain layers, baked
+from what the design shows, with fresh ids, to change freely.
+
+- **A linked instance** has the Instance section as any other: its variants and params, its state, overrides with Reset
+  all, and Detach. It can't go to its main component or push overrides to it, as that's in the library; the section
+  names the design, and its hint says which library it's linked to. Layers, the canvas's labels and the inspector call
+  it by the design's name, as they do the project's own.
+- **A detached copy** is what Detach makes of a linked instance (see "Main components and instances" in
+  [decisions.md](decisions.md)): the root keeps the instance's id, so it's selected the same way, and it's one undo
+  step, "Add copy". A library design nested inside stays a linked instance.
+
+Code: `insertItem` in `apps/desktop/src/renderer/canvas/insert.ts` (an `instance` item with `detached`); the library
+rows' menu in `AssetsPanel.tsx`; `InstanceSection` in `apps/desktop/src/renderer/chrome/LayerPanel.tsx`.
+
+Tests: `packages/core/src/library.test.ts` (1: a library design placed in an app draws its components and params,
+linked, and the same once detached, with no link left). Gaps: inserting from the panel and the Instance section for a
+library's instance have no automated test. Both were tried in the same copy of the app: a click placed a linked instance
+drawing the library's Switch and Button with its param's default, named by the design in the Layers and Instance
+sections, and Insert detached copy placed plain layers.
+
+## Zooming far out
+
+What the canvas draws, and what it lets go of, once it's zoomed out far enough for frames to show their bitmaps.
+
+### Frames sleep while their bitmaps show (PAR-197)
+
+Once the camera comes to rest zoomed far enough out that frames are drawn no larger than their bitmaps (25% on a 1x
+screen), every frame showing its bitmap sleeps: its design's React root is unmounted and the elements it drew are
+removed, which is most of what a frame holds. The frame keeps its host element, its size and its bitmap, and its board
+keeps its size, so agents' snapshots, hit testing at the frame's edges and the layout around it are unchanged. Zooming
+back in, a sleeping frame keeps showing its bitmap until it wakes, then draws its design again at the size it had.
+
+- **What sleeps:** a frame showing its bitmap, once the zoom has settled past the line, so a zoom passing through puts
+  nothing to sleep. Not the selected board's frames, which outlines and panels measure, and nothing while interacting. A
+  frame whose design doesn't render has no bitmap, so it never sleeps.
+- **What wakes:** a sleeping frame wakes once it's no longer to sleep and its board is near the view (within a quarter
+  of the view's size, as boards out of view are), one frame each animation frame, in the order they asked. A frame out
+  of view stays asleep, still showing its bitmap, until it comes near. Selecting a board wakes its frames at any zoom.
+- **A frame whose design changes while it sleeps** (an agent's edit, a token, a reloaded project) wakes wherever it is,
+  so its board lays out the new size, and sleeps again once its new bitmap is taken.
+- **Sizes hold through sleep and waking.** The frame's element keeps the height it had when it fell asleep until it's
+  drawn again, and its host skips drawing while it sleeps, as a board out of view does, so the browser keeps the size it
+  last had when drawn rather than an empty frame's.
+- **What reads a sleeping frame's DOM** finds its host, empty: hit testing finds the frame and its design but no layers,
+  as over a frame's background, and an agent's cursor pointing at a layer there points at the frame instead. Anything
+  that measures layers does so on the selected board, which never sleeps.
+
+Code: `useAwake` in `apps/desktop/src/renderer/canvas/frame-sleep.ts`; `FrameTile` in `canvas/ContainerView.tsx`, which
+decides from its bitmap and passes `asleep` to `ModeView.tsx`, which unmounts the guest and holds the frame's height;
+the board's `near` and `dormant` signals in `canvas/ContainerShapeUtil.tsx`; `isRestingFar` in
+`canvas/CanvasEditor.tsx`; the `[data-asleep]` rules in `styles.css`.
+
+Tests: `apps/desktop/e2e/sleeping.e2e.ts` (2: zoomed out, every frame with a bitmap sleeps, the window's DOM nodes fall
+by at least the elements the awake frames held, and no board changes size; back at 100% the design's frames draw again
+with their layers while boards out of view stay asleep, still at the same sizes; and the selected board's frames wake at
+a far zoom and sleep again once nothing is selected). `apps/desktop/src/renderer/ModeView.test.ts` (1: a frame put to
+sleep keeps its host and height with nothing inside, and draws its design again when it wakes). `App.settle` in
+`e2e/app.ts` waits for a design's board to wake, and `App.show` brings a design into view before finding a layer in it,
+so the other files' tests work on frames that slept. Gaps: the order frames wake in, and waking on a changed design,
+have no test of their own; the first was checked by reading `wakeNext`, the second by reading `useAwake`. The memory it
+gives back and the time waking takes were measured by hand in a debug copy (see [decisions.md](decisions.md), Canvas),
+not by the suite.
+
+### What a frame shows, keyed once (PAR-439)
+
+When the type checker finds a component the guest didn't have, or finds that one moved to another file, every frame
+draws again with it: the live frame in place, keeping the state of its other components, and its bitmap is taken again
+with the same code offscreen, so zoomed out it doesn't keep showing the old one. A frame asleep wakes for it, as for any
+change to what it shows, and sleeps again once its new bitmap is taken. Before, the guest swapped the component's loader
+and nothing else, so frames and bitmaps kept what they had drawn until their design next changed.
+
+- **One place says what a frame shows.** `useFrameShows` works out, for each frame, `drawn` (the guest, the revision of
+  its code, the mode and the design's tree) and `key` (that, with the size and the tokens previewed), and the job that
+  draws it offscreen. The live frame draws again when `drawn` changes; its bitmap, its skeleton and its sleep go by
+  `key`. The live frame follows size and previewed tokens by itself, so a token preview doesn't draw every frame's React
+  tree again.
+- **The guest's code revision** goes up only when `addComponents` changes where a component comes from: a component
+  given again from the same file, as each type-checker pass and each offscreen render does, changes nothing, and its
+  module isn't loaded again. One revision covers the project, so a component that moves redraws every frame and retakes
+  every bitmap, one at a time in the background; frames whose design doesn't use it draw the same as before. That's rare
+  next to saves, which don't change it. A component's own boundary also counts its moves, so one that failed starts over
+  when it comes from a new file rather than keeping its error.
+- **The offscreen renderer gets the components too.** The bitmap job carries the components the guest was given since it
+  loaded, as agents' renders already did, so a frame using one isn't drawn offscreen without it.
+
+Code: `useFrameShows` and `useFrameBitmap` in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `FrameTile` in
+`canvas/ContainerView.tsx`, which passes `drawn` to `ModeView`'s `shows`; `revision` and `addComponents` in
+`packages/renderer-react/src/guest.ts`, declared on `Guest` in `packages/core/src/adapters.ts`.
+
+Tests: `packages/renderer-react/src/guest.test.ts` (1: the revision goes up when a component comes from a new file,
+moved or added, and not when it's given the same file again or nothing, and subscribers hear each change).
+`apps/desktop/src/renderer/ModeView.test.ts` (2: a component moved to another file is drawn from there once the frame's
+`shows` changes, and not while it stays the same; and one that failed draws from its new file instead of its error).
+Gaps: that `FrameTile`'s keys follow the revision, and that the bitmap job carries the added components, have no test of
+their own; both were checked by reading `useFrameShows`. A component moving in the running app wasn't tried, since it
+means changing the example's files, which other sessions share; `ModeView.test.ts` drives the guest's side of it, from
+`addComponents` on.
+
+## What the editor itself loads
+
+What Parity's own UI costs the window, apart from the projects it shows.
+
+### Icons and dependencies served lean (PAR-199)
+
+The window loads only the lucide icons the editor uses, and Parity's dependencies minified. Nothing looks different; the
+window holds less.
+
+- **Icons:** each `import { … } from "lucide-react"` in the app's code is rewritten, while Vite serves it, to import
+  each icon from its own file, and lucide-react is kept out of Vite's prebundling. Types are dropped, a name
+  lucide-react doesn't export stays imported from the package so it fails as before, and the import keeps its lines, so
+  the module's source map holds. Imports are found by parsing the module, so import-like text in a string stays.
+  Dependencies and a project's own icons, which its builder serves, are left alone. Storybook uses the same config;
+  builds bundle lucide-react as usual.
+- **Dependencies:** what Vite prebundles for the UI is minified. Their source maps still lead DevTools to the code as
+  published, so a stack trace through tldraw reads as before once DevTools maps it.
+- **Measured** on the example project, against an isolated copy of the app: the window's scripts went from 19.3 M
+  characters to 14.9 M, lucide-react's from 1.73 M to 0.28 M across 149 files, tldraw's from 3.53 M to 1.68 M, and the
+  heap after a collection from 151 to about 141 MB. [decisions.md](decisions.md) has the calls.
+
+Code: `iconImports` and `iconImportsPlugin` in `apps/desktop/scripts/icon-imports.ts`, and `optimizeDeps` in
+`apps/desktop/vite.config.ts`.
+
+Tests: `apps/desktop/scripts/icon-imports.test.ts` (8: every name an icon goes by, the installed package's index, one
+file per icon under the module's own names, lines kept, types dropped, unknown names left, import-like text in strings
+and comments left, other modules unchanged). The e2e suite (`pnpm test:app`) runs the editor with both in place. Gaps:
+the minified prebundle has no test of its own; it was checked in an isolated copy of the app on 2026-10-29, where all
+736 icons on screen drew and the window's scripts were measured over the DevTools protocol.
+
 ## Opening and closing projects
 
 What opening a project loads into the windows, and what closing it gives back.
 
-### Reopening loads the project afresh (PAR-195, PAR-422)
+### Reopening loads the project afresh (PAR-195, PAR-422, PAR-433)
 
 A reopened project's builder serves it at a new address, one no guest has had since the project service started, even
 when the system would hand an old one out again, so the window and the offscreen renderer load its modules again rather
@@ -1181,18 +1382,28 @@ opened again.
 - **Tabs and their views are given a tab's id,** not the tab: React keeps the props a list's parent drew last, so a
   closed tab passed whole would keep its session, canvas included, until the window drew again.
 - **A builder started again** from the processes list keeps its address when it's free, since the canvas it serves is
-  still open; when it isn't, windows that open the project from then on find the new one.
+  still open. When it isn't, it takes a port no guest has had, and the open tabs are told (`project.guestMoved`): each
+  loads the guest from the new address, swaps in its tokens and lets go of the old guest. A tab whose new guest won't
+  load keeps the old one and says so, and the service tells it again the next time the builder starts again, even on the
+  same port, as it compares with where the window draws the guest (`followGuest`). A tab still loading when its guest
+  moves draws from the new address once it's ready; one reopened while the moved guest loads keeps what the reopen
+  loaded and lets the moved one go. When restarts overlap, the tab draws from the latest move, whichever guest loads
+  first.
 
-Code: `serveBuilder` and `newGuestPort` in `apps/desktop/src/utility/projects.ts`; `releaseGuest` in
-`apps/desktop/src/renderer/guest.ts`, called from `workspace.ts` and `render.ts`; `guestId` in
+Code: `serveBuilder` and `restartBuilder` in `apps/desktop/src/utility/projects.ts`, with `newGuestPort`, `restartPort`,
+`guestMove` and `followGuest` in `guest-ports.ts`; `moveGuest` in `apps/desktop/src/renderer/workspace.ts`;
+`releaseGuest` in `apps/desktop/src/renderer/guest.ts`, called from `workspace.ts` and `render.ts`; `guestId` in
 `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`, which keys a reopened guest's bitmaps apart from the last one's;
 `ProjectView.tsx` and `chrome/TabBar.tsx`, which take a tab's id.
 
 Tests: `apps/desktop/e2e/reopening.e2e.ts` opens and closes the example project twice and checks the window ends within
-3,000 DOM nodes of where it started; with the old address on reopen it ended about 69,000 over. Gaps: the offscreen
-renderer's side has no automated test. Skipping ports guests had has no test of its own, as the system handing an old
-port out again can't be made to happen; it was checked by reading `newGuestPort`. A project service started again
-forgets the ports, while the window keeps what it loaded from them.
+3,000 DOM nodes of where it started; with the old address on reopen it ended about 69,000 over.
+`apps/desktop/src/utility/guest-ports.test.ts` covers which port a builder takes, skipping ports guests had, and when
+the windows are told a guest moved, and told again after a move they couldn't load;
+`apps/desktop/src/renderer/workspace.test.ts` covers `moveGuest`, including a tab still loading, one reopened meanwhile
+and overlapping moves. Gaps: the offscreen renderer's side has no automated test, nor has `restartBuilder` sending
+`project.guestMoved` to the window. A project service started again forgets the ports, while the window keeps what it
+loaded from them.
 
 ### A tab closed while its project opens (PAR-427)
 
@@ -1269,3 +1480,41 @@ Sign in's title.
 Gaps: a design that's hovered but not selected shows its menus, and they're in the tab order while they show. Nothing
 yet keeps a future panel from scrolling the page by putting a focusable element outside its scroller; the root's clip
 keeps the page still, but such an element would sit outside its panel.
+
+## Rendering frames
+
+How the project's code runs in the canvas's frames.
+
+### Frames run React's production build (PAR-198)
+
+Frames draw with the production builds of the project's dependencies, React's among them, so the window doesn't keep a
+stack for every element React makes: on the example project its JS heap is 33 MB smaller, 117 MB rather than 150 MB. The
+project's own modules are still served as in development, and its own dev server isn't touched. What's lost, and the
+numbers, are in [decisions.md](decisions.md) under "Frames run the production builds".
+
+- **Dependencies are prebundled as production:** the builder sets `process.env.NODE_ENV` to `production` in the
+  dependency optimizer's own `define`, Rolldown's from Vite 8 and esbuild's before. The project's modules keep its mode.
+- **JSX compiled for development still renders.** The renderer names modules React's production build leaves empty
+  (`developmentStandIns`), and the builder serves a stand-in for any `…/jsx-dev-runtime` a module or a prebundled
+  dependency imports: that package's `jsx` as `jsxDEV`, with `Fragment`.
+- **Each frame's code still asks its own window,** in renders React starts itself and in the effects that follow,
+  without the development build's `getOwner`: while React has a dispatcher out, the frame is the one whose provider is
+  above the component, and a frame React renders, or starts committing as it reads the root's `ownerDocument`, becomes
+  the one last drawn, so effects and class components' lifecycle methods ask about it.
+- **Layers are still found from React's tree,** which reads only fields both builds keep.
+
+Code: `productionDependencies`, `developmentStandIn` and `guestPlugin` in `packages/builder-vite/src/index.ts`;
+`developmentStandIns` in `packages/renderer-react/src/index.ts`; `renderingIn`, `watchRenders` and `watchCommits` in
+`packages/renderer-react/src/viewport.ts`, and `FrameWindowContext`, which the guest provides at each frame's top.
+
+Tests: `packages/builder-vite/src/production.test.ts` (8: a Vite server prebundling a stand-in React as production while
+serving the project's module as development, and its `jsx-dev-runtime` through the stand-in; a stand-in's import
+resolved from the folder of the module importing it; a prebundled package compiled for development getting the stand-in,
+with a runtime installed only below it; the stand-ins' matching; the optimizer settings for Vite 8 and before, its
+plugin named after the stand-ins, and esbuild's plugin). `apps/desktop/src/renderer/frame.test.ts` and
+`frame-nodes.test.ts` bundle React's production build, so the frame's window and finding layers are checked on what
+frames run, including an effect of a render a timer started and a class's `componentDidUpdate` after a timer, in one of
+two frames. Gaps: Vite 7 and earlier's esbuild setting is checked only as data in the tests; it was checked by hand on
+`fixtures/vite7-js` (Vite 7.3.7), whose React came prebundled as production and whose JSX went through the stand-in, and
+with a package compiled for development, which esbuild bundled with the stand-in. The numbers were measured by hand with
+a script that isn't in the repository.

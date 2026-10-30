@@ -1,5 +1,6 @@
 import {
   boardTarget,
+  type ComponentLibrary,
   type ContainerSpec,
   type DesignNode,
   detachInstance,
@@ -116,7 +117,7 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
           <Input
             key={`${nodeId}:${location.node.name ?? ""}`}
             defaultValue={location.node.name ?? ""}
-            placeholder={layerLabel(location.node, entries)}
+            placeholder={layerLabel(location.node, entries, store.getComponentLibrary())}
             aria-label="Layer name"
             className="h-7 flex-1 border-transparent bg-transparent px-1.5 font-medium shadow-none hover:border-input dark:bg-transparent"
             onBlur={(event) => {
@@ -130,7 +131,7 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
           />
         </div>
         <p className="mt-0.5 pl-6 text-xs text-muted-foreground">
-          {describeNode(location.node, entries)} in {container.name}
+          {describeNode(location.node, entries, store.getComponentLibrary())} in {container.name}
         </p>
         <StateTarget entry={entry} state={state} target={target} />
         {location.ancestors.length > 0 && location.node.type !== "instance" && (
@@ -212,10 +213,13 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
       <div className="border-b px-4 py-3">
         <div className="flex h-7 items-center gap-2">
           <NodeIcon node={inner.node} className="size-4 shrink-0" style={{ color: kindColors.component }} />
-          <span className="truncate px-1.5 text-sm font-medium">{layerLabel(inner.node, entries)}</span>
+          <span className="truncate px-1.5 text-sm font-medium">
+            {layerLabel(inner.node, entries, store.getComponentLibrary())}
+          </span>
         </div>
         <p className="mt-0.5 pl-6 text-xs text-muted-foreground">
-          {describeNode(inner.node, entries)} in {layerLabel(inner.instance, entries)}
+          {describeNode(inner.node, entries, store.getComponentLibrary())} in{" "}
+          {layerLabel(inner.instance, entries, store.getComponentLibrary())}
         </p>
         {editsDesign(container, target) ? (
           <div
@@ -511,7 +515,12 @@ function InstanceSection({
   const { store, selection } = session
   const entries = useContainerEntries(store)
   const component = entries.find((candidate) => candidate.container.id === node.design)
-  if (!component) {
+  // A library's design isn't one of the project's, so it's placed and detached here but edited in the library.
+  const design = component?.container ?? store.getComponentLibrary().get(node.design)
+  const from = component
+    ? undefined
+    : session.info.libraries.find((candidate) => candidate.designs?.some((placed) => placed.id === node.design))
+  if (!design) {
     return (
       <PanelSection title="Instance">
         <p className="px-1 text-xs text-destructive">
@@ -520,16 +529,18 @@ function InstanceSection({
       </PanelSection>
     )
   }
-  const params = Object.entries(component.container.params ?? {})
+  const params = Object.entries(design.params ?? {})
   const overrides = own ? overrideCount(own) : 0
   const library = projectLibrary(store)
   const replace = (label: string, update: (container: ContainerSpec) => ContainerSpec) =>
     store.updateContainer(entry.key, label, update)
-  const push = () =>
-    store.updateContainers([entry.key, component.key], `Push to ${component.container.name}`, ([design, main]) => {
-      const pushed = pushOverrides(design!, node.id, main!)
+  const push = () => {
+    if (!component) return
+    store.updateContainers([entry.key, component.key], `Push to ${design.name}`, ([placed, main]) => {
+      const pushed = pushOverrides(placed!, node.id, main!)
       return [pushed.container, pushed.component]
     })
+  }
   // Another component this copy could become: not the design it's in, which can't contain itself.
   const swappable = entries.filter(
     (candidate) => candidate.container.kind === "component" && candidate.container.id !== entry.container.id
@@ -539,19 +550,27 @@ function InstanceSection({
     <PanelSection
       title="Instance"
       action={
-        <Hint label={`Go to ${component.container.name}`} wait>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 px-2 text-xs"
-            onClick={() => {
-              selection.set({ design: component.key })
-              revealSelection(session)
-            }}
-          >
-            <Diamond style={{ color: kindColors.component }} /> {component.container.name}
-          </Button>
-        </Hint>
+        component ? (
+          <Hint label={`Go to ${design.name}`} wait>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-xs"
+              onClick={() => {
+                selection.set({ design: component.key })
+                revealSelection(session)
+              }}
+            >
+              <Diamond style={{ color: kindColors.component }} /> {design.name}
+            </Button>
+          </Hint>
+        ) : (
+          <Hint label={`Linked to ${design.name} in ${from?.name ?? "a library"}, which changes it`} wait>
+            <span className="flex h-6 items-center gap-1.5 px-2 text-xs text-muted-foreground">
+              <Diamond className="size-3.5" style={{ color: kindColors.component }} /> {design.name}
+            </span>
+          </Hint>
+        )
       }
     >
       {own && <BaseDesignNote entry={entry} what="Its state, Reset all, Swap and Detach" />}
@@ -560,8 +579,8 @@ function InstanceSection({
           <Field label="State">
             <ChoiceInput
               value={own.state}
-              options={component.container.states.slice(1).map((state) => ({ value: state.id, label: state.name }))}
-              placeholder={component.container.states[0]!.name}
+              options={design.states.slice(1).map((state) => ({ value: state.id, label: state.name }))}
+              placeholder={design.states[0]!.name}
               onChange={(state) =>
                 replace("Change instance state", (container) => ({
                   ...container,
@@ -618,9 +637,11 @@ function InstanceSection({
                 >
                   Reset all
                 </Button>
-                <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={push}>
-                  Push to main
-                </Button>
+                {component && (
+                  <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={push}>
+                    Push to main
+                  </Button>
+                )}
               </>
             )}
           </div>
@@ -724,10 +745,11 @@ export function measureNode(
   return { width: rect.width / scale, height: rect.height / scale }
 }
 
-function describeNode(node: DesignNode, entries: readonly ContainerEntry[]): string {
+function describeNode(node: DesignNode, entries: readonly ContainerEntry[], library: ComponentLibrary): string {
   if (node.type === "component") return `${node.component} component`
   if (node.type === "instance") {
-    const name = entries.find((entry) => entry.container.id === node.design)?.container.name
+    const name =
+      entries.find((entry) => entry.container.id === node.design)?.container.name ?? library.get(node.design)?.name
     return `Instance of ${name ?? node.design}`
   }
   if (node.type === "text") return `Text${node.tag ? `, ${node.tag}` : ""}`

@@ -1,3 +1,4 @@
+import type { ContainerSpec } from "./document.ts"
 import type {
   ComponentEvidence,
   ComponentSample,
@@ -29,6 +30,11 @@ export interface ProjectConfig {
   storybook?: StorybookInfo
   /** Design tokens described in DTCG by the project's own `.lib.par` and by its libraries' `.lib.par` files. */
   describedTokens?: DescribedTokens[]
+  /**
+   * For a library's own project, with a `.lib.par` at its root: the library's id, which its own components are named
+   * by (`nova/Button`), as the apps that install it name them.
+   */
+  namespace?: string
 }
 
 /** The tokens one `.lib.par` describes, or why they couldn't be read. */
@@ -128,4 +134,9 @@ export interface LibraryInfo {
   icons?: LibraryIcons
   /** What its components need around them in every frame. */
   decorators?: LibraryDecorator[]
+  /**
+   * The component designs its `.lib.par` canvas holds, named by the library (`nova/settings-row`), for placing as
+   * linked instances or detached copies.
+   */
+  designs?: ContainerSpec[]
 }

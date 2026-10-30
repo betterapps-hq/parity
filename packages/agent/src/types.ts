@@ -1,11 +1,19 @@
-import type { CanvasDocument, ComponentInfo, ModeSettings, ResolvedMode, ThemeVariable, Token } from "@parity-app/core"
+import type {
+  CanvasDocument,
+  ComponentInfo,
+  LibraryIcons,
+  ModeSettings,
+  ResolvedMode,
+  ThemeVariable,
+  Token
+} from "@parity-app/core"
 
 /** What an agent call starts from: one tab's live state. */
 export interface AgentSnapshot {
   tab: string
   components: string[]
-  /** Icon libraries by id. An icon is a component named `<id>/<Icon>`, such as `lucide/Heart`. */
-  iconLibraries?: string[]
+  /** The project's icon sets. An icon is a component named `<id>/<Icon>`, such as `lucide/Heart`. */
+  iconSets?: IconSet[]
   tokens: Token[]
   theme: ThemeVariable[]
   modes: ModeSettings
@@ -17,6 +25,24 @@ export interface AgentSnapshot {
   selection: { design?: string; node?: string; mode?: string }
   /** Each design's board on the canvas, by design key, so new designs can be placed in empty space. */
   bounds: Record<string, { x: number; y: number; width: number; height: number }>
+}
+
+/** An icon set the project has, as its `.lib.par` describes it, without the tags its icons are searched by. */
+export interface IconSet {
+  id: string
+  name: string
+  package: string
+  version?: string
+  icons?: Omit<LibraryIcons, "tags">
+}
+
+/** The names a set exports in one style's module, read from the project's own copy of it, and what to search them by. */
+export interface IconNames {
+  names: string[]
+  /** The other names each icon is exported under, by the name in `names`. */
+  aliases?: Record<string, string[]>
+  /** Words to find each icon by, from the set's published metadata, by the icon's label. */
+  tags?: Record<string, string[]>
 }
 
 /** What an agent touched, so the editor can show it working. */
@@ -118,6 +144,8 @@ export interface FrameResult {
 export interface AgentHooks {
   presence(events: AgentEvent[]): void
   render(request: FrameRequest): Promise<FrameResult>
+  /** An icon set's names in one style's module (`undefined` for the set's main one), for `Icons(set)`. */
+  iconNames?(set: string, module: string | undefined): Promise<IconNames>
 }
 
 export interface TokenChange {

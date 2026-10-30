@@ -2,7 +2,7 @@ import { existsSync, type FSWatcher, watch } from "node:fs"
 import { readFile, writeFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { basename, dirname, isAbsolute, join, normalize, resolve } from "node:path"
-import { viteBuilder } from "@parity-app/builder-vite"
+import { portFree, viteBuilder } from "@parity-app/builder-vite"
 import { correctedSources, leftOutChanges } from "@parity-app/code"
 import {
   type BuilderAdapter,
@@ -44,6 +44,7 @@ import type { ProjectEditResult, ProjectInfo, ServiceMethods, TokenChange, Windo
 import { startBuilder } from "./builders.ts"
 import { saveDetection, savedDetection } from "./detection-cache.ts"
 import { applyProjectEdit } from "./edits.ts"
+import { followGuest, type GuestMoved, newGuestPort, restartPort } from "./guest-ports.ts"
 import { forgetProcess, forgetProject, trackProcess } from "./processes.ts"
 import { checkComponents, closeChecker, inferComponents } from "./props.ts"
 import { freePort, stopStorybook } from "./storybook.ts"
@@ -72,22 +73,33 @@ interface OpenProject {
   /** What reads the app's files for components when they change, and the UI kit folder whose components load eagerly. */
   renderer: RendererAdapter
   uiKit?: string
+  /** For a library's own project, the id its own components are named by, as in `nova/Button`. */
+  namespace?: string
   /** The person's corrections to which exports are components, as the canvas has the main project file now. */
   corrections?: DetectionCorrections
+  /** Where the windows load the project's guest from: `info.guestUrl`, unless they couldn't load it after it moved. */
+  drawnGuestUrl: string
 }
 
 type FileChange = WindowMethods["project.fileChanged"]["params"]
 type ComponentsChange = WindowMethods["project.componentsChanged"]["params"]
 let notifyFileChange: (change: FileChange) => void = () => undefined
 let notifyComponents: (change: ComponentsChange) => void = () => undefined
+let notifyGuestMoved: (change: GuestMoved) => Promise<boolean> = () => Promise.resolve(false)
 
-/** Where changes to project files made outside the canvas are reported, and props re-inferred after a source edit. */
+/**
+ * Where changes to project files made outside the canvas are reported, props re-inferred after a source edit, and a
+ * guest that moved to a new port when its builder was started again.
+ */
 export function onFileChange(
   listener: (change: FileChange) => void,
-  components: (change: ComponentsChange) => void
+  components: (change: ComponentsChange) => void,
+  /** Resolves whether the windows now draw the guest from its new address. */
+  guestMoved: (change: GuestMoved) => Promise<boolean>
 ): void {
   notifyFileChange = listener
   notifyComponents = components
+  notifyGuestMoved = guestMoved
 }
 
 /** The project's components with their props, once inferred. */
@@ -104,19 +116,9 @@ const opening = new Map<string, Promise<ProjectInfo>>()
 const closing = new Map<string, Promise<void>>()
 /** The port each open project's builder last served on, which a builder started again takes back when it's free. */
 const lastPorts = new Map<string, number>()
-/**
- * Every port a builder has served a guest on. The windows keep the modules they loaded from each address, so a project
- * opened again never gets one of them, even one the system would hand out again.
- */
+/** Every port a builder has served a guest on, which no new address takes: see `newGuestPort`. */
 const guestPorts = new Set<number>()
-
-/** A free port no guest has been served on. */
-async function newGuestPort(): Promise<number> {
-  for (;;) {
-    const port = await freePort()
-    if (!guestPorts.has(port)) return port
-  }
-}
+const ports = { free: freePort, isFree: portFree }
 
 /** A project's root from a folder, or from one of its `.par` files: the nearest folder above it with a package.json. */
 export function projectRootFor(root: string | undefined): string {
@@ -197,7 +199,7 @@ async function start(root: string): Promise<ProjectInfo> {
   const mainDocument = pickMainDocument(config.documents, pkg.name ?? basename(root))
   const main = documents.find((entry) => entry.path === mainDocument)?.document
   // The person's corrections come before what was saved, so changing them is a change the fingerprint sees.
-  config.components = correctedSources(config.components, main?.detection)
+  config.components = correctedSources(config.components, main?.detection, config.namespace)
   // What the type checker and props found last time, when nothing they read has changed since.
   const discovered = { ...config.components }
   const { fingerprint, saved } = await savedDetection(root, config)
@@ -256,12 +258,14 @@ async function start(root: string): Promise<ProjectInfo> {
     session,
     builder,
     startOptions,
+    drawnGuestUrl: session.guestUrl,
     stylesheets: config.styles,
     known,
     sources: config.components,
     components: saved ? Promise.resolve(saved.props) : inferProps(root, config.components, config.componentFiles),
     renderer,
     ...(config.uiKit ? { uiKit: config.uiKit } : {}),
+    ...(config.namespace ? { namespace: config.namespace } : {}),
     ...(main?.detection ? { corrections: main.detection } : {})
   }
   project.watcher = watchProjectFiles(project)
@@ -294,12 +298,12 @@ async function serveBuilder(
   const id = builderProcessId(root)
   // A reopened project gets a new port, so the windows load its code afresh. On its last address they'd draw with the
   // project's React from before, which kept every closed canvas's frames in memory: about 130 MB each time.
-  const port = again ? lastPorts.get(root) : await newGuestPort()
+  const port = again ? await restartPort(lastPorts.get(root), guestPorts, ports) : await newGuestPort(guestPorts, ports)
   const tracking = trackProcess(
     { id, kind: "builder", shape: "server", name: builder.name, projectId: root, project: name, status: "starting" },
     { restart: () => restartBuilder(root) }
   )
-  const started = startBuilder(builderProcessOptions(builder, { ...options, ...(port ? { port } : {}) }), {
+  const started = startBuilder(builderProcessOptions(builder, { ...options, port }), {
     builder: builder.name,
     project: name,
     onCrash: (error) => {
@@ -333,8 +337,12 @@ async function restartBuilder(root: string): Promise<void> {
     return
   }
   project.session = session
-  // It has its old port back unless something took it; then windows that open the project from now on find the new one.
   project.info.guestUrl = session.guestUrl
+  // It has its old port back unless something took it; then the open windows load the guest from the new one. That's
+  // checked against where they draw it, so a move they couldn't load is tried again when it's started again.
+  const drawn = await followGuest(root, project.drawnGuestUrl, session.guestUrl, notifyGuestMoved)
+  // Unless it was started again meanwhile, and what the windows were told is already out of date.
+  if (project.info.guestUrl === session.guestUrl) project.drawnGuestUrl = drawn
 }
 
 /** Sends the builder the components the guest imports, once they've changed in place. */
@@ -575,7 +583,12 @@ async function checkTypes(project: OpenProject, files: string[]): Promise<boolea
     return false
   }
   if (projects.get(root) !== project) return false
-  const { added, confirmed, removed } = checkedChanges(project.sources, checked.components)
+  const { added, confirmed, removed } = checkedChanges(
+    project.sources,
+    checked.components,
+    undefined,
+    project.namespace
+  )
   project.info.leftOut = checked.leftOut
   task.set("passed", { summary: typeCheckSummary(files.length, Object.keys(added).length, removed.length) })
   for (const name of removed) delete project.sources[name]
@@ -627,11 +640,11 @@ async function rescanComponents(project: OpenProject, paths: string[]): Promise<
   const tsconfig = readTsconfig(root)
   const { files } = await appFiles(root, project.renderer, tsconfig)
   const read = await readChangedFiles(root, project.renderer, files, project.uiKit, paths)
-  const update = filesChanged(project.sources, read)
+  const update = filesChanged(project.sources, read, project.namespace)
   const current = () => projects.get(root) === project
   if (!current()) return
   const settle = async (found: Record<string, ComponentSource>, label: string, added: number, removed: number) => {
-    const next = correctedSources(found, project.corrections)
+    const next = correctedSources(found, project.corrections, project.namespace)
     // In place, since the project's info and its builder's start options share this list.
     for (const name of Object.keys(project.sources)) if (!(name in next)) delete project.sources[name]
     Object.assign(project.sources, next)
@@ -658,7 +671,12 @@ async function rescanComponents(project: OpenProject, paths: string[]): Promise<
     return
   }
   if (!current()) return
-  const { added, confirmed, removed } = checkedChanges(project.sources, checked.components, new Set(toCheck))
+  const { added, confirmed, removed } = checkedChanges(
+    project.sources,
+    checked.components,
+    new Set(toCheck),
+    project.namespace
+  )
   const before = project.info.leftOut ?? []
   project.info.leftOut = leftOutChanges(before, new Set(toCheck), checked.leftOut)
   const unchanged = Object.keys(added).length === 0 && removed.length === 0 && Object.keys(confirmed).length === 0
@@ -695,7 +713,7 @@ export async function correctComponents({
 
 /** Applies the person's corrections to the list in place, since the project's info and builder share it. */
 function applyCorrections(project: OpenProject): void {
-  const next = correctedSources(project.sources, project.corrections)
+  const next = correctedSources(project.sources, project.corrections, project.namespace)
   if (next === project.sources) return
   for (const name of Object.keys(project.sources)) if (!(name in next)) delete project.sources[name]
   Object.assign(project.sources, next)

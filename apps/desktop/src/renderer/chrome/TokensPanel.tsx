@@ -38,6 +38,7 @@ import {
   Keyframes,
   type PreviewToken,
   px,
+  swatch,
   TokenGlyph,
   tokenSections,
   TokenTile,
@@ -316,7 +317,7 @@ export function TokensPanel() {
             <Input
               value={query}
               onChange={(event) => setQuery(event.currentTarget.value)}
-              placeholder={`Search ${tokens.length} tokens`}
+              placeholder="Search tokens"
               className="h-8 pl-8"
             />
           </div>
@@ -659,11 +660,17 @@ function PaletteShade({ token, value, unwritten }: { token: Token; value: string
       <button
         type="button"
         aria-label={`Copy ${name}`}
-        className={`relative h-5 flex-1 first:rounded-l-sm last:rounded-r-sm hover:z-10 hover:ring-1 hover:ring-foreground hover:ring-offset-1 hover:ring-offset-background focus-visible:z-10 focus-visible:ring-1 focus-visible:ring-foreground focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none ${
-          unwritten ? "outline-2 -outline-offset-2 outline-destructive" : ""
-        }`}
-        style={{ background: value }}
-      />
+        className="relative h-5 flex-1 first-of-type:rounded-l-sm last-of-type:rounded-r-sm hover:z-10 hover:ring-1 hover:ring-foreground hover:ring-offset-1 hover:ring-offset-background focus-visible:z-10 focus-visible:ring-1 focus-visible:ring-foreground focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none"
+      >
+        {/* The edge is its own layer, as the hover ring is the button's shadow; an unwritten shade's outline is on it,
+            so the swatch never covers it. */}
+        <span
+          className={`pointer-events-none absolute inset-0 rounded-[inherit] ${
+            unwritten ? "outline-2 -outline-offset-2 outline-destructive" : ""
+          }`}
+          style={swatch(value)}
+        />
+      </button>
     </CopyOnClick>
   )
 }
@@ -677,10 +684,7 @@ function DescribedRow({ token }: { token: Described }) {
         <span className="flex shrink-0">
           {contexts.map(([context, value]) => (
             <Hint key={context} label={`${context === "default" ? "Default" : context}: ${value}`} wait>
-              <span
-                className="size-4 border border-white/15 first:rounded-l-sm last:rounded-r-sm"
-                style={{ background: value }}
-              />
+              <span className="size-4 first:rounded-l-sm last:rounded-r-sm" style={swatch(value)} />
             </Hint>
           ))}
         </span>

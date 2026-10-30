@@ -25,6 +25,17 @@ interface ModeViewProps {
    * selection, hover and outlines goes by layout boxes, which inert leaves alone.
    */
   interactive?: boolean
+  /**
+   * The frame draws nothing, keeping its size and its host, which selection, outlines and agents still find (see
+   * canvas/frame-sleep.ts). Its design is mounted again when it wakes.
+   */
+  asleep?: boolean
+  /**
+   * What the frame's design renders, as the canvas keys it (`drawn` in canvas/frame-bitmaps.ts): when it changes, the
+   * design is drawn again in place, as when the guest's code changed under the same tree. Without it, the tree and the
+   * mode key it.
+   */
+  shows?: string
 }
 
 /** What the canvas and tldraw would otherwise act on too, when the pointer or keys are the design's. */
@@ -55,8 +66,11 @@ export function ModeView({
   state,
   primary = false,
   interactions = 0,
-  interactive = false
+  interactive = false,
+  asleep = false,
+  shows
 }: ModeViewProps) {
+  const frameRef = useRef<HTMLDivElement>(null)
   const hostRef = useRef<HTMLDivElement>(null)
   const handleRef = useRef<MountHandle>(undefined)
   // The window the frame stands for, which the project's viewport units and window size checks measure.
@@ -65,7 +79,7 @@ export function ModeView({
   // A whole screen's tree, so it's written out only when it's a different one.
   const treeKey = useMemo(() => JSON.stringify(tree), [tree])
   const environmentKey = JSON.stringify([mode.classNames, mode.attributes, modeGlobals(mode)])
-  const renderKey = `${environmentKey}|${treeKey}`
+  const renderKey = shows ?? `${environmentKey}|${treeKey}`
   // Errors belong to the render that raised them, so a changed design starts clean.
   const [error, setError] = useState<{ key: string; message: string }>()
 
@@ -109,8 +123,9 @@ export function ModeView({
   }, [width, viewportHeight])
 
   // The frame is rebuilt when its environment changes, and after interacting, which leaves components in states the
-  // design doesn't have; a changed design updates in place, keeping component state.
+  // design doesn't have; a changed design updates in place, keeping component state. Asleep, it's taken apart.
   useEffect(() => {
+    if (asleep) return undefined
     const [classNames, attributes, globals] = JSON.parse(environmentKey) as [
       string[],
       Record<string, string>,
@@ -128,17 +143,25 @@ export function ModeView({
     handleRef.current = handle
     // Selecting, outlining and measuring find the design's nodes through the guest, which reads them from React's tree.
     setDrawnNodes(host, handle.drawnNodes?.bind(handle))
+    // Until it's drawn again, the frame keeps the height it had, so its board doesn't shrink and grow back. The design
+    // draws as it mounts, just after this, so by the next animation frame it has its own height.
+    const outer = frameRef.current!
+    const held = requestAnimationFrame(() => outer.style.removeProperty("min-height"))
     return () => {
+      cancelAnimationFrame(held)
+      outer.style.minHeight = `${outer.offsetHeight}px`
       handleRef.current = undefined
       setDrawnNodes(host, undefined)
-      handle.unmount()
+      host.shadowRoot?.replaceChildren()
+      // Just after, as the guest renders, so never inside one of the canvas's commits, should the two share a React.
+      queueMicrotask(() => handle.unmount())
     }
-  }, [loaded, environmentKey, interactions])
+  }, [loaded, environmentKey, interactions, asleep])
 
   useEffect(() => {
     currentKey.current = renderKey
     handleRef.current?.update(JSON.parse(treeKey) as RenderNode[])
-  }, [loaded, environmentKey, treeKey, renderKey, interactions])
+  }, [loaded, environmentKey, treeKey, renderKey, interactions, asleep])
 
   const message = error?.key === renderKey ? error.message : undefined
 
@@ -146,6 +169,7 @@ export function ModeView({
   // would scroll. A frame that grows with its content shows all of it, shadows and popups included.
   return (
     <div
+      ref={frameRef}
       className={`mode-frame relative shadow-lg ring-1 ring-black/15 ${height === undefined ? "" : "overflow-hidden"}`}
       style={{
         width: Math.round(width * scale),

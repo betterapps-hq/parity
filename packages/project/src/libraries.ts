@@ -3,9 +3,12 @@ import { dirname, join, posix, relative, resolve } from "node:path"
 import {
   applyLibraryEdits,
   type ComponentSource,
+  type ContainerSpec,
   type DescribedTokens,
   type LibraryInfo,
   type LibraryManifest,
+  libraryDesigns,
+  libraryId,
   libraryManifestExtension,
   type PackageManifest,
   parseLibraryEdits,
@@ -150,7 +153,8 @@ export async function findLibraries(
       ...(manifest?.breakpoints ? { breakpoints: manifest.breakpoints } : {}),
       ...(manifestPath ? { manifest: manifestPath } : {}),
       ...(manifest?.icons ? { icons: manifest.icons } : {}),
-      ...(manifest?.decorators?.length ? { decorators: manifest.decorators } : {})
+      ...(manifest?.decorators?.length ? { decorators: manifest.decorators } : {}),
+      ...designsOf(manifest, definition.id)
     })
     if (described && manifestPath) {
       const tokens = await describedTokens(root, described.path, described.manifest, manifestPath)
@@ -204,6 +208,12 @@ export async function findLibraries(
     }
   }
   return result
+}
+
+/** The component designs a library's canvas holds, named by the library, when it has any. */
+function designsOf(manifest: LibraryManifest | undefined, id: string): { designs?: ContainerSpec[] } {
+  const designs = manifest ? libraryDesigns(manifest, id) : []
+  return designs.length > 0 ? { designs } : {}
 }
 
 /** A library file with its hand edits merged over it, read from its `edits` or the shared file it names. */
@@ -321,7 +331,7 @@ function definitionOf(manifest: LibraryManifest, packageName: string): LibraryDe
   const tailwindEntry = manifest.styles ?? buildkitDefinition(packageName)?.tailwindEntry
   const icons = manifest.icons !== undefined && manifest.components === undefined
   return {
-    id: manifest.id ?? packageName.replace(/^@[^/]+\//, ""),
+    id: libraryId(manifest, packageName),
     name: manifest.name,
     description: manifest.description ?? "",
     package: packageName,

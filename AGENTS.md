@@ -18,12 +18,15 @@
 - **Commit your work when you judge it's ready,** without waiting to be asked: an issue done, a fix in, a doc finished,
   with `pnpm verify` passing. Write conventional messages (`feat(core): …`, `fix(desktop): …`, `docs: …`). Then push the
   branch and open a pull request whose title is the squashed commit's subject, in the same form. Answer CodeRabbit's
-  threads by fixing or replying. The user merges unless they say otherwise; once it's merged, remove the worktree and
-  its branch.
+  threads by fixing or replying. Once it passes, squash-merge it yourself (`gh pr merge --squash`), without waiting to
+  be asked, then remove the worktree and its branch.
 - **Commits are checked by hooks.** A commit gets lint and formatting on the files it stages, fixed where they can be, a
   conventional subject of at most 100 characters that isn't work in progress, and a change file for each versioned
   package it touches. After staging, run `pnpm changefile --type patch --message "what changed, for the changelog"`
   (`minor` for a feature, `none` for a change that shouldn't release) and the file it writes is staged too. It's
-  `pnpm changefile`, not pnpm's own `pnpm change`. A push also checks types, which `pnpm check:types` runs on its own.
-  Never bypass a hook with `--no-verify`; if one fails on something that isn't yours, tell the user.
-- Run `pnpm verify` before finishing. It leaves types to the push.
+  `pnpm changefile`, not pnpm's own `pnpm change`. A push also checks types, which `pnpm check:types` runs on its own,
+  and runs the editor's end-to-end tests (`pnpm test:app`) when it changes the app, its packages or the example. Never
+  bypass a hook with `--no-verify`; if one fails on something that isn't yours, tell the user.
+- Run `pnpm verify` before finishing. It leaves types and the end-to-end tests to the push. Don't run the whole
+  end-to-end suite as a routine check: each run opens a Parity window for minutes. Run only the files a change touches,
+  such as `pnpm test:app keyboard`.

@@ -47,8 +47,9 @@ import { useLibrary, useModeSettings } from "../design-store.ts"
 import { ModeView } from "../ModeView.tsx"
 import { useDesignSelection, useInteracting, useInteractions, useRenameRequest } from "../selection.ts"
 import { useProject } from "./context.ts"
-import { useFrameBitmap } from "./frame-bitmaps.ts"
+import { useFrameBitmap, useFrameShows } from "./frame-bitmaps.ts"
 import { useFrameSkeleton } from "./frame-skeletons.ts"
+import { type BoardRest, useAwake } from "./frame-sleep.ts"
 import { FrameSkeleton } from "./FrameSkeleton.tsx"
 import { DesignIcon, designColor, kindColors } from "./kinds.tsx"
 import { useCanvasLabel } from "./labels.ts"
@@ -64,13 +65,15 @@ interface ContainerViewProps {
   onTitlePointerDown: (event: ReactPointerEvent) => void
   /** Where the title draws: the canvas's title layer, and the board's place and width on the canvas. */
   title?: { layer: HTMLElement; x: number; y: number; width: number }
+  /** When the board's frames sleep and wake (see frame-sleep.ts). Without it, as in stories, they never sleep. */
+  rest?: BoardRest
 }
 
 /**
  * A design on the canvas. A title bar above it, drawn at screen size whatever the zoom, names the design and switches
  * its state and modes. The board holds a grid of frames: modes across, states down when every state is shown.
  */
-export function ContainerView({ ref, entry, hovered, onTitlePointerDown, title }: ContainerViewProps) {
+export function ContainerView({ ref, entry, hovered, onTitlePointerDown, title, rest }: ContainerViewProps) {
   const { store, loaded, selection } = useProject()
   const settings = useModeSettings(store)
   const { selected: isSelected, mode: selectedMode } = useDesignSelection(selection, entry.key)
@@ -165,6 +168,7 @@ export function ContainerView({ ref, entry, hovered, onTitlePointerDown, title }
                   divider={column === 1}
                   loaded={loaded}
                   library={library}
+                  rest={rest}
                 />
               ))}
             </div>
@@ -478,6 +482,7 @@ interface FrameTileProps {
   divider: boolean
   loaded: ReturnType<typeof useProject>["loaded"]
   library: ComponentLibrary
+  rest: BoardRest | undefined
 }
 
 /**
@@ -496,7 +501,8 @@ const FrameTile = memo(function FrameTile({
   selected,
   divider,
   loaded,
-  library
+  library,
+  rest
 }: FrameTileProps) {
   const session = useProject()
   const { selection } = session
@@ -513,11 +519,17 @@ const FrameTile = memo(function FrameTile({
     [container, state, mode.viewport, library]
   )
   const tile = useRef<HTMLDivElement>(null)
-  const { key, bitmap } = useFrameBitmap(session, tree, mode, size.width, size.height, scale)
+  // What the frame shows, worked out once, which the live frame, its bitmap, its skeleton and its sleep all go by.
+  const shows = useFrameShows(session, tree, mode, size.width, size.height, scale)
+  const { key } = shows
+  const bitmap = useFrameBitmap(shows)
   // The bitmap shows once it's decoded, so the frame doesn't go blank in between; until then, its skeleton, which then
   // leaves the page.
   const [decoded, setDecoded] = useState<string>()
-  const skeleton = useFrameSkeleton(key, tile, size.width, !bitmap)
+  const shown = !!bitmap && decoded === bitmap
+  // Interacting, frames are the real thing at any zoom.
+  const awake = useAwake(shown && !interactive, rest, key)
+  const skeleton = useFrameSkeleton(key, tile, size.width, !bitmap && awake)
   const onSelect = () => selection.set({ design: entry.key, mode: mode.id })
   return (
     <figure
@@ -561,8 +573,9 @@ const FrameTile = memo(function FrameTile({
             ...(skeleton ? { "--frame-height": `${skeleton.height}px` } : {})
           } as CSSProperties
         }
-        data-bitmap={bitmap && decoded === bitmap ? "" : undefined}
+        data-bitmap={shown ? "" : undefined}
         data-skeleton={skeleton ? "" : undefined}
+        data-asleep={awake ? undefined : ""}
       >
         <ModeView
           loaded={loaded}
@@ -576,8 +589,10 @@ const FrameTile = memo(function FrameTile({
           primary={primary}
           interactions={interactions}
           interactive={interactive}
+          asleep={!awake}
+          shows={shows.drawn}
         />
-        {skeleton && !(bitmap && decoded === bitmap) && <FrameSkeleton skeleton={skeleton} />}
+        {skeleton && !shown && <FrameSkeleton skeleton={skeleton} />}
         {bitmap && (
           <img
             className="frame-bitmap"

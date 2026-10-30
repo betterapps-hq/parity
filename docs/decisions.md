@@ -26,6 +26,19 @@ still need your call.
 - **A library's designs show in the projects that use it,** under the library's section in Components, placed as linked
   instances that follow the library or as detached copies. You chose this on 2026-10-28. Their components are named as
   the library's (`nova/Button`).
+- **A library's own project names its components by the library (PAR-124),** as `nova/Button`, so the designs on its
+  canvas refer to them as the apps that install it do and work there unchanged. The id is the file's `id`, else the
+  package's name without its scope, the rule apps already used. My call: every one of the project's components gets it,
+  the UI kit's and the rest of its code's, rather than only those the package exports, as which those are isn't known
+  until it's built. Designs saved before with plain names aren't renamed, since no library has shipped a canvas yet.
+- **Only component designs travel (PAR-125).** My call: an app lists the component designs on a library's canvas, named
+  `nova/settings-row` so they never clash with its own, and leaves out its screens, which are the author's showcase.
+  They aren't the app's: they're never written to its files and change only when the library does. A design of the app's
+  with the same id wins.
+- **A click or a drag places a library's design linked; its right-click menu also places a detached copy (PAR-126).** My
+  call: linked is the default because it's what keeps an app following the library, and a copy is Detach done at once,
+  with the same rules. A linked copy can't go to its main component or push overrides to it, as the main is the
+  library's. The agent's edit API doesn't see library designs yet.
 - **Open:** Buildkit's nova `tokens.json`, which isn't DTCG yet.
 - **Saving is explicit, as in a document editor.** Edits stay unsaved until Save (Ctrl+S). The tab shows a dot (it turns
   into the close button on hover). The status bar only says when a save failed, and clicking that tries again: you asked
@@ -204,12 +217,46 @@ still need your call.
   meanwhile can't reload what's measured. Its window says it's the measuring copy.
 - **Zoomed far out, frames show bitmaps.** Once a frame has stayed the same for a second, the offscreen renderer
   captures it at a quarter of its size, one frame at a time so agents' renders still get their turn. Wherever the canvas
-  draws frames no larger than that (25% zoom on a 1x screen), each shows its bitmap, and its live frame stays mounted
-  but skips drawing. The selected design stays live, as does everything while interacting. Until its bitmap is taken, a
-  frame shows its skeleton: measured from the live frame once it has stayed the same for a second, its text as faded
-  bars in the text's colour and its cards, fields, buttons and images as flat shapes, drawn as a few SVG paths per
-  frame, and keeping the frame's measured height. A frame not measured yet stays live. Bitmaps and skeletons are kept in
-  memory only, so a code change never shows a stale one. Below about 5%, boards and frames also drop their shadows.
+  draws frames no larger than that (25% zoom on a 1x screen), each shows its bitmap, and its live frame skips drawing;
+  once the zoom settles, its design is unmounted too, keeping its host (see the next decision). The selected design
+  stays live, as does everything while interacting. Until its bitmap is taken, a frame shows its skeleton: measured from
+  the live frame once it has stayed the same for a second, its text as faded bars in the text's colour and its cards,
+  fields, buttons and images as flat shapes, drawn as a few SVG paths per frame, and keeping the frame's measured
+  height. A frame not measured yet stays live. Bitmaps and skeletons are kept in memory only, so a code change never
+  shows a stale one. Below about 5%, boards and frames also drop their shadows.
+- **Frames showing bitmaps sleep (PAR-197).** Once the zoom settles past that line, a frame showing its bitmap unmounts
+  its design's React root and its elements, keeping its host, its height and its bitmap; it wakes as its board comes
+  near the view, one frame each animation frame. On the example project (119 frames, 1440×900 window, 1x screen),
+  measured with the DevTools protocol after collecting garbage: zoomed out, the window's DOM nodes went from 32,458 to
+  6,503 and its JavaScript heap from 146 MB to 101 MB, about 0.38 MB a frame; zoomed in on one design, the same, since
+  only the frames near the view wake. Zooming in from fit to 100% drew the frames in view in 250 ms, its longest frame
+  50 ms, and to 40% in 300 ms, longest 33 ms, with no board changing size. Those times are from before sleeping hosts
+  skipped drawing and changed frames woke; a later run's window was throttled to a frame a second, so its times don't
+  count, though its memory matched. The issue's 0.85 MB a frame wasn't all heap: the elements' own memory is the
+  renderer's, outside the heap, so the heap gives back less than half of it.
+  - **Sleep waits for the zoom to settle,** rather than the zoom at each frame as `data-far` does, so zooming through
+    the line doesn't unmount and remount a project's frames on the way.
+  - **Only frames near the view wake, one each animation frame.** Remounting all 119 at once, as PAR-153 tried for a
+    hidden tab, kept the page busy for 4 s; a frame costs tens of milliseconds to mount in development.
+  - **Where a board is reaches its frames as tldraw signals,** not props: passing whether a board was near the view as a
+    prop drew all 119 boards again each time the camera crossed one, 350 ms in one frame on zooming in.
+  - **A frame keeps its host element,** empty, so selection, hit testing and agents' cursors still find the frame and
+    its design. A sleeping frame's host skips drawing, as a board out of view does, so the browser keeps the size it
+    last had when drawn; noting an empty frame's size instead shrank a board to its padding the next time it skipped.
+  - **A frame whose design changes while it sleeps wakes wherever it is,** so its board lays out the new size that
+    agents' snapshots read, and sleeps again once its new bitmap is taken. A token edit wakes every frame, one a frame.
+- **What a frame shows is keyed once, with the guest's code revision (PAR-439).** `useFrameShows` works out each frame's
+  keys and offscreen job together, so the live frame, its bitmap, its skeleton and its sleep can't disagree about when
+  it changed. Before, `ModeView` and the bitmap each keyed the frame their own way, and neither knew the guest's code: a
+  component the type checker found, or found moved, left frames and bitmaps as drawn.
+  - **One revision for the project's code, not one per component.** It goes up only when a component comes from a new
+    file, which is rare, and then every frame draws again and every bitmap is retaken in the background. Keying each
+    frame by the components it uses would redraw fewer, but needs the components inside instances too; it can go behind
+    the same key if redrawing everything proves costly.
+  - **The live frame draws again on what its design renders,** not on its size or previewed tokens, which it follows by
+    itself, so a token preview doesn't draw every frame's React tree again. Bitmaps go by both.
+  - **Redrawn in place, not rebuilt.** The guest looks each component up as it draws, and dropping the old loader's
+    component makes the next draw use the new one, so the frame keeps its other components' state.
 - **The canvas doesn't restyle its elements while the camera moves.** tldraw's `--tl-zoom` changes only once zooming
   stops, titles and labels size themselves from the zoom directly, selection colours go through tldraw's theme rather
   than custom properties, and the layer the camera moves is composited, so panning and zooming move what's already drawn
@@ -504,6 +551,11 @@ recommended answer to each of its questions.
   developer would write. The guest imports the whole package once. The Icons panel and the insert picker list the names
   from the project's own copy, as its manifest says to read them, and draw each icon with the project's own code. Agents
   are told the icon libraries too, so `lucide/Heart` isn't flagged as a component the project doesn't have.
+- **Agents find icons with `Icons()`,** which lists the project's icon sets with their styles, and
+  `Icons(set, { search })`, which searches one the way the Icons panel does and returns each icon as the component (and
+  style props) to insert. My call: each call's snapshot carries the sets without their tags, and the names and tags are
+  read from the tab only when `Icons(set)` asks, since Fluent's run to thousands. It returns 50 icons unless `limit`
+  says otherwise.
 - **A manifest names an icon set's shape,** because sets differ: one export per icon (Lucide, Heroicons, Phosphor,
   Tabler, Fluent), or data drawn by one component (Hugeicons, through `HugeiconsIcon`'s `icon` prop). Styles and sizes
   are either a prop (Phosphor's `weight`) or part of the name (`AddFilled`, `Add24Regular`), described by a pattern with
@@ -581,6 +633,15 @@ recommended answer to each of its questions.
   vega. They share one set of hand edits (`buildkit-baseui.edits.json` in the registry), since only their styles differ,
   and the Radix styles still aren't published. Parity names each one Shadcn and its style, capitalized (Shadcn Nova,
   Shadcn Luma), as you asked on 2026-10-29; their packages keep their names (`@buildkitgg/shadcn-baseui-nova`).
+- **Charts come from Recharts' own registry file (PAR-130),** so Nova's ChartContainer has something to hold. My call:
+  Recharts is a library when the project depends on `recharts`, as shadcn's chart docs have it install, not when it only
+  comes in under a Buildkit style, since the project's code can't import it then. Its hand edits group its parts as
+  Charts, Series, Axes and Grids, and give BarChart, LineChart and AreaChart six months of sample data with a grid, an x
+  axis and their series. Charts are sized with `responsive`, `width: "100%"` and `height: 240`, which a ChartContainer's
+  size overrides, and series draw with `isAnimationActive: false`, since a frame is a still picture and Recharts would
+  otherwise be caught mid-animation. Colours are `var(--chart-1)`, with a fallback for projects without it.
+- **`parity lib` loads a package through `main` when its `module` entry won't run in Node,** as Recharts' `es6` build
+  imports its files without extensions, so its parts are tried and placed like any other library's.
 - **Parts are placed inside their parents,** from the library's own examples (below), then three signals: namespace
   exports (`Accordion.Item`), the "must be used within" error a part throws alone, and shared name prefixes
   (`AccordionItem` under `Accordion`), or a plural (`Tab` under `Tabs`). Each part records which signal placed it,
@@ -1142,7 +1203,9 @@ recommended answer to each of its questions.
   window's memory per reopen, which a page can't give back. Picking up code edits live (PAR-165) or a separate realm per
   project would avoid that too.
   - **A builder started again** from the processes list takes its last port when it's free, since the canvas it serves
-    is still open, and waits for a closing one of the same project to end first, so a project never has two.
+    is still open, and waits for a closing one of the same project to end first, so a project never has two. When the
+    port is taken it takes one no guest has had, and the open windows are told (`project.guestMoved`, PAR-433) and load
+    the guest from there.
   - **Builders no longer log what they served** (PAR-431). PAR-195 compared that log to tell a changed project from an
     unchanged one, and with every reopen on a new port nothing read it.
 - **Closing a project lets go of its guest in the window:** its `loadGuest` entry and the stylesheet the document
@@ -1151,6 +1214,38 @@ recommended answer to each of its questions.
   closes, and closes when idle anyway. The tab bar and each tab's view are given a tab's id rather than the tab
   (PAR-422), since React keeps the props a list's parent drew last, which for a closed tab would be its session and
   canvas.
+- **Frames run the production builds of the project's dependencies, React's among them** (PAR-198). My call, from the
+  memory audit: React's development build keeps a stack for every element it makes, and the window held 722,868 stack
+  frames on the example project. The builder prebundles dependencies with `process.env.NODE_ENV` set to `production`
+  (Rolldown's `transform.define` from Vite 8, esbuild's `define` before), while the project's own modules are served as
+  in development, so `import.meta.env.DEV` and `process.env.NODE_ENV` in its code read as on its dev server. The
+  project's own dev server is untouched: the builder has its own dependency cache. Measured on 2026-10-29 the same way
+  before and after, on the e2e suite's copy of the example project once its frames settled, after
+  `HeapProfiler.collectGarbage`:
+  - the window's JS heap went from 150.1 MB to 117.0 MB (`Runtime.getHeapUsage`), 22% less;
+  - its DOM nodes stayed at about 32,600 (`Memory.getDOMCounters`);
+  - a heap snapshot's `StackFrameInfo` objects went from 722,868 to 211,260, and its errors holding stacks from 38,342
+    to 12,852, with React's `_debugStack` from 155,183 to 74,172. What's left is Parity's own window, whose React is the
+    development build of Parity's dev server.
+
+  What frames lose, and what's kept:
+  - **React's development warnings,** such as keys, invalid nesting, or the input with both `value` and `defaultValue`
+    the example's frames had, no longer reach the window's console, so agents' `console` doesn't read them either.
+    They're for the project's own dev server to show. Errors still reach the frame and agents.
+  - **React's own error messages are minified** to a code and a react.dev link, such as `Minified React error #130` for
+    a component that's `undefined`. A component's own errors keep their messages.
+  - **Which component React is working on,** which `getOwner` gives only in development, told each frame's code which
+    frame's window it's in. That's kept another way: see "A project's code that asks the window its size" below.
+  - **Kept as they were:** finding a layer's DOM from React's tree (`child`, `sibling`, `stateNode`, `memoizedProps`, in
+    both builds), component error boundaries, `onCaughtError` naming the failed component, and agent snapshots, none of
+    which read `_debugSource`, owner stacks or component stacks.
+  - **The project's JSX is still compiled for development,** calling `jsxDEV`, which React's production build leaves
+    out. The renderer names stand-ins for what it leaves out (`developmentStandIns`), and the builder serves
+    `react/jsx-dev-runtime`, or any `…/jsx-dev-runtime`, as that package's `jsx`. The dependency optimizer gets the same
+    stand-in as a plugin of its own (Rolldown's or esbuild's), since it doesn't run the server's, so a package shipped
+    with its JSX compiled for development renders too. That stand-in is placed beside the module importing it, so the
+    runtime it imports is the copy that module would find, even one installed only below it.
+
 - **The performance stats count each project's builder,** as "Vite for shop", since its memory used to count in the
   service's: the service asks each builder for its CPU time, and the system reads its memory as it does Electron's own
   processes'. Storybook and the other servers Parity starts still aren't counted.
@@ -1192,7 +1287,10 @@ recommended answer to each of its questions.
   width, height, aspect ratio or orientation, `innerWidth`, `innerHeight`, `outerWidth`, `outerHeight`, the root's
   `clientWidth` and `clientHeight`, and `resize` listeners. The frame asking is:
   - the one React is rendering or running effects for, at any time. React's development build, which dev servers run,
-    names the component it's working on, and that component's root says which frame;
+    names the component it's working on, and that component's root says which frame. Its production build, which frames
+    run (PAR-198), names none, so while it renders, the frame is the one whose provider is above the component, and each
+    frame it renders or starts committing becomes the one last drawn, which its layout and passive effects and class
+    components' lifecycle methods then ask about. A commit shows itself when React DOM reads the root's `ownerDocument`;
   - the one the canvas is drawing or resizing, which it does synchronously, so the first effects run inside too;
   - for a media query list or resize listener, the frame that made it. These hear the frame resize without a rebuild;
   - otherwise, in an event handler, a timer or a render the project starts itself, the frame last drawn or used, but
@@ -1201,12 +1299,11 @@ recommended answer to each of its questions.
     from DevTools or a script driving Parity. In Parity's Storybook, where the two share a server, this last case is
     off.
 
-  React's production build names no component, so with several frames on the canvas, a render the project starts itself
-  can get the answer of the frame drawn last. A `useState` set in a mount effect still gets the right one. `screen` and
-  `visualViewport` still describe Parity's window. `frame.test.ts` mounts shadcn's `useIsMobile` and a MUI-style
-  `useMediaQuery` in a phone and a laptop frame at once, clicks and resizes them, and checks Parity's own answers. After
-  these changes, the 93 full-size frames in the example's Boards story still match Chrome element by element, within
-  0.03px.
+  `screen` and `visualViewport` still describe Parity's window. `frame.test.ts` mounts shadcn's `useIsMobile` and a
+  MUI-style `useMediaQuery` in a phone and a laptop frame at once, on React's production build, clicks and resizes them,
+  checks an effect of a render a timer started and a class's `componentDidUpdate`, and checks Parity's own answers.
+  After these changes, the 93 full-size frames in the example's Boards story still match Chrome element by element,
+  within 0.03px.
 
 - **Visual regression tests draw each frame as a page of its own, not as a canvas frame** (PAR-226). Canvas frames share
   one window, one document, one origin and one copy of the project's code, so the canvas can draw dozens at once. The
@@ -1394,6 +1491,21 @@ to PAR-209 build it.
   scattered. Editing turns the values into fields in place and the bar into Cancel and Save; a motion token's Play sits
   on its preview, as on a video. There's no caption under the name: "Font sizes, theme scale" only repeated the section
   heading and the filter, so a library's name moved into the list as From.
+- **Every color swatch has one edge: a faint hairline in Parity's own text color, over the color.** You found on
+  2026-10-29 that dark swatches showed white corners and that black ones vanished into the dark panel. The corners came
+  from the checkerboard (for see-through colors) and the color being two elements, each antialiased at the rounded
+  corner, so the checker's white showed through; the edge meant to fix it was painted under the color. Now one element
+  paints the color over the checkerboard and draws the hairline over both, 14% of `--foreground`, so it's light in the
+  dark UI and dark in the light one. You chose that over a black or white border picked by each color's lightness: black
+  and white swatches stand off the panel, the colors between look unchanged, and the edge never jumps between two colors
+  that are nearly alike. It's on rows, tiles, the detail's preview and values, the palette's shades and a library's
+  described tokens (PAR-435).
+- **A color shows a swatch for each theme, even where two themes share a value.** PAR-143 drew equal themes as one
+  swatch named for both ("Light and Dark"), since equal halves with no gap between them ran together. You found on
+  2026-10-29 that a single block named for two themes looked broken, and that in a row it looked like a token with one
+  theme. With each swatch edged and split by a gap, equal halves no longer run together, so every color in a two-theme
+  project shows two swatches, Light then Dark, in rows, tiles and the detail, and matching halves say the value is the
+  same (PAR-435).
 
 ## The app icon
 
@@ -1436,10 +1548,41 @@ to PAR-209 build it.
   5385 and 9385, or ports the system picks. Tests read results from the page's state, drive real pointer and keyboard
   input with presses tldraw sees kept 500 ms apart, use a stand-in clipboard, and undo everything after each test. A
   full run takes about five minutes.
+- **The pre-push hook runs the end-to-end tests,** when the commits a push sends change the app, its packages, the
+  example or the workspace's build files, and not for docs, unit tests, scripts or CI alone (`scripts/app-tests.ts`).
+  You asked on 2026-10-30: sessions ran the whole suite as a routine check, so a Parity window opened every few minutes
+  and runs from several sessions at once took the same ports and failed each other's. Sessions run only the files a
+  change touches while working. CI runs them too, for every pull request and push to main, on Windows only, whose
+  runners have a desktop for the window, as an `app` job. It doesn't block merging yet: on its first run the example
+  never opened on the runner within 180 s, so `CI passes` leaves it out until it runs reliably there (PAR-438).
 - **Packages and scripts use only TypeScript that Node can strip,** because the CLI and scripts run them with plain
   `node`: no parameter properties, namespaces or enums. oxlint rejects the first two in `packages/**` and
   `apps/*/scripts/**`; the app's bundled code may use them. The Library files session found CAN-48's parser had broken
   the CLI this way, fixed in `f743864`.
+
+- **Parity's UI imports each lucide icon from its own file** (PAR-199). Vite prebundles a dependency whole, and
+  lucide-react's index imports every icon, so the window held all of them, 1.73 M characters in one script, for the 139
+  the chrome uses. A plugin in the UI's Vite config (`apps/desktop/scripts/icon-imports.ts`) rewrites
+  `import { Plus } from "lucide-react"` to the icon's own module and keeps the package out of prebundling, so the window
+  loads 149 small files, 0.28 M characters. The Icons panel doesn't need the full set: it lists the project's own icon
+  library, served by the project's builder. My call: a plugin over per-icon imports in the code, so the code imports
+  icons as shadcn's components do, and over an alias, which can't pick the file per name.
+- **The UI's prebundled dependencies are minified** (PAR-199). tldraw went from 3.53 M characters to 1.68 M and React
+  DOM's client from 0.91 M to 0.39 M; their source maps still take DevTools to the code as published, and Parity's own
+  code is served as written. With the icons, the window's scripts went from 19.3 M characters to 14.9 M and its heap
+  after a collection from 151 MB to about 141 MB, on the example project; the window's process memory moves by more than
+  that between runs, so it isn't the measure. My call: minifying in Vite's optimizer rather than a production build of
+  the UI now. A production build would also drop React's development build and Vite's client, the larger saving, but
+  costs reloading in place while Parity is worked on, so it waits for a packaged app, where it comes with the rest of
+  the build.
+- **The service keeps TypeScript in both its threads** (PAR-199). The two copies are the service's main thread, which
+  parses component files and reads tsconfigs on every open and change (`@parity/renderer-react`, `@parity/code`), and
+  the type checker's worker (`utility/props-worker.ts`). They're one version, 6.0.3; a thread can't share a module with
+  another. The worker's copy costs about 12 MB, only while the worker runs, which is up to five minutes after its last
+  answer, and not at all when an open finds what the checker found last time saved. One copy would mean either the
+  checker on the main thread, which blocks the service for seconds on a large project, or the parse and every import
+  that reaches TypeScript (`@parity/project` and `@parity/code` import it at their top) moving into the worker, a
+  restructuring of both packages for those 12 MB. My call: neither; it's measured and left.
 
 ## Repository and releases
 
@@ -1533,8 +1676,10 @@ the Repository, CI and releases stream in Linear.
   - **Focused tests and `debugger` were lint errors already.**
   - **Tests run on twelve workers locally and four in CI,** as Copacker's do, which you said suits your machine.
 - **knip finds unused files, dependencies and exports (PAR-395),** as in the agency monorepo. My calls:
-  - **`pnpm check:unused` runs it, and `pnpm verify` doesn't yet.** CI runs `pnpm verify`, and CI belongs to the CI
-    session, which can add `pnpm check:unused`.
+  - **`pnpm check:unused` runs it, in CI's checks job on Ubuntu, beside the type check.** `pnpm verify` leaves it out,
+    as it does types, since one system is enough for both.
+  - **The Storybook explorations stay, as you asked on 2026-10-30,** with their unused exports ignored. shadcn's
+    `scroll-area.tsx`, which nothing imports, stays undecided; knip ignores it with the rest of `components/ui`.
   - **Its config is `knip.jsonc`,** so each entry and ignore says why, and its version is in the catalog.
   - **The example project and `fixtures/` are left out,** since they stand in for customers' projects.
   - **Kept on purpose:** the app's runtime dependencies that the bundled project service loads from its folder, the

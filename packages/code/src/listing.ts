@@ -134,11 +134,12 @@ export async function readChangedFiles(
  * whose file is gone or no longer exports it is `removed`. New ones are `added`, with ids that don't clash, so a
  * component moved to another file keeps its id while its name stays unique. An export the parse can no longer decide
  * stays listed for the type checker to settle, as do new ones in the UI kit, and other new undecided exports wait for
- * it. Libraries' components and other files' aren't touched.
+ * it. Libraries' components and other files' aren't touched. New ids start with a library project's `namespace`.
  */
 export function filesChanged(
   sources: Record<string, ComponentSource>,
-  read: ReadonlyMap<string, ParsedComponent[] | undefined>
+  read: ReadonlyMap<string, ParsedComponent[] | undefined>,
+  namespace?: string
 ): { sources: Record<string, ComponentSource>; added: string[]; removed: string[] } {
   const key = (path: string, name: string) => `${path}#${name}`
   const next: Record<string, ComponentSource> = {}
@@ -161,7 +162,7 @@ export function filesChanged(
   const fresh = [...read.values()]
     .flatMap((found) => found ?? [])
     .filter((component) => (component.as || component.uiKit) && !listed.has(key(component.path, component.export)))
-  const added = componentIds(fresh, new Set(Object.keys(next)))
+  const added = componentIds(fresh, new Set(Object.keys(next)), namespace)
   return { sources: { ...next, ...added }, added: Object.keys(added), removed }
 }
 
@@ -230,12 +231,14 @@ export function leftOutChanges(
  * What the type checker changes in the list the parse made. Components the parse recognised keep their ids. Exports
  * only the checker could decide are `added`, loading as they're drawn, with ids that don't clash with any given
  * already. The UI kit's undecided exports that it didn't confirm are `removed`. Libraries' components aren't touched.
- * When the checker read only some `files`, only their components are settled.
+ * When the checker read only some `files`, only their components are settled. New ids start with a library project's
+ * `namespace`.
  */
 export function checkedChanges(
   sources: Record<string, ComponentSource>,
   checked: CheckedComponent[],
-  files?: ReadonlySet<string>
+  files?: ReadonlySet<string>,
+  namespace?: string
 ): { added: Record<string, ComponentSource>; confirmed: Record<string, ComponentSource>; removed: string[] } {
   const key = (path: string, name: string) => `${path}#${name}`
   const byKey = new Map(checked.map((component) => [key(component.path, component.export), component]))
@@ -253,18 +256,20 @@ export function checkedChanges(
   const missed = checked
     .filter((component) => !listed.has(key(component.path, component.export)))
     .map((component) => ({ ...component, uiKit: false }))
-  const added = componentIds(missed, new Set(Object.keys(sources).filter((id) => !removed.includes(id))))
+  const added = componentIds(missed, new Set(Object.keys(sources).filter((id) => !removed.includes(id))), namespace)
   return { added, confirmed, removed }
 }
 
 /**
  * The list with the person's corrections: the components they took off it are dropped, and the exports they put on it
  * are added, marked `included` and loading as they're drawn, with ids that don't clash. Libraries' components aren't
- * touched. Applied after each pass of detection, so the corrections outlast files changing.
+ * touched. Applied after each pass of detection, so the corrections outlast files changing. New ids start with a library
+ * project's `namespace`.
  */
 export function correctedSources(
   sources: Record<string, ComponentSource>,
-  corrections: DetectionCorrections | undefined
+  corrections: DetectionCorrections | undefined,
+  namespace?: string
 ): Record<string, ComponentSource> {
   if (!corrections?.include && !corrections?.exclude) return sources
   const key = (ref: ComponentRef) => `${ref.path}#${ref.export}`
@@ -276,7 +281,8 @@ export function correctedSources(
   const missing = (corrections.include ?? []).filter((ref) => !listed.has(key(ref)) && !excluded.has(key(ref)))
   const added = componentIds(
     missing.map((ref) => ({ name: refName(ref), path: ref.path, export: ref.export, uiKit: false })),
-    new Set(Object.keys(next))
+    new Set(Object.keys(next)),
+    namespace
   )
   for (const [id, source] of Object.entries(added)) next[id] = { ...source, included: true }
   return next
@@ -297,12 +303,21 @@ function refName(ref: ComponentRef): string {
  * Ids for the app's components: each one's name while it's unique. A name used by more than one component gains as
  * many of its folders as it takes to tell them apart (`ui/FieldError`, `packing-fields/FieldError`), except that the
  * first one in the UI kit folder keeps the bare name, so designs made before the whole app was read still find it.
- * Ids already `taken`, such as libraries' `nova/Button`, are skipped the same way.
+ * Ids already `taken`, such as libraries' `nova/Button`, are skipped the same way. In a library's own project, every id
+ * starts with the library's `namespace` (`nova/Button`), as the apps that install it name them.
  */
 export function componentIds(
   found: ParsedComponent[],
-  taken: ReadonlySet<string> = new Set()
+  taken: ReadonlySet<string> = new Set(),
+  namespace?: string
 ): Record<string, ComponentSource> {
+  if (!namespace) return localIds(found, taken)
+  const prefix = `${namespace}/`
+  const local = new Set([...taken].filter((id) => id.startsWith(prefix)).map((id) => id.slice(prefix.length)))
+  return Object.fromEntries(Object.entries(localIds(found, local)).map(([id, source]) => [prefix + id, source]))
+}
+
+function localIds(found: ParsedComponent[], taken: ReadonlySet<string>): Record<string, ComponentSource> {
   const byName = new Map<string, ParsedComponent[]>()
   for (const component of found) {
     const same = byName.get(component.name) ?? []

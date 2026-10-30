@@ -59,6 +59,8 @@ jobs:
       concurrency-key: checks-${{ github.ref }}
       command: |
         pnpm check:types
+        # Unused files, dependencies and exports, which knip reads from knip.jsonc.
+        pnpm check:unused
         if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
           # Beachball rejects its own release commit, which scripts/changes.ts accepts. Only this repository's own
           # beachball/release branch skips it, since a fork can name a branch anything.
@@ -69,6 +71,17 @@ jobs:
           node scripts/changes.ts check --committed
           node scripts/commits.ts title "$(jq -r .pull_request.title "$GITHUB_EVENT_PATH")"
         fi
+
+  # The editor's end-to-end tests (PAR-436), which open a copy of Parity on the example and drive it. On Windows, whose
+  # runners have a desktop to open its window on; Linux would need a virtual display. Its own group, so it never cancels
+  # verify's run there. It doesn't block
+  # merging yet, since `CI passes` leaves it out until it runs reliably on the runner (PAR-438).
+  app:
+    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@ed34ffcba2ef6748b0210c763582e8995c81501b # v1.6.0
+    with:
+      os: '["windows-latest"]'
+      concurrency-key: app-${{ github.ref }}
+      command: pnpm test:app
 
   # The one check the main branch's ruleset requires, so it needn't change when jobs or systems do.
   ci-passes:

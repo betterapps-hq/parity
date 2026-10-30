@@ -1,6 +1,9 @@
-import { type PointerEvent as ReactPointerEvent, useLayoutEffect, useRef, useState } from "react"
+import { type PointerEvent as ReactPointerEvent, useLayoutEffect, useMemo, useRef, useState } from "react"
 import {
+  type Atom,
+  atom,
   Box,
+  computed,
   HTMLContainer,
   Rectangle2d,
   type RecordProps,
@@ -14,9 +17,10 @@ import {
 import { moveDesigns } from "../chrome/arrange.ts"
 import { useContainerEntry } from "../design-store.ts"
 import { designsSelection, selectedDesigns } from "../selection.ts"
-import { shapeIdFor } from "./CanvasEditor.tsx"
+import { isRestingFar, shapeIdFor } from "./CanvasEditor.tsx"
 import { ContainerView } from "./ContainerView.tsx"
 import { useProject } from "./context.ts"
+import type { BoardRest } from "./frame-sleep.ts"
 import { clearSnaps, snapPosition } from "./snap.ts"
 import { useTitleLayer } from "./title-layer.tsx"
 
@@ -100,6 +104,14 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
   const titleLayer = useTitleLayer(editor)
 
   const [drawn, setDrawn] = useState(false)
+  // Its frames sleep zoomed far out, except on the selected board, and wake near the view (see frame-sleep.ts).
+  const rest = useMemo<BoardRest & { near: Atom<boolean> }>(
+    () => ({
+      near: atom("board near", true),
+      dormant: computed("board dormant", () => isRestingFar(editor) && !editor.getSelectedShapeIds().includes(shape.id))
+    }),
+    [editor, shape.id]
+  )
 
   // Layout sizes are unaffected by the camera's scale, so they can be written straight to the shape. A board that isn't
   // drawn at all, in a tab that isn't showing, has no size to give, rather than a size of nothing.
@@ -136,13 +148,14 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
       const away = !!bounds && !Box.Collides(near, bounds) && !selected
       if (element.hasAttribute("data-away") !== away) element.toggleAttribute("data-away", away)
       if (element.hasAttribute("data-live") !== selected) element.toggleAttribute("data-live", selected)
+      rest.near.set(!away)
     })
     return () => {
       stop()
       element.removeAttribute("data-away")
       element.removeAttribute("data-live")
     }
-  }, [editor, shape.id, drawn, present])
+  }, [editor, shape.id, drawn, present, rest])
 
   /**
    * Selects the design and drags it by its title, like a frame's name in Figma, along with every other selected
@@ -231,6 +244,7 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
       hovered={hovered}
       onTitlePointerDown={dragByTitle}
       title={titleLayer && { layer: titleLayer, x, y, width: shape.props.w }}
+      rest={rest}
     />
   )
 }

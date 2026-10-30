@@ -68,6 +68,10 @@ export class Workspace {
   private readonly attempts = new Map<string, Attempt>()
   /** Projects abandoned opens got, to close once nothing in flight could still be for them, with guests to let go of. */
   private readonly drops = new Map<string, string | undefined>()
+  /** Guests that moved while their tab was still loading, by project, to draw from once the tab is ready. */
+  private readonly moves = new Map<string, string>()
+  /** The address each project's guest last moved to while one loads, so a move a later one overtook is let go. */
+  private readonly latestMoves = new Map<string, string>()
   private readonly listeners = new Set<() => void>()
 
   subscribe = (listener: () => void) => {
@@ -141,6 +145,7 @@ export class Workspace {
       }
       this.endAttempt(attempt, info.id)
       this.replace(info.id, { id: info.id, title: info.name, status: "ready", session })
+      this.settleMove(info.id)
       this.remember(info.root)
       return this.getTab(info.id)!
     } catch (error) {
@@ -190,6 +195,8 @@ export class Workspace {
     if (this.activeId === id) this.activeId = (this.tabs[index] ?? this.tabs[index - 1])?.id
     // A tab closed while its project opens has nothing to show it in, so its open closes the project once the service
     // has it, and its builder stops with it.
+    this.moves.delete(id)
+    this.latestMoves.delete(id)
     const attempt = this.attempts.get(id)
     if (attempt) {
       attempt.abandoned = true
@@ -219,6 +226,9 @@ export class Workspace {
     const tab = this.getTab(id)
     if (!tab || this.attempts.has(id) || tab.session?.store !== before.session?.store) return
     this.replace(id, { id, title: tab.title, status: "loading" })
+    // The project opens again with a builder of its own, so where the last one moved to no longer matters.
+    this.moves.delete(id)
+    this.latestMoves.delete(id)
     const attempt = this.startAttempt(id)
     // A tab that has opened is its project's id, so a reopen is known to be for it from the start.
     attempt.projectId = id
@@ -238,6 +248,7 @@ export class Workspace {
       if (attempt.abandoned) return this.dropAbandoned(info.id, info.guestUrl)
       this.endAttempt(attempt, id)
       this.replace(id, { id, title: info.name, status: "ready", session })
+      this.settleMove(id)
     } catch (error) {
       this.endAttempt(attempt, id)
       if (attempt.abandoned) {
@@ -283,28 +294,61 @@ export class Workspace {
     )
   }
 
-  /** Draws a project's tab with its guest from a new address, once its builder started again on another port. */
-  async moveGuest(projectId: string, guestUrl: string): Promise<void> {
+  /**
+   * Draws a project's tab with its guest from a new address, once its builder started again on another port. Resolves
+   * false when the guest there couldn't be loaded, so the tab still draws the old one, or when the tab is still loading
+   * and draws it from there once it's ready.
+   */
+  async moveGuest(projectId: string, guestUrl: string): Promise<boolean> {
     const tab = this.tabs.find((candidate) => candidate.session?.id === projectId)
-    if (!tab?.session || tab.session.info.guestUrl === guestUrl) return
+    if (!tab?.session) {
+      const loading = this.getTab(projectId)?.status === "loading"
+      if (loading) this.moves.set(projectId, guestUrl)
+      return !loading
+    }
+    const before = tab.session.info.guestUrl
+    if (before === guestUrl) return true
+    this.latestMoves.set(projectId, guestUrl)
+    // Whether no move came after this one, nor a reopen or close, which forget the last move; it's settled either way.
+    const latest = () => {
+      const last = this.latestMoves.get(projectId) === guestUrl
+      if (last) this.latestMoves.delete(projectId)
+      return last
+    }
     try {
       const loaded = await loadGuest(guestUrl, tab.session.info.theme)
       const current = this.getTab(tab.id)
-      if (!current?.session) return
+      const now = current?.session?.info.guestUrl
+      // A tab closed or reopened meanwhile draws what it has now, and one that moved again draws from there once that
+      // guest loads, so the guest loaded here is no one's.
+      if (!latest() || !current?.session || now !== before) {
+        if (now !== guestUrl) releaseGuest(guestUrl)
+        return !current?.session || now === guestUrl
+      }
       // From the session as it is now, since its sources can change while the guest loads.
       const info = { ...current.session.info, guestUrl }
-      const before = current.session.info.guestUrl
       this.replace(tab.id, {
         ...current,
         session: { ...current.session, info, loaded, tokens: tokenStore(info, loaded, current.session.store) }
       })
       current.session.tokens.dispose()
       releaseGuest(before)
+      return true
     } catch (error) {
+      if (!latest()) return false
       toast.error(`Couldn't load ${tab.session.info.name} from its restarted builder`, {
         description: error instanceof Error ? error.message : String(error)
       })
+      return false
     }
+  }
+
+  /** Draws a tab that has just loaded from where its guest moved meanwhile, if it did. */
+  private settleMove(id: string): void {
+    const guestUrl = this.moves.get(id)
+    if (!guestUrl) return
+    this.moves.delete(id)
+    void this.moveGuest(id, guestUrl)
   }
 
   /** Saves every open project's unsaved changes. */
@@ -525,11 +569,17 @@ function sayWhenSavesFail(session: ProjectSession): void {
 async function createSession(info: ProjectInfo): Promise<ProjectSession> {
   const loaded = await loadGuest(info.guestUrl, info.theme)
   const readable = info.documents.flatMap(({ path, document }) => (document ? [{ path, document }] : []))
-  const store = new DesignStore(readable, info.modes.settings, info.mainDocument, {
-    saveDocument: (path, document) =>
-      window.canvasHost.request("document.save", { projectId: info.id, path, document }),
-    autosave: () => getPreferences().autosave
-  })
+  const store = new DesignStore(
+    readable,
+    info.modes.settings,
+    info.mainDocument,
+    {
+      saveDocument: (path, document) =>
+        window.canvasHost.request("document.save", { projectId: info.id, path, document }),
+      autosave: () => getPreferences().autosave
+    },
+    info.libraries.flatMap((library) => library.designs ?? [])
+  )
   const components = new ComponentStore()
   inferComponents(info, components)
   const session: ProjectSession = {

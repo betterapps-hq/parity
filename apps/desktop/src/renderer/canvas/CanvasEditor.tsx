@@ -141,6 +141,18 @@ function settleZoom(editor: Editor): () => void {
   }
 }
 
+/** Whether the camera has come to rest zoomed far out, by editor (see `markZoomedOut`). */
+const restingFar = new WeakMap<Editor, Atom<boolean>>()
+
+/**
+ * Whether the camera has come to rest zoomed far enough out for frames to show their bitmaps. Frames showing theirs
+ * then sleep (see frame-sleep.ts). It goes by the zoom once it's settled, so a zoom passing through doesn't put a
+ * project's frames to sleep, and wake them, as it goes.
+ */
+export function isRestingFar(editor: Editor): boolean {
+  return restingFar.get(editor)?.get() ?? false
+}
+
 /**
  * Marks the canvas while it's zoomed far out: `data-far` once frames are drawn no larger than their bitmaps, so boards
  * show those instead (see frame-bitmaps.ts), and `data-tiny` below about 5%, where boards and frames drop their
@@ -153,6 +165,8 @@ function markZoomedOut(editor: Editor): () => void {
     ["data-far", bitmapScale],
     ["data-tiny", 0.05]
   ] as const
+  const far = (zoom: number, before: boolean) =>
+    zoom * window.devicePixelRatio <= (before ? bitmapScale * 1.15 : bitmapScale)
   const stop = react("zoomed out", () => {
     const drawn = editor.getZoomLevel() * window.devicePixelRatio
     for (const [mark, line] of marks) {
@@ -160,8 +174,15 @@ function markZoomedOut(editor: Editor): () => void {
       if (area.hasAttribute(mark) !== on) area.toggleAttribute(mark, on)
     }
   })
+  const resting = atom("resting far", far(editor.getEfficientZoomLevel(), false))
+  restingFar.set(editor, resting)
+  const stopResting = react("resting far", () => {
+    resting.set(far(editor.getEfficientZoomLevel(), resting.__unsafe__getWithoutCapture()))
+  })
   return () => {
     stop()
+    stopResting()
+    restingFar.delete(editor)
     for (const [mark] of marks) area.removeAttribute(mark)
   }
 }

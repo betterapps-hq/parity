@@ -1,3 +1,5 @@
+import type { IconNames, IconSet } from "@parity-app/agent"
+import type { LibraryInfo } from "@parity-app/core"
 import { toast } from "sonner"
 import type { AgentChanges, TabSnapshot, TabSummary, WindowMethod, WindowMethods } from "../../shared/protocol.ts"
 import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
@@ -20,6 +22,8 @@ export function serveAgents(): void {
       }
       case "agent.snapshot":
         return snapshot((params as WindowMethods["agent.snapshot"]["params"]).tab)
+      case "agent.iconNames":
+        return iconNames(params as WindowMethods["agent.iconNames"]["params"])
       case "agent.apply":
         return apply(params as AgentChanges)
       case "agent.presence":
@@ -35,7 +39,8 @@ export function serveAgents(): void {
       }
       case "project.guestMoved": {
         const { projectId, guestUrl } = params as WindowMethods["project.guestMoved"]["params"]
-        await workspace.moveGuest(projectId, guestUrl)
+        // A tab that couldn't load it says so, and the service tries again when the builder is started again.
+        if (!(await workspace.moveGuest(projectId, guestUrl))) throw new Error(`The guest at ${guestUrl} didn't load`)
         return undefined
       }
       case "project.fileChanged": {
@@ -97,7 +102,7 @@ function snapshot(reference: string | undefined): TabSnapshot {
     ...(session.added ? { addedComponents: session.added } : {}),
     ...(session.info.leftOut ? { leftOut: session.info.leftOut } : {}),
     ...(session.loaded.guest.renderStatus ? { renderStatus: session.loaded.guest.renderStatus.get() } : {}),
-    iconLibraries: session.info.libraries.filter((library) => library.kind === "icons").map((library) => library.id),
+    iconSets: session.info.libraries.filter((library) => library.kind === "icons").map(iconSet),
     tokens: session.tokens.get(),
     theme: session.info.theme,
     modes: session.store.getModes(),
@@ -114,6 +119,28 @@ function snapshot(reference: string | undefined): TabSnapshot {
     },
     bounds: boards,
     detection: session.info.detection
+  }
+}
+
+/** An icon set as agents read it, without its tags, which can run to thousands of lines and only `iconNames` needs. */
+function iconSet({ id, name, package: packageName, version, icons }: LibraryInfo): IconSet {
+  const set: IconSet = { id, name, package: packageName, ...(version ? { version } : {}) }
+  if (!icons) return set
+  const described = { ...icons }
+  delete described.tags
+  return { ...set, icons: described }
+}
+
+/** The names an icon set exports in one style's module, as the tab's guest loaded them, with the set's tags. */
+function iconNames({ tab, set, module }: WindowMethods["agent.iconNames"]["params"]): IconNames {
+  const session = ready(findTab(tab))
+  const library = session.info.libraries.find((candidate) => candidate.kind === "icons" && candidate.id === set)
+  if (!library) throw new Error(`"${set}" isn't one of the project's icon sets`)
+  const { guest } = session.loaded
+  return {
+    names: guest.iconNames?.(set, module) ?? [],
+    aliases: guest.iconAliases?.(set, module) ?? {},
+    ...(library.icons?.tags ? { tags: library.icons.tags } : {})
   }
 }
 

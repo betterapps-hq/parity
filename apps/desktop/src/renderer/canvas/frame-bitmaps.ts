@@ -24,25 +24,46 @@ let queue: Promise<unknown> = Promise.resolve()
 const guests = new WeakMap<object, number>()
 let nextGuest = 1
 
+/** What a frame shows, as keys, and the job that draws it offscreen. */
+export interface FrameShows {
+  /**
+   * What the frame's design renders: the project's guest and the revision of its code, the mode and the design's tree.
+   * The live frame draws again when it changes; its size and previewed tokens it follows by itself.
+   */
+  drawn: string
+  /** `drawn`, with the size and the tokens previewed: everything a bitmap shows. Bitmaps, skeletons and sleep go by it. */
+  key: string
+  job: RenderJob
+}
+
+const noRevision = { get: () => 0, subscribe: () => () => undefined }
+
 /**
- * A bitmap of a frame as it's drawn now, taken offscreen once the frame has stayed the same for a moment: nothing while
- * it's being taken, or when the frame didn't render. `key` says what the frame shows, for its skeleton.
+ * What a frame shows. Worked out once for each frame, so the live frame and what stands in for it zoomed out (its
+ * bitmap, its skeleton) can't disagree about when it changed. A component the guest is given from a new file, as the
+ * type checker finds it, changes every frame's key, so each draws again and its bitmap is taken again; the job carries
+ * those components, so the offscreen renderer draws them too.
  */
-export function useFrameBitmap(
+export function useFrameShows(
   session: ProjectSession,
   tree: RenderNode[],
   mode: ResolvedMode,
   width: number,
   height: number | undefined,
   scale: number
-): { key: string; bitmap?: string } {
+): FrameShows {
   const previews = useSyncExternalStore(session.tokens.subscribe, session.tokens.previews)
+  const { guest } = session.loaded
+  const revision = guest.revision ?? noRevision
+  const code = useSyncExternalStore(revision.subscribe, revision.get)
   const treeKey = useMemo(() => JSON.stringify(tree), [tree])
   const { guestUrl, theme } = session.info
+  const { added } = session
   const job = useMemo<RenderJob>(
     () => ({
       projectId: session.id,
       guestUrl,
+      ...(added ? { components: added } : {}),
       theme,
       tree,
       mode: {
@@ -55,19 +76,25 @@ export function useFrameBitmap(
       scale: bitmapScale * scale,
       ...(previews.length > 0 ? { previews: [...previews] } : {})
     }),
-    [session.id, guestUrl, theme, tree, mode, width, height, scale, previews]
+    [session.id, guestUrl, added, theme, tree, mode, width, height, scale, previews]
   )
   const previewsKey = useMemo(() => JSON.stringify(previews), [previews])
-  const key = [
-    guestId(session.loaded.guest),
+  const drawn = [
+    guestId(guest),
+    code,
     guestUrl,
-    previewsKey,
-    width,
-    height,
-    scale,
     JSON.stringify([mode.classNames, mode.attributes, job.mode.globals]),
     treeKey
   ].join("|")
+  const key = [drawn, previewsKey, width, height, scale].join("|")
+  return useMemo(() => ({ drawn, key, job }), [drawn, key, job])
+}
+
+/**
+ * A bitmap of a frame as it's drawn now, taken offscreen once the frame has stayed the same for a moment: nothing while
+ * it's being taken, or when the frame didn't render.
+ */
+export function useFrameBitmap({ key, job }: FrameShows): string | undefined {
   const [shown, setShown] = useState<{ key: string; src?: string }>()
 
   useEffect(() => {
@@ -84,7 +111,7 @@ export function useFrameBitmap(
     }
   }, [key, job])
 
-  return { key, ...(shown?.key === key && shown.src ? { bitmap: shown.src } : {}) }
+  return shown?.key === key ? shown.src : undefined
 }
 
 function capture(key: string, job: RenderJob): Promise<string | undefined> {

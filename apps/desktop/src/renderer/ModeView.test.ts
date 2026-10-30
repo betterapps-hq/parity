@@ -34,17 +34,27 @@ function Field() {
 
 const sheet = new CSSStyleSheet()
 sheet.replaceSync(":host { --spacing: 4px; --header: 40px }")
-const loaded = { guest: createGuest({ components: { Field }, css: "" }), sheet, tokens: [] }
+// A component that throws, until it's found in another file.
+function Broken() {
+  throw new Error("Not built yet")
+}
+
+const loaded = { guest: createGuest({ components: { Field, Broken }, css: "" }), sheet, tokens: [] }
 const mode = resolveModes(defaultModeSettings)[0]
 let root
 
-/** Shows a design in one frame, as the canvas does, interactive or not. */
-export function show(container, { interactive = false, scale = 1 } = {}) {
+/** Gives the guest components from other files, as the type checker does once it finds them. */
+export function addComponents(sources) {
+  loaded.guest.addComponents(sources)
+}
+
+/** Shows a design in one frame, as the canvas does, interactive or not, or asleep; \`shows\` keys what it renders. */
+export function show(container, { interactive = false, scale = 1, asleep = false, shows } = {}) {
   root ??= createRoot(document.querySelector("#area"))
   const tree = resolveDesign(container.root, container.states[0], mode.viewport, new Map())
   flushSync(() =>
     root.render(
-      createElement(ModeView, { loaded, tree, mode, width: 390, design: container.id, state: "default", primary: true, scale, interactive })
+      createElement(ModeView, { loaded, tree, mode, width: 390, design: container.id, state: "default", primary: true, scale, interactive, asleep, shows })
     )
   )
 }
@@ -68,6 +78,13 @@ beforeAll(async () => {
     if (message.type() === "error") errors.push(message.text())
   })
   page.on("pageerror", (error) => errors.push(error.message))
+  // A file a component moves to, as the project's dev server would build it: a component drawing plain text.
+  await page.route("http://parity.test/src/fixed.js", (route) =>
+    route.fulfill({ contentType: "text/javascript", body: 'export function Broken() { return "Fixed" }' })
+  )
+  await page.route("http://parity.test/src/moved.js", (route) =>
+    route.fulfill({ contentType: "text/javascript", body: 'export function Field() { return "Moved" }' })
+  )
   await page.route("http://parity.test/app.js", (route) =>
     route.fulfill({ contentType: "text/javascript", body: bundle.outputFiles[0]!.text })
   )
@@ -98,7 +115,10 @@ const form = {
 }
 
 /** Shows a design and lets its effects run. */
-async function show(container: unknown, options: { interactive?: boolean; scale?: number } = {}) {
+async function show(
+  container: unknown,
+  options: { interactive?: boolean; scale?: number; asleep?: boolean; shows?: string } = {}
+) {
   // @ts-expect-error The bundle's global.
   await page.evaluate(({ container, options }) => app.show(container, options), { container, options })
   await page.waitForTimeout(50)
@@ -195,6 +215,33 @@ const card = {
   states: [{ id: "default", name: "Default" }]
 }
 
+describe("a frame asleep", () => {
+  /** The frame's host, what it holds, and how tall the frame is laid out. */
+  const frame = () =>
+    page.evaluate(() => {
+      const host = document.querySelector<HTMLElement>("[data-frame]")!
+      return {
+        design: host.dataset.design,
+        elements: host.shadowRoot?.querySelectorAll("*").length ?? 0,
+        field: !!host.shadowRoot?.querySelector("input"),
+        height: document.querySelector<HTMLElement>(".mode-frame")!.offsetHeight
+      }
+    })
+
+  it("lets go of its design and keeps its host and height, and draws it again when it wakes", async () => {
+    await show(form)
+    const awake = await frame()
+    expect(awake.field).toBe(true)
+    expect(awake.height).toBeGreaterThan(0)
+
+    await show(form, { asleep: true })
+    expect(await frame()).toEqual({ design: "form", elements: 0, field: false, height: awake.height })
+
+    await show(form)
+    expect(await frame()).toEqual(awake)
+  })
+})
+
 describe("what the canvas reads from an inert frame", () => {
   it("still finds the layers under the pointer, by their boxes", async () => {
     await show(card)
@@ -243,5 +290,43 @@ describe("what the canvas reads from an inert frame", () => {
     await show(card, { scale: 0.5 })
     expect(await insets()).toEqual(expected)
     expect(errors).toEqual([])
+  })
+})
+
+describe("a component moved to another file", () => {
+  it("is drawn from there once what the frame renders is keyed again", async () => {
+    const drawn = () => page.evaluate(() => document.querySelector("[data-frame]")!.shadowRoot!.textContent)
+    await show(form, { shows: "before" })
+    expect(
+      await page.evaluate(() => !!document.querySelector("[data-frame]")!.shadowRoot!.querySelector("input"))
+    ).toBe(true)
+    // @ts-expect-error The bundle's global.
+    await page.evaluate(() => app.addComponents({ Field: { path: "src/moved.js", export: "Field" } }))
+    // The same key draws nothing new: the frame doesn't know the code changed.
+    await show(form, { shows: "before" })
+    expect(await drawn()).not.toContain("Moved")
+    await show(form, { shows: "after" })
+    await expect.poll(drawn).toContain("Moved")
+    expect(errors).toEqual([])
+  })
+})
+
+describe("a component that failed, moved to another file", () => {
+  it("draws from there instead of its error", async () => {
+    const broken = {
+      id: "broken",
+      name: "Broken",
+      position: { x: 0, y: 0 },
+      root: { type: "layout", id: "root", children: [{ type: "component", id: "broken", component: "Broken" }] },
+      states: [{ id: "default", name: "Default" }]
+    }
+    const drawn = () => page.evaluate(() => document.querySelector("[data-frame]")!.shadowRoot!.textContent)
+    await show(broken, { shows: "failing" })
+    await expect.poll(drawn).toContain("Broken: Not built yet")
+    // @ts-expect-error The bundle's global.
+    await page.evaluate(() => app.addComponents({ Broken: { path: "src/fixed.js", export: "Broken" } }))
+    await show(broken, { shows: "fixed" })
+    await expect.poll(drawn).toContain("Fixed")
+    expect(await drawn()).not.toContain("Not built yet")
   })
 })

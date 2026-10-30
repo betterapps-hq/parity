@@ -428,6 +428,9 @@ importers:
       '@parity-app/core':
         specifier: workspace:*
         version: link:../core
+      '@parity-app/icons':
+        specifier: workspace:*
+        version: link:../icons
 
   packages/builder-vite:
     dependencies:

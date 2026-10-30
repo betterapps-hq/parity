@@ -110,6 +110,7 @@ export class DesignStore {
   private entries: readonly ContainerEntry[] = []
   private byKey: ReadonlyMap<string, ContainerEntry> = new Map()
   private libraries: ReadonlyMap<string, ComponentLibrary> = new Map()
+  private library: ComponentLibrary = noLibrary
   private notes: readonly NoteEntry[] = []
   private past: HistoryEntry[] = []
   private future: HistoryEntry[] = []
@@ -129,7 +130,12 @@ export class DesignStore {
     modes: ModeSettings,
     /** The project file new designs and the modes go into. */
     readonly mainPath: string,
-    private readonly persistence: Persistence
+    private readonly persistence: Persistence,
+    /**
+     * Component designs from the project's libraries' `.lib.par` canvases (`nova/settings-row`), which instances can
+     * place but the project's files don't hold.
+     */
+    private readonly libraryDesigns: readonly ContainerSpec[] = []
   ) {
     this.documents = new Map(documents.map(({ path, document }) => [path, withoutModes(document)]))
     this.modes = modes
@@ -146,6 +152,8 @@ export class DesignStore {
   getEntry = (key: string) => this.byKey.get(key)
   /** What a design's instances reach, for resolving it: the same library until one of those designs changes. */
   getLibrary = (key: string): ComponentLibrary => this.libraries.get(key) ?? noLibrary
+  /** Every component design instances can place: the project's own, and its libraries'. */
+  getComponentLibrary = (): ComponentLibrary => this.library
   getNotes = () => this.notes
   getModes = () => this.modes
   getHistory = () => this.history
@@ -534,7 +542,9 @@ export class DesignStore {
       })
     )
     this.byKey = new Map(this.entries.map((entry) => [entry.key, entry]))
-    const library = componentLibrary(this.entries.map((entry) => entry.container))
+    // The project's own designs come last, so one with a library design's id wins.
+    const library = componentLibrary([...this.libraryDesigns, ...this.entries.map((entry) => entry.container)])
+    this.library = library
     this.libraries = new Map(
       this.entries.map((entry) => [
         entry.key,

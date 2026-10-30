@@ -30,19 +30,6 @@ export function drawn(token: PreviewToken, theme = "default"): string {
   return theme === "default" ? (token.resolved ?? token.values.default ?? "") : (token.values[theme] ?? "")
 }
 
-/**
- * A token's themes grouped by the value each draws, in order, so themes that share a color draw as one swatch rather
- * than as halves that run together.
- */
-export function themesByValue(token: PreviewToken, themes: readonly string[]): string[][] {
-  const groups = new Map<string, string[]>()
-  for (const theme of themes) {
-    const value = drawn(token, theme)
-    groups.set(value, [...(groups.get(value) ?? []), theme])
-  }
-  return [...groups.values()]
-}
-
 /** The panel's sections, in order, each with the kinds it holds and a heading for each kind when it holds more. */
 export const tokenSections: { title: string; kinds: { kind: PreviewKind; heading?: string }[] }[] = [
   { title: "Colors", kinds: [{ kind: "color" }] },
@@ -156,11 +143,36 @@ export const onPaper = new Set<PreviewKind>([
 /** Kinds that move, and so play while hovered, focused or open. */
 export const moving = new Set<PreviewKind>(["duration", "easing", "animation"])
 
+const checkerboard = "repeating-conic-gradient(oklch(0.88 0 0) 0 25%, transparent 0 50%)"
+
 export const checker: CSSProperties = {
   backgroundColor: "#fff",
-  backgroundImage: "repeating-conic-gradient(oklch(0.88 0 0) 0 25%, transparent 0 50%)",
+  backgroundImage: checkerboard,
   backgroundSize: "8px 8px"
 }
+
+/**
+ * How a color swatch is painted: the color over a checkerboard as layers of one element, so a see-through color shows
+ * what's behind it and a rounded corner has a single edge, and a hairline over both in Parity's own text color, faint.
+ * The hairline is light in the dark UI and dark in the light one, so black and white swatches stand off the panel while
+ * the colors between look unchanged. It's an inset shadow, so it follows the element's radius.
+ *
+ * The color goes through `--swatch` with a see-through fallback, so a value the browser can't read, or a `var()` that
+ * Parity's own document doesn't define, leaves the checkerboard showing rather than voiding the whole background.
+ */
+export function swatch(value: string): CSSProperties & { "--swatch": string } {
+  const color = typeof document !== "undefined" && CSS.supports("color", value) ? value : "transparent"
+  return {
+    "--swatch": color,
+    backgroundColor: "#fff",
+    backgroundImage: `linear-gradient(var(--swatch, transparent), var(--swatch, transparent)), ${checkerboard}`,
+    backgroundSize: "auto, 8px 8px",
+    boxShadow: `inset 0 0 0 1px ${hairline}`
+  }
+}
+
+/** A swatch's edge: Parity's text color, faint, so it shows on whichever color the panel is. */
+const hairline = "color-mix(in oklab, var(--foreground) 14%, transparent)"
 
 /** Holds reduced motion on or off for what's inside, so a story can show both without changing the computer's setting. */
 export const ReducedMotion = createContext<boolean | undefined>(undefined)
@@ -542,11 +554,8 @@ export function TokenArt({
   const small = Math.min(width, height)
   switch (token.kind) {
     case "color": {
-      return (
-        <span className="block size-full" style={{ ...checker, boxShadow: "inset 0 0 0 1px rgb(255 255 255 / 0.12)" }}>
-          <span className="block size-full" style={{ background: value }} />
-        </span>
-      )
+      // Rounded as the box it's drawn in, so its hairline follows the corners.
+      return <span className="block size-full rounded-[inherit]" style={swatch(value)} />
     }
     case "spacing":
       return (
@@ -1194,17 +1203,17 @@ export function TokenGlyph({
 }: {
   token: PreviewToken
   playing?: boolean
-  /** Colors show a swatch for each theme, or one for themes that share a value. */
+  /** Colors show a swatch for each theme, even where two themes share a value. */
   themes?: string[]
   /** Wider for spacing, so each bar is its length's true size. */
   width?: number
 }) {
   if (token.kind === "color") {
     return (
-      <span className="flex h-5 w-10 shrink-0 gap-px overflow-hidden rounded-[4px]">
-        {themesByValue(token, themes).map((group, _, groups) => (
-          <span key={group[0]} className="h-full flex-1">
-            <TokenArt token={token} width={40 / groups.length} height={20} theme={group[0]} />
+      <span className="flex h-5 w-10 shrink-0 gap-px">
+        {themes.map((theme) => (
+          <span key={theme} className="h-full flex-1 first:rounded-l-[4px] last:rounded-r-[4px]">
+            <TokenArt token={token} width={40 / themes.length} height={20} theme={theme} />
           </span>
         ))}
       </span>
@@ -1239,6 +1248,18 @@ export function TokenTile({
   theme?: string
 }) {
   const themes = Object.keys(token.values)
+  if (token.kind === "color" && theme === undefined) {
+    // The swatches are the tile, one for each theme, each with its own edge, split by a gap as a row's are.
+    return (
+      <span className="flex shrink-0 gap-px" style={{ width, height }}>
+        {themes.map((each) => (
+          <span key={each} className="h-full flex-1 first:rounded-l-md last:rounded-r-md">
+            <TokenArt token={token} width={width / themes.length} height={height} theme={each} />
+          </span>
+        ))}
+      </span>
+    )
+  }
   return (
     <span
       className="relative block shrink-0 overflow-hidden rounded-md border"
@@ -1250,15 +1271,7 @@ export function TokenTile({
           : { background: "var(--muted)" })
       }}
     >
-      {token.kind === "color" && theme === undefined ? (
-        <span className="flex size-full">
-          {themes.map((each) => (
-            <TokenArt key={each} token={token} width={(width - 2) / themes.length} height={height - 2} theme={each} />
-          ))}
-        </span>
-      ) : (
-        <TokenArt token={token} width={width - 2} height={height - 2} playing={playing} theme={theme} />
-      )}
+      <TokenArt token={token} width={width - 2} height={height - 2} playing={playing} theme={theme} />
     </span>
   )
 }
