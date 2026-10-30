@@ -13,6 +13,9 @@ import {
 import type { ComponentSource } from "./project.ts"
 import type { ComponentInfo } from "./props.ts"
 
+/** Nodes whose `children` is the name `componentNode` gave them, rather than text someone set. */
+const named = new WeakSet<DesignNode>()
+
 /**
  * A new node for a component, ready to show something: required props get their default or first option, and a
  * component that takes children gets its own name as text, so it isn't an empty box.
@@ -32,15 +35,16 @@ export function componentNode(
     else if (prop.kind === "number") props[prop.name] = 0
     else if (prop.kind === "string") props[prop.name] = prop.name
   }
-  if (info?.props.some((prop) => prop.name === "children" && prop.kind === "node")) {
-    props.children = component.split("/").at(-1) ?? component
-  }
-  return {
+  const labelled = info?.props.some((prop) => prop.name === "children" && prop.kind === "node")
+  if (labelled) props.children = component.split("/").at(-1) ?? component
+  const node: DesignNode = {
     type: "component",
     id: generateId(taken),
     component,
     ...(Object.keys(props).length > 0 ? { props } : {})
   }
+  if (labelled) named.add(node)
+  return node
 }
 
 /**
@@ -118,10 +122,9 @@ export function withLibraryContext(
   const sample = source.sample
   if (sample) {
     // Text the sample gives as a prop (Chakra's `Highlight`) stands in for the label a new node is named with, though
-    // not for one set on purpose.
-    const label = node.component.split("/").at(-1)
+    // not for one set on purpose, even one that reads the same.
     const given = { ...node.props }
-    if (sample.props && "children" in sample.props && given.children === label) delete given.children
+    if (sample.props && "children" in sample.props && named.has(node)) delete given.children
     const { props, slots } = held({ ...sample.props, ...given }, sample.children)
     // Children the sample spells out stand in for the text label, and none (`[]`, an input's) leave it out.
     if (sample.children) delete props.children

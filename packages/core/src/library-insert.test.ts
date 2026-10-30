@@ -40,5 +40,13 @@ describe("inserting a library part", () => {
     const node = { type: "component" as const, id: "mine", component: "acme/Highlight", props: { children: "Mine" } }
     const written = withLibraryContext(node, sources, [], taken)
     expect(written.type === "component" && written.props).toEqual({ children: "Mine" })
+    const same = {
+      type: "component" as const,
+      id: "same",
+      component: "acme/Highlight",
+      props: { children: "Highlight" }
+    }
+    const kept = withLibraryContext(same, sources, [], taken)
+    expect(kept.type === "component" && kept.props).toEqual({ children: "Highlight" })
   })
 })
