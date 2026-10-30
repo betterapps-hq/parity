@@ -12,6 +12,8 @@ import {
   nodeInState,
   type NodeStyle,
   type NoteSpec,
+  parseCanvasDocument,
+  parseDesignNode,
   type StateSpec,
   topmostNodes,
   uniqueId,
@@ -47,39 +49,48 @@ export function writeEnvelope(
   return { text: JSON.stringify(envelope), envelope }
 }
 
-/** Parity's own copy, read back from the clipboard's text. Undefined for anything else. */
+/**
+ * Parity's own copy, read back from the clipboard's text. Its layers, designs and notes are checked against the `.par`
+ * schema, as a file's are, since they come from outside the app. Undefined for anything else.
+ */
 export function readEnvelope(text: string): ClipboardEnvelope | undefined {
   if (!text.startsWith('{"parity":"clipboard"')) return undefined
   try {
     const value: unknown = JSON.parse(text)
-    return isEnvelope(value) ? value : undefined
+    if (
+      typeof value !== "object" ||
+      value === null ||
+      !("parity" in value) ||
+      value.parity !== "clipboard" ||
+      !("version" in value) ||
+      value.version !== 1 ||
+      !("project" in value) ||
+      typeof value.project !== "string" ||
+      !("payload" in value)
+    ) {
+      return undefined
+    }
+    const payload = parsePayload(value.payload)
+    return payload ? { parity: "clipboard", version: 1, project: value.project, payload } : undefined
   } catch {
+    // Not JSON, or a payload that doesn't match the schema.
     return undefined
   }
 }
 
-function isEnvelope(value: unknown): value is ClipboardEnvelope {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "parity" in value &&
-    value.parity === "clipboard" &&
-    "version" in value &&
-    value.version === 1 &&
-    "project" in value &&
-    typeof value.project === "string" &&
-    "payload" in value &&
-    isPayload(value.payload)
-  )
-}
-
-/** A payload of a known kind, holding the list that kind pastes. */
-function isPayload(value: unknown): boolean {
-  if (typeof value !== "object" || value === null || !("kind" in value)) return false
-  if (value.kind === "layers") return "nodes" in value && Array.isArray(value.nodes)
-  if (value.kind === "designs") return "designs" in value && Array.isArray(value.designs)
-  if (value.kind === "notes") return "notes" in value && Array.isArray(value.notes)
-  return false
+/** A payload of a known kind, its list checked by core's parsers, which throw on anything that doesn't match. */
+function parsePayload(value: unknown): ClipboardPayload | undefined {
+  if (typeof value !== "object" || value === null || !("kind" in value)) return undefined
+  if (value.kind === "layers" && "nodes" in value && Array.isArray(value.nodes)) {
+    return { kind: "layers", nodes: value.nodes.map((node, index) => parseDesignNode(node, `/payload/nodes/${index}`)) }
+  }
+  if (value.kind === "designs" && "designs" in value && Array.isArray(value.designs)) {
+    return { kind: "designs", designs: parseCanvasDocument({ version: 3, containers: value.designs }).containers }
+  }
+  if (value.kind === "notes" && "notes" in value && Array.isArray(value.notes)) {
+    return { kind: "notes", notes: parseCanvasDocument({ version: 3, containers: [], notes: value.notes }).notes ?? [] }
+  }
+  return undefined
 }
 
 /** SVG markup, as icon sites and design tools copy it, which pastes as a picture rather than as its source. */
@@ -197,7 +208,7 @@ export function copyDesigns(
 ): ContainerSpec[] {
   const ids = [...taken]
   return designs.map((design) => {
-    const id = uniqueId(design.name, ids)
+    const id = ids.includes(design.id) ? uniqueId(design.name, ids) : design.id
     ids.push(id)
     return {
       ...design,

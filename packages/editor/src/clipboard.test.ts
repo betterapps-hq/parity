@@ -2,6 +2,7 @@ import { type ContainerSpec, type DesignNode, findNode, nodeIds, nodeInState, ty
 import { describe, expect, it } from "vitest"
 import {
   applyStyle,
+  type ClipboardPayload,
   copyDesigns,
   copyLayers,
   copyNotes,
@@ -91,6 +92,29 @@ describe("the clipboard's envelope", () => {
     expect(envelope("notes", { notes: null })).toBeUndefined()
     expect(envelope("designs", { designs: [] })?.payload).toEqual({ kind: "designs", designs: [] })
     expect(envelope("notes", { notes: [] })?.payload).toEqual({ kind: "notes", notes: [] })
+  })
+
+  it("reads nothing when what it holds doesn't match the .par schema", () => {
+    const envelope = (payload: object) =>
+      readEnvelope(JSON.stringify({ parity: "clipboard", version: 1, project: "D:/acme", payload }))
+    expect(envelope({ kind: "layers", nodes: [null] })).toBeUndefined()
+    expect(envelope({ kind: "layers", nodes: [{}] })).toBeUndefined()
+    expect(envelope({ kind: "layers", nodes: [{ type: "layout", id: "row" }] })).toBeUndefined()
+    const { position: _position, ...unplaced } = form()
+    expect(envelope({ kind: "designs", designs: [unplaced] })).toBeUndefined()
+    expect(envelope({ kind: "notes", notes: [{ id: "note-a", text: "Flow starts here" }] })).toBeUndefined()
+  })
+
+  it("reads back designs and notes that match it", () => {
+    const note: NoteSpec = { id: "note-a", text: "Flow starts here", position: { x: 1, y: 2 } }
+    const payloads: ClipboardPayload[] = [
+      { kind: "designs", designs: [form()] },
+      { kind: "notes", notes: [note] }
+    ]
+    for (const payload of payloads) {
+      const { text: written } = writeEnvelope("D:/acme", payload)
+      expect(readEnvelope(written)?.payload).toEqual(payload)
+    }
   })
 })
 
@@ -217,6 +241,12 @@ describe("pasting designs", () => {
       { x: 11, y: -20 },
       { x: 1411, y: -20 }
     ])
+  })
+
+  it("keeps an id that isn't made from the design's name", () => {
+    const signup = { ...form(), id: "signup", name: "Sign up" }
+    expect(copyDesigns([signup], ["form"], { x: 0, y: 0 })[0]!.id).toBe("signup")
+    expect(copyDesigns([signup], ["signup"], { x: 0, y: 0 })[0]!.id).toBe("sign-up")
   })
 
   it("gives two copies of one design different ids", () => {

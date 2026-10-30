@@ -95,7 +95,7 @@ describe("paste over selection", () => {
   })
 
   it("gives copied designs new ids when theirs are taken", () => {
-    const copies = designsAt([design("Form", 0, 0), design("Form", 10, 0)], ["form"], { x: 0, y: 0 })
+    const copies = designsAt([design("form", 0, 0), design("form", 10, 0)], ["form"], { x: 0, y: 0 })
     expect(copies.map((copy) => copy.id)).toEqual(["form-2", "form-3"])
   })
 })

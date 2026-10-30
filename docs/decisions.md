@@ -1595,8 +1595,11 @@ How Parity's code is split, so the parts that change most are easy to find, repl
   - `paste-over.ts` moved with the clipboard, with its tests, since it was already pure and is where pasted layers go.
     `paste-here.ts` stays until drop rules move (PAR-33), as it uses `drop-slot.ts`'s `slotAt`, and `free-space.ts`'s
     `freeSpotBeside` until placement does (PAR-32).
-  - Reading the clipboard's envelope checks more than it did: the project must be text and the payload one of the three
-    kinds, holding the list that kind pastes, since it's data from outside the app.
+  - Reading the clipboard's envelope checks more than it did, since it's data from outside the app: the project must be
+    text, and the payload one of the three kinds, its layers, designs or notes checked by core's `.par` parsers
+    (`parseDesignNode`, `parseCanvasDocument`). A copy that fails pastes nothing instead of throwing partway.
+  - A pasted design keeps its id when it's free, as the clipboard's comment always said. Before, every pasted design
+    took an id made from its name, so one whose id wasn't its name's lost it.
 - **Lenses and adapters never go in core.** Lens models are schemas in `@parity/models`, each lens is a package, and so
   is each adapter, such as Drizzle or TanStack Router.
 
