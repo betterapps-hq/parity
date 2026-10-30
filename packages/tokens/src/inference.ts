@@ -252,7 +252,7 @@ const compounds: [string, InferredKind][] = [
  * A name's words, lowercased: split at dashes, underscores, dots, camelCase humps and where letters turn to digits, so
  * `shadow2` is `shadow 2` and `fontSizeBase300` is `font size base 300`.
  */
-export function nameWords(name: string): string[] {
+function nameWords(name: string): string[] {
   return name
     .split(/[-_.\\]+|(?<=[a-z\d])(?=[A-Z])|(?<=[a-zA-Z])(?=\d)/)
     .filter(Boolean)

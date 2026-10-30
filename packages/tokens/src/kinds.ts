@@ -1,7 +1,7 @@
 // What a token's preview draws, and the ways to write a token in code. The Tokens panel, the inspector's pickers and
 // the agent read these; the drawings themselves are the app's. docs/proposals/previews.md has the design.
 
-import { type InferredKind, inferTokenKind } from "./token-inference.ts"
+import { type InferredKind, inferTokenKind } from "./inference.ts"
 import type { Token } from "./tokens.ts"
 
 /**
@@ -50,7 +50,7 @@ const previewOf: Partial<Record<InferredKind, PreviewKind>> = {
 }
 
 /**
- * A token's preview kind, inferred from its value, then its name, else none (`token-inference.ts`): a DTCG type the
+ * A token's preview kind, inferred from its value, then its name, else none (`inference.ts`): a DTCG type the
  * author gives decides first, and the group it's filed under (its category) is read after its own name. `lookup` gives
  * the tokens it refers to, so `calc(var(--radius) * 0.8)` is read as the length it comes to.
  */

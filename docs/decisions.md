@@ -1455,7 +1455,7 @@ to PAR-209 build it.
   5. When nothing settles it, it's a setting (Other, a plain value with no preview), never a guess.
 
   A DTCG `$type` the author states decides first. It reads CSS values and generic English words only, never a
-  framework's names. `core/fixtures/token-categories.json` holds every token of Chakra, Fluent, Mantine, MUI and Nova,
+  framework's names. `tokens/fixtures/token-categories.json` holds every token of Chakra, Fluent, Mantine, MUI and Nova,
   which the rules were made from, and of Primer, which they weren't. Primer is labelled from its own `$type` and Figma
   scopes, and came to 99.7% before it was added. A test reports each library's accuracy, all at 100%. Gradients and type
   styles have sections of their own, and Containers is now Sizes.

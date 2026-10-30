@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs"
 import { describe, expect, it } from "vite-plus/test"
-import { type InferredKind, inferTokenKind, simplifyCalc } from "./token-inference.ts"
-import { resolveReferences } from "./token-kinds.ts"
+import { type InferredKind, inferTokenKind, simplifyCalc } from "./inference.ts"
+import { resolveReferences } from "./kinds.ts"
 
 interface Labelled {
   library: string
