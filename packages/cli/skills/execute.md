@@ -21,6 +21,8 @@ Get(path, { depth?, state? }?): Node             // a design's root or a node; d
 Get(path?, visit): any[]                         // walks nodes, collecting what visit returns
 Components(): string[]                           // the components designs can use
 Props(component, { all? }?): PropsInfo           // a component's props, from its source
+Icons(): IconSet[]                               // the project's icon sets, with their styles
+Icons(set, { search?, style?, limit? }): Icon[]  // async: a set's icons, as component nodes name them
 GetTokens({ category?, source?, search? }?): Token[]
 GetModes(): { settings, modes }                  // the project's modes, and each resolved
 Selection(): { design?, node?, mode? }           // what the person has selected
@@ -96,6 +98,26 @@ Print(Get((node, at) => (node.type === "component" && node.component === "Button
 `Components()` is everything a `component` node can name. `Props("Button")` returns the props found in the component's
 source: variants with their options (`variant`, `size`), its own props, and with `{ all: true }` the attributes it
 passes to its element. A prop that isn't listed, or a variant value outside its options, comes back as a warning.
+
+### Icons
+
+`Icons()` lists the project's icon sets: each one's `id`, `name`, `package`, `styles` (such as `outline` and `solid`,
+empty when it has one) and the `style` used when none is asked for. An icon is a component node named `<set>/<Icon>`,
+with no children. `await Icons("lucide", { search: "settings" })` finds icons by name, by the other names the set
+exports them under and by the tags it publishes, best first; each comes back with its `label` and the `component` (and
+`props`, for sets that take the style as a prop) to insert it with. Without `search` it lists the set's icons in order.
+It returns 50 unless `limit` says otherwise, in the set's default style unless `style` names another.
+
+```js
+// A settings button with the project's own settings icon.
+const [icon] = await Icons(Icons()[0].id, { search: "settings", limit: 1 })
+Insert("dashboard/Toolbar", {
+  type: "component",
+  component: "Button",
+  props: { variant: "ghost", "aria-label": "Settings" },
+  slots: { children: [{ type: "component", component: icon.component, props: icon.props }] }
+})
+```
 
 ### GetTokens
 

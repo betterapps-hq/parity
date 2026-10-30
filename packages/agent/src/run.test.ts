@@ -1,7 +1,7 @@
 import { defaultModeSettings, findNode } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { execute } from "./run.ts"
-import type { AgentEvent, AgentHooks, AgentSnapshot } from "./types.ts"
+import type { AgentEvent, AgentHooks, AgentSnapshot, IconNames, IconSet } from "./types.ts"
 
 function snapshot(): AgentSnapshot {
   return {
@@ -353,12 +353,144 @@ describe("icons", () => {
         code: `Insert("page", {type: "component", component: "lucide/Heart"})
 Insert("page", {type: "component", component: "Heart"})`
       },
-      { ...snapshot(), iconLibraries: ["lucide"] },
+      { ...snapshot(), iconSets: [lucide] },
       hooks()
     )
     expect(result.ok).toBe(true)
     const unknown = result.warnings.filter((warning) => warning.includes("isn't one of the project's components"))
     expect(unknown).toEqual([expect.stringContaining('"Heart"')])
+  })
+
+  const lucide: IconSet = { id: "lucide", name: "Lucide", package: "lucide-react", version: "0.500.0" }
+  const heroicons: IconSet = {
+    id: "heroicons",
+    name: "Heroicons",
+    package: "@heroicons/react",
+    icons: {
+      render: "export",
+      import: "@heroicons/react/24/outline",
+      count: 2,
+      variants: {
+        styles: ["outline", "solid"],
+        modules: { outline: "@heroicons/react/24/outline", solid: "@heroicons/react/24/solid" },
+        default: { style: "outline" }
+      }
+    }
+  }
+  const names: Record<string, IconNames> = {
+    lucide: {
+      names: ["Heart", "HeartCrack", "Settings", "Bell", "Star"],
+      aliases: { Settings: ["Cog"] },
+      tags: { Heart: ["love"] }
+    },
+    "heroicons/": { names: ["BellIcon", "CogIcon"] },
+    "heroicons/24/solid": { names: ["CogIcon"] }
+  }
+  const withIcons = (): AgentHooks => ({
+    ...hooks(),
+    iconNames: async (set, module) => names[set === "lucide" ? set : `${set}/${module ?? ""}`]!
+  })
+
+  it("lists the project's icon sets with their styles and how designs name their icons", async () => {
+    const result = await execute(
+      { label: "Icon sets", code: "Print(Icons())" },
+      { ...snapshot(), iconSets: [lucide, heroicons] },
+      withIcons()
+    )
+    expect(JSON.parse(result.output[0]!)).toEqual([
+      {
+        id: "lucide",
+        name: "Lucide",
+        package: "lucide-react",
+        version: "0.500.0",
+        styles: [],
+        component: "lucide/<Icon>"
+      },
+      {
+        id: "heroicons",
+        name: "Heroicons",
+        package: "@heroicons/react",
+        count: 2,
+        styles: ["outline", "solid"],
+        style: "outline",
+        component: "heroicons/<Icon>"
+      }
+    ])
+  })
+
+  it("finds a set's icons by name, alias and tag, in the style asked for, ready to insert", async () => {
+    const result = await execute(
+      {
+        label: "Find icons",
+        code: `const [heart] = await Icons("lucide", { search: "love" })
+Insert("page", { type: "component", component: heart.component })
+Print(await Icons("lucide", { search: "cog" }), await Icons("lucide", { limit: 2 }))
+Print(await Icons("heroicons", { style: "solid" }))`
+      },
+      { ...snapshot(), iconSets: [lucide, heroicons] },
+      withIcons()
+    )
+    expect(result.ok).toBe(true)
+    expect(result.warnings).toEqual([])
+    expect(result.output).toEqual([
+      `${JSON.stringify([{ label: "Settings", component: "lucide/Settings" }])} ${JSON.stringify([
+        { label: "Heart", component: "lucide/Heart" },
+        { label: "HeartCrack", component: "lucide/HeartCrack" }
+      ])}`,
+      JSON.stringify([{ label: "CogIcon", component: "heroicons/24/solid/CogIcon" }])
+    ])
+    const inserted = result.changes.documents[0]!.document.containers[0]!.root
+    expect(inserted.type === "layout" && inserted.children.at(-1)).toMatchObject({ component: "lucide/Heart" })
+  })
+
+  it("runs the skill's example", async () => {
+    const base = snapshot()
+    const signup = base.documents[0]!.document.containers[0]!
+    const dashboard = {
+      ...signup,
+      id: "dashboard",
+      name: "Dashboard",
+      root: { type: "layout" as const, id: "toolbar", name: "Toolbar", children: [] }
+    }
+    const result = await execute(
+      {
+        label: "Settings button",
+        code: `const [icon] = await Icons(Icons()[0].id, { search: "settings", limit: 1 })
+Insert("dashboard/Toolbar", {
+  type: "component",
+  component: "Button",
+  props: { variant: "ghost", "aria-label": "Settings" },
+  slots: { children: [{ type: "component", component: icon.component, props: icon.props }] }
+})`
+      },
+      {
+        ...base,
+        iconSets: [lucide],
+        documents: [{ path: "app.par", document: { version: 3, containers: [signup, dashboard] } }]
+      },
+      withIcons()
+    )
+    expect(result.error).toBeUndefined()
+    const toolbar = result.changes.documents[0]!.document.containers[1]!.root
+    expect(toolbar.type === "layout" && toolbar.children[0]).toMatchObject({
+      component: "Button",
+      slots: { children: [{ component: "lucide/Settings" }] }
+    })
+  })
+
+  it("says which sets and styles there are when asked for one the project doesn't have", async () => {
+    const missing = await execute(
+      { label: "Icons", code: `await Icons("phosphor")` },
+      { ...snapshot(), iconSets: [lucide] },
+      withIcons()
+    )
+    expect(missing.error).toContain(`"phosphor" isn't one of the project's icon sets: lucide`)
+    const style = await execute(
+      { label: "Icons", code: `await Icons("heroicons", { style: "mini" })` },
+      { ...snapshot(), iconSets: [heroicons] },
+      withIcons()
+    )
+    expect(style.error).toContain(`Heroicons comes in outline, solid, not "mini"`)
   })
 })
 
