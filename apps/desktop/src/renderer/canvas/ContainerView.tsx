@@ -145,6 +145,7 @@ export function ContainerView({ ref, entry, hovered, onTitlePointerDown, title }
                 state={state}
                 base={index === 0}
                 offset={index > 0 ? 48 : 0}
+                tabbable={isSelected}
                 onSelect={() => selectState(state.id)}
               />
             )}
@@ -159,6 +160,7 @@ export function ContainerView({ ref, entry, hovered, onTitlePointerDown, title }
                   projectPrimary={mode.id === all[0]?.id}
                   scale={column === 0 ? 1 : companionScale(frameSize(container, mode).width)}
                   caption={index === 0}
+                  tabbable={isSelected}
                   selected={selectedMode === mode.id}
                   divider={column === 1}
                   loaded={loaded}
@@ -197,6 +199,8 @@ function TitleControls({ children }: { children: ReactNode }) {
   return (
     <div
       className="ml-auto hidden shrink-0 items-center gap-1.5 animate-in duration-150 fade-in-0 group-hover/title:flex group-data-[controls=true]/title:flex has-data-[state=open]:flex @max-[22rem]:hidden!"
+      // Enter and the arrows on its menus open them, rather than going to the canvas (see shortcuts.ts).
+      data-canvas-control
       onPointerDown={stopEventPropagation}
     >
       {children}
@@ -206,8 +210,8 @@ function TitleControls({ children }: { children: ReactNode }) {
 
 /**
  * The design's name: drags the design, double-click renames it in place, and right-click opens what can be done with
- * the design as a whole. Only the selected design's title is in the tab order, with its menus beside it, and no mode
- * caption or state label is, so Tab from it leaves the canvas rather than going through every other board (PAR-424).
+ * the design as a whole. Only the selected design's title, menus, mode captions and state labels are in the tab order,
+ * so Tab from it leaves the canvas after them rather than going through every other board (PAR-424).
  */
 function TitleButton({
   entry,
@@ -407,11 +411,14 @@ function StateLabel({
   state,
   base,
   offset,
+  tabbable,
   onSelect
 }: {
   state: StateSpec
   base: boolean
   offset: number
+  /** In the tab order, as it is while its design is selected (see TitleButton). */
+  tabbable: boolean
   onSelect: () => void
 }) {
   const changes = changeCount(state)
@@ -422,8 +429,8 @@ function StateLabel({
       <button
         ref={ref}
         type="button"
-        // Out of the tab order, as the State menu does the same from the title (see TitleButton).
-        tabIndex={-1}
+        tabIndex={tabbable ? 0 : -1}
+        data-canvas-control
         onPointerDown={stopEventPropagation}
         onClick={onSelect}
         className="state-label pointer-events-auto absolute right-full mr-8 flex origin-top-right flex-col items-end pr-4 text-right whitespace-nowrap"
@@ -465,6 +472,8 @@ interface FrameTileProps {
   scale: number
   /** Column headers show on the first row only; the columns line up below it. */
   caption: boolean
+  /** The caption is in the tab order, as it is while its design is selected (see TitleButton). */
+  tabbable: boolean
   selected: boolean
   divider: boolean
   loaded: ReturnType<typeof useProject>["loaded"]
@@ -483,6 +492,7 @@ const FrameTile = memo(function FrameTile({
   projectPrimary,
   scale,
   caption,
+  tabbable,
   selected,
   divider,
   loaded,
@@ -519,8 +529,8 @@ const FrameTile = memo(function FrameTile({
         <FrameCaption>
           <button
             type="button"
-            // Out of the tab order, as the Modes panel does the same (see TitleButton).
-            tabIndex={-1}
+            tabIndex={tabbable ? 0 : -1}
+            data-canvas-control
             onPointerDown={stopEventPropagation}
             onClick={onSelect}
             className="pointer-events-auto flex min-w-0 items-center gap-1.5 font-medium hover:underline"

@@ -263,9 +263,9 @@ menubar's command. The Layers panel's menu is unchanged.
   none. A text note over a board gets the menu for around the designs.
 - **Interact mode:** the design gets the right-click, and no menu opens.
 - **Keys after an item** are the canvas's at once (PAR-424). A menu holds focus for the 100 ms or so it takes to fade
-  out, so the canvas's shortcuts treat a menu, list or dialog that's closing (`data-state="closed"`) as gone: Ctrl+Z
-  pressed straight after Duplicate undoes it, where it used to go to the closing menu and do nothing. This holds for the
-  menubar's and the title's menus too.
+  out, so the canvas's shortcuts treat a menu, list or dialog that's closing (`data-state="closed"`) as gone, a field in
+  it included: Ctrl+Z pressed straight after Duplicate undoes it, where it used to go to the closing menu and do
+  nothing. This holds for the menubar's and the title's menus, and dialogs, too.
 
 Code: the menu's contents are `canvasMenu` in `apps/desktop/src/renderer/chrome/canvas-menu.ts`, which takes the
 selection and the design under the pointer and returns the items, available or not, in order, with Select layer's list;
@@ -295,11 +295,11 @@ Tests:
   outline. All seven played without errors in headless Chrome on 2026-10-29.
 - `apps/desktop/e2e/menus.e2e.ts` (5), end to end with the system's right button (PAR-202): a right-click on a
   `MemberRow` selects it and lists its items in order, with their keys and the lines between groups, and Duplicate runs
-  as one undo step; Ctrl+Z pressed at once after Duplicate, while the menu is still closing, undoes it (PAR-424, which
-  fails without the fix); from a stat card, Select layer lists Dashboard, Main, Content, Stats and Users card with Main
-  checked, and picks the card; Paste here below the lede in Pricing's Hero pastes the copied headline at that slot, from
-  the stand-in clipboard, as "Paste layer here", and Undo takes it out; and in Interact a right-click reaches the design
-  and no menu opens.
+  as one undo step; Ctrl+Z pressed at once after Duplicate, with focus still in the closing menu, undoes it (PAR-424,
+  which fails without the fix); from a stat card, Select layer lists Dashboard, Main, Content, Stats and Users card with
+  Main checked, and picks the card; Paste here below the lede in Pricing's Hero pastes the copied headline at that slot,
+  from the stand-in clipboard, as "Paste layer here", and Undo takes it out; and in Interact a right-click reaches the
+  design and no menu opens.
 
 Gaps: the end-to-end test covers the right button, Select layer, Paste here into a layout and Interact. Panning with the
 right button, Paste here into an absolutely placed layout, a design and a note pasted at the pointer, and the design's
@@ -1133,21 +1133,25 @@ it land where they're aimed.
   wouldn't do: the page already had `overflow: hidden` (from the body), and the browser still scrolls a hidden page to
   show what's focused. `clip` makes it impossible to scroll at all. Menus, popovers, dialogs, tooltips and toasts are
   portaled to the body and fixed to the window, so they're unaffected.
-- **Tab from a design's title** leaves the canvas (PAR-424). Only the selected design's title is in the tab order, with
-  its variant, state and modes menus beside it while they show. Other designs' titles, mode captions and state labels
-  are out of it (`tabIndex={-1}`), as each has a menu, panel or key that does the same. Before, Tab from a title went
-  through every other design's title in turn, and focusing one off screen was what scrolled the page.
+- **Tab from a design's title** goes through that design's own controls and then leaves the canvas (PAR-424). Only the
+  selected design's title, its variant, state and modes menus while they show, and its board's mode captions and state
+  labels are in the tab order; every other design's are out of it (`tabIndex={-1}`), reached by N, Layers or a click.
+  Enter and the arrows on the menus, captions and labels are theirs (`data-canvas-control`), so Enter on a caption
+  selects its mode column as a click does; on the title itself Enter still selects the layers inside. Before, Tab from a
+  title went through every other design's title in turn, and focusing one off screen was what scrolled the page.
 
-Code: `#root` in `apps/desktop/src/renderer/styles.css`, the group heading in `chrome/LayerTree.tsx`, and the tab order
-in `canvas/ContainerView.tsx` (`TitleButton`, `StateLabel`, `FrameTile`'s caption).
+Code: `#root` in `apps/desktop/src/renderer/styles.css`, the group heading in `chrome/LayerTree.tsx`, the tab order in
+`canvas/ContainerView.tsx` (`TitleButton`, `TitleControls`, `StateLabel`, `FrameTile`'s caption), and which keys a
+canvas control keeps in `canvas/shortcuts.ts`.
 
 Tests: end to end, `apps/desktop/e2e/window.e2e.ts` (1): with a Members layer selected, Layers is scrolled and the page
 neither overflows nor scrolls; Shift+Tab back from Members' title to the New screen button scrolls Layers up to it and
 not the page; Tab on from the title leaves the page still; and a click on a layer then selects it. It fails without the
 fix, at the first check. `e2e/keyboard.e2e.ts`, "Tab from a design's title": from Members' title Tab goes to its State
-and Modes menus, then out of the canvas without reaching another title or a board, where before it went on to the next
-design's title. Every end-to-end test also fails if the page scrolled during it (see "Testing in the app" above); before
-the fix that also failed the older test that tabs on from Sign in's title.
+and Modes menus and its mode caption, where Enter selects the mode column, then out of the canvas without reaching
+another title or board, where before it went on to the next design's title. Every end-to-end test also fails if the page
+scrolled during it (see "Testing in the app" above); before the fix that also failed the older test that tabs on from
+Sign in's title.
 
 Gaps: a design that's hovered but not selected shows its menus, and they're in the tab order while they show. Nothing
 yet keeps a future panel from scrolling the page by putting a focusable element outside its scroller; the root's clip

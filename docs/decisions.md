@@ -163,12 +163,13 @@ still need your call.
   browser still scrolls to show what's focused. `clip` can't be scrolled at all, and holding the root positioned keeps
   even an absolutely placed element with no positioned ancestor inside it. Menus, dialogs and toasts are portaled to the
   body and fixed, so they're unaffected.
-- **Tab on the canvas reaches only the selected design's title and its menus** (PAR-424). My call, from the issue's "Tab
-  should leave the canvas": other designs' titles, mode captions and state labels are out of the tab order, since N,
-  Layers, the Modes panel and the State menu do what they do from the keyboard. A hovered design's menus are still in it
-  while they show.
+- **Tab on the canvas reaches only the selected design's own controls** (PAR-424). My call, from the issue's "Tab should
+  leave the canvas": its title, menus, mode captions and state labels are in the tab order, and every other design's are
+  out of it, reached by N, Layers or a click. Captions stay reachable because nothing else selects a mode column, as
+  CodeRabbit's review pointed out. Enter on a menu, caption or label is the control's, and on the title it still selects
+  the layers inside. A hovered design's menus are in the tab order while they show.
 - **A closing menu's keys are the canvas's** (PAR-424). My call: a menu, list or dialog playing its closing animation
-  counts as closed for shortcuts, so Ctrl+Z straight after a menu item undoes it.
+  counts as closed for shortcuts, a field in it included, so Ctrl+Z straight after a menu item undoes it.
 - **Side panels have one row of tabs, Pen style.** The open tab shows its name and the rest show only their icons. The
   left panel's tabs are Layers, Components, Icons, Images and Tokens; the right's are Design, Modes and Accessibility.
   Each panel remembers its open tab.

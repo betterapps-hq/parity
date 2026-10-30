@@ -63,8 +63,13 @@ describe("right-click menus", () => {
     await menu()
       .getByRole("menuitem", { name: /^Duplicate/ })
       .click()
-    // At once, while the menu plays its closing animation and still has focus (PAR-424).
+    // At once, while the menu plays its closing animation and still has focus (PAR-424). The canvas's own listener comes
+    // first and stops the key, so where focus is gets read just before it rather than as it arrives.
+    const focusIn = await app.page.evaluate(
+      () => document.activeElement?.closest("[role=menu]")?.getAttribute("data-state") ?? "outside a menu"
+    )
     await app.page.keyboard.press("Control+z")
+    expect(focusIn).toBe("closed")
     await closed()
     await expect.poll(() => app.children("Members", "page")).toEqual(["ada", "lin", "grace", "names", "email"])
     expect(await app.undoLabel()).toBeUndefined()
