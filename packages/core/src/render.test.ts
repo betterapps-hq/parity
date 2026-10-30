@@ -57,6 +57,7 @@ describe("resolveDesign", () => {
           empty("hugs-too", { width: "hug", height: "hug" }),
           empty("spacer", { width: 2 }),
           empty("least", { minHeight: 4 }),
+          // Growing and filling leave a layout at nothing in a grid, or with no space to share.
           empty("grows", { grow: true }),
           empty("fills", { width: "fill", height: 10 })
         ]
@@ -72,8 +73,38 @@ describe("resolveDesign", () => {
       { "data-canvas-empty-layout": "width height" },
       { "data-canvas-empty-layout": "height" },
       { "data-canvas-empty-layout": "width" },
-      { "data-canvas-empty-layout": "height" },
-      { "data-canvas-empty-layout": "" }
+      { "data-canvas-empty-layout": "width height" },
+      { "data-canvas-empty-layout": "width" }
+    ])
+  })
+
+  it("keeps a length an instance gives its component's empty root", () => {
+    const gap: ContainerSpec = {
+      id: "gap",
+      name: "Gap",
+      kind: "component",
+      position: { x: 0, y: 0 },
+      root: { type: "layout", id: "root", style: { height: 4 }, children: [] },
+      states: [{ id: "default", name: "Default" }]
+    }
+    const [row] = resolveDesign(
+      {
+        type: "layout",
+        id: "row",
+        style: { direction: "row" },
+        children: [
+          { type: "instance", id: "narrow", design: "gap", style: { width: 2 } },
+          { type: "instance", id: "free", design: "gap" }
+        ]
+      },
+      undefined,
+      "desktop",
+      componentLibrary([gap])
+    )
+    if (row?.kind !== "element") throw new Error("expected an element")
+    expect(row.children.map((child) => (child.kind === "element" ? child.attributes : undefined))).toEqual([
+      { "data-canvas-empty-layout": "" },
+      { "data-canvas-empty-layout": "width" }
     ])
   })
 

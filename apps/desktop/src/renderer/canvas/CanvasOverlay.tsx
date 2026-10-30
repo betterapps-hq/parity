@@ -840,12 +840,18 @@ export function redlines(a: DOMRect, b: DOMRect, scale: number, unit: number): R
 }
 
 /**
- * Follows the pointer until it's released, showing a cursor wherever it goes. Escape cancels: everything the drag wrote
- * is taken back, leaving nothing to undo, and the release that follows does nothing.
+ * Follows the pointer until it's released, showing a cursor wherever it goes, as the drag writes to a design in one
+ * group of changes. Escape cancels: everything the drag wrote is taken back, leaving nothing to undo, and the release
+ * that follows does nothing.
  */
-function drag(session: ProjectSession, cursor: string, move: (event: PointerEvent) => void): void {
+function drag(
+  session: ProjectSession,
+  writes: { design: string; group: string },
+  cursor: string,
+  move: (event: PointerEvent) => void
+): void {
   const { store } = session
-  const checkpoint = store.checkpoint()
+  const checkpoint = store.checkpoint(writes.design, writes.group)
   const releaseCursor = holdCursor(cursor)
   const onMove = (event: PointerEvent) => {
     event.preventDefault()
@@ -863,7 +869,7 @@ function drag(session: ProjectSession, cursor: string, move: (event: PointerEven
     event.preventDefault()
     event.stopImmediatePropagation()
     end()
-    store.revert(checkpoint)
+    if (checkpoint) store.revert(checkpoint)
   }
   window.addEventListener("pointermove", onMove)
   window.addEventListener("pointerup", end)
@@ -904,7 +910,8 @@ function startResize(
     // Starting from the content's height, coming back to it snaps to hugging it again.
     const content = size.height === undefined ? rect.height / scale : undefined
     const startHeight = size.height ?? rect.height / scale
-    drag(session, resizeCursors[edge], (moveEvent) => {
+    const group = `frame:${entry.key}:${mode.viewport}`
+    drag(session, { design: entry.key, group }, resizeCursors[edge], (moveEvent) => {
       const next: FrameSize = { ...entry.container.frames?.[mode.viewport] }
       if (horizontal) {
         const width = Math.round(size.width + (moveEvent.clientX - start.x) / scale)
@@ -920,7 +927,7 @@ function startResize(
       if (serialized === last) return
       last = serialized
       store.updateContainer(entry.key, "Resize frame", (container) => withFrame(container, mode.viewport, next), {
-        group: `frame:${entry.key}:${mode.viewport}`
+        group
       })
     })
     return
@@ -950,7 +957,8 @@ function startResize(
     absolute: drawn ? { style: node.style ?? {}, drawn } : undefined
   })
 
-  drag(session, resizeCursors[edge], (moveEvent) => {
+  const group = `resize:${entry.key}:${location.node.id}`
+  drag(session, { design: entry.key, group }, resizeCursors[edge], (moveEvent) => {
     const change = gesture({
       dx: moveEvent.clientX - start.x,
       dy: moveEvent.clientY - start.y,
@@ -969,7 +977,7 @@ function startResize(
       "Resize layer",
       (container) =>
         editNode(container, boardTarget(container, state.id), location.node.id, { style: style as NodeStyle }),
-      { group: `resize:${entry.key}:${location.node.id}` }
+      { group }
     )
   })
 }

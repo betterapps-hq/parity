@@ -476,7 +476,8 @@ design has them on its frames' right and bottom.
   strips, 4px into each end as on any wide layer, are on it. A layer 24px or more keeps its handles on its edges.
 - **Escape takes a resize back** (PAR-193), a layer's or a frame's: everything the drag wrote is undone without leaving
   a step to undo or clearing what Redo had, the layer stays selected, and the release that follows does nothing. Escape
-  goes to the resize alone, not to the canvas, where it would select the parent.
+  goes to the resize alone, not to the canvas, where it would select the parent. Only the design's own file goes back:
+  another file an agent changed during the drag keeps its change and its undo step.
 - **The cursor** shows the handle's arrows wherever the pointer goes during the drag, over the canvas, the frames and
   the panels, until it ends (see "Cursors and Escape during a gesture", below).
 
@@ -505,7 +506,8 @@ Tests:
   of exactly 24px as before; a layer that draws nothing; and a frame's three handles in order.
 - `apps/desktop/src/renderer/design-store.test.ts`, reverting to a checkpoint: a gesture's writes more than a second
   apart taken back with nothing left to undo for them; Redo kept; a first write that merged into the step before it
-  leaving that step as it was; and nothing changed since.
+  leaving that step as it was; another file reloaded mid-gesture kept, with its undo step undoing to the design as it
+  was; and nothing changed since.
 - `apps/desktop/e2e/moving.e2e.ts` (6), end to end (PAR-202): New project's right handle, named by its hint when the
   pointer rests on it, dragged 48px right changes the width alone, in steps, with no hint during the drag or after; its
   top handle dragged sideways changes nothing and adds no undo step; the Review slot's top handle dragged up 16px gives
@@ -526,9 +528,11 @@ drag wrote. Checked in the app on 2026-10-30, in a copy on its own ports: the ha
 A layout with nothing in it, which would draw nothing, takes at least 24px of the design along each axis its content
 would size, outlined in dashes, so it can be seen, selected with a click and dropped into. This is on the canvas only.
 
-- **A size the design gives it stays.** Along an axis with a width or height, a least size, or growing, it keeps what
-  the design says, so an empty layout used as an 8px spacer is still 8px across; only the other axis gets the 24px. In a
-  row, an empty column that's stretched keeps its stretched height.
+- **A length the design gives it stays.** Along an axis with a fixed width or height, or a least size, it keeps what the
+  design says, so an empty layout used as an 8px spacer is still 8px across; only the other axis gets the 24px. On an
+  instance whose component's root is an empty layout, the instance's own width or height counts too. Filling and growing
+  aren't lengths: in a grid, or with no space to share, they leave an empty layout at nothing, so it gets the 24px, and
+  where they give it more, it keeps that. In a row, an empty column that's stretched keeps its stretched height.
 - **It's empty when nothing is drawn in it** in the state and viewport shown, so a layout whose children the state hides
   counts too. The size and the dashes go once something is put in it; while a drag shows a copy of a layer in it, they
   stay.

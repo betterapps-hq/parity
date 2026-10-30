@@ -39,19 +39,21 @@ export type RenderNode =
 /**
  * Marks the element of a layout that draws nothing inside it, in this state and viewport, so the canvas can give it a
  * size of its own there, which no other empty element, such as a component's divider, gets. Its value lists the axes,
- * `width` and `height`, that the layout's content would size; along the others the design gives it a size, which the
- * canvas keeps, so an empty layout used as an 8px spacer stays 8px. Only what's resolved for a frame carries it.
+ * `width` and `height`, that the design gives no length of its own: along those the canvas gives it a least size, and
+ * along the others it keeps the design's, so an empty layout used as an 8px spacer stays 8px. Filling and growing
+ * aren't lengths, since in a grid, or with no space to share, they leave an empty layout at nothing. On an instance,
+ * the instance's own length counts too. Only what's resolved for a frame carries it.
  */
 export const emptyLayoutAttribute = "data-canvas-empty-layout"
 
-/** The axes a layout's content sizes: neither a size, a least size nor growing sets them. */
-function contentAxes(style: NodeStyle, parent: Direction | undefined): ("width" | "height")[] {
-  // Growing fills the parent's main axis, as `boxCss` draws it.
-  const along = parent === "column" ? "height" : "width"
+type Axis = "width" | "height"
+
+/** The axes a style gives no fixed length or least length. */
+function unsizedAxes(style: NodeStyle): Axis[] {
   return (["width", "height"] as const).filter((axis) => {
     const size = style[axis]
     const least = axis === "width" ? style.minWidth : style.minHeight
-    return (size === undefined || size === "hug") && least === undefined && !(style.grow && axis === along)
+    return (size === undefined || size === "hug" || size === "fill") && least === undefined
   })
 }
 
@@ -304,9 +306,7 @@ function resolveTree(
             tag: "div",
             style: layoutCss(style, parent),
             // The canvas gives an empty layout a size to see, select and drop into (see `emptyLayoutAttribute`).
-            ...(children.length === 0
-              ? { attributes: { [emptyLayoutAttribute]: contentAxes(style, parent).join(" ") } }
-              : {}),
+            ...(children.length === 0 ? { attributes: { [emptyLayoutAttribute]: unsizedAxes(style).join(" ") } } : {}),
             children
           }
         ]
@@ -367,8 +367,15 @@ function resolveTree(
           // The instance's place in its layout (width, grow) applies to the component's root, which takes its id.
           const box = componentCss(style, parent)
           first.nodeId = id(node)
-          if (first.kind === "element") first.style = { ...first.style, ...box }
-          else if (Object.keys(box).length > 0)
+          if (first.kind === "element") {
+            first.style = { ...first.style, ...box }
+            // An empty root keeps a length the instance gives it as well as one its component does.
+            const unsized = first.attributes?.[emptyLayoutAttribute]
+            if (unsized !== undefined) {
+              const axes = unsized.split(" ").filter((axis) => unsizedAxes(style).some((other) => other === axis))
+              first.attributes = { ...first.attributes, [emptyLayoutAttribute]: axes.join(" ") }
+            }
+          } else if (Object.keys(box).length > 0)
             first.props = { ...first.props, style: { ...(first.props.style as object | undefined), ...box } }
         }
         return inner
