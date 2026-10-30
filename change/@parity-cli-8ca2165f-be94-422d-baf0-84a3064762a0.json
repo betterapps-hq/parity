@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Add parity lib check, which tries a library file's parts in the running app as the canvas inserts them, and insert parts that hand their children to an input without a text label",
-  "packageName": "@parity/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
