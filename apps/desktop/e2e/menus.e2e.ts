@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest"
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/test"
 import { App, center } from "./app.ts"
 
 // docs/editor.md, Selecting: right-click menus (PAR-168), with the system's own right button and the stand-in

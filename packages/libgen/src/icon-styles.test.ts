@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { styleModules, styleName } from "./icon-styles.ts"
 
 /** An icon component that draws `markup`, as the fake renderer below draws it. */

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { readValue, showValue, valueKind } from "./prop-values.ts"
 
 describe("prop and param values", () => {

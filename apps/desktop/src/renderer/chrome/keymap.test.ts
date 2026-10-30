@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { type Command, keymap, shortcutFor } from "./keymap.ts"
 import { formatKeys, matches } from "./keys.ts"
 

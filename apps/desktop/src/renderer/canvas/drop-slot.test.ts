@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { type Flow, flowOf, type Rect, type SlotChild, slotAt } from "./drop-slot.ts"
 
 const box = (left: number, top: number, width: number, height: number): Rect => ({

@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url"
 import { build } from "esbuild"
 import { type Browser, chromium, type Page } from "playwright-core"
-import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
 
 // How the canvas finds the DOM each design node draws, in Chrome with React itself, as frame.test.ts lays frames out.
 // The guest reads React's tree, so these fail when a React release changes what the walk relies on. It needs Chrome.

@@ -1,5 +1,5 @@
 import { type ContainerSpec, type DesignNode, findNode, nodeIds, type NodeStyle } from "@parity/core"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { designsAt, placeOver, replaceLayers } from "./paste-over.ts"
 
 const text = (id: string, extra: { style?: NodeStyle } = {}): DesignNode => ({ type: "text", id, text: id, ...extra })

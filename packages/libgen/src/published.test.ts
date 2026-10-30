@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { installedVersion, publishedVersion, repositoryUrl, tarEntry } from "./published.ts"
 
 /** A tar entry as npm writes one: a ustar header, then the body padded to 512 bytes. */

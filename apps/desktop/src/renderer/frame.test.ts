@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url"
 import { build } from "esbuild"
 import { type Browser, chromium, type Page } from "playwright-core"
-import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
 
 // Frames are real DOM, so this lays them out and renders into them in Chrome: Node has no layout. It needs Chrome
 // installed.

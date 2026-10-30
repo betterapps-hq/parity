@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest"
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/test"
 import { App } from "./app.ts"
 
 // docs/editor.md, Fields: typing, stepping and scrubbing (CAN-48), in the inspector against the real stores and frames,

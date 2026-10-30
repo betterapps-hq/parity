@@ -1,5 +1,5 @@
 import { defaultModeSettings, findNode } from "@parity/core"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { execute } from "./run.ts"
 import type { AgentEvent, AgentHooks, AgentSnapshot } from "./types.ts"
 

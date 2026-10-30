@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { describeRenderStatus, renderProblem } from "./render-status.ts"
 
 describe("renderProblem", () => {

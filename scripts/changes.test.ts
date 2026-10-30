@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest"
-import { bundledBy, releasesFor, type WorkspacePackage } from "./changes.ts"
+import { describe, expect, it } from "vite-plus/test"
+import { bundledBy, onlyVersionChanged, releasesFor, type WorkspacePackage } from "./changes.ts"
 
 const workspace: WorkspacePackage[] = [
   { name: "@parity/desktop", dir: "apps/desktop", private: false, dependencies: ["@parity/core", "@parity/libgen"] },
@@ -45,5 +45,18 @@ describe("releasesFor", () => {
   it("doesn't take a folder whose name starts the same for the package", () => {
     const files = ["packages/core-extra/src/index.ts"]
     expect(releasesFor(workspace, files, ignored)).toEqual([])
+  })
+})
+
+describe("onlyVersionChanged", () => {
+  const manifest = (version: string, dependencies: Record<string, string> = {}) =>
+    JSON.stringify({ name: "@parity-app/cli", version, dependencies }, null, 2)
+
+  it("takes a release's version bump for no change", () => {
+    expect(onlyVersionChanged(manifest("0.1.0"), manifest("0.2.0"))).toBe(true)
+  })
+
+  it("counts any other change to the manifest", () => {
+    expect(onlyVersionChanged(manifest("0.1.0"), manifest("0.2.0", { semver: "^7.8.5" }))).toBe(false)
   })
 })

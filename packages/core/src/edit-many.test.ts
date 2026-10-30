@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import type { ContainerSpec, DesignNode } from "./document.ts"
 import { childNodes, findNode, moveNodes, topmostNodes, unwrapNode, wrapNodes } from "./edit.ts"
 

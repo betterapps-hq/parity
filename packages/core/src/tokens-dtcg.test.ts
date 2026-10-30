@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { readDesignTokens } from "./tokens-dtcg.ts"
 
 const files: Record<string, unknown> = {

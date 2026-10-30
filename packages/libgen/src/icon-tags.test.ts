@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { closestVersion, iconWords, manifestText, readIconTags, type TagFetchers } from "./icon-tags.ts"
 
 /** Fetchers that answer from data, recording what was asked. */

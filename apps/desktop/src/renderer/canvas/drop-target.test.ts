@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url"
 import { build } from "esbuild"
 import { type Browser, chromium, type Page } from "playwright-core"
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vite-plus/test"
 
 // Drop targets are measured from real layout, so this lays a grid out in Chrome: Node has no layout. It needs Chrome
 // installed.

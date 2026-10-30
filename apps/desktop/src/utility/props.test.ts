@@ -1,6 +1,6 @@
 import { Worker } from "node:worker_threads"
 import type { CheckResult } from "@parity/code"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { typeChecker } from "./props.ts"
 import { workerClient } from "./worker-client.ts"
 

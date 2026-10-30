@@ -56,6 +56,19 @@ export function releasesFor(packages: WorkspacePackage[], files: string[], ignor
   return [...releases].sort()
 }
 
+/**
+ * Whether a `package.json` changed only in its version, as Beachball's release commit bumps it. That needs no change
+ * file of its own: the release is what the change files it consumes asked for.
+ */
+export function onlyVersionChanged(before: string, after: string): boolean {
+  const withoutVersion = (text: string): string => {
+    const json = JSON.parse(text) as Record<string, unknown>
+    delete json.version
+    return JSON.stringify(json)
+  }
+  return withoutVersion(before) === withoutVersion(after)
+}
+
 const root = join(import.meta.dirname, "..")
 
 function git(...args: string[]): string {
@@ -104,13 +117,14 @@ function beachballConfig(): BeachballConfig {
 function changes(branch: string, committed: boolean): { files: string[]; covered: Set<string> } {
   const base = git("merge-base", branch, "HEAD").trim()
   const range = committed ? [base, "HEAD"] : ["--cached", base]
-  const files = lines(git("diff", "--name-only", "--no-renames", ...range))
-  const changeFiles = lines(git("diff", "--name-only", "--diff-filter=AM", ...range, "--", "change/"))
-  const covered = new Set(
-    changeFiles.map(
-      (file) => (JSON.parse(git("show", `${committed ? "HEAD" : ""}:${file}`)) as { packageName: string }).packageName
-    )
+  const now = (file: string): string => git("show", `${committed ? "HEAD" : ""}:${file}`)
+  // A package.json that only changed version, as a release bumps it, doesn't count.
+  const bumped = lines(git("diff", "--name-only", "--diff-filter=M", ...range, "--", "*package.json")).filter((file) =>
+    onlyVersionChanged(git("show", `${base}:${file}`), now(file))
   )
+  const files = lines(git("diff", "--name-only", "--no-renames", ...range)).filter((file) => !bumped.includes(file))
+  const changeFiles = lines(git("diff", "--name-only", "--diff-filter=AM", ...range, "--", "change/"))
+  const covered = new Set(changeFiles.map((file) => (JSON.parse(now(file)) as { packageName: string }).packageName))
   return { files, covered }
 }
 

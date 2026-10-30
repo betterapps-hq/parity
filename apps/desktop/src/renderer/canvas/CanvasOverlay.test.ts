@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url"
 import { build } from "esbuild"
 import { type Browser, chromium, type Page } from "playwright-core"
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vite-plus/test"
 
 // Selecting inside a board with the real pointer (PAR-163): the canvas's overlay over two frames of a dashboard, drawn
 // by ModeView and the React guest, in Chrome. tldraw isn't there; an element under the frames stands in for its canvas,
