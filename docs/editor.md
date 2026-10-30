@@ -1133,6 +1133,36 @@ keeping Undo, then the detail's Undo), ReferenceLoop (refused through another to
 file's stories played in Storybook on 2026-10-29. Gaps: the inspector's pickers don't show previews yet, the rest of
 PAR-143.
 
+## What the editor itself loads
+
+What Parity's own UI costs the window, apart from the projects it shows.
+
+### Icons and dependencies served lean (PAR-199)
+
+The window loads only the lucide icons the editor uses, and Parity's dependencies minified. Nothing looks different; the
+window holds less.
+
+- **Icons:** each `import { … } from "lucide-react"` in the app's code is rewritten, while Vite serves it, to import
+  each icon from its own file, and lucide-react is kept out of Vite's prebundling. Types are dropped, a name
+  lucide-react doesn't export stays imported from the package so it fails as before, and the import keeps its lines, so
+  the module's source map holds. Imports are found by parsing the module, so import-like text in a string stays.
+  Dependencies and a project's own icons, which its builder serves, are left alone. Storybook uses the same config;
+  builds bundle lucide-react as usual.
+- **Dependencies:** what Vite prebundles for the UI is minified. Their source maps still lead DevTools to the code as
+  published, so a stack trace through tldraw reads as before once DevTools maps it.
+- **Measured** on the example project, against an isolated copy of the app: the window's scripts went from 19.3 M
+  characters to 14.9 M, lucide-react's from 1.73 M to 0.28 M across 149 files, tldraw's from 3.53 M to 1.68 M, and the
+  heap after a collection from 151 to about 141 MB. [decisions.md](decisions.md) has the calls.
+
+Code: `iconImports` and `iconImportsPlugin` in `apps/desktop/scripts/icon-imports.ts`, and `optimizeDeps` in
+`apps/desktop/vite.config.ts`.
+
+Tests: `apps/desktop/scripts/icon-imports.test.ts` (8: every name an icon goes by, the installed package's index, one
+file per icon under the module's own names, lines kept, types dropped, unknown names left, import-like text in strings
+and comments left, other modules unchanged). The e2e suite (`pnpm test:app`) runs the editor with both in place. Gaps:
+the minified prebundle has no test of its own; it was checked in an isolated copy of the app on 2026-10-29, where all
+736 icons on screen drew and the window's scripts were measured over the DevTools protocol.
+
 ## Opening and closing projects
 
 What opening a project loads into the windows, and what closing it gives back.
