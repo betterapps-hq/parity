@@ -90,7 +90,12 @@ export function ContainerView({ ref, entry, hovered, onTitlePointerDown, title }
 
   const titleBar = (
     <TitleBar showControls={hovered || isSelected}>
-      <TitleButton entry={entry} color={isSelected ? color : undefined} onPointerDown={onTitlePointerDown} />
+      <TitleButton
+        entry={entry}
+        selected={isSelected}
+        color={isSelected ? color : undefined}
+        onPointerDown={onTitlePointerDown}
+      />
       <TitleControls>
         {Object.values(container.params ?? {}).some((param) => param.type === "variant") && (
           <VariantMenu
@@ -201,14 +206,17 @@ function TitleControls({ children }: { children: ReactNode }) {
 
 /**
  * The design's name: drags the design, double-click renames it in place, and right-click opens what can be done with
- * the design as a whole.
+ * the design as a whole. Only the selected design's title is in the tab order, with its menus beside it, and no mode
+ * caption or state label is, so Tab from it leaves the canvas rather than going through every other board (PAR-424).
  */
 function TitleButton({
   entry,
+  selected,
   color,
   onPointerDown
 }: {
   entry: ContainerEntry
+  selected: boolean
   color: string | undefined
   onPointerDown: (event: ReactPointerEvent) => void
 }) {
@@ -258,6 +266,7 @@ function TitleButton({
         <Hint label={`${container.name}, in ${entry.path}`} detail="Double-click to rename." wait>
           <button
             type="button"
+            tabIndex={selected ? 0 : -1}
             onPointerDown={onPointerDown}
             onContextMenu={stopEventPropagation}
             onDoubleClick={(event) => {
@@ -413,6 +422,8 @@ function StateLabel({
       <button
         ref={ref}
         type="button"
+        // Out of the tab order, as the State menu does the same from the title (see TitleButton).
+        tabIndex={-1}
         onPointerDown={stopEventPropagation}
         onClick={onSelect}
         className="state-label pointer-events-auto absolute right-full mr-8 flex origin-top-right flex-col items-end pr-4 text-right whitespace-nowrap"
@@ -508,6 +519,8 @@ const FrameTile = memo(function FrameTile({
         <FrameCaption>
           <button
             type="button"
+            // Out of the tab order, as the Modes panel does the same (see TitleButton).
+            tabIndex={-1}
             onPointerDown={stopEventPropagation}
             onClick={onSelect}
             className="pointer-events-auto flex min-w-0 items-center gap-1.5 font-medium hover:underline"

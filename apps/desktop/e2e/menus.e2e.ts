@@ -57,6 +57,19 @@ describe("right-click menus", () => {
     expect(await app.undoLabel()).toBe("Duplicate layer")
   })
 
+  it("undoes with Ctrl+Z pressed while the menu is still closing", async () => {
+    await app.show("Members", 1)
+    await app.rightClick(center(await app.box("Members", "ada")))
+    await menu()
+      .getByRole("menuitem", { name: /^Duplicate/ })
+      .click()
+    // At once, while the menu plays its closing animation and still has focus (PAR-424).
+    await app.page.keyboard.press("Control+z")
+    await closed()
+    await expect.poll(() => app.children("Members", "page")).toEqual(["ada", "lin", "grace", "names", "email"])
+    expect(await app.undoLabel()).toBeUndefined()
+  })
+
   it("picks a deeper layer under the pointer from Select layer", async () => {
     // A right-click on a stat card selects Main, the column it's in, as a click would; Select layer reaches the card.
     await app.show("Dashboard", 0.5)

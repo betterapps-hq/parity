@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Stop the window scrolling and throwing off canvas clicks",
+  "packageName": "@parity/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

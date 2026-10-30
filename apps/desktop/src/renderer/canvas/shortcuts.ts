@@ -47,7 +47,9 @@ export function useShortcuts(session: ProjectSession | undefined, active: boolea
       }
       const target = event.target as HTMLElement | null
       const typing = !!target?.closest("input, textarea, select, [contenteditable='true'], [contenteditable='']")
-      const inMenu = !!target?.closest("[role=menu], [role=listbox], [role=dialog]")
+      // A menu or dialog playing its closing animation still holds focus for a moment, but its keys are the canvas's
+      // again: Ctrl+Z straight after picking an item undoes it (PAR-424).
+      const inMenu = !!target?.closest(":is([role=menu], [role=listbox], [role=dialog]):not([data-state=closed])")
       if (typing || inMenu) return
       // Escape mid-drag cancels the drag, a layer's or a design's, rather than selecting the parent.
       if (pointerHeld && event.key === "Escape") return

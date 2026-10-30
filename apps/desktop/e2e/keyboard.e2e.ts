@@ -75,6 +75,36 @@ describe("keys outside Interact", () => {
   })
 })
 
+describe("Tab from a design's title", () => {
+  it("goes on to the design's state and modes, then leaves the canvas rather than visiting other titles", async () => {
+    // Up close, so the title has room for its menus.
+    await app.show("Members", 1)
+    await app.selectDesign("Members")
+    const focused = () =>
+      app.page.evaluate(() => {
+        const active = document.activeElement
+        return {
+          label: active?.getAttribute("aria-label") ?? active?.textContent?.trim(),
+          title: !!active?.closest(".design-title"),
+          board: !!active?.closest(".container-view"),
+          canvas: !!active?.closest(".tl-container")
+        }
+      })
+    expect(await focused()).toEqual({ label: "Members", title: true, board: false, canvas: true })
+    await app.page.keyboard.press("Tab")
+    expect(await focused()).toEqual({ label: "State", title: true, board: false, canvas: true })
+    await app.page.keyboard.press("Tab")
+    expect(await focused()).toMatchObject({ label: expect.stringMatching(/^Modes/), title: true })
+    // On past the canvas, never to another design's title or a board's captions. Without a licence key, as here,
+    // tldraw's own notice comes first.
+    for (let press = 0; press < 3 && (await focused()).canvas; press++) {
+      await app.page.keyboard.press("Tab")
+      expect(await focused()).toMatchObject({ title: false, board: false })
+    }
+    expect(await focused()).toMatchObject({ canvas: false })
+  })
+})
+
 describe("nudging", () => {
   it("moves a layer in a row one place per arrow, as one undo step", async () => {
     await app.show("Pricing", 0.5, links)

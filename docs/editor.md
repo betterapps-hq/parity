@@ -17,7 +17,7 @@ Features built before 2026-10-29 are being added under PAR-392 in Linear.
 ## Testing in the app (PAR-202)
 
 `pnpm test:app` drives a copy of Parity as a person does, with the system's own pointer and keyboard, and checks what
-the canvas, the panels and the project show: 58 tests, which take four to six minutes. It isn't part of `vp run test` or
+the canvas, the panels and the project show: 61 tests, which take four to six minutes. It isn't part of `vp run test` or
 `pnpm verify`, so run it after changing how the canvas, its overlay, the keymap, the menus or the inspector's fields
 handle input. Each feature's tests below name the end-to-end ones that cover it.
 
@@ -40,6 +40,10 @@ handle input. Each feature's tests below name the end-to-end ones that cover it.
   do. Start with `app.show(design, zoom)`, act through `App`'s gestures or `app.page.keyboard`, and wait for what
   changes with `expect.poll`, since the app answers a frame or more later. Change the project only through edits Undo
   takes back, so `reset` can put it back. Then name the test in its feature's section here.
+- **The page never scrolls.** `App` counts each time the window's page scrolls, and `reset` fails the test it ran in if
+  it did, or if the page isn't at the top, then puts it back so the tests after start clean. A scrolled page moves the
+  canvas without tldraw noticing, so every click after it lands off by as much (PAR-424, "The window", below). Until
+  PAR-424 the harness put the page back at once and only warned, which hid the bug.
 - **What it can't see.** What tldraw draws on its own canvas, such as a board's hover outline, isn't in the page, so
   it's read through tldraw's editor (its box) or not at all.
 
@@ -258,6 +262,10 @@ menubar's command. The Layers panel's menu is unchanged.
   when the button goes down. A design's title keeps its own menu, and state labels, toolbars and text being edited open
   none. A text note over a board gets the menu for around the designs.
 - **Interact mode:** the design gets the right-click, and no menu opens.
+- **Keys after an item** are the canvas's at once (PAR-424). A menu holds focus for the 100 ms or so it takes to fade
+  out, so the canvas's shortcuts treat a menu, list or dialog that's closing (`data-state="closed"`) as gone: Ctrl+Z
+  pressed straight after Duplicate undoes it, where it used to go to the closing menu and do nothing. This holds for the
+  menubar's and the title's menus too.
 
 Code: the menu's contents are `canvasMenu` in `apps/desktop/src/renderer/chrome/canvas-menu.ts`, which takes the
 selection and the design under the pointer and returns the items, available or not, in order, with Select layer's list;
@@ -266,7 +274,7 @@ area in `ProjectView.tsx`: it records the right button's press, finds the design
 `pickLayer`, outlines Select layer's entries through the hover, and runs items through `actions.ts`. Paste here is
 `pasteAtPointer` in `canvas/clipboard.ts`, which reads the clipboard and places designs, notes and text; layers go
 through `canvas/paste-here.ts`, where `measureHere` measures the layout under the pointer in its frame and `pasteHere`
-places the copies.
+places the copies. Which keys an open menu keeps is `inMenu` in `canvas/shortcuts.ts`.
 
 Tests:
 
@@ -285,9 +293,10 @@ Tests:
   Instance, SeveralLayers, Design, EmptyCanvas, SelectLayer and Interacting. Each right-clicks through tldraw's pointer
   events and checks the selection, the items, what's unavailable and the keys; SelectLayer checks the list and the
   outline. All seven played without errors in headless Chrome on 2026-10-29.
-- `apps/desktop/e2e/menus.e2e.ts` (4), end to end with the system's right button (PAR-202): a right-click on a
+- `apps/desktop/e2e/menus.e2e.ts` (5), end to end with the system's right button (PAR-202): a right-click on a
   `MemberRow` selects it and lists its items in order, with their keys and the lines between groups, and Duplicate runs
-  as one undo step; from a stat card, Select layer lists Dashboard, Main, Content, Stats and Users card with Main
+  as one undo step; Ctrl+Z pressed at once after Duplicate, while the menu is still closing, undoes it (PAR-424, which
+  fails without the fix); from a stat card, Select layer lists Dashboard, Main, Content, Stats and Users card with Main
   checked, and picks the card; Paste here below the lede in Pricing's Hero pastes the copied headline at that slot, from
   the stand-in clipboard, as "Paste layer here", and Undo takes it out; and in Interact a right-click reaches the design
   and no menu opens.
@@ -1100,29 +1109,46 @@ renderer's side has no automated test, and what a builder records of what it ser
 own, as the system handing an old port out again can't be made to happen; it was checked by reading `newGuestPort`. A
 project service started again forgets the ports, while the window keeps what it loaded from them.
 
-### A tab closed while its project opens (PAR-427)
+## The window
 
-Closing a tab whose project is still opening, as tabs restored at launch can be, closes the project once the service has
-it: its builder stops, it leaves the processes list, and the window lets go of the guest it loaded for it. Before, the
-service finished opening it and kept it, with its builder running and no tab. Opening the project again before the first
-open finishes keeps it open in the new tab. The same holds for a tab closed while it reopens, and for a guest that fails
-to load after its tab closed. Each open is tracked on its own, so an earlier open that was abandoned can't close or fill
-a newer tab for the same project. While another tab's open hasn't heard which project it is, as one opening the default
-project or a `.par` file hasn't, the close waits for it, since it may be the same project.
+How the app's window holds the canvas and the panels around it.
 
-Code: `closeNow`, `open` and `reload` in `apps/desktop/src/renderer/workspace.ts`, through its `attempts` and
-`settleDrops`.
+### The page never scrolls (PAR-424)
 
-A reopen asked for while the tab is already opening or reopening is left to the one in flight, so closing the tab
-cancels it.
+The window's page is always exactly the window: no part of the chrome makes it taller or wider, so it never scrolls.
+Each panel scrolls on its own, so revealing or focusing something out of a panel's view, such as a Layers row or the
+Screens heading's New screen button, scrolls only that panel. The canvas stays where tldraw measured it, and clicks on
+it land where they're aimed.
 
-Tests: `apps/desktop/src/renderer/workspace.test.ts` (13: closed before the service answers, closed while the guest
-loads, opened again before the first open finished, the reopened tab closed too before either open finished, the default
-project opened again in a tab that doesn't know it yet, and closed once that tab turns out to be another project, the
-guest failing after its tab closed, closed while a reopen closes the project, while it opens it again and while it loads
-the guest, a reopen's guest failing after its tab closed, a second reopen asked for during one, and a project that
-finished opening, closed with its tab).
+- **Why it matters.** tldraw measures where the canvas is when it mounts or resizes, not when the page scrolls. The
+  end-to-end suite found the page 1139 px tall in a 903 px window, and focusing a design's title below the fold scrolled
+  it by 235 px: the menubar and tabs went out of view, and every canvas click after it landed 235 px off, selecting
+  nothing or the wrong layer.
+- **The cause** was the Layers panel's group headings. Their New component and New screen buttons are hidden for screen
+  readers (`sr-only`, which places them absolutely) until hovered or focused, and the heading wasn't positioned, so the
+  buttons were placed against the window rather than inside the panel, and the panel's scroll didn't clip them. The
+  heading is now `relative`.
+- **The guard.** The app's root (`#root` in `styles.css`) is positioned and has `overflow: clip`, so nothing inside it,
+  even an absolutely placed element with no positioned ancestor, can make the page bigger than the window. `hidden`
+  wouldn't do: the page already had `overflow: hidden` (from the body), and the browser still scrolls a hidden page to
+  show what's focused. `clip` makes it impossible to scroll at all. Menus, popovers, dialogs, tooltips and toasts are
+  portaled to the body and fixed to the window, so they're unaffected.
+- **Tab from a design's title** leaves the canvas (PAR-424). Only the selected design's title is in the tab order, with
+  its variant, state and modes menus beside it while they show. Other designs' titles, mode captions and state labels
+  are out of it (`tabIndex={-1}`), as each has a menu, panel or key that does the same. Before, Tab from a title went
+  through every other design's title in turn, and focusing one off screen was what scrolled the page.
 
-Not tested: a tab changed or closed while a reopen saves its unsaved changes, and a reopen's `project.open` failing
-after its tab closed. Both were checked by reading `reload`: after saving it reads the tab again and stops only when
-it's gone or already reopening, and a failed `project.open` leaves no project to close.
+Code: `#root` in `apps/desktop/src/renderer/styles.css`, the group heading in `chrome/LayerTree.tsx`, and the tab order
+in `canvas/ContainerView.tsx` (`TitleButton`, `StateLabel`, `FrameTile`'s caption).
+
+Tests: end to end, `apps/desktop/e2e/window.e2e.ts` (1): with a Members layer selected, Layers is scrolled and the page
+neither overflows nor scrolls; Shift+Tab back from Members' title to the New screen button scrolls Layers up to it and
+not the page; Tab on from the title leaves the page still; and a click on a layer then selects it. It fails without the
+fix, at the first check. `e2e/keyboard.e2e.ts`, "Tab from a design's title": from Members' title Tab goes to its State
+and Modes menus, then out of the canvas without reaching another title or a board, where before it went on to the next
+design's title. Every end-to-end test also fails if the page scrolled during it (see "Testing in the app" above); before
+the fix that also failed the older test that tabs on from Sign in's title.
+
+Gaps: a design that's hovered but not selected shows its menus, and they're in the tab order while they show. Nothing
+yet keeps a future panel from scrolling the page by putting a focusable element outside its scroller; the root's clip
+keeps the page still, but such an element would sit outside its panel.
