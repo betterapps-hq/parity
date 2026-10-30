@@ -1046,9 +1046,10 @@ to draw, so its row shows the number. Beside the name is what the token comes to
   radius (`swatch` in `token-previews.tsx`). It's light in the dark UI and dark in the light one, so black, white and
   `foreground`-like swatches stand off the panel, with no white corners on dark ones. Rows, tiles, the detail's preview
   and value dots (`Swatch` in `chrome/fields.tsx`, which the inspector's token picker shares), palette shades and a
-  library's described tokens all draw it. A token's themes are one swatch where their values are equal and split by a
-  1px gap where they aren't, in tiles as in rows. A palette row's last shade is rounded too: each shade's copy helper
-  follows it in the row, so the rounding goes by the last button rather than the last element.
+  library's described tokens all draw it. A token has a swatch for each theme, split by a 1px gap, even where two themes
+  share a value, in rows, tiles and the detail, whose swatches are each named for their theme. A palette row's last
+  shade is rounded too: each shade's copy helper follows it in the row, so the rounding goes by the last button rather
+  than the last element.
 - **Tiles.** The List and Tiles buttons beside the search switch views. Tiles are two across, each a larger preview with
   the name and what it comes to under it. A bare number stays a row, as a tile of only a name says less. The palette
   stays a grid in both.

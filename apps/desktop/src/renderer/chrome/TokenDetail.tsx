@@ -31,7 +31,6 @@ import {
   rest,
   SpacingBar,
   TokenArt,
-  themesByValue,
   TokenTile,
   useReducedMotion,
   valueLabel,
@@ -451,20 +450,19 @@ export function DetailPreview({
   const others = scale.filter((other) => other.name !== token.name)
   switch (token.kind) {
     case "color": {
-      // Themes that share a value are one swatch, named for each ("Light and Dark"); different ones are split by a gap.
+      // Each theme is its own swatch, named, split by a gap, even where two themes share a value.
       const themes = Object.keys(token.values)
-      const groups = themesByValue(token, themes)
       return (
         <div className="flex h-24 gap-px">
-          {groups.map((group) => (
-            <div key={group[0]} className="relative flex-1 first:rounded-l-md last:rounded-r-md">
-              <TokenArt token={token} width={width / groups.length} height={96} theme={group[0]} />
+          {themes.map((theme) => (
+            <div key={theme} className="relative flex-1 first:rounded-l-md last:rounded-r-md">
+              <TokenArt token={token} width={width / themes.length} height={96} theme={theme} />
               {themes.length > 1 && (
                 <span
                   className="absolute bottom-1.5 left-2 rounded px-1 text-[10px]"
                   style={{ background: "rgb(0 0 0 / 0.55)", color: "white" }}
                 >
-                  {listed(group.map((theme) => themeLabel(theme, themes, themeNames)))}
+                  {themeLabel(theme, themes, themeNames)}
                 </span>
               )}
             </div>
@@ -506,11 +504,6 @@ export function DetailPreview({
     default:
       return <TokenTile token={token} width={width} height={120} playing={playing} />
   }
-}
-
-/** Names as a sentence lists them: "Light", "Light and Dark", "Light, Dark and High contrast". */
-function listed(names: readonly string[]): string {
-  return names.length < 2 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`
 }
 
 /** Up to nine of a scale's steps around this one, in order, so a long scale doesn't push the facts off the screen. */

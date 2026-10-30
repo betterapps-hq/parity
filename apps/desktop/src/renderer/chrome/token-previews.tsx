@@ -30,19 +30,6 @@ export function drawn(token: PreviewToken, theme = "default"): string {
   return theme === "default" ? (token.resolved ?? token.values.default ?? "") : (token.values[theme] ?? "")
 }
 
-/**
- * A token's themes grouped by the value each draws, in order, so themes that share a color draw as one swatch rather
- * than as halves that run together.
- */
-export function themesByValue(token: PreviewToken, themes: readonly string[]): string[][] {
-  const groups = new Map<string, string[]>()
-  for (const theme of themes) {
-    const value = drawn(token, theme)
-    groups.set(value, [...(groups.get(value) ?? []), theme])
-  }
-  return [...groups.values()]
-}
-
 /** The panel's sections, in order, each with the kinds it holds and a heading for each kind when it holds more. */
 export const tokenSections: { title: string; kinds: { kind: PreviewKind; heading?: string }[] }[] = [
   { title: "Colors", kinds: [{ kind: "color" }] },
@@ -1212,7 +1199,7 @@ export function TokenGlyph({
 }: {
   token: PreviewToken
   playing?: boolean
-  /** Colors show a swatch for each theme, or one for themes that share a value. */
+  /** Colors show a swatch for each theme, even where two themes share a value. */
   themes?: string[]
   /** Wider for spacing, so each bar is its length's true size. */
   width?: number
@@ -1220,9 +1207,9 @@ export function TokenGlyph({
   if (token.kind === "color") {
     return (
       <span className="flex h-5 w-10 shrink-0 gap-px">
-        {themesByValue(token, themes).map((group, _, groups) => (
-          <span key={group[0]} className="h-full flex-1 first:rounded-l-[4px] last:rounded-r-[4px]">
-            <TokenArt token={token} width={40 / groups.length} height={20} theme={group[0]} />
+        {themes.map((theme) => (
+          <span key={theme} className="h-full flex-1 first:rounded-l-[4px] last:rounded-r-[4px]">
+            <TokenArt token={token} width={40 / themes.length} height={20} theme={theme} />
           </span>
         ))}
       </span>
@@ -1258,13 +1245,12 @@ export function TokenTile({
 }) {
   const themes = Object.keys(token.values)
   if (token.kind === "color" && theme === undefined) {
-    // The swatches are the tile, each with its own edge, split by a gap as a row's are.
-    const groups = themesByValue(token, themes)
+    // The swatches are the tile, one for each theme, each with its own edge, split by a gap as a row's are.
     return (
       <span className="flex shrink-0 gap-px" style={{ width, height }}>
-        {groups.map((group) => (
-          <span key={group[0]} className="h-full flex-1 first:rounded-l-md last:rounded-r-md">
-            <TokenArt token={token} width={width / groups.length} height={height} theme={group[0]} />
+        {themes.map((each) => (
+          <span key={each} className="h-full flex-1 first:rounded-l-md last:rounded-r-md">
+            <TokenArt token={token} width={width / themes.length} height={height} theme={each} />
           </span>
         ))}
       </span>

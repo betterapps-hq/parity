@@ -1394,8 +1394,13 @@ to PAR-209 build it.
   dark UI and dark in the light one. You chose that over a black or white border picked by each color's lightness: black
   and white swatches stand off the panel, the colors between look unchanged, and the edge never jumps between two colors
   that are nearly alike. It's on rows, tiles, the detail's preview and values, the palette's shades and a library's
-  described tokens; a theme's swatches split by a 1px gap and merge where their values are equal, in tiles as in rows
-  (PAR-435).
+  described tokens (PAR-435).
+- **A color shows a swatch for each theme, even where two themes share a value.** PAR-143 drew equal themes as one
+  swatch named for both ("Light and Dark"), since equal halves with no gap between them ran together. You found on
+  2026-10-29 that a single block named for two themes looked broken, and that in a row it looked like a token with one
+  theme. With each swatch edged and split by a gap, equal halves no longer run together, so every color in a two-theme
+  project shows two swatches, Light then Dark, in rows, tiles and the detail, and matching halves say the value is the
+  same (PAR-435).
 
 ## The app icon
 
