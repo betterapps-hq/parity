@@ -16,7 +16,12 @@ try {
     browser
       .contexts()
       .flatMap((context) => context.pages())
-      .find((candidate) => /:5310\/?$/.test(candidate.url()))
+      .find((candidate) =>
+        candidate
+          .url()
+          .replace(/\/$/, "")
+          .endsWith(`:${process.env.PARITY_UI_PORT ?? "5310"}`)
+      )
   let page = findPage()
   for (let attempt = 0; !page && attempt < 40; attempt++) {
     await new Promise((resolve) => setTimeout(resolve, 250))

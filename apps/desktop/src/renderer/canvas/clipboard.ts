@@ -338,25 +338,34 @@ async function pasteImage(session: ProjectSession, blob: Blob, name: string): Pr
   }
 }
 
-/** Saves an image into the project, and gives the layer that shows it at its own proportions. */
-async function importImage(session: ProjectSession, blob: Blob, name: string): Promise<DesignNode> {
-  const [size, data] = await Promise.all([imageSize(blob), base64(blob)])
+/**
+ * Saves an image pasted or dropped into the project, and gives the layer that shows it at its own proportions. `type`
+ * is its media type, for a file the system gave none.
+ */
+export async function importImage(
+  session: ProjectSession,
+  blob: Blob,
+  name: string,
+  type = blob.type
+): Promise<DesignNode> {
+  const [size, data] = await Promise.all([imageSize(blob, type), base64(blob)])
   const { src } = await window.canvasHost.request("images.import", {
     projectId: session.id,
     name,
-    type: blob.type,
+    type,
     data
   })
   return nodeForItem({ kind: "image", src, width: size.width, height: size.height }, undefined, new Set())
 }
 
 /** An image's natural size, in pixels; SVGs without one count as square. */
-function imageSize(blob: Blob): Promise<{ width: number; height: number }> {
-  const url = URL.createObjectURL(blob)
+function imageSize(blob: Blob, type: string): Promise<{ width: number; height: number }> {
+  // An SVG only draws from a blob that says it's one.
+  const url = URL.createObjectURL(blob.type === type ? blob : new Blob([blob], { type }))
   return new Promise<{ width: number; height: number }>((resolve, reject) => {
     const image = new Image()
     image.onload = () => resolve({ width: image.naturalWidth || 1, height: image.naturalHeight || 1 })
-    image.onerror = () => reject(new Error("The clipboard's image couldn't be read"))
+    image.onerror = () => reject(new Error("The image couldn't be read"))
     image.src = url
   }).finally(() => URL.revokeObjectURL(url))
 }

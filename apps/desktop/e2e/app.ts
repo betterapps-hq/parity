@@ -323,6 +323,26 @@ export class App {
   }
 
   /**
+   * Puts an empty part of the canvas in view at 100%, below every design and note, by moving the camera directly as
+   * `show` does. Returns the middle of the canvas on screen, and the point on the page there.
+   */
+  async showEmptyCanvas(): Promise<{ screen: Point; page: Point }> {
+    const shown = await this.page.evaluate(() => {
+      const editor = window.e2e!.session().editor!
+      editor.stopCameraAnimation()
+      const bounds = editor.getCurrentPageBounds()
+      const page = { x: Math.round(bounds?.minX ?? 0), y: Math.round((bounds?.maxY ?? 0) + 2000) }
+      const area = editor.getContainer().getBoundingClientRect()
+      editor.setCamera({ x: area.width / 2 - page.x, y: area.height / 2 - page.y, z: 1 }, { immediate: true })
+      return { screen: { x: area.left + area.width / 2, y: area.top + area.height / 2 }, page }
+    })
+    // While the camera moves, tldraw lays a blocker over the canvas, which would take what's dropped.
+    const resting = () => this.page.evaluate(() => window.e2e!.session().editor!.getCameraState() === "idle")
+    if (!(await until(resting))) throw new Error("The camera didn't come to rest")
+    return shown
+  }
+
+  /**
    * Waits until the camera and a design's main frame stop moving or changing, over a few frames, and its board's frames
    * are drawn where they would wake: frames asleep, as they are once zoomed far out, wake once the camera rests near
    * them above the far line (25% on a 1x screen, and a little past it coming back in), or on the selected board.
@@ -472,6 +492,56 @@ export class App {
     await this.page.mouse.up()
     this.pressed()
     return seen
+  }
+
+  /**
+   * Drags files from the system over the window and drops them, as from Explorer or Finder: Chromium's own drag events
+   * through the DevTools protocol, carrying the files at `paths`, entering at the first point, moving through the rest
+   * and dropping at the last. `during` runs before the drop, to look at the drag in progress; with `cancel`, the drag
+   * is called off there instead of dropped.
+   */
+  async dropFiles<T>(
+    paths: string[],
+    at: Point | Point[],
+    during?: () => Promise<T>,
+    cancel = false
+  ): Promise<T | undefined> {
+    const points = Array.isArray(at) ? at : [at]
+    const cdp = await this.page.context().newCDPSession(this.page)
+    // Copy, as the system offers files dragged from a folder.
+    const data = { items: [], files: paths, dragOperationsMask: 1 }
+    const send = (type: "dragEnter" | "dragOver" | "drop" | "dragCancel", point: Point) =>
+      cdp.send("Input.dispatchDragEvent", { type, x: point.x, y: point.y, data })
+    const last = points.at(-1)!
+    try {
+      await send("dragEnter", points[0]!)
+      for (const point of points) {
+        await send("dragOver", point)
+        await this.frames(1)
+      }
+      // A drag held still goes on sending dragover, as the system does, until it's dropped: the canvas stops showing
+      // what a drop does once they stop.
+      let holding = true
+      const held = (async () => {
+        while (holding) {
+          await send("dragOver", last)
+          await new Promise((resolve) => setTimeout(resolve, 100))
+        }
+      })()
+      let seen: T | undefined
+      try {
+        // The canvas measures once a frame, and shows what a drop does the frame after.
+        await this.frames(2)
+        seen = during ? await during() : undefined
+      } finally {
+        holding = false
+        await held
+      }
+      await send(cancel ? "dragCancel" : "drop", last)
+      return seen
+    } finally {
+      await cdp.detach()
+    }
   }
 
   /** Waits for the page to draw a few frames. */

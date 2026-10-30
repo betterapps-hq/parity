@@ -1,7 +1,7 @@
 import { type ContainerSpec, type DesignNode, findNode, nodeIds, type NodeStyle } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import type { Rect } from "./drop-slot.ts"
-import { type HereLayout, pasteHere } from "./paste-here.ts"
+import { type HereLayout, pasteHere, slotHere } from "./paste-here.ts"
 
 const text = (id: string, style?: NodeStyle): DesignNode => ({
   type: "text",
@@ -190,5 +190,46 @@ describe("paste here", () => {
     expect(into("revenue").copies).toEqual([])
     expect(into("gone").copies).toEqual([])
     expect(into("revenue").container).toEqual(dashboard())
+  })
+
+  it("puts several copies side by side from the pointer in an absolutely placed layout", () => {
+    // Two images dropped at once, 80 and 40 steps wide, and text that hugs: each a gap of 4 steps right of the one
+    // before, and the one after the text where the text starts.
+    const image = (id: string, width: number): DesignNode => ({
+      type: "image",
+      id,
+      src: `/${id}.png`,
+      style: { width }
+    })
+    const { container, copies } = pasteHere(
+      dashboard(),
+      [image("wide", 80), image("narrow", 40), text("note"), image("last", 10)],
+      events({ x: 160, y: 280 }),
+      base
+    )
+    const placed = copies.map((id) => findNode(container.root, id)?.style)
+    expect(placed.map((style) => style?.left)).toEqual([50, 134, 178, 178])
+    expect(placed.map((style) => style?.top)).toEqual([100, 100, 100, 100])
+  })
+})
+
+describe("the slot here", () => {
+  it("marks the slot under the pointer in a layout that flows", () => {
+    // Just past the middle of Issues: before Users, with the line just left of it.
+    expect(slotHere(dashboard(), stats({ x: 280, y: 230 }), base)).toEqual({
+      layout: "stats",
+      free: false,
+      index: 2,
+      line: { x: 330, y: 200, w: 2, h: 60 }
+    })
+  })
+
+  it("goes last with no line in an absolutely placed layout, where layers go at the pointer", () => {
+    expect(slotHere(dashboard(), events({ x: 160, y: 280 }), base)).toEqual({ layout: "events", free: true, index: 1 })
+    expect(slotHere(dashboard(), stats({ x: 280, y: 230 }), floating)).toMatchObject({ free: true, index: 4 })
+  })
+
+  it("has none for what isn't one of the design's layouts", () => {
+    expect(slotHere(dashboard(), { ...stats({ x: 280, y: 230 }), layout: "revenue" }, base)).toBeUndefined()
   })
 })

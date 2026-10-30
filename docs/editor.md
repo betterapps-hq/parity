@@ -17,7 +17,7 @@ Features built before 2026-10-29 are being added under PAR-392 in Linear.
 ## Testing in the app (PAR-202)
 
 `pnpm test:app` drives a copy of Parity as a person does, with the system's own pointer and keyboard, and checks what
-the canvas, the panels and the project show: 63 tests, which take four to six minutes. It isn't part of `vp run test` or
+the canvas, the panels and the project show: 68 tests, which take four to six minutes. It isn't part of `vp run test` or
 `pnpm verify`. The pre-push hook runs it when the commits a push sends change the app, its packages, the example or the
 workspace's build files (`scripts/app-tests.ts`), and a failure stops the push. CI runs it on Windows for every pull
 request and every push to main, without blocking the merge until it runs reliably there (PAR-438). While working, run
@@ -34,15 +34,18 @@ run opens a Parity window. Each feature's tests below name the end-to-end ones t
 - **How a test drives it.** The files run one after another against that one window, through the DevTools protocol with
   playwright-core. `App`, in `e2e/app.ts`, has the gestures: `click`, `rightClick`, `drag`, `selectDesign` by its title,
   and `selectLayer`, which clicks a layer and double-clicks down to it as a person does. Every test selects layers
-  through it, so a change to clicking is made there alone. `App` reads what happened from the page (`children`, `style`,
-  `selection`, `drawn`, `outlines`, `labels`, `undoLabel`) and never sets state to make something happen, apart from
-  `show`, which puts a design in view at a zoom, and `reset`, which undoes everything after each test. Copy and paste go
+  through it, so a change to clicking is made there alone. `dropFiles` drags files from the system over the window and
+  drops them, with Chromium's own drag events carrying real files, as Explorer or Finder would. `App` reads what
+  happened from the page (`children`, `style`, `selection`, `drawn`, `outlines`, `labels`, `undoLabel`) and never sets
+  state to make something happen, apart from `show`, which puts a design in view at a zoom, `showEmptyCanvas`, which
+  puts an empty part of the canvas in view, and `reset`, which undoes everything after each test. Copy and paste go
   through a stand-in for the clipboard on the page; the system's clipboard is never read or written.
-- **Adding a test.** Put it in its area's file (`selecting`, `menus`, `moving`, `keyboard`, `fields`, `reopening` or
-  `sleeping`), or in a new `apps/desktop/e2e/<area>.e2e.ts` that connects before all, resets after each test and closes
-  after all, as the others do. Start with `app.show(design, zoom)`, act through `App`'s gestures or `app.page.keyboard`,
-  and wait for what changes with `expect.poll`, since the app answers a frame or more later. Change the project only
-  through edits Undo takes back, so `reset` can put it back. Then name the test in its feature's section here.
+- **Adding a test.** Put it in its area's file (`selecting`, `menus`, `moving`, `keyboard`, `fields`, `dropping`,
+  `reopening` or `sleeping`), or in a new `apps/desktop/e2e/<area>.e2e.ts` that connects before all, resets after each
+  test and closes after all, as the others do. Start with `app.show(design, zoom)`, act through `App`'s gestures or
+  `app.page.keyboard`, and wait for what changes with `expect.poll`, since the app answers a frame or more later. Change
+  the project only through edits Undo takes back, so `reset` can put it back. Then name the test in its feature's
+  section here.
 - **The page never scrolls.** `App` counts each time the window's page scrolls, and `reset` fails the test it ran in if
   it did, or if the page isn't at the top, then puts it back so the tests after start clean. A scrolled page moves the
   canvas without tldraw noticing, so every click after it lands off by as much (PAR-424, "The window", below). Until
@@ -255,8 +258,9 @@ menubar's command. The Layers panel's menu is unchanged.
     the slot under the pointer, where a dragged layer would land (`slotAt`). A hidden layer isn't a slot. A layout
     inside an instance is never the target.
   - In a layout that's absolutely placed in the state shown, the copies go last, on top, at the pointer: their left and
-    top in half steps of the spacing scale from inside its border, in place of their own insets. A copy that's
-    absolutely placed itself goes in the slot, and at the pointer.
+    top in half steps of the spacing scale from inside its border, in place of their own insets. Several go side by side
+    from there, each 4 steps right of the one before when that one has a width in steps (PAR-24); one that fills or hugs
+    leaves the next where it starts. A copy that's absolutely placed itself goes in the slot, and at the pointer.
   - Over a design with no layout under the pointer, nothing is pasted, and a toast says so. Around the designs, text
     becomes a note at the pointer, and layers a new screen there.
 - **Where the right-click lands decides.** tldraw keeps the system's menu from the canvas, pans while the right button
@@ -285,10 +289,11 @@ Tests:
   and Hide in two states, a design's menu and its Make component label, several designs, a layer inside an instance, the
   menu around the designs; Select layer's list, names, checks and the design's kind; and what a right-click selects on a
   layer, a frame's background, around the frames, the root, inside the selection, outside it, and in a selected design.
-- `canvas/paste-here.test.ts` (12): the dashboard's stats row, at the slot under the pointer, first and last, several
+- `canvas/paste-here.test.ts` (16): the dashboard's stats row, at the slot under the pointer, first and last, several
   copies together, fresh ids, a hidden card skipped, an empty layout; an absolutely placed layout at half size, half
   steps, a copy's own insets replaced; an absolutely placed copy in the slot; a state that places the row absolutely;
-  and nothing pasted into a layer that isn't a layout.
+  nothing pasted into a layer that isn't a layout; several copies side by side in an absolutely placed layout; and
+  `slotHere`'s slot and line in a row, none in an absolutely placed layout, and none outside a layout.
 - `canvas/paste-here-frame.test.ts` (4), in Chrome: `measureHere` on a grid drawn at half size, with a hidden card, the
   slot under the pointer, first and last, at the pointer inside an absolutely placed layout's border, and the deepest
   layout.
@@ -308,11 +313,10 @@ Gaps: the end-to-end test covers the right button, Select layer, Paste here into
 right button, Paste here into an absolutely placed layout, a design and a note pasted at the pointer, and the design's
 title keeping its own menu were checked in an isolated copy of the app on the example project on 2026-10-29: each item
 ran and undid as one step, Paste here landed in Calendar's absolutely placed Events at the pointer, and a design and a
-note at the pointer, and the design's title opened no canvas menu. A component's slots aren't Paste here targets.
-Several copies pasted into an absolutely placed layout all land at the pointer, on top of each other. A copy that
-stretches between its insets loses its right and bottom when it's placed at the pointer. A right-click while the menu is
-open closes it, and another opens it. The menubar still offers Copy, Duplicate, the order, Wrap in layout and Hide for a
-layer inside an instance, which they don't act on; the canvas menu greys them.
+note at the pointer, and the design's title opened no canvas menu. A component's slots aren't Paste here targets. A copy
+that stretches between its insets loses its right and bottom when it's placed at the pointer. A right-click while the
+menu is open closes it, and another opens it. The menubar still offers Copy, Duplicate, the order, Wrap in layout and
+Hide for a layer inside an instance, which they don't act on; the canvas menu greys them.
 
 ## Moving, reordering and resizing
 
@@ -762,6 +766,77 @@ Sign in, at its position and on top of it; the message when designs are copied a
 replacing a layer as a text layer.
 
 Gaps: the system's own clipboard isn't read in the tests, and pasting an image or SVG is covered by neither.
+
+## Adding images
+
+Images from outside Parity: pasted (Copy, paste and paste style, above) or dropped from the system's files.
+
+### Dropping image files from Explorer or Finder (PAR-24)
+
+PNG, JPEG, GIF, WebP and SVG files dragged from the desktop, Explorer or Finder onto the canvas are saved into the
+project under `public/images/` through `images.import`, as a pasted image is, and land where they're dropped.
+
+- **Over a layout inside a design** they go into the deepest of the design's own layouts under the pointer, in the frame
+  there, at the slot under the pointer, where a dragged layer would land (`slotAt`), as Paste here puts layers. In a
+  layout that's absolutely placed in the state shown, they go at the pointer, on top. A layout inside an instance is
+  never the target.
+- **On the empty canvas** they make a new screen with its top left at the pointer, as a paste with nothing to paste into
+  makes one. It's named after the file, or Images when there are several, and holds them in a padded row that wraps.
+- **Over a design where there's no layout,** or over its board around the frames, nothing is added, and a message says
+  so.
+- **Several files** land side by side, in the order they were dragged: one after another in the slot, so along the
+  layout's own direction; in a row in a new screen; and in an absolutely placed layout, from the pointer rightwards, 4
+  steps apart.
+- **Each image** is 80 steps wide (320px at 4px a step) and as tall as its proportions make it, as a pasted one is, and
+  is named after its file with a short hash of its content, so dropping the same file again reuses it. The ones dropped
+  end up selected.
+- **One undo step** places them all ("Drop image", "Drop 2 images"). The files are written as they're dropped, before
+  the step, as a paste writes them, and undoing it leaves them, as undoing a paste does.
+- **Files that aren't taken** are named in a message, with why: not one of the five types ("notes.txt isn't a PNG, JPEG,
+  GIF, WebP or SVG image."), or larger than 20 MB. The rest are still added. A file the system gives no type is taken by
+  its extension. One that fails to save gets a message too, and the rest are placed.
+- **While dragging** over the canvas, a label beside the pointer says what a drop there does ("Add 2 images here", "New
+  design with the image", "Drop onto a layout, or onto the empty canvas"), counting only the files that may be images.
+  Over a layout, its box is outlined with a dashed line and the slot is marked as a dragged layer's is; where they'd go
+  at the pointer, a corner marks their top left. It goes when the drag leaves the canvas, when it's dropped, or a second
+  after the drag stops sending updates, as one called off can end without saying so.
+- **Edge cases.** tldraw never sees the files, so it doesn't add pictures of its own. In Interact the design under the
+  pointer gets the drop, as a file field in it would. A file dropped anywhere else in the window, such as on a panel, is
+  refused rather than opened in the window in Parity's place, which is what Electron does with a drop nothing takes.
+
+Code: which files are taken (`imageTypeOf`, `sortDrop`, by the `imageTypes` and `imageLimit` that `images.import` uses
+too), the message (`skippedMessage`), the label (`dropHint`), the undo label and the new screen (`designOfImages`) are
+in `packages/editor/src/drop-files.ts` (`@parity-app/editor`). In the app, `canvas/drop-files.ts` finds where a drop
+lands (`fileDropAt`, through `hitTest`, `measureHere` and `slotHere`), saves the files through `importImage` in
+`canvas/clipboard.ts`, and places them as one step (`dropFiles`, through `pasteHere`); `keepFilesFromOpening` there
+refuses drops elsewhere, from `main.tsx`. `canvas/CanvasDrop.tsx` handles the drag on the canvas and draws the outline,
+the slot, the corner and the label. Saving is `apps/desktop/src/utility/images.ts`.
+
+Tests:
+
+- `packages/editor/src/drop-files.test.ts` (13): the five types by media type; other types left out whatever the name;
+  types by extension when the system gives none; what counts as a possible image while dragging; images kept in order
+  and the rest skipped by name and reason, the size limit included; the messages for one file, several, both reasons and
+  more than five; the label for each place; the undo labels; names without extensions; and the new screen, named after
+  its file or Images, in a wrapping row at the drop point, with a free id and fresh ids.
+- `canvas/paste-here.test.ts`: several copies side by side in an absolutely placed layout, and `slotHere`'s slot and
+  line (see Right-click menus, above).
+- `apps/desktop/e2e/dropping.e2e.ts` (4), end to end (PAR-202), with real files through Chromium's drag events: a PNG
+  and an SVG dropped between Pricing's lede and billing period, with the outline, the slot and "Add 2 images here" while
+  dragging, landing in that slot one after the other at their proportions, saved under `public/images/`, selected, as
+  "Drop 2 images", and one undo taking both out and leaving the files; an SVG dropped on the empty canvas making a
+  screen called logo at the drop point, with the corner and its label; a text file dropped with a PNG named in a message
+  while the PNG is added; and a drag called off adding nothing and showing nothing after.
+
+Gaps: no drag from Explorer itself has been tried. The tests, and the check in an isolated copy of the app on a copy of
+the example on 2026-10-30, send Chromium's own drag events carrying the files, which is what Explorer's drag becomes
+inside the window. In that check the outline, slot and label showed over Pricing's Hero, a PNG and an SVG landed there
+with a text file named in the message, and two dropped on the empty canvas made a screen called Images. Finder isn't
+tried, as Parity's macOS copy hasn't run yet. A drop over a design's frame where no layout is, and over its board's
+background, says so rather than making a new screen, which Paste here does around the boards; neither is in the
+end-to-end test. In a column, several images land one under another, since side by side means along the layout's own
+direction. Dropping into a component's slots, and files from a browser rather than the system (a picture dragged from a
+web page carries a URL, not a file), aren't handled. Interact's drop into a design wasn't tried.
 
 ## Fields
 
