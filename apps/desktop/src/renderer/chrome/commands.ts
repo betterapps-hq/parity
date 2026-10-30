@@ -1,5 +1,5 @@
+import { detachInstance, findNode } from "@parity-app/core"
 import type { Alignment, Order } from "@parity-app/editor"
-import { detachInstance, findNode } from "@parity/core"
 import { toast } from "sonner"
 import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
 import {

@@ -1,4 +1,4 @@
-import type { DesignNode, LibraryInfo } from "@parity/core"
+import type { DesignNode, LibraryInfo } from "@parity-app/core"
 import { defaultFilter } from "cmdk"
 import { Columns3, Rows3, Shapes, Type } from "lucide-react"
 import { useMemo, useState, useSyncExternalStore } from "react"

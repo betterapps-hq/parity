@@ -1,4 +1,4 @@
-import type { DetectionCorrections } from "@parity/core"
+import type { DetectionCorrections } from "@parity-app/core"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
 import { example, failingToDraw, keepingLinks, openProjects, ProjectStage } from "../stories/fixtures.tsx"

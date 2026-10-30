@@ -9,7 +9,7 @@ import {
   renameState,
   resetOverride,
   type StateSpec
-} from "@parity/core"
+} from "@parity-app/core"
 import { Copy, MoreHorizontal, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"

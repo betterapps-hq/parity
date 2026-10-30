@@ -28,7 +28,7 @@ import {
   type StateSpec,
   swapInstance,
   targetPatches
-} from "@parity/core"
+} from "@parity-app/core"
 import { BookOpen, Diamond, Group, Info, Sparkles, Unlink } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"

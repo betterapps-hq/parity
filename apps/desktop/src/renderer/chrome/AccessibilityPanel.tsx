@@ -1,5 +1,5 @@
-import type { AccessibilityFinding, AccessibilityImpact, ContrastDetail } from "@parity/agent"
-import { type ContainerSpec, findNode, type ModeSettings, shownModes } from "@parity/core"
+import type { AccessibilityFinding, AccessibilityImpact, ContrastDetail } from "@parity-app/agent"
+import { type ContainerSpec, findNode, type ModeSettings, shownModes } from "@parity-app/core"
 import {
   ArrowUpRight,
   ChevronRight,

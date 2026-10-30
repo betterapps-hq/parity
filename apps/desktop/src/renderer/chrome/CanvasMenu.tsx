@@ -1,4 +1,4 @@
-import { isInnerPath } from "@parity/core"
+import { isInnerPath } from "@parity-app/core"
 import { CheckIcon } from "lucide-react"
 import { type MouseEvent as ReactMouseEvent, type ReactElement, useEffect, useRef, useState } from "react"
 import {

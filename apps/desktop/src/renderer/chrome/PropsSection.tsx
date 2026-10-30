@@ -1,4 +1,4 @@
-import { type ComponentInfo, type ComponentProp, type DesignNode, isMadeValue } from "@parity/core"
+import { type ComponentInfo, type ComponentProp, type DesignNode, isMadeValue } from "@parity-app/core"
 import { Plus, X } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"

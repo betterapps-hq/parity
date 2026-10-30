@@ -1,4 +1,4 @@
-import { editNode, type NodeStyle } from "@parity/core"
+import { editNode, type NodeStyle } from "@parity-app/core"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { userEvent, within } from "storybook/test"
 import { layersSelection } from "../selection.ts"

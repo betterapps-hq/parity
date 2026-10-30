@@ -1,4 +1,4 @@
-import type { ParamSpec, PropKind } from "@parity/core"
+import type { ParamSpec, PropKind } from "@parity-app/core"
 
 /**
  * The kind of control a prop or param value is edited with: text, a number field, a switch, JSON, or any value, which

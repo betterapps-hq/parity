@@ -1,4 +1,4 @@
-import { componentLibrary, extractComponent, resolveModes, uniqueId } from "@parity/core"
+import { componentLibrary, extractComponent, resolveModes, uniqueId } from "@parity-app/core"
 import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
 import { type ContainerEntry, containerKey } from "../design-store.ts"
 import type { ProjectSession } from "../workspace.ts"

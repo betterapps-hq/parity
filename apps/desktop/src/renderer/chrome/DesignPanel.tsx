@@ -1,4 +1,4 @@
-import type { ContainerKind } from "@parity/core"
+import type { ContainerKind } from "@parity-app/core"
 import { Crown, MousePointerClick } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"

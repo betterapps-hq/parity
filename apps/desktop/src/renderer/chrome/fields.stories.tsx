@@ -1,4 +1,4 @@
-import type { FieldRules } from "@parity/core"
+import type { FieldRules } from "@parity-app/core"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { expect, userEvent, within } from "storybook/test"
