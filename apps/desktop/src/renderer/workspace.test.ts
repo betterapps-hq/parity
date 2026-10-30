@@ -252,6 +252,31 @@ describe("a tab closed while its project opens", () => {
     expect(workspace.getTabs()).toEqual([])
   })
 
+  it("leaves a tab opened again while a reopen saved alone", async () => {
+    const workspace = new Workspace()
+    const opening = workspace.open(info.root)
+    opens[0]!(info)
+    await settle()
+    guest.loads[0]!(loaded)
+    await opening
+    const { store } = workspace.getTab(info.id)!.session!
+    let saved!: () => void
+    vi.spyOn(store, "hasUnsaved").mockReturnValueOnce(true)
+    vi.spyOn(store, "flush").mockReturnValueOnce(new Promise<void>((resolve) => (saved = resolve)))
+    const reloading = workspace.reload(info.id)
+    await workspace.close(info.id)
+    const reopening = workspace.open(info.root)
+    opens[1]!(info)
+    await settle()
+    guest.loads[1]!(loaded)
+    await reopening
+    const reopened = workspace.getTab(info.id)!.session
+    saved()
+    await reloading
+    expect(opens).toHaveLength(2)
+    expect(workspace.getTab(info.id)!.session).toBe(reopened)
+  })
+
   it("keeps a project that finished opening, and closes it with its tab", async () => {
     const workspace = new Workspace()
     const opening = workspace.open(info.root)

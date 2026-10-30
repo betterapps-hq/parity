@@ -214,9 +214,10 @@ export class Workspace {
     // A tab already opening or reopening gets its project from that, which closing the tab can still cancel.
     if (!before || this.attempts.has(id)) return
     if (before.session?.store.hasUnsaved() && !(await saveOrSay(before.session))) return
-    // The tab as it is after saving, which can have changed meanwhile, as when its guest moved.
+    // The tab as it is after saving, which can have changed meanwhile, as when its guest moved. One closed and opened
+    // again while saving has a session of its own, which this reload mustn't replace.
     const tab = this.getTab(id)
-    if (!tab || this.attempts.has(id)) return
+    if (!tab || this.attempts.has(id) || tab.session?.store !== before.session?.store) return
     this.replace(id, { id, title: tab.title, status: "loading" })
     const attempt = this.startAttempt(id)
     // A tab that has opened is its project's id, so a reopen is known to be for it from the start.
