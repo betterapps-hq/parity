@@ -58,8 +58,8 @@ installed globally, `vp` works without `pnpm exec`):
 | `pnpm storybook`         | The app's interface in Storybook, against a stand-in project service.          |
 
 Some tests open the projects in `fixtures/`, which need installing first:
-`pnpm --filter @parity/fixtures install-projects` installs those it knows, and the rest install with `npm ci` in their
-folders.
+`pnpm --filter @parity-app/fixtures install-projects` installs those it knows, and the rest install with `npm ci` in
+their folders.
 
 ## The CLI
 
