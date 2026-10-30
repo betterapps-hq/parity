@@ -4,7 +4,12 @@
 //
 //   node scripts/app-tests.ts <remote>   reads the refs git gives the pre-push hook on stdin
 import { execFileSync, spawnSync } from "node:child_process"
-import { readFileSync } from "node:fs"
+import { linkSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+
+/** One lock for the whole machine: every worktree's suite shares its ports, so two at once fail each other. */
+const lockFile = join(tmpdir(), "parity-app-tests.lock")
 
 /** Whether a file the push changes is part of what the end-to-end tests run: the app, its packages or the example. */
 export function runsInApp(path: string): boolean {
@@ -62,11 +67,91 @@ function main(): void {
   const changed = pushedFiles(readFileSync(0, "utf8"), remote).filter(runsInApp)
   if (changed.length === 0) return
   console.log(`Running the editor's end-to-end tests, since this push changes ${changed.length} of the app's files.`)
+  takeLock()
   // Through the shell, which finds pnpm's own script on Windows; a whole command, since arguments wouldn't be escaped.
   const run = spawnSync("pnpm test:app", { stdio: "inherit", shell: true })
+  rmSync(lockFile, { force: true })
   if (run.status === 0) return
   console.error("The editor's end-to-end tests failed, so nothing was pushed. Fix them, then push again.")
   process.exit(run.status ?? 1)
+}
+
+/** Waits while another worktree's hook runs the suite, then takes the lock. */
+function takeLock(): void {
+  let waiting = false
+  for (;;) {
+    const holder = tryLock(lockFile)
+    if (holder === "taken") return
+    if (!waiting) {
+      console.log(
+        holder === "unreadable"
+          ? `Waiting for the end-to-end lock, ${lockFile}, which can't be read. Delete it if no other push is running.`
+          : `Waiting for another worktree's end-to-end run (process ${holder}) to finish.`
+      )
+    }
+    waiting = true
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10_000)
+  }
+}
+
+/**
+ * Takes a lock file for this process if it can, or says which running process holds it, or that it can't be read,
+ * which is left alone. A lock whose process has gone, as when a push was stopped, is taken over.
+ */
+export function tryLock(file: string): "taken" | "unreadable" | number {
+  // Written in full under its own name, then linked in place: a link fails when the lock exists, and the lock is never
+  // seen before its process is in it.
+  const mine = `${file}.${process.pid}`
+  writeFileSync(mine, String(process.pid))
+  try {
+    linkSync(mine, file)
+    return "taken"
+  } catch (error) {
+    if (errorCode(error) !== "EEXIST") throw error
+  } finally {
+    rmSync(mine, { force: true })
+  }
+  const holder = lockHolder(file)
+  if (holder === "unreadable" || (holder !== "gone" && isRunning(holder))) return holder
+  if (holder === "gone") return tryLock(file)
+  // Moved aside before it's removed, so of two hooks that find it stale only one moves it, and a lock taken in its
+  // place in between is put back.
+  const aside = `${file}.${process.pid}.stale`
+  try {
+    renameSync(file, aside)
+  } catch (error) {
+    if (errorCode(error) === "ENOENT") return tryLock(file)
+    throw error
+  }
+  if (lockHolder(aside) !== holder) linkSync(aside, file)
+  rmSync(aside, { force: true })
+  return tryLock(file)
+}
+
+/** The process a lock file names; only a missing file is gone, and any other failure to read it is inconclusive. */
+function lockHolder(file: string): "gone" | "unreadable" | number {
+  let text: string
+  try {
+    text = readFileSync(file, "utf8")
+  } catch (error) {
+    return errorCode(error) === "ENOENT" ? "gone" : "unreadable"
+  }
+  const pid = Number(text)
+  return Number.isInteger(pid) && pid > 0 ? pid : "unreadable"
+}
+
+function errorCode(error: unknown): string | undefined {
+  return (error as NodeJS.ErrnoException).code
+}
+
+function isRunning(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    // EPERM means it's running as someone else.
+    return errorCode(error) === "EPERM"
+  }
 }
 
 if (process.argv[1] && import.meta.filename === process.argv[1]) main()
