@@ -9,10 +9,10 @@
     "pnpm": ">=12 <13"
   },
   "scripts": {
-    "dev": "pnpm --filter @parity/desktop dev",
-    "inspect": "pnpm --filter @parity/desktop inspect",
-    "perf": "pnpm --filter @parity/desktop perf",
-    "storybook": "pnpm --filter @parity/desktop storybook",
+    "dev": "pnpm --filter @parity-app/desktop dev",
+    "inspect": "pnpm --filter @parity-app/desktop inspect",
+    "perf": "pnpm --filter @parity-app/desktop perf",
+    "storybook": "pnpm --filter @parity-app/desktop storybook",
     "format": "vp fmt",
     "check": "vp check",
     "check:types": "vp lint --type-aware --type-check",

@@ -12,11 +12,11 @@ const readers = ["code", "project", "registry"]
 const edge = ["agent", "builder-vite", "cli", "fixtures", "libgen", "renderer-react", "styles-tailwind"]
 
 const packageFiles = (names: string[]) => names.map((name) => `packages/${name}/**`)
-const packageImports = (names: string[]) => names.flatMap((name) => [`@parity/${name}`, `@parity/${name}/**`])
+const packageImports = (names: string[]) => names.flatMap((name) => [`@parity-app/${name}`, `@parity-app/${name}/**`])
 
 /** What no package imports. */
 const appOnly = {
-  group: ["electron", "tldraw", "@tldraw/*", "@parity/desktop", "@parity/desktop/**", "**/apps/**"],
+  group: ["electron", "tldraw", "@tldraw/*", "@parity-app/desktop", "@parity-app/desktop/**", "**/apps/**"],
   message: "Electron, tldraw and the app belong to apps/desktop; packages never import them."
 }
 

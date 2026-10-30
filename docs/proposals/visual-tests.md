@@ -201,9 +201,9 @@ opens the design's drift review and approves the edit into the design. In CI nob
 sync's reading itself:
 
 - **Read back what can be read.** For each linked file whose hash differs from the one Parity last wrote, Parity reads
-  back what it can: text, token classes, props and known components, through PAR-90's read-back in `@parity/code`, which
-  is pure. The result goes into the design in memory, not into the `.par`. The run then renders the design, and every
-  instance of it, as it will be once synced.
+  back what it can: text, token classes, props and known components, through PAR-90's read-back in `@parity-app/code`,
+  which is pure. The result goes into the design in memory, not into the `.par`. The run then renders the design, and
+  every instance of it, as it will be once synced.
 - **Render the file for what can't.** An edit Parity can't read back gets frozen or overwritten when someone syncs.
   Until they choose, CI renders the file itself for that design, which is what the app will show.
 - **Report it as drift,** apart from ordinary changes. For example: "`member-row.tsx` was edited by hand, and once
@@ -243,7 +243,7 @@ Chromatic and tools like it start from a Storybook build. Parity has most of the
 | **Each case as plain data.** [render.ts](../../packages/core/src/render.ts) resolves a design for a state and mode into a `RenderNode` tree. | A hash of that tree says whether the design itself changed.                                                                                                              |
 | **The project's own dev server.** [builder-vite](../../packages/builder-vite/src/index.ts) runs the project's Vite.                          | No Storybook build and no upload. The server sees every file a case's page loads, which is what makes traces.                                                            |
 | **The project's CSS and tokens.** Core reads both from the stylesheets' sources.                                                             | Traces can name the tokens a case reads, so changing a token re-tests only the cases that use it.                                                                        |
-| **Design and code, linked both ways.** `@parity/code` (PAR-90, PAR-93).                                                                      | CI can show what a hand edit will do to the design once synced, which no Storybook tool can know.                                                                        |
+| **Design and code, linked both ways.** `@parity-app/code` (PAR-90, PAR-93).                                                                  | CI can show what a hand edit will do to the design once synced, which no Storybook tool can know.                                                                        |
 | **A measured box for every node.** `RenderedFrame.nodes` from the offscreen renderer.                                                        | A change reads "`header/avatar` grew from 32 to 40 px and everything below it moved", not "38,000 pixels differ". A shift is reported once, not as every pixel under it. |
 | **Offscreen checks.** Accessibility (axe) and the project's console, per frame.                                                              | The same pass checks accessibility and render errors, with no add-ons.                                                                                                   |
 | **The canvas.** A case is a frame the person can already see.                                                                                | Review happens on the frame itself, rather than in a separate web app.                                                                                                   |
@@ -462,7 +462,7 @@ These are targets to measure, not claims. A benchmark like `pnpm perf` records t
 This starts after the core (your call, 2026-10-29). Within it, CI comes first, as you asked. Each step is an issue in
 Linear's Visual tests stream:
 
-1. **The pure parts:** cases, traces and the plan in `@parity/visual` (PAR-227), and the SSIM compare with regions
+1. **The pure parts:** cases, traces and the plan in `@parity-app/visual` (PAR-227), and the SSIM compare with regions
    (PAR-228). These are data in and data out, tested without Electron or a browser.
 2. **The page and the runner:** PAR-226, then `parity test` with capture, the hash gate, verify on mismatch, baselines,
    reports and exit codes (PAR-229). Then the pinned browser and fonts on any Linux runner (PAR-232), and the benchmark

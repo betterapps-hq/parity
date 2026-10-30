@@ -1,7 +1,7 @@
 {
   "type": "minor",
   "comment": "Insert library components with the values their package makes, such as a tree view's collection",
-  "packageName": "@parity/desktop",
+  "packageName": "@parity-app/desktop",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "patch"
 }

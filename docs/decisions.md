@@ -278,7 +278,7 @@ still need your call.
   typed.
 - **The canvas previews a field's edit as inline styles on the frames already drawn,** not through the store, so typing
   shows in about 25 ms and commits as one undo step. Number props don't preview yet (PAR-203).
-- **The field parser is in `@parity/core`** until `@parity/editor` exists (PAR-7).
+- **The field parser is in `@parity-app/core`** until `@parity-app/editor` exists (PAR-7).
 - **A dragged layer stays in its own layout while the pointer is over that layout** (CAN-47): it changes places with its
   neighbours and never drops into one of them, so cards and bars that are layouts themselves don't swallow the neighbour
   they pass. Putting a layer inside a neighbour is done in Layers for now (PAR-206). Targets are measured before the
@@ -462,11 +462,11 @@ recommended answer to each of its questions.
   parse leaves its capitalised functions and aliases to the type checker, which reads them with the rest. Files named
   `*.config.*`, such as `vite.config.ts` and `eslint.config.js`, are skipped with stories and tests, as they only export
   settings.
-- **A framework's component finding is a `ComponentFinder` in `@parity/code`.** My call: the renderer adapter keeps the
-  quick parse it already has, and the finder adds the thorough pass and props, each taking the project's one program,
-  since every framework Parity expects (React, Vue through vue-component-meta, Svelte) reads types with TypeScript. The
-  props worker calls React's through the contract. `findAll` runs all three passes in one call and returns each
-  component's id, file, export, import, role, evidence and props, for callers without the app's service.
+- **A framework's component finding is a `ComponentFinder` in `@parity-app/code`.** My call: the renderer adapter keeps
+  the quick parse it already has, and the finder adds the thorough pass and props, each taking the project's one
+  program, since every framework Parity expects (React, Vue through vue-component-meta, Svelte) reads types with
+  TypeScript. The props worker calls React's through the contract. `findAll` runs all three passes in one call and
+  returns each component's id, file, export, import, role, evidence and props, for callers without the app's service.
 
 ## Libraries, icons and images
 
@@ -506,8 +506,8 @@ recommended answer to each of its questions.
   whose keywords are only in heroicons.com's scripts, and Hugeicons, whose tags are only on its web API, are searched by
   name: neither source has a version, so the same release could read differently from one day to the next.
 - **Digits before an icon's style are a size only where the icon also comes without one (LIB-46).** My call, in
-  `iconVariants` in `@parity/core`, which the Icons panel and `parity lib` share: a number is a size when it's one of
-  the set's sizes and the name before it is an icon the set exports unsized, in any style (`CalendarDay32Color` is
+  `iconVariants` in `@parity-app/core`, which the Icons panel and `parity lib` share: a number is a size when it's one
+  of the set's sizes and the name before it is an icon the set exports unsized, in any style (`CalendarDay32Color` is
   CalendarDay at 32). Otherwise it's part of the name, so Fluent's Battery0 to Battery10, TextHeader1 and Wifi1 list. An
   icon a set ships only at fixed sizes (`CodeCs16Regular`) is listed once per style, at the size nearest the set's
   default. Fluent lists 2,992 icons, up from 2,902.
@@ -533,18 +533,18 @@ recommended answer to each of its questions.
   query finds an icon in any order, by a word of its name, its other names (Lucide's older `AlertTriangle`) or its tags,
   whole or by its start. A name's first word counts most, as it says what the icon is; a set's first tags count a little
   more than its last; plainer names come first among equals. Small typos are forgiven, and icons only some words find
-  are added, only when the search finds less than a row. It lives in `@parity/icons`, which the Icons panel and the
+  are added, only when the search finds less than a row. It lives in `@parity-app/icons`, which the Icons panel and the
   insert picker both use.
 - **`.lib.par` version 3 describes a library whole,** so Parity needs no code per library: the package and version it
   was generated from with the range it covers (`package`), its components and what each was found as (`components`), its
   icons (`icons`) and its decorators (`decorators`), beside version 2's styles, breakpoints, tokens and canvas. Versions
   1 and 2 keep loading, and their fields stay as they were.
-- **Parity keeps a registry of `.lib.par` files** (`@parity/registry`) for libraries that don't ship one: nova, Radix,
-  Base UI, React Aria Components, MUI, Chakra, Mantine and Fluent UI, and Lucide, Hugeicons, Heroicons, Phosphor, Tabler
-  and Fluent icons. A package's own `.lib.par` comes first; otherwise the registry file whose range covers the installed
-  version, the newest generated first. The catalog the app installs from is the registry. Each file covers the newest
-  major only, so MUI 7 and Mantine 8, inside the cutoff, have none yet; Lucide's covers 0.400 and later too, since its
-  icons are listed from the project's copy.
+- **Parity keeps a registry of `.lib.par` files** (`@parity-app/registry`) for libraries that don't ship one: nova,
+  Radix, Base UI, React Aria Components, MUI, Chakra, Mantine and Fluent UI, and Lucide, Hugeicons, Heroicons, Phosphor,
+  Tabler and Fluent icons. A package's own `.lib.par` comes first; otherwise the registry file whose range covers the
+  installed version, the newest generated first. The catalog the app installs from is the registry. Each file covers the
+  newest major only, so MUI 7 and Mantine 8, inside the cutoff, have none yet; Lucide's covers 0.400 and later too,
+  since its icons are listed from the project's copy.
 - **`parity lib` writes `.lib.par` files** for a package, an icon set or an app. Components are what the TypeScript
   checker says renders, as `proposals/component-detection.md` describes, with anything it can't decide reported rather
   than guessed. Tokens come from wherever the library keeps them: CSS custom properties, Tailwind `@theme`, DTCG files,
@@ -1083,7 +1083,7 @@ recommended answer to each of its questions.
   the project service. With the builder in its own process, five reopens leave the service where one open had it. The
   service starts the builder with Parity's own Node
   ([builder-process.ts](../apps/desktop/src/utility/builder-process.ts), started by
-  [builders.ts](../apps/desktop/src/utility/builders.ts)), and they talk in the messages in `@parity/core`'s
+  [builders.ts](../apps/desktop/src/utility/builders.ts)), and they talk in the messages in `@parity-app/core`'s
   [builder-process.ts](../packages/core/src/builder-process.ts): the start options as data, with the builder by id and
   only the renderer's package lists (its code loads TypeScript, which a builder doesn't need), the components as the
   type checker and changed files find them, usage readings, and close. Closing waits for the process to end, and ends it
@@ -1102,9 +1102,9 @@ recommended answer to each of its questions.
   project would avoid that too.
   - **A builder started again** from the processes list takes its last port when it's free, since the canvas it serves
     is still open, and waits for a closing one of the same project to end first, so a project never has two.
-  - **What a builder logs of what it served** (`@parity/core`'s [served.ts](../packages/core/src/served.ts), the Vite
-    side in `builder-vite/src/served.ts`), which PAR-195 compared to tell a changed project from an unchanged one, no
-    longer chooses the port.
+  - **What a builder logs of what it served** (`@parity-app/core`'s [served.ts](../packages/core/src/served.ts), the
+    Vite side in `builder-vite/src/served.ts`), which PAR-195 compared to tell a changed project from an unchanged one,
+    no longer chooses the port.
 - **Closing a project lets go of its guest in the window:** its `loadGuest` entry and the stylesheet the document
   adopted for it (PAR-195), so the next open makes its stylesheets anew, without the last session's token previews. The
   offscreen renderer lets go of a project's last guest when its jobs come with a new address, since it doesn't hear of
@@ -1248,9 +1248,9 @@ recommended answer to each of its questions.
   a link to the map Vite wrote beside it, which Vite serves when DevTools asks, so DevTools still shows its source; any
   other script from node_modules, such as Vite's client, comes without a map; and Parity's own code, workspace packages
   and a project's own files keep their inline maps, so their stack traces point at their source. It's one plugin,
-  `@parity/builder-vite/dependency-maps`, which imports only Vite's types, since the builder runs it in the project's
-  own Vite. Vite counts plugin names in its dependency cache's key, so adding it re-optimizes dependencies once, and
-  pages can't reuse copies with maps from the HTTP cache.
+  `@parity-app/builder-vite/dependency-maps`, which imports only Vite's types, since the builder runs it in the
+  project's own Vite. Vite counts plugin names in its dependency cache's key, so adding it re-optimizes dependencies
+  once, and pages can't reuse copies with maps from the HTTP cache.
 
 ## Previews
 
@@ -1417,7 +1417,7 @@ the Repository, CI and releases stream in Linear.
 - **The CLI is packed for npm with `vp pack` (PAR-13).** My calls:
   - **The private packages it uses are bundled in, and npm installs only semver and TypeScript,** its dependencies. The
     build fails on any other package it would bundle, so a new one gets declared.
-  - **The registry's files and `in-app.json` ship in `dist`,** where @parity/registry looks before resolving its own
+  - **The registry's files and `in-app.json` ship in `dist`,** where @parity-app/registry looks before resolving its own
     package, which the published CLI doesn't have.
   - **pnpm's `publishConfig` points `bin` and `exports` at `dist` when it packs,** so the workspace still runs the CLI
     from source.
@@ -1544,19 +1544,28 @@ How Parity's code is split, so the parts that change most are easy to find, repl
 2026-10-28, expecting design-to-code and code-to-design to need a lot of iteration. The proposal is
 [proposals/packages.md](proposals/packages.md). These are my calls; change any of them.
 
+- **Every package is in the `@parity-app` scope** (your call, 2026-10-29, PAR-425), the CLI's, since Parity Technologies
+  owns `@parity` on npm. Private packages are never published, but one scope means a name never says whether a package
+  ships. The desktop app is `@parity-app/desktop`. My calls in moving them:
+  - The app keeps its data where the old name put it, `@parity/desktop` under the system's app data folder, so tabs,
+    storage and the theme survive the rename. Electron names that folder after the package, so `main/index.ts` sets it.
+  - Change files waiting for a release were renamed with it, so Beachball still finds their package.
+  - Docs that name `@parity/cli`, `@parity/api` and `@parity/abi` keep them, as they're about npm's scope, and
+    `@parity/props` keeps its old name, as it merged into `@parity-app/code` before the move.
+
 - **Logic lives in packages that take data and return data,** with tests that run without Electron. The app's main and
   service processes do the files, IPC and processes, and the renderer keeps the views. You chose how far the lint guard
   reaches on 2026-10-29 (PAR-5), and the root `vite.config.ts` holds it:
   - A package is pure unless that file names it: nothing from Node, React, tldraw or Electron, and only other pure
     packages. A new package starts pure, so nobody has to remember to guard it.
-  - `@parity/code`, `@parity/project` and `@parity/registry` are readers. They read a project's files, since
+  - `@parity-app/code`, `@parity-app/project` and `@parity-app/registry` are readers. They read a project's files, since
     TypeScript's program and the project's discovery read as they go, but never write them or start processes; a reader
     that needs a file changed returns a project edit. They use no React and depend only on pure packages and other
     readers.
   - The CLI, libgen, the agent runtime, the adapters and the fixtures are the edge, where Node belongs, and
     renderer-react uses React.
   - No package imports Electron, tldraw or the app. Tests may use Node to set up files.
-- **Design and code sync gets one package, `@parity/code`,** which also takes over the three component readers
+- **Design and code sync gets one package, `@parity-app/code`,** which also takes over the three component readers
   (`project/components.ts`, `libgen/components.ts` and `@parity/props`), so one TypeScript program per project serves
   them all. Generating component files, reading them back and the drift review are built there, with golden-file tests.
 - **Every write into a project goes through project edits** (PAR-6): edits built as data, shown as a diff, applied and
@@ -1575,8 +1584,8 @@ How Parity's code is split, so the parts that change most are easy to find, repl
   - Installing a library imports its styles through a project edit too, but doesn't offer Undo, since undoing the import
     would leave the package installed.
 - **Editor behaviour moves into `@parity-app/editor`,** one file at a time with tests: arranging and the clipboard first
-  (PAR-7). It's named in the `@parity-app` scope, the CLI's, because you asked on 2026-10-29 for every package to move
-  there (PAR-425); the rest keep `@parity/` until then. My calls in starting it:
+  (PAR-7). It was the first package after the CLI in the `@parity-app` scope, which every package uses since PAR-425. My
+  calls in starting it:
   - Each rule takes a design, or the documents designs are in, and returns it changed, with what the app needs next: the
     copies' ids, the new layout's id, the layout to select. The same object back means nothing changed, so the store
     records no step. The app keeps the undo labels, the messages, the selection, the system clipboard, saving images and
@@ -1594,8 +1603,8 @@ How Parity's code is split, so the parts that change most are easy to find, repl
     partway or pasting its JSON as text: `isParityCopy` tells the app the text was a Parity copy all the same.
   - A pasted design keeps its id when it's free, as the clipboard's comment always said. Before, every pasted design
     took an id made from its name, so one whose id wasn't its name's lost it.
-- **Lenses and adapters never go in core.** Lens models are schemas in `@parity/models`, each lens is a package, and so
-  is each adapter, such as Drizzle or TanStack Router.
+- **Lenses and adapters never go in core.** Lens models are schemas in `@parity-app/models`, each lens is a package, and
+  so is each adapter, such as Drizzle or TanStack Router.
 
 ## What Parity supports
 
