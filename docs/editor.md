@@ -1105,9 +1105,12 @@ project service started again forgets the ports, while the window keeps what it 
 Closing a tab whose project is still opening, as tabs restored at launch can be, closes the project once the service has
 it: its builder stops, it leaves the processes list, and the window lets go of the guest it loaded for it. Before, the
 service finished opening it and kept it, with its builder running and no tab. Opening the project again before the first
-open finishes keeps it open in the new tab.
+open finishes keeps it open in the new tab. The same holds for a tab closed while it reopens, and for a guest that fails
+to load after its tab closed. Each open is tracked on its own, so an earlier open that was abandoned can't close or fill
+a newer tab for the same project.
 
-Code: `closeNow` and `open` in `apps/desktop/src/renderer/workspace.ts`, through its `abandoned` tabs.
+Code: `closeNow`, `open` and `reload` in `apps/desktop/src/renderer/workspace.ts`, through its `attempts`.
 
-Tests: `apps/desktop/src/renderer/workspace.test.ts` (4: closed before the service answers, closed while the guest
-loads, opened again before the first open finished, and a project that finished opening, closed with its tab).
+Tests: `apps/desktop/src/renderer/workspace.test.ts` (7: closed before the service answers, closed while the guest
+loads, opened again before the first open finished, the reopened tab closed too before either open finished, the guest
+failing after its tab closed, closed while it reopens, and a project that finished opening, closed with its tab).

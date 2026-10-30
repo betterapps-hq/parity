@@ -4,9 +4,17 @@ import type { ProjectInfo } from "../shared/protocol.ts"
 // docs/editor.md, Opening and closing projects: a tab closed while its project opens, as tabs restored at launch can
 // be, closes the project once the service has it, so its builder doesn't run on with no tab (PAR-427).
 
-const guest = vi.hoisted(() => ({ loads: [] as Array<(value: unknown) => void>, released: [] as string[] }))
+const guest = vi.hoisted(() => ({
+  loads: [] as Array<(value: unknown) => void>,
+  failures: [] as Array<(error: Error) => void>,
+  released: [] as string[]
+}))
 vi.mock("./guest.ts", () => ({
-  loadGuest: () => new Promise((resolve) => guest.loads.push(resolve)),
+  loadGuest: () =>
+    new Promise((resolve, reject) => {
+      guest.loads.push(resolve)
+      guest.failures.push(reject)
+    }),
   releaseGuest: (url: string) => guest.released.push(url),
   previewToken: () => undefined
 }))
@@ -34,12 +42,16 @@ beforeEach(() => {
   opens = []
   closes = []
   guest.loads.length = 0
+  guest.failures.length = 0
   guest.released.length = 0
   vi.stubGlobal("window", {
     canvasHost: {
       request: (method: string, params: { projectId?: string }) => {
         if (method === "project.open") return new Promise((resolve) => opens.push(resolve))
-        if (method === "project.close") closes.push(params.projectId!)
+        if (method === "project.close") {
+          closes.push(params.projectId!)
+          return Promise.resolve(undefined)
+        }
         // Nothing else the tab asks for answers, as nothing the test checks waits on it.
         return new Promise(() => undefined)
       }
@@ -90,6 +102,51 @@ describe("a tab closed while its project opens", () => {
     await Promise.all([first, second])
     expect(closes).toEqual([])
     expect(workspace.getTab(info.id)?.status).toBe("ready")
+  })
+
+  it("closes the project when the reopened tab closes too, before either open finished", async () => {
+    const workspace = new Workspace()
+    const first = workspace.open(info.root)
+    await workspace.close(info.root)
+    const second = workspace.open(info.root)
+    await workspace.close(info.root)
+    opens[0]!(info)
+    opens[1]!(info)
+    await Promise.all([first, second])
+    expect(closes).not.toHaveLength(0)
+    expect(closes.every((id) => id === info.id)).toBe(true)
+    expect(guest.loads).toHaveLength(0)
+    expect(workspace.getTabs()).toEqual([])
+  })
+
+  it("closes the project when its guest fails to load after the tab closed", async () => {
+    const workspace = new Workspace()
+    const opening = workspace.open(info.root)
+    opens[0]!(info)
+    await settle()
+    await workspace.close(info.id)
+    guest.failures[0]!(new Error("The guest didn't load"))
+    expect((await opening).status).toBe("error")
+    expect(closes).toEqual([info.id])
+    expect(workspace.getTabs()).toEqual([])
+  })
+
+  it("closes the project a reopen started when its tab closes during the reopen", async () => {
+    const workspace = new Workspace()
+    const opening = workspace.open(info.root)
+    opens[0]!(info)
+    await settle()
+    guest.loads[0]!(loaded)
+    await opening
+    const reloading = workspace.reload(info.id)
+    await settle()
+    expect(closes).toEqual([info.id])
+    await workspace.close(info.id)
+    opens[1]!(info)
+    await reloading
+    expect(closes).toEqual([info.id, info.id])
+    expect(guest.loads).toHaveLength(1)
+    expect(workspace.getTabs()).toEqual([])
   })
 
   it("keeps a project that finished opening, and closes it with its tab", async () => {
