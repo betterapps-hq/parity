@@ -59,6 +59,7 @@ describe("inferTokenKind", () => {
 
   it("takes the kind a DTCG type states, and narrows by one that only says it's a length", () => {
     expect(inferTokenKind("brand", "16px", "dimension")).toBe("setting")
+    expect(inferTokenKind("depth-low", "0 1px 2px", "shadow")).toBe("shadow")
     expect(inferTokenKind("brand-gap", "16px", "dimension")).toBe("spacing")
     expect(inferTokenKind("heading", "600 1rem/1.5 Inter, sans-serif", "typography")).toBe("type-style")
     expect(inferTokenKind("brand", "#fff", "color")).toBe("color")

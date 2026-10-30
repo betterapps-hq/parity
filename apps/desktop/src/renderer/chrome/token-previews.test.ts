@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { barLength } from "./token-previews.tsx"
+import { barLength, fontSizePx, fontSizeText, spacingPx } from "./token-previews.tsx"
 
 describe("a spacing bar", () => {
   it("is drawn at its true size up to 16 pixels short of its room", () => {
@@ -30,5 +30,31 @@ describe("a spacing bar", () => {
     expect(barLength(Number.NaN, 36)).toEqual({ solid: 1, squeezed: 0 })
     const { solid, squeezed } = barLength(100, 12)
     expect(solid + squeezed).toBeLessThanOrEqual(12)
+  })
+})
+
+describe("a type style's size", () => {
+  it("reads any font size the shorthand gives, with or without a line height", () => {
+    expect(fontSizeText("600 12px Inter")).toBe("12px")
+    expect(fontSizeText("400 1ch/1.2 Inter")).toBe("1ch")
+    expect(fontSizeText("400 120%/1.2 Inter")).toBe("120%")
+    expect(fontSizeText("italic small-caps bold large serif")).toBe("large")
+    expect(fontSizeText("400 Inter")).toBeUndefined()
+  })
+
+  it("comes to pixels, a percentage or keyword of the default 16", () => {
+    expect(fontSizePx("400 1rem/1.5 Inter")).toBe(16)
+    expect(fontSizePx("400 150%/1.2 Inter")).toBe(24)
+    expect(fontSizePx("bold x-large serif")).toBe(24)
+    expect(fontSizePx("400 Inter")).toBeNaN()
+  })
+})
+
+describe("a spacing token's length", () => {
+  it("is its largest side when it gives several, as a padding does", () => {
+    expect(spacingPx("8px")).toBe(8)
+    expect(spacingPx("4px 8px")).toBe(8)
+    expect(spacingPx("0.25rem 0 1rem 2px")).toBe(16)
+    expect(spacingPx("auto")).toBeNaN()
   })
 })

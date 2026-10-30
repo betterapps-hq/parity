@@ -15,20 +15,20 @@ const names = (tokens: Token[]) => tokens.map((each) => each.name)
 describe("the shared token order", () => {
   it("reads a token's kind from the DTCG type a .lib.par gives it, as the Tokens panel does", () => {
     const tokens = [
-      token("elevation-low", "other", "0 1px 2px rgb(0 0 0 / 0.1)"),
-      token("elevation-high", "other", "0 8px 16px rgb(0 0 0 / 0.1)"),
-      token("elevation-mid", "other", "0 4px 8px rgb(0 0 0 / 0.1)")
+      token("depth-low", "other", "0 1px 2px"),
+      token("depth-high", "other", "0 8px 16px"),
+      token("depth-mid", "other", "0 4px 8px")
     ]
-    // Without a type, these are plain numbers, which can't be measured, so they list by name.
-    expect(names(inTokenOrder(tokens))).toEqual(["elevation-high", "elevation-low", "elevation-mid"])
+    // Without a type, lengths alone with a name that says nothing are settings, which list by name.
+    expect(names(inTokenOrder(tokens))).toEqual(["depth-high", "depth-low", "depth-mid"])
     const described = [
       {
         name: "Acme",
         manifest: "acme.lib.par",
-        tokens: ["low", "mid", "high"].map((step) => ({ path: `elevation.${step}`, type: "shadow", values: {} }))
+        tokens: ["low", "mid", "high"].map((step) => ({ path: `depth.${step}`, type: "shadow", values: {} }))
       }
     ]
-    expect(names(inTokenOrder(tokens, described))).toEqual(["elevation-low", "elevation-mid", "elevation-high"])
+    expect(names(inTokenOrder(tokens, described))).toEqual(["depth-low", "depth-mid", "depth-high"])
   })
 
   it("reads what a value comes to, references and derived steps filled in", () => {

@@ -543,7 +543,7 @@ export function TokenArt({
     case "spacing":
       return (
         <span className={`flex size-full items-center ${large ? "px-2" : "px-0.5"}`}>
-          <SpacingBar length={px(value)} room={width - (large ? 16 : 4)} />
+          <SpacingBar length={spacingPx(value)} room={width - (large ? 16 : 4)} />
         </span>
       )
     case "radius": {
@@ -657,8 +657,7 @@ export function TokenArt({
       )
     case "type-style": {
       // The style's own family and weight, at its size up to what the box holds.
-      // The first length is the size, with or without a line height after it (`600 12px Inter`, `400 1rem/1.5 …`).
-      const size = px(/(?:^|\s)(\d*\.?\d+(?:px|rem|em))(?=\s|\/|$)/.exec(value)?.[1] ?? "")
+      const size = fontSizePx(value)
       const most = large ? 34 : 15
       // Keyed by the value, so a new one sets every property again: the shorthand alone would undo the size.
       return (
@@ -947,13 +946,59 @@ export function SpacingBar({ length, room, dim = false }: { length: number; room
   )
 }
 
+/** The browser's sizes for the font-size keywords, in pixels, at the default 16px. */
+const fontSizeKeywords: Record<string, number> = {
+  "xx-small": 9,
+  "x-small": 10,
+  small: 13,
+  medium: 16,
+  large: 18,
+  "x-large": 24,
+  "xx-large": 32,
+  "xxx-large": 48,
+  smaller: 16 / 1.2,
+  larger: 16 * 1.2
+}
+
+/**
+ * The font size a `font` shorthand gives, as written: the first length, percentage or size keyword, with or without a
+ * line height after it (`600 12px Inter`, `400 1ch/1.5 …`, `400 120%/1.2 …`, `bold large serif`).
+ */
+export function fontSizeText(font: string): string | undefined {
+  const keywords = Object.keys(fontSizeKeywords).join("|")
+  const size = new RegExp(String.raw`(?:^|\s)(\d*\.?\d+(?:[a-z]+|%)|${keywords})(?=\s*\/|\s|$)`, "i")
+  return size.exec(font)?.[1]
+}
+
+/** The font size a `font` shorthand gives, in pixels: a percentage or keyword is of the default 16px. NaN for none. */
+export function fontSizePx(font: string): number {
+  const text = fontSizeText(font)?.toLowerCase()
+  if (!text) return Number.NaN
+  if (text.endsWith("%")) return (Number.parseFloat(text) / 100) * 16
+  return fontSizeKeywords[text] ?? px(text)
+}
+
+/**
+ * A spacing token's length in pixels: its largest side when it gives one to four (`4px 8px`, as a padding does), so
+ * the bar shows how far it reaches. NaN when no side is a length.
+ */
+export function spacingPx(value: string): number {
+  const sides = value
+    .trim()
+    .split(/\s+(?![^(]*\))/)
+    .map((side) => px(side))
+    .filter((side) => Number.isFinite(side))
+  return sides.length > 0 ? Math.max(...sides) : Number.NaN
+}
+
 const valueChecks: Partial<
   Record<PreviewKind, [property: string, noun: string, example: string, wrap?: (value: string) => string]>
 > = {
   color: ["color", "color", "oklch(0.6 0.2 250) or #2563eb"],
   gradient: ["background-image", "gradient", "linear-gradient(#fff, #000)"],
   "type-style": ["font", "font shorthand", "600 1rem/1.5 Inter, sans-serif"],
-  spacing: ["width", "length", "1rem or 16px"],
+  // Padding takes one to four lengths, as a spacing token may (`4px 8px`), and no negative ones, as width doesn't.
+  spacing: ["padding", "length", "1rem or 16px"],
   radius: ["border-radius", "radius", "0.5rem or 8px"],
   "border-width": ["border-width", "border width", "1px"],
   border: ["border", "border", "1px solid"],

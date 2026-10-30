@@ -54,7 +54,7 @@ describe("defaultValues", () => {
   })
 
   it("resolves a reference in the theme the token is read in, so a dark-only token doesn't shadow a fallback", () => {
-    const tokens = [
+    const tokens: Pick<Token, "name" | "values">[] = [
       { name: "brand-surface", values: { default: "var(--brand-gradient, linear-gradient(red, blue))" } },
       { name: "brand-gradient", values: { dark: "none" } },
       { name: "hero", values: { dark: "var(--hero-fill)" } },

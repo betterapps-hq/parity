@@ -1,12 +1,5 @@
 import { type ModeSettings } from "@parity-app/core"
-import {
-  defaultValues,
-  type PreviewKind,
-  previewKind,
-  substituteReferences,
-  type Token,
-  tokenReferences
-} from "@parity-app/tokens"
+import { defaultValues, type PreviewKind, previewKind, type Token, tokenReferences } from "@parity-app/tokens"
 import { type LibraryToken, matchDescribed, type TokenChange } from "@parity-app/tokens"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { LayoutGrid, List, Search } from "lucide-react"

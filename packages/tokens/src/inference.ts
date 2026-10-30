@@ -53,7 +53,10 @@ export function inferTokenKind(name: string, value: string, type?: string, group
   }
   if (allowed.length === 1) return allowed[0]!
   const named = [...nameKinds(name), ...(group ? nameKinds(group) : [])]
-  return named.find((kind) => allowed.includes(kind)) ?? "setting"
+  // A type naming one kind of token keeps it when the name doesn't pick between its forms: a `shadow` is a shadow. One
+  // that only says it's a length or a number leaves a name that says nothing a setting.
+  const fallback = stated && type !== "dimension" && type !== "number" ? allowed[0]! : "setting"
+  return named.find((kind) => allowed.includes(kind)) ?? fallback
 }
 
 /** What each DTCG type allows: one kind when it names one, a few when it only says it's a length or a number. */
