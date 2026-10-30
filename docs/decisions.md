@@ -1170,8 +1170,9 @@ recommended answer to each of its questions.
     which read `_debugSource`, owner stacks or component stacks.
   - **The project's JSX is still compiled for development,** calling `jsxDEV`, which React's production build leaves
     out. The renderer names stand-ins for what it leaves out (`developmentStandIns`), and the builder serves
-    `react/jsx-dev-runtime`, or any `…/jsx-dev-runtime`, as that package's `jsx`. A prebundled dependency that ships JSX
-    compiled for development would still find no `jsxDEV`; none is known to.
+    `react/jsx-dev-runtime`, or any `…/jsx-dev-runtime`, as that package's `jsx`. The dependency optimizer gets the same
+    stand-in as a plugin of its own (Rolldown's or esbuild's), since it doesn't run the server's, so a package shipped
+    with its JSX compiled for development renders too.
 
 - **The performance stats count each project's builder,** as "Vite for shop", since its memory used to count in the
   service's: the service asks each builder for its CPU time, and the system reads its memory as it does Electron's own

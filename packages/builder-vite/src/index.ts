@@ -70,7 +70,7 @@ export const viteBuilder: BuilderAdapter = {
         entries: Object.values(options.config.components)
           .filter((component) => !component.library)
           .map((component) => component.path),
-        ...productionDependencies(vite)
+        ...productionDependencies(vite, options.root, options.renderer.developmentStandIns)
       },
       plugins: [guestPlugin(options, vite.normalizePath(options.rendererGuestPath)), dependencySourceMaps()]
     })
@@ -113,11 +113,53 @@ export function portFree(port: number): Promise<boolean> {
  * Prebundles dependencies as their production builds, React's among them, as the dependency optimizer's own setting
  * (Rolldown's from Vite 8, esbuild's before). React's development build keeps a stack for every element it makes, which
  * across a project's frames was 723 thousand stack frames on the example project, and its warnings are for the
- * project's own dev server to show. The project's own modules are served as in development.
+ * project's own dev server to show. The project's own modules are served as in development. A dependency that imports
+ * what the production build leaves empty gets the renderer's stand-in, as the project's modules do: the optimizer runs
+ * only its own plugins, not the server's.
  */
-export function productionDependencies(vite: Pick<typeof Vite, "version"> & { rolldownVersion?: string }) {
+export function productionDependencies(
+  vite: Pick<typeof Vite, "version"> & { rolldownVersion?: string },
+  root: string,
+  standIns: Record<string, string> = {}
+) {
   const define = { "process.env.NODE_ENV": JSON.stringify("production") }
-  return vite.rolldownVersion ? { rolldownOptions: { transform: { define } } } : { esbuildOptions: { define } }
+  if (vite.rolldownVersion) {
+    const plugin = {
+      name: "canvas:stand-ins",
+      resolveId: (id: string) => (developmentStandIn(id, standIns) ? `\0${standInId}${id}` : null),
+      load: (id: string) =>
+        id.startsWith(`\0${standInId}`) ? developmentStandIn(id.slice(standInId.length + 1), standIns) : null
+    }
+    return { rolldownOptions: { transform: { define }, plugins: [plugin] } }
+  }
+  const ends = Object.keys(standIns).map((end) => end.replaceAll(/[.*+?^${}()|[\]\\/]/g, "\\$&"))
+  const plugin = {
+    name: "canvas:stand-ins",
+    setup(build: EsbuildBuild) {
+      if (ends.length === 0) return
+      build.onResolve({ filter: new RegExp(`(?:${ends.join("|")})$`) }, ({ path }) =>
+        developmentStandIn(path, standIns) ? { path, namespace: "canvas-stand-in" } : undefined
+      )
+      build.onLoad({ filter: /.*/, namespace: "canvas-stand-in" }, ({ path }) => ({
+        contents: developmentStandIn(path, standIns),
+        loader: "js",
+        resolveDir: root
+      }))
+    }
+  }
+  return { esbuildOptions: { define, plugins: [plugin] } }
+}
+
+/** The parts of esbuild's plugin build a stand-in uses, since the builder doesn't depend on esbuild itself. */
+interface EsbuildBuild {
+  onResolve(
+    options: { filter: RegExp },
+    resolve: (args: { path: string }) => { path: string; namespace: string } | undefined
+  ): void
+  onLoad(
+    options: { filter: RegExp; namespace: string },
+    load: (args: { path: string }) => { contents: string | undefined; loader: "js"; resolveDir: string }
+  ): void
 }
 
 /** The module a renderer serves in place of a bare specifier its production build leaves empty, if it does. */

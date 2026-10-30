@@ -385,8 +385,10 @@ describe("a frame's window", () => {
     }, id)
   }
 
+  // A phone and a laptop frame, once for the whole block, so each test can run alone.
+  beforeAll(() => mount({ phone: { width: 390, height: 844 }, laptop: { width: 1280, height: 800 } }))
+
   it("answers each frame's size questions for it", async () => {
-    await mount({ phone: { width: 390, height: 844 }, laptop: { width: 1280, height: 800 } })
     expect(await probe("phone")).toMatchObject({ mobile: "true", wide: "false", width: "390", height: "84.4" })
     expect(await probe("laptop")).toMatchObject({ mobile: "false", wide: "true", width: "1280", height: "80" })
     expect(errors).toEqual([])

@@ -27,6 +27,14 @@ beforeEach(async () => {
       ""
     ].join("\n"),
     "src/mode.js": "export const mode = process.env.NODE_ENV\n",
+    "src/badge.js": 'export { Badge } from "devlib"\n',
+    // A package shipped with its JSX compiled for development, which the optimizer bundles.
+    "node_modules/devlib/package.json": JSON.stringify({ name: "devlib", version: "1.0.0", main: "index.js" }),
+    "node_modules/devlib/index.js": [
+      'const { jsxDEV } = require("react/jsx-dev-runtime")',
+      'exports.Badge = () => jsxDEV("span", { children: "New" }, undefined, false, {}, undefined)',
+      ""
+    ].join("\n"),
     "node_modules/react/package.json": JSON.stringify({ name: "react", version: "19.0.0", main: "index.js" }),
     "node_modules/react/index.js": "exports.build = process.env.NODE_ENV\n",
     "node_modules/react/jsx-runtime.js": [
@@ -38,6 +46,7 @@ beforeEach(async () => {
     "node_modules/react/jsx-dev-runtime.js": [
       'exports.Fragment = "fragment"',
       'exports.jsxDEV = process.env.NODE_ENV === "production" ? undefined : (type, props) => ({ type, props })',
+      'exports.runtime = "the development runtime"',
       ""
     ].join("\n")
   }
@@ -52,14 +61,15 @@ beforeEach(async () => {
       styles: [],
       components: {
         Button: { path: "src/button.js", export: "Button" },
-        Mode: { path: "src/mode.js", export: "mode" }
+        Mode: { path: "src/mode.js", export: "mode" },
+        Badge: { path: "src/badge.js", export: "Badge" }
       },
       documents: [],
       libraries: []
     },
     renderer: {
       runtimePackages: ["react"],
-      runtimeImports: ["react", "react/jsx-runtime"],
+      runtimeImports: ["react", "react/jsx-runtime", "devlib"],
       developmentStandIns: standIns
     } as unknown as RendererAdapter,
     rendererGuestPath: join(root, "guest.js"),
@@ -96,9 +106,19 @@ describe("frames on dependencies' production builds", () => {
     expect(standIn).toBe("/@id/__x00__virtual:canvas/stand-in/react/jsx-dev-runtime")
     const runtime = importsOf(await served(standIn!)).find((url) => url.includes("react_jsx-runtime"))
     expect(runtime).toBeDefined()
-    const bundled = await served(runtime!)
+    // With what it imports, as the optimizer splits what dependencies share into chunks.
+    const entry = await served(runtime!)
+    const bundled = [entry, ...(await Promise.all(importsOf(entry).map(served)))].join("\n")
     expect(bundled).toContain('"production"')
     expect(bundled).not.toContain(`"${process.env.NODE_ENV ?? "development"}"`)
+  }, 30_000)
+
+  it("gives a prebundled dependency the stand-in too", async () => {
+    session = await viteBuilder.start(options)
+    await served(session.guestUrl)
+    const devlib = importsOf(await served("/src/badge.js")).find((url) => url.includes("devlib"))
+    expect(devlib).toBeDefined()
+    expect(await served(devlib!)).not.toContain("the development runtime")
   }, 30_000)
 })
 
@@ -123,11 +143,38 @@ describe("developmentStandIn", () => {
 })
 
 describe("productionDependencies", () => {
-  it("sets the optimizer's own define: Rolldown's from Vite 8, esbuild's before", () => {
+  it("sets the optimizer's own define and stand-ins: Rolldown's from Vite 8, esbuild's before", () => {
     const define = { "process.env.NODE_ENV": '"production"' }
-    expect(productionDependencies({ version: "8.3.5", rolldownVersion: "1.0.0" })).toEqual({
-      rolldownOptions: { transform: { define } }
+    const plugins = [{ name: "canvas:stand-ins" }]
+    expect(productionDependencies({ version: "8.3.5", rolldownVersion: "1.0.0" }, root, standIns)).toMatchObject({
+      rolldownOptions: { transform: { define }, plugins }
     })
-    expect(productionDependencies({ version: "7.1.0" })).toEqual({ esbuildOptions: { define } })
+    expect(productionDependencies({ version: "7.1.0" }, root, standIns)).toMatchObject({
+      esbuildOptions: { define, plugins }
+    })
+  })
+
+  it("serves the stand-in through esbuild's plugin before Vite 8", () => {
+    const { esbuildOptions } = productionDependencies({ version: "7.1.0" }, root, standIns) as {
+      esbuildOptions: { plugins: { setup(build: unknown): void }[] }
+    }
+    let resolve: { filter: RegExp; to(args: { path: string }): unknown } | undefined
+    let load: ((args: { path: string }) => unknown) | undefined
+    esbuildOptions.plugins[0]!.setup({
+      onResolve: (options: { filter: RegExp }, to: (args: { path: string }) => unknown) =>
+        (resolve = { ...options, to }),
+      onLoad: (_options: unknown, made: (args: { path: string }) => unknown) => (load = made)
+    })
+    expect(resolve!.filter.test("react/jsx-dev-runtime")).toBe(true)
+    expect(resolve!.filter.test("react/jsx-runtime")).toBe(false)
+    expect(resolve!.to({ path: "react/jsx-dev-runtime" })).toEqual({
+      path: "react/jsx-dev-runtime",
+      namespace: "canvas-stand-in"
+    })
+    expect(load!({ path: "@emotion/react/jsx-dev-runtime" })).toEqual({
+      contents: 'export { Fragment, jsx as jsxDEV } from "@emotion/react/jsx-runtime"',
+      loader: "js",
+      resolveDir: root
+    })
   })
 })

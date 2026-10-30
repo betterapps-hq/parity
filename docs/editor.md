@@ -1257,8 +1257,8 @@ numbers, are in [decisions.md](decisions.md) under "Frames run the production bu
 - **Dependencies are prebundled as production:** the builder sets `process.env.NODE_ENV` to `production` in the
   dependency optimizer's own `define`, Rolldown's from Vite 8 and esbuild's before. The project's modules keep its mode.
 - **JSX compiled for development still renders.** The renderer names modules React's production build leaves empty
-  (`developmentStandIns`), and the builder serves a stand-in for any `…/jsx-dev-runtime` a module imports: that
-  package's `jsx` as `jsxDEV`, with `Fragment`.
+  (`developmentStandIns`), and the builder serves a stand-in for any `…/jsx-dev-runtime` a module or a prebundled
+  dependency imports: that package's `jsx` as `jsxDEV`, with `Fragment`.
 - **Each frame's code still asks its own window,** in renders React starts itself and in the effects that follow,
   without the development build's `getOwner`: while React has a dispatcher out, the frame is the one whose provider is
   above the component, and a frame React renders, or starts committing as it reads the root's `ownerDocument`, becomes
@@ -1269,11 +1269,12 @@ Code: `productionDependencies`, `developmentStandIn` and `guestPlugin` in `packa
 `developmentStandIns` in `packages/renderer-react/src/index.ts`; `renderingIn`, `watchRenders` and `watchCommits` in
 `packages/renderer-react/src/viewport.ts`, and `FrameWindowContext`, which the guest provides at each frame's top.
 
-Tests: `packages/builder-vite/src/production.test.ts` (4: a Vite server prebundling a stand-in React as production while
-serving the project's module as development, and its `jsx-dev-runtime` through the stand-in; the stand-ins' matching;
-the optimizer setting for Vite 8 and before). `apps/desktop/src/renderer/frame.test.ts` and `frame-nodes.test.ts` bundle
-React's production build, so the frame's window and finding layers are checked on what frames run, including an effect
-of a render a timer started and a class's `componentDidUpdate` after a timer, in one of two frames. Gaps: Vite 7 and
-earlier's esbuild setting is checked only as data in the tests; it was checked by hand on `fixtures/vite7-js` (Vite
-7.3.7), whose React came prebundled as production and whose JSX went through the stand-in. The numbers were measured by
-hand with a script that isn't in the repository.
+Tests: `packages/builder-vite/src/production.test.ts` (6: a Vite server prebundling a stand-in React as production while
+serving the project's module as development, and its `jsx-dev-runtime` through the stand-in; a prebundled package
+compiled for development getting the stand-in; the stand-ins' matching; the optimizer settings for Vite 8 and before,
+and esbuild's plugin). `apps/desktop/src/renderer/frame.test.ts` and `frame-nodes.test.ts` bundle React's production
+build, so the frame's window and finding layers are checked on what frames run, including an effect of a render a timer
+started and a class's `componentDidUpdate` after a timer, in one of two frames. Gaps: Vite 7 and earlier's esbuild
+setting is checked only as data in the tests; it was checked by hand on `fixtures/vite7-js` (Vite 7.3.7), whose React
+came prebundled as production and whose JSX went through the stand-in, and with a package compiled for development,
+which esbuild bundled with the stand-in. The numbers were measured by hand with a script that isn't in the repository.
