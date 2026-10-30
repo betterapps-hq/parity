@@ -107,7 +107,7 @@ describe("editing tokens", () => {
       steps.saved = [written, store.hasUnsaved()]
       return steps
     })
-    expect(result.edited).toEqual(["red", "pink", "Edit --primary", true, 0])
+    expect(result.edited).toEqual(["red", "pink", "Edit primary", true, 0])
     expect(result.listed).toEqual({ default: "red", dark: "pink" })
     expect(result.undone).toEqual(["black", "white", false, "black"])
     expect(result.redone).toEqual(["red", 2])

@@ -1291,14 +1291,45 @@ to PAR-209 build it.
   value with its references replaced must be the kind's value. You found `calc(var(--radius) * 2.6` saved without its
   `)`; the browser closes it silently, and `CSS.supports` passes anything holding `var()`. `validTokenValue` had both
   holes; the Tokens panel's editor has checked values this way since PAR-141.
-- **Spacing draws at its true size,** in rows and in the detail's scale, as you asked on 2026-10-29: rows widen to the
-  section's longest length, up to 128 pixels, and only a longer one is drawn cut, with a break in its bar.
+- **Spacing draws at its true size in the detail, and within the usual box in rows.** You asked on 2026-10-29 for true
+  sizes, and rows widened to the section's longest length, up to 128 pixels; in the app's 256-pixel panel that cut the
+  spacing names to a letter, so you asked the same day to go back. Rows keep the box every kind has, the pixels are
+  beside the name, and the detail draws the true size among its neighbours. A longer bar was drawn cut with a break,
+  which you found didn't say it was cut; of the ways we drew up, you chose the compressed tail the same day: true size
+  up to 16 pixels short of the box, then the rest squeezed, hatched, into those pixels, on a log scale up to 384.
+- **Tokens are Semantic or Primitive, as Figma names them.** You asked on 2026-10-29 why shadcn's variables were
+  "Project colors": the label said where they were declared, not what they are. The filters, section headings and
+  pickers now say Semantic (named for what they're for, as `primary`) and Primitive (the raw scale, as `color-red-500`),
+  the pair Figma's variable collections use; Fluent's alias and global, Material's system and reference are the same
+  split. Which tier a token is still follows where it's declared until a library says (PAR-143's audit).
+- **A measured kind lists smallest first.** You found the font weights out of order on 2026-10-29: they were by name, so
+  black came before bold and thin last. Weights, sizes, lengths, durations, opacities, layers and ratios now list by
+  value; colors, fonts, easings, animations and cursors stay by name, having no one order. Shadows stayed by name too,
+  until you found them out of order the same day: they list by how far they reach past their box, the furthest layer's
+  offset plus its blur and spread, measured from the value so any library's shadows order alike, not by size names. You
+  then asked that every group with a size or a number list smallest to largest: animations go by duration, a value that
+  is a duration makes a duration whatever its name (`animation-delay-75` had sat among the animations), and ties and the
+  kinds with no measure go by name with numbers by value and size words smallest first, in the forms most libraries
+  write them, rather than by the order the stylesheet had them.
+- **An animation is drawn the same way whichever library it's from:** one plain block runs its keyframes, over a dashed
+  outline of where it rests. You found on 2026-10-29 that some vanished when hovered (Radix's accordion keyframes
+  collapse to a height only its page knows) and that the drawings were a ring, a ball or a square by Tailwind's names,
+  which wouldn't carry to other libraries.
+- **Copy as offers `var()` under CSS and the token's name under Token, and no classes,** as you asked on 2026-10-29.
+  Parity supports any number of frameworks and token sets, and a variable says only that it can be used as a variable,
+  not which classes or props use it; the name is what Parity's own fields take. Classes, under Class in a Tailwind
+  project, went the same day.
+- **The panels hold up when narrow.** You found on 2026-10-29 that the Tokens panel's header ran out of its boxes and
+  the open tab's name ran over the next tab. My call: the left panel's least width goes from 200 to 232 pixels, the open
+  tab names itself only when there's room, filters drop their counts first, and a row's copy button takes the value's
+  place while it shows rather than keeping room for itself.
 - **Copying a token takes one step, and copies its name,** since you judged it's why most people open the tab: a copy
-  button on each row and tile, Ctrl+C on a row, and a click on a palette shade copy `--radius-md`. You chose the name
-  over `var()` on 2026-10-29, since Parity is for designers and vibe coders, who rarely open the code: Parity's fields
-  take the name, with or without the dashes, and refuse `var()` (PAR-401 makes them take it), and the dashes keep it
-  from reading as a Tailwind class in a message to the agent. The detail's Copy is a split button: its arrow opens Copy
-  as, with `var()` and the Tailwind classes, each named by what it sets.
+  button on each row and tile, Ctrl+C on a row, and a click on a palette shade copy `radius-md`. You chose the name over
+  `var()` on 2026-10-29, since Parity is for designers and vibe coders, who rarely open the code, and the name is what
+  Parity's fields take (they refuse `var()`; PAR-401 makes them take it). You chose the bare name over `--radius-md` the
+  same day, so the panel, the detail's heading, its messages and every copy name a token one way, the way a field
+  expects it. The detail's Copy is a split button: its arrow opens Copy as, with `var()` under CSS and the name under
+  Token.
 - **Every copy says how it went, through two shared parts** in `chrome/Copy.tsx`, which you asked for on 2026-10-29
   after a copy showed nothing: `CopyButton`, whose icon springs into a green check and back, or a red cross with
   "Couldn't copy", and `CopyOnClick`, for things with no room for a button, which raises a "Copied" bubble from what was
@@ -1307,8 +1338,17 @@ to PAR-209 build it.
   what has focus, so an open popover stays open. PAR-402 moves Parity's other copies onto them.
 - **In the app, a palette shade copies on a click, and a search makes it editable.** My call, moving the previews into
   the Tokens panel: a shade in the grid opened the editor before; now a click copies it, as the exploration has it, and
-  while searching the palette's matches list as rows, which open the editor. The list draws only the rows in view, with
-  the search and filters fixed above it.
+  while searching the palette's matches list as rows, which open the editor. Its tooltip is just its name, as you asked
+  on 2026-10-29, since that's what a click copies. The list draws only the rows in view, with the search and filters
+  fixed above it.
+- **Themes are named as the modes name them, never by their class.** You asked on 2026-10-29 why the token editor said
+  "Theme .dark": the class is how a theme reaches a frame (shadcn's `.dark`, or the class Parity writes for each of a
+  library's DTCG contexts, such as Fluent's `teams-high-contrast`), not what anyone calls it. My call: a token's values
+  are still keyed by the class, as the stylesheet keys them, and the detail names each by the theme option that adds
+  that class in the Modes panel (Dark), the root's by the option that adds none (Light), and any other from its key.
+- **In the app, Apply replaces the exploration's Save.** The detail's design came before PAR-164 put every change
+  through Save and Undo, so its Save wrote the stylesheet at once. In the app Apply changes the canvas as one undoable
+  step and the project's Save writes it; the line under the value says so, with Undo while it's the last step.
 - **The detail says each thing once, in a fixed order:** the preview; the name, with what it comes to on the right as
   its row shows it; one labeled list of facts (the value in each theme, Built on, From, Used by); and a bar with Edit
   and Copy. You found the first pass disorganized on 2026-10-29: the value showed in three places, and its actions were

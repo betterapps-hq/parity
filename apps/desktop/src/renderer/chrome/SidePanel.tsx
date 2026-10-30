@@ -34,6 +34,10 @@ export function SidePanel({ side, label, tabs, defaultTab, children }: SidePanel
   const current = tabs.some((tab) => tab.value === saved) ? saved! : defaultTab
   if (!open) return <CollapsedRail side={side} label={label} tabs={tabs} current={current} />
   const Close = side === "left" ? PanelLeftClose : PanelRightClose
+  // Every tab's icon takes 34 pixels with its gap; the open tab's name about 7.5 a letter, plus its padding. The rest of
+  // the row is the panel's padding and its collapse button.
+  const named = tabs.find((tab) => tab.value === current)?.label ?? ""
+  const roomForName = width - 52 >= tabs.length * 34 + 26 + named.length * 7.5
   return (
     <aside
       className={`relative flex shrink-0 flex-col bg-background ${side === "left" ? "border-r" : "border-l"}`}
@@ -55,16 +59,16 @@ export function SidePanel({ side, label, tabs, defaultTab, children }: SidePanel
                   value={value}
                   aria-label={name}
                   className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${
-                    selected
+                    selected && roomForName
                       ? "bg-accent px-2.5 font-medium text-foreground"
-                      : "w-8 justify-center text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                      : `w-8 justify-center ${selected ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"}`
                   }`}
                 >
                   <Icon className="size-4 shrink-0" />
-                  {selected && <span className="truncate">{name}</span>}
+                  {selected && roomForName && <span className="truncate">{name}</span>}
                 </TabsPrimitive.Trigger>
               )
-              return selected ? (
+              return selected && roomForName ? (
                 trigger
               ) : (
                 <Tooltip key={value}>
