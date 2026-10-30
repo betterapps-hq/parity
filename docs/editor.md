@@ -1099,3 +1099,15 @@ renderer's side has no automated test, and what a builder records of what it ser
 `packages/builder-vite/src/served.ts`) is no longer used to choose a port. Skipping ports guests had has no test of its
 own, as the system handing an old port out again can't be made to happen; it was checked by reading `newGuestPort`. A
 project service started again forgets the ports, while the window keeps what it loaded from them.
+
+### A tab closed while its project opens (PAR-427)
+
+Closing a tab whose project is still opening, as tabs restored at launch can be, closes the project once the service has
+it: its builder stops, it leaves the processes list, and the window lets go of the guest it loaded for it. Before, the
+service finished opening it and kept it, with its builder running and no tab. Opening the project again before the first
+open finishes keeps it open in the new tab.
+
+Code: `closeNow` and `open` in `apps/desktop/src/renderer/workspace.ts`, through its `abandoned` tabs.
+
+Tests: `apps/desktop/src/renderer/workspace.test.ts` (4: closed before the service answers, closed while the guest
+loads, opened again before the first open finished, and a project that finished opening, closed with its tab).

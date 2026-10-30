@@ -54,6 +54,8 @@ export class Workspace {
   private recent: readonly string[] = loadRecent()
   private activeId: string | undefined
   private nextPlaceholder = 1
+  /** Tabs closed while their project was still opening, by id, whose project closes once it has opened. */
+  private readonly abandoned = new Set<string>()
   private readonly listeners = new Set<() => void>()
 
   subscribe = (listener: () => void) => {
@@ -92,29 +94,45 @@ export class Workspace {
       return existing
     }
     const placeholder = root ?? `opening-${this.nextPlaceholder++}`
-    this.update([...this.tabs, { id: placeholder, title: root ? basename(root) : "Opening…", status: "loading" }])
+    const opening: Tab = { id: placeholder, title: root ? basename(root) : "Opening…", status: "loading" }
+    this.abandoned.delete(placeholder)
+    this.update([...this.tabs, opening])
     if (activate || !this.activeId) this.activate(placeholder)
     this.setProgress(placeholder, ["Starting the project's builder", "Loading its components"], 0)
 
     let current = placeholder
+    // A tab closed while its project opens has nothing to show it in, so the project closes again once the service
+    // has it, and its builder stops with it.
+    const closedMeanwhile = (projectId: string) => {
+      if (!this.abandoned.delete(current)) return false
+      void window.canvasHost.request("project.close", { projectId })
+      return true
+    }
     try {
       const info = await window.canvasHost.request("project.open", { root })
       const duplicate = info.id !== placeholder ? this.getTab(info.id) : undefined
       if (duplicate) {
+        this.abandoned.delete(placeholder)
         this.remove(placeholder)
         if (activate) this.activate(duplicate.id)
         return duplicate
       }
+      if (closedMeanwhile(info.id)) return opening
       this.replace(placeholder, { id: info.id, title: info.name, status: "loading" })
       current = info.id
       const builder = info.builder.name
       this.setProgress(info.id, [`Starting ${builder}`, `Loading components from ${builder}`], 1)
       const session = await createSession(info)
+      if (closedMeanwhile(info.id)) {
+        releaseGuest(info.guestUrl)
+        return opening
+      }
       this.replace(info.id, { id: info.id, title: info.name, status: "ready", session })
       this.remember(info.root)
       return this.getTab(info.id)!
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
+      if (this.abandoned.delete(current)) return { ...opening, status: "error", message }
       this.replace(current, { ...this.getTab(current)!, status: "error", message })
       return this.getTab(current)!
     }
@@ -156,7 +174,7 @@ export class Workspace {
     if (tab.session) {
       void window.canvasHost.request("project.close", { projectId: tab.session.id })
       releaseGuest(tab.session.info.guestUrl)
-    }
+    } else if (tab.status === "loading") this.abandoned.add(tab.id)
     this.save()
     this.notify()
   }
