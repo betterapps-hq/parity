@@ -47,11 +47,12 @@ pnpm dev
 
 `pnpm dev` starts the desktop app with the example project, `examples/shadcn-vite`, open. Other scripts:
 
-| Command            | What it does                                                          |
-| ------------------ | --------------------------------------------------------------------- |
-| `pnpm verify`      | Formatting, lint and tests, as CI runs them.                          |
-| `pnpm check:types` | Type checks, which run on push and in CI rather than in `verify`.     |
-| `pnpm storybook`   | The app's interface in Storybook, against a stand-in project service. |
+| Command            | What it does                                                           |
+| ------------------ | ---------------------------------------------------------------------- |
+| `pnpm verify`      | Formatting, lint and tests, as CI runs them.                           |
+| `pnpm check:types` | Type checks, which run on push and in CI rather than in `verify`.      |
+| `pnpm test:app`    | The editor's end-to-end tests, a few minutes long and not in `verify`. |
+| `pnpm storybook`   | The app's interface in Storybook, against a stand-in project service.  |
 
 Some tests open the projects in `fixtures/`, which need installing first:
 `pnpm --filter @parity/fixtures install-projects` installs those it knows, and the rest install with `npm ci` in their
@@ -75,6 +76,7 @@ Until it's published, run it from a checkout with `node packages/cli/src/bin.ts`
 | -------------------------- | ---------------------------------------------------------------------------------------------- |
 | `apps/desktop`             | The Electron app: the window and its views, the project service, and the processes it starts.  |
 | `packages/core`            | The `.par` model and the operations on it: documents, edits, instances, modes, tokens and CSS. |
+| `packages/editor`          | Editor behaviour without the views, starting with arranging and the clipboard.                 |
 | `packages/code`            | Reading a project's code with TypeScript: its components and their props.                      |
 | `packages/project`         | Detecting and reading a project: its tools, configs, libraries and Storybook.                  |
 | `packages/renderer-react`  | The React adapter, which draws components in frames.                                           |
