@@ -7,7 +7,6 @@ import {
   Frame,
   Image as ImageIcon,
   type LucideProps,
-  MonitorSmartphone,
   Rows3,
   Type
 } from "lucide-react"
@@ -49,10 +48,6 @@ export function NodeIcon({ node, ...props }: LucideProps & { node: DesignNode })
   if (node.type === "component") return <Box {...props} />
   if (node.type === "instance") return <Diamond {...props} />
   return node.style?.direction === "row" ? <Columns3 {...props} /> : <Rows3 {...props} />
-}
-
-export function ModeIcon(props: LucideProps) {
-  return <MonitorSmartphone {...props} />
 }
 
 /** Focuses an element when it mounts: for inline rename fields that appear where the person double-clicked. */

@@ -1453,6 +1453,16 @@ the Repository, CI and releases stream in Linear.
     skipped its hooks. It took 9 seconds.
   - **Focused tests and `debugger` were lint errors already.**
   - **Tests run on twelve workers locally and four in CI,** as Copacker's do, which you said suits your machine.
+- **knip finds unused files, dependencies and exports (PAR-395),** as in the agency monorepo. My calls:
+  - **`pnpm check:unused` runs it, and `pnpm verify` doesn't yet.** CI runs `pnpm verify`, and CI belongs to the CI
+    session, which can add `pnpm check:unused`.
+  - **Its config is `knip.jsonc`,** so each entry and ignore says why, and its version is in the catalog.
+  - **The example project and `fixtures/` are left out,** since they stand in for customers' projects.
+  - **Kept on purpose:** the app's runtime dependencies that the bundled project service loads from its folder, the
+    CLI's `semver`, which npm installs beside the packed CLI for the packages it bundles, shadcn's components whole, the
+    Storybook explorations' shared parts, libgen's demo declarations and macOS's own commands.
+  - **Removed:** `clsx` and `tailwind-merge`, which `cn` replaced, the app's `@parity-app/libgen` and libgen's
+    `@parity-app/registry`, which nothing imports, and three functions nothing calls.
 - **Pull requests are required on `main`, and CodeRabbit reviews each one,** as you asked on 2026-10-29. The ruleset
   comes with the repository (PAR-398). My calls:
   - **A pull request merges once CI, CodeRabbit's status and the title check pass and every thread is resolved,** with

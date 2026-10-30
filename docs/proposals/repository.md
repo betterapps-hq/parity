@@ -26,6 +26,8 @@ to npm and of unsigned installers to GitHub Releases, as betas first and to ever
   a commit. `pnpm verify` still checks the whole folder.
 - **The type-aware lint rules are on** (PAR-396), checked with types on push and in CI. One test file turns
   `no-implied-eval` off in `lint.overrides`, since it runs generated source; decisions.md says why.
+- **`pnpm check:unused` runs knip** (PAR-395) for unused files, dependencies and exports, from `knip.jsonc`. Neither
+  `pnpm verify` nor CI runs it yet.
 
 ## Vite+
 

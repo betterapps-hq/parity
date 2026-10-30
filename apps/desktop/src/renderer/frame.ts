@@ -144,10 +144,6 @@ function rewriteStyleText(node: Node): void {
   if (rewritten !== node.data) node.data = rewritten
 }
 
-export function frameBody(host: Element): HTMLElement | undefined {
-  return (host.shadowRoot?.firstElementChild as HTMLElement | null) ?? undefined
-}
-
 /** How each frame's guest says where its design nodes are drawn, by the frame's host element. */
 const drawnBy = new WeakMap<Element, () => DrawnNodes | undefined>()
 
