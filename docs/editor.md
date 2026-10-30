@@ -335,11 +335,13 @@ Code: `sizeWhileShown` in `apps/desktop/src/renderer/canvas/overlay-canvas.ts`, 
 
 Tests: `overlay-canvas.test.ts` (5: no bitmap while nothing shows, tldraw's size while something does and none after,
 left alone while something still shows, never setting a size it already has, restoring), and
-`apps/desktop/e2e/overlays.e2e.ts` (2: no bitmap with the pointer off the board, the window's size and a drawn box with
-every design selected, none again after Escape and after moving the camera; and the box still drawn while Shift is held
-down on the empty canvas beside two selected designs). Gaps: hover outlines and snap lines were checked in an isolated
-copy of the app on 2026-10-30, the canvas taking its size while a board was hovered and none once the pointer left; the
-brush has no test.
+`apps/desktop/e2e/overlays.e2e.ts` (3: no bitmap with the pointer off the board, the window's size and a drawn box with
+every design selected, none again after Escape and after moving the camera; the box still drawn while Shift is held down
+on the empty canvas beside two selected designs; and the brush drawn while a box is dragged on the empty canvas, with no
+bitmap once it's let go). Gaps: hover outlines and snap lines have no automated test. Hover outlines were checked in an
+isolated copy of the app on 2026-10-30, by reading the canvas's size over the DevTools protocol: it took the window's
+size while a board was hovered, and none once the pointer left. Snap lines haven't been checked; they show only while a
+design is dragged, when tldraw's snap overlay util is active, so the canvas has its size then.
 
 ## Moving, reordering and resizing
 

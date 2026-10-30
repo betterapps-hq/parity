@@ -89,4 +89,38 @@ describe("the overlay canvas", () => {
       await app.page.keyboard.up("Shift")
     }
   })
+
+  it("draws the brush while a box is dragged on the empty canvas, and gives the bitmap back after", async () => {
+    await app.show("Sign in", 0.1)
+    // A stretch of bare canvas, clear of every board, to drag the brush across.
+    const empty = await app.page.evaluate(() => {
+      const editor = window.e2e!.session().editor!
+      const area = editor.getContainer().getBoundingClientRect()
+      const bare = (x: number, y: number) => {
+        const under = document.elementFromPoint(x, y)
+        if (!under?.closest(".tl-canvas") || under.closest("button, .tl-shape, .design-title")) return false
+        return !editor.getShapeAtPoint(editor.screenToPage({ x, y }), { hitInside: true, margin: 20 })
+      }
+      for (let y = area.bottom - 20; y > area.top + 60; y -= 40) {
+        for (let x = area.right - 20; x > area.left + 60; x -= 40) {
+          if (bare(x, y) && bare(x - 30, y - 30) && bare(x - 15, y - 15)) return { x, y }
+        }
+      }
+      return undefined
+    })
+    if (!empty) throw new Error("No bare canvas in view")
+    await app.page.mouse.move(1, 1)
+    await expect.poll(overlayCanvas).toEqual({ width: 0, height: 0, drawn: false })
+    await app.page.mouse.move(empty.x, empty.y)
+    await app.page.mouse.down()
+    try {
+      await app.page.mouse.move(empty.x - 30, empty.y - 30, { steps: 6 })
+      await expect.poll(() => app.page.evaluate(() => window.e2e!.session().editor!.isIn("select.brushing"))).toBe(true)
+      await expect.poll(async () => (await overlayCanvas()).drawn).toBe(true)
+    } finally {
+      await app.page.mouse.up()
+    }
+    await app.page.mouse.move(1, 1)
+    await expect.poll(overlayCanvas).toEqual({ width: 0, height: 0, drawn: false })
+  })
 })
