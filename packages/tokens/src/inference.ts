@@ -171,11 +171,13 @@ function valueKinds(raw: string): InferredKind[] {
   if (/^var\(\s*--[\w-]+\s*\)$|^(?:inherit|initial|unset|revert)$/.test(value)) return anyKind
   if (value === "") return ["blur", "shadow", "radius", "setting"]
   if (/^-?\d*\.?\d+(?:px|rem|em)\s+(?:solid|dashed|dotted|double)\b/.test(value)) return ["border"]
-  // A font shorthand: a weight, a size over a line height, and a family, or all of them inherited.
+  // A font shorthand: a weight, a size, perhaps over a line height, and a family (a generic one, a quoted one or a
+  // plain name, as `400 16px Inter`), or all of them inherited.
   const family = /(?:serif|sans-serif|monospace|system-ui|ui-\w+|"[^"]+"|'[^']+'|inherit)\s*,?[^,]*$/i
   const shorthand =
     /^(?:\d{3}|inherit)\s+(?:\d*\.?\d+(?:px|rem|em)|inherit)(?:\s*\/\s*[\d.]+|\s+[\w"'-])|^inherit\s+inherit\/inherit/
-  if (shorthand.test(value) && family.test(value)) return ["type-style"]
+  const named = /^\d{3}\s+\d*\.?\d+(?:px|rem|em)(?:\s*\/\s*[\d.]+)?\s+[A-Za-z][\w -]*(?:,|$)/
+  if (shorthand.test(value) && (family.test(value) || named.test(value))) return ["type-style"]
   if (colorFunction.test(value) || namedColor.test(value)) return ["color"]
   // Bare channels, as `255 255 255`, which a color function wraps.
   if (/^\d{1,3}\s+\d{1,3}\s+\d{1,3}$/.test(value)) return ["color"]
@@ -198,6 +200,10 @@ function valueKinds(raw: string): InferredKind[] {
   if (lengths.length >= 2 && (colored || value.includes(","))) {
     return ["shadow", "drop-shadow", "text-shadow"]
   }
+  // Two to four lengths alone are a shadow in the current color, or a padding's sides, so the name decides.
+  if (lengths.length >= 2 && lengths.length <= 4 && lengths.length === words.length) {
+    return ["shadow", "drop-shadow", "text-shadow", "spacing", "setting"]
+  }
   if (value === "none") return ["shadow", "gradient", "blur", "radius", "setting"]
   // 0 is a length and a number alike.
   if (value === "0") return [...lengthKinds, "font-weight", "z-index", "opacity"]
@@ -206,6 +212,9 @@ function valueKinds(raw: string): InferredKind[] {
   if (/^(?:auto|default|pointer|not-allowed|text|move|grab|wait|help|crosshair)$/.test(value)) {
     return ["cursor", "setting"]
   }
+  // One family by itself, quoted or named as a proper noun (`Inter`), when the name says it's one; a lowercase keyword
+  // (`grayscale`, `wrap`) isn't.
+  if (/^(?:"[^"]+"|'[^']+'|[A-Z][\w-]*(?: [A-Z][\w-]*)*)$/.test(value)) return ["font-family", "setting"]
   return ["setting"]
 }
 

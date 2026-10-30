@@ -657,7 +657,8 @@ export function TokenArt({
       )
     case "type-style": {
       // The style's own family and weight, at its size up to what the box holds.
-      const size = px(/(-?\d*\.?\d+(?:px|rem|em))\s*\//.exec(value)?.[1] ?? "")
+      // The first length is the size, with or without a line height after it (`600 12px Inter`, `400 1rem/1.5 …`).
+      const size = px(/(?:^|\s)(\d*\.?\d+(?:px|rem|em))(?=\s|\/|$)/.exec(value)?.[1] ?? "")
       const most = large ? 34 : 15
       // Keyed by the value, so a new one sets every property again: the shorthand alone would undo the size.
       return (

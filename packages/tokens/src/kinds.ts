@@ -73,9 +73,12 @@ export function previewKind(
   return isMapped(kind) ? previewOf[kind] : kind
 }
 
-/** What each token comes to in its default theme, by name: the lookup `previewKind` resolves references with. */
+/**
+ * What each token comes to in its default theme, or the first it has (one only a dark theme sets), by name: the lookup
+ * `previewKind` resolves references with.
+ */
 export function defaultValues(tokens: readonly Pick<Token, "name" | "values">[]): (name: string) => string | undefined {
-  const values = new Map(tokens.map((token) => [token.name, token.values.default]))
+  const values = new Map(tokens.map((token) => [token.name, token.values.default ?? Object.values(token.values)[0]]))
   return (name) => values.get(name)
 }
 

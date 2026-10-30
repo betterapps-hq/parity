@@ -81,6 +81,18 @@ describe("inferTokenKind", () => {
     expect(inferTokenKind("shadow-md", "0 1px 2px var(--unknown)")).toBe("shadow")
   })
 
+  it("reads a shadow with no color, a shorthand with a plain family, and one family alone, by their names", () => {
+    expect(inferTokenKind("shadow-card", "0 2px 4px")).toBe("shadow")
+    expect(inferTokenKind("padding-button", "4px 8px")).toBe("spacing")
+    expect(inferTokenKind("brand", "4px 8px")).toBe("setting")
+    expect(inferTokenKind("text-body", "400 16px Inter")).toBe("type-style")
+    expect(inferTokenKind("text-caption", "600 12px/1.25 Inter, sans-serif")).toBe("type-style")
+    expect(inferTokenKind("font-family-body", "Inter")).toBe("font-family")
+    expect(inferTokenKind("font-family-display", '"Mona Sans"')).toBe("font-family")
+    // A lowercase keyword is a setting, whatever its name says.
+    expect(inferTokenKind("font-smoothing", "grayscale")).toBe("setting")
+  })
+
   it("works out a simple calc() in pixels", () => {
     expect(simplifyCalc("calc(1rem * 1.5)")).toBe("24px")
     expect(simplifyCalc("calc(0.625rem - 4px)")).toBe("6px")

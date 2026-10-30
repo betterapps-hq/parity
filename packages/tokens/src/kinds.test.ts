@@ -32,6 +32,16 @@ async function registryKinds(library: string): Promise<Record<string, PreviewKin
   return Object.fromEntries(tokens.map((token) => [token.name, previewKind(token, types.get(token.name), lookup)]))
 }
 
+describe("defaultValues", () => {
+  it("looks a token up by its default value, or the first it has when only a dark theme sets it", () => {
+    const lookup = defaultValues([
+      { name: "radius", values: { default: "4px" } },
+      { name: "glow", values: { dark: "0 0 8px white" } }
+    ])
+    expect([lookup("radius"), lookup("glow"), lookup("missing")]).toEqual(["4px", "0 0 8px white", undefined])
+  })
+})
+
 describe("previewKind", () => {
   it("splits Tailwind's theme finer than its categories", () => {
     const theme = Object.entries({
