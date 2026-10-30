@@ -279,7 +279,7 @@ function localResolver(tree: string[]): (from: string, specifier: string) => str
     for (let at = -1; at < candidate.length; at = candidate.indexOf("/", at + 1)) {
       const suffix = candidate.slice(at + 1)
       if (!bySuffix.has(suffix)) bySuffix.set(suffix, target)
-      if (candidate.indexOf("/", at + 1) === -1) break
+      if (!candidate.includes("/", at + 1)) break
     }
   }
   return (from, specifier) => {
