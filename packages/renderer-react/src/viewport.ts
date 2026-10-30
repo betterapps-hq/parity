@@ -9,6 +9,8 @@ import * as React from "react"
  *
  * - while React renders the frame or runs its effects, at any time, where React's development build says which
  *   component it's working on, as it does on a dev server
+ * - while React's production build, which frames run, renders a component under the frame's provider, and in the
+ *   effects that follow, as the frame last drawn
  * - while the frame renders from the canvas, synchronously, so its first effects run then too
  * - through the media query lists and resize listeners the frame made
  * - otherwise, in an event handler or a timer, to the project's code, for the frame last drawn or used
@@ -24,6 +26,7 @@ export interface FrameWindow {
 }
 
 interface Scope {
+  container: unknown
   viewport: FrameViewport
   /** Media query lists with change listeners. */
   queries: Set<FrameQueryList>
@@ -36,14 +39,20 @@ const running: Scope[] = []
 let active: Scope | undefined
 /** Frames by the element React renders them into, to tell which one an event or a component is in. */
 const frames = new Map<unknown, Scope>()
+/** Frames by the window their provider passes down. */
+const windows = new WeakMap<FrameWindow, Scope>()
+
+/** The window of the frame a component is drawn in, which the guest provides at the top of each frame. */
+export const FrameWindowContext = React.createContext<FrameWindow | undefined>(undefined)
 
 /** Gives the frame React renders into `container` its own window, the size of `viewport`. */
 export function frameWindow(container: Element, viewport: FrameViewport): FrameWindow {
   install()
-  const self: Scope = { viewport, queries: new Set(), resizeListeners: new Set() }
+  const self: Scope = { container, viewport, queries: new Set(), resizeListeners: new Set() }
   frames.set(container, self)
+  watchCommits(container, self)
   const run = <T>(work: () => T): T => {
-    if (frames.get(container) === self) active = self
+    draw(self)
     running.push(self)
     try {
       return work()
@@ -51,7 +60,7 @@ export function frameWindow(container: Element, viewport: FrameViewport): FrameW
       running.pop()
     }
   }
-  return {
+  const own: FrameWindow = {
     run,
     resize(next) {
       if (next.width === self.viewport.width && next.height === self.viewport.height) return
@@ -66,12 +75,40 @@ export function frameWindow(container: Element, viewport: FrameViewport): FrameW
       })
     },
     dispose() {
+      Reflect.deleteProperty(container, "ownerDocument")
       frames.delete(container)
       if (active === self) active = undefined
       self.queries.clear()
       self.resizeListeners.clear()
     }
   }
+  windows.set(own, self)
+  return own
+}
+
+const ownerDocument =
+  typeof Node === "undefined" ? undefined : Object.getOwnPropertyDescriptor(Node.prototype, "ownerDocument")
+
+/**
+ * Makes a frame the one last drawn as React starts committing it: React DOM reads its root's `ownerDocument` first, for
+ * every commit that changes the DOM or has lifecycle methods or layout effects to run (React 19). A class component's
+ * update sets no dispatcher in the frame, so this is how its `componentDidUpdate` asks about the right frame.
+ */
+function watchCommits(container: Element, frame: Scope): void {
+  if (!ownerDocument?.get) return
+  Object.defineProperty(container, "ownerDocument", {
+    configurable: true,
+    enumerable: ownerDocument.enumerable ?? true,
+    get() {
+      draw(frame)
+      return Reflect.get(Node.prototype, "ownerDocument", container) as Document
+    }
+  })
+}
+
+/** Makes a frame that's still open the one last drawn. */
+function draw(frame: Scope): void {
+  if (frames.get(frame.container) === frame) active = frame
 }
 
 /**
@@ -81,7 +118,7 @@ export function frameWindow(container: Element, viewport: FrameViewport): FrameW
 function asking(): Scope | undefined {
   const fiber = workingOn()
   if (fiber) return frames.get(rootOf(fiber))
-  return running.at(-1) ?? (active && projectIsAsking() ? active : undefined)
+  return renderingIn() ?? running.at(-1) ?? (active && projectIsAsking() ? active : undefined)
 }
 
 interface Fiber {
@@ -89,13 +126,51 @@ interface Fiber {
   stateNode: unknown
 }
 
-const internals = React as unknown as {
-  __CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE?: { A?: { getOwner?(): Fiber | null } | null }
-}
+const shared = (
+  React as unknown as {
+    __CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE?: {
+      A?: { getOwner?(): Fiber | null } | null
+      /** The hooks dispatcher: set while React renders, and unset again when it's done or stops to yield. */
+      H?: unknown
+    }
+  }
+).__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE
 
 /** The component React's development build is rendering or running effects for, as its warnings name it. */
 function workingOn(): Fiber | null {
-  return internals.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE?.A?.getOwner?.() ?? null
+  return shared?.A?.getOwner?.() ?? null
+}
+
+/**
+ * The frame React is rendering a component in, for its production build, which doesn't say which component: while
+ * React has a dispatcher out, the value of the frame's provider above the component, as React keeps it on the context
+ * (`_currentValue`, since React 16.3) as it goes down the tree.
+ */
+function renderingIn(): Scope | undefined {
+  if (!shared?.H) return undefined
+  const own = (FrameWindowContext as unknown as { _currentValue?: FrameWindow })._currentValue
+  const frame = own && windows.get(own)
+  return frame && frames.get(frame.container) === frame ? frame : undefined
+}
+
+/**
+ * Makes each frame React renders the one last drawn, as it sets its dispatcher for each component, since a root's
+ * layout and passive effects run after its render and before any other root's. React's production build doesn't say
+ * whose effects it runs, so those of a render React started itself, after a state change, ask about this frame.
+ */
+function watchRenders(): void {
+  if (!shared || !Object.getOwnPropertyDescriptor(shared, "H")?.writable) return
+  let dispatcher = shared.H
+  Object.defineProperty(shared, "H", {
+    configurable: true,
+    enumerable: true,
+    get: () => dispatcher,
+    set(value: unknown) {
+      dispatcher = value
+      const frame = value ? renderingIn() : undefined
+      if (frame) active = frame
+    }
+  })
 }
 
 /** The element a component's React root renders into. */
@@ -149,6 +224,7 @@ function install(): void {
   const own = siteOf(callers()[0] ?? "")
   // In Parity's own Storybook the project and Parity share a server, so only a frame's own work gets its window.
   projectSite = own === siteOf(location.href) ? undefined : own
+  watchRenders()
 
   const realMatchMedia = window.matchMedia.bind(window)
   const real = (condition: string) => realMatchMedia(condition).matches

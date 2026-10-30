@@ -1,6 +1,7 @@
+import { createHash } from "node:crypto"
 import { readdir, readFile, realpath, stat } from "node:fs/promises"
 import { type AddressInfo, createServer as createNetServer } from "node:net"
-import { dirname, join, relative, resolve } from "node:path"
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path"
 import { pathToFileURL } from "node:url"
 import {
   type BuilderAdapter,
@@ -24,6 +25,8 @@ import { dependencySourceMaps } from "./dependency-maps.ts"
 const configPattern = /^vite\.config\.[cm]?[jt]s$/
 const guestId = "virtual:canvas/guest"
 const rendererId = "virtual:canvas/renderer"
+/** Followed by the specifier a development stand-in serves in place of, and the folder of the module importing it. */
+const standInId = "virtual:canvas/stand-in/"
 const loopback = "127.0.0.1"
 
 /** Serves a project's components with the project's own Vite install and config. */
@@ -67,7 +70,8 @@ export const viteBuilder: BuilderAdapter = {
         ],
         entries: Object.values(options.config.components)
           .filter((component) => !component.library)
-          .map((component) => component.path)
+          .map((component) => component.path),
+        ...productionDependencies(vite, options.root, options.renderer.developmentStandIns)
       },
       plugins: [guestPlugin(options, vite.normalizePath(options.rendererGuestPath)), dependencySourceMaps()]
     })
@@ -106,16 +110,99 @@ export function portFree(port: number): Promise<boolean> {
   })
 }
 
+/**
+ * Prebundles dependencies as their production builds, React's among them, as the dependency optimizer's own setting
+ * (Rolldown's from Vite 8, esbuild's before). React's development build keeps a stack for every element it makes, which
+ * across a project's frames was 723 thousand stack frames on the example project, and its warnings are for the
+ * project's own dev server to show. The project's own modules are served as in development. A dependency that imports
+ * what the production build leaves empty gets the renderer's stand-in, as the project's modules do: the optimizer runs
+ * only its own plugins, not the server's. Its stand-in is placed beside the module importing it, so what the stand-in
+ * imports (`@emotion/react/jsx-runtime`) is the copy that module would find, even one installed only below it.
+ */
+export function productionDependencies(
+  vite: Pick<typeof Vite, "version"> & { rolldownVersion?: string },
+  root: string,
+  standIns: Record<string, string> = {}
+) {
+  const define = { "process.env.NODE_ENV": JSON.stringify("production") }
+  const beside = (importer: string | undefined, specifier: string) =>
+    join(importer && isAbsolute(importer) ? dirname(importer) : root, encodeURIComponent(specifier) + standInFile)
+  const source = (path: string) =>
+    developmentStandIn(decodeURIComponent(basename(path).slice(0, -standInFile.length)), standIns)
+  // Vite keys its prebundled dependencies by its plugins' names, among the rest, so other stand-ins bundle them again.
+  const name = `canvas:stand-ins:${createHash("sha1").update(JSON.stringify(standIns)).digest("base64url").slice(0, 8)}`
+  if (vite.rolldownVersion) {
+    const plugin = {
+      name,
+      resolveId: (id: string, importer?: string) => (developmentStandIn(id, standIns) ? beside(importer, id) : null),
+      load: (id: string) => (id.endsWith(standInFile) ? source(id) : null)
+    }
+    return { rolldownOptions: { transform: { define }, plugins: [plugin] } }
+  }
+  const ends = Object.keys(standIns).map((end) => end.replaceAll(/[.*+?^${}()|[\]\\/]/g, "\\$&"))
+  const plugin = {
+    name,
+    setup(build: EsbuildBuild) {
+      if (ends.length === 0) return
+      build.onResolve({ filter: new RegExp(`(?:${ends.join("|")})$`) }, ({ path, importer }) =>
+        developmentStandIn(path, standIns) ? { path: beside(importer, path), namespace: "canvas-stand-in" } : undefined
+      )
+      build.onLoad({ filter: /.*/, namespace: "canvas-stand-in" }, ({ path }) => ({
+        contents: source(path),
+        loader: "js",
+        resolveDir: dirname(path)
+      }))
+    }
+  }
+  return { esbuildOptions: { define, plugins: [plugin] } }
+}
+
+/** How the optimizer names a stand-in it places beside the module importing it, after the specifier it stands in for. */
+const standInFile = ".canvas-stand-in.js"
+
+/** The parts of esbuild's plugin build a stand-in uses, since the builder doesn't depend on esbuild itself. */
+interface EsbuildBuild {
+  onResolve(
+    options: { filter: RegExp },
+    resolve: (args: { path: string; importer: string }) => { path: string; namespace: string } | undefined
+  ): void
+  onLoad(
+    options: { filter: RegExp; namespace: string },
+    load: (args: { path: string }) => { contents: string | undefined; loader: "js"; resolveDir: string }
+  ): void
+}
+
+/** The module a renderer serves in place of a bare specifier its production build leaves empty, if it does. */
+export function developmentStandIn(specifier: string, standIns: Record<string, string> = {}): string | undefined {
+  if (/^[./\0]/.test(specifier) || specifier.includes(":")) return undefined
+  for (const [end, source] of Object.entries(standIns)) {
+    if (specifier.endsWith(end) && specifier.length > end.length) {
+      return source.replaceAll("$base", specifier.slice(0, -end.length))
+    }
+  }
+  return undefined
+}
+
 function guestPlugin(options: BuilderStartOptions, rendererGuestPath: string): Vite.Plugin {
   return {
     name: "canvas:guest",
     enforce: "pre",
-    resolveId(id) {
+    async resolveId(id, importer) {
       if (id === guestId) return `\0${guestId}`
       if (id === rendererId) return rendererGuestPath
-      return undefined
+      // What a stand-in imports resolves as from the module that imported the stand-in, which its id names, so a
+      // workspace package's own runtime is the one it gets. Vite resolves from an importer's folder only when it exists.
+      const from = importer?.startsWith(`\0${standInId}`) && new URLSearchParams(importer.split("?")[1]).get("from")
+      if (from) return this.resolve(id, from, { skipSelf: true })
+      if (!developmentStandIn(id, options.renderer.developmentStandIns)) return undefined
+      const file = importer?.split("?")[0]
+      return `\0${standInId}${id}${file && isAbsolute(file) ? `?from=${encodeURIComponent(file)}` : ""}`
     },
     load(id) {
+      if (id.startsWith(`\0${standInId}`)) {
+        const specifier = id.slice(standInId.length + 1).split("?")[0] ?? ""
+        return developmentStandIn(specifier, options.renderer.developmentStandIns)
+      }
       // The canvas may add a cache-busting query when it retries a load.
       if (id.split("?")[0] !== `\0${guestId}`) return undefined
       return guestModuleSource(options.config)

@@ -1167,6 +1167,38 @@ recommended answer to each of its questions.
   closes, and closes when idle anyway. The tab bar and each tab's view are given a tab's id rather than the tab
   (PAR-422), since React keeps the props a list's parent drew last, which for a closed tab would be its session and
   canvas.
+- **Frames run the production builds of the project's dependencies, React's among them** (PAR-198). My call, from the
+  memory audit: React's development build keeps a stack for every element it makes, and the window held 722,868 stack
+  frames on the example project. The builder prebundles dependencies with `process.env.NODE_ENV` set to `production`
+  (Rolldown's `transform.define` from Vite 8, esbuild's `define` before), while the project's own modules are served as
+  in development, so `import.meta.env.DEV` and `process.env.NODE_ENV` in its code read as on its dev server. The
+  project's own dev server is untouched: the builder has its own dependency cache. Measured on 2026-10-29 the same way
+  before and after, on the e2e suite's copy of the example project once its frames settled, after
+  `HeapProfiler.collectGarbage`:
+  - the window's JS heap went from 150.1 MB to 117.0 MB (`Runtime.getHeapUsage`), 22% less;
+  - its DOM nodes stayed at about 32,600 (`Memory.getDOMCounters`);
+  - a heap snapshot's `StackFrameInfo` objects went from 722,868 to 211,260, and its errors holding stacks from 38,342
+    to 12,852, with React's `_debugStack` from 155,183 to 74,172. What's left is Parity's own window, whose React is the
+    development build of Parity's dev server.
+
+  What frames lose, and what's kept:
+  - **React's development warnings,** such as keys, invalid nesting, or the input with both `value` and `defaultValue`
+    the example's frames had, no longer reach the window's console, so agents' `console` doesn't read them either.
+    They're for the project's own dev server to show. Errors still reach the frame and agents.
+  - **React's own error messages are minified** to a code and a react.dev link, such as `Minified React error #130` for
+    a component that's `undefined`. A component's own errors keep their messages.
+  - **Which component React is working on,** which `getOwner` gives only in development, told each frame's code which
+    frame's window it's in. That's kept another way: see "A project's code that asks the window its size" below.
+  - **Kept as they were:** finding a layer's DOM from React's tree (`child`, `sibling`, `stateNode`, `memoizedProps`, in
+    both builds), component error boundaries, `onCaughtError` naming the failed component, and agent snapshots, none of
+    which read `_debugSource`, owner stacks or component stacks.
+  - **The project's JSX is still compiled for development,** calling `jsxDEV`, which React's production build leaves
+    out. The renderer names stand-ins for what it leaves out (`developmentStandIns`), and the builder serves
+    `react/jsx-dev-runtime`, or any `…/jsx-dev-runtime`, as that package's `jsx`. The dependency optimizer gets the same
+    stand-in as a plugin of its own (Rolldown's or esbuild's), since it doesn't run the server's, so a package shipped
+    with its JSX compiled for development renders too. That stand-in is placed beside the module importing it, so the
+    runtime it imports is the copy that module would find, even one installed only below it.
+
 - **The performance stats count each project's builder,** as "Vite for shop", since its memory used to count in the
   service's: the service asks each builder for its CPU time, and the system reads its memory as it does Electron's own
   processes'. Storybook and the other servers Parity starts still aren't counted.
@@ -1208,7 +1240,10 @@ recommended answer to each of its questions.
   width, height, aspect ratio or orientation, `innerWidth`, `innerHeight`, `outerWidth`, `outerHeight`, the root's
   `clientWidth` and `clientHeight`, and `resize` listeners. The frame asking is:
   - the one React is rendering or running effects for, at any time. React's development build, which dev servers run,
-    names the component it's working on, and that component's root says which frame;
+    names the component it's working on, and that component's root says which frame. Its production build, which frames
+    run (PAR-198), names none, so while it renders, the frame is the one whose provider is above the component, and each
+    frame it renders or starts committing becomes the one last drawn, which its layout and passive effects and class
+    components' lifecycle methods then ask about. A commit shows itself when React DOM reads the root's `ownerDocument`;
   - the one the canvas is drawing or resizing, which it does synchronously, so the first effects run inside too;
   - for a media query list or resize listener, the frame that made it. These hear the frame resize without a rebuild;
   - otherwise, in an event handler, a timer or a render the project starts itself, the frame last drawn or used, but
@@ -1217,12 +1252,11 @@ recommended answer to each of its questions.
     from DevTools or a script driving Parity. In Parity's Storybook, where the two share a server, this last case is
     off.
 
-  React's production build names no component, so with several frames on the canvas, a render the project starts itself
-  can get the answer of the frame drawn last. A `useState` set in a mount effect still gets the right one. `screen` and
-  `visualViewport` still describe Parity's window. `frame.test.ts` mounts shadcn's `useIsMobile` and a MUI-style
-  `useMediaQuery` in a phone and a laptop frame at once, clicks and resizes them, and checks Parity's own answers. After
-  these changes, the 93 full-size frames in the example's Boards story still match Chrome element by element, within
-  0.03px.
+  `screen` and `visualViewport` still describe Parity's window. `frame.test.ts` mounts shadcn's `useIsMobile` and a
+  MUI-style `useMediaQuery` in a phone and a laptop frame at once, on React's production build, clicks and resizes them,
+  checks an effect of a render a timer started and a class's `componentDidUpdate`, and checks Parity's own answers.
+  After these changes, the 93 full-size frames in the example's Boards story still match Chrome element by element,
+  within 0.03px.
 
 - **Visual regression tests draw each frame as a page of its own, not as a canvas frame** (PAR-226). Canvas frames share
   one window, one document, one origin and one copy of the project's code, so the canvas can draw dozens at once. The
