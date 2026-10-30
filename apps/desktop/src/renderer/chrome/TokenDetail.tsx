@@ -80,11 +80,11 @@ export function TokenDetail({
   /** Where saving the project writes it. */
   stylesheet: string
   /** What another token comes to in a theme, or undefined when there's no token of that name. */
-  lookup(name: string, theme: string): string | undefined
+  lookup: (name: string, theme: string) => string | undefined
   /** The tokens another token's value in a theme is built on, as written, so a value that loops back is refused. */
-  references(name: string, theme: string): readonly string[]
+  references: (name: string, theme: string) => readonly string[]
   /** Changes its values, as one undoable step. */
-  onApply(values: Record<string, string>): void
+  onApply: (values: Record<string, string>) => void
   /** Takes back the last apply, while it's still the history's last step. */
   undo?: () => void
   /** Opens it already editing, with these values typed, for a story. */
