@@ -63,14 +63,22 @@ afterAll(async () => {
   await browser?.close()
 })
 
+/** The eight handles, in the order of the `edges` the page passes them: n, e, s, w, then the corners. */
+const handleElements = () => page.locator(".resize-handle")
+
 beforeEach(async () => {
   errors.length = 0
   await page.mouse.move(700, 550)
   // @ts-expect-error The bundle's global.
   await page.evaluate(() => handles.mount())
+  // React draws the handles in a task of its own after `mount` returns, and a busy Chrome runs input ahead of that task,
+  // so a pointer that moved or clicked straight away could find nothing there yet. They're all drawn at once.
+  await handleElements().last().waitFor()
 })
 
 const hints = () => page.locator("[data-slot=tooltip-content]").count()
+// @ts-expect-error The bundle's global.
+const calls = () => page.evaluate(() => handles.calls)
 
 /** Rests the pointer on a point long enough for a hint to open. */
 async function hover(x: number, y: number) {
@@ -83,7 +91,7 @@ async function hover(x: number, y: number) {
 describe("a resize handle's hint", { timeout: 20_000 }, () => {
   it("opens after a moment's hover", async () => {
     await hover(250, 200)
-    expect(await hints()).toBe(1)
+    await expect.poll(hints, { timeout: 5_000 }).toBe(1)
     expect(errors).toEqual([])
   })
 
@@ -101,8 +109,7 @@ describe("a resize handle's hint", { timeout: 20_000 }, () => {
     await page.mouse.up()
     await page.waitForTimeout(700)
     expect(await hints()).toBe(0)
-    // @ts-expect-error The bundle's global.
-    expect(await page.evaluate(() => handles.calls)).toEqual(["start n"])
+    expect(await calls()).toEqual(["start n"])
   })
 
   it("opens again on the next hover", async () => {
@@ -112,14 +119,13 @@ describe("a resize handle's hint", { timeout: 20_000 }, () => {
     await page.mouse.up()
     await page.mouse.move(700, 550)
     await hover(400, 250)
-    expect(await hints()).toBe(1)
+    await expect.poll(hints, { timeout: 5_000 }).toBe(1)
   })
 })
 
 describe("a resize handle", { timeout: 20_000 }, () => {
   it("resets on a double-click", async () => {
-    await page.mouse.dblclick(400, 250)
-    // @ts-expect-error The bundle's global.
-    expect(await page.evaluate(() => handles.calls)).toEqual(["start e", "start e", "reset e"])
+    await handleElements().nth(1).dblclick()
+    await expect.poll(calls).toEqual(["start e", "start e", "reset e"])
   })
 })
