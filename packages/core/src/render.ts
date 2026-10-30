@@ -423,6 +423,8 @@ function textCss(style: NodeStyle, parent: Direction | undefined): Record<string
     ...spacingCss(style),
     ...boxCss(style, parent)
   }
+  // Hugging text is Figma's auto width: as wide as its line, never wrapped by its parent, only by a maximum width.
+  if (style.width === "hug") css.width = "max-content"
   if (style.lines === 1) {
     Object.assign(css, { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" })
   } else if (style.lines !== undefined && style.lines > 1) {

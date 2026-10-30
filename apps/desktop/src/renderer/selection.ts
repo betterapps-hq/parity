@@ -45,8 +45,13 @@ export class SelectionStore {
   private tool: Tool = "select"
   /** Counts the times interacting stopped, so frames can go back to showing the design as it is. */
   private interactions = 0
-  /** The node being edited as text, if any. */
-  private editing: { design: string; node: string; mode?: string; state?: string } | undefined
+  /**
+   * The node being edited as text, if any, and where it was double-clicked, in the window's pixels, so the editor opens
+   * with that word selected. Without a point it opens with the whole text selected.
+   */
+  private editing:
+    | { design: string; node: string; mode?: string; state?: string; at?: { x: number; y: number } }
+    | undefined
   private rename: RenameRequest | undefined
   private readonly listeners = new Set<() => void>()
 

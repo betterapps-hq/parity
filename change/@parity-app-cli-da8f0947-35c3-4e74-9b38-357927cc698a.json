@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Edit text in place as a design tool does: the double-clicked word opens selected, the editor follows the text as you pan and zoom and wraps at its width, Escape keeps the edit, and Enter waits for an input method; text layers size as auto width, auto height or fixed",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

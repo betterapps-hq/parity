@@ -7,7 +7,6 @@ import {
   generateId,
   insertNode,
   isInnerPath,
-  layerOnBoard,
   locateNode,
   nodeIds,
   nodeInState,
@@ -36,12 +35,13 @@ import {
 } from "./hit.ts"
 import { designColor, kindColors, layerLabel, nodeColor } from "./kinds.tsx"
 import { type DragView, getDragView, pressLayers } from "./layer-drag.ts"
-import { editLayer, findLayer } from "./layers.ts"
+import { findLayer } from "./layers.ts"
 import { frameDrawn } from "./nudge.ts"
 import { editableText, hoverTarget, pickDeeper, pressTarget } from "./pick.ts"
 import { type Edge, edgeAxes, resizeGesture } from "./resize.ts"
 import { resizeCursors, ResizeHandles } from "./ResizeHandles.tsx"
 import { pressBackground } from "./select-box.ts"
+import { TextEditor } from "./TextEditor.tsx"
 
 interface Box {
   x: number
@@ -182,7 +182,13 @@ export function CanvasOverlay() {
       const deepest = !!selected && hit.path.at(-1) === selected.node
       if (selected && node && deepest && editableText(node) !== undefined) {
         selection.set({ design: hit.entry.key, node: selected.node, mode: hit.mode, state: hit.state })
-        selection.setEditing({ design: hit.entry.key, node: selected.node, mode: hit.mode, state: hit.state })
+        selection.setEditing({
+          design: hit.entry.key,
+          node: selected.node,
+          mode: hit.mode,
+          state: hit.state,
+          at: point
+        })
         return
       }
       const deeper = pickDeeper(underPoint(hit), selected)
@@ -407,118 +413,6 @@ function RedlineView({ line }: { line: Redline }) {
         )}
       </div>
     </>
-  )
-}
-
-/** Edits a text layer in place, over the rendered text, then writes it to the state it was picked in. */
-function TextEditor() {
-  const session = useProject()
-  const { selection, store } = session
-  const editing = selection.getEditing()!
-  const ref = useRef<HTMLTextAreaElement>(null)
-  const [layout, setLayout] = useState<{ box: Box; style: React.CSSProperties; text: string }>()
-
-  useEffect(() => {
-    const area = ref.current?.closest(".canvas-area")
-    const entry = store.getEntry(editing.design)
-    // The text as the frame shows it: the state's and the variant's, or the param's default it's bound to.
-    const node =
-      entry &&
-      layerOnBoard(
-        entry.container,
-        editing.node,
-        store.getLibrary(entry.key),
-        editingState(entry.container, editing.state)
-      )
-    const host = area && selectionFrame(area, editing.design, editing)
-    const element = host && nodeInFrames(area, editing.design, editing.node, host).find((item) => item.picked)?.element
-    const text = node && editableText(node)
-    if (!area || !host || !element || text === undefined || !session.editor) {
-      selection.setEditing(undefined)
-      return undefined
-    }
-    const scale = session.editor.getZoomLevel() * frameScale(host)
-    const computed = getComputedStyle(element)
-    const range = document.createRange()
-    range.selectNodeContents(element)
-    const textRect = range.getBoundingClientRect()
-    const elementRect = element.getBoundingClientRect()
-    const areaRect = area.getBoundingClientRect()
-    const rect = textRect.width > 0 ? textRect : elementRect
-    const previousColor = element.style.color
-    element.style.color = "transparent"
-    setLayout({
-      text,
-      box: { x: rect.left - areaRect.left, y: rect.top - areaRect.top, w: Math.max(rect.width, 24), h: rect.height },
-      style: {
-        fontFamily: computed.fontFamily,
-        fontSize: parseFloat(computed.fontSize) * scale,
-        fontWeight: computed.fontWeight,
-        lineHeight: computed.lineHeight === "normal" ? "normal" : `${parseFloat(computed.lineHeight) * scale}px`,
-        letterSpacing:
-          computed.letterSpacing === "normal" ? "normal" : `${parseFloat(computed.letterSpacing) * scale}px`,
-        color: computed.color,
-        textAlign: computed.textAlign as React.CSSProperties["textAlign"]
-      }
-    })
-    return () => {
-      element.style.color = previousColor
-    }
-  }, [editing, session.editor, selection, store])
-
-  useEffect(() => {
-    const element = ref.current
-    if (!element || !layout) return
-    element.focus()
-    element.select()
-  }, [layout])
-
-  const commit = (save: boolean) => {
-    const text = ref.current?.value ?? ""
-    selection.setEditing(undefined)
-    if (!save || !layout || text === layout.text) return
-    const entry = store.getEntry(editing.design)
-    const node = entry && findLayer(store, entry.container, editing.node)
-    if (!entry || !node) return
-    const state = editing.state ?? entry.container.view?.state ?? entry.container.states[0]!.id
-    const change = node.type === "text" ? { text } : { props: { children: text } }
-    store.updateContainer(entry.key, "Edit text", (container) =>
-      editLayer(store, container, boardTarget(container, state), editing.node, change)
-    )
-  }
-
-  return (
-    <textarea
-      ref={ref}
-      aria-label="Edit text"
-      defaultValue={layout?.text}
-      rows={1}
-      className="text-editor pointer-events-auto absolute m-0 resize-none overflow-hidden border-0 bg-transparent p-0 outline-2 outline-offset-2 field-sizing-content"
-      style={
-        layout
-          ? {
-              ...layout.style,
-              left: layout.box.x,
-              top: layout.box.y,
-              minWidth: layout.box.w,
-              minHeight: layout.box.h,
-              outlineColor: kindColors.layer,
-              outlineStyle: "solid"
-            }
-          : { display: "none" }
-      }
-      onBlur={() => commit(true)}
-      onKeyDown={(event) => {
-        event.stopPropagation()
-        if (event.key === "Escape") {
-          event.preventDefault()
-          commit(false)
-        } else if (event.key === "Enter" && !event.shiftKey) {
-          event.preventDefault()
-          commit(true)
-        }
-      }}
-    />
   )
 }
 

@@ -6,6 +6,7 @@ import {
   type Padding,
   type Size
 } from "@parity-app/core"
+import { type TextSizing, textSizing, withTextSizing } from "@parity-app/editor"
 import { spacingStepName, type Token } from "@parity-app/tokens"
 import {
   AlignCenter,
@@ -17,6 +18,9 @@ import {
   ChevronDown,
   Grid3x3,
   Italic,
+  MoveHorizontal,
+  MoveVertical,
+  Scan,
   Square,
   SquareDashed,
   Strikethrough,
@@ -70,8 +74,11 @@ export interface StyleEditor {
   tokens: Token[]
   /** Pixels per spacing step. */
   unit: number
-  /** The node's rendered length, in whole spacing steps, so switching to a fixed size keeps it where it is. */
-  measure(axis: "width" | "height"): number | undefined
+  /**
+   * The node's rendered length, in whole spacing steps, so switching to a fixed size keeps it where it is: the nearest
+   * step, or the one above with `Math.ceil`, so text fixed at it doesn't wrap again.
+   */
+  measure(axis: "width" | "height", round?: (steps: number) => number): number | undefined
   /** With several layers selected: whether they have different values for a property. */
   mixed?(name: keyof NodeStyle): boolean
 }
@@ -994,6 +1001,7 @@ function TextSection({ editor, node }: SectionProps) {
             ))}
           </ToggleGroup>
         </Field>
+        {node.type === "text" && <TextResizing editor={editor} />}
         <Field
           label="Decoration"
           changed={changed("italic") || changed("decoration")}
@@ -1072,6 +1080,59 @@ function TextSection({ editor, node }: SectionProps) {
     </PanelSection>
   )
 }
+
+/**
+ * Figma's three ways a text layer sizes, which its width and height make up (see `textSizing`): picking one keeps the
+ * layer the size it's drawn at, and Width and Height show what it set.
+ */
+function TextResizing({ editor }: { editor: StyleEditor }) {
+  const { style, set, changed, reset } = editor
+  const mixed = mixedOf(editor)
+  const differs = mixed("width") || mixed("height") || mixed("grow")
+  return (
+    <Field
+      label="Resizing"
+      hint="Auto width grows along its line, auto height wraps at its width and grows down, fixed keeps its size"
+      changed={changed("width") || changed("height")}
+      mixed={differs}
+      onReset={() => (reset("width"), reset("height"))}
+    >
+      <ToggleGroup
+        type="single"
+        variant="outline"
+        size="sm"
+        spacing={0}
+        value={differs ? "" : textSizing(style)}
+        onValueChange={(value) => {
+          const sizing = textSizingOptions.find((option) => option.value === value)
+          if (!sizing) return
+          set(
+            (layer) =>
+              withTextSizing(layer, sizing.value, {
+                width: editor.measure("width", Math.ceil),
+                height: editor.measure("height", Math.ceil)
+              }),
+            sizing.edit
+          )
+        }}
+      >
+        {textSizingOptions.map(({ value, label, Icon }) => (
+          <Hint key={value} label={label}>
+            <ToggleGroupItem value={value} aria-label={label} className="h-7 px-2 aria-checked:bg-muted">
+              <Icon />
+            </ToggleGroupItem>
+          </Hint>
+        ))}
+      </ToggleGroup>
+    </Field>
+  )
+}
+
+const textSizingOptions = [
+  { value: "auto-width", label: "Auto width", edit: "Make text auto width", Icon: MoveHorizontal },
+  { value: "auto-height", label: "Auto height", edit: "Make text auto height", Icon: MoveVertical },
+  { value: "fixed", label: "Fixed size", edit: "Fix text size", Icon: Scan }
+] as const satisfies readonly { value: TextSizing; label: string; edit: string; Icon: unknown }[]
 
 /**
  * A length, typed and shown in pixels (320 is 320px) and kept as steps of the spacing scale, or one of the project's

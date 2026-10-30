@@ -355,9 +355,9 @@ function LayerSections({
     endPreview: () => preview.cancel(),
     tokens,
     unit: spacingUnit(tokens),
-    measure: (axis) => {
+    measure: (axis, round = Math.round) => {
       const size = measureNode(session, entry.key, nodeId, selected)
-      return size && Math.max(1, Math.round(size[axis] / spacingUnit(tokens)))
+      return size && Math.max(1, round(size[axis] / spacingUnit(tokens)))
     }
   }
 
