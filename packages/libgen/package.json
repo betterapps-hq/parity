@@ -1,5 +1,5 @@
 {
-  "name": "@parity/libgen",
+  "name": "@parity-app/libgen",
   "version": "0.0.0",
   "license": "MIT",
   "private": true,
@@ -10,10 +10,10 @@
     "./published": "./src/published.ts"
   },
   "dependencies": {
-    "@parity/code": "workspace:*",
-    "@parity/core": "workspace:*",
-    "@parity/project": "workspace:*",
-    "@parity/registry": "workspace:*",
+    "@parity-app/code": "workspace:*",
+    "@parity-app/core": "workspace:*",
+    "@parity-app/project": "workspace:*",
+    "@parity-app/registry": "workspace:*",
     "typescript": "6.0.3"
   }
 }

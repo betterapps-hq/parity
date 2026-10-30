@@ -1,4 +1,4 @@
-import type { CanvasDocument, ComponentInfo, ModeSettings, ResolvedMode, ThemeVariable, Token } from "@parity/core"
+import type { CanvasDocument, ComponentInfo, ModeSettings, ResolvedMode, ThemeVariable, Token } from "@parity-app/core"
 
 /** What an agent call starts from: one tab's live state. */
 export interface AgentSnapshot {

@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
-import { viteBuilder } from "@parity/builder-vite"
+import { viteBuilder } from "@parity-app/builder-vite"
 import {
   type BuilderAdapter,
   type BuilderDetection,
@@ -14,10 +14,10 @@ import {
   type StorybookInfo,
   type StylesAdapter,
   type ThemeVariable
-} from "@parity/core"
-import { detectProject, discoverProject } from "@parity/project"
-import { reactRenderer } from "@parity/renderer-react"
-import { tailwindStyles } from "@parity/styles-tailwind"
+} from "@parity-app/core"
+import { detectProject, discoverProject } from "@parity-app/project"
+import { reactRenderer } from "@parity-app/renderer-react"
+import { tailwindStyles } from "@parity-app/styles-tailwind"
 
 // The adapters the desktop app opens projects with.
 const renderers: RendererAdapter[] = [reactRenderer]

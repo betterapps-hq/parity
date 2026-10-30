@@ -1,4 +1,4 @@
-import { iconVariants, type LibraryIcons } from "@parity/core"
+import { iconVariants, type LibraryIcons } from "@parity-app/core"
 
 /** One icon as a picker lists it: its name, the export it inserts, and the props that pick its style. */
 export interface IconEntry {

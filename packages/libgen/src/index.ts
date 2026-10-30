@@ -3,7 +3,7 @@ import { readdir, readFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { basename, dirname, join, resolve, sep } from "node:path"
 import { pathToFileURL } from "node:url"
-import { type ComponentReport, findComponents, relativePath } from "@parity/code"
+import { type ComponentReport, findComponents, relativePath } from "@parity-app/code"
 import {
   applyLibraryEdits,
   iconVariants,
@@ -17,8 +17,8 @@ import {
   parseLibraryEdits,
   parseLibraryManifest,
   type TokenCategory
-} from "@parity/core"
-import { installedPackage, parseJsonc } from "@parity/project"
+} from "@parity-app/core"
+import { installedPackage, parseJsonc } from "@parity-app/project"
 import ts from "typescript"
 import { type AnatomyCheck, checkAnatomy, readAnatomy } from "./anatomy.ts"
 import {
@@ -37,10 +37,10 @@ import { type PartRelation, relateParts } from "./parts.ts"
 import { type Load, type Preset, presets } from "./presets.ts"
 import { breakpointsOf, type CollectedToken, cssTokens, pairLineHeights, toDtcg } from "./tokens.ts"
 
-export { componentOptions, findComponents, reactProbe, withReactProbe } from "@parity/code"
+export { componentOptions, findComponents, reactProbe, withReactProbe } from "@parity-app/code"
 export { guessParent, relateParts } from "./parts.ts"
 export { familyOf, fetchExamples, nearestParent, normalizeRepo, readExamples } from "./examples.ts"
-export { parseLibraryEdits } from "@parity/core"
+export { parseLibraryEdits } from "@parity-app/core"
 export { manifestText } from "./icon-tags.ts"
 export { presets } from "./presets.ts"
 export { categorizeVar, cssTokens, toDtcg } from "./tokens.ts"

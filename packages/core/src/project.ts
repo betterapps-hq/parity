@@ -8,7 +8,7 @@ import type {
 import type { DescribedToken } from "./tokens-dtcg.ts"
 
 /**
- * What the canvas knows about a project. It is inferred from the project itself (see `@parity/project`), never
+ * What the canvas knows about a project. It is inferred from the project itself (see `@parity-app/project`), never
  * written by hand. Framework-neutral: builders decide how to load each entry.
  */
 export interface ProjectConfig {

@@ -19,7 +19,7 @@ import {
   ServedLog,
   type ServedRecord,
   servedChange
-} from "@parity/core"
+} from "@parity-app/core"
 import type * as Vite from "vite"
 import { dependencySourceMaps } from "./dependency-maps.ts"
 import { buildFiles, hashCode, remake, servedModules, stampOf, stampsOf } from "./served.ts"

@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, realpath, rm, symlink, utimes, writeFile } from "node:f
 import { createRequire } from "node:module"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
-import type { BuilderSession, BuilderStartOptions, RendererAdapter, ServedRecord } from "@parity/core"
+import type { BuilderSession, BuilderStartOptions, RendererAdapter, ServedRecord } from "@parity-app/core"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { viteBuilder } from "./index.ts"
 import { moduleUrl } from "./served.ts"

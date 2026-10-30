@@ -1,5 +1,5 @@
 {
-  "name": "@parity/core",
+  "name": "@parity-app/core",
   "version": "0.0.0",
   "license": "MIT",
   "private": true,

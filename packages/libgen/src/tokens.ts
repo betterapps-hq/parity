@@ -1,5 +1,5 @@
-import type { LibraryBreakpoint, TokenCategory } from "@parity/core"
-import { lengthToPixels } from "@parity/core"
+import type { LibraryBreakpoint, TokenCategory } from "@parity-app/core"
+import { lengthToPixels } from "@parity-app/core"
 
 /** A token found in a library, before it's written as DTCG. */
 export interface CollectedToken {

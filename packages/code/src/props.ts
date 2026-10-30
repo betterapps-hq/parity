@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs"
 import { join, resolve } from "node:path"
-import type { ComponentInfo, ComponentProp, ComponentSource, PropGroup, PropKind } from "@parity/core"
+import type { ComponentInfo, ComponentProp, ComponentSource, PropGroup, PropKind } from "@parity-app/core"
 import ts from "typescript"
 import { importAlias, readTsconfig } from "./tsconfig.ts"
 

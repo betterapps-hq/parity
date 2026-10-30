@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto"
 import { basename, dirname, join, relative } from "node:path"
-import type { ComponentEvidence } from "@parity/core"
+import type { ComponentEvidence } from "@parity-app/core"
 import ts from "typescript"
 
 /** A component the type checker found, and why it counts as one. */
