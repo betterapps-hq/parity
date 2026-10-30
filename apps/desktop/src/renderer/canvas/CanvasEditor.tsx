@@ -166,14 +166,26 @@ function markZoomedOut(editor: Editor): () => void {
   }
 }
 
+/**
+ * Whether tldraw draws anything on its overlay canvas. An overlay util that's active draws even with no overlays of its
+ * own: the selection box draws from the selection, and its overlays are only the handles, which it can leave out (as
+ * when Shift is held down on the empty canvas). The shape indicators are always active and draw only the overlays they
+ * list.
+ */
+function overlaysShow(editor: Editor): boolean {
+  return editor.overlays
+    .getActiveOverlayEntries()
+    .some(({ util, overlays }) => overlays.length > 0 || !(util instanceof ShapeIndicatorOverlayUtil))
+}
+
 /** tldraw's overlay canvas only holds a bitmap while an overlay shows (see `sizeWhileShown`). */
 function sizeOverlays(editor: Editor): () => void {
   const canvas = editor.getContainer().querySelector<HTMLCanvasElement>("canvas.tl-canvas-overlays")
   if (!canvas) return () => undefined
-  const sizing = sizeWhileShown(canvas, () => editor.overlays.getCurrentOverlays().length > 0)
+  const sizing = sizeWhileShown(canvas, () => overlaysShow(editor))
   sizing.release()
   const stop = react("overlay canvas size", () => {
-    if (editor.overlays.getCurrentOverlays().length === 0) sizing.release()
+    if (!overlaysShow(editor)) sizing.release()
   })
   return () => {
     stop()

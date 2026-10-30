@@ -319,8 +319,11 @@ GPU don't keep about 36 MB of empty pixels. It's given the window's size again a
 drawn, and gives the bitmap back once the last one goes.
 
 - **How:** tldraw sizes the canvas whenever it draws, so the canvas's `width` and `height` pass the size tldraw sets
-  through only while an overlay shows, and hold it at none otherwise. A reaction takes the bitmap back once tldraw has
-  no overlays left. A size the canvas already has is never set again, since that would clear it.
+  through only while an overlay shows, and hold it at none otherwise. An overlay shows while any of tldraw's overlay
+  utils is active, apart from the shape indicators, which are always active and show only while they list an outline.
+  The selection box draws from the selection, and lists only its handles, which it can leave out, so counting overlays
+  alone emptied the box while Shift was held down on the empty canvas (`overlaysShow` in `CanvasEditor.tsx`). A reaction
+  takes the bitmap back once nothing shows. A size the canvas already has is never set again, since that would clear it.
 - **Measured:** at a 1289 × 1012 canvas on the example project, a memory-infra dump showed the canvas's 5 MB in the
   window and 31 MB of GPU images go when it was emptied, on 2026-10-30.
 
@@ -329,10 +332,11 @@ Code: `sizeWhileShown` in `apps/desktop/src/renderer/canvas/overlay-canvas.ts`, 
 
 Tests: `overlay-canvas.test.ts` (5: no bitmap while nothing shows, tldraw's size while something does and none after,
 left alone while something still shows, never setting a size it already has, restoring), and
-`apps/desktop/e2e/overlays.e2e.ts` (no bitmap with the pointer off the board, the window's size and a drawn box with
-every design selected, none again after Escape and after moving the camera). Gaps: hover outlines and snap lines were
-checked in an isolated copy of the app on 2026-10-30, the canvas taking its size while a board was hovered and none once
-the pointer left; the brush has no test.
+`apps/desktop/e2e/overlays.e2e.ts` (2: no bitmap with the pointer off the board, the window's size and a drawn box with
+every design selected, none again after Escape and after moving the camera; and the box still drawn while Shift is held
+down on the empty canvas beside two selected designs). Gaps: hover outlines and snap lines were checked in an isolated
+copy of the app on 2026-10-30, the canvas taking its size while a board was hovered and none once the pointer left; the
+brush has no test.
 
 ## Moving, reordering and resizing
 
