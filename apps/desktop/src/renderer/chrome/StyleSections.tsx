@@ -56,6 +56,10 @@ export interface EditedLayer {
   base: boolean
   /** The layer's own rendered length, in spacing steps, rounded as `StyleEditor.measure` rounds. */
   measure: (axis: "width" | "height", round?: (steps: number) => number) => number | undefined
+  /** What kind of layer it is, so an edit for one kind (text's Resizing) leaves the others in a mixed selection alone. */
+  type: DesignNode["type"]
+  /** Whether it sits in a column, where `grow` fills its height. Several layers can each sit in a different one. */
+  column: boolean
 }
 
 /** Properties to set, or how to work them out from each selected layer's own style, as `Mixed+8` does. */
@@ -912,7 +916,7 @@ function StrokeSection({ editor }: SectionProps) {
   )
 }
 
-function TextSection({ editor, node, parent }: SectionProps) {
+function TextSection({ editor, node }: SectionProps) {
   const { style, changed, reset, set, tokens } = editor
   const mixed = mixedOf(editor)
   return (
@@ -1009,7 +1013,7 @@ function TextSection({ editor, node, parent }: SectionProps) {
             ))}
           </ToggleGroup>
         </Field>
-        {node.type === "text" && <TextResizing editor={editor} parent={parent} />}
+        {node.type === "text" && <TextResizing editor={editor} />}
         <Field
           label="Decoration"
           changed={changed("italic") || changed("decoration")}
@@ -1093,7 +1097,7 @@ function TextSection({ editor, node, parent }: SectionProps) {
  * Figma's three ways a text layer sizes, which its width and height make up (see `textSizing`): picking one keeps the
  * layer the size it's drawn at, and Width and Height show what it set.
  */
-function TextResizing({ editor, parent }: { editor: StyleEditor; parent?: ParentLayout }) {
+function TextResizing({ editor }: { editor: StyleEditor }) {
   const { style, set, changed, reset } = editor
   const mixed = mixedOf(editor)
   const differs = mixed("width") || mixed("height") || mixed("grow")
@@ -1115,13 +1119,16 @@ function TextResizing({ editor, parent }: { editor: StyleEditor; parent?: Parent
           const sizing = textSizingOptions.find((option) => option.value === value)
           if (!sizing) return
           set(
+            // Only the text layers of a mixed selection, each by its own parent.
             (style, layer) =>
-              withTextSizing(
-                style,
-                sizing.value,
-                { width: layer.measure("width", stepUp), height: layer.measure("height", stepUp) },
-                { explicit: !layer.base, column: parent?.direction === "column" }
-              ),
+              layer.type !== "text"
+                ? {}
+                : withTextSizing(
+                    style,
+                    sizing.value,
+                    { width: layer.measure("width", stepUp), height: layer.measure("height", stepUp) },
+                    { explicit: !layer.base, column: layer.column }
+                  ),
             sizing.edit
           )
         }}

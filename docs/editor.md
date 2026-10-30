@@ -1334,8 +1334,10 @@ separate setting that could disagree with them, and the resize handles change it
   row it fills the width, which they keep. Each is one undo step. Dragging a side handle of auto width text fixes its
   width, so it becomes auto height; dragging the bottom fixes its height, so it becomes fixed.
 - **Several layers, states and variants.** With several text layers selected, each is measured in its own box, so each
-  keeps its own size. In a state, a variant or an instance, a height or `grow` the design sets would show again if the
-  change only dropped it, so auto width and auto height set the height to hug, and `grow` to false, over it.
+  keeps its own size, and each one's own parent decides whether `grow` goes. In a selection of text and other layers,
+  Resizing changes only the text. In a state, a variant or an instance, a height or `grow` the design sets would show
+  again if the change only dropped it, so auto width and auto height set the height to hug, and `grow` to false, over
+  it.
 
 Code: what the editor selects, the modes and switching between them are `packages/editor/src/text-editing.ts` (`wordAt`,
 `openingSelection`, `textSizing`, `withTextSizing`). Drawing hug text as `max-content` is `textCss` in
@@ -1364,15 +1366,16 @@ Tests:
   PAR-175; Enter already selected the whole text.
 
 Gaps: the composition test sends `compositionstart` and `compositionend` itself, so a real input method's keys haven't
-been tried. With several text layers selected, Resizing measures the one picked last and sets that size on each.
-Clicking two modes within a second makes one undo step, as other edits of the same field do. The resize handles changing
-the mode follows from reading it from the width and height, and has no test of its own. A text layer's own new lines,
-typed with Shift+Enter, are kept in the text but drawn as spaces, since text layers don't preserve white space (older
-than PAR-175). While the editor is open the text under it doesn't reflow as it's typed in, so layers after it move only
-once the edit is kept. Checked in an isolated copy of the app on 2026-10-30: a double-click on "upgrade" selected it,
-the editor followed a wheel pan and a zoom to 110% with "upgrade" still selected, Escape kept "grow" as one Edit text
-step with Lede still selected, and Resizing showed Auto height pressed and switched Lede to auto width, which its 560px
-maximum still wraps.
+been tried. With several layers selected, Resizing measures each text layer in its own box, changes only the text layers
+of a mixed selection, and reads each one's own parent for `grow`; none of that has a test of its own, as the panel's
+edits are only driven end to end. Clicking two modes within a second makes one undo step, as other edits of the same
+field do. The resize handles changing the mode follows from reading it from the width and height, and has no test of its
+own. A text layer's own new lines, typed with Shift+Enter, are kept in the text but drawn as spaces, since text layers
+don't preserve white space (older than PAR-175). While the editor is open the text under it doesn't reflow as it's typed
+in, so layers after it move only once the edit is kept. Checked in an isolated copy of the app on 2026-10-30: a
+double-click on "upgrade" selected it, the editor followed a wheel pan and a zoom to 110% with "upgrade" still selected,
+Escape kept "grow" as one Edit text step with Lede still selected, and Resizing showed Auto height pressed and switched
+Lede to auto width, which its 560px maximum still wraps.
 
 ## Saving and undo
 

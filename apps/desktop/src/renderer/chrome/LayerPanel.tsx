@@ -350,7 +350,9 @@ function LayerSections({
     measure: (axis, round = Math.round) => {
       const size = measureNode(session, entry.key, nodeId, selected)
       return size && Math.max(1, round(size[axis] / spacingUnit(tokens)))
-    }
+    },
+    type: node.type,
+    column: parentLayout?.direction === "column"
   }
   const styleEditor: StyleEditor = {
     style: node.style ?? {},

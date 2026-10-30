@@ -145,13 +145,19 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
   if (!primary) return <p className="p-4 text-sm text-muted-foreground">These layers no longer exist.</p>
   const unit = spacingUnit(tokens)
   // Each layer measured in the frame the selection was picked in, so a size worked out from it is its own.
-  const layers: EditedLayer[] = present.map((id) => ({
-    base: editsDesign(container, target),
-    measure: (axis, round = Math.round) => {
-      const size = measureNode(session, key, id, selected)
-      return size && Math.max(1, round(size[axis] / unit))
+  const layers: EditedLayer[] = present.map((id, index) => {
+    const around = locateNode(container.root, id)?.ancestors.at(-1)
+    const direction = around?.type === "layout" ? nodeInState(around, state, variants).style?.direction : undefined
+    return {
+      base: editsDesign(container, target),
+      measure: (axis, round = Math.round) => {
+        const size = measureNode(session, key, id, selected)
+        return size && Math.max(1, round(size[axis] / unit))
+      },
+      type: nodes[index]!.type,
+      column: around?.type === "layout" && (direction ?? "column") === "column"
     }
-  }))
+  })
   /** An edit worked out for each layer from its own style, once, and how to apply it to the design. */
   const edited = (edit: StyleEdit) => {
     const values = nodes.map((node, index) => styleValues(edit, node.style ?? {}, layers[index]!) as NodeStyle)
