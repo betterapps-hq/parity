@@ -1435,7 +1435,7 @@ to PAR-209 build it.
   the CLI this way, fixed in `f743864`.
 
 - **Parity's UI imports each lucide icon from its own file** (PAR-199). Vite prebundles a dependency whole, and
-  lucide-react's index imports every icon, so the window held all of them, 1.73 M characters in one script, for the 137
+  lucide-react's index imports every icon, so the window held all of them, 1.73 M characters in one script, for the 139
   the chrome uses. A plugin in the UI's Vite config (`apps/desktop/scripts/icon-imports.ts`) rewrites
   `import { Plus } from "lucide-react"` to the icon's own module and keeps the package out of prebundling, so the window
   loads 149 small files, 0.28 M characters. The Icons panel doesn't need the full set: it lists the project's own icon

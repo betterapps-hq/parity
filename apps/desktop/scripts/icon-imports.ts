@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs"
 import { createRequire } from "node:module"
 import { dirname, join } from "node:path"
+import ts from "typescript"
 import type { Plugin } from "vite"
 
 /** Where one of lucide-react's exports is defined: its file under the package, and the name it has there. */
@@ -11,8 +12,6 @@ export interface IconExport {
 
 /** One `export { a as B, ... } from "./file.mjs"` line of lucide-react's index. */
 const reexport = /export\s*\{([^}]*)\}\s*from\s*["']\.\/([^"']+)["']/g
-/** `import { A, B as C, type D } from "lucide-react"`; `import type` lines aren't matched, and are erased anyway. */
-const namedImport = /import\s*\{([^}]*)\}\s*from\s*["']lucide-react["'];?/g
 
 /**
  * Every export of lucide-react's ES module index, by name: `Plus`, `PlusIcon` and `LucidePlus` all come from
@@ -32,28 +31,46 @@ export function iconExports(index: string): Map<string, IconExport> {
 /**
  * Imports each of lucide-react's exports a module names from the file that defines it, rather than from the package's
  * index, which imports every icon. A name the index doesn't have stays imported from the package, so it fails as it
- * would have. Types are left out, since nothing imports them at run time. Returns undefined when nothing changes.
+ * would have. Types are left out, since nothing imports them at run time. Only the module's import declarations are
+ * read, as TypeScript parses them, so import-like text in a string or comment stays as it is. Returns undefined when
+ * nothing changes.
  */
-export function iconImports(code: string, exports: Map<string, IconExport>, dist: string): string | undefined {
+export function iconImports(
+  code: string,
+  exports: Map<string, IconExport>,
+  dist: string,
+  file = "module.tsx"
+): string | undefined {
   if (!code.includes("lucide-react")) return undefined
-  let changed = false
-  const next = code.replace(namedImport, (statement: string, list: string) => {
-    changed = true
+  // A `.ts` file may cast with `<T>`, which TSX would read as JSX; anything else may hold JSX.
+  const kind = /\.[cm]?ts$/.test(file) ? ts.ScriptKind.TS : ts.ScriptKind.TSX
+  const parsed = ts.createSourceFile(file, code, ts.ScriptTarget.Latest, true, kind)
+  let next = code
+  // From the end, so each statement's position still holds once the ones after it have changed.
+  for (const statement of [...parsed.statements].reverse()) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue
+    if (statement.moduleSpecifier.text !== "lucide-react") continue
+    const clause = statement.importClause
+    if (clause?.isTypeOnly || !clause?.namedBindings || !ts.isNamedImports(clause.namedBindings) || clause.name)
+      continue
     const unknown: string[] = []
     const lines: string[] = []
-    for (const raw of list.split(",")) {
-      const specifier = raw.trim()
-      if (!specifier || specifier.startsWith("type ")) continue
-      const [name, local = name] = specifier.split(/\s+as\s+/)
-      const found = exports.get(name!)
-      if (!found) unknown.push(specifier)
+    for (const specifier of clause.namedBindings.elements) {
+      if (specifier.isTypeOnly) continue
+      const name = (specifier.propertyName ?? specifier.name).text
+      const local = specifier.name.text
+      const found = exports.get(name)
+      if (!found) unknown.push(specifier.getText(parsed))
       else lines.push(`import { ${found.name} as ${local} } from "${dist}/${found.file}";`)
     }
     if (unknown.length > 0) lines.push(`import { ${unknown.join(", ")} } from "lucide-react";`)
+    const from = statement.getStart(parsed)
+    const original = code.slice(from, statement.end)
     // In as many lines as the import took, so the lines below keep their numbers and the module's source map holds.
-    return lines.join(" ") + "\n".repeat(statement.split("\n").length - 1)
-  })
-  return changed ? next : undefined
+    next =
+      next.slice(0, from) + lines.join(" ") + "\n".repeat(original.split("\n").length - 1) + next.slice(statement.end)
+  }
+  return next === code ? undefined : next
 }
 
 /**
@@ -74,7 +91,7 @@ export function iconImportsPlugin(): Plugin {
     config: () => ({ optimizeDeps: { exclude: ["lucide-react"] } }),
     transform(code, id) {
       if (id.includes("/node_modules/") || !/\.[cm]?[jt]sx?(\?|$)/.test(id)) return undefined
-      const next = iconImports(code, exports, "lucide-react/dist/esm")
+      const next = iconImports(code, exports, "lucide-react/dist/esm", id.split("?")[0])
       return next === undefined ? undefined : { code: next, map: null }
     }
   }

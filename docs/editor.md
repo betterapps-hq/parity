@@ -1145,8 +1145,9 @@ window holds less.
 - **Icons:** each `import { … } from "lucide-react"` in the app's code is rewritten, while Vite serves it, to import
   each icon from its own file, and lucide-react is kept out of Vite's prebundling. Types are dropped, a name
   lucide-react doesn't export stays imported from the package so it fails as before, and the import keeps its lines, so
-  the module's source map holds. Dependencies and a project's own icons, which its builder serves, are left alone.
-  Storybook uses the same config; builds bundle lucide-react as usual.
+  the module's source map holds. Imports are found by parsing the module, so import-like text in a string stays.
+  Dependencies and a project's own icons, which its builder serves, are left alone. Storybook uses the same config;
+  builds bundle lucide-react as usual.
 - **Dependencies:** what Vite prebundles for the UI is minified. Their source maps still lead DevTools to the code as
   published, so a stack trace through tldraw reads as before once DevTools maps it.
 - **Measured** on the example project, against an isolated copy of the app: the window's scripts went from 19.3 M
@@ -1156,11 +1157,11 @@ window holds less.
 Code: `iconImports` and `iconImportsPlugin` in `apps/desktop/scripts/icon-imports.ts`, and `optimizeDeps` in
 `apps/desktop/vite.config.ts`.
 
-Tests: `apps/desktop/scripts/icon-imports.test.ts` (7: every name an icon goes by, the installed package's index, one
-file per icon under the module's own names, lines kept, types dropped, unknown names left, other modules unchanged). The
-e2e suite (`pnpm test:app`) runs the editor with both in place. Gaps: the minified prebundle has no test of its own; it
-was checked in an isolated copy of the app on 2026-10-29, where all 736 icons on screen drew and the window's scripts
-were measured over the DevTools protocol.
+Tests: `apps/desktop/scripts/icon-imports.test.ts` (8: every name an icon goes by, the installed package's index, one
+file per icon under the module's own names, lines kept, types dropped, unknown names left, import-like text in strings
+and comments left, other modules unchanged). The e2e suite (`pnpm test:app`) runs the editor with both in place. Gaps:
+the minified prebundle has no test of its own; it was checked in an isolated copy of the app on 2026-10-29, where all
+736 icons on screen drew and the window's scripts were measured over the DevTools protocol.
 
 ## Opening and closing projects
 

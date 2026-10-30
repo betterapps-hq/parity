@@ -60,6 +60,14 @@ describe("iconImports", () => {
     )
   })
 
+  it("leaves import-like text in strings and comments as it is", () => {
+    const code = `const example = "import { Plus } from 'lucide-react'"\n// import { Plus } from "lucide-react"\n`
+    expect(iconImports(code, exports, dist)).toBeUndefined()
+    expect(iconImports(`${code}import { Plus } from "lucide-react"`, exports, dist)).toBe(
+      `${code}import { default as Plus } from "${dist}/icons/plus.mjs";`
+    )
+  })
+
   it("changes nothing in a module that doesn't import lucide-react", () => {
     expect(iconImports(`import { Plus } from "./icons"`, exports, dist)).toBeUndefined()
     expect(iconImports(`import { Plus } from "lucide-react/icons/plus"`, exports, dist)).toBeUndefined()
