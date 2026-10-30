@@ -455,9 +455,9 @@ export function DetailPreview({
       const themes = Object.keys(token.values)
       const groups = themesByValue(token, themes)
       return (
-        <div className="flex h-24 gap-px overflow-hidden rounded-md border border-white/10">
+        <div className="flex h-24 gap-px">
           {groups.map((group) => (
-            <div key={group[0]} className="relative flex-1">
+            <div key={group[0]} className="relative flex-1 first:rounded-l-md last:rounded-r-md">
               <TokenArt token={token} width={width / groups.length} height={96} theme={group[0]} />
               {themes.length > 1 && (
                 <span

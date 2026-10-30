@@ -40,6 +40,7 @@ import {
   reduceField
 } from "./number-field.ts"
 import { readValue, showValue, type ValueKind, valueKind } from "./prop-values.ts"
+import { swatch } from "./token-previews.tsx"
 
 interface FieldProps {
   label: string
@@ -743,5 +744,5 @@ export function TokenInput({
 }
 
 export function Swatch({ value, className = "size-3.5" }: { value: string; className?: string }) {
-  return <span className={`${className} shrink-0 rounded-sm border border-white/15`} style={{ background: value }} />
+  return <span className={`${className} shrink-0 rounded-sm`} style={swatch(value)} />
 }

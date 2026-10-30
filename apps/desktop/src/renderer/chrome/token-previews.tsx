@@ -156,11 +156,32 @@ export const onPaper = new Set<PreviewKind>([
 /** Kinds that move, and so play while hovered, focused or open. */
 export const moving = new Set<PreviewKind>(["duration", "easing", "animation"])
 
+const checkerboard = "repeating-conic-gradient(oklch(0.88 0 0) 0 25%, transparent 0 50%)"
+
 export const checker: CSSProperties = {
   backgroundColor: "#fff",
-  backgroundImage: "repeating-conic-gradient(oklch(0.88 0 0) 0 25%, transparent 0 50%)",
+  backgroundImage: checkerboard,
   backgroundSize: "8px 8px"
 }
+
+/**
+ * How a color swatch is painted: the color over a checkerboard as layers of one element, so a see-through color shows
+ * what's behind it and a rounded corner has a single edge, and a hairline over both in Parity's own text color, faint.
+ * The hairline is light in the dark UI and dark in the light one, so black and white swatches stand off the panel while
+ * the colors between look unchanged. It's an inset shadow, so it follows the element's radius.
+ */
+export function swatch(value: string): CSSProperties {
+  const color = value || "transparent"
+  return {
+    backgroundColor: "#fff",
+    backgroundImage: `linear-gradient(${color}, ${color}), ${checkerboard}`,
+    backgroundSize: "auto, 8px 8px",
+    boxShadow: `inset 0 0 0 1px ${hairline}`
+  }
+}
+
+/** A swatch's edge: Parity's text color, faint, so it shows on whichever color the panel is. */
+const hairline = "color-mix(in oklab, var(--foreground) 14%, transparent)"
 
 /** Holds reduced motion on or off for what's inside, so a story can show both without changing the computer's setting. */
 export const ReducedMotion = createContext<boolean | undefined>(undefined)
@@ -542,11 +563,8 @@ export function TokenArt({
   const small = Math.min(width, height)
   switch (token.kind) {
     case "color": {
-      return (
-        <span className="block size-full" style={{ ...checker, boxShadow: "inset 0 0 0 1px rgb(255 255 255 / 0.12)" }}>
-          <span className="block size-full" style={{ background: value }} />
-        </span>
-      )
+      // Rounded as the box it's drawn in, so its hairline follows the corners.
+      return <span className="block size-full rounded-[inherit]" style={swatch(value)} />
     }
     case "spacing":
       return (
@@ -1201,9 +1219,9 @@ export function TokenGlyph({
 }) {
   if (token.kind === "color") {
     return (
-      <span className="flex h-5 w-10 shrink-0 gap-px overflow-hidden rounded-[4px]">
+      <span className="flex h-5 w-10 shrink-0 gap-px">
         {themesByValue(token, themes).map((group, _, groups) => (
-          <span key={group[0]} className="h-full flex-1">
+          <span key={group[0]} className="h-full flex-1 first:rounded-l-[4px] last:rounded-r-[4px]">
             <TokenArt token={token} width={40 / groups.length} height={20} theme={group[0]} />
           </span>
         ))}
@@ -1239,6 +1257,19 @@ export function TokenTile({
   theme?: string
 }) {
   const themes = Object.keys(token.values)
+  if (token.kind === "color" && theme === undefined) {
+    // The swatches are the tile, each with its own edge, split by a gap as a row's are.
+    const groups = themesByValue(token, themes)
+    return (
+      <span className="flex shrink-0 gap-px" style={{ width, height }}>
+        {groups.map((group) => (
+          <span key={group[0]} className="h-full flex-1 first:rounded-l-md last:rounded-r-md">
+            <TokenArt token={token} width={width / groups.length} height={height} theme={group[0]} />
+          </span>
+        ))}
+      </span>
+    )
+  }
   return (
     <span
       className="relative block shrink-0 overflow-hidden rounded-md border"
@@ -1250,15 +1281,7 @@ export function TokenTile({
           : { background: "var(--muted)" })
       }}
     >
-      {token.kind === "color" && theme === undefined ? (
-        <span className="flex size-full">
-          {themes.map((each) => (
-            <TokenArt key={each} token={token} width={(width - 2) / themes.length} height={height - 2} theme={each} />
-          ))}
-        </span>
-      ) : (
-        <TokenArt token={token} width={width - 2} height={height - 2} playing={playing} theme={theme} />
-      )}
+      <TokenArt token={token} width={width - 2} height={height - 2} playing={playing} theme={theme} />
     </span>
   )
 }
