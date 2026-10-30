@@ -131,7 +131,8 @@ This is how Buildkit and the agency monorepo already release, and you asked for 
   npmjs.com. npm only trusts a workflow for a package that exists, so the first version is published by hand, then
   `npm trust github @parity-app/cli --repo betterapps-hq/parity --file cd-npm.yml --env npm --allow-publish` hands it to
   CI. `cd-npm.yml` runs whenever CI passes on `main`, and the template publishes only the versions npm doesn't have, so
-  only a merged release PR's new version publishes. It can also be run by hand to retry one.
+  only a merged release PR's new version publishes. It can't be run by hand, which could publish a commit whose CI
+  failed: a failed publish is retried with Re-run, or caught up by the next CI pass.
 - **Only packages with a `publishConfig` are published,** which the CLI gets with its npm name. The desktop app isn't
   private, since Beachball versions it, so `private` alone can't tell the publish step what goes to npm.
 

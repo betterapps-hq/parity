@@ -9,17 +9,16 @@ on:
     workflows: [CI]
     types: [completed]
     branches: [main]
-  # Retries a publish by hand. The template publishes only from main.
-  workflow_dispatch:
+# There's no workflow_dispatch, since a run by hand could publish a commit whose CI failed. A failed publish is retried
+# with Re-run, which keeps the CI run it started from, or caught up by the next CI pass on main.
 
 permissions:
   contents: read
 
 jobs:
   publish:
-    if: >-
-      github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push')
+    # CI's runs for pushes to main only, never a pull request's branch that happens to be called main.
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     permissions:
       contents: read
       # npm's trusted publishing exchanges the run's OIDC token for a short-lived one, and signs provenance with it.
