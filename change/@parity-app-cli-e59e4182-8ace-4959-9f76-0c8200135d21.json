@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "A token's code forms group its classes as Class rather than Tailwind.",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
