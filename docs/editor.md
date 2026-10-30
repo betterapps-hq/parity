@@ -1261,17 +1261,19 @@ numbers, are in [decisions.md](decisions.md) under "Frames run the production bu
   package's `jsx` as `jsxDEV`, with `Fragment`.
 - **Each frame's code still asks its own window,** in renders React starts itself and in the effects that follow,
   without the development build's `getOwner`: while React has a dispatcher out, the frame is the one whose provider is
-  above the component, and a frame React renders becomes the one last drawn.
+  above the component, and a frame React renders, or starts committing as it reads the root's `ownerDocument`, becomes
+  the one last drawn, so effects and class components' lifecycle methods ask about it.
 - **Layers are still found from React's tree,** which reads only fields both builds keep.
 
 Code: `productionDependencies`, `developmentStandIn` and `guestPlugin` in `packages/builder-vite/src/index.ts`;
-`developmentStandIns` in `packages/renderer-react/src/index.ts`; `renderingIn` and `watchRenders` in
+`developmentStandIns` in `packages/renderer-react/src/index.ts`; `renderingIn`, `watchRenders` and `watchCommits` in
 `packages/renderer-react/src/viewport.ts`, and `FrameWindowContext`, which the guest provides at each frame's top.
 
 Tests: `packages/builder-vite/src/production.test.ts` (4: a Vite server prebundling a stand-in React as production while
 serving the project's module as development, and its `jsx-dev-runtime` through the stand-in; the stand-ins' matching;
 the optimizer setting for Vite 8 and before). `apps/desktop/src/renderer/frame.test.ts` and `frame-nodes.test.ts` bundle
 React's production build, so the frame's window and finding layers are checked on what frames run, including an effect
-of a render a timer started in one of two frames. Gaps: Vite 7 and earlier's esbuild setting is checked only as data in
-the tests; it was checked by hand on `fixtures/vite7-js` (Vite 7.3.7), whose React came prebundled as production and
-whose JSX went through the stand-in. The numbers were measured by hand with a script that isn't in the repository.
+of a render a timer started and a class's `componentDidUpdate` after a timer, in one of two frames. Gaps: Vite 7 and
+earlier's esbuild setting is checked only as data in the tests; it was checked by hand on `fixtures/vite7-js` (Vite
+7.3.7), whose React came prebundled as production and whose JSX went through the stand-in. The numbers were measured by
+hand with a script that isn't in the repository.

@@ -1216,7 +1216,8 @@ recommended answer to each of its questions.
   - the one React is rendering or running effects for, at any time. React's development build, which dev servers run,
     names the component it's working on, and that component's root says which frame. Its production build, which frames
     run (PAR-198), names none, so while it renders, the frame is the one whose provider is above the component, and each
-    frame it renders becomes the one last drawn, which its layout and passive effects then ask about;
+    frame it renders or starts committing becomes the one last drawn, which its layout and passive effects and class
+    components' lifecycle methods then ask about. A commit shows itself when React DOM reads the root's `ownerDocument`;
   - the one the canvas is drawing or resizing, which it does synchronously, so the first effects run inside too;
   - for a media query list or resize listener, the frame that made it. These hear the frame resize without a rebuild;
   - otherwise, in an event handler, a timer or a render the project starts itself, the frame last drawn or used, but
@@ -1227,8 +1228,9 @@ recommended answer to each of its questions.
 
   `screen` and `visualViewport` still describe Parity's window. `frame.test.ts` mounts shadcn's `useIsMobile` and a
   MUI-style `useMediaQuery` in a phone and a laptop frame at once, on React's production build, clicks and resizes them,
-  checks an effect of a render a timer started, and checks Parity's own answers. After these changes, the 93 full-size
-  frames in the example's Boards story still match Chrome element by element, within 0.03px.
+  checks an effect of a render a timer started and a class's `componentDidUpdate`, and checks Parity's own answers.
+  After these changes, the 93 full-size frames in the example's Boards story still match Chrome element by element,
+  within 0.03px.
 
 - **Visual regression tests draw each frame as a page of its own, not as a canvas frame** (PAR-226). Canvas frames share
   one window, one document, one origin and one copy of the project's code, so the canvas can draw dozens at once. The

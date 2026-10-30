@@ -50,6 +50,7 @@ export function frameWindow(container: Element, viewport: FrameViewport): FrameW
   install()
   const self: Scope = { container, viewport, queries: new Set(), resizeListeners: new Set() }
   frames.set(container, self)
+  watchCommits(container, self)
   const run = <T>(work: () => T): T => {
     draw(self)
     running.push(self)
@@ -74,6 +75,7 @@ export function frameWindow(container: Element, viewport: FrameViewport): FrameW
       })
     },
     dispose() {
+      Reflect.deleteProperty(container, "ownerDocument")
       frames.delete(container)
       if (active === self) active = undefined
       self.queries.clear()
@@ -82,6 +84,26 @@ export function frameWindow(container: Element, viewport: FrameViewport): FrameW
   }
   windows.set(own, self)
   return own
+}
+
+const ownerDocument =
+  typeof Node === "undefined" ? undefined : Object.getOwnPropertyDescriptor(Node.prototype, "ownerDocument")
+
+/**
+ * Makes a frame the one last drawn as React starts committing it: React DOM reads its root's `ownerDocument` first, for
+ * every commit that changes the DOM or has lifecycle methods or layout effects to run (React 19). A class component's
+ * update sets no dispatcher in the frame, so this is how its `componentDidUpdate` asks about the right frame.
+ */
+function watchCommits(container: Element, frame: Scope): void {
+  if (!ownerDocument?.get) return
+  Object.defineProperty(container, "ownerDocument", {
+    configurable: true,
+    enumerable: ownerDocument.enumerable ?? true,
+    get() {
+      draw(frame)
+      return Reflect.get(Node.prototype, "ownerDocument", container) as Document
+    }
+  })
 }
 
 /** Makes a frame that's still open the one last drawn. */

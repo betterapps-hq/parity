@@ -17,7 +17,7 @@ const entry = `
 export { prepareFrame, setFrameViewport } from "./frame.ts"
 export { prepareCanvasCss } from "@parity-app/core"
 export { createGuest } from "@parity-app/renderer-react/guest"
-import { createElement, useEffect, useState, useSyncExternalStore } from "react"
+import { Component, createElement, createRef, useEffect, useState, useSyncExternalStore } from "react"
 
 // shadcn's useIsMobile.
 function useIsMobile() {
@@ -68,6 +68,25 @@ function useLaterWidth() {
   return width
 }
 
+// A class that updates itself from a timer, once the hooks above have drawn both frames, and asks when it has: no
+// function component renders with it.
+class LaterClass extends Component {
+  state = { ready: false }
+  span = createRef()
+  componentDidMount() {
+    this.timer = setTimeout(() => this.setState({ ready: true }), 80)
+  }
+  componentDidUpdate() {
+    this.span.current.closest("button").dataset.classLater = String(window.innerWidth)
+  }
+  componentWillUnmount() {
+    clearTimeout(this.timer)
+  }
+  render() {
+    return createElement("span", { ref: this.span, "data-ready": String(this.state.ready) }, "Probe")
+  }
+}
+
 export function Probe() {
   const [clicks, setClicks] = useState(0)
   return createElement(
@@ -82,7 +101,7 @@ export function Probe() {
       style: { minHeight: "10vh" },
       onClick: () => setClicks((count) => count + 1)
     },
-    "Probe"
+    createElement(LaterClass)
   )
 }
 `
@@ -376,6 +395,11 @@ describe("a frame's window", () => {
   it("answers for a frame in the effects of a render React started itself", async () => {
     await expect.poll(() => probe("phone")).toMatchObject({ later: "390" })
     expect(await probe("laptop")).toMatchObject({ later: "1280" })
+  })
+
+  it("answers for a frame in the lifecycle methods of a class that updates itself", async () => {
+    await expect.poll(() => probe("phone")).toMatchObject({ classLater: "390" })
+    await expect.poll(() => probe("laptop")).toMatchObject({ classLater: "1280" })
   })
 
   it("leaves Parity's window to Parity's code", async () => {
