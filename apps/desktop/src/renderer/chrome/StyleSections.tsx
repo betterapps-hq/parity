@@ -1109,8 +1109,8 @@ function TextResizing({ editor }: { editor: StyleEditor }) {
           set(
             (layer) =>
               withTextSizing(layer, sizing.value, {
-                width: editor.measure("width", Math.ceil),
-                height: editor.measure("height", Math.ceil)
+                width: editor.measure("width", stepUp),
+                height: editor.measure("height", stepUp)
               }),
             sizing.edit
           )
@@ -1126,6 +1126,11 @@ function TextResizing({ editor }: { editor: StyleEditor }) {
       </ToggleGroup>
     </Field>
   )
+}
+
+/** The whole step at or above a measured length, past a hundredth of a step of measuring noise. */
+function stepUp(steps: number): number {
+  return Math.ceil(steps - 0.01)
 }
 
 const textSizingOptions = [
