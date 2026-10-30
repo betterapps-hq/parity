@@ -168,11 +168,8 @@ export function LayerTree() {
     revealSelection(session)
   }
 
-  const selectedRow = selected.design
-    ? selected.node
-      ? rowId(selected.design, selected.node)
-      : selected.design
-    : undefined
+  let selectedRow: string | undefined
+  if (selected.design) selectedRow = selected.node ? rowId(selected.design, selected.node) : selected.design
   const selectedRows = new Set([
     ...(selected.design ? selectedNodes(selected).map((id) => rowId(selected.design!, id)) : []),
     ...selectedDesigns(selected)
@@ -402,6 +399,9 @@ function LayerRow({
   const viewports = row.node ? Object.keys(row.node.responsive ?? {}) : []
   // Whether the board hides it in the state it shows, as Hide and Show read it.
   const hidden = row.node ? (nodeOnBoard(container, row.node, state).hidden ?? false) : false
+  let background = "hover:bg-accent/40"
+  if (selected) background = "bg-accent text-accent-foreground"
+  else if (hovered) background = "bg-accent/40"
 
   return (
     <ContextMenu>
@@ -425,7 +425,7 @@ function LayerRow({
           onPointerEnter={() => onHover(true)}
           onPointerLeave={() => onHover(false)}
           className={`group relative flex h-7 cursor-default items-center gap-1.5 pr-2 ${
-            selected ? "bg-accent text-accent-foreground" : hovered ? "bg-accent/40" : "hover:bg-accent/40"
+            background
           } ${hidden ? "text-muted-foreground/60" : ""} ${row.depth === 0 ? "font-medium" : ""}`}
           style={{ paddingLeft: 8 + row.depth * 14 }}
         >

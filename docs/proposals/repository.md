@@ -263,7 +263,7 @@ The agency monorepo (`D:\agency`) is set up the same way. What Parity takes from
   (PAR-2, PAR-394, PAR-11).
 - **knip for unused files, dependencies and exports** (PAR-395), which matters more as code moves into packages.
 - **Its stricter lint rules** (PAR-396), without `curly` (2,623 hits: Parity writes one-line `if (x) return`),
-  `no-console` (the CLI and scripts print) and `no-bitwise`. They flagged 261 places, 158 of them nested ternaries, all
+  `no-console` (the CLI and scripts print) and `no-bitwise`. They flagged 278 places, 169 of them nested ternaries, all
   fixed when the rules went on.
 - **pnpm's `verifyDepsBeforeRun: error`,** so a script stops when another session changed the dependencies without
   installing them, and **shared versions in a pnpm catalog** (both in PAR-1).

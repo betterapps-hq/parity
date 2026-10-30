@@ -94,17 +94,10 @@ export function dropTarget(area: ParentNode, store: DesignStore, point: Point): 
     row ? point.x < child.rect.left + child.rect.width / 2 : point.y < child.rect.top + child.rect.height / 2
   )
   const index = after?.index ?? layout.children.length
-  const edge = after
-    ? row
-      ? after.rect.left - 2
-      : after.rect.top - 2
-    : children.length > 0
-      ? row
-        ? children.at(-1)!.rect.right + 1
-        : children.at(-1)!.rect.bottom + 1
-      : row
-        ? box.left + 4
-        : box.top + 4
+  let edge: number
+  if (after) edge = row ? after.rect.left - 2 : after.rect.top - 2
+  else if (children.length > 0) edge = row ? children.at(-1)!.rect.right + 1 : children.at(-1)!.rect.bottom + 1
+  else edge = row ? box.left + 4 : box.top + 4
   const line = row
     ? {
         x: edge,
@@ -131,8 +124,9 @@ export function insertItem(
     ? [...location.ancestors, location.node].flatMap((node) => (node.type === "component" ? [node.component] : []))
     : []
   const node = withLibraryContext(part, session.info.sources, around, taken)
-  const label =
-    item.kind === "component" ? componentLabel(item.component) : item.kind === "instance" ? "component" : "image"
+  let label = "image"
+  if (item.kind === "component") label = componentLabel(item.component)
+  else if (item.kind === "instance") label = "component"
   store.updateContainer(target.entry.key, `Add ${label}`, (container: ContainerSpec) => ({
     ...container,
     root: insertNode(container.root, target.parent, node, { index: target.index, slot: target.slot })

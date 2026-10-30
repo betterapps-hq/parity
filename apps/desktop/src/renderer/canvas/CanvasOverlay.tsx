@@ -633,12 +633,9 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
     const hoverEntry = store.getEntry(hover.design)
     const node = hoverEntry && findLayer(store, hoverEntry.container, hover.node)
     // In the frame under the pointer; hovered in Layers, in the frame the selection was picked in.
-    const frame =
-      hover.mode !== undefined
-        ? findFrames(area, hover.design, { mode: hover.mode, state: hover.state })[0]
-        : hover.design === current.design
-          ? picked
-          : selectionFrame(area, hover.design, {})
+    let frame
+    if (hover.mode !== undefined) frame = findFrames(area, hover.design, { mode: hover.mode, state: hover.state })[0]
+    else frame = hover.design === current.design ? picked : selectionFrame(area, hover.design, {})
     const target = nodeInFrames(area, hover.design, hover.node, frame).find((item) => item.picked)
     if (target && node) {
       const { rect } = target
@@ -654,12 +651,10 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
         y2: line.y2 - areaRect.top
       })
       // Measured from the selected layer as the hovered frame draws it.
-      const from =
-        target.host === picked
-          ? selectedRect
-          : hover.design === current.design && current.node && !getDragView()
-            ? nodeBox(target.host, current.node)
-            : undefined
+      let from: DOMRect | undefined
+      if (target.host === picked) from = selectedRect
+      else if (hover.design === current.design && current.node && !getDragView())
+        from = nodeBox(target.host, current.node)
       if (alt && from) {
         model.redlines = redlines(from, rect, scale, unit).map(toArea)
       } else if (alt && !selectedRect && hoverEntry) {

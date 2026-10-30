@@ -63,7 +63,7 @@ function Outcome({ status, text }: { status: CopyStatus; text?: string }) {
   if (!status.ok) {
     return (
       <>
-        <X className="size-3.5" /> Couldn't copy
+        <X className="size-3.5" /> Couldn&apos;t copy
       </>
     )
   }
@@ -103,6 +103,8 @@ export function CopyButton({
   const [hovered, setHovered] = useState(false)
   const done = status !== undefined
   const copied = done && status.ok
+  let outcome: "copied" | "failed" | undefined
+  if (done) outcome = status.ok ? "copied" : "failed"
   return (
     <Tooltip open={hovered || done} onOpenChange={setHovered}>
       <TooltipTrigger asChild>
@@ -110,7 +112,7 @@ export function CopyButton({
           variant={variant}
           size={children ? "sm" : "icon-sm"}
           aria-label={label}
-          data-copied={done ? (status.ok ? "copied" : "failed") : undefined}
+          data-copied={outcome}
           className={className}
           onClick={() => copy(text)}
         >
@@ -141,7 +143,9 @@ export function CopyButton({
 
 /** Says how a copy went to screen readers, which a tooltip doesn't reliably do. */
 function Announce({ status }: { status: CopyStatus | undefined }) {
-  return <output className="sr-only">{status ? (status.ok ? "Copied" : "Couldn't copy") : ""}</output>
+  let said = ""
+  if (status) said = status.ok ? "Copied" : "Couldn't copy"
+  return <output className="sr-only">{said}</output>
 }
 
 /**

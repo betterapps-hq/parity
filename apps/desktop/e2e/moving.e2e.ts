@@ -117,12 +117,11 @@ describe("dragging an absolutely placed layer", () => {
       const e2e = window.e2e!
       const key = e2e.key("Calendar")
       e2e.session().store.updateContainer(key, "Set up insets", (container) => {
-        const edit = (node: typeof container.root): typeof container.root =>
-          node.id === review
-            ? { ...node, style: { ...node.style, left: -2, right: "spacing", top: "spacing" } }
-            : node.type === "layout"
-              ? { ...node, children: node.children.map(edit) }
-              : node
+        const edit = (node: typeof container.root): typeof container.root => {
+          if (node.id === review)
+            return { ...node, style: { ...node.style, left: -2, right: "spacing", top: "spacing" } }
+          return node.type === "layout" ? { ...node, children: node.children.map(edit) } : node
+        }
         return { ...container, root: edit(container.root) }
       })
     }, review)

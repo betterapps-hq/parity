@@ -180,15 +180,17 @@ export function codeForms(name: string, kind: PreviewKind, value: string): CodeF
   const classes = names.map(([utility, label]): CodeForm => ({
     group: "Tailwind",
     label,
-    text: own
-      ? `${utility}-${own}`
-      : kind === "border-width"
-        ? `${utility}-(length:--${name})`
-        : `${utility}-(--${name})`
+    text: tailwindClass(utility, own, kind, name)
   }))
   if (kind === "container" && named) classes.push({ group: "Tailwind", label: "Container query", text: `@${named}:` })
   // The spacing scale's base is what its steps are made of, not a length a class sets.
   return kind === "spacing" && !named ? [css] : [css, ...classes]
+}
+
+/** A Tailwind class for a token: by its own name when it has one, otherwise through its variable. */
+function tailwindClass(utility: string, own: string | undefined, kind: PreviewKind, name: string): string {
+  if (own) return `${utility}-${own}`
+  return kind === "border-width" ? `${utility}-(length:--${name})` : `${utility}-(--${name})`
 }
 
 const reference = /var\(\s*--([\w-]+)\s*(?:,([^()]*))?\)/g

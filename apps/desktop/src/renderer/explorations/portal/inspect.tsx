@@ -301,7 +301,7 @@ export function InspectPage() {
                   <span className="text-muted-foreground">The level number</span>
                   <code className="font-mono text-[11px]">text-[26px] font-black text-white</code>
                   <span className="text-[11px] text-[oklch(0.8_0.15_80)]">
-                    26px and white aren't Ember Caves tokens
+                    26px and white aren&apos;t Ember Caves tokens
                   </span>
                 </span>
                 <span className="flex flex-col gap-0.5">

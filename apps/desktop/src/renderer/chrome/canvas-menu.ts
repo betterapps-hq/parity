@@ -104,11 +104,7 @@ export function canvasMenu(
     layers ? order.map((command) => item(command, !!one)) : [],
     [
       ...(layers ? [item("wrap", own.length > 0)] : []),
-      item(
-        "makeComponent",
-        !!alone || !!one,
-        alone?.kind === "component" ? "Make it a screen" : alone ? "Make it a component" : undefined
-      ),
+      item("makeComponent", !!alone || !!one, makeLabel(alone)),
       ...(instance
         ? [item("goToMain", true, `Go to ${designName(entries, instance.design) ?? "the main component"}`)]
         : [])
@@ -170,6 +166,12 @@ function layerChoices(target: MenuTarget, selection: Selection, entries: readonl
     })
   }
   return choices
+}
+
+/** What Make component says for a design picked alone: it turns a component back into a screen. */
+function makeLabel(alone: ContainerSpec | undefined): string | undefined {
+  if (alone?.kind === "component") return "Make it a screen"
+  return alone ? "Make it a component" : undefined
 }
 
 function item(action: MenuAction, enabled: boolean, label?: string): MenuItem {

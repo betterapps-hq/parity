@@ -351,11 +351,9 @@ export function createGuest(init: GuestInit): Guest {
           if (render) {
             const [, spread, prop, pass] = render
             props[prop!] = (argument: unknown) => {
-              const given = pass
-                ? Object.fromEntries(pass.split(",").map((name) => [name, argument]))
-                : spread && typeof argument === "object" && argument
-                  ? (argument as Props)
-                  : undefined
+              let given: Props | undefined
+              if (pass) given = Object.fromEntries(pass.split(",").map((name) => [name, argument]))
+              else if (spread && typeof argument === "object" && argument) given = argument as Props
               // Only the one element a function returns takes what it's called with.
               const rendered = nodes.map((child, index) =>
                 toReact(child, index, nodes.length === 1 ? given : undefined)

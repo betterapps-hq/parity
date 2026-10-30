@@ -215,22 +215,14 @@ export function alignBoxes(boxes: readonly DesignBox[], alignment: Alignment): M
   const bottom = Math.max(...boxes.map((box) => box.maxY))
   for (const box of boxes) {
     const { x, y } = box.position
-    const dx =
-      alignment === "left"
-        ? left - box.minX
-        : alignment === "right"
-          ? right - box.maxX
-          : alignment === "center"
-            ? (left + right) / 2 - (box.minX + box.maxX) / 2
-            : 0
-    const dy =
-      alignment === "top"
-        ? top - box.minY
-        : alignment === "bottom"
-          ? bottom - box.maxY
-          : alignment === "middle"
-            ? (top + bottom) / 2 - (box.minY + box.maxY) / 2
-            : 0
+    let dx = 0
+    if (alignment === "left") dx = left - box.minX
+    else if (alignment === "right") dx = right - box.maxX
+    else if (alignment === "center") dx = (left + right) / 2 - (box.minX + box.maxX) / 2
+    let dy = 0
+    if (alignment === "top") dy = top - box.minY
+    else if (alignment === "bottom") dy = bottom - box.maxY
+    else if (alignment === "middle") dy = (top + bottom) / 2 - (box.minY + box.maxY) / 2
     moves.set(box.key, { x: x + dx, y: y + dy })
   }
   return moves

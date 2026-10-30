@@ -476,6 +476,8 @@ export function TokenDetail({
   const comesTo = label === shown.values.default ? undefined : label
   const playing = moving.has(token.kind) && (play ?? !reduced)
   const cancel = () => setDrafts(undefined)
+  let saving = "Fix the value to save"
+  if (valid) saving = changed ? `Saves to ${stylesheet}` : "Nothing to save yet"
   return (
     <div className="flex flex-col">
       <div className="group/preview relative px-3 pt-3">
@@ -600,9 +602,7 @@ export function TokenDetail({
         <footer className="flex min-h-11 items-center gap-2 border-t px-3 py-2">
           {editing ? (
             <>
-              <p className="min-w-0 flex-1 text-[11px] text-muted-foreground">
-                {!valid ? "Fix the value to save" : changed ? `Saves to ${stylesheet}` : "Nothing to save yet"}
-              </p>
+              <p className="min-w-0 flex-1 text-[11px] text-muted-foreground">{saving}</p>
               <Button type="button" variant="ghost" size="sm" onClick={cancel}>
                 Cancel
               </Button>

@@ -378,11 +378,9 @@ export function editNode(
   const choices = variantChoices(container.params, container.view?.variants)
   const { state, variant } = toEditTarget(target)
   const shown = optionPatches(container.params, choices)
-  const variants = !isBaseState(container, state)
-    ? shown
-    : variant
-      ? shown.slice(0, Object.keys(choices).indexOf(variant.param))
-      : []
+  let variants = shown
+  if (isBaseState(container, state))
+    variants = variant ? shown.slice(0, Object.keys(choices).indexOf(variant.param)) : []
   const under = nodeInState(base, undefined, variants, boardArgs(container.params, choices))
   return withTargetPatches(container, target, patchWith(targetPatches(container, target), nodeId, under, change))
 }

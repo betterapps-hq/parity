@@ -731,11 +731,9 @@ export async function relateParts(
       const children = spelledOut(relations.get(parent)?.sample?.children ?? [], name)
       if (!children) continue
       // Or inside the outermost parent's whole sample, where what they need is (the table's columns for a row's cells).
-      const parts = !attempt(relation.parents, name, children)
-        ? false
-        : !attempt(relation.parents, name, children, true)
-          ? true
-          : undefined
+      let parts: boolean | undefined = false
+      if (attempt(relation.parents, name, children))
+        parts = attempt(relation.parents, name, children, true) ? undefined : true
       if (parts !== undefined) {
         relation.sample = { ...relation.sample, children }
         if (parts) relation.parentParts = true
