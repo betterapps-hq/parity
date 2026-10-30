@@ -890,9 +890,11 @@ recommended answer to each of its questions.
   review): Approval, who approved the version, or while it's in review, whom it waits on and who asked when, and Code,
   who's building it, built it, or made it with the design. An agent that changes a design and its code together, as
   Claude Code did for the Cloud console, leaves the code already in a pull request, so approving that design leaves only
-  the merge, and its boards are Built once it merges. Only the picked row's action is a filled button. Handoff, Inspect
-  and What changed read what a board delivers from one list (`portal/boards.ts`), so they always name the same
-  components and tokens.
+  the merge, and its boards are Built once it merges. Rows carry no buttons (your call, 2026-10-29, that a filled button
+  in a row is out of place; my call on what replaces it): picking a row opens its board at the side, whose footer has
+  the board's next step as its one filled button, beside Inspect. Actions in other lists stay quiet, outlined and never
+  filled, with the yes before the no. Handoff, Inspect and What changed read what a board delivers from one list
+  (`portal/boards.ts`), so they always name the same components and tokens.
 - **Every change makes a version, but only one its designer marks ready moves a board** (your call, 2026-10-29, after
   the fifth review). Marking a version ready asks one of the team's reviewers; the versions in between are drafts, and
   someone working on a board shows in Handoff as just that, without its status moving or anyone being told. So builders

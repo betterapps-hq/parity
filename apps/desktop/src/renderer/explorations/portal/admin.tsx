@@ -205,10 +205,12 @@ function SeatRequests() {
             </span>
             <span className="ml-auto shrink-0 text-xs text-muted-foreground">Waiting {request.waited}</span>
             <span className="flex shrink-0 gap-2">
+              <Button size="sm" variant="outline">
+                {request.approve}
+              </Button>
               <Button size="sm" variant="ghost">
                 Deny
               </Button>
-              <Button size="sm">{request.approve}</Button>
             </span>
           </div>
         ))}

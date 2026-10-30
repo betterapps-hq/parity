@@ -85,7 +85,9 @@ function ShareDialog() {
             </span>
             <p className="border-l-2 pl-2.5 text-[13px] text-foreground/85">{request.quote}</p>
             <div className="flex gap-2">
-              <Button size="sm">Let Ivy comment</Button>
+              <Button size="sm" variant="outline">
+                Let Ivy comment
+              </Button>
               <Button size="sm" variant="ghost">
                 Deny
               </Button>
