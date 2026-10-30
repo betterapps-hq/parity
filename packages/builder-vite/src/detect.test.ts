@@ -4,7 +4,7 @@ import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import type { RendererAdapter } from "@parity-app/core"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
-import { viteBuilder } from "./index.ts"
+import { freePort, viteBuilder } from "./index.ts"
 
 const viteFolder = dirname(createRequire(import.meta.url).resolve("vite/package.json"))
 const viteVersion = (createRequire(import.meta.url)("vite/package.json") as { version: string }).version
@@ -108,6 +108,27 @@ describe("viteBuilder.start", () => {
         expect(response.status).toBe(200)
         expect(await response.text()).toContain("createGuest")
       }
+    } finally {
+      await Promise.all([first.close(), second.close()])
+    }
+  })
+
+  it("serves on the port it's given when that's free, and on another one when it's taken", async () => {
+    await fixture({ "guest.js": "export function createGuest() {}\n" })
+    const port = await freePort()
+    const options = {
+      root,
+      config: { styles: [], components: {}, documents: [], libraries: [] },
+      renderer: { runtimePackages: [], runtimeImports: [] } as unknown as RendererAdapter,
+      rendererGuestPath: join(root, "guest.js"),
+      allowedOrigins: [],
+      port
+    }
+    const first = await viteBuilder.start(options)
+    const second = await viteBuilder.start(options)
+    try {
+      expect(new URL(first.guestUrl).port).toBe(String(port))
+      expect(new URL(second.guestUrl).port).not.toBe(String(port))
     } finally {
       await Promise.all([first.close(), second.close()])
     }
