@@ -1373,6 +1373,11 @@ the Repository, CI and releases stream in Linear.
   GitHub redirects `Fencing-Club` only until someone claims that name, so nothing here should still use it.
 - **Parity is MIT-licensed** (your call, 2026-10-29, Q6), like the agency monorepo. PAR-397 adds the LICENSE and names
   it in every package.json.
+- **The README says how to get past an unsigned release's warnings before there are releases** (PAR-397), so it's right
+  when the first one ships. My calls: the steps are each system's own (More info and Run anyway on Windows, Open Anyway
+  in Privacy & Security on macOS, `chmod +x` for the AppImage); the CLI's README names it `@parity-app/cli` and says
+  it's coming to npm; and the README's layout table and contributing section summarise AGENTS.md and conventions.md
+  rather than repeat them.
 - **Interface text isn't checked against Fluent's guidance.** You said on 2026-10-29 that this was a Microsoft practice
   you no longer follow, so conventions.md keeps only the rule against dot separators.
 - **DOC-3, splitting the backlog, was dropped.** The backlog is moving to Linear, which solves its size. Its ID isn't

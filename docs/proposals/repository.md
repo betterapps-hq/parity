@@ -14,7 +14,9 @@ to npm and of unsigned installers to GitHub Releases, as betas first and to ever
 - **The tools are already most of Vite+:** a pnpm 12 workspace (`apps/*`, `packages/*`, `examples/*`), oxlint, oxfmt,
   Vitest 5, TypeScript 7 for checking and TypeScript 6 where code uses the compiler API. On 2026-10-29 lint took 2
   seconds, types 2 seconds, and 679 tests 9 seconds.
-- **There's no remote, CI, README or licence.** The root `package.json` says `UNLICENSED`.
+- **The repository has a README and the MIT licence** (PAR-397). The README says what Parity is, how to get past an
+  unsigned release's warnings and how to develop it, and the CLI has a README of its own for npm. Every Parity
+  package.json says MIT; the example project and the fixtures stand in for other people's projects, so they don't.
 - **Nothing builds for production.** The main process exits without `PARITY_RENDERER_URL`, so Parity only runs under
   `pnpm dev`.
 - **Only the desktop app and the CLI are versioned,** from Beachball change files (PAR-4). The packages they bundle stay
