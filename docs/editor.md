@@ -1113,7 +1113,11 @@ project or a `.par` file hasn't, the close waits for it, since it may be the sam
 Code: `closeNow`, `open` and `reload` in `apps/desktop/src/renderer/workspace.ts`, through its `attempts` and
 `settleDrops`.
 
-Tests: `apps/desktop/src/renderer/workspace.test.ts` (9: closed before the service answers, closed while the guest
+A reopen asked for while the tab is already opening or reopening is left to the one in flight, so closing the tab
+cancels it.
+
+Tests: `apps/desktop/src/renderer/workspace.test.ts` (12: closed before the service answers, closed while the guest
 loads, opened again before the first open finished, the reopened tab closed too before either open finished, the default
 project opened again in a tab that doesn't know it yet, and closed once that tab turns out to be another project, the
-guest failing after its tab closed, closed while it reopens, and a project that finished opening, closed with its tab).
+guest failing after its tab closed, closed while a reopen closes the project, while it opens it again and while it loads
+the guest, a second reopen asked for during one, and a project that finished opening, closed with its tab).
