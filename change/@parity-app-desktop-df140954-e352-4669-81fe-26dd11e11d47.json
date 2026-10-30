@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Every list of tokens, in the Tokens panel and the inspector's pickers, shares one order, smallest first.",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

@@ -1,13 +1,10 @@
 // What each kind of token looks like: a drawing from the token's own value, in a box of any size, so no frame renders
 // for it. The Tokens panel's rows and tiles draw with these. docs/proposals/previews.md has the design.
 
-import {
-  type PreviewKind,
-  substituteReferences,
-  tokenReferences,
-  unclosedInValue,
-  valueParts
-} from "@parity-app/tokens"
+import { type PreviewKind, substituteReferences, tokenReferences, unclosedInValue } from "@parity-app/tokens"
+import { px } from "../lengths.ts"
+
+export { px }
 import { Ban, Hand, MousePointer2, TextCursor } from "lucide-react"
 import {
   createContext,
@@ -86,29 +83,6 @@ export const tokenSections: { title: string; kinds: { kind: PreviewKind; heading
   { title: "Cursors", kinds: [{ kind: "cursor" }] },
   { title: "Other", kinds: [{ kind: "number" }] }
 ]
-
-/** A length in pixels, from px, rem or em, or from anything else the browser can work out, such as `calc()`. */
-export function px(value: string): number {
-  const match = /^(-?[\d.]+)(px|rem|em)?$/.exec(value.trim())
-  if (!match) return measured(value)
-  return Number(match[1]) * (match[2] === "rem" || match[2] === "em" ? 16 : 1)
-}
-
-const lengths = new Map<string, number>()
-
-/** A length the browser works out, by laying out an element that wide once; NaN when it isn't a length. */
-function measured(value: string): number {
-  const known = lengths.get(value)
-  if (known !== undefined) return known
-  if (typeof document === "undefined" || !CSS.supports("width", value)) return Number.NaN
-  const probe = document.createElement("div")
-  probe.style.cssText = `position: absolute; visibility: hidden; width: ${value}`
-  document.body.append(probe)
-  const length = probe.getBoundingClientRect().width
-  probe.remove()
-  lengths.set(value, length)
-  return length
-}
 
 /** A duration in milliseconds, from ms or s. */
 export function ms(value: string): number {
@@ -996,156 +970,6 @@ export function valueProblem(
   const [property, noun, example, wrap] = check
   const resolved = substituteReferences(text, lookup)
   return CSS.supports(property, wrap ? wrap(resolved) : resolved) ? undefined : `That isn't a ${noun}. Try ${example}.`
-}
-
-/**
- * How far a shadow reaches past its box, in pixels: for its furthest layer, its offset plus its blur and spread. Read
- * from the value, as `0 4px 6px -1px rgb(0 0 0 / 0.1)` reaches 9, so shadows order by size whatever they're named.
- * Undefined when no layer has a length it can read, as when the lengths are variables.
- */
-export function shadowReach(value: string): number | undefined {
-  let furthest: number | undefined
-  for (const layer of valueParts(value)) {
-    const lengths = topLevelWords(layer).flatMap((word) => {
-      const match = /^(-?\d*\.?\d+)(px|rem|em)?$/.exec(word)
-      return match ? [Number(match[1]) * (match[2] === "rem" || match[2] === "em" ? 16 : 1)] : []
-    })
-    if (lengths.length === 0) continue
-    const [x = 0, y = 0, blur = 0, spread = 0] = lengths
-    const reach = Math.max(Math.abs(x), Math.abs(y)) + Math.max(0, blur) + spread
-    furthest = Math.max(furthest ?? reach, reach)
-  }
-  return furthest
-}
-
-/** A value's words outside brackets, so a color function's numbers aren't taken for lengths. */
-function topLevelWords(value: string): string[] {
-  const words: string[] = []
-  let depth = 0
-  let word = ""
-  for (const char of value) {
-    if (char === "(") depth++
-    else if (char === ")") depth--
-    if (depth === 0 && /\s/.test(char)) {
-      if (word) words.push(word)
-      word = ""
-    } else word += char
-  }
-  if (word) words.push(word)
-  return words.filter((each) => !each.includes("("))
-}
-
-/**
- * Where a token falls in its scale, for the kinds whose values are measured: a length in pixels, a duration in
- * milliseconds, a weight, a ratio, how far a shadow reaches, an animation's duration, or a plain number. Undefined for
- * the kinds with no one order (colors, fonts, easings, cursors) and for a value that can't be measured.
- */
-export function scaleValue(token: PreviewToken): number | undefined {
-  const value = drawn(token)
-  let measured: number
-  switch (token.kind) {
-    case "spacing":
-    case "radius":
-    case "font-size":
-    case "tracking":
-    case "border-width":
-    case "blur":
-    case "backdrop-blur":
-    case "perspective":
-    case "breakpoint":
-    case "container":
-      measured = px(value)
-      break
-    case "duration":
-      measured = ms(value)
-      break
-    case "shadow":
-    case "inset-shadow":
-    case "drop-shadow":
-    case "text-shadow":
-      measured = shadowReach(value) ?? Number.NaN
-      break
-    case "animation":
-      measured = animationParts(value).duration ?? Number.NaN
-      break
-    case "font-weight":
-    case "leading":
-    case "opacity":
-    case "z-index":
-    case "number":
-      measured = Number(value)
-      break
-    case "aspect": {
-      const [width = Number.NaN, height = 1] = value.split("/").map((part) => Number(part.trim()))
-      measured = width / height
-      break
-    }
-    default:
-      return undefined
-  }
-  return Number.isFinite(measured) ? measured : undefined
-}
-
-/**
- * Tokens smallest first, by `scaleValue`: font weights from thin to black, sizes from `text-xs` up, durations from the
- * fastest, shadows from the closest. Those it can't measure keep their order after the rest, as do kinds with no one order.
- */
-export function inScaleOrder<T>(items: readonly T[], preview: (item: T) => PreviewToken): T[] {
-  const measured = items.map((item) => {
-    const token = preview(item)
-    return { item, name: token.name, value: scaleValue(token) }
-  })
-  return measured
-    .toSorted((a, b) =>
-      a.value === undefined || b.value === undefined
-        ? (a.value === undefined ? 1 : 0) - (b.value === undefined ? 1 : 0) || compareNames(a.name, b.name)
-        : a.value - b.value || compareNames(a.name, b.name)
-    )
-    .map(({ item }) => item)
-}
-
-const collator = new Intl.Collator("en", { numeric: true, sensitivity: "base" })
-
-/**
- * Names in the order people count them: word by word (split at dashes, underscores and camelCase), numbers by value
- * (`chart-2` before `chart-10`, `fontSizeBase100` before `fontSizeBase1000`), and size words smallest first, so
- * `2xs`, `xs`, `sm`, `md`, `lg`, `xl`, `2xl` and Fluent's `XXS` to `XXL` and `Small` to `XLarge` keep their order
- * whatever library names them. A name that is the start of another comes first.
- */
-export function compareNames(a: string, b: string): number {
-  const left = nameWords(a)
-  const right = nameWords(b)
-  for (let index = 0; index < Math.min(left.length, right.length); index++) {
-    const x = left[index]!
-    const y = right[index]!
-    const [xSize, ySize] = [sizeRank(x), sizeRank(y)]
-    let order: number
-    if (xSize !== undefined && ySize !== undefined) order = xSize - ySize
-    else if (/^\d*\.?\d+$/.test(x) && /^\d*\.?\d+$/.test(y)) order = Number(x) - Number(y)
-    else order = collator.compare(x, y)
-    if (order) return order
-  }
-  return left.length - right.length
-}
-
-function nameWords(name: string): string[] {
-  return name.split(/[-_]+|(?<=[a-z\d])(?=[A-Z])/).filter(Boolean)
-}
-
-/**
- * Where a size word falls, small to large: `sm`, `s` and `Small` are -1, `md`, `m`, `Medium` and `base` 0, `lg`, `l`
- * and `Large` 1, and each x, or the number before it, takes one step further out: `xs` -2, `2xs` and `XXS` -3, `xl`
- * and `XLarge` 2, `2xl` 3. Undefined for any other word.
- */
-function sizeRank(word: string): number | undefined {
-  const match = /^(?:(\d+)x|(x*))(s|sm|small|m|md|medium|base|l|lg|large)$/i.exec(word)
-  if (!match) return undefined
-  const size = match[3]!.toLowerCase()
-  let side = 0
-  if (["s", "sm", "small"].includes(size)) side = -1
-  else if (["l", "lg", "large"].includes(size)) side = 1
-  const steps = match[1] ? Number(match[1]) : match[2]!.length
-  return side * (1 + steps)
 }
 
 /**

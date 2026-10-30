@@ -1,5 +1,5 @@
 import { type ModeSettings } from "@parity-app/core"
-import { type PreviewKind, previewKind, substituteReferences, type Token, tokenReferences } from "@parity-app/tokens"
+import { type PreviewKind, previewKind, type Token, tokenReferences } from "@parity-app/tokens"
 import { type LibraryToken, matchDescribed, type TokenChange } from "@parity-app/tokens"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { LayoutGrid, List, Search } from "lucide-react"
@@ -19,6 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { useProject } from "../canvas/context.ts"
 import { useHistory, useModeSettings } from "../design-store.ts"
+import { comesTo, type TokenMap } from "../token-values.ts"
 import { useTokenFailure, useTokenList } from "../tokens-store.ts"
 import { save } from "./commands.ts"
 import { CopyButton, CopyOnClick, useCopy } from "./Copy.tsx"
@@ -26,10 +27,8 @@ import { Hint } from "./Hint.tsx"
 import { PanelError } from "./PanelError.tsx"
 import { PanelSectionTitle } from "./PanelSection.tsx"
 import {
-  inScaleOrder,
   Keyframes,
   type PreviewToken,
-  px,
   swatch,
   TokenGlyph,
   tokenSections,
@@ -46,25 +45,6 @@ type View = "list" | "tiles"
 interface Kinded {
   token: Token
   kind: PreviewKind
-}
-
-/** Tokens by name, to look up what a reference comes to. */
-type TokenMap = ReadonlyMap<string, Token>
-
-/**
- * What a token comes to in a theme, with every token it refers to filled in, as the browser would work it out: a step
- * of the spacing scale comes to pixels. Undefined when there's no token of that name.
- */
-function comesTo(tokens: TokenMap, name: string, theme = "default", depth = 0): string | undefined {
-  const token = tokens.get(name)
-  if (!token) return undefined
-  const value = token.values[theme] ?? token.values.default ?? ""
-  if (depth > 8) return value
-  if (token.derived) {
-    const base = px(comesTo(tokens, token.derived.from, theme, depth + 1) ?? "")
-    if (Number.isFinite(base)) return `${Number((base * token.derived.factor).toFixed(2))}px`
-  }
-  return substituteReferences(value, (reference) => comesTo(tokens, reference, theme, depth + 1))
 }
 
 /** The themes a token has a value in: every theme for the project's own tokens, the root for the theme's scale. */
@@ -170,8 +150,7 @@ export function TokensPanel() {
     matches,
     view,
     searching: Boolean(needle),
-    unmatched: source === "all" ? unmatched : [],
-    preview: (entry) => previewOf(entry, byName, themes)
+    unmatched: source === "all" ? unmatched : []
   })
 
   const scroller = useRef<HTMLDivElement>(null)
@@ -385,22 +364,18 @@ function panelItems({
   matches,
   view,
   searching,
-  unmatched,
-  preview
+  unmatched
 }: {
+  /** The tokens to list, in the order every list of them shares, which filtering keeps. */
   matches: Kinded[]
   view: View
   searching: boolean
   unmatched: LibraryToken[]
-  /** A token as its preview draws it, which says where it falls in its scale. */
-  preview: (entry: Kinded) => PreviewToken
 }): Item[] {
   const items: Item[] = []
   const section = (title: string, count: number) =>
     items.push({ type: "section", key: `section ${title}`, title, count, first: items.length === 0 })
-  const list = (given: Kinded[], gap = false) => {
-    // A kind that's measured lists smallest first: weights from thin to black, sizes from the smallest up.
-    const entries = inScaleOrder(given, preview)
+  const list = (entries: Kinded[], gap = false) => {
     if (view === "tiles" && entries.every((entry) => entry.kind !== "number")) {
       for (let index = 0; index < entries.length; index += 2) {
         const pair = entries.slice(index, index + 2)
@@ -710,12 +685,9 @@ function Detail({ entry }: { entry: Kinded }) {
         unwritten: panel.unwritten.has(token.name)
       }}
       themeNames={panel.themeNames}
-      scale={inScaleOrder(
-        panel.kinded
-          .filter((other) => other.kind === kind)
-          .map((other) => previewOf(other, panel.tokens, panel.themes)),
-        (other) => other
-      )}
+      scale={panel.kinded
+        .filter((other) => other.kind === kind)
+        .map((other) => previewOf(other, panel.tokens, panel.themes))}
       stylesheet={store.stylesheet}
       lookup={(name, theme) => comesTo(panel.tokens, name, theme)}
       references={(name, theme) => {
