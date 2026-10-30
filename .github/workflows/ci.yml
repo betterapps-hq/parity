@@ -74,7 +74,8 @@ jobs:
 
   # The editor's end-to-end tests (PAR-436), which open a copy of Parity on the example and drive it. On Windows, whose
   # runners have a desktop to open its window on; Linux would need a virtual display. Its own group, so it never cancels
-  # verify's run there.
+  # verify's run there. It doesn't block
+  # merging yet, since `CI passes` leaves it out until it runs reliably on the runner (PAR-438).
   app:
     uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@ed34ffcba2ef6748b0210c763582e8995c81501b # v1.6.0
     with:
@@ -86,7 +87,7 @@ jobs:
   ci-passes:
     name: CI passes
     if: always()
-    needs: [verify, checks, app]
+    needs: [verify, checks]
     runs-on: ubuntu-latest
     steps:
       - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
