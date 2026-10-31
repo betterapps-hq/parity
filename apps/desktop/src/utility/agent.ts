@@ -228,6 +228,8 @@ function toAgentSnapshot(snapshot: TabSnapshot): AgentSnapshot {
     theme: snapshot.theme,
     modes: snapshot.modes,
     documents: snapshot.documents,
+    libraryDesigns: snapshot.libraryDesigns,
+    tokenOverrides: snapshot.tokenOverrides,
     mainDocument: snapshot.mainDocument,
     props: snapshot.props,
     selection: snapshot.selection,
@@ -275,7 +277,7 @@ async function state(snapshot: TabSnapshot) {
 
 /** Draws an agent's frames in the offscreen render window, with the tab's guest and theme. */
 function renderFor(snapshot: TabSnapshot): AgentHooks["render"] {
-  return async ({ tree, mode, height, scale, capture, audit }) => {
+  return async ({ tree, mode, height, scale, capture, audit, tokens }) => {
     const { frame, png } = await renderOffscreen(
       {
         projectId: snapshot.projectId,
@@ -291,7 +293,8 @@ function renderFor(snapshot: TabSnapshot): AgentHooks["render"] {
           globals: modeGlobals(mode)
         },
         scale,
-        ...(audit ? { audit } : {})
+        ...(audit ? { audit } : {}),
+        ...(tokens.length > 0 ? { previews: tokens } : {})
       },
       capture
     )

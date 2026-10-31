@@ -1423,14 +1423,14 @@ edit.
 
 Tests:
 
-- `packages/editor/src/history.test.ts` (33): undo and redo with their labels; a group's changes less than a second
+- `packages/editor/src/history.test.ts` (34): undo and redo with their labels; a group's changes less than a second
   apart as one step; the 200-step limit; what a board shows left alone by Undo and not recorded; token edits undone,
   redone and saved; nothing to write when they're back at the stylesheet's value; the stylesheet's value written back
   after undoing past a save; a failed write naming the token and the file and clearing on success; several tokens
   failing together; Save starting again after a failed write was undone back to the file being saved; an agent's call as
   one step; Show every state off again leaving the file clean; another state and back from a file with its view written
-  out in full; a file that differs in more than its view staying unsaved until undone; and files changed on disk taken
-  as saved, unless they have unsaved changes.
+  out in full; a file that differs in more than its view staying unsaved until undone; files changed on disk taken as
+  saved, unless they have unsaved changes; and no token override left once an edit is undone (PAR-465).
 - `packages/editor/src/design-changes.test.ts` (6): changing, moving, adding and deleting designs, and notes.
 - `apps/desktop/src/renderer/design-store.test.ts` (11 of its 18): Save writing the files and the stylesheet, saving
   automatically a moment later, a failed save thrown and cleared, a reload cancelling a save waiting to happen, and
@@ -1439,11 +1439,11 @@ Tests:
   theme's own declaration; a missing one added at the block's indentation, or in a new block; no match on a prefix or a
   nested block; a semantic token written to the root and a theme's value to its class; a theme scale token to the
   `@theme` block that declares it, else a new one; and a token the stylesheet doesn't declare added to the root.
-- `packages/editor/src/token-edits.test.ts` (4): the first edit's original kept, what Save writes, a theme value that
-  wasn't there, and the token list with edits.
+- `packages/editor/src/token-edits.test.ts` (5): the first edit's original kept, what Save writes, a theme value that
+  wasn't there, the token list with edits, and the overrides offscreen frames get (PAR-465).
 - `apps/desktop/src/renderer/tokens-store.test.ts` (3), in Chrome: an edit previewed in the stylesheet in both themes,
-  undo and redo taking it back and forth, Save writing it; a theme value taken out again on undo; and a guest loaded
-  again showing, then saving, an unsaved edit.
+  undo and redo taking it back and forth, Save writing it; a theme value taken out again on undo, with no preview left
+  for frames drawn elsewhere; and a guest loaded again showing, then saving, an unsaved edit.
 - `chrome/TokensPanel.stories.tsx`: ReferenceToAnotherToken (an edit is one undo step, unsaved) and SaveFails (the
   panel's message and the marked row), both played in Storybook on 2026-10-29.
 
@@ -1511,8 +1511,8 @@ Yearly and $24 in Monthly; the notes showed in Yearly and not in Monthly; and 12
 gave the number 12. Known limits:
 
 - A value given to a theme that had none (a dark `--radius`), saved, then undone, has nothing Save can write: the canvas
-  takes it out, but the stylesheet keeps it until it's removed by hand. Frames drawn offscreen (bitmaps, exports) keep
-  such a value until the project is reopened.
+  takes it out, but the stylesheet keeps it until it's removed by hand. Frames drawn offscreen (bitmaps, agents'
+  renders, exports) no longer keep it: see "Offscreen frames draw what the canvas draws" below.
 - Clearing a prop in a state (a boolean switched back to its default, a text emptied) takes back the state's change
   rather than setting the prop, so a prop the base design sets can't be turned off in one state.
 - The stylesheet changing on disk isn't read back into the tokens until the project reopens, as before.
@@ -1770,10 +1770,11 @@ Code: `insertIntoDesign` in `packages/editor/src/insert.ts` (an `instance` item 
 
 Tests: `packages/core/src/library.test.ts` (1: a library design placed in an app draws its components and params,
 linked, and the same once detached, with no link left). `packages/editor/src/insert.test.ts` (1: a detached copy placed
-as plain layers, keeping the instance's id). Gaps: inserting from the panel and the Instance section for a library's
-instance have no automated test. Both were tried in the same copy of the app: a click placed a linked instance drawing
-the library's Switch and Button with its param's default, named by the design in the Layers and Instance sections, and
-Insert detached copy placed plain layers.
+as plain layers, keeping the instance's id). Agents' frames, exports and the Accessibility panel draw a library's
+instance too: see "Offscreen frames draw what the canvas draws" (PAR-465). Gaps: inserting from the panel and the
+Instance section for a library's instance have no automated test. Both were tried in the same copy of the app: a click
+placed a linked instance drawing the library's Switch and Button with its param's default, named by the design in the
+Layers and Instance sections, and Insert detached copy placed plain layers.
 
 ## Zooming far out
 
@@ -2053,6 +2054,49 @@ two frames. Gaps: Vite 7 and earlier's esbuild setting is checked only as data i
 `fixtures/vite7-js` (Vite 7.3.7), whose React came prebundled as production and whose JSX went through the stand-in, and
 with a package compiled for development, which esbuild bundled with the stand-in. The numbers were measured by hand with
 a script that isn't in the repository.
+
+### Offscreen frames draw what the canvas draws (PAR-465)
+
+Agents' Measure, Screenshot, Problems, Accessibility and ExtractComponent, Export PNG and the Accessibility panel draw
+their frames offscreen, from the tab's snapshot. They now draw with the canvas's own inputs:
+
+- **Library instances.** An instance of a library's component design (from a `.lib.par` canvas, such as `kit/label`)
+  draws that design, where it used to draw the `No component design "kit/label"` placeholder. The snapshot carries the
+  design store's library designs, and agents build the library as the canvas does, the project's own design winning an
+  id they share.
+- **Token previews.** Unsaved token edits show in agents' frames, exports and the Accessibility panel as on the canvas,
+  and a call's own `SetTokens` shows in the frames it draws after it, in the same call. Each job carries the complete
+  set of token values that differ from the compiled CSS, not the changes since the last job.
+- **No job inherits another's tokens.** The render window keeps one stylesheet per guest; each job starts it from the
+  compiled CSS and lays its set over it, so a job with no overrides after one with some draws the compiled values, and
+  undoing an edit that gave a theme a value it didn't have (a dark `--radius`) leaves nothing behind in bitmaps. It
+  starts over only when the set changed, so a run of jobs with the same set doesn't rebuild it. The canvas's own frames
+  are edited in place, as before.
+
+Code: `projectComponentLibrary` in `packages/core/src/render.ts`, used by `DesignStore` (`getLibraryDesigns`) and
+`AgentWorkspace.library` in `packages/agent/src/workspace.ts`; `tokenOverrides` in `packages/editor/src/token-edits.ts`,
+which `TokenStore.previews` gives; `tokenValues` in `workspace.ts` laying the call's `SetTokens` over them for each
+`FrameRequest`; the snapshot in `apps/desktop/src/renderer/agent/handlers.ts` and `renderFor` in
+`apps/desktop/src/utility/agent.ts`; `guestSheet` and `showTokenOverrides` in `apps/desktop/src/renderer/guest.ts`,
+called by `render.ts` for each job.
+
+Tests:
+
+- `packages/agent/src/run.test.ts` (4): Measure, Problems and Screenshot of a design placing a library design draw it
+  with no placeholder; a project design wins over a library design with its id; frames carry the canvas's unsaved
+  values, then those with the call's `SetTokens` over them; and nothing when no value differs.
+- `packages/core/src/render.test.ts` (1): the project's library holds the library designs and its own, its own winning.
+- `packages/editor/src/token-edits.test.ts` (1) and `history.test.ts` (1): only values that differ are overrides; an
+  edit undone, also one giving a theme a new value, leaves none; a saved edit still is one.
+- `apps/desktop/src/renderer/guest.test.ts` (2), in Chrome: overrides A, then none, then another set, then A again give
+  the same stylesheet as A the first time, and none gives the compiled one; a theme value taken out once the set leaves
+  it out; only a guest's stylesheet takes overrides.
+- `apps/desktop/src/renderer/tokens-store.test.ts` (1 of its 3): `previews()` empty once an edit is undone.
+- `apps/desktop/src/renderer/design-store.test.ts` (1 of its 18): the library designs the snapshot carries.
+
+Gaps: the snapshot and `renderFor` wiring has no test of its own, and checked by reading; the end-to-end tests run in
+CI. The snapshot crosses from the window to the service as the window's other replies do, unchecked; its library designs
+were checked when their `.lib.par` was read.
 
 ### Caller identity (PAR-450)
 

@@ -6,7 +6,7 @@ import {
   type TokenEdits,
   type TokenFailure,
   tokenDifferences,
-  tokenKey,
+  tokenOverrides,
   tokensWithEdits
 } from "@parity-app/editor"
 import type { Token } from "@parity-app/tokens"
@@ -26,7 +26,7 @@ export class TokenStore {
   private tokens: Token[]
   /** The edits the shared stylesheet shows now. */
   private shown: TokenEdits = noTokenEdits
-  private previewed: readonly TokenChange[] = []
+  private overrides: readonly TokenChange[] = []
   private readonly unfollow: () => void
 
   constructor(
@@ -75,10 +75,11 @@ export class TokenStore {
   }
 
   /**
-   * What the shared stylesheet previews so far, the latest value of each token in each theme, for frames drawn
-   * elsewhere to match it.
+   * Every token value the edits leave different from the stylesheet as the guest loaded it, one per token and theme:
+   * the complete set frames drawn elsewhere (bitmaps, agents' renders, exports) lay over the compiled stylesheet to
+   * match the canvas. The same array until the edits change.
    */
-  previews = () => this.previewed
+  previews = () => this.overrides
 
   /** The keyframes the project's stylesheet declares by this name, which an animation token's preview runs. */
   keyframes = (name: string): Keyframe[] | undefined => keyframesNamed(this.sheet.cssRules, name)
@@ -110,12 +111,7 @@ export class TokenStore {
     for (const { name, theme, value } of differences) previewToken(this.sheet, name, theme, value ?? "")
     this.shown = edits
     this.tokens = tokensWithEdits(this.loaded, edits)
-    const latest = new Map(this.previewed.map((change) => [tokenKey(change.name, change.theme), change]))
-    for (const { name, theme, value } of differences) {
-      if (value === undefined) latest.delete(tokenKey(name, theme))
-      else latest.set(tokenKey(name, theme), { name, theme, value })
-    }
-    this.previewed = [...latest.values()]
+    this.overrides = tokenOverrides(edits)
     for (const listener of this.listeners) listener()
   }
 }

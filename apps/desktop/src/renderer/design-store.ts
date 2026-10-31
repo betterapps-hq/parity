@@ -1,11 +1,11 @@
 import {
   type CanvasDocument,
   type ComponentLibrary,
-  componentLibrary,
   type ContainerSpec,
   type ContainerViewSettings,
   type ModeSettings,
   type NoteSpec,
+  projectComponentLibrary,
   reachableLibrary
 } from "@parity-app/core"
 import {
@@ -127,6 +127,8 @@ export class DesignStore {
   getLibrary = (key: string): ComponentLibrary => this.libraries.get(key) ?? noLibrary
   /** Every component design instances can place: the project's own, and its libraries'. */
   getComponentLibrary = (): ComponentLibrary => this.library
+  /** The component designs the project's libraries bring, for drawing elsewhere with the same library. */
+  getLibraryDesigns = (): readonly ContainerSpec[] => this.libraryDesigns
   getNotes = () => this.notes
   getModes = (): ModeSettings => this.state.current.modes
   getHistory = (): HistoryState => this.state.historyState
@@ -340,8 +342,10 @@ export class DesignStore {
       })
     )
     this.byKey = new Map(this.entries.map((entry) => [entry.key, entry]))
-    // The project's own designs come last, so one with a library design's id wins.
-    const library = componentLibrary([...this.libraryDesigns, ...this.entries.map((entry) => entry.container)])
+    const library = projectComponentLibrary(
+      this.libraryDesigns,
+      this.entries.map((entry) => entry.container)
+    )
     this.library = library
     this.libraries = new Map(
       this.entries.map((entry) => [

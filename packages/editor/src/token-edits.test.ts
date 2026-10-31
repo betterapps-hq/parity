@@ -4,6 +4,7 @@ import {
   noTokenEdits,
   sameTokenValues,
   tokenDifferences,
+  tokenOverrides,
   tokensWithEdits,
   tokenWrites,
   withTokenEdits
@@ -31,6 +32,21 @@ describe("token edits", () => {
     const dark = withTokenEdits(noTokenEdits, [{ name: "radius", theme: "dark", value: "1rem" }])
     expect(tokenDifferences(dark, noTokenEdits)).toEqual([{ name: "radius", theme: "dark", value: undefined }])
     expect(tokenWrites(noTokenEdits, dark)).toEqual([])
+  })
+
+  it("override only the values that differ from the stylesheet as it loaded", () => {
+    const edits = withTokenEdits(noTokenEdits, [
+      { ...primary, value: "red" },
+      { name: "radius", theme: "dark", value: "1rem" }
+    ])
+    expect(tokenOverrides(edits)).toEqual([
+      { name: "primary", theme: "default", value: "red" },
+      { name: "radius", theme: "dark", value: "1rem" }
+    ])
+    expect(tokenOverrides(withTokenEdits(edits, [{ ...primary, value: "black" }]))).toEqual([
+      { name: "radius", theme: "dark", value: "1rem" }
+    ])
+    expect(tokenOverrides(noTokenEdits)).toEqual([])
   })
 
   it("apply over the project's tokens for the Tokens panel", () => {

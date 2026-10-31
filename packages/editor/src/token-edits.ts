@@ -63,6 +63,19 @@ export function tokenDifferences(
 }
 
 /**
+ * Every token value these edits leave different from the stylesheet as the guest loaded it, one per token and theme: the
+ * complete set a frame drawn elsewhere lays over the compiled stylesheet to match the canvas. An edit taken back by
+ * undo, or set back to the value it had, isn't in it.
+ */
+export function tokenOverrides(edits: TokenEdits): TokenChange[] {
+  const overrides: TokenChange[] = []
+  for (const { name, theme, value, original } of edits.values()) {
+    if (value !== original) overrides.push({ name, theme, value })
+  }
+  return overrides
+}
+
+/**
  * The values Save writes to go from what's saved to what's here. A token given a value in a theme that had none, saved
  * and then undone, has nothing to write: the stylesheet keeps the value (a gap; see docs/editor.md).
  */
