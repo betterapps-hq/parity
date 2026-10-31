@@ -1415,9 +1415,9 @@ Code: the history, what's unsaved and the save state are `packages/editor/src/hi
 `writeFailed`, and `adoptSaved`, which takes a file changed back to what's saved as saved), and the changes made to
 designs and notes are `design-changes.ts` there. `apps/desktop/src/renderer/design-store.ts` holds the history for the
 canvas and panels: it writes the files and the stylesheet the history says to, with the timers for saving automatically,
-and its `changeTokens`, `writeTokensWith`, `getTokenFailure`, `applyDocuments` taking tokens and `updateView` tidying
-the view call the package; `applyAgentChanges` calls `mergeAgentChanges` in `design-changes.ts`. Token values as data
-are the package's `token-edits.ts` (`withTokenEdits`, which keeps the value each token had before its first edit,
+and its `changeTokens`, `writeTokensWith`, `getTokenFailure`, `applyAgentChanges` taking tokens (through
+`mergeAgentChanges` in `design-changes.ts`) and `updateView` tidying the view call the package. Token values as data are
+the package's `token-edits.ts` (`withTokenEdits`, which keeps the value each token had before its first edit,
 `tokenDifferences`, `tokenWrites`, `tokensWithEdits`); comparing files with views tidied is its `document-equality.ts`.
 `tokens-store.ts` previews the history's token values in the shared stylesheet after each edit, undo or redo, and gives
 the design store its writer; `workspace.ts` makes one per guest, so a guest loaded again shows the unsaved values too.
