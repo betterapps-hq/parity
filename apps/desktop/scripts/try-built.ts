@@ -17,54 +17,61 @@ const stage = join(work, "app")
 const agentFile = join(work, "agent.json")
 const installerMode = process.argv.includes("--installer")
 const installed = join(work, "installed")
-if (installerMode) {
-  if (process.platform !== "win32") throw new Error("The NSIS startup check needs Windows.")
-  const installer = (await readdir(join(appDir, "dist"))).find((file) =>
-    /^Parity-\d+\.\d+\.\d+-win-x64\.exe$/.test(file)
-  )
-  if (!installer) throw new Error("No Windows installer was built.")
-  const result = spawnSync(join(appDir, "dist", installer), ["/S", `/D=${installed}`], {
-    windowsHide: true,
-    windowsVerbatimArguments: true,
-    timeout: 120_000,
-    stdio: "inherit"
-  })
-  if (result.status !== 0) throw new Error(`Installing the built app failed: ${result.error?.message ?? result.status}`)
-  executable = join(installed, "Parity.exe")
-  // TypeScript must remain a real package, with its standard library declarations, outside any archive.
-  await readFile(join(installed, "resources/app.asar.unpacked/node_modules/typescript/lib/lib.es5.d.ts"))
-} else await cp(join(appDir, "out"), stage, { recursive: true })
-const fixture = process.argv.slice(2).find((argument) => argument !== "--installer") ?? "vite7-js"
-if (fixture !== "vite7-js" && fixture !== "headless") throw new Error("Unknown production-check fixture.")
-const source = resolve(appDir, "../../fixtures", fixture)
-const project = join(work, "project")
-await cp(source, project, {
-  recursive: true,
-  filter: (path) => relative(source, path).split(sep)[0] !== "node_modules"
-})
-await mkdir(join(project, "node_modules"))
-// A fresh cache for every check. Installed dependencies are reused, while Vite creates .vite-parity in this copy.
-for (const entry of await readdir(join(source, "node_modules"), { withFileTypes: true })) {
-  if (entry.name.startsWith(".vite")) continue
-  const from = join(source, "node_modules", entry.name)
-  const to = join(project, "node_modules", entry.name)
-  if (entry.isDirectory() || entry.isSymbolicLink()) await symlink(from, to, "junction")
-  else await cp(from, to)
-}
-const env: NodeJS.ProcessEnv = {
-  ...process.env,
-  PARITY_USER_DATA: join(work, "user"),
-  PARITY_AGENT_FILE: agentFile,
-  PARITY_PROJECT: project
-}
-delete env.PARITY_RENDERER_URL
-delete env.PARITY_DEV_RUNNER
-delete env.ELECTRON_RUN_AS_NODE
-const launchEnv: Record<string, string> = {}
-for (const [key, value] of Object.entries(env)) if (value !== undefined) launchEnv[key] = value
 let electron: ElectronApplication | undefined
 let uninstallError: Error | undefined
+let installationSucceeded = false
 try {
+  if (installerMode) {
+    if (process.platform !== "win32") throw new Error("The NSIS startup check needs Windows.")
+    const manifest: unknown = JSON.parse(await readFile(join(appDir, "package.json"), "utf8"))
+    if (!manifest || typeof manifest !== "object" || !("version" in manifest) || typeof manifest.version !== "string") {
+      throw new Error("The desktop package has no version")
+    }
+    const installer = (await readdir(join(appDir, "dist"))).find(
+      (file) => file === `Parity-${manifest.version}-win-x64.exe`
+    )
+    if (!installer) throw new Error("No Windows installer was built.")
+    const result = spawnSync(join(appDir, "dist", installer), ["/S", `/D=${installed}`], {
+      windowsHide: true,
+      windowsVerbatimArguments: true,
+      timeout: 120_000,
+      stdio: "inherit"
+    })
+    if (result.status !== 0)
+      throw new Error(`Installing the built app failed: ${result.error?.message ?? result.status}`)
+    installationSucceeded = true
+    executable = join(installed, "Parity.exe")
+    // TypeScript must remain a real package, with its standard library declarations, outside any archive.
+    await readFile(join(installed, "resources/app.asar.unpacked/node_modules/typescript/lib/lib.es5.d.ts"))
+  } else await cp(join(appDir, "out"), stage, { recursive: true })
+  const fixture = process.argv.slice(2).find((argument) => argument !== "--installer") ?? "vite7-js"
+  if (fixture !== "vite7-js" && fixture !== "headless") throw new Error("Unknown production-check fixture.")
+  const source = resolve(appDir, "../../fixtures", fixture)
+  const project = join(work, "project")
+  await cp(source, project, {
+    recursive: true,
+    filter: (path) => relative(source, path).split(sep)[0] !== "node_modules"
+  })
+  await mkdir(join(project, "node_modules"))
+  // A fresh cache for every check. Installed dependencies are reused, while Vite creates .vite-parity in this copy.
+  for (const entry of await readdir(join(source, "node_modules"), { withFileTypes: true })) {
+    if (entry.name.startsWith(".vite")) continue
+    const from = join(source, "node_modules", entry.name)
+    const to = join(project, "node_modules", entry.name)
+    if (entry.isDirectory() || entry.isSymbolicLink()) await symlink(from, to, "junction")
+    else await cp(from, to)
+  }
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    PARITY_USER_DATA: join(work, "user"),
+    PARITY_AGENT_FILE: agentFile,
+    PARITY_PROJECT: project
+  }
+  delete env.PARITY_RENDERER_URL
+  delete env.PARITY_DEV_RUNNER
+  delete env.ELECTRON_RUN_AS_NODE
+  const launchEnv: Record<string, string> = {}
+  for (const [key, value] of Object.entries(env)) if (value !== undefined) launchEnv[key] = value
   electron = await _electron.launch({
     executablePath: executable,
     args: installerMode ? [] : [stage],
@@ -117,7 +124,7 @@ try {
   console.log("The production renderer and service started outside the checkout without a dev server.")
 } finally {
   await electron?.close()
-  if (installerMode) {
+  if (installationSucceeded) {
     const result = spawnSync(join(installed, "Uninstall Parity.exe"), ["/S", `_?=${installed}`], {
       windowsHide: true,
       windowsVerbatimArguments: true,
