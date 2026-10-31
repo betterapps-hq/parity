@@ -419,6 +419,7 @@ export class App {
     await this.page.mouse.click(point.x, point.y)
     for (const key of modifiers) await this.page.keyboard.up(key)
     this.pressed()
+    await this.frames(2)
   }
 
   /** A right-click, which tldraw follows too, so it's kept apart like a press tldraw sees. */
@@ -473,6 +474,8 @@ export class App {
         const { node } = await this.selection()
         throw new Error(`At ${point.x},${point.y} in ${design}, ${node} was selected where ${path[level]} should be`)
       }
+      // Store selection changes before the overlay measures and paints its resize handles.
+      await this.frames(2)
       if (path[level] === id) return
       await this.page.mouse.dblclick(point.x, point.y)
     }
@@ -519,6 +522,8 @@ export class App {
     const seen = during ? await during() : undefined
     await this.page.mouse.up()
     this.pressed()
+    // Let the release finish drawing and committing before the next input, particularly Undo.
+    await this.frames(2)
     return seen
   }
 
