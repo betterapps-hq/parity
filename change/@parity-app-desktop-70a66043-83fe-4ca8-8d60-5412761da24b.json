@@ -1,6 +1,6 @@
 {
   "type": "none",
-  "comment": "Stabilize editor drop-coordinate and field-alert checks before releasing the CLI",
+  "comment": "Improve release checks for image drops and length-field validation",
   "packageName": "@parity-app/desktop",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "none"

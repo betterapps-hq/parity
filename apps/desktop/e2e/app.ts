@@ -364,8 +364,13 @@ export class App {
     // rather than expecting a fractional viewport centre to round-trip through a drag event unchanged.
     const screen = { x: Math.round(shown.screen.x), y: Math.round(shown.screen.y) }
     const page = await this.page.evaluate((screen) => {
-      const at = window.e2e!.session().editor!.screenToPage(screen)
-      return { x: Math.round(at.x), y: Math.round(at.y) }
+      const editor = window.e2e!.session().editor!
+      const area = editor.getContainer().getBoundingClientRect()
+      const camera = editor.getCamera()
+      return {
+        x: Math.round((screen.x - area.left) / camera.z - camera.x),
+        y: Math.round((screen.y - area.top) / camera.z - camera.y)
+      }
     }, screen)
     return { screen, page }
   }
