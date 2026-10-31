@@ -1,5 +1,11 @@
 # Decisions
 
+- **Desktop delivery uses the shared release and promotion templates (PAR-11, PAR-12).** A successful push CI on main
+  publishes a changed desktop version as a beta. Manual retries also require passing CI on main. Promotion approves the
+  existing beta in the main-only `production` environment, with Andrew as reviewer and no administrator bypass; it
+  checks the commit and file hashes without rebuilding. The tldraw build key is optional and passed by name. Signing and
+  automatic app updates remain separate issues.
+
 - **Desktop installers use electron-builder (PAR-9).** Windows gets a per-user NSIS installer with a selectable
   directory, macOS gets DMG and ZIP artifacts for both architectures, and Linux gets an x64 AppImage. Initial builds are
   unsigned; signing remains PAR-399. The renderer stays in ASAR, while Node entry points, the guest, registry and

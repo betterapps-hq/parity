@@ -162,6 +162,13 @@ This is how Buildkit and the agency monorepo already release, and you asked for 
 
 ## Desktop releases
 
+PAR-11 and PAR-12 are wired by `.github/workflows/cd-desktop.yml` through the shared desktop templates. Successful push
+CI on main publishes a beta only when the desktop version changed. A manual `release` retries the current version after
+verifying main's CI; `promote` takes an existing beta version and waits for Andrew's approval in the main-only
+`production` environment, managed in `infra/github`. Promotion verifies the recorded commit and installer hashes and
+marks those same files stable. The optional `VITE_TLDRAW_LICENSE_KEY` secret reaches only the build step. Signing and
+automatic updates remain separate work.
+
 1. **A production build** (PAR-8): the renderer through `vp build`, the main, utility, preload and worker bundles, and
    the main process loading the built files when packaged.
 2. **Unsigned installers with electron-builder** (PAR-9): NSIS for Windows, a DMG for macOS (arm64 and x64) and an

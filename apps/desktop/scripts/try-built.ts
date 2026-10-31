@@ -115,11 +115,17 @@ try {
             : `Unexpected agent response (HTTP ${response.status})`
     } catch (error) {
       // The service writes its discovery file and connects the renderer after the window starts loading.
-      agentProblem = error instanceof Error ? error.message : String(error)
+      agentProblem =
+        error instanceof Error
+          ? `${error.message}${error.cause instanceof Error ? `: ${error.cause.message}` : ""}`
+          : String(error)
     }
     if (!connected) await new Promise((resolve) => setTimeout(resolve, 100))
   }
-  if (!connected) throw new Error(`The built app's renderer and project service did not connect: ${agentProblem}`)
+  if (!connected) {
+    console.error(await window.locator("body").innerText())
+    throw new Error(`The built app's renderer and project service did not connect: ${agentProblem}`)
+  }
   if (errors.length) throw new Error(errors.join("\n"))
   console.log("The production renderer and service started outside the checkout without a dev server.")
 } finally {
