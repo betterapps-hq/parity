@@ -94,6 +94,7 @@ export const viteBuilder: BuilderAdapter = {
               : `/@fs/${vite.normalizePath(resolved.id)}`
           } catch (error) {
             if (!guest.optional.has(id)) throw error
+            return undefined
           }
         })
       )
