@@ -155,7 +155,7 @@ export class AgentWorkspace {
     this.hooks = hooks
     this.label = label
     this.documents = new Map(snapshot.documents.map(({ path, document }) => [path, structuredClone(document)]))
-    this.modes = snapshot.modes
+    this.modes = structuredClone(snapshot.modes)
   }
 
   /** The functions a snippet can call, as globals. */
@@ -170,7 +170,7 @@ export class AgentWorkspace {
       Icons: (set?: string, options?: IconOptions) =>
         set === undefined ? describeIconSets(this.snapshot.iconSets ?? []) : this.icons(set, options),
       GetTokens: (filter?: { category?: string; source?: string; search?: string }) => this.getTokens(filter),
-      GetModes: () => ({ settings: this.modes, modes: resolveModes(this.modes).map(describeMode) }),
+      GetModes: () => ({ settings: structuredClone(this.modes), modes: resolveModes(this.modes).map(describeMode) }),
       Selection: () => this.selection(),
       CreateDesign: (spec: DesignInput) => this.createDesign(spec),
       UpdateDesign: (design: string, update: DesignUpdate) => this.updateDesign(design, update),
@@ -438,7 +438,12 @@ export class AgentWorkspace {
           (!filter.source || token.source === filter.source) &&
           (!filter.search || token.name.includes(filter.search))
       )
-      .map((token) => ({ name: token.name, category: token.category, source: token.source, values: token.values }))
+      .map((token) => ({
+        name: token.name,
+        category: token.category,
+        source: token.source,
+        values: { ...token.values }
+      }))
   }
 
   private selection() {
@@ -723,7 +728,7 @@ export class AgentWorkspace {
   // Modes and tokens --------------------------------------------------------------------------------------------------
 
   private setModes(settings: unknown): void {
-    this.modes = parseModeSettings(settings)
+    this.modes = structuredClone(parseModeSettings(settings))
     this.modesChanged = true
   }
 
