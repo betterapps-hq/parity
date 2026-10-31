@@ -1,8 +1,11 @@
 import type {
   CanvasDocument,
+  ChangeConflict,
   ComponentInfo,
+  DesignChange,
   LibraryIcons,
   ModeSettings,
+  ModesChange,
   ResolvedMode,
   ThemeVariable
 } from "@parity-app/core"
@@ -146,6 +149,18 @@ export interface AgentHooks {
   render(request: FrameRequest): Promise<FrameResult>
   /** An icon set's names in one style's module (`undefined` for the set's main one), for `Icons(set)`. */
   iconNames?(set: string, module: string | undefined): Promise<IconNames>
+  /**
+   * Applies a successful call's changes in the editor, merged with what changed there since the snapshot. Gives back
+   * what conflicted, and nothing was applied when any did. Without it, the changes are only returned.
+   */
+  apply?(changes: AgentChangeSet): Promise<ChangeConflict[]>
+}
+
+/** What a call changed: each design it touched with how it found it, the modes when it set them, and token values. */
+export interface AgentChangeSet {
+  designs: DesignChange[]
+  modes?: ModesChange
+  tokens: TokenChange[]
 }
 
 export interface TokenChange {
@@ -174,9 +189,5 @@ export interface ExecResult {
   screenshots: Screenshot[]
   /** Names of nodes and designs created in this call, mapped to their ids. */
   created: Record<string, string>
-  changes: {
-    documents: { path: string; document: CanvasDocument }[]
-    modes?: ModeSettings
-    tokens: TokenChange[]
-  }
+  changes: AgentChangeSet
 }

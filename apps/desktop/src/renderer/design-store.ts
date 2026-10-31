@@ -1,10 +1,13 @@
 import {
   type CanvasDocument,
+  type ChangeConflict,
   type ComponentLibrary,
   componentLibrary,
   type ContainerSpec,
   type ContainerViewSettings,
+  type DesignChange,
   type ModeSettings,
+  type ModesChange,
   type NoteSpec,
   reachableLibrary
 } from "@parity-app/core"
@@ -30,6 +33,7 @@ import {
   openDesigns,
   recordChange,
   redoChange,
+  mergeAgentChanges,
   reloadFile,
   replaceDocuments,
   revertTo,
@@ -299,14 +303,24 @@ export class DesignStore {
     return mergedDocument(this.state)
   }
 
-  /** Replaces whole documents, and changes tokens, in one undoable step, as an agent's call does. */
-  applyDocuments(
+  /** Replaces whole documents in one undoable step. */
+  applyDocuments(label: string, documents: { path: string; document: CanvasDocument }[]): void {
+    this.change(label, (snapshot) => replaceDocuments(snapshot, documents))
+  }
+
+  /**
+   * Merges an agent's call in as one undoable step (see `mergeAgentChanges`). When any of it conflicts with what changed
+   * here since the agent's snapshot, nothing changes and the conflicts come back.
+   */
+  applyAgentChanges(
     label: string,
-    documents: { path: string; document: CanvasDocument }[],
-    modes?: ModeSettings,
-    tokens: readonly TokenEdit[] = []
-  ): void {
-    this.change(label, (snapshot) => replaceDocuments(snapshot, documents, modes, tokens))
+    designs: readonly DesignChange[],
+    modes: ModesChange | undefined,
+    tokens: readonly TokenEdit[]
+  ): ChangeConflict[] {
+    const merged = mergeAgentChanges(this.state.current, designs, modes, tokens)
+    if (merged.conflicts.length === 0) this.change(label, () => merged.snapshot)
+    return merged.conflicts
   }
 
   private designOf(key: string): DesignRef | undefined {

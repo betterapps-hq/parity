@@ -1,5 +1,13 @@
-import type { CanvasDocument, ContainerSpec, ModeSettings, NoteSpec } from "@parity-app/core"
+import type {
+  CanvasDocument,
+  ChangeConflict,
+  ContainerSpec,
+  DesignChange,
+  ModesChange,
+  NoteSpec
+} from "@parity-app/core"
 import type { DesignRef } from "./arrange.ts"
+import { sameDesign, sameValue } from "./document-equality.ts"
 import { type DesignSnapshot, withoutModes } from "./history.ts"
 import { type TokenEdit, withTokenEdits } from "./token-edits.ts"
 
@@ -92,18 +100,53 @@ export function changeNote(
   return { ...snapshot, documents: new Map(snapshot.documents).set(ref.path, updated) }
 }
 
-/** Whole documents replaced, and modes and token values changed, as an agent's call does. */
+/**
+ * An agent's call merged into what's here now: each design it changed, created or deleted, its modes and its token
+ * values. Designs it didn't touch stay as they are, whatever happened to them since it read the tab. A design it
+ * changed must still be as the call read it (or already as the call left it); when one isn't, or the modes aren't,
+ * nothing is applied and the conflicts say which.
+ */
+export function mergeAgentChanges(
+  snapshot: DesignSnapshot,
+  designs: readonly DesignChange[],
+  modes?: ModesChange,
+  tokens: readonly TokenEdit[] = []
+): { snapshot: DesignSnapshot; conflicts: ChangeConflict[] } {
+  const conflicts: ChangeConflict[] = []
+  let next = snapshot
+  for (const change of designs) {
+    const { path, id, base, after } = change
+    const current = snapshot.documents.get(path)?.containers.find((container) => container.id === id)
+    const conflict = (reason: ChangeConflict["reason"]) =>
+      conflicts.push({ path, id, name: current?.name ?? base?.name ?? after?.name ?? id, reason })
+    // Already as the call left it: made the same way here, or deleted here too.
+    if (current ? after && sameDesign(current, after) : !after) continue
+    if (!current) {
+      if (base) conflict("deleted")
+      else if (after) next = addDesign(next, path, after)
+    } else if (!base) conflict("added")
+    else if (!sameDesign(current, base)) conflict("changed")
+    else next = after ? changeDesign(next, { path, id }, () => after) : deleteDesign(next, { path, id })
+  }
+  let nextModes = snapshot.modes
+  if (modes && !sameValue(snapshot.modes, modes.after)) {
+    if (sameValue(snapshot.modes, modes.base)) nextModes = modes.after
+    else conflicts.push({ name: "Modes", reason: "changed" })
+  }
+  if (conflicts.length > 0) return { snapshot, conflicts }
+  return {
+    snapshot: { documents: next.documents, modes: nextModes, tokens: withTokenEdits(snapshot.tokens, tokens) },
+    conflicts
+  }
+}
+
+/** Whole documents replaced, as the person's corrections to the component list do; their modes are kept apart. */
 export function replaceDocuments(
   snapshot: DesignSnapshot,
-  documents: readonly { path: string; document: CanvasDocument }[],
-  modes?: ModeSettings,
-  tokens: readonly TokenEdit[] = []
+  documents: readonly { path: string; document: CanvasDocument }[]
 ): DesignSnapshot {
+  if (documents.length === 0) return snapshot
   const next = new Map(snapshot.documents)
   for (const { path, document } of documents) next.set(path, withoutModes(document))
-  return {
-    documents: documents.length > 0 ? next : snapshot.documents,
-    modes: modes ?? snapshot.modes,
-    tokens: withTokenEdits(snapshot.tokens, tokens)
-  }
+  return { ...snapshot, documents: next }
 }
