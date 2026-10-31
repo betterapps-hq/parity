@@ -65,8 +65,8 @@ their folders.
 
 Run `pnpm build` before packaging. Windows produces a per-user NSIS installer, macOS produces DMG and ZIP files for
 Apple Silicon and Intel, and Linux produces an x64 AppImage. These first installers are unsigned. TypeScript and the
-project-service runtime are shipped as physical files beside the application archive, so a project's own Vite can load
-them without a checkout. CI alone installs, opens and uninstalls the Windows build against a fresh project.
+project-service runtime are shipped as physical files in the installed resources, so a project's own Vite can load them
+without a checkout. CI alone installs, opens and uninstalls the Windows build against a fresh project.
 
 ## The CLI
 

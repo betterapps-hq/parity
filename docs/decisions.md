@@ -9,10 +9,9 @@
 - **Desktop installers use electron-builder (PAR-9).** Windows gets a per-user NSIS installer with a selectable
   directory, macOS gets DMG and ZIP artifacts for both architectures, and Linux gets an x64 AppImage. Initial builds are
   unsigned by a publisher; signing remains PAR-399. macOS uses ad-hoc integrity signing without hardened runtime so
-  Apple Silicon can launch before developer certificates are configured. The renderer stays in ASAR, while Node entry
-  points, the guest, registry and complete TypeScript 6 package live in `app.asar.unpacked` for the project's Vite and
-  plain Node child processes. CI installs, opens and uninstalls the Windows installer; local hooks run no end-to-end
-  tests.
+  Apple Silicon can launch before developer certificates are configured. The built renderer, Node entry points, guest,
+  registry and complete TypeScript 6 package live as real files in `resources/app` for the project's Vite and plain Node
+  child processes. CI installs, opens and uninstalls the Windows installer; local hooks run no end-to-end tests.
 
 Calls made while building Parity without stopping to ask. Each says what was decided and why. The ones marked **Open**
 still need your call.

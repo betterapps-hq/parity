@@ -12,8 +12,9 @@ to npm and of unsigned installers to GitHub Releases, as betas first and to ever
 ## Where things stand
 
 - **PAR-11 and PAR-12 are implemented:** `cd-desktop.yml` pins shared Pipelines v1.11.0 for beta releases and promotion.
-  Terraform has applied the main-only production environment with Andrew approval. Publishing waits for a desktop
-  version bump after installer verification; promotion reuses the beta's files after checking their hashes.
+  Terraform has applied the main-only production environment with Andrew approval. Automatic beta publishing needs a
+  desktop version bump; manual release retries can publish the current version after main CI verification. Promotion
+  reuses the beta's files after checking their hashes.
 
 - **PAR-9 packages the production build:** electron-builder makes Windows NSIS, macOS DMG/ZIP and Linux AppImage
   installers. Windows CI installs and opens the real installer with a cold fixture, checks the canvas and service, then

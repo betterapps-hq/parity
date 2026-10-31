@@ -73,7 +73,7 @@ try {
     installationSucceeded = true
     executable = join(installed, "Parity.exe")
     // TypeScript must remain a real package, with its standard library declarations, outside any archive.
-    await readFile(join(installed, "resources/app.asar.unpacked/node_modules/typescript/lib/lib.es5.d.ts"))
+    await readFile(join(installed, "resources/app/node_modules/typescript/lib/lib.es5.d.ts"))
   } else await cp(join(appDir, "out"), stage, { recursive: true })
   const fixture = process.argv.slice(2).find((argument) => argument !== "--installer") ?? "vite7-js"
   if (fixture !== "vite7-js" && fixture !== "headless") throw new Error("Unknown production-check fixture.")
