@@ -1,7 +1,7 @@
-import { defaultModeSettings, findNode } from "@parity-app/core"
+import { defaultModeSettings, findNode, frameGeometry, resolveModes } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { execute } from "./run.ts"
-import type { AgentEvent, AgentHooks, AgentSnapshot, IconNames, IconSet } from "./types.ts"
+import type { AgentEvent, AgentHooks, AgentSnapshot, FrameRequest, IconNames, IconSet } from "./types.ts"
 
 function snapshot(): AgentSnapshot {
   return {
@@ -279,6 +279,45 @@ Print(await Screenshot("signup", {mode: ["desktop-light", "tablet-light"]}))`
     // Each look shows as what it is, so the agent's cursor can say so.
     const looks = new Set(events.filter((event) => event.design).map((event) => event.kind))
     expect(looks).toEqual(new Set(["measure", "problems", "screenshot"]))
+  })
+
+  it("draws each frame in the window the canvas gives it", async () => {
+    const shared = snapshot()
+    shared.modes = {
+      version: 1,
+      variables: [
+        {
+          id: "viewport",
+          name: "Viewport",
+          kind: "viewport",
+          options: [{ id: "desktop", name: "Desktop", width: 1280, height: 1234 }]
+        }
+      ],
+      modes: [{ id: "desktop", name: "Desktop", values: { viewport: "desktop" } }]
+    }
+    const requests: FrameRequest[] = []
+    const base = hooks()
+    const result = await execute(
+      { label: "Check", code: `await Measure("signup")\nawait Screenshot("signup")\nawait Accessibility("signup")` },
+      shared,
+      {
+        presence: () => undefined,
+        render: (request) => {
+          requests.push(request)
+          return base.render(request)
+        }
+      }
+    )
+    expect(result.ok).toBe(true)
+    // The frame grows with its content, and its window is the mode's 1234px screen, as on the canvas.
+    const [mode] = resolveModes(shared.modes)
+    const live = frameGeometry(shared.documents[0]!.document.containers[0]!, mode!)
+    expect(live).toEqual({ width: 1280, viewport: { width: 1280, height: 1234 } })
+    expect(requests).toHaveLength(3)
+    for (const request of requests) {
+      expect(request.height).toBeUndefined()
+      expect(request.viewport).toEqual(live.viewport)
+    }
   })
 
   it("checks accessibility in each mode, naming the layers", async () => {

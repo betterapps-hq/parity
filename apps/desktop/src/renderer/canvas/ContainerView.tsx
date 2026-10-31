@@ -2,6 +2,7 @@ import {
   boardRoot,
   changeCount,
   type ComponentLibrary,
+  frameGeometry,
   frameSize,
   type ParamSpec,
   type ResolvedMode,
@@ -506,7 +507,8 @@ const FrameTile = memo(function FrameTile({
 }: FrameTileProps) {
   const session = useProject()
   const { selection } = session
-  const size = frameSize(entry.container, mode)
+  // Its size and the window it stands for, which its bitmap and the live frame both draw at.
+  const frame = frameGeometry(entry.container, mode)
   const interactions = useInteractions(selection)
   const interactive = useInteracting(selection)
   const { container } = entry
@@ -520,7 +522,7 @@ const FrameTile = memo(function FrameTile({
   )
   const tile = useRef<HTMLDivElement>(null)
   // What the frame shows, worked out once, which the live frame, its bitmap, its skeleton and its sleep all go by.
-  const shows = useFrameShows(session, tree, mode, size.width, size.height, scale)
+  const shows = useFrameShows(session, tree, mode, frame, scale)
   const { key } = shows
   const bitmap = useFrameBitmap(shows)
   // The bitmap shows once it's decoded, so the frame doesn't go blank in between; until then, its skeleton, which then
@@ -529,7 +531,7 @@ const FrameTile = memo(function FrameTile({
   const shown = !!bitmap && decoded === bitmap
   // Interacting, frames are the real thing at any zoom.
   const awake = useAwake(shown && !interactive, rest, key)
-  const skeleton = useFrameSkeleton(key, tile, size.width, !bitmap && awake)
+  const skeleton = useFrameSkeleton(key, tile, frame.width, !bitmap && awake)
   const onSelect = () => selection.set({ design: entry.key, mode: mode.id })
   return (
     <figure
@@ -553,8 +555,8 @@ const FrameTile = memo(function FrameTile({
             <span className="truncate">{mode.name}</span>
           </button>
           <span className="shrink-0 rounded bg-muted px-1.5 text-xs whitespace-nowrap text-muted-foreground tabular-nums">
-            {size.width}
-            {size.height !== undefined && ` × ${size.height}`}
+            {frame.width}
+            {frame.height !== undefined && ` × ${frame.height}`}
           </span>
           {scale < 1 && (
             <span className="shrink-0 rounded bg-muted px-1.5 text-xs text-muted-foreground tabular-nums">
@@ -581,8 +583,7 @@ const FrameTile = memo(function FrameTile({
           loaded={loaded}
           tree={tree}
           mode={mode}
-          width={size.width}
-          height={size.height}
+          frame={frame}
           scale={scale}
           design={entry.key}
           state={state.id}

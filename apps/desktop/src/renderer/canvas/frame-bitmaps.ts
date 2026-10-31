@@ -1,6 +1,7 @@
-import { modeGlobals, type RenderNode, type ResolvedMode } from "@parity-app/core"
+import type { FrameGeometry, RenderNode, ResolvedMode } from "@parity-app/core"
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import type { RenderJob } from "../../shared/protocol.ts"
+import { renderJobMode } from "../../shared/render-job.ts"
 import type { ProjectSession } from "../workspace.ts"
 
 /**
@@ -35,7 +36,10 @@ export interface FrameShows {
    * The live frame draws again when it changes; its size and previewed tokens it follows by itself.
    */
   drawn: string
-  /** `drawn`, with the size and the tokens previewed: everything a bitmap shows. Bitmaps, skeletons and sleep go by it. */
+  /**
+   * `drawn`, with the size, its window and the tokens previewed: everything a bitmap shows. Bitmaps, skeletons and sleep
+   * go by it.
+   */
   key: string
   job: RenderJob
 }
@@ -52,8 +56,7 @@ export function useFrameShows(
   session: ProjectSession,
   tree: RenderNode[],
   mode: ResolvedMode,
-  width: number,
-  height: number | undefined,
+  frame: FrameGeometry,
   scale: number
 ): FrameShows {
   const previews = useSyncExternalStore(session.tokens.subscribe, session.tokens.previews)
@@ -63,6 +66,8 @@ export function useFrameShows(
   const treeKey = useMemo(() => JSON.stringify(tree), [tree])
   const { guestUrl, theme } = session.info
   const { added } = session
+  const { width, height } = frame
+  const { width: viewportWidth, height: viewportHeight } = frame.viewport
   const job = useMemo<RenderJob>(
     () => ({
       projectId: session.id,
@@ -70,17 +75,15 @@ export function useFrameShows(
       ...(added ? { components: added } : {}),
       theme,
       tree,
-      mode: {
+      mode: renderJobMode(mode, {
         width,
-        height,
-        classNames: mode.classNames,
-        attributes: mode.attributes,
-        globals: modeGlobals(mode)
-      },
+        ...(height === undefined ? {} : { height }),
+        viewport: { width: viewportWidth, height: viewportHeight }
+      }),
       scale: bitmapScale * scale,
       ...(previews.length > 0 ? { previews: [...previews] } : {})
     }),
-    [session.id, guestUrl, added, theme, tree, mode, width, height, scale, previews]
+    [session.id, guestUrl, added, theme, tree, mode, width, height, viewportWidth, viewportHeight, scale, previews]
   )
   const previewsKey = useMemo(() => JSON.stringify(previews), [previews])
   const drawn = [
@@ -90,7 +93,7 @@ export function useFrameShows(
     JSON.stringify([mode.classNames, mode.attributes, job.mode.globals]),
     treeKey
   ].join("|")
-  const key = [drawn, previewsKey, width, height, scale].join("|")
+  const key = [drawn, previewsKey, width, height, viewportWidth, viewportHeight, scale].join("|")
   return useMemo(() => ({ drawn, key, job }), [drawn, key, job])
 }
 

@@ -14,7 +14,7 @@ const entry = `
 import { createElement as h, Fragment } from "react"
 import { flushSync } from "react-dom"
 import { createRoot } from "react-dom/client"
-import { boardRoot, defaultModeSettings, resolveDesign, resolveModes } from "@parity-app/core"
+import { boardRoot, defaultModeSettings, frameViewport, resolveDesign, resolveModes } from "@parity-app/core"
 import { createGuest } from "@parity-app/renderer-react/guest"
 import { ModeView } from "../ModeView.tsx"
 import { DesignStore } from "../design-store.ts"
@@ -57,7 +57,7 @@ export function mount(containers) {
         loaded,
         tree: resolveDesign(boardRoot(entry.container), state, mode.viewport, store.getLibrary(entry.key)),
         mode,
-        width: 400,
+        frame: { width: 400, viewport: frameViewport({ width: 400 }, mode) },
         design: entry.key,
         state: state.id,
         primary: state.id === "default"

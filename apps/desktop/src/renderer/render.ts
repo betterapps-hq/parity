@@ -1,7 +1,7 @@
 // The offscreen render window's page. The main process asks it to draw one frame, measures it, and captures it, so
 // agents can lay out and screenshot any state in any mode without touching the person's canvas.
 import type { AccessibilityIssue, ContrastDetail } from "@parity-app/agent"
-import { type RenderNode, screenHeightForWidth } from "@parity-app/core"
+import type { RenderNode } from "@parity-app/core"
 import axe, { type NodeResult, type RunOptions } from "axe-core"
 import type { MeasuredNode, RenderedFrame, RenderJob } from "../shared/protocol.ts"
 import { drawnNodeIds, findNodeElement, nodeBox, nodeOfElement, prepareFrame, setDrawnNodes } from "./frame.ts"
@@ -49,7 +49,8 @@ window.canvasRender = async (job) => {
     document.body.append(host)
     currentHost = host
     const errors: string[] = []
-    const viewport = { width: job.mode.width, height: job.mode.height ?? screenHeightForWidth(job.mode.width) }
+    // The window the frame stands for, resolved with the frame, so it's the live frame's even when the frame grows.
+    const { viewport } = job.mode
     const target = prepareFrame(host, loaded.sheet, { ...job.mode, viewport })
     const tree = job.tree as RenderNode[]
     if (job.components) loaded.guest.addComponents?.(job.components)

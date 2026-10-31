@@ -12,6 +12,7 @@ import {
   extractComponent,
   findRepeats,
   findState,
+  frameGeometry,
   frameSize,
   shownModes,
   generateId,
@@ -657,7 +658,8 @@ export class AgentWorkspace {
       ? findState(container, options.state)
       : (container.states.find((candidate) => candidate.id === container.view?.state) ?? container.states[0]!)
     const viewportMode = options.mode ? this.frameMode(options.mode) : shownModes(this.modes, container.view).main
-    const size = frameSize(container, viewportMode)
+    // The frame and its window as the canvas draws them, so a frame measured or captured here matches the live one.
+    const size = frameGeometry(container, viewportMode)
     const mode = { ...viewportMode, width: size.width }
     const designKey = key(path, container.id)
     this.emit({ kind: look, design: designKey, state: state.id, mode: mode.id })
@@ -671,6 +673,7 @@ export class AgentWorkspace {
       tree,
       mode,
       height: size.height,
+      viewport: size.viewport,
       scale,
       capture: look === "screenshot",
       ...(look === "accessibility" ? { audit: true } : {})

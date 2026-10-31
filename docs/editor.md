@@ -2084,6 +2084,40 @@ two frames. Gaps: Vite 7 and earlier's esbuild setting is checked only as data i
 with a package compiled for development, which esbuild bundled with the stand-in. The numbers were measured by hand with
 a script that isn't in the repository.
 
+### Every frame drawn in the same window (PAR-466)
+
+A frame stands for a browser window, and every path that draws it gives it the same one: the live frame in its mode on
+the canvas, its bitmap zoomed out, and the offscreen frames agents measure, screenshot, check for problems and for
+accessibility, which Export and the Accessibility panel use too. A mode whose viewport has a screen height, say 1280 by
+1234, gives a frame that grows with its content a 1234px window everywhere, so `100vh`, `innerHeight` and the project's
+window size checks read 1234 in bitmaps, screenshots and measurements as on the canvas. Before, the offscreen renderer
+worked out its own height from the width alone, the 800 of the device nearest 1280.
+
+- **Two heights, kept apart.** A frame's own height is fixed or not: a fixed one clips the frame, and without one the
+  frame grows with its content. Its window always has a height: the frame's fixed height, else the viewport's screen,
+  else the device nearest its width (see [decisions.md](decisions.md), "A frame stands for a browser window"). Core's
+  `frameGeometry` gives both, `{ width, height?, viewport }`, and every path draws from it.
+- **The offscreen job carries the window.** `RenderJob.mode` has the frame's `width` and optional `height` beside its
+  `viewport`, and the offscreen page mounts the frame in that viewport rather than working one out. An agent's
+  `FrameRequest` carries the viewport too, so a frame an agent asks for is drawn at what the canvas shows.
+- **The offscreen window's own size doesn't matter to the frame.** It opens 800px tall and is resized to the frame
+  before a capture or an audit, but the project's viewport units and its `innerHeight`, `matchMedia` and resize events
+  answer from the frame's window (CAN-23, CAN-33), as on the canvas.
+
+Code: `frameGeometry` in `packages/core/src/render.ts`; `FrameTile` in
+`apps/desktop/src/renderer/canvas/ContainerView.tsx`, which passes it to `ModeView.tsx` and `useFrameShows` in
+`canvas/frame-bitmaps.ts`; `renderJobMode` in `apps/desktop/src/shared/render-job.ts`, which builds a job's mode for
+bitmaps and for `renderFor` in `apps/desktop/src/utility/agent.ts`; `AgentWorkspace.render` in
+`packages/agent/src/workspace.ts`; `canvasRender` in `apps/desktop/src/renderer/render.ts`.
+
+Tests: `packages/core/src/render.test.ts` (1: at 1280 by 1234, a frame that grows has no height and a 1234px window, and
+a frame fixed at 600 keeps its 600 apart from its window). `apps/desktop/src/shared/render-job.test.ts` (2: for that
+growing frame, the live frame's geometry, a bitmap's job and an agent's `Measure` job all have a 1280 by 1234 window and
+no height; a fixed frame's job keeps its height beside its window). `packages/agent/src/run.test.ts` (1: `Measure`,
+`Screenshot` and `Accessibility` ask for frames with that window). Gaps: that the offscreen page mounts the frame in the
+job's viewport was checked by reading `canvasRender`; the end-to-end suite draws frames offscreen but doesn't read a
+window height in them.
+
 ### Caller identity (PAR-450)
 
 Agent cursors and badges display the caller's declared name. CLI callers set `PARITY_AGENT_NAME`; without it they appear
