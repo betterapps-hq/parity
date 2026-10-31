@@ -69,6 +69,8 @@ try {
   delete env.PARITY_RENDERER_URL
   delete env.PARITY_DEV_RUNNER
   delete env.ELECTRON_RUN_AS_NODE
+  // pnpm shims may expose workspace packages here; an installed app must resolve only what it ships.
+  delete env.NODE_PATH
   const launchEnv: Record<string, string> = {}
   for (const [key, value] of Object.entries(env)) if (value !== undefined) launchEnv[key] = value
   electron = await _electron.launch({
