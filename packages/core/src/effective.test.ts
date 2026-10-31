@@ -4,7 +4,7 @@ import { findNode, nodeOnBoard } from "./edit.ts"
 import { effectiveNode, type EffectiveTree, effectiveTree } from "./effective.ts"
 import { effectiveFixture } from "./fixtures.ts"
 import { layerOnBoard, locateInner } from "./instances.ts"
-import { type RenderNode, resolveDesign, scopeOf, spacing } from "./render.ts"
+import { componentLibrary, type RenderNode, resolveDesign, scopeOf, spacing } from "./render.ts"
 
 const { designs, library, viewports, cases } = effectiveFixture
 
@@ -42,11 +42,15 @@ function renderOutline(node: RenderNode): Outline[] {
   ]
 }
 
-/** What the canvas draws of an effective tree: hidden layers left out, and an instance drawn as its component's root. */
+/**
+ * What the canvas draws of an effective tree: hidden layers left out, an instance drawn as its component's root, and
+ * one that can't be expanded drawn as an empty placeholder.
+ */
 function effectiveOutline(tree: EffectiveTree): Outline[] {
   const { node } = tree
   if (node.hidden) return []
   if (node.type === "instance") {
+    if (tree.children.length === 0) return [{ id: tree.path, children: [] }]
     return tree.children.flatMap(effectiveOutline).map((root) => ({ ...root, id: tree.path }))
   }
   const style = node.style ?? {}
@@ -93,6 +97,44 @@ describe("effectiveTree", () => {
 
   it("is undefined for a path that leads nowhere", () => {
     expect(effectiveTree(design("profile"), "person/nothing", { library })).toBeUndefined()
+  })
+
+  describe("a design that places itself", () => {
+    const placing = (id: string, places: string): ContainerSpec => ({
+      id,
+      name: id,
+      position: { x: 0, y: 0 },
+      root: {
+        type: "layout",
+        id: "frame",
+        children: [
+          { type: "text", id: "label", text: id },
+          { type: "instance", id: "copy", design: places }
+        ]
+      },
+      states: [{ id: "base", name: "Base" }]
+    })
+    const loop = placing("loop", "loop")
+    const outer = placing("outer", "inner")
+    const inner = placing("inner", "outer")
+    const loops = componentLibrary([loop, outer, inner])
+
+    for (const container of [loop, outer]) {
+      const how = container === loop ? "directly" : "through another design"
+      it(`expands as resolveDesign does, ${how}`, () => {
+        const tree = effectiveTree(container, "frame", { library: loops })
+        const drawn = resolveDesign(container.root, undefined, "desktop", loops)
+        expect(tree && effectiveOutline(tree)).toEqual(drawn.flatMap(renderOutline))
+      })
+    }
+
+    it("finds the nodes the canvas draws inside it, and none past where it stops", () => {
+      expect(effectiveNode(loop, "copy/label", { library: loops })).toMatchObject({ text: "loop" })
+      expect(effectiveNode(loop, "copy/copy", { library: loops })).toMatchObject({ type: "instance" })
+      expect(effectiveNode(loop, "copy/copy/label", { library: loops })).toBeUndefined()
+      expect(effectiveNode(outer, "copy/copy/label", { library: loops })).toMatchObject({ text: "outer" })
+      expect(effectiveNode(outer, "copy/copy/copy/label", { library: loops })).toBeUndefined()
+    })
   })
 })
 

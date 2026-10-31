@@ -43,7 +43,7 @@ export function locateEffective(
       return { design, node, location, chain, scope, patch, shown: applyPatch(node, patch, scope.args) }
     }
     const component = node.type === "instance" ? library.get(node.design) : undefined
-    if (node.type !== "instance" || !component || containsItself(container, chain, component)) return undefined
+    if (node.type !== "instance" || !component || containsItself(chain, component)) return undefined
     scope = instanceScope(node, component, patch, scope.layers)
     design = component
     chain.push(node)
@@ -51,9 +51,12 @@ export function locateEffective(
   return undefined
 }
 
-/** Whether expanding a component inside these instances would place a design inside itself. */
-function containsItself(container: ContainerSpec, chain: readonly InstanceNode[], component: ContainerSpec): boolean {
-  return component.id === container.id || chain.some((instance) => instance.design === component.id)
+/**
+ * Whether a component is already being expanded by one of these instances, as `resolveDesign` judges it: the design
+ * being evaluated isn't on the list, so a design that places itself shows one copy, whose own copy stops.
+ */
+function containsItself(chain: readonly InstanceNode[], component: ContainerSpec): boolean {
+  return chain.some((instance) => instance.design === component.id)
 }
 
 /**
@@ -112,7 +115,7 @@ export function effectiveTree(
     let children: EffectiveTree[] = []
     if (node.type === "instance") {
       const component = library.get(node.design)
-      if (component && !containsItself(container, chain, component)) {
+      if (component && !containsItself(chain, component)) {
         const inner = instanceScope(node, component, patch, scope.layers)
         const root = component.root
         const rootPatch = nodePatch(inner.layers, root, context.viewport)

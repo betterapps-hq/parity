@@ -2350,8 +2350,10 @@ layering patches its own way, and none applying a viewport's responsive patch ou
   included), then the variant options they pick.
 - **`editNode` keeps its own subset of layers,** since a state's or variant's patch is kept against the node as it shows
   without that patch.
-- **Self-containment is judged by design ids** along the path, and the evaluated design counts. The walk compared
-  instance node ids before, which only mattered for a component placing itself through another.
+- **A design that places itself is expanded as `resolveDesign` draws it:** an instance stops only when its component is
+  already being expanded by an instance around it, and the evaluated design isn't counted. So a design placing itself
+  shows one copy, whose own copy stops, directly or through another design. `locateInner` refused the evaluated design
+  outright before, and compared instance node ids with design ids, so it found less than the canvas draws.
 - **The shared fixture is `@parity-app/core/fixtures`** (`effectiveFixture`): a bound text with a param default, a
   variant that turns its parent into a row, a state over a value that variant sets, responsive patches, and a nested
   instance with args and overrides, in two viewports. `effective.test.ts` checks `effectiveTree` against `resolveDesign`
