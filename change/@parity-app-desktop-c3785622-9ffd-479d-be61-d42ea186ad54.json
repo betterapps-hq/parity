@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Load aliased library providers, icons and sample values consistently and reject obsolete manifests",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

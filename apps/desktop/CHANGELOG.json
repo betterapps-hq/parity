@@ -2,50 +2,92 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
-      "date": "Sat, 31 Oct 2026 22:43:43 GMT",
+      "date": "Sat, 31 Oct 2026 23:07:41 GMT",
       "version": "0.4.0",
       "tag": "@parity-app/desktop_v0.4.0",
       "comments": {
-        "minor": [
-          {
-            "author": "noreply@anthropic.com",
-            "package": "@parity-app/desktop",
-            "commit": "f84a4ce1392ff6d073eaaad94b43cb4f9b14ddea",
-            "comment": "Agent calls merge per design with edits made while they run, and are refused naming the designs when both changed the same one"
-          }
-        ],
         "patch": [
-          {
-            "author": "noreply@anthropic.com",
-            "package": "@parity-app/desktop",
-            "commit": "6981f697becb9983d8f5a6ca266764a2033142af",
-            "comment": "Generate an app's library from the same sources and global stylesheets project detection finds, following tsconfig references, the HTML entry's stylesheet imports and relative @imports"
-          },
           {
             "author": "ajcraswell@gmail.com",
             "package": "@parity-app/desktop",
-            "commit": "a880c43e66e2545d83071392e8baf56cdcc3d1a4",
+            "commit": "not available",
             "comment": "Show update checks in toasts and label installed beta builds independently of the update channel"
           },
           {
             "author": "noreply@anthropic.com",
             "package": "@parity-app/desktop",
-            "commit": "02cbf5c3206e113bc0860b39c35719e870cd8d8e",
+            "commit": "b3c03fb3b9b9ad2722a0e1474dbfba7e9f567127",
+            "comment": "Fingerprint every lockfile package-manager detection recognizes, such as npm-shrinkwrap.json, and the tsconfigs a project's configs extend, so cached props refresh when they change"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "b3c03fb3b9b9ad2722a0e1474dbfba7e9f567127",
             "comment": "Keep values under media queries, such as a prefers-color-scheme: dark block, out of the default theme's tokens"
           },
           {
             "author": "noreply@anthropic.com",
             "package": "@parity-app/desktop",
-            "commit": "3edd66ac4fac2a7df5826fbe60e21feadcc3b6fb",
-            "comment": "Fingerprint every lockfile package-manager detection recognizes, such as npm-shrinkwrap.json, and the tsconfigs a project's configs extend, so cached props refresh when they change"
+            "commit": "b3c03fb3b9b9ad2722a0e1474dbfba7e9f567127",
+            "comment": "Generate an app's library from the same sources and global stylesheets project detection finds, following tsconfig references, the HTML entry's stylesheet imports and relative @imports"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "cb9a37b5343ac55cafc6a937f3514bddb0683675",
+            "comment": "Read token themes and categories the same way in parity lib and the app: [data-theme] attributes are themes, names like fontSizeBase300 are font sizes, and a library's .dark beats its prefers-color-scheme block"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "4a71e5257476a5f0123e4cc00b730d2597ae3482",
+            "comment": "Estimate the size of a board the canvas hasn't drawn from its frames, laid out as the canvas lays them out, so Overlaps() catches wide and tall boards"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "8f24f607a4d8dc6124483f9846ae3f8c5fbcd1ce",
+            "comment": "Props refresh after you change tsconfig paths or dependencies"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "a6882469a1795ee1467e20339955bc0cd6d35c87",
+            "comment": "The canvas menu says Show for a layer the variant shown hides, and Make component checks the result against the variant and param defaults the board shows"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "5526ddee3eab4e5d294128413dcc61e194167f9d",
+            "comment": "Agents' frames, exports and accessibility checks draw library designs' instances and unsaved token values as the canvas does, and no offscreen frame inherits another's token values"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "38553868cfede175562306f0823c9de15f62cca1",
+            "comment": "The agent's Get with a state or mode reads nodes as the board draws them: bound values, variant options, responsive patches and layers inside instances"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "45a0fcfe280e2d28e109509c39c1dbfd802156df",
+            "comment": "Load aliased library providers, icons and sample values consistently and reject obsolete manifests"
           }
         ],
         "none": [
           {
             "author": "noreply@anthropic.com",
             "package": "@parity-app/desktop",
-            "commit": "8b61400da611adb07e4337a87dbe00a5a4cd17fa",
+            "commit": "b3c03fb3b9b9ad2722a0e1474dbfba7e9f567127",
             "comment": "Work out what each layer shows in one place in core; nothing changes on screen"
+          }
+        ],
+        "minor": [
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "b3c03fb3b9b9ad2722a0e1474dbfba7e9f567127",
+            "comment": "Agent calls merge per design with edits made while they run, and are refused naming the designs when both changed the same one"
           }
         ]
       }
