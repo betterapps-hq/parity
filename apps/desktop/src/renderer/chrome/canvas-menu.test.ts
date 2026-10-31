@@ -1,4 +1,4 @@
-import type { ContainerSpec, DesignNode } from "@parity-app/core"
+import { type ContainerSpec, type DesignNode, findNode, nodeOnBoard, toggleHidden } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import type { ContainerEntry } from "../design-store.ts"
 import { designsSelection, layersSelection, type Selection } from "../selection.ts"
@@ -147,6 +147,30 @@ describe("the canvas menu", () => {
     expect(labelOf(canvasMenu(overTitle, layersSelection(design, ["subtitle", "title"]), entries), "hide")).toBe("Hide")
     const loading = layersSelection(design, ["subtitle", "title"], { mode: "desktop", state: "loading" })
     expect(labelOf(canvasMenu(overTitle, loading, entries), "hide")).toBe("Show")
+  })
+
+  it("says Show for a layer the variant shown hides, as Hide reads it, and Hide then shows it", () => {
+    const compact: ContainerSpec = {
+      ...dashboard,
+      params: {
+        density: {
+          type: "variant",
+          options: [
+            { id: "comfortable", name: "Comfortable" },
+            { id: "compact", name: "Compact", overrides: { title: { hidden: true } } }
+          ]
+        }
+      },
+      view: { variants: { density: "compact" } }
+    }
+    const menuFor = (container: ContainerSpec) =>
+      canvasMenu(overTitle, layersSelection(design, ["title"]), [{ ...entries[0]!, container }, entries[1]!])
+    expect(labelOf(menuFor(compact), "hide")).toBe("Show")
+    const shown = toggleHidden(compact, "default", ["title"])
+    expect(nodeOnBoard(shown, findNode(shown.root, "title")!, shown.states[0]).hidden ?? false).toBe(false)
+    expect(labelOf(menuFor(shown), "hide")).toBe("Hide")
+    // With the board on the option that doesn't hide it, the title shows, so the menu offers to hide it.
+    expect(labelOf(menuFor({ ...compact, view: { variants: { density: "comfortable" } } }), "hide")).toBe("Hide")
   })
 
   it("leaves what acts on layers out for a design, and offers to make it a component", () => {

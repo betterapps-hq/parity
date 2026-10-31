@@ -354,17 +354,24 @@ export function editNode(
 }
 
 /**
- * Hides nodes in a state, or shows them again when they're all hidden there. Each is read as the board shows it in
- * that state, with its variants, the state's changes and the params it binds, so a layer a state hides counts as
- * hidden there however the design has it.
+ * Whether every one of a design's own nodes is hidden as the board shows it in a state: with the variant options the
+ * board shows, the state's changes and the params they bind. It's what `toggleHidden` decides by and what Hide's label
+ * reads, so a menu that says Show shows them. A node that isn't there counts as shown.
  */
-export function toggleHidden(container: ContainerSpec, stateId: string, ids: readonly string[]): ContainerSpec {
+export function hiddenOnBoard(container: ContainerSpec, stateId: string, ids: readonly string[]): boolean {
   const state = findState(container, stateId)
-  const hidden = (id: string) => {
+  return ids.every((id) => {
     const node = findNode(container.root, id)
     return node ? (nodeOnBoard(container, node, state).hidden ?? false) : false
-  }
-  const hide = !ids.every(hidden)
+  })
+}
+
+/**
+ * Hides nodes in a state, or shows them again when they're all hidden there. Each is read as the board shows it in
+ * that state (see `hiddenOnBoard`), so a layer a state hides counts as hidden there however the design has it.
+ */
+export function toggleHidden(container: ContainerSpec, stateId: string, ids: readonly string[]): ContainerSpec {
+  const hide = !hiddenOnBoard(container, stateId, ids)
   return ids.reduce((next, id) => editNode(next, boardTarget(next, stateId), id, { hidden: hide }), container)
 }
 

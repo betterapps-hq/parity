@@ -96,6 +96,27 @@ export async function appFiles(
   return { files: [...new Set(files)].sort(), from }
 }
 
+/**
+ * The app's files the type checker reads, relative to the root: the files the parse reads, so never one that mounts the
+ * app or is gone. Discovery's `files` are these; a refresh after the project's config changes asks for them again.
+ */
+export async function checkedAppFiles(
+  root: string,
+  renderer: Pick<RendererAdapter, "componentExtensions">,
+  tsconfig: ProjectTsconfig
+): Promise<string[]> {
+  const { files } = await appFiles(root, renderer, tsconfig)
+  const sources = await Promise.all(files.map((path) => appSource(root, path)))
+  return files.filter((_path, index) => typeof sources[index] === "object")
+}
+
+/** A file's source, unless it mounts the app (`mounts`), which the canvas must never run, or can't be read (`gone`). */
+async function appSource(root: string, path: string): Promise<{ source: string } | "mounts" | "gone"> {
+  const source = await readFile(join(root, path), "utf8").catch(() => undefined)
+  if (source === undefined) return "gone"
+  return mountsApp.test(source) ? "mounts" : { source }
+}
+
 /** A file's exports the renderer recognises, decided or not; `mounts` for the app's entry, `gone` when it can't be read. */
 async function parseFile(
   root: string,
@@ -103,9 +124,9 @@ async function parseFile(
   path: string,
   uiKit: string | undefined
 ): Promise<ParsedComponent[] | "mounts" | "gone"> {
-  const source = await readFile(join(root, path), "utf8").catch(() => undefined)
-  if (source === undefined) return "gone"
-  if (mountsApp.test(source)) return "mounts"
+  const read = await appSource(root, path)
+  if (typeof read === "string") return read
+  const { source } = read
   const inUiKit = uiKit !== undefined && posix.dirname(path) === uiKit
   return renderer.findComponents(source, path).map((component) => ({ ...component, path, uiKit: inUiKit }))
 }
