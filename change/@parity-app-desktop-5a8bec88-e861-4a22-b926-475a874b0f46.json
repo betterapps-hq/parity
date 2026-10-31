@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Generate an app's library from the same sources and global stylesheets project detection finds, following tsconfig references, the HTML entry's stylesheet imports and relative @imports",
-  "packageName": "@parity-app/desktop",
-  "email": "noreply@anthropic.com",
-  "dependentChangeType": "patch"
-}

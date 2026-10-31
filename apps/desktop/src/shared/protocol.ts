@@ -340,9 +340,16 @@ export interface PresenceEvent {
   to?: { x: number; y: number }
 }
 
+/** Installed release identity, independent of the user's update channel preference. */
+export interface BuildInfo {
+  version: string
+  channel: "beta" | "stable" | "development" | "unknown"
+}
+
 /** Exposed on `window.canvasHost` by the preload script. */
 export interface CanvasHost {
   appVersion: string
+  getBuildInfo: () => Promise<BuildInfo>
   updates: {
     get: () => Promise<UpdateState>
     check: () => Promise<void>

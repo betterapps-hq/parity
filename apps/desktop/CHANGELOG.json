@@ -2,6 +2,55 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sat, 31 Oct 2026 22:43:43 GMT",
+      "version": "0.4.0",
+      "tag": "@parity-app/desktop_v0.4.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "f84a4ce1392ff6d073eaaad94b43cb4f9b14ddea",
+            "comment": "Agent calls merge per design with edits made while they run, and are refused naming the designs when both changed the same one"
+          }
+        ],
+        "patch": [
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "6981f697becb9983d8f5a6ca266764a2033142af",
+            "comment": "Generate an app's library from the same sources and global stylesheets project detection finds, following tsconfig references, the HTML entry's stylesheet imports and relative @imports"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "a880c43e66e2545d83071392e8baf56cdcc3d1a4",
+            "comment": "Show update checks in toasts and label installed beta builds independently of the update channel"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "02cbf5c3206e113bc0860b39c35719e870cd8d8e",
+            "comment": "Keep values under media queries, such as a prefers-color-scheme: dark block, out of the default theme's tokens"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "3edd66ac4fac2a7df5826fbe60e21feadcc3b6fb",
+            "comment": "Fingerprint every lockfile package-manager detection recognizes, such as npm-shrinkwrap.json, and the tsconfigs a project's configs extend, so cached props refresh when they change"
+          }
+        ],
+        "none": [
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "8b61400da611adb07e4337a87dbe00a5a4cd17fa",
+            "comment": "Work out what each layer shows in one place in core; nothing changes on screen"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sat, 31 Oct 2026 21:19:58 GMT",
       "version": "0.3.0",
       "tag": "@parity-app/desktop_v0.3.0",

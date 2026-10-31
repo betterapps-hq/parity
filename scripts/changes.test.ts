@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { bundledBy, onlyVersionChanged, releasesFor, type WorkspacePackage } from "./changes.ts"
+import { bundledBy, onlyVersionChanged, releasesFor, versionedRelease, type WorkspacePackage } from "./changes.ts"
 
 const workspace: WorkspacePackage[] = [
   {
@@ -14,6 +14,31 @@ const workspace: WorkspacePackage[] = [
   { name: "@parity-app/fixtures", dir: "packages/fixtures", private: true, dependencies: ["@parity-app/core"] }
 ]
 const ignored = ["**/*.test.ts", "**/*.md"]
+
+describe("versionedRelease", () => {
+  const manifest = (version: string) => JSON.stringify({ name: "@parity-app/desktop", version })
+  const log = (version: string, name = "@parity-app/desktop") => JSON.stringify({ name, entries: [{ version }] })
+  it("accepts a consumed release with a newer version and matching generated changelog", () => {
+    expect(versionedRelease(manifest("0.3.0"), manifest("0.4.0"), log("0.4.0"))).toBe("@parity-app/desktop")
+    expect(versionedRelease(manifest("0.3.9"), manifest("0.3.10"), log("0.3.10"))).toBe("@parity-app/desktop")
+  })
+  it.each(["0.3.0", "0.2.9", "0.03.1", "0.3.1-beta.1", "invalid"])(
+    "rejects unchanged, older or invalid versions (%s)",
+    (version) => {
+      expect(versionedRelease(manifest("0.3.0"), manifest(version), log(version))).toBeUndefined()
+    }
+  )
+  it("rejects stale, absent and other-package changelog entries", () => {
+    for (const changelog of [
+      log("0.3.0"),
+      log("0.4.0", "@parity-app/cli"),
+      "{}",
+      "null",
+      '{"name":"@parity-app/desktop","entries":[]}'
+    ])
+      expect(versionedRelease(manifest("0.3.0"), manifest("0.4.0"), changelog)).toBeUndefined()
+  })
+})
 
 describe("bundledBy", () => {
   it("finds every released package that bundles a private one, through other private packages", () => {

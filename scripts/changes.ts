@@ -69,6 +69,44 @@ export function onlyVersionChanged(before: string, after: string): boolean {
   return withoutVersion(before) === withoutVersion(after)
 }
 
+/** A fix may consume its change files in the same PR: require a newer version and its generated changelog entry. */
+export function versionedRelease(before: string, after: string, changelog: string): string | undefined {
+  const previous: unknown = JSON.parse(before)
+  const next: unknown = JSON.parse(after)
+  const log: unknown = JSON.parse(changelog)
+  if (
+    !previous ||
+    typeof previous !== "object" ||
+    !("version" in previous) ||
+    typeof previous.version !== "string" ||
+    !next ||
+    typeof next !== "object" ||
+    !("version" in next) ||
+    typeof next.version !== "string" ||
+    !("name" in next) ||
+    typeof next.name !== "string" ||
+    !log ||
+    typeof log !== "object" ||
+    !("name" in log) ||
+    log.name !== next.name ||
+    !("entries" in log) ||
+    !Array.isArray(log.entries)
+  )
+    return undefined
+  const pattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/
+  if (!pattern.test(previous.version) || !pattern.test(next.version)) return undefined
+  const oldParts = previous.version.split(".").map(BigInt)
+  const newParts = next.version.split(".").map(BigInt)
+  const difference = newParts.findIndex((part, index) => part !== oldParts[index])
+  const newer = newParts[difference]
+  const older = oldParts[difference]
+  if (newer === undefined || older === undefined || newer <= older) return undefined
+  const entry: unknown = log.entries[0]
+  return entry && typeof entry === "object" && "version" in entry && entry.version === next.version
+    ? next.name
+    : undefined
+}
+
 const root = join(import.meta.dirname, "..")
 
 function git(...args: string[]): string {
@@ -125,6 +163,12 @@ function changes(branch: string, committed: boolean): { files: string[]; covered
   const files = lines(git("diff", "--name-only", "--no-renames", ...range)).filter((file) => !bumped.includes(file))
   const changeFiles = lines(git("diff", "--name-only", "--diff-filter=AM", ...range, "--", "change/"))
   const covered = new Set(changeFiles.map((file) => (JSON.parse(now(file)) as { packageName: string }).packageName))
+  for (const file of bumped) {
+    const changelog = file.replace(/package\.json$/, "CHANGELOG.json")
+    if (!files.includes(changelog)) continue
+    const release = versionedRelease(git("show", `${base}:${file}`), now(file), now(changelog))
+    if (release) covered.add(release)
+  }
   return { files, covered }
 }
 

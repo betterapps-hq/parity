@@ -22,6 +22,34 @@ type Story = StoryObj<typeof meta>
 
 export const Downloading: Story = {}
 
+export const Checking: Story = { args: { notice: { kind: "checking", beta: false } } }
+export const NoUpdate: Story = { args: { notice: { kind: "current", beta: false } } }
+export const CheckFailed: Story = { args: { notice: { kind: "error" } } }
+
+/** New check states shown together at their actual sizes for owner approval. */
+export const CheckFeedbackReview: Story = {
+  render: (args) => (
+    <div className="grid gap-8 p-8 text-foreground sm:grid-cols-2">
+      <div>
+        <h2 className="mb-3 text-xs text-muted-foreground">Checking</h2>
+        <UpdateToast {...args} notice={{ kind: "checking", beta: false }} />
+      </div>
+      <div>
+        <h2 className="mb-3 text-xs text-muted-foreground">No update available</h2>
+        <UpdateToast {...args} notice={{ kind: "current", beta: false }} />
+      </div>
+      <div>
+        <h2 className="mb-3 text-xs text-muted-foreground">Check failed</h2>
+        <UpdateToast {...args} notice={{ kind: "error" }} />
+      </div>
+      <div>
+        <h2 className="mb-3 text-xs text-muted-foreground">Beta updates enabled</h2>
+        <UpdateToast {...args} notice={{ kind: "current", beta: true }} />
+      </div>
+    </div>
+  )
+}
+
 export const ReadyToRestart: Story = {
   args: { notice: { kind: "ready", version: "0.4.0" } }
 }

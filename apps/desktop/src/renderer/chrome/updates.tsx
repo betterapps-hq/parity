@@ -1,13 +1,14 @@
 import type { UpdateState } from "@parity-app/core"
 import { useSyncExternalStore } from "react"
 import { toast } from "sonner"
-import { openDialog } from "./app-dialogs.ts"
 import { type UpdateNotice, UpdateToast } from "./UpdateToast.tsx"
 
 let state: UpdateState = { phase: "disabled", beta: false }
 const listeners = new Set<() => void>()
 const notificationId = "parity-update"
 let hidden: string | undefined
+let foreground = false
+let pending: Promise<void> | undefined
 
 /** A single store serves About, Settings and the notification; progress updates replace the same Sonner toast. */
 export function receiveUpdate(next: UpdateState): void {
@@ -17,19 +18,23 @@ export function receiveUpdate(next: UpdateState): void {
   if (next.phase === "downloading") notice = { ...next, kind: "downloading" }
   if (next.phase === "ready") notice = { kind: "ready", version: next.version }
   if (next.phase === "manual") notice = { kind: "manual", version: next.version }
+  if (foreground && (next.phase === "checking" || next.phase === "current"))
+    notice = { kind: next.phase, beta: next.beta }
+  if (foreground && next.phase === "error") notice = { kind: "error" }
+  if (next.phase !== "checking" && next.phase !== "downloading") foreground = false
   if (!notice) {
     hidden = undefined
     toast.dismiss(notificationId)
     return
   }
   const shown = notice
-  const key = `${shown.kind}:${shown.version}`
+  const key = "version" in shown ? `${shown.kind}:${shown.version}` : shown.kind
   if (hidden === key) return
   toast.custom(
     () => (
       <UpdateToast
         notice={shown}
-        onAction={actOnUpdate}
+        onAction={shown.kind === "error" ? checkForUpdates : actOnUpdate}
         onDismiss={() => {
           hidden = key
           toast.dismiss(notificationId)
@@ -65,20 +70,39 @@ export function startUpdates(): void {
       if (!received) receiveUpdate(snapshot)
     })
     .catch(() => undefined)
-  window.canvasHost.updates.onShow(checkForUpdates)
+    // The preload queues native-menu actions until this listener exists. Read the initial enabled state first.
+    .finally(() => window.canvasHost.updates.onShow(checkForUpdates))
 }
 
 export function checkForUpdates(): void {
-  openDialog("about")
-  void window.canvasHost.updates.check().catch(() => {
-    receiveUpdate({ phase: "error", beta: state.beta, message: "Couldn't check for updates." })
-  })
+  hidden = undefined
+  foreground = true
+  if (["disabled", "downloading", "ready", "manual", "installing"].includes(state.phase)) {
+    receiveUpdate(state)
+    return
+  }
+  receiveUpdate({ phase: "checking", beta: state.beta })
+  if (pending) return
+  pending = window.canvasHost.updates
+    .check()
+    .catch(() => {
+      receiveUpdate({ phase: "error", beta: state.beta, message: "Couldn't check for updates." })
+    })
+    .finally(() => {
+      pending = undefined
+    })
 }
 
 export function actOnUpdate(): void {
-  void window.canvasHost.updates.act().catch(() => {
-    receiveUpdate({ phase: "error", beta: state.beta, message: "Couldn't open the update." })
-  })
+  foreground = true
+  void window.canvasHost.updates
+    .act()
+    .catch(() => {
+      receiveUpdate({ phase: "error", beta: state.beta, message: "Couldn't open the update." })
+    })
+    .finally(() => {
+      foreground = false
+    })
 }
 
 export async function setBetaUpdates(beta: boolean): Promise<void> {

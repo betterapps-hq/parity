@@ -2022,13 +2022,24 @@ installation failure resets the close decision, so closing later still checks fo
 never installs an update. Unsigned Macs check for newer releases and offer their download page instead of installing in
 place. The Mac application menu includes the same check.
 
+Manual checks show checking, no-update and retryable-error feedback in the same toast, without opening About or
+interrupting work (PAR-490). Startup checks remain quiet when no update is available or the check fails. A menu check
+also restores a previously dismissed download or restart notice. About stays available separately through Help.
+
 Settings > Get beta updates is off by default and remembered between runs. It includes GitHub pre-releases without
-allowing downgrades. About shows the selected channel, installed version and available version. Development builds and
+allowing downgrades. About labels installed beta builds with `(Beta)` independently of the selected Update channel; the
+preference describes which future releases to accept. It also shows the available version. Development builds and
 extracted Linux folders do not download or install updates.
+
+The installed tag's public release metadata determines the Beta label. A version-keyed cache preserves confirmed
+identity offline and refreshes after five minutes, so promoting identical artifacts to stable updates their identity. An
+unconfirmed offline build is never guessed from its numeric version or the update preference. Confirmed empty stable
+feeds mean no update; connection, authorization and service failures remain retryable errors.
 
 `chrome/UpdateToast.stories.tsx` shows the download, restart-ready and Mac fallback designs, unknown-size progress, both
 themes through the toolbar, and the real toast host. `chrome/UpdateDialogs.stories.tsx` covers About's update states and
-the beta setting. The owner signed off on the rendered toast designs before app integration.
+the beta setting and beta/stable installed builds independently of the preference. The owner signed off on the rendered
+toast designs and the PAR-490 check-feedback and build-label stories before app integration.
 
 Code: `packages/core/src/updates.ts` defines state transitions; `apps/desktop/src/main/update-session.ts` serializes
 operations and `main/updates.ts` adapts electron-updater. `main/index.ts` owns the close acknowledgement and IPC,
@@ -2038,9 +2049,10 @@ through `preload/index.ts`. `renderer/chrome/updates.tsx` shares state between `
 Tests: `packages/core/src/updates.test.ts` covers guarded transitions, late progress, channel changes and invalid
 progress; `main/update-session.test.ts` covers serialized checks, retry, installation failure resetting the close
 decision, disabled development builds and the Mac fallback. `preload/index.test.ts` covers a native menu action arriving
-before React subscribes and replacing its listener without losing the next action. CI runs `scripts/try-update.ts` on
-Windows and Linux: two real packaged versions, checksum rejection, Later, unsaved-work cancellation, Save, installation
-and relaunch as the newer version. It refuses to run outside CI.
+before React subscribes and replacing its listener without losing the next action. `chrome/updates.test.ts` covers
+manual checks without a dialog, quiet startup results, repeated checks, retry and dismissed progress becoming a ready
+notice. CI runs `scripts/try-update.ts` on Windows and Linux: two real packaged versions, checksum rejection, Later,
+unsaved-work cancellation, Save, installation and relaunch as the newer version. It refuses to run outside CI.
 
 ### The page never scrolls (PAR-424)
 

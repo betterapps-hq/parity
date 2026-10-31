@@ -89,6 +89,7 @@ export function resetHost(): void {
 export function installHost(): void {
   const host: CanvasHost = {
     appVersion: desktop.version,
+    getBuildInfo: async () => ({ version: desktop.version, channel: "development" }),
     updates: {
       get: () => Promise.resolve({ phase: "disabled", beta: false }),
       check: () => Promise.resolve(),
