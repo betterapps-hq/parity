@@ -63,3 +63,13 @@ Then have the agent read the skill first, with the `read_skill` tool or `parity 
 ## Licence
 
 MIT. See [LICENSE](https://github.com/betterapps-hq/parity/blob/main/LICENSE).
+
+## Caller name on the canvas
+
+For CLI calls, set `PARITY_AGENT_NAME` to the name you want shown on cursors and badges (for example,
+`DeepSeek Harness`). Without a nonblank name, calls show `Terminal`. Use `PARITY_AGENT_ID` to distinguish concurrent CLI
+callers sharing a display name. `--label` names the task separately.
+
+For MCP, Parity uses the client's declared `clientInfo.title`, then `clientInfo.name`, then `Agent` if neither is
+nonblank. Names are trimmed and otherwise preserved; no list of known agents or tool environment detection is needed.
+These display names are self-reported, not authentication.
