@@ -28,8 +28,19 @@ which tools.
 
 Installers for Windows, macOS and Linux are published to
 [GitHub Releases](https://github.com/betterapps-hq/parity/releases), as betas first. Choose the latest pre-release and
-download the installer for your system. These early builds need new versions installed by hand. They have no publisher
-signature, so the first run needs a step on Windows and macOS:
+download the installer for your system. These early builds need new versions installed by hand.
+
+Before opening it, download `desktop-release.json` from the **same release on this repository**, alongside the
+installer. Find the installer's exact filename in `assets` and compare its `sha256` with the hash calculated on your
+computer (replace the example filename with your download):
+
+- **Windows, PowerShell:** `Get-FileHash .\Parity-0.2.0-win-x64.exe -Algorithm SHA256`
+- **macOS, Terminal:** `shasum -a 256 ./Parity-0.2.0-mac-arm64.dmg`
+- **Linux, terminal:** `sha256sum ./Parity-0.2.0-linux-x64.AppImage`
+
+The hashes must match, ignoring letter case. If they differ, do not open the installer. This checks the download against
+the release's published checksum; it does not provide a publisher signature. Once verified, the first run needs a step
+on Windows and macOS because these builds have no publisher signature:
 
 - **Windows:** SmartScreen warns that the app is unrecognised. Choose **More info**, then **Run anyway**.
 - **macOS:** the app is blocked the first time it opens. Open **System Settings > Privacy & Security** and choose **Open
