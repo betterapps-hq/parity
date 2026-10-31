@@ -341,7 +341,7 @@ function AgentCursor({
           ) : (
             <LoaderCircle className="size-3.5 shrink-0 animate-spin" style={{ color }} />
           )}
-          <span className="max-w-40 shrink-0 truncate font-medium" title={activity.agent}>
+          <span className="pointer-events-auto max-w-40 shrink-0 truncate font-medium" title={activity.agent}>
             {activity.agent}
           </span>
           <span className="min-w-0 truncate text-muted-foreground">

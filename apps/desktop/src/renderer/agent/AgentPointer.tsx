@@ -91,7 +91,7 @@ export function AgentBadge({
       }}
     >
       <ActionIcon kind={kind} className="size-3 shrink-0" />
-      <span className="max-w-40 shrink-0 truncate font-semibold" title={agent}>
+      <span className="pointer-events-auto max-w-40 shrink-0 truncate font-semibold" title={agent}>
         {agent}
       </span>
       {label && <span className="truncate opacity-75">{label}</span>}

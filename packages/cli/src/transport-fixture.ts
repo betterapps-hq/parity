@@ -53,14 +53,15 @@ export function transportFixture(defaultResult: unknown) {
     fixture.response = { result: defaultResult }
   })
 
-  function run(args: string[], input = "") {
+  function run(args: string[], input = "", env: Record<string, string | undefined> = {}) {
     return new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve, reject) => {
       const child = spawn(process.execPath, [bin, ...args], {
         env: {
           ...process.env,
           PARITY_AGENT_FILE: agentFile,
           PARITY_AGENT_NAME: "Contract Caller",
-          PARITY_AGENT_ID: "cli-session"
+          PARITY_AGENT_ID: "cli-session",
+          ...env
         },
         stdio: ["pipe", "pipe", "pipe"]
       })

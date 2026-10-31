@@ -9,6 +9,10 @@ describe("callerIdentity", () => {
   })
   it("keeps the id bound independently of the name", () => {
     expect(callerIdentity("Agent", "x".repeat(100))).toEqual({ name: "Agent", id: "x".repeat(80) })
+    const first = "Harness ".repeat(16) + "One"
+    const second = "Harness ".repeat(16) + "Two"
+    expect(callerIdentity(first, undefined)).toEqual({ name: first, id: first })
+    expect(callerIdentity(second, undefined)).toEqual({ name: second, id: second })
     expect(callerIdentity(" Agent ", "  ")).toEqual({ name: "Agent", id: "Agent" })
   })
   it("ignores absent, blank and malformed names", () => {

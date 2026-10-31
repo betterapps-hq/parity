@@ -2103,3 +2103,9 @@ contract tests. The running app is checked with read-only state and component/to
 The RPC boundary uses `packages/agent/src/caller.ts` to preserve complete names and bound only explicit ids. Its
 `caller.test.ts` covers long shared prefixes, id bounds, fallback ids and invalid names. The renderer caps name width in
 the pointer and activity badge, with the full name in a native hover title; it does not shorten the stored name.
+
+When no explicit CLI id is set, the CLI omits `agentId`, letting the boundary use the complete name as its fallback. The
+transport contract test covers two names sharing more than 80 prefix characters. Name spans alone enable pointer events
+through the otherwise transparent overlay, so the full hover title is reachable without blocking the rest of the canvas.
+The cursor component was checked in Storybook with a long name; its text and title remain intact and its visible width
+is bounded with ellipsis.
