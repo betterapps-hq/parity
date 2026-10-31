@@ -26,6 +26,7 @@ if (installerMode) {
   const result = spawnSync(join(appDir, "dist", installer), ["/S", `/D=${installed}`], {
     windowsHide: true,
     windowsVerbatimArguments: true,
+    timeout: 120_000,
     stdio: "inherit"
   })
   if (result.status !== 0) throw new Error(`Installing the built app failed: ${result.error?.message ?? result.status}`)
@@ -86,6 +87,7 @@ try {
   }
   const deadline = Date.now() + 30_000
   let connected = false
+  let agentProblem = "No successful agent response"
   while (!connected && Date.now() < deadline) {
     try {
       const agent: unknown = JSON.parse(await readFile(agentFile, "utf8"))
@@ -99,12 +101,18 @@ try {
       })
       const result: unknown = await response.json()
       connected = response.ok && !!result && typeof result === "object" && "result" in result && !("error" in result)
-    } catch {
+      if (!connected)
+        agentProblem =
+          result && typeof result === "object" && "error" in result && typeof result.error === "string"
+            ? result.error
+            : `Unexpected agent response (HTTP ${response.status})`
+    } catch (error) {
       // The service writes its discovery file and connects the renderer after the window starts loading.
+      agentProblem = error instanceof Error ? error.message : String(error)
     }
     if (!connected) await new Promise((resolve) => setTimeout(resolve, 100))
   }
-  if (!connected) throw new Error("The built app's renderer and project service did not connect.")
+  if (!connected) throw new Error(`The built app's renderer and project service did not connect: ${agentProblem}`)
   if (errors.length) throw new Error(errors.join("\n"))
   console.log("The production renderer and service started outside the checkout without a dev server.")
 } finally {
@@ -113,6 +121,7 @@ try {
     const result = spawnSync(join(installed, "Uninstall Parity.exe"), ["/S", `_?=${installed}`], {
       windowsHide: true,
       windowsVerbatimArguments: true,
+      timeout: 120_000,
       stdio: "inherit"
     })
     if (result.status !== 0)
