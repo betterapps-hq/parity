@@ -129,6 +129,19 @@ try {
     if (!connected) await new Promise((resolve) => setTimeout(resolve, 100))
   }
   if (!connected) {
+    if (process.platform === "win32") {
+      const diagnostics = spawnSync(
+        "powershell.exe",
+        [
+          "-NoProfile",
+          "-NonInteractive",
+          "-Command",
+          "Get-CimInstance Win32_Process -Filter \"Name='Parity.exe'\" | Select-Object ProcessId,ParentProcessId,CommandLine | ConvertTo-Json"
+        ],
+        { windowsHide: true, timeout: 10_000, encoding: "utf8" }
+      )
+      console.error(diagnostics.stdout)
+    }
     console.error(
       "Installed app processes:",
       await electron.evaluate(({ app }) => app.getAppMetrics().map(({ pid, type, name }) => ({ pid, type, name })))
