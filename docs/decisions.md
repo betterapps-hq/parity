@@ -2348,3 +2348,38 @@ My calls in the run-time reading (`extractTokens`):
 - `themeFallbackCss` still counts a property declared anywhere as defined, conditional or not, as before.
 - Libgen's own token collecting (`libgen/src/tokens.ts`), which reads `prefers-color-scheme: dark` blocks as dark, is
   unchanged. Sharing one policy between the two is PAR-468.
+
+## Token policies live in `@parity-app/tokens` (PAR-468)
+
+Libgen, reading a library's source CSS, and the app, reading a project's compiled CSS, had their own rules for which
+theme a custom property's value belongs to and which category a token goes in, and they'd drifted: `--fontSizeBase300`
+was a font size to libgen and Other to the app, and `[data-theme="dark"]` was dark to libgen and dropped by the app.
+Both now use `policy.ts` in `@parity-app/tokens`, which libgen depends on (tokens depends only on core, so there's no
+cycle), and libgen reads CSS with core's `collectCustomProperties` instead of its own parser:
+
+- `themeOfSelector(selector, atRules, options)` names a rule's theme. The root (`:root`, `:host`, `html`,
+  `:where(:root)`) is `default`; a class or attribute value, alone or on the root, names a theme (`.dark`,
+  `[data-theme="dark"]`, `html.dark`, `:host([data-theme='dark'])` are all `dark`); `light` is the default, as Parity's
+  Light mode is the frame with no theme; `:not(…)` is ignored. A selector with a combinator, two names, another
+  attribute operator or pseudo-class, or any at-rule but `@layer` and `@supports` names none. These are documented as
+  unsupported rather than guessed at.
+- `themedProperties(declarations, options)` gathers values by theme, keeping a class or attribute as a theme only when
+  it overrides something the root defines, which keeps a component's `.card { --card-pad }` out.
+- `categorize(name, value)` is the union of the two: libgen's word-based reading (`fontSizeBase300`,
+  `spacingHorizontalM`, `--app-gap`), the app's `effect` category (blur, perspective, aspect) and `currentcolor`, and
+  neither's mistakes: a bare `--text` or `--text-color` isn't a font size. `isTokenName` hides `tw-`, `default-` and
+  per-token modifiers for both.
+- `writeTokenChanges` and `previewToken` find a theme's blocks with `themeOfSelector` too, so a theme read from
+  `[data-theme="dark"]` is previewed and written there, a value it lacks is added to its block, and a `:root` inside a
+  media query is never edited as the default. A frame still shows an attribute theme only when its option in Modes sets
+  that attribute; that's in `docs/support.md`.
+
+The differences that stay are explicit options, both for libgen: `tailwindTheme` reads `@theme` as the default, which
+only source CSS has (the app takes Tailwind's resolved theme from its styles adapter), and `colorScheme` reads a
+`prefers-color-scheme` block as its theme, because a library's themes reach frames as the class blocks
+`describedTokenCss` writes, where the app's would never show (PAR-485). With it, a theme's own selector beats the media
+query wherever it sits, so a library with both `.dark` and a dark media query no longer has whichever comes last. The
+app's derived spacing steps (`spacing-4`) stay the app's, as libgen writes only what the CSS declares.
+
+The detection snapshots changed with it: `chakra`'s `--app-gap` is spacing, `mantine`'s `--app-radius` a radius, and
+`vite7-js` has its `[data-theme="dark"]` theme.

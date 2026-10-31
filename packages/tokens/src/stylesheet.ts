@@ -1,3 +1,6 @@
+import type { EnclosingAtRule } from "@parity-app/core"
+import { isUnconditional, themeOfSelector } from "./policy.ts"
+
 /** A block in a stylesheet's source, with offsets so it can be edited in place. */
 interface SourceBlock {
   /** Offset where the prelude begins. */
@@ -10,14 +13,28 @@ interface SourceBlock {
   children: SourceBlock[]
 }
 
+/** A block with where it sits: the at-rules around it, and whether it's nested in a style rule. */
+interface PlacedBlock extends SourceBlock {
+  atRules: EnclosingAtRule[]
+  nested: boolean
+}
+
 export interface SetPropertyOptions {
   /** Blocks the property may live in, by prelude (`:root`, `.dark`, `@theme`). A prelude matches if any of its comma-separated parts does. */
   blocks: string[]
-  /** Where to add the property when no matching block declares it: an existing block of this prelude, else a new one. */
+  /**
+   * A theme whose blocks the property may also live in, as `themeOfSelector` reads them: for `dark`, `.dark` and
+   * `[data-theme="dark"]` alike. A block under a condition (`@media`…) is no theme's, so it's never edited.
+   */
+  theme?: string
+  /**
+   * Where to add the property when no matching block declares it: an existing block of this prelude, else the
+   * theme's first block (unless this is an at-rule, such as `@theme`), else a new block of this prelude.
+   */
   create: string
 }
 
-/** A new value for a token in one theme: `default` for the root, otherwise the theme class (e.g. `dark`). */
+/** A new value for a token in one theme: `default` for the root, otherwise the theme it names (e.g. `dark`). */
 export interface TokenChange {
   name: string
   theme: string
@@ -25,8 +42,9 @@ export interface TokenChange {
 }
 
 /**
- * Writes token values into a stylesheet's source: semantic tokens into `:root` or their theme class, theme scale
- * tokens (those `themeNames` holds) into an `@theme` block, editing declarations in place where they already exist.
+ * Writes token values into a stylesheet's source: semantic tokens into the root or their theme's block (`.dark` or
+ * `[data-theme="dark"]`, whichever the stylesheet uses, else a new `.dark`), theme scale tokens (those `themeNames`
+ * holds) into an `@theme` block, editing declarations in place where they already exist.
  */
 export function writeTokenChanges(
   source: string,
@@ -40,16 +58,20 @@ export function writeTokenChanges(
 
 function applyTokenChange(source: string, change: TokenChange, isTheme: boolean): string {
   if (change.theme !== "default") {
-    const selector = `.${change.theme}`
-    return setCustomProperty(source, change.name, change.value, { blocks: [selector], create: selector })
+    return setCustomProperty(source, change.name, change.value, {
+      blocks: [],
+      theme: change.theme,
+      create: `.${change.theme}`
+    })
   }
   if (isTheme) {
     return setCustomProperty(source, change.name, change.value, {
-      blocks: ["@theme", "@theme inline", "@theme static", ":root"],
+      blocks: ["@theme", "@theme inline", "@theme static"],
+      theme: "default",
       create: "@theme"
     })
   }
-  return setCustomProperty(source, change.name, change.value, { blocks: [":root", ":host"], create: ":root" })
+  return setCustomProperty(source, change.name, change.value, { blocks: [], theme: "default", create: ":root" })
 }
 
 /**
@@ -57,20 +79,26 @@ function applyTokenChange(source: string, change: TokenChange, isTheme: boolean)
  * Replaces an existing declaration in one of the given blocks, else adds it to the block named by `create`.
  */
 export function setCustomProperty(source: string, name: string, value: string, options: SetPropertyOptions): string {
-  const blocks = flatten(scanBlocks(source))
+  const blocks = place(scanBlocks(source), [], false).filter((block) => !block.nested && isUnconditional(block.atRules))
   const matches = (block: SourceBlock, preludes: string[]) => {
     const parts = block.prelude.split(",").map((part) => normalize(part))
     return preludes.some(
       (prelude) => parts.includes(normalize(prelude)) || normalize(block.prelude) === normalize(prelude)
     )
   }
+  const inTheme = (block: PlacedBlock) =>
+    options.theme !== undefined &&
+    !block.prelude.startsWith("@") &&
+    themeOfSelector(block.prelude, block.atRules) === options.theme
 
-  for (const block of blocks.filter((candidate) => matches(candidate, options.blocks))) {
+  for (const block of blocks.filter((candidate) => matches(candidate, options.blocks) || inTheme(candidate))) {
     const declaration = findDeclaration(source, block, name)
     if (declaration) return source.slice(0, declaration.valueStart) + value + source.slice(declaration.valueEnd)
   }
 
-  const target = blocks.find((candidate) => matches(candidate, [options.create]))
+  const target =
+    blocks.find((candidate) => matches(candidate, [options.create])) ??
+    (options.create.startsWith("@") ? undefined : blocks.find(inTheme))
   if (target) {
     const body = source.slice(target.bodyStart, target.bodyEnd)
     const indent = /\n([ \t]+)--/.exec(body)?.[1] ?? /\n([ \t]+)\S/.exec(body)?.[1] ?? "  "
@@ -87,8 +115,13 @@ function normalize(text: string): string {
   return text.trim().replaceAll(/\s+/g, " ")
 }
 
-function flatten(blocks: SourceBlock[]): SourceBlock[] {
-  return blocks.flatMap((block) => [block, ...flatten(block.children)])
+/** Every block, each with the at-rules around it and whether a style rule holds it. */
+function place(blocks: SourceBlock[], atRules: EnclosingAtRule[], nested: boolean): PlacedBlock[] {
+  return blocks.flatMap((block) => {
+    const atRule = /^@([\w-]+)\s*([\s\S]*)$/.exec(block.prelude)
+    const inner = atRule ? [...atRules, { name: atRule[1]!.toLowerCase(), prelude: atRule[2]!.trim() }] : atRules
+    return [{ ...block, atRules, nested }, ...place(block.children, inner, nested || !atRule)]
+  })
 }
 
 /** Finds `--name: value` directly inside a block (not in nested blocks). */

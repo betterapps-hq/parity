@@ -47,7 +47,10 @@ export interface EnclosingAtRule {
 }
 
 export interface CustomPropertyDeclaration {
-  /** Selector of the innermost style rule that declares it. */
+  /**
+   * Selector of the innermost style rule that declares it, or empty for a declaration directly in an at-rule, as in
+   * Tailwind's `@theme`.
+   */
   selector: string
   /** The at-rules it sits under, outermost first, whether outside or nested inside its style rule. */
   atRules: EnclosingAtRule[]
@@ -67,9 +70,9 @@ export function collectCustomProperties(css: string): CustomPropertyDeclaration[
         if (atRule)
           visit(node.children, selector, [...atRules, { name: atRule[1]!.toLowerCase(), prelude: atRule[2]!.trim() }])
         else visit(node.children, prelude, atRules)
-      } else if (selector) {
+      } else if (selector !== undefined || atRules.length > 0) {
         for (const match of node.text.matchAll(/--([\w-]+)\s*:\s*([^;]+)/g)) {
-          declarations.push({ selector, atRules, name: match[1]!, value: match[2]!.trim() })
+          declarations.push({ selector: selector ?? "", atRules, name: match[1]!, value: match[2]!.trim() })
         }
       }
     }
