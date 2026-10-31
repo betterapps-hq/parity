@@ -104,6 +104,18 @@ export function componentLibrary(designs: Iterable<ContainerSpec>): ComponentLib
   return new Map([...designs].map((design) => [design.id, design]))
 }
 
+/**
+ * Every design a project's instances can place: its libraries' component designs (from their `.lib.par` canvases),
+ * then its own, which come last so one with a library design's id wins. The canvas and agents' renders both build
+ * their library with this, so an instance resolves the same way in each.
+ */
+export function projectComponentLibrary(
+  libraryDesigns: Iterable<ContainerSpec>,
+  own: Iterable<ContainerSpec>
+): ComponentLibrary {
+  return componentLibrary([...libraryDesigns, ...own])
+}
+
 /** Designs are replaced rather than changed, so what a design places is worked out once per design. */
 const placedBy = new WeakMap<ContainerSpec, readonly string[]>()
 

@@ -1487,6 +1487,17 @@ recommended answer to each of its questions.
   PAR-228, which need nothing else.
 
 - **Agents render offscreen,** in a hidden window, so their work never moves your camera. Export uses the same renderer.
+- **A frame drawn offscreen gets the canvas's render inputs from the tab, whole** (PAR-465). My call, from the DRY audit
+  of 2026-10-31: the tab's snapshot carries what the canvas draws with, not a copy rebuilt elsewhere. Its library is the
+  design store's (`getLibraryDesigns`, put together with the project's designs by `projectComponentLibrary` in
+  `@parity-app/core`, as the canvas does, the project's own winning an id they share), so an instance of a `.lib.par`
+  design draws in agents' frames, exports and the Accessibility panel as on the canvas. Its token values are the token
+  store's `previews()`: kept by `withTokenOverrides` in `@parity-app/editor`, every value the canvas shows that differs
+  from the compiled CSS its guest loaded (compared with that CSS, not the edits' originals, so it holds after a guest
+  loads again with saved values), a complete set rather than changes; an agent's call lays its own `SetTokens` over them
+  for each frame. The render window starts each job's stylesheet from the compiled CSS and lays the set over it
+  (`showTokenOverrides` in `renderer/guest.ts`), going back only when the set changed, so no frame inherits another's
+  values, and an undone edit leaves nothing behind. The canvas's own stylesheet is still edited in place, as before.
 - **The offscreen renderer closes when it's idle,** a minute after its last job, and the next job opens it again
   (CAN-83). Its page holds every module graph the project's guest imported, which a page can't unload, so it held 115 to
   215 MB for the whole session and grew each time a project reopened (452 MB after five). A job counts from when it's

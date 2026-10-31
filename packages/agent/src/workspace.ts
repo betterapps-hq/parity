@@ -5,7 +5,6 @@ import {
   boardSize,
   type CanvasDocument,
   childEntries,
-  componentLibrary,
   type ContainerKind,
   type ContainerSpec,
   deleteNode,
@@ -32,6 +31,7 @@ import {
   parseDesignNode,
   parseModeSettings,
   parseNodePatch,
+  projectComponentLibrary,
   removeState,
   renameState,
   resolveDesign,
@@ -701,7 +701,8 @@ export class AgentWorkspace {
       height: size.height,
       scale,
       capture: look === "screenshot",
-      ...(look === "accessibility" ? { audit: true } : {})
+      ...(look === "accessibility" ? { audit: true } : {}),
+      tokens: this.tokenValues()
     })
     return { container, state, mode, frame }
   }
@@ -952,8 +953,25 @@ export class AgentWorkspace {
     return id
   }
 
+  /** What instances place: the libraries' component designs and the call's working copy of the project's, as the canvas builds it. */
   private library() {
-    return componentLibrary(this.all().map((entry) => entry.container))
+    return projectComponentLibrary(
+      this.snapshot.libraryDesigns,
+      this.all().map((entry) => entry.container)
+    )
+  }
+
+  /**
+   * The token values frames draw with over the compiled CSS: the canvas's unsaved ones, then this call's `SetTokens`,
+   * one per token and theme, the latest winning.
+   */
+  private tokenValues(): TokenChange[] {
+    const values = new Map<string, TokenChange>()
+    for (const change of [...this.snapshot.tokenOverrides, ...this.tokenChanges]) {
+      const at = `${change.name} ${change.theme}`
+      values.set(at, { name: change.name, theme: change.theme, value: change.value })
+    }
+    return [...values.values()]
   }
 
   private print(values: unknown[]): void {
@@ -1108,9 +1126,10 @@ export class AgentWorkspace {
     const components = new Set(this.snapshot.components)
     const icons = (this.snapshot.iconSets ?? []).map((set) => `${set.id}/`)
     const tokens = new Set(this.snapshot.tokens.map((token) => token.name))
+    const library = this.library()
     for (const container of document.containers) {
       const check = (node: DesignNode, where: string) => {
-        if (node.type === "instance" && !this.all().some((entry) => entry.container.id === node.design)) {
+        if (node.type === "instance" && !library.has(node.design)) {
           this.warnings.push(`${where}: no component design "${node.design}"`)
         }
         if (

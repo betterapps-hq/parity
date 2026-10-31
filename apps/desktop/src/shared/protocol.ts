@@ -5,6 +5,7 @@ import type {
   ComponentInfo,
   ComponentRenderStatus,
   ComponentSource,
+  ContainerSpec,
   DescribedTokens,
   DesignChange,
   DetectionCorrections,
@@ -294,6 +295,10 @@ export interface TabSnapshot {
   theme: ThemeVariable[]
   modes: ModeSettings
   documents: { path: string; document: CanvasDocument }[]
+  /** The component designs the project's libraries bring, which instances place as the canvas's do. */
+  libraryDesigns: ContainerSpec[]
+  /** Every token value the canvas's unsaved edits leave different from the compiled CSS, which frames lay over it. */
+  tokenOverrides: TokenChange[]
   mainDocument: string
   props: Record<string, ComponentInfo>
   selection: { design?: string; node?: string; mode?: string }
@@ -417,7 +422,10 @@ export interface RenderJob {
   scale: number
   /** Also check the frame with axe-core. */
   audit?: boolean
-  /** Token changes the canvas previews but the project's compiled CSS may not have yet, applied in order. */
+  /**
+   * Every token value that differs from the project's compiled CSS, such as unsaved edits: the complete set, not
+   * changes. Each frame starts from the compiled stylesheet and lays these over it, so no frame inherits another's.
+   */
   previews?: TokenChange[]
 }
 

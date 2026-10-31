@@ -129,10 +129,18 @@ describe("editing tokens", () => {
       const { store, tokens: project } = open()
       project.store.set([{ name: "radius", theme: "dark", value: "1rem" }])
       const edited = declared(project.sheet, "radius", "dark")
+      const previewed = project.store.previews()
       store.undo()
-      return [edited, declared(project.sheet, "radius", "dark"), declared(project.sheet, "radius")]
+      return [
+        edited,
+        declared(project.sheet, "radius", "dark"),
+        declared(project.sheet, "radius"),
+        previewed,
+        project.store.previews()
+      ]
     })
-    expect(result).toEqual(["1rem", "", "0.5rem"])
+    // Frames drawn elsewhere are sent no override for it any more, so they draw the compiled value.
+    expect(result).toEqual(["1rem", "", "0.5rem", [{ name: "radius", theme: "dark", value: "1rem" }], []])
   })
 
   it("shows unsaved edits in a guest loaded again, which then writes them", async () => {

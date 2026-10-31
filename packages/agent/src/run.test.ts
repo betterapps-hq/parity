@@ -1,7 +1,15 @@
 import { defaultModeSettings, findNode } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { execute } from "./run.ts"
-import type { AgentChangeSet, AgentEvent, AgentHooks, AgentSnapshot, IconNames, IconSet } from "./types.ts"
+import type {
+  AgentChangeSet,
+  AgentEvent,
+  AgentHooks,
+  AgentSnapshot,
+  FrameRequest,
+  IconNames,
+  IconSet
+} from "./types.ts"
 
 function snapshot(): AgentSnapshot {
   return {
@@ -45,6 +53,8 @@ function snapshot(): AgentSnapshot {
         }
       }
     ],
+    libraryDesigns: [],
+    tokenOverrides: [],
     mainDocument: "app.par",
     props: {
       Button: {
@@ -454,6 +464,144 @@ Print(await Screenshot("signup", {mode: ["desktop-light", "tablet-light"]}))`
     expect(result.ok).toBe(true)
     const findings = JSON.parse(result.output[0]!) as Record<string, unknown>[]
     expect(findings.find((finding) => finding.node === "submit")).toMatchObject({ name: "Member row" })
+  })
+})
+
+describe("render inputs", () => {
+  /** Hooks that keep each frame asked for. */
+  function recording(requests: FrameRequest[]): AgentHooks {
+    const base = hooks()
+    return {
+      ...base,
+      render: (request) => {
+        requests.push(request)
+        return base.render(request)
+      }
+    }
+  }
+
+  it("draws an instance of a library's component design, as the canvas does", async () => {
+    const project = snapshot()
+    const [signup] = project.documents[0]!.document.containers
+    project.documents[0]!.document.containers = [
+      {
+        ...signup!,
+        root: {
+          ...signup!.root,
+          children: [{ type: "instance", id: "row", design: "kit/label" }]
+        } as typeof signup.root
+      }
+    ]
+    project.libraryDesigns = [
+      {
+        id: "kit/label",
+        name: "Label",
+        kind: "component",
+        position: { x: 0, y: 0 },
+        root: { type: "text", id: "text", text: "From the kit" },
+        states: [{ id: "default", name: "Default" }]
+      }
+    ]
+    const requests: FrameRequest[] = []
+    const result = await execute(
+      { label: "Look", code: `await Measure("signup"); await Problems("signup"); await Screenshot("signup")` },
+      project,
+      recording(requests)
+    )
+    expect(result.ok).toBe(true)
+    expect(requests.length).toBeGreaterThan(2)
+    for (const request of requests) {
+      expect(JSON.stringify(request.tree)).toContain("From the kit")
+      expect(JSON.stringify(request.tree)).not.toContain("No component design")
+    }
+  })
+
+  it("doesn't warn about an instance of a library's design it places", async () => {
+    const project = snapshot()
+    project.libraryDesigns = [
+      {
+        id: "kit/label",
+        name: "Label",
+        kind: "component",
+        position: { x: 0, y: 0 },
+        root: { type: "text", id: "text", text: "From the kit" },
+        states: [{ id: "default", name: "Default" }]
+      }
+    ]
+    const result = await execute(
+      {
+        label: "Place",
+        code: `Insert("page", {type: "instance", design: "kit/label"})
+Insert("page", {type: "instance", design: "kit/missing"})`
+      },
+      project,
+      hooks()
+    )
+    expect(result.ok).toBe(true)
+    const missing = result.warnings.filter((warning) => warning.includes("no component design"))
+    expect(missing).toEqual([expect.stringContaining('"kit/missing"')])
+  })
+
+  it("lets a project design win over a library design with its id", async () => {
+    const project = snapshot()
+    const [signup] = project.documents[0]!.document.containers
+    project.documents[0]!.document.containers = [
+      {
+        ...signup!,
+        root: {
+          ...signup!.root,
+          children: [{ type: "instance", id: "row", design: "kit/label" }]
+        } as typeof signup.root
+      },
+      {
+        id: "kit/label",
+        name: "Label",
+        kind: "component",
+        position: { x: 0, y: 1000 },
+        root: { type: "text", id: "text", text: "The project's own" },
+        states: [{ id: "default", name: "Default" }]
+      }
+    ]
+    project.libraryDesigns = [
+      { ...project.documents[0]!.document.containers[1]!, root: { type: "text", id: "text", text: "From the kit" } }
+    ]
+    const requests: FrameRequest[] = []
+    await execute({ label: "Look", code: `await Measure("signup")` }, project, recording(requests))
+    expect(JSON.stringify(requests[0]!.tree)).toContain("The project's own")
+  })
+
+  it("draws with the canvas's unsaved token values and the call's own SetTokens, the latest winning", async () => {
+    const project = {
+      ...snapshot(),
+      tokenOverrides: [
+        { name: "primary", theme: "default", value: "red" },
+        { name: "background", theme: "dark", value: "navy" }
+      ]
+    }
+    const requests: FrameRequest[] = []
+    const result = await execute(
+      {
+        label: "Tokens",
+        code: `await Measure("signup")
+SetTokens({ primary: "green", "--radius": { dark: "1rem" } })
+await Measure("signup")`
+      },
+      project,
+      recording(requests)
+    )
+    expect(result.ok).toBe(true)
+    expect(requests[0]!.tokens).toEqual(project.tokenOverrides)
+    expect(requests[1]!.tokens).toEqual([
+      { name: "primary", theme: "default", value: "green" },
+      { name: "background", theme: "dark", value: "navy" },
+      { name: "radius", theme: "dark", value: "1rem" }
+    ])
+  })
+
+  it("sends no token values when nothing differs from the compiled CSS", async () => {
+    const requests: FrameRequest[] = []
+    await execute({ label: "Look", code: `await Measure("signup")` }, snapshot(), recording(requests))
+    expect(requests[0]!.tokens).toEqual([])
   })
 })
 

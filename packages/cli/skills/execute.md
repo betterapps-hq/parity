@@ -268,6 +268,10 @@ one design. They're undone with the call's other changes.
 result. `state` and `mode` take an id, a list, or `"all"`; `mode` also takes `"shown"`, the modes the design shows. The
 defaults are the state on the canvas and the main mode.
 
+Frames draw as the canvas does: instances of a library's component designs (from its `.lib.par`) draw that design, and
+token values not yet saved show, the person's edits and this call's own `SetTokens` alike, so
+`SetTokens({ primary: "red" }); await Screenshot(id)` shows the new value in the same call.
+
 `Measure` lays out one frame and returns its size, whether it overflows sideways, and every node's box (`clipped` when a
 parent cuts it off). `Problems` checks frames for render errors, overflow, clipping and unknown components.
 `Accessibility` returns axe-core's findings per node and frame, with the rule, its impact and what's wrong.
