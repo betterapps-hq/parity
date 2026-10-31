@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Retry a frame's bitmap capture that failed, rather than leaving the frame without one",
+  "packageName": "@parity-app/desktop",
+  "email": "noreply@anthropic.com",
+  "dependentChangeType": "patch"
+}
