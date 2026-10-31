@@ -5,9 +5,17 @@ describe("configInputs", () => {
   it("lists every tsconfig read and package.json as configs, and the lockfiles apart", () => {
     const tsconfig = { configs: [], read: ["tsconfig.json", "tsconfig.app.json", "../tsconfig.base.json"] }
     expect(configInputs(tsconfig, ["../pnpm-lock.yaml"])).toEqual({
-      configs: ["../tsconfig.base.json", "package.json", "tsconfig.app.json", "tsconfig.json"],
+      configs: ["../tsconfig.base.json", "jsconfig.json", "package.json", "tsconfig.app.json", "tsconfig.json"],
       lockfiles: ["../pnpm-lock.yaml"]
     })
+  })
+
+  it("lists the root configs even when there are none, so one added or restored is a change", () => {
+    expect(configInputs({ configs: [], read: [] }, []).configs).toEqual([
+      "jsconfig.json",
+      "package.json",
+      "tsconfig.json"
+    ])
   })
 })
 

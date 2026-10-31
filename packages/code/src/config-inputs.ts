@@ -1,17 +1,20 @@
-import type { ProjectTsconfig } from "./tsconfig.ts"
+import { type ProjectTsconfig, rootConfigNames } from "./tsconfig.ts"
 
 /**
  * The files a project's configuration is read from, relative to the root, with `../` for one outside it: what a type
  * checker built for the project depends on besides the app's own files.
  */
 export interface ConfigInputs {
-  /** Every tsconfig the config reader read (references and `extends` bases included), and package.json. */
+  /**
+   * Every tsconfig the config reader read (references and `extends` bases included), the root configs it looks for
+   * even when they're missing, so one added or restored counts as a change, and package.json.
+   */
   configs: string[]
   /** The lockfiles, which pin what installed packages declare: a change to one is a change to the dependencies. */
   lockfiles: string[]
 }
 
-/** How each config input stood when it was last read, by path: its size and modification time, or that it was missing. */
+/** How each config input stood when it was last read, by path: a stamp of its contents, or that it was missing. */
 export interface ConfigStamps {
   configs: Record<string, string>
   lockfiles: Record<string, string>
@@ -24,11 +27,13 @@ export interface ConfigStamps {
 export type ConfigChange = "none" | "config" | "dependencies"
 
 /**
- * The project's config inputs: the tsconfigs as `tsconfig` read them, package.json, and `lockfiles` (from
+ * The project's config inputs: the tsconfigs as `tsconfig` read them, the root configs whether or not they're there
+ * (see `rootConfigNames`), package.json, and `lockfiles` (from
  * `findLockfiles` in `@parity-app/project`). The detection fingerprint hashes these, and the type checker watches them.
  */
 export function configInputs(tsconfig: ProjectTsconfig, lockfiles: readonly string[]): ConfigInputs {
-  return { configs: [...new Set([...tsconfig.read, "package.json"])].sort(), lockfiles: [...lockfiles].sort() }
+  const configs = new Set([...tsconfig.read, ...rootConfigNames, "package.json"])
+  return { configs: [...configs].sort(), lockfiles: [...lockfiles].sort() }
 }
 
 /**

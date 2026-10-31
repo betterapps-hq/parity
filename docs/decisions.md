@@ -600,15 +600,18 @@ recommended answer to each of its questions.
   the first in that list as `lockfile` and the fingerprint hashes all of them, since a package manager may read another
   (npm prefers `npm-shrinkwrap.json`). `fingerprintInputs` lists the files, for a watcher to follow (PAR-470).
 - **A warm type checker is made again when the project's config inputs change, the same inputs the fingerprint reads.**
-  My call (PAR-470): `configInputs` in `@parity-app/code` names them (every tsconfig `ProjectTsconfig.read` lists,
-  package.json, and the lockfiles `findLockfiles` finds), the detection fingerprint hashes them, and the props worker
-  stamps each one's size and modification time. Before each request it compares them (`configChange`): a changed
-  tsconfig or package.json makes the project's checker again with its compiler options read afresh, keeping the
-  installed packages' declarations it parsed; a lockfile that changed, appeared or went drops those too, since the
-  lockfile is the signal that dependencies changed (installed declarations aren't checked one by one, and `node_modules`
-  isn't watched). The project's watcher follows the same inputs, folders outside the root included, and reads props and
-  the type check again a moment after one changes, so the answers match a project opened afresh. The saved detection
-  needs nothing more: its fingerprint already changes with them.
+  My call (PAR-470): `configInputs` in `@parity-app/code` names them (every tsconfig `ProjectTsconfig.read` lists, the
+  root `tsconfig.json` and `jsconfig.json` even when missing, so one added or restored counts, package.json, and the
+  lockfiles `findLockfiles` finds), the detection fingerprint hashes them, and the props worker stamps each one's size,
+  modification time and, under a megabyte, a hash of its contents, so a rewrite within one tick of a coarse clock still
+  shows. Before each request it compares them (`configChange`): a changed tsconfig or package.json makes the project's
+  checker again with its compiler options read afresh, keeping the installed packages' declarations it parsed; a
+  lockfile that changed, appeared or went drops those too (TypeScript's own lib files stay), since the lockfile is the
+  signal that dependencies changed (installed declarations aren't checked one by one, and `node_modules` isn't watched).
+  The project's watcher follows the same inputs, folders outside the root included, and any lockfile name appearing in
+  the folders `findLockfiles` searches (`lockfileFolders`, `changesLockfiles`), and reads props and the type check again
+  a moment after one changes, so the answers match a project opened afresh. The saved detection needs nothing more: its
+  fingerprint already changes with them.
 - **Changed files are read again on their own, without reopening the project.** My call: the parse reads the changed
   files about half a second after the last change, so added, renamed and deleted components show at once, and the type
   checker then reads only those files and the files that import them, since an export's type can come from an import. A

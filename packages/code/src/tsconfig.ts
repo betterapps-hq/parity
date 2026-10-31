@@ -24,13 +24,16 @@ export interface ProjectTsconfig {
   read: string[]
 }
 
+/** The configs a project's TypeScript setup starts from, at its root, in the order they're looked for. */
+export const rootConfigNames = ["tsconfig.json", "jsconfig.json"] as const
+
 /**
  * Reads a project's tsconfig (or jsconfig) the way TypeScript does, with its own parser: `extends` chains, project
  * references (a Vite app's `tsconfig.json` is often `"files": []` with references to `tsconfig.app.json` and
  * `tsconfig.node.json`) and every `paths` entry. Parity uses its own TypeScript, so a project on a newer one still reads.
  */
 export function readTsconfig(root: string): ProjectTsconfig {
-  const start = ["tsconfig.json", "jsconfig.json"].map((name) => join(root, name)).find((path) => existsSync(path))
+  const start = rootConfigNames.map((name) => join(root, name)).find((path) => existsSync(path))
   const configs: TsconfigFile[] = []
   const seen = new Set<string>()
   const read = new Set<string>()

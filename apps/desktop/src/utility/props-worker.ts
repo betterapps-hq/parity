@@ -1,7 +1,8 @@
 // Reads components with the TypeScript checker off the service's main thread: it can take seconds on a large project.
-import { realpathSync, statSync } from "node:fs"
+import { createHash } from "node:crypto"
+import { readFileSync, realpathSync, statSync } from "node:fs"
 import { freemem } from "node:os"
-import { resolve } from "node:path"
+import { dirname, resolve } from "node:path"
 import { parentPort } from "node:worker_threads"
 import {
   type CheckResult,
@@ -178,8 +179,13 @@ function newChecker(
     }
   }
   const parsed: ParseCache = new Map()
-  if (previous && previous.change !== "dependencies") {
-    for (const [key, kept] of previous.checker.parsed) if (kept.time === 0) parsed.set(key, kept)
+  if (previous) {
+    // TypeScript's own lib files come with Parity's TypeScript, not the project's dependencies, so they're kept too.
+    const lib = `${dirname(ts.getDefaultLibFilePath(options)).replaceAll("\\", "/")}/`
+    for (const [key, kept] of previous.checker.parsed) {
+      if (kept.time !== 0) continue
+      if (previous.change === "config" || kept.file.fileName.startsWith(lib)) parsed.set(key, kept)
+    }
   }
   const checker: Checker = {
     options,
@@ -203,10 +209,16 @@ function stampInputs(root: string, inputs: ConfigInputs): ConfigStamps {
   return { configs: stamp(realRoot, inputs.configs), lockfiles: stamp(root, inputs.lockfiles) }
 }
 
+/** Files this small are stamped by their contents too, so a rewrite within one tick of a coarse clock still shows. */
+const hashedBytes = 1024 * 1024
+
+/** An input's size and modification time, and a hash of its contents unless it's large, as a lockfile can be. */
 function stampOf(path: string): string {
   try {
     const stats = statSync(path)
-    return `${stats.mtimeMs}:${stats.size}`
+    const stamp = `${stats.mtimeMs}:${stats.size}`
+    if (stats.size > hashedBytes) return stamp
+    return `${stamp}:${createHash("sha1").update(readFileSync(path)).digest("hex")}`
   } catch {
     return "missing"
   }

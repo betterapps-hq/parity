@@ -33,8 +33,10 @@ import {
   detectProject,
   discoverProject,
   filesChanged,
+  changesLockfiles,
   findLockfiles,
   importersOf,
+  lockfileFolders,
   readChangedFiles,
   readTsconfig
 } from "@parity-app/project"
@@ -81,10 +83,11 @@ interface OpenProject {
   /** Where the windows load the project's guest from: `info.guestUrl`, unless they couldn't load it after it moved. */
   drawnGuestUrl: string
   /**
-   * The project's config inputs (its tsconfigs, package.json and lockfiles, see `configInputs`), absolute: a change to
-   * one reads props and the type check again. Those outside the root are watched by their folders' own watchers.
+   * The project's config inputs (its tsconfigs, package.json and lockfiles, see `configInputs`), absolute, and the
+   * folders where a lockfile appearing changes which ones it has (see `lockfileFolders`): a change to either reads props
+   * and the type check again. Folders outside the root are watched by watchers of their own.
    */
-  configFiles?: Set<string>
+  config?: { files: Set<string>; lockfileFolders: string[] }
   configWatchers?: FSWatcher[]
 }
 
@@ -543,7 +546,7 @@ function watchProjectFiles(project: OpenProject): FSWatcher | undefined {
       const path = name?.toString().replaceAll("\\", "/")
       if (!path) return
       // Before node_modules is passed over, since a tsconfig can extend one an installed package has.
-      if (project.configFiles?.has(resolve(root, path))) {
+      if (isConfigInput(project, resolve(root, path))) {
         configChanged()
         return
       }
@@ -580,7 +583,8 @@ async function followConfig(
   tsconfig = readTsconfig(project.info.root)
 ): Promise<void> {
   const { root } = project.info
-  const inputs = configInputs(tsconfig, await findLockfiles(root))
+  const lockfiles = await findLockfiles(root)
+  const inputs = configInputs(tsconfig, lockfiles)
   if (projects.get(root) !== project) return
   // The config reader lists tsconfigs from the root's real path; one inside the root is matched by the root's watcher.
   const realRoot = realpathSync.native(root)
@@ -588,23 +592,32 @@ async function followConfig(
     ...inputs.configs.map((path) => resolve(path.startsWith("../") ? realRoot : root, path)),
     ...inputs.lockfiles.map((path) => resolve(root, path))
   ])
-  const outside = new Set(
-    [...files].filter((file) => !file.startsWith(join(root, "/")) && !file.startsWith(join(realRoot, "/")))
-  )
+  const inRoot = (folder: string) =>
+    [root, realRoot].some((base) => folder === resolve(base) || folder.startsWith(join(base, "/")))
+  const lockFolders = lockfileFolders(root, lockfiles)
+  const folders = new Set([...[...files].map((file) => dirname(file)), ...lockFolders])
   for (const watcher of project.configWatchers ?? []) watcher.close()
-  project.configFiles = files
-  project.configWatchers = [...new Set([...outside].map((file) => dirname(file)))].flatMap((folder) => {
-    try {
-      return [
-        watch(folder, (_event, name) => {
-          if (name && outside.has(join(folder, name.toString()))) changed()
-        })
-      ]
-    } catch (error) {
-      console.warn(`[service] can't watch ${folder} for config changes: ${message(error)}`)
-      return []
-    }
-  })
+  project.config = { files, lockfileFolders: lockFolders }
+  project.configWatchers = [...folders]
+    .filter((folder) => !inRoot(folder))
+    .flatMap((folder) => {
+      try {
+        return [
+          watch(folder, (_event, name) => {
+            if (name && isConfigInput(project, join(folder, name.toString()))) changed()
+          })
+        ]
+      } catch (error) {
+        console.warn(`[service] can't watch ${folder} for config changes: ${message(error)}`)
+        return []
+      }
+    })
+}
+
+/** Whether a change to `file` (absolute) is a change to the project's config inputs, or to which lockfiles it has. */
+function isConfigInput(project: OpenProject, file: string): boolean {
+  if (!project.config) return false
+  return project.config.files.has(file) || changesLockfiles(file, project.config.lockfileFolders)
 }
 
 /**
