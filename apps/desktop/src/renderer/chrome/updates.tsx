@@ -21,6 +21,7 @@ export function receiveUpdate(next: UpdateState): void {
   if (foreground && (next.phase === "checking" || next.phase === "current"))
     notice = { kind: next.phase, beta: next.beta }
   if (foreground && next.phase === "error") notice = { kind: "error" }
+  if (next.phase !== "checking" && next.phase !== "downloading") foreground = false
   if (!notice) {
     hidden = undefined
     toast.dismiss(notificationId)
@@ -78,7 +79,6 @@ export function checkForUpdates(): void {
   foreground = true
   if (["disabled", "downloading", "ready", "manual", "installing"].includes(state.phase)) {
     receiveUpdate(state)
-    foreground = false
     return
   }
   receiveUpdate({ phase: "checking", beta: state.beta })
@@ -89,7 +89,6 @@ export function checkForUpdates(): void {
       receiveUpdate({ phase: "error", beta: state.beta, message: "Couldn't check for updates." })
     })
     .finally(() => {
-      foreground = false
       pending = undefined
     })
 }

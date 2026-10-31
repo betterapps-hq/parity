@@ -378,7 +378,8 @@ try {
   await openUpdate(page)
   stage = "cancelling restart with unsaved work"
   console.log(stage)
-  await page.getByRole("button", { name: "Restart to update", exact: true }).click()
+  const about = page.getByRole("dialog", { name: "Parity", exact: true })
+  await about.getByRole("button", { name: "Restart to update", exact: true }).click()
   const save = page.getByRole("dialog", { name: /Save changes to/ })
   await save.getByRole("button", { name: "Cancel", exact: true }).click()
   if ((await page.evaluate(() => window.canvasHost.appVersion)) !== "999.0.0")
@@ -387,7 +388,7 @@ try {
     throw new Error("Cancelling lost the ready update.")
   stage = "saving work and restarting"
   console.log(stage)
-  await page.getByRole("button", { name: "Restart to update", exact: true }).click()
+  await about.getByRole("button", { name: "Restart to update", exact: true }).click()
   await save.getByRole("button", { name: "Save", exact: true }).click()
   const deadline = Date.now() + 120_000
   stage = "waiting for the installed new version"

@@ -57,6 +57,15 @@ describe("update notifications", () => {
     updates.checkForUpdates()
     expect(check).toHaveBeenCalledTimes(1)
     expect(latest().notice).toEqual({ kind: "checking", beta: true })
+    updates.receiveUpdate({
+      phase: "downloading",
+      beta: true,
+      version: "0.3.1",
+      percent: 10,
+      transferred: 1,
+      total: 10
+    })
+    updates.checkForUpdates()
     updates.receiveUpdate({ phase: "error", beta: true, message: "Offline" })
     expect(latest().notice.kind).toBe("error")
     finish?.()
@@ -66,6 +75,25 @@ describe("update notifications", () => {
     expect(check).toHaveBeenCalledTimes(2)
     expect(latest().notice.kind).toBe("checking")
     finish?.()
+  })
+
+  it("shows failures when a menu action restores a background download", async () => {
+    const updates = await import("./updates.tsx")
+    const check = vi.fn<() => Promise<void>>()
+    vi.stubGlobal("window", { canvasHost: { updates: { check } } })
+    updates.receiveUpdate({
+      phase: "downloading",
+      beta: false,
+      version: "0.3.1",
+      percent: 10,
+      transferred: 1,
+      total: 10
+    })
+    latest().onDismiss()
+    updates.checkForUpdates()
+    updates.receiveUpdate({ phase: "error", beta: false, message: "Checksum mismatch" })
+    expect(latest().notice.kind).toBe("error")
+    expect(check).not.toHaveBeenCalled()
   })
 
   it("dismisses progress without cancelling and resurfaces ready updates on a menu check", async () => {
