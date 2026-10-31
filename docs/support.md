@@ -110,7 +110,7 @@ at the end of this page are the plan for testing more. Four of them exist in `fi
 | Tailwind `@theme`                          | ✅     | Read and written, including `@theme inline` and `@theme static`.                                           |
 | Themes as one class (`.dark`)              | ✅     |                                                                                                            |
 | Themes as attributes (`[data-theme]`)      | ❌     | Not treated as themes yet; a gap to fix.                                                                   |
-| `prefers-color-scheme` blocks              | ◐      | Overwrite the defaults: in `mantine`, the dark values are read as the light ones. A gap to fix.            |
+| `prefers-color-scheme` blocks              | ◐      | Not read as a theme; the defaults keep the light values. A gap to fix.                                     |
 | Breakpoints (`--breakpoint-*`, `.lib.par`) | ✅     | Plus device presets.                                                                                       |
 | DTCG token files and resolvers             | ✅     | Read from a `.lib.par`'s `tokens`, filed by the category `$extensions.parity` gives, each theme as a mode. |
 | JavaScript themes (MUI, Chakra, Fluent)    | ✅     | Read by `parity lib` into the registry's DTCG.                                                             |
@@ -449,8 +449,8 @@ What the detection snapshots record on 2026-10-29, gaps included:
   breakpoints, four components with `App`, and Storybook 9 stories for two of them. React Aria Components is listed as a
   library, and Hugeicons as an icon set.
 - **`mantine`:** Vite 8.3.5 with `vite.config.cts` and bun. Mantine is listed as a library, and its stylesheet, imported
-  from `main.tsx`, is read from the package. The `prefers-color-scheme` block still overwrites the light values, so the
-  dark ones become the defaults.
+  from `main.tsx`, is read from the package. The `prefers-color-scheme` block isn't read as a theme, so its dark values
+  are left out and the light ones stay the defaults.
 - **`too-old`:** the project opens, with one quiet notice that React 18, Vite 5, Tailwind 3 and Storybook 8 are
   untested. The Tailwind v3 theme doesn't load: Tailwind v4's reader stops at the project's first v3 `@apply`.
 - **`chakra`:** Chakra UI is listed as a library with its five breakpoints, and Phosphor and Tabler as icon sets.

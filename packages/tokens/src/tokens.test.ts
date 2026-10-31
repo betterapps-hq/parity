@@ -23,6 +23,33 @@ describe("extractTokens", () => {
   })
 })
 
+describe("extractTokens with at-rules", () => {
+  it("keeps the default's value when a prefers-color-scheme block overrides it", () => {
+    const css = [
+      ":root { --c: #fff; }",
+      "@media (prefers-color-scheme: dark) { :root { --c: #00f; } }",
+      ".dark { --c: #000; }"
+    ].join("\n")
+    expect(extractTokens(css).find((t) => t.name === "c")?.values).toEqual({ default: "#fff", dark: "#000" })
+  })
+
+  it("leaves out a token only a media query declares", () => {
+    const css = "@media (prefers-color-scheme: dark) { :host { --only-dark: #00f; } }"
+    expect(extractTokens(css).some((t) => t.name === "only-dark")).toBe(false)
+  })
+
+  it("reads values under @layer and @supports as the theme they'd be without them", () => {
+    const css = [
+      "@layer base { :host { --c: #fff; } }",
+      "@supports (color: oklch(0 0 0)) { @layer base { :host { --c: oklch(1 0 0); } .dark { --c: oklch(0 0 0); } } }"
+    ].join("\n")
+    expect(extractTokens(css).find((t) => t.name === "c")?.values).toEqual({
+      default: "oklch(1 0 0)",
+      dark: "oklch(0 0 0)"
+    })
+  })
+})
+
 describe("library tokens in frames", () => {
   it("declares run-time tokens before the project's styles, files them by category, and pairs line heights", async () => {
     const described = await readDesignTokens(
