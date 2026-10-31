@@ -1,6 +1,6 @@
 import { type CanvasDocument, type ContainerSpec, defaultModeSettings, type ModeSettings } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
-import { addDesign, changeDesign, replaceDocuments } from "./design-changes.ts"
+import { addDesign, changeDesign, mergeAgentChanges } from "./design-changes.ts"
 import { withTidyView } from "./document-equality.ts"
 import {
   type ChangeOptions,
@@ -74,6 +74,10 @@ function tokens(history: DesignHistory, edits: readonly TokenEdit[], label = "Ed
 
 function ids(history: DesignHistory): string[] {
   return history.current.documents.get("app.par")!.containers.map((container) => container.id)
+}
+
+function names(history: DesignHistory): string[] {
+  return history.current.documents.get("app.par")!.containers.map((container) => container.name)
 }
 
 /** Saves a file as the app does: the write starts, then succeeds or fails. */
@@ -358,18 +362,38 @@ describe("saving", () => {
 
 describe("token values", () => {
   it("are undone with the designs an agent's call changed in the same step", () => {
-    const document: CanvasDocument = { version: 3, containers: [design("home"), design("pricing")] }
     const history = open()
-    let after = taken(
-      recordChange(
-        history,
-        "Build pricing",
-        replaceDocuments(history.current, [{ path: "app.par", document }], undefined, [primary("red")])
-      )
-    )
+    const call = [{ path: "app.par", id: "pricing", base: null, after: design("pricing") }]
+    const { snapshot } = mergeAgentChanges(history.current, call, undefined, [primary("red")])
+    let after = taken(recordChange(history, "Build pricing", snapshot))
     expect(after.current.tokens.get("primary default")?.value).toBe("red")
     after = taken(undoChange(after))
     expect(after.current.tokens.size).toBe(0)
+    expect(ids(after)).toEqual(["home"])
+    expect(after.historyState.canUndo).toBe(false)
+  })
+
+  it("undo an agent's merged call back to just before it, keeping the person's edits from during the call", () => {
+    // The person renames Home while the call, which read the tab before that, adds Pricing.
+    const edited = rename(open(), "Start")
+    const call = [{ path: "app.par", id: "pricing", base: null, after: design("pricing") }]
+    const merged = mergeAgentChanges(edited.current, call)
+    expect(merged.conflicts).toEqual([])
+    let after = taken(recordChange(edited, "Build pricing", merged.snapshot))
+    expect(names(after)).toEqual(["Start", "pricing"])
+    after = taken(undoChange(after))
+    expect(names(after)).toEqual(["Start"])
+    expect(after.historyState.undoLabel).toBe("Rename to Start")
+  })
+
+  it("undo the modes an agent's call set with its designs", () => {
+    const history = open()
+    const call = [{ path: "app.par", id: "pricing", base: null, after: design("pricing") }]
+    const { snapshot } = mergeAgentChanges(history.current, call, { base: defaultModeSettings, after: custom })
+    let after = taken(recordChange(history, "Build pricing", snapshot))
+    expect(after.current.modes).toBe(custom)
+    after = taken(undoChange(after))
+    expect(after.current.modes).toBe(defaultModeSettings)
     expect(ids(after)).toEqual(["home"])
     expect(after.historyState.canUndo).toBe(false)
   })

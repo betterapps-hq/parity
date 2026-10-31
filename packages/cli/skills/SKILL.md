@@ -28,7 +28,7 @@ active tab is the default.
 | MCP                   | CLI                          | What it does                                                                                                                                               |
 | --------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `get_app_state`       | `parity state`               | Designs, the selection, modes, components and token names, and what Parity detected (builder and config, package manager, installed versions). Start here. |
-| `execute`             | `parity exec`                | Runs a JavaScript snippet against the designs. All changes land as one undo step.                                                                          |
+| `execute`             | `parity exec`                | Runs a JavaScript snippet against the designs. Its changes land as one undo step, merged per design with edits made meanwhile.                             |
 | `screenshot`          | `parity screenshot <design>` | Renders a design in its states and modes, offscreen, and returns the images.                                                                               |
 | `find_problems`       | `parity problems <design>`   | Render errors, overflow, clipping and unknown components, per frame.                                                                                       |
 | `check_accessibility` | `parity a11y <design>`       | axe-core against WCAG 2.2 AA, per frame, on the layers that break each rule.                                                                               |
@@ -63,7 +63,8 @@ keeping the designs there, so ask before running that in someone's project.
 2. **Look before you change.** Read the design with `Get("design-id", { depth: 3 })` in `execute`, and take a screenshot
    of what's there. Find the components you need with `Components()` and their props with `Props()`.
 3. **Change it in one snippet.** Build or edit the design with `Insert`, `Update`, `Replace`, `Move` and the rest. A
-   snippet either applies whole, as one step the person can undo, or changes nothing. Name the layouts you make.
+   snippet either applies whole, as one step the person can undo, or changes nothing. Name the layouts you make. If it
+   fails because the person changed a design it changes, run it again by its `editId`.
 4. **Cover every state.** A screen that loads has a loading state, a list has an empty one, a form has an error one. Add
    them with `AddState`, as changes to the base design, not as copies.
 5. **Check every frame.** Screenshot the design in all its states and the modes it shows (`state: "all"`,
