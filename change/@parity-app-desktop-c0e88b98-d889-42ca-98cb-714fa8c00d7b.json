@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Zoomed-out frames and agents' renders no longer draw a component from a file that's gone",
+  "packageName": "@parity-app/desktop",
+  "email": "noreply@anthropic.com",
+  "dependentChangeType": "patch"
+}

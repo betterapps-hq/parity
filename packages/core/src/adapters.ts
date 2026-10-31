@@ -161,8 +161,13 @@ export interface Guest {
    */
   addComponents?(sources: Record<string, Pick<ComponentSource, "path" | "export">>): void
   /**
-   * Which of the project's code the guest draws with: a number that goes up each time `addComponents` changes where a
-   * component comes from, so frames drawn before can be drawn again. `subscribe` hears when it does.
+   * Takes back components `addComponents` gave whose source went away. One the guest loaded with is drawn as it loaded
+   * again; one it was only given is no longer a component. Ids it wasn't given change nothing.
+   */
+  removeComponents?(ids: string[]): void
+  /**
+   * Which of the project's code the guest draws with: a number that goes up each time `addComponents` or
+   * `removeComponents` changes where a component comes from, so frames drawn before can be drawn again. `subscribe` hears when it does.
    */
   revision?: {
     get: () => number

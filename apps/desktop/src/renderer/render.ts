@@ -4,6 +4,7 @@ import type { AccessibilityIssue, ContrastDetail } from "@parity-app/agent"
 import type { RenderNode } from "@parity-app/core"
 import axe, { type NodeResult, type RunOptions } from "axe-core"
 import type { MeasuredNode, RenderedFrame, RenderJob } from "../shared/protocol.ts"
+import { componentsGone } from "../shared/render-job.ts"
 import { drawnNodeIds, findNodeElement, nodeBox, nodeOfElement, prepareFrame, setDrawnNodes } from "./frame.ts"
 import { loadGuest, releaseGuest, showTokenOverrides } from "./guest.ts"
 
@@ -20,6 +21,8 @@ let current: { unmount(): void } | undefined
 let currentHost: HTMLElement | undefined
 /** The guest each project's frames were drawn with last, to let go of when its project reopens at a new address. */
 const projectGuests = new Map<string, string>()
+/** The components each guest was given by the last job that carried them, to take back the ones a later job drops. */
+const givenComponents = new Map<string, NonNullable<RenderJob["components"]>>()
 
 window.canvasSettle = async () => {
   await document.fonts.ready
@@ -33,7 +36,10 @@ window.canvasRender = async (job) => {
   document.body.replaceChildren()
   const last = projectGuests.get(job.projectId)
   if (last !== job.guestUrl) {
-    if (last) releaseGuest(last)
+    if (last) {
+      releaseGuest(last)
+      givenComponents.delete(last)
+    }
     projectGuests.set(job.projectId, job.guestUrl)
   }
   try {
@@ -53,7 +59,13 @@ window.canvasRender = async (job) => {
     const { viewport } = job.mode
     const target = prepareFrame(host, loaded.sheet, { ...job.mode, viewport })
     const tree = job.tree as RenderNode[]
-    if (job.components) loaded.guest.addComponents?.(job.components)
+    if (job.components) {
+      // Ones whose source went away are taken back first, so a frame using one draws as the canvas's does.
+      const gone = componentsGone(givenComponents.get(job.guestUrl), job.components)
+      if (gone.length > 0) loaded.guest.removeComponents?.(gone)
+      loaded.guest.addComponents?.(job.components)
+      givenComponents.set(job.guestUrl, job.components)
+    }
     const handle = loaded.guest.mount(target, tree, {
       viewport,
       onError: (error) => errors.push(error instanceof Error ? error.message : String(error)),

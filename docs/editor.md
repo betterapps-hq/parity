@@ -1926,19 +1926,30 @@ and nothing else, so frames and bitmaps kept what they had drawn until their des
   when it comes from a new file rather than keeping its error.
 - **The offscreen renderer gets the components too.** The bitmap job carries the components the guest was given since it
   loaded, as agents' renders already did, so a frame using one isn't drawn offscreen without it.
+- **A component whose source went away is taken back, on both sides** (PAR-487). When the type checker no longer finds a
+  component the guest was given, the canvas's guest takes it back (`removeComponents`): one it loaded with is drawn as
+  it loaded again, one it was only given is no longer a component, and the revision goes up so frames and bitmaps draw
+  again. The offscreen renderer remembers what each guest's last job carried and takes back what a later job drops
+  (`componentsGone`), so a bitmap or an agent's render doesn't keep drawing it from the old file. Before, the offscreen
+  window only ever added. Edits to a component's code or CSS don't need a new bitmap key: the guest's dev server runs
+  without HMR, so neither the canvas nor the offscreen window picks them up until the project's guest loads again at a
+  new address, which changes every key (see decisions.md on PAR-422 and PAR-165).
 
 Code: `useFrameShows` and `useFrameBitmap` in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `FrameTile` in
-`canvas/ContainerView.tsx`, which passes `drawn` to `ModeView`'s `shows`; `revision` and `addComponents` in
-`packages/renderer-react/src/guest.ts`, declared on `Guest` in `packages/core/src/adapters.ts`.
+`canvas/ContainerView.tsx`, which passes `drawn` to `ModeView`'s `shows`; `revision`, `addComponents` and
+`removeComponents` in `packages/renderer-react/src/guest.ts`, declared on `Guest` in `packages/core/src/adapters.ts`.
 
 Tests: `packages/renderer-react/src/guest.test.ts` (1: the revision goes up when a component comes from a new file,
-moved or added, and not when it's given the same file again or nothing, and subscribers hear each change).
+moved or added, and not when it's given the same file again or nothing, and subscribers hear each change; 1: taking back
+added components forgets one only given, restores one it loaded with, moves the revision once, ignores ids it wasn't
+given, and adds one given again). `apps/desktop/src/shared/render-job.test.ts` (2 for `componentsGone`: what an earlier
+job gave and this one dropped, and nothing before any job or for a job carrying none).
 `apps/desktop/src/renderer/ModeView.test.ts` (2: a component moved to another file is drawn from there once the frame's
 `shows` changes, and not while it stays the same; and one that failed draws from its new file instead of its error).
 Gaps: that `FrameTile`'s keys follow the revision, and that the bitmap job carries the added components, have no test of
-their own; both were checked by reading `useFrameShows`. A component moving in the running app wasn't tried, since it
-means changing the example's files, which other sessions share; `ModeView.test.ts` drives the guest's side of it, from
-`addComponents` on.
+their own; both were checked by reading `useFrameShows`. That `setSources` and `render.ts` call `removeComponents` was
+checked by reading them. A component moving in the running app wasn't tried, since it means changing the example's
+files, which other sessions share; `ModeView.test.ts` drives the guest's side of it, from `addComponents` on.
 
 ## What the editor itself loads
 

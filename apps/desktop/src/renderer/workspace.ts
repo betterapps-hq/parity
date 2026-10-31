@@ -389,7 +389,10 @@ export class Workspace {
     )
     tab.session.loaded.guest.addComponents?.(changed)
     const added = { ...tab.session.added, ...changed }
-    for (const name of Object.keys(added)) if (!(name in sources)) delete added[name]
+    const gone = Object.keys(added).filter((name) => !(name in sources))
+    for (const name of gone) delete added[name]
+    // The guest takes them back too, as the offscreen renderer does once a job no longer carries them.
+    if (gone.length > 0) tab.session.loaded.guest.removeComponents?.(gone)
     const info = {
       ...tab.session.info,
       sources,

@@ -117,6 +117,8 @@ export function createGuest(init: GuestInit): Guest {
   const components = init.components as Record<string, ComponentType<Props>>
   const loaders: Record<string, () => Promise<unknown>> = { ...init.lazyComponents }
   const names = [...Object.keys(components), ...Object.keys(loaders)]
+  /** What the guest loaded with, for a component added over one of them to go back to once its new source goes. */
+  const loadedWith = { components: { ...components }, loaders: { ...loaders } }
   const iconSets = init.iconSets ?? {}
   const drawn = new Map<unknown, ComponentType<Props>>()
   const deferred = new Map<string, ComponentType<Props>>()
@@ -434,6 +436,27 @@ export function createGuest(init: GuestInit): Guest {
         deferred.delete(id)
         loadedOnDemand.delete(id)
         if (!names.includes(id)) names.push(id)
+      }
+      if (!moved) return
+      revision++
+      for (const listener of revisionListeners) listener()
+    },
+    removeComponents(ids) {
+      let moved = false
+      for (const id of ids) {
+        if (!added.delete(id)) continue
+        moves.set(id, (moves.get(id) ?? 0) + 1)
+        moved = true
+        delete loaders[id]
+        delete components[id]
+        deferred.delete(id)
+        loadedOnDemand.delete(id)
+        // One the guest loaded with is drawn as it loaded again; one it was only given is gone.
+        const component = loadedWith.components[id]
+        const loader = loadedWith.loaders[id]
+        if (component) components[id] = component
+        else if (loader) loaders[id] = loader
+        else names.splice(names.indexOf(id), 1)
       }
       if (!moved) return
       revision++

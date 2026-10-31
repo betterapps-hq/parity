@@ -51,3 +51,33 @@ describe("the guest's code revision", () => {
     expect(heard).toBe(2)
   })
 })
+
+describe("taking back added components", () => {
+  it("forgets one it was only given, draws one it loaded with as it loaded, and moves the revision once", () => {
+    const Card = () => null
+    const guest = createGuest({ components: { Card }, css: "" })
+    guest.addComponents!({
+      Badge: { path: "src/badge.tsx", export: "Badge" },
+      Card: { path: "src/ui/card.tsx", export: "Card" }
+    })
+    const start = guest.revision!.get()
+    let heard = 0
+    guest.revision!.subscribe(() => heard++)
+
+    guest.removeComponents!(["Badge", "Card"])
+    expect(guest.revision!.get()).toBe(start + 1)
+    expect(heard).toBe(1)
+    expect(guest.hasComponent("Badge")).toBe(false)
+    expect(guest.components).toEqual(["Card"])
+    expect(guest.hasComponent("Card")).toBe(true)
+
+    // Ones it wasn't given, or already took back, change nothing.
+    guest.removeComponents!(["Badge", "Card", "Missing"])
+    expect(guest.revision!.get()).toBe(start + 1)
+
+    // Given again from the same file, it's added again rather than skipped as unchanged.
+    guest.addComponents!({ Badge: { path: "src/badge.tsx", export: "Badge" } })
+    expect(guest.hasComponent("Badge")).toBe(true)
+    expect(guest.revision!.get()).toBe(start + 2)
+  })
+})
