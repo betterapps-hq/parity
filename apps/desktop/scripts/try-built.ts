@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process"
 // CI-only production startup check (PAR-8). Run the built files outside the checkout, with no UI dev server.
-import { cp, mkdir, mkdtemp, readdir, readFile, rm, symlink } from "node:fs/promises"
+import { cp, mkdir, mkdtemp, readdir, readFile, realpath, rm, symlink } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { tmpdir } from "node:os"
 import { join, relative, resolve, sep } from "node:path"
@@ -12,7 +12,7 @@ const require = createRequire(join(appDir, "package.json"))
 const developmentExecutable: unknown = require("electron")
 if (typeof developmentExecutable !== "string") throw new Error("Electron did not report its executable.")
 let executable = developmentExecutable
-const work = await mkdtemp(join(tmpdir(), "parity-built-"))
+const work = await realpath(await mkdtemp(join(tmpdir(), "parity-built-")))
 const stage = join(work, "app")
 const agentFile = join(work, "agent.json")
 const installerMode = process.argv.includes("--installer")
@@ -95,12 +95,14 @@ try {
   let connected = false
   let agentProblem = "No successful agent response"
   let reportedAgent = false
+  let discoveryPid = 0
   while (!connected && Date.now() < deadline) {
     try {
       const agent: unknown = JSON.parse(await readFile(agentFile, "utf8"))
       if (!agent || typeof agent !== "object" || !("url" in agent) || !("token" in agent)) throw new Error("Not ready")
       if (typeof agent.url !== "string" || typeof agent.token !== "string") throw new Error("Not ready")
       if (!reportedAgent) {
+        if ("pid" in agent && typeof agent.pid === "number" && Number.isSafeInteger(agent.pid)) discoveryPid = agent.pid
         console.log(
           `Discovered agent at ${new URL(agent.url).origin}, process ${"pid" in agent ? String(agent.pid) : "unknown"}`
         )
@@ -137,12 +139,18 @@ try {
             "-NoProfile",
             "-NonInteractive",
             "-Command",
-            "Get-CimInstance Win32_Process -Filter \"Name='Parity.exe'\" | Select-Object ProcessId,ParentProcessId,CommandLine | ConvertTo-Json"
+            "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'Parity.exe' -or $_.ProcessId -eq [int]$env:PARITY_DIAGNOSTIC_PID } | Select-Object Name,ProcessId,ParentProcessId,CommandLine | ConvertTo-Json"
           ],
-          { windowsHide: true, timeout: 10_000, encoding: "utf8" }
+          {
+            windowsHide: true,
+            timeout: 10_000,
+            encoding: "utf8",
+            env: { ...process.env, PARITY_DIAGNOSTIC_PID: String(discoveryPid) }
+          }
         )
         console.error(diagnostics.stdout)
       }
+      console.error(`Startup check process: ${process.pid}`)
       console.error(
         "Installed app processes:",
         await electron.evaluate(({ app }) => app.getAppMetrics().map(({ pid, type, name }) => ({ pid, type, name })))
