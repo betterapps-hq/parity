@@ -79,10 +79,13 @@ export async function findAppComponents(
   return { found, files: read.sort() }
 }
 
-/** The app's files the parse reads, relative to the root: those its tsconfigs include, else every file under it. */
+/**
+ * The app's files the parse reads, relative to the root: those its tsconfigs include (references followed), else every
+ * file under it. App libraries are generated from the same files, with their own extensions.
+ */
 export async function appFiles(
   root: string,
-  renderer: RendererAdapter,
+  renderer: Pick<RendererAdapter, "componentExtensions">,
   tsconfig: ProjectTsconfig
 ): Promise<{ files: string[]; from: string }> {
   const fromConfigs = tsconfig.configs.flatMap((config) => config.files)
