@@ -45,6 +45,7 @@ mac:
     - target: zip
       arch: [arm64, x64]
 linux:
+  executableName: parity
   icon: resources/icon.png
   category: Development
   target:
