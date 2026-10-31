@@ -2053,3 +2053,15 @@ two frames. Gaps: Vite 7 and earlier's esbuild setting is checked only as data i
 `fixtures/vite7-js` (Vite 7.3.7), whose React came prebundled as production and whose JSX went through the stand-in, and
 with a package compiled for development, which esbuild bundled with the stand-in. The numbers were measured by hand with
 a script that isn't in the repository.
+
+### Shared execute contract (PAR-451)
+
+CLI `exec` and MCP `execute` use the same operation in `packages/cli/src/execute.ts`. Both default the task label to
+"Edit designs" and the tab to the active tab. A request contains a snippet or a retry id, with optional ordered patches.
+Ambiguous requests, blank supplied labels/tabs and malformed patches are rejected before contacting the app. A failed
+execution includes retry details and is a failure in both transports. CLI file/stdin and MCP image content remain
+adapter responsibilities; execution still lands as one undoable step through the desktop.
+
+`packages/cli/src/execute.test.ts` exercises both actual entry points against local RPC: discovery, stdin and file
+input, explicit labels/tabs, defaults, retry patches, invalid requests, success output and images, failed execution and
+desktop errors. It also checks that caller identity travels separately from operation parameters.
