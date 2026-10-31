@@ -1852,7 +1852,9 @@ the Repository, CI and releases stream in Linear.
     v1.6.1 gives the release commit's hooks `origin/main`, which `scripts/changes.ts` compares with. My calls:
     - **A GitHub App pushes and merges the release PR,** not a personal access token, so the release commits aren't
       yours and nothing expires with a person's token. It needs read and write access to contents and pull requests,
-      installed on this repository only.
+      installed on this repository only. A manually prepared release PR can bootstrap npm delivery before that App is
+      installed (PAR-14): normal CI and review still gate its merge, and `cd-npm.yml` uses npm's trusted publishing
+      after CI passes on `main`. The App automates release PR creation and merging; it is not a publishing credential.
     - **The `npm` environment comes from Terraform,** in `infra/github`, kept to `main` with administrators unable to
       bypass it, and with no approval, since every merged release PR ships.
     - **`cd-npm.yml` runs on every CI pass on `main`,** not only when a version changes, since the template publishes
