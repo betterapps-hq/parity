@@ -28,20 +28,20 @@ which tools.
 
 Installers for Windows, macOS and Linux are published to
 [GitHub Releases](https://github.com/betterapps-hq/parity/releases), as betas first. Choose the latest pre-release and
-download the installer for your system. Version 0.2.0 predates the updater, so install the first updater-enabled release
-manually once. Newer Windows installers and Linux AppImages download updates in the background and offer Restart to
-update. Macs offer a manual download until signing is ready. Help > Check for updates opens the update status; Beta
-updates are off by default: enable Settings > Get beta updates to receive later pre-releases. Ordinary quit never
-installs an update.
+download the installer for your system. Version 0.2.0 predates the updater, so install version 0.3.0 or later manually
+once. Windows installers and Linux AppImages from 0.3.0 download updates in the background and offer Restart to update.
+Macs offer a manual download until signing is ready. Help > Check for updates opens the update status; Beta updates are
+off by default: enable Settings > Get beta updates to receive later pre-releases. Ordinary quit never installs an
+update.
 
 Before opening it, download `desktop-release.json` from the **same release on this repository**, alongside the
 installer. Find the installer's exact filename in `assets` and compare its `sha256` with the hash calculated on your
 computer (replace the example filename with your download):
 
-- **Windows, PowerShell:** `Get-FileHash .\Parity-0.2.0-win-x64.exe -Algorithm SHA256`
-- **macOS, Apple Silicon, Terminal:** `shasum -a 256 ./Parity-0.2.0-mac-arm64.dmg`
-- **macOS, Intel, Terminal:** `shasum -a 256 ./Parity-0.2.0-mac-x64.dmg`
-- **Linux, terminal:** `sha256sum ./Parity-0.2.0-linux-x86_64.AppImage`
+- **Windows, PowerShell:** `Get-FileHash .\Parity-0.3.0-win-x64.exe -Algorithm SHA256`
+- **macOS, Apple Silicon, Terminal:** `shasum -a 256 ./Parity-0.3.0-mac-arm64.dmg`
+- **macOS, Intel, Terminal:** `shasum -a 256 ./Parity-0.3.0-mac-x64.dmg`
+- **Linux, terminal:** `sha256sum ./Parity-0.3.0-linux-x86_64.AppImage`
 
 The hashes must match, ignoring letter case. If they differ, do not open the installer. This checks the download against
 the release's published checksum; it does not provide a publisher signature. Once verified, the first run needs a step
