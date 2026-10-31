@@ -112,6 +112,13 @@ describe("writeTokenChanges", () => {
     const next = writeTokenChanges(css, [{ name: "c", theme: "default", value: "red" }], new Set())
     expect(next).toBe("@media (prefers-color-scheme: dark) {\n  :root { --c: #000; }\n}\n:root {\n  --c: red;\n}\n")
   })
+
+  it("writes every block that declares the theme's value, so a later one doesn't win back after a save", () => {
+    const css = ':root { --c: #fff; }\n.dark { --c: #111; }\n[data-theme="dark"] { --c: #222; }\n'
+    const next = writeTokenChanges(css, [{ name: "c", theme: "dark", value: "red" }], new Set())
+    expect(next).toBe(':root { --c: #fff; }\n.dark { --c: red; }\n[data-theme="dark"] { --c: red; }\n')
+    expect(extractTokens(next).find((token) => token.name === "c")?.values).toEqual({ default: "#fff", dark: "red" })
+  })
 })
 
 describe("extractTokens", () => {

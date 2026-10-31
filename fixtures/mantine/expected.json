@@ -13,6 +13,7 @@
     "name": "Bun",
     "agent": "bun",
     "from": "bun.lock",
+    "lockfile": "bun.lock",
     "summary": "Bun from bun.lock"
   },
   "tools": [

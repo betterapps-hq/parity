@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto"
 import { createContext, Script, type Context } from "node:vm"
+import { describeConflicts } from "@parity-app/core"
 import type { AgentHooks, AgentSnapshot, ExecResult } from "./types.ts"
 import { AgentWorkspace } from "./workspace.ts"
 
@@ -18,8 +19,9 @@ const contexts = new Map<string, Context>()
 const failed = new Map<string, string>()
 
 /**
- * Runs an agent's snippet against a working copy of a tab. It either succeeds and returns every change to apply as
- * one step, or fails and changes nothing, returning an `editId` to retry with.
+ * Runs an agent's snippet against a working copy of a tab. It either succeeds and returns every change, applied as one
+ * step through `hooks.apply` when given, or fails and changes nothing, returning an `editId` to retry with. A call
+ * whose changes conflict with what changed in the editor since the snapshot fails the same way, naming the designs.
  */
 export async function execute(request: ExecRequest, snapshot: AgentSnapshot, hooks: AgentHooks): Promise<ExecResult> {
   const code = request.editId ? patch(request.editId, request.edits ?? []) : request.code
@@ -30,6 +32,11 @@ export async function execute(request: ExecRequest, snapshot: AgentSnapshot, hoo
   try {
     await run(snapshot.tab, code, workspace.api())
     const result = workspace.result()
+    const { designs, modes, tokens } = result.changes
+    if (hooks.apply && (designs.length > 0 || modes || tokens.length > 0)) {
+      const conflicts = await hooks.apply(result.changes)
+      if (conflicts.length > 0) throw new Error(describeConflicts(conflicts))
+    }
     if (request.editId) failed.delete(request.editId)
     workspace.emit({ kind: "end" })
     workspace.flush()
@@ -48,7 +55,7 @@ export async function execute(request: ExecRequest, snapshot: AgentSnapshot, hoo
       warnings: [],
       screenshots: [],
       created: {},
-      changes: { documents: [], tokens: [] }
+      changes: { designs: [], tokens: [] }
     }
   }
 }

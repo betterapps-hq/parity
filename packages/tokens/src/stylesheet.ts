@@ -76,7 +76,7 @@ function applyTokenChange(source: string, change: TokenChange, isTheme: boolean)
 
 /**
  * Sets a custom property in a stylesheet's source, keeping everything else (comments, order, formatting) as written.
- * Replaces an existing declaration in one of the given blocks, else adds it to the block named by `create`.
+ * Replaces the declaration in every matching block that has one, else adds it to the block named by `create`.
  */
 export function setCustomProperty(source: string, name: string, value: string, options: SetPropertyOptions): string {
   const blocks = place(scanBlocks(source), [], false).filter((block) => !block.nested && isUnconditional(block.atRules))
@@ -91,9 +91,16 @@ export function setCustomProperty(source: string, name: string, value: string, o
     !block.prelude.startsWith("@") &&
     themeOfSelector(block.prelude, block.atRules) === options.theme
 
-  for (const block of blocks.filter((candidate) => matches(candidate, options.blocks) || inTheme(candidate))) {
-    const declaration = findDeclaration(source, block, name)
-    if (declaration) return source.slice(0, declaration.valueStart) + value + source.slice(declaration.valueEnd)
+  // Every block that declares it gets the value, as `previewToken` does, so `.dark` and a later `[data-theme="dark"]`
+  // can't disagree after a save. From the last, so earlier offsets still hold.
+  const declarations = blocks
+    .filter((candidate) => matches(candidate, options.blocks) || inTheme(candidate))
+    .flatMap((block) => findDeclaration(source, block, name) ?? [])
+    .sort((a, b) => b.valueStart - a.valueStart)
+  if (declarations.length > 0) {
+    let next = source
+    for (const { valueStart, valueEnd } of declarations) next = next.slice(0, valueStart) + value + next.slice(valueEnd)
+    return next
   }
 
   const target =

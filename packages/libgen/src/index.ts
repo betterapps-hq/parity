@@ -3,7 +3,7 @@ import { readdir, readFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { basename, dirname, join, resolve, sep } from "node:path"
 import { pathToFileURL } from "node:url"
-import { type ComponentReport, findComponents, relativePath } from "@parity-app/code"
+import { appFiles, type ComponentReport, findComponents, readTsconfig, relativePath } from "@parity-app/code"
 import {
   applyLibraryEdits,
   iconVariants,
@@ -18,7 +18,7 @@ import {
   parseLibraryManifest,
   type TokenCategory
 } from "@parity-app/core"
-import { installedPackage, parseJsonc } from "@parity-app/project"
+import { findStyles, installedPackage, parseJsonc, readStylesheet } from "@parity-app/project"
 import ts from "typescript"
 import { type AnatomyCheck, checkAnatomy, readAnatomy } from "./anatomy.ts"
 import {
@@ -177,7 +177,7 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
   const tokens = new Map<string, CollectedToken>()
   const styles = preset?.styles ?? stylesheetOf(dir, pkg)
   if (styles) {
-    for (const token of cssTokens(await readCss(exportedFile(dir, pkg, styles)))) tokens.set(token.var, token)
+    for (const token of cssTokens(await readStylesheet(exportedFile(dir, pkg, styles)))) tokens.set(token.var, token)
   }
   let breakpoints: LibraryBreakpoint[] | undefined
   if (preset?.theme) {
@@ -501,19 +501,27 @@ function summarizeParts(relations: Map<string, PartRelation>): PartsSummary {
   return summary
 }
 
+/** The files an app library's components are read from: the type checker finds React components in JSX files. */
+const appExtensions = [".tsx", ".jsx"]
+
 async function describeApp(options: GenerateOptions): Promise<GeneratedLibrary> {
   const root = resolve(options.root)
   const pkg = JSON.parse(await readFile(join(root, "package.json"), "utf8")) as PackageJson
   const notes: string[] = []
-  const config = appConfig(root)
-  if (!config) notes.push("No tsconfig.json or jsconfig.json, so every .tsx and .jsx file under src was read.")
-  const files = (config?.fileNames ?? (await sourceFiles(join(root, "src")))).filter(
-    (file) => /\.[jt]sx$/.test(file) && !/\.(stories|test|spec)\.[jt]sx$/.test(file) && !file.includes("/node_modules/")
-  )
+  // The same configs and files project detection reads: references followed, tests and build output left out.
+  const tsconfig = readTsconfig(root)
+  const { files } = await appFiles(root, { componentExtensions: appExtensions }, tsconfig)
+  if (tsconfig.configs.length === 0) {
+    notes.push("No tsconfig.json or jsconfig.json, so every .tsx and .jsx file in the project was read.")
+  } else if (!tsconfig.configs.some((config) => config.files.length > 0)) {
+    const names = tsconfig.configs.map((config) => config.path).join(", ")
+    const verb = tsconfig.configs.length === 1 ? "includes" : "include"
+    notes.push(`${names} ${verb} no files, so every .tsx and .jsx file in the project was read.`)
+  }
   const scan = findComponents({
-    entries: files,
+    entries: files.map((file) => join(root, file).replaceAll("\\", "/")),
     root,
-    ...(config ? { compilerOptions: config.options } : {}),
+    ...(tsconfig.app ? { compilerOptions: tsconfig.app.options } : {}),
     defaultExports: true
   })
   // One name in two files gains its folder, as in `ui/FieldError`, so neither is lost.
@@ -526,8 +534,9 @@ async function describeApp(options: GenerateOptions): Promise<GeneratedLibrary> 
     list[id] = { as: component.as, declaration: relativePath(root, component.file), group: component.group }
   }
   const tokens = new Map<string, CollectedToken>()
-  for (const stylesheet of await appStylesheets(root)) {
-    for (const token of cssTokens(await readCss(join(root, stylesheet)))) tokens.set(token.var, token)
+  // The stylesheets project detection loads on the canvas, so the library's tokens are the ones the app renders with.
+  for (const stylesheet of (await findStyles(root)).styles) {
+    for (const token of cssTokens(await readStylesheet(join(root, stylesheet)))) tokens.set(token.var, token)
   }
   pairLineHeights(tokens)
   const breakpoints = breakpointsOf([...tokens.values()])
@@ -679,21 +688,6 @@ function exportedFile(dir: string, pkg: PackageJson, specifier: string): string 
   const target = exported[`./${specifier}`]
   const file = typeof target === "string" ? target : (target as Record<string, unknown> | undefined)?.default
   return join(dir, typeof file === "string" ? file : specifier)
-}
-
-/** A stylesheet with its relative `@import`s inlined, so a Tailwind entry brings its theme file with it. */
-async function readCss(path: string, seen = new Set<string>()): Promise<string> {
-  if (seen.has(path)) return ""
-  seen.add(path)
-  const source = await readFile(path, "utf8").catch(() => "")
-  const parts: string[] = []
-  let last = 0
-  for (const match of source.matchAll(/@import\s+(?:url\()?["'](\.{1,2}\/[^"']+\.css)["']\)?[^;]*;/g)) {
-    parts.push(source.slice(last, match.index), await readCss(join(dirname(path), match[1]!), seen))
-    last = match.index + match[0].length
-  }
-  parts.push(source.slice(last))
-  return parts.join("")
 }
 
 /** A DTCG token file the package ships, if it has one in the format; Buildkit's `tokens.json` isn't yet. */
@@ -866,42 +860,4 @@ async function resolveImport(from: string, specifier: string): Promise<string | 
   }
   const file = pick(exported[subpath(specifier, name)]) ?? (specifier === name ? pkg.module : undefined)
   return file ? join(dir, file) : undefined
-}
-
-function appConfig(root: string): ts.ParsedCommandLine | undefined {
-  for (const name of ["tsconfig.app.json", "tsconfig.json", "jsconfig.json"]) {
-    const path = join(root, name)
-    if (!existsSync(path)) continue
-    const parsed = ts.getParsedCommandLineOfConfigFile(
-      path,
-      {},
-      { ...ts.sys, onUnRecoverableConfigFileDiagnostic: () => undefined }
-    )
-    if (parsed && parsed.fileNames.length > 0) return parsed
-  }
-  return undefined
-}
-
-async function sourceFiles(folder: string): Promise<string[]> {
-  const entries = await readdir(folder, { withFileTypes: true }).catch(() => [])
-  const files: string[] = []
-  for (const entry of entries) {
-    const path = join(folder, entry.name).replaceAll("\\", "/")
-    if (entry.isDirectory() && !entry.name.startsWith(".") && entry.name !== "node_modules") {
-      files.push(...(await sourceFiles(path)))
-    } else if (/\.[jt]sx?$/.test(entry.name)) files.push(path)
-  }
-  return files
-}
-
-/** An app's global stylesheets: shadcn's `components.json` names one; otherwise the usual places. */
-async function appStylesheets(root: string): Promise<string[]> {
-  const shadcn = await readFile(join(root, "components.json"), "utf8").then(
-    (text) => JSON.parse(text) as { tailwind?: { css?: string } },
-    () => undefined
-  )
-  if (shadcn?.tailwind?.css) return [shadcn.tailwind.css]
-  return ["src/index.css", "src/styles.css", "src/app.css", "src/globals.css", "app/globals.css"].filter((path) =>
-    existsSync(join(root, path))
-  )
 }
