@@ -91,4 +91,32 @@ describe("update session", () => {
     expect(driver.install).toHaveBeenCalledTimes(1)
     expect(session.install()).toBe(false)
   })
+
+  it("resets the acknowledged close when installation reports a later failure", async () => {
+    const { session } = setup()
+    await session.check()
+    const resetClose = vi.fn<() => void>()
+    expect(session.install(resetClose)).toBe(true)
+    expect(resetClose).not.toHaveBeenCalled()
+    session.fail(new Error("Installer failed"))
+    expect(session.get()).toMatchObject({ phase: "error", message: "Installer failed" })
+    expect(resetClose).toHaveBeenCalledOnce()
+    session.fail(new Error("Another error"))
+    expect(resetClose).toHaveBeenCalledOnce()
+  })
+
+  it("also resets the close when installation throws immediately", async () => {
+    const { session } = setup({
+      driver: {
+        install: () => {
+          throw new Error("Installer could not start")
+        }
+      }
+    })
+    await session.check()
+    const resetClose = vi.fn<() => void>()
+    expect(session.install(resetClose)).toBe(false)
+    expect(resetClose).toHaveBeenCalledOnce()
+    expect(session.get()).toMatchObject({ phase: "error", message: "Installer could not start" })
+  })
 })

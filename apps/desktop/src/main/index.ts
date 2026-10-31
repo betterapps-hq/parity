@@ -215,10 +215,12 @@ function createWindow(): void {
     if (event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame || ready) return
     ready = true
     if (updateRestarts.delete(window.id)) {
-      if (!updates?.install()) {
+      const resetClose = () => {
         ready = false
         deciding = false
+        quitting = false
       }
+      if (!updates?.install(resetClose)) resetClose()
       return
     }
     window.close()

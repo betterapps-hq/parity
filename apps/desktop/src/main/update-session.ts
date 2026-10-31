@@ -10,6 +10,7 @@ export interface UpdateDriver {
 export class UpdateSession {
   private state: UpdateState
   private pending: Promise<void> | undefined
+  private installationFailed: (() => void) | undefined
 
   constructor(
     private readonly options: {
@@ -74,8 +75,9 @@ export class UpdateSession {
   }
 
   /** Only called after the window's existing close flow acknowledges that unsaved work was handled. */
-  install(): boolean {
+  install(onFailure?: () => void): boolean {
     if (this.state.phase !== "ready" || this.options.manual) return false
+    this.installationFailed = onFailure
     this.send({ type: "install" })
     try {
       this.options.driver.install()
@@ -87,6 +89,9 @@ export class UpdateSession {
   }
 
   fail(error: unknown): void {
+    const failed = this.state.phase === "installing" ? this.installationFailed : undefined
+    this.installationFailed = undefined
     this.send({ type: "error", message: error instanceof Error ? error.message : String(error) })
+    failed?.()
   }
 }
