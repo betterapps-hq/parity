@@ -35,8 +35,9 @@ held.
 // Reading
 Designs(): DesignSummary[]                       // every design: id, name, kind, states, what it shows, size
 GetDesign(design): Design                        // a whole design, as in document.md
-Get(path, { depth?, state? }?): Node             // a design's root or a node; depth cuts children off with "…"
+Get(path, { depth?, state?, mode? }?): Node      // a design's root or a node; depth cuts children off with "…"
 Get(path?, visit): any[]                         // walks nodes, collecting what visit returns
+Get(path, visit, { state?, mode? }): any[]       // walks nodes as a frame draws them
 Components(): string[]                           // the components designs can use
 Props(component, { all? }?): PropsInfo           // a component's props, from its source
 Icons(): IconSet[]                               // the project's icon sets, with their styles
@@ -100,11 +101,27 @@ canvas, the main mode and the modes beside it. Start here to find ids.
 ### Get
 
 `Get("dashboard", { depth: 2 })` returns the design's root with two levels of children; deeper ones show as `"…"`. Read
-a branch with a node path, as in `Get("dashboard/Stats", { depth: 2 })`. With `state`, the result shows the nodes as
-that state changes them.
+a branch with a node path, as in `Get("dashboard/Stats", { depth: 2 })`. Without `state` or `mode`, Get returns the
+nodes as stored, which is what `Update` and the other edits change.
+
+With `state`, `mode` or both, Get returns the nodes as that frame of the board draws them: the design's variant options
+(`view.variants`), its params' defaults filled into bound values, its responsive patches for the mode, then the state's
+patches. `mode` is a mode id from `GetModes()`, as Screenshot takes. A state alone is read in the design's main mode,
+and a mode alone in the state the design shows. A bound value comes back filled in, with its `bind` kept so you can tell
+it comes from a param. An instance comes back as its own node with the args it's drawn with; read what's inside it by
+its path, `design/instance/inner`, which only works with `state` or `mode`.
+
+```js
+// A component whose title is bound to its "title" param: stored, then as the board shows it.
+Print(Get("card/title").text) // "Title"
+Print(Get("card/title", { state: "base" }).text) // "Card title", the param's default
+// A copy of the card on a screen, inside the instance, in a state and on mobile.
+Print(Get("profile/person/title", { state: "selected", mode: "mobile-light" }).text) // "Selected"
+```
 
 `Get(path, visit)` walks the nodes under `path`, or every design without one, and returns what `visit` returns for each.
-`visit(node, { design, path, depth, index, parent, skipChildren })`. Return `undefined` to collect nothing.
+`visit(node, { design, path, depth, index, parent, skipChildren })`. Return `undefined` to collect nothing. Given a
+path, `Get(path, visit, { state, mode })` visits the nodes as that frame draws them, as above.
 
 ```js
 // Every Button in the project, with where it is.
