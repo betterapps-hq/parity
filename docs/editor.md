@@ -1995,8 +1995,10 @@ through `preload/index.ts`. `renderer/chrome/updates.tsx` shares state between `
 
 Tests: `packages/core/src/updates.test.ts` covers guarded transitions, late progress, channel changes and invalid
 progress; `main/update-session.test.ts` covers serialized checks, retry, disabled development builds and the Mac
-fallback. CI runs `scripts/try-update.ts` on Windows and Linux: two real packaged versions, checksum rejection, Later,
-unsaved-work cancellation, Save, installation and relaunch as the newer version. It refuses to run outside CI.
+fallback. `preload/index.test.ts` covers a native menu action arriving before React subscribes and replacing its
+listener without losing the next action. CI runs `scripts/try-update.ts` on Windows and Linux: two real packaged
+versions, checksum rejection, Later, unsaved-work cancellation, Save, installation and relaunch as the newer version. It
+refuses to run outside CI.
 
 ### The page never scrolls (PAR-424)
 

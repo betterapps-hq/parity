@@ -12,6 +12,14 @@ const pending = new Map<number, Pending>()
 const queued: ChannelMessage[] = []
 let handler: ((method: WindowMethod, params: unknown) => Promise<unknown>) | undefined
 const reconnectListeners = new Set<() => void>()
+const showUpdateListeners = new Set<() => void>()
+let pendingShowUpdate = false
+
+// A native menu action may arrive after load but before React mounts and subscribes.
+ipcRenderer.on("canvas:show-updates", () => {
+  if (showUpdateListeners.size === 0) pendingShowUpdate = true
+  else for (const listener of showUpdateListeners) listener()
+})
 
 function send(message: ChannelMessage): void {
   if (port) port.postMessage(message)
@@ -68,9 +76,13 @@ const host: CanvasHost = {
       }
     },
     onShow: (listener) => {
-      ipcRenderer.on("canvas:show-updates", listener)
+      showUpdateListeners.add(listener)
+      if (pendingShowUpdate) {
+        pendingShowUpdate = false
+        listener()
+      }
       return () => {
-        ipcRenderer.removeListener("canvas:show-updates", listener)
+        showUpdateListeners.delete(listener)
       }
     }
   },

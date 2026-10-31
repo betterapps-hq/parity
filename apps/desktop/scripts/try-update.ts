@@ -280,14 +280,14 @@ try {
   stage = "cancelling restart with unsaved work"
   console.log(stage)
   await page.getByRole("button", { name: "Restart to update", exact: true }).click()
-  stage = "saving work and restarting"
-  console.log(stage)
   const save = page.getByRole("dialog", { name: /Save changes to/ })
   await save.getByRole("button", { name: "Cancel", exact: true }).click()
   if ((await page.evaluate(() => window.canvasHost.appVersion)) !== "999.0.0")
     throw new Error("Cancelling restarted the app.")
   if ((await page.evaluate(() => window.canvasHost.updates.get())).phase !== "ready")
     throw new Error("Cancelling lost the ready update.")
+  stage = "saving work and restarting"
+  console.log(stage)
   await page.getByRole("button", { name: "Restart to update", exact: true }).click()
   await save.getByRole("button", { name: "Save", exact: true }).click()
   const deadline = Date.now() + 120_000
