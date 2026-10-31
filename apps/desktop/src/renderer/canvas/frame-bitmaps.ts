@@ -13,9 +13,13 @@ export const bitmapScale = 0.25
 const settleMs = 1000
 /** Bitmaps kept, most recently asked for last. Each is a quarter-size PNG. */
 const kept = 400
+/** How long after a failed capture it's tried again, doubling each time it fails, up to eight times as long. */
+const retryMs = 2000
+/** What a capture that failed gives, which isn't kept, unlike a frame that didn't render. */
+export const failed = Symbol("failed")
 
 /** Bitmaps by what they show, as data URLs: nothing for a frame that didn't render. */
-const bitmaps = new Map<string, Promise<string | undefined>>()
+const bitmaps = new Map<string, Promise<string | undefined | typeof failed>>()
 /** How many frames on the canvas show each bitmap. One nothing waits for is skipped when its turn comes. */
 const wanted = new Map<string, number>()
 /** One capture at a time, so agents' renders and exports still get their turn in the offscreen window. */
@@ -99,11 +103,17 @@ export function useFrameBitmap({ key, job }: FrameShows): string | undefined {
 
   useEffect(() => {
     let current = true
+    let timer: ReturnType<typeof setTimeout>
     want(key, 1)
-    const timer = setTimeout(
-      () => void capture(key, job).then((src) => current && setShown({ key, src })),
-      bitmaps.has(key) ? 0 : settleMs
-    )
+    // A capture that failed, as the offscreen window's can on a busy machine, is tried again later rather than leaving
+    // the frame without a bitmap for good.
+    const take = (attempt: number) =>
+      void capture(key, job).then((src) => {
+        if (!current) return
+        if (src === failed) timer = setTimeout(() => take(attempt + 1), retryMs * Math.min(2 ** attempt, 8))
+        else setShown({ key, src })
+      })
+    timer = setTimeout(() => take(0), bitmaps.has(key) ? 0 : settleMs)
     return () => {
       current = false
       want(key, -1)
@@ -114,7 +124,7 @@ export function useFrameBitmap({ key, job }: FrameShows): string | undefined {
   return shown?.key === key ? shown.src : undefined
 }
 
-function capture(key: string, job: RenderJob): Promise<string | undefined> {
+export function capture(key: string, job: RenderJob): Promise<string | undefined | typeof failed> {
   const known = bitmaps.get(key)
   if (known) {
     bitmaps.delete(key)
@@ -129,7 +139,10 @@ function capture(key: string, job: RenderJob): Promise<string | undefined> {
     const { png } = await window.canvasHost.request("frames.capture", { job })
     return png === undefined ? undefined : `data:image/png;base64,${png}`
   })
-  const settled = taking.catch(() => undefined)
+  const settled = taking.catch((): typeof failed => {
+    if (bitmaps.get(key) === settled) bitmaps.delete(key)
+    return failed
+  })
   queue = settled
   bitmaps.set(key, settled)
   for (const old of bitmaps.keys()) {
@@ -139,7 +152,7 @@ function capture(key: string, job: RenderJob): Promise<string | undefined> {
   return settled
 }
 
-function want(key: string, change: 1 | -1): void {
+export function want(key: string, change: 1 | -1): void {
   const count = (wanted.get(key) ?? 0) + change
   if (count > 0) wanted.set(key, count)
   else wanted.delete(key)
