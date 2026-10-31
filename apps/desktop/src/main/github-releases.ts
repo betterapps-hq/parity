@@ -39,7 +39,7 @@ export async function githubRelease(
   }
 }
 
-/** The updater wraps GitHub's latest-release 404 twice. Never treat other providers or failures as empty feeds. */
+/** GitHub's HTML endpoint can answer 404 or 406 for no stable release; confirm through the REST API. */
 export async function noStableRelease(error: unknown, beta: boolean, request: typeof fetch = fetch): Promise<boolean> {
   if (
     beta ||
@@ -49,7 +49,7 @@ export async function noStableRelease(error: unknown, beta: boolean, request: ty
     !error.message.includes(
       "Unable to find latest version on GitHub (https://github.com/betterapps-hq/parity/releases/latest)"
     ) ||
-    !/\b404\b/.test(error.message)
+    !/\b(?:404|406)\b/.test(error.message)
   )
     return false
   try {

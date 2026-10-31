@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Fingerprint every lockfile package-manager detection recognizes, such as npm-shrinkwrap.json, and the tsconfigs a project's configs extend, so cached props refresh when they change",
-  "packageName": "@parity-app/desktop",
-  "email": "noreply@anthropic.com",
-  "dependentChangeType": "patch"
-}

@@ -35,6 +35,14 @@ describe("bounded GitHub metadata requests", () => {
 })
 
 describe("empty stable GitHub feed", () => {
+  it("confirms an HTML endpoint's 406 using the release API", async () => {
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(null, { status: 404 }))
+      .mockResolvedValueOnce(Response.json([{ draft: false, prerelease: true }]))
+    const error = Object.assign(new Error(missingStable.message.replace("404", "406")), { code: missingStable.code })
+    expect(await noStableRelease(error, false, request)).toBe(true)
+  })
   it.each([[], [{ draft: false, prerelease: true }]].map((data) => ({ data })))(
     "confirms no latest stable and an accessible releases listing ($data)",
     async ({ data }) => {

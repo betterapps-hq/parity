@@ -34,13 +34,27 @@ jobs:
     secrets:
       BUILD_SECRET: ${{ secrets.VITE_TLDRAW_LICENSE_KEY }}
 
-  promote:
+  beta:
+    name: Beta available
     needs: release
+    if: needs.release.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: beta
+      url: https://github.com/${{ github.repository }}/releases/tag/v${{ needs.release.outputs.version }}
+    steps:
+      - name: Link the published beta
+        env:
+          RELEASE_URL: https://github.com/${{ github.repository }}/releases/tag/v${{ needs.release.outputs.version }}
+        run: echo "Beta downloads are available at $RELEASE_URL" >> "$GITHUB_STEP_SUMMARY"
+
+  promote:
+    needs: [release, beta]
     # Publishing a beta immediately queues the protected production deployment for its owner to approve.
     # Manual promotion remains available for an older beta; its release job is intentionally skipped.
     if: >-
       always() && ((github.event_name == 'workflow_dispatch' && inputs.action == 'promote') ||
-      needs.release.outputs.published == 'true')
+      (needs.release.outputs.published == 'true' && needs.beta.result == 'success'))
     permissions:
       contents: write
     uses: betterapps-hq/pipelines/.github/workflows/cd-desktop-promote.yml@c2e002c29b8f1d8eee612805e9aa715c61dcb7e4 # v1.11.0
