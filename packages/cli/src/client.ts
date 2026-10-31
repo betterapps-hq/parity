@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto"
 import { readFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join } from "node:path"
-import { cliCallerName } from "./caller.ts"
+import { cliCallerName, sessionCallerId } from "./caller.ts"
 
 /** Where the running app writes its address and token. */
 export const agentFile = process.env.PARITY_AGENT_FILE ?? join(homedir(), ".parity", "agent.json")
@@ -42,7 +42,7 @@ let callerId = process.env.PARITY_AGENT_ID?.trim() || caller
  */
 export function setCaller(name: string | undefined, session = false): void {
   caller = name ?? caller
-  callerId = session ? `${caller}#${randomUUID().slice(0, 8)}` : caller
+  callerId = session ? sessionCallerId(caller, randomUUID()) : caller
 }
 
 /** Calls the running Parity app. Fails with a clear message when it isn't running. */

@@ -2064,3 +2064,13 @@ describes the task independently of the caller's name.
 
 Tests: `packages/cli/src/caller.test.ts` covers explicit identity, the DeepSeek environment regression, MCP title
 precedence, names preserved verbatim and neutral fallbacks.
+
+Implementation: `packages/cli/src/caller.ts` selects declared names and bounds session ids; `client.ts` attaches the
+name/id to RPC, and `mcp.ts` supplies the initialize handshake name. `apps/desktop/src/utility/agent.ts` forwards that
+identity to presence events, displayed by `renderer/agent/AgentPresence.tsx` and `AgentBadge.tsx`.
+
+Coverage gaps: the unit tests exercise name selection and distinct bounded ids, not a full MCP-to-canvas session.
+Read-only CLI executions were checked in the running fencing-club app with inherited `CODEX_HOME`: without an explicit
+name the badge showed Terminal; with `PARITY_AGENT_NAME=DeepSeek Harness` it showed DeepSeek Harness. Both completed
+without design edits, and the badges were checked in screenshots. Concurrent long-name MCP cursors have not been checked
+visually; their id truncation regression is covered by `caller.test.ts`.

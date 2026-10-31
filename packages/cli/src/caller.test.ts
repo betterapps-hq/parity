@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vite-plus/test"
-import { cliCallerName, mcpCallerName } from "./caller.ts"
+import { cliCallerName, mcpCallerName, sessionCallerId } from "./caller.ts"
+
+describe("sessionCallerId", () => {
+  it("keeps same-named MCP sessions distinct after the desktop truncates ids to 80 characters", () => {
+    const name = "A".repeat(100)
+    const first = sessionCallerId(name, "11111111-1111-4111-8111-111111111111")
+    const second = sessionCallerId(name, "22222222-2222-4222-8222-222222222222")
+    expect(first).toHaveLength(80)
+    expect(first).toBe(`${"A".repeat(71)}#11111111`)
+    expect(first.slice(0, 80)).not.toBe(second.slice(0, 80))
+    expect(sessionCallerId("Agent", "12345678-rest")).toBe("Agent#12345678")
+  })
+})
 
 describe("mcpCallerName", () => {
   it("prefers the declared title even when the protocol name mentions another tool", () => {
