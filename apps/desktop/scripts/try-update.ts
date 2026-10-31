@@ -6,6 +6,7 @@ import { createServer, type Server } from "node:http"
 import { tmpdir } from "node:os"
 import { basename, join, relative, resolve, sep } from "node:path"
 import { Transform } from "node:stream"
+import type { UpdateState } from "@parity-app/core"
 import { _electron, type Browser, chromium, type ElectronApplication, type Page } from "playwright-core"
 
 if (process.env.CI !== "true") throw new Error("Installed update checks run only in CI.")
@@ -165,6 +166,19 @@ async function openUpdate(page: Page): Promise<void> {
   await page.getByRole("menuitem", { name: "Check for updates…", exact: true }).click()
 }
 
+/** The predicate API doesn't await an IPC promise; poll explicit snapshots instead of accepting a truthy Promise. */
+async function waitForUpdate(page: Page, phase: UpdateState["phase"]): Promise<UpdateState> {
+  const deadline = Date.now() + 90_000
+  let snapshot: UpdateState | undefined
+  while (Date.now() < deadline) {
+    snapshot = await page.evaluate(() => window.canvasHost.updates.get())
+    if (snapshot.phase === phase) return snapshot
+    if (snapshot.phase === "error") throw new Error(`The update failed: ${snapshot.message}`)
+    await new Promise((done) => setTimeout(done, 100))
+  }
+  throw new Error(`Update did not reach ${phase}: ${JSON.stringify(snapshot)}`)
+}
+
 try {
   const url = await serve()
   await packageVersion("999.0.1", second, url)
@@ -229,10 +243,7 @@ try {
   page.setDefaultTimeout(90_000)
   await page.waitForURL("parity://app/index.html")
   await page.waitForFunction(() => window.canvasHost?.appVersion === "999.0.0")
-  await page.waitForFunction(async () => (await window.canvasHost.updates.get()).phase === "error", undefined, {
-    timeout: 90_000
-  })
-  const rejected = await page.evaluate(() => window.canvasHost.updates.get())
+  const rejected = await waitForUpdate(page, "error")
   if (rejected.phase !== "error" || !/sha512|checksum/i.test(rejected.message)) {
     throw new Error(`The corrupt download did not fail its checksum verification: ${JSON.stringify(rejected)}`)
   }
@@ -241,7 +252,7 @@ try {
     throw new Error("A corrupt update was installed.")
   corrupt = false
   await page.evaluate(() => window.canvasHost.updates.check())
-  await page.waitForFunction(async () => (await window.canvasHost.updates.get()).phase === "ready")
+  await waitForUpdate(page, "ready")
   await page.getByRole("button", { name: "Later", exact: true }).click()
   if ((await page.evaluate(() => window.canvasHost.updates.get())).phase !== "ready")
     throw new Error("Later discarded the update.")
