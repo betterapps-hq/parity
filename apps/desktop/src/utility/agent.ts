@@ -51,7 +51,7 @@ export async function startAgentServer(window: () => WindowChannel): Promise<voi
     }
   )
   process.on("exit", () => rmSync(agentFile, { force: true }))
-  console.log(`[service ${process.pid}] agents connect at 127.0.0.1:${address.port} (${agentFile})`)
+  console.log(`[service] agents connect at 127.0.0.1:${address.port} (${agentFile})`)
 }
 
 async function handle(request: IncomingMessage, response: ServerResponse, token: string, window: () => WindowChannel) {

@@ -83,11 +83,9 @@ const serviceDirectory = app.isPackaged ? join(process.resourcesPath, "app.asar.
 function startService(): UtilityProcess {
   const child = utilityProcess.fork(join(serviceDirectory, "utility.mjs"), [], {
     serviceName,
-    stdio: "pipe",
+    stdio: "inherit",
     env: { ...process.env, PARITY_ALLOWED_ORIGINS: rendererOrigin }
   })
-  child.stdout?.on("data", (chunk: Buffer) => process.stdout.write(chunk))
-  child.stderr?.on("data", (chunk: Buffer) => process.stderr.write(chunk))
   child.on("message", (message: ServiceMessage) => {
     if (message.type === "render") {
       renderFrame(message.job, message.capture).then(
