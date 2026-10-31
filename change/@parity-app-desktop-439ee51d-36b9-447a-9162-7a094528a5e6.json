@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Read a project's Tailwind theme only with the Tailwind it installs, never Parity's own",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

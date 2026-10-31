@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Tell open windows when a restarted builder moves to a new port, which no guest has used",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

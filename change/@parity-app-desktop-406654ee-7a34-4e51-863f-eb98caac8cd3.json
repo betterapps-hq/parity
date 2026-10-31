@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Infer each token's kind from its value, then its name, else none, and preview gradients and type styles",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

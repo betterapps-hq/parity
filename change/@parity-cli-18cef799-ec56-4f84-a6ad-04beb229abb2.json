@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "parity lib lists icons whose names end in a number, and records the name each icon set's types prefer",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

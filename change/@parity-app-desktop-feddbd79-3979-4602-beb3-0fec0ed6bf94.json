@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Frames and their bitmaps draw again when a component the type checker finds, or finds moved, comes from a new file",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

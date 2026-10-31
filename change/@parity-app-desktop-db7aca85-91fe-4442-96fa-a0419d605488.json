@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Find a Storybook that Portless routes to by asking its port, whatever set up its name, instead of calling dev-domains",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

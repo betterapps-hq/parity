@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Build Parity's Storybook as a static site, with the example's frames",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

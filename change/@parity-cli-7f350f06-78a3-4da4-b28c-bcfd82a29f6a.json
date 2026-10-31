@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Point a code comment at its Linear issue",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

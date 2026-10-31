@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Agents list the project's icon sets with Icons() and find icons in one with Icons(set, { search })",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

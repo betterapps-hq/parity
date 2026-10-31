@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Move the design store's undo, unsaved tracking and save state into @parity-app/editor",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

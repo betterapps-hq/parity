@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Move inserting, Make component and where new designs go into @parity-app/editor",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

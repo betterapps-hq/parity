@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Parity's UI loads only the lucide icons it uses, and its prebundled dependencies minified, so its window holds less",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
