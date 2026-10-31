@@ -161,7 +161,13 @@ describe("collectCustomProperties", () => {
     ])
   })
 
-  it("skips declarations outside any style rule", () => {
-    expect(collectCustomProperties("@media print { --a: 1; }")).toEqual([])
+  it("keeps a declaration directly in an at-rule, as Tailwind's @theme has, with no selector", () => {
+    expect(collectCustomProperties("@theme inline { --a: 1; }")).toEqual([
+      { selector: "", atRules: [{ name: "theme", prelude: "inline" }], name: "a", value: "1" }
+    ])
+  })
+
+  it("skips declarations outside any rule", () => {
+    expect(collectCustomProperties("--a: 1;")).toEqual([])
   })
 })

@@ -46,7 +46,7 @@ export interface IconCatalog {
  * style in one.
  */
 export function iconCatalog(loaded: LoadedGuest, library: LibraryInfo, style: string | undefined): IconCatalog {
-  const key = iconStyleModules(library.icons, library.package).find((module) => module.style === style)?.key
+  const key = iconStyleModules(library.icons, library.importName).find((module) => module.style === style)?.key
   const aliases = loaded.guest.iconAliases?.(library.id, key)
   const listed = setEntries(loaded.guest.iconNames?.(library.id, key) ?? [], library.icons, style, aliases)
   const prefix = key ? `${library.id}/${key}/` : `${library.id}/`

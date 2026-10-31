@@ -13,9 +13,7 @@
     "@parity-app/code": "workspace:*",
     "@parity-app/core": "workspace:*",
     "@parity-app/project": "workspace:*",
+    "@parity-app/tokens": "workspace:*",
     "typescript": "6.0.3"
-  },
-  "devDependencies": {
-    "@parity-app/tokens": "workspace:*"
   }
 }

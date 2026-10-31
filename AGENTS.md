@@ -13,13 +13,14 @@
   checking it, ask before adding a dependency, and try changes people see in the running app.
 - **Several sessions work in this repository at once.** Re-read a file just before changing it.
 - **Work on a branch, and land it through a pull request.** `main` on GitHub (betterapps-hq/parity) takes changes only
-  through pull requests, squash-merged once `CI passes` and CodeRabbit pass and every thread is resolved. Start each
-  piece of work in its own worktree, on a branch from `origin/main`, and never commit to `main` itself.
+  through pull requests, squash-merged once the `CI passes` check succeeds, the OpenAI review is addressed and every
+  thread is resolved. Start each piece of work in its own worktree, on a branch from `origin/main`, and never commit to
+  `main` itself.
 - **Commit your work when you judge it's ready,** without waiting to be asked: an issue done, a fix in, a doc finished,
   with `pnpm verify` passing. Write conventional messages (`feat(core): …`, `fix(desktop): …`, `docs: …`). Then push the
-  branch and open a pull request whose title is the squashed commit's subject, in the same form. Answer CodeRabbit's
-  threads by fixing or replying. Once it passes, squash-merge it yourself (`gh pr merge --squash`), without waiting to
-  be asked, then remove the worktree and its branch.
+  branch and open a pull request whose title is the squashed commit's subject, in the same form. Answer the OpenAI
+  review's threads by fixing or replying. Once it passes, squash-merge it yourself (`gh pr merge --squash`), without
+  waiting to be asked, then remove the worktree and its branch.
 - **Commits are checked by hooks.** A commit gets lint and formatting on the files it stages, fixed where they can be, a
   conventional subject of at most 100 characters that isn't work in progress, and a change file for each versioned
   package it touches. After staging, run `pnpm changefile --type patch --message "what changed, for the changelog"`

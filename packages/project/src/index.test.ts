@@ -81,14 +81,14 @@ describe("libraries", () => {
     await write(
       "node_modules/@acme/ui/acme.lib.par",
       JSON.stringify({
-        version: 1,
+        version: 3,
         id: "acme",
         name: "Acme UI",
         styles: "styles.css",
         breakpoints: [{ id: "md", name: "Medium", width: 768 }]
       })
     )
-    await write("packages/other/other.lib.par", JSON.stringify({ version: 1, name: "Another package" }))
+    await write("packages/other/other.lib.par", JSON.stringify({ version: 3, name: "Another package" }))
 
     const project = await discoverProject(root, renderer, pkg)
     expect(project.libraries).toEqual([
@@ -116,7 +116,7 @@ describe("libraries", () => {
     await write("node_modules/@acme/ui/index.d.ts", "")
     await write(
       "node_modules/@acme/ui/acme.lib.par",
-      JSON.stringify({ version: 2, id: "acme", name: "Acme UI", tokens: "tokens/acme.tokens.json" })
+      JSON.stringify({ version: 3, id: "acme", name: "Acme UI", tokens: "tokens/acme.tokens.json" })
     )
     await write(
       "node_modules/@acme/ui/tokens/acme.tokens.json",
@@ -124,7 +124,7 @@ describe("libraries", () => {
     )
     await write(
       "kit.lib.par",
-      JSON.stringify({ version: 2, name: "Kit", tokens: { brand: { $type: "color", $value: "#ff0000" } } })
+      JSON.stringify({ version: 3, name: "Kit", tokens: { brand: { $type: "color", $value: "#ff0000" } } })
     )
 
     const project = await discoverProject(root, renderer, pkg)
@@ -145,7 +145,7 @@ describe("libraries", () => {
 
   it("names a library's own components by its id, so its canvas's designs refer to them as apps do", async () => {
     await write("src/components/ui/button.tsx", "export function Button() {}")
-    await write("nova.lib.par", JSON.stringify({ version: 2, id: "nova", name: "Shadcn Nova" }))
+    await write("nova.lib.par", JSON.stringify({ version: 3, id: "nova", name: "Shadcn Nova" }))
     const project = await discoverProject(root, renderer, { name: "@buildkitgg/shadcn-baseui-nova" })
     expect(project.namespace).toBe("nova")
     expect(project.components).toEqual({
@@ -153,7 +153,7 @@ describe("libraries", () => {
     })
 
     // Without an id, the package's name names them, as it does in the apps that install the library.
-    await write("nova.lib.par", JSON.stringify({ version: 2, name: "Shadcn Nova" }))
+    await write("nova.lib.par", JSON.stringify({ version: 3, name: "Shadcn Nova" }))
     const unnamed = await discoverProject(root, renderer, { name: "@acme/charts" })
     expect(Object.keys(unnamed.components)).toEqual(["charts/Button"])
   })
@@ -173,7 +173,7 @@ describe("libraries", () => {
     const screen = { ...row, id: "showcase", name: "Showcase", kind: "screen" }
     await write(
       "node_modules/@acme/ui/acme.lib.par",
-      JSON.stringify({ version: 2, id: "acme", name: "Acme UI", canvas: { version: 3, containers: [row, screen] } })
+      JSON.stringify({ version: 3, id: "acme", name: "Acme UI", canvas: { version: 3, containers: [row, screen] } })
     )
     const project = await discoverProject(root, renderer, pkg)
     expect(project.libraries[0]?.designs).toEqual([{ ...row, id: "acme/settings-row" }])
@@ -197,6 +197,120 @@ describe("libraries", () => {
     const project = await discoverProject(join(root, "app"), renderer, pkg)
     expect(project.libraries).toMatchObject([{ id: "nova", importName: "@acme/kit", version: "0.4.1" }])
     expect(project.components["nova/Button"]).toMatchObject({ path: "@acme/kit", export: "Button", library: "nova" })
+    // Its decorators are imported by the alias too, never the real name, which the project doesn't have installed.
+    expect(
+      project.libraries[0]?.decorators?.map((decorator) => decorator.wrap?.import ?? decorator.add?.import)
+    ).toEqual(["@acme/kit", "@acme/kit"])
+  })
+
+  it("writes every specifier in an aliased library's own manifest with the alias", async () => {
+    const pkg = { dependencies: { "@acme/kit": "npm:@acme/real@2.0.0" } }
+    await write("app/package.json", JSON.stringify(pkg))
+    await write(
+      "node_modules/@acme/kit/package.json",
+      JSON.stringify({ name: "@acme/real", version: "2.0.0", types: "index.d.ts" })
+    )
+    await write("node_modules/@acme/kit/index.d.ts", "")
+    await write(
+      "node_modules/@acme/kit/real.lib.par",
+      JSON.stringify({
+        version: 3,
+        id: "real",
+        name: "Real",
+        components: {
+          import: "@acme/real",
+          list: {
+            Tree: {
+              as: "function",
+              sample: {
+                props: {
+                  collection: {
+                    $call: { import: "@acme/real", export: "makeCollection" },
+                    args: [{ $call: { import: "@acme/real/nodes", export: "makeNode" } }]
+                  }
+                }
+              }
+            }
+          }
+        },
+        decorators: [
+          {
+            wrap: {
+              import: "@acme/real",
+              component: "Provider",
+              props: { theme: { $import: "@acme/real", export: "theme" } }
+            }
+          }
+        ]
+      })
+    )
+
+    const project = await discoverProject(join(root, "app"), renderer, pkg)
+    // The components' entry module, the decorators and their nested values, and a sample's made values — a nested
+    // `$call` in an argument included — all import by the alias, the only name the project has installed.
+    expect(project.components["real/Tree"]).toMatchObject({ path: "@acme/kit", export: "Tree", library: "real" })
+    expect(project.components["real/Tree"]?.sample?.props?.collection).toEqual({
+      $call: { import: "@acme/kit", export: "makeCollection" },
+      args: [{ $call: { import: "@acme/kit/nodes", export: "makeNode" } }]
+    })
+    expect(project.libraries[0]?.decorators).toEqual([
+      {
+        wrap: {
+          import: "@acme/kit",
+          component: "Provider",
+          props: { theme: { $import: "@acme/kit", export: "theme" } }
+        }
+      }
+    ])
+  })
+  it("resolves aliased icon subpaths without rewriting other packages or ordinary props", async () => {
+    const pkg = { dependencies: { "@acme/icons": "npm:@real/icons@1.0.0" } }
+    await write("app/package.json", JSON.stringify(pkg))
+    await write("node_modules/@acme/icons/package.json", JSON.stringify({ name: "@real/icons", version: "1.0.0" }))
+    await write(
+      "node_modules/@acme/icons/icons.lib.par",
+      JSON.stringify({
+        version: 3,
+        name: "Icons",
+        id: "icons",
+        icons: {
+          import: "@real/icons/outline",
+          render: { import: "@real/icons/renderer", component: "Icon", prop: "icon" },
+          variants: {
+            modules: { Outline: "@real/icons/outline", Solid: "@real/icons/solid" },
+            default: { style: "Outline" }
+          }
+        },
+        decorators: [
+          {
+            wrap: {
+              import: "@real/icons-extra",
+              component: "Provider",
+              props: {
+                import: "@real/icons",
+                modules: { data: "@real/icons/solid" },
+                nested: { $call: { import: "@real/icons/setup", export: "setup" } }
+              }
+            }
+          }
+        ]
+      })
+    )
+    const project = await discoverProject(join(root, "app"), renderer, pkg)
+    expect(project.libraries[0]?.icons).toMatchObject({
+      import: "@acme/icons/outline",
+      render: { import: "@acme/icons/renderer" },
+      variants: { modules: { Outline: "@acme/icons/outline", Solid: "@acme/icons/solid" } }
+    })
+    expect(project.libraries[0]?.decorators?.[0]?.wrap).toEqual({
+      import: "@real/icons-extra",
+      component: "Provider",
+      props: {
+        import: "@real/icons",
+        modules: { data: "@real/icons/solid" },
+        nested: { $call: { import: "@acme/icons/setup", export: "setup" } }
+      }
+    })
   })
 })
 

@@ -14,7 +14,8 @@ import {
   parseLibraryEdits,
   parseLibraryManifest,
   type RendererAdapter,
-  librarySource
+  librarySource,
+  remapLibraryImports
 } from "@parity-app/core"
 import { type RegistryEntry, registryEntries, registryEntryFor } from "@parity-app/registry"
 import { readDesignTokens } from "@parity-app/tokens"
@@ -132,6 +133,8 @@ export async function findLibraries(
       result.notes.push(`${packageName}: hand edits for exports it no longer has: ${edited.orphans.join(", ")}`)
     }
     const manifest = edited?.manifest
+      ? remapLibraryImports(edited.manifest, (specifier) => importOf(specifier, packageName, importName))
+      : undefined
     const definition = manifest ? definitionOf(manifest, packageName) : buildkitDefinition(packageName)
     if (!definition || result.libraries.some((library) => library.id === definition.id)) continue
     const manifestPath = own
@@ -186,13 +189,7 @@ export async function findLibraries(
         if (older?.gone.has(name)) continue
         const declaration = component.declaration ? join(packageDir, component.declaration) : entry
         result.components[`${definition.id}/${name}`] = {
-          ...librarySource(
-            definition.id,
-            name,
-            component,
-            importOf(listed.import, packageName, importName),
-            (specifier) => importOf(specifier, packageName, importName)
-          ),
+          ...librarySource(definition.id, name, component, listed.import ?? importName),
           declaration: posix.normalize(relative(root, declaration).replaceAll("\\", "/"))
         }
       }
