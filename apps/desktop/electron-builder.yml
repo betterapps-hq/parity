@@ -35,6 +35,9 @@ nsis:
   createDesktopShortcut: false
 mac:
   icon: resources/icon.png
+  # Ad-hoc integrity allows Apple Silicon to launch without a developer certificate. Trusted signing is PAR-399.
+  identity: "-"
+  hardenedRuntime: false
   category: public.app-category.developer-tools
   target:
     - target: dmg

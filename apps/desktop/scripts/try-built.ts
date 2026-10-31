@@ -94,11 +94,18 @@ try {
   const deadline = Date.now() + 30_000
   let connected = false
   let agentProblem = "No successful agent response"
+  let reportedAgent = false
   while (!connected && Date.now() < deadline) {
     try {
       const agent: unknown = JSON.parse(await readFile(agentFile, "utf8"))
       if (!agent || typeof agent !== "object" || !("url" in agent) || !("token" in agent)) throw new Error("Not ready")
       if (typeof agent.url !== "string" || typeof agent.token !== "string") throw new Error("Not ready")
+      if (!reportedAgent) {
+        console.log(
+          `Discovered agent at ${new URL(agent.url).origin}, process ${"pid" in agent ? String(agent.pid) : "unknown"}`
+        )
+        reportedAgent = true
+      }
       const response = await fetch(`${agent.url}/rpc`, {
         method: "POST",
         headers: { authorization: `Bearer ${agent.token}`, "content-type": "application/json" },
@@ -122,6 +129,10 @@ try {
     if (!connected) await new Promise((resolve) => setTimeout(resolve, 100))
   }
   if (!connected) {
+    console.error(
+      "Installed app processes:",
+      await electron.evaluate(({ app }) => app.getAppMetrics().map(({ pid, type, name }) => ({ pid, type, name })))
+    )
     console.error(await window.locator("body").innerText())
     throw new Error(`The built app's renderer and project service did not connect: ${agentProblem}`)
   }
