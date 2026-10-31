@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "pnpm dev starts the project service again on Linux, and no longer treats Parity's copy of Electron as an installed build.",
+  "packageName": "@parity-app/desktop",
+  "email": "noreply@anthropic.com",
+  "dependentChangeType": "patch"
+}

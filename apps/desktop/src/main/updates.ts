@@ -3,6 +3,7 @@ import { join } from "node:path"
 import type { UpdateState } from "@parity-app/core"
 import { app } from "electron"
 import electronUpdater from "electron-updater"
+import { isPackaged } from "./packaged.ts"
 import { UpdateSession } from "./update-session.ts"
 
 /** Installed builds use electron-builder's embedded app-update.yml. Tests can package their own local feed. */
@@ -23,7 +24,7 @@ export function createUpdates(changed: (state: UpdateState) => void): UpdateSess
   autoUpdater.allowDowngrade = false
   autoUpdater.logger = console
   const session = new UpdateSession({
-    enabled: app.isPackaged && (process.platform !== "linux" || !!process.env.APPIMAGE),
+    enabled: isPackaged(app.isPackaged, process.env) && (process.platform !== "linux" || !!process.env.APPIMAGE),
     manual: process.platform === "darwin",
     beta,
     changed,
