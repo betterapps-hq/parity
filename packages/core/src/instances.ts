@@ -1,19 +1,16 @@
 import type { ContainerSpec, DesignNode, InstanceNode, NodePatch, StateSpec } from "./document.ts"
 import {
-  applyPatch,
   childEntries,
   editNode,
   type EditTarget,
   editsDesign,
   findNode,
   generateId,
-  locateNode,
   mapNode,
   mapPatches,
   type NodeChange,
   type NodeLocation,
   nodeIds,
-  nodeOnBoard,
   type PatchField,
   patchSize,
   patchWith,
@@ -22,12 +19,13 @@ import {
   tidyPatch,
   withTargetPatches
 } from "./edit.ts"
+import { effectiveNode, locateEffective } from "./effective.ts"
 import {
+  applyPatch,
   type ComponentLibrary,
   instanceScope,
   layeredPatch,
   mergePatches,
-  optionPatches,
   type PatchLayer,
   variantChoices,
   withinInstance
@@ -61,7 +59,7 @@ export function isInnerPath(id: string): boolean {
 /**
  * A layer as a design's board shows it in a state: one of the design's own nodes with the variant options the board
  * shows, the state's changes and the params it binds, or a node inside an instance as that copy shows it there. What
- * the text editor opens on.
+ * the text editor opens on. It's `effectiveNode` with no viewport.
  */
 export function layerOnBoard(
   container: ContainerSpec,
@@ -69,61 +67,32 @@ export function layerOnBoard(
   library: ComponentLibrary,
   state?: StateSpec
 ): DesignNode | undefined {
-  if (!isInnerPath(id)) {
-    const node = findNode(container.root, id)
-    return node && nodeOnBoard(container, node, state)
-  }
-  return locateInner(container, id, library, { state, variants: container.view?.variants })?.shown
+  return effectiveNode(container, id, { library, state })
 }
 
 /**
  * Finds a node inside one of a design's instances. `state` and `variants` are what the design shows; without them it's
- * the base state with every variant at its default.
+ * the base state with every variant at its default. `viewport` applies its responsive patches; without it, none.
  */
 export function locateInner(
   container: ContainerSpec,
   path: string,
   library: ComponentLibrary,
-  view: { state?: StateSpec; variants?: Record<string, unknown> } = {}
+  view: { state?: StateSpec; variants?: Record<string, unknown>; viewport?: string } = {}
 ): InnerNode | undefined {
-  const segments = path.split("/")
-  if (segments.length < 2) return undefined
-  let layers: PatchLayer[] = [
-    ...optionPatches(container.params, variantChoices(container.params, view.variants)),
-    view.state?.overrides
-  ]
-  let root = container.root
-  let design = container
-  let args: Record<string, unknown> | undefined
-  const chain: InstanceNode[] = []
-  for (const [index, segment] of segments.entries()) {
-    const location = locateNode(root, segment)
-    if (!location) return undefined
-    const patch = layeredPatch(layers, segment)
-    if (index === segments.length - 1) {
-      return {
-        instance: chain[0]!,
-        key: segments.slice(1).join("/"),
-        chain,
-        component: design,
-        node: location.node,
-        location,
-        shown: applyPatch(location.node, patch, args)
-      }
-    }
-    const node = location.node
-    const component = node.type === "instance" ? library.get(node.design) : undefined
-    if (node.type !== "instance" || !component || [container, ...chain].some((outer) => outer.id === node.design)) {
-      return undefined
-    }
-    const scope = instanceScope(node, component, patch, layers)
-    layers = scope.layers
-    args = scope.args
-    root = component.root
-    design = component
-    chain.push(node)
+  if (!isInnerPath(path)) return undefined
+  const found = locateEffective(container, path, { ...view, variants: view.variants ?? {}, library })
+  const instance = found?.chain[0]
+  if (!found || !instance) return undefined
+  return {
+    instance,
+    key: path.slice(path.indexOf("/") + 1),
+    chain: found.chain,
+    component: found.design,
+    node: found.node,
+    location: found.location,
+    shown: found.shown
   }
-  return undefined
 }
 
 /** The path of the instance directly around a node inside an instance: `card` for `card/title`. */

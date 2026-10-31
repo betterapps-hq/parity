@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Evaluate a node, or a layer and everything inside it, as drawn in a state, variant and viewport through one context: effectiveNode, effectiveTree and scopeOf, which rendering and the board helpers now share",
+  "packageName": "@parity-app/desktop",
+  "email": "noreply@anthropic.com",
+  "dependentChangeType": "patch"
+}
