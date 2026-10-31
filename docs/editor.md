@@ -2109,3 +2109,15 @@ transport contract test covers two names sharing more than 80 prefix characters.
 through the otherwise transparent overlay, so the full hover title is reachable without blocking the rest of the canvas.
 The cursor component was checked in Storybook with a long name; its text and title remain intact and its visible width
 is bounded with ellipsis.
+
+### Library import aliases (PAR-483)
+
+A library installed under an alias uses that alias for its components, providers, icon modules and values made by the
+package. Discovery resolves these module names once; the builder and icon picker use the resolved names. Literal
+component data named `import` or `modules` stays unchanged. Inserting a part through its parent's render prop preserves
+the parent's other slots.
+
+Tests: `packages/project/src/index.test.ts` (aliased entry modules, decorators, nested made values and icon subpaths),
+`packages/core/src/library.test.ts` (one import traversal, ordinary data preserved and current-format-only reads),
+`packages/core/src/library-insert.test.ts` (render-prop insertion preserves other slots), and
+`packages/builder-vite/src/index.test.ts` (resolved icon modules and stable style keys).

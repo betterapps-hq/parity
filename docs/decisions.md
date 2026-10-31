@@ -30,8 +30,9 @@ still need your call.
 - **Modes live inside the main `.par`.** They're written only once they differ from the defaults, so a fresh project's
   file stays small.
 - **`.lib.par` describes a component library: its name, id, stylesheet, breakpoints, tokens and its own canvas.** You
-  asked for the tokens and the canvas. Version 2 adds `tokens` and `canvas`, and version 1 files still load. It sits at
-  a package's root, and any dependency with one loads as a library, with or without Parity's catalog.
+  asked for the tokens and the canvas. It uses one current format, as `.par` does; obsolete formats are rejected,
+  without migration paths. It sits at a package's root, and any dependency with one loads as a library, with or without
+  Parity's catalog.
 - **A library's tokens are DTCG,** the Design Tokens Community Group's format and resolver (2025.10), so the tools that
   read DTCG read the same tokens. `tokens` is a path to a token file or a resolver, or either written inline. A
   resolver's themes become values per context, such as `default` and `dark`.
@@ -696,10 +697,16 @@ recommended answer to each of its questions.
   more than its last; plainer names come first among equals. Small typos are forgiven, and icons only some words find
   are added, only when the search finds less than a row. It lives in `@parity-app/icons`, which the Icons panel and the
   insert picker both use.
-- **`.lib.par` version 3 describes a library whole,** so Parity needs no code per library: the package and version it
-  was generated from with the range it covers (`package`), its components and what each was found as (`components`), its
-  icons (`icons`) and its decorators (`decorators`), beside version 2's styles, breakpoints, tokens and canvas. Versions
-  1 and 2 keep loading, and their fields stay as they were.
+- **`.lib.par` describes a library whole,** so Parity needs no code per library: the package and version it was
+  generated from with the range it covers (`package`), its components and what each was found as (`components`), its
+  icons (`icons`) and its decorators (`decorators`), beside styles, breakpoints, tokens and canvas. There is one current
+  format, identified by `version: 3`; versions 1 and 2 are rejected, with no compatibility readers or save-time
+  upgrades. The current `.par` also accepts only its current format; modes and the clipboard each have one format as
+  well.
+- **Discovery resolves library module aliases once** (PAR-483): components, decorators, nested `$import` and `$call`
+  values, icon style modules and canvas values use the name the project installed. The builder and icon picker consume
+  those resolved imports. Core's `remapLibraryImports` also collects imports, so collecting and rewriting recognize the
+  same schema positions; ordinary component props named `import` or `modules` remain data.
 - **Parity keeps a registry of `.lib.par` files** (`@parity-app/registry`) for libraries that don't ship one: nova,
   Radix, Base UI, React Aria Components, MUI, Chakra, Mantine and Fluent UI, and Lucide, Hugeicons, Heroicons, Phosphor,
   Tabler and Fluent icons. A package's own `.lib.par` comes first; otherwise the registry file whose range covers the

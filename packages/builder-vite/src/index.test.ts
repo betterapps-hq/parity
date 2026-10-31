@@ -141,6 +141,38 @@ describe("guestModuleSource with libraries", () => {
   })
 })
 
+describe("resolved library aliases", () => {
+  it("loads discovered icon modules by the alias while retaining stable style keys", () => {
+    const source = guestModuleSource({
+      styles: [],
+      components: {},
+      documents: [],
+      libraries: [
+        {
+          id: "icons",
+          name: "Icons",
+          kind: "icons",
+          package: "@real/icons",
+          importName: "@acme/icons",
+          stylesImported: true,
+          icons: {
+            import: "@acme/icons/outline",
+            render: "export",
+            variants: {
+              modules: { Outline: "@acme/icons/outline", Solid: "@acme/icons/solid" },
+              default: { style: "Outline" }
+            }
+          }
+        }
+      ]
+    })
+    expect(source).toContain('import("@acme/icons/outline")')
+    expect(source).toContain('import("@acme/icons/solid")')
+    expect(source).not.toContain("@real/icons")
+    expect(source).toMatch(/styles: \{ "solid": modules\[\d+\]/)
+  })
+})
+
 describe("guestModuleSource with values a package makes", () => {
   it("loads the modules its components' samples call, for the guest to make them", () => {
     const source = guestModuleSource({

@@ -17,8 +17,8 @@ import {
  * by Parity's registry, in the same format.
  */
 export interface LibraryManifest {
-  /** 2 added `tokens` and `canvas`; 3 added `package`, `components`, `icons` and `decorators`. */
-  version: 1 | 2 | 3
+  /** The current manifest format; obsolete formats are rejected rather than migrated. */
+  version: 3
   /** Short name its components are namespaced by, as in `nova/Button`. Defaults to the package name. */
   id?: string
   name: string
@@ -306,14 +306,26 @@ export const libraryManifestExtension = ".lib.par"
 
 export function parseLibraryManifest(value: unknown): LibraryManifest {
   const manifest = expectObject(value, "")
-  const keys = ["$schema", "version", "id", "name", "description", "styles", "breakpoints", "tokens", "canvas"]
-  if (manifest.version === 3) keys.push("package", "components", "icons", "decorators", "edits")
+  const keys = [
+    "$schema",
+    "version",
+    "id",
+    "name",
+    "description",
+    "styles",
+    "breakpoints",
+    "tokens",
+    "canvas",
+    "package",
+    "components",
+    "icons",
+    "decorators",
+    "edits"
+  ]
   expectKnownKeys(manifest, keys, "")
-  if (manifest.version !== 1 && manifest.version !== 2 && manifest.version !== 3) {
-    throw new TypeError("/version: expected 1, 2 or 3")
-  }
+  if (manifest.version !== 3) throw new TypeError("/version: expected 3")
   return compact({
-    version: manifest.version,
+    version: 3 as const,
     id: optional(manifest.id, (v) => expectString(v, "/id")),
     name: expectString(manifest.name, "/name"),
     description: optional(manifest.description, (v) => expectString(v, "/description")),
@@ -670,34 +682,54 @@ export function libraryCanvas(manifest: LibraryManifest): CanvasDocument {
 
 /**
  * A `.lib.par` file's JSON with its canvas replaced, ready to write. Everything else in the file stays as it was, so
- * saving designs never touches what the author wrote about the library. A version 1 file becomes 2, the first with a
- * canvas; a later one keeps its version.
+ * saving designs never touches what the author wrote about the library. The file must use the current format.
  */
 export function withLibraryCanvas(file: unknown, canvas: CanvasDocument): Record<string, unknown> {
+  parseLibraryManifest(file)
   const { canvas: _previous, ...rest } = expectObject(file, "")
-  return { ...rest, version: rest.version === 3 ? 3 : 2, canvas }
+  return { ...rest, canvas }
 }
 
 /**
- * The modules a library's decorators and icon renderer import, so a builder can load them before the first frame.
- * Values nested in props count too, such as a theme a provider is given.
+ * A manifest's module imports, rewritten once when discovery resolves an installed alias. Only schema-defined
+ * import positions and the reserved $import/$call values are rewritten; ordinary props named import or modules
+ * remain data. Collecting imports uses this same traversal, so loading and alias rewriting cannot drift.
  */
+export function remapLibraryImports<T extends Pick<LibraryManifest, "components" | "icons" | "decorators" | "canvas">>(
+  manifest: T,
+  map: (specifier: string) => string
+): T {
+  const visit = (value: unknown, path: readonly string[]): unknown => {
+    if (Array.isArray(value)) return value.map((entry, index) => visit(entry, [...path, String(index)]))
+    if (typeof value !== "object" || value === null) return value
+    const location = path.join(".")
+    const module =
+      location === "components" ||
+      location === "icons" ||
+      location === "icons.render" ||
+      (path.length === 3 && path[0] === "decorators" && (path[2] === "wrap" || path[2] === "add")) ||
+      path.at(-1) === "$call"
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [
+        key,
+        typeof entry === "string" &&
+        (key === "$import" || (key === "import" && module) || location === "icons.variants.modules")
+          ? map(entry)
+          : visit(entry, [...path, key])
+      ])
+    )
+  }
+  // Rewriting string values preserves the manifest's structure and its caller's more specific type.
+  return visit(manifest, []) as T
+}
+
+/** Modules loaded for the library's decorators and icons, including values nested in their props. */
 export function libraryImports(manifest: Pick<LibraryManifest, "decorators" | "icons">): string[] {
   const found = new Set<string>()
-  // Elements and `$call`s name their module with `import`; `$import` values name it themselves.
-  const visit = (value: unknown) => {
-    if (Array.isArray(value)) value.forEach(visit)
-    else if (typeof value === "object" && value !== null) {
-      const record = value as Record<string, unknown>
-      if (typeof record.$import === "string") found.add(record.$import)
-      if (typeof record.import === "string" && (typeof record.component === "string" || "export" in record)) {
-        found.add(record.import)
-      }
-      for (const entry of Object.values(record)) visit(entry)
-    }
-  }
-  visit(manifest.decorators)
-  if (manifest.icons && manifest.icons.render !== "export") found.add(manifest.icons.render.import)
+  remapLibraryImports(manifest, (specifier) => {
+    found.add(specifier)
+    return specifier
+  })
   return [...found]
 }
 
