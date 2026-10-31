@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Agent calls merge per design with edits made while they run, and are refused naming the designs when both changed the same one",
+  "packageName": "@parity-app/desktop",
+  "email": "noreply@anthropic.com",
+  "dependentChangeType": "patch"
+}
