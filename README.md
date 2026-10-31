@@ -48,19 +48,25 @@ pnpm dev
 `pnpm dev` starts the desktop app with the example project, `examples/shadcn-vite`, open. Other commands (with Vite+
 installed globally, `vp` works without `pnpm exec`):
 
-| Command                  | What it does                                                                   |
-| ------------------------ | ------------------------------------------------------------------------------ |
-| `pnpm verify`            | Formatting, lint and tests, as CI runs them: `vp run check` and `vp run test`. |
-| `pnpm exec vp run check` | Formatting and lint only.                                                      |
-| `pnpm exec vp run test`  | The unit tests only.                                                           |
-| `pnpm check:types`       | Type checks, which run on push and in CI rather than in `verify`.              |
-| `pnpm build`             | The standalone production app in `apps/desktop/out`, with no UI dev server.    |
-| `pnpm test:app`          | The editor's end-to-end tests, run only in CI.                                 |
-| `pnpm storybook`         | The app's interface in Storybook, against a stand-in project service.          |
+| Command                                     | What it does                                                                   |
+| ------------------------------------------- | ------------------------------------------------------------------------------ |
+| `pnpm verify`                               | Formatting, lint and tests, as CI runs them: `vp run check` and `vp run test`. |
+| `pnpm exec vp run check`                    | Formatting and lint only.                                                      |
+| `pnpm exec vp run test`                     | The unit tests only.                                                           |
+| `pnpm check:types`                          | Type checks, which run on push and in CI rather than in `verify`.              |
+| `pnpm build`                                | The standalone production app in `apps/desktop/out`, with no UI dev server.    |
+| `pnpm --filter @parity-app/desktop package` | Package the built app into this system's installer in `apps/desktop/dist`.     |
+| `pnpm test:app`                             | The editor's end-to-end tests, run only in CI.                                 |
+| `pnpm storybook`                            | The app's interface in Storybook, against a stand-in project service.          |
 
 Some tests open the projects in `fixtures/`, which need installing first:
 `pnpm --filter @parity-app/fixtures install-projects` installs those it knows, and the rest install with `npm ci` in
 their folders.
+
+Run `pnpm build` before packaging. Windows produces a per-user NSIS installer, macOS produces DMG and ZIP files for
+Apple Silicon and Intel, and Linux produces an x64 AppImage. These first installers are unsigned. TypeScript and the
+project-service runtime are shipped as physical files in the installed resources, so a project's own Vite can load them
+without a checkout. CI alone installs, opens and uninstalls the Windows build against a fresh project.
 
 ## The CLI
 

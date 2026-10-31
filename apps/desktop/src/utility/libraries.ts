@@ -112,7 +112,10 @@ function run(command: string, args: string[], cwd: string, started: (child: Chil
   return new Promise((resolve, reject) => {
     // Package managers are .cmd scripts on Windows, which only start through a shell. The arguments are package
     // names from the catalog, never anything typed.
-    const child = spawn(command, args, { cwd, shell: process.platform === "win32", env: process.env })
+    const env = { ...process.env }
+    // This is the project's package manager, whose install scripts may launch an Electron app of their own.
+    for (const key of Object.keys(env)) if (key.toUpperCase() === "ELECTRON_RUN_AS_NODE") delete env[key]
+    const child = spawn(command, args, { cwd, shell: process.platform === "win32", env })
     started(child)
     let log = ""
     child.stdout.on("data", (chunk: Buffer) => (log += chunk.toString()))

@@ -1,0 +1,53 @@
+appId: com.betterapps.parity
+productName: Parity
+directories:
+  app: out
+  output: dist
+  buildResources: resources
+# The builder's plain Node child, project guest and registry read real files outside the archive.
+asar: true
+asarUnpack:
+  - "*.mjs"
+  - "*.cjs"
+  - libraries/**/*
+  - in-app.json
+npmRebuild: false
+files:
+  - "**/*"
+  - "!node_modules/**"
+extraResources:
+  - from: out/node_modules/typescript
+    to: app.asar.unpacked/node_modules/typescript
+artifactName: Parity-${version}-${os}-${arch}.${ext}
+publish:
+  provider: github
+  owner: betterapps-hq
+  repo: parity
+win:
+  icon: resources/icon.ico
+  target:
+    - target: nsis
+      arch: [x64]
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: false
+mac:
+  icon: resources/icon.png
+  # Ad-hoc integrity allows Apple Silicon to launch without a developer certificate. Trusted signing is PAR-399.
+  identity: "-"
+  hardenedRuntime: false
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+linux:
+  executableName: parity
+  icon: resources/icon.png
+  category: Development
+  target:
+    - target: AppImage
+      arch: [x64]

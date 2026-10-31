@@ -1,5 +1,9 @@
 # The editor
 
+The production desktop can be packaged with `pnpm --filter @parity-app/desktop package` after `pnpm build` (PAR-9). The
+Windows installer offers a per-user install directory and an uninstaller. CI's `try-installed` check opens a cold
+project in that installed app and checks that the canvas and project service connect, then uninstalls it.
+
 What Parity's canvas editor does, how each part of it works, and the tests that keep it working. You asked on 2026-10-29
 for every piece of editor work to land with tests and a description here, so nothing gets lost or quietly breaks.
 Shortcuts are listed once, in the keymap ([chrome/keymap.ts](../apps/desktop/src/renderer/chrome/keymap.ts)) and the
