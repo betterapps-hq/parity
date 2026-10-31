@@ -69,5 +69,19 @@ const { name, version, license, description, author, homepage } = JSON.parse(
 )
 writeFileSync(
   join(out, "package.json"),
-  JSON.stringify({ name, version, license, description, author, homepage, type: "module", main: "main.mjs" }, null, 2)
+  JSON.stringify(
+    {
+      name,
+      version,
+      license,
+      description,
+      author,
+      homepage,
+      type: "module",
+      main: "main.mjs",
+      releaseChannel: process.env.PARITY_RELEASE_CHANNEL === "beta" ? "beta" : undefined
+    },
+    null,
+    2
+  )
 )

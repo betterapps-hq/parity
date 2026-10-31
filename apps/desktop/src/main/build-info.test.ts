@@ -23,6 +23,15 @@ function setup(saved?: unknown) {
 }
 
 describe("installed build identity", () => {
+  it("labels a release-workflow beta on its first offline launch, then observes promotion", async () => {
+    const { options, request, advance } = setup()
+    const build = new InstalledBuild({ ...options, metadata: { releaseChannel: "beta" } })
+    request.mockRejectedValueOnce(new Error("Offline"))
+    expect((await build.get()).channel).toBe("beta")
+    advance()
+    request.mockResolvedValue(release(false))
+    expect((await build.get()).channel).toBe("stable")
+  })
   it("identifies a numeric beta by the installed release, not the latest release or update preference", async () => {
     const { build, request, save } = setup()
     expect(await build.get()).toEqual({ version: "0.3.0", channel: "beta" })

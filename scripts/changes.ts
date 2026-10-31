@@ -205,7 +205,7 @@ function main(): void {
       return
     }
     if (missing.length === 0) {
-      console.log(`No change file needed: ${needed.join(" and ")} already have one, staged or on this branch.`)
+      console.log(`No change file needed: ${needed.join(" and ")} already have staged or committed release coverage.`)
       return
     }
     const require = createRequire(import.meta.url)

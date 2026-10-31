@@ -2031,10 +2031,11 @@ allowing downgrades. About labels installed beta builds with `(Beta)` independen
 preference describes which future releases to accept. It also shows the available version. Development builds and
 extracted Linux folders do not download or install updates.
 
-The installed tag's public release metadata determines the Beta label. A version-keyed cache preserves confirmed
-identity offline and refreshes after five minutes, so promoting identical artifacts to stable updates their identity. An
-unconfirmed offline build is never guessed from its numeric version or the update preference. Confirmed empty stable
-feeds mean no update; connection, authorization and service failures remain retryable errors.
+The release workflow embeds the initial Beta identity, including for a first offline launch. The installed tag's public
+release metadata observes promotion to stable. A version-keyed cache preserves confirmed identity offline and refreshes
+after five minutes, so promoting identical artifacts to stable updates their identity. An unconfirmed offline build is
+never guessed from its numeric version or the update preference. Confirmed empty stable feeds mean no update;
+connection, authorization and service failures remain retryable errors.
 
 `chrome/UpdateToast.stories.tsx` shows the download, restart-ready and Mac fallback designs, unknown-size progress, both
 themes through the toolbar, and the real toast host. `chrome/UpdateDialogs.stories.tsx` covers About's update states and

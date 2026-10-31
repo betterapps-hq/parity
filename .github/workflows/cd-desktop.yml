@@ -31,6 +31,7 @@ jobs:
     with:
       ci-workflow: ci.yml
       build-secret-env: VITE_TLDRAW_LICENSE_KEY
+      build-command: PARITY_RELEASE_CHANNEL=beta pnpm build
     secrets:
       BUILD_SECRET: ${{ secrets.VITE_TLDRAW_LICENSE_KEY }}
 

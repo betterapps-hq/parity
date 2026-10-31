@@ -325,6 +325,7 @@ const buildInfoFile = join(app.getPath("userData"), "installed-build.json")
 const installedBuild = new InstalledBuild({
   version: app.getVersion(),
   packaged: app.isPackaged,
+  metadata: JSON.parse(readFileSync(join(app.getAppPath(), "package.json"), "utf8")),
   read: () => JSON.parse(readFileSync(buildInfoFile, "utf8")),
   save: (value) => writeFileSync(buildInfoFile, JSON.stringify(value))
 })

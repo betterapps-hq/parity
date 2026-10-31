@@ -13,6 +13,7 @@ export class InstalledBuild {
     private readonly options: {
       version: string
       packaged: boolean
+      metadata?: unknown
       read: () => unknown
       save: (value: unknown) => void
       request?: typeof fetch
@@ -21,6 +22,13 @@ export class InstalledBuild {
   ) {
     this.info = { version: options.version, channel: options.packaged ? "unknown" : "development" }
     if (!options.packaged) return
+    if (
+      options.metadata &&
+      typeof options.metadata === "object" &&
+      "releaseChannel" in options.metadata &&
+      options.metadata.releaseChannel === "beta"
+    )
+      this.info = { version: options.version, channel: "beta" }
     try {
       const saved = options.read()
       if (
