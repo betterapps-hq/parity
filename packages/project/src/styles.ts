@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs"
 import { readFile } from "node:fs/promises"
 import { dirname, join, relative } from "node:path"
-import { loadConfig } from "./configs.ts"
+import { parseJsonc } from "./jsonc.ts"
 
 /** An app's global stylesheets: the project's own, by path from its root, and packages', by their specifiers. */
 export interface AppStyles {
@@ -101,11 +101,13 @@ export async function readStylesheet(path: string, seen = new Set<string>()): Pr
 
 /** shadcn's `components.json`, which it reads from the project's own folder only and which may have comments. */
 export async function shadcnConfig(root: string, notes: string[]): Promise<unknown> {
+  // Read directly rather than through `loadConfig`, whose config loader the CLI's bundle (through libgen) doesn't carry.
+  const text = await readText(join(root, "components.json"))
+  if (text === undefined) return undefined
   try {
-    return (await loadConfig(root, root, { files: ["components"], extensions: ["json"], here: true, jsonc: true }))
-      ?.value
+    return parseJsonc(text)
   } catch (error) {
-    notes.push(error instanceof Error ? error.message : String(error))
+    notes.push(`Couldn't load components: ${error instanceof Error ? error.message : String(error)}`)
     return undefined
   }
 }
