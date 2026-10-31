@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs"
+import { existsSync, realpathSync } from "node:fs"
 import { dirname, join, posix, relative } from "node:path"
 import ts from "typescript"
 
@@ -17,6 +17,11 @@ export interface ProjectTsconfig {
   configs: TsconfigFile[]
   /** The config the app's components are built with: the first that sets `jsx`, else the first with files. */
   app?: TsconfigFile
+  /**
+   * Every config file read, relative to the project root: the configs, and each one's `extends` chain, including a base
+   * from an installed package such as `@tsconfig/strictest`. A change to any of them can change what the configs say.
+   */
+  read: string[]
 }
 
 /**
@@ -28,12 +33,19 @@ export function readTsconfig(root: string): ProjectTsconfig {
   const start = ["tsconfig.json", "jsconfig.json"].map((name) => join(root, name)).find((path) => existsSync(path))
   const configs: TsconfigFile[] = []
   const seen = new Set<string>()
+  const read = new Set<string>()
+  // TypeScript resolves a package's base to its real path (`/private/tmp` on macOS, long names on Windows), so each
+  // file read is made relative to the root's real path too.
+  const realRoot = realPath(root)
+  const readFile = (path: string) => read.add(slashes(relative(realRoot, realPath(path))))
   const visit = (path: string) => {
     const key = slashes(path)
     if (seen.has(key) || !existsSync(path)) return
     seen.add(key)
     const parsed = ts.getParsedCommandLineOfConfigFile(path, {}, host)
     if (!parsed) return
+    readFile(path)
+    for (const base of extendedFiles(parsed.options)) readFile(base)
     configs.push({
       path: slashes(relative(root, path)),
       files: parsed.fileNames.map(slashes),
@@ -45,7 +57,7 @@ export function readTsconfig(root: string): ProjectTsconfig {
   if (start) visit(start)
   const withFiles = configs.filter((config) => config.files.length > 0)
   const app = withFiles.find((config) => config.options.jsx !== undefined) ?? withFiles[0]
-  return { configs, ...(app ? { app } : {}) }
+  return { configs, ...(app ? { app } : {}), read: [...read] }
 }
 
 /**
@@ -102,6 +114,26 @@ function pathMappings(root: string, tsconfig: ProjectTsconfig): { pattern: strin
       targets[0] === undefined ? [] : [{ pattern, target: targets[0], base }]
     )
   })
+}
+
+/** A path with its links and short names resolved, or as it is when it can't be. */
+function realPath(path: string): string {
+  try {
+    return realpathSync.native(path)
+  } catch {
+    return path
+  }
+}
+
+/**
+ * The configs a parsed config's `extends` chain read, absolute. TypeScript keeps them on the config's own source file,
+ * which `CompilerOptions` types only by its index signature.
+ */
+function extendedFiles(options: ts.CompilerOptions): string[] {
+  const file = options.configFile
+  if (typeof file !== "object" || file === null || Array.isArray(file) || !("extendedSourceFiles" in file)) return []
+  const extended: unknown = file.extendedSourceFiles
+  return Array.isArray(extended) ? extended.filter((path) => typeof path === "string") : []
 }
 
 const host: ts.ParseConfigFileHost = {

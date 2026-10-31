@@ -171,8 +171,8 @@ PAR-11 and PAR-12 are wired by `.github/workflows/cd-desktop.yml` through the sh
 CI on main publishes a beta only when the desktop version changed. A manual `release` retries the current version after
 verifying main's CI; `promote` takes an existing beta version and waits for Andrew's approval in the main-only
 `production` environment, managed in `infra/github`. Promotion verifies the recorded commit and installer hashes and
-marks those same files stable. The optional `VITE_TLDRAW_LICENSE_KEY` secret reaches only the build step. Signing and
-automatic updates remain separate work.
+marks those same files stable. The optional `VITE_TLDRAW_LICENSE_KEY` secret reaches only the build step. PAR-160 adds
+installed Windows/Linux updates and an unsigned Mac download fallback; publisher signing remains PAR-399.
 
 1. **A production build** (PAR-8): the renderer through `vp build`, the main, utility, preload and worker bundles, and
    the main process loading the built files when packaged.
