@@ -47,7 +47,11 @@ jobs:
         if [ "$RUNNER_OS" = Windows ]; then
           pnpm --filter @parity-app/desktop try-built vite7-js
           pnpm --filter @parity-app/desktop try-built headless
-          pnpm --filter @parity-app/desktop package
+        fi
+        # Every installer target must build before this can merge. Signing is a separate release task.
+        export CSC_IDENTITY_AUTO_DISCOVERY=false
+        pnpm --filter @parity-app/desktop package
+        if [ "$RUNNER_OS" = Windows ]; then
           pnpm --filter @parity-app/desktop try-installed
         fi
       # A run that installs the fixture projects and caches their 2 GB can outlast the default 30 minutes on Windows.
