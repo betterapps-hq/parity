@@ -13,7 +13,7 @@ export class InstalledBuild {
     private readonly options: {
       version: string
       packaged: boolean
-      metadata?: unknown
+      metadata?: () => unknown
       read: () => unknown
       save: (value: unknown) => void
       request?: typeof fetch
@@ -22,13 +22,18 @@ export class InstalledBuild {
   ) {
     this.info = { version: options.version, channel: options.packaged ? "unknown" : "development" }
     if (!options.packaged) return
-    if (
-      options.metadata &&
-      typeof options.metadata === "object" &&
-      "releaseChannel" in options.metadata &&
-      options.metadata.releaseChannel === "beta"
-    )
-      this.info = { version: options.version, channel: "beta" }
+    try {
+      const metadata = options.metadata?.()
+      if (
+        metadata &&
+        typeof metadata === "object" &&
+        "releaseChannel" in metadata &&
+        metadata.releaseChannel === "beta"
+      )
+        this.info = { version: options.version, channel: "beta" }
+    } catch {
+      // Optional build metadata must never prevent the app from starting or reading a confirmed cache.
+    }
     try {
       const saved = options.read()
       if (
@@ -49,7 +54,7 @@ export class InstalledBuild {
       )
         this.checkedAt = saved.checkedAt
     } catch {
-      // A fresh install or unreadable cache is unknown, never inferred from the update preference or numeric version.
+      // Keep the embedded identity, never inferring a channel from the update preference or numeric version.
     }
   }
 
