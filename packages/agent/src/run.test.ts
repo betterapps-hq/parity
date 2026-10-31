@@ -145,6 +145,32 @@ Print(Get("page", {depth: 1}).children.length)`
     expect(events.at(-1)).toMatchObject({ kind: "end" })
   })
 
+  it("gives GetModes a copy, so editing it in place and setting it leaves the call's starting point as read", async () => {
+    const read = snapshot()
+    const before = structuredClone(read.modes)
+    const option = await execute(
+      {
+        label: "Rename an option",
+        code: `const s = GetModes().settings\ns.variables[0].options[0] = {...s.variables[0].options[0], name: "Wide"}\nSetModes(s)`
+      },
+      read,
+      hooks()
+    )
+    expect(option.error).toBeUndefined()
+    expect(read.modes).toEqual(before)
+    expect(option.changes.modes?.base).toEqual(before)
+    expect(option.changes.modes?.after.variables[0]!.options[0]!.name).toBe("Wide")
+
+    const renamed = await execute(
+      { label: "Rename a mode", code: `const s = GetModes().settings\ns.modes[0].name = "X"\nSetModes(s)` },
+      read,
+      hooks()
+    )
+    expect(renamed.error).toBeUndefined()
+    expect(read.modes).toEqual(before)
+    expect(renamed.changes.modes?.after.modes[0]!.name).toBe("X")
+  })
+
   it("changes nothing when the snippet fails, and retries with edits", async () => {
     const shared = snapshot()
     const failed = await execute(
