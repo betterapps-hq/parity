@@ -197,6 +197,23 @@ describe("readTsconfig", () => {
     expect(resolvePathAlias(root, tsconfig, "react")).toBeUndefined()
   })
 
+  it("records every config file it read: references and each extends chain, from a package too", async () => {
+    await write("tsconfig.base.json", '{ "extends": "@acme/tsconfig/react.json" }')
+    await write("node_modules/@acme/tsconfig/package.json", '{ "name": "@acme/tsconfig" }')
+    await write("node_modules/@acme/tsconfig/react.json", '{ "compilerOptions": { "jsx": "react-jsx" } }')
+    await write("app/tsconfig.json", '{ "files": [], "references": [{ "path": "./tsconfig.app.json" }] }')
+    await write("app/tsconfig.app.json", '{ "extends": "../tsconfig.base.json", "include": ["src"] }')
+    await write("app/src/main.tsx", "export {}")
+    const tsconfig = readTsconfig(join(root, "app"))
+    expect(tsconfig.configs.map((config) => config.path)).toEqual(["tsconfig.json", "tsconfig.app.json"])
+    expect(tsconfig.read.toSorted()).toEqual([
+      "../node_modules/@acme/tsconfig/react.json",
+      "../tsconfig.base.json",
+      "tsconfig.app.json",
+      "tsconfig.json"
+    ])
+  })
+
   it("writes a file's import through the alias that reaches furthest into it", async () => {
     await write(
       "tsconfig.json",

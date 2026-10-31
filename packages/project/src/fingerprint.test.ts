@@ -3,7 +3,8 @@ import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { readTsconfig } from "@parity-app/code"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
-import { detectionFingerprint } from "./fingerprint.ts"
+import { detectPackageManager } from "./detect.ts"
+import { detectionFingerprint, fingerprintInputs } from "./fingerprint.ts"
 
 let root: string
 
@@ -48,5 +49,45 @@ describe("detection fingerprints", () => {
     expect(
       await fingerprint("v1", { ...sources, Card: { path: "src/card.tsx", export: "Card", as: "function" } })
     ).not.toBe(locked)
+  })
+
+  it("changes with npm-shrinkwrap.json alone, the lockfile npm prefers", async () => {
+    await rm(join(root, "pnpm-lock.yaml"))
+    await write("app/package-lock.json", '{ "lockfileVersion": 3 }')
+    await write("app/npm-shrinkwrap.json", '{ "lockfileVersion": 3 }')
+    const before = await fingerprint()
+    await write("app/npm-shrinkwrap.json", '{ "lockfileVersion": 3, "packages": {} }')
+    expect(await fingerprint()).not.toBe(before)
+  })
+
+  it("hashes the lockfile detection picked, not one further up", async () => {
+    await write("app/package-lock.json", '{ "lockfileVersion": 3 }')
+    expect((await detectPackageManager(join(root, "app"))).lockfile).toBe("package-lock.json")
+    const before = await fingerprint()
+    await write("pnpm-lock.yaml", "lockfileVersion: '9.0'\npackages: {}\n")
+    expect(await fingerprint()).toBe(before)
+    await write("app/package-lock.json", '{ "lockfileVersion": 3, "packages": {} }')
+    expect(await fingerprint()).not.toBe(before)
+  })
+
+  it("changes with a base config the tsconfig extends", async () => {
+    await write("tsconfig.base.json", '{ "compilerOptions": { "strict": false } }')
+    await write("app/tsconfig.json", '{ "extends": "../tsconfig.base.json", "include": ["src"] }')
+    const before = await fingerprint()
+    await write("tsconfig.base.json", '{ "compilerOptions": { "strict": true } }')
+    expect(await fingerprint()).not.toBe(before)
+  })
+
+  it("lists what it reads as its inputs", async () => {
+    await write("tsconfig.base.json", "{}")
+    await write("app/tsconfig.json", '{ "extends": "../tsconfig.base.json", "include": ["src"] }')
+    const app = join(root, "app")
+    expect(await fingerprintInputs(app, ["src/button.tsx"], sources, readTsconfig(app))).toEqual([
+      "../pnpm-lock.yaml",
+      "../tsconfig.base.json",
+      "package.json",
+      "src/button.tsx",
+      "tsconfig.json"
+    ])
   })
 })
