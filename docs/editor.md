@@ -18,15 +18,10 @@ Features built before 2026-10-29 are being added under PAR-392 in Linear.
 
 `pnpm test:app` drives a copy of Parity as a person does, with the system's own pointer and keyboard, and checks what
 the canvas, the panels and the project show: 92 tests, which take five to eight minutes. It isn't part of `vp run test`
-or `pnpm verify`. The pre-push hook runs it when the commits a push sends change the app, its packages, the example or
-the workspace's build files (`scripts/app-tests.ts`), and a failure stops the push. Every worktree's suite shares the
-same ports, so a push waits while another worktree's hook is running it (a lock file in the system's temp folder, taken
-over when its process has gone and left alone when it can't be read; `scripts/app-tests.test.ts` covers each of those,
-while two hooks taking over one stale lock at once was checked by reading the code, since a test can't time it). CI runs
-it on Windows for every pull request and every push to main, without blocking the merge until it runs reliably there
-(PAR-438). While working, run only the files a change touches, such as `pnpm test:app keyboard`, rather than the whole
-suite after each change: each run opens a Parity window. Each feature's tests below name the end-to-end ones that cover
-it.
+or `pnpm verify`. End-to-end tests run only in CI, never in local checks or Git hooks, including focused files. The
+`App tests` workflow (`.github/workflows/app.yml`) runs them on Windows for every pull request and every push to main,
+without blocking the merge until they run reliably there (PAR-438). Each feature's tests below name the end-to-end ones
+that cover it.
 
 - **What it starts.** `apps/desktop/e2e/global-setup.ts` copies `examples/shadcn-vite` to a temporary folder, linking
   its `node_modules` rather than copying them, and adds a Members screen: three `MemberRow({ member })` rows, a fragment
