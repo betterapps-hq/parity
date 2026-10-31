@@ -51,6 +51,37 @@ async function track(browser: Browser): Promise<void> {
   }
 }
 
+/** NSIS restarts through Explorer, whose environment need not retain this check's debug/profile variables. */
+function windowsApp(): { pid: number; version: string } | undefined {
+  const executable = join(installed, "Parity.exe").replaceAll("'", "''")
+  const result = spawnSync(
+    "powershell.exe",
+    [
+      "-NoProfile",
+      "-NonInteractive",
+      "-Command",
+      `$app = Get-Process -Name Parity -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq '${executable}' -and $_.MainWindowHandle -ne 0 } | Select-Object -First 1; if ($app) { @{ pid = $app.Id; version = $app.MainModule.FileVersionInfo.ProductVersion } | ConvertTo-Json -Compress }`
+    ],
+    { encoding: "utf8", windowsHide: true, timeout: 5000 }
+  )
+  if (result.status !== 0)
+    throw new Error(`Could not inspect the restarted app: ${result.error?.message ?? result.stderr}`)
+  if (!result.stdout.trim()) return undefined
+  const snapshot: unknown = JSON.parse(result.stdout)
+  if (
+    !snapshot ||
+    typeof snapshot !== "object" ||
+    !("pid" in snapshot) ||
+    typeof snapshot.pid !== "number" ||
+    !Number.isSafeInteger(snapshot.pid) ||
+    snapshot.pid <= 0 ||
+    !("version" in snapshot) ||
+    typeof snapshot.version !== "string"
+  )
+    throw new Error("Invalid restarted app process information.")
+  return { pid: snapshot.pid, version: snapshot.version }
+}
+
 function run(command: string, args: string[], cwd = appDir): void {
   const result = spawnSync(command, args, {
     cwd,
@@ -345,10 +376,23 @@ try {
   stage = "waiting for the installed new version"
   console.log(stage)
   let newPage: Page | undefined
+  let relaunched = false
   let lastRelaunch = "No connection to the updated app."
   let reportedRelaunch = ""
   while (Date.now() < deadline) {
     try {
+      if (process.platform === "win32") {
+        const next = windowsApp()
+        if (next && !ownedProcesses.has(next.pid) && next.version === "999.0.1") {
+          ownedProcesses.add(next.pid)
+          relaunched = true
+          console.log(`Restarted Windows app: PID ${next.pid}, executable version ${next.version}`)
+          break
+        }
+        lastRelaunch = `Waiting for the new Windows app window: ${JSON.stringify(next)}`
+        await new Promise((done) => setTimeout(done, 500))
+        continue
+      }
       if (restarted && !restarted.isConnected()) restarted = undefined
       const endpoint = await debugEndpoint()
       if (endpoint === originalEndpoint) throw new Error("Waiting for the replacement app's debug endpoint.")
@@ -359,7 +403,10 @@ try {
         .flatMap((context) => context.pages())
         .find((candidate) => candidate.url() === "parity://app/index.html")
       const version = newPage ? await withTimeout(newPage.evaluate(() => window.canvasHost?.appVersion)) : undefined
-      if (version === "999.0.1") break
+      if (version === "999.0.1") {
+        relaunched = true
+        break
+      }
       lastRelaunch = `Connected pages: ${restarted
         .contexts()
         .flatMap((context) => context.pages())
@@ -377,15 +424,28 @@ try {
     newPage = undefined
     await new Promise((done) => setTimeout(done, 500))
   }
-  if (!newPage) throw new Error(`The updated app did not relaunch as 999.0.1. ${lastRelaunch}`)
+  if (!relaunched) throw new Error(`The updated app did not relaunch as 999.0.1. ${lastRelaunch}`)
   const saved = await readFile(join(project, "update-smoke.par"), "utf8")
   if (!saved.includes("Update smoke")) throw new Error("Unsaved work was not saved before installation.")
-  await withTimeout(newPage.evaluate(() => window.canvasHost.quit())).catch(() => undefined)
+  if (newPage) await withTimeout(newPage.evaluate(() => window.canvasHost.quit())).catch(() => undefined)
   console.log(
     "Real installed update passed: corrupt download rejected, Later retained, Cancel respected, work saved, version 999.0.1 relaunched."
   )
 } catch (error) {
   failed = true
+  if (process.platform === "win32") {
+    const snapshot = spawnSync(
+      "powershell.exe",
+      [
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        "Get-Process -Name Parity -ErrorAction SilentlyContinue | Select-Object Id,Path,MainWindowHandle,StartTime | ConvertTo-Json -Compress"
+      ],
+      { encoding: "utf8", windowsHide: true, timeout: 5000 }
+    )
+    console.error("Windows app processes:", snapshot.stdout, snapshot.stderr)
+  }
   console.error((await readFile(electronLog, "utf8").catch(() => "No Electron log")).split("\n").slice(-50).join("\n"))
   throw error
 } finally {
@@ -416,7 +476,12 @@ async function cleanup(): Promise<void> {
     if (feed) await withTimeout(new Promise<void>((closed) => feed!.close(() => closed())))
   })
   if (installedWindows)
-    await attempt(() => run(join(installed, "Uninstall Parity.exe"), ["/S", `_?=${installed}`], work))
+    await attempt(async () => {
+      // With _?= the uninstaller runs in place. Keep it outside INSTDIR so its own process is not counted as the app.
+      const uninstaller = join(work, "uninstall.exe")
+      await cp(join(installed, "Uninstall Parity.exe"), uninstaller)
+      run(uninstaller, ["/S", `_?=${installed}`], work)
+    })
   await attempt(removeWork)
   if (!failed && problems.length) throw new AggregateError(problems, "Installed update cleanup failed.")
 }
