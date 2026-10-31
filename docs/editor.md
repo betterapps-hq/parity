@@ -2114,9 +2114,10 @@ Tests: `packages/core/src/render.test.ts` (1: at 1280 by 1234, a frame that grow
 a frame fixed at 600 keeps its 600 apart from its window). `apps/desktop/src/shared/render-job.test.ts` (2: for that
 growing frame, the live frame's geometry, a bitmap's job and an agent's `Measure` job all have a 1280 by 1234 window and
 no height; a fixed frame's job keeps its height beside its window). `packages/agent/src/run.test.ts` (1: `Measure`,
-`Screenshot` and `Accessibility` ask for frames with that window). Gaps: that the offscreen page mounts the frame in the
-job's viewport was checked by reading `canvasRender`; the end-to-end suite draws frames offscreen but doesn't read a
-window height in them.
+`Screenshot` and `Accessibility` ask for frames with that window). `apps/desktop/src/renderer/render.test.ts` (2), in
+Chrome: the offscreen page's `canvasRender`, in an 800px window, mounts a growing 1280px frame in the job's 1234px
+window, where `100vh` measures 1234 and the frame grows past it; a frame fixed at 600 is 600 tall while `100vh` is
+still 1234. Gap: the end-to-end suite draws frames offscreen but doesn't read a window height in them.
 
 ### Caller identity (PAR-450)
 
