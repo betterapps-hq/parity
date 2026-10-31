@@ -592,6 +592,13 @@ recommended answer to each of its questions.
   `~/.parity/cache/detection`, one file per project, under a fingerprint of every file they read, the tsconfigs,
   package.json, the lockfile, the list as discovered and Parity's own checker code. Results aren't saved when files
   changed while the checker read them.
+- **The fingerprint's inputs come from the code that reads them, not from lists of its own.** My call (PAR-469): the
+  lockfiles are those package-manager detection recognizes (`findLockfiles`, from `package-manager-detector`'s list, so
+  `npm-shrinkwrap.json`, `deno.lock` and `pnpm-workspace.yaml` count), in the same nearest folder detection settles on,
+  and the tsconfigs are every file the config reader read (`ProjectTsconfig.read`): the configs, their references and
+  each `extends` chain, a base from an installed package included. When a folder has several lockfiles, detection names
+  the first in that list as `lockfile` and the fingerprint hashes all of them, since a package manager may read another
+  (npm prefers `npm-shrinkwrap.json`). `fingerprintInputs` lists the files, for a watcher to follow (PAR-470).
 - **Changed files are read again on their own, without reopening the project.** My call: the parse reads the changed
   files about half a second after the last change, so added, renamed and deleted components show at once, and the type
   checker then reads only those files and the files that import them, since an export's type can come from an import. A

@@ -13,6 +13,7 @@
     "name": "npm",
     "agent": "npm",
     "from": "package-lock.json",
+    "lockfile": "package-lock.json",
     "summary": "npm from package-lock.json"
   },
   "tools": [
