@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process"
+import { watch } from "node:fs"
 // CI-only production startup check (PAR-8). Run the built files outside the checkout, with no UI dev server.
 import { cp, mkdir, mkdtemp, readdir, readFile, realpath, rm, symlink } from "node:fs/promises"
 import { createRequire } from "node:module"
@@ -17,6 +18,37 @@ const stage = join(work, "app")
 const agentFile = join(work, "agent.json")
 const installerMode = process.argv.includes("--installer")
 const installed = join(work, "installed")
+const seenDiscovery = new Set<string>()
+const discoveryWatcher = watch(work, { persistent: false }, (_event, name) => {
+  if (name !== "agent.json") return
+  void readFile(agentFile, "utf8")
+    .then((text) => {
+      const record: unknown = JSON.parse(text)
+      if (
+        !record ||
+        typeof record !== "object" ||
+        !("url" in record) ||
+        typeof record.url !== "string" ||
+        !("pid" in record) ||
+        typeof record.pid !== "number" ||
+        !Number.isSafeInteger(record.pid)
+      )
+        return
+      const key = `${new URL(record.url).origin} ${record.pid}`
+      if (seenDiscovery.has(key)) return
+      seenDiscovery.add(key)
+      console.log(`Discovery changed: ${key}`)
+      if (process.platform === "win32") {
+        const owner = spawnSync("tasklist.exe", ["/fi", `PID eq ${record.pid}`, "/fo", "csv", "/nh"], {
+          windowsHide: true,
+          timeout: 5000,
+          encoding: "utf8"
+        })
+        console.log(owner.stdout || owner.error?.message || owner.stderr)
+      }
+    })
+    .catch(() => undefined)
+})
 let electron: ElectronApplication | undefined
 let uninstallError: Error | undefined
 let installationSucceeded = false
@@ -139,7 +171,7 @@ try {
             "-NoProfile",
             "-NonInteractive",
             "-Command",
-            "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'Parity.exe' -or $_.ProcessId -eq [int]$env:PARITY_DIAGNOSTIC_PID } | Select-Object Name,ProcessId,ParentProcessId,CommandLine | ConvertTo-Json"
+            "Get-CimInstance Win32_Process -Filter (\"Name='Parity.exe' or ProcessId=\" + [int]$env:PARITY_DIAGNOSTIC_PID) | Select-Object Name,ProcessId,ParentProcessId,CommandLine | ConvertTo-Json"
           ],
           {
             windowsHide: true,
@@ -148,7 +180,7 @@ try {
             env: { ...process.env, PARITY_DIAGNOSTIC_PID: String(discoveryPid) }
           }
         )
-        console.error(diagnostics.stdout)
+        console.error(diagnostics.stdout || diagnostics.error?.message || diagnostics.stderr)
       }
       console.error(`Startup check process: ${process.pid}`)
       console.error(
@@ -164,6 +196,7 @@ try {
   if (errors.length) throw new Error(errors.join("\n"))
   console.log("The production renderer and service started outside the checkout without a dev server.")
 } finally {
+  discoveryWatcher.close()
   await electron?.close()
   if (installationSucceeded) {
     const result = spawnSync(join(installed, "Uninstall Parity.exe"), ["/S", `_?=${installed}`], {
