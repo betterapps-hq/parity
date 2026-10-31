@@ -1,7 +1,8 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import type { ComponentInfo, ComponentSource, DesignNode, LibraryManifest } from "@parity-app/core"
-import { call, type ExecResponse } from "./client.ts"
+import { call } from "./client.ts"
+import { executeOperation } from "./execute.ts"
 
 export interface CheckOptions {
   tab?: string
@@ -62,8 +63,8 @@ export async function runCheck(library: string | undefined, options: CheckOption
   )
   const mode = options.mode ?? "desktop-light"
   const exec = async (label: string, code: string): Promise<string> => {
-    const result = await call<ExecResponse>("exec", { tab: options.tab, label, code })
-    if (!result.ok) throw new Error(result.error ?? `${label} failed`)
+    const result = await executeOperation.run({ tab: options.tab, label, code }, call)
+    if (executeOperation.failed(result)) throw new Error(result.error ?? `${label} failed`)
     const line = result.output.find((item) => item.startsWith("{") || item.startsWith("["))
     if (!line) throw new Error(`${label} printed nothing`)
     return line
