@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Remove unused dependencies and code; nothing people see changes",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

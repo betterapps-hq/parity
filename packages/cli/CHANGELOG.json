@@ -1,0 +1,180 @@
+{
+  "name": "@parity-app/cli",
+  "entries": [
+    {
+      "date": "Sat, 31 Oct 2026 05:16:05 GMT",
+      "version": "0.1.0",
+      "tag": "@parity-app/cli_v0.1.0",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "a4e4a1d8431da8ec2294bc193cb526d05d65fe82",
+            "comment": "Start versioning with Beachball"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "10faa5815773805bc52fc16f7548390ddc54fe77",
+            "comment": "Turn on the agency monorepo's stricter lint rules and fix what they flag"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "a4e4a1d8431da8ec2294bc193cb526d05d65fe82",
+            "comment": "Point a code comment at its Linear issue"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "a4e4a1d8431da8ec2294bc193cb526d05d65fe82",
+            "comment": "License Parity under MIT"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "a94c43407bae42b03a13e365638c7883379c1b42",
+            "comment": "Name every workspace package in the @parity-app scope"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "de1ce774211d5068bf875f823e31129f0d7a4a79",
+            "comment": "Move token reading, editing and matching into @parity-app/tokens"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "e15aa7162c580ecdb935c25c0ec03eb31a10e4d3",
+            "comment": "Drop the builder's record of what it served, which no longer picks a reopened project's port (PAR-431)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "03a811bbe691b2c5e29c8322fcbea7dbada341b3",
+            "comment": "Turn on the type-aware lint rules and fix what they flag"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "c432396e126f2bf7eefb9b7ccafee95ec3fb5acc",
+            "comment": "Remove unused dependencies and code; nothing people see changes"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "a4e4a1d8431da8ec2294bc193cb526d05d65fe82",
+            "comment": "Reopen a project without loading its code again when it hasn't changed, show the new code when it has, and free a closed project's styles"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "ccf50935561823532bf4247de7e1453fb1a25462",
+            "comment": "A token's code forms are its CSS variable and its name, with no framework's classes."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "3d7433f1f2f2c91e0be7b8971256760fb657489a",
+            "comment": "List providers so the parts inside them insert, and place more library parts from the app's errors"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "7541cd97a381e8e4045adc5c69b24fc326c7249e",
+            "comment": "Frames and their bitmaps draw again when a component the type checker finds, or finds moved, comes from a new file"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "63fdf9969e99ba5fc0ac6975d73af33fef68faf4",
+            "comment": "Name Buildkit's shadcn libraries Shadcn and their style (Shadcn Nova, Shadcn Luma and the rest) instead of Buildkit nova"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "4589aed201d366ab82ad01cb272c6d0a7de89cc7",
+            "comment": "Every list of tokens, in the Tokens panel and the inspector's pickers, shares one order, smallest first."
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "a4e4a1d8431da8ec2294bc193cb526d05d65fe82",
+            "comment": "parity lib lists icons whose names end in a number, and records the name each icon set's types prefer"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "a4e4a1d8431da8ec2294bc193cb526d05d65fe82",
+            "comment": "parity lib gives examples the values the package's own functions make, such as a Chakra tree view's collection"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "a4e4a1d8431da8ec2294bc193cb526d05d65fe82",
+            "comment": "parity lib installs a library on its own at a version, so describing it needs no project that has it"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "5adff82b3043e18bc7f6a81b3eade8e283035670",
+            "comment": "Frames run the production builds of the project's dependencies, React's among them, so the window no longer keeps a stack for every element (PAR-198)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b1049c508035ae848ba5eade466886cf02a8f263",
+            "comment": "Charts, axes, series and grids from Recharts, so a ChartContainer can hold a bar, line or area chart"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "d2b05ab89b6a4770f1da9d667a80b186cab3e4ef",
+            "comment": "Size a hugging text layer to its text, wrapping only at its maximum width, as Figma's auto width does, and tell agents how text layers size: auto width, auto height or fixed, from their width and height"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "9fb1fe2be1d1352ec42c5febec55da0fa54b2e50",
+            "comment": "Show Fluent slots such as icon, contentBefore and header the way children shows: text, or layers in their slot"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "37e56ad2b0272627d8bb0f732bac8f577e4540fc",
+            "comment": "parity lib check --record keeps why parts failed in the app, and parity lib --registry places them from it; parts that hand their children to an input are inserted without a text label"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "398eac8ffda1df93a607697509583a2f644c70b6",
+            "comment": "Name a library's own components by its id, list its canvas's component designs in apps that install it, and place them linked or as detached copies"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "4ae26720ce0e38f9e00da446c0b3e18ee79197c6",
+            "comment": "Give empty layouts a size on the canvas, keep resize handles off small layers, let Escape cancel resizes and title drags, and show the grabbing, resize and text cursors over the canvas"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "a4e4a1d8431da8ec2294bc193cb526d05d65fe82",
+            "comment": "Publish to npm as @parity-app/cli, with the registry's library files inside"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "27e9bdfe6d71e2602681d75b517884b67226fc06",
+            "comment": "Infer each token's kind from its value, then its name, else none, and preview gradients and type styles"
+          }
+        ]
+      }
+    }
+  ]
+}

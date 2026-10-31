@@ -31,14 +31,15 @@ to npm and of unsigned installers to GitHub Releases, as betas first and to ever
   job runs it; `pnpm verify` doesn't.
 - **Dependabot keeps dependencies current** (PAR-394): weekly, grouped, a few days behind each release, and never in the
   fixtures or the Vite+ toolchain. decisions.md has the calls.
-- **Release and npm pipelines are in place, waiting on credentials** (PAR-10, PAR-14). `release.yml` calls the shared
-  `release-prepare` and `release-merge` after CI passes on `main`, and `cd-npm.yml` calls `cd-npm-publish`, which
-  publishes `@parity-app/cli` through npm's trusted publishing with provenance. `0.0.0` was published by hand, and npm
-  trusts `cd-npm.yml` with the `npm` environment, which `infra/github` keeps to `main`. Until the release GitHub App's
-  `RELEASE_APP_CLIENT_ID` variable and `RELEASE_APP_PRIVATE_KEY` secret exist, `release.yml` skips with a notice, and
-  until Terraform's credentials exist, nothing makes the `npm` environment. They call the templates at v1.6.1, whose
-  `release-prepare` gives the hooks `origin/main` to compare the release commit with. CodeRabbit skips the changelogs,
-  so the release PR has nothing for it to hold up.
+- **npm delivery is configured** (PAR-14). `cd-npm.yml` calls `cd-npm-publish` at v1.7.1 after CI passes on `main`,
+  publishing `@parity-app/cli` through npm's trusted publishing with provenance. `0.0.0` was published by hand, and npm
+  trusts `cd-npm.yml` with the `npm` environment. Terraform has provisioned that environment, restricted to `main` with
+  administrator bypass disabled, and adopted the repository's existing rulesets. A manually prepared release PR can use
+  this publishing workflow without a release GitHub App or a stored npm token.
+- **Automatic release PRs still wait for their GitHub App** (PAR-10). `release.yml` calls the shared `release-prepare`
+  and `release-merge` after CI passes on `main`. Until `RELEASE_APP_CLIENT_ID` and `RELEASE_APP_PRIVATE_KEY` exist, it
+  skips with a notice. The release templates at v1.7.0 give the hooks `origin/main` to compare the release commit with.
+  CodeRabbit skips the generated changelogs, whose wording was reviewed in the change files.
 
 ## Vite+
 

@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Find the registry's library files beside the bundle first, where the CLI ships them",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Pasting text that starts like a Parity copy but can't be read shows a message instead of pasting its JSON, and pasted designs keep their ids when those ids are free.",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Frames run the production builds of the project's dependencies, React's among them, so the window no longer keeps a stack for every element (PAR-198)",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

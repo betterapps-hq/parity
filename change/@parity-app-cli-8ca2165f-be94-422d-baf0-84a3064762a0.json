@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "parity lib check --record keeps why parts failed in the app, and parity lib --registry places them from it; parts that hand their children to an input are inserted without a text label",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Close a project whose tab closes while it's still opening",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

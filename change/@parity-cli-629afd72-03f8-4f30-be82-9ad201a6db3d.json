@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "parity lib installs a library on its own at a version, so describing it needs no project that has it",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Give empty layouts a size on the canvas, keep resize handles off small layers, let Escape cancel resizes and title drags, and show the grabbing, resize and text cursors over the canvas",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

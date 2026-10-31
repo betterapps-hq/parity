@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Name every workspace package in the @parity-app scope",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

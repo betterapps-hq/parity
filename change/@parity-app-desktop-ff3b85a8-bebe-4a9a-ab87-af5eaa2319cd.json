@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Add shared copy parts that always show whether a copy worked, used by the token preview explorations",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

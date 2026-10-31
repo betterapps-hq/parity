@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Run Parity's checks as Vite+ tasks so Vite Task can replay them",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Drop the builder's record of what it served, which no longer picks a reopened project's port (PAR-431)",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

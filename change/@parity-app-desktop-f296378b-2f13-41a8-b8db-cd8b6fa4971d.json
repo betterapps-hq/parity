@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Stop the window scrolling and throwing off canvas clicks",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
