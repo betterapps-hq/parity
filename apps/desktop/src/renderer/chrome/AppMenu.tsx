@@ -29,6 +29,7 @@ import {
   PanelsLeftRight,
   PenLine,
   Redo2,
+  RefreshCw,
   Save,
   SaveAll,
   Scan,
@@ -70,6 +71,7 @@ import { type Command, keymap } from "./keymap.ts"
 import { isMac } from "./keys.ts"
 import { setLayout, useLayout } from "./layout.ts"
 import { setPreferences, usePreferences } from "./preferences.ts"
+import { checkForUpdates } from "./updates.tsx"
 
 const mac = isMac()
 
@@ -329,6 +331,9 @@ function HelpItems() {
       <MenubarSeparator />
       <Item command="developerTools" icon={Code} />
       <MenubarSeparator />
+      <MenubarItem onSelect={checkForUpdates}>
+        <RefreshCw /> Check for updates…
+      </MenubarItem>
       <MenubarItem onSelect={() => openDialog("about")}>
         <Info /> About Parity
       </MenubarItem>

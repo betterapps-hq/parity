@@ -10,8 +10,8 @@ import {
   DialogTitle
 } from "@/components/ui/dialog"
 import icon from "../../../../../brand/parity-icon.svg?url"
-import desktop from "../../../package.json"
 import { closeDialog, useOpenDialog } from "./app-dialogs.ts"
+import { actOnUpdate, checkForUpdates, useUpdates } from "./updates.tsx"
 
 /** The parts of Parity a bug report needs: its version, and the Electron and Chromium it runs on. */
 function buildDetails(userAgent = navigator.userAgent): { label: string; value: string }[] {
@@ -20,7 +20,7 @@ function buildDetails(userAgent = navigator.userAgent): { label: string; value: 
   if (/Mac/.test(userAgent)) system = "macOS"
   else if (/Windows/.test(userAgent)) system = "Windows"
   return [
-    { label: "Version", value: `${desktop.version}${import.meta.env.DEV ? " (development build)" : ""}` },
+    { label: "Version", value: `${window.canvasHost.appVersion}${import.meta.env.DEV ? " (development build)" : ""}` },
     { label: "Electron", value: version("Electron") },
     { label: "Chromium", value: version("Chrome") },
     { label: "System", value: system }
@@ -31,6 +31,25 @@ function buildDetails(userAgent = navigator.userAgent): { label: string; value: 
 export function AboutDialog() {
   const open = useOpenDialog() === "about"
   const details = buildDetails()
+  const update = useUpdates()
+  const busy = ["checking", "downloading", "installing"].includes(update.phase)
+  const descriptions = {
+    disabled: "Updates are available in installed builds. Linux updates need the AppImage.",
+    idle: "Check for a newer release of Parity.",
+    checking: "Checking for updates…",
+    current: "No newer release in your selected update channel.",
+    downloading: "Downloading an update. You can keep working.",
+    ready: "An update is ready. Restart when you're ready to install it.",
+    manual: "A new version is available. Download the Mac installer and replace your current copy.",
+    installing: "Restarting to install the update…",
+    error: "Couldn't check or download the update. Check your connection and try again."
+  }
+  let action = "Check for updates"
+  if (update.phase === "ready") action = "Restart to update"
+  else if (update.phase === "manual") action = "Download update"
+  else if (update.phase === "error") action = "Try again"
+  details.push({ label: "Updates", value: update.beta ? "Beta and stable" : "Stable releases" })
+  if ("version" in update) details.push({ label: "Available", value: update.version })
   const copy = () => {
     void navigator.clipboard
       .writeText(details.map(({ label, value }) => `${label}: ${value}`).join("\n"))
@@ -42,10 +61,7 @@ export function AboutDialog() {
         <DialogHeader className="items-center text-center">
           <img src={icon} alt="" className="size-16" />
           <DialogTitle className="text-base">Parity</DialogTitle>
-          <DialogDescription>
-            Parity has no releases yet, so there are no updates to check for. To get the latest, pull the repository and
-            run it again.
-          </DialogDescription>
+          <DialogDescription>{descriptions[update.phase]}</DialogDescription>
         </DialogHeader>
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
           {details.map(({ label, value }) => (
@@ -59,7 +75,12 @@ export function AboutDialog() {
           <Button variant="outline" onClick={copy}>
             <Copy /> Copy details
           </Button>
-          <Button onClick={closeDialog}>Done</Button>
+          <Button
+            disabled={busy || update.phase === "disabled"}
+            onClick={update.phase === "ready" || update.phase === "manual" ? actOnUpdate : checkForUpdates}
+          >
+            {action}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -11,6 +11,7 @@ import { ShortcutsDialog } from "./chrome/ShortcutsDialog.tsx"
 import { StartScreen } from "./chrome/StartScreen.tsx"
 import { TabBar } from "./chrome/TabBar.tsx"
 import { UnsavedPrompt } from "./chrome/UnsavedPrompt.tsx"
+import { startUpdates } from "./chrome/updates.tsx"
 import { ProjectView } from "./ProjectView.tsx"
 import { useActiveTabId, useTabs, workspace } from "./workspace.ts"
 
@@ -25,6 +26,7 @@ export function App() {
     // Closing the window first asks about unsaved changes, and can be cancelled.
     window.canvasHost.onClosing(() => workspace.confirmQuit())
     window.canvasHost.onReconnect(() => void workspace.reconnect())
+    startUpdates()
   }, [])
 
   return <AppWindow />

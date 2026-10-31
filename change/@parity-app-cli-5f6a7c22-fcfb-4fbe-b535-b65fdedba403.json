@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "No CLI behavior change; the shared update state is used only by the desktop app",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

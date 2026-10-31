@@ -21,6 +21,8 @@ import type { BuilderReading, MainMessage, ServiceMessage } from "../shared/serv
 import { readConsole, recordConsole } from "./console-log.ts"
 import { idleClose } from "./idle-close.ts"
 import { privateMemory } from "./private-memory.ts"
+import type { UpdateSession } from "./update-session.ts"
+import { createUpdates } from "./updates.ts"
 
 const rendererUrl = process.env.PARITY_RENDERER_URL ?? "parity://app/index.html"
 // A standard, secure origin keeps storage and project CORS working when the UI comes from the installed files.
@@ -40,6 +42,8 @@ app.setPath("userData", process.env.PARITY_USER_DATA ?? join(app.getPath("appDat
 app.setName("Parity")
 
 let service: UtilityProcess | undefined
+let updates: UpdateSession | undefined
+const updateRestarts = new Set<number>()
 /** Services replaced by a fresh one; their exit is expected. */
 const retired = new WeakSet<UtilityProcess>()
 
@@ -161,7 +165,10 @@ function createWindow(): void {
     titleBarStyle: mac ? "hiddenInset" : "hidden",
     ...(mac ? {} : { titleBarOverlay: { color: background, symbolColor: symbols, height: 40 } }),
     webPreferences: {
-      additionalArguments: process.env.PARITY_PROJECT ? [`--parity-initial-project=${process.env.PARITY_PROJECT}`] : [],
+      additionalArguments: [
+        `--parity-version=${app.getVersion()}`,
+        ...(process.env.PARITY_PROJECT ? [`--parity-initial-project=${process.env.PARITY_PROJECT}`] : [])
+      ],
       preload: join(import.meta.dirname, "preload.cjs"),
       contextIsolation: true,
       sandbox: true
@@ -186,6 +193,11 @@ function createWindow(): void {
     window.webContents.send("canvas:closing")
     setTimeout(() => {
       if (acknowledged || ready || window.isDestroyed()) return
+      if (updateRestarts.delete(window.id)) {
+        deciding = false
+        updates?.fail(new Error("The window did not answer. Try restarting the update again."))
+        return
+      }
       ready = true
       window.close()
       if (quitting) app.quit()
@@ -193,14 +205,22 @@ function createWindow(): void {
   })
   ipcMain.removeAllListeners("canvas:close-cancel")
   ipcMain.on("canvas:close-cancel", (event) => {
-    if (event.sender !== window.webContents) return
+    if (event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame) return
+    updateRestarts.delete(window.id)
     deciding = false
     quitting = false
   })
   ipcMain.removeAllListeners("canvas:close-ready")
   ipcMain.on("canvas:close-ready", (event) => {
-    if (event.sender !== window.webContents || ready) return
+    if (event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame || ready) return
     ready = true
+    if (updateRestarts.delete(window.id)) {
+      if (!updates?.install()) {
+        ready = false
+        deciding = false
+      }
+      return
+    }
     window.close()
     if (quitting) app.quit()
   })
@@ -214,6 +234,7 @@ function createWindow(): void {
   })
   // The hidden render window would otherwise keep the app running.
   window.on("closed", closeRenderWindow)
+  window.on("closed", () => updateRestarts.delete(window.id))
   void window.loadURL(rendererUrl!)
 }
 
@@ -239,7 +260,27 @@ function applicationMenu(): Menu {
   app.setAboutPanelOptions({ applicationName: "Parity", applicationVersion: app.getVersion() })
   if (process.platform !== "darwin") return Menu.buildFromTemplate([developer])
   return Menu.buildFromTemplate([
-    { role: "appMenu" },
+    {
+      label: "Parity",
+      submenu: [
+        { role: "about" },
+        {
+          label: "Check for updates…",
+          click: () => {
+            const window = BrowserWindow.getAllWindows().find((candidate) => candidate !== renderWindow)
+            window?.webContents.send("canvas:show-updates")
+          }
+        },
+        { type: "separator" },
+        { role: "services" },
+        { type: "separator" },
+        { role: "hide" },
+        { role: "hideOthers" },
+        { role: "unhide" },
+        { type: "separator" },
+        { role: "quit" }
+      ]
+    },
     {
       label: "Edit",
       submenu: [{ role: "cut" }, { role: "copy" }, { role: "paste" }, { role: "selectAll" }]
@@ -252,6 +293,46 @@ function applicationMenu(): Menu {
 function ownerOf(event: Electron.IpcMainInvokeEvent): BrowserWindow | undefined {
   return BrowserWindow.fromWebContents(event.sender) ?? undefined
 }
+
+/** Updater commands come only from the app's own main frame, never a guest or offscreen renderer. */
+function updateOwner(event: Electron.IpcMainInvokeEvent): BrowserWindow {
+  const window = ownerOf(event)
+  if (
+    !window ||
+    window === renderWindow ||
+    event.senderFrame !== event.sender.mainFrame ||
+    event.sender.getURL() !== rendererUrl
+  ) {
+    throw new Error("Only the Parity window can control updates.")
+  }
+  return window
+}
+
+ipcMain.handle("canvas:update-state", (event) => {
+  updateOwner(event)
+  return updates?.get() ?? { phase: "disabled", beta: false }
+})
+ipcMain.handle("canvas:update-check", async (event) => {
+  updateOwner(event)
+  await updates?.check()
+})
+ipcMain.handle("canvas:update-beta", (event, beta: unknown) => {
+  updateOwner(event)
+  if (typeof beta !== "boolean") throw new Error("The beta setting must be true or false.")
+  updates?.setBeta(beta)
+})
+ipcMain.handle("canvas:update-act", async (event) => {
+  const window = updateOwner(event)
+  const state = updates?.get()
+  if (state?.phase === "manual") {
+    await shell.openExternal(
+      `https://github.com/betterapps-hq/parity/releases/tag/v${encodeURIComponent(state.version)}`
+    )
+  } else if (state?.phase === "ready") {
+    updateRestarts.add(window.id)
+    window.close()
+  }
+})
 
 async function showOpen(event: Electron.IpcMainInvokeEvent, options: Electron.OpenDialogOptions) {
   const owner = ownerOf(event)
@@ -430,8 +511,14 @@ void app.whenReady().then(() => {
   // Otherwise the dock shows the icon of the app Parity runs as, which is Electron.
   app.dock?.setIcon(join(import.meta.dirname, "resources", "dock.png"))
   Menu.setApplicationMenu(applicationMenu())
+  updates = createUpdates((state) => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (window !== renderWindow) window.webContents.send("canvas:update-changed", state)
+    }
+  })
   service = startService()
   createWindow()
+  void updates.check()
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })

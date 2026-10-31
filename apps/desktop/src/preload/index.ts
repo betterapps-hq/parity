@@ -52,6 +52,28 @@ ipcRenderer.on("canvas:port", (event) => {
 })
 
 const host: CanvasHost = {
+  appVersion:
+    process.argv.find((argument) => argument.startsWith("--parity-version="))?.slice("--parity-version=".length) ??
+    "unknown",
+  updates: {
+    get: () => ipcRenderer.invoke("canvas:update-state"),
+    check: () => ipcRenderer.invoke("canvas:update-check"),
+    setBeta: (beta) => ipcRenderer.invoke("canvas:update-beta", beta),
+    act: () => ipcRenderer.invoke("canvas:update-act"),
+    subscribe: (listener) => {
+      const changed = (_event: Electron.IpcRendererEvent, state: Parameters<typeof listener>[0]) => listener(state)
+      ipcRenderer.on("canvas:update-changed", changed)
+      return () => {
+        ipcRenderer.removeListener("canvas:update-changed", changed)
+      }
+    },
+    onShow: (listener) => {
+      ipcRenderer.on("canvas:show-updates", listener)
+      return () => {
+        ipcRenderer.removeListener("canvas:show-updates", listener)
+      }
+    }
+  },
   initialProject: process.argv
     .find((argument) => argument.startsWith("--parity-initial-project="))
     ?.split("=")
@@ -83,7 +105,7 @@ const host: CanvasHost = {
       ipcRenderer.send("canvas:close-pending")
       listener().then(
         (close) => ipcRenderer.send(close ? "canvas:close-ready" : "canvas:close-cancel"),
-        () => ipcRenderer.send("canvas:close-ready")
+        () => ipcRenderer.send("canvas:close-cancel")
       )
     })
   }

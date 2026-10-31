@@ -28,7 +28,10 @@ which tools.
 
 Installers for Windows, macOS and Linux are published to
 [GitHub Releases](https://github.com/betterapps-hq/parity/releases), as betas first. Choose the latest pre-release and
-download the installer for your system. These early builds need new versions installed by hand.
+download the installer for your system. Version 0.2.0 predates the updater, so install the first updater-enabled release
+manually once. Newer Windows installers and Linux AppImages download updates in the background and offer Restart to
+update. Macs offer a manual download until signing is ready. Help > Check for updates opens the update status;
+Settings > Get beta updates opts into pre-releases. Ordinary quit never installs an update.
 
 Before opening it, download `desktop-release.json` from the **same release on this repository**, alongside the
 installer. Find the installer's exact filename in `assets` and compare its `sha256` with the hash calculated on your

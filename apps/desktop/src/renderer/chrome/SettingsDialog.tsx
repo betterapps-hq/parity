@@ -1,11 +1,12 @@
 import { Monitor, Moon, Sun } from "lucide-react"
-import type { ReactNode } from "react"
+import { type ReactNode, useState } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { workspace } from "../workspace.ts"
 import { closeDialog, useOpenDialog } from "./app-dialogs.ts"
 import { type Preferences, setPreferences, type ThemePreference, usePreferences } from "./preferences.ts"
+import { setBetaUpdates, useUpdates } from "./updates.tsx"
 
 const themes: { value: ThemePreference; label: string; icon: typeof Sun }[] = [
   { value: "light", label: "Light", icon: Sun },
@@ -17,6 +18,8 @@ const themes: { value: ThemePreference; label: string; icon: typeof Sun }[] = [
 export function SettingsDialog() {
   const open = useOpenDialog() === "settings"
   const preferences = usePreferences()
+  const updates = useUpdates()
+  const [updateError, setUpdateError] = useState("")
   return (
     <Dialog open={open} onOpenChange={(next) => !next && closeDialog()}>
       <DialogContent className="gap-0 sm:max-w-lg">
@@ -113,6 +116,24 @@ export function SettingsDialog() {
               ))}
             </ToggleGroup>
           </Row>
+        </Section>
+        <Section title="Updates">
+          <Row label="Get beta updates" detail="Include early releases. They may be less stable.">
+            <Switch
+              checked={updates.beta}
+              disabled={["disabled", "checking", "downloading", "installing"].includes(updates.phase)}
+              aria-label="Get beta updates"
+              onCheckedChange={(beta) => {
+                setUpdateError("")
+                void setBetaUpdates(beta).catch(() => setUpdateError("Couldn't save the beta setting. Try again."))
+              }}
+            />
+          </Row>
+          {updateError && (
+            <p role="alert" className="text-xs text-destructive">
+              {updateError}
+            </p>
+          )}
         </Section>
       </DialogContent>
     </Dialog>
