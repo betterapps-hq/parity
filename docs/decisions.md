@@ -1076,7 +1076,8 @@ recommended answer to each of its questions.
   a Loading state. Pricing's Yearly state changes each plan's price through its instance.
 - **They were built through the agent API** (`parity exec`), one undoable step per screen, and saved after each, because
   the dev runner restarting Electron drops unsaved changes. Four agents built screens at once, taking turns through a
-  lock: each run applies whole project files, so two at once would overwrite each other's work (PAR-278).
+  lock, since each run then applied whole project files. Runs now merge per design, so agents changing different designs
+  no longer need one (PAR-278, "Agent calls merge per design").
 - **The example imports Nova's styles** (`@buildkitgg/shadcn-baseui-nova/tailwind.css`, right after Tailwind), as the
   Components panel's Import styles does. Without it, Nova's switches and progress bars render invisible.
 - **The accessibility checks find real issues in it,** mostly one token pair: `muted-foreground` on `muted` is 4.34:1,
@@ -2342,6 +2343,43 @@ routed through the shared execute operation.
 Tests share one local RPC fixture and launch real CLI and MCP processes. Execute's contract tests remain alongside the
 new operation tests. No Electron is needed; a read-only check in the running app covers real wiring too.
 
+## Core owns effective evaluation (PAR-484)
+
+What a node shows, once every patch over it applies, is worked out in one place: `@parity-app/core`'s
+`packages/core/src/effective.ts`, over the per-node step in `render.ts`. `resolveDesign` draws each node through that
+step, and the board helpers (`nodeOnBoard`, `layerOnBoard`, `locateInner`) are thin wrappers over it, so the canvas, the
+inspector, the agent's Get and the editor's rules can't disagree about a node. The audit at fa59f48 found each consumer
+layering patches its own way, and none applying a viewport's responsive patch outside rendering. My calls:
+
+- **The API takes an `EvalContext`:** `{ state?, variants?, viewport?, library? }`. A state left out is the base,
+  variants left out are the ones the design's board shows (`view.variants`), a viewport left out applies no responsive
+  patches, and a library left out expands no instances.
+  - `scopeOf(container, context)` gives `{ layers, args }` for the design's own nodes.
+  - `drawnNode(node, scope, viewport?)` is the per-node step:
+    `applyPatch(node, nodePatch(layers, node, viewport), args)`, where `nodePatch` is the node's responsive patch under
+    every layer's.
+  - `effectiveNode(container, id, context)` is one layer as drawn, by its id or its path inside instances
+    (`card/avatar/initials`); `locateEffective` gives it with where it was found.
+  - `effectiveTree(container, id, context)` is a layer and everything inside it as drawn, down through instances, as
+    `{ path, node, slot?, children }`. Hidden layers stay in, marked hidden. An instance's child is its component's
+    root, at `instance/rootId`, which the canvas draws under the instance's id.
+- **The order, later winning:** the node's own values, then the params it binds (args), then its responsive patch, then
+  the variant options in param order, then the state. A patch's text, props and visibility win over a bound value.
+  Inside an instance: the component's variant options, then its state, then the instance's overrides, then the outer
+  layers' `instance/inner` patches. Args on a board are each param's default, then the variant options shown; inside an
+  instance, the component's defaults, then the instance's args, then props patched over the instance (a responsive patch
+  included), then the variant options they pick.
+- **`editNode` keeps its own subset of layers,** since a state's or variant's patch is kept against the node as it shows
+  without that patch.
+- **A design that places itself is expanded as `resolveDesign` draws it:** an instance stops only when its component is
+  already being expanded by an instance around it, and the evaluated design isn't counted. So a design placing itself
+  shows one copy, whose own copy stops, directly or through another design. `locateInner` refused the evaluated design
+  outright before, and compared instance node ids with design ids, so it found less than the canvas draws.
+- **The shared fixture is `@parity-app/core/fixtures`** (`effectiveFixture`): a bound text with a param default, a
+  variant that turns its parent into a row, a state over a value that variant sets, responsive patches, and a nested
+  instance with args and overrides, in two viewports. `effective.test.ts` checks `effectiveTree` against `resolveDesign`
+  for each case and viewport; later work on the agent's Get and the editor's rules reuses it.
+
 ## Conditional values stay out of the default theme (PAR-485)
 
 `collectCustomProperties` in core's `css.ts` now gives each declaration the at-rules it sits under, outermost first, as
@@ -2361,3 +2399,42 @@ My calls in the run-time reading (`extractTokens`):
 - `themeFallbackCss` still counts a property declared anywhere as defined, conditional or not, as before.
 - Libgen's own token collecting (`libgen/src/tokens.ts`), which reads `prefers-color-scheme: dark` blocks as dark, is
   unchanged. Sharing one policy between the two is PAR-468.
+
+## Agent calls merge per design (PAR-278)
+
+My call: an agent's call applies the designs it changed, not the files they're in. It reads a snapshot, runs for as long
+as its renders take, and in that time the person can edit, or another agent can apply its own call. Replacing whole
+files reverted their edits to other designs in the same file, brought back designs they had deleted and dropped ones
+they had added, with nothing said; undo could restore it, but only if someone noticed.
+
+- **A call sends one change per design** it changed, created or deleted: its file, its id, the design as the snapshot
+  had it (`base`, null for a new one) and as the call left it (`after`, null for a deleted one). Modes it set go as
+  `base` and `after` too; token values were already per token. The types are `DesignChange`, `ModesChange` and
+  `ChangeConflict` in `@parity-app/core`.
+- **The editor applies them only over what the call saw.** Each design it changes must still equal its `base`, compared
+  as files compare them (`sameDesign`, views tidied), or already equal its `after`. Designs the call didn't touch stay
+  as they are now. Any mismatch, including a design deleted or one added under a new design's id, refuses the whole
+  call: nothing changes, and the call fails naming each design and its file, with an `editId` to run it again from the
+  new state. Partial applies were ruled out, since a snippet's changes often depend on each other.
+- **An accepted call is still one undo step,** its designs, modes and tokens together. Undo restores the state just
+  before it, keeping edits made during the call.
+- **No lock is needed** for agents working on different designs. Two changing the same design conflict, and the second
+  reruns.
+
+Code: the workspace's `designChanges` in `packages/agent/src/workspace.ts` makes the changes, and `execute` applies them
+through the `apply` hook, failing with `describeConflicts` when refused. `mergeAgentChanges` in
+`packages/editor/src/design-changes.ts` merges them. The renderer's `agent.apply` (`renderer/agent/handlers.ts`, through
+`DesignStore.applyAgentChanges`) answers with the conflicts. Window IPC isn't schema-checked; the agent checks each file
+it changed with `parseCanvasDocument` before sending, as before.
+
+## Project discovery decides where an app's sources and styles are (PAR-467)
+
+Detection and `parity lib`'s app mode read one set of rules, so an app's `.lib.par` describes what the canvas loads.
+Which files hold the app's components is `readTsconfig` and `appFiles` in `@parity-app/code`: the root config and every
+config it references, of any name, with tests, stories and build output left out, and every file under the root when no
+config includes any. Which stylesheets are global is `findStyles` in `@parity-app/project`: `components.json`, else what
+the HTML entry's module imports (side-effect or default imports, CSS or Sass, not CSS modules), else the conventional
+places, Next's `globals.css` among them. `readStylesheet` there inlines relative `@import`s, for libgen's tokens and for
+telling whether a library's stylesheet is imported. Libgen reads only `.tsx` and `.jsx` of those files, since its type
+checker looks for JSX components. A package library keeps its own inputs: the package's type entry and the stylesheet
+its `style` field or `exports` name, read with the same `readStylesheet`.
