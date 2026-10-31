@@ -19,6 +19,7 @@ import {
 import { describedCategories, describedTokenCss } from "@parity-app/tokens"
 import type * as Vite from "vite"
 import { dependencySourceMaps } from "./dependency-maps.ts"
+import { warmGuestGraph } from "./warmup.ts"
 
 /** Only used to explain a miss: the config itself is found by the project's own Vite. */
 const configPattern = /^vite\.config\.[cm]?[jt]s$/
@@ -80,26 +81,19 @@ export const viteBuilder: BuilderAdapter = {
       if (!client) throw new Error("Vite did not create its client environment")
       // Finish the cold dependency graph before the browser imports it. A failed child import stays cached by URL,
       // so retrying only the guest module cannot recover from Vite replacing its optimized dependency hashes.
-      await client.depsOptimizer?.init()
-      await client.depsOptimizer?.scanProcessing
-      await Promise.all(
+      const urls = await Promise.all(
         guestModule(options.config).imports.map(async (id) => {
           const resolved = await client.pluginContainer.resolveId(id)
           if (!resolved) return
-          const url = resolved.id.startsWith("\0")
+          return resolved.id.startsWith("\0")
             ? `/@id/__x00__${resolved.id.slice(1)}`
             : `/@fs/${vite.normalizePath(resolved.id)}`
-          await client.warmupRequest(url)
         })
       )
-      await client.waitForRequestsIdle()
-      if (client.depsOptimizer) {
-        const { optimized, discovered } = client.depsOptimizer.metadata
-        const processing = Object.values({ ...optimized, ...discovered })
-          .map((dependency) => dependency.processing)
-          .filter((pending) => pending !== undefined)
-        await Promise.all(processing)
-      }
+      await warmGuestGraph(
+        client,
+        urls.filter((url) => url !== undefined)
+      )
       const origin = server.resolvedUrls?.local[0]
       if (!origin) throw new Error("Vite did not report a local URL")
       return {
