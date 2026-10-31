@@ -13,7 +13,7 @@ const entry = `
 import { createElement, useEffect, useRef } from "react"
 import { flushSync } from "react-dom"
 import { createRoot } from "react-dom/client"
-import { defaultModeSettings, resolveDesign, resolveModes } from "@parity-app/core"
+import { defaultModeSettings, frameViewport, resolveDesign, resolveModes } from "@parity-app/core"
 import { createGuest } from "@parity-app/renderer-react/guest"
 import { ModeView } from "./ModeView.tsx"
 export { hitInFrame } from "./canvas/hit.ts"
@@ -54,7 +54,7 @@ export function show(container, { interactive = false, scale = 1, asleep = false
   const tree = resolveDesign(container.root, container.states[0], mode.viewport, new Map())
   flushSync(() =>
     root.render(
-      createElement(ModeView, { loaded, tree, mode, width: 390, design: container.id, state: "default", primary: true, scale, interactive, asleep, shows })
+      createElement(ModeView, { loaded, tree, mode, frame: { width: 390, viewport: frameViewport({ width: 390 }, mode) }, design: container.id, state: "default", primary: true, scale, interactive, asleep, shows })
     )
   )
 }

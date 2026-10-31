@@ -1486,7 +1486,7 @@ Tests:
   person deleted"); designs the person deleted or added left so; files created for new designs; a change or deletion
   already made here taken as applied ("takes a change already made the same way"); and modes set only while unchanged,
   refused otherwise ("sets the modes only while they're as the call read them").
-- `packages/agent/src/run.test.ts` (2 of its 25): a call gives each design it changed, created or deleted with the
+- `packages/agent/src/run.test.ts` (2 of its 29): a call gives each design it changed, created or deleted with the
   design as it read it, and no others; a refused call fails naming the design, keeps its snippet, and runs again by
   `editId`.
 - `apps/desktop/src/renderer/design-store.test.ts` (11 of its 18): Save writing the files and the stylesheet, saving
@@ -2204,7 +2204,7 @@ Code: `projectComponentLibrary` in `packages/core/src/render.ts`, used by `Desig
 
 Tests:
 
-- `packages/agent/src/run.test.ts` (5 of its 25): Measure, Problems and Screenshot of a design placing a library design
+- `packages/agent/src/run.test.ts` (5 of its 29): Measure, Problems and Screenshot of a design placing a library design
   draw it with no placeholder; no missing-design warning for a placed library design, only for one that doesn't exist; a
   project design wins over a library design with its id; frames carry the canvas's unsaved values, then those with the
   call's `SetTokens` over them; and nothing when no value differs.
@@ -2223,6 +2223,41 @@ Tests:
 Gaps: the snapshot and `renderFor` wiring has no test of its own, and checked by reading; the end-to-end tests run in
 CI. The snapshot crosses from the window to the service as the window's other replies do, unchecked; its library designs
 were checked when their `.lib.par` was read.
+
+### Every frame drawn in the same window (PAR-466)
+
+A frame stands for a browser window, and every path that draws it gives it the same one: the live frame in its mode on
+the canvas, its bitmap zoomed out, and the offscreen frames agents measure, screenshot, check for problems and for
+accessibility, which Export and the Accessibility panel use too. A mode whose viewport has a screen height, say 1280 by
+1234, gives a frame that grows with its content a 1234px window everywhere, so `100vh`, `innerHeight` and the project's
+window size checks read 1234 in bitmaps, screenshots and measurements as on the canvas. Before, the offscreen renderer
+worked out its own height from the width alone, the 800 of the device nearest 1280.
+
+- **Two heights, kept apart.** A frame's own height is fixed or not: a fixed one clips the frame, and without one the
+  frame grows with its content. Its window always has a height: the frame's fixed height, else the viewport's screen,
+  else the device nearest its width (see [decisions.md](decisions.md), "A frame stands for a browser window"). Core's
+  `frameGeometry` gives both, `{ width, height?, viewport }`, and every path draws from it.
+- **The offscreen job carries the window.** `RenderJob.mode` has the frame's `width` and optional `height` beside its
+  `viewport`, and the offscreen page mounts the frame in that viewport rather than working one out. An agent's
+  `FrameRequest` carries the viewport too, so a frame an agent asks for is drawn at what the canvas shows.
+- **The offscreen window's own size doesn't matter to the frame.** It opens 800px tall and is resized to the frame
+  before a capture or an audit, but the project's viewport units and its `innerHeight`, `matchMedia` and resize events
+  answer from the frame's window (CAN-23, CAN-33), as on the canvas.
+
+Code: `frameGeometry` in `packages/core/src/render.ts`; `FrameTile` in
+`apps/desktop/src/renderer/canvas/ContainerView.tsx`, which passes it to `ModeView.tsx` and `useFrameShows` in
+`canvas/frame-bitmaps.ts`; `renderJobMode` in `apps/desktop/src/shared/render-job.ts`, which builds a job's mode for
+bitmaps and for `renderFor` in `apps/desktop/src/utility/agent.ts`; `AgentWorkspace.render` in
+`packages/agent/src/workspace.ts`; `canvasRender` in `apps/desktop/src/renderer/render.ts`.
+
+Tests: `packages/core/src/render.test.ts` (1: at 1280 by 1234, a frame that grows has no height and a 1234px window, and
+a frame fixed at 600 keeps its 600 apart from its window). `apps/desktop/src/shared/render-job.test.ts` (2: for that
+growing frame, the live frame's geometry, a bitmap's job and an agent's `Measure` job all have a 1280 by 1234 window and
+no height; a fixed frame's job keeps its height beside its window). `packages/agent/src/run.test.ts` (1: `Measure`,
+`Screenshot` and `Accessibility` ask for frames with that window). `apps/desktop/src/renderer/render.test.ts` (2), in
+Chrome: the offscreen page's `canvasRender`, in an 800px window, mounts a growing 1280px frame in the job's 1234px
+window, where `100vh` measures 1234 and the frame grows past it; a frame fixed at 600 is 600 tall while `100vh` is
+still 1234. Gap: the end-to-end suite draws frames offscreen but doesn't read a window height in them.
 
 ### Caller identity (PAR-450)
 

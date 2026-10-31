@@ -3,6 +3,7 @@ import { type ContainerSpec, type DesignNode, parseCanvasDocument } from "./docu
 import { defaultModeSettings, resolveModes } from "./modes.ts"
 import {
   componentLibrary,
+  frameGeometry,
   frameSize,
   frameViewport,
   placedDesigns,
@@ -287,6 +288,47 @@ describe("sizing", () => {
     expect(frameViewport({ width: 1280 }, desktop!)).toEqual({ width: 1280, height: 800 })
     expect(frameViewport({ width: 390 }, desktop!)).toEqual({ width: 390, height: 844 })
     expect(frameViewport({ width: 1243 }, desktop!)).toEqual({ width: 1243, height: 800 })
+  })
+
+  // The case every renderer keeps: the live frame, its bitmap and the agent's offscreen frames all draw from this.
+  it("keeps a frame's own height apart from its window's", () => {
+    const [mode] = resolveModes({
+      version: 1,
+      variables: [
+        {
+          id: "viewport",
+          name: "Viewport",
+          kind: "viewport",
+          options: [{ id: "desktop", name: "Desktop", width: 1280, height: 1234 }]
+        }
+      ],
+      modes: [{ id: "desktop", name: "Desktop", values: { viewport: "desktop" } }]
+    })
+    const [grows, fixed] = parseCanvasDocument({
+      version: 3,
+      containers: [
+        {
+          id: "page",
+          name: "Page",
+          position: { x: 0, y: 0 },
+          root: { type: "layout", id: "root", children: [] },
+          states: [{ id: "default", name: "Default" }]
+        },
+        {
+          id: "hero",
+          name: "Hero",
+          position: { x: 0, y: 0 },
+          root: { type: "layout", id: "root", children: [] },
+          states: [{ id: "default", name: "Default" }],
+          frames: { desktop: { height: 600 } }
+        }
+      ]
+    }).containers
+    // Growing with its content, the frame has no height of its own, and its window is the screen's, not the 800 of the
+    // device nearest 1280.
+    expect(frameGeometry(grows!, mode!)).toEqual({ width: 1280, viewport: { width: 1280, height: 1234 } })
+    // A fixed height clips the frame, and is its window's height too.
+    expect(frameGeometry(fixed!, mode!)).toEqual({ width: 1280, height: 600, viewport: { width: 1280, height: 600 } })
   })
 })
 

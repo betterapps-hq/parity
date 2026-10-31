@@ -1,4 +1,4 @@
-import { frameViewport, type MountHandle, modeGlobals, type RenderNode, type ResolvedMode } from "@parity-app/core"
+import { type FrameGeometry, type MountHandle, modeGlobals, type RenderNode, type ResolvedMode } from "@parity-app/core"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { prepareFrame, setDrawnNodes, setFrameViewport } from "./frame.ts"
 import type { LoadedGuest } from "./guest.ts"
@@ -7,10 +7,11 @@ interface ModeViewProps {
   loaded: LoadedGuest
   tree: RenderNode[]
   mode: ResolvedMode
-  /** The frame's width in CSS pixels: the design's own for this viewport, else the viewport's. */
-  width: number
-  /** A fixed height; otherwise the frame is as tall as its content. */
-  height?: number
+  /**
+   * The frame's size in CSS pixels and the window it stands for, from core's `frameGeometry`, as the offscreen renderer
+   * gets them too. A fixed height clips the frame; without one it's as tall as its content.
+   */
+  frame: FrameGeometry
   /** Drawn size relative to the frame's. Layout inside always happens at the full size. */
   scale?: number
   /** Identify the frame, so selection, outlines and agents can find it. */
@@ -59,8 +60,7 @@ export function ModeView({
   loaded,
   tree,
   mode,
-  width,
-  height,
+  frame,
   scale = 1,
   design,
   state,
@@ -73,9 +73,10 @@ export function ModeView({
   const frameRef = useRef<HTMLDivElement>(null)
   const hostRef = useRef<HTMLDivElement>(null)
   const handleRef = useRef<MountHandle>(undefined)
+  const { width, height } = frame
   // The window the frame stands for, which the project's viewport units and window size checks measure.
-  const { height: viewportHeight } = frameViewport({ width, height }, mode)
-  const viewportRef = useRef({ width, height: viewportHeight })
+  const { width: viewportWidth, height: viewportHeight } = frame.viewport
+  const viewportRef = useRef({ width: viewportWidth, height: viewportHeight })
   // A whole screen's tree, so it's written out only when it's a different one.
   const treeKey = useMemo(() => JSON.stringify(tree), [tree])
   const environmentKey = JSON.stringify([mode.classNames, mode.attributes, modeGlobals(mode)])
@@ -116,11 +117,11 @@ export function ModeView({
   // A resized frame keeps its components and their state, as a resized browser window does. This comes before the frame
   // is built, so one rebuilt at the same time starts at the new size.
   useEffect(() => {
-    const viewport = { width, height: viewportHeight }
+    const viewport = { width: viewportWidth, height: viewportHeight }
     viewportRef.current = viewport
     setFrameViewport(hostRef.current!, viewport)
     handleRef.current?.resize?.(viewport)
-  }, [width, viewportHeight])
+  }, [viewportWidth, viewportHeight])
 
   // The frame is rebuilt when its environment changes, and after interacting, which leaves components in states the
   // design doesn't have; a changed design updates in place, keeping component state. Asleep, it's taken apart.

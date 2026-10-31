@@ -90,8 +90,13 @@ export interface FrameRequest {
   tree: unknown
   /** `width` is the frame's: the design's own for this viewport, else the viewport's. */
   mode: ResolvedMode
-  /** A fixed frame height; otherwise the frame is as tall as its content. */
+  /** A fixed frame height, which clips the frame; otherwise the frame is as tall as its content. */
   height?: number
+  /**
+   * The browser window the frame stands for, from core's `frameGeometry`, as the live frame on the canvas has it: what
+   * viewport units and the project's window size checks measure. It keeps its height when the frame grows past it.
+   */
+  viewport: { width: number; height: number }
   scale: number
   capture: boolean
   /** Also check the frame for accessibility issues. */

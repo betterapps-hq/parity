@@ -9,6 +9,7 @@ import type {
   DescribedTokens,
   DesignChange,
   DetectionCorrections,
+  FrameViewport,
   LeftOutExport,
   LibraryInfo,
   ModeSettings,
@@ -418,9 +419,16 @@ export interface RenderJob {
   components?: Record<string, Pick<ComponentSource, "path" | "export">>
   theme: ThemeVariable[]
   tree: unknown
+  /**
+   * The frame and the window it stands for, as core's `frameGeometry` gives them, so the offscreen frame matches the
+   * live one. `height` is the frame's own fixed height, which clips it; without one the frame is as tall as its content.
+   * `viewport` is the browser window, which viewport units and the project's window size checks measure, and which
+   * keeps its height when the frame grows past it.
+   */
   mode: {
     width: number
     height?: number
+    viewport: FrameViewport
     classNames: string[]
     attributes: Record<string, string>
     /** The mode's options by variable, for decorators. */

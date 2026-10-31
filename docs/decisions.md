@@ -1436,7 +1436,11 @@ recommended answer to each of its questions.
 - **A frame stands for a browser window of its own size,** so a project's styles and code see the screen it's designed
   for, not Parity's window, while frames stay shadow roots in one page. Iframes would isolate them fully, but at a
   document, a copy of the project's code and a React per frame. The window is the frame's width by its fixed height,
-  else its viewport's screen height, else the height of the device nearest its width (844 for 390, 800 for 1280).
+  else its viewport's screen height, else the height of the device nearest its width (844 for 390, 800 for 1280). **The
+  window's height and the frame's are kept apart** (PAR-466): a frame's own height is fixed, and clips it, or absent,
+  and the frame grows with its content, while its window always has a height. Core's `frameGeometry` resolves both once,
+  and the live frame, its bitmap and every offscreen frame (agents' measures, screenshots and checks, Export, the
+  Accessibility panel) draw from it, so none works out a window of its own.
 - **Viewport units measure the frame's window** (CAN-23): `vw`, `vh`, their `s`, `l` and `d` forms, `vi`, `vb`, `vmin`
   and `vmax` in the project's stylesheets become `calc()`s of two custom properties each frame sets. A frame has no
   browser bars, so `svh`, `lvh` and `dvh` are all its height.
