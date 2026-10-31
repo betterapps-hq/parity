@@ -77,10 +77,11 @@ nativeTheme.on("updated", () => {
 })
 
 const serviceName = "Parity project service"
+const serviceDirectory = app.isPackaged ? join(process.resourcesPath, "app.asar.unpacked") : import.meta.dirname
 
 /** Builders, file access, agents and other heavy work run here, never in the UI process. */
 function startService(): UtilityProcess {
-  const child = utilityProcess.fork(join(import.meta.dirname, "utility.mjs"), [], {
+  const child = utilityProcess.fork(join(serviceDirectory, "utility.mjs"), [], {
     serviceName,
     stdio: "inherit",
     env: { ...process.env, PARITY_ALLOWED_ORIGINS: rendererOrigin }

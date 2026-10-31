@@ -5,6 +5,8 @@ packages:
 allowBuilds:
   electron: true
   esbuild: true
+  # NSIS is used on Windows; electron-builder's optional Squirrel backend does not need its setup script.
+  electron-winstaller: false
   msw: false
 minimumReleaseAgeExclude:
   - electron@45.1.0
@@ -23,6 +25,7 @@ catalogMode: prefer
 # Versions set once for the workspace. Reference them with "catalog:".
 catalog:
   beachball: 2.66.0
+  electron-builder: 26.18.0
   jiti: 2.7.0
   knip: 6.43.0
   vite: npm:@voidzero-dev/vite-plus-core@1.4.0

@@ -11,6 +11,10 @@ to npm and of unsigned installers to GitHub Releases, as betas first and to ever
 
 ## Where things stand
 
+- **PAR-9 packages the production build:** electron-builder makes Windows NSIS, macOS DMG/ZIP and Linux AppImage
+  installers. Windows CI installs and opens the real installer with a cold fixture, checks the canvas and service, then
+  uninstalls it. Runtime Node files and TypeScript stay outside ASAR; release signing remains separate.
+
 - **The tools are already most of Vite+:** a pnpm 12 workspace (`apps/*`, `packages/*`, `examples/*`), oxlint, oxfmt,
   Vitest 5, TypeScript 7 for checking and TypeScript 6 where code uses the compiler API. On 2026-10-29 lint took 2
   seconds, types 2 seconds, and 679 tests 9 seconds.

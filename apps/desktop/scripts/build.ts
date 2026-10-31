@@ -64,8 +64,10 @@ cpSync(join(registry, "libraries"), join(out, "libraries"), { recursive: true })
 cpSync(join(registry, "in-app.json"), join(out, "in-app.json"))
 // The checker reads lib.*.d.ts next to TypeScript at runtime. A real directory also works from a packaged app.
 cpSync(dirname(require.resolve("typescript/package.json")), join(out, "node_modules/typescript"), { recursive: true })
-const { name, version, license } = JSON.parse(readFileSync(join(appDir, "package.json"), "utf8"))
+const { name, version, license, description, author, homepage } = JSON.parse(
+  readFileSync(join(appDir, "package.json"), "utf8")
+)
 writeFileSync(
   join(out, "package.json"),
-  JSON.stringify({ name, version, license, type: "module", main: "main.mjs" }, null, 2)
+  JSON.stringify({ name, version, license, description, author, homepage, type: "module", main: "main.mjs" }, null, 2)
 )

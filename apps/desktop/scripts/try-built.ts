@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process"
 // CI-only production startup check (PAR-8). Run the built files outside the checkout, with no UI dev server.
 import { cp, mkdir, mkdtemp, readdir, readFile, rm, symlink } from "node:fs/promises"
 import { createRequire } from "node:module"
@@ -8,13 +9,31 @@ import { _electron, type ElectronApplication } from "playwright-core"
 if (process.env.CI !== "true") throw new Error("The production app startup check runs only in CI.")
 const appDir = resolve(import.meta.dirname, "..")
 const require = createRequire(join(appDir, "package.json"))
-const executable: unknown = require("electron")
-if (typeof executable !== "string") throw new Error("Electron did not report its executable.")
+const developmentExecutable: unknown = require("electron")
+if (typeof developmentExecutable !== "string") throw new Error("Electron did not report its executable.")
+let executable = developmentExecutable
 const work = await mkdtemp(join(tmpdir(), "parity-built-"))
 const stage = join(work, "app")
 const agentFile = join(work, "agent.json")
-await cp(join(appDir, "out"), stage, { recursive: true })
-const fixture = process.argv[2] ?? "vite7-js"
+const installerMode = process.argv.includes("--installer")
+const installed = join(work, "installed")
+if (installerMode) {
+  if (process.platform !== "win32") throw new Error("The NSIS startup check needs Windows.")
+  const installer = (await readdir(join(appDir, "dist"))).find((file) =>
+    /^Parity-\d+\.\d+\.\d+-win-x64\.exe$/.test(file)
+  )
+  if (!installer) throw new Error("No Windows installer was built.")
+  const result = spawnSync(join(appDir, "dist", installer), ["/S", `/D=${installed}`], {
+    windowsHide: true,
+    windowsVerbatimArguments: true,
+    stdio: "inherit"
+  })
+  if (result.status !== 0) throw new Error(`Installing the built app failed: ${result.error?.message ?? result.status}`)
+  executable = join(installed, "Parity.exe")
+  // TypeScript must remain a real package, with its standard library declarations, outside any archive.
+  await readFile(join(installed, "resources/app.asar.unpacked/node_modules/typescript/lib/lib.es5.d.ts"))
+} else await cp(join(appDir, "out"), stage, { recursive: true })
+const fixture = process.argv.slice(2).find((argument) => argument !== "--installer") ?? "vite7-js"
 if (fixture !== "vite7-js" && fixture !== "headless") throw new Error("Unknown production-check fixture.")
 const source = resolve(appDir, "../../fixtures", fixture)
 const project = join(work, "project")
@@ -43,8 +62,14 @@ delete env.ELECTRON_RUN_AS_NODE
 const launchEnv: Record<string, string> = {}
 for (const [key, value] of Object.entries(env)) if (value !== undefined) launchEnv[key] = value
 let electron: ElectronApplication | undefined
+let uninstallError: Error | undefined
 try {
-  electron = await _electron.launch({ executablePath: executable, args: [stage], cwd: work, env: launchEnv })
+  electron = await _electron.launch({
+    executablePath: executable,
+    args: installerMode ? [] : [stage],
+    cwd: work,
+    env: launchEnv
+  })
   electron.process().stdout?.on("data", (chunk: Buffer) => process.stdout.write(chunk))
   electron.process().stderr?.on("data", (chunk: Buffer) => process.stderr.write(chunk))
   const window = await electron.firstWindow()
@@ -84,5 +109,15 @@ try {
   console.log("The production renderer and service started outside the checkout without a dev server.")
 } finally {
   await electron?.close()
-  await rm(work, { recursive: true, force: true })
+  if (installerMode) {
+    const result = spawnSync(join(installed, "Uninstall Parity.exe"), ["/S", `_?=${installed}`], {
+      windowsHide: true,
+      windowsVerbatimArguments: true,
+      stdio: "inherit"
+    })
+    if (result.status !== 0)
+      uninstallError = new Error(`Uninstalling the test app failed: ${result.error?.message ?? result.status}`)
+  }
+  await rm(work, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 })
 }
+if (uninstallError) throw uninstallError
