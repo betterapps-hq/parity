@@ -2337,6 +2337,43 @@ routed through the shared execute operation.
 Tests share one local RPC fixture and launch real CLI and MCP processes. Execute's contract tests remain alongside the
 new operation tests. No Electron is needed; a read-only check in the running app covers real wiring too.
 
+## Core owns effective evaluation (PAR-484)
+
+What a node shows, once every patch over it applies, is worked out in one place: `@parity-app/core`'s
+`packages/core/src/effective.ts`, over the per-node step in `render.ts`. `resolveDesign` draws each node through that
+step, and the board helpers (`nodeOnBoard`, `layerOnBoard`, `locateInner`) are thin wrappers over it, so the canvas, the
+inspector, the agent's Get and the editor's rules can't disagree about a node. The audit at fa59f48 found each consumer
+layering patches its own way, and none applying a viewport's responsive patch outside rendering. My calls:
+
+- **The API takes an `EvalContext`:** `{ state?, variants?, viewport?, library? }`. A state left out is the base,
+  variants left out are the ones the design's board shows (`view.variants`), a viewport left out applies no responsive
+  patches, and a library left out expands no instances.
+  - `scopeOf(container, context)` gives `{ layers, args }` for the design's own nodes.
+  - `drawnNode(node, scope, viewport?)` is the per-node step:
+    `applyPatch(node, nodePatch(layers, node, viewport), args)`, where `nodePatch` is the node's responsive patch under
+    every layer's.
+  - `effectiveNode(container, id, context)` is one layer as drawn, by its id or its path inside instances
+    (`card/avatar/initials`); `locateEffective` gives it with where it was found.
+  - `effectiveTree(container, id, context)` is a layer and everything inside it as drawn, down through instances, as
+    `{ path, node, slot?, children }`. Hidden layers stay in, marked hidden. An instance's child is its component's
+    root, at `instance/rootId`, which the canvas draws under the instance's id.
+- **The order, later winning:** the node's own values, then the params it binds (args), then its responsive patch, then
+  the variant options in param order, then the state. A patch's text, props and visibility win over a bound value.
+  Inside an instance: the component's variant options, then its state, then the instance's overrides, then the outer
+  layers' `instance/inner` patches. Args on a board are each param's default, then the variant options shown; inside an
+  instance, the component's defaults, then the instance's args, then props patched over the instance (a responsive patch
+  included), then the variant options they pick.
+- **`editNode` keeps its own subset of layers,** since a state's or variant's patch is kept against the node as it shows
+  without that patch.
+- **A design that places itself is expanded as `resolveDesign` draws it:** an instance stops only when its component is
+  already being expanded by an instance around it, and the evaluated design isn't counted. So a design placing itself
+  shows one copy, whose own copy stops, directly or through another design. `locateInner` refused the evaluated design
+  outright before, and compared instance node ids with design ids, so it found less than the canvas draws.
+- **The shared fixture is `@parity-app/core/fixtures`** (`effectiveFixture`): a bound text with a param default, a
+  variant that turns its parent into a row, a state over a value that variant sets, responsive patches, and a nested
+  instance with args and overrides, in two viewports. `effective.test.ts` checks `effectiveTree` against `resolveDesign`
+  for each case and viewport; later work on the agent's Get and the editor's rules reuses it.
+
 ## Conditional values stay out of the default theme (PAR-485)
 
 `collectCustomProperties` in core's `css.ts` now gives each declaration the at-rules it sits under, outermost first, as
