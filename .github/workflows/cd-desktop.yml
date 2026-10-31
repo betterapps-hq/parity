@@ -21,6 +21,7 @@ permissions:
 
 jobs:
   release:
+    name: Publish beta
     if: >-
       (github.event_name == 'workflow_dispatch' && inputs.action == 'release') || (github.event_name == 'workflow_run'
       && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
@@ -50,6 +51,7 @@ jobs:
         run: echo "Beta downloads are available at $RELEASE_URL" >> "$GITHUB_STEP_SUMMARY"
 
   promote:
+    name: Production
     needs: [release, beta]
     # Publishing a beta immediately queues the protected production deployment for its owner to approve.
     # Manual promotion remains available for an older beta; its release job is intentionally skipped.
@@ -58,7 +60,7 @@ jobs:
       (needs.release.outputs.published == 'true' && needs.beta.result == 'success'))
     permissions:
       contents: write
-    uses: betterapps-hq/pipelines/.github/workflows/cd-desktop-promote.yml@c2e002c29b8f1d8eee612805e9aa715c61dcb7e4 # v1.11.0
+    uses: betterapps-hq/pipelines/.github/workflows/cd-desktop-promote.yml@efa1c3e00652cca72174fdf3abdb911a5c501c45 # v1.11.1
     with:
       version: ${{ needs.release.outputs.version || inputs.version }}
       environment: production

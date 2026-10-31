@@ -80,6 +80,11 @@ jobs:
         # Unused files, dependencies and exports, which knip reads from knip.jsonc.
         pnpm check:unused
         if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+          # Beachball expects pending change files. An already-consumed release instead proves its newer version
+          # and matching generated changelog; ordinary PRs retain Beachball's own change-file validation.
+          if ! node scripts/changes.ts releasing --committed; then
+            pnpm exec beachball check
+          fi
           # Check bundled packages too, accepting either pending change files or a consumed release with a newer
           # version and matching generated changelog. This also supports releasing a fix in its own PR.
           node scripts/changes.ts check --committed

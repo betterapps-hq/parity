@@ -28,7 +28,7 @@ jobs:
       actions: read
       # npm's trusted publishing exchanges the run's OIDC token for a short-lived one, and signs provenance with it.
       id-token: write
-    uses: betterapps-hq/pipelines/.github/workflows/cd-npm-publish.yml@d8e6eeab409f6bd88c691c1685e2a1fb1608d146 # v1.7.1
+    uses: betterapps-hq/pipelines/.github/workflows/cd-npm-publish.yml@efa1c3e00652cca72174fdf3abdb911a5c501c45 # v1.11.1
     with:
       # The desktop app is versioned but not published, so only packages with a publishConfig go: the CLI.
       require-publish-config: true

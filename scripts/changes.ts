@@ -152,7 +152,7 @@ function beachballConfig(): BeachballConfig {
  * reads the index, so a commit counts what it stages and not the edits other sessions leave in a folder they share;
  * `committed` reads only the branch's commits, as a push or CI checks them.
  */
-function changes(branch: string, committed: boolean): { files: string[]; covered: Set<string> } {
+function changes(branch: string, committed: boolean): { files: string[]; covered: Set<string>; released: Set<string> } {
   const base = git("merge-base", branch, "HEAD").trim()
   const range = committed ? [base, "HEAD"] : ["--cached", base]
   const now = (file: string): string => git("show", `${committed ? "HEAD" : ""}:${file}`)
@@ -163,13 +163,17 @@ function changes(branch: string, committed: boolean): { files: string[]; covered
   const files = lines(git("diff", "--name-only", "--no-renames", ...range)).filter((file) => !bumped.includes(file))
   const changeFiles = lines(git("diff", "--name-only", "--diff-filter=AM", ...range, "--", "change/"))
   const covered = new Set(changeFiles.map((file) => (JSON.parse(now(file)) as { packageName: string }).packageName))
+  const released = new Set<string>()
   for (const file of bumped) {
     const changelog = file.replace(/package\.json$/, "CHANGELOG.json")
     if (!files.includes(changelog)) continue
     const release = versionedRelease(git("show", `${base}:${file}`), now(file), now(changelog))
-    if (release) covered.add(release)
+    if (release) {
+      covered.add(release)
+      released.add(release)
+    }
   }
-  return { files, covered }
+  return { files, covered, released }
 }
 
 function option(name: string): string | undefined {
@@ -180,11 +184,14 @@ function option(name: string): string | undefined {
 function main(): void {
   const command = process.argv[2]
   const config = beachballConfig()
-  const { files, covered } = changes(config.branch, process.argv.includes("--committed"))
+  const { files, covered, released } = changes(config.branch, process.argv.includes("--committed"))
   // Beachball's own ignore patterns, plus the change files and changelogs it ignores itself.
   const ignored = [...(config.ignorePatterns ?? []), "change/*.json", "**/CHANGELOG.md", "**/CHANGELOG.json"]
   const needed = releasesFor(readWorkspace(), files, ignored)
   const missing = needed.filter((name) => !covered.has(name))
+
+  // Beachball checks ordinary change files; a consumed release is checked by version + generated changelog instead.
+  if (command === "releasing") process.exit(released.size > 0 && needed.every((name) => released.has(name)) ? 0 : 1)
 
   if (command === "check") {
     if (missing.length === 0) return
@@ -222,7 +229,9 @@ function main(): void {
     return
   }
 
-  console.error("Usage: node scripts/changes.ts write --type <type> --message <message> | check [--committed]")
+  console.error(
+    "Usage: node scripts/changes.ts write --type <type> --message <message> | check|releasing [--committed]"
+  )
   process.exit(1)
 }
 
