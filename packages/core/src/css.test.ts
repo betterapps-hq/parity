@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vite-plus/test"
-import { prepareCanvasCss, rewriteMedia, rewriteSheetViewportUnits, rewriteViewportUnits } from "./css.ts"
+import {
+  collectCustomProperties,
+  prepareCanvasCss,
+  rewriteMedia,
+  rewriteSheetViewportUnits,
+  rewriteViewportUnits
+} from "./css.ts"
 
 const options = { baseUrl: "http://localhost:5555/" }
 
@@ -123,5 +129,39 @@ describe("prepareCanvasCss", () => {
   it("leaves keyframes and protocol-relative urls alone", () => {
     const css = "@keyframes spin { to { transform: rotate(1turn); } } .a { background: url(//cdn.example/x.png); }"
     expect(prepareCanvasCss(css, options).scoped).toBe(css)
+  })
+})
+
+describe("collectCustomProperties", () => {
+  it("keeps each declaration's selector and the at-rules around it, outermost first", () => {
+    const css = [
+      ":root { --a: 1; }",
+      "@layer theme { @media (prefers-color-scheme: dark) { :root, :host { --a: 2; } } }",
+      "@supports (color: oklch(0 0 0)) { .dark { --b: oklch(0 0 0); } }",
+      ".card { @media (width >= 40rem) { --c: 3; } }"
+    ].join("\n")
+    expect(collectCustomProperties(css)).toEqual([
+      { selector: ":root", atRules: [], name: "a", value: "1" },
+      {
+        selector: ":root, :host",
+        atRules: [
+          { name: "layer", prelude: "theme" },
+          { name: "media", prelude: "(prefers-color-scheme: dark)" }
+        ],
+        name: "a",
+        value: "2"
+      },
+      {
+        selector: ".dark",
+        atRules: [{ name: "supports", prelude: "(color: oklch(0 0 0))" }],
+        name: "b",
+        value: "oklch(0 0 0)"
+      },
+      { selector: ".card", atRules: [{ name: "media", prelude: "(width >= 40rem)" }], name: "c", value: "3" }
+    ])
+  })
+
+  it("skips declarations outside any style rule", () => {
+    expect(collectCustomProperties("@media print { --a: 1; }")).toEqual([])
   })
 })

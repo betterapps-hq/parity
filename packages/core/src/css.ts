@@ -38,9 +38,19 @@ export function prepareCanvasCss(css: string, options: PrepareCssOptions): Canva
   return { scoped, global: globals.join("\n") }
 }
 
+/** An at-rule a declaration sits under, such as `@media (prefers-color-scheme: dark)`. */
+export interface EnclosingAtRule {
+  /** Lowercase, without `@`: `media`, `layer`, `supports`… */
+  name: string
+  /** What follows the name, trimmed: `(prefers-color-scheme: dark)`, or empty for an anonymous `@layer`. */
+  prelude: string
+}
+
 export interface CustomPropertyDeclaration {
-  /** Selector of the style rule that declares it, with at-rule wrappers (`@layer`, `@media`) ignored. */
+  /** Selector of the innermost style rule that declares it. */
   selector: string
+  /** The at-rules it sits under, outermost first, whether outside or nested inside its style rule. */
+  atRules: EnclosingAtRule[]
   /** Property name without `--`. */
   name: string
   value: string
@@ -49,19 +59,22 @@ export interface CustomPropertyDeclaration {
 /** Every custom property declaration in a stylesheet, in source order. */
 export function collectCustomProperties(css: string): CustomPropertyDeclaration[] {
   const declarations: CustomPropertyDeclaration[] = []
-  const visit = (nodes: CssNode[], selector: string | undefined) => {
+  const visit = (nodes: CssNode[], selector: string | undefined, atRules: EnclosingAtRule[]) => {
     for (const node of nodes) {
       if (node.kind === "block") {
         const prelude = node.prelude.trim()
-        visit(node.children, prelude.startsWith("@") ? selector : prelude)
+        const atRule = /^@([\w-]+)\s*([\s\S]*)$/.exec(prelude)
+        if (atRule)
+          visit(node.children, selector, [...atRules, { name: atRule[1]!.toLowerCase(), prelude: atRule[2]!.trim() }])
+        else visit(node.children, prelude, atRules)
       } else if (selector) {
         for (const match of node.text.matchAll(/--([\w-]+)\s*:\s*([^;]+)/g)) {
-          declarations.push({ selector, name: match[1]!, value: match[2]!.trim() })
+          declarations.push({ selector, atRules, name: match[1]!, value: match[2]!.trim() })
         }
       }
     }
   }
-  visit(parse(css), undefined)
+  visit(parse(css), undefined, [])
   return declarations
 }
 

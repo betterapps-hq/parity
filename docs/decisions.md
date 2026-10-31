@@ -2329,6 +2329,26 @@ routed through the shared execute operation.
 Tests share one local RPC fixture and launch real CLI and MCP processes. Execute's contract tests remain alongside the
 new operation tests. No Electron is needed; a read-only check in the running app covers real wiring too.
 
+## Conditional values stay out of the default theme (PAR-485)
+
+`collectCustomProperties` in core's `css.ts` now gives each declaration the at-rules it sits under, outermost first, as
+`atRules: { name, prelude }[]` (`{ name: "media", prelude: "(prefers-color-scheme: dark)" }`), beside its innermost
+selector. It used to keep only the selector, so a `:root` inside `@media (prefers-color-scheme: dark)` read as the root,
+and its dark values replaced the light defaults, as `mantine` showed.
+
+My calls in the run-time reading (`extractTokens`):
+
+- Only `@layer` and `@supports` leave a value in the theme its selector names: a layer orders rules and a feature check
+  holds whatever the theme, so neither picks one. Any other at-rule (`@media`, `@container`, `@scope`…) makes a value
+  conditional, and it belongs to no theme.
+- A `prefers-color-scheme: dark` block isn't read as the dark theme. A theme reaches a frame by a class the Modes panel
+  adds, and `previewToken` and `writeTokenChanges` write a theme's values to that class's block, so a "dark" read from a
+  media query couldn't be shown in a frame or edited where it lives. Reading it as a theme is the gap `docs/support.md`
+  already lists; the facts it needs are now in the collected declarations.
+- `themeFallbackCss` still counts a property declared anywhere as defined, conditional or not, as before.
+- Libgen's own token collecting (`libgen/src/tokens.ts`), which reads `prefers-color-scheme: dark` blocks as dark, is
+  unchanged. Sharing one policy between the two is PAR-468.
+
 ## Project discovery decides where an app's sources and styles are (PAR-467)
 
 Detection and `parity lib`'s app mode read one set of rules, so an app's `.lib.par` describes what the canvas loads.

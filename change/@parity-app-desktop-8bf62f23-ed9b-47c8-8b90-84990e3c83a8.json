@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Keep values under media queries, such as a prefers-color-scheme: dark block, out of the default theme's tokens",
+  "packageName": "@parity-app/desktop",
+  "email": "noreply@anthropic.com",
+  "dependentChangeType": "patch"
+}
