@@ -1452,7 +1452,7 @@ Tests:
   person deleted"); designs the person deleted or added left so; files created for new designs; a change or deletion
   already made here taken as applied ("takes a change already made the same way"); and modes set only while unchanged,
   refused otherwise ("sets the modes only while they're as the call read them").
-- `packages/agent/src/run.test.ts` (2 of its 21): a call gives each design it changed, created or deleted with the
+- `packages/agent/src/run.test.ts` (2 of its 24): a call gives each design it changed, created or deleted with the
   design as it read it, and no others; a refused call fails naming the design, keeps its snippet, and runs again by
   `editId`.
 - `apps/desktop/src/renderer/design-store.test.ts` (11 of its 18): Save writing the files and the stylesheet, saving
