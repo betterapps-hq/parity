@@ -5,7 +5,7 @@ A design isn't a picture of the app: every button, card and table on the canvas 
 the project's own build tool. What you design is what the code can build, and the files in the repository are the source
 of truth.
 
-> **Pre-release.** Parity is in active development and has no releases yet. The first builds will be unsigned.
+> **Beta.** Parity is in active development. Desktop builds have no publisher signature while signing is being set up.
 
 ## How it works
 
@@ -26,13 +26,26 @@ which tools.
 
 ## Releases
 
-There are none yet. Installers for Windows, macOS and Linux will be published to
-[GitHub Releases](https://github.com/betterapps-hq/parity/releases), as betas first. They'll be unsigned until signing
-is set up, so the first run needs a step on Windows and macOS:
+Installers for Windows, macOS and Linux are published to
+[GitHub Releases](https://github.com/betterapps-hq/parity/releases), as betas first. Choose the latest pre-release and
+download the installer for your system. These early builds need new versions installed by hand.
+
+Before opening it, download `desktop-release.json` from the **same release on this repository**, alongside the
+installer. Find the installer's exact filename in `assets` and compare its `sha256` with the hash calculated on your
+computer (replace the example filename with your download):
+
+- **Windows, PowerShell:** `Get-FileHash .\Parity-0.2.0-win-x64.exe -Algorithm SHA256`
+- **macOS, Apple Silicon, Terminal:** `shasum -a 256 ./Parity-0.2.0-mac-arm64.dmg`
+- **macOS, Intel, Terminal:** `shasum -a 256 ./Parity-0.2.0-mac-x64.dmg`
+- **Linux, terminal:** `sha256sum ./Parity-0.2.0-linux-x64.AppImage`
+
+The hashes must match, ignoring letter case. If they differ, do not open the installer. This checks the download against
+the release's published checksum; it does not provide a publisher signature. Once verified, the first run needs a step
+on Windows and macOS because these builds have no publisher signature:
 
 - **Windows:** SmartScreen warns that the app is unrecognised. Choose **More info**, then **Run anyway**.
 - **macOS:** the app is blocked the first time it opens. Open **System Settings > Privacy & Security** and choose **Open
-  Anyway**. An unsigned app can't update itself on macOS, so install new versions by hand until signing lands.
+  Anyway**.
 - **Linux:** make the AppImage executable with `chmod +x`, then run it.
 
 ## Developing Parity

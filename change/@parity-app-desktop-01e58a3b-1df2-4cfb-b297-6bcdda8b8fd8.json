@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Install Parity on Windows, macOS and Linux",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

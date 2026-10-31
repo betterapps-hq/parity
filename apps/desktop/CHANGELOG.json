@@ -2,6 +2,35 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sat, 31 Oct 2026 11:30:08 GMT",
+      "version": "0.2.0",
+      "tag": "@parity-app/desktop_v0.2.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "5bcc95aaaf17d3c1b82e1de79f1430607eb93fb1",
+            "comment": "Install Parity on Windows, macOS and Linux"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "bce787afd09e9ad7937580878db902621c633be5",
+            "comment": "Run Parity from built files without a development server and open projects reliably on first launch"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "451b482efb3cc93dc9e98f22837cea72219d9c0a",
+            "comment": "Improve release checks for image drops and length-field validation"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sat, 31 Oct 2026 05:16:05 GMT",
       "version": "0.1.0",
       "tag": "@parity-app/desktop_v0.1.0",

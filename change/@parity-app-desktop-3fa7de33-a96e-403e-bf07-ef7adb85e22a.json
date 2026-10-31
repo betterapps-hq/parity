@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Run Parity from built files without a development server and open projects reliably on first launch",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
