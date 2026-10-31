@@ -33,14 +33,23 @@ active tab is the default.
 | `find_problems`       | `parity problems <design>`   | Render errors, overflow, clipping and unknown components, per frame.                                                                                       |
 | `check_accessibility` | `parity a11y <design>`       | axe-core against WCAG 2.2 AA, per frame, on the layers that break each rule.                                                                               |
 | `get_console`         | `parity console`             | What the project's own code wrote to the console, on the canvas and offscreen.                                                                             |
+| `get_tokens`          | `parity tokens`              | Tokens filtered by category, source or name, with values in every theme.                                                                                   |
+| `get_components`      | `parity components`          | Components, libraries, icon sets and exports left out or failing to render.                                                                                |
+| `get_props`           | `parity props <Component>`   | Props from source; `all` includes passed-through attributes.                                                                                               |
 | `get_tabs`            | `parity tabs`                | The open projects.                                                                                                                                         |
 | `open_project`        | `parity open <folder>`       | Opens a project in a new tab.                                                                                                                              |
 | `read_skill`          | `parity skill [file]`        | This skill.                                                                                                                                                |
 
-In a terminal, `parity tokens`, `parity components` and `parity props <Component>` read what designs can use without
-writing a snippet. `parity components` also says which of the app's exports aren't components and why, which components
-fail to draw on the canvas and why (often a missing provider, which a decorator adds), and what the person listed or
-took off the list by hand.
+The token, component and prop tools read what designs can use without writing a snippet in either transport.
+`parity components` also says which of the app's exports aren't components and why, which components fail to draw on the
+canvas and why (often a missing provider, which a decorator adds), and what the person listed or took off the list by
+hand.
+
+CLI commands and MCP tools share validation and defaults. Screenshot scale defaults to 1 and accepts 0.25 to 3. Audits
+check every state and shown mode unless narrowed; a single-element selector list is equivalent to a string. Screenshot
+failures and audit findings exit with 1 in the CLI and set MCP `isError`, with details retained. `get_console` defaults
+`clear` to false; `get_props` defaults `all` to false. MCP project paths must be absolute; the CLI resolves relative
+folders from its working directory. Skill reading is local and needs no running app.
 
 When a library's components, tokens or icons don't show, `parity lib <package> --root <project>` describes the package
 in a `.lib.par`: its components, tokens and the providers its frames need. It writes `./<id>.lib.par` in the current
