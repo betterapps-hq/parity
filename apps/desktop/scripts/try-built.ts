@@ -27,9 +27,8 @@ try {
     if (!manifest || typeof manifest !== "object" || !("version" in manifest) || typeof manifest.version !== "string") {
       throw new Error("The desktop package has no version")
     }
-    const installer = (await readdir(join(appDir, "dist"))).find(
-      (file) => file === `Parity-${manifest.version}-win-x64.exe`
-    )
+    const version = manifest.version
+    const installer = (await readdir(join(appDir, "dist"))).find((file) => file === `Parity-${version}-win-x64.exe`)
     if (!installer) throw new Error("No Windows installer was built.")
     const result = spawnSync(join(appDir, "dist", installer), ["/S", `/D=${installed}`], {
       windowsHide: true,
