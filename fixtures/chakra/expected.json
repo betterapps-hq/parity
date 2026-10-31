@@ -44,7 +44,7 @@
   "tokens": {
     "count": 1,
     "categories": {
-      "other": 1
+      "spacing": 1
     },
     "semantic": {
       "app-gap": {

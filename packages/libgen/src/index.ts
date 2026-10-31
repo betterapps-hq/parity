@@ -43,7 +43,7 @@ export { familyOf, fetchExamples, nearestParent, normalizeRepo, readExamples } f
 export { parseLibraryEdits } from "@parity-app/core"
 export { manifestText } from "./icon-tags.ts"
 export { presets } from "./presets.ts"
-export { categorizeVar, cssTokens, toDtcg } from "./tokens.ts"
+export { cssTokens, toDtcg } from "./tokens.ts"
 
 export interface GenerateOptions {
   /** The project: the folder a package is installed in, or the app to describe. */
@@ -127,7 +127,7 @@ export interface ComponentChanges {
 }
 
 export interface GeneratedLibrary {
-  /** A version 3 `.lib.par`, ready to write as JSON. */
+  /** A `.lib.par`, ready to write as JSON. */
   manifest: Record<string, unknown>
   report: GenerateReport
 }
@@ -142,7 +142,7 @@ interface PackageJson {
 }
 
 /**
- * Describes a component library, an icon set or an app as a version 3 `.lib.par`: its components found with the type
+ * Describes a component library, an icon set or an app as a `.lib.par`: its components found with the type
  * checker, its tokens wherever it keeps them, written as DTCG in Parity's categories, its breakpoints, its icons' shape
  * and the decorators its components need.
  */

@@ -4,14 +4,14 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { pathToFileURL } from "node:url"
 import { findComponents } from "@parity-app/code"
-import { describedCategories, describedTokenCss, readDesignTokens } from "@parity-app/tokens"
+import { categorize, describedCategories, describedTokenCss, readDesignTokens } from "@parity-app/tokens"
 import { describe, expect, it } from "vite-plus/test"
 import { checkAnatomy, readAnatomy } from "./anatomy.ts"
 import { readExamples } from "./examples.ts"
 import { hostedParts, type RenderCall, readRenders, renderedIn } from "./hosts.ts"
 import { compareComponents, loader, selectComponents } from "./index.ts"
 import { completeChains, guessParent, type PartRelation, relateParts, spelledOut } from "./parts.ts"
-import { categorizeVar, cssTokens, pairLineHeights, toDtcg } from "./tokens.ts"
+import { cssTokens, pairLineHeights, toDtcg } from "./tokens.ts"
 
 const demo = join(import.meta.dirname, "fixtures/demo").replaceAll("\\", "/")
 
@@ -95,9 +95,9 @@ describe("cssTokens", () => {
     expect(tokens.get("mantine-line-height-md")?.category).toBe("leading")
     expect(tokens.get("mantine-radius-sm")?.category).toBe("radius")
     expect(tokens.get("text-sm")?.lineHeight).toBe("1.25rem")
-    expect(categorizeVar("spacingHorizontalM", "12px")).toBe("spacing")
-    expect(categorizeVar("fontSizeBase300", "14px")).toBe("font-size")
-    expect(categorizeVar("mantine-heading-text-wrap", "wrap")).toBe("other")
+    expect(categorize("spacingHorizontalM", "12px")).toBe("spacing")
+    expect(categorize("fontSizeBase300", "14px")).toBe("font-size")
+    expect(categorize("mantine-heading-text-wrap", "wrap")).toBe("other")
   })
 
   it("pairs a font size with the line height of the same step", () => {

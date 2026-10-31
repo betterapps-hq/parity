@@ -51,25 +51,32 @@
     },
     "semantic": {
       "color-background": {
-        "default": "#ffffff"
+        "default": "#ffffff",
+        "dark": "#141517"
       },
       "color-border": {
-        "default": "#dee2e6"
+        "default": "#dee2e6",
+        "dark": "#373a40"
       },
       "color-foreground": {
-        "default": "#1c1c1e"
+        "default": "#1c1c1e",
+        "dark": "#f1f3f5"
       },
       "color-muted": {
-        "default": "#f1f3f5"
+        "default": "#f1f3f5",
+        "dark": "#25262b"
       },
       "color-muted-foreground": {
-        "default": "#6b7280"
+        "default": "#6b7280",
+        "dark": "#a1a1aa"
       },
       "color-primary": {
-        "default": "#3b5bdb"
+        "default": "#3b5bdb",
+        "dark": "#748ffc"
       },
       "color-primary-foreground": {
-        "default": "#ffffff"
+        "default": "#ffffff",
+        "dark": "#141517"
       },
       "font-sans": {
         "default": "system-ui, -apple-system, 'Segoe UI', sans-serif"
@@ -80,7 +87,8 @@
     }
   },
   "themes": [
-    "default"
+    "default",
+    "dark"
   ],
   "breakpoints": {},
   "components": {

@@ -93,6 +93,32 @@ describe("writeTokenChanges", () => {
     const next = writeTokenChanges(source, [{ name: "accent", theme: "default", value: "pink" }], new Set())
     expect(next).toContain("--background: oklch(1 0 0);\n  --accent: pink;\n}")
   })
+
+  it("writes a theme into the block the stylesheet gives it, by attribute as much as by class", () => {
+    const css = ':root {\n  --c: #fff;\n}\n\n[data-theme="dark"] {\n  --c: #000;\n}\n'
+    const next = writeTokenChanges(
+      css,
+      [
+        { name: "c", theme: "dark", value: "#111" },
+        { name: "d", theme: "dark", value: "#222" }
+      ],
+      new Set()
+    )
+    expect(next).toBe(':root {\n  --c: #fff;\n}\n\n[data-theme="dark"] {\n  --c: #111;\n  --d: #222;\n}\n')
+  })
+
+  it("leaves a root inside a media query alone when writing the default", () => {
+    const css = "@media (prefers-color-scheme: dark) {\n  :root { --c: #000; }\n}\n:root {\n  --c: #fff;\n}\n"
+    const next = writeTokenChanges(css, [{ name: "c", theme: "default", value: "red" }], new Set())
+    expect(next).toBe("@media (prefers-color-scheme: dark) {\n  :root { --c: #000; }\n}\n:root {\n  --c: red;\n}\n")
+  })
+
+  it("writes every block that declares the theme's value, so a later one doesn't win back after a save", () => {
+    const css = ':root { --c: #fff; }\n.dark { --c: #111; }\n[data-theme="dark"] { --c: #222; }\n'
+    const next = writeTokenChanges(css, [{ name: "c", theme: "dark", value: "red" }], new Set())
+    expect(next).toBe(':root { --c: #fff; }\n.dark { --c: red; }\n[data-theme="dark"] { --c: red; }\n')
+    expect(extractTokens(next).find((token) => token.name === "c")?.values).toEqual({ default: "#fff", dark: "red" })
+  })
 })
 
 describe("extractTokens", () => {

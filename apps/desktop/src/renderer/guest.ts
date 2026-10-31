@@ -1,5 +1,5 @@
-import { type Guest, prepareCanvasCss, type ThemeVariable } from "@parity-app/core"
-import { extractTokens, themeFallbackCss, type Token, type TokenChange } from "@parity-app/tokens"
+import { type EnclosingAtRule, type Guest, prepareCanvasCss, type ThemeVariable } from "@parity-app/core"
+import { extractTokens, themeFallbackCss, themeOfSelector, type Token, type TokenChange } from "@parity-app/tokens"
 
 export interface LoadedGuest {
   guest: Guest
@@ -99,25 +99,31 @@ export function showTokenOverrides(sheet: CSSStyleSheet, overrides: readonly Tok
 
 /**
  * Changes a token's value in every frame at once by editing the shared stylesheet, so edits show before the
- * project's builder recompiles. `theme` is `default` or a theme class such as `dark`.
+ * project's builder recompiles. `theme` is `default` or a theme as `extractTokens` names it, such as `dark`: the rules
+ * edited are the ones it read that theme's values from, `.dark` or `[data-theme="dark"]` alike.
  */
 export function previewToken(sheet: CSSStyleSheet, name: string, theme: string, value: string): void {
   const property = `--${name}`
-  const wanted = theme === "default" ? [":host", ":root"] : [`.${theme}`]
   const rules: CSSStyleRule[] = []
-  const collect = (list: CSSRuleList) => {
+  const collect = (list: CSSRuleList, atRules: EnclosingAtRule[]) => {
     for (const rule of list) {
       if (rule instanceof CSSStyleRule) {
-        const parts = rule.selectorText.split(",").map((part) => part.trim())
-        if (parts.some((part) => wanted.includes(part))) rules.push(rule)
-      } else if ("cssRules" in rule) collect((rule as CSSGroupingRule).cssRules)
+        if (themeOfSelector(rule.selectorText, atRules) === theme) rules.push(rule)
+      } else if ("cssRules" in rule) {
+        const atRule = /^@([\w-]+)\s*([^{]*)/.exec(rule.cssText)
+        const inner = atRule ? [...atRules, { name: atRule[1]!.toLowerCase(), prelude: atRule[2]!.trim() }] : atRules
+        collect((rule as CSSGroupingRule).cssRules, inner)
+      }
     }
   }
-  collect(sheet.cssRules)
+  collect(sheet.cssRules, [])
   const declaring = rules.filter((rule) => rule.style.getPropertyValue(property) !== "")
   if (declaring.length > 0) for (const rule of declaring) rule.style.setProperty(property, value)
-  else
-    sheet.insertRule(`${theme === "default" ? ":host" : `.${theme}`} { ${property}: ${value}; }`, sheet.cssRules.length)
+  else {
+    // A rule of its own, with the selector the theme already uses, so `[data-theme="dark"]` stays an attribute.
+    const selector = rules[0]?.selectorText ?? (theme === "default" ? ":host" : `.${theme}`)
+    sheet.insertRule(`${selector} { ${property}: ${value}; }`, sheet.cssRules.length)
+  }
 }
 
 // A builder may still be preparing dependencies on the first request, and a failed module import is cached by URL.

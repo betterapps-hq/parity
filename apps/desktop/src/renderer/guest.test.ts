@@ -3,18 +3,18 @@ import { build } from "esbuild"
 import { type Browser, chromium, type Page } from "playwright-core"
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
 
-// The offscreen renderer lays token values over a guest's stylesheet, so this runs in Chrome, where CSSOM is real. It
-// needs Chrome installed.
+// `previewToken` edits a real CSSStyleSheet, and the offscreen renderer lays token values over a guest's stylesheet, which
+// Node doesn't have, so this runs in Chrome, where CSSOM is real. It needs Chrome installed.
 let browser: Browser
 let page: Page
 const errors: string[] = []
 
 /** What the page loads: a guest stylesheet whose compiled CSS declares `--primary` in the root and dark themes. */
 const entry = `
-import { guestSheet, showTokenOverrides } from "./guest.ts"
+import { guestSheet, previewToken, showTokenOverrides } from "./guest.ts"
 
 export const css = ":host { --primary: black; --radius: 0.5rem; } .dark { --primary: white; }"
-export { guestSheet, showTokenOverrides }
+export { guestSheet, previewToken, showTokenOverrides }
 
 /** The whole stylesheet, as its rules read now. */
 export function text(sheet) {
@@ -122,5 +122,48 @@ describe("token overrides on an offscreen frame's stylesheet", () => {
     })
     expect(result.threw).toBe(true)
     expect(result.again).toBe(result.first)
+  })
+})
+
+/** The stylesheet's rules after previewing a token, one per line. */
+function previewed(css: string, name: string, theme: string, value: string): Promise<string[]> {
+  return page.evaluate(
+    ({ css, name, theme, value }) => {
+      const sheet = new CSSStyleSheet()
+      sheet.replaceSync(css)
+      // @ts-expect-error The bundle's global.
+      guest.previewToken(sheet, name, theme, value)
+      const lines: string[] = []
+      const collect = (list: CSSRuleList) => {
+        for (const rule of list) {
+          if (rule instanceof CSSStyleRule) lines.push(rule.cssText)
+          else if ("cssRules" in rule) collect((rule as CSSGroupingRule).cssRules)
+        }
+      }
+      collect(sheet.cssRules)
+      return lines
+    },
+    { css, name, theme, value }
+  )
+}
+
+describe("previewToken", () => {
+  it("edits a theme where the stylesheet declares it, by class or by attribute", async () => {
+    const css = `:host { --c: #fff; } [data-theme="dark"] { --c: #000; } .dark { --c: #111; }`
+    expect(await previewed(css, "c", "dark", "red")).toEqual([
+      ":host { --c: #fff; }",
+      '[data-theme="dark"] { --c: red; }',
+      ".dark { --c: red; }"
+    ])
+  })
+
+  it("adds a value a theme lacks with the selector that theme already uses", async () => {
+    const css = `:host { --c: #fff; --d: 1px; } [data-theme="dark"] { --c: #000; }`
+    expect((await previewed(css, "d", "dark", "2px")).at(-1)).toBe('[data-theme="dark"] { --d: 2px; }')
+  })
+
+  it("leaves a prefers-color-scheme block alone when previewing the default", async () => {
+    const css = `:host { --c: #fff; } @media (prefers-color-scheme: dark) { :host { --c: #000; } }`
+    expect(await previewed(css, "c", "default", "red")).toEqual([":host { --c: red; }", ":host { --c: #000; }"])
   })
 })

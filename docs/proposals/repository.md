@@ -51,7 +51,6 @@ to npm and of unsigned installers to GitHub Releases, as betas first and to ever
 - **Automatic release PRs still wait for their GitHub App** (PAR-10). `release.yml` calls the shared `release-prepare`
   and `release-merge` after CI passes on `main`. Until `RELEASE_APP_CLIENT_ID` and `RELEASE_APP_PRIVATE_KEY` exist, it
   skips with a notice. The release templates at v1.7.0 give the hooks `origin/main` to compare the release commit with.
-  CodeRabbit skips the generated changelogs, whose wording was reviewed in the change files.
 
 ## Vite+
 
@@ -93,13 +92,12 @@ with a type checker that runs on TypeScript 7. Its `vite:monorepo` template has 
 
 - **`main` takes changes only through pull requests,** under a ruleset Terraform writes when the repository goes on
   GitHub (PAR-398), from a shared module the other repositories can use too.
-- **A pull request merges once its checks pass and every thread is resolved:** CI's, CodeRabbit's status and the
-  title's. No approval is required, since GitHub doesn't let you approve your own.
+- **A pull request merges once its checks pass and every thread is resolved:** CI's and the title's, with the OpenAI
+  review addressed. No approval is required, since GitHub doesn't let you approve your own.
 - **Merges squash,** so a pull request's title becomes the commit's subject, and CI checks it with
   `node scripts/commits.ts title`.
-- **CodeRabbit reviews every pull request** from `.coderabbit.yaml`: assertively, against AGENTS.md and conventions.md,
-  with notes on change files, packages, tests and workflows. Lint, format, types, tests and change files are CI's, so
-  its own linters are off. It needs the CodeRabbit app installed on betterapps-hq.
+- **OpenAI reviews pull requests** against AGENTS.md and conventions.md. Fix or answer its findings and resolve every
+  thread before merging. Lint, format, types, tests and change files are checked by CI.
 - **Force pushes to `main`, deleting it and bypassing the ruleset aren't allowed,** and GitHub's secret scanning and
   push protection stay on.
 
