@@ -23,6 +23,8 @@ let electron: ElectronApplication | undefined
 let restarted: Browser | undefined
 let installedWindows = false
 let feed: Server | undefined
+let stage = "packaging"
+let watchdog: NodeJS.Timeout | undefined
 
 function run(command: string, args: string[], cwd = appDir): void {
   const result = spawnSync(command, args, {
@@ -242,9 +244,16 @@ try {
   electron.process().stdout?.on("data", (chunk: Buffer) => process.stdout.write(chunk))
   electron.process().stderr?.on("data", (chunk: Buffer) => process.stderr.write(chunk))
   const page = await electron.firstWindow()
+  watchdog = setTimeout(() => {
+    console.error(`Installed update check timed out during: ${stage}`)
+    electron?.process().kill("SIGKILL")
+  }, 300_000)
+  watchdog.unref()
   page.setDefaultTimeout(90_000)
   await page.waitForURL("parity://app/index.html")
   await page.waitForFunction(() => window.canvasHost?.appVersion === "999.0.0")
+  stage = "rejecting the corrupt startup download"
+  console.log(stage)
   const rejected = await waitForUpdate(page, "error")
   if (rejected.phase !== "error" || !/sha512|checksum/i.test(rejected.message)) {
     throw new Error(`The corrupt download did not fail its checksum verification: ${JSON.stringify(rejected)}`)
@@ -253,18 +262,26 @@ try {
   if ((await page.evaluate(() => window.canvasHost.appVersion)) !== "999.0.0")
     throw new Error("A corrupt update was installed.")
   corrupt = false
+  stage = "downloading a valid update"
+  console.log(stage)
   await page.evaluate(() => window.canvasHost.updates.check())
   await waitForUpdate(page, "ready")
   await page.getByRole("button", { name: "Later", exact: true }).click()
   if ((await page.evaluate(() => window.canvasHost.updates.get())).phase !== "ready")
     throw new Error("Later discarded the update.")
   await page.getByRole("application", { name: "tldraw", exact: true }).waitFor()
+  stage = "creating unsaved work"
+  console.log(stage)
   await agent("exec", {
     label: "Update test unsaved work",
     code: 'CreateDesign({ name: "Update smoke", file: "update-smoke.par" })'
   })
   await openUpdate(page)
+  stage = "cancelling restart with unsaved work"
+  console.log(stage)
   await page.getByRole("button", { name: "Restart to update", exact: true }).click()
+  stage = "saving work and restarting"
+  console.log(stage)
   const save = page.getByRole("dialog", { name: /Save changes to/ })
   await save.getByRole("button", { name: "Cancel", exact: true }).click()
   if ((await page.evaluate(() => window.canvasHost.appVersion)) !== "999.0.0")
@@ -274,6 +291,8 @@ try {
   await page.getByRole("button", { name: "Restart to update", exact: true }).click()
   await save.getByRole("button", { name: "Save", exact: true }).click()
   const deadline = Date.now() + 120_000
+  stage = "waiting for the installed new version"
+  console.log(stage)
   let newPage: Page | undefined
   while (Date.now() < deadline) {
     try {
@@ -299,12 +318,33 @@ try {
     "Real installed update passed: corrupt download rejected, Later retained, Cancel respected, work saved, version 999.0.1 relaunched."
   )
 } finally {
-  await restarted?.close().catch(() => undefined)
-  await electron?.close().catch(() => undefined)
+  clearTimeout(watchdog)
+  console.log(`Cleaning up installed update check after: ${stage}`)
+  // Cleanup must not open an unanswered unsaved-work prompt in this disposable copy of the app.
+  if (electron && electron.process().exitCode === null) {
+    await bounded(electron.evaluate(({ app }) => app.exit(0)).catch(() => undefined))
+    if (electron.process().exitCode === null) electron.process().kill("SIGKILL")
+  }
+  if (restarted) await bounded(restarted.close().catch(() => undefined))
+  if (electron) await bounded(electron.close().catch(() => undefined))
   feed?.closeAllConnections()
   if (feed) await new Promise<void>((closed) => feed!.close(() => closed()))
   if (installedWindows) run(join(installed, "Uninstall Parity.exe"), ["/S", `_?=${installed}`], work)
   await removeWork()
+}
+
+async function bounded(operation: Promise<unknown>): Promise<void> {
+  let timer: NodeJS.Timeout | undefined
+  try {
+    await Promise.race([
+      operation,
+      new Promise<void>((done) => {
+        timer = setTimeout(done, 5000)
+      })
+    ])
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 async function removeWork(): Promise<void> {
