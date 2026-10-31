@@ -1971,6 +1971,36 @@ it's gone or already reopening, and a failed `project.open` leaves no project to
 
 How the app's window holds the canvas and the panels around it.
 
+### Installed app updates (PAR-160)
+
+Windows NSIS and Linux AppImage installations check GitHub Releases on startup and through Help > Check for updates.
+Downloads stay in the background, with one bottom-right toast updating its progress in place. Hiding it keeps the
+download going. A completed download shows a persistent Restart to update / Later notice; About keeps the action
+available after Later. Restart uses the existing unsaved-work prompt, and Cancel leaves the app and update ready. An
+installation failure resets the close decision, so closing later still checks for new unsaved work. Quitting normally
+never installs an update. Unsigned Macs check for newer releases and offer their download page instead of installing in
+place. The Mac application menu includes the same check.
+
+Settings > Get beta updates is off by default and remembered between runs. It includes GitHub pre-releases without
+allowing downgrades. About shows the selected channel, installed version and available version. Development builds and
+extracted Linux folders do not download or install updates.
+
+`chrome/UpdateToast.stories.tsx` shows the download, restart-ready and Mac fallback designs, unknown-size progress, both
+themes through the toolbar, and the real toast host. `chrome/UpdateDialogs.stories.tsx` covers About's update states and
+the beta setting. The owner signed off on the rendered toast designs before app integration.
+
+Code: `packages/core/src/updates.ts` defines state transitions; `apps/desktop/src/main/update-session.ts` serializes
+operations and `main/updates.ts` adapts electron-updater. `main/index.ts` owns the close acknowledgement and IPC,
+through `preload/index.ts`. `renderer/chrome/updates.tsx` shares state between `UpdateToast.tsx`, `AboutDialog.tsx` and
+`SettingsDialog.tsx`; `AppMenu.tsx` exposes the check.
+
+Tests: `packages/core/src/updates.test.ts` covers guarded transitions, late progress, channel changes and invalid
+progress; `main/update-session.test.ts` covers serialized checks, retry, installation failure resetting the close
+decision, disabled development builds and the Mac fallback. `preload/index.test.ts` covers a native menu action arriving
+before React subscribes and replacing its listener without losing the next action. CI runs `scripts/try-update.ts` on
+Windows and Linux: two real packaged versions, checksum rejection, Later, unsaved-work cancellation, Save, installation
+and relaunch as the newer version. It refuses to run outside CI.
+
 ### The page never scrolls (PAR-424)
 
 The window's page is always exactly the window: no part of the chrome makes it taller or wider, so it never scrolls.

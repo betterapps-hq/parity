@@ -12,6 +12,14 @@ const pending = new Map<number, Pending>()
 const queued: ChannelMessage[] = []
 let handler: ((method: WindowMethod, params: unknown) => Promise<unknown>) | undefined
 const reconnectListeners = new Set<() => void>()
+const showUpdateListeners = new Set<() => void>()
+let pendingShowUpdate = false
+
+// A native menu action may arrive after load but before React mounts and subscribes.
+ipcRenderer.on("canvas:show-updates", () => {
+  if (showUpdateListeners.size === 0) pendingShowUpdate = true
+  else for (const listener of showUpdateListeners) listener()
+})
 
 function send(message: ChannelMessage): void {
   if (port) port.postMessage(message)
@@ -52,6 +60,32 @@ ipcRenderer.on("canvas:port", (event) => {
 })
 
 const host: CanvasHost = {
+  appVersion:
+    process.argv.find((argument) => argument.startsWith("--parity-version="))?.slice("--parity-version=".length) ??
+    "unknown",
+  updates: {
+    get: () => ipcRenderer.invoke("canvas:update-state"),
+    check: () => ipcRenderer.invoke("canvas:update-check"),
+    setBeta: (beta) => ipcRenderer.invoke("canvas:update-beta", beta),
+    act: () => ipcRenderer.invoke("canvas:update-act"),
+    subscribe: (listener) => {
+      const changed = (_event: Electron.IpcRendererEvent, state: Parameters<typeof listener>[0]) => listener(state)
+      ipcRenderer.on("canvas:update-changed", changed)
+      return () => {
+        ipcRenderer.removeListener("canvas:update-changed", changed)
+      }
+    },
+    onShow: (listener) => {
+      showUpdateListeners.add(listener)
+      if (pendingShowUpdate) {
+        pendingShowUpdate = false
+        listener()
+      }
+      return () => {
+        showUpdateListeners.delete(listener)
+      }
+    }
+  },
   initialProject: process.argv
     .find((argument) => argument.startsWith("--parity-initial-project="))
     ?.split("=")
@@ -83,7 +117,7 @@ const host: CanvasHost = {
       ipcRenderer.send("canvas:close-pending")
       listener().then(
         (close) => ipcRenderer.send(close ? "canvas:close-ready" : "canvas:close-cancel"),
-        () => ipcRenderer.send("canvas:close-ready")
+        () => ipcRenderer.send("canvas:close-cancel")
       )
     })
   }

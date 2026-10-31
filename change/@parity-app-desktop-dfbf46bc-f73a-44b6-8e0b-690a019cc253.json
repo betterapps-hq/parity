@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Download Parity updates in the background on Windows and Linux, with a manual download option on Mac",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

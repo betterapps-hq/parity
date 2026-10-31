@@ -11,7 +11,8 @@ import type {
   ModeSettings,
   ProjectDetection,
   StorybookInfo,
-  ThemeVariable
+  ThemeVariable,
+  UpdateState
 } from "@parity-app/core"
 import type { Token, TokenChange } from "@parity-app/tokens"
 
@@ -331,6 +332,15 @@ export interface PresenceEvent {
 
 /** Exposed on `window.canvasHost` by the preload script. */
 export interface CanvasHost {
+  appVersion: string
+  updates: {
+    get: () => Promise<UpdateState>
+    check: () => Promise<void>
+    setBeta: (beta: boolean) => Promise<void>
+    act: () => Promise<void>
+    subscribe: (listener: (state: UpdateState) => void) => () => void
+    onShow: (listener: () => void) => () => void
+  }
   /** The dev runner's requested project; an installed app otherwise starts with its recent tabs or the welcome page. */
   initialProject?: string
   request<M extends ServiceMethod>(method: M, params: ServiceMethods[M]["params"]): Promise<ServiceMethods[M]["result"]>

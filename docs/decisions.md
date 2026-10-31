@@ -2276,6 +2276,13 @@ target. The proposal is [proposals/extensions.md](proposals/extensions.md).
 - **Adding tools such as Sentry, PostHog or LaunchDarkly comes later,** from a CLI, through recipes or the scaffolder.
   You said it "belongs in the backlog -- not a priority right now."
 
+- **Windows and Linux updates ship before publisher signing (PAR-160).** You asked for working updates without waiting
+  for PAR-399, approved electron-updater, and signed off on the real download/restart toast stories in dark and light.
+  Keep the update manifests, Mac ZIPs and blockmaps. The installed app uses its packaged release feed and verifies
+  download checksums; unsigned builds do not authenticate a Windows publisher signature. Macs keep a manual download
+  fallback until signing. Downloads run in the background, restart is explicit and handles unsaved work, and ordinary
+  quit never installs an update. Get beta updates remains off by default. Update E2E runs only in CI.
+
 ## Not done yet
 
 Planned work, and what's waiting on you, is in Linear, as [work.md](work.md) says.
