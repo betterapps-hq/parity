@@ -132,9 +132,9 @@ export interface LibraryInfo {
    * and the file's name, as in `registry:mui.lib.par`.
    */
   manifest?: string
-  /** How its icons are imported and drawn, for an icon set. */
+  /** How its icons are imported and drawn, for an icon set. Module specifiers are the project's own, as `importName`. */
   icons?: LibraryIcons
-  /** What its components need around them in every frame. */
+  /** What its components need around them in every frame. Module specifiers are the project's own, as `importName`. */
   decorators?: LibraryDecorator[]
   /**
    * The component designs its `.lib.par` canvas holds, named by the library (`nova/settings-row`), for placing as

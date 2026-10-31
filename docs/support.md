@@ -1,5 +1,10 @@
 # What Parity supports
 
+Parity's `.par` and `.lib.par` files each have one current format (`version: 3`); obsolete library formats are rejected
+rather than migrated. Modes and clipboard envelopes each accept only their current format (`version: 1`). Format
+identifiers do not introduce parallel implementations. Library aliases are resolved during discovery, including
+providers, nested sample values and icons.
+
 What works today, what needs an adapter, and what Parity asks of every project. Keep this current: when an adapter,
 connector or lens lands, update its row here. The visual version is the
 [Parity support matrix](https://claude.ai/artifact/KdDtEs9y2Thiz5u9LW8Wgu); republish it when this changes.
@@ -105,16 +110,17 @@ at the end of this page are the plan for testing more. Four of them exist in `fi
 
 ### Tokens
 
-| Format                                     | Status | Notes                                                                                                      |
-| ------------------------------------------ | ------ | ---------------------------------------------------------------------------------------------------------- |
-| CSS custom properties on `:root`           | ✅     | Read and written.                                                                                          |
-| Tailwind `@theme`                          | ✅     | Read and written, including `@theme inline` and `@theme static`.                                           |
-| Themes as one class (`.dark`)              | ✅     |                                                                                                            |
-| Themes as attributes (`[data-theme]`)      | ❌     | Not treated as themes yet; a gap to fix.                                                                   |
-| `prefers-color-scheme` blocks              | ◐      | Not read as a theme; the defaults keep the light values. A gap to fix.                                     |
-| Breakpoints (`--breakpoint-*`, `.lib.par`) | ✅     | Plus device presets.                                                                                       |
-| DTCG token files and resolvers             | ✅     | Read from a `.lib.par`'s `tokens`, filed by the category `$extensions.parity` gives, each theme as a mode. |
-| JavaScript themes (MUI, Chakra, Fluent)    | ✅     | Read by `parity lib` into the registry's DTCG.                                                             |
+| Format                                     | Status | Notes                                                                                                                                                                                                          |
+| ------------------------------------------ | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CSS custom properties on `:root`           | ✅     | Read and written.                                                                                                                                                                                              |
+| Tailwind `@theme`                          | ✅     | Read and written, including `@theme inline` and `@theme static`.                                                                                                                                               |
+| Themes as one class (`.dark`)              | ✅     | Also on the root (`html.dark`, `:root.dark`). `.light` is the default.                                                                                                                                         |
+| Themes as attributes (`[data-theme]`)      | ◐      | Read and written in place; `[data-theme="dark"]` is the `dark` theme. Frames show it only when the theme's option in Modes sets that attribute; on the root (`:root[data-theme]`) it never applies in a frame. |
+| `prefers-color-scheme` blocks              | ◐      | Not read as a theme in a project; the defaults keep the light values. `parity lib` reads them as a library's `dark`, below its `.dark` or `[data-theme]` values.                                               |
+| Selectors that only scope a theme          | ❌     | `.dark .card`, `.dark.contrast` and `:where(:root, :host)` name no theme.                                                                                                                                      |
+| Breakpoints (`--breakpoint-*`, `.lib.par`) | ✅     | Plus device presets.                                                                                                                                                                                           |
+| DTCG token files and resolvers             | ✅     | Read from a `.lib.par`'s `tokens`, filed by the category `$extensions.parity` gives, each theme as a mode.                                                                                                     |
+| JavaScript themes (MUI, Chakra, Fluent)    | ✅     | Read by `parity lib` into the registry's DTCG.                                                                                                                                                                 |
 
 ### Finding components
 
@@ -234,28 +240,29 @@ wrote them.
 
 In each column, ● means the feature needs it, and ◐ means the feature is better with it.
 
-| Feature                         | TypeScript | React | Vite | Tailwind v4 | CSS variables | Other                                      |
-| ------------------------------- | ---------- | ----- | ---- | ----------- | ------------- | ------------------------------------------ |
-| Render designs                  |            | ●     | ●    |             | ◐             | A global stylesheet Parity can find        |
-| Insert the project's components |            | ●     |      |             |               | Exported from a file the tsconfig includes |
-| Props panel                     | ●          | ●     |      |             |               | cva for variants                           |
-| Tokens panel and editing        |            |       |      | ◐           | ●             |                                            |
-| Modes: themes                   |            |       |      |             | ●             | A theme class such as `.dark`              |
-| Modes: breakpoints              |            |       |      | ◐           | ●             | Width-only media queries                   |
-| Spacing and type controls       |            |       |      | ●           | ●             | `--spacing` and the type scale             |
-| Library components              |            | ●     |      |             |               | A `.lib.par` or a catalog entry            |
-| Icons                           |            | ●     |      |             |               | `lucide-react`                             |
-| Pasted images                   |            |       |      |             |               | The project's `public` folder              |
-| Storybook links                 |            |       |      |             |               | Storybook 9 or later with CSF `component`  |
-| Accessibility and tab order     |            | ●     | ●    |             |               | Whatever renders the frame                 |
-| Export PNG and SVG              |            | ●     | ●    |             |               |                                            |
-| Agent API                       |            | ●     | ●    | ◐           |               | Spacing values assume `--spacing`          |
+| Feature                         | TypeScript | React | Vite | Tailwind v4 | CSS variables | Other                                                          |
+| ------------------------------- | ---------- | ----- | ---- | ----------- | ------------- | -------------------------------------------------------------- |
+| Render designs                  |            | ●     | ●    |             | ◐             | A global stylesheet Parity can find                            |
+| Insert the project's components |            | ●     |      |             |               | Exported from a file the tsconfig includes                     |
+| Props panel                     | ●          | ●     |      |             |               | cva for variants                                               |
+| Tokens panel and editing        |            |       |      | ◐           | ●             |                                                                |
+| Modes: themes                   |            |       |      |             | ●             | A theme class such as `.dark`, or an attribute its option sets |
+| Modes: breakpoints              |            |       |      | ◐           | ●             | Width-only media queries                                       |
+| Spacing and type controls       |            |       |      | ●           | ●             | `--spacing` and the type scale                                 |
+| Library components              |            | ●     |      |             |               | A `.lib.par` or a catalog entry                                |
+| Icons                           |            | ●     |      |             |               | `lucide-react`                                                 |
+| Pasted images                   |            |       |      |             |               | The project's `public` folder                                  |
+| Storybook links                 |            |       |      |             |               | Storybook 9 or later with CSF `component`                      |
+| Accessibility and tab order     |            | ●     | ●    |             |               | Whatever renders the frame                                     |
+| Export PNG and SVG              |            | ●     | ●    |             |               |                                                                |
+| Agent API                       |            | ●     | ●    | ◐           |               | Spacing values assume `--spacing`                              |
 
 ## Gaps to fix
 
 Not requirements, just work not done yet:
 
-- Themes set by attribute (`[data-theme="dark"]`) and `prefers-color-scheme` blocks aren't read as themes.
+- `prefers-color-scheme` blocks aren't read as a project's themes, and frames show a theme set by attribute
+  (`[data-theme="dark"]`) only when its option in Modes sets that attribute.
 - Per-component styles (CSS modules, CSS-in-JS) don't reach frames.
 - Library installs are limited to the built-in catalog.
 
@@ -445,7 +452,7 @@ yet.
 What the detection snapshots record on 2026-10-29, gaps included:
 
 - **`vite7-js`:** Vite 7.3.7 with `vite.config.cjs`, npm, and six components, `App` and the default exports `Avatar` and
-  `Badge` among them. The `[data-theme="dark"]` values are dropped, so there's one theme.
+  `Badge` among them. The `[data-theme="dark"]` values are read as the `dark` theme.
 - **`react-aria`:** Vite 7.3.7 with `vite.config.mts`, Yarn Berry, Tailwind 4.3.3's theme with the `.dark` theme and six
   breakpoints, four components with `App`, and Storybook 9 stories for two of them. React Aria Components is listed as a
   library, and Hugeicons as an icon set.

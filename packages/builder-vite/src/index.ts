@@ -293,16 +293,16 @@ function guestModule(config: ProjectConfig): { source: string; imports: string[]
     .filter((library) => library.kind === "icons")
     .map((library) => {
       const icons = library.icons
-      const set = [`module: ${ref(importOf(library, icons?.import))}`]
+      const set = [`module: ${ref(icons?.import ?? library.importName)}`]
       // Its other styles' modules, by the key their icons' ids name them with (`heroicons/16/solid/CogIcon`).
-      const styles = iconStyleModules(icons, library.package).map(
-        (style) => `${JSON.stringify(style.key)}: ${ref(importOf(library, style.import))}`
+      const styles = iconStyleModules(icons, library.importName).map(
+        (style) => `${JSON.stringify(style.key)}: ${ref(style.import)}`
       )
       if (styles.length > 0) set.push(`styles: { ${styles.join(", ")} }`)
       if (icons?.match) set.push(`match: ${JSON.stringify(icons.match)}`)
       if (icons?.exclude) set.push(`exclude: ${JSON.stringify(icons.exclude)}`)
       if (icons && icons.render !== "export") {
-        const module = ref(importOf(library, icons.render.import))
+        const module = ref(icons.render.import)
         set.push(
           `renderer: { component: ${module}${member(icons.render.component)}, prop: ${JSON.stringify(icons.render.prop)} }`
         )
@@ -312,12 +312,13 @@ function guestModule(config: ProjectConfig): { source: string; imports: string[]
   const decorated = config.libraries.flatMap((library) =>
     (library.decorators ?? []).map((decorator) => ({ library: library.id, decorator }))
   )
-  // And the packages whose functions make values in its components' samples (`createTreeCollection`), which designs
-  // hold once the components are inserted.
+  // Factories used by samples and library designs share one module registry. A design can call a module that no
+  // component sample, decorator or icon needs; it must be loaded before that design is drawn too.
   const decoratorModules = [
     ...new Set([
       ...config.libraries.flatMap((library) => libraryImports(library)),
-      ...Object.values(config.components).flatMap((source) => madeImports(source.sample))
+      ...Object.values(config.components).flatMap((source) => madeImports(source.sample)),
+      ...config.libraries.flatMap((library) => madeImports(library.designs))
     ])
   ]
   for (const id of decoratorModules) {
@@ -378,17 +379,10 @@ function member(path: string): string {
 /** The modules an icon set's icons are imported from: its own, and those of styles kept in modules of their own. */
 function iconImports(library: LibraryInfo): string[] {
   if (library.kind !== "icons") return []
-  return [library.icons?.import, ...iconStyleModules(library.icons, library.package).map((style) => style.import)]
-    .filter((specifier) => specifier !== undefined)
-    .map((specifier) => importOf(library, specifier))
-}
-
-/** A library module by the name the project depends on it by, which can be an alias of the package. */
-function importOf(library: LibraryInfo, specifier: string | undefined): string {
-  if (!specifier || specifier === library.package) return library.importName
-  return specifier.startsWith(`${library.package}/`)
-    ? library.importName + specifier.slice(library.package.length)
-    : specifier
+  return [
+    library.icons?.import,
+    ...iconStyleModules(library.icons, library.importName).map((style) => style.import)
+  ].filter((specifier) => specifier !== undefined)
 }
 
 function rootPath(path: string): string {

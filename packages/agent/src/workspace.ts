@@ -2,6 +2,7 @@ import { isDeepStrictEqual } from "node:util"
 import {
   addState,
   boardRoot,
+  boardSize,
   type CanvasDocument,
   childEntries,
   componentLibrary,
@@ -811,19 +812,20 @@ export class AgentWorkspace {
 
   /**
    * Every design's board on the canvas: where this call leaves it, as big as it was last drawn. New designs, not yet
-   * drawn, get an estimate.
+   * drawn, get an estimate from their frames' sizes, laid out as the canvas lays them out (see boardSize).
    */
   private boards(): Board[] {
     return this.all().map(({ path, container }) => {
       const bounds = this.snapshot.bounds[key(path, container.id)]
+      const size = bounds ?? estimateSize(container, this.modes)
       return {
         key: key(path, container.id),
         id: container.id,
         name: container.name,
         x: container.position.x,
         y: container.position.y,
-        width: Math.round(bounds?.width ?? estimateWidth(container, this.modes)),
-        height: Math.round(bounds?.height ?? 1000),
+        width: Math.round(size.width),
+        height: Math.round(size.height),
         estimated: !bounds
       }
     })
@@ -1361,12 +1363,10 @@ function expectObject(value: unknown, where: string): Values {
   return value as Values
 }
 
-function estimateWidth(container: ContainerSpec, modes: ModeSettings): number {
+/** The size of a board the canvas hasn't drawn: its shown frames, laid out as the canvas lays them out. */
+function estimateSize(container: ContainerSpec, modes: ModeSettings): { width: number; height: number } {
   const { main, beside } = shownModes(modes, container.view)
-  return [main, ...beside].reduce(
-    (total, mode, index) => total + (index === 0 ? mode.width : Math.min(mode.width, 640)) + 80,
-    64
-  )
+  return boardSize(container, [main, ...beside])
 }
 
 function overlaps(start: number, size: number, otherStart: number, otherSize: number): boolean {

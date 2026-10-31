@@ -1,6 +1,6 @@
 # Parity's repository rules on GitHub, from the shared github-repository-rules module: main takes changes only through
-# squashed pull requests that pass CI and CodeRabbit with every thread resolved, and release tags never move. It also
-# keeps the npm environment, which publishes the CLI, to main. The terraform-apply workflow runs it with its state in R2,
+# squashed pull requests that pass CI with the OpenAI review addressed and every thread resolved. Release tags never
+# move. It also keeps the npm environment, which publishes the CLI, to main. The terraform-apply workflow runs it with its state in R2,
 # as Copacker's projects run.
 terraform {
   required_version = "= 1.16.6"
@@ -33,7 +33,7 @@ module "rules" {
   source = "git::https://github.com/betterapps-hq/pipelines.git//terraform/github-repository-rules?ref=c3b85f070cf22fbf7a4dae841461f82e2b16ea20" # v1.2.0
 
   repository      = "parity"
-  required_checks = ["CI passes", "CodeRabbit"]
+  required_checks = ["CI passes"]
 }
 
 # The rulesets were made by hand on 2026-10-29, to match this module, so main was protected before Terraform ran here.

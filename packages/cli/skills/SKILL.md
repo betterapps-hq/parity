@@ -96,7 +96,7 @@ stylesheet when the person saves.
 - **Reuse what repeats.** When a row, card or list item appears more than twice, make it a component design with
   `ExtractComponent`, so each copy is an instance with its own content.
 - **Leave the canvas tidy.** New designs go into empty space (`FindEmptySpace`); `Overlaps()` tells you if boards
-  collide.
+  collide, sizing boards the canvas hasn't drawn yet from their frames (`estimated: true`).
 
 ## When something fails
 
