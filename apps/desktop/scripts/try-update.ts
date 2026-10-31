@@ -25,6 +25,7 @@ let restarted: Browser | undefined
 let installedWindows = false
 let feed: Server | undefined
 let stage = "packaging"
+let failed = false
 let watchdog: NodeJS.Timeout | undefined
 const ownedProcesses = new Set<number>()
 const electronLog = join(work, "electron.log")
@@ -384,20 +385,40 @@ try {
     "Real installed update passed: corrupt download rejected, Later retained, Cancel respected, work saved, version 999.0.1 relaunched."
   )
 } catch (error) {
+  failed = true
   console.error((await readFile(electronLog, "utf8").catch(() => "No Electron log")).split("\n").slice(-50).join("\n"))
   throw error
 } finally {
   clearTimeout(watchdog)
   console.log(`Cleaning up installed update check after: ${stage}`)
+  await cleanup()
+}
+
+async function cleanup(): Promise<void> {
+  const problems: unknown[] = []
+  const attempt = async (step: () => unknown): Promise<void> => {
+    try {
+      await step()
+    } catch (error) {
+      problems.push(error)
+      console.error("Cleanup step failed:", error)
+    }
+  }
   // Cleanup must not open an unanswered unsaved-work prompt in this disposable copy of the app.
-  if (appProcess?.exitCode === null && appProcess.signalCode === null) appProcess.kill("SIGKILL")
-  await stopOwnedApps()
-  if (restarted) await withTimeout(restarted.close()).catch(() => undefined)
-  if (initialBrowser) await withTimeout(initialBrowser.close()).catch(() => undefined)
-  feed?.closeAllConnections()
-  if (feed) await new Promise<void>((closed) => feed!.close(() => closed()))
-  if (installedWindows) run(join(installed, "Uninstall Parity.exe"), ["/S", `_?=${installed}`], work)
-  await removeWork()
+  await attempt(() => {
+    if (appProcess?.exitCode === null && appProcess.signalCode === null) appProcess.kill("SIGKILL")
+  })
+  await attempt(stopOwnedApps)
+  if (restarted) await attempt(() => withTimeout(restarted!.close()))
+  if (initialBrowser) await attempt(() => withTimeout(initialBrowser!.close()))
+  await attempt(async () => {
+    feed?.closeAllConnections()
+    if (feed) await withTimeout(new Promise<void>((closed) => feed!.close(() => closed())))
+  })
+  if (installedWindows)
+    await attempt(() => run(join(installed, "Uninstall Parity.exe"), ["/S", `_?=${installed}`], work))
+  await attempt(removeWork)
+  if (!failed && problems.length) throw new AggregateError(problems, "Installed update cleanup failed.")
 }
 
 async function stopOwnedApps(): Promise<void> {
