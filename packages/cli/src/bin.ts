@@ -15,12 +15,12 @@ import {
   describeProblems,
   describeProps,
   describeTokens,
-  type Edit,
   type ExecResponse,
   type ProblemsResponse,
   type PropsResponse,
   type TokenInfo
 } from "./client.ts"
+import { executeOperation } from "./execute.ts"
 import { runLib } from "./lib.ts"
 import { serveMcp } from "./mcp.ts"
 import { readSkill } from "./skills.ts"
@@ -164,15 +164,10 @@ async function main(): Promise<void> {
     case "exec": {
       const editId = values["edit-id"]
       let code: string | undefined
-      if (!editId) code = rest[0] ? await readFile(rest[0], "utf8") : await stdin()
-      const edits = values.edits ? (JSON.parse(values.edits) as Edit[]) : undefined
-      const result = await call<ExecResponse>("exec", {
-        tab: values.tab,
-        label: values.label ?? "Edit from the CLI",
-        code,
-        editId,
-        edits
-      })
+      if (rest[0]) code = await readFile(rest[0], "utf8")
+      else if (!editId) code = (await stdin()) || undefined
+      const edits: unknown = values.edits === undefined ? undefined : JSON.parse(values.edits)
+      const result = await executeOperation.run({ tab: values.tab, label: values.label, code, editId, edits }, call)
       report(result)
       return
     }
