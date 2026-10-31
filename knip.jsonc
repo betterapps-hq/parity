@@ -39,8 +39,8 @@
         "semver",
         "unconfig"
       ],
-      // System commands: macOS development branding/memory and Windows CI process diagnostics.
-      "ignoreBinaries": ["plutil", "sips", "top", "tasklist.exe"],
+      // macOS's own commands: plutil and sips name and brand the dev Electron, top reads memory.
+      "ignoreBinaries": ["plutil", "sips", "top"],
       "ignoreIssues": {
         // shadcn's components, kept as `shadcn add` writes them so they update cleanly. Their unused parts are its
         // API, and scroll-area.tsx came with the set.

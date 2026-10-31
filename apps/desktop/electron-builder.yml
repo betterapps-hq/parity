@@ -4,15 +4,20 @@ directories:
   app: out
   output: dist
   buildResources: resources
-# The project service, Node child, guest and TypeScript all use ordinary filesystem paths.
-asar: false
+# The builder's plain Node child, project guest and registry read real files outside the archive.
+asar: true
+asarUnpack:
+  - "*.mjs"
+  - "*.cjs"
+  - libraries/**/*
+  - in-app.json
 npmRebuild: false
 files:
   - "**/*"
   - "!node_modules/**"
 extraResources:
   - from: out/node_modules/typescript
-    to: app/node_modules/typescript
+    to: app.asar.unpacked/node_modules/typescript
 artifactName: Parity-${version}-${os}-${arch}.${ext}
 publish:
   provider: github

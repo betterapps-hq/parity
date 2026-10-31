@@ -24,6 +24,10 @@ import {
 import { handleRenderResult, renderOffscreen } from "./render.ts"
 import { openStorybook } from "./storybook.ts"
 
+// Dependencies such as Rollup probe process.execPath. In an installed app that is Parity.exe, so their children
+// must inherit Node mode; otherwise a platform probe launches another app and overwrites agent discovery.
+process.env.ELECTRON_RUN_AS_NODE = "1"
+
 type Handlers = { [M in keyof ServiceMethods]: (params: ServiceMethods[M]["params"]) => Promise<unknown> }
 
 const handlers: Handlers = {

@@ -1,5 +1,4 @@
 import { spawnSync } from "node:child_process"
-import { watch } from "node:fs"
 // CI-only production startup check (PAR-8). Run the built files outside the checkout, with no UI dev server.
 import { cp, mkdir, mkdtemp, readdir, readFile, realpath, rm, symlink } from "node:fs/promises"
 import { createRequire } from "node:module"
@@ -18,53 +17,6 @@ const stage = join(work, "app")
 const agentFile = join(work, "agent.json")
 const installerMode = process.argv.includes("--installer")
 const installed = join(work, "installed")
-const seenDiscovery = new Set<string>()
-const discoveryWatcher = watch(work, { persistent: false }, (_event, name) => {
-  if (name !== "agent.json") return
-  void readFile(agentFile, "utf8")
-    .then((text) => {
-      const record: unknown = JSON.parse(text)
-      if (
-        !record ||
-        typeof record !== "object" ||
-        !("url" in record) ||
-        typeof record.url !== "string" ||
-        !("pid" in record) ||
-        typeof record.pid !== "number" ||
-        !Number.isSafeInteger(record.pid)
-      )
-        return
-      const key = `${new URL(record.url).origin} ${record.pid}`
-      if (seenDiscovery.has(key)) return
-      seenDiscovery.add(key)
-      console.log(`Discovery changed: ${key}`)
-      if (process.platform === "win32") {
-        const owner = spawnSync("tasklist.exe", ["/fi", `PID eq ${record.pid}`, "/fo", "csv", "/nh"], {
-          windowsHide: true,
-          timeout: 5000,
-          encoding: "utf8"
-        })
-        console.log(owner.stdout || owner.error?.message || owner.stderr)
-        const details = spawnSync(
-          "powershell.exe",
-          [
-            "-NoProfile",
-            "-NonInteractive",
-            "-Command",
-            'Get-CimInstance Win32_Process -Filter ("ProcessId=" + [int]$env:PARITY_DIAGNOSTIC_PID) | Select-Object Name,ProcessId,ParentProcessId,CommandLine | ConvertTo-Json'
-          ],
-          {
-            windowsHide: true,
-            timeout: 10_000,
-            encoding: "utf8",
-            env: { ...process.env, PARITY_DIAGNOSTIC_PID: String(record.pid) }
-          }
-        )
-        console.log(details.stdout || details.error?.message || details.stderr)
-      }
-    })
-    .catch(() => undefined)
-})
 let electron: ElectronApplication | undefined
 let uninstallError: Error | undefined
 let installationSucceeded = false
@@ -89,7 +41,7 @@ try {
     installationSucceeded = true
     executable = join(installed, "Parity.exe")
     // TypeScript must remain a real package, with its standard library declarations, outside any archive.
-    await readFile(join(installed, "resources/app/node_modules/typescript/lib/lib.es5.d.ts"))
+    await readFile(join(installed, "resources/app.asar.unpacked/node_modules/typescript/lib/lib.es5.d.ts"))
   } else await cp(join(appDir, "out"), stage, { recursive: true })
   const fixture = process.argv.slice(2).find((argument) => argument !== "--installer") ?? "vite7-js"
   if (fixture !== "vite7-js" && fixture !== "headless") throw new Error("Unknown production-check fixture.")
@@ -142,20 +94,11 @@ try {
   const deadline = Date.now() + 30_000
   let connected = false
   let agentProblem = "No successful agent response"
-  let reportedAgent = false
-  let discoveryPid = 0
   while (!connected && Date.now() < deadline) {
     try {
       const agent: unknown = JSON.parse(await readFile(agentFile, "utf8"))
       if (!agent || typeof agent !== "object" || !("url" in agent) || !("token" in agent)) throw new Error("Not ready")
       if (typeof agent.url !== "string" || typeof agent.token !== "string") throw new Error("Not ready")
-      if (!reportedAgent) {
-        if ("pid" in agent && typeof agent.pid === "number" && Number.isSafeInteger(agent.pid)) discoveryPid = agent.pid
-        console.log(
-          `Discovered agent at ${new URL(agent.url).origin}, process ${"pid" in agent ? String(agent.pid) : "unknown"}`
-        )
-        reportedAgent = true
-      }
       const response = await fetch(`${agent.url}/rpc`, {
         method: "POST",
         headers: { authorization: `Bearer ${agent.token}`, "content-type": "application/json" },
@@ -180,39 +123,15 @@ try {
   }
   if (!connected) {
     try {
-      if (process.platform === "win32") {
-        const diagnostics = spawnSync(
-          "powershell.exe",
-          [
-            "-NoProfile",
-            "-NonInteractive",
-            "-Command",
-            "Get-CimInstance Win32_Process -Filter (\"Name='Parity.exe' or ProcessId=\" + [int]$env:PARITY_DIAGNOSTIC_PID) | Select-Object Name,ProcessId,ParentProcessId,CommandLine | ConvertTo-Json"
-          ],
-          {
-            windowsHide: true,
-            timeout: 10_000,
-            encoding: "utf8",
-            env: { ...process.env, PARITY_DIAGNOSTIC_PID: String(discoveryPid) }
-          }
-        )
-        console.error(diagnostics.stdout || diagnostics.error?.message || diagnostics.stderr)
-      }
-      console.error(`Startup check process: ${process.pid}`)
-      console.error(
-        "Installed app processes:",
-        await electron.evaluate(({ app }) => app.getAppMetrics().map(({ pid, type, name }) => ({ pid, type, name })))
-      )
       console.error(await window.locator("body").innerText())
-    } catch (error) {
-      console.error("Additional diagnostics unavailable:", error instanceof Error ? error.message : String(error))
+    } catch {
+      // The app may already have exited; preserve its connection failure.
     }
     throw new Error(`The built app's renderer and project service did not connect: ${agentProblem}`)
   }
   if (errors.length) throw new Error(errors.join("\n"))
   console.log("The production renderer and service started outside the checkout without a dev server.")
 } finally {
-  discoveryWatcher.close()
   await electron?.close()
   if (installationSucceeded) {
     const result = spawnSync(join(installed, "Uninstall Parity.exe"), ["/S", `_?=${installed}`], {
