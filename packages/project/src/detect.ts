@@ -1,4 +1,4 @@
-import { readFile, stat } from "node:fs/promises"
+import { readFile } from "node:fs/promises"
 import { dirname, join, relative, resolve } from "node:path"
 import type {
   BuilderDetection,
@@ -12,6 +12,7 @@ import { resolveCommand } from "package-manager-detector/commands"
 import { LOCKS } from "package-manager-detector/constants"
 import { detect } from "package-manager-detector/detect"
 import semver from "semver"
+import { nearestLockfiles } from "./lockfile.ts"
 import { storybookConfig } from "./storybook.ts"
 
 /** A tool Parity runs or renders with, the packages it comes in, and when each of its majors came out. */
@@ -234,22 +235,26 @@ const agentNames: Record<string, string> = {
 
 /**
  * The project's package manager, by `package-manager-detector`: in each folder from the root up, a lockfile, then the
- * `packageManager` and `devEngines.packageManager` fields of its package.json. npm when nothing says.
+ * `packageManager` and `devEngines.packageManager` fields of its package.json. npm when nothing says. `lockfile` is the
+ * nearest one from the root up (see {@link nearestLockfiles}), which the detection fingerprint hashes too.
  */
 export async function detectPackageManager(root: string): Promise<PackageManagerDetection> {
+  const locks = await nearestLockfiles(root)
+  const path = (folder: string, file: string) => toPosix(relative(root, join(folder, file)))
+  const lockfile = locks ? { lockfile: path(locks.folder, locks.names[0]!) } : {}
   for (let folder = resolve(root); ; folder = dirname(folder)) {
     // One folder at a time, so the evidence can say which folder and which file.
     const found = await detect({ cwd: folder, stopDir: folder })
     if (found) {
-      const lock = await firstFile(folder, Object.keys(LOCKS))
+      const lock = locks?.folder === folder ? locks.names[0] : undefined
       const manifest = (await readJson(join(folder, "package.json"))) as { packageManager?: unknown } | undefined
       const field = typeof manifest?.packageManager === "string" ? "packageManager" : "devEngines.packageManager"
-      const path = (file: string) => toPosix(relative(root, join(folder, file)))
-      const from = lock && LOCKS[lock] === found.name ? path(lock) : path("package.json")
+      const fromLock = lock !== undefined && LOCKS[lock] === found.name
+      const from = path(folder, fromLock ? lock : "package.json")
       const name = agentNames[found.agent] ?? found.name
       const version = found.version && semver.coerce(found.version) ? found.version : undefined
-      const summary = `${name}${version ? ` ${version}` : ""} from ${lock && from === path(lock) ? from : `${field} in ${from}`}`
-      return { id: found.name, name, agent: found.agent, ...(version ? { version } : {}), from, summary }
+      const summary = `${name}${version ? ` ${version}` : ""} from ${fromLock ? from : `${field} in ${from}`}`
+      return { id: found.name, name, agent: found.agent, ...(version ? { version } : {}), from, ...lockfile, summary }
     }
     if (dirname(folder) === folder) break
   }
@@ -257,6 +262,7 @@ export async function detectPackageManager(root: string): Promise<PackageManager
     id: "npm",
     name: "npm",
     agent: "npm",
+    ...lockfile,
     summary: "npm, since no folder from here up has a lockfile or a packageManager or devEngines.packageManager field"
   }
 }
@@ -266,17 +272,6 @@ export function addCommand(agent: string, packages: string[]): { command: string
   const resolved = resolveCommand(agent as Agent, "add", packages)
   if (!resolved) throw new Error(`Parity doesn't know how to add packages with ${agent}`)
   return resolved
-}
-
-async function firstFile(folder: string, names: string[]): Promise<string | undefined> {
-  for (const name of names) {
-    const isFile = await stat(join(folder, name)).then(
-      (stats) => stats.isFile(),
-      () => false
-    )
-    if (isFile) return name
-  }
-  return undefined
 }
 
 async function readJson(path: string): Promise<unknown> {

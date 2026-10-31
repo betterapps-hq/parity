@@ -39,7 +39,8 @@ export {
   type ProjectEdit,
   reverseEdit
 } from "./edits.ts"
-export { detectionFingerprint } from "./fingerprint.ts"
+export { detectionFingerprint, fingerprintInputs } from "./fingerprint.ts"
+export { findLockfiles } from "./lockfile.ts"
 export { parseJsonc } from "./jsonc.ts"
 export { installedPackage, type LibraryDefinition, libraryCatalog, withStylesImport } from "./libraries.ts"
 export { parseStoryFile } from "./storybook.ts"

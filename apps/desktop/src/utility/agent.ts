@@ -319,14 +319,13 @@ async function exec(
       presence: presenceFor(window, tabId, caller),
       render: renderFor(snapshot),
       iconNames: (set, module) =>
-        window.request("agent.iconNames", { tab: tabId, set, ...(module === undefined ? {} : { module }) })
+        window.request("agent.iconNames", { tab: tabId, set, ...(module === undefined ? {} : { module }) }),
+      apply: (changes) =>
+        window.request("agent.apply", { tab: tabId, label: request.label || "Agent edit", ...changes })
     }
   )
   const { changes, screenshots, ...rest } = result
-  const hasChanges = changes.documents.length > 0 || !!changes.modes || changes.tokens.length > 0
-  if (result.ok && hasChanges) {
-    await window.request("agent.apply", { tab: tabId, label: request.label || "Agent edit", ...changes })
-  }
+  const hasChanges = changes.designs.length > 0 || !!changes.modes || changes.tokens.length > 0
   await mkdir(screenshotDir, { recursive: true })
   const stamp = new Date().toISOString().replaceAll(/[:.]/g, "-")
   const saved = await Promise.all(
