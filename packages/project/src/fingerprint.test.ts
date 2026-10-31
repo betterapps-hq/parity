@@ -85,6 +85,7 @@ describe("detection fingerprints", () => {
     expect(await fingerprintInputs(app, ["src/button.tsx"], sources, readTsconfig(app))).toEqual([
       "../pnpm-lock.yaml",
       "../tsconfig.base.json",
+      "jsconfig.json",
       "package.json",
       "src/button.tsx",
       "tsconfig.json"

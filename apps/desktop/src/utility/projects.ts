@@ -1,9 +1,9 @@
-import { existsSync, type FSWatcher, watch } from "node:fs"
+import { existsSync, type FSWatcher, realpathSync, watch } from "node:fs"
 import { readFile, writeFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { basename, dirname, isAbsolute, join, normalize, resolve } from "node:path"
 import { portFree, viteBuilder } from "@parity-app/builder-vite"
-import { correctedSources, leftOutChanges } from "@parity-app/code"
+import { checkedAppFiles, configInputs, correctedSources, leftOutChanges } from "@parity-app/code"
 import {
   type BuilderAdapter,
   type BuilderDetection,
@@ -33,7 +33,10 @@ import {
   detectProject,
   discoverProject,
   filesChanged,
+  changesLockfiles,
+  findLockfiles,
   importersOf,
+  lockfileFolders,
   readChangedFiles,
   readTsconfig
 } from "@parity-app/project"
@@ -79,6 +82,13 @@ interface OpenProject {
   corrections?: DetectionCorrections
   /** Where the windows load the project's guest from: `info.guestUrl`, unless they couldn't load it after it moved. */
   drawnGuestUrl: string
+  /**
+   * The project's config inputs (its tsconfigs, package.json and lockfiles, see `configInputs`), absolute, and the
+   * folders where a lockfile appearing changes which ones it has (see `lockfileFolders`): a change to either reads props
+   * and the type check again. Folders outside the root are watched by watchers of their own.
+   */
+  config?: { files: Set<string>; lockfileFolders: string[] }
+  configWatchers?: FSWatcher[]
 }
 
 type FileChange = WindowMethods["project.fileChanged"]["params"]
@@ -148,6 +158,7 @@ export async function closeProject(projectId: string): Promise<undefined> {
   stopStorybook(projectId)
   forgetProject(projectId)
   project?.watcher?.close()
+  for (const watcher of project?.configWatchers ?? []) watcher.close()
   if (project) {
     // A reopen waits for the builder's process to end, so a project never has two builders at once.
     const closed = project.session.close()
@@ -476,7 +487,8 @@ export async function saveTokens({
 /**
  * Watches the project's `.par` files, so edits made outside the canvas (by an agent, git, or a text editor) show up in
  * it. Writes from the canvas itself are recognized by their content and ignored. Its component files are read again
- * when they're added, changed, renamed or deleted, a moment after the last change.
+ * when they're added, changed, renamed or deleted, a moment after the last change, and props and the type check when
+ * one of its config inputs changes: a tsconfig, package.json or a lockfile, the signal that dependencies changed.
  */
 function watchProjectFiles(project: OpenProject): FSWatcher | undefined {
   const { root } = project.info
@@ -492,6 +504,22 @@ function watchProjectFiles(project: OpenProject): FSWatcher | undefined {
         console.warn(`[service] couldn't read the changed components: ${message(error)}`)
       })
   }
+  const configChanged = () => {
+    clearTimeout(timers.get("config"))
+    timers.set(
+      "config",
+      setTimeout(() => {
+        rescanning = rescanning
+          .then(() => rereadConfig(project, configChanged))
+          .catch((error: unknown) => {
+            console.warn(`[service] couldn't read props again after the config changed: ${message(error)}`)
+          })
+      }, 400)
+    )
+  }
+  void followConfig(project, configChanged).catch((error: unknown) => {
+    console.warn(`[service] can't follow ${root}'s config for changes: ${message(error)}`)
+  })
   const reload = async (path: string) => {
     let text: string
     try {
@@ -516,7 +544,13 @@ function watchProjectFiles(project: OpenProject): FSWatcher | undefined {
   try {
     return watch(root, { recursive: true }, (_event, name) => {
       const path = name?.toString().replaceAll("\\", "/")
-      if (!path || path.split("/").includes("node_modules")) return
+      if (!path) return
+      // Before node_modules is passed over, since a tsconfig can extend one an installed package has.
+      if (isConfigInput(project, resolve(root, path))) {
+        configChanged()
+        return
+      }
+      if (path.split("/").includes("node_modules")) return
       if (project.renderer.componentExtensions.some((extension) => path.endsWith(extension))) {
         if (path.split("/").some((part) => part.startsWith("."))) return
         changed.add(path)
@@ -537,6 +571,75 @@ function watchProjectFiles(project: OpenProject): FSWatcher | undefined {
     console.warn(`[service] can't watch ${root} for changes: ${message(error)}`)
     return undefined
   }
+}
+
+/**
+ * Lists the project's config inputs as they are now, for its watcher to follow, and watches the folders outside the
+ * root that hold some, such as a workspace's lockfile or a shared base config, for `changed`.
+ */
+async function followConfig(
+  project: OpenProject,
+  changed: () => void,
+  tsconfig = readTsconfig(project.info.root)
+): Promise<void> {
+  const { root } = project.info
+  const lockfiles = await findLockfiles(root)
+  const inputs = configInputs(tsconfig, lockfiles)
+  if (projects.get(root) !== project) return
+  // The config reader lists tsconfigs from the root's real path; one inside the root is matched by the root's watcher.
+  const realRoot = realpathSync.native(root)
+  const files = new Set([
+    ...inputs.configs.map((path) => resolve(path.startsWith("../") ? realRoot : root, path)),
+    ...inputs.lockfiles.map((path) => resolve(root, path))
+  ])
+  const inRoot = (folder: string) =>
+    [root, realRoot].some((base) => folder === resolve(base) || folder.startsWith(join(base, "/")))
+  const lockFolders = lockfileFolders(root, lockfiles)
+  const folders = new Set([...[...files].map((file) => dirname(file)), ...lockFolders])
+  for (const watcher of project.configWatchers ?? []) watcher.close()
+  project.config = { files, lockfileFolders: lockFolders }
+  project.configWatchers = [...folders]
+    .filter((folder) => !inRoot(folder))
+    .flatMap((folder) => {
+      try {
+        return [
+          watch(folder, (_event, name) => {
+            if (name && isConfigInput(project, join(folder, name.toString()))) changed()
+          })
+        ]
+      } catch (error) {
+        console.warn(`[service] can't watch ${folder} for config changes: ${message(error)}`)
+        return []
+      }
+    })
+}
+
+/** Whether a change to `file` (absolute) is a change to the project's config inputs, or to which lockfiles it has. */
+function isConfigInput(project: OpenProject, file: string): boolean {
+  if (!project.config) return false
+  return project.config.files.has(file) || changesLockfiles(file, project.config.lockfileFolders)
+}
+
+/**
+ * Reads props and the type check again after a config input changed. The type checker makes the project's program
+ * again from the config as it is now (see `utility/props-worker.ts`), so the answers match a project opened afresh.
+ */
+async function rereadConfig(project: OpenProject, changed: () => void): Promise<void> {
+  const { root, id } = project.info
+  const tsconfig = readTsconfig(root)
+  await followConfig(project, changed, tsconfig)
+  if (projects.get(root) !== project) return
+  console.log(`[service] ${project.info.name}'s config or dependencies changed, so props are read again`)
+  // The files discovery gives the checker, so never the entry that mounts the app, which the guest must not import.
+  const files = await checkedAppFiles(root, project.renderer, tsconfig)
+  project.components = inferProps(root, project.sources, files)
+  if (files.length > 0) {
+    await checkTypes(project, files)
+    return
+  }
+  const components = await project.components
+  if (projects.get(root) !== project) return
+  notifyComponents({ projectId: id, components, sources: project.sources, leftOut: project.info.leftOut ?? [] })
 }
 
 /**

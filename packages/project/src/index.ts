@@ -40,7 +40,7 @@ export {
   reverseEdit
 } from "./edits.ts"
 export { detectionFingerprint, fingerprintInputs } from "./fingerprint.ts"
-export { findLockfiles } from "./lockfile.ts"
+export { changesLockfiles, findLockfiles, lockfileFolders } from "./lockfile.ts"
 export { parseJsonc } from "./jsonc.ts"
 export { installedPackage, type LibraryDefinition, libraryCatalog, withStylesImport } from "./libraries.ts"
 export { parseStoryFile } from "./storybook.ts"
