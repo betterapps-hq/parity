@@ -26,6 +26,8 @@ function snapshot(containers: ContainerSpec[]): AgentSnapshot {
     tokens: [],
     theme: [],
     modes: defaultModeSettings,
+    libraryDesigns: [],
+    tokenOverrides: [],
     documents: [{ path: "app.par", document: { version: 3, containers } }],
     mainDocument: "app.par",
     props: {},
