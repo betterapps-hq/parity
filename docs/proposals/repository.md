@@ -38,7 +38,7 @@ to npm and of unsigned installers to GitHub Releases, as betas first and to ever
   this publishing workflow without a release GitHub App or a stored npm token.
 - **Automatic release PRs still wait for their GitHub App** (PAR-10). `release.yml` calls the shared `release-prepare`
   and `release-merge` after CI passes on `main`. Until `RELEASE_APP_CLIENT_ID` and `RELEASE_APP_PRIVATE_KEY` exist, it
-  skips with a notice. The release templates at v1.6.1 give the hooks `origin/main` to compare the release commit with.
+  skips with a notice. The release templates at v1.7.0 give the hooks `origin/main` to compare the release commit with.
   CodeRabbit skips the generated changelogs, whose wording was reviewed in the change files.
 
 ## Vite+
