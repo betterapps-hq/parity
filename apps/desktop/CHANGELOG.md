@@ -1,12 +1,12 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sat, 31 Oct 2026 23:07:41 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 31 Oct 2026 23:29:26 GMT and should not be manually modified. -->
 
 <!-- Start content -->
 
 ## 0.4.0
 
-Sat, 31 Oct 2026 23:07:41 GMT
+Sat, 31 Oct 2026 23:29:26 GMT
 
 ### Minor changes
 
@@ -15,6 +15,20 @@ Sat, 31 Oct 2026 23:07:41 GMT
 
 ### Patches
 
+- Load aliased library providers, icons and sample values consistently and reject obsolete manifests
+  (ajcraswell@gmail.com)
+- The agent's Get with a state or mode reads nodes as the board draws them: bound values, variant options, responsive
+  patches and layers inside instances (noreply@anthropic.com)
+- Agents' frames, exports and accessibility checks draw library designs' instances and unsaved token values as the
+  canvas does, and no offscreen frame inherits another's token values (noreply@anthropic.com)
+- The canvas menu says Show for a layer the variant shown hides, and Make component checks the result against the
+  variant and param defaults the board shows (noreply@anthropic.com)
+- Props refresh after you change tsconfig paths or dependencies (noreply@anthropic.com)
+- Estimate the size of a board the canvas hasn't drawn from its frames, laid out as the canvas lays them out, so
+  Overlaps() catches wide and tall boards (noreply@anthropic.com)
+- Read token themes and categories the same way in parity lib and the app: [data-theme] attributes are themes, names
+  like fontSizeBase300 are font sizes, and a library's .dark beats its prefers-color-scheme block
+  (noreply@anthropic.com)
 - Show update checks in toasts and label installed beta builds independently of the update channel
   (ajcraswell@gmail.com)
 - Fingerprint every lockfile package-manager detection recognizes, such as npm-shrinkwrap.json, and the tsconfigs a
@@ -23,20 +37,8 @@ Sat, 31 Oct 2026 23:07:41 GMT
   (noreply@anthropic.com)
 - Generate an app's library from the same sources and global stylesheets project detection finds, following tsconfig
   references, the HTML entry's stylesheet imports and relative @imports (noreply@anthropic.com)
-- Read token themes and categories the same way in parity lib and the app: [data-theme] attributes are themes, names
-  like fontSizeBase300 are font sizes, and a library's .dark beats its prefers-color-scheme block
-  (noreply@anthropic.com)
-- Estimate the size of a board the canvas hasn't drawn from its frames, laid out as the canvas lays them out, so
-  Overlaps() catches wide and tall boards (noreply@anthropic.com)
-- Props refresh after you change tsconfig paths or dependencies (noreply@anthropic.com)
-- The canvas menu says Show for a layer the variant shown hides, and Make component checks the result against the
-  variant and param defaults the board shows (noreply@anthropic.com)
-- Agents' frames, exports and accessibility checks draw library designs' instances and unsaved token values as the
-  canvas does, and no offscreen frame inherits another's token values (noreply@anthropic.com)
-- The agent's Get with a state or mode reads nodes as the board draws them: bound values, variant options, responsive
-  patches and layers inside instances (noreply@anthropic.com)
-- Load aliased library providers, icons and sample values consistently and reject obsolete manifests
-  (ajcraswell@gmail.com)
+- pnpm dev starts the project service again on Linux, and no longer treats Parity's copy of Electron as an installed
+  build. (noreply@anthropic.com)
 
 ## 0.3.0
 

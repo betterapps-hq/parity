@@ -21,6 +21,7 @@ import type { BuilderReading, MainMessage, ServiceMessage } from "../shared/serv
 import { InstalledBuild } from "./build-info.ts"
 import { readConsole, recordConsole } from "./console-log.ts"
 import { idleClose } from "./idle-close.ts"
+import { isPackaged } from "./packaged.ts"
 import { privateMemory } from "./private-memory.ts"
 import type { UpdateSession } from "./update-session.ts"
 import { createUpdates } from "./updates.ts"
@@ -82,7 +83,9 @@ nativeTheme.on("updated", () => {
 })
 
 const serviceName = "Parity project service"
-const serviceDirectory = app.isPackaged ? join(process.resourcesPath, "app.asar.unpacked") : import.meta.dirname
+const serviceDirectory = isPackaged(app.isPackaged, process.env)
+  ? join(process.resourcesPath, "app.asar.unpacked")
+  : import.meta.dirname
 
 /** Builders, file access, agents and other heavy work run here, never in the UI process. */
 function startService(): UtilityProcess {
@@ -324,7 +327,7 @@ function updateOwner(event: Electron.IpcMainInvokeEvent): BrowserWindow {
 const buildInfoFile = join(app.getPath("userData"), "installed-build.json")
 const installedBuild = new InstalledBuild({
   version: app.getVersion(),
-  packaged: app.isPackaged,
+  packaged: isPackaged(app.isPackaged, process.env),
   metadata: () => JSON.parse(readFileSync(join(app.getAppPath(), "package.json"), "utf8")),
   read: () => JSON.parse(readFileSync(buildInfoFile, "utf8")),
   save: (value) => writeFileSync(buildInfoFile, JSON.stringify(value))

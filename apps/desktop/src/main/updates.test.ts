@@ -30,6 +30,14 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs())
 
 describe("installed updater empty-feed handling", () => {
+  it("does not check or download when a renamed Electron runs under the dev runner", async () => {
+    vi.stubEnv("PARITY_DEV_RUNNER", "1234")
+    const session = createUpdates(vi.fn())
+    await session.check()
+    expect(session.get().phase).toBe("disabled")
+    expect(platform.check).not.toHaveBeenCalled()
+    expect(platform.download).not.toHaveBeenCalled()
+  })
   it("reports current without downloading only when the stable absence was confirmed", async () => {
     const error = new Error("No stable release")
     platform.check.mockRejectedValue(error)

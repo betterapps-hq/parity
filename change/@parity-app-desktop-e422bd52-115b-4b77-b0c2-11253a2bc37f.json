@@ -1,6 +1,6 @@
 {
   "type": "none",
-  "comment": "Finalize the unpublished 0.4.0 beta delivery configuration and offline build label",
+  "comment": "Finalize unpublished 0.4.0 delivery, restored update notices and development startup",
   "packageName": "@parity-app/desktop",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "none"
