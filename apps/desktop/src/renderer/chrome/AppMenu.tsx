@@ -121,7 +121,7 @@ function Item({
   return (
     <MenubarItem
       variant={variant}
-      inset={!Icon}
+      inset={Icon ? undefined : true}
       disabled={action.available?.() === false}
       onSelect={() => void action.run()}
     >
