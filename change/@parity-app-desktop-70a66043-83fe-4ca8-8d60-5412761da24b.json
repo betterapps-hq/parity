@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Stabilize editor drop-coordinate and field-alert checks before releasing the CLI",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

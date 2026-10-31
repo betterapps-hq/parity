@@ -360,7 +360,14 @@ export class App {
     // While the camera moves, tldraw lays a blocker over the canvas, which would take what's dropped.
     const resting = () => this.page.evaluate(() => window.e2e!.session().editor!.getCameraState() === "idle")
     if (!(await until(resting))) throw new Error("The camera didn't come to rest")
-    return shown
+    // Chromium drag events use integer client coordinates. Measure the actual drop point after the camera rests,
+    // rather than expecting a fractional viewport centre to round-trip through a drag event unchanged.
+    const screen = { x: Math.round(shown.screen.x), y: Math.round(shown.screen.y) }
+    const page = await this.page.evaluate((screen) => {
+      const at = window.e2e!.session().editor!.screenToPage(screen)
+      return { x: Math.round(at.x), y: Math.round(at.y) }
+    }, screen)
+    return { screen, page }
   }
 
   /**
