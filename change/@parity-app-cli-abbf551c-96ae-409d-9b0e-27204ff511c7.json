@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Default execute labels to \"Edit designs\", report failed MCP executions as tool errors, and reject ambiguous requests, blank labels and malformed patches before they reach the app",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

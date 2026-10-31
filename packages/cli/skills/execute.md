@@ -4,12 +4,16 @@
 `await` works at the top level. When the snippet finishes, every change lands on the canvas as one step the person can
 undo; when it throws, nothing changes and you get an `editId` to fix it with.
 
-- Pass `description`: 3 to 8 words the person sees while it runs, such as "Add a pricing section".
+- Prefer a `description` of 3 to 8 words, such as "Add a pricing section". CLI `exec` calls it `--label`. Both default
+  to "Edit designs" if omitted.
 - `Print(...)` (or `console.log`) is how you see values. Objects print as JSON.
 - Values assigned without `const` or `let` carry over to your next snippet in the same tab.
 - A snippet has 5 seconds of computing time. Rendering (screenshots and checks) doesn't count against it.
 - To retry a failed snippet, send `editId` with `edits`, each an exact `{ find, replace }` on the snippet text (`all` to
-  replace every match).
+  replace every match). Omitted edits default to an empty list. Do not send a new snippet with `editId`.
+- Both CLI and MCP validate the same request: a nonblank snippet or `editId`, nonblank label and tab when supplied, and
+  patches with a nonempty `find`, string `replace` (which can be empty), and optional boolean `all`. Invalid requests
+  are rejected before reaching the app.
 
 ## API
 
