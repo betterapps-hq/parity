@@ -1891,6 +1891,9 @@ the minified prebundle has no test of its own; it was checked in an isolated cop
 
 What opening a project loads into the windows, and what closing it gives back.
 
+On first launch the installed app shows the welcome page. Later launches restore the saved project tabs. Development can
+request an initial project through its runner. `workspace.test.ts` covers these startup choices (PAR-8).
+
 ### Reopening loads the project afresh (PAR-195, PAR-422, PAR-433)
 
 A reopened project's builder serves it at a new address, one no guest has had since the project service started, even
