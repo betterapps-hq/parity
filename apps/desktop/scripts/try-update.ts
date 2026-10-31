@@ -26,6 +26,20 @@ let installedWindows = false
 let feed: Server | undefined
 let stage = "packaging"
 let watchdog: NodeJS.Timeout | undefined
+const ownedProcesses = new Set<number>()
+const electronLog = join(work, "electron.log")
+
+async function track(browser: Browser): Promise<void> {
+  const session = await browser.newBrowserCDPSession()
+  try {
+    const { processInfo } = await withTimeout(session.send("SystemInfo.getProcessInfo"))
+    const main = processInfo.find((process) => process.type === "browser")
+    if (!main || !Number.isSafeInteger(main.id) || main.id <= 0) throw new Error("No owned browser process")
+    ownedProcesses.add(main.id)
+  } finally {
+    await session.detach().catch(() => undefined)
+  }
+}
 
 function run(command: string, args: string[], cwd = appDir): void {
   const result = spawnSync(command, args, {
@@ -202,6 +216,8 @@ try {
   for (const key of Object.keys(env)) if (reset.has(key.toUpperCase())) delete env[key]
   env.PARITY_USER_DATA = userData
   env.PARITY_AGENT_FILE = agentFile
+  env.ELECTRON_ENABLE_LOGGING = "1"
+  env.ELECTRON_LOG_FILE = electronLog
   // The fixed, owned CDP port lets the check reconnect to the process the real updater launches.
   const port = createServer()
   await new Promise<void>((listening) => port.listen(0, "127.0.0.1", listening))
@@ -250,6 +266,7 @@ try {
   })
   appProcess.stdout?.on("data", (chunk: Buffer) => process.stdout.write(chunk))
   appProcess.stderr?.on("data", (chunk: Buffer) => process.stderr.write(chunk))
+  appProcess.on("exit", (code, signal) => console.log(`Original app exited: code=${code}, signal=${signal}`))
   let page: Page | undefined
   const startupDeadline = Date.now() + 60_000
   while (Date.now() < startupDeadline) {
@@ -269,6 +286,7 @@ try {
     await new Promise((done) => setTimeout(done, 100))
   }
   if (!page) throw new Error("The installed app did not open its window.")
+  await track(initialBrowser!)
   watchdog = setTimeout(() => {
     console.error(`Installed update check timed out during: ${stage}`)
     appProcess?.kill("SIGKILL")
@@ -319,49 +337,86 @@ try {
   stage = "waiting for the installed new version"
   console.log(stage)
   let newPage: Page | undefined
+  let lastRelaunch = "No connection to the updated app."
   while (Date.now() < deadline) {
     try {
       if (restarted && !restarted.isConnected()) restarted = undefined
       restarted ??= await chromium.connectOverCDP(`http://127.0.0.1:${address.port}`, { timeout: 2000 })
+      await track(restarted)
       newPage = restarted
         .contexts()
         .flatMap((context) => context.pages())
         .find((candidate) => candidate.url() === "parity://app/index.html")
-      if (newPage && (await newPage.evaluate(() => window.canvasHost?.appVersion === "999.0.1"))) break
-    } catch {
-      await restarted?.close().catch(() => undefined)
+      const version = newPage ? await withTimeout(newPage.evaluate(() => window.canvasHost?.appVersion)) : undefined
+      if (version === "999.0.1") break
+      lastRelaunch = `Connected pages: ${restarted
+        .contexts()
+        .flatMap((context) => context.pages())
+        .map((page) => page.url())
+        .join(", ")}; version=${version}`
+    } catch (error) {
+      lastRelaunch = error instanceof Error ? error.message : String(error)
+      if (restarted) await withTimeout(restarted.close()).catch(() => undefined)
       restarted = undefined
     }
     newPage = undefined
     await new Promise((done) => setTimeout(done, 500))
   }
-  if (!newPage) throw new Error("The updated app did not relaunch as 999.0.1.")
+  if (!newPage) throw new Error(`The updated app did not relaunch as 999.0.1. ${lastRelaunch}`)
   const saved = await readFile(join(project, "update-smoke.par"), "utf8")
   if (!saved.includes("Update smoke")) throw new Error("Unsaved work was not saved before installation.")
-  await newPage.evaluate(() => window.canvasHost.quit()).catch(() => undefined)
+  await withTimeout(newPage.evaluate(() => window.canvasHost.quit())).catch(() => undefined)
   console.log(
     "Real installed update passed: corrupt download rejected, Later retained, Cancel respected, work saved, version 999.0.1 relaunched."
   )
+} catch (error) {
+  console.error((await readFile(electronLog, "utf8").catch(() => "No Electron log")).split("\n").slice(-50).join("\n"))
+  throw error
 } finally {
   clearTimeout(watchdog)
   console.log(`Cleaning up installed update check after: ${stage}`)
   // Cleanup must not open an unanswered unsaved-work prompt in this disposable copy of the app.
   if (appProcess?.exitCode === null && appProcess.signalCode === null) appProcess.kill("SIGKILL")
-  if (restarted) await bounded(restarted.close().catch(() => undefined))
-  if (initialBrowser) await bounded(initialBrowser.close().catch(() => undefined))
+  await stopOwnedApps()
+  if (restarted) await withTimeout(restarted.close()).catch(() => undefined)
+  if (initialBrowser) await withTimeout(initialBrowser.close()).catch(() => undefined)
   feed?.closeAllConnections()
   if (feed) await new Promise<void>((closed) => feed!.close(() => closed()))
   if (installedWindows) run(join(installed, "Uninstall Parity.exe"), ["/S", `_?=${installed}`], work)
   await removeWork()
 }
 
-async function bounded(operation: Promise<unknown>): Promise<void> {
+async function stopOwnedApps(): Promise<void> {
+  // CDP Browser.close() only disconnects; terminate the owned initial/relaunched browser PIDs before removing files.
+  for (const pid of ownedProcesses) {
+    try {
+      process.kill(pid, "SIGKILL")
+    } catch (error) {
+      if (!(error instanceof Error) || !("code" in error) || error.code !== "ESRCH") throw error
+    }
+  }
+  const exitDeadline = Date.now() + 10_000
+  for (const pid of ownedProcesses) {
+    while (true) {
+      try {
+        process.kill(pid, 0)
+      } catch (error) {
+        if (error instanceof Error && "code" in error && error.code === "ESRCH") break
+        throw error
+      }
+      if (Date.now() >= exitDeadline) throw new Error(`The owned app process ${pid} did not exit before cleanup.`)
+      await new Promise((done) => setTimeout(done, 100))
+    }
+  }
+}
+
+async function withTimeout<T>(operation: Promise<T>): Promise<T> {
   let timer: NodeJS.Timeout | undefined
   try {
-    await Promise.race([
+    return await Promise.race([
       operation,
-      new Promise<void>((done) => {
-        timer = setTimeout(done, 5000)
+      new Promise<never>((_done, reject) => {
+        timer = setTimeout(() => reject(new Error("The app did not respond within five seconds.")), 5000)
       })
     ])
   } finally {
