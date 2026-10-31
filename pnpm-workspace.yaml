@@ -23,6 +23,7 @@ catalogMode: prefer
 # Versions set once for the workspace. Reference them with "catalog:".
 catalog:
   beachball: 2.66.0
+  jiti: 2.7.0
   knip: 6.43.0
   vite: npm:@voidzero-dev/vite-plus-core@1.4.0
   vite-plus: 1.4.0

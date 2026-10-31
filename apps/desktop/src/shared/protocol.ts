@@ -331,6 +331,8 @@ export interface PresenceEvent {
 
 /** Exposed on `window.canvasHost` by the preload script. */
 export interface CanvasHost {
+  /** The dev runner's requested project; an installed app otherwise starts with its recent tabs or the welcome page. */
+  initialProject?: string
   request<M extends ServiceMethod>(method: M, params: ServiceMethods[M]["params"]): Promise<ServiceMethods[M]["result"]>
   /** Answers the service's requests. One handler per window. */
   serve(handler: (method: WindowMethod, params: unknown) => Promise<unknown>): void

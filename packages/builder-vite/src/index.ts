@@ -19,6 +19,7 @@ import {
 import { describedCategories, describedTokenCss } from "@parity-app/tokens"
 import type * as Vite from "vite"
 import { dependencySourceMaps } from "./dependency-maps.ts"
+import { warmGuestGraph } from "./warmup.ts"
 
 /** Only used to explain a miss: the config itself is found by the project's own Vite. */
 const configPattern = /^vite\.config\.[cm]?[jt]s$/
@@ -34,6 +35,13 @@ export const viteBuilder: BuilderAdapter = {
   name: "Vite",
   detect: detectVite,
   async start(options) {
+    // Windows temp folders can use an 8.3 alias. Vite resolves imports to the long path, which must also be the
+    // configured root and filesystem allow-list or the project's own CSS/modules are rejected with 403.
+    options = {
+      ...options,
+      root: await realpath(options.root),
+      rendererGuestPath: await realpath(options.rendererGuestPath)
+    }
     const vite = await loadProjectVite(options.root)
     const configFile = await scriptedConfig(options.root)
     const port = options.port !== undefined && (await portFree(options.port)) ? options.port : await freePort()
@@ -74,16 +82,43 @@ export const viteBuilder: BuilderAdapter = {
       },
       plugins: [guestPlugin(options, vite.normalizePath(options.rendererGuestPath)), dependencySourceMaps()]
     })
-    await server.listen()
-    const origin = server.resolvedUrls?.local[0]
-    if (!origin) {
+    try {
+      await server.listen()
+      const client = server.environments.client
+      if (!client) throw new Error("Vite did not create its client environment")
+      await client.depsOptimizer?.init()
+      await client.depsOptimizer?.scanProcessing
+      // Finish the cold dependency graph before the browser imports it. A failed child import stays cached by URL,
+      // so retrying only the guest module cannot recover from Vite replacing its optimized dependency hashes.
+      const guest = guestModule(options.config)
+      const urls = await Promise.all(
+        guest.imports.map(async (id) => {
+          try {
+            const resolved = await client.pluginContainer.resolveId(id)
+            if (!resolved) return
+            return resolved.id.startsWith("\0")
+              ? `/@id/__x00__${resolved.id.slice(1)}`
+              : `/@fs/${vite.normalizePath(resolved.id)}`
+          } catch (error) {
+            if (!guest.optional.has(id)) throw error
+            return undefined
+          }
+        })
+      )
+      await warmGuestGraph(
+        client,
+        urls.filter((url) => url !== undefined)
+      )
+      const origin = server.resolvedUrls?.local[0]
+      if (!origin) throw new Error("Vite did not report a local URL")
+      return {
+        guestUrl: new URL(`/@id/__x00__${guestId}`, origin).href,
+        toolVersion: vite.version,
+        close: () => server.close()
+      }
+    } catch (error) {
       await server.close()
-      throw new Error("Vite did not report a local URL")
-    }
-    return {
-      guestUrl: new URL(`/@id/__x00__${guestId}`, origin).href,
-      toolVersion: vite.version,
-      close: () => server.close()
+      throw error
     }
   }
 }
@@ -215,6 +250,11 @@ function guestPlugin(options: BuilderStartOptions, rendererGuestPath: string): V
  * missing provider doesn't stop the project from rendering.
  */
 export function guestModuleSource(config: ProjectConfig): string {
+  return guestModule(config).source
+}
+
+/** The source and its eager imports share one declaration so startup warms the same graph the browser will load. */
+function guestModule(config: ProjectConfig): { source: string; imports: string[]; optional: ReadonlySet<string> } {
   const imports: string[] = []
   const optional = new Set<string>()
   const ref = (id: string) => {
@@ -291,7 +331,7 @@ export function guestModuleSource(config: ProjectConfig): string {
       ? `import(${JSON.stringify(id)}).catch((error) => ({ loadError: String(error?.message ?? error) }))`
       : `import(${JSON.stringify(id)})`
   )
-  return [
+  const source = [
     `const modules = await Promise.all([${loads.join(", ")}])`,
     "// A component whose module didn't load throws why when it's drawn, and its frame shows the error in its place.",
     "const failed = (error) => () => { throw new Error(`its module didn't load: ${error}`) }",
@@ -316,6 +356,7 @@ export function guestModuleSource(config: ProjectConfig): string {
     "})",
     ""
   ].join("\n")
+  return { source, imports, optional }
 }
 
 /** The modules a sample's values made by calling a package's function come from. */

@@ -1730,6 +1730,14 @@ to PAR-209 build it.
 
 ## Repository and releases
 
+- **The desktop production build is `pnpm build`** (PAR-8). Both UI pages load from the built files through Electron's
+  directory protocol source at `parity://app`, a standard secure origin with a fixed project CORS allowance. The main,
+  service and worker bundles include their dependencies except Electron and TypeScript 6; TypeScript's full package,
+  registry files, icons and the project's React guest ship beside them. Jiti's static entry bundles its config
+  transformer. A new install opens the welcome page; development can still request its default project. The builder
+  warms the guest graph and waits for dependency optimization before exposing its URL, avoiding cold-start outdated
+  dependency imports cached by the browser. CI alone starts isolated production copies against Vite 7 and Vite 8.
+
 How Parity goes public and ships. The proposal is [proposals/repository.md](proposals/repository.md), and the work is
 the Repository, CI and releases stream in Linear.
 

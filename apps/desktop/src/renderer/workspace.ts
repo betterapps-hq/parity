@@ -86,7 +86,7 @@ export class Workspace {
   /** Projects opened before, most recent first. */
   getRecent = () => this.recent
 
-  /** Reopens the tabs from last time, or the default project. */
+  /** Reopens the tabs from last time, or the dev runner's requested project. A fresh install shows the welcome page. */
   restore(): void {
     let saved: { roots?: string[]; active?: string } = {}
     try {
@@ -95,8 +95,9 @@ export class Workspace {
       // A corrupt entry just means starting fresh.
     }
     const roots = saved.roots?.filter(Boolean) ?? []
-    if (roots.length === 0) void this.open(undefined)
-    else {
+    if (roots.length === 0) {
+      if (window.canvasHost.initialProject) void this.open(window.canvasHost.initialProject)
+    } else {
       for (const root of roots) void this.open(root, root === saved.active)
       if (!roots.includes(saved.active ?? "")) this.activate(this.tabs[0]?.id)
     }
