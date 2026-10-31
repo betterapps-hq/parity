@@ -437,6 +437,7 @@ describe("remaining transport contracts", () => {
   })
 
   it("discovers all desktop operations plus execute and skill from shared contracts", async () => {
+    expect(new Set(cases.map((entry) => entry.method))).toEqual(new Set(Object.keys(operations)))
     const protocol = await run(["mcp"], JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }) + "\n")
     expect(toolReply(protocol.stdout)).toEqual(
       expect.objectContaining({
