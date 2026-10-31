@@ -2287,6 +2287,14 @@ target. The proposal is [proposals/extensions.md](proposals/extensions.md).
 
 Planned work, and what's waiting on you, is in Linear, as [work.md](work.md) says.
 
+## Caller names are declared (PAR-450)
+
+CLI attribution uses only `PARITY_AGENT_NAME`, falling back to Terminal. MCP attribution uses the initialize handshake's
+title, then name, falling back to Agent. Both use the same whitespace and empty-name handling in
+`packages/cli/src/caller.ts`. No environment fingerprinting or known-client name table: inherited configuration cannot
+establish who's driving, and new harnesses should not require a Parity release. Display names are attribution, not
+authenticated identity. Session ids continue to distinguish concurrent MCP callers.
+
 ## CLI and MCP share execute operations (PAR-451)
 
 The two adapters call `executeOperation` in `packages/cli/src/execute.ts`. This module has no platform imports and owns
@@ -2302,3 +2310,21 @@ application and failed-snippet storage; the operation layer does not duplicate t
 
 Contract tests spawn both real entry points against a local HTTP RPC fixture, comparing outgoing operation requests and
 checking discovery, defaults, retries, malformed inputs, successful results, failed execution and RPC errors.
+
+## The remaining agent operations share contracts (PAR-452)
+
+`packages/cli/src/operations.ts` extends PAR-451 to tabs, state, opening projects, screenshots, problems, accessibility,
+console, tokens, components, props and local skill reading. Field definitions pair a discovery schema with their
+validator and default, so both transports use the same rules. Shared operations own RPC method selection and failure
+classification; adapters own CLI syntax, MCP field names and presentation. The module has no platform imports and adds
+no dependency. The MCP adapter exposes token/component/prop reads that previously required CLI commands or snippets.
+
+A screenshot failure or audit finding is a CLI failure and an MCP tool error with report details retained. Screenshot
+scale defaults to 1, audits default to all states and shown modes, console clear and prop all default to false, and
+one-item selector lists normalize to strings. Screenshot state and mode stay omitted to let the app choose the current
+state and primary mode. CLI open resolves relative paths before the contract; MCP requires an absolute path. Skill
+reading remains local, without RPC. Library generation/checking remain CLI-only workflows, with checking's snippet calls
+routed through the shared execute operation.
+
+Tests share one local RPC fixture and launch real CLI and MCP processes. Execute's contract tests remain alongside the
+new operation tests. No Electron is needed; a read-only check in the running app covers real wiring too.

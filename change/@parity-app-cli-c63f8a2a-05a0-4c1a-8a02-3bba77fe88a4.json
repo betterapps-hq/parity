@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Add MCP token, component and prop reads, validate options consistently, and report screenshot and audit failures in both interfaces",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

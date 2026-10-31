@@ -73,6 +73,45 @@ rejected before reaching the desktop. Caller identity and session IDs travel sep
 CLI failures exit with 1; MCP failures set `isError` and include the same failure and retry details. CLI `--json` omits
 screenshot image data; MCP returns image content blocks.
 
+## Shared operations
+
+All desktop commands use the same operation contracts as their MCP counterparts:
+
+| CLI                      | MCP                   |
+| ------------------------ | --------------------- |
+| `tabs`                   | `get_tabs`            |
+| `state`                  | `get_app_state`       |
+| `exec`                   | `execute`             |
+| `screenshot`             | `screenshot`          |
+| `problems`               | `find_problems`       |
+| `a11y` / `accessibility` | `check_accessibility` |
+| `console`                | `get_console`         |
+| `open`                   | `open_project`        |
+| `tokens`                 | `get_tokens`          |
+| `components`             | `get_components`      |
+| `props`                  | `get_props`           |
+| `skill`                  | `read_skill`          |
+
+Screenshot scale defaults to 1 and must be a finite number from 0.25 to 3. Screenshot state and mode default to the
+current state and primary mode. Audits default to every state and shown modes. State and mode accept a nonblank string
+or a nonempty list of nonblank strings; one-item lists normalize to strings. `clear` for console and `all` for props
+default to false. Requests with invalid input fail before contacting the app.
+
+Screenshots that fail and audits that find issues exit with 1 in the CLI and set MCP `isError`, retaining the full
+report. CLI JSON omits screenshot image data; MCP emits image blocks. CLI `open` resolves relative folders; MCP requires
+an absolute path. Skill reading uses the same local reader and default `SKILL.md` in both transports. Library generation
+and checking remain CLI commands; library checking runs its snippets through the shared execute operation.
+
 ## Licence
 
 MIT. See [LICENSE](https://github.com/betterapps-hq/parity/blob/main/LICENSE).
+
+## Caller name on the canvas
+
+For CLI calls, set `PARITY_AGENT_NAME` to the name you want shown on cursors and badges (for example,
+`DeepSeek Harness`). Without a nonblank name, calls show `Terminal`. Use `PARITY_AGENT_ID` to distinguish concurrent CLI
+callers sharing a display name. `--label` names the task separately.
+
+For MCP, Parity uses the client's declared `clientInfo.title`, then `clientInfo.name`, then `Agent` if neither is
+nonblank. Names are trimmed and otherwise preserved; no list of known agents or tool environment detection is needed.
+These display names are self-reported, not authentication.
