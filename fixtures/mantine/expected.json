@@ -48,16 +48,16 @@
     },
     "semantic": {
       "app-accent": {
-        "default": "#4dabf7"
+        "default": "#228be6"
       },
       "app-radius": {
         "default": "12px"
       },
       "app-surface": {
-        "default": "#1a1b1e"
+        "default": "#ffffff"
       },
       "app-text": {
-        "default": "#f1f3f5"
+        "default": "#1a1b1e"
       }
     }
   },
