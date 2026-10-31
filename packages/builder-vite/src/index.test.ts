@@ -174,6 +174,43 @@ describe("resolved library aliases", () => {
 })
 
 describe("guestModuleSource with values a package makes", () => {
+  it("loads design-only factories, without treating literal $import data as a required module", () => {
+    const source = guestModuleSource({
+      styles: [],
+      components: {},
+      documents: [],
+      libraries: [
+        {
+          id: "kit",
+          name: "Kit",
+          package: "kit",
+          importName: "kit",
+          stylesImported: true,
+          designs: [
+            {
+              id: "kit/label",
+              name: "Label",
+              kind: "component",
+              position: { x: 0, y: 0 },
+              states: [],
+              root: {
+                type: "component",
+                id: "label",
+                component: "kit/Label",
+                props: {
+                  value: { $call: { import: "design-values", export: "make" } },
+                  literal: { $import: "literal-data", export: "value" }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    })
+    expect(source).toContain('import("design-values")')
+    expect(source).not.toContain('import("literal-data")')
+  })
+
   it("loads the modules its components' samples call, for the guest to make them", () => {
     const source = guestModuleSource({
       styles: [],

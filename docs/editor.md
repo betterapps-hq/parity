@@ -2115,7 +2115,8 @@ is bounded with ellipsis.
 A library installed under an alias uses that alias for its components, providers, icon modules and values made by the
 package. Discovery resolves these module names once; the builder and icon picker use the resolved names. Literal
 component data named `import` or `modules` stays unchanged. Inserting a part through its parent's render prop preserves
-the parent's other slots.
+the parent's other slots. Library designs' `$call` factories are loaded even when no component sample, provider or icon
+uses their modules; design-only `$import` props remain literal data.
 
 Code: `remapLibraryImports` and `libraryImports` in `packages/core/src/library.ts`; `findLibraries` in
 `packages/project/src/libraries.ts`; `guestModuleSource` and `iconImports` in `packages/builder-vite/src/index.ts`;
@@ -2124,4 +2125,6 @@ Code: `remapLibraryImports` and `libraryImports` in `packages/core/src/library.t
 Tests: `packages/project/src/index.test.ts` (aliased entry modules, decorators, nested made values and icon subpaths),
 `packages/core/src/library.test.ts` (one import traversal, ordinary data preserved and current-format-only reads),
 `packages/core/src/library-insert.test.ts` (render-prop insertion preserves other slots), and
-`packages/builder-vite/src/index.test.ts` (resolved icon modules and stable style keys).
+`packages/builder-vite/src/index.test.ts` (resolved icon modules, stable style keys and design-only factories), and
+`apps/desktop/src/renderer/library-runtime.test.ts` (generated guest renders a placed library design with nested
+design-only factories).

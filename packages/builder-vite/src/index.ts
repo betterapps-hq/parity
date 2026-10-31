@@ -312,12 +312,13 @@ function guestModule(config: ProjectConfig): { source: string; imports: string[]
   const decorated = config.libraries.flatMap((library) =>
     (library.decorators ?? []).map((decorator) => ({ library: library.id, decorator }))
   )
-  // And the packages whose functions make values in its components' samples (`createTreeCollection`), which designs
-  // hold once the components are inserted.
+  // Factories used by samples and library designs share one module registry. A design can call a module that no
+  // component sample, decorator or icon needs; it must be loaded before that design is drawn too.
   const decoratorModules = [
     ...new Set([
       ...config.libraries.flatMap((library) => libraryImports(library)),
-      ...Object.values(config.components).flatMap((source) => madeImports(source.sample))
+      ...Object.values(config.components).flatMap((source) => madeImports(source.sample)),
+      ...config.libraries.flatMap((library) => madeImports(library.designs))
     ])
   ]
   for (const id of decoratorModules) {
