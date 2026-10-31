@@ -12,13 +12,13 @@ import {
   locateNode,
   moveNode,
   nodeIds,
-  nodeInState,
   type StateSpec,
   topmostNodes,
   unwrapNode,
   withFreshIds,
   wrapNodes
 } from "@parity-app/core"
+import { boardReader } from "./shown.ts"
 
 /**
  * Arranging layers and designs: deleting, duplicating, wrapping in a layout and unwrapping, ordering, aligning and
@@ -112,17 +112,18 @@ export function siblingsOf(root: DesignNode, id: string): string[] | undefined {
 }
 
 /**
- * Puts the layers `ids` in a new layout, laid out the way their parent lays them out in `state`: in a row when it's a
- * row, and with its gap. Returns the design and the new layout's id. Throws, with a message to show, when they can't be
- * wrapped together.
+ * Puts the layers `ids` in a new layout, laid out the way their parent lays them out as the board shows it in `state`
+ * and `viewport`, with the variant options it shows: in a row when it's a row, and with its gap. Returns the design and
+ * the new layout's id. Throws, with a message to show, when they can't be wrapped together.
  */
 export function wrapInLayout(
   container: ContainerSpec,
   ids: readonly string[],
-  state: StateSpec
+  state: StateSpec,
+  viewport?: string
 ): { container: ContainerSpec; id: string } {
   const parent = ids.length > 0 ? locateNode(container.root, ids[0]!)?.ancestors.at(-1) : undefined
-  const parentStyle = parent ? nodeInState(parent, state).style : undefined
+  const parentStyle = parent ? boardReader(container, { state, viewport })(parent).style : undefined
   const id = generateId(nodeIds(container.root))
   const next = wrapNodes(container, ids, {
     id,
@@ -175,14 +176,16 @@ export function reorderLayer(container: ContainerSpec, id: string, order: Order)
 }
 
 /**
- * Aligns the layers `ids` in their layouts, as `state` shows them. A layer aligns on its parent's cross axis by itself;
- * along its main axis, the parent moves all its children together. Layers outside a layout stay as they are.
+ * Aligns the layers `ids` in their layouts, as the board shows them in `state` and `viewport`, with the variant options
+ * it shows: a layout a variant turns into a row is a row. A layer aligns on its parent's cross axis by itself; along its
+ * main axis, the parent moves all its children together. Layers outside a layout stay as they are.
  */
 export function alignInLayouts(
   container: ContainerSpec,
   ids: readonly string[],
   state: StateSpec,
-  alignment: Alignment
+  alignment: Alignment,
+  viewport?: string
 ): ContainerSpec {
   const horizontal = alignment === "left" || alignment === "center" || alignment === "right"
   const position = (
@@ -192,7 +195,7 @@ export function alignInLayouts(
   for (const id of ids) {
     const parent = locateNode(next.root, id)?.ancestors.at(-1)
     if (parent?.type !== "layout") continue
-    const row = nodeInState(parent, state).style?.direction === "row"
+    const row = boardReader(next, { state, viewport })(parent).style?.direction === "row"
     // A column's cross axis is horizontal; a row's is vertical.
     const crossAxis = row ? !horizontal : horizontal
     next = crossAxis

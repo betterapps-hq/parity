@@ -1,4 +1,5 @@
 import { type CanvasDocument, type ContainerSpec, type DesignNode, findNode, nodeInState } from "@parity-app/core"
+import { effectiveFixture } from "@parity-app/core/fixtures"
 import { describe, expect, it } from "vite-plus/test"
 import {
   alignBoxes,
@@ -53,6 +54,12 @@ function form(): ContainerSpec {
 
 const base = form().states[0]!
 const wide = form().states[1]!
+
+/** The shared fixture's card, its board showing the variant options `variants`: Inline turns its body into a row. */
+function card(variants: Record<string, string> = {}): ContainerSpec {
+  const found = effectiveFixture.designs.find((design) => design.id === "card")!
+  return { ...found, view: { ...found.view, variants } }
+}
 
 const childIds = (container: ContainerSpec, id: string) => {
   const node = findNode(container.root, id)
@@ -165,6 +172,16 @@ describe("wrapping in a layout", () => {
     expect(findNode(container.root, id)?.style?.direction).toBeUndefined()
   })
 
+  it("reads the parent as the board shows it, with the variant options shown and the frame's viewport", () => {
+    // The card's Inline option turns its body into a row with a gap of 6, over the body's mobile gap of 2.
+    const inline = wrapInLayout(card({ layout: "inline" }), ["avatar", "copy"], card().states[0]!, "mobile")
+    expect(findNode(inline.container.root, inline.id)?.style).toEqual({ direction: "row", gap: 6 })
+    const stacked = wrapInLayout(card(), ["avatar", "copy"], card().states[0]!, "mobile")
+    expect(findNode(stacked.container.root, stacked.id)?.style).toEqual({ gap: 2 })
+    const desktop = wrapInLayout(card(), ["avatar", "copy"], card().states[0]!, "desktop")
+    expect(findNode(desktop.container.root, desktop.id)?.style).toEqual({ gap: 4 })
+  })
+
   it("gives a column nothing of its own", () => {
     const { container, id } = wrapInLayout(form(), ["heading", "footer"], base)
     expect(childIds(container, "root")).toEqual([id, "fields", "card"])
@@ -237,6 +254,22 @@ describe("aligning layers", () => {
     const email = findNode(container.root, "email")!
     expect(email.style).toBeUndefined()
     expect(nodeInState(email, container.states[1]).style).toEqual({ self: "start" })
+  })
+
+  it("reads the layout's direction with the variant options the board shows", () => {
+    // Inline turns the card's body into a row, so Align right moves its children along it, in the variant shown.
+    const container = alignInLayouts(card({ layout: "inline" }), ["copy"], card().states[0]!, "right")
+    expect(findNode(container.root, "copy")?.style).toBeUndefined()
+    expect(findNode(container.root, "body")?.style).not.toHaveProperty("justify")
+    const layout = container.params?.layout
+    const inline = layout?.type === "variant" ? layout.options?.find((option) => option.id === "inline") : undefined
+    expect(inline?.overrides?.body?.style).toMatchObject({ direction: "row", justify: "end" })
+    expect(inline?.overrides?.copy).toBeUndefined()
+  })
+
+  it("aligns a layer by itself in a column the board shows", () => {
+    const container = alignInLayouts(card({ layout: "stacked" }), ["copy"], card().states[0]!, "right", "mobile")
+    expect(findNode(container.root, "copy")?.style).toEqual({ self: "end" })
   })
 
   it("leaves layers in a slot as they are", () => {

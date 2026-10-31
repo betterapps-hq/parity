@@ -3,6 +3,7 @@ import {
   type ContainerViewSettings,
   type ModeSettings,
   type ResolvedMode,
+  resolveModes,
   shownModes,
   type StateSpec
 } from "@parity-app/core"
@@ -68,4 +69,12 @@ export function toggleShownMode(
 
 export function activeState(container: ContainerSpec): StateSpec {
   return container.states.find((state) => state.id === container.view?.state) ?? container.states[0]!
+}
+
+/**
+ * The viewport of the frame a layer was picked in, by its mode: the key its design's responsive patches use, so an edit
+ * reads the layer as that frame shows it. None when no frame is known.
+ */
+export function frameViewport(modes: ModeSettings, mode: string | undefined): string | undefined {
+  return mode === undefined ? undefined : resolveModes(modes).find((candidate) => candidate.id === mode)?.viewport
 }
