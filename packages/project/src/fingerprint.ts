@@ -1,17 +1,34 @@
 import { createHash } from "node:crypto"
-import { existsSync } from "node:fs"
 import { readFile } from "node:fs/promises"
-import { dirname, join, relative, resolve } from "node:path"
+import { resolve } from "node:path"
 import type { ProjectTsconfig } from "@parity-app/code"
 import type { ComponentSource } from "@parity-app/core"
-
-const lockfiles = ["pnpm-lock.yaml", "package-lock.json", "yarn.lock", "bun.lock", "bun.lockb"]
+import { findLockfiles } from "./lockfile.ts"
 
 /**
- * A fingerprint of what the type checker and props read in a project: the app's files and its components' files, by
- * contents, its tsconfigs and package.json, the lockfile (in its folder or the nearest above), which pins what installed
- * packages declare, and the components as listed. Equal fingerprints mean reading them again gives the same answers, so
- * results saved under one can be used. `salt` stands for the reader itself: a new version of it reads differently.
+ * Every file the detection fingerprint reads, relative to the root and sorted: the app's files and its components'
+ * own files, every tsconfig the config reader read (references and `extends` bases included), package.json, and the
+ * lockfiles package-manager detection finds (see `findLockfiles`), which pin what installed packages declare. A file
+ * outside the root, such as a workspace's lockfile or a shared base config, starts with `../`.
+ */
+export async function fingerprintInputs(
+  root: string,
+  files: readonly string[],
+  sources: Record<string, ComponentSource>,
+  tsconfig: ProjectTsconfig
+): Promise<string[]> {
+  const own = Object.values(sources).flatMap((source) => {
+    const file = source.declaration ?? (source.library ? undefined : source.path)
+    return file && !file.includes("node_modules/") ? [file] : []
+  })
+  const paths = new Set([...files, ...own, ...tsconfig.read, "package.json", ...(await findLockfiles(root))])
+  return [...paths].sort()
+}
+
+/**
+ * A fingerprint of what the type checker and props read in a project: the contents of its {@link fingerprintInputs},
+ * and the components as listed. Equal fingerprints mean reading them again gives the same answers, so results saved
+ * under one can be used. `salt` stands for the reader itself: a new version of it reads differently.
  */
 export async function detectionFingerprint(
   root: string,
@@ -20,33 +37,13 @@ export async function detectionFingerprint(
   tsconfig: ProjectTsconfig,
   salt: string
 ): Promise<string> {
-  const own = Object.values(sources).flatMap((source) => {
-    const file = source.declaration ?? (source.library ? undefined : source.path)
-    return file && !file.includes("node_modules/") ? [file] : []
-  })
-  const paths = new Set([
-    ...files,
-    ...own,
-    ...tsconfig.configs.map((config) => config.path),
-    "package.json",
-    ...(lockfileOf(root) ?? [])
-  ])
   const hash = createHash("sha256").update(salt).update("\0")
   const ids = Object.keys(sources).sort()
   hash.update(JSON.stringify(ids.map((id) => [id, sources[id]])))
-  for (const path of [...paths].sort()) {
+  for (const path of await fingerprintInputs(root, files, sources, tsconfig)) {
     const contents = await readFile(resolve(root, path)).catch(() => undefined)
     hash.update(`\0${path}\0`)
     if (contents) hash.update(contents)
   }
   return hash.digest("hex")
-}
-
-/** The project's lockfile, relative to the root: in its folder, or a workspace's above it. */
-function lockfileOf(root: string): string[] | undefined {
-  for (let folder = resolve(root); ; folder = dirname(folder)) {
-    const found = lockfiles.find((name) => existsSync(join(folder, name)))
-    if (found) return [relative(root, join(folder, found)).replaceAll("\\", "/")]
-    if (dirname(folder) === folder) return undefined
-  }
 }
