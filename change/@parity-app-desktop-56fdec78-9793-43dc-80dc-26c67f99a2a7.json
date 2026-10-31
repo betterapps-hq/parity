@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "The canvas menu says Show for a layer the variant shown hides, and Make component checks the result against the variant and param defaults the board shows",
+  "packageName": "@parity-app/desktop",
+  "email": "noreply@anthropic.com",
+  "dependentChangeType": "patch"
+}
