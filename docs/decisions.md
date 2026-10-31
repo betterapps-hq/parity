@@ -2489,7 +2489,8 @@ either. The title above the board isn't part of its size, as `Overlaps()` alread
 `Get(path, { state })` and `Get(path, visit, { state })` used a private `applyState` in the agent's workspace, which
 applied only the state's own patches, so a bound text read as its stored value while the board drew the param's default,
 and variant options, responsive patches and patches reaching inside instances were missing. Those reads now go through
-core's `effectiveTree` (see PAR-484), so the agent can't disagree with the canvas about a node. My calls:
+core's evaluation (see PAR-484): `locateEffective` finds the layer and its scope, and `drawnNode` draws what's inside
+it, so the agent can't disagree with the canvas about a node. My calls:
 
 - **`state` or `mode` asks for the board's view; neither reads the stored nodes,** unchanged, since edits are made
   against those. Get takes `mode` as Screenshot and Measure do: a state alone is read in the design's main mode, and a
@@ -2499,7 +2500,9 @@ core's `effectiveTree` (see PAR-484), so the agent can't disagree with the canva
   the binding stays so the agent can tell the text comes from a param and edit the param rather than the text.
 - **An instance reads as its own node, its args patched,** as the stored read has it; what's inside it is read by its
   path, `design/instance/inner` (`profile/person/title`), which a stored read doesn't take. A visit in a state walks the
-  same layers, not into instances; started inside one, it passes each layer's `instance/inner` path.
+  same layers, not into instances; started inside one, it passes each layer's `instance/inner` path. Not using
+  `effectiveTree` keeps a read's cost to the layers it returns: that expands every instance under the layer, which a
+  deeply nested component made slower than a snippet's 5 seconds, only for Get to drop it.
 
 `packages/agent/src/workspace.test.ts` runs each case and viewport of `effectiveFixture` through Get, reading every
 layer by its path, and compares what the canvas would draw of them with `resolveDesign`'s tree.

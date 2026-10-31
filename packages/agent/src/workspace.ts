@@ -12,8 +12,8 @@ import {
   type DesignChange,
   type DesignNode,
   editNode,
-  type EffectiveTree,
-  effectiveTree,
+  type EvalScope,
+  drawnNode,
   type EvalContext,
   extractComponent,
   findRepeats,
@@ -22,6 +22,7 @@ import {
   shownModes,
   generateId,
   insertNode,
+  locateEffective,
   locateNode,
   mapNode,
   type ModeSettings,
@@ -312,9 +313,9 @@ export class AgentWorkspace {
     if (typeof second === "function") return this.visit(first, second as Visit, third as GetOptions | undefined)
     const options = (second ?? {}) as GetOptions
     if (shownRead(options)) {
-      const { tree, read } = this.shownTree(first, options)
+      const { layer, read } = this.shownLayer(first, options)
       this.emit(read)
-      return elide(structuredClone(shownLayer(tree).node), options.depth)
+      return elide(structuredClone(layer.node), options.depth)
     }
     const design = this.tryDesign(first)
     const found = design ? { ...design, node: design.container.root } : this.findNode(first)
@@ -348,7 +349,7 @@ export class AgentWorkspace {
       return !skip
     }
     if (reference !== undefined && shownRead(options)) {
-      const { container, tree, read } = this.shownTree(reference, options)
+      const { container, layer: start, read } = this.shownLayer(reference, options)
       this.emit({ kind: "read", design: read.design })
       const walk = (layer: ShownLayer, depth: number, index: number, parent: string | undefined) => {
         if (!call(container.id, layer.node, layer.path, depth, index, parent)) return
@@ -358,7 +359,7 @@ export class AgentWorkspace {
           walk(child, depth + 1, index, layer.path)
         }
       }
-      walk(shownLayer(tree), 0, 0, undefined)
+      walk(start, 0, 0, undefined)
       return results
     }
     const scopes = reference
@@ -388,9 +389,9 @@ export class AgentWorkspace {
    * A layer and what's inside it as the board draws a state and mode, through core's effective evaluation: with the
    * variant options the design's board shows, its params' defaults and the project's components. The reference is a
    * design, a node (`design/node`, or a node id alone when one design has it) or a layer inside an instance
-   * (`design/card/title`).
+   * (`design/card/title`). Only the instances on the way to the layer are expanded, not ones inside it.
    */
-  private shownTree(reference: string, options: GetOptions) {
+  private shownLayer(reference: string, options: GetOptions) {
     const found = this.findLayer(reference)
     const { container } = found
     const mode = options.mode ? this.frameMode(options.mode) : shownModes(this.modes, container.view).main
@@ -399,14 +400,15 @@ export class AgentWorkspace {
       viewport: mode.viewport,
       library: this.library()
     }
-    const tree = effectiveTree(container, found.layer, context)
-    if (!tree) throw new Error(`No layer "${found.layer}" in ${container.id}`)
+    const located = locateEffective(container, found.layer, context)
+    if (!located) throw new Error(`No layer "${found.layer}" in ${container.id}`)
+    const layer = drawnLayer(located.shown, found.layer, located.scope, mode.viewport, located.location.slot)
     const design = key(found.path, container.id)
     const node = found.layer === container.root.id ? undefined : found.layer.split("/")[0]
-    return { container, tree, read: { kind: "read" as const, design, ...(node ? { node } : {}) } }
+    return { container, layer, read: { kind: "read" as const, design, ...(node ? { node } : {}) } }
   }
 
-  /** A layer by reference, as a path `effectiveTree` takes: a design's root, its node, or a node inside an instance. */
+  /** A layer by reference, as a path `locateEffective` takes: a design's root, its node, or a node inside an instance. */
   private findLayer(reference: string): Located & { layer: string } {
     const design = this.tryDesign(reference)
     if (design) return { ...design, layer: design.container.root.id }
@@ -1381,18 +1383,26 @@ interface ShownLayer {
   children: ShownLayer[]
 }
 
-function shownLayer(tree: EffectiveTree): ShownLayer {
-  const { node } = tree
-  const where = tree.slot === undefined ? { path: tree.path } : { path: tree.path, slot: tree.slot }
-  if (node.type === "instance") return { ...where, node, children: [] }
-  const children = tree.children.map(shownLayer)
-  if (node.type === "layout")
+/**
+ * A drawn layer with its children drawn in the same scope, each through core's per-node step. An instance's contents
+ * aren't expanded, so reading one costs the same however much its component holds.
+ */
+function drawnLayer(node: DesignNode, path: string, scope: EvalScope, viewport: string, slot?: string): ShownLayer {
+  const where = slot === undefined ? { path } : { path, slot }
+  const prefix = path.slice(0, path.length - node.id.length)
+  const children = childEntries(node).flatMap((entry) =>
+    entry.nodes.map((child) =>
+      drawnLayer(drawnNode(child, scope, viewport), `${prefix}${child.id}`, scope, viewport, entry.slot)
+    )
+  )
+  if (node.type === "layout") {
     return { ...where, node: { ...node, children: children.map((child) => child.node) }, children }
+  }
   if (node.type === "component" && node.slots) {
     const slots = Object.fromEntries(
-      Object.keys(node.slots).map((slot) => [
-        slot,
-        children.filter((child) => child.slot === slot).map((child) => child.node)
+      Object.keys(node.slots).map((name) => [
+        name,
+        children.filter((child) => child.slot === name).map((child) => child.node)
       ])
     )
     return { ...where, node: { ...node, slots }, children }

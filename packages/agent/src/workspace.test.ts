@@ -186,6 +186,37 @@ Print(JSON.stringify([Get("badge", text, { state: "quiet" }), Get("badge", text)
     expect(result).toEqual([[["badge/label", "Bound label"]], [["badge/label", "Raw label"]]])
   })
 
+  /** Components each placing the next one twice, so expanding the first draws 2^levels copies of the last. */
+  function nesting(levels: number): ContainerSpec[] {
+    return Array.from({ length: levels + 1 }, (_, level): ContainerSpec => {
+      const next = (copy: number): DesignNode => ({ type: "instance", id: `copy${copy}`, design: `level${level + 1}` })
+      return {
+        id: `level${level}`,
+        name: `Level ${level}`,
+        kind: "component",
+        position: { x: level * 400, y: 0 },
+        root:
+          level === levels
+            ? { type: "text", id: "leaf", text: "Leaf" }
+            : { type: "layout", id: "row", children: [next(1), next(2)] },
+        states: [{ id: "base", name: "Base" }]
+      }
+    })
+  }
+
+  it("reads and visits instances without expanding what's inside them", async () => {
+    // Expanding all 2^24 copies would take far longer than a snippet's 5 seconds, so these only finish if it's skipped.
+    const started = performance.now()
+    const result = await read(
+      nesting(24),
+      `const options = { state: "base" }
+const ids = Get("level0", (node) => node.id, options)
+Print(JSON.stringify([Get("level0", options).children.map((child) => child.design), Get("level0/copy1", options).design, Get("level0/copy1/row", options).children.length, ids]))`
+    )
+    expect(result).toEqual([["level1", "level1"], "level1", 2, ["row", "copy1", "copy2"]])
+    expect(performance.now() - started).toBeLessThan(2000)
+  })
+
   it("reads inside an instance by its path, with the args a mode patches over it", async () => {
     const result = await read(
       effectiveFixture.designs,
