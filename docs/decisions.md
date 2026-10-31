@@ -2420,3 +2420,15 @@ through the `apply` hook, failing with `describeConflicts` when refused. `mergeA
 `packages/editor/src/design-changes.ts` merges them. The renderer's `agent.apply` (`renderer/agent/handlers.ts`, through
 `DesignStore.applyAgentChanges`) answers with the conflicts. Window IPC isn't schema-checked; the agent checks each file
 it changed with `parseCanvasDocument` before sending, as before.
+
+## Project discovery decides where an app's sources and styles are (PAR-467)
+
+Detection and `parity lib`'s app mode read one set of rules, so an app's `.lib.par` describes what the canvas loads.
+Which files hold the app's components is `readTsconfig` and `appFiles` in `@parity-app/code`: the root config and every
+config it references, of any name, with tests, stories and build output left out, and every file under the root when no
+config includes any. Which stylesheets are global is `findStyles` in `@parity-app/project`: `components.json`, else what
+the HTML entry's module imports (side-effect or default imports, CSS or Sass, not CSS modules), else the conventional
+places, Next's `globals.css` among them. `readStylesheet` there inlines relative `@import`s, for libgen's tokens and for
+telling whether a library's stylesheet is imported. Libgen reads only `.tsx` and `.jsx` of those files, since its type
+checker looks for JSX components. A package library keeps its own inputs: the package's type entry and the stylesheet
+its `style` field or `exports` name, read with the same `readStylesheet`.
