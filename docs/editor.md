@@ -1411,6 +1411,13 @@ decisions.md's "Saving is explicit" sets out.
   designs or its tokens either, and the agent is told which designs, or that the modes, conflicted.
 - **The token editor** says this before anything changes: "Every frame shows it at once. Saving the project writes it to
   src/index.css, and Undo takes it back." Its button is Apply.
+- **A theme's value goes where the stylesheet keeps it** (PAR-468): the preview and the save find a theme's blocks by
+  the rules the Tokens tab read it with (`themeOfSelector` in `packages/tokens/src/policy.ts`), so `dark` is `.dark`,
+  `[data-theme="dark"]` or `html.dark` alike. Every block that declares the token gets the new value, so a later
+  `[data-theme="dark"]` can't win back over an edited `.dark` after a save; a value the theme lacks goes into its first
+  block, else a new `.dark`. A `:root` inside `@media`, such as a `prefers-color-scheme` block, isn't the default, so
+  editing the default never changes it. A frame shows an attribute theme only when its option in Modes sets that
+  attribute.
 
 Code: the history, what's unsaved and the save state are `packages/editor/src/history.ts` in `@parity-app/editor`
 (`recordChange`, `undoChange`, `redoChange`, `reloadFile`, `unsavedPaths`, `fileWrite`, `writeSucceeded` and
@@ -1451,10 +1458,17 @@ Tests:
 - `apps/desktop/src/renderer/design-store.test.ts` (11 of its 18): Save writing the files and the stylesheet, saving
   automatically a moment later, a failed save thrown and cleared, a reload cancelling a save waiting to happen, and
   library designs never written.
-- `packages/tokens/src/stylesheet.test.ts` (8 of its 11): a value replaced in place, keeping comments and formatting; a
+- `packages/tokens/src/stylesheet.test.ts` (11 of its 14): a value replaced in place, keeping comments and formatting; a
   theme's own declaration; a missing one added at the block's indentation, or in a new block; no match on a prefix or a
   nested block; a semantic token written to the root and a theme's value to its class; a theme scale token to the
-  `@theme` block that declares it, else a new one; and a token the stylesheet doesn't declare added to the root.
+  `@theme` block that declares it, else a new one; a token the stylesheet doesn't declare added to the root; a theme
+  written to its `[data-theme="dark"]` block ("by attribute as much as by class"); a `:root` inside a media query left
+  alone; and both `.dark` and `[data-theme="dark"]` written, read back as the new value ("writes every block").
+- `apps/desktop/src/renderer/guest.test.ts` (3), in Chrome: `previewToken` editing a theme by class and by attribute,
+  adding a value a theme lacks with the selector it already uses, and leaving a `prefers-color-scheme` block alone when
+  previewing the default.
+- `packages/tokens/src/policy.test.ts` and `packages/libgen/src/tokens.test.ts`: which selector is which theme, and the
+  same CSS read alike by libgen and the app.
 - `packages/editor/src/token-edits.test.ts` (4): the first edit's original kept, what Save writes, a theme value that
   wasn't there, and the token list with edits.
 - `apps/desktop/src/renderer/tokens-store.test.ts` (3), in Chrome: an edit previewed in the stylesheet in both themes,

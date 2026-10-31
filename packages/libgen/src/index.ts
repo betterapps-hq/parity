@@ -43,7 +43,7 @@ export { familyOf, fetchExamples, nearestParent, normalizeRepo, readExamples } f
 export { parseLibraryEdits } from "@parity-app/core"
 export { manifestText } from "./icon-tags.ts"
 export { presets } from "./presets.ts"
-export { categorizeVar, cssTokens, toDtcg } from "./tokens.ts"
+export { cssTokens, toDtcg } from "./tokens.ts"
 
 export interface GenerateOptions {
   /** The project: the folder a package is installed in, or the app to describe. */

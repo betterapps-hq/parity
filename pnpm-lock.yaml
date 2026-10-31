@@ -546,13 +546,12 @@ importers:
       '@parity-app/project':
         specifier: workspace:*
         version: link:../project
-      typescript:
-        specifier: 6.0.3
-        version: 6.0.3
-    devDependencies:
       '@parity-app/tokens':
         specifier: workspace:*
         version: link:../tokens
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
 
   packages/project:
     dependencies:

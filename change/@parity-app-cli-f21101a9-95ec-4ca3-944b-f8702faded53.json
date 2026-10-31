@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Read token themes and categories the same way in parity lib and the app: [data-theme] attributes are themes, names like fontSizeBase300 are font sizes, and a library's .dark beats its prefers-color-scheme block",
+  "packageName": "@parity-app/cli",
+  "email": "noreply@anthropic.com",
+  "dependentChangeType": "patch"
+}
