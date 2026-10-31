@@ -389,8 +389,12 @@ describe("a frame's window", () => {
   beforeAll(() => mount({ phone: { width: 390, height: 844 }, laptop: { width: 1280, height: 800 } }))
 
   it("answers each frame's size questions for it", async () => {
-    expect(await probe("phone")).toMatchObject({ mobile: "true", wide: "false", width: "390", height: "84.4" })
-    expect(await probe("laptop")).toMatchObject({ mobile: "false", wide: "true", width: "1280", height: "80" })
+    await expect
+      .poll(() => probe("phone"))
+      .toMatchObject({ mobile: "true", wide: "false", width: "390", height: "84.4" })
+    await expect
+      .poll(() => probe("laptop"))
+      .toMatchObject({ mobile: "false", wide: "true", width: "1280", height: "80" })
     expect(errors).toEqual([])
   })
 

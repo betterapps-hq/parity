@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Editing the modes GetModes returns, then setting them, no longer fails as a conflict or loses the edit",
-  "packageName": "@parity-app/desktop",
-  "email": "noreply@anthropic.com",
-  "dependentChangeType": "patch"
-}

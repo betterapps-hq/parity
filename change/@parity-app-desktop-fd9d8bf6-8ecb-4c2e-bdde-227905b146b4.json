@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Align, Wrap, resizing, nudging, dragging and the clipboard read layers as the frame shows them, with variants, viewport patches and bound values; a copied binding is kept only where the design pasted into has that param",
-  "packageName": "@parity-app/desktop",
-  "email": "noreply@anthropic.com",
-  "dependentChangeType": "patch"
-}

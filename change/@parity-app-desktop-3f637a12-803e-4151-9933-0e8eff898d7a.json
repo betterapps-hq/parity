@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Estimate the size of a board the canvas hasn't drawn from its frames, laid out as the canvas lays them out, so Overlaps() catches wide and tall boards",
-  "packageName": "@parity-app/desktop",
-  "email": "noreply@anthropic.com",
-  "dependentChangeType": "patch"
-}

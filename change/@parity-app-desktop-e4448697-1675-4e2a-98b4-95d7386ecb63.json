@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Draw zoomed-out bitmaps, agent screenshots and measurements, exports and accessibility checks in the same window height as the live frame, keeping a mode's screen height when the frame grows with its content",
-  "packageName": "@parity-app/desktop",
-  "email": "noreply@anthropic.com",
-  "dependentChangeType": "patch"
-}

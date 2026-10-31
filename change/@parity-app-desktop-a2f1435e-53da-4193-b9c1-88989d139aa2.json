@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "The agent's Get with a state or mode reads nodes as the board draws them: bound values, variant options, responsive patches and layers inside instances",
-  "packageName": "@parity-app/desktop",
-  "email": "noreply@anthropic.com",
-  "dependentChangeType": "patch"
-}

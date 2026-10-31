@@ -1,12 +1,12 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sat, 31 Oct 2026 22:43:43 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 31 Oct 2026 23:36:31 GMT and should not be manually modified. -->
 
 <!-- Start content -->
 
 ## 0.4.0
 
-Sat, 31 Oct 2026 22:43:43 GMT
+Sat, 31 Oct 2026 23:36:31 GMT
 
 ### Minor changes
 
@@ -15,14 +15,37 @@ Sat, 31 Oct 2026 22:43:43 GMT
 
 ### Patches
 
-- Generate an app's library from the same sources and global stylesheets project detection finds, following tsconfig
-  references, the HTML entry's stylesheet imports and relative @imports (noreply@anthropic.com)
+- pnpm dev starts the project service again on Linux, and no longer treats Parity's copy of Electron as an installed
+  build. (noreply@anthropic.com)
+- Load aliased library providers, icons and sample values consistently and reject obsolete manifests
+  (ajcraswell@gmail.com)
+- The agent's Get with a state or mode reads nodes as the board draws them: bound values, variant options, responsive
+  patches and layers inside instances (noreply@anthropic.com)
+- Agents' frames, exports and accessibility checks draw library designs' instances and unsaved token values as the
+  canvas does, and no offscreen frame inherits another's token values (noreply@anthropic.com)
+- The canvas menu says Show for a layer the variant shown hides, and Make component checks the result against the
+  variant and param defaults the board shows (noreply@anthropic.com)
+- Props refresh after you change tsconfig paths or dependencies (noreply@anthropic.com)
+- Estimate the size of a board the canvas hasn't drawn from its frames, laid out as the canvas lays them out, so
+  Overlaps() catches wide and tall boards (noreply@anthropic.com)
+- Read token themes and categories the same way in parity lib and the app: [data-theme] attributes are themes, names
+  like fontSizeBase300 are font sizes, and a library's .dark beats its prefers-color-scheme block
+  (noreply@anthropic.com)
 - Show update checks in toasts and label installed beta builds independently of the update channel
   (ajcraswell@gmail.com)
-- Keep values under media queries, such as a prefers-color-scheme: dark block, out of the default theme's tokens
-  (noreply@anthropic.com)
 - Fingerprint every lockfile package-manager detection recognizes, such as npm-shrinkwrap.json, and the tsconfigs a
   project's configs extend, so cached props refresh when they change (noreply@anthropic.com)
+- Keep values under media queries, such as a prefers-color-scheme: dark block, out of the default theme's tokens
+  (noreply@anthropic.com)
+- Generate an app's library from the same sources and global stylesheets project detection finds, following tsconfig
+  references, the HTML entry's stylesheet imports and relative @imports (noreply@anthropic.com)
+- Editing the modes GetModes returns, then setting them, no longer fails as a conflict or loses the edit
+  (noreply@anthropic.com)
+- Draw zoomed-out bitmaps, agent screenshots and measurements, exports and accessibility checks in the same window
+  height as the live frame, keeping a mode's screen height when the frame grows with its content (noreply@anthropic.com)
+- Align, Wrap, resizing, nudging, dragging and the clipboard read layers as the frame shows them, with variants,
+  viewport patches and bound values; a copied binding is kept only where the design pasted into has that param
+  (noreply@anthropic.com)
 
 ## 0.3.0
 

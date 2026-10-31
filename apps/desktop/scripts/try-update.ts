@@ -231,6 +231,7 @@ async function openUpdate(page: Page): Promise<void> {
     throw new Error("Check for updates opened About instead of a toast.")
   // About remains a separate way to find the restart control after dismissing the notice.
   await page.getByRole("button", { name: "Later", exact: true }).click()
+  await page.locator('[data-slot="update-toast"]').waitFor({ state: "hidden" })
   await page.getByRole("menuitem", { name: "Help", exact: true }).click()
   await page.getByRole("menuitem", { name: "About Parity", exact: true }).click()
 }
@@ -366,6 +367,7 @@ try {
   await page.getByRole("button", { name: "Try again", exact: true }).click()
   await waitForUpdate(page, "ready")
   await page.getByRole("button", { name: "Later", exact: true }).click()
+  await page.locator('[data-slot="update-toast"]').waitFor({ state: "hidden" })
   if ((await page.evaluate(() => window.canvasHost.updates.get())).phase !== "ready")
     throw new Error("Later discarded the update.")
   await page.getByRole("application", { name: "tldraw", exact: true }).waitFor()

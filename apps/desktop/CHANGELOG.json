@@ -2,50 +2,122 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
-      "date": "Sat, 31 Oct 2026 22:43:43 GMT",
+      "date": "Sat, 31 Oct 2026 23:36:31 GMT",
       "version": "0.4.0",
       "tag": "@parity-app/desktop_v0.4.0",
       "comments": {
-        "minor": [
-          {
-            "author": "noreply@anthropic.com",
-            "package": "@parity-app/desktop",
-            "commit": "f84a4ce1392ff6d073eaaad94b43cb4f9b14ddea",
-            "comment": "Agent calls merge per design with edits made while they run, and are refused naming the designs when both changed the same one"
-          }
-        ],
         "patch": [
           {
             "author": "noreply@anthropic.com",
             "package": "@parity-app/desktop",
-            "commit": "6981f697becb9983d8f5a6ca266764a2033142af",
-            "comment": "Generate an app's library from the same sources and global stylesheets project detection finds, following tsconfig references, the HTML entry's stylesheet imports and relative @imports"
+            "commit": "not available",
+            "comment": "pnpm dev starts the project service again on Linux, and no longer treats Parity's copy of Electron as an installed build."
           },
           {
             "author": "ajcraswell@gmail.com",
             "package": "@parity-app/desktop",
-            "commit": "a880c43e66e2545d83071392e8baf56cdcc3d1a4",
+            "commit": "cb1fdc7ce4ae3b29bac411a021db8c689d132fdb",
+            "comment": "Load aliased library providers, icons and sample values consistently and reject obsolete manifests"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "cb1fdc7ce4ae3b29bac411a021db8c689d132fdb",
+            "comment": "The agent's Get with a state or mode reads nodes as the board draws them: bound values, variant options, responsive patches and layers inside instances"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "cb1fdc7ce4ae3b29bac411a021db8c689d132fdb",
+            "comment": "Agents' frames, exports and accessibility checks draw library designs' instances and unsaved token values as the canvas does, and no offscreen frame inherits another's token values"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "cb1fdc7ce4ae3b29bac411a021db8c689d132fdb",
+            "comment": "The canvas menu says Show for a layer the variant shown hides, and Make component checks the result against the variant and param defaults the board shows"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "cb1fdc7ce4ae3b29bac411a021db8c689d132fdb",
+            "comment": "Props refresh after you change tsconfig paths or dependencies"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "cb1fdc7ce4ae3b29bac411a021db8c689d132fdb",
+            "comment": "Estimate the size of a board the canvas hasn't drawn from its frames, laid out as the canvas lays them out, so Overlaps() catches wide and tall boards"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "cb1fdc7ce4ae3b29bac411a021db8c689d132fdb",
+            "comment": "Read token themes and categories the same way in parity lib and the app: [data-theme] attributes are themes, names like fontSizeBase300 are font sizes, and a library's .dark beats its prefers-color-scheme block"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "not available",
             "comment": "Show update checks in toasts and label installed beta builds independently of the update channel"
           },
           {
             "author": "noreply@anthropic.com",
             "package": "@parity-app/desktop",
-            "commit": "02cbf5c3206e113bc0860b39c35719e870cd8d8e",
+            "commit": "b3c03fb3b9b9ad2722a0e1474dbfba7e9f567127",
+            "comment": "Fingerprint every lockfile package-manager detection recognizes, such as npm-shrinkwrap.json, and the tsconfigs a project's configs extend, so cached props refresh when they change"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "b3c03fb3b9b9ad2722a0e1474dbfba7e9f567127",
             "comment": "Keep values under media queries, such as a prefers-color-scheme: dark block, out of the default theme's tokens"
           },
           {
             "author": "noreply@anthropic.com",
             "package": "@parity-app/desktop",
-            "commit": "3edd66ac4fac2a7df5826fbe60e21feadcc3b6fb",
-            "comment": "Fingerprint every lockfile package-manager detection recognizes, such as npm-shrinkwrap.json, and the tsconfigs a project's configs extend, so cached props refresh when they change"
+            "commit": "b3c03fb3b9b9ad2722a0e1474dbfba7e9f567127",
+            "comment": "Generate an app's library from the same sources and global stylesheets project detection finds, following tsconfig references, the HTML entry's stylesheet imports and relative @imports"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "not available",
+            "comment": "Editing the modes GetModes returns, then setting them, no longer fails as a conflict or loses the edit"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "not available",
+            "comment": "Draw zoomed-out bitmaps, agent screenshots and measurements, exports and accessibility checks in the same window height as the live frame, keeping a mode's screen height when the frame grows with its content"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "not available",
+            "comment": "Align, Wrap, resizing, nudging, dragging and the clipboard read layers as the frame shows them, with variants, viewport patches and bound values; a copied binding is kept only where the design pasted into has that param"
           }
         ],
         "none": [
           {
             "author": "noreply@anthropic.com",
             "package": "@parity-app/desktop",
-            "commit": "8b61400da611adb07e4337a87dbe00a5a4cd17fa",
+            "commit": "b3c03fb3b9b9ad2722a0e1474dbfba7e9f567127",
             "comment": "Work out what each layer shows in one place in core; nothing changes on screen"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "eca492016bbbbccf3ac6ef7eb0e6987a30fed1de",
+            "comment": "Finalize unpublished 0.4.0 delivery, restored update notices and development startup"
+          }
+        ],
+        "minor": [
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "b3c03fb3b9b9ad2722a0e1474dbfba7e9f567127",
+            "comment": "Agent calls merge per design with edits made while they run, and are refused naming the designs when both changed the same one"
           }
         ]
       }
