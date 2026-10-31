@@ -360,7 +360,19 @@ export class App {
     // While the camera moves, tldraw lays a blocker over the canvas, which would take what's dropped.
     const resting = () => this.page.evaluate(() => window.e2e!.session().editor!.getCameraState() === "idle")
     if (!(await until(resting))) throw new Error("The camera didn't come to rest")
-    return shown
+    // Chromium drag events use integer client coordinates. Measure the actual drop point after the camera rests,
+    // rather than expecting a fractional viewport centre to round-trip through a drag event unchanged.
+    const screen = { x: Math.round(shown.screen.x), y: Math.round(shown.screen.y) }
+    const page = await this.page.evaluate((screen) => {
+      const editor = window.e2e!.session().editor!
+      const area = editor.getContainer().getBoundingClientRect()
+      const camera = editor.getCamera()
+      return {
+        x: Math.round((screen.x - area.left) / camera.z - camera.x),
+        y: Math.round((screen.y - area.top) / camera.z - camera.y)
+      }
+    }, screen)
+    return { screen, page }
   }
 
   /**
@@ -412,6 +424,7 @@ export class App {
     await this.page.mouse.click(point.x, point.y)
     for (const key of modifiers) await this.page.keyboard.up(key)
     this.pressed()
+    await this.frames(2)
   }
 
   /** A right-click, which tldraw follows too, so it's kept apart like a press tldraw sees. */
@@ -466,6 +479,8 @@ export class App {
         const { node } = await this.selection()
         throw new Error(`At ${point.x},${point.y} in ${design}, ${node} was selected where ${path[level]} should be`)
       }
+      // Store selection changes before the overlay measures and paints its resize handles.
+      await this.frames(2)
       if (path[level] === id) return
       await this.page.mouse.dblclick(point.x, point.y)
     }
@@ -512,6 +527,8 @@ export class App {
     const seen = during ? await during() : undefined
     await this.page.mouse.up()
     this.pressed()
+    // Let the release finish drawing and committing before the next input, particularly Undo.
+    await this.frames(2)
     return seen
   }
 

@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Improve release checks for image drops and length-field validation",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}
