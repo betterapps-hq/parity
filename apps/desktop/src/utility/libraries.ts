@@ -114,7 +114,7 @@ function run(command: string, args: string[], cwd: string, started: (child: Chil
     // names from the catalog, never anything typed.
     const env = { ...process.env }
     // This is the project's package manager, whose install scripts may launch an Electron app of their own.
-    delete env.ELECTRON_RUN_AS_NODE
+    for (const key of Object.keys(env)) if (key.toUpperCase() === "ELECTRON_RUN_AS_NODE") delete env[key]
     const child = spawn(command, args, { cwd, shell: process.platform === "win32", env })
     started(child)
     let log = ""

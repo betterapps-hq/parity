@@ -60,17 +60,23 @@ try {
     if (entry.isDirectory() || entry.isSymbolicLink()) await symlink(from, to, "junction")
     else await cp(from, to)
   }
-  const env: NodeJS.ProcessEnv = {
-    ...process.env,
-    PARITY_USER_DATA: join(work, "user"),
-    PARITY_AGENT_FILE: agentFile,
-    PARITY_PROJECT: project
-  }
-  delete env.PARITY_RENDERER_URL
-  delete env.PARITY_DEV_RUNNER
-  delete env.ELECTRON_RUN_AS_NODE
-  // pnpm shims may expose workspace packages here; an installed app must resolve only what it ships.
-  delete env.NODE_PATH
+  const env: NodeJS.ProcessEnv = { ...process.env }
+  // Windows preserves key casing when this becomes a plain object. Remove aliases before setting this copy's paths;
+  // pnpm's module paths and Node preloads must not make workspace dependencies available to the installed app.
+  const reset = new Set([
+    "PARITY_USER_DATA",
+    "PARITY_AGENT_FILE",
+    "PARITY_PROJECT",
+    "PARITY_RENDERER_URL",
+    "PARITY_DEV_RUNNER",
+    "ELECTRON_RUN_AS_NODE",
+    "NODE_PATH",
+    "NODE_OPTIONS"
+  ])
+  for (const key of Object.keys(env)) if (reset.has(key.toUpperCase())) delete env[key]
+  env.PARITY_USER_DATA = join(work, "user")
+  env.PARITY_AGENT_FILE = agentFile
+  env.PARITY_PROJECT = project
   const launchEnv: Record<string, string> = {}
   for (const [key, value] of Object.entries(env)) if (value !== undefined) launchEnv[key] = value
   electron = await _electron.launch({
