@@ -37,14 +37,23 @@ function setup() {
     }
   })
   stop = () => client.stop(new Error("The test ended"))
-  const checker = typeChecker(client)
+  const lockfiles: Record<string, string[]> = { [shop]: ["pnpm-lock.yaml"] }
+  const checker = typeChecker(client, (root) => Promise.resolve(lockfiles[root] ?? []))
   /** What the worker was sent for a check. */
   const check = async (root: string, files: string[]) =>
-    (await checker.checkComponents(root, files)) as CheckResult & { known?: string[] }
-  return { client, checker, check, idleStop: () => new Promise<void>((resolve) => waiting.push(resolve)) }
+    (await checker.checkComponents(root, files)) as CheckResult & { known?: string[]; lockfiles?: string[] }
+  return { client, checker, check, lockfiles, idleStop: () => new Promise<void>((resolve) => waiting.push(resolve)) }
 }
 
 describe("typeChecker", () => {
+  it("sends each request the project's lockfiles as they're found then", async () => {
+    const { check, lockfiles } = setup()
+    expect((await check(shop, ["src/card.tsx"])).lockfiles).toEqual(["pnpm-lock.yaml"])
+    lockfiles[shop] = ["package-lock.json"]
+    expect((await check(shop, ["src/card.tsx"])).lockfiles).toEqual(["package-lock.json"])
+    expect((await check(blog, ["src/post.tsx"])).lockfiles).toEqual([])
+  })
+
   it("gives a worker started again the files its project's program had read", async () => {
     const { checker, check, idleStop } = setup()
     await checker.inferComponents(shop, {}, ["src/button.tsx", "src/card.tsx"])

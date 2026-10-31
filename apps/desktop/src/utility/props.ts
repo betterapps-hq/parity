@@ -4,6 +4,7 @@ import { totalmem } from "node:os"
 import { Worker } from "node:worker_threads"
 import type { CheckResult } from "@parity-app/code"
 import type { ComponentInfo, ComponentSource } from "@parity-app/core"
+import { findLockfiles } from "@parity-app/project"
 import { type WorkerClient, workerClient } from "./worker-client.ts"
 
 const workerUrl = new URL("./props-worker.mjs", import.meta.url)
@@ -46,21 +47,31 @@ export interface TypeChecker {
 /**
  * The type checker on a worker that can stop between requests. Each project's program reads the files earlier requests
  * asked for as well as its own, so a worker started again is given them, and builds the program the last one had.
+ * Each request carries the project's lockfiles as they're found now, so the worker sees one appear or change and reads
+ * installed packages' declarations again.
  */
-export function typeChecker(client: WorkerClient): TypeChecker {
+export function typeChecker(
+  client: WorkerClient,
+  lockfiles: (root: string) => Promise<string[]> = findLockfiles
+): TypeChecker {
   /** The app's files each open project's program was asked to read. */
   const read = new Map<string, Set<string>>()
   /** The projects the running worker has had a request for, so it already has their files. */
   const primed = new Set<string>()
+  /** How many times each project was closed, so a request made before a close isn't sent after it. */
+  const closes = new Map<string, number>()
 
-  const ask = (root: string, message: Record<string, unknown>, files: string[]) => {
+  const ask = async (root: string, message: Record<string, unknown>, files: string[]) => {
+    const closed = closes.get(root) ?? 0
+    const locks = await lockfiles(root)
+    if ((closes.get(root) ?? 0) !== closed) throw new Error("The project closed")
     if (!client.running) primed.clear()
     const known = primed.has(root) ? [] : [...(read.get(root) ?? [])]
     primed.add(root)
     const kept = read.get(root) ?? new Set<string>()
     for (const file of files) kept.add(file)
     read.set(root, kept)
-    return client.request({ ...message, root, ...(known.length > 0 ? { known } : {}) })
+    return client.request({ ...message, root, lockfiles: locks, ...(known.length > 0 ? { known } : {}) })
   }
 
   return {
@@ -78,6 +89,7 @@ export function typeChecker(client: WorkerClient): TypeChecker {
       return result
     },
     closeChecker(root, lastProject) {
+      closes.set(root, (closes.get(root) ?? 0) + 1)
       read.delete(root)
       primed.delete(root)
       if (lastProject) {

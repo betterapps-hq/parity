@@ -1,22 +1,28 @@
 // Reads components with the TypeScript checker off the service's main thread: it can take seconds on a large project.
-import { statSync } from "node:fs"
+import { realpathSync, statSync } from "node:fs"
 import { freemem } from "node:os"
 import { resolve } from "node:path"
 import { parentPort } from "node:worker_threads"
 import {
   type CheckResult,
+  type ConfigChange,
+  configChange,
+  type ConfigInputs,
+  configInputs,
+  type ConfigStamps,
   componentOptions,
   reactFinder,
   reactProbe,
   readTsconfig,
   withReactProbe
 } from "@parity-app/code"
-import type { ComponentSource } from "@parity-app/core"
+import type { ComponentInfo, ComponentSource } from "@parity-app/core"
 import ts from "typescript"
 
 /**
  * What's asked of the worker. `known` comes with a project's first request to a worker started again after one that
- * stopped while idle: the app's files that one's program had read, so this one's reads them too.
+ * stopped while idle: the app's files that one's program had read, so this one's reads them too. `lockfiles` are the
+ * project's lockfiles as `findLockfiles` finds them now, relative to the root.
  */
 type Request =
   | {
@@ -26,21 +32,29 @@ type Request =
       components: Record<string, ComponentSource>
       files?: string[]
       known?: string[]
+      lockfiles: string[]
     }
-  | { id: number; kind: "check"; root: string; files: string[]; known?: string[] }
+  | { id: number; kind: "check"; root: string; files: string[]; known?: string[]; lockfiles: string[] }
   | { id: number; kind: "close"; root: string }
 
 parentPort?.on("message", (request: Request) => {
   try {
-    let result: ReturnType<typeof check> | ReturnType<typeof props> | undefined
-    if (request.kind === "close") checkers.delete(request.root)
-    else if (request.kind === "check") result = check(request.root, request.files, request.known ?? [])
-    else result = props(request.root, request.components, [...(request.files ?? []), ...(request.known ?? [])])
-    parentPort?.postMessage({ id: request.id, result })
+    parentPort?.postMessage({ id: request.id, result: answer(request) })
   } catch (error) {
     parentPort?.postMessage({ id: request.id, error: error instanceof Error ? error.message : String(error) })
   }
 })
+
+/** Answers one request as the worker thread does, exported so tests run the same code without a thread. */
+export function answer(request: Request): CheckResult | Record<string, ComponentInfo> | undefined {
+  if (request.kind === "close") {
+    checkers.delete(request.root)
+    return undefined
+  }
+  if (request.kind === "check") return check(request.root, request.files, request.known ?? [], request.lockfiles)
+  const files = [...(request.files ?? []), ...(request.known ?? [])]
+  return props(request.root, request.components, files, request.lockfiles)
+}
 
 /** How components are found and their props read: React's, the one renderer so far. */
 const finder = reactFinder
@@ -50,36 +64,54 @@ const finder = reactFinder
  * written, so aliases such as `const Select = SelectPrimitive.Root` and components returning only `children` count.
  * The capitalised exports it leaves out come with why.
  */
-function check(root: string, files: string[], known: string[]): CheckResult {
+function check(root: string, files: string[], known: string[], lockfiles: string[]): CheckResult {
   return finder.check(
     root,
     files,
     programFor(
       root,
-      [...files, ...known].map((file) => resolve(root, file))
+      [...files, ...known].map((file) => resolve(root, file)),
+      lockfiles
     )
   )
 }
 
 /** Each component's props, from the project's program, which also gets the app's `files` the checker reads next. */
-function props(root: string, components: Record<string, ComponentSource>, files: string[]) {
-  const program = programFor(root, [
-    ...finder.propsFiles(root, components),
-    ...files.map((file) => resolve(root, file))
-  ])
+function props(
+  root: string,
+  components: Record<string, ComponentSource>,
+  files: string[],
+  lockfiles: string[]
+): Record<string, ComponentInfo> {
+  const program = programFor(
+    root,
+    [...finder.propsFiles(root, components), ...files.map((file) => resolve(root, file))],
+    lockfiles
+  )
   return finder.props(root, components, program)
 }
 
-/** A project's checker: one program for listing components and reading props, rebuilt only when its files change. */
+/**
+ * A project's checker: one program for listing components and reading props, rebuilt when its files change, and made
+ * again from the project's config, its compiler options read afresh, when one of the config inputs changes.
+ */
 interface Checker {
   options: ts.CompilerOptions
   host: ts.CompilerHost
+  /** The files its host parsed. A checker made again after a config change keeps installed packages' ones. */
+  parsed: ParseCache
   rootNames: Set<string>
   program?: ts.Program
   /** The project's own files the program read, with when each last changed. */
   read: Map<string, number>
+  /** The tsconfigs, package.json and lockfiles its options and installed declarations come from, and how they stood. */
+  inputs: ConfigInputs
+  stamps: ConfigStamps
   used: number
 }
+
+/** Parsed files by the settings they were parsed with and their path, with when each last changed (0 if installed). */
+type ParseCache = Map<string, { time: number; file: ts.SourceFile }>
 
 const checkers = new Map<string, Checker>()
 /** Projects whose checkers are kept between requests; the least recently used beyond this is let go. */
@@ -87,18 +119,13 @@ const keptCheckers = 2
 /** Below this much free memory a new program isn't built, and components stay as the parse found them. */
 const minimumFreeMb = 1024
 
-function programFor(root: string, files: string[]): ts.Program {
+function programFor(root: string, files: string[], lockfiles: string[]): ts.Program {
   let checker = checkers.get(root)
-  if (!checker) {
-    const options = componentOptions({ allowImportingTsExtensions: true, ...readTsconfig(root).app?.options })
-    checker = {
-      options,
-      host: withReactProbe(cachingHost(options), root),
-      rootNames: new Set(),
-      read: new Map(),
-      used: 0
-    }
-    checkers.set(root, checker)
+  if (!checker) checker = newChecker(root, lockfiles)
+  else {
+    const stamps = stampInputs(root, { ...checker.inputs, lockfiles })
+    const change = configChange(checker.stamps, stamps)
+    if (change !== "none") checker = newChecker(root, lockfiles, { checker, change, stamps })
   }
   checker.used = Date.now()
   const before = checker.rootNames.size
@@ -130,6 +157,69 @@ function programFor(root: string, files: string[]): ts.Program {
   return checker.program
 }
 
+/**
+ * Makes a project's checker from its config as it is now. One made again after a `change` keeps the files earlier
+ * requests asked for and, unless the dependencies changed, the installed packages' declarations it had parsed.
+ */
+function newChecker(
+  root: string,
+  lockfiles: string[],
+  previous?: { checker: Checker; change: ConfigChange; stamps: ConfigStamps }
+): Checker {
+  const tsconfig = readTsconfig(root)
+  const options = componentOptions({ allowImportingTsExtensions: true, ...tsconfig.app?.options })
+  const inputs = configInputs(tsconfig, lockfiles)
+  const stamps = stampInputs(root, inputs)
+  // An input stamped before the configs were read keeps that stamp, so a change made while they were read is seen next.
+  for (const kind of ["configs", "lockfiles"] as const) {
+    for (const path of Object.keys(stamps[kind])) {
+      const before = previous?.stamps[kind][path]
+      if (before !== undefined) stamps[kind][path] = before
+    }
+  }
+  const parsed: ParseCache = new Map()
+  if (previous && previous.change !== "dependencies") {
+    for (const [key, kept] of previous.checker.parsed) if (kept.time === 0) parsed.set(key, kept)
+  }
+  const checker: Checker = {
+    options,
+    host: withReactProbe(cachingHost(options, parsed), root),
+    parsed,
+    rootNames: previous?.checker.rootNames ?? new Set(),
+    read: new Map(),
+    inputs,
+    stamps,
+    used: 0
+  }
+  checkers.set(root, checker)
+  return checker
+}
+
+/** How each config input stands now. Tsconfigs are relative to the root's real path, as the config reader lists them. */
+function stampInputs(root: string, inputs: ConfigInputs): ConfigStamps {
+  const realRoot = realPath(root)
+  const stamp = (base: string, paths: string[]) =>
+    Object.fromEntries(paths.map((path) => [path, stampOf(resolve(base, path))]))
+  return { configs: stamp(realRoot, inputs.configs), lockfiles: stamp(root, inputs.lockfiles) }
+}
+
+function stampOf(path: string): string {
+  try {
+    const stats = statSync(path)
+    return `${stats.mtimeMs}:${stats.size}`
+  } catch {
+    return "missing"
+  }
+}
+
+function realPath(path: string): string {
+  try {
+    return realpathSync.native(path)
+  } catch {
+    return path
+  }
+}
+
 /** Whether any of the project's own files the program read has changed since. */
 function changed(checker: Checker): boolean {
   for (const [file, time] of checker.read) if (modified(file) !== time) return true
@@ -137,19 +227,22 @@ function changed(checker: Checker): boolean {
 }
 
 /**
- * A compiler host that keeps each file it parses, so a rebuilt program reuses them: installed packages' declarations,
- * most of what a program holds, are parsed once, and the project's own files again only when they change.
+ * A compiler host that keeps each file it parses in `parsed`, so a rebuilt program reuses them: installed packages'
+ * declarations, most of what a program holds, are parsed once until a lockfile changes, and the project's own files
+ * again only when they change. Each is kept under the settings it was parsed with, which a config change can change.
  */
-function cachingHost(options: ts.CompilerOptions): ts.CompilerHost {
+function cachingHost(options: ts.CompilerOptions, parsed: ParseCache): ts.CompilerHost {
   const host = ts.createCompilerHost(options, true)
-  const parsed = new Map<string, { time: number; file: ts.SourceFile }>()
   const getSourceFile = host.getSourceFile.bind(host)
   host.getSourceFile = (fileName, language, onError, create) => {
     const time = isInstalled(fileName) ? 0 : modified(fileName)
-    const kept = parsed.get(fileName)
+    const settings =
+      typeof language === "object" ? `${language.languageVersion}:${language.impliedNodeFormat ?? ""}` : `${language}`
+    const key = `${settings}:${fileName}`
+    const kept = parsed.get(key)
     if (kept && kept.time === time) return kept.file
     const file = getSourceFile(fileName, language, onError, create)
-    if (file) parsed.set(fileName, { time, file })
+    if (file) parsed.set(key, { time, file })
     return file
   }
   return host
