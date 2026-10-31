@@ -385,11 +385,14 @@ try {
     try {
       if (process.platform === "win32") {
         const next = windowsApp()
-        if (next && !ownedProcesses.has(next.pid) && next.version === "999.0.1") {
+        if (next && next.pid !== appProcess.pid) {
           ownedProcesses.add(next.pid)
-          relaunched = true
-          console.log(`Restarted Windows app: PID ${next.pid}, executable version ${next.version}`)
-          break
+          // Windows version resources include a fourth build component; the release version must still match exactly.
+          if (/^999\.0\.1(?:\.\d+)?$/.test(next.version)) {
+            relaunched = true
+            console.log(`Restarted Windows app: PID ${next.pid}, executable version ${next.version}`)
+            break
+          }
         }
         lastRelaunch = `Waiting for the new Windows app window: ${JSON.stringify(next)}`
         await new Promise((done) => setTimeout(done, 500))
