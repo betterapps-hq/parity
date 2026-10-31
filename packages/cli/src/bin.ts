@@ -4,10 +4,7 @@ import { resolve } from "node:path"
 import { parseArgs } from "node:util"
 import { runCheck } from "./check.ts"
 import {
-  type AccessibilityResponse,
   call,
-  type ComponentsResponse,
-  type ConsoleResponse,
   describeAccessibility,
   describeComponents,
   describeConsole,
@@ -15,14 +12,12 @@ import {
   describeProblems,
   describeProps,
   describeTokens,
-  type ExecResponse,
-  type ProblemsResponse,
-  type PropsResponse,
-  type TokenInfo
+  type ExecResponse
 } from "./client.ts"
 import { executeOperation } from "./execute.ts"
 import { runLib } from "./lib.ts"
 import { serveMcp } from "./mcp.ts"
+import { operations, skillOperation } from "./operations.ts"
 import { readSkill } from "./skills.ts"
 
 const usage = `parity: drive the Parity app from a terminal or an agent
@@ -126,14 +121,13 @@ async function main(): Promise<void> {
   }
   switch (command) {
     case "tabs":
-      return print(await call("tabs"))
+      return print(await operations.tabs.run({}, call))
     case "state":
-      return print(await call("state", { tab: values.tab }))
+      return print(await operations.state.run({ tab: values.tab }, call))
     case "open":
-      if (!rest[0]) throw new Error("parity open <folder>")
-      return print(await call("open", { root: resolve(rest[0]) }))
+      return print(await operations.open.run({ root: rest[0]?.trim() ? resolve(rest[0]) : rest[0] }, call))
     case "skill":
-      console.log(await readSkill(rest[0]))
+      console.log(await skillOperation.run({ path: rest[0] }, readSkill))
       return
     case "mcp":
       serveMcp()
@@ -168,70 +162,75 @@ async function main(): Promise<void> {
       else if (!editId) code = (await stdin()) || undefined
       const edits: unknown = values.edits === undefined ? undefined : JSON.parse(values.edits)
       const result = await executeOperation.run({ tab: values.tab, label: values.label, code, editId, edits }, call)
-      report(result)
+      report(result, executeOperation.failed(result))
       return
     }
     case "screenshot": {
-      if (!rest[0]) throw new Error("parity screenshot <design> [--state s] [--mode m]")
-      const result = await call<ExecResponse>("screenshot", {
-        tab: values.tab,
-        design: rest[0],
-        state: one(values.state),
-        mode: one(values.mode),
-        scale: values.scale ? Number(values.scale) : undefined
-      })
-      report(result)
+      const result = await operations.screenshot.run(
+        {
+          tab: values.tab,
+          design: rest[0],
+          state: values.state,
+          mode: values.mode,
+          scale: values.scale === undefined ? undefined : Number(values.scale)
+        },
+        call
+      )
+      report(result, operations.screenshot.failed(result))
       return
     }
     case "a11y":
     case "accessibility": {
-      if (!rest[0]) throw new Error("parity a11y <design> [--state s] [--mode m]")
-      const result = await call<AccessibilityResponse>("accessibility", {
-        tab: values.tab,
-        design: rest[0],
-        state: one(values.state),
-        mode: one(values.mode)
-      })
+      const result = await operations.accessibility.run(
+        {
+          tab: values.tab,
+          design: rest[0],
+          state: values.state,
+          mode: values.mode
+        },
+        call
+      )
       if (values.json) print(result)
       else console.log(describeAccessibility(result))
-      if (result.findings.length > 0) process.exitCode = 1
+      if (operations.accessibility.failed(result)) process.exitCode = 1
       return
     }
     case "problems": {
-      if (!rest[0]) throw new Error("parity problems <design> [--state s] [--mode m]")
-      const result = await call<ProblemsResponse>("problems", {
-        tab: values.tab,
-        design: rest[0],
-        state: one(values.state),
-        mode: one(values.mode)
-      })
+      const result = await operations.problems.run(
+        {
+          tab: values.tab,
+          design: rest[0],
+          state: values.state,
+          mode: values.mode
+        },
+        call
+      )
       if (values.json) print(result)
       else console.log(describeProblems(result))
-      if (result.problems.length > 0) process.exitCode = 1
+      if (operations.problems.failed(result)) process.exitCode = 1
       return
     }
     case "tokens": {
       const filter = { category: values.category, source: values.source, search: values.search }
-      const tokens = await call<TokenInfo[]>("tokens", { tab: values.tab, ...filter })
+      const tokens = await operations.tokens.run({ tab: values.tab, ...filter }, call)
       if (values.json) print(tokens)
       else console.log(describeTokens(tokens))
       return
     }
     case "components": {
-      const result = await call<ComponentsResponse>("components", { tab: values.tab })
+      const result = await operations.components.run({ tab: values.tab }, call)
       if (values.json) print(result)
       else console.log(describeComponents(result))
       return
     }
     case "props": {
-      if (!rest[0]) throw new Error("parity props <Component> [--all]")
-      const result = await call<PropsResponse>("props", { tab: values.tab, component: rest[0], all: values.all })
+      const result = await operations.props.run({ tab: values.tab, component: rest[0], all: values.all }, call)
       if (values.json) print(result)
       else console.log(describeProps(result))
       return
     }
     case "console": {
-      const result = await call<ConsoleResponse>("console", { tab: values.tab, clear: values.clear })
+      const result = await operations.console.run({ tab: values.tab, clear: values.clear }, call)
       if (values.json) print(result)
       else console.log(describeConsole(result))
       return
@@ -241,16 +240,10 @@ async function main(): Promise<void> {
   }
 }
 
-function report(result: ExecResponse): void {
+function report(result: ExecResponse, failed: boolean): void {
   if (values.json) print({ ...result, screenshots: result.screenshots.map(({ png: _png, ...shot }) => shot) })
   else console.log(describeExec(result))
-  if (!result.ok) process.exitCode = 1
-}
-
-/** A repeated option becomes a list; one value stays a string, so "all" and "shown" work. */
-function one(list: string[] | undefined): string | string[] | undefined {
-  if (!list || list.length === 0) return undefined
-  return list.length === 1 ? list[0] : list
+  if (failed) process.exitCode = 1
 }
 
 function print(value: unknown): void {

@@ -2086,3 +2086,16 @@ adapter responsibilities; execution still lands as one undoable step through the
 `packages/cli/src/execute.test.ts` exercises both actual entry points against local RPC: discovery, stdin and file
 input, explicit labels/tabs, defaults, retry patches, invalid requests, success output and images, failed execution and
 desktop errors. It also checks that caller identity travels separately from operation parameters.
+
+### Shared desktop operation contracts (PAR-452)
+
+All CLI desktop interactions use the contracts in `packages/cli/src/operations.ts`, alongside PAR-451's execute
+operation. MCP also exposes `get_tokens`, `get_components` and `get_props`. Both transports validate names, selectors,
+booleans and screenshot scale before RPC, use the same defaults, and signal screenshot failures and audit findings as
+failures with details preserved. CLI relative-path resolution and output formatting stay at the edge. Local skill
+reading shares validation and a reader without requiring the app.
+
+`packages/cli/src/operations.test.ts` launches both real entry points against local RPC, covering each operation's
+defaults, explicit tab/options, human and JSON output, invalid inputs, RPC errors, image blocks, audit and screenshot
+failures, local skill reads and errors, and MCP discovery. `transport-fixture.ts` also supports execute's existing
+contract tests. The running app is checked with read-only state and component/token/prop reads through both transports.

@@ -99,8 +99,14 @@ export function executeRequest(input: Record<string, unknown>): ExecuteRequest {
   }
 }
 
+/** Execution failures have the same meaning for CLI exits and MCP tool errors. */
+export function executionFailed(result: ExecResponse): boolean {
+  return !result.ok
+}
+
 /** One handler for both adapters. Caller identity stays in the transport's connection context. */
 export const executeOperation = {
+  failed: executionFailed,
   /** Discovery uses the same contract, with just the two historical MCP field aliases. */
   inputSchema(names = { label: "label", code: "code" }): Record<string, unknown> {
     const { label, code, ...rest } = executeProperties
