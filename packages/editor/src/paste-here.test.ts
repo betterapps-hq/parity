@@ -185,6 +185,40 @@ describe("paste here", () => {
     expect(findNode(container.root, copies[0]!)?.style).toMatchObject({ position: "absolute", left: 45, top: 7.5 })
   })
 
+  it("reads whether the layout is absolutely placed in the frame's viewport", () => {
+    const original = dashboard()
+    const responsive: ContainerSpec = {
+      ...original,
+      root: {
+        type: "layout",
+        id: "root",
+        children: [
+          {
+            type: "layout",
+            id: "stats",
+            style: { direction: "row", gap: 4 },
+            responsive: { mobile: { style: { position: "absolute", top: 2, left: 2 } } },
+            children: [text("revenue"), text("issues"), text("users"), text("uptime")]
+          }
+        ]
+      }
+    }
+    expect(slotHere(responsive, stats({ x: 280, y: 230 }), base, "mobile")).toMatchObject({ free: true, index: 4 })
+    expect(slotHere(responsive, stats({ x: 280, y: 230 }), base, "desktop")).toMatchObject({ free: false, index: 2 })
+  })
+
+  it("keeps a binding only where the design has a param of that name", () => {
+    const bound: DesignNode = { type: "text", id: "title", text: "Card title", bind: { text: "title" } }
+    const without = pasteHere(dashboard(), [bound], stats({ x: 280, y: 230 }), base)
+    expect(findNode(without.container.root, without.copies[0]!)).not.toHaveProperty("bind")
+    const titled: ContainerSpec = { ...dashboard(), params: { title: { type: "text" } } }
+    const kept = pasteHere(titled, [bound], stats({ x: 280, y: 230 }), base)
+    expect(findNode(kept.container.root, kept.copies[0]!)).toMatchObject({
+      text: "Card title",
+      bind: { text: "title" }
+    })
+  })
+
   it("pastes nothing into what isn't one of the design's layouts", () => {
     const into = (layout: string) => pasteHere(dashboard(), [card], { ...stats({ x: 280, y: 230 }), layout }, base)
     expect(into("revenue").copies).toEqual([])

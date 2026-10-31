@@ -3,6 +3,7 @@ import {
   type ContainerViewSettings,
   type ModeSettings,
   type ResolvedMode,
+  resolveModes,
   shownModes,
   type StateSpec
 } from "@parity-app/core"
@@ -76,4 +77,12 @@ export function activeState(container: ContainerSpec): StateSpec {
 /** How much a companion frame of this width is shrunk. */
 export function companionScale(width: number): number {
   return Math.min(1, companionWidth / width)
+}
+
+/**
+ * The viewport of the frame a layer was picked in, by its mode: the key its design's responsive patches use, so an edit
+ * reads the layer as that frame shows it. None when no frame is known.
+ */
+export function frameViewport(modes: ModeSettings, mode: string | undefined): string | undefined {
+  return mode === undefined ? undefined : resolveModes(modes).find((candidate) => candidate.id === mode)?.viewport
 }

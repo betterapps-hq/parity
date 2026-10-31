@@ -3,16 +3,15 @@ import {
   type ContainerSpec,
   type DesignNode,
   locateNode,
-  nodeInState,
   type NodeStyle,
-  shownVariants,
   type StateSpec,
   topmostNodes,
   walkNodes
 } from "@parity-app/core"
+import { boardReader } from "@parity-app/editor"
 import type { ContainerEntry, DesignStore } from "../design-store.ts"
 import { designsSelection, layersSelection, selectedDesigns, selectedNodes, type Selection } from "../selection.ts"
-import { activeState } from "./view.ts"
+import { activeState, frameViewport } from "./view.ts"
 
 /** Select inverse, select matching layers, and stepping from one design to the next, as Figma's keys do them. */
 
@@ -82,13 +81,18 @@ export function matchKey(node: DesignNode): string {
 }
 
 /**
- * The layers of a design that match the given ones, as the state shows them, the given ones among them, in the
+ * The layers of a design that match the given ones, as the board shows them in a state and viewport, the given ones among them, in the
  * design's order. The search stays in the design, as Figma's stays in the top-level frame, and doesn't go inside
  * instances.
  */
-export function matchingLayers(container: ContainerSpec, ids: readonly string[], state: StateSpec): string[] {
-  const variants = shownVariants(container)
-  const key = (node: DesignNode) => matchKey(nodeInState(node, state, variants))
+export function matchingLayers(
+  container: ContainerSpec,
+  ids: readonly string[],
+  state: StateSpec,
+  viewport?: string
+): string[] {
+  const shown = boardReader(container, { state, viewport })
+  const key = (node: DesignNode) => matchKey(shown(node))
   const wanted = new Set(topmostNodes(container.root, ids).map(key))
   const found: string[] = []
   walkNodes(container.root, (node) => {
@@ -107,7 +111,7 @@ export function matchingSelection(store: DesignStore, current: Selection): Selec
   if (entry && layers.length > 0) {
     const state =
       entry.container.states.find((candidate) => candidate.id === current.state) ?? activeState(entry.container)
-    const found = matchingLayers(entry.container, layers, state)
+    const found = matchingLayers(entry.container, layers, state, frameViewport(store.getModes(), current.mode))
     if (found.length === 0) return undefined
     // The layer picked last stays the one the inspector shows.
     const ordered =

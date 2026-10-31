@@ -18,6 +18,7 @@ import type { ProjectSession } from "../workspace.ts"
 import { importImage } from "./clipboard.ts"
 import { type Hit, hitTest, type Point } from "./hit.ts"
 import { measureHere } from "./paste-here.ts"
+import { frameViewport } from "./view.ts"
 
 /**
  * Image files dragged onto the canvas from Explorer or Finder (PAR-24). Over a layout inside a design they go into the
@@ -52,7 +53,8 @@ export function fileDropAt(session: ProjectSession, area: ParentNode, point: Poi
   const hit = hitTest(area, store, point, editor)
   if (hit) {
     const here = measureHere(hit, point, spacingUnit(session.tokens.get()))
-    const slot = here && slotHere(hit.entry.container, here, editingState(hit.entry.container, hit.state))
+    const state = editingState(hit.entry.container, hit.state)
+    const slot = here && slotHere(hit.entry.container, here, state, frameViewport(store.getModes(), hit.mode))
     return here && slot ? { kind: "layout", hit, here, line: slot.line } : { kind: "none" }
   }
   if (!editor) return { kind: "none" }
@@ -116,9 +118,10 @@ export async function dropFiles(session: ProjectSession, target: FileDrop, files
     return
   }
   const { hit, here } = target
+  const viewport = frameViewport(store.getModes(), hit.mode)
   let copies: string[] = []
   store.updateContainer(hit.entry.key, label, (container) => {
-    const placed = pasteHere(container, nodes, here, editingState(container, hit.state))
+    const placed = pasteHere(container, nodes, here, editingState(container, hit.state), viewport)
     copies = placed.copies
     return placed.container
   })

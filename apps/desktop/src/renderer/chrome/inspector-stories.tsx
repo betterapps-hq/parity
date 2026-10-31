@@ -1,12 +1,5 @@
-import {
-  editNode,
-  isBaseState,
-  locateNode,
-  type NodeChange,
-  nodeInState,
-  type NodeStyle,
-  resetOverride
-} from "@parity-app/core"
+import { editNode, isBaseState, locateNode, type NodeChange, type NodeStyle, resetOverride } from "@parity-app/core"
+import { boardReader } from "@parity-app/editor"
 import type { ReactNode } from "react"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
 import { useProject } from "../canvas/context.ts"
@@ -83,9 +76,10 @@ function useSelectedLayer() {
     })
   const reset = (field: Parameters<typeof resetOverride>[3]) =>
     store.updateContainer(key, "Reset change", (current) => resetOverride(current, state.id, nodeId, field))
-  const node = nodeInState(location.node, state)
+  const shown = boardReader(container, { state })
+  const node = shown(location.node)
   const parent = location.ancestors.at(-1)
-  const parentStyle = parent?.type === "layout" ? (nodeInState(parent, state).style ?? {}) : undefined
+  const parentStyle = parent?.type === "layout" ? (shown(parent).style ?? {}) : undefined
   const editor: StyleEditor = {
     style: node.style ?? {},
     changed: (name) => override?.style?.[name] !== undefined,

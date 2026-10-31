@@ -9,7 +9,6 @@ import {
   insertNode,
   locateNode,
   nodeIds,
-  nodeInState,
   type NodeStyle,
   type NoteSpec,
   parseCanvasDocument,
@@ -19,12 +18,15 @@ import {
   uniqueId,
   withFreshIds
 } from "@parity-app/core"
+import { boardReader } from "./shown.ts"
 
 /**
  * The clipboard's rules: what a copy holds, how it's written as text so it pastes into another project or another
  * Parity window, where pasted layers go, the fresh ids they get, and copying and pasting style. What's copied is what
- * the frame shows: a layer copied in a state other than the base carries that state's changes. Pasted layers get fresh
- * ids; pasted designs keep theirs unless taken. Reading and writing the system clipboard stays in the app.
+ * the frame shows: a layer copied in a state other than the base carries that state's changes, the variant options the
+ * board shows, the frame's responsive patches and the values its bound params show. Pasted layers get fresh ids, and
+ * keep a binding only where the design they go into has a param of that name; pasted designs keep their ids unless
+ * taken. Reading and writing the system clipboard stays in the app.
  */
 
 export type ClipboardPayload =
@@ -116,27 +118,73 @@ export function textLayer(text: string): DesignNode {
   return { type: "text", id: "pasted", text }
 }
 
-/** A copy of the layers `ids`, the outermost of them, each with everything in it as `state` shows them. */
+/**
+ * A copy of the layers `ids`, the outermost of them, each with everything in it as the board shows them in `state` and
+ * `viewport` (see `asShown`).
+ */
 export function copyLayers(
   container: ContainerSpec,
   ids: Iterable<string>,
-  state: StateSpec | undefined
+  state: StateSpec | undefined,
+  viewport?: string
 ): ClipboardPayload | undefined {
-  const nodes = topmostNodes(container.root, ids).map((node) => asShown(node, state))
+  const nodes = topmostNodes(container.root, ids).map((node) => asShown(container, node, state, viewport))
   return nodes.length > 0 ? { kind: "layers", nodes } : undefined
 }
 
-/** A node and everything in it as a state shows them, for copying it or moving it to a design without that state. */
-export function asShown(node: DesignNode, state: StateSpec | undefined): DesignNode {
-  const shown = nodeInState(node, state)
-  if (shown.type === "layout") return { ...shown, children: shown.children.map((child) => asShown(child, state)) }
-  if (shown.type === "component" && shown.slots) {
-    const slots = Object.fromEntries(
-      childEntries(shown).map(({ slot, nodes }) => [slot!, nodes.map((child) => asShown(child, state))])
-    )
-    return { ...shown, slots }
+/**
+ * One of a design's nodes and everything in it as the board shows them in a state and viewport, for copying it or
+ * moving it to another design: with the state's changes, the variant options shown, the viewport's responsive patches,
+ * and each bound value as it shows. The bindings stay, for `fitBindings` to keep where the design they go into has the
+ * param.
+ */
+export function asShown(
+  container: ContainerSpec,
+  node: DesignNode,
+  state: StateSpec | undefined,
+  viewport?: string
+): DesignNode {
+  const read = boardReader(container, { state, viewport })
+  const shown = (layer: DesignNode): DesignNode => {
+    const drawn = read(layer)
+    if (drawn.type === "layout") return { ...drawn, children: drawn.children.map(shown) }
+    if (drawn.type === "component" && drawn.slots) {
+      const slots = Object.fromEntries(childEntries(drawn).map(({ slot, nodes }) => [slot!, nodes.map(shown)]))
+      return { ...drawn, slots }
+    }
+    return drawn
   }
-  return shown
+  return shown(node)
+}
+
+/**
+ * A copied node and everything in it, bound only to params `destination` has: a binding to a param of the same name is
+ * kept, so the layer follows that param there; any other is dropped, leaving the value it showed when it was copied.
+ */
+export function fitBindings(node: DesignNode, destination: ContainerSpec): DesignNode {
+  const has = (param: string) => destination.params !== undefined && Object.hasOwn(destination.params, param)
+  let next = node
+  if (node.bind) {
+    const { text, visible, props } = node.bind
+    const keptProps = Object.fromEntries(Object.entries(props ?? {}).filter(([, param]) => has(param)))
+    const bind = {
+      ...(text !== undefined && has(text) ? { text } : {}),
+      ...(visible !== undefined && has(visible) ? { visible } : {}),
+      ...(Object.keys(keptProps).length > 0 ? { props: keptProps } : {})
+    }
+    next = { ...node }
+    if (Object.keys(bind).length > 0) next.bind = bind
+    else delete next.bind
+  }
+  if (next.type === "layout")
+    return { ...next, children: next.children.map((child) => fitBindings(child, destination)) }
+  if (next.type === "component" && next.slots) {
+    const slots = Object.fromEntries(
+      childEntries(next).map(({ slot, nodes }) => [slot!, nodes.map((child) => fitBindings(child, destination))])
+    )
+    return { ...next, slots }
+  }
+  return next
 }
 
 /** Where pasted layers go in a design: the layout they go into, and their index and slot there, or last when unset. */
@@ -165,14 +213,17 @@ export function pasteTarget(
   return undefined
 }
 
-/** Pastes copies of `nodes`, with fresh ids, at `target`, in order. Returns the design and the copies' ids. */
+/**
+ * Pastes copies of `nodes`, with fresh ids and the bindings the design has params for (see `fitBindings`), at
+ * `target`, in order. Returns the design and the copies' ids.
+ */
 export function pasteLayers(
   container: ContainerSpec,
   target: PasteTarget,
   nodes: readonly DesignNode[]
 ): { container: ContainerSpec; copies: string[] } {
   const taken = nodeIds(container.root)
-  const copies = nodes.map((node) => withFreshIds(node, taken))
+  const copies = nodes.map((node) => withFreshIds(fitBindings(node, container), taken))
   let root = container.root
   for (const [offset, copy] of copies.entries()) {
     root = insertNode(root, target.parent, copy, {
@@ -185,7 +236,8 @@ export function pasteLayers(
 
 /**
  * Layers pasted with nothing to paste them into: a new screen called Pasted, with its top left `at`, that lays them out
- * in a padded column. Its id isn't one of `taken`, the designs' ids, and its layers get fresh ids.
+ * in a padded column. Its id isn't one of `taken`, the designs' ids, and its layers get fresh ids. It has no params, so
+ * the layers keep no bindings, only the values they showed.
  */
 export function designOfLayers(
   nodes: readonly DesignNode[],
@@ -195,18 +247,15 @@ export function designOfLayers(
   const ids = new Set<string>()
   const rootId = generateId(ids)
   ids.add(rootId)
-  return {
+  const design: ContainerSpec = {
     id: uniqueId("Pasted", taken),
     name: "Pasted",
     position: at,
-    root: {
-      type: "layout",
-      id: rootId,
-      style: { padding: 6, gap: 4 },
-      children: nodes.map((node) => withFreshIds(node, ids))
-    },
+    root: { type: "layout", id: rootId, style: { padding: 6, gap: 4 }, children: [] },
     states: [{ id: "default", name: "Default" }]
   }
+  const children = nodes.map((node) => withFreshIds(fitBindings(node, design), ids))
+  return { ...design, root: { type: "layout", id: rootId, style: { padding: 6, gap: 4 }, children } }
 }
 
 /**
@@ -250,24 +299,37 @@ export function copyNotes(
   })
 }
 
-/** The look of the layer `id` as `state` shows it, to paste onto other layers. */
-export function styleOf(container: ContainerSpec, id: string, state: StateSpec): NodeStyle | undefined {
+/**
+ * The look of the layer `id` as the board shows it in `state` and `viewport`, with the variant options shown, to paste
+ * onto other layers.
+ */
+export function styleOf(
+  container: ContainerSpec,
+  id: string,
+  state: StateSpec,
+  viewport?: string
+): NodeStyle | undefined {
   const node = findNode(container.root, id)
-  return node ? { ...nodeInState(node, state).style } : undefined
+  return node ? { ...boardReader(container, { state, viewport })(node).style } : undefined
 }
 
-/** Gives each of the layers `ids` the copied `style` in `state`, in place of its own. */
+/**
+ * Gives each of the layers `ids` the copied `style` in `state`, in place of the one the board shows in `state` and
+ * `viewport`.
+ */
 export function applyStyle(
   container: ContainerSpec,
   ids: readonly string[],
   state: StateSpec,
-  style: NodeStyle
+  style: NodeStyle,
+  viewport?: string
 ): ContainerSpec {
   let next = container
   for (const id of ids) {
     const node = findNode(next.root, id)
     if (!node) continue
-    const cleared = Object.fromEntries(Object.keys(nodeInState(node, state).style ?? {}).map((key) => [key, undefined]))
+    const shown = boardReader(next, { state, viewport })(node).style ?? {}
+    const cleared = Object.fromEntries(Object.keys(shown).map((key) => [key, undefined]))
     next = editNode(next, boardTarget(next, state.id), id, { style: { ...cleared, ...style } })
   }
   return next

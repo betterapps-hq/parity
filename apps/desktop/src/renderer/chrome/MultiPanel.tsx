@@ -7,14 +7,12 @@ import {
   findNode,
   isBaseState,
   locateNode,
-  nodeInState,
   type NodeStyle,
   resetOverride,
-  shownVariants,
   styleKeys,
   targetPatches
 } from "@parity-app/core"
-import type { Alignment } from "@parity-app/editor"
+import { type Alignment, boardReader } from "@parity-app/editor"
 import {
   AlignCenterHorizontal,
   AlignCenterVertical,
@@ -137,9 +135,9 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
   const target = boardTarget(container, state.id)
   const base = isBaseState(container, state.id)
   const patches = targetPatches(container, target)
-  const variants = shownVariants(container)
+  const shown = boardReader(container, { state })
   const present = ids.filter((id) => findNode(container.root, id))
-  const nodes = present.map((id) => nodeInState(findNode(container.root, id)!, state, variants))
+  const nodes = present.map((id) => shown(findNode(container.root, id)!))
   const preview = useStylePreview(session, key)
   const primary = nodes.at(-1)
   if (!primary) return <p className="p-4 text-sm text-muted-foreground">These layers no longer exist.</p>
@@ -147,7 +145,7 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
   // Each layer measured in the frame the selection was picked in, so a size worked out from it is its own.
   const layers: EditedLayer[] = present.map((id, index) => {
     const around = locateNode(container.root, id)?.ancestors.at(-1)
-    const direction = around?.type === "layout" ? nodeInState(around, state, variants).style?.direction : undefined
+    const direction = around?.type === "layout" ? shown(around).style?.direction : undefined
     return {
       base: editsDesign(container, target),
       measure: (axis, round = Math.round) => {
@@ -172,7 +170,7 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
   const { common, mixed } = sharedStyle(nodes)
   const parents = new Set(present.map((id) => locateNode(container.root, id)?.ancestors.at(-1)?.id))
   const parent = parents.size === 1 ? locateNode(container.root, present[0]!)?.ancestors.at(-1) : undefined
-  const parentStyle = parent?.type === "layout" ? (nodeInState(parent, state, variants).style ?? {}) : undefined
+  const parentStyle = parent?.type === "layout" ? (shown(parent).style ?? {}) : undefined
   const editor: StyleEditor = {
     style: common,
     changed: (name) => present.some((id) => patches?.[id]?.style?.[name] !== undefined),

@@ -34,11 +34,12 @@ import { shapeIdFor } from "./CanvasEditor.tsx"
 import { takenBounds } from "./free-space.ts"
 import { hitTest, type Point } from "./hit.ts"
 import { measureHere } from "./paste-here.ts"
+import { frameViewport } from "./view.ts"
 
 /**
  * Copy and paste for layers, designs and text notes, through the system clipboard, so they paste into another
  * project or another Parity window too. What's copied is what the frame shows: a layer copied in a state other than
- * the base carries that state's changes. Pasted layers get fresh ids; pasted designs keep theirs unless taken. The rules
+ * the base carries that state's changes, and the variants, viewport and bound values the frame shows. Pasted layers get fresh ids; pasted designs keep theirs unless taken. The rules
  * are `@parity-app/editor`'s; this reads and writes the system clipboard and applies them to the selection and the store.
  */
 
@@ -126,11 +127,12 @@ export async function pasteOverSelection(session: ProjectSession): Promise<void>
     if (!nodes) return
     let copies: string[] = []
     const state = editingState(entry.container, current.state)
+    const viewport = frameViewport(store.getModes(), current.mode)
     store.updateContainer(
       entry.key,
       nodes.length === 1 ? "Paste over layer" : `Paste ${nodes.length} layers over`,
       (container) => {
-        const placed = placeOver(container, ids, nodes, state)
+        const placed = placeOver(container, ids, nodes, state, viewport)
         copies = placed.copies
         return placed.container
       }
@@ -185,11 +187,12 @@ export async function pasteToReplace(session: ProjectSession): Promise<void> {
   if (!nodes) return
   let copies: string[] = []
   const state = editingState(entry.container, current.state)
+  const viewport = frameViewport(session.store.getModes(), current.mode)
   session.store.updateContainer(
     entry.key,
     ids.length === 1 ? "Paste to replace" : `Paste to replace ${ids.length} layers`,
     (container) => {
-      const replaced = replaceLayers(container, ids, nodes, state)
+      const replaced = replaceLayers(container, ids, nodes, state, viewport)
       copies = replaced.copies
       return replaced.container
     }
@@ -262,11 +265,12 @@ export async function pasteAtPointer(session: ProjectSession, point: Point): Pro
   }
   let copies: string[] = []
   const state = editingState(hit.entry.container, hit.state)
+  const viewport = frameViewport(store.getModes(), hit.mode)
   store.updateContainer(
     hit.entry.key,
     nodes.length === 1 ? "Paste layer here" : `Paste ${nodes.length} layers here`,
     (container) => {
-      const placed = pasteHere(container, nodes, here, state)
+      const placed = pasteHere(container, nodes, here, state, viewport)
       copies = placed.copies
       return placed.container
     }
@@ -399,7 +403,12 @@ export function copyStyle(session: ProjectSession): boolean {
   const entry = current.design ? session.store.getEntry(current.design) : undefined
   const style =
     entry && current.node
-      ? styleOf(entry.container, current.node, editingState(entry.container, current.state))
+      ? styleOf(
+          entry.container,
+          current.node,
+          editingState(entry.container, current.state),
+          frameViewport(session.store.getModes(), current.mode)
+        )
       : undefined
   if (!style) return false
   copiedStyle = style
@@ -418,10 +427,11 @@ export function pasteStyle(session: ProjectSession): void {
     return
   }
   const state = editingState(entry.container, current.state)
+  const viewport = frameViewport(session.store.getModes(), current.mode)
   session.store.updateContainer(
     entry.key,
     ids.length === 1 ? "Paste style" : `Paste style on ${ids.length} layers`,
-    (container) => applyStyle(container, ids, state, style)
+    (container) => applyStyle(container, ids, state, style, viewport)
   )
 }
 
@@ -431,7 +441,8 @@ function selectionPayload(session: ProjectSession): ClipboardPayload | undefined
   const entry = current.design ? store.getEntry(current.design) : undefined
   const layers = selectedNodes(current)
   if (entry && layers.length > 0) {
-    return copyLayers(entry.container, layers, editingState(entry.container, current.state))
+    const viewport = frameViewport(store.getModes(), current.mode)
+    return copyLayers(entry.container, layers, editingState(entry.container, current.state), viewport)
   }
   const designs = selectedDesigns(current).flatMap((key) => {
     const found = store.getEntry(key)

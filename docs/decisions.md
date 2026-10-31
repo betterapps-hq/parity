@@ -303,6 +303,7 @@ still need your call.
   having several selected, still allocates the whole canvas while it shows.
 - **Copy and paste go through the system clipboard,** in a JSON envelope Parity recognises, so copies paste across
   projects and windows. Copied layers bring the state they were copied in with them, and pasting gives them new ids.
+  They bring what the frame shows, bound values included (see "Editor operations read what the board shows (PAR-464)").
   Plain text pastes as a text layer, or as a note on the canvas when nothing is selected. Copy style and paste style
   stay inside the app. Pasted PNG, JPEG, GIF, WebP and SVG images up to 20 MB are saved to `public/images/`.
 - **Several layers of one design, or several designs, can be selected together.** The inspector shows what they share
@@ -2373,6 +2374,28 @@ layering patches its own way, and none applying a viewport's responsive patch ou
   variant that turns its parent into a row, a state over a value that variant sets, responsive patches, and a nested
   instance with args and overrides, in two viewports. `effective.test.ts` checks `effectiveTree` against `resolveDesign`
   for each case and viewport; later work on the agent's Get and the editor's rules reuses it.
+
+## Editor operations read what the board shows (PAR-464)
+
+Align, Wrap, resizing, nudging, dragging, Copy, Copy style, Paste style, the pastes and Select matching used to read a
+layer through `nodeInState`, with the state and at most the variants, so a variant that turned a layout into a row was
+still a column to Align, which wrote `self: end` into the variant where the board needed `justify: end` on the layout,
+and Copy took a bound text's raw value. They now read through core's evaluation (PAR-484), by `@parity-app/editor`'s
+`shownNode` and `boardReader`, which build the `EvalContext` from what the editor knows: the state being edited, the
+variant options the board shows, the params' values, and the viewport of the frame the layer was picked in. My calls:
+
+- **Only reads change.** Each operation writes where it did, through `editNode`'s target, which keeps its own subset of
+  layers.
+- **The viewport is the frame's, when one is known.** The canvas commands pass the viewport of the mode the selection
+  was picked in (`frameViewport`); with no frame, as from Layers, none applies. The inspector, the text editor and Hide
+  stay on the board without a viewport, since their edits change the design or a state, not a viewport's patch.
+- **A copied binding goes only where its param is.** Copy materialises what a layer shows: a bound text, prop or
+  visibility takes the value the board shows, and the binding stays on the copy. The destination isn't known at copy
+  time, since a copy can paste anywhere, into another project included, so the paste decides (`fitBindings`): in a
+  design with a param of the same name, the binding is kept and the layer follows that param there; elsewhere it's
+  dropped, leaving the value shown. A new screen from pasted layers has no params, so it keeps none. Dragging layers to
+  another design does the same. A param of the same name with a different type still keeps the binding; the name is the
+  contract.
 
 ## Conditional values stay out of the default theme (PAR-485)
 
