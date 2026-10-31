@@ -486,6 +486,9 @@ importers:
       '@parity-app/core':
         specifier: workspace:*
         version: link:../core
+      '@parity-app/tokens':
+        specifier: workspace:*
+        version: link:../tokens
 
   packages/fixtures:
     dependencies:

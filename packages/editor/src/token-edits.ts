@@ -1,5 +1,6 @@
-import type { Token } from "@parity-app/tokens"
-import type { TokenChange } from "@parity-app/tokens"
+import type { Token, TokenChange } from "@parity-app/tokens"
+
+export type { TokenChange }
 
 /**
  * A token's value as the canvas edited it, with the value the stylesheet held before this session first changed it,

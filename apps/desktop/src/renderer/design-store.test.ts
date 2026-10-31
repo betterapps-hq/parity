@@ -1,8 +1,7 @@
 import { type CanvasDocument, type ContainerSpec, defaultModeSettings } from "@parity-app/core"
-import type { TokenChange } from "@parity-app/tokens"
+import { historyLimit, type TokenChange, type TokenEdit } from "@parity-app/editor"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { DesignStore } from "./design-store.ts"
-import type { TokenEdit } from "./token-edits.ts"
 
 function design(id: string): ContainerSpec {
   return {
@@ -106,27 +105,27 @@ describe("saving", () => {
     expect(store.getSaveState()).toEqual({ status: "saved" })
   })
 
-  it("is clean again after undoing back to what was saved, without writing", () => {
-    const { store, writes } = setup()
-    store.addContainer("app.par", design("about"))
-    store.undo()
-    expect(store.getSaveState()).toEqual({ status: "saved" })
-    store.redo()
-    expect(store.getSaveState()).toEqual({ status: "unsaved" })
-    expect(writes).toEqual([])
-  })
-
-  it("takes changes from the files as saved, and won't overwrite unsaved work with them unless forced", () => {
+  it("takes changes from the files, and won't overwrite unsaved work with them unless forced", () => {
     const { store } = setup()
     const fromDisk: CanvasDocument = { version: 3, containers: [design("home"), design("pricing")] }
     expect(store.reloadDocument("app.par", fromDisk)).toBe(true)
-    expect(store.getSaveState()).toEqual({ status: "saved" })
+    expect(store.getEntries().map((entry) => entry.container.id)).toEqual(["home", "pricing"])
 
     store.addContainer("app.par", design("about"))
     expect(store.reloadDocument("app.par", fromDisk)).toBe(false)
     expect(store.getEntries().map((entry) => entry.container.id)).toEqual(["home", "pricing", "about"])
     expect(store.reloadDocument("app.par", fromDisk, true)).toBe(true)
     expect(store.getEntries().map((entry) => entry.container.id)).toEqual(["home", "pricing"])
+    expect(store.getSaveState()).toEqual({ status: "saved" })
+  })
+
+  it("doesn't save a change automatically once the file it was in is taken from disk", async () => {
+    vi.useFakeTimers()
+    const { store, writes } = setup({ autosave: true })
+    store.addContainer("app.par", design("about"))
+    store.reloadDocument("app.par", { version: 3, containers: [design("home")] }, true)
+    await vi.runAllTimersAsync()
+    expect(writes).toEqual([])
     expect(store.getSaveState()).toEqual({ status: "saved" })
   })
 
@@ -175,6 +174,18 @@ describe("reverting to a checkpoint", () => {
     if (!checkpoint) throw new Error("No design home")
     return checkpoint
   }
+
+  it("keeps every step before the gesture when its first change pushed the oldest out at the undo limit", () => {
+    const { store } = setup()
+    for (let step = 1; step <= historyLimit; step++) rename(store, String(step))
+    const checkpoint = start(store)
+    rename(store, "During", "resize")
+    store.revert(checkpoint)
+    expect(name(store)).toBe(String(historyLimit))
+    for (let step = 0; step < historyLimit; step++) store.undo()
+    expect(name(store)).toBe("home")
+    expect(store.getHistory().canUndo).toBe(false)
+  })
 
   it("takes back a cancelled gesture's changes, leaving no step to undo for them", () => {
     vi.useFakeTimers()
@@ -267,21 +278,12 @@ describe("reverting to a checkpoint", () => {
 })
 
 describe("token edits", () => {
-  it("are undoable, unsaved until Save, and saved with the project's other changes", async () => {
+  it("are saved with the project's other changes", async () => {
     const { store, writes, tokenWrites } = setup()
     store.changeTokens("Edit --primary", [primary("oklch(0.55 0.2 260)")])
     store.addContainer("app.par", design("about"))
-    expect(store.getSaveState()).toEqual({ status: "unsaved" })
     expect(store.unsavedPaths()).toEqual(["app.par", "src/index.css"])
     expect(tokenWrites).toEqual([])
-
-    store.undo()
-    store.undo()
-    expect(store.getTokenEdits().size).toBe(0)
-    expect(store.getSaveState()).toEqual({ status: "saved" })
-    store.redo()
-    expect(store.getHistory().undoLabel).toBe("Edit --primary")
-    store.redo()
 
     await store.flush()
     expect(writes).toHaveLength(1)
@@ -289,28 +291,7 @@ describe("token edits", () => {
     expect(store.getSaveState()).toEqual({ status: "saved" })
   })
 
-  it("writes nothing when they're closed without saving, and nothing once undone back to the stylesheet", async () => {
-    const { store, tokenWrites } = setup()
-    store.changeTokens("Edit --primary", [primary("red")])
-    store.changeTokens("Edit --primary", [primary("oklch(0.205 0 0)")])
-    // Back at the stylesheet's own value, so Don't save, or Save, has nothing to write.
-    expect(store.hasUnsaved()).toBe(false)
-    await store.flush()
-    expect(tokenWrites).toEqual([])
-  })
-
-  it("writes the stylesheet's value back when an edit is undone after a save", async () => {
-    const { store, tokenWrites } = setup()
-    store.changeTokens("Edit --primary", [primary("red")])
-    await store.flush()
-    store.undo()
-    expect(store.unsavedPaths()).toEqual(["src/index.css"])
-    await store.flush()
-    expect(tokenWrites.at(-1)).toEqual([{ name: "primary", theme: "default", value: "oklch(0.205 0 0)" }])
-    expect(store.hasUnsaved()).toBe(false)
-  })
-
-  it("says a failed write names the stylesheet and the tokens, keeps them unsaved, and clears once one succeeds", async () => {
+  it("say a failed write names the stylesheet and the tokens, and clear once one succeeds", async () => {
     const { store, recover, failStylesheet } = setup()
     store.changeTokens("Edit --primary", [primary("red")])
     failStylesheet("EPERM: operation not permitted, open 'src/index.css'")
@@ -328,19 +309,18 @@ describe("token edits", () => {
     expect(store.getSaveState()).toEqual({ status: "saved" })
   })
 
-  it("fails the save, writing nothing, when the stylesheet changed since its values were read", async () => {
-    const { store, tokenWrites, failStylesheet } = setup()
-    store.changeTokens("Edit 2 tokens", [primary("red"), { name: "radius", theme: "default", value: "1rem" }])
-    failStylesheet("src/index.css changed since this was made, so nothing was written")
+  it("fail to save when nothing can write to the stylesheet", async () => {
+    const store = new DesignStore([], defaultModeSettings, "app.par", {
+      saveDocument: async () => undefined,
+      autosave: () => false
+    })
+    store.changeTokens("Edit --primary", [primary("red")])
     await expect(store.flush()).rejects.toThrow(
-      "Couldn't write 2 token values to src/index.css: src/index.css changed since this was made, so nothing was written"
+      "Couldn't write --primary to the stylesheet: Nothing here can write to the stylesheet"
     )
-    expect(tokenWrites).toEqual([])
-    expect(store.getTokenFailure()?.tokens.map((change) => change.name)).toEqual(["primary", "radius"])
-    expect(store.unsavedPaths()).toEqual(["src/index.css"])
   })
 
-  it("saves a moment later when saving automatically", async () => {
+  it("save a moment later when saving automatically", async () => {
     vi.useFakeTimers()
     const { store, tokenWrites } = setup({ autosave: true })
     store.changeTokens("Edit --primary", [primary("red")])
@@ -348,53 +328,5 @@ describe("token edits", () => {
     await vi.runAllTimersAsync()
     expect(tokenWrites).toHaveLength(1)
     expect(store.getSaveState()).toEqual({ status: "saved" })
-  })
-
-  it("comes from an agent's call in the same undo step as its designs", () => {
-    const { store } = setup()
-    const document: CanvasDocument = { version: 3, containers: [design("home"), design("pricing")] }
-    store.applyDocuments("Build pricing", [{ path: "app.par", document }], undefined, [primary("red")])
-    expect(store.getTokenEdits().get("primary default")?.value).toBe("red")
-    store.undo()
-    expect(store.getTokenEdits().size).toBe(0)
-    expect(store.getEntries().map((entry) => entry.container.id)).toEqual(["home"])
-    expect(store.getHistory().canUndo).toBe(false)
-  })
-})
-
-describe("what a design shows", () => {
-  it("leaves the file clean once Show every state is turned off again", () => {
-    const { store } = setup()
-    store.updateView("app.par#home", (view) => ({ ...view, allStates: true }))
-    expect(store.hasUnsaved()).toBe(true)
-    store.updateView("app.par#home", (view) => ({ ...view, allStates: false }))
-    expect(store.hasUnsaved()).toBe(false)
-    expect(store.getEntry("app.par#home")?.container.view).toBeUndefined()
-  })
-
-  it("is clean again after showing another state and going back, from a file that wrote its view out in full", () => {
-    const home: ContainerSpec = {
-      ...design("home"),
-      states: [
-        { id: "default", name: "Default" },
-        { id: "loading", name: "Loading" }
-      ],
-      view: { state: "default", modes: [], allStates: false }
-    }
-    const { store } = setup({ home })
-    store.updateView("app.par#home", (view) => ({ ...view, state: "loading", allStates: false }))
-    expect(store.hasUnsaved()).toBe(true)
-    store.updateView("app.par#home", (view) => ({ ...view, state: "default" }))
-    expect(store.hasUnsaved()).toBe(false)
-  })
-
-  it("stays unsaved while a design shows something its file doesn't", () => {
-    const { store } = setup()
-    store.updateView("app.par#home", (view) => ({ ...view, allStates: true }))
-    store.addContainer("app.par", design("about"))
-    store.updateView("app.par#home", (view) => ({ ...view, allStates: false }))
-    expect(store.unsavedPaths()).toEqual(["app.par"])
-    store.undo()
-    expect(store.hasUnsaved()).toBe(false)
   })
 })

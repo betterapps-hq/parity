@@ -2,9 +2,9 @@
 
 Status: draft. `@parity-app/code` exists (PKG-3), project edits are in `@parity-app/project` (PAR-6), and
 `@parity-app/editor` has arranging and the clipboard (PAR-7), all on 2026-10-29. `@parity-app/tokens` holds reading,
-editing and matching tokens (PAR-35), and `@parity-app/editor` inserting, Make component and placement (PAR-32) and drop
-rules and snapping (PAR-33), on 2026-10-30. The rule and the first items are in [decisions.md](../decisions.md) and in
-Linear's Package boundaries stream.
+editing and matching tokens (PAR-35), and `@parity-app/editor` inserting, Make component and placement (PAR-32), drop
+rules and snapping (PAR-33) and the design store's history (PAR-34), on 2026-10-30. The rule and the first items are in
+[decisions.md](../decisions.md) and in Linear's Package boundaries stream.
 
 ## In one line
 
@@ -47,7 +47,7 @@ when it's spread through UI code. Today:
      `@parity-app/editor` since PAR-32);
    - [snap.ts](../../apps/desktop/src/renderer/canvas/snap.ts): snapping (in `@parity-app/editor` since PAR-33);
    - [design-store.ts](../../apps/desktop/src/renderer/design-store.ts): undo, unsaved tracking and save state, inside a
-     store that also holds React hooks.
+     store that also holds React hooks (in `@parity-app/editor` since PAR-34).
 2. **Code is read three times, by three packages.** `project/components.ts` parses files to list components,
    `libgen/components.ts` runs TypeScript's checker to find them, and `@parity/props` runs it again for props. (They are
    [listing.ts](../../packages/code/src/listing.ts), [checker.ts](../../packages/code/src/checker.ts) and
