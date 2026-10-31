@@ -1,4 +1,12 @@
-import { type CanvasDocument, type ContainerSpec, defaultModeSettings } from "@parity-app/core"
+import {
+  type CanvasDocument,
+  type ContainerSpec,
+  defaultModeSettings,
+  type DesignChange,
+  describeConflicts,
+  type ModeSettings,
+  type ModesChange
+} from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import {
   addDesign,
@@ -7,6 +15,7 @@ import {
   changeDesigns,
   changeNote,
   deleteDesign,
+  mergeAgentChanges,
   moveDesign,
   replaceDocuments
 } from "./design-changes.ts"
@@ -86,6 +95,91 @@ describe("replacing documents", () => {
     expect(next.documents.get("app.par")).toEqual({ version: 3, containers: [design("about")] })
     expect(next.modes).toBe(start.modes)
     expect(next.tokens).toBe(start.tokens)
-    expect(replaceDocuments(start, []).documents).toBe(start.documents)
+    expect(replaceDocuments(start, [])).toBe(start)
+  })
+})
+
+describe("merging an agent's call", () => {
+  // What the call read: home and about in app.par.
+  const read = snapshot({ version: 3, containers: [design("home"), design("about")] })
+  const renamed = (id: string, name: string): ContainerSpec => ({ ...design(id), name })
+  const change = (id: string, after: ContainerSpec | null, base: ContainerSpec | null = design(id)): DesignChange => ({
+    path: "app.par",
+    id,
+    base,
+    after
+  })
+  const merge = (current: DesignSnapshot, designs: DesignChange[], modes?: ModesChange) => {
+    const merged = mergeAgentChanges(current, designs, modes)
+    expect(merged.conflicts).toEqual([])
+    return merged.snapshot
+  }
+
+  it("keeps both of two agents' changes to different designs in the same file", () => {
+    const first = merge(read, [change("home", renamed("home", "Home"))])
+    const second = merge(first, [change("about", renamed("about", "About"))])
+    expect(names(second)).toEqual(["Home", "About"])
+  })
+
+  it("keeps the person's edit to one design while the agent renames another in the same file", () => {
+    const edited = changeDesign(read, home, (container) => ({ ...container, name: "Start" }))
+    expect(names(merge(edited, [change("about", renamed("about", "About"))]))).toEqual(["Start", "About"])
+  })
+
+  it("refuses a design changed by both, naming it, and applies none of the call", () => {
+    const edited = changeDesign(read, home, (container) => ({ ...container, name: "Start" }))
+    const merged = mergeAgentChanges(
+      edited,
+      [change("about", renamed("about", "About")), change("home", renamed("home", "Home"))],
+      undefined,
+      [{ name: "primary", theme: "default", value: "red" }]
+    )
+    expect(merged.conflicts).toEqual([{ path: "app.par", id: "home", name: "Start", reason: "changed" }])
+    expect(merged.snapshot).toBe(edited)
+    expect(describeConflicts(merged.conflicts)).toBe(
+      'Not applied: since this call read the tab, "Start" (app.par) was changed in the editor, and this call ' +
+        "changes it too. Run the call again to work from what's there now."
+    )
+  })
+
+  it("refuses changing a design the person deleted, and creating one under an id the person added", () => {
+    expect(mergeAgentChanges(deleteDesign(read, home), [change("home", renamed("home", "Home"))]).conflicts).toEqual([
+      { path: "app.par", id: "home", name: "home", reason: "deleted" }
+    ])
+    const added = addDesign(read, "app.par", design("pricing"))
+    expect(mergeAgentChanges(added, [change("pricing", renamed("pricing", "Pricing"), null)]).conflicts).toEqual([
+      { path: "app.par", id: "pricing", name: "pricing", reason: "added" }
+    ])
+  })
+
+  it("leaves a design the person deleted deleted, and keeps one the person added", () => {
+    expect(names(merge(deleteDesign(read, home), [change("about", renamed("about", "About"))]))).toEqual(["About"])
+    const added = addDesign(read, "app.par", design("pricing"))
+    expect(names(merge(added, [change("about", null)]))).toEqual(["home", "pricing"])
+  })
+
+  it("creates and deletes designs, creating the file a new design goes into", () => {
+    const next = merge(read, [
+      change("home", null),
+      { path: "new.par", id: "pricing", base: null, after: design("pricing") }
+    ])
+    expect(names(next)).toEqual(["about"])
+    expect(next.documents.get("new.par")).toEqual({ version: 3, containers: [design("pricing")] })
+  })
+
+  it("takes a change already made the same way in the editor as applied", () => {
+    const edited = changeDesign(read, home, (container) => ({ ...container, name: "Home" }))
+    expect(merge(edited, [change("home", renamed("home", "Home"))]).documents).toBe(edited.documents)
+    const deleted = deleteDesign(read, home)
+    expect(merge(deleted, [change("home", null)]).documents).toBe(deleted.documents)
+  })
+
+  it("sets the modes only while they're as the call read them", () => {
+    const after: ModeSettings = { ...defaultModeSettings, modes: [] }
+    expect(merge(read, [], { base: defaultModeSettings, after }).modes).toBe(after)
+    const changed = { ...read, modes: { ...defaultModeSettings, variables: [] } }
+    expect(mergeAgentChanges(changed, [], { base: defaultModeSettings, after }).conflicts).toEqual([
+      { name: "Modes", reason: "changed" }
+    ])
   })
 })
