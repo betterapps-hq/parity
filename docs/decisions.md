@@ -17,6 +17,7 @@
 - **Project-service children inherit Node mode (PAR-9).** Rollup probes `process.execPath` to identify Windows builds.
   For installed Parity that executable is Parity itself. The service sets `ELECTRON_RUN_AS_NODE=1` after its own
   bootstrap so these probes run as Node instead of opening another app and overwriting the agent discovery file.
+  Package-manager installs drop this flag so the project's own Electron install scripts still launch normally.
 
 Calls made while building Parity without stopping to ask. Each says what was decided and why. The ones marked **Open**
 still need your call.
