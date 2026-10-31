@@ -1,0 +1,44 @@
+name: CD desktop
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Publish a beta or promote an existing beta without rebuilding.
+        type: choice
+        options: [release, promote]
+        default: release
+      version:
+        description: Existing beta version to promote, without v. Unused for release.
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.action == 'release') || (github.event_name == 'workflow_run'
+      && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    permissions:
+      contents: write
+      actions: read
+    uses: betterapps-hq/pipelines/.github/workflows/cd-desktop-release.yml@c2e002c29b8f1d8eee612805e9aa715c61dcb7e4 # v1.11.0
+    with:
+      ci-workflow: ci.yml
+      build-secret-env: VITE_TLDRAW_LICENSE_KEY
+    secrets:
+      BUILD_SECRET: ${{ secrets.VITE_TLDRAW_LICENSE_KEY }}
+
+  promote:
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'promote'
+    permissions:
+      contents: write
+    uses: betterapps-hq/pipelines/.github/workflows/cd-desktop-promote.yml@c2e002c29b8f1d8eee612805e9aa715c61dcb7e4 # v1.11.0
+    with:
+      version: ${{ inputs.version }}
+      environment: production
