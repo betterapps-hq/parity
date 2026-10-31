@@ -67,3 +67,25 @@ resource "github_repository_environment_deployment_policy" "npm_main" {
   environment    = github_repository_environment.npm.environment
   branch_pattern = "main"
 }
+
+# PAR-12 promotes the same beta files only after Andrew approves a main-branch deployment.
+resource "github_repository_environment" "production" {
+  repository        = "parity"
+  environment       = "production"
+  can_admins_bypass = false
+
+  reviewers {
+    users = [1908292] # AndrewCraswell
+  }
+
+  deployment_branch_policy {
+    protected_branches     = false
+    custom_branch_policies = true
+  }
+}
+
+resource "github_repository_environment_deployment_policy" "production_main" {
+  repository     = "parity"
+  environment    = github_repository_environment.production.environment
+  branch_pattern = "main"
+}
