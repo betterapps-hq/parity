@@ -1,8 +1,18 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sat, 31 Oct 2026 05:16:05 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 31 Oct 2026 11:30:08 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.2.0
+
+Sat, 31 Oct 2026 11:30:08 GMT
+
+### Minor changes
+
+- Install Parity on Windows, macOS and Linux (ajcraswell@gmail.com)
+- Run Parity from built files without a development server and open projects reliably on first launch
+  (ajcraswell@gmail.com)
 
 ## 0.1.0
 
