@@ -8,18 +8,18 @@ import {
   describeConsole,
   describeExec,
   describeProblems,
-  type Edit,
   type ExecResponse,
   type ProblemsResponse,
   setCaller
 } from "./client.ts"
+import { executeOperation } from "./execute.ts"
 import { readSkill } from "./skills.ts"
 
 interface Tool {
   name: string
   description: string
   inputSchema: Record<string, unknown>
-  run(input: Record<string, unknown>): Promise<Content[]>
+  run(input: Record<string, unknown>): Promise<Content[] | { content: Content[]; isError: boolean }>
 }
 
 type Content = { type: "text"; text: string } | { type: "image"; data: string; mimeType: "image/png" }
@@ -44,37 +44,22 @@ const tools: Tool[] = [
     name: "execute",
     description:
       'Run a JavaScript snippet against a tab\'s designs with the Parity API (read_skill "execute.md"). All changes land as one undoable step, or none if it fails. On failure, retry with editId and edits instead of resending.',
-    inputSchema: {
-      type: "object",
-      properties: {
-        description: {
-          type: "string",
-          description: 'Shown to the person while it runs. 3 to 8 words, imperative, e.g. "Add pricing tiers".'
-        },
-        input: { type: "string", description: "The snippet. Omit when retrying with editId and edits." },
-        editId: { type: "string", description: "The failed call's editId, to patch and rerun its snippet." },
-        edits: {
-          type: "array",
-          description: "Exact find and replace edits to the failed snippet, applied in order.",
-          items: {
-            type: "object",
-            properties: { find: { type: "string" }, replace: { type: "string" }, all: { type: "boolean" } },
-            required: ["find", "replace"]
-          }
-        },
-        tab
-      },
-      required: ["description"]
-    },
+    inputSchema: executeOperation.inputSchema({ label: "description", code: "input" }),
     run: async (input) => {
-      const result = await call<ExecResponse>("exec", {
-        tab: input.tab,
-        label: input.description,
-        code: input.input,
-        editId: input.editId,
-        edits: input.edits as Edit[] | undefined
-      })
-      return [text(describeExec(result)), ...result.screenshots.map((shot) => image(shot.png))]
+      const result = await executeOperation.run(
+        {
+          tab: input.tab,
+          label: input.description,
+          code: input.input,
+          editId: input.editId,
+          edits: input.edits
+        },
+        call
+      )
+      return {
+        content: [text(describeExec(result)), ...result.screenshots.map((shot) => image(shot.png))],
+        isError: !result.ok
+      }
     }
   },
   {
@@ -204,7 +189,8 @@ async function respond(message: { method?: string; params?: Record<string, unkno
       const tool = tools.find((candidate) => candidate.name === message.params?.name)
       if (!tool) return { error: { code: -32602, message: `Unknown tool ${String(message.params?.name)}` } }
       try {
-        return { result: { content: await tool.run((message.params?.arguments ?? {}) as Record<string, unknown>) } }
+        const result = await tool.run((message.params?.arguments ?? {}) as Record<string, unknown>)
+        return { result: Array.isArray(result) ? { content: result } : result }
       } catch (error) {
         return { result: { content: [text(error instanceof Error ? error.message : String(error))], isError: true } }
       }

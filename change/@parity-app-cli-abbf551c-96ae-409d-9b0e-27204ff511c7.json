@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Share execute validation, defaults and failure behavior between CLI and MCP",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
