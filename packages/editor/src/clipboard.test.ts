@@ -1,4 +1,5 @@
 import { type ContainerSpec, type DesignNode, findNode, nodeIds, nodeInState, type NoteSpec } from "@parity-app/core"
+import { effectiveFixture } from "@parity-app/core/fixtures"
 import { describe, expect, it } from "vite-plus/test"
 import {
   applyStyle,
@@ -7,6 +8,7 @@ import {
   copyLayers,
   copyNotes,
   designOfLayers,
+  fitBindings,
   isParityCopy,
   isSvgMarkup,
   missingComponents,
@@ -57,6 +59,12 @@ function form(): ContainerSpec {
 }
 
 const [base, error] = form().states as [ContainerSpec["states"][0], ContainerSpec["states"][0]]
+
+/** The shared fixture's card, its board showing the variant options `variants`: Inline turns its body into a row. */
+function card(variants: Record<string, string> = {}): ContainerSpec {
+  const found = effectiveFixture.designs.find((design) => design.id === "card")!
+  return { ...found, view: { variants } }
+}
 
 const childIds = (container: ContainerSpec, id: string) => {
   const node = findNode(container.root, id)
@@ -166,6 +174,65 @@ describe("copying layers", () => {
 
   it("copies nothing when none of them are there", () => {
     expect(copyLayers(form(), ["missing"], base)).toBeUndefined()
+  })
+
+  it("copies what the board shows: the variant options, the frame's viewport and the bound values", () => {
+    const inline = card({ layout: "inline" })
+    const payload = copyLayers(inline, ["body"], inline.states[1], "mobile")
+    const [body] = payload?.kind === "layers" ? payload.nodes : []
+    // The Inline option's row, the Compact state's gap over it, and the mobile padding.
+    expect(body?.style).toEqual({ direction: "row", gap: 2, padding: 2 })
+    const copy = body?.type === "layout" ? body.children[1] : undefined
+    const [title, meta] = copy?.type === "layout" ? copy.children : []
+    // The title shows its param's default, still bound to it; the meta is hidden on mobile.
+    expect(title).toMatchObject({ text: "Card title", bind: { text: "title" } })
+    expect(meta).toMatchObject({ text: "Today", hidden: true })
+  })
+})
+
+describe("pasting a bound layer", () => {
+  const title = () => {
+    const payload = copyLayers(card(), ["title"], card().states[0])
+    return payload?.kind === "layers" ? payload.nodes : []
+  }
+
+  it("keeps the binding in a design with a param of that name", () => {
+    const destination: ContainerSpec = { ...form(), params: { title: { type: "text", default: "Welcome" } } }
+    const { container, copies } = pasteLayers(destination, { parent: "root" }, title())
+    expect(findNode(container.root, copies[0]!)).toMatchObject({ text: "Card title", bind: { text: "title" } })
+  })
+
+  it("keeps the value shown, unbound, in a design without that param", () => {
+    const { container, copies } = pasteLayers(form(), { parent: "root" }, title())
+    const pasted = findNode(container.root, copies[0]!)
+    expect(pasted).toMatchObject({ text: "Card title" })
+    expect(pasted).not.toHaveProperty("bind")
+  })
+
+  it("keeps only the bindings the design has params for, all the way down", () => {
+    const node: DesignNode = {
+      type: "layout",
+      id: "group",
+      children: [
+        {
+          type: "component",
+          id: "button",
+          component: "ui/Button",
+          props: { children: "Go", disabled: false },
+          bind: { props: { children: "label", disabled: "busy" }, visible: "shown" }
+        }
+      ]
+    }
+    const destination: ContainerSpec = { ...form(), params: { label: { type: "text" } } }
+    const fitted = fitBindings(node, destination)
+    expect(fitted.type === "layout" && fitted.children[0]?.bind).toEqual({ props: { children: "label" } })
+  })
+
+  it("keeps no bindings in a new screen", () => {
+    const design = designOfLayers(title(), ["form"], { x: 0, y: 0 })
+    const pasted = design.root.type === "layout" ? design.root.children[0] : undefined
+    expect(pasted).toMatchObject({ text: "Card title" })
+    expect(pasted).not.toHaveProperty("bind")
   })
 })
 
@@ -296,6 +363,12 @@ describe("copying and pasting style", () => {
     expect(styleOf(form(), "fields", error)).toEqual({ direction: "row", gap: 1, padding: 1 })
     expect(styleOf(form(), "heading", base)).toEqual({})
     expect(styleOf(form(), "missing", base)).toBeUndefined()
+  })
+
+  it("copies a layer's look with the variant options the board shows and the frame's viewport", () => {
+    const inline = card({ layout: "inline" })
+    expect(styleOf(inline, "body", inline.states[0]!, "mobile")).toEqual({ direction: "row", gap: 6, padding: 2 })
+    expect(styleOf(card(), "body", inline.states[0]!, "desktop")).toEqual({ direction: "column", gap: 4, padding: 4 })
   })
 
   it("gives each layer the copied style in place of its own", () => {

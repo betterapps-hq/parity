@@ -75,6 +75,32 @@ describe("paste over selection", () => {
     expect(findNode(container.root, "badge")).toBeDefined()
   })
 
+  it("reads the layer's insets as the frame's viewport shows them", () => {
+    // On mobile the hint is placed absolutely; elsewhere it flows.
+    const hint: DesignNode = {
+      ...text("hint"),
+      responsive: { mobile: { style: { position: "absolute", bottom: 0, left: 2 } } }
+    }
+    const responsive: ContainerSpec = { ...form(), root: { type: "layout", id: "root", children: [hint] } }
+    const mobile = placeOver(responsive, ["hint"], [icon], base, "mobile")
+    expect(findNode(mobile.container.root, mobile.copies[0]!)?.style).toEqual({
+      position: "absolute",
+      bottom: 0,
+      left: 2
+    })
+    const desktop = placeOver(responsive, ["hint"], [icon], base, "desktop")
+    expect(findNode(desktop.container.root, desktop.copies[0]!)?.style).toEqual(icon.style)
+  })
+
+  it("keeps a binding only where the design has a param of that name", () => {
+    const bound: DesignNode = { type: "text", id: "title", text: "Card title", bind: { text: "title" } }
+    const without = placeOver(form(), ["label"], [bound], base)
+    expect(findNode(without.container.root, without.copies[0]!)).not.toHaveProperty("bind")
+    const titled: ContainerSpec = { ...form(), params: { title: { type: "text" } } }
+    const kept = placeOver(titled, ["label"], [bound], base)
+    expect(findNode(kept.container.root, kept.copies[0]!)).toMatchObject({ bind: { text: "title" } })
+  })
+
   it("puts them after a layer in a component's slot, in the slot", () => {
     const { container } = placeOver(form(), ["card-title"], [button], base)
     expect(children(container, "card")).toEqual(["card-title", "ui/Button", "card-body"])

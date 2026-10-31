@@ -15,8 +15,9 @@ import {
   type ExecRequest,
   type ExecResult
 } from "@parity-app/agent"
-import { describeRenderStatus, modeGlobals, renderProblem, resolveModes } from "@parity-app/core"
+import { describeRenderStatus, renderProblem, resolveModes } from "@parity-app/core"
 import type { ServiceMethods, TabSnapshot, WindowMethods } from "../shared/protocol.ts"
+import { renderJobMode } from "../shared/render-job.ts"
 import { readConsole } from "./console.ts"
 import { renderOffscreen } from "./render.ts"
 
@@ -277,7 +278,7 @@ async function state(snapshot: TabSnapshot) {
 
 /** Draws an agent's frames in the offscreen render window, with the tab's guest and theme. */
 function renderFor(snapshot: TabSnapshot): AgentHooks["render"] {
-  return async ({ tree, mode, height, scale, capture, audit, tokens }) => {
+  return async ({ tree, mode, height, viewport, scale, capture, audit, tokens }) => {
     const { frame, png } = await renderOffscreen(
       {
         projectId: snapshot.projectId,
@@ -285,13 +286,7 @@ function renderFor(snapshot: TabSnapshot): AgentHooks["render"] {
         ...(snapshot.addedComponents ? { components: snapshot.addedComponents } : {}),
         theme: snapshot.theme,
         tree,
-        mode: {
-          width: mode.width,
-          height,
-          classNames: mode.classNames,
-          attributes: mode.attributes,
-          globals: modeGlobals(mode)
-        },
+        mode: renderJobMode(mode, { width: mode.width, ...(height === undefined ? {} : { height }), viewport }),
         scale,
         ...(audit ? { audit } : {}),
         ...(tokens.length > 0 ? { previews: tokens } : {})

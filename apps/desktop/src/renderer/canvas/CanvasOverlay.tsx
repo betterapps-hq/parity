@@ -9,11 +9,10 @@ import {
   isInnerPath,
   locateNode,
   nodeIds,
-  nodeInState,
   type NodeStyle,
   resolveModes
 } from "@parity-app/core"
-import type { Edge } from "@parity-app/editor"
+import { type Edge, resizeStart } from "@parity-app/editor"
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react"
 import { editingState } from "../chrome/LayerPanel.tsx"
 import { getPreferences, subscribePreferences } from "../chrome/preferences.ts"
@@ -44,6 +43,7 @@ import { edgeAxes, resizeGesture } from "./resize.ts"
 import { resizeCursors, ResizeHandles } from "./ResizeHandles.tsx"
 import { pressBackground } from "./select-box.ts"
 import { TextEditor } from "./TextEditor.tsx"
+import { frameViewport } from "./view.ts"
 
 interface Box {
   x: number
@@ -832,14 +832,17 @@ function startResize(
   const location = handles.node ? locateNode(entry.container.root, handles.node) : undefined
   if (!element || !rect || !location) return
   const state = editingState(entry.container, handles.state)
-  const node = nodeInState(location.node, state)
-  const parent = location.ancestors.at(-1)
-  const parentDirection =
-    parent?.type === "layout" ? (nodeInState(parent, state).style?.direction ?? "column") : undefined
+  // The layer and its layout as the frame being resized in shows them: its state, variants and viewport.
+  const shown = resizeStart(entry.container, location.node.id, {
+    state,
+    viewport: frameViewport(store.getModes(), handles.mode)
+  })
+  if (!shown) return
+  const { style: shownStyle, parentDirection } = shown
   const unit = spacingUnit(tokens.get())
   // An absolutely placed layer resizes by its insets too, from where its sides are drawn.
   const drawn =
-    node.style?.position === "absolute"
+    shownStyle.position === "absolute"
       ? frameDrawn(area, handles.design, { mode: handles.mode, state: handles.state }, unit).insets(location.node.id)
       : undefined
   const gesture = resizeGesture({
@@ -848,7 +851,7 @@ function startResize(
     inner: contentBox(element.parentElement, scale),
     scale,
     unit,
-    absolute: drawn ? { style: node.style ?? {}, drawn } : undefined
+    absolute: drawn ? { style: shownStyle, drawn } : undefined
   })
 
   const group = `resize:${entry.key}:${location.node.id}`
@@ -862,7 +865,7 @@ function startResize(
     const style: Partial<Record<keyof NodeStyle, unknown>> = { ...change }
     // `grow` was the older way to fill along the parent's direction; a size on that axis replaces it.
     const mainAxis = parentDirection === "column" ? vertical : horizontal
-    if (node.style?.grow && mainAxis) style.grow = undefined
+    if (shownStyle.grow && mainAxis) style.grow = undefined
     const serialized = JSON.stringify(style)
     if (serialized === last) return
     last = serialized

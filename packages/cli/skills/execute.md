@@ -293,6 +293,10 @@ token values not yet saved show, the person's edits and this call's own `SetToke
 parent cuts it off). `Problems` checks frames for render errors, overflow, clipping and unknown components.
 `Accessibility` returns axe-core's findings per node and frame, with the rule, its impact and what's wrong.
 
+These frames are drawn in the same window as the canvas's: as wide as the frame, and as tall as the design's fixed
+height for the viewport, else the viewport's screen height, else the device nearest its width. So `100vh` and window
+size checks measure the same in `Measure` and `Screenshot` as on the canvas, even when the frame grows past that height.
+
 ## The canvas
 
 `FindEmptySpace({ width, height })` finds room for a new board, to the right of the others unless `direction: "below"`,

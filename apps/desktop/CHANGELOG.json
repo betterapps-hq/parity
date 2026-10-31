@@ -2,11 +2,17 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
-      "date": "Sat, 31 Oct 2026 23:29:26 GMT",
+      "date": "Sat, 31 Oct 2026 23:36:31 GMT",
       "version": "0.4.0",
       "tag": "@parity-app/desktop_v0.4.0",
       "comments": {
         "patch": [
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "not available",
+            "comment": "pnpm dev starts the project service again on Linux, and no longer treats Parity's copy of Electron as an installed build."
+          },
           {
             "author": "ajcraswell@gmail.com",
             "package": "@parity-app/desktop",
@@ -77,7 +83,19 @@
             "author": "noreply@anthropic.com",
             "package": "@parity-app/desktop",
             "commit": "not available",
-            "comment": "pnpm dev starts the project service again on Linux, and no longer treats Parity's copy of Electron as an installed build."
+            "comment": "Editing the modes GetModes returns, then setting them, no longer fails as a conflict or loses the edit"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "not available",
+            "comment": "Draw zoomed-out bitmaps, agent screenshots and measurements, exports and accessibility checks in the same window height as the live frame, keeping a mode's screen height when the frame grows with its content"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "not available",
+            "comment": "Align, Wrap, resizing, nudging, dragging and the clipboard read layers as the frame shows them, with variants, viewport patches and bound values; a copied binding is kept only where the design pasted into has that param"
           }
         ],
         "none": [
@@ -90,8 +108,8 @@
           {
             "author": "ajcraswell@gmail.com",
             "package": "@parity-app/desktop",
-            "commit": "cb1fdc7ce4ae3b29bac411a021db8c689d132fdb",
-            "comment": "Finalize the unpublished 0.4.0 beta delivery configuration and offline build label"
+            "commit": "eca492016bbbbccf3ac6ef7eb0e6987a30fed1de",
+            "comment": "Finalize unpublished 0.4.0 delivery, restored update notices and development startup"
           }
         ],
         "minor": [

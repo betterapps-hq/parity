@@ -1,3 +1,4 @@
+import type { FrameViewport } from "./adapters.ts"
 import { screenHeightForWidth } from "./devices.ts"
 import type {
   ContainerSpec,
@@ -97,6 +98,29 @@ export function frameViewport(
 ): { width: number; height: number } {
   const screen = mode.options.find(({ variable }) => variable.kind === "viewport")?.option.height
   return { width: size.width, height: size.height ?? screen ?? screenHeightForWidth(size.width) }
+}
+
+/**
+ * A design's frame in a mode, as every renderer draws it: the live frame on the canvas, its bitmap zoomed out, and the
+ * offscreen frames that agents measure, screenshot and check, and that the editor exports and audits. Two heights are
+ * kept apart. `height` is the frame's own: when it's set the frame is that tall and clips what's below, and without it
+ * the frame grows with its content. `viewport` is the browser window the frame stands for (see `frameViewport`), which
+ * always has a height, whether or not the frame grows past it.
+ */
+export interface FrameGeometry {
+  width: number
+  /** A fixed frame height, which clips; otherwise the frame is as tall as its content. */
+  height?: number
+  viewport: FrameViewport
+}
+
+/** How a design's frame is drawn in a mode: its size and the window it stands for. */
+export function frameGeometry(
+  design: ContainerSpec,
+  mode: Pick<ResolvedMode, "viewport" | "width" | "options">
+): FrameGeometry {
+  const size = frameSize(design, mode)
+  return { ...size, viewport: frameViewport(size, mode) }
 }
 
 /** Every design that instances can place, by id. */

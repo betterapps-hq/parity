@@ -262,10 +262,11 @@ menubar's command. The Layers panel's menu is unchanged.
   - Layers, text and images go into the deepest of the design's own layouts under the pointer, in the frame there, at
     the slot under the pointer, where a dragged layer would land (`slotAt`). A hidden layer isn't a slot. A layout
     inside an instance is never the target.
-  - In a layout that's absolutely placed in the state shown, the copies go last, on top, at the pointer: their left and
-    top in half steps of the spacing scale from inside its border, in place of their own insets. Several go side by side
-    from there, each 4 steps right of the one before when that one has a width in steps (PAR-24); one that fills or hugs
-    leaves the next where it starts. A copy that's absolutely placed itself goes in the slot, and at the pointer.
+  - In a layout that's absolutely placed as the frame shows it (its state, variant options and viewport, PAR-464), the
+    copies go last, on top, at the pointer: their left and top in half steps of the spacing scale from inside its
+    border, in place of their own insets. Several go side by side from there, each 4 steps right of the one before when
+    that one has a width in steps (PAR-24); one that fills or hugs leaves the next where it starts. A copy that's
+    absolutely placed itself goes in the slot, and at the pointer.
   - Over a design with no layout under the pointer, nothing is pasted, and a toast says so. Around the designs, text
     becomes a note at the pointer, and layers a new screen there.
 - **Where the right-click lands decides.** tldraw keeps the system's menu from the canvas, pans while the right button
@@ -296,11 +297,12 @@ Tests:
   Make component label, several designs, a layer inside an instance, the menu around the designs; Select layer's list,
   names, checks and the design's kind; and what a right-click selects on a layer, a frame's background, around the
   frames, the root, inside the selection, outside it, and in a selected design.
-- `packages/editor/src/paste-here.test.ts` (16): the dashboard's stats row, at the slot under the pointer, first and
+- `packages/editor/src/paste-here.test.ts` (18): the dashboard's stats row, at the slot under the pointer, first and
   last, several copies together, fresh ids, a hidden card skipped, an empty layout; an absolutely placed layout at half
   size, half steps, a copy's own insets replaced; an absolutely placed copy in the slot; a state that places the row
-  absolutely; nothing pasted into a layer that isn't a layout; several copies side by side in an absolutely placed
-  layout; and `slotHere`'s slot and line in a row, none in an absolutely placed layout, and none outside a layout.
+  absolutely, and a viewport's patch that does; a binding kept only for a param the design has; nothing pasted into a
+  layer that isn't a layout; several copies side by side in an absolutely placed layout; and `slotHere`'s slot and line
+  in a row, none in an absolutely placed layout, and none outside a layout.
 - `canvas/paste-here-frame.test.ts` (4), in Chrome: `measureHere` on a grid drawn at half size, with a hidden card, the
   slot under the pointer, first and last, at the pointer inside an absolutely placed layout's border, and the deepest
   layout.
@@ -456,6 +458,9 @@ decisions.md describes. Where it lands follows the pointer:
   and never drops into one, or into anything inside one, even when the neighbour is a layout, as each of the dashboard's
   revenue bars is. Outside its own layout it goes into the deepest layout under the pointer, as before, in this design
   or another. To put a layer inside its neighbour, drag it there in Layers.
+- **Into another design, the copies are what the frame shows** (PAR-464): the state being edited, the variant options
+  the board shows, the frame's viewport and the values bound params show, keeping only the bindings the destination has
+  params for, as a paste does (see "Copy, paste and paste style").
 - **Edge cases.** Children that aren't drawn (hidden in this state) aren't slots; a layer placed after them goes after
   them. A move that leaves the order as it was changes nothing and adds no undo step. An absolutely placed layer doesn't
   reorder; it moves by its insets (below).
@@ -481,10 +486,11 @@ Tests:
   layout outside its own taking the drop; from another design, a card that's a layout taking it, and the dragged card
   counting as a slot; children that aren't drawn left out; and nothing found in a layout that wasn't measured or a
   design whose root isn't a layout.
-- `packages/editor/src/move-layers.test.ts` (12): within a design, before what was at the index, several together, ids
+- `packages/editor/src/move-layers.test.ts` (13): within a design, before what was at the index, several together, ids
   and states' changes kept, into a component's slot, and the same design back when dropped where it is, into itself or
   into a layout that isn't there; into another design, copies in order with ids new there, as the state being edited
-  shows them, only the outermost of nested layers, into a slot, and nothing changed when the layers aren't there.
+  shows them, as the shared fixture's card shows them on mobile with its bound title kept only where the destination has
+  the param, only the outermost of nested layers, into a slot, and nothing changed when the layers aren't there.
 - `apps/desktop/src/renderer/canvas/drop-target.test.ts`, in Chrome, measuring as the canvas does: the stat cards laid
   out as a real grid, dragged right and left; the line where the layout was, also after the camera zooms and pans; a
   card that stays in its own slot though its neighbour slid there, against the same layout measured after the card was
@@ -560,14 +566,18 @@ design has them on its frames' right and bottom.
   Such a change clears Redo, as any new step does, so Redo comes back only when nothing else changed during the drag.
 - **The cursor** shows the handle's arrows wherever the pointer goes during the drag, over the canvas, the frames and
   the panels, until it ends (see "Cursors and Escape during a gesture", below).
+- **It starts from what the frame shows** (PAR-464): the layer's style and its layout's direction with the state being
+  edited, the variant options the board shows and the frame's viewport, so a layer a variant or a mobile patch places
+  absolutely resizes by its insets there, and a row the board shows is a row. The edit still lands where every edit does
+  (see "Edits in the state and variant shown").
 
 Code: `apps/desktop/src/renderer/canvas/resize.ts` (`edgeAxes`, and `resizeGesture`, which follows one drag and gives
 the style for each pointer position), `canvas/insets.ts` (`resizeInsets`), `packages/editor/src/handles.ts`
-(`handleBoxes`, where each handle goes, `@parity-app/editor`), `canvas/ResizeHandles.tsx` (the handles and their hint,
-which `chrome/Hint.tsx` lets a caller open and close), and `canvas/CanvasOverlay.tsx` (`startResize` measures the layer,
-its parent and its drawn insets, and writes the style; `drag` follows the pointer, holds the cursor, and on Escape
-reverts the store to a checkpoint taken when the drag began, with `DesignStore.checkpoint` and `revert` in
-`design-store.ts`).
+(`handleBoxes`, where each handle goes, and `resizeStart`, what a resize reads, `@parity-app/editor`),
+`canvas/ResizeHandles.tsx` (the handles and their hint, which `chrome/Hint.tsx` lets a caller open and close), and
+`canvas/CanvasOverlay.tsx` (`startResize` measures the layer, its parent and its drawn insets, and writes the style;
+`drag` follows the pointer, holds the cursor, and on Escape reverts the store to a checkpoint taken when the drag began,
+with `DesignStore.checkpoint` and `revert` in `design-store.ts`).
 
 Tests:
 
@@ -583,7 +593,9 @@ Tests:
   double-click still resets.
 - `packages/editor/src/handles.test.ts`: handles straddling a large layer's edges with the strips short of the corners;
   a layer under 24px both ways with no handle on it; one small only in height, with only its side strips on it; a layer
-  of exactly 24px as before; a layer that draws nothing; and a frame's three handles in order.
+  of exactly 24px as before; a layer that draws nothing; and a frame's three handles in order. With the shared fixture's
+  card (PAR-464), `resizeStart` reads its layout as the row its Inline option makes it, and the layer's style in a
+  viewport and state, the Compact state's gap over the mobile patch.
 - `apps/desktop/src/renderer/design-store.test.ts`, reverting to a checkpoint: a gesture's writes more than a second
   apart taken back with nothing left to undo for them; Redo kept; a first write that merged into the step before it
   leaving that step as it was; another file reloaded mid-gesture kept, with its undo step undoing to the design as it
@@ -716,14 +728,17 @@ on the whole selection as one undo step, labelled with how many things they touc
 - **Duplicate puts each copy just after its original,** in its layout or slot, with fresh ids for it and everything in
   it, and selects the copies.
 - **Select all picks the selected layer's siblings** in its layout or slot, or every design when no layer is selected.
-- **Wrap in layout lays the new layout out as the parent lays out the layers** in the state being edited: a row in a
-  row, with the parent's gap. Layers in different layouts can't be wrapped together, and a message says so.
+- **Wrap in layout lays the new layout out as the parent lays out the layers** as the frame shows it: in the state being
+  edited, with the variant options the board shows and the frame's viewport (PAR-464). A row in a row, with the parent's
+  gap. Layers in different layouts can't be wrapped together, and a message says so.
 - **Unwrap leaves a layout's layers where it was** and selects them; on anything but a layout it says to select one.
 - **Ordering moves a layer among its siblings.** Later paints in front, as in CSS, so Bring forward moves it later in
   its layout and down the Layers list. An order that wouldn't move it records nothing.
-- **Align on layers works in their layouts,** in the state being edited: a layer aligns by itself on its layout's cross
-  axis (`self`), and along the main axis the layout moves all its children (`justify`). Layers in a component's slot
-  stay as they are.
+- **Align on layers works in their layouts,** as the frame shows them: in the state being edited, with the variant
+  options the board shows and the frame's viewport (PAR-464). A layer aligns by itself on its layout's cross axis
+  (`self`), and along the main axis the layout moves all its children (`justify`). So in a layout a variant turns into a
+  row, Align right sets `justify: end` on the layout, in that variant, rather than `self` on the layer. Layers in a
+  component's slot stay as they are.
 - **Align on designs lines them up on the canvas** by their edges or centers, within the span of them all, and needs
   two. **Distribute spaces three or more evenly** between the outermost two, across or down. Positions are rounded to
   whole pixels, and a move that changes nothing records nothing.
@@ -735,10 +750,11 @@ the canvas and shows the messages. Hide is core's `toggleHidden`.
 Tests: `packages/editor/src/arrange.test.ts`: the outermost layers and the root; deleting and what's selected next (in a
 layout, the root and a slot); duplicating in place with fresh ids (in a layout, a slot, a copied layout's children, and
 nothing to copy); deleting designs from their own documents; siblings in a layout and a slot; wrapping in a row, a
-column and another state, and layers that can't be wrapped; unwrapping, and layers that aren't layouts; each order in a
-layout and a slot, and orders that wouldn't move; aligning on the cross and main axes in two states and in a slot;
-aligning designs by edges and centers, with a box offset from its position; distributing across and down whatever the
-selection's order; and moving designs in whole pixels.
+column and another state, with the shared fixture's card in its Inline option and in a viewport, and layers that can't
+be wrapped; unwrapping, and layers that aren't layouts; each order in a layout and a slot, and orders that wouldn't
+move; aligning on the cross and main axes in two states, in a row a variant makes and a column a viewport shows, and in
+a slot; aligning designs by edges and centers, with a box offset from its position; distributing across and down
+whatever the selection's order; and moving designs in whole pixels.
 
 Gaps: the commands, menus and messages have no automated test. They didn't change when the rules moved into the package.
 
@@ -972,7 +988,12 @@ another Parity window. Paste (Ctrl+V) takes Parity's copies, an image or SVG mar
 text. Copy style (Ctrl+Alt+C) and Paste style keep their own clipboard inside the app.
 
 - **What's copied is what the frame shows.** A layer copied in a state other than the base carries that state's changes,
-  all the way down, slots included. Only the outermost selected layers are copied.
+  all the way down, slots included, and so do the variant options the board shows, the frame's viewport patches and the
+  values bound params show there (PAR-464). Only the outermost selected layers are copied.
+- **A binding goes only where its param is** (PAR-464). A copied layer bound to a param keeps the binding when it's
+  pasted into a design with a param of that name, and follows it there; anywhere else the binding is dropped and the
+  layer keeps the value it showed. A new screen has no params, so it keeps none. Pastes, Paste over, Paste to replace,
+  Paste here and dragging to another design all do this.
 - **The copy is an envelope** (`{"parity":"clipboard","version":1,"project":…,"payload":…}`) holding layers, designs or
   notes, and the project they came from. Text that starts like a Parity copy but isn't a complete envelope of a known
   kind, such as cut-off JSON or an unknown version, pastes nothing and shows a message. So does an envelope whose
@@ -986,7 +1007,8 @@ text. Copy style (Ctrl+Alt+C) and Paste style keep their own clipboard inside th
 - **Pasted notes get fresh ids** and sit a little below and right of where they were copied, as they sat together.
 - **Text pastes as a text layer** where layers would go, or as a note in the middle of the view. **SVG markup pastes as
   a picture,** not as its source.
-- **Paste style gives each selected layer the copied style in place of its own,** in the state being edited.
+- **Copy style copies the look the frame shows,** with its variant options and viewport, and **Paste style gives each
+  selected layer the copied style in place of the one shown,** in the state being edited.
 - **Layers naming components the project doesn't have** still paste, with a warning naming them.
 
 Code: the rules are in `packages/editor/src/clipboard.ts` (`@parity-app/editor`).
@@ -998,9 +1020,12 @@ version, a project that isn't text, an unknown kind, a payload without its list 
 layers, designs and notes, all rejected; telling a Parity copy, readable or not, from other text; designs and notes read
 back; SVG markup, and text that only looks like it; copying the outermost layers as a state shows them; where layers
 paste (a lone selected layout, after the last selected layer, in a slot, the root, and a root that isn't a layout);
-fresh ids in order, last, inside copies and in a slot; the new screen; designs' ids, kept when free even when not made
-from the name, and whole-pixel moves; notes beside where they were and at a place; copying style in a state, and pasting
-it in the base and in another state; and missing components at any depth, and none while the project's aren't known.
+fresh ids in order, last, inside copies and in a slot; with the shared fixture's card, copying in a variant, state and
+viewport, the bound title as it shows, and pasting it into a design with and without the param, bindings fitted all the
+way down, and none in a new screen; the new screen; designs' ids, kept when free even when not made from the name, and
+whole-pixel moves; notes beside where they were and at a place; copying style in a state, and in a variant and viewport,
+and pasting it in the base and in another state; and missing components at any depth, and none while the project's
+aren't known.
 
 Gaps: reading and writing the system clipboard, images and the messages have no automated test. In a state other than
 the base, Paste style leaves the base's own style values under the copied ones, since a state's changes can't unset
@@ -1043,12 +1068,12 @@ Code: `packages/editor/src/paste-over.ts` (`placeOver`, `designsAt` and `replace
 (`readClipboard`) and saving an image (`importImage`) shared with Paste.
 
 Tests: `packages/editor/src/paste-over.test.ts`. Paste over selection: after the selected layer with nothing removed,
-once after the last of several, beside a selected component, on top of an absolutely placed layer at its insets, in a
-component's slot, leaving the root and instances' layers alone, designs at the selection's corner as they sat, and new
-ids for designs whose ids are taken. Paste to replace: in place of one layer, fresh ids and states' changes dropped,
-each of several layers, in a component's slot, at an absolutely placed layer's insets, and leaving the root and
-instances' layers alone. `apps/desktop/src/renderer/chrome/keymap.test.ts` checks both keys, and that Ctrl+R still
-renames.
+once after the last of several, beside a selected component, on top of an absolutely placed layer at its insets, at the
+insets a viewport's patch gives and not elsewhere, a binding kept only for a param the design has, in a component's
+slot, leaving the root and instances' layers alone, designs at the selection's corner as they sat, and new ids for
+designs whose ids are taken. Paste to replace: in place of one layer, fresh ids and states' changes dropped, each of
+several layers, in a component's slot, at an absolutely placed layer's insets, and leaving the root and instances'
+layers alone. `apps/desktop/src/renderer/chrome/keymap.test.ts` checks both keys, and that Ctrl+R still renames.
 
 End to end (PAR-202), with a stand-in for the clipboard on the page, `apps/desktop/e2e/keyboard.e2e.ts` (6):
 Ctrl+Shift+V after a link in Pricing's footer, removing nothing, and one undo; Ctrl+Shift+R in the link's place, without
@@ -1461,7 +1486,7 @@ Tests:
   person deleted"); designs the person deleted or added left so; files created for new designs; a change or deletion
   already made here taken as applied ("takes a change already made the same way"); and modes set only while unchanged,
   refused otherwise ("sets the modes only while they're as the call read them").
-- `packages/agent/src/run.test.ts` (2 of its 25): a call gives each design it changed, created or deleted with the
+- `packages/agent/src/run.test.ts` (2 of its 29): a call gives each design it changed, created or deleted with the
   design as it read it, and no others; a refused call fails naming the design, keeps its snippet, and runs again by
   `editId`.
 - `apps/desktop/src/renderer/design-store.test.ts` (11 of its 18): Save writing the files and the stylesheet, saving
@@ -1498,6 +1523,14 @@ as that state's or variant's changes ("changes only this state", "changes only t
   (Ctrl+Shift+H, or Hide in and Show in on a row in Layers) hides what the state shows and shows what it hides, so a
   layer the state, the variant or a param hides counts as hidden, and Layers marks it so. The canvas menu's Hide says
   Show by the same reading (`hiddenOnBoard`, PAR-486), so it never offers to hide a layer the variant already hides.
+- **Operations read what the frame shows** (PAR-464). Align, Wrap, resizing, nudging, dragging, Copy, Copy style, Paste
+  style, Paste over, Paste to replace, Paste here and Select matching read a layer through core's evaluation, as
+  `@parity-app/editor`'s `shownNode` and `boardReader` give it: the state being edited, the variant options the board
+  shows, each bound param's value, and the responsive patches of the frame the layer was picked in, when one is known.
+  Where they write doesn't change: an edit still lands in the state, or the variant, the Editing control names. The
+  inspector reads the board without a viewport, as the text editor and Hide do, since its edits change the design or the
+  state rather than a viewport's patch. The app's wiring, which frame's viewport each command passes, has no automated
+  test.
 - **A component's board shows its params' defaults,** as an instance that sets none of them does. The Stat card's board
   shows only the rising trend icon, since `showFalling` is off, where it showed both. Changing a bound text, prop or
   visibility on the board, in the base state, changes the param's default too, so the board and the instances that don't
@@ -1520,11 +1553,13 @@ as that state's or variant's changes ("changes only this state", "changes only t
 Code: in `packages/core`, `edit.ts` (`nodeOnBoard`, `hiddenOnBoard`, `toggleHidden`, `editNode` keeping the bound
 param's default in step and a state's patch against the board) and `render.ts` (`boardArgs`, which `resolveDesign` gives
 a board, and `paramDefaults`, shared with instances); `instances.ts` (`layerOnBoard`, for one of a design's own layers
-or one inside an instance). In the app, `canvas/TextEditor.tsx`, `chrome/arrange.ts` (`toggleHiddenLayers`),
-`chrome/LayerTree.tsx` (the row's hidden mark and its Hide in menu item), `chrome/LayerPanel.tsx` (the layer as the
-board shows it, `BaseDesignNote` in the Image and Instance sections), `chrome/edit-scope.ts` (`baseDesignNote`, the
-note's words), `chrome/prop-values.ts` (`valueKind`, `readValue`) and `chrome/fields.tsx` (`ValueInput`), used by
-`PropsSection.tsx`, `LayerPanel.tsx`'s instance params and `ComponentsSection.tsx`'s defaults.
+or one inside an instance). `packages/editor/src/shown.ts` (`shownNode`, `boardReader`) builds the context an operation
+reads with, and `canvas/view.ts`'s `frameViewport` gives the viewport of the frame a layer was picked in. In the app,
+`canvas/TextEditor.tsx`, `chrome/arrange.ts` (`toggleHiddenLayers`), `chrome/LayerTree.tsx` (the row's hidden mark and
+its Hide in menu item), `chrome/LayerPanel.tsx` (the layer as the board shows it, `BaseDesignNote` in the Image and
+Instance sections), `chrome/edit-scope.ts` (`baseDesignNote`, the note's words), `chrome/prop-values.ts` (`valueKind`,
+`readValue`) and `chrome/fields.tsx` (`ValueInput`), used by `PropsSection.tsx`, `LayerPanel.tsx`'s instance params and
+`ComponentsSection.tsx`'s defaults.
 
 Tests:
 
@@ -1533,6 +1568,9 @@ Tests:
   value; the board's layer in a state, inside an instance and with a variant shown; and hiding through a bound param, in
   a state the param hides, and through the state's and the variant's changes. The five about the board and Hide fail
   against the code before PAR-164.
+- `packages/editor/src/shown.test.ts` (7): `shownNode` and `boardReader` agree with each other for every layer in each
+  of the shared fixture's cases, in every viewport; a bound text's default, the variant shown and a viewport's patches;
+  and a layer inside an instance by its path, with the library. The operations' own tests are under their sections.
 - `apps/desktop/src/renderer/chrome/edit-scope.test.ts` (3): no note in the base state, the state's name, the variant's.
 - `apps/desktop/src/renderer/chrome/prop-values.test.ts` (4): fields by declared type before there's a value, by the
   value's own type, JSON refused rather than kept as text, and any value read as JSON or text.
@@ -2167,7 +2205,7 @@ Code: `projectComponentLibrary` in `packages/core/src/render.ts`, used by `Desig
 
 Tests:
 
-- `packages/agent/src/run.test.ts` (5 of its 25): Measure, Problems and Screenshot of a design placing a library design
+- `packages/agent/src/run.test.ts` (5 of its 29): Measure, Problems and Screenshot of a design placing a library design
   draw it with no placeholder; no missing-design warning for a placed library design, only for one that doesn't exist; a
   project design wins over a library design with its id; frames carry the canvas's unsaved values, then those with the
   call's `SetTokens` over them; and nothing when no value differs.
@@ -2186,6 +2224,41 @@ Tests:
 Gaps: the snapshot and `renderFor` wiring has no test of its own, and checked by reading; the end-to-end tests run in
 CI. The snapshot crosses from the window to the service as the window's other replies do, unchecked; its library designs
 were checked when their `.lib.par` was read.
+
+### Every frame drawn in the same window (PAR-466)
+
+A frame stands for a browser window, and every path that draws it gives it the same one: the live frame in its mode on
+the canvas, its bitmap zoomed out, and the offscreen frames agents measure, screenshot, check for problems and for
+accessibility, which Export and the Accessibility panel use too. A mode whose viewport has a screen height, say 1280 by
+1234, gives a frame that grows with its content a 1234px window everywhere, so `100vh`, `innerHeight` and the project's
+window size checks read 1234 in bitmaps, screenshots and measurements as on the canvas. Before, the offscreen renderer
+worked out its own height from the width alone, the 800 of the device nearest 1280.
+
+- **Two heights, kept apart.** A frame's own height is fixed or not: a fixed one clips the frame, and without one the
+  frame grows with its content. Its window always has a height: the frame's fixed height, else the viewport's screen,
+  else the device nearest its width (see [decisions.md](decisions.md), "A frame stands for a browser window"). Core's
+  `frameGeometry` gives both, `{ width, height?, viewport }`, and every path draws from it.
+- **The offscreen job carries the window.** `RenderJob.mode` has the frame's `width` and optional `height` beside its
+  `viewport`, and the offscreen page mounts the frame in that viewport rather than working one out. An agent's
+  `FrameRequest` carries the viewport too, so a frame an agent asks for is drawn at what the canvas shows.
+- **The offscreen window's own size doesn't matter to the frame.** It opens 800px tall and is resized to the frame
+  before a capture or an audit, but the project's viewport units and its `innerHeight`, `matchMedia` and resize events
+  answer from the frame's window (CAN-23, CAN-33), as on the canvas.
+
+Code: `frameGeometry` in `packages/core/src/render.ts`; `FrameTile` in
+`apps/desktop/src/renderer/canvas/ContainerView.tsx`, which passes it to `ModeView.tsx` and `useFrameShows` in
+`canvas/frame-bitmaps.ts`; `renderJobMode` in `apps/desktop/src/shared/render-job.ts`, which builds a job's mode for
+bitmaps and for `renderFor` in `apps/desktop/src/utility/agent.ts`; `AgentWorkspace.render` in
+`packages/agent/src/workspace.ts`; `canvasRender` in `apps/desktop/src/renderer/render.ts`.
+
+Tests: `packages/core/src/render.test.ts` (1: at 1280 by 1234, a frame that grows has no height and a 1234px window, and
+a frame fixed at 600 keeps its 600 apart from its window). `apps/desktop/src/shared/render-job.test.ts` (2: for that
+growing frame, the live frame's geometry, a bitmap's job and an agent's `Measure` job all have a 1280 by 1234 window and
+no height; a fixed frame's job keeps its height beside its window). `packages/agent/src/run.test.ts` (1: `Measure`,
+`Screenshot` and `Accessibility` ask for frames with that window). `apps/desktop/src/renderer/render.test.ts` (2), in
+Chrome: the offscreen page's `canvasRender`, in an 800px window, mounts a growing 1280px frame in the job's 1234px
+window, where `100vh` measures 1234 and the frame grows past it; a frame fixed at 600 is 600 tall while `100vh` is
+still 1234. Gap: the end-to-end suite draws frames offscreen but doesn't read a window height in them.
 
 ### Caller identity (PAR-450)
 

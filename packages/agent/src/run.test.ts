@@ -1,4 +1,4 @@
-import { defaultModeSettings, findNode } from "@parity-app/core"
+import { defaultModeSettings, findNode, frameGeometry, resolveModes } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { execute } from "./run.ts"
 import type {
@@ -143,6 +143,32 @@ Print(Get("page", {depth: 1}).children.length)`
     expect(events[0]).toMatchObject({ kind: "start", label: "Add a hint" })
     expect(events.some((event) => event.kind === "write" && event.node === "submit")).toBe(true)
     expect(events.at(-1)).toMatchObject({ kind: "end" })
+  })
+
+  it("gives GetModes a copy, so editing it in place and setting it leaves the call's starting point as read", async () => {
+    const read = snapshot()
+    const before = structuredClone(read.modes)
+    const option = await execute(
+      {
+        label: "Rename an option",
+        code: `const s = GetModes().settings\ns.variables[0].options[0] = {...s.variables[0].options[0], name: "Wide"}\nSetModes(s)`
+      },
+      read,
+      hooks()
+    )
+    expect(option.error).toBeUndefined()
+    expect(read.modes).toEqual(before)
+    expect(option.changes.modes?.base).toEqual(before)
+    expect(option.changes.modes?.after.variables[0]!.options[0]!.name).toBe("Wide")
+
+    const renamed = await execute(
+      { label: "Rename a mode", code: `const s = GetModes().settings\ns.modes[0].name = "X"\nSetModes(s)` },
+      read,
+      hooks()
+    )
+    expect(renamed.error).toBeUndefined()
+    expect(read.modes).toEqual(before)
+    expect(renamed.changes.modes?.after.modes[0]!.name).toBe("X")
   })
 
   it("changes nothing when the snippet fails, and retries with edits", async () => {
@@ -401,6 +427,45 @@ Print(await Screenshot("signup", {mode: ["desktop-light", "tablet-light"]}))`
     // Each look shows as what it is, so the agent's cursor can say so.
     const looks = new Set(events.filter((event) => event.design).map((event) => event.kind))
     expect(looks).toEqual(new Set(["measure", "problems", "screenshot"]))
+  })
+
+  it("draws each frame in the window the canvas gives it", async () => {
+    const shared = snapshot()
+    shared.modes = {
+      version: 1,
+      variables: [
+        {
+          id: "viewport",
+          name: "Viewport",
+          kind: "viewport",
+          options: [{ id: "desktop", name: "Desktop", width: 1280, height: 1234 }]
+        }
+      ],
+      modes: [{ id: "desktop", name: "Desktop", values: { viewport: "desktop" } }]
+    }
+    const requests: FrameRequest[] = []
+    const base = hooks()
+    const result = await execute(
+      { label: "Check", code: `await Measure("signup")\nawait Screenshot("signup")\nawait Accessibility("signup")` },
+      shared,
+      {
+        presence: () => undefined,
+        render: (request) => {
+          requests.push(request)
+          return base.render(request)
+        }
+      }
+    )
+    expect(result.ok).toBe(true)
+    // The frame grows with its content, and its window is the mode's 1234px screen, as on the canvas.
+    const [mode] = resolveModes(shared.modes)
+    const live = frameGeometry(shared.documents[0]!.document.containers[0]!, mode!)
+    expect(live).toEqual({ width: 1280, viewport: { width: 1280, height: 1234 } })
+    expect(requests).toHaveLength(3)
+    for (const request of requests) {
+      expect(request.height).toBeUndefined()
+      expect(request.viewport).toEqual(live.viewport)
+    }
   })
 
   it("checks accessibility in each mode, naming the layers", async () => {

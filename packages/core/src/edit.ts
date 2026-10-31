@@ -241,11 +241,6 @@ export function nodeInState(
   return applyPatch(node, patch, args)
 }
 
-/** The patches of the variant options a design's board shows. */
-export function shownVariants(container: ContainerSpec): PatchLayer[] {
-  return optionPatches(container.params, variantChoices(container.params, container.view?.variants))
-}
-
 /**
  * One of a design's own nodes as its board shows it in a state: with the variant options the board shows, the state's
  * changes, and the defaults of the params it binds. This is what the board draws, so it's what the inspector, the text

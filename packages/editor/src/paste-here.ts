@@ -4,13 +4,13 @@ import {
   insertNode,
   locateNode,
   nodeIds,
-  nodeInState,
   type NodeStyle,
-  shownVariants,
   type StateSpec,
   withFreshIds
 } from "@parity-app/core"
+import { fitBindings } from "./clipboard.ts"
 import { type Flow, type Point, type Rect, type Slot, type SlotChild, slotAt } from "./drop-slot.ts"
+import { boardReader } from "./shown.ts"
 
 /**
  * Paste here, from the canvas's right-click menu, for layers: what's on the clipboard goes into the layout under the
@@ -44,19 +44,21 @@ const besideGap = 4
 
 /**
  * Pastes copies of `nodes`, with fresh ids, where `here` says the pointer was. In a layout that flows, they go in the
- * slot under the pointer (see `slotAt`). In a layout that's absolutely placed, as the state shown places it, they go
- * last, on top of what's in it, placed absolutely at the pointer. A copy that's absolutely placed itself goes in the slot
- * and at the pointer. At the pointer is its left and top in half steps of the spacing scale, in place of its own insets;
- * several copies placed there go side by side from it. Image files dropped onto the canvas land the same way. Returns
- * the design and the copies' ids; none when `here` isn't one of the design's layouts.
+ * slot under the pointer (see `slotAt`). In a layout that's absolutely placed, as the board shows it in `state` and
+ * `viewport`, they go last, on top of what's in it, placed absolutely at the pointer. A copy that's absolutely placed
+ * itself goes in the slot and at the pointer. At the pointer is its left and top in half steps of the spacing scale, in
+ * place of its own insets; several copies placed there go side by side from it. Copies keep the bindings the design has
+ * params for (see `fitBindings`). Image files dropped onto the canvas land the same way. Returns the design and the
+ * copies' ids; none when `here` isn't one of the design's layouts.
  */
 export function pasteHere(
   container: ContainerSpec,
   nodes: readonly DesignNode[],
   here: HereLayout,
-  state: StateSpec
+  state: StateSpec,
+  viewport?: string
 ): { container: ContainerSpec; copies: string[] } {
-  const slot = slotHere(container, here, state)
+  const slot = slotHere(container, here, state, viewport)
   if (!slot) return { container, copies: [] }
   const { layout, free, index } = slot
   const at = {
@@ -68,7 +70,7 @@ export function pasteHere(
   // a width of its own; one that fills or hugs leaves the next where it starts.
   let left = at.left
   const copies = nodes.map((node) => {
-    const copy = withFreshIds(node, taken)
+    const copy = withFreshIds(fitBindings(node, container), taken)
     if (!free && copy.style?.position !== "absolute") return copy
     const placed = placedAt(copy, { left, top: at.top })
     const width = copy.style?.width
@@ -83,18 +85,19 @@ export function pasteHere(
 }
 
 /**
- * Where layers pasted or dropped `here` go: the layout, whether it's absolutely placed in the state shown, the index
+ * Where layers pasted or dropped `here` go: the layout, whether it's absolutely placed as the board shows it, the index
  * they go in at, and, in a layout that flows, the line that marks the slot on screen. Undefined when `here` isn't one of
  * the design's layouts.
  */
 export function slotHere(
   container: ContainerSpec,
   here: HereLayout,
-  state: StateSpec
+  state: StateSpec,
+  viewport?: string
 ): { layout: string; free: boolean; index: number; line?: Slot["line"] } | undefined {
   const layout = locateNode(container.root, here.layout)?.node
   if (layout?.type !== "layout") return undefined
-  const free = nodeInState(layout, state, shownVariants(container)).style?.position === "absolute"
+  const free = boardReader(container, { state, viewport })(layout).style?.position === "absolute"
   const count = layout.children.length
   if (free) return { layout: layout.id, free, index: count }
   const slot = slotAt(here.children, here.point, here.flow, here.box, count)

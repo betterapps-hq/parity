@@ -25,11 +25,11 @@ function snapshot(containers: ContainerSpec[]): AgentSnapshot {
     components: [],
     tokens: [],
     theme: [],
-    libraryDesigns: [],
-    tokenOverrides: [],
     modes: defaultModeSettings,
     documents: [{ path: "app.par", document: { version: 3, containers } }],
     mainDocument: "app.par",
+    libraryDesigns: [],
+    tokenOverrides: [],
     props: {},
     selection: {},
     bounds: {}
