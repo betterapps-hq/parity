@@ -237,7 +237,8 @@ menubar's command. The Layers panel's menu is unchanged.
 - **The items**, in groups with a line between them: Select layer; Copy, Paste here, Paste over selection, Paste to
   replace and Duplicate; Bring to front, Bring forward, Send backward and Send to back; Wrap in layout, Make component
   and Go to the main component; Hide. Labels are the menubar's, except that Go to names the main component ("Go to Plan
-  card"), Hide reads Show when every selected layer is hidden in the state being edited, and Make component, with a
+  card"), Hide reads Show when every selected layer is hidden as the board shows it in the state being edited (the
+  variant shown, the state and the params it binds, as Hide itself reads them, PAR-486), and Make component, with a
   design selected on its own, reads "Make it a component", or "Make it a screen" on a component. Paste here has no keys.
   Lock comes with PAR-192, and Open in editor and Copy as JSX with PAR-166; they have no placeholders.
 - **With designs selected**, what's only for layers is left out: Paste to replace, the order, Wrap in layout and Hide.
@@ -290,10 +291,11 @@ in `packages/editor/src/paste-here.ts` places the copies. Which keys an open men
 
 Tests:
 
-- `chrome/canvas-menu.test.ts` (17): one layer's menu in order with its keys, an instance's Go to, several layers, Show
-  and Hide in two states, a design's menu and its Make component label, several designs, a layer inside an instance, the
-  menu around the designs; Select layer's list, names, checks and the design's kind; and what a right-click selects on a
-  layer, a frame's background, around the frames, the root, inside the selection, outside it, and in a selected design.
+- `chrome/canvas-menu.test.ts` (18): one layer's menu in order with its keys, an instance's Go to, several layers, Show
+  and Hide in two states, Show for a layer the variant shown hides and Hide after Hide shows it, a design's menu and its
+  Make component label, several designs, a layer inside an instance, the menu around the designs; Select layer's list,
+  names, checks and the design's kind; and what a right-click selects on a layer, a frame's background, around the
+  frames, the root, inside the selection, outside it, and in a selected design.
 - `packages/editor/src/paste-here.test.ts` (16): the dashboard's stats row, at the slot under the pointer, first and
   last, several copies together, fresh ids, a hidden card skipped, an empty layout; an absolutely placed layout at half
   size, half steps, a copy's own insets replaced; an absolutely placed copy in the slot; a state that places the row
@@ -761,7 +763,10 @@ a component design; the Layers panel's add buttons start new designs. Each is on
 - **Make component** puts the component design at the end of the project file, 640px above the topmost design on the
   canvas, lined up with the design it came from, so components sit above screens. An instance replaces each occurrence,
   and the step is "Extract" and its name. It's refused, changing nothing, unless the design renders the same in every
-  state and viewport. A component design's Params section lists its instances, across every design.
+  state and viewport, as its board shows it: with the variant option the board shows and the defaults of the params the
+  design binds (PAR-486). So a variant that changes something inside the part, or a param default a layer in it shows,
+  refuses it rather than losing the change. A component design's Params section lists its instances, across every
+  design.
 - **A new design goes 240px to the right of everything on the canvas,** top-aligned with the topmost design. A screen
   starts as a padded page with its name as a heading, a component as a small padded layout on a 480px frame.
 
@@ -778,7 +783,11 @@ the end, an empty layout and children the canvas doesn't draw). `components.test
 project file, a taken id and param names, a project file that doesn't exist yet, and the errors; and instances in
 layouts and slots across designs. `create.test.ts`: a new screen and component, and a taken id. `placement.test.ts`: a
 new design beside everything, one the canvas hasn't drawn, an empty canvas, and a component above everything. A library
-part's parents and samples are core's, in `packages/core/src/library-insert.test.ts`.
+part's parents and samples are core's, in `packages/core/src/library-insert.test.ts`. The extraction and its check are
+core's `extractComponent`, in `packages/core/src/decompose.test.ts`: occurrences become instances that render the same,
+a state changing the part refused, a single part's texts as params, and the check against the board, refused under a
+variant option that changes the part but not one that changes what's outside it or isn't shown, and refused when a layer
+in the part shows a param's default.
 
 Gaps: dragging and clicking in the panels, the messages, and measuring on the canvas have no automated test. They didn't
 change when the rules moved into the package.
@@ -1487,7 +1496,8 @@ as that state's or variant's changes ("changes only this state", "changes only t
   in the state being edited: with the variant shown, the state's changes, and the params it binds. The text editor opens
   on the state's text: in Pricing's Yearly state, the Pro plan's price opens as $19, not Monthly's $24. Hide or show
   (Ctrl+Shift+H, or Hide in and Show in on a row in Layers) hides what the state shows and shows what it hides, so a
-  layer the state, the variant or a param hides counts as hidden, and Layers marks it so.
+  layer the state, the variant or a param hides counts as hidden, and Layers marks it so. The canvas menu's Hide says
+  Show by the same reading (`hiddenOnBoard`, PAR-486), so it never offers to hide a layer the variant already hides.
 - **A component's board shows its params' defaults,** as an instance that sets none of them does. The Stat card's board
   shows only the rising trend icon, since `showFalling` is off, where it showed both. Changing a bound text, prop or
   visibility on the board, in the base state, changes the param's default too, so the board and the instances that don't
@@ -1507,14 +1517,14 @@ as that state's or variant's changes ("changes only this state", "changes only t
   prop of any type reads JSON when what's typed is JSON, and text otherwise. The instance's params, a component design's
   param defaults and component props all work this way.
 
-Code: in `packages/core`, `edit.ts` (`nodeOnBoard`, `toggleHidden`, `editNode` keeping the bound param's default in step
-and a state's patch against the board) and `render.ts` (`boardArgs`, which `resolveDesign` gives a board, and
-`paramDefaults`, shared with instances); `instances.ts` (`layerOnBoard`, for one of a design's own layers or one inside
-an instance). In the app, `canvas/TextEditor.tsx`, `chrome/arrange.ts` (`toggleHiddenLayers`), `chrome/LayerTree.tsx`
-(the row's hidden mark and its Hide in menu item), `chrome/LayerPanel.tsx` (the layer as the board shows it,
-`BaseDesignNote` in the Image and Instance sections), `chrome/edit-scope.ts` (`baseDesignNote`, the note's words),
-`chrome/prop-values.ts` (`valueKind`, `readValue`) and `chrome/fields.tsx` (`ValueInput`), used by `PropsSection.tsx`,
-`LayerPanel.tsx`'s instance params and `ComponentsSection.tsx`'s defaults.
+Code: in `packages/core`, `edit.ts` (`nodeOnBoard`, `hiddenOnBoard`, `toggleHidden`, `editNode` keeping the bound
+param's default in step and a state's patch against the board) and `render.ts` (`boardArgs`, which `resolveDesign` gives
+a board, and `paramDefaults`, shared with instances); `instances.ts` (`layerOnBoard`, for one of a design's own layers
+or one inside an instance). In the app, `canvas/TextEditor.tsx`, `chrome/arrange.ts` (`toggleHiddenLayers`),
+`chrome/LayerTree.tsx` (the row's hidden mark and its Hide in menu item), `chrome/LayerPanel.tsx` (the layer as the
+board shows it, `BaseDesignNote` in the Image and Instance sections), `chrome/edit-scope.ts` (`baseDesignNote`, the
+note's words), `chrome/prop-values.ts` (`valueKind`, `readValue`) and `chrome/fields.tsx` (`ValueInput`), used by
+`PropsSection.tsx`, `LayerPanel.tsx`'s instance params and `ComponentsSection.tsx`'s defaults.
 
 Tests:
 

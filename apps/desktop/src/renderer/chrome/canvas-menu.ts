@@ -4,6 +4,7 @@ import {
   type ContainerSpec,
   type DesignNode,
   findNode,
+  hiddenOnBoard,
   isInnerPath,
   locateInner,
   nodeLabel,
@@ -90,7 +91,9 @@ export function canvasMenu(
   const one = ids.length === 1 && own.length === 1 ? own[0] : undefined
   const instance = one?.type === "instance" ? one : undefined
   const state = entry ? editingState(entry.container, selection.state) : undefined
-  const hidden = (node: DesignNode) => state?.overrides?.[node.id]?.hidden ?? node.hidden ?? false
+  // As Hide decides: every selected layer hidden as the board shows it, with its variant, the state and the params.
+  const ownIds = own.map((node) => node.id)
+  const hidden = !!entry && !!state && ownIds.length > 0 && hiddenOnBoard(entry.container, state.id, ownIds)
   const order: Command[] = ["bringToFront", "bringForward", "sendBackward", "sendToBack"]
   return sections([
     [{ kind: "select-layer", label: "Select layer", choices: layerChoices(target, selection, entries) }],
@@ -109,7 +112,7 @@ export function canvasMenu(
         ? [item("goToMain", true, `Go to ${designName(entries, instance.design) ?? "the main component"}`)]
         : [])
     ],
-    layers ? [item("hide", own.length > 0, own.length > 0 && own.every(hidden) ? "Show" : "Hide")] : []
+    layers ? [item("hide", own.length > 0, hidden ? "Show" : "Hide")] : []
   ])
 }
 
