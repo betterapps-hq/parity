@@ -141,7 +141,76 @@ describe("guestModuleSource with libraries", () => {
   })
 })
 
+describe("resolved library aliases", () => {
+  it("loads discovered icon modules by the alias while retaining stable style keys", () => {
+    const source = guestModuleSource({
+      styles: [],
+      components: {},
+      documents: [],
+      libraries: [
+        {
+          id: "icons",
+          name: "Icons",
+          kind: "icons",
+          package: "@real/icons",
+          importName: "@acme/icons",
+          stylesImported: true,
+          icons: {
+            import: "@acme/icons/outline",
+            render: "export",
+            variants: {
+              modules: { Outline: "@acme/icons/outline", Solid: "@acme/icons/solid" },
+              default: { style: "Outline" }
+            }
+          }
+        }
+      ]
+    })
+    expect(source).toContain('import("@acme/icons/outline")')
+    expect(source).toContain('import("@acme/icons/solid")')
+    expect(source).not.toContain("@real/icons")
+    expect(source).toMatch(/styles: \{ "solid": modules\[\d+\]/)
+  })
+})
+
 describe("guestModuleSource with values a package makes", () => {
+  it("loads design-only factories, without treating literal $import data as a required module", () => {
+    const source = guestModuleSource({
+      styles: [],
+      components: {},
+      documents: [],
+      libraries: [
+        {
+          id: "kit",
+          name: "Kit",
+          package: "kit",
+          importName: "kit",
+          stylesImported: true,
+          designs: [
+            {
+              id: "kit/label",
+              name: "Label",
+              kind: "component",
+              position: { x: 0, y: 0 },
+              states: [],
+              root: {
+                type: "component",
+                id: "label",
+                component: "kit/Label",
+                props: {
+                  value: { $call: { import: "design-values", export: "make" } },
+                  literal: { $import: "literal-data", export: "value" }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    })
+    expect(source).toContain('import("design-values")')
+    expect(source).not.toContain('import("literal-data")')
+  })
+
   it("loads the modules its components' samples call, for the guest to make them", () => {
     const source = guestModuleSource({
       styles: [],

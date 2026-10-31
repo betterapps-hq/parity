@@ -2,7 +2,6 @@ import type { DesignNode } from "./document.ts"
 import { generateId } from "./edit.ts"
 import {
   type ComponentSample,
-  isMadeValue,
   isSampleElement,
   isSampleRender,
   type LibraryComponent,
@@ -192,15 +191,14 @@ export function withLibraryContext(
 }
 
 /**
- * A library file's component as the canvas inserts it, but for where it's declared: its import, its parents and sample
- * by component id (`nova/AccordionItem`), and `imported` naming the package the way the project depends on it.
+ * A library file's component as the canvas inserts it, with its parents and sample named by component id.
+ * Discovery has already rewritten module imports for the name the project installed the package under.
  */
 export function librarySource(
   library: string,
   name: string,
   component: LibraryComponent,
-  path: string,
-  imported: (specifier: string) => string = (specifier) => specifier
+  path: string
 ): Omit<ComponentSource, "declaration"> {
   return {
     path,
@@ -214,19 +212,14 @@ export function librarySource(
       ? { optionalParents: component.optionalParents.map((parent) => `${library}/${parent}`) }
       : {}),
     ...(component.parentParts ? { parentParts: true as const } : {}),
-    ...(component.sample ? { sample: sampleIds(component.sample, library, imported) } : {})
+    ...(component.sample ? { sample: sampleIds(component.sample, library) } : {})
   }
 }
 
 /**
- * A sample with its children's components named by id, as `nova/AccordionItem`; HTML elements keep their tag. A value the
- * package makes (`{ $call: { import: "@chakra-ui/react", ... } }`) imports it by the name the project depends on.
+ * A sample with its children's components named by id, as `nova/AccordionItem`; HTML elements keep their tag.
  */
-export function sampleIds(
-  sample: ComponentSample,
-  library: string,
-  imported: (specifier: string) => string = (specifier) => specifier
-): ComponentSample {
+export function sampleIds(sample: ComponentSample, library: string): ComponentSample {
   const child = (node: SampleChild): SampleChild => {
     if (typeof node === "string") return node
     if (isSampleRender(node)) return { ...node, $render: node.$render.map(child) }
@@ -241,7 +234,7 @@ export function sampleIds(
   const propId = (item: unknown): unknown => {
     if (isSampleRender(item)) return { ...item, $render: item.$render.map(child) }
     if (isSampleElement(item)) return { $element: item.$element.map(child) }
-    return isMadeValue(item) ? { ...item, $call: { ...item.$call, import: imported(item.$call.import) } } : item
+    return item
   }
   const propIds = (props: Record<string, unknown>) =>
     Object.fromEntries(Object.entries(props).map(([key, item]) => [key, propId(item)]))

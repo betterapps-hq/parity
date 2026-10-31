@@ -127,7 +127,7 @@ export interface ComponentChanges {
 }
 
 export interface GeneratedLibrary {
-  /** A version 3 `.lib.par`, ready to write as JSON. */
+  /** A `.lib.par`, ready to write as JSON. */
   manifest: Record<string, unknown>
   report: GenerateReport
 }
@@ -142,7 +142,7 @@ interface PackageJson {
 }
 
 /**
- * Describes a component library, an icon set or an app as a version 3 `.lib.par`: its components found with the type
+ * Describes a component library, an icon set or an app as a `.lib.par`: its components found with the type
  * checker, its tokens wherever it keeps them, written as DTCG in Parity's categories, its breakpoints, its icons' shape
  * and the decorators its components need.
  */

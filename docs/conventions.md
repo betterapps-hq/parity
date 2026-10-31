@@ -8,9 +8,10 @@ from the agency monorepo's guidelines on 2026-10-29, keeping what fits Parity; w
 
 - **Finish the change, then check it.** Don't run tests, types or lint after each small edit. When the change is
   complete, run the checks closest to it (a test file, a package), fix what they find together, then run `pnpm verify`.
-- **Fix forward.** Parity has no releases yet, so an obsolete contract or implementation is replaced outright: no `V2`,
-  `legacy` or compatibility names, shims or dual paths. Once releases ship, the files people save (`.par`, `.lib.par`)
-  are the exception, and a change to their format still reads the old one.
+- **Fix forward.** During greenfield development, replace obsolete contracts and implementations outright: no `V2`,
+  `legacy` or compatibility names, shims or dual paths. This includes `.par` and `.lib.par`: keep one current format,
+  update the repository's examples and reject obsolete formats. A current format identifier is metadata, not a reason to
+  retain old readers. Supporting a future public file-format migration requires an explicit decision.
 - **Reuse before building.** Check whether `@parity-app/core`, another package or an installed library already does it.
 - **A new dependency needs the user's agreement.** Ask before adding a library Parity doesn't already use, saying what
   it's for and what it replaces.
