@@ -1,5 +1,5 @@
 import { readdir, readFile } from "node:fs/promises"
-import { basename, dirname, extname, join, relative } from "node:path"
+import { basename, extname, join, relative } from "node:path"
 import { componentIds, findAppComponents, type ProjectTsconfig, readTsconfig, resolvePathAlias } from "@parity-app/code"
 import {
   type ComponentSource,
@@ -12,10 +12,10 @@ import {
   type ProjectConfig,
   type RendererAdapter
 } from "@parity-app/core"
-import { loadConfig } from "./configs.ts"
 import { parseJsonc } from "./jsonc.ts"
 import { describedTokens, findLibraries } from "./libraries.ts"
 import { findStorybook } from "./storybook.ts"
+import { field, shadcnConfig, stylesWith } from "./styles.ts"
 import { findWorkspace, workspaceDependencies, workspaceSection } from "./workspace.ts"
 
 export { type ConfigSource, findConfig, type FoundConfig, loadConfig } from "./configs.ts"
@@ -43,6 +43,7 @@ export { detectionFingerprint } from "./fingerprint.ts"
 export { parseJsonc } from "./jsonc.ts"
 export { installedPackage, type LibraryDefinition, libraryCatalog, withStylesImport } from "./libraries.ts"
 export { parseStoryFile } from "./storybook.ts"
+export { type AppStyles, findStyles, readStylesheet } from "./styles.ts"
 export { type ProjectTsconfig, readTsconfig, resolvePathAlias, type TsconfigFile } from "@parity-app/code"
 export { findWorkspace, type Workspace } from "./workspace.ts"
 
@@ -57,7 +58,7 @@ export interface DiscoveredProject extends ProjectConfig {
 
 /**
  * Works out what the canvas needs from the project as it is: no config file. Styles come from the project's own
- * conventions (shadcn's `components.json`, the app entry), components from what the renderer recognizes in every file
+ * conventions (shadcn's `components.json`, the app entry, the usual places; see `findStyles`), components from what the renderer recognizes in every file
  * the app's tsconfig includes, and designs from the project's `.par` files (usually one, at its root). A library's own
  * `.lib.par`, at its root, holds designs too, and the tokens it describes.
  */
@@ -69,7 +70,7 @@ export async function discoverProject(
   const notes: string[] = []
   const shadcn = await shadcnConfig(root, notes)
   const tsconfig = readTsconfig(root)
-  const { styles, packageStyles } = await findStyles(root, shadcn, notes)
+  const { styles, packageStyles } = await stylesWith(root, shadcn, notes)
   const libraries = await findLibraries(root, pkg, styles, renderer, packageStyles)
   const uiKit = await findUiKit(root, shadcn, tsconfig, renderer, notes)
   const app = await findAppComponents(root, renderer, tsconfig, uiKit, notes)
@@ -148,39 +149,6 @@ async function addWorkspacePackages(
   else notes.push(`${where}, with components from ${sections.join(", ")}`)
 }
 
-async function findStyles(
-  root: string,
-  shadcn: unknown,
-  notes: string[]
-): Promise<{ styles: string[]; packageStyles: string[] }> {
-  const fromShadcn = field(shadcn, "tailwind", "css")
-  if (typeof fromShadcn === "string" && fromShadcn) {
-    notes.push(`styles from components.json: ${fromShadcn}`)
-    return { styles: [toPosix(fromShadcn)], packageStyles: [] }
-  }
-
-  // Otherwise follow the app entry: index.html → module script → its CSS imports.
-  const html = await readText(join(root, "index.html"))
-  const entry = html && /<script[^>]*type=["']module["'][^>]*src=["']([^"']+)["']/i.exec(html)?.[1]
-  if (entry) {
-    const entryPath = join(root, entry.replace(/^\//, ""))
-    const source = await readText(entryPath)
-    const specifiers = [...(source ?? "").matchAll(/import\s+["']([^"']+\.css)["']/g)].map((match) => match[1]!)
-    // A path is the project's own stylesheet; a bare specifier is a package's, as `@mantine/core/styles.css` is.
-    const local = (specifier: string) => specifier.startsWith(".") || specifier.startsWith("/")
-    const imports = specifiers
-      .filter(local)
-      .map((specifier) => toPosix(relative(root, join(dirname(entryPath), specifier))))
-    const packageStyles = specifiers.filter((specifier) => !local(specifier))
-    if (specifiers.length > 0) {
-      notes.push(`styles from ${toPosix(entry)}: ${[...packageStyles, ...imports].join(", ")}`)
-      return { styles: imports, packageStyles }
-    }
-  }
-  notes.push("no global styles found")
-  return { styles: [], packageStyles: [] }
-}
-
 /**
  * The UI kit folder: the one `components.json` names, else the usual places. Its components keep their bare names
  * when another has the same name, since it was the only folder Parity read before it read the whole app.
@@ -237,30 +205,6 @@ async function listFiles(folder: string, extensions: string[]): Promise<string[]
     .filter((entry) => entry.isFile() && extensions.includes(extname(entry.name)))
     .map((entry) => join(folder, entry.name))
     .sort()
-}
-
-function field(value: unknown, ...keys: string[]): unknown {
-  let current = value
-  for (const key of keys) {
-    if (typeof current !== "object" || current === null) return undefined
-    current = (current as Record<string, unknown>)[key]
-  }
-  return current
-}
-
-async function readText(path: string): Promise<string | undefined> {
-  return readFile(path, "utf8").catch(() => undefined)
-}
-
-/** shadcn's `components.json`, which it reads from the project's own folder only and which may have comments. */
-async function shadcnConfig(root: string, notes: string[]): Promise<unknown> {
-  try {
-    return (await loadConfig(root, root, { files: ["components"], extensions: ["json"], here: true, jsonc: true }))
-      ?.value
-  } catch (error) {
-    notes.push(error instanceof Error ? error.message : String(error))
-    return undefined
-  }
 }
 
 function toPosix(path: string): string {

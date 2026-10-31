@@ -19,6 +19,7 @@ import {
 import { type RegistryEntry, registryEntries, registryEntryFor } from "@parity-app/registry"
 import { readDesignTokens } from "@parity-app/tokens"
 import { parseJsonc } from "./jsonc.ts"
+import { readStylesheet } from "./styles.ts"
 
 /** A library that can be added to a project from the canvas: one Parity's registry describes. */
 export interface LibraryDefinition {
@@ -109,9 +110,8 @@ export async function findLibraries(
   /** The registry's folder; the one Parity ships, unless a test gives another. */
   registry?: string
 ): Promise<FoundLibraries> {
-  const css = (await Promise.all(stylesheets.map((path) => readFile(join(root, path), "utf8").catch(() => "")))).join(
-    "\n"
-  )
+  // A library's stylesheet counts as imported from a theme file the entry stylesheet imports, too.
+  const css = (await Promise.all(stylesheets.map((path) => readStylesheet(join(root, path))))).join("\n")
   const result: FoundLibraries = { libraries: [], components: {}, describedTokens: [], notes: [] }
   const dependencies = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies })
   for (const importName of dependencies) {
