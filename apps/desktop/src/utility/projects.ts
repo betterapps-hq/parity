@@ -3,7 +3,7 @@ import { readFile, writeFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { basename, dirname, isAbsolute, join, normalize, resolve } from "node:path"
 import { portFree, viteBuilder } from "@parity-app/builder-vite"
-import { configInputs, correctedSources, leftOutChanges } from "@parity-app/code"
+import { checkedAppFiles, configInputs, correctedSources, leftOutChanges } from "@parity-app/code"
 import {
   type BuilderAdapter,
   type BuilderDetection,
@@ -630,7 +630,8 @@ async function rereadConfig(project: OpenProject, changed: () => void): Promise<
   await followConfig(project, changed, tsconfig)
   if (projects.get(root) !== project) return
   console.log(`[service] ${project.info.name}'s config or dependencies changed, so props are read again`)
-  const { files } = await appFiles(root, project.renderer, tsconfig)
+  // The files discovery gives the checker, so never the entry that mounts the app, which the guest must not import.
+  const files = await checkedAppFiles(root, project.renderer, tsconfig)
   project.components = inferProps(root, project.sources, files)
   if (files.length > 0) {
     await checkTypes(project, files)

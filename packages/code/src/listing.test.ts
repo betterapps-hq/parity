@@ -4,6 +4,7 @@ import { dirname, join } from "node:path"
 import type { RendererAdapter } from "@parity-app/core"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 import {
+  checkedAppFiles,
   checkedChanges,
   componentIds,
   correctedSources,
@@ -100,6 +101,22 @@ describe("finding the app's components", () => {
       []
     )
     expect(found.map((component) => component.path)).toEqual(["src/components/badge.ts"])
+  })
+
+  it("gives the checker discovery's files after a tsconfig change, never the entry that mounts the app", async () => {
+    await write("tsconfig.json", '{ "include": ["src/components"] }')
+    await write("src/components/button.tsx", "export function Button() {}")
+    await write("src/app.tsx", "export function App() {}")
+    await write(
+      "src/main.tsx",
+      'createRoot(document.getElementById("root")!).render(<App />)\nexport function App() {}'
+    )
+    expect(await checkedAppFiles(root, renderer, readTsconfig(root))).toEqual(["src/components/button.tsx"])
+
+    await write("tsconfig.json", '{ "include": ["src"] }')
+    const files = await checkedAppFiles(root, renderer, readTsconfig(root))
+    expect(files).toEqual(["src/app.tsx", "src/components/button.tsx"])
+    expect(files).toEqual((await findAppComponents(root, renderer, readTsconfig(root), undefined, [])).files)
   })
 
   it("keeps undecided exports only in the UI kit folder, as it did before", async () => {

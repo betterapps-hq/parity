@@ -16,6 +16,7 @@ export { type AppComponent, appComponents, type ComponentFinder, findAll, reactF
 export {
   appFiles,
   type CheckedComponent,
+  checkedAppFiles,
   checkedChanges,
   type CheckResult,
   componentIds,
