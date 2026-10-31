@@ -2117,6 +2117,10 @@ package. Discovery resolves these module names once; the builder and icon picker
 component data named `import` or `modules` stays unchanged. Inserting a part through its parent's render prop preserves
 the parent's other slots.
 
+Code: `remapLibraryImports` and `libraryImports` in `packages/core/src/library.ts`; `findLibraries` in
+`packages/project/src/libraries.ts`; `guestModuleSource` and `iconImports` in `packages/builder-vite/src/index.ts`;
+`iconCatalog` in `apps/desktop/src/renderer/chrome/icons.tsx`.
+
 Tests: `packages/project/src/index.test.ts` (aliased entry modules, decorators, nested made values and icon subpaths),
 `packages/core/src/library.test.ts` (one import traversal, ordinary data preserved and current-format-only reads),
 `packages/core/src/library-insert.test.ts` (render-prop insertion preserves other slots), and

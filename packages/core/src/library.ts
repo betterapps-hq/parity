@@ -726,7 +726,7 @@ export function remapLibraryImports<T extends Pick<LibraryManifest, "components"
 /** Modules loaded for the library's decorators and icons, including values nested in their props. */
 export function libraryImports(manifest: Pick<LibraryManifest, "decorators" | "icons">): string[] {
   const found = new Set<string>()
-  remapLibraryImports(manifest, (specifier) => {
+  remapLibraryImports({ decorators: manifest.decorators, icons: manifest.icons }, (specifier) => {
     found.add(specifier)
     return specifier
   })

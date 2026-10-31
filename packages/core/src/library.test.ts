@@ -321,6 +321,14 @@ describe("library manifest fields", () => {
     ])
   })
 
+  it("collects only bootstrap imports when passed a full library object", () => {
+    const library = {
+      decorators: [{ wrap: { import: "bootstrap-provider", component: "Provider" } }],
+      designs: [{ root: { props: { value: { $import: "lazy-design-module", export: "value" } } } }]
+    }
+    expect(libraryImports(library)).toEqual(["bootstrap-provider"])
+  })
+
   it("collects and rewrites the same specifiers, wherever a value nests them", () => {
     const manifest = {
       decorators: [
