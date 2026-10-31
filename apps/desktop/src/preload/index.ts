@@ -52,6 +52,11 @@ ipcRenderer.on("canvas:port", (event) => {
 })
 
 const host: CanvasHost = {
+  initialProject: process.argv
+    .find((argument) => argument.startsWith("--parity-initial-project="))
+    ?.split("=")
+    .slice(1)
+    .join("="),
   request(method, params) {
     return new Promise((resolve, reject) => {
       const id = nextId++

@@ -37,5 +37,14 @@ export default defineConfig({
     // project's messages from its own by the script that wrote them.
     forwardConsole: false
   },
-  build: { outDir: "../../out/renderer", emptyOutDir: true }
+  build: {
+    outDir: "../../out/renderer",
+    emptyOutDir: true,
+    rolldownOptions: {
+      input: {
+        index: resolve(import.meta.dirname, "src/renderer/index.html"),
+        render: resolve(import.meta.dirname, "src/renderer/render.html")
+      }
+    }
+  }
 })

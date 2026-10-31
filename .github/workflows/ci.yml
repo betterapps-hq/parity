@@ -42,6 +42,12 @@ jobs:
       command: |
         pnpm verify
         pnpm --filter @parity-app/cli try-packed
+        pnpm build
+        # The startup check launches the production app only in CI, outside the checkout and without a dev server.
+        if [ "$RUNNER_OS" = Windows ]; then
+          pnpm --filter @parity-app/desktop try-built vite7-js
+          pnpm --filter @parity-app/desktop try-built headless
+        fi
       # A run that installs the fixture projects and caches their 2 GB can outlast the default 30 minutes on Windows.
       timeout-minutes: 45
       # pnpm verify runs the check and test tasks through vp run, so their cache is kept between runs, under each

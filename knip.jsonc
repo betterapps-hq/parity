@@ -37,10 +37,7 @@
         // service loads them from the app's own node_modules.
         "package-manager-detector",
         "semver",
-        "unconfig",
-        // @parity-app/registry finds its libraries through require.resolve("@parity-app/registry/package.json"),
-        // which the bundled service runs from the app's folder.
-        "@parity-app/registry"
+        "unconfig"
       ],
       // macOS's own commands: plutil and sips name and brand the dev Electron, top reads memory.
       "ignoreBinaries": ["plutil", "sips", "top"],

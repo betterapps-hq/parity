@@ -9,6 +9,7 @@ import {
   Menu,
   MessageChannelMain,
   nativeTheme,
+  protocol,
   screen,
   shell,
   type UtilityProcess,
@@ -21,11 +22,12 @@ import { readConsole, recordConsole } from "./console-log.ts"
 import { idleClose } from "./idle-close.ts"
 import { privateMemory } from "./private-memory.ts"
 
-const rendererUrl = process.env.PARITY_RENDERER_URL
-if (!rendererUrl) {
-  console.error("PARITY_RENDERER_URL is not set. Start the app with `pnpm dev`.")
-  process.exit(1)
-}
+const rendererUrl = process.env.PARITY_RENDERER_URL ?? "parity://app/index.html"
+// A standard, secure origin keeps storage and project CORS working when the UI comes from the installed files.
+protocol.registerSchemesAsPrivileged([
+  { scheme: "parity", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }
+])
+const rendererOrigin = rendererUrl.startsWith("parity://app/") ? "parity://app" : new URL(rendererUrl).origin
 
 // Lets agents and scripts inspect the running canvas over the Chrome DevTools Protocol.
 if (process.env.PARITY_DEBUG_PORT) app.commandLine.appendSwitch("remote-debugging-port", process.env.PARITY_DEBUG_PORT)
@@ -81,7 +83,7 @@ function startService(): UtilityProcess {
   const child = utilityProcess.fork(join(import.meta.dirname, "utility.mjs"), [], {
     serviceName,
     stdio: "inherit",
-    env: { ...process.env, PARITY_ALLOWED_ORIGINS: new URL(rendererUrl!).origin }
+    env: { ...process.env, PARITY_ALLOWED_ORIGINS: rendererOrigin }
   })
   child.on("message", (message: ServiceMessage) => {
     if (message.type === "render") {
@@ -158,6 +160,7 @@ function createWindow(): void {
     titleBarStyle: mac ? "hiddenInset" : "hidden",
     ...(mac ? {} : { titleBarOverlay: { color: background, symbolColor: symbols, height: 40 } }),
     webPreferences: {
+      additionalArguments: process.env.PARITY_PROJECT ? [`--parity-initial-project=${process.env.PARITY_PROJECT}`] : [],
       preload: join(import.meta.dirname, "preload.cjs"),
       contextIsolation: true,
       sandbox: true
@@ -420,6 +423,9 @@ function renderFrame(job: RenderJob, capture: boolean): Promise<{ frame?: Render
 }
 
 void app.whenReady().then(() => {
+  protocol.registerSource("parity", {
+    routes: [{ match: { host: "app" }, source: { type: "directory", root: join(import.meta.dirname, "renderer") } }]
+  })
   // Otherwise the dock shows the icon of the app Parity runs as, which is Electron.
   app.dock?.setIcon(join(import.meta.dirname, "resources", "dock.png"))
   Menu.setApplicationMenu(applicationMenu())

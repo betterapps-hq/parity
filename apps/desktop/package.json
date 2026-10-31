@@ -6,6 +6,8 @@
   "main": "out/main.mjs",
   "scripts": {
     "dev": "node scripts/dev.ts",
+    "build": "node scripts/build.ts",
+    "try-built": "node scripts/try-built.ts",
     "inspect": "node scripts/inspect.ts",
     "perf": "node scripts/perf.ts",
     "storybook": "storybook dev -p 6007",
@@ -30,11 +32,11 @@
     "unconfig": "^7.5.0"
   },
   "devDependencies": {
-    "@parity-app/editor": "workspace:*",
     "@parity-app/agent": "workspace:*",
     "@parity-app/builder-vite": "workspace:*",
     "@parity-app/code": "workspace:*",
     "@parity-app/core": "workspace:*",
+    "@parity-app/editor": "workspace:*",
     "@parity-app/icons": "workspace:*",
     "@parity-app/project": "workspace:*",
     "@parity-app/registry": "workspace:*",
@@ -48,6 +50,7 @@
     "@vitejs/plugin-react": "^6.1.2",
     "electron": "^45.1.0",
     "esbuild": "^0.28.2",
+    "jiti": "catalog:",
     "playwright-core": "^1.64.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

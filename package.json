@@ -10,6 +10,7 @@
   },
   "scripts": {
     "dev": "pnpm --filter @parity-app/desktop dev",
+    "build": "pnpm --filter @parity-app/desktop build",
     "inspect": "pnpm --filter @parity-app/desktop inspect",
     "perf": "pnpm --filter @parity-app/desktop perf",
     "storybook": "pnpm --filter @parity-app/desktop storybook",

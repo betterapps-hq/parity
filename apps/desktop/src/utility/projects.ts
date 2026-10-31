@@ -213,7 +213,9 @@ async function start(root: string): Promise<ProjectInfo> {
     root,
     config,
     renderer,
-    rendererGuestPath: require.resolve(renderer.guestModule),
+    rendererGuestPath: existsSync(join(import.meta.dirname, "guest.mjs"))
+      ? join(import.meta.dirname, "guest.mjs")
+      : require.resolve(renderer.guestModule),
     allowedOrigins
   }
   // The same project's last builder may still be closing.

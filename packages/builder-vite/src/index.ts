@@ -74,16 +74,42 @@ export const viteBuilder: BuilderAdapter = {
       },
       plugins: [guestPlugin(options, vite.normalizePath(options.rendererGuestPath)), dependencySourceMaps()]
     })
-    await server.listen()
-    const origin = server.resolvedUrls?.local[0]
-    if (!origin) {
+    try {
+      await server.listen()
+      const client = server.environments.client
+      if (!client) throw new Error("Vite did not create its client environment")
+      // Finish the cold dependency graph before the browser imports it. A failed child import stays cached by URL,
+      // so retrying only the guest module cannot recover from Vite replacing its optimized dependency hashes.
+      await client.depsOptimizer?.init()
+      await client.depsOptimizer?.scanProcessing
+      await Promise.all(
+        guestModule(options.config).imports.map(async (id) => {
+          const resolved = await client.pluginContainer.resolveId(id)
+          if (!resolved) return
+          const url = resolved.id.startsWith("\0")
+            ? `/@id/__x00__${resolved.id.slice(1)}`
+            : `/@fs/${vite.normalizePath(resolved.id)}`
+          await client.warmupRequest(url)
+        })
+      )
+      await client.waitForRequestsIdle()
+      if (client.depsOptimizer) {
+        const { optimized, discovered } = client.depsOptimizer.metadata
+        const processing = Object.values({ ...optimized, ...discovered })
+          .map((dependency) => dependency.processing)
+          .filter((pending) => pending !== undefined)
+        await Promise.all(processing)
+      }
+      const origin = server.resolvedUrls?.local[0]
+      if (!origin) throw new Error("Vite did not report a local URL")
+      return {
+        guestUrl: new URL(`/@id/__x00__${guestId}`, origin).href,
+        toolVersion: vite.version,
+        close: () => server.close()
+      }
+    } catch (error) {
       await server.close()
-      throw new Error("Vite did not report a local URL")
-    }
-    return {
-      guestUrl: new URL(`/@id/__x00__${guestId}`, origin).href,
-      toolVersion: vite.version,
-      close: () => server.close()
+      throw error
     }
   }
 }
@@ -215,6 +241,11 @@ function guestPlugin(options: BuilderStartOptions, rendererGuestPath: string): V
  * missing provider doesn't stop the project from rendering.
  */
 export function guestModuleSource(config: ProjectConfig): string {
+  return guestModule(config).source
+}
+
+/** The source and its eager imports share one declaration so startup warms the same graph the browser will load. */
+function guestModule(config: ProjectConfig): { source: string; imports: string[] } {
   const imports: string[] = []
   const optional = new Set<string>()
   const ref = (id: string) => {
@@ -291,7 +322,7 @@ export function guestModuleSource(config: ProjectConfig): string {
       ? `import(${JSON.stringify(id)}).catch((error) => ({ loadError: String(error?.message ?? error) }))`
       : `import(${JSON.stringify(id)})`
   )
-  return [
+  const source = [
     `const modules = await Promise.all([${loads.join(", ")}])`,
     "// A component whose module didn't load throws why when it's drawn, and its frame shows the error in its place.",
     "const failed = (error) => () => { throw new Error(`its module didn't load: ${error}`) }",
@@ -316,6 +347,7 @@ export function guestModuleSource(config: ProjectConfig): string {
     "})",
     ""
   ].join("\n")
+  return { source, imports }
 }
 
 /** The modules a sample's values made by calling a package's function come from. */

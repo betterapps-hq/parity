@@ -64,6 +64,36 @@ afterEach(() => vi.unstubAllGlobals())
 /** Lets the workspace's awaits run on. */
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
 
+describe("starting the workspace", () => {
+  it("leaves a fresh install on the welcome page", () => {
+    vi.stubGlobal("localStorage", { getItem: () => null })
+    const workspace = new Workspace()
+    workspace.restore()
+    expect(opens).toHaveLength(0)
+    expect(workspace.getTabs()).toEqual([])
+  })
+
+  it("opens the project requested by the dev runner", () => {
+    vi.stubGlobal("localStorage", { getItem: () => null })
+    window.canvasHost.initialProject = info.root
+    const workspace = new Workspace()
+    workspace.restore()
+    expect(opens).toHaveLength(1)
+    expect(workspace.getTabs()).toHaveLength(1)
+  })
+
+  it("restores saved tabs ahead of the dev runner's default", () => {
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => (key === "parity.workspace" ? JSON.stringify({ roots: [info.root] }) : null)
+    })
+    window.canvasHost.initialProject = "/another/project"
+    const workspace = new Workspace()
+    workspace.restore()
+    expect(opens).toHaveLength(1)
+    expect(workspace.getTabs()[0]?.id).toBe(info.root)
+  })
+})
+
 describe("a tab closed while its project opens", () => {
   it("closes the project once the service has opened it", async () => {
     const workspace = new Workspace()

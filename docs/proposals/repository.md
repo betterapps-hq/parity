@@ -17,8 +17,11 @@ to npm and of unsigned installers to GitHub Releases, as betas first and to ever
 - **The repository has a README and the MIT licence** (PAR-397). The README says what Parity is, how to get past an
   unsigned release's warnings and how to develop it, and the CLI has a README of its own for npm. Every Parity
   package.json says MIT; the example project and the fixtures stand in for other people's projects, so they don't.
-- **Nothing builds for production.** The main process exits without `PARITY_RENDERER_URL`, so Parity only runs under
-  `pnpm dev`.
+- **`pnpm build` makes a standalone production app** (PAR-8): both renderer pages, the main process, service and
+  workers, the project guest, icons and registry. TypeScript 6 is copied with its declaration files. Without a dev
+  server the UI loads the built files through `parity://app`; a fresh install starts on the welcome page. Windows CI
+  checks Vite 7 and Vite 8 projects from an isolated copy of the build. Installer packaging and desktop delivery follow
+  in PAR-9 and PAR-11.
 - **Only the desktop app and the CLI are versioned,** from Beachball change files (PAR-4). The packages they bundle stay
   `private`. The CLI is on npm as `@parity-app/cli` (PAR-13): 0.0.0 was published by hand on 2026-10-30, and npm trusts
   `cd-npm.yml` in the `npm` environment to publish the rest.
