@@ -63,16 +63,26 @@ export function tokenDifferences(
 }
 
 /**
- * Every token value these edits leave different from the stylesheet as the guest loaded it, one per token and theme: the
- * complete set a frame drawn elsewhere lays over the compiled stylesheet to match the canvas. An edit taken back by
- * undo, or set back to the value it had, isn't in it.
+ * The token values the canvas shows that differ from the stylesheet its guest loaded (`baseline`), after it shows these
+ * differences (`tokenDifferences`): the complete set, one per token and theme, that a frame drawn elsewhere lays over
+ * the same compiled stylesheet to match the canvas. A value back at the baseline's leaves the set; a value taken out
+ * that the baseline has stays in it, empty, which takes the declaration out. Compared with the baseline rather than
+ * the edits' originals, so it holds after a guest loads again with saved values, where the two differ. The same array
+ * when nothing differs.
  */
-export function tokenOverrides(edits: TokenEdits): TokenChange[] {
-  const overrides: TokenChange[] = []
-  for (const { name, theme, value, original } of edits.values()) {
-    if (value !== original) overrides.push({ name, theme, value })
+export function withTokenOverrides(
+  overrides: readonly TokenChange[],
+  differences: readonly { name: string; theme: string; value: string | undefined }[],
+  baseline: readonly Token[]
+): readonly TokenChange[] {
+  if (differences.length === 0) return overrides
+  const next = new Map(overrides.map((override) => [tokenKey(override.name, override.theme), override]))
+  for (const { name, theme, value } of differences) {
+    const key = tokenKey(name, theme)
+    if (value === baseline.find((token) => token.name === name)?.values[theme]) next.delete(key)
+    else next.set(key, { name, theme, value: value ?? "" })
   }
-  return overrides
+  return [...next.values()]
 }
 
 /**

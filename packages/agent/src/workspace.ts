@@ -1097,9 +1097,10 @@ export class AgentWorkspace {
     const components = new Set(this.snapshot.components)
     const icons = (this.snapshot.iconSets ?? []).map((set) => `${set.id}/`)
     const tokens = new Set(this.snapshot.tokens.map((token) => token.name))
+    const library = this.library()
     for (const container of document.containers) {
       const check = (node: DesignNode, where: string) => {
-        if (node.type === "instance" && !this.all().some((entry) => entry.container.id === node.design)) {
+        if (node.type === "instance" && !library.has(node.design)) {
           this.warnings.push(`${where}: no component design "${node.design}"`)
         }
         if (

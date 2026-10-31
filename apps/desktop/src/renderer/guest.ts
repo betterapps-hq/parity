@@ -90,6 +90,8 @@ export function showTokenOverrides(sheet: CSSStyleSheet, overrides: readonly Tok
   if (shown.get(sheet) === key) return
   const css = compiled.get(sheet)
   if (css === undefined) throw new Error("Token overrides go on a guest's stylesheet, made by guestSheet")
+  // Until every value is laid over it, the sheet shows no known set, so a value that throws can't leave one claimed.
+  shown.delete(sheet)
   sheet.replaceSync(css)
   for (const { name, theme, value } of overrides) previewToken(sheet, name, theme, value)
   shown.set(sheet, key)

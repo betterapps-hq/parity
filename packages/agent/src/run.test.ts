@@ -396,6 +396,32 @@ describe("render inputs", () => {
     }
   })
 
+  it("doesn't warn about an instance of a library's design it places", async () => {
+    const project = snapshot()
+    project.libraryDesigns = [
+      {
+        id: "kit/label",
+        name: "Label",
+        kind: "component",
+        position: { x: 0, y: 0 },
+        root: { type: "text", id: "text", text: "From the kit" },
+        states: [{ id: "default", name: "Default" }]
+      }
+    ]
+    const result = await execute(
+      {
+        label: "Place",
+        code: `Insert("page", {type: "instance", design: "kit/label"})
+Insert("page", {type: "instance", design: "kit/missing"})`
+      },
+      project,
+      hooks()
+    )
+    expect(result.ok).toBe(true)
+    const missing = result.warnings.filter((warning) => warning.includes("no component design"))
+    expect(missing).toEqual([expect.stringContaining('"kit/missing"')])
+  })
+
   it("lets a project design win over a library design with its id", async () => {
     const project = snapshot()
     const [signup] = project.documents[0]!.document.containers

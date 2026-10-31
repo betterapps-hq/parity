@@ -2066,31 +2066,37 @@ their frames offscreen, from the tab's snapshot. They now draw with the canvas's
   id they share.
 - **Token previews.** Unsaved token edits show in agents' frames, exports and the Accessibility panel as on the canvas,
   and a call's own `SetTokens` shows in the frames it draws after it, in the same call. Each job carries the complete
-  set of token values that differ from the compiled CSS, not the changes since the last job.
+  set of token values that differ from the compiled CSS, not the changes since the last job. It's compared with the CSS
+  the guest loaded, so after a save and the guest loading again, undoing an edit still sends the value put back (or an
+  empty one, taking out a theme value the saved CSS now has).
 - **No job inherits another's tokens.** The render window keeps one stylesheet per guest; each job starts it from the
   compiled CSS and lays its set over it, so a job with no overrides after one with some draws the compiled values, and
   undoing an edit that gave a theme a value it didn't have (a dark `--radius`) leaves nothing behind in bitmaps. It
-  starts over only when the set changed, so a run of jobs with the same set doesn't rebuild it. The canvas's own frames
-  are edited in place, as before.
+  starts over only when the set changed, so a run of jobs with the same set doesn't rebuild it, and a set that fails
+  partway is never taken as shown. The canvas's own frames are edited in place, as before.
 
 Code: `projectComponentLibrary` in `packages/core/src/render.ts`, used by `DesignStore` (`getLibraryDesigns`) and
-`AgentWorkspace.library` in `packages/agent/src/workspace.ts`; `tokenOverrides` in `packages/editor/src/token-edits.ts`,
-which `TokenStore.previews` gives; `tokenValues` in `workspace.ts` laying the call's `SetTokens` over them for each
-`FrameRequest`; the snapshot in `apps/desktop/src/renderer/agent/handlers.ts` and `renderFor` in
-`apps/desktop/src/utility/agent.ts`; `guestSheet` and `showTokenOverrides` in `apps/desktop/src/renderer/guest.ts`,
-called by `render.ts` for each job.
+`AgentWorkspace.library` in `packages/agent/src/workspace.ts`; `withTokenOverrides` in
+`packages/editor/src/token-edits.ts`, which `TokenStore` follows its edits with and `previews` gives; `tokenValues` in
+`workspace.ts` laying the call's `SetTokens` over them for each `FrameRequest`; the snapshot in
+`apps/desktop/src/renderer/agent/handlers.ts` and `renderFor` in `apps/desktop/src/utility/agent.ts`; `guestSheet` and
+`showTokenOverrides` in `apps/desktop/src/renderer/guest.ts`, called by `render.ts` for each job.
 
 Tests:
 
-- `packages/agent/src/run.test.ts` (4): Measure, Problems and Screenshot of a design placing a library design draw it
-  with no placeholder; a project design wins over a library design with its id; frames carry the canvas's unsaved
-  values, then those with the call's `SetTokens` over them; and nothing when no value differs.
+- `packages/agent/src/run.test.ts` (5): Measure, Problems and Screenshot of a design placing a library design draw it
+  with no placeholder; no missing-design warning for a placed library design, only for one that doesn't exist; a project
+  design wins over a library design with its id; frames carry the canvas's unsaved values, then those with the call's
+  `SetTokens` over them; and nothing when no value differs.
 - `packages/core/src/render.test.ts` (1): the project's library holds the library designs and its own, its own winning.
-- `packages/editor/src/token-edits.test.ts` (1) and `history.test.ts` (1): only values that differ are overrides; an
-  edit undone, also one giving a theme a new value, leaves none; a saved edit still is one.
-- `apps/desktop/src/renderer/guest.test.ts` (2), in Chrome: overrides A, then none, then another set, then A again give
+- `packages/editor/src/token-edits.test.ts` (2) and `history.test.ts` (1): only values that differ are overrides; an
+  edit undone, also one giving a theme a new value, leaves none; a saved edit still is one; and after a guest loads
+  again with the edits saved, undoing them overrides with the value put back and an empty one for the theme value taken
+  out.
+- `apps/desktop/src/renderer/guest.test.ts` (3), in Chrome: overrides A, then none, then another set, then A again give
   the same stylesheet as A the first time, and none gives the compiled one; a theme value taken out once the set leaves
-  it out; only a guest's stylesheet takes overrides.
+  it out; only a guest's stylesheet takes overrides; and a set that threw partway doesn't stop the one before it being
+  laid over again.
 - `apps/desktop/src/renderer/tokens-store.test.ts` (1 of its 3): `previews()` empty once an edit is undone.
 - `apps/desktop/src/renderer/design-store.test.ts` (1 of its 18): the library designs the snapshot carries.
 

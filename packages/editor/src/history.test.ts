@@ -1,4 +1,5 @@
 import { type CanvasDocument, type ContainerSpec, defaultModeSettings, type ModeSettings } from "@parity-app/core"
+import type { Token, TokenChange } from "@parity-app/tokens"
 import { describe, expect, it } from "vite-plus/test"
 import { addDesign, changeDesign, replaceDocuments } from "./design-changes.ts"
 import { withTidyView } from "./document-equality.ts"
@@ -23,7 +24,7 @@ import {
   writeStarted,
   writeSucceeded
 } from "./history.ts"
-import { type TokenEdit, tokenOverrides, withTokenEdits } from "./token-edits.ts"
+import { type TokenEdit, tokenDifferences, withTokenEdits, withTokenOverrides } from "./token-edits.ts"
 
 /** Modes other than the defaults, which the main file carries. */
 const custom: ModeSettings = { ...defaultModeSettings, modes: [] }
@@ -387,18 +388,28 @@ describe("token values", () => {
   })
 
   it("leave no token override once an edit is undone, also one giving a theme a value it didn't have", () => {
+    const loaded: Token[] = [
+      { name: "primary", category: "color", source: "semantic", values: { default: "oklch(0.205 0 0)" } },
+      { name: "radius", category: "radius", source: "semantic", values: { default: "0.5rem" } }
+    ]
+    const step = (overrides: readonly TokenChange[], from: DesignHistory, to: DesignHistory) =>
+      withTokenOverrides(overrides, tokenDifferences(from.current.tokens, to.current.tokens), loaded)
+    const start = open()
     const dark: TokenEdit = { name: "radius", theme: "dark", value: "1rem" }
-    const edited = tokens(tokens(open(), [primary("red")]), [dark], "Edit --radius")
-    expect(tokenOverrides(edited.current.tokens)).toEqual([
+    const red = tokens(start, [primary("red")])
+    const edited = tokens(red, [dark], "Edit --radius")
+    const all = step(step([], start, red), red, edited)
+    expect(all).toEqual([
       { name: "primary", theme: "default", value: "red" },
       { name: "radius", theme: "dark", value: "1rem" }
     ])
     const once = taken(undoChange(edited))
-    expect(tokenOverrides(once.current.tokens)).toEqual([{ name: "primary", theme: "default", value: "red" }])
-    expect(tokenOverrides(taken(undoChange(once)).current.tokens)).toEqual([])
+    const fewer = step(all, edited, once)
+    expect(fewer).toEqual([{ name: "primary", theme: "default", value: "red" }])
+    expect(step(fewer, once, taken(undoChange(once)))).toEqual([])
     // Saved, an edit is still an override: the guest's stylesheet stays as it loaded until the guest loads again.
-    const saved = save(tokens(open(), [primary("red")]), "src/index.css").history
-    expect(tokenOverrides(saved.current.tokens)).toEqual([{ name: "primary", theme: "default", value: "red" }])
+    const saved = save(red, "src/index.css").history
+    expect(step([], start, saved)).toEqual([{ name: "primary", theme: "default", value: "red" }])
   })
 
   it("write the stylesheet's value back when an edit is undone after a save", () => {

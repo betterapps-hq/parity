@@ -101,4 +101,26 @@ describe("token overrides on an offscreen frame's stylesheet", () => {
     expect(result.cleared).toBe(result.compiled)
     expect(result.refused).toContain("guestSheet")
   })
+
+  it("lay a set over the sheet again after a set that failed partway", async () => {
+    const result = await page.evaluate(() => {
+      // @ts-expect-error The bundle's global.
+      const { css, guestSheet, showTokenOverrides, text } = guest
+      const sheet = guestSheet(css)
+      const a = [{ name: "radius", theme: "dark", value: "1rem" }]
+      showTokenOverrides(sheet, a)
+      const first = text(sheet)
+      let threw = false
+      try {
+        // A theme that isn't a class name makes the rule it would add unreadable.
+        showTokenOverrides(sheet, [{ name: "radius", theme: "{", value: "2rem" }])
+      } catch {
+        threw = true
+      }
+      showTokenOverrides(sheet, a)
+      return { first, threw, again: text(sheet) }
+    })
+    expect(result.threw).toBe(true)
+    expect(result.again).toBe(result.first)
+  })
 })

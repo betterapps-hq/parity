@@ -6,8 +6,8 @@ import {
   type TokenEdits,
   type TokenFailure,
   tokenDifferences,
-  tokenOverrides,
-  tokensWithEdits
+  tokensWithEdits,
+  withTokenOverrides
 } from "@parity-app/editor"
 import type { Token } from "@parity-app/tokens"
 import { useSyncExternalStore } from "react"
@@ -111,7 +111,7 @@ export class TokenStore {
     for (const { name, theme, value } of differences) previewToken(this.sheet, name, theme, value ?? "")
     this.shown = edits
     this.tokens = tokensWithEdits(this.loaded, edits)
-    this.overrides = tokenOverrides(edits)
+    this.overrides = withTokenOverrides(this.overrides, differences, this.loaded)
     for (const listener of this.listeners) listener()
   }
 }
