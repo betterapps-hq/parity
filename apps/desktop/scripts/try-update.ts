@@ -1,5 +1,5 @@
 // CI-only: package two real versions, reject a corrupt download, then update and restart the installed app.
-import { spawnSync } from "node:child_process"
+import { type ChildProcess, spawn, spawnSync } from "node:child_process"
 import { createReadStream } from "node:fs"
 import { chmod, cp, mkdir, mkdtemp, readFile, realpath, rm, stat, symlink, writeFile } from "node:fs/promises"
 import { createServer, type Server } from "node:http"
@@ -7,7 +7,7 @@ import { tmpdir } from "node:os"
 import { basename, join, relative, resolve, sep } from "node:path"
 import { Transform } from "node:stream"
 import type { UpdateState } from "@parity-app/core"
-import { _electron, type Browser, chromium, type ElectronApplication, type Page } from "playwright-core"
+import { type Browser, chromium, type Page } from "playwright-core"
 
 if (process.env.CI !== "true") throw new Error("Installed update checks run only in CI.")
 if (process.platform !== "win32" && process.platform !== "linux") throw new Error("This check needs Windows or Linux.")
@@ -19,7 +19,8 @@ const second = join(work, "second")
 const userData = join(work, "user")
 const agentFile = join(work, "agent.json")
 let corrupt = true
-let electron: ElectronApplication | undefined
+let appProcess: ChildProcess | undefined
+let initialBrowser: Browser | undefined
 let restarted: Browser | undefined
 let installedWindows = false
 let feed: Server | undefined
@@ -235,18 +236,42 @@ try {
   }
   const launchEnv: Record<string, string> = {}
   for (const [key, value] of Object.entries(env)) if (value !== undefined) launchEnv[key] = value
-  electron = await _electron.launch({
-    executablePath: executable,
-    args: process.platform === "linux" ? ["--no-sandbox"] : [],
+  // ElectronApplication.launch attaches a Node inspector that can hold app.quit open during a real update.
+  // Start the executable as a user would and attach only to its renderer's existing CDP endpoint instead.
+  appProcess = spawn(executable, process.platform === "linux" ? ["--no-sandbox"] : [], {
     cwd: work,
-    env: launchEnv
+    env: launchEnv,
+    windowsHide: true,
+    stdio: ["ignore", "pipe", "pipe"]
   })
-  electron.process().stdout?.on("data", (chunk: Buffer) => process.stdout.write(chunk))
-  electron.process().stderr?.on("data", (chunk: Buffer) => process.stderr.write(chunk))
-  const page = await electron.firstWindow()
+  let launchError: Error | undefined
+  appProcess.on("error", (error) => {
+    launchError = error
+  })
+  appProcess.stdout?.on("data", (chunk: Buffer) => process.stdout.write(chunk))
+  appProcess.stderr?.on("data", (chunk: Buffer) => process.stderr.write(chunk))
+  let page: Page | undefined
+  const startupDeadline = Date.now() + 60_000
+  while (Date.now() < startupDeadline) {
+    if (launchError) throw launchError
+    if (appProcess.exitCode !== null || appProcess.signalCode !== null)
+      throw new Error("The installed app exited before opening its window.")
+    try {
+      initialBrowser ??= await chromium.connectOverCDP(`http://127.0.0.1:${address.port}`, { timeout: 2000 })
+      page = initialBrowser
+        .contexts()
+        .flatMap((context) => context.pages())
+        .find((candidate) => candidate.url() === "parity://app/index.html")
+      if (page) break
+    } catch {
+      initialBrowser = undefined
+    }
+    await new Promise((done) => setTimeout(done, 100))
+  }
+  if (!page) throw new Error("The installed app did not open its window.")
   watchdog = setTimeout(() => {
     console.error(`Installed update check timed out during: ${stage}`)
-    electron?.process().kill("SIGKILL")
+    appProcess?.kill("SIGKILL")
   }, 300_000)
   watchdog.unref()
   page.setDefaultTimeout(90_000)
@@ -321,12 +346,9 @@ try {
   clearTimeout(watchdog)
   console.log(`Cleaning up installed update check after: ${stage}`)
   // Cleanup must not open an unanswered unsaved-work prompt in this disposable copy of the app.
-  if (electron && electron.process().exitCode === null) {
-    await bounded(electron.evaluate(({ app }) => app.exit(0)).catch(() => undefined))
-    if (electron.process().exitCode === null) electron.process().kill("SIGKILL")
-  }
+  if (appProcess?.exitCode === null && appProcess.signalCode === null) appProcess.kill("SIGKILL")
   if (restarted) await bounded(restarted.close().catch(() => undefined))
-  if (electron) await bounded(electron.close().catch(() => undefined))
+  if (initialBrowser) await bounded(initialBrowser.close().catch(() => undefined))
   feed?.closeAllConnections()
   if (feed) await new Promise<void>((closed) => feed!.close(() => closed()))
   if (installedWindows) run(join(installed, "Uninstall Parity.exe"), ["/S", `_?=${installed}`], work)
