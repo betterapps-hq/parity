@@ -154,7 +154,8 @@ or hides the node. `ExtractComponent` sets all of this up from the occurrences i
 A **variant** is a param whose `options` each patch the component design, the way a state does: a size or a tone the
 instance chooses. Its `default` is an option's id, else the first option. An instance picks one in its `args`, and
 `view.variants` picks which one the component's own board shows. Patches apply in this order: the viewport's, the
-variant options', the state's, then the instance's overrides.
+variant options', the state's, then the instance's overrides. `Get` returns the stored node, with the text it was given;
+`Get(path, { state })` returns it as the board shows it, the param's value filled in and `bind` kept (see execute.md).
 
 ```json
 "params": {

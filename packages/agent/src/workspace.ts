@@ -11,6 +11,9 @@ import {
   type DesignChange,
   type DesignNode,
   editNode,
+  type EvalScope,
+  drawnNode,
+  type EvalContext,
   extractComponent,
   findRepeats,
   findState,
@@ -18,6 +21,7 @@ import {
   shownModes,
   generateId,
   insertNode,
+  locateEffective,
   locateNode,
   mapNode,
   type ModeSettings,
@@ -308,15 +312,56 @@ export class AgentWorkspace {
     if (typeof first !== "string") throw new TypeError("Get(path, options?), Get(path, visit) or Get(visit)")
     if (typeof second === "function") return this.visit(first, second as Visit, third as GetOptions | undefined)
     const options = (second ?? {}) as GetOptions
+    if (shownRead(options)) {
+      const { layer, read } = this.shownLayer(first, options)
+      this.emit(read)
+      return elide(structuredClone(layer.node), options.depth)
+    }
     const design = this.tryDesign(first)
     const found = design ? { ...design, node: design.container.root } : this.findNode(first)
     this.emit({ kind: "read", design: key(found.path, found.container.id), node: design ? undefined : found.node.id })
-    const node = options.state ? applyState(found.node, findState(found.container, options.state)) : found.node
-    return elide(structuredClone(node), options.depth)
+    return elide(structuredClone(found.node), options.depth)
   }
 
   private visit(reference: string | undefined, visit: Visit, options: GetOptions = {}): unknown[] {
     const results: unknown[] = []
+    /** Calls `visit` on one node, and says whether to go on into its children. */
+    const call = (
+      design: string,
+      node: DesignNode,
+      path: string,
+      depth: number,
+      index: number,
+      parent: string | undefined
+    ): boolean => {
+      let skip = false
+      const value = visit(structuredClone(node), {
+        design,
+        path: `${design}/${path}`,
+        depth,
+        index,
+        parent,
+        skipChildren: () => {
+          skip = true
+        }
+      })
+      if (value !== undefined) results.push(value)
+      return !skip
+    }
+    if (reference !== undefined && shownRead(options)) {
+      const { container, layer: start, read } = this.shownLayer(reference, options)
+      this.emit({ kind: "read", design: read.design })
+      const walk = (layer: ShownLayer, depth: number, index: number, parent: string | undefined) => {
+        if (!call(container.id, layer.node, layer.path, depth, index, parent)) return
+        for (const [position, child] of layer.children.entries()) {
+          // Its index in its slot, as the stored walk gives it.
+          const index = layer.children.slice(0, position).filter((sibling) => sibling.slot === child.slot).length
+          walk(child, depth + 1, index, layer.path)
+        }
+      }
+      walk(start, 0, 0, undefined)
+      return results
+    }
     const scopes = reference
       ? [
           this.tryDesign(reference) ??
@@ -328,23 +373,9 @@ export class AgentWorkspace {
       : this.all()
     for (const scope of scopes) {
       const start = "start" in scope ? (scope.start as DesignNode) : scope.container.root
-      const state = options.state ? findState(scope.container, options.state) : undefined
       this.emit({ kind: "read", design: key(scope.path, scope.container.id) })
       const walk = (node: DesignNode, depth: number, index: number, parent: string | undefined) => {
-        let skip = false
-        const shown = state ? applyState(node, state) : node
-        const value = visit(structuredClone(shown), {
-          design: scope.container.id,
-          path: `${scope.container.id}/${node.id}`,
-          depth,
-          index,
-          parent,
-          skipChildren: () => {
-            skip = true
-          }
-        })
-        if (value !== undefined) results.push(value)
-        if (skip) return
+        if (!call(scope.container.id, node, node.id, depth, index, parent)) return
         for (const entry of childEntries(node)) {
           for (const [childIndex, child] of entry.nodes.entries()) walk(child, depth + 1, childIndex, node.id)
         }
@@ -352,6 +383,51 @@ export class AgentWorkspace {
       walk(start, 0, 0, undefined)
     }
     return results
+  }
+
+  /**
+   * A layer and what's inside it as the board draws a state and mode, through core's effective evaluation: with the
+   * variant options the design's board shows, its params' defaults and the project's components. The reference is a
+   * design, a node (`design/node`, or a node id alone when one design has it) or a layer inside an instance
+   * (`design/card/title`). Only the instances on the way to the layer are expanded, not ones inside it.
+   */
+  private shownLayer(reference: string, options: GetOptions) {
+    const found = this.findLayer(reference)
+    const { container } = found
+    const mode = options.mode ? this.frameMode(options.mode) : shownModes(this.modes, container.view).main
+    const context: EvalContext = {
+      state: this.shownState(container, options.state),
+      viewport: mode.viewport,
+      library: this.library()
+    }
+    const located = locateEffective(container, found.layer, context)
+    if (!located) throw new Error(`No layer "${found.layer}" in ${container.id}`)
+    const layer = drawnLayer(located.shown, found.layer, located.scope, mode.viewport, located.location.slot)
+    const design = key(found.path, container.id)
+    const node = found.layer === container.root.id ? undefined : found.layer.split("/")[0]
+    return { container, layer, read: { kind: "read" as const, design, ...(node ? { node } : {}) } }
+  }
+
+  /** A layer by reference, as a path `locateEffective` takes: a design's root, its node, or a node inside an instance. */
+  private findLayer(reference: string): Located & { layer: string } {
+    const design = this.tryDesign(reference)
+    if (design) return { ...design, layer: design.container.root.id }
+    for (let slash = reference.indexOf("/"); slash > 0; slash = reference.indexOf("/", slash + 1)) {
+      const found = this.tryDesign(reference.slice(0, slash))
+      if (!found) continue
+      const [first = "", ...inner] = reference.slice(slash + 1).split("/")
+      const node = resolveInDesign(found.container, first)
+      return { ...found, layer: [node.id, ...inner].join("/") }
+    }
+    const found = this.findNode(reference)
+    return { ...found, layer: found.node.id }
+  }
+
+  /** The state a frame shows: the one named, or the one the design's board shows. */
+  private shownState(container: ContainerSpec, id: string | undefined): StateSpec {
+    return id
+      ? findState(container, id)
+      : (container.states.find((candidate) => candidate.id === container.view?.state) ?? container.states[0]!)
   }
 
   private getTokens(filter: { category?: string; source?: string; search?: string } = {}) {
@@ -681,9 +757,7 @@ export class AgentWorkspace {
     scale = 1
   ) {
     const { path, container } = this.findDesign(reference)
-    const state = options.state
-      ? findState(container, options.state)
-      : (container.states.find((candidate) => candidate.id === container.view?.state) ?? container.states[0]!)
+    const state = this.shownState(container, options.state)
     const viewportMode = options.mode ? this.frameMode(options.mode) : shownModes(this.modes, container.view).main
     const size = frameSize(container, viewportMode)
     const mode = { ...viewportMode, width: size.width }
@@ -1218,7 +1292,10 @@ interface PlaceOptions {
 
 interface GetOptions {
   depth?: number
+  /** Read the nodes as the board draws this state; the state the design shows when only `mode` is given. */
   state?: string
+  /** Read the nodes as the board draws this mode; the design's main mode when only `state` is given. */
+  mode?: string
 }
 
 interface FrameOptions {
@@ -1312,22 +1389,44 @@ function resolveInDesign(container: ContainerSpec, reference: string): DesignNod
   throw new Error(`No layer "${reference}" in ${container.id}`)
 }
 
-function applyState(node: DesignNode, state: StateSpec): DesignNode {
-  const patch = state.overrides?.[node.id]
-  const next = { ...node } as DesignNode & Values
-  if (patch) {
-    if (patch.hidden !== undefined) next.hidden = patch.hidden
-    if (patch.style) next.style = { ...node.style, ...patch.style }
-    if (next.type === "text" && patch.text !== undefined) next.text = patch.text
-    if (next.type === "component" && patch.props) next.props = { ...next.props, ...patch.props }
-  }
-  if (next.type === "layout") next.children = next.children.map((child) => applyState(child, state))
-  if (next.type === "component" && next.slots) {
-    next.slots = Object.fromEntries(
-      Object.entries(next.slots).map(([slot, nodes]) => [slot, nodes.map((child) => applyState(child, state))])
+/** Whether a read asks for what the board draws rather than the stored nodes. */
+function shownRead(options: GetOptions): boolean {
+  return options.state !== undefined || options.mode !== undefined
+}
+
+/** A layer as it's drawn, with its children drawn too. An instance is its own node: what's inside isn't copied in. */
+interface ShownLayer {
+  path: string
+  slot?: string
+  node: DesignNode
+  children: ShownLayer[]
+}
+
+/**
+ * A drawn layer with its children drawn in the same scope, each through core's per-node step. An instance's contents
+ * aren't expanded, so reading one costs the same however much its component holds.
+ */
+function drawnLayer(node: DesignNode, path: string, scope: EvalScope, viewport: string, slot?: string): ShownLayer {
+  const where = slot === undefined ? { path } : { path, slot }
+  const prefix = path.slice(0, path.length - node.id.length)
+  const children = childEntries(node).flatMap((entry) =>
+    entry.nodes.map((child) =>
+      drawnLayer(drawnNode(child, scope, viewport), `${prefix}${child.id}`, scope, viewport, entry.slot)
     )
+  )
+  if (node.type === "layout") {
+    return { ...where, node: { ...node, children: children.map((child) => child.node) }, children }
   }
-  return next
+  if (node.type === "component" && node.slots) {
+    const slots = Object.fromEntries(
+      Object.keys(node.slots).map((name) => [
+        name,
+        children.filter((child) => child.slot === name).map((child) => child.node)
+      ])
+    )
+    return { ...where, node: { ...node, slots }, children }
+  }
+  return { ...where, node, children }
 }
 
 function elide(node: DesignNode, depth: number | undefined, level = 0): unknown {
