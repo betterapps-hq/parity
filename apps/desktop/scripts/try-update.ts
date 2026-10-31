@@ -29,6 +29,14 @@ let watchdog: NodeJS.Timeout | undefined
 const ownedProcesses = new Set<number>()
 const electronLog = join(work, "electron.log")
 
+async function debugEndpoint(): Promise<string> {
+  const [portText, path] = (await readFile(join(userData, "DevToolsActivePort"), "utf8")).trim().split(/\r?\n/)
+  const port = Number(portText)
+  if (!Number.isSafeInteger(port) || port <= 0 || port > 65535 || !path || !/^\/devtools\/browser\/[\w-]+$/.test(path))
+    throw new Error("The owned app has not published its debug endpoint.")
+  return `ws://127.0.0.1:${port}${path}`
+}
+
 async function track(browser: Browser): Promise<void> {
   const session = await withTimeout(browser.newBrowserCDPSession())
   try {
@@ -219,13 +227,9 @@ try {
   env.PARITY_AGENT_FILE = agentFile
   env.ELECTRON_ENABLE_LOGGING = "1"
   env.ELECTRON_LOG_FILE = electronLog
-  // The fixed, owned CDP port lets the check reconnect to the process the real updater launches.
-  const port = createServer()
-  await new Promise<void>((listening) => port.listen(0, "127.0.0.1", listening))
-  const address = port.address()
-  if (!address || typeof address === "string") throw new Error("No debug port")
-  env.PARITY_DEBUG_PORT = String(address.port)
-  await new Promise<void>((closed) => port.close(() => closed()))
+  // The updater can start its replacement before the original process releases its sockets.
+  // Let each launch choose a port and discover its endpoint in this check's own profile instead.
+  env.PARITY_DEBUG_PORT = "0"
   const fixture = resolve(appDir, "../../fixtures/vite7-js")
   const project = join(work, "project")
   await cp(fixture, project, {
@@ -269,15 +273,15 @@ try {
   appProcess.stderr?.on("data", (chunk: Buffer) => process.stderr.write(chunk))
   appProcess.on("exit", (code, signal) => console.log(`Original app exited: code=${code}, signal=${signal}`))
   let page: Page | undefined
+  let originalEndpoint = ""
   const startupDeadline = Date.now() + 60_000
   while (Date.now() < startupDeadline) {
     if (launchError) throw launchError
     if (appProcess.exitCode !== null || appProcess.signalCode !== null)
       throw new Error("The installed app exited before opening its window.")
     try {
-      initialBrowser ??= await withTimeout(
-        chromium.connectOverCDP(`http://127.0.0.1:${address.port}`, { timeout: 2000 })
-      )
+      originalEndpoint = await debugEndpoint()
+      initialBrowser ??= await withTimeout(chromium.connectOverCDP(originalEndpoint, { timeout: 2000 }))
       page = initialBrowser
         .contexts()
         .flatMap((context) => context.pages())
@@ -345,7 +349,9 @@ try {
   while (Date.now() < deadline) {
     try {
       if (restarted && !restarted.isConnected()) restarted = undefined
-      restarted ??= await withTimeout(chromium.connectOverCDP(`http://127.0.0.1:${address.port}`, { timeout: 2000 }))
+      const endpoint = await debugEndpoint()
+      if (endpoint === originalEndpoint) throw new Error("Waiting for the replacement app's debug endpoint.")
+      restarted ??= await withTimeout(chromium.connectOverCDP(endpoint, { timeout: 2000 }))
       await track(restarted)
       newPage = restarted
         .contexts()
