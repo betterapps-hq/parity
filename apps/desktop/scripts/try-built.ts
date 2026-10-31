@@ -45,6 +45,22 @@ const discoveryWatcher = watch(work, { persistent: false }, (_event, name) => {
           encoding: "utf8"
         })
         console.log(owner.stdout || owner.error?.message || owner.stderr)
+        const details = spawnSync(
+          "powershell.exe",
+          [
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            'Get-CimInstance Win32_Process -Filter ("ProcessId=" + [int]$env:PARITY_DIAGNOSTIC_PID) | Select-Object Name,ProcessId,ParentProcessId,CommandLine | ConvertTo-Json'
+          ],
+          {
+            windowsHide: true,
+            timeout: 10_000,
+            encoding: "utf8",
+            env: { ...process.env, PARITY_DIAGNOSTIC_PID: String(record.pid) }
+          }
+        )
+        console.log(details.stdout || details.error?.message || details.stderr)
       }
     })
     .catch(() => undefined)
