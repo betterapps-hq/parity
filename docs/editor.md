@@ -2053,3 +2053,14 @@ two frames. Gaps: Vite 7 and earlier's esbuild setting is checked only as data i
 `fixtures/vite7-js` (Vite 7.3.7), whose React came prebundled as production and whose JSX went through the stand-in, and
 with a package compiled for development, which esbuild bundled with the stand-in. The numbers were measured by hand with
 a script that isn't in the repository.
+
+### Caller identity (PAR-450)
+
+Agent cursors and badges display the caller's declared name. CLI callers set `PARITY_AGENT_NAME`; without it they appear
+as `Terminal`. MCP callers supply `clientInfo.title` or, if absent or blank, `clientInfo.name` during initialize;
+without either they appear as `Agent`. Names retain their spelling and punctuation, with surrounding whitespace removed.
+Parity does not infer identity from environment variables belonging to other tools or a list of known agents. `--label`
+describes the task independently of the caller's name.
+
+Tests: `packages/cli/src/caller.test.ts` covers explicit identity, the DeepSeek environment regression, MCP title
+precedence, names preserved verbatim and neutral fallbacks.
