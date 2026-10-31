@@ -63,6 +63,7 @@ const host: CanvasHost = {
   appVersion:
     process.argv.find((argument) => argument.startsWith("--parity-version="))?.slice("--parity-version=".length) ??
     "unknown",
+  getBuildInfo: () => ipcRenderer.invoke("canvas:build-info"),
   updates: {
     get: () => ipcRenderer.invoke("canvas:update-state"),
     check: () => ipcRenderer.invoke("canvas:update-check"),

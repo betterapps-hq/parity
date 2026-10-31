@@ -1,5 +1,5 @@
 import { type EnclosingAtRule, type Guest, prepareCanvasCss, type ThemeVariable } from "@parity-app/core"
-import { extractTokens, themeFallbackCss, themeOfSelector, type Token } from "@parity-app/tokens"
+import { extractTokens, themeFallbackCss, themeOfSelector, type Token, type TokenChange } from "@parity-app/tokens"
 
 export interface LoadedGuest {
   guest: Guest
@@ -61,9 +61,40 @@ async function load(url: string, theme: readonly ThemeVariable[], entry: Loading
     document.adoptedStyleSheets = [...document.adoptedStyleSheets, global]
     entry.global = global
   }
-  const sheet = new CSSStyleSheet()
-  sheet.replaceSync(themeFallbackCss(css.scoped, theme) + packages.scoped + css.scoped)
+  const sheet = guestSheet(themeFallbackCss(css.scoped, theme) + packages.scoped + css.scoped)
   return { guest, sheet, tokens: extractTokens(css.scoped, theme, guest.tokenCategories) }
+}
+
+/** Each guest stylesheet's CSS as compiled, which a frame drawn offscreen starts from. */
+const compiled = new WeakMap<CSSStyleSheet, string>()
+/** The token overrides each guest stylesheet shows now, as `showTokenOverrides` last laid them over it. */
+const shown = new WeakMap<CSSStyleSheet, string>()
+
+/** A guest's stylesheet for shadow roots, which keeps its compiled CSS for `showTokenOverrides` to go back to. */
+export function guestSheet(css: string): CSSStyleSheet {
+  const sheet = new CSSStyleSheet()
+  sheet.replaceSync(css)
+  compiled.set(sheet, css)
+  shown.set(sheet, "[]")
+  return sheet
+}
+
+/**
+ * Makes a guest stylesheet its compiled CSS with exactly these token values laid over it, whatever an earlier frame
+ * showed: a frame drawn offscreen gets the complete set of values that differ from the compiled CSS, so what it draws
+ * never depends on which frame came before. The sheet starts again from its compiled CSS only when the set changed.
+ * The canvas's own sheet is edited in place instead, by `previewToken`.
+ */
+export function showTokenOverrides(sheet: CSSStyleSheet, overrides: readonly TokenChange[]): void {
+  const key = JSON.stringify(overrides.map(({ name, theme, value }) => [name, theme, value]))
+  if (shown.get(sheet) === key) return
+  const css = compiled.get(sheet)
+  if (css === undefined) throw new Error("Token overrides go on a guest's stylesheet, made by guestSheet")
+  // Until every value is laid over it, the sheet shows no known set, so a value that throws can't leave one claimed.
+  shown.delete(sheet)
+  sheet.replaceSync(css)
+  for (const { name, theme, value } of overrides) previewToken(sheet, name, theme, value)
+  shown.set(sheet, key)
 }
 
 /**

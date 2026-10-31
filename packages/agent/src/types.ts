@@ -2,6 +2,7 @@ import type {
   CanvasDocument,
   ChangeConflict,
   ComponentInfo,
+  ContainerSpec,
   DesignChange,
   LibraryIcons,
   ModeSettings,
@@ -21,6 +22,16 @@ export interface AgentSnapshot {
   theme: ThemeVariable[]
   modes: ModeSettings
   documents: { path: string; document: CanvasDocument }[]
+  /**
+   * The component designs the project's libraries bring (from their `.lib.par` canvases), which instances place as
+   * they do on the canvas. A project design with the same id wins.
+   */
+  libraryDesigns: ContainerSpec[]
+  /**
+   * Every token value the canvas's unsaved edits leave different from the project's compiled CSS, so frames drawn for
+   * the call show what the canvas shows.
+   */
+  tokenOverrides: TokenChange[]
   /** The project file new designs and components go into. */
   mainDocument: string
   /** Components' props as inferred from their source, by component; missing until inference finishes. */
@@ -90,6 +101,11 @@ export interface FrameRequest {
   capture: boolean
   /** Also check the frame for accessibility issues. */
   audit?: boolean
+  /**
+   * Every token value that differs from the project's compiled CSS: the canvas's unsaved edits with this call's
+   * `SetTokens` over them. The complete set, not changes, for the frame to lay over the compiled stylesheet.
+   */
+  tokens: TokenChange[]
 }
 
 /** A rule a frame breaks, as axe-core reports it, on the design nodes it applies to. */

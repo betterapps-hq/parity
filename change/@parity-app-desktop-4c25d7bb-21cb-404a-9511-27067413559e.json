@@ -1,6 +1,6 @@
 {
   "type": "patch",
-  "comment": "Keep values under media queries, such as a prefers-color-scheme: dark block, out of the default theme's tokens",
+  "comment": "Props refresh after you change tsconfig paths or dependencies",
   "packageName": "@parity-app/desktop",
   "email": "noreply@anthropic.com",
   "dependentChangeType": "patch"

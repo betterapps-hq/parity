@@ -1,15 +1,16 @@
 import { createHash } from "node:crypto"
 import { readFile } from "node:fs/promises"
 import { resolve } from "node:path"
-import type { ProjectTsconfig } from "@parity-app/code"
+import { configInputs, type ProjectTsconfig } from "@parity-app/code"
 import type { ComponentSource } from "@parity-app/core"
 import { findLockfiles } from "./lockfile.ts"
 
 /**
  * Every file the detection fingerprint reads, relative to the root and sorted: the app's files and its components'
- * own files, every tsconfig the config reader read (references and `extends` bases included), package.json, and the
- * lockfiles package-manager detection finds (see `findLockfiles`), which pin what installed packages declare. A file
- * outside the root, such as a workspace's lockfile or a shared base config, starts with `../`.
+ * own files, and the project's config inputs (`configInputs`): every tsconfig the config reader read (references and
+ * `extends` bases included), package.json, and the lockfiles package-manager detection finds (see `findLockfiles`),
+ * which pin what installed packages declare. A file outside the root, such as a workspace's lockfile or a shared base
+ * config, starts with `../`.
  */
 export async function fingerprintInputs(
   root: string,
@@ -21,7 +22,8 @@ export async function fingerprintInputs(
     const file = source.declaration ?? (source.library ? undefined : source.path)
     return file && !file.includes("node_modules/") ? [file] : []
   })
-  const paths = new Set([...files, ...own, ...tsconfig.read, "package.json", ...(await findLockfiles(root))])
+  const { configs, lockfiles } = configInputs(tsconfig, await findLockfiles(root))
+  const paths = new Set([...files, ...own, ...configs, ...lockfiles])
   return [...paths].sort()
 }
 

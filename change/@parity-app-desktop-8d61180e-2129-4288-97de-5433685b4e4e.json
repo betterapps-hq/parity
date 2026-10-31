@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Agents' frames, exports and accessibility checks draw library designs' instances and unsaved token values as the canvas does, and no offscreen frame inherits another's token values",
+  "packageName": "@parity-app/desktop",
+  "email": "noreply@anthropic.com",
+  "dependentChangeType": "patch"
+}

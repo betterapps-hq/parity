@@ -107,6 +107,9 @@ function snapshot(reference: string | undefined): TabSnapshot {
     theme: session.info.theme,
     modes: session.store.getModes(),
     documents: session.store.getDocuments(),
+    // The same library and token values the canvas draws with, so agents' frames match it.
+    libraryDesigns: [...session.store.getLibraryDesigns()],
+    tokenOverrides: [...session.tokens.previews()],
     mainDocument: session.store.mainPath,
     props: session.components.get(),
     selection: { design: current.design ?? current.note, node: current.node, mode: current.mode },

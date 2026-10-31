@@ -237,7 +237,8 @@ menubar's command. The Layers panel's menu is unchanged.
 - **The items**, in groups with a line between them: Select layer; Copy, Paste here, Paste over selection, Paste to
   replace and Duplicate; Bring to front, Bring forward, Send backward and Send to back; Wrap in layout, Make component
   and Go to the main component; Hide. Labels are the menubar's, except that Go to names the main component ("Go to Plan
-  card"), Hide reads Show when every selected layer is hidden in the state being edited, and Make component, with a
+  card"), Hide reads Show when every selected layer is hidden as the board shows it in the state being edited (the
+  variant shown, the state and the params it binds, as Hide itself reads them, PAR-486), and Make component, with a
   design selected on its own, reads "Make it a component", or "Make it a screen" on a component. Paste here has no keys.
   Lock comes with PAR-192, and Open in editor and Copy as JSX with PAR-166; they have no placeholders.
 - **With designs selected**, what's only for layers is left out: Paste to replace, the order, Wrap in layout and Hide.
@@ -290,10 +291,11 @@ in `packages/editor/src/paste-here.ts` places the copies. Which keys an open men
 
 Tests:
 
-- `chrome/canvas-menu.test.ts` (17): one layer's menu in order with its keys, an instance's Go to, several layers, Show
-  and Hide in two states, a design's menu and its Make component label, several designs, a layer inside an instance, the
-  menu around the designs; Select layer's list, names, checks and the design's kind; and what a right-click selects on a
-  layer, a frame's background, around the frames, the root, inside the selection, outside it, and in a selected design.
+- `chrome/canvas-menu.test.ts` (18): one layer's menu in order with its keys, an instance's Go to, several layers, Show
+  and Hide in two states, Show for a layer the variant shown hides and Hide after Hide shows it, a design's menu and its
+  Make component label, several designs, a layer inside an instance, the menu around the designs; Select layer's list,
+  names, checks and the design's kind; and what a right-click selects on a layer, a frame's background, around the
+  frames, the root, inside the selection, outside it, and in a selected design.
 - `packages/editor/src/paste-here.test.ts` (16): the dashboard's stats row, at the slot under the pointer, first and
   last, several copies together, fresh ids, a hidden card skipped, an empty layout; an absolutely placed layout at half
   size, half steps, a copy's own insets replaced; an absolutely placed copy in the slot; a state that places the row
@@ -761,7 +763,10 @@ a component design; the Layers panel's add buttons start new designs. Each is on
 - **Make component** puts the component design at the end of the project file, 640px above the topmost design on the
   canvas, lined up with the design it came from, so components sit above screens. An instance replaces each occurrence,
   and the step is "Extract" and its name. It's refused, changing nothing, unless the design renders the same in every
-  state and viewport. A component design's Params section lists its instances, across every design.
+  state and viewport, as its board shows it: with the variant option the board shows and the defaults of the params the
+  design binds (PAR-486). So a variant that changes something inside the part, or a param default a layer in it shows,
+  refuses it rather than losing the change. A component design's Params section lists its instances, across every
+  design.
 - **A new design goes 240px to the right of everything on the canvas,** top-aligned with the topmost design. A screen
   starts as a padded page with its name as a heading, a component as a small padded layout on a 480px frame.
 
@@ -778,7 +783,11 @@ the end, an empty layout and children the canvas doesn't draw). `components.test
 project file, a taken id and param names, a project file that doesn't exist yet, and the errors; and instances in
 layouts and slots across designs. `create.test.ts`: a new screen and component, and a taken id. `placement.test.ts`: a
 new design beside everything, one the canvas hasn't drawn, an empty canvas, and a component above everything. A library
-part's parents and samples are core's, in `packages/core/src/library-insert.test.ts`.
+part's parents and samples are core's, in `packages/core/src/library-insert.test.ts`. The extraction and its check are
+core's `extractComponent`, in `packages/core/src/decompose.test.ts`: occurrences become instances that render the same,
+a state changing the part refused, a single part's texts as params, and the check against the board, refused under a
+variant option that changes the part but not one that changes what's outside it or isn't shown, and refused when a layer
+in the part shows a param's default.
 
 Gaps: dragging and clicking in the panels, the messages, and measuring on the canvas have no automated test. They didn't
 change when the rules moved into the package.
@@ -1436,7 +1445,7 @@ stylesheet with `writeTokenChanges` in `packages/tokens/src/stylesheet.ts`, whic
 
 Tests:
 
-- `packages/editor/src/history.test.ts` (35): undo and redo with their labels; a group's changes less than a second
+- `packages/editor/src/history.test.ts` (36): undo and redo with their labels; a group's changes less than a second
   apart as one step; the 200-step limit; what a board shows left alone by Undo and not recorded; token edits undone,
   redone and saved; nothing to write when they're back at the stylesheet's value; the stylesheet's value written back
   after undoing past a save; a failed write naming the token and the file and clearing on success; several tokens
@@ -1444,7 +1453,7 @@ Tests:
   one step; undoing a merged call back to just before it, keeping an edit made during it; the modes a call set undone
   with its designs; Show every state off again leaving the file clean; another state and back from a file with its view
   written out in full; a file that differs in more than its view staying unsaved until undone; and files changed on disk
-  taken as saved, unless they have unsaved changes.
+  taken as saved, unless they have unsaved changes; and no token override left once an edit is undone (PAR-465).
 - `packages/editor/src/design-changes.test.ts` (14): changing, moving, adding and deleting designs, and notes; merging
   an agent's call: two calls changing different designs in one file both kept, the person's edit to another design kept,
   a design changed on both sides refused by name with nothing applied, tokens included ("refuses a design changed by
@@ -1452,7 +1461,7 @@ Tests:
   person deleted"); designs the person deleted or added left so; files created for new designs; a change or deletion
   already made here taken as applied ("takes a change already made the same way"); and modes set only while unchanged,
   refused otherwise ("sets the modes only while they're as the call read them").
-- `packages/agent/src/run.test.ts` (2 of its 24): a call gives each design it changed, created or deleted with the
+- `packages/agent/src/run.test.ts` (2 of its 29): a call gives each design it changed, created or deleted with the
   design as it read it, and no others; a refused call fails naming the design, keeps its snippet, and runs again by
   `editId`.
 - `apps/desktop/src/renderer/design-store.test.ts` (11 of its 18): Save writing the files and the stylesheet, saving
@@ -1464,16 +1473,16 @@ Tests:
   `@theme` block that declares it, else a new one; a token the stylesheet doesn't declare added to the root; a theme
   written to its `[data-theme="dark"]` block ("by attribute as much as by class"); a `:root` inside a media query left
   alone; and both `.dark` and `[data-theme="dark"]` written, read back as the new value ("writes every block").
-- `apps/desktop/src/renderer/guest.test.ts` (3), in Chrome: `previewToken` editing a theme by class and by attribute,
-  adding a value a theme lacks with the selector it already uses, and leaving a `prefers-color-scheme` block alone when
-  previewing the default.
+- `apps/desktop/src/renderer/guest.test.ts` (3 of its 6), in Chrome: `previewToken` editing a theme by class and by
+  attribute, adding a value a theme lacks with the selector it already uses, and leaving a `prefers-color-scheme` block
+  alone when previewing the default.
 - `packages/tokens/src/policy.test.ts` and `packages/libgen/src/tokens.test.ts`: which selector is which theme, and the
   same CSS read alike by libgen and the app.
-- `packages/editor/src/token-edits.test.ts` (4): the first edit's original kept, what Save writes, a theme value that
-  wasn't there, and the token list with edits.
+- `packages/editor/src/token-edits.test.ts` (6): the first edit's original kept, what Save writes, a theme value that
+  wasn't there, the token list with edits, and the overrides offscreen frames get (PAR-465).
 - `apps/desktop/src/renderer/tokens-store.test.ts` (3), in Chrome: an edit previewed in the stylesheet in both themes,
-  undo and redo taking it back and forth, Save writing it; a theme value taken out again on undo; and a guest loaded
-  again showing, then saving, an unsaved edit.
+  undo and redo taking it back and forth, Save writing it; a theme value taken out again on undo, with no preview left
+  for frames drawn elsewhere; and a guest loaded again showing, then saving, an unsaved edit.
 - `chrome/TokensPanel.stories.tsx`: ReferenceToAnotherToken (an edit is one undo step, unsaved) and SaveFails (the
   panel's message and the marked row), both played in Storybook on 2026-10-29.
 
@@ -1487,7 +1496,8 @@ as that state's or variant's changes ("changes only this state", "changes only t
   in the state being edited: with the variant shown, the state's changes, and the params it binds. The text editor opens
   on the state's text: in Pricing's Yearly state, the Pro plan's price opens as $19, not Monthly's $24. Hide or show
   (Ctrl+Shift+H, or Hide in and Show in on a row in Layers) hides what the state shows and shows what it hides, so a
-  layer the state, the variant or a param hides counts as hidden, and Layers marks it so.
+  layer the state, the variant or a param hides counts as hidden, and Layers marks it so. The canvas menu's Hide says
+  Show by the same reading (`hiddenOnBoard`, PAR-486), so it never offers to hide a layer the variant already hides.
 - **A component's board shows its params' defaults,** as an instance that sets none of them does. The Stat card's board
   shows only the rising trend icon, since `showFalling` is off, where it showed both. Changing a bound text, prop or
   visibility on the board, in the base state, changes the param's default too, so the board and the instances that don't
@@ -1507,14 +1517,14 @@ as that state's or variant's changes ("changes only this state", "changes only t
   prop of any type reads JSON when what's typed is JSON, and text otherwise. The instance's params, a component design's
   param defaults and component props all work this way.
 
-Code: in `packages/core`, `edit.ts` (`nodeOnBoard`, `toggleHidden`, `editNode` keeping the bound param's default in step
-and a state's patch against the board) and `render.ts` (`boardArgs`, which `resolveDesign` gives a board, and
-`paramDefaults`, shared with instances); `instances.ts` (`layerOnBoard`, for one of a design's own layers or one inside
-an instance). In the app, `canvas/TextEditor.tsx`, `chrome/arrange.ts` (`toggleHiddenLayers`), `chrome/LayerTree.tsx`
-(the row's hidden mark and its Hide in menu item), `chrome/LayerPanel.tsx` (the layer as the board shows it,
-`BaseDesignNote` in the Image and Instance sections), `chrome/edit-scope.ts` (`baseDesignNote`, the note's words),
-`chrome/prop-values.ts` (`valueKind`, `readValue`) and `chrome/fields.tsx` (`ValueInput`), used by `PropsSection.tsx`,
-`LayerPanel.tsx`'s instance params and `ComponentsSection.tsx`'s defaults.
+Code: in `packages/core`, `edit.ts` (`nodeOnBoard`, `hiddenOnBoard`, `toggleHidden`, `editNode` keeping the bound
+param's default in step and a state's patch against the board) and `render.ts` (`boardArgs`, which `resolveDesign` gives
+a board, and `paramDefaults`, shared with instances); `instances.ts` (`layerOnBoard`, for one of a design's own layers
+or one inside an instance). In the app, `canvas/TextEditor.tsx`, `chrome/arrange.ts` (`toggleHiddenLayers`),
+`chrome/LayerTree.tsx` (the row's hidden mark and its Hide in menu item), `chrome/LayerPanel.tsx` (the layer as the
+board shows it, `BaseDesignNote` in the Image and Instance sections), `chrome/edit-scope.ts` (`baseDesignNote`, the
+note's words), `chrome/prop-values.ts` (`valueKind`, `readValue`) and `chrome/fields.tsx` (`ValueInput`), used by
+`PropsSection.tsx`, `LayerPanel.tsx`'s instance params and `ComponentsSection.tsx`'s defaults.
 
 Tests:
 
@@ -1541,8 +1551,8 @@ Yearly and $24 in Monthly; the notes showed in Yearly and not in Monthly; and 12
 gave the number 12. Known limits:
 
 - A value given to a theme that had none (a dark `--radius`), saved, then undone, has nothing Save can write: the canvas
-  takes it out, but the stylesheet keeps it until it's removed by hand. Frames drawn offscreen (bitmaps, exports) keep
-  such a value until the project is reopened.
+  takes it out, but the stylesheet keeps it until it's removed by hand. Frames drawn offscreen (bitmaps, agents'
+  renders, exports) no longer keep it: see "Offscreen frames draw what the canvas draws" below.
 - Clearing a prop in a state (a boolean switched back to its default, a text emptied) takes back the state's change
   rather than setting the prop, so a prop the base design sets can't be turned off in one state.
 - The stylesheet changing on disk isn't read back into the tokens until the project reopens, as before.
@@ -1800,10 +1810,11 @@ Code: `insertIntoDesign` in `packages/editor/src/insert.ts` (an `instance` item 
 
 Tests: `packages/core/src/library.test.ts` (1: a library design placed in an app draws its components and params,
 linked, and the same once detached, with no link left). `packages/editor/src/insert.test.ts` (1: a detached copy placed
-as plain layers, keeping the instance's id). Gaps: inserting from the panel and the Instance section for a library's
-instance have no automated test. Both were tried in the same copy of the app: a click placed a linked instance drawing
-the library's Switch and Button with its param's default, named by the design in the Layers and Instance sections, and
-Insert detached copy placed plain layers.
+as plain layers, keeping the instance's id). Agents' frames, exports and the Accessibility panel draw a library's
+instance too: see "Offscreen frames draw what the canvas draws" (PAR-465). Gaps: inserting from the panel and the
+Instance section for a library's instance have no automated test. Both were tried in the same copy of the app: a click
+placed a linked instance drawing the library's Switch and Button with its param's default, named by the design in the
+Layers and Instance sections, and Insert detached copy placed plain layers.
 
 ## Zooming far out
 
@@ -2011,13 +2022,24 @@ installation failure resets the close decision, so closing later still checks fo
 never installs an update. Unsigned Macs check for newer releases and offer their download page instead of installing in
 place. The Mac application menu includes the same check.
 
+Manual checks show checking, no-update and retryable-error feedback in the same toast, without opening About or
+interrupting work (PAR-490). Startup checks remain quiet when no update is available or the check fails. A menu check
+also restores a previously dismissed download or restart notice. About stays available separately through Help.
+
 Settings > Get beta updates is off by default and remembered between runs. It includes GitHub pre-releases without
-allowing downgrades. About shows the selected channel, installed version and available version. Development builds and
+allowing downgrades. About labels installed beta builds with `(Beta)` independently of the selected Update channel; the
+preference describes which future releases to accept. It also shows the available version. Development builds and
 extracted Linux folders do not download or install updates.
+
+The installed tag's public release metadata determines the Beta label. A version-keyed cache preserves confirmed
+identity offline and refreshes after five minutes, so promoting identical artifacts to stable updates their identity. An
+unconfirmed offline build is never guessed from its numeric version or the update preference. Confirmed empty stable
+feeds mean no update; connection, authorization and service failures remain retryable errors.
 
 `chrome/UpdateToast.stories.tsx` shows the download, restart-ready and Mac fallback designs, unknown-size progress, both
 themes through the toolbar, and the real toast host. `chrome/UpdateDialogs.stories.tsx` covers About's update states and
-the beta setting. The owner signed off on the rendered toast designs before app integration.
+the beta setting and beta/stable installed builds independently of the preference. The owner signed off on the rendered
+toast designs and the PAR-490 check-feedback and build-label stories before app integration.
 
 Code: `packages/core/src/updates.ts` defines state transitions; `apps/desktop/src/main/update-session.ts` serializes
 operations and `main/updates.ts` adapts electron-updater. `main/index.ts` owns the close acknowledgement and IPC,
@@ -2027,9 +2049,10 @@ through `preload/index.ts`. `renderer/chrome/updates.tsx` shares state between `
 Tests: `packages/core/src/updates.test.ts` covers guarded transitions, late progress, channel changes and invalid
 progress; `main/update-session.test.ts` covers serialized checks, retry, installation failure resetting the close
 decision, disabled development builds and the Mac fallback. `preload/index.test.ts` covers a native menu action arriving
-before React subscribes and replacing its listener without losing the next action. CI runs `scripts/try-update.ts` on
-Windows and Linux: two real packaged versions, checksum rejection, Later, unsaved-work cancellation, Save, installation
-and relaunch as the newer version. It refuses to run outside CI.
+before React subscribes and replacing its listener without losing the next action. `chrome/updates.test.ts` covers
+manual checks without a dialog, quiet startup results, repeated checks, retry and dismissed progress becoming a ready
+notice. CI runs `scripts/try-update.ts` on Windows and Linux: two real packaged versions, checksum rejection, Later,
+unsaved-work cancellation, Save, installation and relaunch as the newer version. It refuses to run outside CI.
 
 ### The page never scrolls (PAR-424)
 
@@ -2113,6 +2136,55 @@ two frames. Gaps: Vite 7 and earlier's esbuild setting is checked only as data i
 `fixtures/vite7-js` (Vite 7.3.7), whose React came prebundled as production and whose JSX went through the stand-in, and
 with a package compiled for development, which esbuild bundled with the stand-in. The numbers were measured by hand with
 a script that isn't in the repository.
+
+### Offscreen frames draw what the canvas draws (PAR-465)
+
+Agents' Measure, Screenshot, Problems, Accessibility and ExtractComponent, Export PNG and the Accessibility panel draw
+their frames offscreen, from the tab's snapshot. They now draw with the canvas's own inputs:
+
+- **Library instances.** An instance of a library's component design (from a `.lib.par` canvas, such as `kit/label`)
+  draws that design, where it used to draw the `No component design "kit/label"` placeholder. The snapshot carries the
+  design store's library designs, and agents build the library as the canvas does, the project's own design winning an
+  id they share.
+- **Token previews.** Unsaved token edits show in agents' frames, exports and the Accessibility panel as on the canvas,
+  and a call's own `SetTokens` shows in the frames it draws after it, in the same call. Each job carries the complete
+  set of token values that differ from the compiled CSS, not the changes since the last job. It's compared with the CSS
+  the guest loaded, so after a save and the guest loading again, undoing an edit still sends the value put back (or an
+  empty one, taking out a theme value the saved CSS now has).
+- **No job inherits another's tokens.** The render window keeps one stylesheet per guest; each job starts it from the
+  compiled CSS and lays its set over it, so a job with no overrides after one with some draws the compiled values, and
+  undoing an edit that gave a theme a value it didn't have (a dark `--radius`) leaves nothing behind in bitmaps. It
+  starts over only when the set changed, so a run of jobs with the same set doesn't rebuild it, and a set that fails
+  partway is never taken as shown. The canvas's own frames are edited in place, as before.
+
+Code: `projectComponentLibrary` in `packages/core/src/render.ts`, used by `DesignStore` (`getLibraryDesigns`) and
+`AgentWorkspace.library` in `packages/agent/src/workspace.ts`; `withTokenOverrides` in
+`packages/editor/src/token-edits.ts`, which `TokenStore` follows its edits with and `previews` gives; `tokenValues` in
+`workspace.ts` laying the call's `SetTokens` over them for each `FrameRequest`; the snapshot in
+`apps/desktop/src/renderer/agent/handlers.ts` and `renderFor` in `apps/desktop/src/utility/agent.ts`; `guestSheet` and
+`showTokenOverrides` in `apps/desktop/src/renderer/guest.ts`, called by `render.ts` for each job.
+
+Tests:
+
+- `packages/agent/src/run.test.ts` (5 of its 29): Measure, Problems and Screenshot of a design placing a library design
+  draw it with no placeholder; no missing-design warning for a placed library design, only for one that doesn't exist; a
+  project design wins over a library design with its id; frames carry the canvas's unsaved values, then those with the
+  call's `SetTokens` over them; and nothing when no value differs.
+- `packages/core/src/render.test.ts` (1): the project's library holds the library designs and its own, its own winning.
+- `packages/editor/src/token-edits.test.ts` (2) and `history.test.ts` (1): only values that differ are overrides; an
+  edit undone, also one giving a theme a new value, leaves none; a saved edit still is one; and after a guest loads
+  again with the edits saved, undoing them overrides with the value put back and an empty one for the theme value taken
+  out.
+- `apps/desktop/src/renderer/guest.test.ts` (3 of its 6), in Chrome: overrides A, then none, then another set, then A
+  again give the same stylesheet as A the first time, and none gives the compiled one; a theme value taken out once the
+  set leaves it out; only a guest's stylesheet takes overrides; and a set that threw partway doesn't stop the one before
+  it being laid over again.
+- `apps/desktop/src/renderer/tokens-store.test.ts` (1 of its 3): `previews()` empty once an edit is undone.
+- `apps/desktop/src/renderer/design-store.test.ts` (1 of its 18): the library designs the snapshot carries.
+
+Gaps: the snapshot and `renderFor` wiring has no test of its own, and checked by reading; the end-to-end tests run in
+CI. The snapshot crosses from the window to the service as the window's other replies do, unchecked; its library designs
+were checked when their `.lib.par` was read.
 
 ### Every frame drawn in the same window (PAR-466)
 

@@ -18,6 +18,7 @@ import {
 } from "electron"
 import type { ProcessUsage, RenderedFrame, RenderJob, SaveDialogOptions } from "../shared/protocol.ts"
 import type { BuilderReading, MainMessage, ServiceMessage } from "../shared/service.ts"
+import { InstalledBuild } from "./build-info.ts"
 import { readConsole, recordConsole } from "./console-log.ts"
 import { idleClose } from "./idle-close.ts"
 import { privateMemory } from "./private-memory.ts"
@@ -320,6 +321,18 @@ function updateOwner(event: Electron.IpcMainInvokeEvent): BrowserWindow {
   return window
 }
 
+const buildInfoFile = join(app.getPath("userData"), "installed-build.json")
+const installedBuild = new InstalledBuild({
+  version: app.getVersion(),
+  packaged: app.isPackaged,
+  read: () => JSON.parse(readFileSync(buildInfoFile, "utf8")),
+  save: (value) => writeFileSync(buildInfoFile, JSON.stringify(value))
+})
+ipcMain.handle("canvas:build-info", (event) => {
+  updateOwner(event)
+  return installedBuild.get()
+})
+
 ipcMain.handle("canvas:update-state", (event) => {
   updateOwner(event)
   return updates?.get() ?? { phase: "disabled", beta: false }
@@ -517,6 +530,7 @@ function renderFrame(job: RenderJob, capture: boolean): Promise<{ frame?: Render
 }
 
 void app.whenReady().then(() => {
+  void installedBuild.get()
   protocol.registerSource("parity", {
     routes: [{ match: { host: "app" }, source: { type: "directory", root: join(import.meta.dirname, "renderer") } }]
   })

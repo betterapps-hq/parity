@@ -219,9 +219,20 @@ async function agent(method: string, params: Record<string, unknown> = {}): Prom
   throw new Error(problem)
 }
 
-async function openUpdate(page: Page): Promise<void> {
+async function checkFromMenu(page: Page): Promise<void> {
   await page.getByRole("menuitem", { name: "Help", exact: true }).click()
   await page.getByRole("menuitem", { name: "Check for updates", exact: true }).click()
+}
+
+async function openUpdate(page: Page): Promise<void> {
+  await checkFromMenu(page)
+  await page.getByRole("button", { name: "Restart to update", exact: true }).waitFor()
+  if (await page.getByRole("dialog", { name: "Parity", exact: true }).count())
+    throw new Error("Check for updates opened About instead of a toast.")
+  // About remains a separate way to find the restart control after dismissing the notice.
+  await page.getByRole("button", { name: "Later", exact: true }).click()
+  await page.getByRole("menuitem", { name: "Help", exact: true }).click()
+  await page.getByRole("menuitem", { name: "About Parity", exact: true }).click()
 }
 
 /** The predicate API doesn't await an IPC promise; poll explicit snapshots instead of accepting a truthy Promise. */
@@ -345,10 +356,14 @@ try {
   await page.evaluate(() => window.canvasHost.updates.act())
   if ((await page.evaluate(() => window.canvasHost.appVersion)) !== "999.0.0")
     throw new Error("A corrupt update was installed.")
+  await checkFromMenu(page)
+  await page.getByText("Couldn't check for updates", { exact: true }).waitFor()
+  if (await page.getByRole("dialog", { name: "Parity", exact: true }).count())
+    throw new Error("A failed manual check opened About instead of a toast.")
   corrupt = false
   stage = "downloading a valid update"
   console.log(stage)
-  await page.evaluate(() => window.canvasHost.updates.check())
+  await page.getByRole("button", { name: "Try again", exact: true }).click()
   await waitForUpdate(page, "ready")
   await page.getByRole("button", { name: "Later", exact: true }).click()
   if ((await page.evaluate(() => window.canvasHost.updates.get())).phase !== "ready")
@@ -363,7 +378,8 @@ try {
   await openUpdate(page)
   stage = "cancelling restart with unsaved work"
   console.log(stage)
-  await page.getByRole("button", { name: "Restart to update", exact: true }).click()
+  const about = page.getByRole("dialog", { name: "Parity", exact: true })
+  await about.getByRole("button", { name: "Restart to update", exact: true }).click()
   const save = page.getByRole("dialog", { name: /Save changes to/ })
   await save.getByRole("button", { name: "Cancel", exact: true }).click()
   if ((await page.evaluate(() => window.canvasHost.appVersion)) !== "999.0.0")
@@ -372,7 +388,7 @@ try {
     throw new Error("Cancelling lost the ready update.")
   stage = "saving work and restarting"
   console.log(stage)
-  await page.getByRole("button", { name: "Restart to update", exact: true }).click()
+  await about.getByRole("button", { name: "Restart to update", exact: true }).click()
   await save.getByRole("button", { name: "Save", exact: true }).click()
   const deadline = Date.now() + 120_000
   stage = "waiting for the installed new version"

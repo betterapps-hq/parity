@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Work out what each layer shows in one place in core; nothing changes on screen",
-  "packageName": "@parity-app/desktop",
-  "email": "noreply@anthropic.com",
-  "dependentChangeType": "patch"
-}

@@ -1,5 +1,17 @@
 # Decisions
 
+- **A desktop fix can include its own release bump (PAR-490).** Andrew asked to consume the pending desktop changefiles
+  and bump the version in the fix PR, with no separate release PR. The check accepts a newer numeric version with its
+  matching generated changelog as release coverage, while unchanged or older versions still require changefiles.
+  Publishing records a beta deployment, then automatically queues protected production promotion for Andrew's approval.
+  Production still verifies and promotes identical beta files; it never rebuilds them.
+
+- **Update checks stay in toasts; build identity is separate from the update preference (PAR-490).** Andrew approved the
+  rendered dark and light Storybook checking, no-update and retry designs and the About Beta build / Update channel
+  labels on 2026-10-31. Help > Check for updates leaves the workspace open, reusing the download/restart notification.
+  About remains a separate menu action. Startup checks stay quiet for no-update and failures; downloads still use the
+  approved background progress and explicit restart controls. E2E runs only in CI.
+
 - **Desktop delivery uses the shared release and promotion templates (PAR-11, PAR-12).** A successful push CI on main
   publishes a changed desktop version as a beta. Manual retries also require passing CI on main. Promotion approves the
   existing beta in the main-only `production` environment, with Andrew as reviewer and no administrator bypass; it
@@ -600,6 +612,19 @@ recommended answer to each of its questions.
   each `extends` chain, a base from an installed package included. When a folder has several lockfiles, detection names
   the first in that list as `lockfile` and the fingerprint hashes all of them, since a package manager may read another
   (npm prefers `npm-shrinkwrap.json`). `fingerprintInputs` lists the files, for a watcher to follow (PAR-470).
+- **A warm type checker is made again when the project's config inputs change, the same inputs the fingerprint reads.**
+  My call (PAR-470): `configInputs` in `@parity-app/code` names them (every tsconfig `ProjectTsconfig.read` lists, a
+  referenced one that's missing included, the root `tsconfig.json` and `jsconfig.json` even when missing, so one added
+  or restored counts, package.json, and the lockfiles `findLockfiles` finds), the detection fingerprint hashes them, and
+  the props worker stamps each one's size, modification time and, under a megabyte, a hash of its contents, so a rewrite
+  within one tick of a coarse clock still shows. Before each request it compares them (`configChange`): a changed
+  tsconfig or package.json makes the project's checker again with its compiler options read afresh, keeping the
+  installed packages' declarations it parsed; a lockfile that changed, appeared or went drops those too (TypeScript's
+  own lib files stay), since the lockfile is the signal that dependencies changed (installed declarations aren't checked
+  one by one, and `node_modules` isn't watched). The project's watcher follows the same inputs, folders outside the root
+  included, and any lockfile name appearing in the folders `findLockfiles` searches (`lockfileFolders`,
+  `changesLockfiles`), and reads props and the type check again a moment after one changes, so the answers match a
+  project opened afresh. The saved detection needs nothing more: its fingerprint already changes with them.
 - **Changed files are read again on their own, without reopening the project.** My call: the parse reads the changed
   files about half a second after the last change, so added, renamed and deleted components show at once, and the type
   checker then reads only those files and the files that import them, since an export's type can come from an import. A
@@ -1478,6 +1503,17 @@ recommended answer to each of its questions.
   PAR-228, which need nothing else.
 
 - **Agents render offscreen,** in a hidden window, so their work never moves your camera. Export uses the same renderer.
+- **A frame drawn offscreen gets the canvas's render inputs from the tab, whole** (PAR-465). My call, from the DRY audit
+  of 2026-10-31: the tab's snapshot carries what the canvas draws with, not a copy rebuilt elsewhere. Its library is the
+  design store's (`getLibraryDesigns`, put together with the project's designs by `projectComponentLibrary` in
+  `@parity-app/core`, as the canvas does, the project's own winning an id they share), so an instance of a `.lib.par`
+  design draws in agents' frames, exports and the Accessibility panel as on the canvas. Its token values are the token
+  store's `previews()`: kept by `withTokenOverrides` in `@parity-app/editor`, every value the canvas shows that differs
+  from the compiled CSS its guest loaded (compared with that CSS, not the edits' originals, so it holds after a guest
+  loads again with saved values), a complete set rather than changes; an agent's call lays its own `SetTokens` over them
+  for each frame. The render window starts each job's stylesheet from the compiled CSS and lays the set over it
+  (`showTokenOverrides` in `renderer/guest.ts`), going back only when the set changed, so no frame inherits another's
+  values, and an undone edit leaves nothing behind. The canvas's own stylesheet is still edited in place, as before.
 - **The offscreen renderer closes when it's idle,** a minute after its last job, and the next job opens it again
   (CAN-83). Its page holds every module graph the project's guest imported, which a page can't unload, so it held 115 to
   215 MB for the whole session and grew each time a project reopened (452 MB after five). A job counts from when it's
@@ -2487,3 +2523,26 @@ them up from each shown mode's `frameSize`, so the two can't drift. A drawn boar
 estimate stays flagged `estimated`. A frame that grows with its content is estimated as tall as its window
 (`frameViewport`), since its content isn't known until it's drawn; the fixed 1000 it replaced knew nothing of the frame
 either. The title above the board isn't part of its size, as `Overlaps()` already adds its band.
+
+## The agent's Get reads a state as the board draws it (PAR-463)
+
+`Get(path, { state })` and `Get(path, visit, { state })` used a private `applyState` in the agent's workspace, which
+applied only the state's own patches, so a bound text read as its stored value while the board drew the param's default,
+and variant options, responsive patches and patches reaching inside instances were missing. Those reads now go through
+core's evaluation (see PAR-484): `locateEffective` finds the layer and its scope, and `drawnNode` draws what's inside
+it, so the agent can't disagree with the canvas about a node. My calls:
+
+- **`state` or `mode` asks for the board's view; neither reads the stored nodes,** unchanged, since edits are made
+  against those. Get takes `mode` as Screenshot and Measure do: a state alone is read in the design's main mode, and a
+  mode alone in the state the design shows. The context is the design's board: the variant options `view.variants`
+  shows, its params' defaults, and every component design in the project.
+- **Bound values are filled in and `bind` stays.** The result is what's shown, so a bound text has the param's value;
+  the binding stays so the agent can tell the text comes from a param and edit the param rather than the text.
+- **An instance reads as its own node, its args patched,** as the stored read has it; what's inside it is read by its
+  path, `design/instance/inner` (`profile/person/title`), which a stored read doesn't take. A visit in a state walks the
+  same layers, not into instances; started inside one, it passes each layer's `instance/inner` path. Not using
+  `effectiveTree` keeps a read's cost to the layers it returns: that expands every instance under the layer, which a
+  deeply nested component made slower than a snippet's 5 seconds, only for Get to drop it.
+
+`packages/agent/src/workspace.test.ts` runs each case and viewport of `effectiveFixture` through Get, reading every
+layer by its path, and compares what the canvas would draw of them with `resolveDesign`'s tree.

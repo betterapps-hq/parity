@@ -7,6 +7,7 @@ import {
   frameSize,
   frameViewport,
   placedDesigns,
+  projectComponentLibrary,
   reachableLibrary,
   resolveDesign
 } from "./render.ts"
@@ -406,6 +407,15 @@ describe("reachableLibrary", () => {
   it("stops at a design that places itself", () => {
     const loop = design("loop", { type: "instance", id: "again", design: "loop" })
     expect([...reachableLibrary(loop, all(loop)).keys()]).toEqual(["loop"])
+  })
+
+  it("holds a project's library designs and its own, its own winning an id they share", () => {
+    const kitButton = design("button", { type: "text", id: "label", text: "Kit" })
+    const kitBadge = design("kit/badge", { type: "text", id: "label", text: "New" })
+    const library = projectComponentLibrary([kitButton, kitBadge], [button, card])
+    expect(library.get("button")).toBe(button)
+    expect(library.get("kit/badge")).toBe(kitBadge)
+    expect([...library.keys()]).toEqual(["button", "kit/badge", "card"])
   })
 
   it("finds instances that a state adds", () => {

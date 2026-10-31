@@ -82,6 +82,8 @@ describe("library designs", () => {
       [row]
     )
     expect(store.getComponentLibrary().get("nova/settings-row")).toBe(row)
+    // What agents' snapshots carry, to build the same library.
+    expect(store.getLibraryDesigns()).toEqual([row])
     expect([...store.getLibrary("app.par#home").keys()]).toEqual(["nova/settings-row"])
     expect(store.getEntries().map((entry) => entry.container.id)).toEqual(["home"])
     store.updateContainer("app.par#home", "Rename", (container) => ({ ...container, name: "Home" }))

@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Props refresh after you change tsconfig paths or dependencies",
+  "packageName": "@parity-app/cli",
+  "email": "noreply@anthropic.com",
+  "dependentChangeType": "patch"
+}

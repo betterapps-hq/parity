@@ -1,8 +1,28 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sat, 31 Oct 2026 21:19:58 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 31 Oct 2026 22:43:43 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.4.0
+
+Sat, 31 Oct 2026 22:43:43 GMT
+
+### Minor changes
+
+- Agent calls merge per design with edits made while they run, and are refused naming the designs when both changed the
+  same one (noreply@anthropic.com)
+
+### Patches
+
+- Generate an app's library from the same sources and global stylesheets project detection finds, following tsconfig
+  references, the HTML entry's stylesheet imports and relative @imports (noreply@anthropic.com)
+- Show update checks in toasts and label installed beta builds independently of the update channel
+  (ajcraswell@gmail.com)
+- Keep values under media queries, such as a prefers-color-scheme: dark block, out of the default theme's tokens
+  (noreply@anthropic.com)
+- Fingerprint every lockfile package-manager detection recognizes, such as npm-shrinkwrap.json, and the tsconfigs a
+  project's configs extend, so cached props refresh when they change (noreply@anthropic.com)
 
 ## 0.3.0
 

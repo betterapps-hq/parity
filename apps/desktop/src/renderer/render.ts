@@ -5,7 +5,7 @@ import type { RenderNode } from "@parity-app/core"
 import axe, { type NodeResult, type RunOptions } from "axe-core"
 import type { MeasuredNode, RenderedFrame, RenderJob } from "../shared/protocol.ts"
 import { drawnNodeIds, findNodeElement, nodeBox, nodeOfElement, prepareFrame, setDrawnNodes } from "./frame.ts"
-import { loadGuest, previewToken, releaseGuest } from "./guest.ts"
+import { loadGuest, releaseGuest, showTokenOverrides } from "./guest.ts"
 
 declare global {
   interface Window {
@@ -38,7 +38,7 @@ window.canvasRender = async (job) => {
   }
   try {
     const loaded = await loadGuest(job.guestUrl, job.theme)
-    for (const change of job.previews ?? []) previewToken(loaded.sheet, change.name, change.theme, change.value)
+    showTokenOverrides(loaded.sheet, job.previews ?? [])
     const host = document.createElement("div")
     host.style.width = `${job.mode.width}px`
     if (job.mode.height !== undefined) {

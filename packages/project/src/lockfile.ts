@@ -1,5 +1,5 @@
 import { stat } from "node:fs/promises"
-import { dirname, join, relative, resolve } from "node:path"
+import { basename, dirname, join, relative, resolve } from "node:path"
 import { LOCKS } from "package-manager-detector/constants"
 
 /** The lockfiles in one folder, by name, in the order package-manager-detector checks them. */
@@ -29,6 +29,26 @@ export async function nearestLockfiles(root: string): Promise<FoundLockfiles | u
 export async function findLockfiles(root: string): Promise<string[]> {
   const found = await nearestLockfiles(root)
   return found ? found.names.map((name) => relative(root, join(found.folder, name)).replaceAll("\\", "/")) : []
+}
+
+/**
+ * The folders whose lockfiles decide what {@link findLockfiles} finds, absolute: the root and each folder above it, up
+ * to the one `lockfiles` (its answer) are in, or to the top when it found none. A lockfile appearing in any of them, as
+ * `npm-shrinkwrap.json` beside `package-lock.json` or one nearer the root than the workspace's, changes the answer.
+ */
+export function lockfileFolders(root: string, lockfiles: readonly string[]): string[] {
+  const found = lockfiles[0] === undefined ? undefined : dirname(resolve(root, lockfiles[0]))
+  const folders: string[] = []
+  for (let folder = resolve(root); ; folder = dirname(folder)) {
+    folders.push(folder)
+    if (folder === found || dirname(folder) === folder) return folders
+  }
+}
+
+/** Whether a change to `file` (absolute) can change what {@link findLockfiles} finds, given {@link lockfileFolders}. */
+export function changesLockfiles(file: string, folders: readonly string[]): boolean {
+  const path = resolve(file)
+  return basename(path) in LOCKS && folders.includes(dirname(path))
 }
 
 async function isFile(path: string): Promise<boolean> {

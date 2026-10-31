@@ -1,6 +1,6 @@
 import type { ContainerSpec, DesignNode, InstanceNode, NodeBinding, ParamSpec } from "./document.ts"
 import { childEntries, locateNode, mapNode, nodeIds, withFreshIds } from "./edit.ts"
-import { type ComponentLibrary, type RenderNode, resolveDesign } from "./render.ts"
+import { boardRoot, type ComponentLibrary, type RenderNode, resolveDesign } from "./render.ts"
 
 /** A part of a design that appears more than once with the same structure: a candidate component. */
 export interface RepeatCandidate {
@@ -78,7 +78,8 @@ export interface Extraction {
 
 /**
  * Turns one or more occurrences of the same structure into a component design, and replaces each occurrence with an
- * instance carrying its own content as args. Refuses if the result would render differently in any state or viewport.
+ * instance carrying its own content as args. Refuses if the result would render differently in any state or viewport
+ * as the board shows it: with the variant options the board shows and the defaults of the params the design binds.
  */
 export function extractComponent(design: ContainerSpec, occurrences: string[], options: ExtractOptions): Extraction {
   if (occurrences.length === 0) throw new Error("Nothing to extract")
@@ -139,10 +140,11 @@ export function extractComponent(design: ContainerSpec, occurrences: string[], o
   const extracted: ContainerSpec = { ...design, root }
 
   const library = new Map(options.library).set(component.id, component)
+  const variants = { params: design.params, choices: design.view?.variants }
   for (const state of design.states) {
     for (const viewport of options.viewports) {
-      const before = resolveDesign(design.root, state, viewport, options.library)
-      const after = resolveDesign(extracted.root, state, viewport, library)
+      const before = resolveDesign(boardRoot(design), state, viewport, options.library, variants)
+      const after = resolveDesign(boardRoot(extracted), state, viewport, library, variants)
       if (!sameRender(before, after)) {
         throw new Error(
           `Extracting would change how ${design.name} looks (${state.name}, ${viewport}), so it wasn't done`
