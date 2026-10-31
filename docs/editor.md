@@ -1808,11 +1808,13 @@ sleep keeps its host and height with nothing inside, and draws its design again 
 `apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (2: a failed capture isn't kept, so the next try takes it and
 that one is kept; a frame that didn't render is kept and not drawn again). Before it, a capture that failed under load
 (Electron's `UnknownVizError`) was kept as no bitmap, so that frame never slept and `sleeping.e2e.ts`, which waits for
-every frame's bitmap, timed out in the full suite. `App.settle` in `e2e/app.ts` waits for a design's board to wake, and
-`App.show` brings a design into view before finding a layer in it, so the other files' tests work on frames that slept.
-Gaps: the order frames wake in, and waking on a changed design, have no test of their own; the first was checked by
-reading `wakeNext`, the second by reading `useAwake`. The memory it gives back and the time waking takes were measured
-by hand in a debug copy (see [decisions.md](decisions.md), Canvas), not by the suite.
+every frame's bitmap, timed out in the full suite. The retry delays, and that a frame which leaves the canvas or changes
+stops retrying, have no test of their own; they were checked by reading `useFrameBitmap`, and the full suite passed four
+times under extra load with the fix. `App.settle` in `e2e/app.ts` waits for a design's board to wake, and `App.show`
+brings a design into view before finding a layer in it, so the other files' tests work on frames that slept. Gaps: the
+order frames wake in, and waking on a changed design, have no test of their own; the first was checked by reading
+`wakeNext`, the second by reading `useAwake`. The memory it gives back and the time waking takes were measured by hand
+in a debug copy (see [decisions.md](decisions.md), Canvas), not by the suite.
 
 ### What a frame shows, keyed once (PAR-439)
 

@@ -1,5 +1,5 @@
 import { modeGlobals, type RenderNode, type ResolvedMode } from "@parity-app/core"
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react"
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import type { RenderJob } from "../../shared/protocol.ts"
 import type { ProjectSession } from "../workspace.ts"
 
@@ -100,6 +100,12 @@ export function useFrameShows(
  */
 export function useFrameBitmap({ key, job }: FrameShows): string | undefined {
   const [shown, setShown] = useState<{ key: string; src?: string }>()
+  // A new job for the same key draws the same, so it doesn't start the wait or the retries again: each try takes the
+  // latest.
+  const latest = useRef(job)
+  useEffect(() => {
+    latest.current = job
+  }, [job])
 
   useEffect(() => {
     let current = true
@@ -108,7 +114,7 @@ export function useFrameBitmap({ key, job }: FrameShows): string | undefined {
     // A capture that failed, as the offscreen window's can on a busy machine, is tried again later rather than leaving
     // the frame without a bitmap for good.
     const take = (attempt: number) =>
-      void capture(key, job).then((src) => {
+      void capture(key, latest.current).then((src) => {
         if (!current) return
         if (src === failed) timer = setTimeout(() => take(attempt + 1), retryMs * Math.min(2 ** attempt, 8))
         else setShown({ key, src })
@@ -119,7 +125,7 @@ export function useFrameBitmap({ key, job }: FrameShows): string | undefined {
       want(key, -1)
       clearTimeout(timer)
     }
-  }, [key, job])
+  }, [key])
 
   return shown?.key === key ? shown.src : undefined
 }
