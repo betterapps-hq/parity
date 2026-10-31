@@ -1,11 +1,9 @@
-import { spawn } from "node:child_process"
-import { mkdtemp, rm, writeFile } from "node:fs/promises"
-import { createServer } from "node:http"
-import { tmpdir } from "node:os"
+import { writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vite-plus/test"
 import { describeExec } from "./client.ts"
 import { type ExecResponse, executeRequest } from "./execute.ts"
+import { toolReply, transportFixture } from "./transport-fixture.ts"
 
 const success: ExecResponse = {
   ok: true,
@@ -15,88 +13,8 @@ const success: ExecResponse = {
   created: { home: "home-id" },
   screenshots: [{ path: "/shot.png", png: "AA==", design: "home", state: "default", mode: "desktop" }]
 }
-const requests: unknown[] = []
-let response: { result: ExecResponse } | { error: string } = { result: success }
-const server = createServer(async (request, reply) => {
-  const chunks: Buffer[] = []
-  for await (const chunk of request) chunks.push(Buffer.from(chunk))
-  requests.push(JSON.parse(Buffer.concat(chunks).toString("utf8")))
-  reply.setHeader("content-type", "application/json")
-  reply.end(JSON.stringify(response))
-})
-let directory: string
-let agentFile: string
-const bin = join(import.meta.dirname, "bin.ts")
-
-beforeAll(async () => {
-  directory = await mkdtemp(join(tmpdir(), "parity-execute-contract-"))
-  agentFile = join(directory, "agent.json")
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
-  const address = server.address()
-  if (!address || typeof address === "string") throw new Error("Missing test server port")
-  await writeFile(agentFile, JSON.stringify({ url: `http://127.0.0.1:${address.port}`, token: "contract-test" }))
-})
-afterAll(async () => {
-  await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())))
-  await rm(directory, { recursive: true, force: true })
-})
-beforeEach(() => {
-  requests.length = 0
-  response = { result: success }
-})
-
-function run(args: string[], input: string) {
-  return new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve, reject) => {
-    const child = spawn(process.execPath, [bin, ...args], {
-      env: {
-        ...process.env,
-        PARITY_AGENT_FILE: agentFile,
-        PARITY_AGENT_NAME: "Contract Caller",
-        PARITY_AGENT_ID: "cli-session"
-      },
-      stdio: ["pipe", "pipe", "pipe"]
-    })
-    let stdout = ""
-    let stderr = ""
-    child.stdout.setEncoding("utf8").on("data", (chunk: string) => {
-      stdout += chunk
-    })
-    child.stderr.setEncoding("utf8").on("data", (chunk: string) => {
-      stderr += chunk
-    })
-    const timeout = setTimeout(() => {
-      child.kill()
-      reject(new Error("Transport did not finish"))
-    }, 10_000)
-    child.on("error", (error) => {
-      clearTimeout(timeout)
-      reject(error)
-    })
-    child.on("close", (code) => {
-      clearTimeout(timeout)
-      resolve({ code, stdout, stderr })
-    })
-    child.stdin.end(input)
-  })
-}
-function mcp(input: Record<string, unknown>) {
-  return run(
-    ["mcp"],
-    [
-      { jsonrpc: "2.0", id: 1, method: "initialize", params: { clientInfo: { name: "Contract Caller" } } },
-      { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "execute", arguments: input } }
-    ]
-      .map((message) => JSON.stringify(message))
-      .join("\n") + "\n"
-  )
-}
-function toolReply(stdout: string): unknown {
-  return stdout
-    .trim()
-    .split("\n")
-    .map((line): unknown => JSON.parse(line))
-    .find((value) => value !== null && typeof value === "object" && "id" in value && value.id === 2)
-}
+const fixture = transportFixture(success)
+const { requests, run, mcp } = fixture
 
 function expectRequests(params: Record<string, unknown>) {
   expect(requests).toHaveLength(2)
@@ -134,7 +52,7 @@ describe("execute transport contract", () => {
   })
 
   it("rejects a snippet file combined with retry in both adapters", async () => {
-    const file = join(directory, "ambiguous.js")
+    const file = join(fixture.directory, "ambiguous.js")
     await writeFile(file, "Print(1)")
     const [cli, protocol] = await Promise.all([
       run(["exec", file, "--edit-id", "failed"], ""),
@@ -173,7 +91,7 @@ describe("execute transport contract", () => {
 
   it("maps a CLI file, label and tab to the same request as MCP", async () => {
     const code = "Print('file input')"
-    const file = join(directory, "input.js")
+    const file = join(fixture.directory, "input.js")
     await writeFile(file, code)
     const [cli] = await Promise.all([
       run(["exec", file, "--label", "Review home screen", "--tab", "project", "--json"], ""),
@@ -260,7 +178,7 @@ describe("execute transport contract", () => {
       created: {},
       screenshots: []
     }
-    response = { result: failure }
+    fixture.response = { result: failure }
     const [cli, protocol] = await Promise.all([run(["exec"], "Print(1)"), mcp({ input: "Print(1)" })])
     expect(cli.code).toBe(1)
     expect(cli.stdout.trim()).toBe(describeExec(failure))
@@ -272,7 +190,7 @@ describe("execute transport contract", () => {
   })
 
   it("preserves desktop RPC errors in both transports", async () => {
-    response = { error: "Tab is not ready" }
+    fixture.response = { error: "Tab is not ready" }
     const [cli, protocol] = await Promise.all([run(["exec"], "Print(1)"), mcp({ input: "Print(1)" })])
     expect(cli.code).toBe(1)
     expect(cli.stderr.trim()).toBe("Tab is not ready")

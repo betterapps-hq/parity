@@ -1,145 +1,128 @@
 import { createInterface } from "node:readline"
 import { mcpCallerName } from "./caller.ts"
 import {
-  type AccessibilityResponse,
   call,
-  type ConsoleResponse,
   describeAccessibility,
+  describeComponents,
   describeConsole,
   describeExec,
   describeProblems,
-  type ExecResponse,
-  type ProblemsResponse,
+  describeProps,
+  describeTokens,
   setCaller
 } from "./client.ts"
 import { executeOperation } from "./execute.ts"
+import { type Operation, operations, skillOperation } from "./operations.ts"
 import { readSkill } from "./skills.ts"
 
 interface Tool {
   name: string
   description: string
   inputSchema: Record<string, unknown>
-  run(input: Record<string, unknown>): Promise<Content[] | { content: Content[]; isError: boolean }>
+  run(input: Record<string, unknown>): Promise<{ content: Content[]; isError?: boolean }>
 }
-
 type Content = { type: "text"; text: string } | { type: "image"; data: string; mimeType: "image/png" }
 
-const tab = { type: "string", description: "Tab id, project root or name. Defaults to the active tab." }
-
+/** One adapter for RPC-backed tools: operation contracts own defaults, validation and failure semantics. */
+function operationTool<Result>(
+  name: string,
+  description: string,
+  operation: Operation<Result>,
+  format: (result: Result) => Content[]
+): Tool {
+  return {
+    name,
+    description,
+    inputSchema: operation.inputSchema,
+    async run(input) {
+      const result = await operation.run(input, call)
+      return { content: format(result), isError: operation.failed(result) }
+    }
+  }
+}
+const json = (value: unknown): Content[] => [text(JSON.stringify(value, null, 2))]
 const tools: Tool[] = [
-  {
-    name: "get_tabs",
-    description: "List the projects open in Parity, one per tab. The active tab is the one the person is looking at.",
-    inputSchema: { type: "object", properties: {} },
-    run: async () => [text(JSON.stringify(await call("tabs"), null, 2))]
-  },
-  {
-    name: "get_app_state",
-    description:
-      "Get a tab's state: its designs (ids, states, modes shown, where their boards are and how big), boards that overlap or crowd each other's titles, the selection, project modes, components and tokens, and what Parity detected in the project (each tool's version, where it's installed and its config, the package manager, and a note naming versions Parity doesn't test). Call it first, and again after the person may have changed things. Keep boards apart: Overlaps() and FindEmptySpace() in execute help place them.",
-    inputSchema: { type: "object", properties: { tab } },
-    run: async (input) => [text(JSON.stringify(await call("state", { tab: input.tab }), null, 2))]
-  },
+  operationTool(
+    "get_tabs",
+    "List the projects open in Parity, one per tab. The active tab is the one the person is looking at.",
+    operations.tabs,
+    json
+  ),
+  operationTool(
+    "get_app_state",
+    "Get a tab's state: its designs (ids, states, modes shown, where their boards are and how big), boards that overlap or crowd each other's titles, the selection, project modes, components and tokens, and what Parity detected in the project (each tool's version, where it's installed and its config, the package manager, and a note naming versions Parity doesn't test). Call it first, and again after the person may have changed things. Keep boards apart: Overlaps() and FindEmptySpace() in execute help place them.",
+    operations.state,
+    json
+  ),
   {
     name: "execute",
     description:
-      'Run a JavaScript snippet against a tab\'s designs with the Parity API (read_skill "execute.md"). All changes land as one undoable step, or none if it fails. On failure, retry with editId and edits instead of resending.',
+      'Run a JavaScript snippet with the Parity API (read_skill "execute.md"). All changes land as one undoable step, or none on failure. Retry failures with editId and edits.',
     inputSchema: executeOperation.inputSchema({ label: "description", code: "input" }),
-    run: async (input) => {
+    async run(input) {
       const result = await executeOperation.run(
-        {
-          tab: input.tab,
-          label: input.description,
-          code: input.input,
-          editId: input.editId,
-          edits: input.edits
-        },
+        { tab: input.tab, label: input.description, code: input.input, editId: input.editId, edits: input.edits },
         call
       )
       return {
         content: [text(describeExec(result)), ...result.screenshots.map((shot) => image(shot.png))],
-        isError: !result.ok
+        isError: executeOperation.failed(result)
       }
     }
   },
-  {
-    name: "screenshot",
-    description:
-      'Capture a design in any of its states and modes, rendered offscreen at real widths. state and mode take an id, a list, or "all"; mode also takes "shown".',
-    inputSchema: {
-      type: "object",
-      properties: {
-        design: { type: "string", description: "Design id or name." },
-        state: { description: 'State id, list of ids, or "all". Defaults to the state the design shows.' },
-        mode: { description: 'Mode id, list of ids, "shown" or "all". Defaults to the primary mode.' },
-        scale: { type: "number", description: "Pixel density, 0.25 to 3. Defaults to 1." },
-        tab
-      },
-      required: ["design"]
-    },
-    run: async (input) => {
-      const result = await call<ExecResponse>("screenshot", input)
-      return [text(describeExec(result)), ...result.screenshots.map((shot) => image(shot.png))]
-    }
-  },
-  {
-    name: "find_problems",
-    description:
-      'Find layout problems in a design, rendered offscreen in every state and the modes it shows unless you narrow it: render errors, content wider than the frame, nodes cut off by a parent that clips, and components that aren\'t the project\'s. Run it after changes, with screenshot. state and mode take an id, a list, or "all"; mode also takes "shown".',
-    inputSchema: {
-      type: "object",
-      properties: {
-        design: { type: "string", description: "Design id or name." },
-        state: { description: 'State id, list of ids, or "all". Defaults to "all".' },
-        mode: { description: 'Mode id, list of ids, "shown" or "all". Defaults to "shown".' },
-        tab
-      },
-      required: ["design"]
-    },
-    run: async (input) => [text(describeProblems(await call<ProblemsResponse>("problems", input)))]
-  },
-  {
-    name: "check_accessibility",
-    description:
-      'Check a design\'s accessibility with axe-core against WCAG 2.2 AA, rendered offscreen in every state and the modes it shows unless you narrow it. Lists each rule broken, worst first, with the layers that break it (ids you can pass to execute), the frames, what\'s wrong and a link on how to fix it. state and mode take an id, a list, or "all"; mode also takes "shown". Automated checks find some issues, not all.',
-    inputSchema: {
-      type: "object",
-      properties: {
-        design: { type: "string", description: "Design id or name." },
-        state: { description: 'State id, list of ids, or "all". Defaults to "all".' },
-        mode: { description: 'Mode id, list of ids, "shown" or "all". Defaults to "shown".' },
-        tab
-      },
-      required: ["design"]
-    },
-    run: async (input) => [text(describeAccessibility(await call<AccessibilityResponse>("accessibility", input)))]
-  },
-  {
-    name: "get_console",
-    description:
-      "Read what the project's own code wrote to the console: errors, warnings and logs from its components on the canvas, including while the person interacts with them, and from offscreen renders such as screenshots. Oldest first; the same message several times in a row is counted once. clear: true empties it after reading, so the next read shows only what's new.",
-    inputSchema: {
-      type: "object",
-      properties: { clear: { type: "boolean", description: "Empty it after reading." }, tab }
-    },
-    run: async (input) => [text(describeConsole(await call<ConsoleResponse>("console", input)))]
-  },
-  {
-    name: "open_project",
-    description: "Open a project folder in a new Parity tab, or switch to it if it's already open.",
-    inputSchema: {
-      type: "object",
-      properties: { root: { type: "string", description: "Absolute path." } },
-      required: ["root"]
-    },
-    run: async (input) => [text(JSON.stringify(await call("open", { root: input.root }), null, 2))]
-  },
+  operationTool(
+    "screenshot",
+    'Capture a design in any of its states and modes, rendered offscreen at real widths. state and mode take an id, a list, or "all"; mode also takes "shown".',
+    operations.screenshot,
+    (result) => [text(describeExec(result)), ...result.screenshots.map((shot) => image(shot.png))]
+  ),
+  operationTool(
+    "find_problems",
+    'Find layout problems in a design, rendered offscreen in every state and the modes it shows unless you narrow it: render errors, content wider than the frame, nodes cut off by a parent that clips, and components that aren\'t the project\'s. Run it after changes, with screenshot. state and mode take an id, a list, or "all"; mode also takes "shown".',
+    operations.problems,
+    (result) => [text(describeProblems(result))]
+  ),
+  operationTool(
+    "check_accessibility",
+    'Check a design\'s accessibility with axe-core against WCAG 2.2 AA, rendered offscreen in every state and the modes it shows unless you narrow it. Lists each rule broken, worst first, with the layers that break it (ids you can pass to execute), the frames, what\'s wrong and a link on how to fix it. state and mode take an id, a list, or "all"; mode also takes "shown". Automated checks find some issues, not all.',
+    operations.accessibility,
+    (result) => [text(describeAccessibility(result))]
+  ),
+  operationTool(
+    "get_console",
+    "Read what the project's own code wrote to the console: errors, warnings and logs from its components on the canvas, including while the person interacts with them, and from offscreen renders such as screenshots. Oldest first; the same message several times in a row is counted once. clear: true empties it after reading, so the next read shows only what's new.",
+    operations.console,
+    (result) => [text(describeConsole(result))]
+  ),
+  operationTool(
+    "open_project",
+    "Open a project folder in a new Parity tab, or switch to it if it's already open.",
+    operations.open,
+    json
+  ),
+  operationTool(
+    "get_tokens",
+    "Read tokens filtered by category, source or name, with values in every theme.",
+    operations.tokens,
+    (result) => [text(describeTokens(result))]
+  ),
+  operationTool(
+    "get_components",
+    "List project components, libraries, icon sets and exports that were left out or failed to render.",
+    operations.components,
+    (result) => [text(describeComponents(result))]
+  ),
+  operationTool(
+    "get_props",
+    "Read a component's props from source. all includes attributes it passes through.",
+    operations.props,
+    (result) => [text(describeProps(result))]
+  ),
   {
     name: "read_skill",
-    description:
-      "Read Parity's design skill: SKILL.md, or a file it references such as execute.md or guide/web-app.md.",
-    inputSchema: { type: "object", properties: { path: { type: "string" } } },
-    run: async (input) => [text(await readSkill(input.path as string | undefined))]
+    description: "Read the Parity design skill or a file it references.",
+    inputSchema: skillOperation.inputSchema,
+    run: async (input) => ({ content: [text(await skillOperation.run(input, readSkill))] })
   }
 ]
 
@@ -190,7 +173,7 @@ async function respond(message: { method?: string; params?: Record<string, unkno
       if (!tool) return { error: { code: -32602, message: `Unknown tool ${String(message.params?.name)}` } }
       try {
         const result = await tool.run((message.params?.arguments ?? {}) as Record<string, unknown>)
-        return { result: Array.isArray(result) ? { content: result } : result }
+        return { result }
       } catch (error) {
         return { result: { content: [text(error instanceof Error ? error.message : String(error))], isError: true } }
       }
