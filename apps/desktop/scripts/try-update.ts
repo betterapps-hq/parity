@@ -234,7 +234,7 @@ try {
   })
   const rejected = await page.evaluate(() => window.canvasHost.updates.get())
   if (rejected.phase !== "error" || !/sha512|checksum/i.test(rejected.message)) {
-    throw new Error("The corrupt download did not fail its checksum verification.")
+    throw new Error(`The corrupt download did not fail its checksum verification: ${JSON.stringify(rejected)}`)
   }
   await page.evaluate(() => window.canvasHost.updates.act())
   if ((await page.evaluate(() => window.canvasHost.appVersion)) !== "999.0.0")
