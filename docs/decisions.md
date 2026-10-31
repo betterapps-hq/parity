@@ -1890,6 +1890,14 @@ the Repository, CI and releases stream in Linear.
   - Each repository that needs one has a Terraform project in `infra/`, with its state in R2 and Terraform and the
     Cloudflare provider at Copacker's versions.
   - Shared modules live in `betterapps-hq/pipelines/terraform/`.
+  - Terraform credentials use the shared names from the pipelines' Terraform guide (PAR-14). The apply explicitly
+    forwards organization or repository secrets; matching `infrastructure` environment secrets override them. Plans
+    receive only the separate read-only credentials. State bucket and endpoint come from `TF_STATE_BUCKET` and
+    `TF_STATE_ENDPOINT`, with each project keeping its own backend key. Organization secrets are shared only with
+    selected trusted repositories, since their workflows can access those credentials outside the environment too.
+    Manual Terraform runs apply only from `main`, so provisioning can be retried after credentials are configured.
+    Configure the `infrastructure` environment to allow only `main`, then set its `TF_APPLY_ENABLED` variable to `true`;
+    the shared apply skips an environment that has not been enabled, even when organization keys exist.
   - Terraform also writes the GitHub variables and secrets the templates read, so a template only deploys, and skips
     with a notice until they exist.
 - **The `cloudflare-storybook` module (pipelines v1.1.0) has three limits Cloudflare and GitHub set.** My calls on each:
