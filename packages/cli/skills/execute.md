@@ -262,7 +262,18 @@ parent cuts it off). `Problems` checks frames for render errors, overflow, clipp
 
 `FindEmptySpace({ width, height })` finds room for a new board, to the right of the others unless `direction: "below"`,
 or next to the design named in `near`. `Overlaps()` lists boards that collide, titles included; move one with
-`UpdateDesign(design, { x, y })`.
+`UpdateDesign(design, { x, y })`. A board is as big as the canvas last drew it. One it hasn't drawn yet is sized from
+its frames, laid out as the canvas lays them out: each shown mode's frame size (`frames` on the design, else the mode's
+width), companions shrunk to 640 wide, and a frame without a fixed height as tall as its window. Those overlaps say
+`estimated: true`.
+
+```js
+// With the default modes: a 1280 main frame, the dark one beside it at half size and the 390 phone, 2505 wide in all.
+const dashboard = CreateDesign({ name: "Dashboard", x: 0, y: 0 })
+UpdateDesign(dashboard, { showModes: ["desktop-dark", "mobile-light"] })
+CreateDesign({ name: "Settings", x: 2200, y: 0 })
+Print(Overlaps(dashboard)) // Dashboard and Settings, 305 across, estimated: true
+```
 
 ## Examples
 
