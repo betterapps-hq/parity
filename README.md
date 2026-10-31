@@ -123,8 +123,8 @@ files, IPC and processes. [docs/proposals/packages.md](docs/proposals/packages.m
 Read [AGENTS.md](AGENTS.md) and [docs/conventions.md](docs/conventions.md) first. In short:
 
 - **Work on a branch and open a pull request to `main`.** Its title is a conventional commit subject, since pull
-  requests are squash-merged. It merges once CI (which checks the title too) and CodeRabbit's review pass and every
-  thread is resolved.
+  requests are squash-merged. It merges once CI (which checks the title too) passes and the OpenAI review is addressed
+  and every thread is resolved.
 - **Hooks check each commit and push.** A commit lints and formats the files it stages and needs a conventional subject
   of at most 100 characters; a push also checks types. Don't bypass them with `--no-verify`.
 - **A change to the desktop app or the CLI, or a package they bundle, needs a change file.** After staging, run

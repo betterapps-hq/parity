@@ -198,9 +198,9 @@ still need your call.
   body and fixed, so they're unaffected.
 - **Tab on the canvas reaches only the selected design's own controls** (PAR-424). My call, from the issue's "Tab should
   leave the canvas": its title, menus, mode captions and state labels are in the tab order, and every other design's are
-  out of it, reached by N, Layers or a click. Captions stay reachable because nothing else selects a mode column, as
-  CodeRabbit's review pointed out. Enter on a menu, caption or label is the control's, and on the title it still selects
-  the layers inside. A hovered design's menus are in the tab order while they show.
+  out of it, reached by N, Layers or a click. Captions stay reachable because nothing else selects a mode column, as the
+  code review pointed out. Enter on a menu, caption or label is the control's, and on the title it still selects the
+  layers inside. A hovered design's menus are in the tab order while they show.
 - **A closing menu's keys are the canvas's** (PAR-424). My call: a menu, list or dialog playing its closing animation
   counts as closed for shortcuts, a field in it included, so Ctrl+Z straight after a menu item undoes it.
 - **Side panels have one row of tabs, Pen style.** The open tab shows its name and the rest show only their icons. The
@@ -411,7 +411,7 @@ still need your call.
   still writes as it goes (one undo step per gesture is PAR-441), so Escape goes back to a checkpoint the store takes
   when the drag begins, restoring the design's file and taking the drag's own steps out of undo, rather than undoing
   however many steps the drag made. Another file changed meanwhile, as by an agent, keeps its change and its step, as
-  CodeRabbit's review asked. `DesignStore.checkpoint` and `revert` move with the history when PAR-34 takes it into
+  the code review asked. `DesignStore.checkpoint` and `revert` move with the history when PAR-34 takes it into
   `@parity-app/editor`.
 - **A gesture's cursor is held by a transparent layer over the window** (PAR-193): grabbing for a drag, the handle's
   arrows for a resize. My calls: a layer rather than a rule on every element, which would restyle the whole page twice
@@ -1860,21 +1860,21 @@ the Repository, CI and releases stream in Linear.
     Storybook explorations' shared parts, libgen's demo declarations and macOS's own commands.
   - **Removed:** `clsx` and `tailwind-merge`, which `cn` replaced, the app's `@parity-app/libgen` and libgen's
     `@parity-app/registry`, which nothing imports, and three functions nothing calls.
-- **Pull requests are required on `main`, and CodeRabbit reviews each one,** as you asked on 2026-10-29. The ruleset
-  comes with the repository (PAR-398). My calls:
-  - **A pull request merges once CI, CodeRabbit's status and the title check pass and every thread is resolved,** with
-    no approval required, since GitHub doesn't let you approve your own. CodeRabbit's findings are fixed or answered
-    before merging, and a review that stops on an error fails rather than passing unreviewed.
+- **Pull requests are required on `main`, with OpenAI code reviews,** as updated on 2026-10-31 after you disabled the
+  previous review service. The ruleset comes with the repository (PAR-398). My calls:
+  - **A pull request merges once CI and the title check pass and the OpenAI review is addressed and every thread is
+    resolved,** with no approval required, since GitHub doesn't let you approve your own. OpenAI review findings are
+    fixed or answered before merging. A missing or failed review is not treated as a completed review.
   - **Merges squash,** so the title becomes the commit's subject, and CI checks it with `scripts/commits.ts title`.
   - **Nobody force-pushes to or deletes `main`,** and nobody bypasses the ruleset.
   - **Terraform writes the ruleset,** as it writes the GitHub settings the pipelines read, from the pipelines'
     `github-repository-rules` module (v1.2.0) so Buildkit, Better Apps and Copacker can take the same rules. Parity's
     `infra/github` uses it. Its two rulesets were made by hand on 2026-10-29 to match the module, so `main` was
     protected before Terraform could run here, and import blocks adopt them when `terraform-apply` first runs. The
-    required checks are `CI passes`, the gate over CI's jobs, and `CodeRabbit`.
-  - **`.coderabbit.yaml` reviews assertively,** with AGENTS.md and conventions.md as its guidelines, and leaves lint,
-    format, types, tests and change files to CI, so its own linters are off. Its Linear integration stays off, which
-    keeps private issues out of public comments.
+    required check is `CI passes`, the gate over CI's jobs. OpenAI findings are handled through review threads; no
+    unverified status-check name is configured for that service.
+  - **OpenAI reviews use AGENTS.md and conventions.md as guidance.** The disabled review service's configuration is
+    removed, and lint, format, types, tests and change files stay with CI.
   - **GitHub's secret scanning and push protection stay on,** as they are by default for public repositories.
 - **Releases follow Buildkit's flow.** After CI passes on `main`, pending change files open a release PR that merges
   itself once its checks pass, and its version changes start delivery: the CLI to npm through trusted publishing with
@@ -1897,8 +1897,6 @@ the Repository, CI and releases stream in Linear.
       caught up by the next. It also runs by hand, through `workflow_dispatch`, from template v1.7.1 on (PAR-14): the
       template publishes such a run only from `main`, and only a commit `ci.yml` passed on as a push to `main`, which it
       reads with `actions: read`. Re-run also retries a failed publish with the CI run it started from.
-    - **CodeRabbit skips `CHANGELOG.md` and `CHANGELOG.json`,** whose wording it reviewed in the change files, so a
-      thread on a changelog can't hold up the release PR.
     - **Four change files written under the old name `@parity/desktop` were renamed** to `@parity-app/desktop`, since
       `beachball bump` skips a change file for a package that doesn't exist, leaving it and dropping its changelog line.
 - **Desktop releases reach the beta first, and everyone when promoted,** as you asked on 2026-10-29: beta builds and
@@ -1951,8 +1949,8 @@ the Repository, CI and releases stream in Linear.
   - A second ci-verify call, `checks`, runs once on Ubuntu with full history: `pnpm check:types`, and on pull requests
     `beachball check`, `scripts/changes.ts check --committed` and `scripts/commits.ts title`. The title comes from the
     event's file, never through an expression. It has a concurrency key of its own, so it never cancels verify's run.
-  - A `CI passes` job over both is the one check main's ruleset requires, with CodeRabbit, so the ruleset needn't change
-    when jobs or systems do.
+  - A `CI passes` job over both is the one status check main's ruleset requires, so the ruleset needn't change when jobs
+    or systems do.
   - Vite Task's cache isn't kept between runs yet. `pnpm verify` runs through `vp run` since PAR-405, and ci-verify's
     `vite-task-cache` input turns the rest on.
 - **Parity's checks are Vite+ tasks, so Vite Task replays one whose inputs haven't changed (PAR-405).** My calls:
