@@ -112,6 +112,19 @@ describe(
       expect(freshProps()).toEqual(warm)
     })
 
+    it("reads a referenced config deleted, asked about, then restored the way a fresh checker does", async () => {
+      await write("tsconfig.json", JSON.stringify({ files: [], references: [{ path: "./tsconfig.app.json" }] }))
+      await write("tsconfig.app.json", tsconfig("./a/*"))
+      expect(props()).toEqual(["variant"])
+
+      await unlink(join(root, "tsconfig.app.json"))
+      expect(props()).toEqual(freshProps())
+      await write("tsconfig.app.json", tsconfig("./b/*"))
+      const warm = props()
+      expect(warm).toEqual(["size"])
+      expect(freshProps()).toEqual(warm)
+    })
+
     it("reads a tsconfig deleted, asked about, then restored the way a fresh checker does", async () => {
       await write("tsconfig.json", tsconfig("./a/*"))
       expect(props()).toEqual(["variant"])

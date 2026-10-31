@@ -1,5 +1,5 @@
 import { existsSync, realpathSync } from "node:fs"
-import { dirname, join, posix, relative } from "node:path"
+import { basename, dirname, join, posix, relative } from "node:path"
 import ts from "typescript"
 
 /** One tsconfig or jsconfig, as TypeScript reads it: its `extends` chain applied and its `include` globs expanded. */
@@ -19,7 +19,8 @@ export interface ProjectTsconfig {
   app?: TsconfigFile
   /**
    * Every config file read, relative to the project root: the configs, and each one's `extends` chain, including a base
-   * from an installed package such as `@tsconfig/strictest`. A change to any of them can change what the configs say.
+   * from an installed package such as `@tsconfig/strictest`, and every config a reference names, even one that's
+   * missing or doesn't parse. A change to any of them, one appearing included, can change what the configs say.
    */
   read: string[]
 }
@@ -40,14 +41,18 @@ export function readTsconfig(root: string): ProjectTsconfig {
   // TypeScript resolves a package's base to its real path (`/private/tmp` on macOS, long names on Windows), so each
   // file read is made relative to the root's real path too.
   const realRoot = realPath(root)
-  const readFile = (path: string) => read.add(slashes(relative(realRoot, realPath(path))))
+  // A missing file has no real path of its own, so its folder's stands in.
+  const real = (path: string) => (existsSync(path) ? realPath(path) : join(realPath(dirname(path)), basename(path)))
+  const readFile = (path: string) => read.add(slashes(relative(realRoot, real(path))))
   const visit = (path: string) => {
     const key = slashes(path)
-    if (seen.has(key) || !existsSync(path)) return
+    if (seen.has(key)) return
     seen.add(key)
+    // Listed before it's parsed, so a referenced config that's missing or broken counts when it appears or is fixed.
+    readFile(path)
+    if (!existsSync(path)) return
     const parsed = ts.getParsedCommandLineOfConfigFile(path, {}, host)
     if (!parsed) return
-    readFile(path)
     for (const base of extendedFiles(parsed.options)) readFile(base)
     configs.push({
       path: slashes(relative(root, path)),
