@@ -1687,15 +1687,12 @@ to PAR-209 build it.
   5385 and 9385, or ports the system picks. Tests read results from the page's state, drive real pointer and keyboard
   input with presses tldraw sees kept 500 ms apart, use a stand-in clipboard, and undo everything after each test. A
   full run takes about five minutes.
-- **The pre-push hook runs the end-to-end tests,** when the commits a push sends change the app, its packages, the
-  example or the workspace's build files, and not for docs, unit tests, scripts or CI alone (`scripts/app-tests.ts`).
-  You asked on 2026-10-30: sessions ran the whole suite as a routine check, so a Parity window opened every few minutes
-  and runs from several sessions at once took the same ports and failed each other's. Sessions run only the files a
-  change touches while working. CI runs them too, for every pull request and push to main, on Windows only, whose
-  runners have a desktop for the window, in `app.yml`. It doesn't block merging yet: on its first run the example never
-  opened on the runner within 180 s, so it stays out of CI until it runs reliably there (PAR-438). It's a workflow of
-  its own, not a job `CI passes` leaves out, since a failed job still fails CI's run, and `release.yml` and `cd-npm.yml`
-  run only after CI's run on `main` succeeds.
+- **End-to-end tests run only in CI,** as you requested while preparing the first CLI release (PAR-14). The pre-push
+  invocation and its local runner and lock are removed. Sessions do not run full or focused E2E suites locally.
+  `app.yml` runs them for every pull request and push to main on Windows, whose runners have a desktop for the window.
+  It doesn't block merging yet: on its first run the example never opened on the runner within 180 s, so it stays out of
+  CI until it runs reliably there (PAR-438). It's a workflow of its own, not a job `CI passes` leaves out, since a
+  failed job still fails CI's run, and `release.yml` and `cd-npm.yml` run only after CI's run on `main` succeeds.
 - **Packages and scripts use only TypeScript that Node can strip,** because the CLI and scripts run them with plain
   `node`: no parameter properties, namespaces or enums. oxlint rejects the first two in `packages/**` and
   `apps/*/scripts/**`; the app's bundled code may use them. The Library files session found CAN-48's parser had broken

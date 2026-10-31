@@ -1,13 +1,9 @@
 # What a pull request would otherwise show: the commits' messages, formatting, lint with the type-aware rules and type
 # errors, which commits don't check, and a change file for each released package the branch's commits change. It also
 # catches a commit that skipped its hooks. Types run as the `types` task, which isn't cached, so a push always checks
-# them. Beachball's own check reads the working tree, so it runs in CI instead. Last, the editor's end-to-end tests, when
-# the push changes what the app runs: they open a copy of Parity for about five minutes, so they run here rather than
-# after each change. Git gives the refs on stdin once, so they're kept for both scripts that read them.
+# them. Beachball's own check reads the working tree, so it runs in CI instead. End-to-end tests run only in CI.
 # Never skip it with --no-verify.
-refs=$(cat)
-printf '%s\n' "$refs" | node scripts/commits.ts push "$1"
+node scripts/commits.ts push "$1"
 vp check --no-lint
 vp run types
 node scripts/changes.ts check --committed
-printf '%s\n' "$refs" | node scripts/app-tests.ts "$1"

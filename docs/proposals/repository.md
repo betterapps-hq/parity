@@ -73,7 +73,8 @@ with a type checker that runs on TypeScript 7. Its `vite:monorepo` template has 
   - **pre-push:** the pushed commits' messages, with fixups refused, formatting, lint with the type-aware rules and type
     errors (`pnpm check:types`), and `scripts/changes.ts check --committed`. It catches a commit that skipped its hooks.
 - **`pnpm verify` leaves types to the push,** since type checking grows slow, and tests run on twelve workers locally
-  and four in CI, as Copacker's do.
+  and four in CI, as Copacker's do. End-to-end tests run only in CI's `App tests` workflow, never in the pre-push hook
+  or as local checks.
 
 ## Pull requests
 
