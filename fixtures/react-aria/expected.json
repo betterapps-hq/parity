@@ -13,6 +13,7 @@
     "name": "Yarn Berry",
     "agent": "yarn@berry",
     "from": "yarn.lock",
+    "lockfile": "yarn.lock",
     "summary": "Yarn Berry from yarn.lock"
   },
   "tools": [

@@ -592,6 +592,13 @@ recommended answer to each of its questions.
   `~/.parity/cache/detection`, one file per project, under a fingerprint of every file they read, the tsconfigs,
   package.json, the lockfile, the list as discovered and Parity's own checker code. Results aren't saved when files
   changed while the checker read them.
+- **The fingerprint's inputs come from the code that reads them, not from lists of its own.** My call (PAR-469): the
+  lockfiles are those package-manager detection recognizes (`findLockfiles`, from `package-manager-detector`'s list, so
+  `npm-shrinkwrap.json`, `deno.lock` and `pnpm-workspace.yaml` count), in the same nearest folder detection settles on,
+  and the tsconfigs are every file the config reader read (`ProjectTsconfig.read`): the configs, their references and
+  each `extends` chain, a base from an installed package included. When a folder has several lockfiles, detection names
+  the first in that list as `lockfile` and the fingerprint hashes all of them, since a package manager may read another
+  (npm prefers `npm-shrinkwrap.json`). `fingerprintInputs` lists the files, for a watcher to follow (PAR-470).
 - **Changed files are read again on their own, without reopening the project.** My call: the parse reads the changed
   files about half a second after the last change, so added, renamed and deleted components show at once, and the type
   checker then reads only those files and the files that import them, since an export's type can come from an import. A
@@ -2276,6 +2283,13 @@ target. The proposal is [proposals/extensions.md](proposals/extensions.md).
 - **Adding tools such as Sentry, PostHog or LaunchDarkly comes later,** from a CLI, through recipes or the scaffolder.
   You said it "belongs in the backlog -- not a priority right now."
 
+- **Windows and Linux updates ship before publisher signing (PAR-160).** You asked for working updates without waiting
+  for PAR-399, approved electron-updater, and signed off on the real download/restart toast stories in dark and light.
+  Keep the update manifests, Mac ZIPs and blockmaps. The installed app uses its packaged release feed and verifies
+  download checksums; unsigned builds do not authenticate a Windows publisher signature. Macs keep a manual download
+  fallback until signing. Downloads run in the background, restart is explicit and handles unsaved work, and ordinary
+  quit never installs an update. Get beta updates remains off by default. Update E2E runs only in CI.
+
 ## Not done yet
 
 Planned work, and what's waiting on you, is in Linear, as [work.md](work.md) says.
@@ -2358,3 +2372,23 @@ layering patches its own way, and none applying a viewport's responsive patch ou
   variant that turns its parent into a row, a state over a value that variant sets, responsive patches, and a nested
   instance with args and overrides, in two viewports. `effective.test.ts` checks `effectiveTree` against `resolveDesign`
   for each case and viewport; later work on the agent's Get and the editor's rules reuses it.
+
+## Conditional values stay out of the default theme (PAR-485)
+
+`collectCustomProperties` in core's `css.ts` now gives each declaration the at-rules it sits under, outermost first, as
+`atRules: { name, prelude }[]` (`{ name: "media", prelude: "(prefers-color-scheme: dark)" }`), beside its innermost
+selector. It used to keep only the selector, so a `:root` inside `@media (prefers-color-scheme: dark)` read as the root,
+and its dark values replaced the light defaults, as `mantine` showed.
+
+My calls in the run-time reading (`extractTokens`):
+
+- Only `@layer` and `@supports` leave a value in the theme its selector names: a layer orders rules and a feature check
+  holds whatever the theme, so neither picks one. Any other at-rule (`@media`, `@container`, `@scope`…) makes a value
+  conditional, and it belongs to no theme.
+- A `prefers-color-scheme: dark` block isn't read as the dark theme. A theme reaches a frame by a class the Modes panel
+  adds, and `previewToken` and `writeTokenChanges` write a theme's values to that class's block, so a "dark" read from a
+  media query couldn't be shown in a frame or edited where it lives. Reading it as a theme is the gap `docs/support.md`
+  already lists; the facts it needs are now in the collected declarations.
+- `themeFallbackCss` still counts a property declared anywhere as defined, conditional or not, as before.
+- Libgen's own token collecting (`libgen/src/tokens.ts`), which reads `prefers-color-scheme: dark` blocks as dark, is
+  unchanged. Sharing one policy between the two is PAR-468.

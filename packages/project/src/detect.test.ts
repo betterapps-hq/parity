@@ -3,6 +3,7 @@ import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 import { addCommand, cutoff, detectPackageManager, detectProject } from "./detect.ts"
+import { findLockfiles } from "./lockfile.ts"
 
 let root: string
 
@@ -35,6 +36,7 @@ describe("detectPackageManager", () => {
       name: "pnpm",
       agent: "pnpm",
       from: "pnpm-lock.yaml",
+      lockfile: "pnpm-lock.yaml",
       summary: "pnpm from pnpm-lock.yaml"
     })
   })
@@ -74,11 +76,35 @@ describe("detectPackageManager", () => {
     })
   })
 
+  it("reads npm-shrinkwrap.json, and names the first lockfile when a folder has several", async () => {
+    await fixture({ "package.json": {}, "npm-shrinkwrap.json": {} })
+    expect(await detectPackageManager(root)).toMatchObject({ agent: "npm", from: "npm-shrinkwrap.json" })
+
+    await fixture({ "package-lock.json": {} })
+    expect(await detectPackageManager(root)).toMatchObject({ from: "package-lock.json", lockfile: "package-lock.json" })
+    expect(await findLockfiles(root)).toEqual(["package-lock.json", "npm-shrinkwrap.json"])
+  })
+
+  it("names the nearest lockfile even when a packageManager field says first", async () => {
+    await fixture({ "pnpm-lock.yaml": "", "package.json": {}, "app/package.json": { packageManager: "pnpm@9.1.0" } })
+    expect(await detectPackageManager(join(root, "app"))).toMatchObject({
+      from: "package.json",
+      lockfile: "../pnpm-lock.yaml"
+    })
+  })
+
+  it("names the project's own lockfile over a workspace's above it", async () => {
+    await fixture({ "pnpm-lock.yaml": "", "package.json": {}, "app/package.json": {}, "app/package-lock.json": {} })
+    expect(await detectPackageManager(join(root, "app"))).toMatchObject({ agent: "npm", lockfile: "package-lock.json" })
+    expect(await findLockfiles(join(root, "app"))).toEqual(["package-lock.json"])
+  })
+
   it("walks up to a workspace's lockfile", async () => {
     await fixture({ "pnpm-lock.yaml": "", "package.json": {}, "packages/app/package.json": {} })
     expect(await detectPackageManager(join(root, "packages/app"))).toMatchObject({
       agent: "pnpm",
-      from: "../../pnpm-lock.yaml"
+      from: "../../pnpm-lock.yaml",
+      lockfile: "../../pnpm-lock.yaml"
     })
   })
 
