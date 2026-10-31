@@ -297,6 +297,8 @@ try {
     windowsHide: true,
     stdio: ["ignore", "pipe", "pipe"]
   })
+  // Record the spawned child even if startup fails before CDP can report its browser PID.
+  if (appProcess.pid !== undefined) ownedProcesses.add(appProcess.pid)
   let launchError: Error | undefined
   appProcess.on("error", (error) => {
     launchError = error
