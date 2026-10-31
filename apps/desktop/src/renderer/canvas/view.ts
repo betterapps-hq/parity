@@ -7,9 +7,6 @@ import {
   type StateSpec
 } from "@parity-app/core"
 
-/** Companion modes are drawn at most this wide, so the main frame stays the focus. */
-const companionWidth = 640
-
 export interface ContainerModes {
   /** The main frame's mode. */
   primary: ResolvedMode
@@ -71,9 +68,4 @@ export function toggleShownMode(
 
 export function activeState(container: ContainerSpec): StateSpec {
   return container.states.find((state) => state.id === container.view?.state) ?? container.states[0]!
-}
-
-/** How much a companion frame of this width is shrunk. */
-export function companionScale(width: number): number {
-  return Math.min(1, companionWidth / width)
 }

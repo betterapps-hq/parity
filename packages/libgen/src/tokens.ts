@@ -1,5 +1,6 @@
 import type { LibraryBreakpoint, TokenCategory } from "@parity-app/core"
-import { lengthToPixels } from "@parity-app/core"
+import { collectCustomProperties, lengthToPixels } from "@parity-app/core"
+import { categorize, isTokenName, themedProperties } from "@parity-app/tokens"
 
 /** A token found in a library, before it's written as DTCG. */
 export interface CollectedToken {
@@ -14,134 +15,25 @@ export interface CollectedToken {
 }
 
 /**
- * The category a custom property belongs in, from the words in its name, then its value: `--mantine-spacing-md` is
- * spacing, `--fontSizeBase300` a font size, and anything whose value is a colour a colour.
- */
-export function categorizeVar(name: string, value: string): TokenCategory {
-  const words = name
-    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
-    .toLowerCase()
-    .split(/[-_]/)
-  const has = (...sequence: string[]) =>
-    words.some((_, index) => sequence.every((word, offset) => words[index + offset] === word))
-  if (has("breakpoint") || has("breakpoints") || has("screen")) return "breakpoint"
-  // Tailwind names sizes `--text-sm`; `--heading-text-wrap` and `--text-color` aren't sizes.
-  const textSize = words[0] === "text" && !["wrap", "color", "decoration", "shadow"].includes(words[1] ?? "")
-  if (has("font", "size") || has("font", "sizes") || textSize) return "font-size"
-  if (has("line", "height") || has("leading") || has("line", "heights")) return "leading"
-  if (has("font", "weight") || has("font", "weights")) return "font-weight"
-  if (has("letter", "spacing") || has("tracking")) return "tracking"
-  if (has("font", "family") || has("font") || has("fonts")) return "font"
-  if (has("radius") || has("radii") || has("rounded")) return "radius"
-  if (has("shadow") || has("shadows") || has("elevation")) return "shadow"
-  if (has("spacing") || has("space") || has("gap")) return "spacing"
-  const moving = ["duration", "easing", "curve", "ease", "transition", "animation", "animate", "delay"]
-  if (moving.some((word) => has(word))) return "motion"
-  if (has("container") && !has("color")) return "container"
-  if (has("color") || has("colors") || has("palette") || isColor(value)) return "color"
-  return "other"
-}
-
-const colorValue =
-  /^(?:#[\da-f]{3,8}|(?:rgba?|hsla?|oklch|oklab|lab|lch|hwb|color|color-mix|light-dark)\(|transparent$)/i
-
-export function isColor(value: string): boolean {
-  return colorValue.test(value.trim())
-}
-
-/** A theme a selector belongs to: the root's defaults, or a dark theme however it's written. Anything else, none. */
-export function themeOfSelector(selector: string, media = ""): string | undefined {
-  const parts = selector.split(",").map((part) => part.trim().replaceAll(/\s+/g, " "))
-  const dark = /prefers-color-scheme:\s*dark/.test(media)
-  const isRoot = (part: string) =>
-    /^(?::where\()?(?::root|:host|html)(?:\)|\s|$|\[|\.|,)/.test(part) || part === ":host"
-  const isDark = (part: string) => /(?:^|[.\s])dark(?:[\s.:[]|$)|\[[\w-]+=["']?dark["']?\]/.test(part)
-  const isLight = (part: string) => /(?:^|[.\s])light(?:[\s.:[]|$)|\[[\w-]+=["']?light["']?\]/.test(part)
-  if (parts.some(isDark)) return "dark"
-  if (parts.some((part) => isRoot(part) || isLight(part))) return dark ? "dark" : "default"
-  return undefined
-}
-
-interface Block {
-  prelude: string
-  /** The declarations written directly inside it. */
-  declarations: string
-  children: Block[]
-}
-
-/** Splits CSS into nested blocks, each with its prelude and its own declarations. */
-function blocks(css: string): Block[] {
-  let index = 0
-  const level = (): Omit<Block, "prelude"> => {
-    let text = ""
-    let declarations = ""
-    const children: Block[] = []
-    while (index < css.length) {
-      const char = css[index]!
-      if (char === "/" && css[index + 1] === "*") {
-        const end = css.indexOf("*/", index + 2)
-        index = end === -1 ? css.length : end + 2
-      } else if (char === '"' || char === "'") {
-        const end = css.indexOf(char, index + 1)
-        text += css.slice(index, end === -1 ? css.length : end + 1)
-        index = end === -1 ? css.length : end + 1
-      } else if (char === "{") {
-        index++
-        const split = text.lastIndexOf(";") + 1
-        declarations += text.slice(0, split)
-        const inner = level()
-        children.push({ prelude: text.slice(split).trim(), ...inner })
-        text = ""
-      } else if (char === "}") {
-        index++
-        return { declarations: declarations + text, children }
-      } else {
-        text += char
-        index++
-      }
-    }
-    return { declarations: declarations + text, children }
-  }
-  return level().children
-}
-
-/**
- * The tokens a library's CSS defines: custom properties on the root, on a dark theme (a `.dark` class, a
- * `[data-…=dark]` attribute or a `prefers-color-scheme: dark` block), and in Tailwind's `@theme`. Properties scoped to
- * one component's class aren't tokens.
+ * The tokens a library's CSS defines, read with the same rules the app reads a project's CSS with (`themedProperties`
+ * and `categorize` in `@parity-app/tokens`): custom properties on the root, and on each theme a class or attribute
+ * names (`.dark`, `[data-theme="dark"]`). Two differences are deliberate, because this reads source CSS whose themes
+ * reach a frame as the class blocks `describedTokenCss` writes: Tailwind's `@theme` is the default, and a
+ * `prefers-color-scheme` block is its theme. Properties scoped to one component's class aren't tokens.
  */
 export function cssTokens(css: string): CollectedToken[] {
-  const tokens = new Map<string, CollectedToken>()
-  const visit = (list: Block[], media: string) => {
-    for (const block of list) {
-      if (/^@theme\b/.test(block.prelude)) declarations(block.declarations, "default")
-      else if (block.prelude.startsWith("@")) {
-        visit(block.children, block.prelude.startsWith("@media") ? `${media} ${block.prelude}` : media)
-        continue
-      } else {
-        const theme = themeOfSelector(block.prelude, media)
-        if (theme) declarations(block.declarations, theme)
-      }
-      visit(block.children, media)
-    }
+  const properties = themedProperties(collectCustomProperties(css), { colorScheme: true, tailwindTheme: true })
+  const byName = new Map(properties.map((property) => [property.name, property]))
+  const tokens: CollectedToken[] = []
+  for (const { name, values, first } of properties) {
+    if (!isTokenName(name)) continue
+    const token: CollectedToken = { var: name, category: categorize(name, first), values }
+    // Tailwind's per-token modifiers (`--text-sm--line-height`) pair with their token; they aren't tokens.
+    const lineHeight = byName.get(`${name}--line-height`)?.values.default
+    if (lineHeight) token.lineHeight = lineHeight.trim().replace(/^var\(--([\w-]+)\)$/, "$1")
+    tokens.push(token)
   }
-  const declarations = (text: string, theme: string) => {
-    for (const match of text.matchAll(/--([\w-]+)\s*:\s*([^;]+)/g)) {
-      const name = match[1]!
-      const value = match[2]!.trim()
-      // Tailwind's per-token modifiers (`--text-sm--line-height`) pair with their token; they aren't tokens.
-      if (name.includes("--") || name.startsWith("tw-")) continue
-      const token = tokens.get(name) ?? { var: name, category: categorizeVar(name, value), values: {} }
-      token.values[theme] = value
-      tokens.set(name, token)
-    }
-    for (const match of text.matchAll(/--([\w-]+)--line-height\s*:\s*([^;]+)/g)) {
-      const token = tokens.get(match[1]!)
-      if (token && !token.lineHeight) token.lineHeight = match[2]!.trim().replace(/^var\(--([\w-]+)\)$/, "$1")
-    }
-  }
-  visit(blocks(css), "")
-  return [...tokens.values()]
+  return tokens
 }
 
 /**

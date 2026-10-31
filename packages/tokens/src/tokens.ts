@@ -1,10 +1,5 @@
-import {
-  collectCustomProperties,
-  type CustomPropertyDeclaration,
-  type DescribedToken,
-  type ThemeVariable,
-  type TokenCategory
-} from "@parity-app/core"
+import { collectCustomProperties, type DescribedToken, type ThemeVariable, type TokenCategory } from "@parity-app/core"
+import { categorize, isTokenName, themedProperties } from "./policy.ts"
 
 export interface Token {
   /** Custom property name without `--`; what a design references. */
@@ -15,7 +10,7 @@ export interface Token {
    * `theme` for the styling framework's scale (Tailwind's palette, type scale, radius steps…).
    */
   source: "semantic" | "theme"
-  /** Value per theme: `default` for the root, otherwise the theme class (e.g. `dark`). */
+  /** Value per theme: `default` for the root, otherwise the theme a class or attribute names (e.g. `dark`). */
   values: Record<string, string>
   /** A step of a scale built on another token, like `spacing-4` on `spacing`: read-only, it follows its base. */
   derived?: { from: string; factor: number }
@@ -33,7 +28,7 @@ export function spacingStepName(step: number): string {
 }
 
 /**
- * The project's design tokens: every custom property its compiled CSS defines on the root or on a theme class, plus
+ * The project's design tokens: every custom property its compiled CSS defines on the root or for a theme, plus
  * the styling framework's full theme, which compiled CSS trims to what the code already uses. These are exactly the
  * values a design may reference.
  */
@@ -44,25 +39,16 @@ export function extractTokens(
 ): Token[] {
   const themeValues = new Map(theme.map((variable) => [variable.name, variable.value]))
   const tokens = new Map<string, Token>()
-  const categorize = (name: string, value: string) => categories[name] ?? categorizeByName(name, value)
-  const declarations = collectCustomProperties(css).map((declaration) => ({
-    ...declaration,
-    themeName: themeOf(declaration)
-  }))
-  // A theme class overrides tokens the root defines, as `.dark` does. A class that sets only its own variables, such as
-  // a `.scroll-fade-b` utility, isn't a theme.
-  const rootNames = new Set(declarations.flatMap(({ themeName, name }) => (themeName === "default" ? [name] : [])))
-  const themes = new Set(declarations.flatMap(({ themeName, name }) => (rootNames.has(name) ? [themeName] : [])))
-  for (const { themeName, name, value } of declarations) {
-    if (!themeName || !themes.has(themeName) || hidden(name)) continue
+  const categoryOf = (name: string, value: string) => categories[name] ?? categorize(name, value)
+  // Which rule is which theme's, and which category a name is in, are shared with libgen: see `policy.ts`.
+  for (const { name, values, first } of themedProperties(collectCustomProperties(css))) {
+    if (!isTokenName(name)) continue
     const source = themeValues.has(name) ? "theme" : "semantic"
-    const entry = tokens.get(name) ?? { name, category: categorize(name, value), source, values: {} }
-    entry.values[themeName] = value
-    tokens.set(name, entry)
+    tokens.set(name, { name, category: categoryOf(name, first), source, values })
   }
   for (const [name, value] of themeValues) {
-    if (tokens.has(name) || hidden(name) || aliasOfSemantic(name, value, tokens)) continue
-    tokens.set(name, { name, category: categorize(name, value), source: "theme", values: { default: value } })
+    if (tokens.has(name) || !isTokenName(name) || aliasOfSemantic(name, value, tokens)) continue
+    tokens.set(name, { name, category: categoryOf(name, value), source: "theme", values: { default: value } })
   }
   // The scale itself is one variable; its steps are what designs use, so each is listed as a token of its own.
   if (tokens.get("spacing")?.category === "spacing") {
@@ -92,49 +78,10 @@ export function themeFallbackCss(css: string, theme: readonly ThemeVariable[]): 
   return `:host {\n${missing.map(({ name, value }) => `  --${name}: ${value};`).join("\n")}\n}\n`
 }
 
-/**
- * At-rules that don't pick a theme: a cascade layer only orders rules, and a feature check holds whatever the theme.
- * Any other (`@media`, `@container`, `@scope`…) makes a value conditional, so it's no theme's value: a
- * `prefers-color-scheme: dark` block isn't a class a mode adds, and mustn't replace the default's value either.
- */
-const unconditionalAtRules = new Set(["layer", "supports"])
-
-function themeOf({ selector, atRules }: CustomPropertyDeclaration): string | undefined {
-  if (!atRules.every((atRule) => unconditionalAtRules.has(atRule.name))) return undefined
-  const parts = selector.split(",").map((part) => part.trim())
-  if (parts.every((part) => part === ":host" || part === ":root")) return "default"
-  const themeClass = /^\.([\w-]+)$/.exec(selector.trim())
-  return themeClass?.[1]
-}
-
-/** Framework internals and per-token modifiers (`text-sm--line-height`) aren't tokens a designer picks. */
-function hidden(name: string): boolean {
-  return name.startsWith("tw-") || name.startsWith("default-") || name.includes("--")
-}
-
 /** shadcn maps `--color-primary` to `var(--primary)` so Tailwind classes see it; the semantic name is the token. */
 function aliasOfSemantic(name: string, value: string, tokens: Map<string, Token>): boolean {
   const target = /^var\(--([\w-]+)\)$/.exec(value.trim())?.[1]
   return target !== undefined && tokens.get(target)?.source === "semantic" && name.endsWith(target)
-}
-
-const colorValue = /^(?:#|(?:rgba?|hsla?|oklch|oklab|lab|lch|hwb|color|color-mix)\(|transparent$|currentcolor$)/i
-
-function categorizeByName(name: string, value: string): TokenCategory {
-  if (name === "spacing") return "spacing"
-  if (name.startsWith("radius")) return "radius"
-  if (name.startsWith("text-")) return name.startsWith("text-shadow") ? "shadow" : "font-size"
-  if (name.startsWith("font-weight")) return "font-weight"
-  if (name.startsWith("font-")) return "font"
-  if (name.startsWith("tracking")) return "tracking"
-  if (name.startsWith("leading")) return "leading"
-  if (/^(?:inset-|drop-)?shadow/.test(name)) return "shadow"
-  if (name.startsWith("breakpoint")) return "breakpoint"
-  if (name.startsWith("container")) return "container"
-  if (/^(?:blur|backdrop-blur|perspective|aspect)/.test(name)) return "effect"
-  if (/^(?:ease|animate|animation|transition)/.test(name)) return "motion"
-  if (name.startsWith("color-") || colorValue.test(value.trim())) return "color"
-  return "other"
 }
 
 export const tokenCategories: readonly TokenCategory[] = [
