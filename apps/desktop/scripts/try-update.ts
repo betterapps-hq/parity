@@ -30,14 +30,15 @@ const ownedProcesses = new Set<number>()
 const electronLog = join(work, "electron.log")
 
 async function track(browser: Browser): Promise<void> {
-  const session = await browser.newBrowserCDPSession()
+  const session = await withTimeout(browser.newBrowserCDPSession())
   try {
     const { processInfo } = await withTimeout(session.send("SystemInfo.getProcessInfo"))
     const main = processInfo.find((process) => process.type === "browser")
     if (!main || !Number.isSafeInteger(main.id) || main.id <= 0) throw new Error("No owned browser process")
+    if (!ownedProcesses.has(main.id)) console.log(`Tracking owned app process ${main.id}`)
     ownedProcesses.add(main.id)
   } finally {
-    await session.detach().catch(() => undefined)
+    await withTimeout(session.detach()).catch(() => undefined)
   }
 }
 
@@ -274,7 +275,9 @@ try {
     if (appProcess.exitCode !== null || appProcess.signalCode !== null)
       throw new Error("The installed app exited before opening its window.")
     try {
-      initialBrowser ??= await chromium.connectOverCDP(`http://127.0.0.1:${address.port}`, { timeout: 2000 })
+      initialBrowser ??= await withTimeout(
+        chromium.connectOverCDP(`http://127.0.0.1:${address.port}`, { timeout: 2000 })
+      )
       page = initialBrowser
         .contexts()
         .flatMap((context) => context.pages())
@@ -338,10 +341,11 @@ try {
   console.log(stage)
   let newPage: Page | undefined
   let lastRelaunch = "No connection to the updated app."
+  let reportedRelaunch = ""
   while (Date.now() < deadline) {
     try {
       if (restarted && !restarted.isConnected()) restarted = undefined
-      restarted ??= await chromium.connectOverCDP(`http://127.0.0.1:${address.port}`, { timeout: 2000 })
+      restarted ??= await withTimeout(chromium.connectOverCDP(`http://127.0.0.1:${address.port}`, { timeout: 2000 }))
       await track(restarted)
       newPage = restarted
         .contexts()
@@ -358,6 +362,10 @@ try {
       lastRelaunch = error instanceof Error ? error.message : String(error)
       if (restarted) await withTimeout(restarted.close()).catch(() => undefined)
       restarted = undefined
+    }
+    if (lastRelaunch !== reportedRelaunch) {
+      console.log(lastRelaunch)
+      reportedRelaunch = lastRelaunch
     }
     newPage = undefined
     await new Promise((done) => setTimeout(done, 500))
