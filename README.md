@@ -35,7 +35,8 @@ installer. Find the installer's exact filename in `assets` and compare its `sha2
 computer (replace the example filename with your download):
 
 - **Windows, PowerShell:** `Get-FileHash .\Parity-0.2.0-win-x64.exe -Algorithm SHA256`
-- **macOS, Terminal:** `shasum -a 256 ./Parity-0.2.0-mac-arm64.dmg`
+- **macOS, Apple Silicon, Terminal:** `shasum -a 256 ./Parity-0.2.0-mac-arm64.dmg`
+- **macOS, Intel, Terminal:** `shasum -a 256 ./Parity-0.2.0-mac-x64.dmg`
 - **Linux, terminal:** `sha256sum ./Parity-0.2.0-linux-x64.AppImage`
 
 The hashes must match, ignoring letter case. If they differ, do not open the installer. This checks the download against
