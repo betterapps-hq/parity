@@ -2067,7 +2067,7 @@ precedence, names preserved verbatim and neutral fallbacks.
 
 Implementation: `packages/cli/src/caller.ts` selects declared names and bounds session ids; `client.ts` attaches the
 name/id to RPC, and `mcp.ts` supplies the initialize handshake name. `apps/desktop/src/utility/agent.ts` forwards that
-identity to presence events, displayed by `renderer/agent/AgentPresence.tsx` and `AgentBadge.tsx`.
+identity to presence events, displayed by `renderer/agent/AgentPresence.tsx` and `AgentPointer.tsx`.
 
 Coverage gaps: the unit tests exercise name selection and distinct bounded ids, not a full MCP-to-canvas session.
 Read-only CLI executions were checked in the running fencing-club app with inherited `CODEX_HOME`: without an explicit
@@ -2099,3 +2099,7 @@ reading shares validation and a reader without requiring the app.
 defaults, explicit tab/options, human and JSON output, invalid inputs, RPC errors, image blocks, audit and screenshot
 failures, local skill reads and errors, and MCP discovery. `transport-fixture.ts` also supports execute's existing
 contract tests. The running app is checked with read-only state and component/token/prop reads through both transports.
+
+The RPC boundary uses `packages/agent/src/caller.ts` to preserve complete names and bound only explicit ids. Its
+`caller.test.ts` covers long shared prefixes, id bounds, fallback ids and invalid names. The renderer caps name width in
+the pointer and activity badge, with the full name in a native hover title; it does not shorten the stored name.
