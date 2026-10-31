@@ -60,6 +60,19 @@ Add the MCP server to your agent's configuration:
 
 Then have the agent read the skill first, with the `read_skill` tool or `parity skill`.
 
+## Execute contract
+
+CLI `exec` and MCP `execute` share one operation. CLI file/stdin becomes MCP's `input`; `--label` becomes `description`;
+`--tab`, `--edit-id` and parsed `--edits` have the same meaning in both. The default task label is `Edit designs`, and
+an omitted tab uses the active tab.
+
+Send a nonblank snippet or a failed call's `editId`, not both. Retry patches need a nonempty `find`, a string `replace`
+(which can be empty), and optional boolean `all`; omitted patches default to an empty list. Invalid requests are
+rejected before reaching the desktop. Caller identity and session IDs travel separately from operation inputs.
+
+CLI failures exit with 1; MCP failures set `isError` and include the same failure and retry details. CLI `--json` omits
+screenshot image data; MCP returns image content blocks.
+
 ## Licence
 
 MIT. See [LICENSE](https://github.com/betterapps-hq/parity/blob/main/LICENSE).

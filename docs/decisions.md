@@ -2287,3 +2287,19 @@ title, then name, falling back to Agent. Both use the same whitespace and empty-
 `packages/cli/src/caller.ts`. No environment fingerprinting or known-client name table: inherited configuration cannot
 establish who's driving, and new harnesses should not require a Parity release. Display names are attribution, not
 authenticated identity. Session ids continue to distinguish concurrent MCP callers.
+
+## CLI and MCP share execute operations (PAR-451)
+
+The two adapters call `executeOperation` in `packages/cli/src/execute.ts`. This module has no platform imports and owns
+the canonical request, defaults, validation, result types and invocation of desktop RPC. It also supplies the MCP
+discovery schema with the adapter's field names. Both adapters are in the CLI package, so no new package or dependency
+is needed. Later operations can follow this boundary as they move; this is not a general command framework.
+
+The CLI reads files/stdin and parses flags; MCP maps `input` to `code` and `description` to `label`. They keep their
+output formats and signal failures in their own way (exit status or `isError`). Caller identity stays in the RPC
+connection context, outside the operation payload. Both default the task label to "Edit designs". Requests with both a
+snippet and retry id are rejected instead of silently ignoring one. The desktop retains snippet execution, atomic
+application and failed-snippet storage; the operation layer does not duplicate those responsibilities.
+
+Contract tests spawn both real entry points against a local HTTP RPC fixture, comparing outgoing operation requests and
+checking discovery, defaults, retries, malformed inputs, successful results, failed execution and RPC errors.

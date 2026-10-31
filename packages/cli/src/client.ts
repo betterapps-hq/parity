@@ -3,34 +3,12 @@ import { readFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join } from "node:path"
 import { cliCallerName, sessionCallerId } from "./caller.ts"
+import type { ExecResponse } from "./execute.ts"
 
 /** Where the running app writes its address and token. */
 export const agentFile = process.env.PARITY_AGENT_FILE ?? join(homedir(), ".parity", "agent.json")
 
-export interface Screenshot {
-  path: string
-  png: string
-  design: string
-  state: string
-  mode: string
-}
-
-export interface ExecResponse {
-  ok: boolean
-  applied: boolean
-  output: string[]
-  warnings: string[]
-  error?: string
-  editId?: string
-  created: Record<string, string>
-  screenshots: Screenshot[]
-}
-
-export interface Edit {
-  find: string
-  replace: string
-  all?: boolean
-}
+export type { Edit, ExecResponse, Screenshot } from "./execute.ts"
 
 let caller = cliCallerName(process.env)
 /** Tells callers with the same name apart. A terminal's calls are separate processes, so they share their name. */
