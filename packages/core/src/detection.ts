@@ -30,6 +30,11 @@ export interface Detection {
 /** The package manager a project uses, with the agent name its command table knows it by (`yarn@berry`, `pnpm`). */
 export interface PackageManagerDetection extends Detection {
   agent: string
+  /**
+   * The project's lockfile, relative to its root: the nearest from the root up. It's `from` when detection read the
+   * lockfile, and still set when a `packageManager` field said first. Unset when no folder from the root up has one.
+   */
+  lockfile?: string
 }
 
 /** Everything detection found in a project. */

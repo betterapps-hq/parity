@@ -1387,9 +1387,9 @@ Every change people or agents make goes into one history per project, and stays 
 decisions.md's "Saving is explicit" sets out.
 
 - **What's undoable:** every edit to a design or a text note, the modes, and token values. An agent's call is one step,
-  its designs and its tokens together. What a board shows (the state, Show every state, the modes beside it, the variant
-  picked in its title bar) isn't undoable, and Undo leaves it as it is, but it's saved in the `.par`, so changing it
-  marks the file unsaved.
+  its designs, modes and tokens together, and undoing it leaves edits made while it ran. What a board shows (the state,
+  Show every state, the modes beside it, the variant picked in its title bar) isn't undoable, and Undo leaves it as it
+  is, but it's saved in the `.par`, so changing it marks the file unsaved.
 - **What Save writes:** each `.par` with changes, and the token values into the project's stylesheet (`src/index.css` in
   the example), together. A token edit shows in every frame at once, since the stylesheet every frame shares is edited
   in place, but nothing is written until Save. Don't save, when closing a tab or quitting, leaves the stylesheet as it
@@ -1403,6 +1403,12 @@ decisions.md's "Saving is explicit" sets out.
   ("Couldn't write --primary to src/index.css: EPERM…"), the Tokens panel shows the same at its top with Try again, and
   the row of each token not written says "Not written to the stylesheet". The values stay on the canvas, unsaved. A
   stylesheet changed since its values were read fails the same way, writing nothing.
+- **An agent's call lands over what's here now** (PAR-278): only the designs it changed, created or deleted are applied,
+  so the person's edits to other designs, in the same file too, and another agent's call stay. Each design the call
+  changes or deletes must still be as the call read it; one already as the call left it, changed the same way or deleted
+  here too, counts as applied. A design the call created conflicts when one with its id was added here, and modes the
+  call set conflict when they changed here since. Any conflict refuses the whole call: nothing changes, not its other
+  designs or its tokens either, and the agent is told which designs, or that the modes, conflicted.
 - **The token editor** says this before anything changes: "Every frame shows it at once. Saving the project writes it to
   src/index.css, and Undo takes it back." Its button is Apply.
 
@@ -1411,27 +1417,37 @@ Code: the history, what's unsaved and the save state are `packages/editor/src/hi
 `writeFailed`, and `adoptSaved`, which takes a file changed back to what's saved as saved), and the changes made to
 designs and notes are `design-changes.ts` there. `apps/desktop/src/renderer/design-store.ts` holds the history for the
 canvas and panels: it writes the files and the stylesheet the history says to, with the timers for saving automatically,
-and its `changeTokens`, `writeTokensWith`, `getTokenFailure`, `applyDocuments` taking tokens and `updateView` tidying
-the view call the package. Token values as data are the package's `token-edits.ts` (`withTokenEdits`, which keeps the
-value each token had before its first edit, `tokenDifferences`, `tokenWrites`, `tokensWithEdits`); comparing files with
-views tidied is its `document-equality.ts`. `tokens-store.ts` previews the history's token values in the shared
-stylesheet after each edit, undo or redo, and gives the design store its writer; `workspace.ts` makes one per guest, so
-a guest loaded again shows the unsaved values too. The agent's call is `agent/handlers.ts` (`apply`), the panel
-`chrome/TokensPanel.tsx`. Saving writes the values into the stylesheet with `writeTokenChanges` in
-`packages/tokens/src/stylesheet.ts`, which `saveTokens` in `apps/desktop/src/utility/projects.ts` applies as a project
-edit.
+and its `changeTokens`, `writeTokensWith`, `getTokenFailure`, `applyAgentChanges` taking tokens (through
+`mergeAgentChanges` in `design-changes.ts`) and `updateView` tidying the view call the package. Token values as data are
+the package's `token-edits.ts` (`withTokenEdits`, which keeps the value each token had before its first edit,
+`tokenDifferences`, `tokenWrites`, `tokensWithEdits`); comparing files with views tidied is its `document-equality.ts`.
+`tokens-store.ts` previews the history's token values in the shared stylesheet after each edit, undo or redo, and gives
+the design store its writer; `workspace.ts` makes one per guest, so a guest loaded again shows the unsaved values too.
+The agent's call is `agent/handlers.ts` (`apply`), the panel `chrome/TokensPanel.tsx`. Saving writes the values into the
+stylesheet with `writeTokenChanges` in `packages/tokens/src/stylesheet.ts`, which `saveTokens` in
+`apps/desktop/src/utility/projects.ts` applies as a project edit.
 
 Tests:
 
-- `packages/editor/src/history.test.ts` (34): undo and redo with their labels; a group's changes less than a second
+- `packages/editor/src/history.test.ts` (36): undo and redo with their labels; a group's changes less than a second
   apart as one step; the 200-step limit; what a board shows left alone by Undo and not recorded; token edits undone,
   redone and saved; nothing to write when they're back at the stylesheet's value; the stylesheet's value written back
   after undoing past a save; a failed write naming the token and the file and clearing on success; several tokens
   failing together; Save starting again after a failed write was undone back to the file being saved; an agent's call as
-  one step; Show every state off again leaving the file clean; another state and back from a file with its view written
-  out in full; a file that differs in more than its view staying unsaved until undone; files changed on disk taken as
-  saved, unless they have unsaved changes; and no token override left once an edit is undone (PAR-465).
-- `packages/editor/src/design-changes.test.ts` (6): changing, moving, adding and deleting designs, and notes.
+  one step; undoing a merged call back to just before it, keeping an edit made during it; the modes a call set undone
+  with its designs; Show every state off again leaving the file clean; another state and back from a file with its view
+  written out in full; a file that differs in more than its view staying unsaved until undone; and files changed on disk
+  taken as saved, unless they have unsaved changes; and no token override left once an edit is undone (PAR-465).
+- `packages/editor/src/design-changes.test.ts` (14): changing, moving, adding and deleting designs, and notes; merging
+  an agent's call: two calls changing different designs in one file both kept, the person's edit to another design kept,
+  a design changed on both sides refused by name with nothing applied, tokens included ("refuses a design changed by
+  both"); changing a deleted design, or creating one under an id added here, refused ("refuses changing a design the
+  person deleted"); designs the person deleted or added left so; files created for new designs; a change or deletion
+  already made here taken as applied ("takes a change already made the same way"); and modes set only while unchanged,
+  refused otherwise ("sets the modes only while they're as the call read them").
+- `packages/agent/src/run.test.ts` (2 of its 25): a call gives each design it changed, created or deleted with the
+  design as it read it, and no others; a refused call fails naming the design, keeps its snippet, and runs again by
+  `editId`.
 - `apps/desktop/src/renderer/design-store.test.ts` (11 of its 18): Save writing the files and the stylesheet, saving
   automatically a moment later, a failed save thrown and cleared, a reload cancelling a save waiting to happen, and
   library designs never written.
@@ -1972,6 +1988,36 @@ it's gone or already reopening, and a failed `project.open` leaves no project to
 
 How the app's window holds the canvas and the panels around it.
 
+### Installed app updates (PAR-160)
+
+Windows NSIS and Linux AppImage installations check GitHub Releases on startup and through Help > Check for updates.
+Downloads stay in the background, with one bottom-right toast updating its progress in place. Hiding it keeps the
+download going. A completed download shows a persistent Restart to update / Later notice; About keeps the action
+available after Later. Restart uses the existing unsaved-work prompt, and Cancel leaves the app and update ready. An
+installation failure resets the close decision, so closing later still checks for new unsaved work. Quitting normally
+never installs an update. Unsigned Macs check for newer releases and offer their download page instead of installing in
+place. The Mac application menu includes the same check.
+
+Settings > Get beta updates is off by default and remembered between runs. It includes GitHub pre-releases without
+allowing downgrades. About shows the selected channel, installed version and available version. Development builds and
+extracted Linux folders do not download or install updates.
+
+`chrome/UpdateToast.stories.tsx` shows the download, restart-ready and Mac fallback designs, unknown-size progress, both
+themes through the toolbar, and the real toast host. `chrome/UpdateDialogs.stories.tsx` covers About's update states and
+the beta setting. The owner signed off on the rendered toast designs before app integration.
+
+Code: `packages/core/src/updates.ts` defines state transitions; `apps/desktop/src/main/update-session.ts` serializes
+operations and `main/updates.ts` adapts electron-updater. `main/index.ts` owns the close acknowledgement and IPC,
+through `preload/index.ts`. `renderer/chrome/updates.tsx` shares state between `UpdateToast.tsx`, `AboutDialog.tsx` and
+`SettingsDialog.tsx`; `AppMenu.tsx` exposes the check.
+
+Tests: `packages/core/src/updates.test.ts` covers guarded transitions, late progress, channel changes and invalid
+progress; `main/update-session.test.ts` covers serialized checks, retry, installation failure resetting the close
+decision, disabled development builds and the Mac fallback. `preload/index.test.ts` covers a native menu action arriving
+before React subscribes and replacing its listener without losing the next action. CI runs `scripts/try-update.ts` on
+Windows and Linux: two real packaged versions, checksum rejection, Later, unsaved-work cancellation, Save, installation
+and relaunch as the newer version. It refuses to run outside CI.
+
 ### The page never scrolls (PAR-424)
 
 The window's page is always exactly the window: no part of the chrome makes it taller or wider, so it never scrolls.
@@ -2084,10 +2130,10 @@ Code: `projectComponentLibrary` in `packages/core/src/render.ts`, used by `Desig
 
 Tests:
 
-- `packages/agent/src/run.test.ts` (5): Measure, Problems and Screenshot of a design placing a library design draw it
-  with no placeholder; no missing-design warning for a placed library design, only for one that doesn't exist; a project
-  design wins over a library design with its id; frames carry the canvas's unsaved values, then those with the call's
-  `SetTokens` over them; and nothing when no value differs.
+- `packages/agent/src/run.test.ts` (5 of its 25): Measure, Problems and Screenshot of a design placing a library design
+  draw it with no placeholder; no missing-design warning for a placed library design, only for one that doesn't exist; a
+  project design wins over a library design with its id; frames carry the canvas's unsaved values, then those with the
+  call's `SetTokens` over them; and nothing when no value differs.
 - `packages/core/src/render.test.ts` (1): the project's library holds the library designs and its own, its own winning.
 - `packages/editor/src/token-edits.test.ts` (2) and `history.test.ts` (1): only values that differ are overrides; an
   edit undone, also one giving a theme a new value, leaves none; a saved edit still is one; and after a guest loads

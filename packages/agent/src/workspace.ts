@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util"
 import {
   addState,
   boardRoot,
@@ -6,6 +7,7 @@ import {
   type ContainerKind,
   type ContainerSpec,
   deleteNode,
+  type DesignChange,
   type DesignNode,
   editNode,
   extractComponent,
@@ -210,8 +212,10 @@ export class AgentWorkspace {
     }
     return {
       changes: {
-        documents: [...this.changed].map((path) => ({ path, document: this.documents.get(path)! })),
-        ...(this.modesChanged ? { modes: this.modes } : {}),
+        designs: [...this.changed].flatMap((path) => this.designChanges(path)),
+        ...(this.modesChanged && !isDeepStrictEqual(this.modes, this.snapshot.modes)
+          ? { modes: { base: this.snapshot.modes, after: this.modes } }
+          : {}),
         tokens: this.tokenChanges
       },
       created: this.created,
@@ -219,6 +223,29 @@ export class AgentWorkspace {
       warnings: [...new Set([...this.warnings, ...this.overlapWarnings()])],
       screenshots: this.screenshots
     }
+  }
+
+  /**
+   * Each design in a file this call changed, created or deleted, with the design as the snapshot had it, so the editor
+   * applies just these over whatever changed there since.
+   */
+  private designChanges(path: string): DesignChange[] {
+    const before = new Map(
+      (this.snapshot.documents.find((entry) => entry.path === path)?.document.containers ?? []).map((container) => [
+        container.id,
+        container
+      ])
+    )
+    const after = this.documents.get(path)?.containers ?? []
+    const changes: DesignChange[] = []
+    for (const container of after) {
+      const base = before.get(container.id)
+      if (!base || !isDeepStrictEqual(base, container))
+        changes.push({ path, id: container.id, base: base ?? null, after: container })
+    }
+    const kept = new Set(after.map((container) => container.id))
+    for (const [id, base] of before) if (!kept.has(id)) changes.push({ path, id, base, after: null })
+    return changes
   }
 
   emit(event: AgentEvent): void {

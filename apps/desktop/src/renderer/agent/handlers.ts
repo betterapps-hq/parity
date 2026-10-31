@@ -1,5 +1,5 @@
 import type { IconNames, IconSet } from "@parity-app/agent"
-import type { LibraryInfo } from "@parity-app/core"
+import type { ChangeConflict, LibraryInfo } from "@parity-app/core"
 import { toast } from "sonner"
 import type { AgentChanges, TabSnapshot, TabSummary, WindowMethod, WindowMethods } from "../../shared/protocol.ts"
 import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
@@ -147,12 +147,12 @@ function iconNames({ tab, set, module }: WindowMethods["agent.iconNames"]["param
   }
 }
 
-/** An agent's call is one undoable step, its designs and tokens together, saved when the project is. */
-async function apply(changes: AgentChanges): Promise<undefined> {
+/**
+ * An agent's call is one undoable step, its designs and tokens together, saved when the project is. It's merged with
+ * what changed here since the agent's snapshot, or refused, changing nothing, when the two overlap.
+ */
+async function apply(changes: AgentChanges): Promise<ChangeConflict[]> {
   const session = ready(findTab(changes.tab))
   const tokens = session.tokens.edits(changes.tokens ?? [])
-  if (changes.documents.length > 0 || changes.modes || tokens.length > 0) {
-    session.store.applyDocuments(changes.label, changes.documents, changes.modes, tokens)
-  }
-  return undefined
+  return session.store.applyAgentChanges(changes.label, changes.designs, changes.modes, tokens)
 }

@@ -1,6 +1,6 @@
 {
   "name": "@parity-app/desktop",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "license": "MIT",
   "description": "A design editor for real components and the code behind them.",
   "author": "Better Apps",
@@ -13,6 +13,7 @@
     "try-built": "node scripts/try-built.ts",
     "package": "electron-builder --publish never",
     "try-installed": "node scripts/try-built.ts --installer",
+    "try-update": "node scripts/try-update.ts",
     "inspect": "node scripts/inspect.ts",
     "perf": "node scripts/perf.ts",
     "storybook": "storybook dev -p 6007",
@@ -55,6 +56,7 @@
     "@vitejs/plugin-react": "^6.1.2",
     "electron": "^45.1.0",
     "electron-builder": "catalog:",
+    "electron-updater": "catalog:",
     "esbuild": "^0.28.2",
     "jiti": "catalog:",
     "playwright-core": "^1.64.1",

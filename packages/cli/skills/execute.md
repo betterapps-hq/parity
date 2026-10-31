@@ -4,6 +4,20 @@
 `await` works at the top level. When the snippet finishes, every change lands on the canvas as one step the person can
 undo; when it throws, nothing changes and you get an `editId` to fix it with.
 
+The person, and other agents, can change the tab while your snippet runs. Only the designs your snippet changed, created
+or deleted are applied, over what's there by then, so their edits to other designs, even in the same file, stay. If a
+design you changed was changed or deleted in the meantime, or the modes were and you set them, nothing is applied and
+the call fails naming it:
+
+```text
+Failed, nothing changed: Not applied: since this call read the tab, "Pricing" (app.par) was changed in the editor, and
+this call changes it too. Run the call again to work from what's there now.
+```
+
+Run it again with its `editId` and no edits (`parity exec --edit-id <id>`, or `execute` with just `editId`): the snippet
+reads the tab afresh, so it works from their change. Read the design again first if your snippet depends on what it
+held.
+
 - Prefer a `description` of 3 to 8 words, such as "Add a pricing section". CLI `exec` calls it `--label`. Both default
   to "Edit designs" if omitted.
 - `Print(...)` (or `console.log`) is how you see values. Objects print as JSON.

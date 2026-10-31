@@ -2,6 +2,7 @@ import type { AccessibilityFinding } from "@parity-app/agent"
 import { type ComponentInfo, type ContainerSpec, defaultModeSettings, type DesignNode } from "@parity-app/core"
 import type { TokenChange } from "@parity-app/tokens"
 import discovered from "virtual:parity/example-project"
+import desktop from "../../../package.json"
 import type {
   CanvasHost,
   ProjectEditResult,
@@ -87,6 +88,15 @@ export function resetHost(): void {
  */
 export function installHost(): void {
   const host: CanvasHost = {
+    appVersion: desktop.version,
+    updates: {
+      get: () => Promise.resolve({ phase: "disabled", beta: false }),
+      check: () => Promise.resolve(),
+      setBeta: () => Promise.resolve(),
+      act: () => Promise.resolve(),
+      subscribe: () => () => undefined,
+      onShow: () => () => undefined
+    },
     request: <M extends ServiceMethod>(method: M, params: ServiceMethods[M]["params"]) => {
       requests.push({ method, params })
       return delay(service.latency).then(() => {

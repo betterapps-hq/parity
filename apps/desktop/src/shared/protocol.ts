@@ -1,18 +1,22 @@
 import type { AccessibilityFinding, AccessibilityIssue, AgentEvent, IconNames, IconSet } from "@parity-app/agent"
 import type {
   CanvasDocument,
+  ChangeConflict,
   ComponentInfo,
   ComponentRenderStatus,
   ComponentSource,
   ContainerSpec,
   DescribedTokens,
+  DesignChange,
   DetectionCorrections,
   LeftOutExport,
   LibraryInfo,
   ModeSettings,
+  ModesChange,
   ProjectDetection,
   StorybookInfo,
-  ThemeVariable
+  ThemeVariable,
+  UpdateState
 } from "@parity-app/core"
 import type { Token, TokenChange } from "@parity-app/tokens"
 
@@ -182,8 +186,11 @@ export interface ProjectProcess {
 export interface WindowMethods {
   "agent.tabs": { params: undefined; result: TabSummary[] }
   "agent.snapshot": { params: { tab?: string }; result: TabSnapshot }
-  /** Applies an agent's changes as one undoable step. */
-  "agent.apply": { params: AgentChanges; result: undefined }
+  /**
+   * Merges an agent's changes in as one undoable step, or, when any overlaps what changed in the editor since the
+   * agent's snapshot, applies nothing and gives back the conflicts.
+   */
+  "agent.apply": { params: AgentChanges; result: ChangeConflict[] }
   "agent.presence": { params: PresenceEvent[]; result: undefined }
   "agent.open": { params: { root: string }; result: TabSummary }
   /** An icon set's names in one style's module, from the tab's own copy of the set, for `Icons(set)`. */
@@ -303,13 +310,12 @@ export interface TabSnapshot {
   detection: ProjectDetection
 }
 
+/** An agent's call to apply in a tab: the designs it changed with how it found them, its modes and token values. */
 export interface AgentChanges {
   tab: string
   label: string
-  documents: { path: string; document: CanvasDocument }[]
-  /** Files the agent emptied of designs. */
-  removed?: string[]
-  modes?: ModeSettings
+  designs: DesignChange[]
+  modes?: ModesChange
   tokens?: TokenChange[]
 }
 
@@ -336,6 +342,15 @@ export interface PresenceEvent {
 
 /** Exposed on `window.canvasHost` by the preload script. */
 export interface CanvasHost {
+  appVersion: string
+  updates: {
+    get: () => Promise<UpdateState>
+    check: () => Promise<void>
+    setBeta: (beta: boolean) => Promise<void>
+    act: () => Promise<void>
+    subscribe: (listener: (state: UpdateState) => void) => () => void
+    onShow: (listener: () => void) => () => void
+  }
   /** The dev runner's requested project; an installed app otherwise starts with its recent tabs or the welcome page. */
   initialProject?: string
   request<M extends ServiceMethod>(method: M, params: ServiceMethods[M]["params"]): Promise<ServiceMethods[M]["result"]>

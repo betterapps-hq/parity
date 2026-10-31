@@ -38,10 +38,11 @@ export function sameDocument(a: CanvasDocument, b: CanvasDocument): boolean {
   const { containers: first, ...restA } = a
   const { containers: second, ...restB } = b
   if (first.length !== second.length || !sameValue(restA, restB)) return false
-  return first.every((container, index) => sameContainer(container, second[index]!))
+  return first.every((container, index) => sameDesign(container, second[index]!))
 }
 
-function sameContainer(a: ContainerSpec, b: ContainerSpec): boolean {
+/** Whether two versions of a design would say the same in a file, with their views compared tidied. */
+export function sameDesign(a: ContainerSpec, b: ContainerSpec): boolean {
   if (a === b) return true
   return sameValue({ ...a, view: tidyView(a, a.view) }, { ...b, view: tidyView(b, b.view) })
 }
