@@ -1,7 +1,7 @@
 import { execute, type FrameRequest } from "@parity-app/agent"
 import { type ContainerSpec, frameGeometry, type ModeSettings, resolveModes } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
-import { renderJobMode } from "./render-job.ts"
+import { componentsGone, renderJobMode } from "./render-job.ts"
 
 /** A 1280px screen 1234px tall, whose height is the mode's own rather than the nearest device's 800. */
 const modes: ModeSettings = {
@@ -88,5 +88,21 @@ describe("renderJobMode", () => {
     expect(job).toMatchObject({ width: 1280, height: 600, viewport: { width: 1280, height: 600 } })
     const request = await agentRequest(container)
     expect(request).toMatchObject({ height: 600, viewport: { width: 1280, height: 600 } })
+  })
+})
+
+describe("componentsGone", () => {
+  const badge = { path: "src/badge.tsx", export: "Badge" }
+  const card = { path: "src/card.tsx", export: "Card" }
+
+  it("is what an earlier job gave that this one no longer carries", () => {
+    expect(componentsGone({ Badge: badge, Card: card }, { Card: card })).toEqual(["Badge"])
+    expect(componentsGone({ Badge: badge }, {})).toEqual(["Badge"])
+    expect(componentsGone({ Badge: badge }, { Badge: badge, Card: card })).toEqual([])
+  })
+
+  it("is nothing before any job gave components, or for a job that carries none", () => {
+    expect(componentsGone(undefined, { Card: card })).toEqual([])
+    expect(componentsGone({ Badge: badge }, undefined)).toEqual([])
   })
 })

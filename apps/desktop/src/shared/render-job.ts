@@ -16,3 +16,15 @@ export function renderJobMode(mode: ResolvedMode, frame: FrameGeometry): RenderJ
     globals: modeGlobals(mode)
   }
 }
+
+/**
+ * The components the offscreen guest was given by an earlier job that this job's no longer carries: their source went
+ * away, so it takes them back, as the canvas's guest does. A job that carries no components says nothing about them.
+ */
+export function componentsGone(
+  given: RenderJob["components"] | undefined,
+  now: RenderJob["components"] | undefined
+): string[] {
+  if (!given || !now) return []
+  return Object.keys(given).filter((id) => !(id in now))
+}
