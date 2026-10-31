@@ -296,6 +296,66 @@ Print(JSON.stringify(Overlaps("below")))`
     expect(result.warnings.filter((warning) => warning.includes("overlaps"))).toEqual([])
   })
 
+  it("estimates a board the canvas hasn't drawn from its frames' sizes", async () => {
+    const base = snapshot()
+    base.bounds = {}
+    const signup = base.documents[0]!.document.containers[0]!
+    signup.frames = { desktop: { width: 3000 } }
+    const result = await execute(
+      {
+        label: "Wide",
+        code: `CreateDesign({name: "Pricing", x: 1800, y: 0})
+Print(JSON.stringify(Overlaps()))`
+      },
+      base,
+      hooks()
+    )
+    // The 3000 frame and the board's 33 padding reach to 3066, past the new design's left edge at 1800.
+    expect(JSON.parse(result.output[0]!)).toMatchObject([
+      { designs: ["signup", "pricing"], width: 3066 - 1800, estimated: true }
+    ])
+  })
+
+  it("estimates an undrawn board's height from a fixed-height frame, and its companions as the canvas shrinks them", async () => {
+    const base = snapshot()
+    base.bounds = {}
+    const signup = base.documents[0]!.document.containers[0]!
+    signup.frames = { desktop: { width: 1280, height: 3000 } }
+    signup.view = { modes: ["desktop-dark"] }
+    const result = await execute(
+      {
+        label: "Tall",
+        code: `CreateDesign({name: "Below", x: 0, y: 3200})
+CreateDesign({name: "Beside", x: 2000, y: 0})
+Print(JSON.stringify(Overlaps()))`
+      },
+      base,
+      hooks()
+    )
+    // 3000 tall, under a 36 caption, inside 33 of padding: 3102 reaches past 3200 less a 160 title band. The dark
+    // companion is drawn at half size, so the board is 1280 + 640 + 32 + 65 + 66 = 2083 wide, past 2000.
+    expect(JSON.parse(result.output[0]!)).toMatchObject([
+      { designs: ["signup", "below"], titleOnly: true, estimated: true },
+      { designs: ["signup", "beside"], width: 83, estimated: true }
+    ])
+  })
+
+  it("prefers the size a board was drawn at to an estimate", async () => {
+    const base = snapshot()
+    base.documents[0]!.document.containers[0]!.frames = { desktop: { width: 3000 } }
+    const result = await execute(
+      {
+        label: "Drawn",
+        code: `CreateDesign({name: "Pricing", x: 1800, y: 0})
+Print(JSON.stringify(Overlaps()))`
+      },
+      base,
+      hooks()
+    )
+    // Drawn 1400 wide, the board ends before 1800, whatever its frames would suggest.
+    expect(JSON.parse(result.output[0]!)).toEqual([])
+  })
+
   it("warns about unknown components and values that aren't tokens", async () => {
     const result = await execute(
       {

@@ -2483,3 +2483,14 @@ places, Next's `globals.css` among them. `readStylesheet` there inlines relative
 telling whether a library's stylesheet is imported. Libgen reads only `.tsx` and `.jsx` of those files, since its type
 checker looks for JSX components. A package library keeps its own inputs: the package's type entry and the stylesheet
 its `style` field or `exports` name, read with the same `readStylesheet`.
+
+## Board layout lives in core (PAR-488)
+
+How the canvas lays a board out is `boardLayout` in `packages/core/src/board.ts`: the board's border and padding, the
+gap between frames, the divider before the first companion, the mode caption and the divider between state rows, with
+`companionScale` (companions at most 640 wide) beside it. `ContainerView` draws with those numbers as inline styles
+rather than Tailwind spacing classes, and the agent's estimate for a board the canvas hasn't drawn, `boardSize`, adds
+them up from each shown mode's `frameSize`, so the two can't drift. A drawn board's measured bounds still win, and an
+estimate stays flagged `estimated`. A frame that grows with its content is estimated as tall as its window
+(`frameViewport`), since its content isn't known until it's drawn; the fixed 1000 it replaced knew nothing of the frame
+either. The title above the board isn't part of its size, as `Overlaps()` already adds its band.

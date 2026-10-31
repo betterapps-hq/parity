@@ -1,6 +1,8 @@
 import {
+  boardLayout,
   boardRoot,
   changeCount,
+  companionScale,
   type ComponentLibrary,
   frameSize,
   type ParamSpec,
@@ -54,7 +56,7 @@ import { FrameSkeleton } from "./FrameSkeleton.tsx"
 import { DesignIcon, designColor, kindColors } from "./kinds.tsx"
 import { useCanvasLabel } from "./labels.ts"
 import { ModesMenu } from "./ModesMenu.tsx"
-import { activeState, companionScale, containerModes, withShownModes } from "./view.ts"
+import { activeState, containerModes, withShownModes } from "./view.ts"
 
 interface ContainerViewProps {
   ref?: Ref<HTMLDivElement>
@@ -124,7 +126,8 @@ export function ContainerView({ ref, entry, hovered, onTitlePointerDown, title, 
   return (
     <div
       ref={ref}
-      className="container-view relative w-max rounded-[20px] border bg-card p-8 font-sans text-card-foreground shadow-2xl"
+      className="container-view relative w-max rounded-[20px] border-solid bg-card font-sans text-card-foreground shadow-2xl"
+      style={{ borderWidth: boardLayout.border, padding: boardLayout.padding }}
       data-design={key}
     >
       {title
@@ -140,19 +143,20 @@ export function ContainerView({ ref, entry, hovered, onTitlePointerDown, title, 
         {rows.map((state, index) => (
           <section
             key={state.id}
-            className={`state-row relative ${index > 0 ? "mt-12 border-t border-dashed pt-12" : ""}`}
+            className={`state-row relative ${index > 0 ? "border-dashed" : ""}`}
+            style={index > 0 ? rowDividerStyle : undefined}
             data-state={state.id}
           >
             {rows.length > 1 && (
               <StateLabel
                 state={state}
                 base={index === 0}
-                offset={index > 0 ? 48 : 0}
+                offset={index > 0 ? boardLayout.rowDivider.after : 0}
                 tabbable={isSelected}
                 onSelect={() => selectState(state.id)}
               />
             )}
-            <div className="flex items-start gap-8">
+            <div className="flex items-start" style={{ gap: boardLayout.frameGap }}>
               {columns.map((mode, column) => (
                 <FrameTile
                   key={mode.id}
@@ -177,6 +181,20 @@ export function ContainerView({ ref, entry, hovered, onTitlePointerDown, title, 
       </div>
     </div>
   )
+}
+
+/** The dashed line above every row of states but the first, sized as the agent's estimate of an undrawn board is. */
+const rowDividerStyle: CSSProperties = {
+  marginTop: boardLayout.rowDivider.before,
+  borderTopWidth: boardLayout.rowDivider.line,
+  paddingTop: boardLayout.rowDivider.after
+}
+
+/** The dashed line before the first companion frame. */
+const dividerStyle: CSSProperties = {
+  marginLeft: boardLayout.divider.before,
+  borderLeftWidth: boardLayout.divider.line,
+  paddingLeft: boardLayout.divider.after
 }
 
 /**
@@ -457,8 +475,15 @@ function FrameCaption({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
   useCanvasLabel(ref, "detail", { fit: true })
   return (
-    <figcaption className="relative mb-3 h-6">
-      <div ref={ref} className="absolute bottom-0 left-0 flex h-6 origin-bottom-left items-center gap-2 text-sm">
+    <figcaption
+      className="relative"
+      style={{ height: boardLayout.caption.height, marginBottom: boardLayout.caption.gap }}
+    >
+      <div
+        ref={ref}
+        className="absolute bottom-0 left-0 flex origin-bottom-left items-center gap-2 text-sm"
+        style={{ height: boardLayout.caption.height }}
+      >
         {children}
       </div>
     </figcaption>
@@ -533,7 +558,8 @@ const FrameTile = memo(function FrameTile({
   const onSelect = () => selection.set({ design: entry.key, mode: mode.id })
   return (
     <figure
-      className={`mode-tile m-0 ${divider ? "ml-4 border-l border-dashed pl-12" : ""}`}
+      className={`mode-tile m-0 ${divider ? "border-dashed" : ""}`}
+      style={divider ? dividerStyle : undefined}
       data-mode={mode.id}
       data-primary={primary}
     >
