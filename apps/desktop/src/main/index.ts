@@ -267,8 +267,18 @@ function applicationMenu(): Menu {
         {
           label: "Check for updates…",
           click: () => {
-            const window = BrowserWindow.getAllWindows().find((candidate) => candidate !== renderWindow)
-            window?.webContents.send("canvas:show-updates")
+            let window = BrowserWindow.getAllWindows().find((candidate) => candidate !== renderWindow)
+            if (!window) {
+              createWindow()
+              window = BrowserWindow.getAllWindows().find((candidate) => candidate !== renderWindow)
+            }
+            if (!window) return
+            const contents = window.webContents
+            const show = () => contents.send("canvas:show-updates")
+            if (contents.isLoadingMainFrame()) contents.once("did-finish-load", show)
+            else show()
+            window.show()
+            window.focus()
           }
         },
         { type: "separator" },
