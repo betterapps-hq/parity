@@ -35,6 +35,13 @@ export const viteBuilder: BuilderAdapter = {
   name: "Vite",
   detect: detectVite,
   async start(options) {
+    // Windows temp folders can use an 8.3 alias. Vite resolves imports to the long path, which must also be the
+    // configured root and filesystem allow-list or the project's own CSS/modules are rejected with 403.
+    options = {
+      ...options,
+      root: await realpath(options.root),
+      rendererGuestPath: await realpath(options.rendererGuestPath)
+    }
     const vite = await loadProjectVite(options.root)
     const configFile = await scriptedConfig(options.root)
     const port = options.port !== undefined && (await portFree(options.port)) ? options.port : await freePort()
