@@ -9,7 +9,7 @@ import {
   topmostNodes,
   withFreshIds
 } from "@parity-app/core"
-import { asShown } from "./clipboard.ts"
+import { asShown, fitBindings } from "./clipboard.ts"
 import type { MoveTarget } from "./drop-target.ts"
 
 /**
@@ -37,18 +37,22 @@ export function moveLayersWithin(container: ContainerSpec, ids: readonly string[
 
 /**
  * Moves the layers `ids`, the outermost of them, from one design to a place in another: they leave `source` and copies
- * of them go into `destination`, as `state` shows them, with ids new there. Returns both designs and the copies' ids,
- * to select; both the same and no copies when none of the layers is in `source`.
+ * of them go into `destination`, as the source's board shows them in `state` and `viewport` (see `asShown`), with ids
+ * new there and the bindings `destination` has params for (see `fitBindings`). Returns both designs and the copies'
+ * ids, to select; both the same and no copies when none of the layers is in `source`.
  */
 export function moveLayersAcross(
   source: ContainerSpec,
   destination: ContainerSpec,
   ids: readonly string[],
   place: MovePlace,
-  state: StateSpec
+  state: StateSpec,
+  viewport?: string
 ): { source: ContainerSpec; destination: ContainerSpec; copies: string[] } {
   const taken = nodeIds(destination.root)
-  const copies = topmostNodes(source.root, ids).map((node) => withFreshIds(asShown(node, state), taken))
+  const copies = topmostNodes(source.root, ids).map((node) =>
+    withFreshIds(fitBindings(asShown(source, node, state, viewport), destination), taken)
+  )
   if (copies.length === 0) return { source, destination, copies: [] }
   let root = destination.root
   for (const [offset, copy] of copies.entries()) {

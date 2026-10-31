@@ -1,5 +1,5 @@
-import { boardTarget, editNode, findNode, locateNode, nodeInState, topmostNodes } from "@parity-app/core"
-import { moveLayersAcross, moveLayersWithin, type MoveTarget } from "@parity-app/editor"
+import { boardTarget, editNode, findNode, locateNode, topmostNodes } from "@parity-app/core"
+import { boardReader, moveLayersAcross, moveLayersWithin, type MoveTarget } from "@parity-app/editor"
 import { editingState } from "../chrome/LayerPanel.tsx"
 import { type ContainerEntry, containerKey } from "../design-store.ts"
 import { findFrames, findNodeElement, findNodeElements, nodeBox } from "../frame.ts"
@@ -12,6 +12,7 @@ import { frameAt, frameScale, type Point } from "./hit.ts"
 import { type DrawnSteps, shiftInsets } from "./insets.ts"
 import { kindColors } from "./kinds.tsx"
 import { frameDrawn } from "./nudge.ts"
+import { frameViewport } from "./view.ts"
 
 /**
  * Moving layers by dragging them, on the canvas or in the Layers panel. In a layout they go wherever they're dropped,
@@ -67,8 +68,12 @@ export function pressLayers(
     bottom: Math.max(...rects.map((rect) => rect.bottom))
   }
   const state = editingState(entry.container, current.state)
+  const viewport = frameViewport(session.store.getModes(), current.mode)
   const primary = findNode(entry.container.root, ids.at(-1)!)
-  const absolute = ids.length === 1 && primary && nodeInState(primary, state).style?.position === "absolute"
+  const absolute =
+    ids.length === 1 &&
+    primary &&
+    boardReader(entry.container, { state, viewport })(primary).style?.position === "absolute"
   const origin = area.getBoundingClientRect()
   let dragging = false
   let target: MoveTarget | undefined
@@ -248,9 +253,10 @@ export function moveLayers(
   const destination = store.getEntry(target.design)
   if (!destination) return
   const state = editingState(source.container, frame.state)
+  const viewport = frameViewport(store.getModes(), frame.mode)
   let copies: string[] = []
   store.updateContainers([source.key, destination.key], label, ([from, to]) => {
-    const moved = moveLayersAcross(from!, to!, ids, target, state)
+    const moved = moveLayersAcross(from!, to!, ids, target, state, viewport)
     copies = moved.copies
     return [moved.source, moved.destination]
   })
@@ -272,10 +278,12 @@ function nudgeAbsolute(
   drawn: DrawnSteps | undefined
 ): void {
   const unit = spacingUnit(session.tokens.get())
-  const state = editingState(entry.container, session.selection.get().state)
+  const current = session.selection.get()
+  const state = editingState(entry.container, current.state)
   const location = locateNode(entry.container.root, id)
   if (!location) return
-  const style = nodeInState(location.node, state).style ?? {}
+  const viewport = frameViewport(session.store.getModes(), current.mode)
+  const style = boardReader(entry.container, { state, viewport })(location.node).style ?? {}
   const steps = (px: number) => Math.round((px / scale / unit) * 2) / 2
   const { change } = shiftInsets(style, steps(delta.x), steps(delta.y), drawn)
   if (Object.keys(change).length === 0) return

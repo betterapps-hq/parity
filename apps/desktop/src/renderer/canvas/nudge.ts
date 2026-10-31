@@ -7,17 +7,16 @@ import {
   type Length,
   locateNode,
   moveNode,
-  nodeInState,
-  shownVariants,
   type StateSpec,
   topmostNodes
 } from "@parity-app/core"
+import { boardReader } from "@parity-app/editor"
 import type { DesignStore } from "../design-store.ts"
 import { findNodeElement } from "../frame.ts"
 import { selectedDesigns, selectedNodes, type Selection, type SelectionStore } from "../selection.ts"
 import { selectionFrame } from "./hit.ts"
 import { type DrawnSteps, type Side, shiftInsets } from "./insets.ts"
-import { activeState } from "./view.ts"
+import { activeState, frameViewport } from "./view.ts"
 
 export type { DrawnSteps, Side } from "./insets.ts"
 
@@ -169,7 +168,7 @@ export interface Drawn {
 }
 
 /**
- * Nudges layers of one design, as the state being edited shows them. Absolutely placed ones move by their insets, in
+ * Nudges layers of one design, as the board shows them in the state being edited and the frame's viewport. Absolutely placed ones move by their insets, in
  * that state; the rest move among their siblings, in the layout each sits in, as the frame draws it (or as the design
  * says, when it isn't drawn). Layers inside instances don't move.
  */
@@ -179,10 +178,10 @@ export function nudgeLayers(
   state: StateSpec,
   arrow: Arrow,
   big: boolean,
-  drawn: Drawn
+  drawn: Drawn,
+  viewport?: string
 ): LayersNudge {
-  const variants = shownVariants(container)
-  const shown = (node: DesignNode) => nodeInState(node, state, variants)
+  const shown = boardReader(container, { state, viewport })
   const layers = topmostNodes(container.root, ids).filter((node) => node.id !== container.root.id)
   let next = container
   let blocked: LayersNudge["blocked"]
@@ -253,12 +252,13 @@ export function nudgeSelection(session: NudgeSession, arrow: Arrow, big: boolean
   if (entry && layers.length > 0) {
     let blocked: LayersNudge["blocked"]
     const state = editingState(entry.container, current.state)
+    const viewport = frameViewport(store.getModes(), current.mode)
     store.updateContainer(
       entry.key,
       layers.length === 1 ? "Nudge layer" : `Nudge ${layers.length} layers`,
       (container) => {
         const drawn = session.drawn?.(entry.key) ?? nothingDrawn
-        const result = nudgeLayers(container, layers, state, arrow, big, drawn)
+        const result = nudgeLayers(container, layers, state, arrow, big, drawn, viewport)
         blocked = result.blocked
         return result.container
       },

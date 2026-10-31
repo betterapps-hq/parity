@@ -5,14 +5,13 @@ import {
   insertNode,
   locateNode,
   nodeIds,
-  nodeInState,
   type NodeStyle,
-  shownVariants,
   type StateSpec,
   topmostNodes,
   withFreshIds
 } from "@parity-app/core"
-import { copyDesigns } from "./clipboard.ts"
+import { copyDesigns, fitBindings } from "./clipboard.ts"
+import { boardReader } from "./shown.ts"
 
 /**
  * Figma's two pastes that go where the selection is. Paste over selection (Ctrl+Shift+V) puts the clipboard on top of
@@ -21,21 +20,24 @@ import { copyDesigns } from "./clipboard.ts"
 
 const insets = ["position", "top", "right", "bottom", "left"] as const
 
-/** Copies of `nodes` with fresh ids, placed at a layer's insets when it's placed absolutely as the state shows it. */
+/**
+ * Copies of `nodes` with fresh ids and the bindings the design has params for, placed at a layer's insets when it's
+ * placed absolutely as the board shows it in `state` and `viewport`.
+ */
 function copiesAt(
   layer: DesignNode,
   nodes: readonly DesignNode[],
   taken: Set<string>,
-  state: StateSpec,
+  view: { state: StateSpec; viewport?: string },
   container: ContainerSpec
 ): DesignNode[] {
-  const style = nodeInState(layer, state, shownVariants(container)).style ?? {}
+  const style = boardReader(container, view)(layer).style ?? {}
   const place: NodeStyle | undefined =
     style.position === "absolute"
       ? Object.fromEntries(insets.flatMap((key) => (style[key] === undefined ? [] : [[key, style[key]]])))
       : undefined
   return nodes.map((node) => {
-    const copy = withFreshIds(node, taken)
+    const copy = withFreshIds(fitBindings(node, container), taken)
     if (!place) return copy
     const own = Object.fromEntries(
       Object.entries(copy.style ?? {}).filter(([key]) => !(insets as readonly string[]).includes(key))
@@ -46,21 +48,22 @@ function copiesAt(
 
 /**
  * Paste over selection, for layers: copies of `nodes`, with fresh ids, go just after the last of the layers `ids` in the
- * design's order, in its layout or slot, so they paint on top of it, and at its insets when it's placed absolutely in
- * the state shown. Nothing is removed, and a selected layout gets them beside it, not inside. Layers inside instances
- * and the design's root don't count. Returns the design and the copies' ids.
+ * design's order, in its layout or slot, so they paint on top of it, and at its insets when it's placed absolutely as
+ * the board shows it in `state` and `viewport`. Nothing is removed, and a selected layout gets them beside it, not
+ * inside. Layers inside instances and the design's root don't count. Returns the design and the copies' ids.
  */
 export function placeOver(
   container: ContainerSpec,
   ids: readonly string[],
   nodes: readonly DesignNode[],
-  state: StateSpec
+  state: StateSpec,
+  viewport?: string
 ): { container: ContainerSpec; copies: string[] } {
   const target = topmostNodes(container.root, ids).findLast((node) => node.id !== container.root.id)
   const location = target && locateNode(container.root, target.id)
   const parent = location?.ancestors.at(-1)
   if (!location || !parent) return { container, copies: [] }
-  const made = copiesAt(location.node, nodes, nodeIds(container.root), state, container)
+  const made = copiesAt(location.node, nodes, nodeIds(container.root), { state, viewport }, container)
   let root = container.root
   for (const [offset, copy] of made.entries()) {
     root = insertNode(root, parent.id, copy, { index: location.index + 1 + offset, slot: location.slot })
@@ -84,14 +87,16 @@ export function designsAt(
 
 /**
  * Paste to replace: each of the layers `ids` is replaced by a copy of `nodes`, with fresh ids, in its place: at its
- * index in its layout or slot, and at its insets when it's placed absolutely in the state shown. Layers inside instances
- * and the design's root aren't replaced. Returns the design and the copies' ids, in the design's order.
+ * index in its layout or slot, and at its insets when it's placed absolutely as the board shows it in `state` and
+ * `viewport`. Layers inside instances and the design's root aren't replaced. Returns the design and the copies' ids, in
+ * the design's order.
  */
 export function replaceLayers(
   container: ContainerSpec,
   ids: readonly string[],
   nodes: readonly DesignNode[],
-  state: StateSpec
+  state: StateSpec,
+  viewport?: string
 ): { container: ContainerSpec; copies: string[] } {
   const targets = topmostNodes(container.root, ids).filter((node) => node.id !== container.root.id)
   const taken = nodeIds(container.root)
@@ -102,7 +107,7 @@ export function replaceLayers(
     const location = locateNode(next.root, target.id)
     const parent = location?.ancestors.at(-1)
     if (!location || !parent) continue
-    const made = copiesAt(location.node, nodes, taken, state, next)
+    const made = copiesAt(location.node, nodes, taken, { state, viewport }, next)
     next = deleteNode(next, target.id)
     let root = next.root
     for (const [offset, copy] of made.entries()) {

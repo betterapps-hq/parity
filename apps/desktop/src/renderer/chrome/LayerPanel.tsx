@@ -15,7 +15,6 @@ import {
   locateNode,
   mapNode,
   type NodeChange,
-  nodeInState,
   nodeOnBoard,
   type NodePatch,
   type NodeStyle,
@@ -25,11 +24,11 @@ import {
   pushOverrides,
   resetInstance,
   resetOverride,
-  shownVariants,
   type StateSpec,
   swapInstance,
   targetPatches
 } from "@parity-app/core"
+import { boardReader } from "@parity-app/editor"
 import { BookOpen, Diamond, Group, Info, Sparkles, Unlink } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -94,7 +93,6 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
   }
   const state = editingState(container, selected.state)
   const target = boardTarget(container, state.id)
-  const variants = shownVariants(container)
   const node = nodeOnBoard(container, location.node, state)
   const override = targetPatches(container, target)?.[nodeId]
 
@@ -107,7 +105,7 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
       resetOverride(current, boardTarget(current, state.id), nodeId, field)
     )
   const parent = location.ancestors.at(-1)
-  const parentStyle = parent?.type === "layout" ? (nodeInState(parent, state, variants).style ?? {}) : undefined
+  const parentStyle = parent?.type === "layout" ? (boardReader(container, { state })(parent).style ?? {}) : undefined
 
   return (
     <>

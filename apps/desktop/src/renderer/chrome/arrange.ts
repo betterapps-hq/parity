@@ -18,6 +18,7 @@ import {
 } from "@parity-app/editor"
 import { toast } from "sonner"
 import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
+import { frameViewport } from "../canvas/view.ts"
 import type { ContainerEntry } from "../design-store.ts"
 import { designsSelection, layersSelection, selectedDesigns, selectedNodes } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
@@ -112,10 +113,11 @@ export function wrapLayers(session: ProjectSession): boolean {
   const { entry, ids } = layers
   const current = session.selection.get()
   const state = editingState(entry.container, current.state)
+  const viewport = frameViewport(session.store.getModes(), current.mode)
   let id: string | undefined
   try {
     session.store.updateContainer(entry.key, "Wrap in layout", (container) => {
-      const wrapped = wrapInLayout(container, ids, state)
+      const wrapped = wrapInLayout(container, ids, state, viewport)
       id = wrapped.id
       return wrapped.container
     })
@@ -187,9 +189,11 @@ export function toggleHiddenLayers(session: ProjectSession): boolean {
 export function align(session: ProjectSession, alignment: Alignment): void {
   const layers = selectedLayers(session)
   if (layers) {
-    const state = editingState(layers.entry.container, session.selection.get().state)
+    const current = session.selection.get()
+    const state = editingState(layers.entry.container, current.state)
+    const viewport = frameViewport(session.store.getModes(), current.mode)
     session.store.updateContainer(layers.entry.key, "Align", (container) =>
-      alignInLayouts(container, layers.ids, state, alignment)
+      alignInLayouts(container, layers.ids, state, alignment, viewport)
     )
     return
   }

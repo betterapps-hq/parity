@@ -1,5 +1,7 @@
+import type { ContainerSpec } from "@parity-app/core"
+import { effectiveFixture } from "@parity-app/core/fixtures"
 import { describe, expect, it } from "vite-plus/test"
-import { type Edge, handleBoxes, type HandleBox } from "./handles.ts"
+import { type Edge, handleBoxes, type HandleBox, resizeStart } from "./handles.ts"
 
 const all: Edge[] = ["n", "e", "s", "w", "ne", "se", "sw", "nw"]
 
@@ -60,5 +62,36 @@ describe("resize handles", () => {
       "s",
       "se"
     ])
+  })
+})
+
+describe("what a resize starts from", () => {
+  const found = effectiveFixture.designs.find((design) => design.id === "card")!
+  const card = (variants: Record<string, string>): ContainerSpec => ({ ...found, view: { variants } })
+  const [base, compact] = found.states
+
+  it("reads the layout around the layer with the variant options the board shows", () => {
+    expect(resizeStart(card({ layout: "inline" }), "copy", { state: base })?.parentDirection).toBe("row")
+    expect(resizeStart(card({ layout: "stacked" }), "copy", { state: base })?.parentDirection).toBe("column")
+  })
+
+  it("reads the layer's style in the frame's viewport and the state edited", () => {
+    const stacked = card({ layout: "stacked" })
+    expect(resizeStart(stacked, "body", { state: base, viewport: "mobile" })?.style).toMatchObject({ padding: 2 })
+    expect(resizeStart(stacked, "body", { state: base, viewport: "desktop" })?.style).toMatchObject({ padding: 4 })
+    // The Compact state's gap wins over the mobile patch, and the Inline option's direction stays.
+    const inline = card({ layout: "inline" })
+    expect(resizeStart(inline, "body", { state: compact, viewport: "mobile" })?.style).toMatchObject({
+      direction: "row",
+      gap: 2,
+      padding: 2
+    })
+  })
+
+  it("has no layout around the root, and nothing for a layer that isn't there", () => {
+    expect(resizeStart(card({}), "body", { state: base })).toEqual({
+      style: { direction: "column", gap: 4, padding: 4 }
+    })
+    expect(resizeStart(card({}), "missing", { state: base })).toBeUndefined()
   })
 })

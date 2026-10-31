@@ -1,3 +1,6 @@
+import { type ContainerSpec, locateNode, type NodeStyle } from "@parity-app/core"
+import { type BoardView, boardReader } from "./shown.ts"
+
 /**
  * Where resize handles go around a selected layer or frame: square handles on the corners and strips along the sides,
  * as in Figma. Around a layer smaller than `smallLayer` on an axis, the handles on that axis sit just outside it, so
@@ -62,4 +65,23 @@ function band(start: number, size: number): { start: Span; middle: Span; end: Sp
     middle: { from: start + handleSize, to: end - handleSize },
     end: { from: end - half, to: end + half }
   }
+}
+
+/**
+ * What resizing the layer `id` starts from, as the board being edited shows it: the layer's style, and the direction of
+ * the layout it's in (a column unless the board shows a row), or none outside a layout. Undefined when there's no such
+ * layer among the design's own.
+ */
+export function resizeStart(
+  container: ContainerSpec,
+  id: string,
+  view: BoardView
+): { style: NodeStyle; parentDirection?: "row" | "column" } | undefined {
+  const location = locateNode(container.root, id)
+  if (!location) return undefined
+  const read = boardReader(container, view)
+  const parent = location.ancestors.at(-1)
+  const style = read(location.node).style ?? {}
+  if (parent?.type !== "layout") return { style }
+  return { style, parentDirection: read(parent).style?.direction ?? "column" }
 }

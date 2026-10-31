@@ -1,4 +1,5 @@
 import { type ContainerSpec, type DesignNode, findNode, nodeIds, nodeInState } from "@parity-app/core"
+import { effectiveFixture } from "@parity-app/core/fixtures"
 import { describe, expect, it } from "vite-plus/test"
 import { moveLayersAcross, moveLayersWithin } from "./move-layers.ts"
 
@@ -119,6 +120,29 @@ describe("moving layers into another design", () => {
     expect(copy?.type === "layout" && copy.children[1]).toMatchObject({ text: "…" })
     // Everything inside gets a fresh id too.
     expect(copy?.type === "layout" && copy.children.map((child) => child.id)).not.toContain("users")
+  })
+
+  it("copies them as the board shows them, keeping only the bindings the destination has params for", () => {
+    const source = effectiveFixture.designs.find((design) => design.id === "card")!
+    const inline: ContainerSpec = { ...source, view: { variants: { layout: "inline" } } }
+    const moved = moveLayersAcross(inline, settings(), ["copy"], { parent: "root", index: 0 }, base, "mobile")
+    const copy = findNode(moved.destination.root, moved.copies[0]!)
+    const [title, meta] = copy?.type === "layout" ? copy.children : []
+    expect(title).toMatchObject({ text: "Card title" })
+    expect(title).not.toHaveProperty("bind")
+    // The meta is hidden on mobile.
+    expect(meta).toMatchObject({ text: "Updated today", hidden: true })
+    const titled = moveLayersAcross(
+      inline,
+      { ...settings(), params: { title: { type: "text" } } },
+      ["title"],
+      {
+        parent: "root",
+        index: 0
+      },
+      base
+    )
+    expect(findNode(titled.destination.root, titled.copies[0]!)).toMatchObject({ bind: { text: "title" } })
   })
 
   it("moves only the outermost of layers inside each other", () => {
