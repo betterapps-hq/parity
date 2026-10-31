@@ -1,9 +1,17 @@
 import { mkdir, mkdtemp, rm, utimes, writeFile } from "node:fs/promises"
+import type * as Os from "node:os"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import type { ComponentInfo } from "@parity-app/core"
-import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { answer } from "./props-worker.ts"
+
+// The worker won't build a program below a gigabyte of free memory, and a CI runner (macOS counts cached memory as
+// used) can report less, which would make these tests depend on the machine. These projects are a few files.
+vi.mock("node:os", async (original) => ({
+  ...(await original<typeof Os>()),
+  freemem: () => 8 * 2 ** 30
+}))
 
 let root: string
 let id = 0
