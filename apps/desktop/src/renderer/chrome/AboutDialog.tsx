@@ -1,4 +1,5 @@
 import { Copy } from "lucide-react"
+import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
@@ -10,17 +11,24 @@ import {
   DialogTitle
 } from "@/components/ui/dialog"
 import icon from "../../../../../brand/parity-icon.svg?url"
+import type { BuildInfo } from "../../shared/protocol.ts"
 import { closeDialog, useOpenDialog } from "./app-dialogs.ts"
 import { actOnUpdate, checkForUpdates, useUpdates } from "./updates.tsx"
 
 /** The parts of Parity a bug report needs: its version, and the Electron and Chromium it runs on. */
-function buildDetails(userAgent = navigator.userAgent): { label: string; value: string }[] {
+function buildDetails(build: BuildInfo, userAgent = navigator.userAgent): { label: string; value: string }[] {
   const version = (name: string) => new RegExp(`${name}/([\\d.]+)`).exec(userAgent)?.[1] ?? "unknown"
   let system = "Linux"
   if (/Mac/.test(userAgent)) system = "macOS"
   else if (/Windows/.test(userAgent)) system = "Windows"
+  let versionLabel = build.version
+  if (build.channel === "beta") versionLabel += " (Beta)"
+  else if (build.channel === "development") versionLabel += " (development build)"
   return [
-    { label: "Version", value: `${window.canvasHost.appVersion}${import.meta.env.DEV ? " (development build)" : ""}` },
+    {
+      label: "Version",
+      value: versionLabel
+    },
     { label: "Electron", value: version("Electron") },
     { label: "Chromium", value: version("Chrome") },
     { label: "System", value: system }
@@ -28,9 +36,27 @@ function buildDetails(userAgent = navigator.userAgent): { label: string; value: 
 }
 
 /** Help > About Parity: which Parity this is, and how it gets updates. */
-export function AboutDialog() {
+export function AboutDialog({ build: preview }: { build?: BuildInfo } = {}) {
   const open = useOpenDialog() === "about"
-  const details = buildDetails()
+  const [installed, setInstalled] = useState<BuildInfo>({
+    version: window.canvasHost.appVersion,
+    channel: import.meta.env.DEV ? "development" : "unknown"
+  })
+  useEffect(() => {
+    if (!open || preview) return
+    let active = true
+    void window.canvasHost
+      .getBuildInfo()
+      .then((info) => {
+        if (active) setInstalled(info)
+      })
+      .catch(() => undefined)
+    return () => {
+      active = false
+    }
+  }, [open, preview])
+  const build = preview ?? installed
+  const details = buildDetails(build)
   const update = useUpdates()
   const busy = ["checking", "downloading", "installing"].includes(update.phase)
   const descriptions = {
@@ -48,7 +74,7 @@ export function AboutDialog() {
   if (update.phase === "ready") action = "Restart to update"
   else if (update.phase === "manual") action = "Download update"
   else if (update.phase === "error") action = "Try again"
-  details.push({ label: "Updates", value: update.beta ? "Beta and stable" : "Stable releases" })
+  details.push({ label: "Update channel", value: update.beta ? "Beta and stable" : "Stable releases" })
   if ("version" in update) details.push({ label: "Available", value: update.version })
   const copy = () => {
     void navigator.clipboard

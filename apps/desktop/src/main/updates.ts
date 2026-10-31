@@ -3,6 +3,7 @@ import { join } from "node:path"
 import type { UpdateState } from "@parity-app/core"
 import { app } from "electron"
 import electronUpdater from "electron-updater"
+import { noStableRelease } from "./github-releases.ts"
 import { UpdateSession } from "./update-session.ts"
 
 /** Installed builds use electron-builder's embedded app-update.yml. Tests can package their own local feed. */
@@ -32,8 +33,13 @@ export function createUpdates(changed: (state: UpdateState) => void): UpdateSess
       check: async (next) => {
         autoUpdater.allowPrerelease = next
         autoUpdater.allowDowngrade = false
-        const result = await autoUpdater.checkForUpdates()
-        return result?.isUpdateAvailable ? result.updateInfo.version : undefined
+        try {
+          const result = await autoUpdater.checkForUpdates()
+          return result?.isUpdateAvailable ? result.updateInfo.version : undefined
+        } catch (error) {
+          if (await noStableRelease(error, next)) return undefined
+          throw error
+        }
       },
       download: async (progress) => {
         const listener = (reading: { transferred: number; total: number }) =>

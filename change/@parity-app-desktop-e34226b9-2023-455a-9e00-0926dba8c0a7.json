@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Show update checks in toasts and label installed beta builds independently of the update channel",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

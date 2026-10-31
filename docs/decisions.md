@@ -1,5 +1,11 @@
 # Decisions
 
+- **Update checks stay in toasts; build identity is separate from the update preference (PAR-490).** Andrew approved the
+  rendered dark and light Storybook checking, no-update and retry designs and the About Beta build / Update channel
+  labels on 2026-10-31. Help > Check for updates leaves the workspace open, reusing the download/restart notification.
+  About remains a separate menu action. Startup checks stay quiet for no-update and failures; downloads still use the
+  approved background progress and explicit restart controls. E2E runs only in CI.
+
 - **Desktop delivery uses the shared release and promotion templates (PAR-11, PAR-12).** A successful push CI on main
   publishes a changed desktop version as a beta. Manual retries also require passing CI on main. Promotion approves the
   existing beta in the main-only `production` environment, with Andrew as reviewer and no administrator bypass; it

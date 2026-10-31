@@ -21,12 +21,13 @@ beforeAll(async () => {
 /** Run the real preload against Electron's IPC boundary, without a browser or an app process. */
 function preload() {
   const ipc = new EventEmitter()
+  const invoke = vi.fn<(channel: string) => Promise<unknown>>(async () => ({ version: "0.3.0", channel: "beta" }))
   let host: CanvasHost | undefined
   runInNewContext(code, {
     require: (name: string) => {
       if (name !== "electron") throw new Error(`Unexpected preload dependency ${name}`)
       return {
-        ipcRenderer: ipc,
+        ipcRenderer: Object.assign(ipc, { invoke }),
         contextBridge: {
           exposeInMainWorld: (_key: string, value: CanvasHost) => {
             host = value
@@ -37,8 +38,14 @@ function preload() {
     process: { argv: [] }
   })
   if (!host) throw new Error("Preload did not expose the canvas host")
-  return { ipc, host }
+  return { ipc, host, invoke }
 }
+
+it("exposes installed build identity through its own IPC request", async () => {
+  const { host, invoke } = preload()
+  expect(await host.getBuildInfo()).toEqual({ version: "0.3.0", channel: "beta" })
+  expect(invoke).toHaveBeenCalledExactlyOnceWith("canvas:build-info")
+})
 
 describe("native update menu handoff", () => {
   it("delivers a menu action that arrived before React registered its listener", () => {
