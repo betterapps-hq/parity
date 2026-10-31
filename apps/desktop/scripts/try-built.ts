@@ -45,12 +45,20 @@ for (const [key, value] of Object.entries(env)) if (value !== undefined) launchE
 let electron: ElectronApplication | undefined
 try {
   electron = await _electron.launch({ executablePath: executable, args: [stage], cwd: work, env: launchEnv })
+  electron.process().stdout?.on("data", (chunk: Buffer) => process.stdout.write(chunk))
+  electron.process().stderr?.on("data", (chunk: Buffer) => process.stderr.write(chunk))
   const window = await electron.firstWindow()
   const errors: string[] = []
   window.on("pageerror", (error) => errors.push(error.message))
+  window.on("console", (message) => console.log(`[renderer ${message.type()}] ${message.text()}`))
   await window.waitForURL("parity://app/index.html")
   await window.waitForFunction(() => document.getElementById("root")?.childElementCount)
-  await window.getByRole("application", { name: "tldraw", exact: true }).waitFor({ timeout: 60_000 })
+  try {
+    await window.getByRole("application", { name: "tldraw", exact: true }).waitFor({ timeout: 60_000 })
+  } catch (error) {
+    console.error(await window.locator("body").innerText())
+    throw error
+  }
   const deadline = Date.now() + 30_000
   let connected = false
   while (!connected && Date.now() < deadline) {

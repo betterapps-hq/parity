@@ -79,15 +79,22 @@ export const viteBuilder: BuilderAdapter = {
       await server.listen()
       const client = server.environments.client
       if (!client) throw new Error("Vite did not create its client environment")
+      await client.depsOptimizer?.init()
+      await client.depsOptimizer?.scanProcessing
       // Finish the cold dependency graph before the browser imports it. A failed child import stays cached by URL,
       // so retrying only the guest module cannot recover from Vite replacing its optimized dependency hashes.
+      const guest = guestModule(options.config)
       const urls = await Promise.all(
-        guestModule(options.config).imports.map(async (id) => {
-          const resolved = await client.pluginContainer.resolveId(id)
-          if (!resolved) return
-          return resolved.id.startsWith("\0")
-            ? `/@id/__x00__${resolved.id.slice(1)}`
-            : `/@fs/${vite.normalizePath(resolved.id)}`
+        guest.imports.map(async (id) => {
+          try {
+            const resolved = await client.pluginContainer.resolveId(id)
+            if (!resolved) return
+            return resolved.id.startsWith("\0")
+              ? `/@id/__x00__${resolved.id.slice(1)}`
+              : `/@fs/${vite.normalizePath(resolved.id)}`
+          } catch (error) {
+            if (!guest.optional.has(id)) throw error
+          }
         })
       )
       await warmGuestGraph(
@@ -239,7 +246,7 @@ export function guestModuleSource(config: ProjectConfig): string {
 }
 
 /** The source and its eager imports share one declaration so startup warms the same graph the browser will load. */
-function guestModule(config: ProjectConfig): { source: string; imports: string[] } {
+function guestModule(config: ProjectConfig): { source: string; imports: string[]; optional: ReadonlySet<string> } {
   const imports: string[] = []
   const optional = new Set<string>()
   const ref = (id: string) => {
@@ -341,7 +348,7 @@ function guestModule(config: ProjectConfig): { source: string; imports: string[]
     "})",
     ""
   ].join("\n")
-  return { source, imports }
+  return { source, imports, optional }
 }
 
 /** The modules a sample's values made by calling a package's function come from. */
