@@ -592,6 +592,13 @@ recommended answer to each of its questions.
   `~/.parity/cache/detection`, one file per project, under a fingerprint of every file they read, the tsconfigs,
   package.json, the lockfile, the list as discovered and Parity's own checker code. Results aren't saved when files
   changed while the checker read them.
+- **The fingerprint's inputs come from the code that reads them, not from lists of its own.** My call (PAR-469): the
+  lockfiles are those package-manager detection recognizes (`findLockfiles`, from `package-manager-detector`'s list, so
+  `npm-shrinkwrap.json`, `deno.lock` and `pnpm-workspace.yaml` count), in the same nearest folder detection settles on,
+  and the tsconfigs are every file the config reader read (`ProjectTsconfig.read`): the configs, their references and
+  each `extends` chain, a base from an installed package included. When a folder has several lockfiles, detection names
+  the first in that list as `lockfile` and the fingerprint hashes all of them, since a package manager may read another
+  (npm prefers `npm-shrinkwrap.json`). `fingerprintInputs` lists the files, for a watcher to follow (PAR-470).
 - **Changed files are read again on their own, without reopening the project.** My call: the parse reads the changed
   files about half a second after the last change, so added, renamed and deleted components show at once, and the type
   checker then reads only those files and the files that import them, since an export's type can come from an import. A
@@ -1063,7 +1070,8 @@ recommended answer to each of its questions.
   a Loading state. Pricing's Yearly state changes each plan's price through its instance.
 - **They were built through the agent API** (`parity exec`), one undoable step per screen, and saved after each, because
   the dev runner restarting Electron drops unsaved changes. Four agents built screens at once, taking turns through a
-  lock: each run applies whole project files, so two at once would overwrite each other's work (PAR-278).
+  lock, since each run then applied whole project files. Runs now merge per design, so agents changing different designs
+  no longer need one (PAR-278, "Agent calls merge per design").
 - **The example imports Nova's styles** (`@buildkitgg/shadcn-baseui-nova/tailwind.css`, right after Tailwind), as the
   Components panel's Import styles does. Without it, Nova's switches and progress bars render invisible.
 - **The accessibility checks find real issues in it,** mostly one token pair: `muted-foreground` on `muted` is 4.34:1,
@@ -2332,3 +2340,50 @@ routed through the shared execute operation.
 
 Tests share one local RPC fixture and launch real CLI and MCP processes. Execute's contract tests remain alongside the
 new operation tests. No Electron is needed; a read-only check in the running app covers real wiring too.
+
+## Conditional values stay out of the default theme (PAR-485)
+
+`collectCustomProperties` in core's `css.ts` now gives each declaration the at-rules it sits under, outermost first, as
+`atRules: { name, prelude }[]` (`{ name: "media", prelude: "(prefers-color-scheme: dark)" }`), beside its innermost
+selector. It used to keep only the selector, so a `:root` inside `@media (prefers-color-scheme: dark)` read as the root,
+and its dark values replaced the light defaults, as `mantine` showed.
+
+My calls in the run-time reading (`extractTokens`):
+
+- Only `@layer` and `@supports` leave a value in the theme its selector names: a layer orders rules and a feature check
+  holds whatever the theme, so neither picks one. Any other at-rule (`@media`, `@container`, `@scope`…) makes a value
+  conditional, and it belongs to no theme.
+- A `prefers-color-scheme: dark` block isn't read as the dark theme. A theme reaches a frame by a class the Modes panel
+  adds, and `previewToken` and `writeTokenChanges` write a theme's values to that class's block, so a "dark" read from a
+  media query couldn't be shown in a frame or edited where it lives. Reading it as a theme is the gap `docs/support.md`
+  already lists; the facts it needs are now in the collected declarations.
+- `themeFallbackCss` still counts a property declared anywhere as defined, conditional or not, as before.
+- Libgen's own token collecting (`libgen/src/tokens.ts`), which reads `prefers-color-scheme: dark` blocks as dark, is
+  unchanged. Sharing one policy between the two is PAR-468.
+
+## Agent calls merge per design (PAR-278)
+
+My call: an agent's call applies the designs it changed, not the files they're in. It reads a snapshot, runs for as long
+as its renders take, and in that time the person can edit, or another agent can apply its own call. Replacing whole
+files reverted their edits to other designs in the same file, brought back designs they had deleted and dropped ones
+they had added, with nothing said; undo could restore it, but only if someone noticed.
+
+- **A call sends one change per design** it changed, created or deleted: its file, its id, the design as the snapshot
+  had it (`base`, null for a new one) and as the call left it (`after`, null for a deleted one). Modes it set go as
+  `base` and `after` too; token values were already per token. The types are `DesignChange`, `ModesChange` and
+  `ChangeConflict` in `@parity-app/core`.
+- **The editor applies them only over what the call saw.** Each design it changes must still equal its `base`, compared
+  as files compare them (`sameDesign`, views tidied), or already equal its `after`. Designs the call didn't touch stay
+  as they are now. Any mismatch, including a design deleted or one added under a new design's id, refuses the whole
+  call: nothing changes, and the call fails naming each design and its file, with an `editId` to run it again from the
+  new state. Partial applies were ruled out, since a snippet's changes often depend on each other.
+- **An accepted call is still one undo step,** its designs, modes and tokens together. Undo restores the state just
+  before it, keeping edits made during the call.
+- **No lock is needed** for agents working on different designs. Two changing the same design conflict, and the second
+  reruns.
+
+Code: the workspace's `designChanges` in `packages/agent/src/workspace.ts` makes the changes, and `execute` applies them
+through the `apply` hook, failing with `describeConflicts` when refused. `mergeAgentChanges` in
+`packages/editor/src/design-changes.ts` merges them. The renderer's `agent.apply` (`renderer/agent/handlers.ts`, through
+`DesignStore.applyAgentChanges`) answers with the conflicts. Window IPC isn't schema-checked; the agent checks each file
+it changed with `parseCanvasDocument` before sending, as before.

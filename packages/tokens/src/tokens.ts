@@ -1,4 +1,10 @@
-import { collectCustomProperties, type DescribedToken, type ThemeVariable, type TokenCategory } from "@parity-app/core"
+import {
+  collectCustomProperties,
+  type CustomPropertyDeclaration,
+  type DescribedToken,
+  type ThemeVariable,
+  type TokenCategory
+} from "@parity-app/core"
 
 export interface Token {
   /** Custom property name without `--`; what a design references. */
@@ -41,7 +47,7 @@ export function extractTokens(
   const categorize = (name: string, value: string) => categories[name] ?? categorizeByName(name, value)
   const declarations = collectCustomProperties(css).map((declaration) => ({
     ...declaration,
-    themeName: themeOf(declaration.selector)
+    themeName: themeOf(declaration)
   }))
   // A theme class overrides tokens the root defines, as `.dark` does. A class that sets only its own variables, such as
   // a `.scroll-fade-b` utility, isn't a theme.
@@ -86,7 +92,15 @@ export function themeFallbackCss(css: string, theme: readonly ThemeVariable[]): 
   return `:host {\n${missing.map(({ name, value }) => `  --${name}: ${value};`).join("\n")}\n}\n`
 }
 
-function themeOf(selector: string): string | undefined {
+/**
+ * At-rules that don't pick a theme: a cascade layer only orders rules, and a feature check holds whatever the theme.
+ * Any other (`@media`, `@container`, `@scope`…) makes a value conditional, so it's no theme's value: a
+ * `prefers-color-scheme: dark` block isn't a class a mode adds, and mustn't replace the default's value either.
+ */
+const unconditionalAtRules = new Set(["layer", "supports"])
+
+function themeOf({ selector, atRules }: CustomPropertyDeclaration): string | undefined {
+  if (!atRules.every((atRule) => unconditionalAtRules.has(atRule.name))) return undefined
   const parts = selector.split(",").map((part) => part.trim())
   if (parts.every((part) => part === ":host" || part === ":root")) return "default"
   const themeClass = /^\.([\w-]+)$/.exec(selector.trim())

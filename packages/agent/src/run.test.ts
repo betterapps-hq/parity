@@ -1,7 +1,15 @@
 import { defaultModeSettings, findNode, frameGeometry, resolveModes } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { execute } from "./run.ts"
-import type { AgentEvent, AgentHooks, AgentSnapshot, FrameRequest, IconNames, IconSet } from "./types.ts"
+import type {
+  AgentChangeSet,
+  AgentEvent,
+  AgentHooks,
+  AgentSnapshot,
+  FrameRequest,
+  IconNames,
+  IconSet
+} from "./types.ts"
 
 function snapshot(): AgentSnapshot {
   return {
@@ -123,7 +131,7 @@ Print(Get("page", {depth: 1}).children.length)`
     expect(result.ok).toBe(true)
     expect(result.output).toEqual(["3"])
     expect(result.created.Hint).toMatch(/^[a-zA-Z0-9]{5}$/)
-    const container = result.changes.documents[0]!.document.containers[0]!
+    const container = result.changes.designs[0]!.after!
     expect(findNode(container.root, "submit")).toMatchObject({ props: { children: "Sign up", variant: "outline" } })
     expect(container.states[1]).toEqual({
       id: "loading",
@@ -145,7 +153,7 @@ Print(Get("page", {depth: 1}).children.length)`
     expect(failed.ok).toBe(false)
     expect(failed.error).toContain(`No node "missing"`)
     expect(failed.error).toContain("line 2")
-    expect(failed.changes.documents).toEqual([])
+    expect(failed.changes.designs).toEqual([])
 
     const retried = await execute(
       { label: "Fixed", editId: failed.editId, edits: [{ find: "missing", replace: "title" }] },
@@ -153,7 +161,7 @@ Print(Get("page", {depth: 1}).children.length)`
       hooks()
     )
     expect(retried.ok).toBe(true)
-    expect(findNode(retried.changes.documents[0]!.document.containers[0]!.root, "title")).toMatchObject({ text: "x" })
+    expect(findNode(retried.changes.designs[0]!.after!.root, "title")).toMatchObject({ text: "x" })
   })
 
   it("keeps globals between calls in the same tab", async () => {
@@ -175,13 +183,65 @@ Print(id, FindEmptySpace({width: 100, height: 100}).x > 1400)`
     )
     expect(result.ok).toBe(true)
     expect(result.output).toEqual(["pricing true"])
-    const created = result.changes.documents.find((entry) => entry.path === "app.par")
-    expect(created?.document.containers.map((container) => container.id)).toEqual(["signup", "pricing"])
-    expect(created?.document.containers[1]).toMatchObject({
+    expect(result.changes.designs).toHaveLength(1)
+    expect(result.changes.designs[0]).toMatchObject({
+      path: "app.par",
       id: "pricing",
-      kind: "screen",
-      position: { x: 1640, y: 0 }
+      base: null,
+      after: { id: "pricing", kind: "screen", position: { x: 1640, y: 0 } }
     })
+  })
+
+  it("gives each design it changed, created or deleted with the design as it read it, and no others", async () => {
+    const base = snapshot()
+    const signup = base.documents[0]!.document.containers[0]!
+    const other = { ...signup, id: "about", name: "About", position: { x: 2000, y: 0 } }
+    const read = {
+      ...base,
+      documents: [{ path: "app.par", document: { version: 3 as const, containers: [signup, other] } }]
+    }
+    const result = await execute(
+      {
+        label: "Rework",
+        code: `UpdateDesign("Sign up", {name: "Register"})\nDeleteDesign("About")\nCreateDesign({name: "Pricing", root: {type: "layout", children: []}})\nUpdateDesign("Pricing", {name: "Plans"})`
+      },
+      read,
+      hooks()
+    )
+    expect(result.error).toBeUndefined()
+    expect(result.changes.designs.map(({ id, base, after }) => [id, base?.name ?? null, after?.name ?? null])).toEqual([
+      ["signup", "Sign up", "Register"],
+      ["pricing", null, "Plans"],
+      ["about", "About", null]
+    ])
+    expect(result.changes.modes).toBeUndefined()
+  })
+
+  it("applies through the editor, and fails naming the designs the editor refused, keeping the snippet to retry", async () => {
+    const shared = snapshot()
+    const applied: AgentChangeSet[] = []
+    const refuse: AgentHooks = {
+      ...hooks(),
+      apply: async () => [{ path: "app.par", id: "signup", name: "Sign up", reason: "changed" }]
+    }
+    const failed = await execute(
+      { label: "Rename", code: `UpdateDesign("Sign up", {name: "Register"})` },
+      shared,
+      refuse
+    )
+    expect(failed.ok).toBe(false)
+    expect(failed.error).toBe(
+      'Not applied: since this call read the tab, "Sign up" (app.par) was changed in the editor, and this call ' +
+        "changes it too. Run the call again to work from what's there now."
+    )
+    expect(failed.changes.designs).toEqual([])
+    const accept: AgentHooks = { ...hooks(), apply: async (changes) => (applied.push(changes), []) }
+    const retried = await execute({ label: "Rename", editId: failed.editId }, shared, accept)
+    expect(retried.ok).toBe(true)
+    expect(applied.map((changes) => changes.designs.map((change) => change.after?.name))).toEqual([["Register"]])
+    // A call that changes nothing has nothing to apply.
+    await execute({ label: "Read", code: `Print(Designs().length)` }, shared, accept)
+    expect(applied).toHaveLength(1)
   })
 
   it("shows a move as a drag, and warns when a moved board lands on another", async () => {
@@ -478,7 +538,7 @@ Print(await Icons("heroicons", { style: "solid" }))`
       ])}`,
       JSON.stringify([{ label: "CogIcon", component: "heroicons/24/solid/CogIcon" }])
     ])
-    const inserted = result.changes.documents[0]!.document.containers[0]!.root
+    const inserted = result.changes.designs[0]!.after!.root
     expect(inserted.type === "layout" && inserted.children.at(-1)).toMatchObject({ component: "lucide/Heart" })
   })
 
@@ -510,7 +570,7 @@ Insert("dashboard/Toolbar", {
       withIcons()
     )
     expect(result.error).toBeUndefined()
-    const toolbar = result.changes.documents[0]!.document.containers[1]!.root
+    const toolbar = result.changes.designs[0]!.after!.root
     expect(toolbar.type === "layout" && toolbar.children[0]).toMatchObject({
       component: "Button",
       slots: { children: [{ component: "lucide/Settings" }] }

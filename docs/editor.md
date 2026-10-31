@@ -1387,9 +1387,9 @@ Every change people or agents make goes into one history per project, and stays 
 decisions.md's "Saving is explicit" sets out.
 
 - **What's undoable:** every edit to a design or a text note, the modes, and token values. An agent's call is one step,
-  its designs and its tokens together. What a board shows (the state, Show every state, the modes beside it, the variant
-  picked in its title bar) isn't undoable, and Undo leaves it as it is, but it's saved in the `.par`, so changing it
-  marks the file unsaved.
+  its designs, modes and tokens together, and undoing it leaves edits made while it ran. What a board shows (the state,
+  Show every state, the modes beside it, the variant picked in its title bar) isn't undoable, and Undo leaves it as it
+  is, but it's saved in the `.par`, so changing it marks the file unsaved.
 - **What Save writes:** each `.par` with changes, and the token values into the project's stylesheet (`src/index.css` in
   the example), together. A token edit shows in every frame at once, since the stylesheet every frame shares is edited
   in place, but nothing is written until Save. Don't save, when closing a tab or quitting, leaves the stylesheet as it
@@ -1403,6 +1403,12 @@ decisions.md's "Saving is explicit" sets out.
   ("Couldn't write --primary to src/index.css: EPERM…"), the Tokens panel shows the same at its top with Try again, and
   the row of each token not written says "Not written to the stylesheet". The values stay on the canvas, unsaved. A
   stylesheet changed since its values were read fails the same way, writing nothing.
+- **An agent's call lands over what's here now** (PAR-278): only the designs it changed, created or deleted are applied,
+  so the person's edits to other designs, in the same file too, and another agent's call stay. Each design the call
+  changes or deletes must still be as the call read it; one already as the call left it, changed the same way or deleted
+  here too, counts as applied. A design the call created conflicts when one with its id was added here, and modes the
+  call set conflict when they changed here since. Any conflict refuses the whole call: nothing changes, not its other
+  designs or its tokens either, and the agent is told which designs, or that the modes, conflicted.
 - **The token editor** says this before anything changes: "Every frame shows it at once. Saving the project writes it to
   src/index.css, and Undo takes it back." Its button is Apply.
 
@@ -1411,27 +1417,37 @@ Code: the history, what's unsaved and the save state are `packages/editor/src/hi
 `writeFailed`, and `adoptSaved`, which takes a file changed back to what's saved as saved), and the changes made to
 designs and notes are `design-changes.ts` there. `apps/desktop/src/renderer/design-store.ts` holds the history for the
 canvas and panels: it writes the files and the stylesheet the history says to, with the timers for saving automatically,
-and its `changeTokens`, `writeTokensWith`, `getTokenFailure`, `applyDocuments` taking tokens and `updateView` tidying
-the view call the package. Token values as data are the package's `token-edits.ts` (`withTokenEdits`, which keeps the
-value each token had before its first edit, `tokenDifferences`, `tokenWrites`, `tokensWithEdits`); comparing files with
-views tidied is its `document-equality.ts`. `tokens-store.ts` previews the history's token values in the shared
-stylesheet after each edit, undo or redo, and gives the design store its writer; `workspace.ts` makes one per guest, so
-a guest loaded again shows the unsaved values too. The agent's call is `agent/handlers.ts` (`apply`), the panel
-`chrome/TokensPanel.tsx`. Saving writes the values into the stylesheet with `writeTokenChanges` in
-`packages/tokens/src/stylesheet.ts`, which `saveTokens` in `apps/desktop/src/utility/projects.ts` applies as a project
-edit.
+and its `changeTokens`, `writeTokensWith`, `getTokenFailure`, `applyAgentChanges` taking tokens (through
+`mergeAgentChanges` in `design-changes.ts`) and `updateView` tidying the view call the package. Token values as data are
+the package's `token-edits.ts` (`withTokenEdits`, which keeps the value each token had before its first edit,
+`tokenDifferences`, `tokenWrites`, `tokensWithEdits`); comparing files with views tidied is its `document-equality.ts`.
+`tokens-store.ts` previews the history's token values in the shared stylesheet after each edit, undo or redo, and gives
+the design store its writer; `workspace.ts` makes one per guest, so a guest loaded again shows the unsaved values too.
+The agent's call is `agent/handlers.ts` (`apply`), the panel `chrome/TokensPanel.tsx`. Saving writes the values into the
+stylesheet with `writeTokenChanges` in `packages/tokens/src/stylesheet.ts`, which `saveTokens` in
+`apps/desktop/src/utility/projects.ts` applies as a project edit.
 
 Tests:
 
-- `packages/editor/src/history.test.ts` (33): undo and redo with their labels; a group's changes less than a second
+- `packages/editor/src/history.test.ts` (35): undo and redo with their labels; a group's changes less than a second
   apart as one step; the 200-step limit; what a board shows left alone by Undo and not recorded; token edits undone,
   redone and saved; nothing to write when they're back at the stylesheet's value; the stylesheet's value written back
   after undoing past a save; a failed write naming the token and the file and clearing on success; several tokens
   failing together; Save starting again after a failed write was undone back to the file being saved; an agent's call as
-  one step; Show every state off again leaving the file clean; another state and back from a file with its view written
-  out in full; a file that differs in more than its view staying unsaved until undone; and files changed on disk taken
-  as saved, unless they have unsaved changes.
-- `packages/editor/src/design-changes.test.ts` (6): changing, moving, adding and deleting designs, and notes.
+  one step; undoing a merged call back to just before it, keeping an edit made during it; the modes a call set undone
+  with its designs; Show every state off again leaving the file clean; another state and back from a file with its view
+  written out in full; a file that differs in more than its view staying unsaved until undone; and files changed on disk
+  taken as saved, unless they have unsaved changes.
+- `packages/editor/src/design-changes.test.ts` (14): changing, moving, adding and deleting designs, and notes; merging
+  an agent's call: two calls changing different designs in one file both kept, the person's edit to another design kept,
+  a design changed on both sides refused by name with nothing applied, tokens included ("refuses a design changed by
+  both"); changing a deleted design, or creating one under an id added here, refused ("refuses changing a design the
+  person deleted"); designs the person deleted or added left so; files created for new designs; a change or deletion
+  already made here taken as applied ("takes a change already made the same way"); and modes set only while unchanged,
+  refused otherwise ("sets the modes only while they're as the call read them").
+- `packages/agent/src/run.test.ts` (2 of its 21): a call gives each design it changed, created or deleted with the
+  design as it read it, and no others; a refused call fails naming the design, keeps its snippet, and runs again by
+  `editId`.
 - `apps/desktop/src/renderer/design-store.test.ts` (11 of its 18): Save writing the files and the stylesheet, saving
   automatically a moment later, a failed save thrown and cleared, a reload cancelling a save waiting to happen, and
   library designs never written.
