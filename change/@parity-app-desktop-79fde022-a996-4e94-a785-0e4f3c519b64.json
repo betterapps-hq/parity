@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Preserve full declared agent names and keep long names readable on the canvas",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

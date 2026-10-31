@@ -2054,6 +2054,27 @@ two frames. Gaps: Vite 7 and earlier's esbuild setting is checked only as data i
 with a package compiled for development, which esbuild bundled with the stand-in. The numbers were measured by hand with
 a script that isn't in the repository.
 
+### Caller identity (PAR-450)
+
+Agent cursors and badges display the caller's declared name. CLI callers set `PARITY_AGENT_NAME`; without it they appear
+as `Terminal`. MCP callers supply `clientInfo.title` or, if absent or blank, `clientInfo.name` during initialize;
+without either they appear as `Agent`. Names retain their spelling and punctuation, with surrounding whitespace removed.
+Parity does not infer identity from environment variables belonging to other tools or a list of known agents. `--label`
+describes the task independently of the caller's name.
+
+Tests: `packages/cli/src/caller.test.ts` covers explicit identity, the DeepSeek environment regression, MCP title
+precedence, names preserved verbatim and neutral fallbacks.
+
+Implementation: `packages/cli/src/caller.ts` selects declared names and bounds session ids; `client.ts` attaches the
+name/id to RPC, and `mcp.ts` supplies the initialize handshake name. `apps/desktop/src/utility/agent.ts` forwards that
+identity to presence events, displayed by `renderer/agent/AgentPresence.tsx` and `AgentPointer.tsx`.
+
+Coverage gaps: the unit tests exercise name selection and distinct bounded ids, not a full MCP-to-canvas session.
+Read-only CLI executions were checked in the running fencing-club app with inherited `CODEX_HOME`: without an explicit
+name the badge showed Terminal; with `PARITY_AGENT_NAME=DeepSeek Harness` it showed DeepSeek Harness. Both completed
+without design edits, and the badges were checked in screenshots. Concurrent long-name MCP cursors have not been checked
+visually; their id truncation regression is covered by `caller.test.ts`.
+
 ### Shared execute contract (PAR-451)
 
 CLI `exec` and MCP `execute` use the same operation in `packages/cli/src/execute.ts`. Both default the task label to
@@ -2078,3 +2099,13 @@ reading shares validation and a reader without requiring the app.
 defaults, explicit tab/options, human and JSON output, invalid inputs, RPC errors, image blocks, audit and screenshot
 failures, local skill reads and errors, and MCP discovery. `transport-fixture.ts` also supports execute's existing
 contract tests. The running app is checked with read-only state and component/token/prop reads through both transports.
+
+The RPC boundary uses `packages/agent/src/caller.ts` to preserve complete names and bound only explicit ids. Its
+`caller.test.ts` covers long shared prefixes, id bounds, fallback ids and invalid names. The renderer caps name width in
+the pointer and activity badge, with the full name in a native hover title; it does not shorten the stored name.
+
+When no explicit CLI id is set, the CLI omits `agentId`, letting the boundary use the complete name as its fallback. The
+transport contract test covers two names sharing more than 80 prefix characters. Name spans alone enable pointer events
+through the otherwise transparent overlay, so the full hover title is reachable without blocking the rest of the canvas.
+The cursor component was checked in Storybook with a long name; its text and title remain intact and its visible width
+is bounded with ellipsis.

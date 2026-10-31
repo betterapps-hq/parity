@@ -10,6 +10,7 @@ import {
   type AgentHooks,
   type AgentSnapshot,
   AgentWorkspace,
+  callerIdentity,
   execute,
   type ExecRequest,
   type ExecResult
@@ -72,10 +73,7 @@ async function handle(request: IncomingMessage, response: ServerResponse, token:
       agent?: unknown
       agentId?: unknown
     }
-    const text = (value: unknown, max: number) =>
-      typeof value === "string" && value.trim() ? value.trim().slice(0, max) : undefined
-    const name = text(agent, 40)
-    const caller = name ? { name, id: text(agentId, 80) ?? name } : undefined
+    const caller = callerIdentity(agent, agentId)
     reply(200, { result: await call(method, params ?? {}, window(), caller) })
   } catch (error) {
     reply(200, { error: error instanceof Error ? error.message : String(error) })

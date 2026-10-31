@@ -2280,6 +2280,14 @@ target. The proposal is [proposals/extensions.md](proposals/extensions.md).
 
 Planned work, and what's waiting on you, is in Linear, as [work.md](work.md) says.
 
+## Caller names are declared (PAR-450)
+
+CLI attribution uses only `PARITY_AGENT_NAME`, falling back to Terminal. MCP attribution uses the initialize handshake's
+title, then name, falling back to Agent. Both use the same whitespace and empty-name handling in
+`packages/cli/src/caller.ts`. No environment fingerprinting or known-client name table: inherited configuration cannot
+establish who's driving, and new harnesses should not require a Parity release. Display names are attribution, not
+authenticated identity. Session ids continue to distinguish concurrent MCP callers.
+
 ## CLI and MCP share execute operations (PAR-451)
 
 The two adapters call `executeOperation` in `packages/cli/src/execute.ts`. This module has no platform imports and owns

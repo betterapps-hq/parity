@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto"
 import { readFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join } from "node:path"
-import { cliCallerName } from "./caller.ts"
+import { cliCallerName, sessionCallerId } from "./caller.ts"
 import type { ExecResponse } from "./execute.ts"
 
 /** Where the running app writes its address and token. */
@@ -12,7 +12,8 @@ export type { Edit, ExecResponse, Screenshot } from "./execute.ts"
 
 let caller = cliCallerName(process.env)
 /** Tells callers with the same name apart. A terminal's calls are separate processes, so they share their name. */
-let callerId = process.env.PARITY_AGENT_ID?.trim() || caller
+const explicitCallerId = process.env.PARITY_AGENT_ID?.trim() || undefined
+let callerId = explicitCallerId
 
 /**
  * Names who's calling in later calls, so the canvas can say who's at work. The MCP server learns the name from its
@@ -20,7 +21,7 @@ let callerId = process.env.PARITY_AGENT_ID?.trim() || caller
  */
 export function setCaller(name: string | undefined, session = false): void {
   caller = name ?? caller
-  callerId = session ? `${caller}#${randomUUID().slice(0, 8)}` : caller
+  callerId = session ? sessionCallerId(caller, randomUUID()) : explicitCallerId
 }
 
 /** Calls the running Parity app. Fails with a clear message when it isn't running. */

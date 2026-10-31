@@ -26,6 +26,17 @@ function expectRequests(params: Record<string, unknown>) {
 }
 
 describe("execute transport contract", () => {
+  it("omits undeclared CLI ids so long names remain distinct at the desktop boundary", async () => {
+    const prefix = "Harness ".repeat(16)
+    for (const suffix of ["One", "Two"]) {
+      const cli = await run(["tabs"], "", { PARITY_AGENT_NAME: prefix + suffix, PARITY_AGENT_ID: undefined })
+      expect(cli.code).toBe(0)
+    }
+    expect(requests).toEqual([
+      { method: "tabs", params: {}, agent: prefix + "One" },
+      { method: "tabs", params: {}, agent: prefix + "Two" }
+    ])
+  })
   it("publishes execute defaults and patch constraints through MCP discovery", async () => {
     const result = await run(["mcp"], JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }) + "\n")
     expect(toolReply(result.stdout)).toEqual(
