@@ -175,10 +175,9 @@ export function reachableLibrary(
   return same ? previous : reached
 }
 
-interface Scope {
+interface Scope extends EvalScope {
   /** Ids inside an instance are prefixed with the instance's, so every rendered node stays unique. */
   prefix: string
-  args?: Record<string, unknown>
   /** Component designs being expanded, to stop a component from containing itself. */
   stack: string[]
 }
@@ -208,12 +207,98 @@ export function resolveDesign(
   library: ComponentLibrary = new Map(),
   variants: VariantView = {}
 ): RenderNode[] {
-  const choices = variantChoices(variants.params, variants.choices)
-  return resolveTree(root, [...optionPatches(variants.params, choices), state?.overrides], viewportId, library, {
+  return resolveTree(root, viewportId, library, {
+    ...boardScope(variants.params, variants.choices, state),
     prefix: "",
-    args: boardArgs(variants.params, choices),
     stack: []
   })
+}
+
+/**
+ * What a design is evaluated in: the state it shows, the option of each variant by param (as `view.variants` has
+ * them), the viewport whose responsive patches apply, and the component designs its instances place. A state left out
+ * is the base, variants left out are the ones the design's board shows, and a viewport left out applies no responsive
+ * patches.
+ */
+export interface EvalContext {
+  state?: StateSpec
+  variants?: Record<string, unknown>
+  viewport?: string
+  library?: ComponentLibrary
+}
+
+/** The patches a scope's nodes are shown through, and the values their bound params take. */
+export interface EvalScope {
+  /** Later layers win. On a board: the chosen variant options in param order, then the state. */
+  layers: PatchLayer[]
+  /** On a board: each param's default, then the variant options shown, as `boardArgs` gives them. */
+  args?: Record<string, unknown>
+}
+
+/** The layers and args a design's own nodes are evaluated with in a context. */
+export function scopeOf(container: ContainerSpec, context: EvalContext = {}): EvalScope {
+  return boardScope(container.params, context.variants ?? container.view?.variants, context.state)
+}
+
+function boardScope(
+  params: Record<string, ParamSpec> | undefined,
+  chosen: Record<string, unknown> | undefined,
+  state: StateSpec | undefined
+): EvalScope {
+  const choices = variantChoices(params, chosen)
+  return { layers: [...optionPatches(params, choices), state?.overrides], args: boardArgs(params, choices) }
+}
+
+/**
+ * Everything patched over one node in a scope: its responsive patch for the viewport, under every layer's patch for
+ * it. Layers are keyed by the node's own id, since an instance's scope keys them by the paths below it.
+ */
+export function nodePatch(layers: readonly PatchLayer[], node: DesignNode, viewport?: string): NodePatch {
+  return layeredPatch(layers, node.id, viewport === undefined ? undefined : node.responsive?.[viewport])
+}
+
+/**
+ * One node as it's drawn in a scope: its own values, then the params it binds from `args`, then its responsive
+ * patch, the variant options and the state, later ones winning. Every node goes through this step, on a board, inside
+ * an instance and in `resolveDesign`.
+ */
+export function drawnNode(node: DesignNode, scope: EvalScope, viewport?: string): DesignNode {
+  return applyPatch(node, nodePatch(scope.layers, node, viewport), scope.args)
+}
+
+/**
+ * A node with a patch applied, and with the params it's bound to filled in from `args`, as it renders. A patch's text,
+ * props and visibility win over bound values. The bindings themselves stay on the node.
+ */
+export function applyPatch(node: DesignNode, patch: NodePatch, args?: Record<string, unknown>): DesignNode {
+  const bound = (param: string | undefined) =>
+    param !== undefined && args && Object.hasOwn(args, param) ? { value: args[param] } : undefined
+  const next = { ...node } as DesignNode
+  const visible = bound(node.bind?.visible)
+  const hidden = patch.hidden ?? (visible ? !visible.value : node.hidden)
+  if (hidden !== node.hidden) {
+    if (hidden) next.hidden = true
+    else delete next.hidden
+  }
+  if (patch.style && Object.keys(patch.style).length > 0) next.style = { ...node.style, ...patch.style }
+  if (next.type === "text") {
+    const text = bound(next.bind?.text)
+    if (patch.text !== undefined) next.text = patch.text
+    else if (text) next.text = String(text.value)
+  }
+  if (next.type === "component") {
+    const props: Record<string, unknown> = { ...next.props }
+    for (const [prop, param] of Object.entries(next.bind?.props ?? {})) {
+      const value = bound(param)
+      if (value) props[prop] = value.value
+    }
+    Object.assign(props, patch.props)
+    if (Object.keys(props).length > 0) next.props = props
+  }
+  if (next.type === "instance" && patch.props && Object.keys(patch.props).length > 0) {
+    next.args = { ...next.args, ...patch.props }
+  }
+  return next
 }
 
 /**
@@ -301,28 +386,20 @@ export function instanceScope(
   }
 }
 
-function resolveTree(
-  root: DesignNode,
-  layers: readonly PatchLayer[],
-  viewportId: string,
-  library: ComponentLibrary,
-  scope: Scope
-): RenderNode[] {
+function resolveTree(root: DesignNode, viewportId: string, library: ComponentLibrary, scope: Scope): RenderNode[] {
   const id = (node: DesignNode) => (scope.prefix ? `${scope.prefix}/${node.id}` : node.id)
-  const bound = (param: string | undefined) =>
-    param !== undefined && scope.args && Object.hasOwn(scope.args, param) ? { value: scope.args[param] } : undefined
 
   /** `parent` is the direction of the layout a node sits in; unset at the root and inside components' slots. */
   const resolve = (node: DesignNode, parent?: Direction): RenderNode[] => {
-    const patch = layeredPatch(layers, node.id, node.responsive?.[viewportId])
-    // A bound value stands in for the node's own; states and viewports still change it.
-    const visible = bound(node.bind?.visible)
-    if (patch.hidden ?? (visible ? !visible.value : node.hidden)) return []
-    const style = { ...node.style, ...patch.style }
+    // The same step as `drawnNode`, keeping the patch, which an instance passes into its component.
+    const patch = nodePatch(scope.layers, node, viewportId)
+    const shown = applyPatch(node, patch, scope.args)
+    if (shown.hidden) return []
+    const style = shown.style ?? {}
 
-    switch (node.type) {
+    switch (shown.type) {
       case "layout": {
-        const children = node.children.flatMap((child) => resolve(child, style.direction ?? "column"))
+        const children = shown.children.flatMap((child) => resolve(child, style.direction ?? "column"))
         return [
           {
             kind: "element",
@@ -335,56 +412,49 @@ function resolveTree(
           }
         ]
       }
-      case "text": {
-        const text = bound(node.bind?.text)
+      case "text":
         return [
           {
             kind: "element",
             nodeId: id(node),
-            tag: node.tag ?? "p",
+            tag: shown.tag ?? "p",
             style: textCss(style, parent),
-            children: [{ kind: "text", text: patch.text ?? (text ? String(text.value) : node.text) }]
+            children: [{ kind: "text", text: shown.text }]
           }
         ]
-      }
       case "image":
         return [
           {
             kind: "element",
             nodeId: id(node),
             tag: "img",
-            style: { display: "block", objectFit: node.fit ?? "cover", ...componentCss(style, parent) },
-            attributes: { src: node.src, alt: node.alt ?? "" },
+            style: { display: "block", objectFit: shown.fit ?? "cover", ...componentCss(style, parent) },
+            attributes: { src: shown.src, alt: shown.alt ?? "" },
             children: []
           }
         ]
       case "component": {
-        const props: Record<string, unknown> = { ...node.props }
-        for (const [prop, param] of Object.entries(node.bind?.props ?? {})) {
-          const value = bound(param)
-          if (value) props[prop] = value.value
-        }
-        Object.assign(props, patch.props)
+        const props: Record<string, unknown> = { ...shown.props }
         // A component's own styles come from its props; what the design sets on it lands on its root as inline styles.
         const box = componentCss(style, parent)
         if (Object.keys(box).length > 0) props.style = { ...(props.style as object | undefined), ...box }
         const slots: Record<string, RenderNode[]> = {}
-        for (const [slot, children] of Object.entries(node.slots ?? {})) {
+        for (const [slot, children] of Object.entries(shown.slots ?? {})) {
           slots[slot] = children.flatMap((child) => resolve(child))
         }
-        return [{ kind: "component", nodeId: id(node), component: node.component, props, slots }]
+        return [{ kind: "component", nodeId: id(node), component: shown.component, props, slots }]
       }
       case "instance": {
-        const component = library.get(node.design)
-        if (!component || scope.stack.includes(node.design)) {
-          const problem = component ? `${node.design} contains itself` : `No component design "${node.design}"`
+        const component = library.get(shown.design)
+        if (!component || scope.stack.includes(shown.design)) {
+          const problem = component ? `${shown.design} contains itself` : `No component design "${shown.design}"`
           return [{ kind: "component", nodeId: id(node), component: problem, props: {}, slots: {} }]
         }
-        const expanded = instanceScope(node, component, patch, layers)
-        const inner = resolveTree(component.root, expanded.layers, viewportId, library, {
+        const expanded = instanceScope(shown, component, patch, scope.layers)
+        const inner = resolveTree(component.root, viewportId, library, {
+          ...expanded,
           prefix: id(node),
-          args: expanded.args,
-          stack: [...scope.stack, node.design]
+          stack: [...scope.stack, shown.design]
         })
         const [first] = inner
         if (first && first.kind !== "text") {

@@ -1,6 +1,15 @@
 import type { ContainerSpec, DesignNode, NodePatch, NodeStyle, StateSpec } from "./document.ts"
 import { uniqueId } from "./modes.ts"
-import { boardArgs, layeredPatch, optionPatches, type PatchLayer, variantChoices } from "./render.ts"
+import {
+  applyPatch,
+  boardArgs,
+  drawnNode,
+  layeredPatch,
+  optionPatches,
+  type PatchLayer,
+  scopeOf,
+  variantChoices
+} from "./render.ts"
 
 /** Where a node sits in a design's tree. */
 export interface NodeLocation {
@@ -243,43 +252,7 @@ export function shownVariants(container: ContainerSpec): PatchLayer[] {
  * editor and Hide start from.
  */
 export function nodeOnBoard(container: ContainerSpec, node: DesignNode, state: StateSpec | undefined): DesignNode {
-  const choices = variantChoices(container.params, container.view?.variants)
-  return nodeInState(node, state, optionPatches(container.params, choices), boardArgs(container.params, choices))
-}
-
-/**
- * A node with a patch applied, and with the params it's bound to filled in from `args`, as it renders. Bindings are
- * dropped where `args` sets them, since the node then shows the value rather than following the param.
- */
-export function applyPatch(node: DesignNode, patch: NodePatch, args?: Record<string, unknown>): DesignNode {
-  const bound = (param: string | undefined) =>
-    param !== undefined && args && Object.hasOwn(args, param) ? { value: args[param] } : undefined
-  const next = { ...node } as DesignNode
-  const visible = bound(node.bind?.visible)
-  const hidden = patch.hidden ?? (visible ? !visible.value : node.hidden)
-  if (hidden !== node.hidden) {
-    if (hidden) next.hidden = true
-    else delete next.hidden
-  }
-  if (patch.style && Object.keys(patch.style).length > 0) next.style = { ...node.style, ...patch.style }
-  if (next.type === "text") {
-    const text = bound(next.bind?.text)
-    if (patch.text !== undefined) next.text = patch.text
-    else if (text) next.text = String(text.value)
-  }
-  if (next.type === "component") {
-    const props: Record<string, unknown> = { ...next.props }
-    for (const [prop, param] of Object.entries(next.bind?.props ?? {})) {
-      const value = bound(param)
-      if (value) props[prop] = value.value
-    }
-    Object.assign(props, patch.props)
-    if (Object.keys(props).length > 0) next.props = props
-  }
-  if (next.type === "instance" && patch.props && Object.keys(patch.props).length > 0) {
-    next.args = { ...next.args, ...patch.props }
-  }
-  return next
+  return drawnNode(node, scopeOf(container, { state }))
 }
 
 /**
