@@ -216,7 +216,7 @@ function EditItems() {
       <Item command="rename" icon={PenLine} />
       <MenubarSeparator />
       <Item command="settings" icon={Settings}>
-        Settings…
+        Settings{mac ? "…" : ""}
       </Item>
     </>
   )
@@ -332,7 +332,7 @@ function HelpItems() {
       <Item command="developerTools" icon={Code} />
       <MenubarSeparator />
       <MenubarItem onSelect={checkForUpdates}>
-        <RefreshCw /> Check for updates…
+        <RefreshCw /> Check for updates
       </MenubarItem>
       <MenubarItem onSelect={() => openDialog("about")}>
         <Info /> About Parity

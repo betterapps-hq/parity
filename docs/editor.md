@@ -1988,6 +1988,11 @@ extracted Linux folders do not download or install updates.
 themes through the toolbar, and the real toast host. `chrome/UpdateDialogs.stories.tsx` covers About's update states and
 the beta setting. The owner signed off on the rendered toast designs before app integration.
 
+Code: `packages/core/src/updates.ts` defines state transitions; `apps/desktop/src/main/update-session.ts` serializes
+operations and `main/updates.ts` adapts electron-updater. `main/index.ts` owns the close acknowledgement and IPC,
+through `preload/index.ts`. `renderer/chrome/updates.tsx` shares state between `UpdateToast.tsx`, `AboutDialog.tsx` and
+`SettingsDialog.tsx`; `AppMenu.tsx` exposes the check.
+
 Tests: `packages/core/src/updates.test.ts` covers guarded transitions, late progress, channel changes and invalid
 progress; `main/update-session.test.ts` covers serialized checks, retry, disabled development builds and the Mac
 fallback. CI runs `scripts/try-update.ts` on Windows and Linux: two real packaged versions, checksum rejection, Later,

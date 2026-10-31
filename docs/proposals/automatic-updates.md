@@ -34,4 +34,6 @@ versions through the real download/install/relaunch path. No local E2E tests.
 
 The owner approved adding electron-updater on 2026-10-31 and signed off on the implemented toast stories in both themes.
 `UpdateToast.stories.tsx` keeps the approved download, restart and Mac designs alongside an interactive toast-host
-preview. `UpdateDialogs.stories.tsx` shows About and the beta setting for review. E2E runs only in CI.
+preview. The owner also approved the rendered About, beta setting and Help controls, and removing the ellipsis from
+Check for updates while using Settings on Windows/Linux and Settings… on Mac. `UpdateDialogs.stories.tsx` preserves
+those controls for review. E2E runs only in CI.

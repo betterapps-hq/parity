@@ -163,7 +163,7 @@ async function agent(method: string, params: Record<string, unknown> = {}): Prom
 
 async function openUpdate(page: Page): Promise<void> {
   await page.getByRole("menuitem", { name: "Help", exact: true }).click()
-  await page.getByRole("menuitem", { name: "Check for updates…", exact: true }).click()
+  await page.getByRole("menuitem", { name: "Check for updates", exact: true }).click()
 }
 
 /** The predicate API doesn't await an IPC promise; poll explicit snapshots instead of accepting a truthy Promise. */
@@ -228,6 +228,8 @@ try {
     env.APPIMAGE = image
     env.APPDIR = join(installed, "squashfs-root")
     env.APPIMAGE_EXTRACT_AND_RUN = "1"
+    // The AppImage updater relaunches without argv; the runner-only setting must survive through its environment.
+    env.ELECTRON_DISABLE_SANDBOX = "1"
   }
   const launchEnv: Record<string, string> = {}
   for (const [key, value] of Object.entries(env)) if (value !== undefined) launchEnv[key] = value

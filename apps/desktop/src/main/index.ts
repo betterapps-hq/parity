@@ -265,7 +265,7 @@ function applicationMenu(): Menu {
       submenu: [
         { role: "about" },
         {
-          label: "Check for updates…",
+          label: "Check for updates",
           click: () => {
             let window = BrowserWindow.getAllWindows().find((candidate) => candidate !== renderWindow)
             if (!window) {
