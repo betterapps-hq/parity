@@ -386,6 +386,18 @@ describe("token values", () => {
     expect(after.historyState.undoLabel).toBe("Rename to Start")
   })
 
+  it("undo the modes an agent's call set with its designs", () => {
+    const history = open()
+    const call = [{ path: "app.par", id: "pricing", base: null, after: design("pricing") }]
+    const { snapshot } = mergeAgentChanges(history.current, call, { base: defaultModeSettings, after: custom })
+    let after = taken(recordChange(history, "Build pricing", snapshot))
+    expect(after.current.modes).toBe(custom)
+    after = taken(undoChange(after))
+    expect(after.current.modes).toBe(defaultModeSettings)
+    expect(ids(after)).toEqual(["home"])
+    expect(after.historyState.canUndo).toBe(false)
+  })
+
   it("write what differs from what the stylesheet was last given", () => {
     const history = tokens(open(), [primary("red"), { name: "radius", theme: "default", value: "1rem" }])
     expect(fileWrite(history, "src/index.css")).toMatchObject({
