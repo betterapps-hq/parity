@@ -1,8 +1,16 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sun, 01 Nov 2026 02:14:37 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sun, 01 Nov 2026 03:52:41 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.4.2
+
+Sun, 01 Nov 2026 03:52:41 GMT
+
+### Patches
+
+- Include the tldraw trial license in desktop beta builds (ajcraswell@gmail.com)
 
 ## 0.4.1
 

@@ -1,5 +1,9 @@
 # Decisions
 
+- **Desktop beta builds use the tldraw trial key (PAR-503).** Andrew supplied a trial key expiring on November 15, 2026,
+  and asked for a new beta. It is stored in the repository's `VITE_TLDRAW_LICENSE_KEY` Actions secret and passed through
+  the existing build-secret input; the key is not committed. Desktop 0.4.2 rebuilds with that key.
+
 - **A desktop fix can include its own release bump (PAR-490).** Andrew asked to consume the pending desktop changefiles
   and bump the version in the fix PR, with no separate release PR. The check accepts a newer numeric version with its
   matching generated changelog as release coverage, while unchanged or older versions still require changefiles.

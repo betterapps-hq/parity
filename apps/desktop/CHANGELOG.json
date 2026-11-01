@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sun, 01 Nov 2026 03:52:41 GMT",
+      "version": "0.4.2",
+      "tag": "@parity-app/desktop_v0.4.2",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "not available",
+            "comment": "Include the tldraw trial license in desktop beta builds"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sun, 01 Nov 2026 02:14:37 GMT",
       "version": "0.4.1",
       "tag": "@parity-app/desktop_v0.4.1",
