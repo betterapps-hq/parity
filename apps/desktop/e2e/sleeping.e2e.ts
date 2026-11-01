@@ -16,8 +16,8 @@ beforeAll(async () => {
     { timeout: 150_000, polling: 500 }
   )
 }, 180_000)
-afterEach(() => app.reset())
-afterAll(() => app.close())
+afterEach(() => app?.reset())
+afterAll(() => app?.close())
 
 /** Every board's size, as tldraw has it and agents' snapshots give it. */
 const boards = () =>

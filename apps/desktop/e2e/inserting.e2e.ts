@@ -16,8 +16,8 @@ let app: App
 beforeAll(async () => {
   app = await App.connect()
 })
-afterEach(() => app.reset())
-afterAll(() => app.close())
+afterEach(() => app?.reset())
+afterAll(() => app?.close())
 
 const picker = () => app.page.getByRole("listbox", { name: "Layers, components and icons" })
 const field = () => app.page.getByRole("combobox", { name: "Insert a layer, component or icon" })

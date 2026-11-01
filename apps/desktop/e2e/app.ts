@@ -1,3 +1,4 @@
+import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import type { DesignNode, NodeStyle } from "@parity-app/core"
 import { type Browser, chromium, type Page } from "playwright-core"
 import { expect, inject } from "vite-plus/test"
@@ -81,25 +82,85 @@ export class App {
     this.page = page
   }
 
-  /** Connects to the copy global-setup.ts started, and readies the page for driving. */
+  /**
+   * Connects to the copy global-setup.ts started, and readies the page for driving. Each step is written to stderr as it
+   * starts, and a failure names the step it was on and quotes the app's last output: a hook that times out says neither,
+   * and a run cut short by the job's time limit never prints its errors at all.
+   */
   static async connect(): Promise<App> {
-    const { uiPort, debugPort } = inject("app")
-    const browser = await chromium.connectOverCDP(`http://127.0.0.1:${debugPort}`)
-    const page = browser
-      .contexts()
-      .flatMap((context) => context.pages())
-      .find(
-        (candidate) => candidate.url().startsWith(`http://localhost:${uiPort}`) && !candidate.url().includes("render")
+    const { uiPort, debugPort, log } = inject("app")
+    // Once one file couldn't connect, the rest fail at once with its reason, rather than each waiting it out: a failed
+    // hook skips a file's tests rather than failing them, so `bail` doesn't stop the run.
+    const failed = `${log}.connect-failed`
+    if (existsSync(failed))
+      throw new Error(`An earlier file couldn't connect to Parity: ${readFileSync(failed, "utf8")}`)
+    const started = Date.now()
+    let step = "connecting over the DevTools protocol"
+    let shown: Page | undefined
+    const errors: string[] = []
+    const report = (next: string) => {
+      step = next
+      process.stderr.write(`[connect ${((Date.now() - started) / 1000).toFixed(1)}s] ${step}\n`)
+    }
+    try {
+      report(step)
+      const browser = await chromium.connectOverCDP(`http://127.0.0.1:${debugPort}`)
+      const page = browser
+        .contexts()
+        .flatMap((context) => context.pages())
+        .find(
+          (candidate) => candidate.url().startsWith(`http://localhost:${uiPort}`) && !candidate.url().includes("render")
+        )
+      if (!page) throw new Error(`No Parity window on port ${uiPort}`)
+      shown = page
+      page.on("console", (message) => {
+        if (message.type() === "error") errors.push(message.text().slice(0, 300))
+      })
+      page.on("pageerror", (error) => errors.push(error.message.slice(0, 300)))
+      const app = new App(browser, page)
+      report("waiting for the canvas")
+      await page.waitForSelector(".container-view", { state: "attached", timeout: 120_000 })
+      report("waiting for the frames to settle")
+      await withTimeout(page.evaluate(settled), 60_000)
+      report("importing the app's modules")
+      await withTimeout(page.evaluate(importModules), 30_000)
+      report("installing the test hooks")
+      await page.evaluate(install)
+      await page.bringToFront()
+      report("putting the app back as it opened")
+      await withTimeout(app.reset(), 30_000)
+      report("ready")
+      return app
+    } catch (error) {
+      let output = ""
+      try {
+        output = readFileSync(log, "utf8").split("\n").slice(-40).join("\n")
+      } catch {
+        output = "(the app's output couldn't be read)"
+      }
+      // What the window shows: on CI there's no screen to look at.
+      const showing = shown
+        ? await withTimeout(
+            shown.evaluate(() =>
+              JSON.stringify({
+                url: location.href,
+                designs: document.querySelectorAll(".container-view").length,
+                text: document.body?.innerText.replace(/\s+/g, " ").slice(0, 600)
+              })
+            ),
+            5000
+          ).catch((reason: unknown) => `(the page didn't answer: ${String(reason)})`)
+        : "(no page)"
+      const reason = `Couldn't connect to Parity while ${step}, after ${Math.round((Date.now() - started) / 1000)}s: ${
+        error instanceof Error ? error.message.split("\n")[0] : String(error)
+      }`
+      writeFileSync(failed, reason)
+      throw new Error(
+        `Couldn't connect to Parity while ${step}, after ${Math.round((Date.now() - started) / 1000)}s: ${
+          error instanceof Error ? error.message : String(error)
+        }\nThe window shows: ${showing}\nIts errors (${errors.length}): ${errors.slice(-15).join("\n  ")}\nThe app's last output:\n${output}`
       )
-    if (!page) throw new Error(`No Parity window on port ${uiPort}`)
-    const app = new App(browser, page)
-    await page.waitForSelector(".container-view", { state: "attached", timeout: 180_000 })
-    await page.evaluate(settled)
-    await page.evaluate(importModules)
-    await page.evaluate(install)
-    await page.bringToFront()
-    await app.reset()
-    return app
+    }
   }
 
   async close(): Promise<void> {
@@ -608,6 +669,15 @@ export async function settled(): Promise<void> {
     last = now
   }
   await document.fonts.ready
+}
+
+/** Rejects when `promise` takes longer than `ms`, so a step that never finishes is named rather than timing out a hook. */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`no answer within ${ms / 1000}s`)), ms)
+  })
+  return Promise.race([promise, late]).finally(() => clearTimeout(timer))
 }
 
 /** Whether `check` comes true within a few seconds, trying every 50ms. */

@@ -34,6 +34,11 @@ that cover it.
   stops that copy by its process id and removes the folder. On a picked port it also removes the build and dependency
   cache that port made, which the suite's own port keeps. The example itself, and any other copy of Parity running, are
   left alone.
+- **When it can't reach the app.** `App.connect` writes each step to stderr as it starts (the canvas, the frames
+  settling, the app's modules, the reset), and gives each its own time limit. A failure names the step, what the window
+  shows and the errors its page logged, and quotes the app's last 40 lines of output. Once one file can't connect, the
+  rest fail at once with its reason, since they would fail the same way: waiting out every file used to take longer than
+  the job's 30 minutes, and the cancelled job never printed why.
 - **How a test drives it.** The files run one after another against that one window, through the DevTools protocol with
   playwright-core. `App`, in `e2e/app.ts`, has the gestures: `click`, `rightClick`, `drag`, `selectDesign` by its title,
   and `selectLayer`, which clicks a layer and double-clicks down to it as a person does. Every test selects layers

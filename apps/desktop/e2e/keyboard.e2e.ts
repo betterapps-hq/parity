@@ -10,8 +10,8 @@ let app: App
 beforeAll(async () => {
   app = await App.connect()
 })
-afterEach(() => app.reset())
-afterAll(() => app.close())
+afterEach(() => app?.reset())
+afterAll(() => app?.close())
 
 // Pricing's footer links, a row of three texts: Privacy, Terms and Status.
 const links = "b1UlB"

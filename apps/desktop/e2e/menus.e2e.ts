@@ -9,8 +9,8 @@ let app: App
 beforeAll(async () => {
   app = await App.connect()
 })
-afterEach(() => app.reset())
-afterAll(() => app.close())
+afterEach(() => app?.reset())
+afterAll(() => app?.close())
 
 const menu = () => app.page.getByRole("menu", { name: "Canvas" })
 const normalized = (texts: string[]) => texts.map((text) => text.replace(/\s+/g, " ").trim())

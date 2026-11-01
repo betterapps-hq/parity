@@ -8,8 +8,8 @@ let app: App
 beforeAll(async () => {
   app = await App.connect()
 })
-afterEach(() => app.reset())
-afterAll(() => app.close())
+afterEach(() => app?.reset())
+afterAll(() => app?.close())
 
 /** The overlay canvas's bitmap size, and whether anything is drawn on it. */
 function overlayCanvas(): Promise<{ width: number; height: number; drawn: boolean }> {

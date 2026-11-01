@@ -3,7 +3,7 @@
 // project made for the run. A copy of Parity a person already has open, and the example itself, are left alone.
 import { type ChildProcess, spawn } from "node:child_process"
 import { createWriteStream } from "node:fs"
-import { cp, mkdir, mkdtemp, readdir, readFile, rm, symlink, unlink, writeFile } from "node:fs/promises"
+import { cp, mkdir, mkdtemp, readdir, readFile, realpath, rm, symlink, unlink, writeFile } from "node:fs/promises"
 import { createServer } from "node:net"
 import { tmpdir } from "node:os"
 import { basename, join, resolve } from "node:path"
@@ -19,6 +19,8 @@ export interface Launched {
   uiPort: number
   debugPort: number
   project: string
+  /** The app's own output, which a test that can't reach the app quotes. */
+  log: string
 }
 
 export interface RunningApp extends Launched {
@@ -146,11 +148,22 @@ async function copyExample(dir: string): Promise<string> {
   const modules = join(example, "node_modules")
   await cp(example, root, { recursive: true, filter: (path) => path !== modules })
   await mkdir(join(root, "node_modules"))
+  // Each package links to its real folder. pnpm's own links are relative, and on Windows a relative link reached
+  // through a junction resolves from the junction's path rather than its target's: a linked `@tailwindcss` folder made
+  // `@tailwindcss/vite` point into the temporary folder, where nothing is, and the project couldn't load its config.
+  // A junction on Windows needs no special rights; elsewhere the type is ignored and it's a plain symlink.
+  const link = async (from: string, to: string) => symlink(await realpath(from), to, "junction")
   for (const name of await readdir(modules)) {
     // Caches such as .vite-parity belong to whoever runs the example itself.
     if (name.startsWith(".") && name !== ".bin") continue
-    // A junction on Windows needs no special rights; elsewhere the type is ignored and it's a plain symlink.
-    await symlink(join(modules, name), join(root, "node_modules", name), "junction")
+    if (!name.startsWith("@")) {
+      await link(join(modules, name), join(root, "node_modules", name))
+      continue
+    }
+    await mkdir(join(root, "node_modules", name))
+    for (const scoped of await readdir(join(modules, name))) {
+      await link(join(modules, name, scoped), join(root, "node_modules", name, scoped))
+    }
   }
   await writeFile(join(root, "src/components/member-row.tsx"), memberRow)
   const file = join(root, "shadcn-vite.par")
@@ -164,7 +177,15 @@ async function copyExample(dir: string): Promise<string> {
 async function removeCopy(dir: string, project: string): Promise<void> {
   const modules = join(project, "node_modules")
   for (const name of await readdir(modules).catch(() => [])) {
-    if (!name.startsWith(".") || name === ".bin") await unlink(join(modules, name)).catch(() => undefined)
+    if (name.startsWith(".") && name !== ".bin") continue
+    if (!name.startsWith("@")) {
+      await unlink(join(modules, name)).catch(() => undefined)
+      continue
+    }
+    // A scope is a folder of its own, holding a link for each of its packages.
+    for (const scoped of await readdir(join(modules, name)).catch(() => [])) {
+      await unlink(join(modules, name, scoped)).catch(() => undefined)
+    }
   }
   await rm(dir, { recursive: true, force: true, maxRetries: 5 })
 }

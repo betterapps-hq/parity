@@ -10,7 +10,7 @@ let app: App
 beforeAll(async () => {
   app = await App.connect()
 })
-afterAll(() => app.close())
+afterAll(() => app?.close())
 
 const frames = () => app.page.locator("[data-frame]").count()
 

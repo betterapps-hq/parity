@@ -10,8 +10,8 @@ let app: App
 beforeAll(async () => {
   app = await App.connect()
 })
-afterEach(() => app.reset())
-afterAll(() => app.close())
+afterEach(() => app?.reset())
+afterAll(() => app?.close())
 
 describe("a component that ignores its props", () => {
   it("is outlined when the pointer is over it", async () => {

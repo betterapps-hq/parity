@@ -18,24 +18,34 @@ export function createUpdates(changed: (state: UpdateState) => void): UpdateSess
     /* A fresh install starts on the stable channel. */
   }
 
-  const { autoUpdater } = electronUpdater
-  autoUpdater.autoDownload = false
-  // quitAndInstall starts the installer before asking Electron to quit. Only our acknowledged close flow calls it.
-  autoUpdater.autoInstallOnAppQuit = false
-  autoUpdater.allowDowngrade = false
-  autoUpdater.logger = console
+  const enabled = isPackaged(app.isPackaged, process.env) && (process.platform !== "linux" || !!process.env.APPIMAGE)
+  // Only an installed build has an updater. Making one checks the app's version, which a copy run from its bundles, as
+  // `pnpm dev` runs on any port but 5310, doesn't have: it was "0.0", and main stopped before its window opened.
+  const autoUpdater = enabled ? electronUpdater.autoUpdater : undefined
+  if (autoUpdater) {
+    autoUpdater.autoDownload = false
+    // quitAndInstall starts the installer before asking Electron to quit. Only our acknowledged close flow calls it.
+    autoUpdater.autoInstallOnAppQuit = false
+    autoUpdater.allowDowngrade = false
+    autoUpdater.logger = console
+  }
+  // A disabled session never reaches its driver.
+  const updater = () => {
+    if (!autoUpdater) throw new Error("Updates are off in this build")
+    return autoUpdater
+  }
   const session = new UpdateSession({
-    enabled: isPackaged(app.isPackaged, process.env) && (process.platform !== "linux" || !!process.env.APPIMAGE),
+    enabled,
     manual: process.platform === "darwin",
     beta,
     changed,
     saveBeta: (next) => writeFileSync(file, JSON.stringify({ beta: next })),
     driver: {
       check: async (next) => {
-        autoUpdater.allowPrerelease = next
-        autoUpdater.allowDowngrade = false
+        updater().allowPrerelease = next
+        updater().allowDowngrade = false
         try {
-          const result = await autoUpdater.checkForUpdates()
+          const result = await updater().checkForUpdates()
           return result?.isUpdateAvailable ? result.updateInfo.version : undefined
         } catch (error) {
           if (await noStableRelease(error, next)) return undefined
@@ -45,18 +55,18 @@ export function createUpdates(changed: (state: UpdateState) => void): UpdateSess
       download: async (progress) => {
         const listener = (reading: { transferred: number; total: number }) =>
           progress(reading.transferred, reading.total)
-        autoUpdater.on("download-progress", listener)
+        updater().on("download-progress", listener)
         try {
-          await autoUpdater.downloadUpdate()
+          await updater().downloadUpdate()
         } finally {
-          autoUpdater.removeListener("download-progress", listener)
+          updater().removeListener("download-progress", listener)
         }
       },
-      install: () => autoUpdater.quitAndInstall(true, true)
+      install: () => updater().quitAndInstall(true, true)
     }
   })
   // check/download reject too and the session handles those. Install failures are delivered only through this event.
-  autoUpdater.on("error", (error: Error) => {
+  autoUpdater?.on("error", (error: Error) => {
     if (session.get().phase === "installing") session.fail(error)
   })
   return session

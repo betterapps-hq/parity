@@ -15,7 +15,8 @@ export default defineConfig({
     testTimeout: 60_000,
     // The app answers in a frame or two, but a busy machine can hold one back a second or more.
     expect: { poll: { timeout: 5000 } },
-    // The first file's connection waits for the example's designs to draw.
-    hookTimeout: 180_000
+    // The first file's connection waits for the example's designs to draw; `App.connect` times each step itself.
+    // Once one file can't reach the app, `App.connect` fails the rest at once with its reason.
+    hookTimeout: 300_000
   }
 })
