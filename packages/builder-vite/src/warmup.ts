@@ -1,6 +1,12 @@
 interface Module {
   url: string
-  importedModules: ReadonlySet<Module>
+  /**
+   * The imports Vite's import analysis found in the module's code, which the browser fetches as it loads it. Vite has set
+   * this since 5.1 without declaring it. `importedModules` is wider: it is what the module is rebuilt for, including
+   * every file a plugin watches, such as each one Tailwind scans for class names, config files and type declarations
+   * among them.
+   */
+  staticImportedUrls?: ReadonlySet<string>
 }
 
 interface Optimizer {
@@ -40,7 +46,9 @@ export async function warmGuestGraph(client: Client, roots: string[]): Promise<v
     try {
       await client.transformRequest(url)
       const module = await client.moduleGraph.getModuleByUrl(url)
-      for (const child of module?.importedModules ?? []) queue.push(child.url)
+      // Only what the browser will import: a watched file transformed as a module sends its Node-only imports to the
+      // optimizer, which then tries to bundle the project's build tools.
+      for (const child of module?.staticImportedUrls ?? []) queue.push(child)
     } catch {
       // Optional project modules keep their own load errors, as they do when the browser requests them.
     }

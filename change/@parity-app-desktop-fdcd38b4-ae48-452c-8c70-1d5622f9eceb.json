@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Opening a project no longer pre-bundles its build tools, such as ESLint and Vite, which failed on Tailwind's native module.",
+  "packageName": "@parity-app/desktop",
+  "email": "noreply@anthropic.com",
+  "dependentChangeType": "patch"
+}
