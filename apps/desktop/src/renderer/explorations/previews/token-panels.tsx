@@ -779,7 +779,7 @@ function TypeSpecimen({ token, width }: { token: SampleToken; width: number }) {
         Aa
       </span>
       <span className="line-clamp-2" style={{ fontSize: Math.min(size, 30), lineHeight: 1.45 }}>
-        Invite your team and ship the first release together.
+        The quick brown fox jumps over the lazy dog.
       </span>
       {token.kind === "font" && (
         <span className="text-[13px]" style={{ color: paper.muted }}>

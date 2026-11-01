@@ -2337,6 +2337,12 @@ target. The proposal is [proposals/extensions.md](proposals/extensions.md).
   fallback until signing. Downloads run in the background, restart is explicit and handles unsaved work, and ordinary
   quit never installs an update. Get beta updates remains off by default. Update E2E runs only in CI.
 
+- **Automatic update downloads are silent (PAR-498).** Show the restart-ready toast when finished; progress is reserved
+  for explicit update checks.
+
+- **Typography specimens use the quick brown fox sentence (PAR-499).** Approved after comparing real Storybook cards
+  across sizes: The quick brown fox jumps over the lazy dog.
+
 ## Not done yet
 
 Planned work, and what's waiting on you, is in Linear, as [work.md](work.md) says.

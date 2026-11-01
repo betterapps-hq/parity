@@ -20,7 +20,8 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-export const Downloading: Story = {}
+/** Progress is shown only after an explicit Check for updates; automatic downloads stay silent. */
+export const Downloading: Story = { name: "Manual check downloading" }
 
 export const Checking: Story = { args: { notice: { kind: "checking", beta: false } } }
 export const NoUpdate: Story = { args: { notice: { kind: "current", beta: false } } }
@@ -50,6 +51,7 @@ export const CheckFeedbackReview: Story = {
   )
 }
 
+/** The first notification from an automatic background download. */
 export const ReadyToRestart: Story = {
   args: { notice: { kind: "ready", version: "0.4.0" } }
 }

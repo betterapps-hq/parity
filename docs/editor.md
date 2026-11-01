@@ -1735,9 +1735,9 @@ keyboard); a click on the row copies the token's name. The detail, top to bottom
 
 - **A large preview.** A color shows each theme side by side, named. A spacing step is drawn at its true size among up
   to eight of its neighbours on the scale; a duration races the others; an easing is drawn over the rest, faintly; a
-  font or size is set in a specimen; a z-index is marked in its stack; a breakpoint on a ruler with phone, tablet and
-  laptop widths. Motion plays while the detail is open, with a Pause button on the preview; with reduced motion it waits
-  for Play.
+  font or size is set in a specimen using “The quick brown fox jumps over the lazy dog.” (PAR-499); a z-index is marked
+  in its stack; a breakpoint on a ruler with phone, tablet and laptop widths. Motion plays while the detail is open,
+  with a Pause button on the preview; with reduced motion it waits for Play.
 - **The name** (`--primary`), with what it comes to on the right as its row shows it, left out where the value already
   says just that, and what a `.lib.par` says it's for.
 - **One list of facts:** its value in each theme, a shadow's layers or a font stack one part to a line; Built on, the
@@ -2064,12 +2064,12 @@ How the app's window holds the canvas and the panels around it.
 ### Installed app updates (PAR-160)
 
 Windows NSIS and Linux AppImage installations check GitHub Releases on startup and through Help > Check for updates.
-Downloads stay in the background, with one bottom-right toast updating its progress in place. Hiding it keeps the
-download going. A completed download shows a persistent Restart to update / Later notice; About keeps the action
-available after Later. Restart uses the existing unsaved-work prompt, and Cancel leaves the app and update ready. An
-installation failure resets the close decision, so closing later still checks for new unsaved work. Quitting normally
-never installs an update. Unsigned Macs check for newer releases and offer their download page instead of installing in
-place. The Mac application menu includes the same check.
+Automatic downloads stay silent in the background (PAR-498). Only an explicit menu check shows download progress. A
+completed download shows a persistent Restart to update / Later notice; About keeps the action available after Later.
+Restart uses the existing unsaved-work prompt, and Cancel leaves the app and update ready. An installation failure
+resets the close decision, so closing later still checks for new unsaved work. Quitting normally never installs an
+update. Unsigned Macs check for newer releases and offer their download page instead of installing in place. The Mac
+application menu includes the same check.
 
 Manual checks show checking, no-update and retryable-error feedback in the same toast, without opening About or
 interrupting work (PAR-490). Startup checks remain quiet when no update is available or the check fails. A menu check

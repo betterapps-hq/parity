@@ -69,6 +69,7 @@ describe("update notifications", () => {
       transferred: 1,
       total: 10
     })
+    updates.checkForUpdates()
     const native = notifications.custom.mock.lastCall?.[1]
     if (!native) throw new Error("No native toast callbacks")
     native.onDismiss()
@@ -138,14 +139,13 @@ describe("update notifications", () => {
       transferred: 1,
       total: 10
     })
-    latest().onDismiss()
     updates.checkForUpdates()
     updates.receiveUpdate({ phase: "error", beta: false, message: "Checksum mismatch" })
     expect(latest().notice.kind).toBe("error")
     expect(check).not.toHaveBeenCalled()
   })
 
-  it("dismisses progress without cancelling and resurfaces ready updates on a menu check", async () => {
+  it("keeps automatic download progress silent and shows a dismissible restart notice", async () => {
     const updates = await import("./updates.tsx")
     const check = vi.fn<() => Promise<void>>()
     vi.stubGlobal("window", { canvasHost: { updates: { check } } })
@@ -157,7 +157,7 @@ describe("update notifications", () => {
       transferred: 1,
       total: 10
     })
-    latest().onDismiss()
+    expect(notifications.custom).not.toHaveBeenCalled()
     notifications.custom.mockClear()
     updates.receiveUpdate({
       phase: "downloading",
