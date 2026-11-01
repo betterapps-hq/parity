@@ -307,3 +307,21 @@ export const EasingPicker: Story = {
 export const FontSizePicker: Story = {
   render: () => <Inspector open="Size" />
 }
+
+/** Proposed specimen copy across sizes, keeping every card at the owner's 320px width. */
+export const SpecimenCopy: Story = {
+  render: () => (
+    <Stage>
+      <div className="grid grid-cols-3 items-start gap-4" data-specimen-review>
+        {["text-sm", "text-base", "text-lg", "text-xl", "text-2xl", "text-4xl", "text-6xl"].map((name) => (
+          <div key={name} className="w-80 rounded-lg border bg-popover">
+            <TokenDetail token={token(name)} />
+          </div>
+        ))}
+        <div className="w-80 rounded-lg border bg-popover">
+          <TokenDetail token={{ ...token("text-6xl"), name: "text-7xl", values: { default: "4.5rem" } }} />
+        </div>
+      </div>
+    </Stage>
+  )
+}

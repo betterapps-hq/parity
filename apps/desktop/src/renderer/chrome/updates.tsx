@@ -22,7 +22,7 @@ export function receiveUpdate(next: UpdateState): void {
   state = next
   for (const listener of listeners) listener()
   let notice: UpdateNotice | undefined
-  if (next.phase === "downloading") notice = { ...next, kind: "downloading" }
+  if (foreground && next.phase === "downloading") notice = { ...next, kind: "downloading" }
   if (next.phase === "ready") notice = { kind: "ready", version: next.version }
   if (next.phase === "manual") notice = { kind: "manual", version: next.version }
   if (foreground && (next.phase === "checking" || next.phase === "current"))
