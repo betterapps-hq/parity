@@ -18,6 +18,6 @@ export default async function setup(project: TestProject): Promise<() => Promise
   console.log(
     `Parity started in ${Math.round((Date.now() - started) / 1000)}s on ports ${app.uiPort} and ${app.debugPort}`
   )
-  project.provide("app", { uiPort: app.uiPort, debugPort: app.debugPort, project: app.project })
+  project.provide("app", { uiPort: app.uiPort, debugPort: app.debugPort, project: app.project, log: app.log })
   return () => app.stop()
 }

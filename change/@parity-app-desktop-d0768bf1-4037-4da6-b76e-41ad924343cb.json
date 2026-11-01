@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "pnpm dev on a port other than 5310 no longer stops before its window opens, since the updater is only made for installed builds.",
+  "packageName": "@parity-app/desktop",
+  "email": "noreply@anthropic.com",
+  "dependentChangeType": "patch"
+}

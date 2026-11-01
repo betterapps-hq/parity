@@ -19,6 +19,8 @@ export interface Launched {
   uiPort: number
   debugPort: number
   project: string
+  /** The app's own output, which a test that can't reach the app quotes. */
+  log: string
 }
 
 export interface RunningApp extends Launched {
