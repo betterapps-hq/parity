@@ -5,6 +5,7 @@ import { expect, inject } from "vite-plus/test"
 import type * as frameModule from "../src/renderer/frame.ts"
 import type { Selection } from "../src/renderer/selection.ts"
 import type { ProjectSession, Workspace } from "../src/renderer/workspace.ts"
+import { pageSize } from "./launch.ts"
 
 /** A box on screen, in the window's CSS pixels. */
 export interface Box {
@@ -118,6 +119,14 @@ export class App {
       })
       page.on("pageerror", (error) => errors.push(error.message.slice(0, 300)))
       const app = new App(browser, page)
+      report("checking the window's size")
+      // Every test is written for this page size: a smaller screen shrinks the window, and clicks land under panels.
+      const size = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }))
+      if (size.width < pageSize.width || size.height < pageSize.height) {
+        throw new Error(
+          `the page is ${size.width}x${size.height}, smaller than the ${pageSize.width}x${pageSize.height} the tests are written for: the screen is too small`
+        )
+      }
       report("waiting for the canvas")
       await page.waitForSelector(".container-view", { state: "attached", timeout: 120_000 })
       report("waiting for the frames to settle")

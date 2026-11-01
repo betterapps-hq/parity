@@ -34,6 +34,10 @@ that cover it.
   stops that copy by its process id and removes the folder. On a picked port it also removes the build and dependency
   cache that port made, which the suite's own port keeps. The example itself, and any other copy of Parity running, are
   left alone.
+- **The screen it needs.** Every test is written for a 1440 by 900 page. A smaller screen shrinks the window, so the
+  canvas narrows and clicks land under the inspector: `App.connect` fails at once and says the screen is too small.
+  GitHub's Windows runners start at 1024 by 768, so on CI on Windows `launch` first sets the display to 1920 by 1080,
+  through `ChangeDisplaySettings`, and logs the result. It never changes a person's own screen.
 - **When it can't reach the app.** `App.connect` writes each step to stderr as it starts (the canvas, the frames
   settling, the app's modules, the reset), and gives each its own time limit. A failure names the step, what the window
   shows and the errors its page logged, and quotes the app's last 40 lines of output. Once one file can't connect, the
