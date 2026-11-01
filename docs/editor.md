@@ -36,9 +36,9 @@ that cover it.
   left alone.
 - **When it can't reach the app.** `App.connect` writes each step to stderr as it starts (the canvas, the frames
   settling, the app's modules, the reset), and gives each its own time limit. A failure names the step, what the window
-  shows and the errors its page logged, and quotes the app's last 40 lines of output. The run stops at the first file
-  that fails (`bail: 1`), since the rest would fail the same way: waiting out every file used to take longer than the
-  job's 30 minutes, and the cancelled job never printed why.
+  shows and the errors its page logged, and quotes the app's last 40 lines of output. Once one file can't connect, the
+  rest fail at once with its reason, since they would fail the same way: waiting out every file used to take longer than
+  the job's 30 minutes, and the cancelled job never printed why.
 - **How a test drives it.** The files run one after another against that one window, through the DevTools protocol with
   playwright-core. `App`, in `e2e/app.ts`, has the gestures: `click`, `rightClick`, `drag`, `selectDesign` by its title,
   and `selectLayer`, which clicks a layer and double-clicks down to it as a person does. Every test selects layers
