@@ -1,7 +1,7 @@
 // Starts an isolated copy of Parity for the end-to-end tests, the way scripts/perf.ts starts one: its own UI and
 // DevTools ports, profile, agent file and detection cache, with the code frozen at start, on a copy of the example
 // project made for the run. A copy of Parity a person already has open, and the example itself, are left alone.
-import { type ChildProcess, spawn } from "node:child_process"
+import { type ChildProcess, spawn, spawnSync } from "node:child_process"
 import { createWriteStream } from "node:fs"
 import { cp, mkdir, mkdtemp, readdir, readFile, realpath, rm, symlink, unlink, writeFile } from "node:fs/promises"
 import { createServer } from "node:net"
@@ -36,6 +36,7 @@ export interface RunningApp extends Launched {
  * sessions' and another run.
  */
 export async function launch(): Promise<RunningApp> {
+  await enlargeRunnerDisplay()
   const dir = await mkdtemp(join(tmpdir(), "parity-e2e-"))
   const project = await copyExample(dir)
   const profile = join(dir, "profile")
@@ -56,7 +57,7 @@ export async function launch(): Promise<RunningApp> {
       PARITY_AGENT_FILE: join(profile, "agent.json"),
       PARITY_CACHE_DIR: join(dir, "cache"),
       // The same size every run, and a window that keeps drawing while other windows cover it.
-      PARITY_WINDOW_SIZE: "1440x900"
+      PARITY_WINDOW_SIZE: `${pageSize.width}x${pageSize.height}`
     },
     stdio: ["ignore", "pipe", "pipe"]
   })
@@ -82,6 +83,60 @@ export async function launch(): Promise<RunningApp> {
   }
   return { uiPort, debugPort, project, dir, log, stop }
 }
+
+/** The page size every test is written for, which `App.connect` checks the window got. */
+export const pageSize = { width: 1440, height: 900 }
+
+/**
+ * Sets a Windows CI runner's display to 1920 by 1080. GitHub's Windows runners start at 1024 by 768, where a 1440 by
+ * 900 window is shrunk to fit: the canvas narrows, the inspector covers points the tests click, and seven tests fail.
+ * Only on CI, so a person's own screen is never changed.
+ */
+async function enlargeRunnerDisplay(): Promise<void> {
+  if (process.platform !== "win32" || !process.env.CI) return
+  const result = spawnSync(
+    "powershell.exe",
+    ["-NoProfile", "-NonInteractive", "-EncodedCommand", Buffer.from(setDisplay, "utf16le").toString("base64")],
+    { encoding: "utf8", windowsHide: true }
+  )
+  console.log(`Runner display: ${(result.stdout || result.stderr).trim()}`)
+}
+
+/** ChangeDisplaySettings through PowerShell, printing the size before and after and the call's result (0 is success). */
+const setDisplay = `
+$ErrorActionPreference = 'Stop'
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class Display {
+  [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
+  public struct DEVMODE {
+    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmDeviceName;
+    public short dmSpecVersion, dmDriverVersion, dmSize, dmDriverExtra;
+    public int dmFields, dmPositionX, dmPositionY, dmDisplayOrientation, dmDisplayFixedOutput;
+    public short dmColor, dmDuplex, dmYResolution, dmTTOption, dmCollate;
+    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmFormName;
+    public short dmLogPixels;
+    public int dmBitsPerPel, dmPelsWidth, dmPelsHeight, dmDisplayFlags, dmDisplayFrequency;
+    public int dmICMMethod, dmICMIntent, dmMediaType, dmDitherType, dmReserved1, dmReserved2, dmPanningWidth, dmPanningHeight;
+  }
+  [DllImport("user32.dll", CharSet = CharSet.Ansi)] static extern bool EnumDisplaySettings(string device, int mode, ref DEVMODE devMode);
+  [DllImport("user32.dll", CharSet = CharSet.Ansi)] static extern int ChangeDisplaySettings(ref DEVMODE devMode, int flags);
+  public static string Set(int width, int height) {
+    var mode = new DEVMODE();
+    mode.dmSize = (short)Marshal.SizeOf(typeof(DEVMODE));
+    EnumDisplaySettings(null, -1, ref mode);
+    string before = mode.dmPelsWidth + "x" + mode.dmPelsHeight;
+    mode.dmPelsWidth = width;
+    mode.dmPelsHeight = height;
+    mode.dmFields = 0x80000 | 0x100000;
+    int result = ChangeDisplaySettings(ref mode, 0);
+    return before + " -> " + width + "x" + height + ", result " + result;
+  }
+}
+'@
+[Display]::Set(1920, 1080)
+`
 
 /**
  * This process's environment, less what Vitest sets for its own tests (`VITEST`, `TEST`, `NODE_ENV=test`), so the app
