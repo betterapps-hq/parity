@@ -26,11 +26,10 @@ describe("warming the guest graph", () => {
     }
     interface Module {
       url: string
-      importedModules: Set<Module>
+      staticImportedUrls: Set<string>
     }
-    const leaf: Module = { url: "/optimized/react.js", importedModules: new Set() }
-    const child: Module = { url: "/child.js", importedModules: new Set([leaf]) }
-    const root: Module = { url: "/entry.js", importedModules: new Set([child]) }
+    const child: Module = { url: "/child.js", staticImportedUrls: new Set(["/optimized/react.js"]) }
+    const root: Module = { url: "/entry.js", staticImportedUrls: new Set([child.url]) }
     const modules = new Map<string, Module>([
       [root.url, root],
       [child.url, child]
@@ -89,5 +88,28 @@ describe("warming the guest graph", () => {
       ["/broken.js", "/ok.js", "/ok.js"]
     )
     expect(transformed).toEqual(["/broken.js", "/ok.js"])
+  })
+
+  it("warms only what the code imports, not the files a plugin watches", async () => {
+    // Tailwind lists each file it scans as a stylesheet's dependency; none of them is imported by the browser.
+    const modules = new Map([
+      ["/src/index.css?inline", { url: "/src/index.css?inline", staticImportedUrls: undefined }],
+      ["/src/button.tsx", { url: "/src/button.tsx", staticImportedUrls: new Set(["/src/lib/utils.ts"]) }],
+      ["/src/lib/utils.ts", { url: "/src/lib/utils.ts", staticImportedUrls: new Set<string>() }]
+    ])
+    const transformed: string[] = []
+    await warmGuestGraph(
+      {
+        async transformRequest(url) {
+          transformed.push(url)
+        },
+        moduleGraph: {
+          getModuleByUrl: async (url) => modules.get(url),
+          invalidateAll: () => undefined
+        }
+      },
+      ["/src/index.css?inline", "/src/button.tsx"]
+    )
+    expect(transformed).toEqual(["/src/index.css?inline", "/src/button.tsx", "/src/lib/utils.ts"])
   })
 })
