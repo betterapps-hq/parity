@@ -9,8 +9,8 @@ let app: App
 beforeAll(async () => {
   app = await App.connect()
 })
-afterEach(() => app.reset())
-afterAll(() => app.close())
+afterEach(() => app?.reset())
+afterAll(() => app?.close())
 
 /** Where the window's page is scrolled to, and whether anything makes it taller or wider than the window. */
 const page = () =>

@@ -10,8 +10,8 @@ let app: App
 beforeAll(async () => {
   app = await App.connect()
 })
-afterEach(() => app.reset())
-afterAll(() => app.close())
+afterEach(() => app?.reset())
+afterAll(() => app?.close())
 
 // Dashboard's four stat cards, in a grid of four columns.
 const stats = "i59Du"

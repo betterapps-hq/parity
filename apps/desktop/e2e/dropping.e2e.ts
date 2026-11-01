@@ -26,9 +26,9 @@ beforeAll(async () => {
   await writeFile(files.text, "Not an image")
   app = await App.connect()
 })
-afterEach(() => app.reset())
+afterEach(() => app?.reset())
 afterAll(async () => {
-  await app.close()
+  await app?.close()
   await rm(folder, { recursive: true, force: true })
 })
 

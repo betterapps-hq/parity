@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import type { DesignNode, NodeStyle } from "@parity-app/core"
 import { type Browser, chromium, type Page } from "playwright-core"
 import { expect, inject } from "vite-plus/test"
@@ -89,6 +89,11 @@ export class App {
    */
   static async connect(): Promise<App> {
     const { uiPort, debugPort, log } = inject("app")
+    // Once one file couldn't connect, the rest fail at once with its reason, rather than each waiting it out: a failed
+    // hook skips a file's tests rather than failing them, so `bail` doesn't stop the run.
+    const failed = `${log}.connect-failed`
+    if (existsSync(failed))
+      throw new Error(`An earlier file couldn't connect to Parity: ${readFileSync(failed, "utf8")}`)
     const started = Date.now()
     let step = "connecting over the DevTools protocol"
     let shown: Page | undefined
@@ -146,6 +151,10 @@ export class App {
             5000
           ).catch((reason: unknown) => `(the page didn't answer: ${String(reason)})`)
         : "(no page)"
+      const reason = `Couldn't connect to Parity while ${step}, after ${Math.round((Date.now() - started) / 1000)}s: ${
+        error instanceof Error ? error.message.split("\n")[0] : String(error)
+      }`
+      writeFileSync(failed, reason)
       throw new Error(
         `Couldn't connect to Parity while ${step}, after ${Math.round((Date.now() - started) / 1000)}s: ${
           error instanceof Error ? error.message : String(error)
