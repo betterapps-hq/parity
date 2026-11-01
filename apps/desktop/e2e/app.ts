@@ -239,6 +239,38 @@ export class App {
     return this.page.evaluate(() => window.e2e!.session().selection.get())
   }
 
+  /**
+   * What a click at a point met, for a failure to quote: the elements there, top first, inside a frame's shadow root
+   * too, and the selection, tool, hovered layer, camera and focus at the time. The window can't be seen on CI.
+   */
+  async describe(point: Point): Promise<string> {
+    const seen = await this.page.evaluate((point) => {
+      const name = (element: Element) => {
+        const classes = [...element.classList].slice(0, 3).join(".")
+        const data = [...element.attributes]
+          .filter((attribute) => attribute.name.startsWith("data-"))
+          .slice(0, 2)
+          .map((attribute) => `[${attribute.name}=${attribute.value.slice(0, 24)}]`)
+          .join("")
+        return `${element.tagName.toLowerCase()}${classes ? `.${classes}` : ""}${data}`
+      }
+      const stack = document.elementsFromPoint(point.x, point.y).slice(0, 6).map(name)
+      const host = document.elementsFromPoint(point.x, point.y).find((element) => element.shadowRoot)
+      const inner = host?.shadowRoot?.elementsFromPoint(point.x, point.y).slice(0, 3).map(name) ?? []
+      const { selection, editor } = window.e2e!.session()
+      return {
+        stack,
+        inner,
+        selection: selection.get(),
+        tool: selection.getTool(),
+        hover: selection.getHover(),
+        camera: editor ? { state: editor.getCameraState(), ...editor.getCamera() } : undefined,
+        focus: document.activeElement ? name(document.activeElement) : undefined
+      }
+    }, point)
+    return JSON.stringify(seen)
+  }
+
   hovered(): Promise<string | undefined> {
     return this.page.evaluate(() => window.e2e!.session().selection.getHover()?.node)
   }
@@ -513,7 +545,10 @@ export class App {
     if (!box) throw new Error(`${design}'s title isn't drawn`)
     await this.click(center(box))
     if (!(await until(async () => JSON.stringify(await this.selection()) === JSON.stringify({ design: key })))) {
-      throw new Error(`Clicking ${design}'s title selected ${JSON.stringify(await this.selection())}`)
+      throw new Error(
+        `Clicking ${design}'s title selected ${JSON.stringify(await this.selection())}. ` +
+          `There: ${await this.describe(center(box))}`
+      )
     }
   }
 
@@ -538,7 +573,10 @@ export class App {
     for (let level = 1; ; level++) {
       if (!(await until(async () => (await this.selection()).node === path[level]))) {
         const { node } = await this.selection()
-        throw new Error(`At ${point.x},${point.y} in ${design}, ${node} was selected where ${path[level]} should be`)
+        throw new Error(
+          `At ${point.x},${point.y} in ${design}, ${node} was selected where ${path[level]} should be. ` +
+            `There: ${await this.describe(point)}`
+        )
       }
       // Store selection changes before the overlay measures and paints its resize handles.
       await this.frames(2)
