@@ -2,6 +2,35 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sun, 01 Nov 2026 02:14:37 GMT",
+      "version": "0.4.1",
+      "tag": "@parity-app/desktop_v0.4.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "2bd96e25daf4b64a7fd78608f2a8bc0cb8c8a504",
+            "comment": "Keep automatic update downloads silent until restart is ready and use the quick brown fox typography sample"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "c15e6f69dbf8965a98d02e9714d78c7022d3a0ae",
+            "comment": "Zoomed-out frames and agents' renders no longer draw a component from a file that's gone"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "facca8cdc74cf0a0a727eb307c86398587117a1f",
+            "comment": "Finalize unpublished 0.4.0 delivery and CI integration"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sat, 31 Oct 2026 23:36:31 GMT",
       "version": "0.4.0",
       "tag": "@parity-app/desktop_v0.4.0",

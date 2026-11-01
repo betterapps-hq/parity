@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Keep automatic update downloads silent until restart is ready and use the quick brown fox typography sample",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

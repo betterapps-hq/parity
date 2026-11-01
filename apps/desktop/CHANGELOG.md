@@ -1,8 +1,18 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sat, 31 Oct 2026 23:36:31 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sun, 01 Nov 2026 02:14:37 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.4.1
+
+Sun, 01 Nov 2026 02:14:37 GMT
+
+### Patches
+
+- Keep automatic update downloads silent until restart is ready and use the quick brown fox typography sample
+  (ajcraswell@gmail.com)
+- Zoomed-out frames and agents' renders no longer draw a component from a file that's gone (noreply@anthropic.com)
 
 ## 0.4.0
 

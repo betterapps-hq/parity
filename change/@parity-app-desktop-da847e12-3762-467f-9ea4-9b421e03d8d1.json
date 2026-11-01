@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Finalize unpublished 0.4.0 delivery and CI integration",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}
