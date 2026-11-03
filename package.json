@@ -20,7 +20,16 @@
     "test:app": "vp test run --config apps/desktop/e2e/vite.config.ts",
     "verify": "vp run check && vp run test",
     "changefile": "node scripts/changes.ts write",
-    "prepare": "vp config --hooks --no-agent"
+    "prepare": "vp config --hooks --no-agent",
+    "guidance:sync": "playbook-sync",
+    "guidance:check": "playbook-sync --check",
+    "guidance:update": "pnpm update @betterapps/playbook --latest && playbook-sync",
+    "skills:add": "skills add",
+    "skills:update": "skills update -p",
+    "skills:remove": "skills remove",
+    "skills:check": "skills check",
+    "skills:sync": "skills add betterapps-hq/playbook --skill \"*\" -a codex claude-code github-copilot --yes",
+    "rules:import": "rulesync import"
   },
   "devDependencies": {
     "@types/node": "^24.12.0",
@@ -28,6 +37,9 @@
     "knip": "catalog:",
     "typescript": "7.0.2",
     "vite-plus": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "@betterapps/playbook": "github:betterapps-hq/playbook",
+    "rulesync": "43.5.0",
+    "skills": "1.7.6"
   }
 }

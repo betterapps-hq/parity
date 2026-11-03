@@ -20,6 +20,8 @@ minimumReleaseAgeExclude:
   - "@tldraw/validate@5.5.4"
   - tldraw@5.5.4
   - shadcn@4.23.0
+  - rulesync@43.5.0
+  - skills@1.7.6
 verifyDepsBeforeRun: error
 catalogMode: prefer
 # Versions set once for the workspace. Reference them with "catalog:".

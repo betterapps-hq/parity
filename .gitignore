@@ -10,3 +10,6 @@ coverage/
 !.env.example
 .vitest/
 storybook-static/
+
+# Local skills CLI links; restore with pnpm skills:sync.
+/.claude/skills/

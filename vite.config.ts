@@ -72,6 +72,13 @@ export default defineConfig({
     },
     sortPackageJson: false,
     ignorePatterns: [
+      // Generated from Playbook or installed by the skills CLI.
+      "best-practices/**",
+      ".agents/skills/**",
+      ".claude/skills/**",
+      "AGENTS.md",
+      "CLAUDE.md",
+      ".github/copilot-instructions.md",
       "**/dist/**",
       "**/out/**",
       "**/coverage/**",
@@ -94,6 +101,8 @@ export default defineConfig({
       reportUnusedDisableDirectives: "error"
     },
     ignorePatterns: [
+      ".agents/skills/**",
+      ".claude/skills/**",
       "**/dist/**",
       "**/out/**",
       "**/node_modules/**",
