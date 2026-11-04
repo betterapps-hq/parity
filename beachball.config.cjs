@@ -60,6 +60,8 @@ module.exports = {
   branch: hasOriginMain() ? "origin/main" : "refs/heads/main",
   // `pnpm changefile` runs Beachball locally, which shouldn't wait on the network. CI fetches when it checks out.
   fetch: false,
+  // cd-npm.yml's `beachball publish` only bumps, commits and pushes to main; npm gets the CLI once CI passes on that
+  // commit, since Beachball would also publish the desktop app (PAR-10).
   publish: false,
   // Parity stays below 1.0 until the user says otherwise.
   disallowedChangeTypes: ["major"],

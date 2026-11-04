@@ -1,9 +1,16 @@
 name: CD npm
 
-# Publishes to npm the versions it doesn't have yet, through the shared template (PAR-14): after CI passes on main, which
-# a merged release pull request's new versions reach. It uses npm's trusted publishing, with provenance and no token. npm
-# trusts this file by name, so it must stay .github/workflows/cd-npm.yml: @parity-app/cli's trusted publisher on
-# npmjs.com names it, with the npm environment, which infra/github keeps to main.
+# Releases from main, as Buildkit does (PAR-10, PAR-14). After CI passes on a push to main, `release` calls the shared
+# beachball-publish-npm template: `beachball publish` bumps the versions and changelogs from the change files, commits
+# them and pushes the commit to main with the npm environment's RELEASE_DEPLOY_KEY, the one actor main's ruleset lets
+# skip a pull request. beachball.config.cjs keeps Beachball off npm, since the desktop app is versioned but not
+# published, so `publish` puts the CLI on npm once CI passes on that release commit: it publishes only the versions npm
+# doesn't have, and only packages with a publishConfig. cd-desktop.yml publishes the app's new version from the same
+# commit. A deploy key's push starts workflows, which the job's own token's wouldn't.
+#
+# npm's trusted publishing, with provenance and no token, trusts this file by name, so it must stay
+# .github/workflows/cd-npm.yml: @parity-app/cli's trusted publisher on npmjs.com names it, with the npm environment,
+# which infra/github keeps to main.
 on:
   workflow_run:
     workflows: [CI]
@@ -17,6 +24,25 @@ permissions:
   contents: read
 
 jobs:
+  release:
+    # CI's runs for pushes to main only, never a pull request's branch that happens to be called main, and only while
+    # the commit CI passed on is still main's head: a newer commit's own CI run releases it.
+    if: >-
+      github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' && github.event.workflow_run.head_sha == github.sha
+    permissions:
+      contents: read
+      # The template asks for it, for npm, though with Beachball kept off npm nothing here publishes.
+      id-token: write
+    uses: betterapps-hq/pipelines/.github/workflows/beachball-publish-npm.yml@main
+    with:
+      environment: npm
+      # Nothing is published in this job, so nothing needs building.
+      build-command: "true"
+      message: "chore(release): version packages"
+    secrets:
+      RELEASE_DEPLOY_KEY: ${{ secrets.RELEASE_DEPLOY_KEY }}
+
   publish:
     # CI's runs for pushes to main only, never a pull request's branch that happens to be called main.
     if: >-
