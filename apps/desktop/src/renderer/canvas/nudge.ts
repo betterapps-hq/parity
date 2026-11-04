@@ -12,8 +12,8 @@ import {
 } from "@parity-app/core"
 import { boardReader, type Flow, flowOf } from "@parity-app/editor"
 import type { DesignStore } from "../design-store.ts"
-import { findNodeElement } from "../frame.ts"
-import { selectedDesigns, selectedNodes, type Selection, type SelectionStore } from "../selection.ts"
+import { findNodeElement, flowingBoxes } from "../frame.ts"
+import { selectedDesigns, selectedNodes, type SelectionStore, selectionKey } from "../selection.ts"
 import { selectionFrame } from "./hit.ts"
 import { type DrawnSteps, type Side, shiftInsets } from "./insets.ts"
 import { activeState, frameViewport } from "./view.ts"
@@ -42,10 +42,11 @@ export function arrowOf(key: string): Arrow | undefined {
 
 /** How a layout node lays out its children as the design says, for when its frame doesn't draw it. */
 export function modelFlow(parent: DesignNode): Flow {
-  if (parent.type !== "layout") return { direction: "column", wraps: false, reversed: false }
+  const forward = { reversed: false, linesReversed: false }
+  if (parent.type !== "layout") return { direction: "column", wraps: false, ...forward }
   const style = parent.style ?? {}
-  if (style.display === "grid") return { direction: "row", wraps: true, reversed: false, stride: style.columns ?? 2 }
-  return { direction: style.direction === "row" ? "row" : "column", wraps: style.wrap === true, reversed: false }
+  if (style.display === "grid") return { direction: "row", wraps: true, ...forward, stride: style.columns ?? 2 }
+  return { direction: style.direction === "row" ? "row" : "column", wraps: style.wrap === true, ...forward }
 }
 
 /**
@@ -201,7 +202,7 @@ const nothingDrawn: Drawn = { flow: () => undefined, insets: () => undefined }
 export function nudgeSelection(session: NudgeSession, arrow: Arrow, big: boolean): LayersNudge["blocked"] {
   const { store, selection } = session
   const current = selection.get()
-  const gesture = runGesture(store, current)
+  const gesture = runGesture(store, selection)
   const layers = selectedNodes(current)
   const entry = current.design ? store.getEntry(current.design) : undefined
   if (entry && layers.length > 0) {
@@ -242,21 +243,34 @@ export function nudgeSelection(session: NudgeSession, arrow: Arrow, big: boolean
   return undefined
 }
 
-/** Each store's run of arrow presses: the selection it nudges, and its gesture. */
-const runs = new WeakMap<DesignStore, { selection: Selection; gesture: string }>()
+/** Each store's run of arrow presses: what it nudges, by `selectionKey`, its gesture, and how it stops listening. */
+const runs = new WeakMap<DesignStore, { key: string; gesture: string; stop: () => void }>()
 
 /**
- * The gesture a press nudging `selection` is in. A run of presses on one selection is one gesture, however long it
- * takes. Selecting something else ends it, and so does any other change, an undo or a redo, since the history only
- * adds to the latest step (see `recordChange` in `@parity-app/editor`).
+ * The gesture a press nudging what's selected is in. A run of presses on one selection is one gesture, however long it
+ * takes, and however often the same selection is set again meanwhile. Selecting something else ends it as it happens,
+ * and so does any other change, an undo or a redo, since the history only adds to the latest step (see `recordChange`
+ * in `@parity-app/editor`).
  */
-function runGesture(store: DesignStore, selection: Selection): string {
+function runGesture(store: DesignStore, selection: SelectionStore): string {
+  const key = selectionKey(selection.get())
   const run = runs.get(store)
-  if (run?.selection === selection) return run.gesture
-  if (run) store.endGesture(run.gesture)
+  if (run?.key === key) return run.gesture
+  if (run) endRun(store)
   const gesture = store.beginGesture()
-  runs.set(store, { selection, gesture })
+  const stop = selection.subscribe(() => {
+    if (runs.get(store)?.gesture === gesture && selectionKey(selection.get()) !== key) endRun(store)
+  })
+  runs.set(store, { key, gesture, stop })
   return gesture
+}
+
+function endRun(store: DesignStore): void {
+  const run = runs.get(store)
+  if (!run) return
+  runs.delete(store)
+  run.stop()
+  store.endGesture(run.gesture)
 }
 
 function moved(position: { x: number; y: number }, by: { x: number; y: number }) {
@@ -285,7 +299,7 @@ export function frameDrawn(
     flow(layer) {
       let parent = element(layer)?.parentElement
       while (parent && getComputedStyle(parent).display === "contents") parent = parent.parentElement
-      return parent ? flowOf(getComputedStyle(parent)) : undefined
+      return parent ? flowOf(getComputedStyle(parent), flowingBoxes(parent)) : undefined
     },
     insets(layer) {
       const placed = element(layer)

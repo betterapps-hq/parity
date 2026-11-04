@@ -129,6 +129,22 @@ function sameList(a: string[] | undefined, b: string[] | undefined): boolean {
   return a === b || (!!a && !!b && a.length === b.length && a.every((item, index) => item === b[index]))
 }
 
+/**
+ * What a selection edits, as a key that's the same however it was picked: the design, the layers or designs in it in
+ * any order, the frame and state they were picked in, or the note. A run of edits to the selection, such as arrow
+ * presses or a number field's Up and Down, lasts while this stays the same.
+ */
+export function selectionKey(selection: Selection): string {
+  return JSON.stringify([
+    selection.design,
+    selectedNodes(selection).toSorted(),
+    (selection.designs ?? []).toSorted(),
+    selection.mode,
+    selection.state,
+    selection.note
+  ])
+}
+
 /** Every selected layer, the one picked last at the end. */
 export function selectedNodes(selection: Selection): string[] {
   return selection.nodes ?? (selection.node ? [selection.node] : [])

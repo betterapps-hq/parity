@@ -12,13 +12,14 @@ const errors: string[] = []
  * What the page loads: a Width row holding 8 steps (32px) of a 4px spacing scale, and a Mixed row standing for two
  * selected layers of 8 and 75 steps. What the fields ask for is logged; commits change the values, as the store would.
  * The project's store gives the fields their gestures, logged as they begin and end, with the gesture of each commit.
+ * What the fields edit can change under them, as the selection does in the inspector.
  */
 const entry = `
 import { createElement as h, useState } from "react"
 import { createRoot } from "react-dom/client"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { ProjectContext } from "../canvas/context.ts"
-import { Field, NumberField } from "./fields.tsx"
+import { Field, FieldTarget, NumberField } from "./fields.tsx"
 
 const rules = { kind: "length", unit: 4, min: 0, label: "Width" }
 window.log = []
@@ -36,9 +37,11 @@ const store = {
 function Harness() {
   const [value, setValue] = useState(8)
   const [layers, setLayers] = useState([8, 75])
+  const [target, setTarget] = useState("first layer")
   window.setOutside = setValue
+  window.setTarget = setTarget
   window.layers = layers
-  return h(ProjectContext.Provider, { value: { store } }, h(TooltipProvider, null,
+  return h(ProjectContext.Provider, { value: { store } }, h(FieldTarget.Provider, { value: target }, h(TooltipProvider, null,
     h(Field, { label: "Width" }, h(NumberField, {
       value, rules, title: "Width", blank: () => 0,
       onPreview: (update) => window.log.push(["preview", update(value)]),
@@ -54,7 +57,7 @@ function Harness() {
       value: undefined, rules, title: "Both", blank: () => 0,
       onCommit: (update) => setLayers(layers.map((layer) => update(layer)))
     }))
-  ))
+  )))
 }
 
 export function start() {
@@ -209,6 +212,25 @@ describe("stepping and scrubbing", () => {
       ["commit", "g2"],
       ["end", "g2"],
       ["commit", null]
+    ])
+  })
+
+  it("ends a run when what the field edits changes while it keeps focus", async () => {
+    await width().click()
+    await width().press("ArrowUp")
+    // Another layer selected from the canvas, the field still focused: its presses are a step of their own.
+    // @ts-expect-error The page's setter.
+    await page.evaluate(() => window.setTarget("second layer"))
+    // The run ends as the change draws, before another press.
+    await expect.poll(gestures).toContainEqual(["end", "g1"])
+    await width().press("ArrowUp")
+    expect(await focused()).toBe("Width")
+    expect(await gestures()).toEqual([
+      ["begin", "g1"],
+      ["commit", "g1"],
+      ["end", "g1"],
+      ["begin", "g2"],
+      ["commit", "g2"]
     ])
   })
 

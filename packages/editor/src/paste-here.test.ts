@@ -80,7 +80,7 @@ const badge = text("badge", { position: "absolute", top: 1, right: 2, width: 6 }
 const stats = (point: { x: number; y: number }, extra: Partial<HereLayout> = {}): HereLayout => ({
   layout: "stats",
   children: [0, 1, 2, 3].map((index) => ({ index, box: box(100 + index * 116, 200, 100, 60) })),
-  flow: { direction: "row", wraps: false, reversed: false },
+  flow: { direction: "row", wraps: false, reversed: false, linesReversed: false },
   box: box(100, 200, 448, 60),
   point,
   origin: { x: 100, y: 200 },
@@ -93,7 +93,7 @@ const stats = (point: { x: number; y: number }, extra: Partial<HereLayout> = {})
 const events = (point: { x: number; y: number }): HereLayout => ({
   layout: "events",
   children: [{ index: 0, box: box(60, 100, 400, 32) }],
-  flow: { direction: "column", wraps: false, reversed: false },
+  flow: { direction: "column", wraps: false, reversed: false, linesReversed: false },
   box: box(60, 80, 400, 600),
   point,
   origin: { x: 60, y: 80 },
@@ -269,7 +269,7 @@ describe("the slot here", () => {
           index,
           box: box(100 + (index % 2) * 116, 200 + Math.floor(index / 2) * 76, 100, 60)
         })),
-        flow: { direction: "row", wraps: true, reversed: false, stride: 2 },
+        flow: { direction: "row", wraps: true, reversed: false, linesReversed: false, stride: 2 },
         box: box(100, 200, 216, 136)
       }
     )

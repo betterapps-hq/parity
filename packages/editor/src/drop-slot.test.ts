@@ -18,7 +18,7 @@ function grid(count: number, columns: number, size = 100, gap = 10): SlotChild[]
 
 const without = (children: SlotChild[], ...moving: number[]) =>
   children.filter((child) => !moving.includes(child.index))
-const gridFlow: Flow = { direction: "row", wraps: true, reversed: false }
+const gridFlow: Flow = { direction: "row", wraps: true, reversed: false, linesReversed: false }
 const area = (children: SlotChild[]): Rect => ({
   left: 0,
   top: 0,
@@ -117,7 +117,7 @@ describe("reordering in a wrapping row", () => {
     { index: 3, box: box(0, 40, 140, 30) },
     { index: 4, box: box(150, 40, 50, 30) }
   ]
-  const wrap: Flow = { direction: "row", wraps: true, reversed: false }
+  const wrap: Flow = { direction: "row", wraps: true, reversed: false, linesReversed: false }
   const drop = (moving: number, point: { x: number; y: number }) =>
     slotAt(without(chips, moving), point, wrap, area(chips), chips.length)
 
@@ -141,8 +141,8 @@ describe("reordering in a wrapping row", () => {
 })
 
 describe("reordering along one line", () => {
-  const row: Flow = { direction: "row", wraps: false, reversed: false }
-  const column: Flow = { direction: "column", wraps: false, reversed: false }
+  const row: Flow = { direction: "row", wraps: false, reversed: false, linesReversed: false }
+  const column: Flow = { direction: "column", wraps: false, reversed: false, linesReversed: false }
   const items = [
     { index: 0, box: box(0, 0, 60, 30) },
     { index: 1, box: box(70, 0, 120, 30) }
@@ -172,6 +172,66 @@ describe("reordering along one line", () => {
   })
 })
 
+describe("reordering in layouts that run backwards", () => {
+  it("goes leftwards along a right-to-left grid, and marks the slot on the card's right", () => {
+    // Six cards in three columns, right to left: 2 1 0 on the first row, 5 4 3 on the second.
+    const cards = grid(6, 3).map(({ index, box: { top, bottom } }) => {
+      const left = (2 - (index % 3)) * 110
+      return { index, box: { left, right: left + 100, top, bottom } }
+    })
+    const rtl: Flow = { direction: "row", wraps: true, reversed: true, linesReversed: false }
+    const drop = (moving: number, point: { x: number; y: number }) =>
+      slotAt(without(cards, moving), point, rtl, area(cards), cards.length)
+    // Card 0, dragged left past the middle of card 1, short of card 2's: before card 2.
+    expect(drop(0, { x: 120, y: 50 })).toEqual({ index: 2, line: { x: 100, y: 0, w: 2, h: 100 } })
+    // Right of card 4's middle on the second row is before it; left of it, after it.
+    expect(drop(0, { x: 180, y: 150 }).index).toBe(4)
+    expect(drop(0, { x: 140, y: 150 }).index).toBe(5)
+    // Past the second row's last card, on the left: the end.
+    expect(drop(0, { x: 10, y: 150 }).index).toBe(6)
+  })
+
+  it("goes leftwards along a reversed row", () => {
+    const items = [
+      { index: 0, box: box(130, 0, 60, 30) },
+      { index: 1, box: box(0, 0, 120, 30) }
+    ]
+    const reversed: Flow = { direction: "row", wraps: false, reversed: true, linesReversed: false }
+    expect(slotAt(items, { x: 100, y: 10 }, reversed, box(0, 0, 190, 30), 2).index).toBe(1)
+    expect(slotAt(items, { x: 20, y: 10 }, reversed, box(0, 0, 190, 30), 2).index).toBe(2)
+  })
+
+  it("finds the line under the pointer when lines wrap upwards, and the end above the last", () => {
+    // Chips wrapping in reverse: 0 1 2 on the bottom line, 3 4 on the line above it.
+    const chips: SlotChild[] = [
+      { index: 0, box: box(0, 40, 80, 30) },
+      { index: 1, box: box(90, 40, 120, 30) },
+      { index: 2, box: box(220, 40, 60, 30) },
+      { index: 3, box: box(0, 0, 140, 30) },
+      { index: 4, box: box(150, 0, 50, 30) }
+    ]
+    const wrapsBack: Flow = { direction: "row", wraps: true, reversed: false, linesReversed: true }
+    const drop = (moving: number, point: { x: number; y: number }) =>
+      slotAt(without(chips, moving), point, wrapsBack, area(chips), chips.length)
+    expect(drop(0, { x: 160, y: 55 }).index).toBe(2)
+    expect(drop(0, { x: 100, y: 15 }).index).toBe(4)
+    expect(drop(0, { x: 100, y: -20 }).index).toBe(5)
+  })
+
+  it("puts the end past the leftmost column of a column that wraps right to left", () => {
+    // Two columns, the first on the right: 0 and 1, then 2 and 3.
+    const items: SlotChild[] = [
+      { index: 0, box: box(200, 0, 100, 30) },
+      { index: 1, box: box(200, 40, 100, 30) },
+      { index: 2, box: box(0, 0, 100, 30) },
+      { index: 3, box: box(0, 40, 100, 30) }
+    ]
+    const columns: Flow = { direction: "column", wraps: true, reversed: false, linesReversed: true }
+    expect(slotAt(items, { x: 50, y: 50 }, columns, box(0, 0, 300, 70), 4).index).toBe(3)
+    expect(slotAt(items, { x: -50, y: 10 }, columns, box(0, 0, 300, 70), 4).index).toBe(4)
+  })
+})
+
 describe("a layout's flow", () => {
   // Dropping, dragging and nudging all read it here (PAR-205).
   const computed = (style: Partial<FlowStyle>): FlowStyle => ({
@@ -183,8 +243,8 @@ describe("a layout's flow", () => {
     direction: "ltr",
     ...style
   })
-  const row: Flow = { direction: "row", wraps: false, reversed: false }
-  const column: Flow = { direction: "column", wraps: false, reversed: false }
+  const row: Flow = { direction: "row", wraps: false, reversed: false, linesReversed: false }
+  const column: Flow = { direction: "column", wraps: false, reversed: false, linesReversed: false }
 
   it("reads a flex box's direction, reversed or not, and its wrapping", () => {
     expect(flowOf(computed({ display: "flex" }))).toEqual(row)
@@ -201,25 +261,50 @@ describe("a layout's flow", () => {
       ...column,
       wraps: true
     })
-    expect(flowOf(computed({ display: "flex", flexWrap: "wrap-reverse" })).wraps).toBe(true)
+    expect(flowOf(computed({ display: "flex", flexWrap: "wrap-reverse" }))).toEqual({
+      ...row,
+      wraps: true,
+      linesReversed: true
+    })
   })
 
-  it("runs a row right to left in a right-to-left page", () => {
+  it("runs a row right to left in a right-to-left page, and a wrapping column's lines", () => {
     expect(flowOf(computed({ display: "flex", direction: "rtl" }))).toEqual({ ...row, reversed: true })
     expect(flowOf(computed({ display: "flex", flexDirection: "row-reverse", direction: "rtl" }))).toEqual(row)
+    expect(flowOf(computed({ display: "flex", flexDirection: "column", flexWrap: "wrap", direction: "rtl" }))).toEqual({
+      ...column,
+      wraps: true,
+      linesReversed: true
+    })
+    expect(flowOf(computed({ display: "grid", direction: "rtl", gridTemplateColumns: "1px 1px" }))).toEqual({
+      ...row,
+      wraps: true,
+      reversed: true,
+      stride: 2
+    })
   })
 
   it("reads a grid as rows that wrap, counting its columns as laid out or as written", () => {
     expect(flowOf(computed({ display: "grid", gridTemplateColumns: "120px 120px 120px" }))).toEqual({
-      direction: "row",
+      ...row,
       wraps: true,
-      reversed: false,
       stride: 3
     })
     expect(flowOf(computed({ display: "grid", gridTemplateColumns: "[start] 50px [middle] 50px [end]" })).stride).toBe(
       2
     )
     expect(flowOf(computed({ display: "grid", gridTemplateColumns: "repeat(4, minmax(0px, 1fr))" })).stride).toBe(4)
+    expect(flowOf(computed({ display: "grid", gridTemplateColumns: "repeat(2, 1fr 2fr) 40px" })).stride).toBe(5)
+  })
+
+  it("counts a grid's columns from where its children are drawn when only layout says how many", () => {
+    // Six cards in three columns, as auto-fill lays them out, and as a subgrid's columns are its parent's.
+    const cards = grid(6, 3).map((card) => card.box)
+    for (const gridTemplateColumns of ["repeat(auto-fill, minmax(100px, 1fr))", "subgrid", "subgrid [a] [b]"]) {
+      expect(flowOf(computed({ display: "grid", gridTemplateColumns }), cards).stride).toBe(3)
+    }
+    // With nothing drawn to count, it doesn't guess: Up and Down then don't move a layer at all.
+    expect(flowOf(computed({ display: "grid", gridTemplateColumns: "repeat(auto-fit, 100px)" })).stride).toBeUndefined()
   })
 
   it("reads a grid that flows by columns as columns that wrap", () => {
