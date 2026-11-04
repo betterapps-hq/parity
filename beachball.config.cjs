@@ -5,8 +5,9 @@ const { readFileSync } = require("node:fs")
  * Beachball versions the two packages that aren't private, the desktop app and the CLI, from change files. A commit that
  * changes either, or a private package they bundle, carries a change file: `pnpm changefile --type patch --message "…"`
  * writes it, and scripts/changes.ts works out which of the two it's for, since Beachball doesn't look inside private
- * packages. Nothing publishes through Beachball: the desktop app goes to GitHub Releases, and the CD pipeline publishes
- * to npm the packages whose package.json has a `publishConfig`, which the CLI gets with its npm name (PAR-13).
+ * packages. Each ships in a release of its own (PAR-10). Beachball publishes every package it versions, so ci.yml runs
+ * it scoped to leave the app out, and publishes the CLI to npm, while cd-desktop.yml runs it scoped to the app with
+ * publishing off, then puts the app on GitHub Releases. Each run leaves the other's change files alone.
  */
 
 /**
@@ -60,9 +61,6 @@ module.exports = {
   branch: hasOriginMain() ? "origin/main" : "refs/heads/main",
   // `pnpm changefile` runs Beachball locally, which shouldn't wait on the network. CI fetches when it checks out.
   fetch: false,
-  // cd-npm.yml's `beachball publish` only bumps, commits and pushes to main; npm gets the CLI once CI passes on that
-  // commit, since Beachball would also publish the desktop app (PAR-10).
-  publish: false,
   // Parity stays below 1.0 until the user says otherwise.
   disallowedChangeTypes: ["major"],
   changehint:

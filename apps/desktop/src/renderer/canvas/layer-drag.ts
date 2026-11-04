@@ -7,6 +7,7 @@ import { layersSelection, selectedNodes } from "../selection.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { type DropAt, DragLayouts, dropInFrame } from "./drop-target.ts"
+import { onGestureEnd } from "./gesture-end.ts"
 import { holdCursor } from "./held-cursor.ts"
 import { frameAt, frameScale, type Point } from "./hit.ts"
 import { shiftInsets } from "./insets.ts"
@@ -46,7 +47,7 @@ const threshold = 4
 
 /**
  * Follows a press on selected layers. It becomes a drag once the pointer moves; released before that, `onClick` runs
- * instead. Escape cancels a drag.
+ * instead. Escape cancels a drag, and so does the pointer being cancelled or the window losing focus.
  */
 export function pressLayers(
   session: ProjectSession,
@@ -135,10 +136,11 @@ export function pressLayers(
         : {})
     }
   }
-  const finish = (drop: boolean) => {
+  window.addEventListener("pointermove", onMove, true)
+  // Released, it drops; Escape, the pointer cancelled or the window losing focus calls it off.
+  onGestureEnd(window, (how) => {
+    const drop = how === "release"
     window.removeEventListener("pointermove", onMove, true)
-    window.removeEventListener("pointerup", onUp, true)
-    window.removeEventListener("keydown", onKey, true)
     restore()
     if (!dragging) {
       if (drop) onClick()
@@ -147,17 +149,7 @@ export function pressLayers(
     if (absolute) placed?.end(drop)
     else if (drop && target) moveLayers(session, entry, ids, target, gesture)
     if (gesture) session.store.endGesture(gesture)
-  }
-  const onUp = () => finish(true)
-  const onKey = (event: KeyboardEvent) => {
-    if (event.key !== "Escape") return
-    event.preventDefault()
-    event.stopImmediatePropagation()
-    finish(false)
-  }
-  window.addEventListener("pointermove", onMove, true)
-  window.addEventListener("pointerup", onUp, true)
-  window.addEventListener("keydown", onKey, true)
+  })
 }
 
 /**

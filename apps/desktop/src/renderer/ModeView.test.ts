@@ -272,9 +272,9 @@ describe("what the canvas reads from an inert frame", () => {
       return { save: drawn.flow("save"), actions: drawn.flow("actions"), two: drawn.flow("two") }
     })
     expect(flows).toEqual({
-      save: { direction: "row", wraps: false, reversed: false },
-      actions: { direction: "column", wraps: false, reversed: false },
-      two: { direction: "row", wraps: true, reversed: false, stride: 3 }
+      save: { direction: "row", wraps: false, reversed: false, linesReversed: false },
+      actions: { direction: "column", wraps: false, reversed: false, linesReversed: false },
+      two: { direction: "row", wraps: true, reversed: false, linesReversed: false, stride: 3 }
     })
   })
 

@@ -73,6 +73,45 @@ export function aboveEverything(
   return { x: from.x, y: Math.round(top - componentRise) }
 }
 
+/** Where pasted copies of designs go, and the box they take there, when it's known before the canvas draws them. */
+export interface PastedPlacement {
+  /** How far the copies move from their originals' positions. */
+  shift: { x: number; y: number }
+  /** Where they land, in page coordinates, to bring into view; undefined until the canvas has drawn them. */
+  shown?: Bounds
+}
+
+/**
+ * Where pasted copies of `designs` go. When each original is on this canvas, drawn (`bounds`), the copies sit to the
+ * right of them, top-aligned, in the first free space along their row (see `freeSpotBeside`), and are the originals'
+ * size. Otherwise, as when they come from another project, their top left goes to `center`, the middle of the view,
+ * and their size is only known once the canvas draws them, so `shown` is left out rather than guessed.
+ */
+export function pastedPlacement(
+  designs: readonly PlacedDesign[],
+  center: { x: number; y: number },
+  taken: readonly Bounds[]
+): PastedPlacement {
+  const drawn = designs.flatMap((design) => design.bounds ?? [])
+  if (designs.length === 0 || drawn.length < designs.length) {
+    const left = Math.min(...designs.map((design) => design.position.x))
+    const top = Math.min(...designs.map((design) => design.position.y))
+    return { shift: designs.length === 0 ? { x: 0, y: 0 } : { x: center.x - left, y: center.y - top } }
+  }
+  const around = {
+    minX: Math.min(...drawn.map((box) => box.minX)),
+    minY: Math.min(...drawn.map((box) => box.minY)),
+    maxX: Math.max(...drawn.map((box) => box.maxX)),
+    maxY: Math.max(...drawn.map((box) => box.maxY))
+  }
+  const spot = freeSpotBeside(around, taken)
+  const shift = { x: spot.x - around.minX, y: 0 }
+  return {
+    shift,
+    shown: { minX: around.minX + shift.x, minY: around.minY, maxX: around.maxX + shift.x, maxY: around.maxY }
+  }
+}
+
 /** Screen pixels a design brought into view keeps from the canvas's edges, room for its title above it. */
 export const viewMargin = 64
 

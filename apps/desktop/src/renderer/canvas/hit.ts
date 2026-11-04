@@ -1,7 +1,7 @@
 import { type DesignNode, isInnerPath, locateNode } from "@parity-app/core"
 import type { Editor } from "tldraw"
 import type { ContainerEntry, DesignStore } from "../design-store.ts"
-import { boxAround, elementBox, findFrames, findNodeElements, nodeParent, nodesAt } from "../frame.ts"
+import { allFrames, boxAround, elementBox, findFrames, findNodeElements, nodeParent, nodesAt } from "../frame.ts"
 import type { Selection } from "../selection.ts"
 import type { Selected, Under } from "./pick.ts"
 
@@ -54,7 +54,7 @@ export function frameAt(
     filter: (shape) => shape.type === "canvas-container"
   })
   let hosts: Iterable<HTMLElement> = []
-  if (!editor) hosts = area.querySelectorAll<HTMLElement>("[data-frame]")
+  if (!editor) hosts = allFrames(area)
   else if (board?.type === "canvas-container") hosts = findFrames(area, board.props.key)
   for (const host of hosts) {
     if (!inside(host.getBoundingClientRect(), point)) continue

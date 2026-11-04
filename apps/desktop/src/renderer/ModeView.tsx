@@ -1,6 +1,6 @@
 import { type FrameGeometry, type MountHandle, modeGlobals, type RenderNode, type ResolvedMode } from "@parity-app/core"
-import { useEffect, useMemo, useRef, useState } from "react"
-import { prepareFrame, setDrawnNodes, setFrameViewport } from "./frame.ts"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { prepareFrame, registerFrame, setDrawnNodes, setFrameViewport } from "./frame.ts"
 import type { LoadedGuest } from "./guest.ts"
 
 interface ModeViewProps {
@@ -85,6 +85,10 @@ export function ModeView({
   const [error, setError] = useState<{ key: string; message: string }>()
 
   const currentKey = useRef(renderKey)
+
+  // Selecting, outlining and agents find a design's frames from an index, not by searching the canvas. It's a layout
+  // effect, so the frame is in it as soon as it's on the page.
+  useLayoutEffect(() => registerFrame(hostRef.current!, design), [design])
 
   // Clicks and keys that reach a design are its own. They stop at the frame, so the canvas doesn't select, drag or run a
   // shortcut as well. An Escape the design has no use for steps out of it, so the next one reaches the canvas.

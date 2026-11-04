@@ -237,6 +237,49 @@ made, set one after another as fast as they drew, took 1.06 to 1.37 s, before co
 what a box selects, where Figma's selects the layers deeper inside. Right-click's Select layer, listing everything under
 the pointer, is PAR-168.
 
+### The overlay measures only when what it shows can change (PAR-522)
+
+The overlay draws outlines, the selected layer's name and size, resize handles, a layout's spacing, redlines and the
+layout grid over the frames. It used to measure them every animation frame while anything was selected, searching the
+whole canvas for the design's frames several times each time, so a selection held still cost the window's thread as much
+as the rest of the canvas. Now it rests while nothing moves, and still follows everything it did.
+
+- **Frames are found from an index,** kept as `ModeView` mounts and unmounts each frame, not by searching the canvas.
+  Everything that finds a design's frames uses it: the overlay, hovering and clicking, agents' presence, Reveal, the
+  style preview and the tab order overlay.
+- **It measures after a change** to the camera or a board, the selection or the hover, the tool or View's settings, a
+  design, a frame's size or what it draws, an image or font loading, or the pointer, wheel and keys, which drive drags,
+  snapping, resizing and Alt's redlines. After each it measures every animation frame for half a second, then rests.
+- **Animations are followed while they run.** Once it has settled, it keeps measuring while an animation or transition
+  runs in a frame of the selected or hovered design, so outlines move with it, and stops when it ends. A component that
+  animates by script writes to its DOM, which counts as a change. A design animating elsewhere doesn't keep it going.
+- **Measured** on 2026-11-04 in an isolated copy of the app on the example project (119 frames), its development build,
+  held still for 3 seconds with the pointer over empty canvas: the window's script time with Home selected went from 91
+  to 7 ms per second, and with its nav selected and zoomed to from 81 to 7, against 8 with nothing selected. The outline
+  landed on the same pixels before and after, through tldraw's animated zoom and a 3-second CSS animation inside the
+  frame, which it followed from start to end; afterwards the window was back at 6 ms per second.
+
+Code: the index is `registerFrame`, `findFrames` and `allFrames` in `apps/desktop/src/renderer/frame.ts`, registered by
+`ModeView.tsx`. When to measure is `packages/editor/src/overlay-measuring.ts` (`overlayDesigns`, `drawsOver`,
+`settleUntil`, `measuresNext`), and what wakes it is the measuring effect in `canvas/CanvasOverlay.tsx`, with its
+`animates`. The calls are in decisions.md, The selection overlay measures when what it shows can change.
+
+Tests:
+
+- `packages/editor/src/overlay-measuring.test.ts` (11): the designs drawn over, the layout grid's every frame, the
+  settle window and how changes move it on, resting once settled, following an animation without asking about it while
+  settling, and resting while nothing shows.
+- `canvas/CanvasOverlay.test.ts`, "finding a design's frames" (2), in Chrome: the frames `ModeView` registers, found in
+  the page's order, by state and mode, only inside the root asked, and left out once they unmount. Its other tests drive
+  the overlay with the real mouse, through the index.
+- `canvas/style-preview.test.ts` finds its frames through the index too.
+- `apps/desktop/e2e/selecting.e2e.ts`, on CI: hovering and selecting outline layers, with the selected one's name and
+  size, and a dragged layer shows where it would land, all through the index and the measuring.
+
+Gaps: outlines following the camera and an animation inside a frame, and the window's idle script time, have no
+automated test; they were checked in the app as above. Layout that moves with nothing the overlay hears of, such as a
+video taking its size once its data arrives, is caught up at the next change.
+
 ### Right-click menus (PAR-168)
 
 A right-click on a design opens Figma's canvas menu, as far as Parity's commands go, for what's selected. Each item
@@ -457,7 +500,10 @@ decisions.md describes. Where it lands follows the pointer:
   column that doesn't wrap goes by the middles along it, wherever the pointer is across it, as before. So in the
   dashboard's four stat cards, Users dragged right past the middle of Open issues gives Revenue, Issues, Users, Uptime,
   and Issues dragged left past the middle of Revenue gives Issues, Revenue, Users, Uptime. Grids that flow by columns,
-  and wrapping columns, work the same way turned on their side.
+  and wrapping columns, work the same way turned on their side. A layout that runs backwards goes the way it's drawn: in
+  a right-to-left grid or row, or a reversed row or column, "past the middle" is leftwards or upwards, and the slot's
+  line stands on the child's right or below it; with lines that wrap upwards (`wrap-reverse`), or a wrapping column in a
+  right-to-left page, the lines follow one another up or leftwards, and the end is above or left of the last.
 - **Measured from the layout as it was when the drag began.** The dragged layer is hidden and its copy shown somewhere
   else, so what's on screen moves under the pointer. Targets are found in the boxes measured just before the layer is
   hidden: a neighbour that slid into the dragged layer's place isn't under the pointer, and the slots don't move when
@@ -489,8 +535,12 @@ Tests:
 - `packages/editor/src/drop-slot.test.ts`: the stat cards in both directions and anywhere up or down their row, a card
   short of a neighbour's middle staying put, two-row grids going up and down, the gap between rows, above and below
   every row, a row that moving a card empties, wrapping rows of different widths and centred lines, one-line rows and
-  columns, an empty layout; and reading a flow from computed styles: a flex box's direction, reversed or not, and its
-  wrapping, a row right to left, a grid's columns as laid out or as written, a grid flowing by columns, and blocks.
+  columns, an empty layout; layouts that run backwards: a right-to-left grid with the slot's line on the card's right, a
+  reversed row, lines that wrap upwards with the end above them, and a column wrapping right to left; and reading a flow
+  from computed styles: a flex box's direction, reversed or not, and its wrapping, `wrap-reverse`, a row and a wrapping
+  column right to left, a grid's columns as laid out or as written (`repeat` and line names), and counted from its
+  children's places for `repeat(auto-fill, …)` and `subgrid`, or not at all with nothing drawn, a grid flowing by
+  columns, and blocks.
 - `packages/editor/src/drop-target.test.ts` (13), from boxes: the stat cards dragged right and left; the line where the
   layout was, and the same slot after the camera zooms out and pans; a card that stays in its own slot while the pointer
   is where it was; a card dragged over neighbours that are layouts, or the text in them, changing places with them; a
@@ -722,15 +772,19 @@ snapping preference to move freely.
 - **Edges and centres.** Along each axis, the nearest of its left, centre and right (or top, middle and bottom) to any
   of its siblings' or its parent's, within 8 screen pixels at the current zoom. Of lines just as near, a sibling's wins
   over the parent's, and the first sibling's over the next. The parent is the box its insets count from, inside its
-  border.
+  border: its containing block. That's the parent layout itself, since layouts are always positioned; only in a
+  component's slot can it be another, the component's own box when it transforms or contains its content, or a box
+  further up when nothing in the component is positioned. Either way a side snapped to that box's edge has an inset of
+  0, and the distances shown are the insets written.
 - **Even spacing.** Along each axis, it also takes the place that spaces it evenly with the siblings beside it across
   that axis, as in a row or a column: in the middle between two, or the same gap after or before a run of them that's
   already evenly spaced, so three or more are evenly spaced. Of an edge and an even space, the nearer wins; when both
   come to the same place, both show.
 - **What shows.** A red guide along each line it locked to, spanning it and what it locked to; spacing marks in every
   gap of the evenly spaced run; and the distances to what it lined up with, drawn as Alt's redlines are, with the
-  spacing step they come to: the gap to a sibling, or its four insets in its parent. They go when the drag ends, and
-  while Ctrl is held.
+  spacing step they come to: the gap to a sibling, or its four insets in its parent. They go when the drag ends, whether
+  it's released, called off with Escape, or cut short by the pointer being cancelled or the window losing focus, and
+  while Ctrl is held. Nothing is left listening after a gesture ends.
 - **Exact where it locks.** Along an axis it locked along, it goes exactly there, to the half pixel, in fractions of a
   step where the line isn't on the scale; along an axis that didn't lock it moves in half steps as before.
 - **Resizing.** Only the edges a handle drags lock, to the same lines; even spacing doesn't count, and the size goes to
@@ -745,10 +799,12 @@ Code: `snapLayer` in `packages/editor/src/snap.ts` (`@parity-app/editor`) takes 
 parent's, the zoom and, for a resize, the edges the handle drags (`resizeEdges`, `resizedBox`), and returns where it
 goes, the axes it locked, the guides, the distances (`distancesBetween`, which Alt's redlines use too) and the spacing
 marks; `lockedEdgeMoves` says how far a resize's locked edges moved. `apps/desktop/src/renderer/canvas/layer-snap.ts`
-(`LayerSnapping`) measures those boxes in the frame when the gesture begins, shows the guides and marks as tldraw's snap
-indicators and keeps the distances for `canvas/CanvasOverlay.tsx` to draw. `canvas/layer-drag.ts` (`followAbsolute`)
+(`LayerSnapping`) measures those boxes in the frame when the gesture begins, the parent's as the layer's `offsetParent`,
+which is its containing block, shows the guides and marks as tldraw's snap indicators and keeps the distances for
+`canvas/CanvasOverlay.tsx` to draw; the gesture clears them when it ends. `canvas/layer-drag.ts` (`followAbsolute`)
 moves the layer by them, and `CanvasOverlay.tsx`'s `startResize` passes a resize's locked edges to `resizeGesture`
-(`canvas/resize.ts`), which `resizeInsets` (`canvas/insets.ts`) takes exactly.
+(`canvas/resize.ts`), which `resizeInsets` (`canvas/insets.ts`) takes exactly. Both gestures hear how they end through
+`canvas/gesture-end.ts` (`onGestureEnd`).
 
 Tests:
 
@@ -760,6 +816,13 @@ Tests:
   needing three beside each other; distances apart and inside; and Ctrl or Cmd, or snapping turned off, moving freely.
 - `canvas/resize.test.ts`: a snapped edge taken exactly, to the half pixel, and an axis that didn't snap in steps.
   `canvas/insets.test.ts`: sizes and insets to the half pixel with `exact`.
+- `canvas/layer-snap.test.ts` (3), in Chrome, in a frame at half size: a layer snapping to the inside of its parent's
+  border, in the frame's own pixels; a badge in a transformed component's slot snapping to the component's box; and one
+  in a slot of a component that isn't positioned snapping to the root its insets count from, not to the component's
+  edge.
+- `canvas/gesture-end.test.ts` (4): a gesture ending once, at the release, a cancelled pointer, the window losing focus
+  or Escape, with nothing left listening after; Escape kept from going further, other keys let by; giving up without
+  ending; and one gesture's end left to it when another follows.
 - `apps/desktop/e2e/moving.e2e.ts` (5), end to end, on the Review slot at 100%: dragged 6px down it stays, with spacing
   marks over three gaps, a guide and the 32px distance during the drag, and nothing to undo or shown after; dragged 36px
   down it's at top 48 during the drag and after, and Undo puts it back; with Ctrl it's at 49, with nothing shown; Escape
@@ -781,23 +844,31 @@ they were copied from places them the same way.
   its title. It moves the least it can along each axis, so what was in view stays as near as it can. A copy wider or
   taller than the view only needs its start in view, where its title is; otherwise its start comes to the view's start.
   A copy already in view leaves the view where it was. The pan takes 250ms.
+- **At the size it's drawn at.** A copy beside its original is the original's size. A design pasted from another
+  project, or whose original is no longer on the canvas, goes in the middle of the view, and its size is only known once
+  its board draws it, so it's brought into view then, from its board's real size rather than a guess. One that isn't
+  drawn within 2 seconds, as in a tab that isn't showing, leaves the view alone.
 
-Code: `freeSpotBeside` and `panToShow` in `packages/editor/src/placement.ts` (`@parity-app/editor`), with `takenBounds`
-and `bringIntoView` in `apps/desktop/src/renderer/canvas/free-space.ts`, which read the canvas's shapes and move its
-camera, used by `chrome/designs.ts` (`duplicateDesign`) and `canvas/clipboard.ts` (`pasteDesigns`).
+Code: `freeSpotBeside`, `pastedPlacement` and `panToShow` in `packages/editor/src/placement.ts` (`@parity-app/editor`),
+with `takenBounds`, `bringIntoView` and `bringIntoViewOnceSized` in `apps/desktop/src/renderer/canvas/free-space.ts`,
+which read the canvas's shapes and move its camera, used by `chrome/designs.ts` (`duplicateDesign`) and
+`canvas/clipboard.ts` (`pasteDesigns`). A board says when it has its size (`setBoardSized`, from
+`canvas/ContainerShapeUtil.tsx`'s resize observer).
 
 Tests: `packages/editor/src/placement.test.ts`: the original alone, the example's Dashboard with Projects 176px to its
 right, a run of designs and gaps too narrow for the copy, a gap wide enough, designs well above or below the row, and
-one just inside the gap below it; and bringing a copy into view (`panToShow`): none needed when it's in view, right just
-far enough, left, up and down, a copy wider than the view brought to its start, a taller one left alone while its top
-shows, and no margin unless asked. End to end (PAR-202), `apps/desktop/e2e/moving.e2e.ts` (4): Ctrl+D on Dashboard puts
-the copy selected, top-aligned with it to its right, with no design or note within 160px, and Undo takes it away; Ctrl+D
-on Dashboard at 50%, whose copy starts off screen, pans to it at the same zoom; Ctrl+C and Ctrl+V of it do the same; and
-Ctrl+D on Forgot password at 5%, whose copy lands in view, leaves the view where it was.
+one just inside the gap below it; pasted copies (`pastedPlacement`) beside originals on the canvas at their size, and
+copies from another project, or with an original gone, in the middle of the view with no size guessed; and bringing a
+copy into view (`panToShow`): none needed when it's in view, right just far enough, left, up and down, a copy wider than
+the view brought to its start, a taller one left alone while its top shows, and no margin unless asked. End to end
+(PAR-202), `apps/desktop/e2e/moving.e2e.ts` (4): Ctrl+D on Dashboard puts the copy selected, top-aligned with it to its
+right, with no design or note within 160px, and Undo takes it away; Ctrl+D on Dashboard at 50%, whose copy starts off
+screen, pans to it at the same zoom; Ctrl+C and Ctrl+V of it do the same; and Ctrl+D on Forgot password at 5%, whose
+copy lands in view, leaves the view where it was.
 
-Gaps: a design pasted from another project goes in the middle of the view, and is brought into view the same way when it
-reaches past the edge. A copy pasted over the selection (Ctrl+Shift+V) or at the pointer doesn't pan, since it goes
-where the person is looking.
+Gaps: bringing a design pasted from another project into view once its board is sized has no automated test; it was
+checked by reading. A copy pasted over the selection (Ctrl+Shift+V) or at the pointer doesn't pan, since it goes where
+the person is looking.
 
 ### Arranging layers and designs (PAR-7)
 
@@ -895,7 +966,9 @@ default.
 
 End to end, `apps/desktop/e2e/dropping.e2e.ts` drags Badge from the Components panel onto the left of the fifth card in
 Projects' grid: the grid is outlined and the line stands beside that card while dragging, Badge lands fifth, selected,
-as "Add Badge", and Undo takes it out.
+as "Add Badge", and Undo takes it out. It also drops Badge into the Calendar's Events layout, which is absolutely
+placed, above the Planning slot: Events is outlined with a corner at the pointer and no line while dragging, and Badge
+lands last, placed absolutely 10 steps from Events' left and 6 from its top, and Undo takes it out.
 
 Gaps: clicking in the panels, the messages, and a drop into an absolutely placed layout have no end-to-end test.
 
@@ -969,7 +1042,9 @@ actions, since each needs to know which arrow was pressed.
   Down in a column. The direction is the one the frame the layer was picked in draws, so a layout that a viewport turns
   from a row into a column follows that frame. A reversed flex direction, or a right-to-left page, follows the screen:
   Right always moves it right. In a grid, Left and Right move one place and Up and Down a row's worth of places, only
-  when there's a row to move to. The arrows across a layout, and across a wrapping row, do nothing. Shift moves one
+  when there's a row to move to. A row's worth is the columns the grid has as laid out, or, for one only layout can
+  count, such as `repeat(auto-fill, …)` or a `subgrid`, as many as the places its children start at; with nothing to
+  count from, Up and Down do nothing. The arrows across a layout, and across a wrapping row, do nothing. Shift moves one
   place too.
 - **A place is a layer in the flow.** Absolutely placed layers, and layers the state being edited hides, keep their
   place in the list and are stepped over, so every press visibly moves the layer. Several selected layers in one layout
@@ -984,8 +1059,9 @@ actions, since each needs to know which arrow was pressed.
   drawn, an unset side counts from 0, and an axis set by a token stays put, with a message saying so.
 - **Designs and text notes** move 1px, or 10px with Shift. A selected mode column moves its design.
 - **One undo step per run** (PAR-441). Presses on the same selection are one step (Undo nudge layer), however long the
-  pauses between them. Another edit, an undo or a redo, or selecting something else, also when the selection comes back,
-  starts another. A run that comes back where it began leaves no step.
+  pauses between them, and however often the same layers are selected again meanwhile, in any order. Another edit, an
+  undo or a redo, or selecting something else, also when the selection comes back, starts another; selecting something
+  else ends the run as it happens. A run that comes back where it began leaves no step, and Redo as it was.
 - **Moving a layer by 1px** waits for PAR-194, since it would leave the spacing scale.
 - **Layers inside an instance don't move,** as they can't be dragged.
 - **The keys.** On the canvas, the arrows with Ctrl or Alt do nothing, so tldraw never moves a design behind the
@@ -993,11 +1069,12 @@ actions, since each needs to know which arrow was pressed.
   view.
 
 Code: `apps/desktop/src/renderer/canvas/nudge.ts` (the rules, which take data and return data, and `frameDrawn`, which
-reads a layout's flow, through `@parity-app/editor`'s `flowOf`, and a layer's drawn insets from its frame),
-`canvas/insets.ts` (`shiftInsets`, which moves an absolutely placed layer's insets for dragging too),
-`chrome/commands.ts` (`nudge`), `chrome/actions.ts` (`byKey` keeps it out of Search actions), `chrome/keymap.ts` and
-`chrome/keys.ts` (the arrows are written `←`, `→`, `↑` and `↓`), and `canvas/shortcuts.ts`, which passes the key event
-to the action and keeps the other arrows from tldraw. A run's gesture is `runGesture` in `nudge.ts`.
+reads a layout's flow, through `@parity-app/editor`'s `flowOf` with its children's boxes from `frame.ts`'s
+`flowingBoxes`, and a layer's drawn insets from its frame), `canvas/insets.ts` (`shiftInsets`, which moves an absolutely
+placed layer's insets for dragging too), `chrome/commands.ts` (`nudge`), `chrome/actions.ts` (`byKey` keeps it out of
+Search actions), `chrome/keymap.ts` and `chrome/keys.ts` (the arrows are written `←`, `→`, `↑` and `↓`), and
+`canvas/shortcuts.ts`, which passes the key event to the action and keeps the other arrows from tldraw. A run's gesture
+is `runGesture` in `nudge.ts`, which knows a selection by `selectionKey` (`selection.ts`).
 
 Tests:
 
@@ -1005,8 +1082,8 @@ Tests:
   reordering a layer, a block, past absolutely placed layers and down a grid; nudging a design's layers in a state,
   following the frame's direction, and leaving instances alone; and, with the real stores, a run of presses with pauses
   of four seconds as one undo step, another edit or an undo between presses starting another, a run there and back
-  leaving no step, a new selection starting another, also back to the one before, designs moving together and a mode
-  column and a note moving.
+  leaving no step, a new selection starting another, also back to the one before, the same layers selected again in
+  another order keeping the run, designs moving together and a mode column and a note moving.
 - `apps/desktop/src/renderer/canvas/insets.test.ts`: moving insets from each side, both sides, tokens and unset sides
   with and without where they're drawn (`shiftInsets`, shared with dragging).
 - `apps/desktop/src/renderer/ModeView.test.ts`: `frameDrawn` reads a row, a column and a grid's columns from a design
@@ -1289,8 +1366,9 @@ numbers. A component's number props take any number.
 - **Up and Down** move a length one step of the spacing scale (4px with a 4px unit) and Shift ten steps, the same
   distance nudging moves an absolutely placed layer; a half step goes to the whole step beside it. Opacity, counts and
   numbers move by 1, and Shift by 10. Each press is made at once, and a run of presses is one undo step, however slow
-  (PAR-441): typing, Enter, Escape, leaving the field or scrubbing it ends the run. With something readable typed, it
-  steps from that; with something it can't read, nothing changes and the reason shows.
+  (PAR-441): typing, Enter, Escape, leaving the field or scrubbing it ends the run, and so does another selection while
+  the field keeps focus, so one undo never takes back edits to two layers. With something readable typed, it steps from
+  that; with something it can't read, nothing changes and the reason shows.
 - **Scrubbing.** Dragging a field's label changes the value by one step for every 2px the pointer moves, ten with Shift,
   left to lower. The label is the row's (Width, Gap, Opacity, Max lines) when the row holds one field without a letter
   of its own, else the letter inside the field (V and H, T, R, B and L, X and Y, Cols and Rows). Such a label has a
@@ -1328,8 +1406,9 @@ Code:
 - `apps/desktop/src/renderer/chrome/number-field.ts`: the field's behaviour as a reducer (`reduceField`): drafts, Enter,
   leaving, Escape, steps and scrubs, and the effects it asks for.
 - `chrome/fields.tsx`: `NumberField`, which runs those effects, handles keys and scrubbing, and begins and ends the
-  gesture a run of steps or a scrub commits in (`runEnders` says what ends a run), `NumberInput`, and `Field`, whose
-  label scrubs a lone field and which shows what its fields say under the row.
+  gesture a run of steps or a scrub commits in (`runEnders` says what ends a run, and `FieldTarget`, which
+  `chrome/DesignPanel.tsx` sets to the selection's `selectionKey`, what the run edits), `NumberInput`, and `Field`,
+  whose label scrubs a lone field and which shows what its fields say under the row.
 - `chrome/StyleSections.tsx`: each style field's rules and how its edit reads and writes each layer's own style
   (`fieldEdits`), with `LengthInput` and `CompactNumber`. `StyleEditor` takes values, or a function of each layer's
   style, and has `preview` and `endPreview`. `chrome/PropsSection.tsx` has the number props.
@@ -1348,12 +1427,12 @@ Tests:
 - `apps/desktop/src/renderer/chrome/number-field.test.ts` (16): previews while typing, keeping the last one, the draft
   over a changing value, Enter committing and keeping focus, input it can't read kept with its reason, leaving the
   field, Escape, steps from the value and from a draft, and scrubbing.
-- `apps/desktop/src/renderer/chrome/fields.test.ts` (10), in Chrome: the real field in a row. 320 previews as it's
+- `apps/desktop/src/renderer/chrome/fields.test.ts` (11), in Chrome: the real field in a row. 320 previews as it's
   typed; Enter commits and keeps focus with the text selected; `16em` stays with its reason, also after leaving; a value
   changing underneath, then Escape; a snapped note; Up, Shift+Up and Down; a run of Up presses with a pause as one
-  gesture, ended by Enter, another ended by leaving the field, and a typed commit in none (PAR-441); scrubbing the row's
-  label to one commit, in a gesture from the press to the release, and Escape during a scrub; and `Mixed+8` on two
-  layers.
+  gesture, ended by Enter, another ended by leaving the field, and a typed commit in none (PAR-441); a run ended by what
+  the field edits changing while it keeps focus, the next press starting another; scrubbing the row's label to one
+  commit, in a gesture from the press to the release, and Escape during a scrub; and `Mixed+8` on two layers.
 - `apps/desktop/src/renderer/canvas/style-preview.test.ts` (6), in Chrome: a preview drawn in each state's frame, a
   state that sets its own width left alone, a later preview putting back what it doesn't change, taking it back exactly,
   settling for the change, and nothing written for no change.
@@ -1567,7 +1646,7 @@ stylesheet with `writeTokenChanges` in `packages/tokens/src/stylesheet.ts`, whic
 
 Tests:
 
-- `packages/editor/src/history.test.ts` (44 with the gestures below): undo and redo with their labels; each change
+- `packages/editor/src/history.test.ts` (45 with the gestures below): undo and redo with their labels; each change
   without a gesture a step of its own; the 200-step limit; what a board shows left alone by Undo and not recorded; token
   edits undone, redone and saved; nothing to write when they're back at the stylesheet's value; the stylesheet's value
   written back after undoing past a save; a failed write naming the token and the file and clearing on success; several
@@ -1618,14 +1697,17 @@ field. Time plays no part, so a slow drag with long pauses is still one step, an
 - **How a gesture says so.** Its source begins a gesture when it starts, passes it with each change it makes, and ends
   it when it's over. The changes join one step while it's the latest, labelled by the first of them (Undo resize layer).
 - **Where each begins and ends.** A resize runs from the press on a handle to the release, or to Escape, which takes it
-  all back. A layer drag runs from the move past the threshold to the drop; an absolutely placed layer writes as it
-  moves, and Escape takes that back too. A design or note dragged by its board is tldraw's translate, from its first
-  move until tldraw stops translating; dragged by its title, it writes once on release. A scrub runs from the press on
-  the label to the release. A run of arrow presses on the canvas lasts while the selection stays the same and nothing
-  else changes: another edit, an undo or a redo, or selecting something else, also back to what it was, ends it. In a
-  field, typing, Enter, Escape, leaving the field or scrubbing it ends a run of Up and Down.
+  all back; the pointer cancelled or the window losing focus ends it as a release does. A layer drag runs from the move
+  past the threshold to the drop; an absolutely placed layer writes as it moves, and Escape takes that back too, as do
+  the pointer cancelled and the window losing focus. A design or note dragged by its board is tldraw's translate, from
+  its first move until tldraw stops translating; dragged by its title, it writes once on release. A scrub runs from the
+  press on the label to the release. A run of arrow presses on the canvas lasts while the same layers, designs or note
+  stay selected, in whatever order, and nothing else changes: another edit, an undo or a redo, or selecting something
+  else, also back to what it was, ends it. In a field, typing, Enter, Escape, leaving the field, scrubbing it or another
+  selection ends a run of Up and Down.
 - **Gestures that change nothing.** A gesture that changes nothing adds no step, and one that comes back where it began,
-  such as a drag back to its start or a nudge there and back, leaves none, with the file clean again.
+  such as a drag back to its start or a nudge there and back, leaves none, with the file clean again and Redo as it was
+  before the gesture.
 - **Changes from elsewhere.** An agent's call or a file reloaded during a gesture is a step of its own, so the gesture's
   changes after it make a second step. The agent's work stays out of the gesture's undo.
 
@@ -1637,12 +1719,12 @@ reaches the store through `StyleSections.tsx`'s `fieldEdits`, `LayerPanel.tsx`, 
 
 Tests:
 
-- `packages/editor/src/history.test.ts` (9 of its 44), without Electron: a drag, a resize, a scrub and a run of arrow
+- `packages/editor/src/history.test.ts` (10 of its 45), without Electron: a drag, a resize, a scrub and a run of arrow
   presses, each with five-second pauses between its changes, as one step labelled by its first change, undone to where
   it began with the file clean, and redone; a gesture that changes nothing adding no step; one that comes back where it
-  began leaving none, and going on from there starting its step again; another change, an undo or the gesture's end
-  ending its step; two gestures' changes kept apart; and a file reloaded mid-gesture as a step of its own, between the
-  gesture's.
+  began leaving none, and going on from there starting its step again; one that comes back keeping what Redo had, which
+  a gesture ended elsewhere doesn't; another change, an undo or the gesture's end ending its step; two gestures' changes
+  kept apart; and a file reloaded mid-gesture as a step of its own, between the gesture's.
 - `apps/desktop/src/renderer/design-store.test.ts` (2 of its 20): a gesture's changes five seconds apart as one step
   until it ends, and each gesture its own id; and a live drag written as an absolutely placed layer's is, taking a side
   back to the checkpoint mid-drag, as one step, and as none once Escape reverts it. Its checkpoint tests are under
@@ -2832,8 +2914,9 @@ Implementation: `packages/agent/src/routing.ts` (the rules, data in and out, als
 Tests: `packages/agent/src/routing.test.ts` (two copies with different projects, the same project in both, `active` by
 focus, the working folder, nested projects, Windows case and slashes, nothing open or running),
 `packages/agent/src/registry.test.ts` (entries written, listed and removed; the file before the registry; a copy kept
-apart), and `packages/cli/src/copies.test.ts` (the real CLI against two fake copies: routing, `active`, the merged list,
-an unknown tab, a stale entry removed, and each operation's routing).
+apart), and `packages/cli/src/copies.test.ts` (the real CLI and MCP server against two fake copies: routing, `active`,
+the merged list, an unknown tab, a stale entry removed, each operation's routing, and MCP tools routed and answering
+exactly as the CLI's commands do, since both run the same operations through the same `call`).
 
 Checked with two dev copies sharing a registry, one with `examples/shadcn-vite` and one with a copy of it: `parity tabs`
 listed both; `state` reached each by folder (in any case and slashes) and from inside each project's folder; `exec` ran
