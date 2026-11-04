@@ -58,8 +58,9 @@ jobs:
       output-dir: apps/desktop/storybook-static
       build-secret-env: VITE_TLDRAW_LICENSE_KEY
       comment: false
-    secrets:
-      BUILD_SECRET: ${{ secrets.VITE_TLDRAW_LICENSE_KEY }}
+    # Inherited, not passed: GitHub leaves the preview environment's Cloudflare token empty in the template's job
+    # otherwise (PAR-512, actions/runner#4453). The template reads the build secret by build-secret-env's name.
+    secrets: inherit
 
   comment:
     name: Comment

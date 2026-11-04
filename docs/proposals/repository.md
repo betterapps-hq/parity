@@ -309,7 +309,10 @@ pipeline itself:
   calls its merge workflow this way, so a pull request can never run a changed copy.
 - **Templates call their own actions by full path and release tag.** In a reusable workflow, `./` means the caller's
   repository.
-- **Secrets are passed by name,** never `secrets: inherit`, and each job asks for the least permissions it needs.
+- **Secrets are passed by name,** not `secrets: inherit`, and each job asks for the least permissions it needs. The
+  exception is a template whose job reads a GitHub environment's secrets, such as `publish-storybook`: GitHub leaves
+  them empty unless the caller inherits its secrets
+  ([actions/runner#4453](https://github.com/actions/runner/issues/4453), PAR-512).
 - **CI is shared as far as `pnpm verify` goes.** Jobs only one repository has, such as Buildkit's database servers or
   Copacker's end-to-end tests, stay in that repository's `ci.yml` beside the call.
 
