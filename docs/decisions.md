@@ -2952,3 +2952,24 @@ calls:
   left on the service's side is Vite starting in the builder's process, which needs discovery's results; running
   discovery while the tools are found was tried and gained nothing, as both work on the service's one thread. Caching
   discovery, or starting the canvas before the guest loads, would go further, and each is a change of its own.
+
+## The app's UI kit moves to Buildkit's Base UI Nova (PAR-530)
+
+- **The app's shadcn components move to Buildkit's `@buildkitgg/shadcn-baseui-nova`,** as you asked on 2026-11-04, so
+  the 23 copies in `apps/desktop/src/renderer/components/ui` and their config leave the repository and nobody edits them
+  in place. The copies are radix-nova, and Buildkit publishes only Base UI styles; you said the app should use Base UI
+  only, so the move swaps Radix for Base UI too. The kit is a dependency under the alias its README suggests,
+  `@buildkitgg/shadcn-baseui-kit`, so code names no style. Only Storybook uses it until the migration.
+- **Each component is compared side by side in Storybook before its copy goes,** under Parity/Kit comparison/Side by
+  side: the app's copy and the kit's, with the same content and their popups open, each in its own frame, in the
+  toolbar's theme. Five copies were changed by hand: `kbd`, `command`, `context-menu`, `dropdown-menu` and `menubar`
+  show keys through `formatKeys`, `menubar` has the title bar's own look, and `sonner` follows the app's theme rather
+  than `next-themes`. Those show a third side, the kit with the change made from outside it, which is where it has to
+  live once the kit can't be edited. The rest are as `shadcn add` wrote them.
+- **Radix's menus and selects close when their window loses focus; Base UI's don't.** In the comparison, the app's side
+  doesn't hear its window lose focus, so its popups stay open beside the kit's, which take focus as they open. Whether
+  the app wants Radix's behaviour back is the migration's call.
+- **Prebundled dependencies import each lucide icon from its own file too.** The kit imports its icons from
+  lucide-react's index, which isn't prebundled (see Developing Parity), so a window drawing the kit fetched every icon
+  file, about 3,000 requests, and three such frames at once failed to load. `iconImportsPlugin` now rewrites a
+  dependency's icon imports as Vite prebundles it, as it does the app's own as they're served.
