@@ -49,10 +49,12 @@ import type { ProjectInfo } from "../../shared/protocol.ts"
 import { useProject } from "../canvas/context.ts"
 import { insertAtSelection, insertMime } from "../canvas/insert.ts"
 import { kindColors } from "../canvas/kinds.tsx"
+import { usePreviewOnScreen } from "../component-previews.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { type ProjectSession, workspace } from "../workspace.ts"
 import { Hint } from "./Hint.tsx"
 import { GuestIcon, iconCatalog, iconLibraries, iconStyles, iconsOf } from "./icons.tsx"
+import { PreviewPicture } from "./PreviewPicture.tsx"
 import { announceEdit } from "./project-edits.tsx"
 import { hasStories, openInStorybook } from "./storybook.ts"
 
@@ -442,7 +444,12 @@ function SourceSection({ source, open }: { source: Source; open: boolean }) {
               const failing = status && "error" in status
               const row = (
                 <Hint
-                  label={entry.evidence ? `${entry.key}, ${entry.evidence}` : entry.key}
+                  label={
+                    <>
+                      {entry.item.kind === "component" && <PreviewPicture component={entry.key} />}
+                      {entry.evidence ? `${entry.key}, ${entry.evidence}` : entry.key}
+                    </>
+                  }
                   detail={[
                     status && describeRenderStatus(status),
                     "Drag onto a design, or click to add it to the selection.",
@@ -492,7 +499,7 @@ function SourceSection({ source, open }: { source: Source; open: boolean }) {
                 )
               }
               return (
-                <div key={entry.key} className="group/asset relative">
+                <AssetRow key={entry.key} component={entry.item.kind === "component" ? entry.key : undefined}>
                   {menu ? (
                     <ContextMenu>
                       <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
@@ -513,12 +520,23 @@ function SourceSection({ source, open }: { source: Source; open: boolean }) {
                       </button>
                     </Hint>
                   )}
-                </div>
+                </AssetRow>
               )
             })}
           </div>
         ))}
     </section>
+  )
+}
+
+/** A row of the Components panel. A component's row on screen has its preview made first (PAR-207). */
+function AssetRow({ component, children }: { component: string | undefined; children: ReactNode }) {
+  const session = useProject()
+  const onScreen = usePreviewOnScreen(session.id, component)
+  return (
+    <div ref={onScreen} className="group/asset relative">
+      {children}
+    </div>
   )
 }
 

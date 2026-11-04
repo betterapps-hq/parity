@@ -12,6 +12,7 @@ import { Inspector } from "./chrome/Inspector.tsx"
 import { LeftPanel } from "./chrome/LeftPanel.tsx"
 import { StatusBar } from "./chrome/StatusBar.tsx"
 import { FloatingToolbar, ViewControls } from "./chrome/Toolbar.tsx"
+import { startPreviews } from "./component-previews.ts"
 import { OpeningProject, ProjectFailed } from "./ProjectStatus.tsx"
 import { useTool } from "./selection.ts"
 import { useTabs, workspace } from "./workspace.ts"
@@ -54,6 +55,10 @@ function CanvasArea({ tabId, shown }: { tabId: string; shown: boolean }) {
   const session = workspace.getTab(tabId)?.session
   const tool = useTool(session!.selection)
   const onEditor = useCallback((editor: Editor | undefined) => workspace.setEditor(tabId, editor), [tabId])
+
+  // Component previews are made in the background for as long as the tab is open (PAR-207).
+  const projectId = session?.id
+  useEffect(() => (projectId ? startPreviews(projectId) : undefined), [projectId])
 
   useEffect(() => {
     const editor = session?.editor

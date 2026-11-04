@@ -1,6 +1,8 @@
 import { existsSync, readFileSync, watch, writeFileSync } from "node:fs"
+import { readFile, utimes } from "node:fs/promises"
 import { availableParallelism } from "node:os"
 import { join } from "node:path"
+import { fitInside, previewSizes, type RenderPriority, renderQueue } from "@parity-app/core"
 import {
   app,
   BrowserWindow,
@@ -30,7 +32,9 @@ import { createUpdates } from "./updates.ts"
 const rendererUrl = process.env.PARITY_RENDERER_URL ?? "parity://app/index.html"
 // A standard, secure origin keeps storage and project CORS working when the UI comes from the installed files.
 protocol.registerSchemesAsPrivileged([
-  { scheme: "parity", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }
+  { scheme: "parity", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
+  // Component previews, which the window shows as plain images straight from the store (PAR-207).
+  { scheme: "parity-preview", privileges: { standard: true, secure: true } }
 ])
 const rendererOrigin = rendererUrl.startsWith("parity://app/") ? "parity://app" : new URL(rendererUrl).origin
 
@@ -97,8 +101,9 @@ function startService(): UtilityProcess {
     env: {
       ...process.env,
       PARITY_ALLOWED_ORIGINS: rendererOrigin,
-      // Frame bitmaps are kept in the app's own data, so an installed Parity never writes them into a project.
-      PARITY_BITMAP_DIR: join(app.getPath("userData"), "bitmaps"),
+      // Frame bitmaps and component previews are kept in the app's own data, so an installed Parity never writes them
+      // into a project.
+      PARITY_BITMAP_DIR: bitmapFolder(),
       // Names this copy in the agent file, so a restarted service takes its own file back (PAR-280).
       PARITY_APP_PID: String(process.pid)
     }
@@ -112,6 +117,16 @@ function startService(): UtilityProcess {
             type: "render-result",
             id: message.id,
             error: error instanceof Error ? error.message : String(error)
+          } satisfies MainMessage)
+      )
+    } else if (message.type === "preview") {
+      renderPreview(message.job, message.crop, message.priority).then(
+        (result) => child.postMessage({ type: "preview-result", id: message.id, ...result } satisfies MainMessage),
+        (error: unknown) =>
+          child.postMessage({
+            type: "preview-result",
+            id: message.id,
+            failed: error instanceof Error ? error.message : String(error)
           } satisfies MainMessage)
       )
     } else if (message.type === "console") {
@@ -487,7 +502,8 @@ ipcMain.handle("canvas:metrics", async (event): Promise<ProcessUsage[]> => {
 // Agents measure and capture frames offscreen, so their work never moves the person's camera.
 let renderWindow: BrowserWindow | undefined
 let renderLoaded: Promise<void> | undefined
-let renderQueue: Promise<unknown> = Promise.resolve()
+// One job at a time, canvas bitmaps and agents' renders before component previews (PAR-207).
+const offscreen = renderQueue()
 // The window holds its page and every project module graph it imported, which only closing it returns, so it closes a
 // minute after its last job and the next job opens it again.
 const renderIdle = idleClose(60_000, closeRenderWindow)
@@ -516,6 +532,79 @@ function ensureRenderWindow(): Promise<BrowserWindow> {
 }
 
 function renderFrame(job: RenderJob, capture: boolean): Promise<{ frame?: RenderedFrame; png?: string }> {
+  return renderOffscreen("render", job, capture || !!job.audit, async (window, frame, width, height) => {
+    if (job.audit) {
+      frame.issues = (await window.webContents.executeJavaScript(
+        "window.canvasAudit()",
+        true
+      )) as RenderedFrame["issues"]
+    }
+    if (!capture) return { frame }
+    const image = await window.webContents.capturePage({ x: 0, y: 0, width, height })
+    return { frame, png: image.toPNG().toString("base64") }
+  })
+}
+
+/** A component preview's pictures, base64 PNGs, with the large one's size. */
+interface PreviewPictures {
+  thumb: string
+  large: string
+  width: number
+  height: number
+}
+
+/**
+ * Draws a component preview and crops it to the element `crop` names, scaled down to the two sizes previews are kept
+ * at (PAR-207). A component that fails to draw gives its error.
+ */
+async function renderPreview(
+  job: RenderJob,
+  crop: string,
+  priority: Exclude<RenderPriority, "render">
+): Promise<{ pictures: PreviewPictures } | { error: string }> {
+  let pictures: PreviewPictures | undefined
+  const { frame } = await renderOffscreen(priority, job, true, async (window, drawn) => {
+    const box = drawn.nodes.find((node) => node.id === crop)
+    if (!box) return { frame: drawn }
+    const image = await window.webContents.capturePage({
+      x: Math.floor(box.x * job.scale),
+      y: Math.floor(box.y * job.scale),
+      width: Math.max(1, Math.ceil(box.width * job.scale)),
+      height: Math.max(1, Math.ceil(box.height * job.scale))
+    })
+    const { width, height } = image.getSize()
+    const scaled = (size: { width: number; height: number }) => {
+      const fitted = fitInside(width, height, size)
+      return fitted.width === width && fitted.height === height ? image : image.resize({ ...fitted, quality: "best" })
+    }
+    const large = scaled(previewSizes.large)
+    pictures = {
+      thumb: scaled(previewSizes.thumbnail).toPNG().toString("base64"),
+      large: large.toPNG().toString("base64"),
+      ...large.getSize()
+    }
+    return { frame: drawn }
+  })
+  if (frame?.error) return { error: frame.error }
+  if (!pictures) return { error: "It drew nothing to take a picture of" }
+  return { pictures }
+}
+
+/**
+ * Draws a job in the offscreen window when its turn comes (see `renderQueue`). When it's to be looked at whole, as a
+ * capture or a check does, the window is made as tall as the frame and left to settle before `then`.
+ */
+function renderOffscreen(
+  priority: RenderPriority,
+  job: RenderJob,
+  whole: boolean,
+  then: (
+    window: BrowserWindow,
+    frame: RenderedFrame,
+    width: number,
+    height: number
+  ) => Promise<{ frame: RenderedFrame; png?: string }>
+): Promise<{ frame: RenderedFrame; png?: string }> {
   // Held from the moment it's queued, so the window never closes under a job or with one waiting.
   const done = renderIdle.use()
   const run = async () => {
@@ -526,28 +615,48 @@ function renderFrame(job: RenderJob, capture: boolean): Promise<{ frame?: Render
       `window.canvasRender(${JSON.stringify(job)})`,
       true
     )) as RenderedFrame
-    if ((!capture && !job.audit) || frame.error) return { frame }
+    if (!whole || frame.error) return { frame }
     // The whole frame is in view, so a capture or a contrast check sees all of it.
     const height = Math.max(1, Math.ceil(frame.height * job.scale))
     window.setContentSize(width, height)
     await window.webContents.executeJavaScript("window.canvasSettle()", true)
-    if (job.audit) {
-      frame.issues = (await window.webContents.executeJavaScript(
-        "window.canvasAudit()",
-        true
-      )) as RenderedFrame["issues"]
-    }
-    if (!capture) return { frame }
-    const image = await window.webContents.capturePage({ x: 0, y: 0, width, height })
-    return { frame, png: image.toPNG().toString("base64") }
+    return then(window, frame, width, height)
   }
-  const result = renderQueue.then(run, run).finally(done)
-  renderQueue = result.catch(() => undefined)
-  return result
+  return offscreen.add(priority, run).finally(done)
+}
+
+/** Where kept frame bitmaps and component previews go, under the app's own data. */
+function bitmapFolder(): string {
+  return join(app.getPath("userData"), "bitmaps")
+}
+
+/**
+ * Serves a component preview's picture from the store, as `parity-preview://<project>/<key>-<size>.png`, the address
+ * the service gives. Showing it counts as using it, for the cache's limits. Its name is its content, so the same
+ * address never shows another picture.
+ */
+async function servePreview(request: Request): Promise<Response> {
+  const { host, pathname } = new URL(request.url)
+  const name = pathname.slice(1)
+  if (!/^[0-9a-f]{24}$/.test(host) || !/^[0-9a-f]{40}-(thumb|large)\.png$/.test(name)) {
+    return new Response(null, { status: 400 })
+  }
+  const file = join(bitmapFolder(), host, "previews", name)
+  try {
+    const png = await readFile(file)
+    const now = new Date()
+    void utimes(file, now, now).catch(() => undefined)
+    return new Response(png, {
+      headers: { "content-type": "image/png", "cache-control": "max-age=31536000, immutable" }
+    })
+  } catch {
+    return new Response(null, { status: 404 })
+  }
 }
 
 void app.whenReady().then(() => {
   void installedBuild.get()
+  protocol.handle("parity-preview", servePreview)
   protocol.registerSource("parity", {
     routes: [{ match: { host: "app" }, source: { type: "directory", root: join(import.meta.dirname, "renderer") } }]
   })

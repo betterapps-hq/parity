@@ -1,5 +1,6 @@
 export * from "./arrange.ts"
 export * from "./clipboard.ts"
+export * from "./component-preview.ts"
 export * from "./components.ts"
 export * from "./create.ts"
 export * from "./design-changes.ts"

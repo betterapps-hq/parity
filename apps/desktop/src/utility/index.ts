@@ -9,6 +9,7 @@ import { handleConsoleResult } from "./console.ts"
 import { undoProjectEdit } from "./edits.ts"
 import { importImage } from "./images.ts"
 import { addLibrary, catalogFor, importStyles } from "./libraries.ts"
+import { lookupPreviews, makePreview } from "./previews.ts"
 import { dismissProcess, listProcesses, restartProcess, stopProcess } from "./processes.ts"
 import {
   closeProject,
@@ -24,7 +25,7 @@ import {
   saveDocumentCopy,
   saveTokens
 } from "./projects.ts"
-import { handleRenderResult, renderOffscreen } from "./render.ts"
+import { handlePreviewResult, handleRenderResult, renderOffscreen } from "./render.ts"
 import { openStorybook } from "./storybook.ts"
 
 // Dependencies such as Rollup probe process.execPath. In an installed app that is Parity.exe, so their children
@@ -46,15 +47,17 @@ const handlers: Handlers = {
     const { frame, png } = await renderOffscreen(job, true)
     if (frame.error || !png) return {}
     const code = codeServedAt(job.projectId, job.guestUrl)
-    if (code) void code.then((fingerprint) => storeBitmap(fingerprint, job, png))
+    if (code) void code.then(({ fingerprint }) => storeBitmap(fingerprint, job, png))
     return { png }
   },
   "frames.stored": async ({ job }) => {
     const code = codeServedAt(job.projectId, job.guestUrl)
-    const png = code && (await storedBitmap(await code, job))
+    const png = code && (await storedBitmap((await code).fingerprint, job))
     return png ? { png } : {}
   },
   "frames.clearStored": clearBitmaps,
+  "previews.lookup": async ({ previews }) => ({ previews: await lookupPreviews(previews) }),
+  "previews.make": ({ preview, priority }) => makePreview(preview, priority),
   "accessibility.check": (params) => checkAccessibility(editorWindow(), params),
   "project.components": projectComponents,
   "project.correctComponents": correctComponents,
@@ -131,6 +134,8 @@ process.parentPort.on("message", (event: { data: MainMessage; ports: MessagePort
     if (port) connect(port)
   } else if (event.data.type === "render-result") {
     handleRenderResult(event.data)
+  } else if (event.data.type === "preview-result") {
+    handlePreviewResult(event.data)
   } else if (event.data.type === "console-result") {
     handleConsoleResult(event.data)
   } else if (event.data.type === "builders") {

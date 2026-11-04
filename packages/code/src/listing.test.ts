@@ -11,6 +11,7 @@ import {
   filesChanged,
   findAppComponents,
   importersOf,
+  importSpecifiers,
   leftOutChanges,
   type ParsedComponent,
   readChangedFiles
@@ -422,5 +423,22 @@ describe("files changing", () => {
       "src/b.tsx"
     ])
     expect(await importersOf(root, files, ["src/components/ui/index.ts"], tsconfig)).toEqual(["src/c.tsx"])
+  })
+})
+
+describe("importSpecifiers", () => {
+  it("reads imports, re-exports, bare imports and dynamic imports", () => {
+    const source = [
+      `import { Button } from "./button"`,
+      `export * from "@/lib/utils"`,
+      `import "./styles.css"`,
+      `const page = import("./pages/home")`
+    ].join("\n")
+    expect(importSpecifiers(source)).toEqual(["./button", "@/lib/utils", "./styles.css", "./pages/home"])
+  })
+
+  it("reads a stylesheet's @imports, with or without url()", () => {
+    const source = `@import "tailwindcss";\n@import url("./theme.css");`
+    expect(importSpecifiers(source, true)).toEqual(["tailwindcss", "./theme.css"])
   })
 })

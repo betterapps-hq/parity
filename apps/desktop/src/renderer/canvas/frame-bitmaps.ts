@@ -25,6 +25,17 @@ const bitmaps = new Map<string, Promise<string | undefined | typeof failed>>()
 const wanted = new Map<string, number>()
 /** One capture at a time, so agents' renders and exports still get their turn in the offscreen window. */
 let queue: Promise<unknown> = Promise.resolve()
+/** Frames on the canvas still waiting for their first bitmap, kept or captured. */
+let waiting = 0
+
+/**
+ * How many frames on the canvas are waiting for a bitmap: to settle, to be read from disk or to be captured. Component
+ * previews wait until there are none, so the canvas's own bitmaps always come first (PAR-207). A frame whose capture
+ * failed stops counting, so one that can't be captured doesn't hold previews back.
+ */
+export function bitmapsWaiting(): number {
+  return waiting
+}
 
 const guests = new WeakMap<object, number>()
 let nextGuest = 1
@@ -113,12 +124,19 @@ export function useFrameBitmap({ key, job }: FrameShows): string | undefined {
   useEffect(() => {
     let current = true
     let timer: ReturnType<typeof setTimeout>
+    let counted = true
+    waiting++
+    const settle = () => {
+      if (counted) waiting--
+      counted = false
+    }
     want(key, 1)
     // A capture that failed, as the offscreen window's can on a busy machine, is tried again later rather than leaving
     // the frame without a bitmap for good.
     const take = (attempt: number) =>
       void capture(key, latest.current).then((src) => {
         if (!current) return
+        settle()
         if (src === failed) timer = setTimeout(() => take(attempt + 1), retryMs * Math.min(2 ** attempt, 8))
         else setShown({ key, src })
       })
@@ -131,11 +149,15 @@ export function useFrameBitmap({ key, job }: FrameShows): string | undefined {
       void stored(key, latest.current).then((src) => {
         if (!current) return
         if (src === undefined) timer = setTimeout(() => take(0), Math.max(0, settleMs - (performance.now() - asked)))
-        else setShown({ key, src })
+        else {
+          settle()
+          setShown({ key, src })
+        }
       })
     }
     return () => {
       current = false
+      settle()
       want(key, -1)
       clearTimeout(timer)
     }

@@ -26,3 +26,36 @@ export function handleRenderResult(result: Extract<MainMessage, { type: "render-
   if (result.error || !result.frame) request.reject(new Error(result.error ?? "The frame didn't render"))
   else request.resolve({ frame: result.frame, png: result.png })
 }
+
+/** A component preview drawn offscreen: its pictures as base64 PNGs and the large one's size. */
+export type PreviewPictures = NonNullable<Extract<MainMessage, { type: "preview-result" }>["pictures"]>
+
+const previews = new Map<
+  number,
+  { resolve(drawn: { pictures: PreviewPictures } | { error: string }): void; reject(error: Error): void }
+>()
+
+/**
+ * Draws a component preview in the offscreen render window, once every canvas bitmap and agent render waiting has had
+ * its turn, and gives its pictures cropped to the element `crop` names, or why its component didn't draw (PAR-207).
+ */
+export function renderPreview(
+  job: RenderJob,
+  crop: string,
+  priority: "visible" | "idle"
+): Promise<{ pictures: PreviewPictures } | { error: string }> {
+  return new Promise((resolve, reject) => {
+    const id = nextId++
+    previews.set(id, { resolve, reject })
+    process.parentPort.postMessage({ type: "preview", id, job, crop, priority } satisfies ServiceMessage)
+  })
+}
+
+export function handlePreviewResult(result: Extract<MainMessage, { type: "preview-result" }>): void {
+  const request = previews.get(result.id)
+  previews.delete(result.id)
+  if (!request) return
+  if (result.pictures) request.resolve({ pictures: result.pictures })
+  else if (result.error) request.resolve({ error: result.error })
+  else request.reject(new Error(result.failed ?? "The preview didn't draw"))
+}

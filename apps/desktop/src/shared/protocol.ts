@@ -101,8 +101,18 @@ export interface ServiceMethods {
    * (PAR-158). It's asked for before anything is captured, so a project opened again shows its frames zoomed out at once.
    */
   "frames.stored": { params: { job: RenderJob }; result: { png?: string } }
-  /** Removes every frame bitmap kept on disk, for View > Clear bitmap cache. */
+  /** Removes every frame bitmap and component preview kept on disk, for View > Clear bitmap cache. */
   "frames.clearStored": { params: undefined; result: undefined }
+  /**
+   * What's kept of components' previews for the code their jobs draw (PAR-207): each one's key and, when it's made
+   * for that key, its pictures; else the latest one made before, to show while it's made again. Nothing is drawn.
+   */
+  "previews.lookup": { params: { previews: PreviewJob[] }; result: { previews: ComponentPreview[] } }
+  /**
+   * Makes a component's preview in the offscreen window, behind canvas bitmaps and agents' renders, and keeps it on
+   * disk. One already made for its key is given back without drawing.
+   */
+  "previews.make": { params: { preview: PreviewJob; priority: "visible" | "idle" }; result: ComponentPreview }
   /**
    * Checks a design with axe-core in every state, in the modes it shows, offscreen. Automated checks find only some
    * issues, so none found isn't a pass.
@@ -474,6 +484,36 @@ export interface RenderJob {
    * changes. Each frame starts from the compiled stylesheet and lays these over it, so no frame inherits another's.
    */
   previews?: TokenChange[]
+}
+
+/** A component's preview to look up or make: the job that draws it, as inserting it would place it. */
+export interface PreviewJob {
+  component: string
+  job: RenderJob
+}
+
+/** A preview's pictures, which the window shows as plain images from `parity-preview:` addresses. */
+export interface PreviewImage {
+  /** At most 240 by 152 pixels, for list rows, grid tiles and the picker. */
+  thumb: string
+  /** At most 608 by 352 pixels, for the card. */
+  large: string
+  /** The large picture's size, in pixels; the thumbnail has its shape. */
+  width: number
+  height: number
+}
+
+/** What's kept of a component's preview for its code as it's drawn now. */
+export interface ComponentPreview {
+  component: string
+  /** Its name on disk, from what's drawn and the files it depends on (`previewKey`). */
+  key: string
+  /** Made for this key; else not yet, or it failed. */
+  image?: PreviewImage
+  /** Why it couldn't be drawn for this key. */
+  error?: string
+  /** The latest made before, for older code, to show dimmed until this key's is made. */
+  last?: PreviewImage
 }
 
 export interface RenderedFrame {
