@@ -4,7 +4,6 @@
 // work. Only a change to the main process or the preload script restarts Electron.
 // Usage: pnpm dev [project-root]
 //   PARITY_STANDARD_ELECTRON=1  run Electron as installed, not Parity's copy of it (scripts/parity-electron.ts)
-//   PARITY_AGENT_TAKE_OVER=1    take agents from a Parity already running, giving them back on quit
 import { type ChildProcess, spawn } from "node:child_process"
 import { cpSync } from "node:fs"
 import { join, resolve } from "node:path"

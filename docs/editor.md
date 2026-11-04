@@ -2735,10 +2735,11 @@ visually; their id truncation regression is covered by `caller.test.ts`.
 ### Shared execute contract (PAR-451)
 
 CLI `exec` and MCP `execute` use the same operation in `packages/cli/src/execute.ts`. Both default the task label to
-"Edit designs" and the tab to the active tab. A request contains a snippet or a retry id, with optional ordered patches.
-Ambiguous requests, blank supplied labels/tabs and malformed patches are rejected before contacting the app. A failed
-execution includes retry details and is a failure in both transports. CLI file/stdin and MCP image content remain
-adapter responsibilities; execution still lands as one undoable step through the desktop.
+"Edit designs" and the tab as every call does (see "Which copy of the app a call reaches"). A request contains a snippet
+or a retry id, with optional ordered patches. Ambiguous requests, blank supplied labels/tabs and malformed patches are
+rejected before contacting the app. A failed execution includes retry details and is a failure in both transports. CLI
+file/stdin and MCP image content remain adapter responsibilities; execution still lands as one undoable step through the
+desktop.
 
 `packages/cli/src/execute.test.ts` exercises both actual entry points against local RPC: discovery, stdin and file
 input, explicit labels/tabs, defaults, retry patches, invalid requests, success output and images, failed execution and
@@ -2795,6 +2796,32 @@ text.
 Checked in the running app on `examples/shadcn-vite`: unknown tab, component, design and state through the CLI with
 `--json`, bounded tokens, and an execute that applied and was renamed back. Gaps: the end-to-end suite doesn't drive the
 CLI; `get_app_state` is unbounded (53 KB for 61 designs), left to PAR-479.
+
+### Which copy of the app a call reaches (PAR-514)
+
+Several copies of Parity can run at once, each with its own projects open, and every CLI or MCP call goes to the copy
+that has its project. Each copy writes an entry to `~/.parity/agents` as its service starts and main removes it as the
+copy quits. The CLI asks each copy for its tabs and when its window last had focus, chooses the copy and tab by the
+rules in `packages/agent/src/routing.ts`, and sends that exact tab. `--tab` takes an id, folder or name; `--tab active`
+is the active tab of the copy focused last; without `--tab`, a call goes to the open project the working folder is in,
+else to `active`. A project open in two copies goes to the one running longest. `parity tabs` lists every copy's
+projects once. `PARITY_AGENT_FILE` keeps a copy apart, reachable only through that file.
+
+Implementation: `packages/agent/src/routing.ts` (the rules, data in and out, also the app's tab matching in
+`renderer/agent/handlers.ts`), `packages/agent/src/registry.ts` (entries, for the app and the CLI),
+`apps/desktop/src/utility/agent.ts` (writes the entry, answers `copy`), `apps/desktop/src/main/index.ts` (removes it),
+`packages/cli/src/client.ts` (routes each call) and `operations.ts` (each operation's routing, from its fields).
+
+Tests: `packages/agent/src/routing.test.ts` (two copies with different projects, the same project in both, `active` by
+focus, the working folder, nested projects, Windows case and slashes, nothing open or running),
+`packages/agent/src/registry.test.ts` (entries written, listed and removed; the file before the registry; a copy kept
+apart), and `packages/cli/src/copies.test.ts` (the real CLI against two fake copies: routing, `active`, the merged list,
+an unknown tab, a stale entry removed, and each operation's routing).
+
+Checked with two dev copies sharing a registry, one with `examples/shadcn-vite` and one with a copy of it: `parity tabs`
+listed both; `state` reached each by folder (in any case and slashes) and from inside each project's folder; `exec` ran
+in the second; `--tab active` followed the window brought to the front; an unknown tab listed both; and each copy's
+entry was gone after it quit, the other's kept. Gap: focus was given through DevTools, not a click.
 
 ### Where edits stand, for agents (PAR-481)
 

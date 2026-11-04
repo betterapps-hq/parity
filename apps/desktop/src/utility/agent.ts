@@ -1,5 +1,5 @@
 import { randomBytes, timingSafeEqual } from "node:crypto"
-import { mkdir, readFile, writeFile } from "node:fs/promises"
+import { mkdir, writeFile } from "node:fs/promises"
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
 import { homedir } from "node:os"
 import { join } from "node:path"
@@ -14,14 +14,8 @@ import {
   type ExecRequest,
   type ExecResult
 } from "@parity-app/agent"
-import {
-  type AgentConnection,
-  agentFilePath,
-  asksToTakeOver,
-  claimAgentFile,
-  connectionChain,
-  readAgentConnection
-} from "@parity-app/agent/connection"
+import { agentRegistry, entryPath, writeEntry } from "@parity-app/agent/registry"
+import { registryVersion } from "@parity-app/agent/routing"
 import {
   describeRenderStatus,
   type DesignModes,
@@ -42,17 +36,14 @@ interface WindowChannel {
   ): Promise<WindowMethods[M]["result"]>
 }
 
-/** Where the CLI and MCP find the running app: its local address and a per-launch token. */
-export const agentFile = agentFilePath(process.env, homedir())
 const screenshotDir = join(homedir(), ".parity", "screenshots")
 
 /**
  * The local endpoint agents use (through `parity` or its MCP server). It listens on 127.0.0.1 only and requires the
- * token written to the agent file, which only the person's own account can read.
+ * token in this copy's agent registry entry, which only the person's own account can read.
  *
- * Agents reach one copy of the app. A copy started beside a running one, as `pnpm perf` or a session's dev copy, leaves
- * the file to the running one unless `PARITY_AGENT_TAKE_OVER=1` asks it to take over; the main process gives the file
- * back, or removes it, when this copy quits (PAR-280).
+ * Every copy that runs has its own entry, and the CLI sends each call to the copy that has its project open
+ * (PAR-514). The main process removes the entry when this copy quits.
  */
 export async function startAgentServer(window: () => WindowChannel): Promise<void> {
   const token = randomBytes(24).toString("hex")
@@ -62,47 +53,17 @@ export async function startAgentServer(window: () => WindowChannel): Promise<voi
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
   const address = server.address()
   if (!address || typeof address === "string") throw new Error("The agent server has no port")
-  // The main process names the copy, so a service it restarts takes its own file back.
+  // The main process names the copy, so a service it restarts writes the same entry.
   const app = Number(process.env.PARITY_APP_PID) || process.ppid
-  const mine: AgentConnection = { url: `http://127.0.0.1:${address.port}`, token, pid: process.pid, app }
-  const current = readAgentConnection(await readFile(agentFile, "utf8").catch(() => undefined))
-  const claim = claimAgentFile({
-    current,
-    running: await firstAnswering(connectionChain(current)),
-    mine,
-    takeOver: asksToTakeOver(process.env)
+  const registry = agentRegistry(process.env, homedir())
+  writeEntry(registry, {
+    version: registryVersion,
+    url: `http://127.0.0.1:${address.port}`,
+    token,
+    app,
+    startedAt: Number(process.env.PARITY_APP_STARTED) || Date.now()
   })
-  if (claim.write) {
-    await mkdir(join(agentFile, ".."), { recursive: true })
-    await writeFile(agentFile, JSON.stringify(claim.write, null, 2), { mode: 0o600 })
-  }
-  if (claim.kind === "take") {
-    console.log(`[service] agents connect at 127.0.0.1:${address.port} (${agentFile})`)
-    return
-  }
-  server.close()
-  console.log(
-    `[service] agents keep reaching the Parity already running (${claim.owner.url}, through ${agentFile}); ` +
-      "start this one with PARITY_AGENT_TAKE_OVER=1 to take them, or set PARITY_AGENT_FILE to give it its own file"
-  )
-}
-
-/** The first connection whose copy answers with its token: one that's running, rather than a stale file's. */
-async function firstAnswering(chain: AgentConnection[]): Promise<AgentConnection | undefined> {
-  for (const connection of chain) {
-    try {
-      const response = await fetch(`${connection.url}/rpc`, {
-        method: "POST",
-        headers: { authorization: `Bearer ${connection.token}`, "content-type": "application/json" },
-        body: JSON.stringify({ method: "ping" }),
-        signal: AbortSignal.timeout(2000)
-      })
-      if (response.ok) return connection
-    } catch {
-      // Not listening, or too busy to say: either way agents can't reach it.
-    }
-  }
-  return undefined
+  console.log(`[service] agents connect at 127.0.0.1:${address.port} (${entryPath(registry, app)})`)
 }
 
 async function handle(request: IncomingMessage, response: ServerResponse, token: string, window: () => WindowChannel) {
@@ -147,6 +108,9 @@ async function call(
   switch (method) {
     case "tabs":
       return window.request("agent.tabs", undefined)
+    // What the CLI routes each call by: this copy's tabs, and when its window last had focus (PAR-514).
+    case "copy":
+      return window.request("agent.copy", undefined)
     case "open":
       return window.request("agent.open", { root: String(params.root) })
     case "state": {
@@ -229,7 +193,7 @@ async function call(
     }
     default:
       throw new Error(
-        `Unknown method ${method}. Methods: tabs, open, state, status, modes, exec, screenshot, accessibility, problems, console, tokens, components, props`
+        `Unknown method ${method}. Methods: tabs, copy, open, state, status, modes, exec, screenshot, accessibility, problems, console, tokens, components, props`
       )
   }
 }

@@ -487,6 +487,9 @@ importers:
         specifier: 6.0.3
         version: 6.0.3
     devDependencies:
+      '@parity-app/agent':
+        specifier: workspace:*
+        version: link:../agent
       '@parity-app/core':
         specifier: workspace:*
         version: link:../core

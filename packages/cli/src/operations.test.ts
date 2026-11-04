@@ -20,7 +20,7 @@ import {
 } from "./client.ts"
 import { type ExecReply, type Screenshot, execResponse, structuredExec } from "./execute.ts"
 import { bounded, operations, skillOperation } from "./operations.ts"
-import { toolReply, transportFixture } from "./transport-fixture.ts"
+import { fixtureTab, toolReply, transportFixture } from "./transport-fixture.ts"
 
 const fixture = transportFixture({})
 const { requests, run, mcp } = fixture
@@ -96,10 +96,11 @@ const cases: Case[] = [
     method: "tabs",
     input: {},
     params: {},
-    result: [tab],
-    structured: { tabs: [tab] },
-    text: JSON.stringify({ tabs: [tab] }, null, 2),
-    mcpText: JSON.stringify({ tabs: [tab] })
+    // Every copy's tabs, from the question the CLI routes by rather than a call of its own.
+    result: [fixtureTab],
+    structured: { tabs: [fixtureTab] },
+    text: JSON.stringify({ tabs: [fixtureTab] }, null, 2),
+    mcpText: JSON.stringify({ tabs: [fixtureTab] })
   },
   {
     name: "state",
@@ -243,10 +244,13 @@ function expectedReply(text: string, structured: unknown, isError = false, image
 function invalid(message: string, path?: string) {
   return { error: { code: "invalid_input", message, retryable: false, ...(path ? { path } : {}) } }
 }
+/** What reaches the app: each transport's request, with the tab the CLI routed it to; `tabs` asks no more than routing. */
 function expectRequests(method: string, params: Record<string, unknown>) {
-  expect(requests).toHaveLength(2)
+  const { routing } = operations[method as keyof typeof operations]
+  const sent = routing === "tab" ? { tab: fixtureTab.id, ...params } : params
+  expect(requests).toHaveLength(routing === "copies" ? 0 : 2)
   for (const request of requests)
-    expect(request).toEqual(expect.objectContaining({ method, params, agent: "Contract Caller" }))
+    expect(request).toEqual(expect.objectContaining({ method, params: sent, agent: "Contract Caller" }))
 }
 
 describe("remaining transport contracts", () => {
@@ -274,23 +278,27 @@ describe("remaining transport contracts", () => {
     }
   )
 
-  it.each(cases)("preserves $name RPC errors with the app's code", async (entry) => {
-    fixture.response = {
-      error: "Shop is still opening",
-      details: { code: "tab_not_ready", retryable: true }
+  // A copy that can't list its tabs is passed over, so `tabs` has no app error to pass on.
+  it.each(cases.filter((entry) => entry.name !== "tabs"))(
+    "preserves $name RPC errors with the app's code",
+    async (entry) => {
+      fixture.response = {
+        error: "Shop is still opening",
+        details: { code: "tab_not_ready", retryable: true }
+      }
+      const [cli, json, protocol] = await Promise.all([
+        run(entry.cli),
+        run([...entry.cli, "--json"]),
+        mcp(entry.input, entry.tool)
+      ])
+      expect(cli.code).toBe(1)
+      expect(cli.stderr.trim()).toBe("Shop is still opening")
+      const failure = { error: { code: "tab_not_ready", message: "Shop is still opening", retryable: true } }
+      expect(json.code).toBe(1)
+      expect(JSON.parse(json.stdout)).toEqual(failure)
+      expect(toolReply(protocol.stdout)).toEqual(expectedReply("Shop is still opening", failure, true))
     }
-    const [cli, json, protocol] = await Promise.all([
-      run(entry.cli),
-      run([...entry.cli, "--json"]),
-      mcp(entry.input, entry.tool)
-    ])
-    expect(cli.code).toBe(1)
-    expect(cli.stderr.trim()).toBe("Shop is still opening")
-    const failure = { error: { code: "tab_not_ready", message: "Shop is still opening", retryable: true } }
-    expect(json.code).toBe(1)
-    expect(JSON.parse(json.stdout)).toEqual(failure)
-    expect(toolReply(protocol.stdout)).toEqual(expectedReply("Shop is still opening", failure, true))
-  })
+  )
 
   it.each([
     {
@@ -394,7 +402,7 @@ describe("remaining transport contracts", () => {
 
   it("reads an unknown code from the app as app_error rather than trusting it", async () => {
     fixture.response = { error: "Something broke", details: { code: "made_up", retryable: true } }
-    const [cli, protocol] = await Promise.all([run(["tabs", "--json"]), mcp({}, "get_tabs")])
+    const [cli, protocol] = await Promise.all([run(["state", "--json"]), mcp({}, "get_app_state")])
     const failure = { error: { code: "app_error", message: "Something broke", retryable: false } }
     expect(JSON.parse(cli.stdout)).toEqual(failure)
     expect(toolReply(protocol.stdout)).toEqual(expectedReply("Something broke", failure, true))

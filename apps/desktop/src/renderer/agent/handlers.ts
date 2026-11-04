@@ -1,4 +1,5 @@
 import type { IconNames, IconSet } from "@parity-app/agent"
+import { activeTab, matchTab } from "@parity-app/agent/routing"
 import { type ChangeConflict, CodedError, errorDetails, type LibraryInfo, unknownReference } from "@parity-app/core"
 import { toast } from "sonner"
 import type {
@@ -18,8 +19,16 @@ import { presence } from "./presence.ts"
  * changes in the service, and apply them here as one undoable step, so people see them land and can undo them.
  */
 export function serveAgents(): void {
+  // When the person last used this copy, which `--tab active` and calls without a tab are routed by (PAR-514). A window
+  // that opens with focus has been used since it opened.
+  if (document.hasFocus()) focusedAt = Date.now()
+  window.addEventListener("focus", () => {
+    focusedAt = Date.now()
+  })
   window.canvasHost.serve((method: WindowMethod, params: unknown) => settle(() => answer(method, params)))
 }
+
+let focusedAt: number | undefined
 
 /** An answer as data, since only a failure's message would cross the bridge to the preload script. */
 async function settle(run: () => Promise<unknown>): Promise<ServeAnswer> {
@@ -35,6 +44,8 @@ async function answer(method: WindowMethod, params: unknown): Promise<unknown> {
   switch (method) {
     case "agent.tabs":
       return workspace.summaries()
+    case "agent.copy":
+      return { tabs: workspace.summaries(), ...(focusedAt === undefined ? {} : { focusedAt }) }
     case "agent.open": {
       const { root } = params as WindowMethods["agent.open"]["params"]
       const tab = await workspace.open(root)
@@ -83,14 +94,12 @@ async function answer(method: WindowMethod, params: unknown): Promise<unknown> {
   }
 }
 
-/** A tab by id, root or name; the active tab when none is given. */
+/** A tab by id, root or name, as the CLI matches one when it routes a call; the active tab when none is given. */
 function findTab(reference: string | undefined): Tab {
   const tabs = workspace.getTabs()
-  const tab = reference
-    ? (tabs.find((candidate) => candidate.id === reference) ??
-      tabs.find((candidate) => candidate.session?.info.root === reference) ??
-      tabs.find((candidate) => candidate.title === reference))
-    : workspace.getActive()
+  const named = reference && reference !== activeTab ? reference : undefined
+  const found = named && matchTab(workspace.summaries(), named)
+  const tab = named ? tabs.find((candidate) => found && candidate.id === found.id) : workspace.getActive()
   if (!tab) {
     if (!reference) throw new CodedError("No project is open", { code: "unknown_tab", field: "tab" })
     const ids = tabs.map((candidate) => candidate.id)

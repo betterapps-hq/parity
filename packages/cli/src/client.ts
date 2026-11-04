@@ -1,13 +1,24 @@
 import { randomUUID } from "node:crypto"
-import { readFile } from "node:fs/promises"
 import { homedir } from "node:os"
-import { join } from "node:path"
-import { CodedError, readErrorDetails } from "@parity-app/core/errors"
+import { agentRegistry, isRunning, readEntries, removeStaleEntry } from "@parity-app/agent/registry"
+import {
+  type Copy,
+  type CopyEntry,
+  type CopyReport,
+  openTabs,
+  registryVersion,
+  type Request,
+  route
+} from "@parity-app/agent/routing"
+import { CodedError, readErrorDetails, unknownReference } from "@parity-app/core/errors"
 import { cliCallerName, sessionCallerId } from "./caller.ts"
 import type { ExecResponse } from "./execute.ts"
 
-/** Where the running app writes its address and token. */
-export const agentFile = process.env.PARITY_AGENT_FILE ?? join(homedir(), ".parity", "agent.json")
+/**
+ * Where running copies of the app say how to reach them: `~/.parity/agents`, or the one file `PARITY_AGENT_FILE` names
+ * for a copy kept apart from the person's.
+ */
+export const registry = agentRegistry(process.env, homedir())
 
 export type { OperationError } from "./errors.ts"
 export type { Edit, ExecResponse, Screenshot } from "./execute.ts"
@@ -27,28 +38,95 @@ export function setCaller(name: string | undefined, session = false): void {
 }
 
 /**
- * Calls the running Parity app. Fails with a clear message, and a code, when it isn't running or the call fails: the
- * app's own code when it gives one.
+ * How a call finds its copy of the app (PAR-514): `tab` goes to the copy that has the tab's project open, `open` to the
+ * copy that has the project or else the one the person used last, and `copies` asks every copy, for their tabs.
  */
-export async function call<T>(method: string, params: Record<string, unknown> = {}): Promise<T> {
-  let connection: { url: string; token: string }
-  try {
-    connection = JSON.parse(await readFile(agentFile, "utf8")) as { url: string; token: string }
-  } catch {
-    throw new CodedError(`Parity isn't running (no ${agentFile}). Start the app, then try again.`, {
+export type Routing = "tab" | "open" | "copies"
+
+/**
+ * Calls the running Parity app: the copy that has the call's project open, with the exact tab it chose, by the rules
+ * in `@parity-app/agent/routing`. Fails with a clear message, and a code, when no copy is running, none has the
+ * project, or the call fails: the app's own code when it gives one.
+ */
+export async function call<T>(
+  method: string,
+  params: Record<string, unknown> = {},
+  routing: Routing = "tab"
+): Promise<T> {
+  const copies = await runningCopies()
+  if (routing === "copies") return openTabs(copies) as T
+  const request: Request =
+    routing === "open"
+      ? { kind: "open", root: String(params.root) }
+      : { kind: "tab", ...(typeof params.tab === "string" ? { tab: params.tab } : {}), folder: process.cwd() }
+  const target = route(copies, request)
+  if (target.kind === "none") {
+    if (target.code === "not_running") throw new CodedError(target.message, { code: target.code, retryable: true })
+    const ids = target.open.map((tab) => tab.id)
+    throw unknownReference("unknown_tab", target.message, typeof params.tab === "string" ? params.tab : "", ids, "tab")
+  }
+  return send<T>(target.copy.entry, method, target.tab ? { ...params, tab: target.tab.id } : params)
+}
+
+/** Every copy that answers, with what it has open. An entry whose copy has quit is removed on the way. */
+async function runningCopies(): Promise<Copy<TabSummary>[]> {
+  const entries = readEntries(registry, homedir())
+  const newer = entries.find((entry) => entry.version > registryVersion)
+  if (newer) {
+    throw new CodedError(`The Parity at ${newer.url} is newer than this CLI. Update @parity-app/cli, then try again.`, {
+      code: "not_running",
+      retryable: false
+    })
+  }
+  const found = await Promise.all(
+    entries.map(async (entry) => {
+      const report = await reportOf(entry)
+      if (!report && !isRunning(entry.app)) removeStaleEntry(registry, entry)
+      return report ? [{ entry, report }] : []
+    })
+  )
+  const copies = found.flat()
+  if (entries.length > 0 && copies.length === 0) {
+    const where = entries.map((entry) => entry.url).join(", ")
+    throw new CodedError(`Parity isn't answering at ${where}. Is the app still running?`, {
+      code: "not_answering",
+      retryable: true
+    })
+  }
+  if (copies.length === 0) {
+    throw new CodedError(`Parity isn't running (nothing in ${registry.path}). Start the app, then try again.`, {
       code: "not_running",
       retryable: true
     })
   }
+  return copies
+}
+
+/** What a copy has open and when it was last used; just its tabs from an app too old to say more. */
+async function reportOf(entry: CopyEntry): Promise<CopyReport<TabSummary> | undefined> {
+  try {
+    return await send<CopyReport<TabSummary>>(entry, "copy", {}, 5000)
+  } catch (error) {
+    if (!(error instanceof CodedError) || error.details.code !== "app_error") return undefined
+    try {
+      return { tabs: await send<TabSummary[]>(entry, "tabs", {}, 5000) }
+    } catch {
+      return undefined
+    }
+  }
+}
+
+async function send<T>(entry: CopyEntry, method: string, params: Record<string, unknown>, timeout?: number) {
   let response: Response
   try {
-    response = await fetch(`${connection.url}/rpc`, {
+    response = await fetch(`${entry.url}/rpc`, {
       method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${connection.token}` },
-      body: JSON.stringify({ method, params, agent: caller, agentId: callerId })
+      headers: { "content-type": "application/json", authorization: `Bearer ${entry.token}` },
+      body: JSON.stringify({ method, params, agent: caller, agentId: callerId }),
+      ...(timeout === undefined ? {} : { signal: AbortSignal.timeout(timeout) })
     })
   } catch {
-    throw new CodedError(`Parity isn't answering at ${connection.url}. Is the app still running?`, {
+    throw new CodedError(`Parity isn't answering at ${entry.url}. Is the app still running?`, {
       code: "not_answering",
       retryable: true
     })

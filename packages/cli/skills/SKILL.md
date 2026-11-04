@@ -22,8 +22,10 @@ it.
 
 ## Tools
 
-The same tools are MCP tools and `parity` commands in a terminal. They act on a tab, which is one open project; the
-active tab is the default.
+The same tools are MCP tools and `parity` commands in a terminal. They act on a tab, which is one open project. Without
+`tab`, they act on the open project your working folder is in, and otherwise on `active`: what the person is looking at,
+the active tab of the Parity window they used last. When the person says "this" or "what I've selected" without naming a
+project, pass `tab: "active"` (`--tab active`) and read `get_app_state` for the selection.
 
 | MCP                   | CLI                          | What it does                                                                                                                                               |
 | --------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -53,14 +55,15 @@ failures and audit findings exit with 1 in the CLI and set MCP `isError`, with d
 `clear` to false; `get_props` defaults `all` to false. MCP project paths must be absolute; the CLI resolves relative
 folders from its working directory. Skill reading is local and needs no running app.
 
-The tools reach the Parity the person is running, through `~/.parity/agent.json`. A second copy, such as one `pnpm perf`
-or a dev session starts, leaves that to the copy already running unless it was started with `PARITY_AGENT_TAKE_OVER=1`,
-and gives it back when it quits. To reach a copy that writes its own file, point `PARITY_AGENT_FILE` at it:
+Several copies of Parity can run at once, each with its own projects open. Each call goes to the copy that has its
+project open, so naming the project is enough; `get_tabs` lists every copy's projects. A project open in two copies goes
+to the one that has been running longest. A copy kept apart with `PARITY_AGENT_FILE` is reached only through that file:
 
 ```sh
-parity tabs                                         # the person's app
-PARITY_AGENT_FILE=copy/agent.json pnpm dev &        # a copy of Parity with a file of its own
-PARITY_AGENT_FILE=copy/agent.json parity tabs       # that copy
+parity tabs                                         # every project open in any copy
+parity state --tab active                           # what the person is looking at, and their selection
+PARITY_AGENT_FILE=copy/agent.json pnpm dev &        # a copy of Parity kept apart
+PARITY_AGENT_FILE=copy/agent.json parity tabs       # just that copy
 ```
 
 Every tool returns its result as data too: MCP `structuredContent`, or `--json` in the CLI. Read that rather than the

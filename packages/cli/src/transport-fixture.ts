@@ -13,10 +13,24 @@ export function toolReply(stdout: string): unknown {
     .find((value) => value !== null && typeof value === "object" && "id" in value && value.id === 2)
 }
 
-/** Each test file owns its endpoint and subprocesses; no Electron or running app is needed. */
+/** The one project the fixture's app has open, which calls without a tab are routed to. */
+export const fixtureTab = { id: "project", name: "Project", root: "/fixture/project", active: true }
+
+/**
+ * Each test file owns its endpoint and subprocesses; no Electron or running app is needed. The endpoint answers the
+ * CLI's routing question (`copy`) itself, with `fixture.tabs`, and records every other request.
+ */
 export function transportFixture(defaultResult: unknown) {
-  const fixture: { response: unknown; directory: string; requests: unknown[]; run: typeof run; mcp: typeof mcp } = {
+  const fixture: {
+    response: unknown
+    tabs: unknown[]
+    directory: string
+    requests: unknown[]
+    run: typeof run
+    mcp: typeof mcp
+  } = {
     response: { result: defaultResult },
+    tabs: [fixtureTab],
     directory: "",
     requests: [],
     run,
@@ -27,8 +41,13 @@ export function transportFixture(defaultResult: unknown) {
   const server = createServer(async (request, reply) => {
     const chunks: Buffer[] = []
     for await (const chunk of request) chunks.push(Buffer.from(chunk))
-    requests.push(JSON.parse(Buffer.concat(chunks).toString("utf8")))
+    const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as { method?: string }
     reply.setHeader("content-type", "application/json")
+    if (body.method === "copy") {
+      reply.end(JSON.stringify({ result: { tabs: fixture.tabs, focusedAt: 1 } }))
+      return
+    }
+    requests.push(body)
     reply.end(JSON.stringify(fixture.response))
   })
   let directory = ""
@@ -51,6 +70,7 @@ export function transportFixture(defaultResult: unknown) {
   beforeEach(() => {
     requests.length = 0
     fixture.response = { result: defaultResult }
+    fixture.tabs = [fixtureTab]
   })
 
   function run(args: string[], input = "", env: Record<string, string | undefined> = {}) {
