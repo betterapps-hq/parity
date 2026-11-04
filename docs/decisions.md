@@ -1,5 +1,14 @@
 # Decisions
 
+- **A production promotion waiting for approval doesn't hold up the next beta (PAR-504).** v0.4.2's beta publish waited
+  until v0.4.1's pending production promotion was cancelled. The promote job held the `cd-desktop-publish` concurrency
+  group it shares with publishing while it waited for its environment's reviewers. The shared `cd-desktop-promote`
+  template now asks for `production`'s approval in an `approve` job that takes no lock. Only the approved `promote` job
+  takes `cd-desktop-publish`, so publishing and promotion still run one at a time, and production still needs Andrew's
+  approval. Pipelines' tests check that no job in the group waits on an environment. The fix is in Pipelines v1.12.1,
+  and `cd-desktop.yml` calls the templates at `main` (PAR-508), so it has no pin to move. A run that started under the
+  old template keeps the lock until its approval is given or it's cancelled.
+
 - **Desktop beta builds use the tldraw trial key (PAR-503).** Andrew supplied a trial key expiring on November 15, 2026,
   and asked for a new beta. It is stored in the repository's `VITE_TLDRAW_LICENSE_KEY` Actions secret and passed through
   the existing build-secret input; the key is not committed. Desktop 0.4.2 rebuilds with that key.
