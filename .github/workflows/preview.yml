@@ -1,0 +1,102 @@
+name: Preview
+
+# Builds to try for each pull request, through the shared templates (PAR-400, PAR-113): the CLI on pkg.pr.new, to run
+# with npx; the unsigned installers, as this run's artifacts; and Parity's Storybook, the real UI against the stand-in
+# service, as a Cloudflare Worker preview named for the pull request. One comment links all three. Each skips with a
+# notice until what it needs exists: pkg.pr.new's GitHub App, and the preview environment infra/cloudflare makes.
+on:
+  pull_request:
+
+# Shared with preview-cleanup.yml, so closing a pull request cancels a preview still building. A newer push cancels
+# the one before, since its installers and Storybook would only be replaced.
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Forks can't use the preview environment's secret or comment, and Dependabot's pull requests don't need previews.
+  npm:
+    name: CLI
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: betterapps-hq/pipelines/.github/workflows/preview-npm.yml@main
+    with:
+      packages: packages/cli
+      comment: false
+
+  desktop:
+    name: Installers
+    if: github.actor != 'dependabot[bot]'
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+    uses: betterapps-hq/pipelines/.github/workflows/preview-desktop.yml@main
+    with:
+      build-secret-env: VITE_TLDRAW_LICENSE_KEY
+      retention-days: 14
+      comment: false
+    secrets:
+      BUILD_SECRET: ${{ secrets.VITE_TLDRAW_LICENSE_KEY }}
+
+  storybook:
+    name: Storybook
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: betterapps-hq/pipelines/.github/workflows/publish-storybook.yml@main
+    with:
+      environment: preview
+      preview-name: pr-${{ github.event.pull_request.number }}
+      build-command: pnpm --filter @parity-app/desktop build-storybook
+      output-dir: apps/desktop/storybook-static
+      build-secret-env: VITE_TLDRAW_LICENSE_KEY
+      comment: false
+    secrets:
+      BUILD_SECRET: ${{ secrets.VITE_TLDRAW_LICENSE_KEY }}
+
+  comment:
+    name: Comment
+    needs: [npm, desktop, storybook]
+    if: >-
+      !cancelled() && github.event.pull_request.head.repo.full_name == github.repository && github.actor !=
+      'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      # The Storybook's line comes from here, since publish-storybook gives only its URL. preview-cleanup.yml replaces
+      # that line when the pull request closes.
+      - id: storybook
+        env:
+          URL: ${{ needs.storybook.outputs.url }}
+          RESULT: ${{ needs.storybook.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -n "$URL" ]; then
+            line="**Storybook:** $URL"
+          elif [ "$RESULT" = success ]; then
+            line="**Storybook:** not published, since the preview environment isn't set up yet: infra/cloudflare makes it."
+          else
+            line="**Storybook:** not published; [the run]($RUN_URL) says why."
+          fi
+          echo "line=$line" >> "$GITHUB_OUTPUT"
+      - uses: betterapps-hq/pipelines/github/actions/pr-comment@main
+        with:
+          marker: "<!-- parity preview -->"
+          body: |
+            ### Previews of this pull request
+
+            ${{ needs.npm.outputs.markdown || '**npm packages:** not published; the run says why.' }}
+
+            ${{ needs.desktop.outputs.markdown || '**Unsigned installers:** none were built; the run says why.' }}
+
+            ${{ steps.storybook.outputs.line }}
+
+            These are builds of this pull request to try, not releases, and one being here doesn't mean CI passed.

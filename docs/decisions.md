@@ -1990,6 +1990,23 @@ the Repository, CI and releases stream in Linear.
   - A pull request's Storybook is a Worker preview named for it, as the HOA app's previews are, and
     `unpublish-storybook` deletes it when the pull request closes.
   - It publishes what it builds or an artifact an earlier job built, so staging and production can get the same build.
+- **Pull requests' previews share one comment (PAR-400, PAR-113).** The work is in pipelines v1.13.0's `preview-npm` and
+  `preview-desktop`, beside `publish-storybook`. My calls:
+  - Each template can comment on its own, and gives its part of a comment as Markdown, so `preview.yml` turns their
+    comments off and writes one with `pr-comment`. The Storybook's line is Parity's, since its template gives only a
+    URL, and `preview-cleanup.yml` replaces it when the pull request closes.
+  - The installers are built again in the preview run rather than kept from CI's, which already packages them, so they
+    come from the steps a release uses. Public repositories' runners are free.
+  - Only the installers are kept, for 14 days: the update metadata and blockmaps matter to a release, not to someone
+    trying a build. Forks get them too, since they need no secret; Dependabot's pull requests get no previews.
+  - pkg-pr-new is pinned at 0.0.92 and packs with pnpm, so `workspace:` versions are written out and `prepack` runs as
+    in a release. Without its GitHub App it skips with a notice rather than failing.
+  - `publish-storybook` gained an optional build secret, as `cd-desktop-release` has, for the tldraw key. A Storybook is
+    public, so only a key meant for the browser goes there.
+  - `infra/cloudflare` is a project of its own beside `infra/github`, with its own state key, and only a `preview`
+    environment, since Parity has no staging or production Storybook. Terraform's templates now take `credentials`, the
+    provider secrets a project needs, and skip with a notice without them, so the project could land before its
+    Cloudflare tokens exist.
 - **Cloud services come from Terraform, and the pipelines expect what it makes,** as you said on 2026-10-29. My calls:
   - Each repository that needs one has a Terraform project in `infra/`, with its state in R2 and Terraform and the
     Cloudflare provider at Copacker's versions.

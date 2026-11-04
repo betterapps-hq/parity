@@ -11,36 +11,57 @@ on:
 permissions:
   contents: read
 
-# infra/github, the repository's rulesets, through the shared templates. The state bucket and its R2 endpoint are
-# repository variables. Until they and the credentials exist, the templates validate the project and skip the plan with
-# a notice.
+# Parity's Terraform projects, through the shared templates: infra/github, the repository's rulesets and environments,
+# and infra/cloudflare, the Worker pull requests' Storybooks are previews of (PAR-113). The state bucket and its R2
+# endpoint are organization variables. Until they and a project's credentials exist, the templates validate it and skip
+# the plan or apply with a notice.
 jobs:
   plan:
     if: github.event_name == 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: infra/github
+            credentials: TF_GITHUB_TOKEN
+          - project: infra/cloudflare
+            credentials: CLOUDFLARE_API_TOKEN TF_GITHUB_TOKEN
     permissions:
       contents: read
       pull-requests: write
     uses: betterapps-hq/pipelines/.github/workflows/terraform-plan.yml@main
     with:
-      working-directory: infra/github
+      working-directory: ${{ matrix.project }}
+      credentials: ${{ matrix.credentials }}
       state-bucket: ${{ vars.TF_STATE_BUCKET }}
       state-endpoint: ${{ vars.TF_STATE_ENDPOINT }}
     # Read-only credentials, since any branch's pull request plans with them.
     secrets:
       TF_STATE_ACCESS_KEY_ID: ${{ secrets.TF_STATE_READ_ACCESS_KEY_ID }}
       TF_STATE_SECRET_ACCESS_KEY: ${{ secrets.TF_STATE_READ_SECRET_ACCESS_KEY }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_READ_API_TOKEN }}
       TF_GITHUB_TOKEN: ${{ secrets.TF_GITHUB_READ_TOKEN }}
 
   # Forward selected organization/repository credentials. Environment secrets, when present, override them.
   apply:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: infra/github
+            credentials: TF_GITHUB_TOKEN
+          - project: infra/cloudflare
+            credentials: CLOUDFLARE_API_TOKEN TF_GITHUB_TOKEN
     uses: betterapps-hq/pipelines/.github/workflows/terraform-apply.yml@main
     with:
       environment: infrastructure
-      working-directory: infra/github
+      working-directory: ${{ matrix.project }}
+      credentials: ${{ matrix.credentials }}
       state-bucket: ${{ vars.TF_STATE_BUCKET }}
       state-endpoint: ${{ vars.TF_STATE_ENDPOINT }}
     secrets:
       TF_STATE_ACCESS_KEY_ID: ${{ secrets.TF_STATE_ACCESS_KEY_ID }}
       TF_STATE_SECRET_ACCESS_KEY: ${{ secrets.TF_STATE_SECRET_ACCESS_KEY }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       TF_GITHUB_TOKEN: ${{ secrets.TF_GITHUB_TOKEN }}

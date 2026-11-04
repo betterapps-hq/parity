@@ -48,6 +48,12 @@ to npm and of unsigned installers to GitHub Releases, as betas first and to ever
   trusts `cd-npm.yml` with the `npm` environment. Terraform has provisioned that environment, restricted to `main` with
   administrator bypass disabled, and adopted the repository's existing rulesets. A manually prepared release PR can use
   this publishing workflow without a release GitHub App or a stored npm token.
+- **Pull requests get previews** (PAR-400, PAR-113). `preview.yml` calls the shared `preview-npm`, `preview-desktop` and
+  `publish-storybook` and writes one comment linking all three; `preview-cleanup.yml` deletes the Storybook when the
+  pull request closes. The installers build on every pull request but Dependabot's. The CLI waits for pkg.pr.new's
+  GitHub App on the repository, and the Storybook for `infra/cloudflare`'s apply, which needs Cloudflare tokens in
+  `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_READ_API_TOKEN`; until then each says so in the comment and skips with a
+  notice, and Terraform skips that project.
 - **Automatic release PRs still wait for their GitHub App** (PAR-10). `release.yml` calls the shared `release-prepare`
   and `release-merge` after CI passes on `main`. Until `RELEASE_APP_CLIENT_ID` and `RELEASE_APP_PRIVATE_KEY` exist, it
   skips with a notice. The release templates at v1.7.0 give the hooks `origin/main` to compare the release commit with.
@@ -213,16 +219,29 @@ production.
 
 ## Previews
 
-- **Each pull request gets builds to try** (PAR-400): the CLI through pkg.pr.new, installable with `npx` from the URL it
-  comments, and the unsigned installers as the run's artifacts, linked from a comment.
-- **Parity's UI gets a web preview too** (PAR-113): its Storybook, built as a static site and deployed to Cloudflare
-  through the shared `publish-storybook` template to the preview environment, linked from the same comment and removed
-  when the pull request closes. It runs the real interface against the stand-in service in `stories/host.ts`, so a
-  change can be seen without installing anything. It isn't the whole app: the project service needs Node for files, each
-  project's Vite and the agent, so breakage only the desktop app has is the installers' to catch.
-- **The static build needs the example's frames first** (PAR-111). Stories load the example's guest module from
-  Storybook's Vite dev server, which a static build doesn't have, so the build emits it as a file.
-- **Pull requests from forks get no deployed preview,** since they can't use the Cloudflare secret.
+`.github/workflows/preview.yml` builds them on each push to a pull request, and a newer push cancels the run before it.
+One comment, which later runs edit, links what each job made or says why it didn't:
+
+- **The CLI through pkg.pr.new** (PAR-400): the shared `preview-npm` packs `packages/cli` with pnpm, as a release does,
+  and the comment gives `npx https://pkg.pr.new/@parity-app/cli@<commit>`. It needs pkg.pr.new's GitHub App installed on
+  the repository, and skips with a notice until it is. pkg.pr.new keeps what it's given, so nothing is deleted.
+- **The unsigned installers as the run's artifacts** (PAR-400): the shared `preview-desktop` builds them on Windows,
+  macOS and Linux with `cd-desktop-release`'s steps and the tldraw key from `VITE_TLDRAW_LICENSE_KEY`, keeps the `.exe`,
+  `.dmg` and `.AppImage` for 14 days, and links each. Downloading one needs a GitHub sign-in.
+- **Parity's UI as a web preview** (PAR-113): its Storybook, built as a static site (PAR-111) with the tldraw key, and
+  published by the shared `publish-storybook` to the `preview` environment as a Worker preview named `pr-<number>`, at
+  `https://pr-<number>-parity-storybook-preview.<subdomain>.workers.dev`. It runs the real interface against the
+  stand-in service in `stories/host.ts`, so a change can be seen without installing anything. It isn't the whole app:
+  the project service needs Node for files, each project's Vite and the agent, so breakage only the desktop app has is
+  the installers' to catch. `preview-cleanup.yml` deletes it through `unpublish-storybook` when the pull request closes,
+  and says so in the comment.
+- **The preview environment comes from Terraform:** `infra/cloudflare` uses the pipelines' `cloudflare-storybook` module
+  for the `parity-storybook-preview` Worker, the token that deploys it, and the environment's variables and secret, with
+  its state in R2 beside `infra/github`'s. `terraform.yml` plans and applies both projects, and skips `infra/cloudflare`
+  with a notice until `CLOUDFLARE_READ_API_TOKEN` (plans) and `CLOUDFLARE_API_TOKEN` (applies) exist. Until it's
+  applied, the Storybook skips with a notice too.
+- **Pull requests from forks get no deployed preview and no comment,** since they can't use the Cloudflare secret or
+  write comments. They still get the installers as artifacts. Dependabot's pull requests get no previews.
 - **Web apps in other repositories get a deployed preview per pull request,** removed when it closes, as Copacker, Spawn
   and the HOA app do today, through the `preview-web` template.
 
