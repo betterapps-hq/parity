@@ -2244,12 +2244,21 @@ data, in `bitmaps`, one folder per project and one PNG per bitmap.
   there's none is it captured, after what's left of the 1-second wait; frames showing the same bitmap share one read,
   and a capture that landed meanwhile wins. Every capture that rendered is kept, written beside its name and renamed so
   a reader never finds half a file. A frame that didn't render isn't kept.
+- **Four frames are captured at once (PAR-523),** each in an offscreen window of its own, so each is drawn, measured and
+  captured exactly as it was when one window took them one at a time. The canvas asks for as many captures at once as
+  there are windows (`offscreenWindows`, in `turns`), so an agent's render or export waits for at most the four under
+  way. A window opens only when a job finds the others busy, its first job taking about half a second more to load the
+  page and the project's modules, and all close a minute after the last job. A capture takes about 150 ms in its window:
+  drawing the frame (the 30 ms wait, components loading on demand, two animation frames), the window made as tall as the
+  frame and two more animation frames, then the capture and its PNG.
 - **What's kept is cleaned up** when the service starts and after every 50 writes: partial files a write left behind
   over a minute ago, every bitmap of a project none of whose bitmaps was shown in 30 days, and then the least recently
   shown past 200 MB, down to 180 MB. Showing a bitmap counts as using it. **View > Clear bitmap cache**, also in the
   actions search, removes them all; bitmaps on the canvas now are taken again when their frames next change.
 
-Code: `cacheRemovals` in `packages/core/src/bitmap-cache.ts`; `codeSnapshot` in
+Code: `cacheRemovals` in `packages/core/src/bitmap-cache.ts`; `renderQueue` and `offscreenWindows` in
+`packages/core/src/preview-order.ts`, and `turns` in `packages/core/src/turns.ts`; `renderOffscreen`,
+`ensureRenderWindow` and `closeRenderWindows` in `apps/desktop/src/main/index.ts`; `codeSnapshot` in
 `packages/project/src/code-fingerprint.ts`; `apps/desktop/src/utility/bitmap-store.ts`, and `codeServedAt` and the
 `fingerprints` kept per address in `utility/projects.ts`, with the components each address served; `drawnComponents` in
 `apps/desktop/src/shared/render-job.ts`; `withPngText` and `pngText` in `packages/core/src/png-text.ts`; the
@@ -2257,15 +2266,17 @@ Code: `cacheRemovals` in `packages/core/src/bitmap-cache.ts`; `codeSnapshot` in
 in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `clearBitmapCache` in `renderer/chrome/commands.ts`, in the View
 menu (`AppMenu.tsx`) and the actions search (`ActionsSearch.tsx`); `PARITY_BITMAP_DIR`, which main gives the service.
 
-Tests: `packages/core/src/bitmap-cache.test.ts` (6: nothing goes while under the cap, a project unused for 30 days goes
-whole and one with a recent bitmap keeps its older ones, the least recently used go past the cap down to what's kept,
-the age limit counts before the cap, an old partial file goes and a new one stays, and a partial file doesn't keep its
-project). `packages/project/src/code-fingerprint.test.ts` (6: the same for the same files and salt, new with the salt,
-new for an edited component, stylesheet or config, and the same with dependencies, build output, dot-folders and designs
-added). `apps/desktop/src/utility/bitmap-store.test.ts` (7: a bitmap kept from one address is found from another with
-its frame's height, one whose guest was given a component is found from a guest served it and not from one served it
-from another file, none for a file without a height, none for other code or another frame, no partial file left behind,
-an old project and an old partial file swept, and nothing once cleared). `apps/desktop/src/shared/render-job.test.ts` (2
+Tests: `packages/core/src/turns.test.ts` (2: no more than the limit run at once, the earliest waiting next, and a failed
+task frees its turn and fails for whoever gave it); `renderQueue`'s windows are covered under Component previews.
+`packages/core/src/bitmap-cache.test.ts` (6: nothing goes while under the cap, a project unused for 30 days goes whole
+and one with a recent bitmap keeps its older ones, the least recently used go past the cap down to what's kept, the age
+limit counts before the cap, an old partial file goes and a new one stays, and a partial file doesn't keep its project).
+`packages/project/src/code-fingerprint.test.ts` (6: the same for the same files and salt, new with the salt, new for an
+edited component, stylesheet or config, and the same with dependencies, build output, dot-folders and designs added).
+`apps/desktop/src/utility/bitmap-store.test.ts` (7: a bitmap kept from one address is found from another with its
+frame's height, one whose guest was given a component is found from a guest served it and not from one served it from
+another file, none for a file without a height, none for other code or another frame, no partial file left behind, an
+old project and an old partial file swept, and nothing once cleared). `apps/desktop/src/shared/render-job.test.ts` (2
 for `drawnComponents`: the components a tree draws, nested in slots and props, by where they come from, and the same
 whether served or given). `packages/core/src/png-text.test.ts` (4: text kept right after the header with valid CRCs and
 read back, replaced under the same keyword, none in a PNG without it, and what isn't a PNG left alone).
@@ -2276,7 +2287,11 @@ of their own; both were checked by reading `useFrameBitmap` and `restartBuilder`
 `examples/shadcn-vite`: the first session kept 119 bitmaps (1.1 MB) for 238 frames; started again, all 238 frames were
 shown from disk with no capture, about 2 seconds after the window loaded, the service answering each read in about a
 millisecond once it reached it; Clear bitmap cache emptied the folder and showed its toast. Before the fix to wait for
-the read, the service answered after the 1-second wait, so every frame was captured again anyway.
+the read, the service answered after the 1-second wait, so every frame was captured again anyway. The four windows were
+checked against one in debug copies on fresh profiles: of the 119 bitmaps both kept, 117 were the same file byte for
+byte, and 2 differed by at most 6 of 255 in a channel around a card's shadow, which is how they rasterize; a third
+differs between two runs with the same number of windows. That captures go to separate windows has no automated test;
+the end-to-end suite starts each copy on a fresh profile, so it captures its frames this way.
 
 ### Component previews, made offscreen and kept on disk (PAR-207)
 
@@ -2303,12 +2318,13 @@ picker.
   tsconfigs, tool configs and every lockfile, which stand for the packages imported (`sharedPreviewFiles`). So an edit
   changes only the keys of components that import what changed, a saved token or a stylesheet changes them all, and the
   same code gives the same keys after a restart. Library parts whose tree is their parent's share its key and picture.
-- **Canvas and agents first.** The offscreen window's jobs are one queue (`renderQueue`): canvas bitmaps and agents'
-  renders, then previews of rows on screen, then the rest. Nothing is made until the tab is the one shown, its canvas is
-  up and no frame on it is waiting for its bitmap (`bitmapsWaiting`). Then the window asks for one at a time
-  (`nextPreview`): a component whose row is on screen first, whatever the person is doing; the rest only after 2 seconds
-  with no pointer, key, wheel or drag and no edit, the person's or an agent's, and the pass stops before its next one as
-  soon as they work. The offscreen window's idle close still shuts it a minute after the last.
+- **Canvas and agents first.** The offscreen windows' jobs are one queue (`renderQueue`): canvas bitmaps and agents'
+  renders, then previews of rows on screen, then the rest. Previews are made one at a time, in one window, so with the
+  others free a preview never holds up a bitmap or an agent's render (PAR-523). Nothing is made until the tab is the one
+  shown, its canvas is up and no frame on it is waiting for its bitmap (`bitmapsWaiting`). Then the window asks for one
+  at a time (`nextPreview`): a component whose row is on screen first, whatever the person is doing; the rest only after
+  2 seconds with no pointer, key, wheel or drag and no edit, the person's or an agent's, and the pass stops before its
+  next one as soon as they work. The offscreen windows' idle close still shuts them a minute after the last job.
 - **States:** waiting, being made, made, updating (the last picture, dimmed, with "Updating its preview" until the new
   one is made) and fails to draw (with the error, kept, so the same code isn't drawn again on every open). One the
   offscreen window couldn't finish isn't kept and is tried again after the next lookup. The window looks every preview
@@ -2339,10 +2355,11 @@ in `packages/core/src/preview-order.ts`; `renderedComponents` in `packages/core/
 `AssetRow` in `chrome/AssetsPanel.tsx`; `bitmapsWaiting` in `renderer/canvas/frame-bitmaps.ts`; `passesToVoidElement` in
 `packages/code/src/props.ts`; `sampleText` and `shortenedText` in `packages/libgen/src/sample-text.ts`.
 
-Tests: `packages/core/src/preview-order.test.ts` (3 for `renderQueue`: canvas and agent jobs before previews on screen
-and those before the idle pass, one job at a time, and a failure going to its caller with the next job still run; 5 for
-`nextPreview`: nothing until the canvas settles, the first on screen even while the person works, the rest in order once
-idle, waiting out the rest of the idle time, and nothing left; 4 for `fitInside`).
+Tests: `packages/core/src/preview-order.test.ts` (5 for `renderQueue`: canvas and agent jobs before previews on screen
+and those before the idle pass, one job at a time with one window, one job in each window at once in the lowest free,
+one preview at a time with the other windows left to bitmaps, and a failure going to its caller with the next job still
+run; 5 for `nextPreview`: nothing until the canvas settles, the first on screen even while the person works, the rest in
+order once idle, waiting out the rest of the idle time, and nothing left; 4 for `fitInside`).
 `packages/project/src/preview-key.test.ts` (9 for `resolveModule`, 2 for `importedFiles`, 2 for `moduleClosure`, 1 for
 `sharedPreviewFiles`, and 6 for `previewKey` on files on disk: the same for the same code and tree, new for a component
 importing the changed file and not for one that doesn't, new for every component when a stylesheet or one it imports
@@ -2450,8 +2467,18 @@ Electron's own start comes before, by about 0.1 seconds; a reopen from the open.
 | Started again, same profile | 5.7 to 6.0 s / 6.6 to 6.9 s   | 3.2 to 3.3 s / 3.2 to 3.3 s   |
 
 Two runs each, on Windows 11, in development builds, with other sessions using the machine. The audit's 8.6 and 27
-seconds were timed by hand before bitmaps were kept on disk (PAR-158); a first launch's previews are still captured one
-at a time, about 21 seconds for 119 frames.
+seconds were timed by hand before bitmaps were kept on disk (PAR-158); a first launch's previews were then still
+captured one at a time, about 21 seconds for 119 frames.
+
+**A first launch's previews (PAR-523).** Captured four at a time (see Bitmaps kept between sessions), a first launch has
+every bitmap in 12.0 to 12.6 seconds where it took 29.1 to 29.3 one at a time, measured back to back on the same machine
+while other sessions were using it, which made every number slower than the table's: usable came at 6.1 to 6.6 seconds,
+where the table has 4.8 to 5.2. The 8-second target isn't met, and the windows aren't what holds it: captures start only
+once every frame has drawn its design, which is when the canvas is usable, and from there they take about 5 seconds,
+where the four windows could take 119 frames in about 4. The window's own thread is the bound: as each bitmap comes it
+puts that frame to sleep, which takes its drawn design apart, about 40 ms a frame, and it asks for the next capture only
+once it has handled the last, so the offscreen windows waited 43% of the time. A far frame that shows a skeleton instead
+of drawing first (PAR-525) takes away both.
 
 **Where the time went, started again.** Before: the window loaded Parity's UI (1.0 s, from Vite's development server);
 asked the service for the project, which took 1.3 s to open it (finding its tools 0.2 s, discovering its components 0.35
