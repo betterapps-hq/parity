@@ -164,7 +164,7 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
         (next, id, index) => editNode(next, boardTarget(next, state.id), id, { style: values[index] }),
         current
       )
-    return { apply, keys: Object.keys(values.at(-1) ?? {}) }
+    return { apply }
   }
 
   const { common, mixed } = sharedStyle(nodes)
@@ -181,12 +181,10 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
           current
         )
       ),
-    set: (edit, label = "Change style") => {
-      const { apply, keys } = edited(edit)
+    set: (edit, label = "Change style", gesture) => {
+      const { apply } = edited(edit)
       preview.settle(apply)
-      store.updateContainer(key, `${label} on ${present.length} layers`, apply, {
-        group: `edit:${present.join(",")}:style.${keys.join(",")}`
-      })
+      store.updateContainer(key, `${label} on ${present.length} layers`, apply, { gesture })
     },
     preview: (edit) => preview.show(edited(edit).apply),
     endPreview: () => preview.cancel(),

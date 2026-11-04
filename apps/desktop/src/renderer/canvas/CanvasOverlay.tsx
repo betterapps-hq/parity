@@ -737,21 +737,22 @@ function redline(from: Point, to: Point, length: number, unit: number): Redline 
 
 /**
  * Follows the pointer until it's released, showing a cursor wherever it goes, as the drag writes to a design in one
- * group of changes. Escape cancels: everything the drag wrote is taken back, leaving nothing to undo, and the release
- * that follows does nothing.
+ * gesture, so it's one undo step. Escape cancels: everything the drag wrote is taken back, leaving nothing to undo, and
+ * the release that follows does nothing.
  */
 function drag(
   session: ProjectSession,
-  writes: { design: string; group: string },
+  design: string,
   cursor: string,
-  move: (event: PointerEvent) => void
+  move: (event: PointerEvent, gesture: string) => void
 ): void {
   const { store } = session
-  const checkpoint = store.checkpoint(writes.design, writes.group)
+  const gesture = store.beginGesture()
+  const checkpoint = store.checkpoint(design, gesture)
   const releaseCursor = holdCursor(cursor)
   const onMove = (event: PointerEvent) => {
     event.preventDefault()
-    move(event)
+    move(event, gesture)
   }
   const end = () => {
     releaseCursor()
@@ -759,13 +760,14 @@ function drag(
     window.removeEventListener("pointerup", end)
     window.removeEventListener("pointercancel", end)
     window.removeEventListener("keydown", onKey, true)
+    store.endGesture(gesture)
   }
   const onKey = (event: KeyboardEvent) => {
     if (event.key !== "Escape") return
     event.preventDefault()
     event.stopImmediatePropagation()
-    end()
     if (checkpoint) store.revert(checkpoint)
+    end()
   }
   window.addEventListener("pointermove", onMove)
   window.addEventListener("pointerup", end)
@@ -807,8 +809,7 @@ function startResize(
     // Starting from the content's height, coming back to it snaps to hugging it again.
     const content = size.height === undefined ? rect.height / scale : undefined
     const startHeight = size.height ?? rect.height / scale
-    const group = `frame:${entry.key}:${mode.viewport}`
-    drag(session, { design: entry.key, group }, resizeCursors[edge], (moveEvent) => {
+    drag(session, entry.key, resizeCursors[edge], (moveEvent, gesture) => {
       const next: FrameSize = { ...entry.container.frames?.[mode.viewport] }
       if (horizontal) {
         const width = Math.round(size.width + (moveEvent.clientX - start.x) / scale)
@@ -824,7 +825,7 @@ function startResize(
       if (serialized === last) return
       last = serialized
       store.updateContainer(entry.key, "Resize frame", (container) => withFrame(container, mode.viewport, next), {
-        group
+        gesture
       })
     })
     return
@@ -861,8 +862,7 @@ function startResize(
   // proportions.
   const snapping = drawn ? LayerSnapping.measure(editor, host, entry.container, location.node.id, scale) : undefined
 
-  const group = `resize:${entry.key}:${location.node.id}`
-  drag(session, { design: entry.key, group }, resizeCursors[edge], (moveEvent) => {
+  drag(session, entry.key, resizeCursors[edge], (moveEvent, undoStep) => {
     const delta = { x: moveEvent.clientX - start.x, y: moveEvent.clientY - start.y }
     const proportional = moveEvent.shiftKey && horizontal && vertical
     if (proportional) snapping?.clear()
@@ -885,7 +885,7 @@ function startResize(
       "Resize layer",
       (container) =>
         editNode(container, boardTarget(container, state.id), location.node.id, { style: style as NodeStyle }),
-      { group }
+      { gesture: undoStep }
     )
   })
 }

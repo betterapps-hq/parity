@@ -127,6 +127,19 @@ describe("nudging", () => {
     await expect.poll(() => app.children("Pricing", links)).toEqual([privacy, terms, status])
   })
 
+  it("makes a run of presses one undo step, though they're seconds apart (PAR-441)", async () => {
+    await app.show("Pricing", 0.5, links)
+    await app.selectLayer("Pricing", privacy)
+    await app.page.keyboard.press("ArrowRight")
+    await expect.poll(() => app.children("Pricing", links)).toEqual([terms, privacy, status])
+    await app.page.waitForTimeout(1500)
+    await app.page.keyboard.press("ArrowRight")
+    await expect.poll(() => app.children("Pricing", links)).toEqual([terms, status, privacy])
+    await app.page.keyboard.press("Control+z")
+    await expect.poll(() => app.children("Pricing", links)).toEqual([privacy, terms, status])
+    expect(await app.undoLabel()).toBeUndefined()
+  })
+
   it("moves an absolutely placed layer a step, ten with Shift, both sides when it's stretched", async () => {
     await app.show("Calendar", 0.5, planning)
     await app.selectLayer("Calendar", planning)

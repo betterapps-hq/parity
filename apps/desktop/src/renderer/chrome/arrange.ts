@@ -231,22 +231,17 @@ function designBoxes(session: ProjectSession): DesignBox[] {
 export function moveDesigns(
   session: ProjectSession,
   moves: ReadonlyMap<string, { x: number; y: number }>,
-  label: string,
-  group?: string
+  label: string
 ): void {
   const { store } = session
-  store.change(
-    label,
-    (snapshot) => {
-      const documents = repositionDesigns(
-        snapshot.documents,
-        [...moves].flatMap(([key, position]) => {
-          const entry = store.getEntry(key)
-          return entry ? [{ path: entry.path, id: entry.container.id, position }] : []
-        })
-      )
-      return documents === snapshot.documents ? snapshot : { ...snapshot, documents }
-    },
-    group ? { group } : {}
-  )
+  store.change(label, (snapshot) => {
+    const documents = repositionDesigns(
+      snapshot.documents,
+      [...moves].flatMap(([key, position]) => {
+        const entry = store.getEntry(key)
+        return entry ? [{ path: entry.path, id: entry.container.id, position }] : []
+      })
+    )
+    return documents === snapshot.documents ? snapshot : { ...snapshot, documents }
+  })
 }

@@ -1,5 +1,5 @@
 import { type CanvasDocument, type ContainerSpec, defaultModeSettings, type ModeSettings } from "@parity-app/core"
-import { sameDocument } from "./document-equality.ts"
+import { sameDocument, sameValue } from "./document-equality.ts"
 import { noTokenEdits, sameTokenValues, type TokenChange, type TokenEdits, tokenWrites } from "./token-edits.ts"
 
 /** What the editor holds of a project: its open documents, its modes, and the token values edited on the canvas. */
@@ -14,9 +14,8 @@ export interface DesignSnapshot {
 export interface HistoryEntry {
   label: string
   before: DesignSnapshot
-  /** Changes in one group within a second of each other merge into one step: a drag, a run of typing. */
-  group?: string
-  time: number
+  /** The gesture whose changes this step holds, until the gesture ends (see `ChangeOptions.gesture`). */
+  gesture?: string
 }
 
 /** A design and the history at one moment, to go back to (see `checkpoint`). */
@@ -24,8 +23,8 @@ export interface Checkpoint {
   readonly path: string
   /** The design as it was. */
   readonly container: ContainerSpec
-  /** The group the gesture's changes are made in. */
-  readonly group: string
+  /** The gesture whose changes are taken back. */
+  readonly gesture: string
   readonly past: readonly HistoryEntry[]
   readonly future: readonly HistoryEntry[]
 }
@@ -85,7 +84,12 @@ export interface DesignHistory {
 export interface ChangeOptions {
   /** View changes (which state or modes show) aren't undoable. */
   history?: boolean
-  group?: string
+  /**
+   * The gesture the change is part of: a drag, a resize, a scrub or a run of arrow presses. Its changes are one undo
+   * step however long it takes and however many it makes, from its first change until it ends (`endGesture`). Each
+   * gesture has an id of its own, which its source makes when the gesture begins.
+   */
+  gesture?: string
   /** Changes that came from the files themselves aren't written back to them. */
   persist?: boolean
 }
@@ -110,8 +114,6 @@ export type FileWrite =
 
 /** The most steps Undo goes back. */
 export const historyLimit = 200
-/** How close together, in milliseconds, changes in one group must be to merge into one step. */
-export const groupWindow = 1000
 
 /** The history of designs just opened: nothing to undo, and what's here is what the files hold. */
 export function openDesigns(
@@ -149,30 +151,51 @@ export function withStylesheet(history: DesignHistory, stylesheet: string): Desi
 /**
  * Applies one change, `next`, recording it for undo unless told not to. Undefined when it changes nothing, so nothing
  * is recorded.
+ *
+ * A gesture's changes (see `ChangeOptions.gesture`) go into one step: its first change makes the step, labelled by
+ * that change, and the rest join it while it's the latest step, whatever time passes between them. A change made
+ * since by something else, or an undo, ends the step, and the gesture's next change starts another. A gesture that
+ * comes back to where its step began leaves no step, and one that changes nothing makes none.
  */
 export function recordChange(
   history: DesignHistory,
   label: string,
   next: DesignSnapshot,
-  options: ChangeOptions = {},
-  now = Date.now()
+  options: ChangeOptions = {}
 ): DesignStep | undefined {
   const before = history.current
   if (next.documents === before.documents && next.modes === before.modes && next.tokens === before.tokens) {
     return undefined
   }
+  const { gesture } = options
   let { past, future } = history
   if (options.history !== false) {
     const last = past.at(-1)
-    if (options.group && last?.group === options.group && now - last.time < groupWindow) {
-      past = [...past.slice(0, -1), { ...last, time: now }]
+    if (gesture && last?.gesture === gesture) {
+      if (sameSnapshot(last.before, next)) {
+        // Back where the gesture's step began: the step goes, and so does the difference.
+        return restore({ ...history, past: past.slice(0, -1), future: [] }, keepViews(last.before, next))
+      }
     } else {
-      past = [...past, { label, before, group: options.group, time: now }]
+      if (gesture && sameSnapshot(before, next)) return undefined
+      past = [...past, gesture ? { label, before, gesture } : { label, before }]
       if (past.length > historyLimit) past = past.slice(1)
     }
     future = []
   }
   return restore({ ...history, past, future }, next, options.persist !== false)
+}
+
+/**
+ * A gesture has ended: its step takes no more changes, so a change made with it later starts a step of its own. The
+ * same history when it has no step.
+ */
+export function endGesture(history: DesignHistory, gesture: string): DesignHistory {
+  if (!history.past.some((step) => step.gesture === gesture)) return history
+  const past = history.past.map((step) =>
+    step.gesture === gesture ? { label: step.label, before: step.before } : step
+  )
+  return { ...history, past }
 }
 
 /**
@@ -184,8 +207,7 @@ export function reloadFile(
   history: DesignHistory,
   path: string,
   document: CanvasDocument,
-  force = false,
-  now = Date.now()
+  force = false
 ): DesignStep | undefined {
   if (!force && unsavedPaths(history).includes(path)) return undefined
   const { current } = history
@@ -194,16 +216,21 @@ export function reloadFile(
     documents: new Map(current.documents).set(path, withoutModes(document)),
     modes: path === history.mainPath ? (document.modes ?? defaultModeSettings) : current.modes
   }
-  return recordChange(history, `Reload ${path}`, next, { persist: false }, now)
+  return recordChange(history, `Reload ${path}`, next, { persist: false })
 }
 
 /**
  * Where a design (`container`, in the file at `path`) and the history are now, for a gesture that writes to it as it
- * goes, in one group (see `recordChange`), and can be cancelled: resizing writes each step as the pointer moves, and
- * Escape takes it all back with `revertTo`.
+ * goes and can be cancelled: resizing writes each step as the pointer moves, and Escape takes it all back with
+ * `revertTo`.
  */
-export function checkpoint(history: DesignHistory, path: string, container: ContainerSpec, group: string): Checkpoint {
-  return { path, container, group, past: history.past, future: history.future }
+export function checkpoint(
+  history: DesignHistory,
+  path: string,
+  container: ContainerSpec,
+  gesture: string
+): Checkpoint {
+  return { path, container, gesture, past: history.past, future: history.future }
 }
 
 /**
@@ -213,10 +240,9 @@ export function checkpoint(history: DesignHistory, path: string, container: Cont
  * Views stay as they are now, as undo leaves them.
  */
 export function revertTo(history: DesignHistory, checkpoint: Checkpoint): DesignStep {
-  const { path, container, group } = checkpoint
-  // A step from before the checkpoint keeps its `before`; a gesture's first change can merge into the last of them
-  // (see `recordChange`), which only moves that step's time, so each goes back to the step as the checkpoint saw it.
-  const earlier = new Map(checkpoint.past.map((step) => [step.before, step]))
+  const { path, container, gesture } = checkpoint
+  // Steps from before the checkpoint, known by what they undo to, since a gesture ending since makes its step anew.
+  const earlier = new Set(checkpoint.past.map((step) => step.before))
   // Only the gesture's design goes back, in its file as the file is now, so other designs' changes there stay.
   const withDesign = (snapshot: DesignSnapshot): DesignSnapshot => {
     const document = snapshot.documents.get(path)
@@ -227,7 +253,7 @@ export function revertTo(history: DesignHistory, checkpoint: Checkpoint): Design
   // Undo as the checkpoint saw it, whole, since a gesture's own steps can push its oldest out at the limit, then what
   // else changed since, which keeps the limit.
   const others = history.past
-    .filter((step) => !earlier.has(step.before) && step.group !== group)
+    .filter((step) => !earlier.has(step.before) && step.gesture !== gesture)
     .map((step) => ({ ...step, before: withDesign(step.before) }))
   const past = [...checkpoint.past, ...others].slice(-historyLimit)
   const future = others.length === 0 ? checkpoint.future : history.future
@@ -236,7 +262,7 @@ export function revertTo(history: DesignHistory, checkpoint: Checkpoint): Design
 }
 
 /** Goes back a step, keeping what each design shows. Undefined when there's nothing to undo. */
-export function undoChange(history: DesignHistory, now = Date.now()): DesignStep | undefined {
+export function undoChange(history: DesignHistory): DesignStep | undefined {
   const entry = history.past.at(-1)
   if (!entry) return undefined
   const current = history.current
@@ -244,21 +270,21 @@ export function undoChange(history: DesignHistory, now = Date.now()): DesignStep
     {
       ...history,
       past: history.past.slice(0, -1),
-      future: [...history.future, { label: entry.label, before: current, time: now }]
+      future: [...history.future, { label: entry.label, before: current }]
     },
     keepViews(entry.before, current)
   )
 }
 
 /** Goes forward a step undone, keeping what each design shows. Undefined when there's nothing to redo. */
-export function redoChange(history: DesignHistory, now = Date.now()): DesignStep | undefined {
+export function redoChange(history: DesignHistory): DesignStep | undefined {
   const entry = history.future.at(-1)
   if (!entry) return undefined
   const current = history.current
   return restore(
     {
       ...history,
-      past: [...history.past, { label: entry.label, before: current, time: now }],
+      past: [...history.past, { label: entry.label, before: current }],
       future: history.future.slice(0, -1)
     },
     keepViews(entry.before, current)
@@ -433,6 +459,16 @@ function adoptSaved(
     adopted.set(path, file)
   }
   return adopted ?? documents
+}
+
+/** Whether two snapshots say the same: the same files, each the same with views compared tidied, modes and tokens. */
+function sameSnapshot(a: DesignSnapshot, b: DesignSnapshot): boolean {
+  if (a.documents.size !== b.documents.size) return false
+  for (const [path, document] of a.documents) {
+    const other = b.documents.get(path)
+    if (!other || !sameDocument(document, other)) return false
+  }
+  return sameValue(a.modes, b.modes) && sameTokenValues(a.tokens, b.tokens)
 }
 
 function tokensUnsaved(history: DesignHistory): boolean {

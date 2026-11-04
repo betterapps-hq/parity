@@ -209,8 +209,8 @@ still need your call.
 - **Layers snap through the same code as designs** (PAR-174): `snapLayer` beside `snapBox` in `@parity-app/editor`, with
   the same distance, tldraw's red snap indicators for the guides and spacing marks, and one `snaps` deciding Ctrl and
   the preference for both. My calls:
-  - **An absolutely placed layer moves live,** writing as the pointer moves in one group, as resizing already did, with
-    Escape going back to the checkpoint. It used to show an outline and move on release.
+  - **An absolutely placed layer moves live,** writing as the pointer moves in one gesture, as resizing already did,
+    with Escape going back to the checkpoint. It used to show an outline and move on release.
   - **Where it locks, it's written exactly,** to the half pixel, in fractions of a step when the line isn't on the
     spacing scale. Rounding to half steps would leave a centre or an odd-sized sibling's edge a pixel off while the
     guide said it lined up. An axis that doesn't lock moves in half steps as before, and a resize in whole steps.
@@ -409,7 +409,7 @@ still need your call.
   absolutely placed siblings and ones the state hides; in a grid, Up and Down move a whole row when there's one to move
   to, and Shift still moves one place. An absolutely placed layer moves one spacing step, or ten with Shift, from where
   it's drawn, since 1px would leave the scale until PAR-194. Designs and notes move 1px, or 10. Each run of presses on
-  one selection is one undo step.
+  one selection is one undo step, however slow (see "Undo is one step per gesture").
 - **Layers are found from React's tree, as React DevTools does** (CAN-45), so a component that renders none of its props
   can be hovered, selected, outlined and dragged. Component layers are marked by the guest's error boundary and the
   others by their element. It reads React 19's internals and falls back to the `data-canvas-node` attribute, which the
@@ -432,9 +432,9 @@ still need your call.
 - **Until PAR-194, a typed length lands on the nearest half step** (2px on a 4px scale), which is what dragging writes
   and what Tailwind's scale lists below 4, and the field says so under its row. Values already off it show as they are
   until edited.
-- **Up and Down move a length one spacing step, and Shift ten;** other numbers move by 1 and 10, and presses under a
-  second apart are one undo step. Dragging a label scrubs one step per 2px, or ten with Shift, and Escape cancels; the
-  row's label scrubs when the row has one field, otherwise each field's letter does.
+- **Up and Down move a length one spacing step, and Shift ten;** other numbers move by 1 and 10, and a run of presses is
+  one undo step (PAR-441). Dragging a label scrubs one step per 2px, or ten with Shift, and Escape cancels; the row's
+  label scrubs when the row has one field, otherwise each field's letter does.
 - **A field keeps input it can't read,** marked, with the reason under its row, even after it loses focus. Enter keeps
   focus with the text selected, and Escape reverts and leaves. A value changing underneath doesn't touch what's being
   typed.
@@ -461,11 +461,10 @@ still need your call.
   small layer drags it. My call: per axis, so a wide, short button keeps its side strips on its ends, as every wide
   layer does, and only its corners, top and bottom move out. Where handles go is `handleBoxes` in `@parity-app/editor`.
 - **Escape cancels a resize and a title drag** (PAR-193), as it already did a layer drag and a box. My call: a resize
-  still writes as it goes (one undo step per gesture is PAR-441), so Escape goes back to a checkpoint the store takes
-  when the drag begins, restoring the design's file and taking the drag's own steps out of undo, rather than undoing
-  however many steps the drag made. Another file changed meanwhile, as by an agent, keeps its change and its step, as
-  the code review asked. `DesignStore.checkpoint` and `revert` move with the history when PAR-34 takes it into
-  `@parity-app/editor`.
+  writes as it goes, one undo step since PAR-441, so Escape goes back to a checkpoint the store takes when the drag
+  begins, restoring the design's file and taking the drag's own steps out of undo, rather than undoing however many
+  steps the drag made. Another file changed meanwhile, as by an agent, keeps its change and its step, as the code review
+  asked. `DesignStore.checkpoint` and `revert` move with the history when PAR-34 takes it into `@parity-app/editor`.
 - **A gesture's cursor is held by a transparent layer over the window** (PAR-193): grabbing for a drag, the handle's
   arrows for a resize. My calls: a layer rather than a rule on every element, which would restyle the whole page twice
   per gesture; and the browser's own grabbing, resize and text cursors, as the handles already showed, rather than
@@ -2802,3 +2801,29 @@ frames' designs through PAR-197's sleep, rather than unmounting them, which was 
 - **Measured with every board woken.** `pnpm perf` visits each board at 100% before hiding the tab: zoomed out, frames
   already sleep, and hiding would show no difference. On the example, the hidden tab's DOM nodes fell 76% (33,283 to
   7,898) and its heap 14% (139 to 120 MB).
+
+## Undo is one step per gesture (PAR-441)
+
+The history used to merge a group's changes that came less than a second apart, so a slow drag, or a resize in a
+development build, took several undos, and two quick edits of one field took one. Now a gesture says where it begins and
+ends, and time plays no part (see editor.md, One undo step per gesture). My calls:
+
+- **A gesture is an id, and its changes carry it.** The source begins one (`DesignStore.beginGesture`), passes it with
+  each change (the `gesture` option), and ends it (`endGesture`). Its changes join one step while that step is the
+  latest; there's no open transaction that other changes fall into, so an agent's call or a reloaded file made
+  mid-gesture is a step of its own, and the gesture's changes after it make a second step. That's rare, and keeping the
+  agent's work out of the gesture's undo matters more.
+- **A run of arrow presses ends at anything else,** not at key release: another edit, an undo or a redo, or selecting
+  something else, also when the selection comes back to what it was. So tapping an arrow five times is one step, as
+  holding it is, and a pause in between doesn't split it. A field's run of Up and Down ends when something is typed,
+  Enter or Escape is pressed, the field is left or its label is scrubbed. Nudges are the run people repeat most, and
+  undoing them one press at a time was what the one-second window was there to avoid.
+- **A gesture that changes nothing leaves no step,** also one that ends where it began, such as a drag back to its start
+  or a nudge there and back. The file is clean again and Undo goes to the step before.
+- **Every gesture source uses it,** even those that write once: a layer drag in a layout writes on release, and a scrub
+  on release, both in their gesture. An absolutely placed layer's drag writes as it moves (PAR-174), so its gesture is
+  what makes it one step. A design or note dragged by its board is tldraw's translate, which is one gesture from its
+  first move until tldraw leaves translating; dragged by its title it writes once on release, as before.
+- **Other edits are a step each.** Typing in a field commits on Enter or on leaving it, so it was already one commit.
+  Two quick edits of one field, such as clicking two of Text's Resizing modes, are two steps, where the window made them
+  one.

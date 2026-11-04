@@ -110,22 +110,18 @@ describe("typing in a length field", () => {
 })
 
 describe("stepping and scrubbing", () => {
-  it("steps a length with Up and Down, ten with Shift, as one undo step", async () => {
+  it("steps a length with Up and Down, ten with Shift, as one undo step however slowly (PAR-441)", async () => {
     await selectBrand()
     await width().click()
-    // Each press is made at once; a press less than a second after the one before joins its undo step.
-    const presses: number[] = []
+    // Each press is made at once, and the run is one undo step, with pauses longer than a second between presses.
     for (const [key, steps] of [
       ["ArrowUp", 9],
       ["Shift+ArrowUp", 19],
       ["ArrowDown", 18]
     ] as const) {
-      presses.push(Date.now())
       await width().press(key)
       await expect.poll(brandWidth, { interval: 10 }).toBe(steps)
-    }
-    for (let press = 1; press < presses.length; press++) {
-      expect(presses[press]! - presses[press - 1]!).toBeLessThan(1000)
+      await app.page.waitForTimeout(1200)
     }
     expect(await width().inputValue()).toBe("72")
     await width().press("Escape")

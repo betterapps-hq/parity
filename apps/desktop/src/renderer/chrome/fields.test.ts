@@ -11,29 +11,42 @@ const errors: string[] = []
 /**
  * What the page loads: a Width row holding 8 steps (32px) of a 4px spacing scale, and a Mixed row standing for two
  * selected layers of 8 and 75 steps. What the fields ask for is logged; commits change the values, as the store would.
+ * The project's store gives the fields their gestures, logged as they begin and end, with the gesture of each commit.
  */
 const entry = `
 import { createElement as h, useState } from "react"
 import { createRoot } from "react-dom/client"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { ProjectContext } from "../canvas/context.ts"
 import { Field, NumberField } from "./fields.tsx"
 
 const rules = { kind: "length", unit: 4, min: 0, label: "Width" }
 window.log = []
+window.gestures = []
+let gestures = 0
+const store = {
+  beginGesture: () => {
+    gestures += 1
+    window.gestures.push(["begin", "g" + gestures])
+    return "g" + gestures
+  },
+  endGesture: (gesture) => window.gestures.push(["end", gesture])
+}
 
 function Harness() {
   const [value, setValue] = useState(8)
   const [layers, setLayers] = useState([8, 75])
   window.setOutside = setValue
   window.layers = layers
-  return h(TooltipProvider, null,
+  return h(ProjectContext.Provider, { value: { store } }, h(TooltipProvider, null,
     h(Field, { label: "Width" }, h(NumberField, {
       value, rules, title: "Width", blank: () => 0,
       onPreview: (update) => window.log.push(["preview", update(value)]),
       onCancel: () => window.log.push(["cancel"]),
-      onCommit: (update) => {
+      onCommit: (update, gesture) => {
         const next = update(value)
         window.log.push(["commit", next])
+        window.gestures.push(["commit", gesture ?? null])
         setValue(next)
       }
     })),
@@ -41,7 +54,7 @@ function Harness() {
       value: undefined, rules, title: "Both", blank: () => 0,
       onCommit: (update) => setLayers(layers.map((layer) => update(layer)))
     }))
-  )
+  ))
 }
 
 export function start() {
@@ -95,6 +108,8 @@ beforeEach(async () => {
 const width = () => page.getByRole("textbox", { name: "Width" })
 // @ts-expect-error The page's log.
 const log = () => page.evaluate(() => window.log as unknown[][])
+// @ts-expect-error The page's gestures.
+const gestures = () => page.evaluate(() => window.gestures as unknown[][])
 const focused = () => page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? null)
 
 async function typeInto(name: string, text: string) {
@@ -175,6 +190,28 @@ describe("stepping and scrubbing", () => {
     expect(await width().inputValue()).toBe("72")
   })
 
+  it("makes a run of Up and Down one gesture, which Enter or leaving the field ends, and typing commits apart", async () => {
+    await width().click()
+    await width().press("ArrowUp")
+    await page.waitForTimeout(1200)
+    await width().press("ArrowUp")
+    await width().press("Enter")
+    await width().press("ArrowDown")
+    await page.mouse.click(500, 350)
+    await typeInto("Width", "40")
+    await width().press("Enter")
+    expect(await gestures()).toEqual([
+      ["begin", "g1"],
+      ["commit", "g1"],
+      ["commit", "g1"],
+      ["end", "g1"],
+      ["begin", "g2"],
+      ["commit", "g2"],
+      ["end", "g2"],
+      ["commit", null]
+    ])
+  })
+
   it("scrubs by dragging the row's label, previewing, then commits once", async () => {
     const label = await page.getByText("Width", { exact: true }).boundingBox()
     await page.mouse.move(label!.x + 5, label!.y + 5)
@@ -185,6 +222,12 @@ describe("stepping and scrubbing", () => {
     const entries = await log()
     expect(entries.filter(([kind]) => kind === "commit")).toEqual([["commit", 18]])
     expect(entries).toContainEqual(["preview", 18])
+    // In a gesture of its own, from the press to the release.
+    expect(await gestures()).toEqual([
+      ["begin", "g1"],
+      ["commit", "g1"],
+      ["end", "g1"]
+    ])
   })
 
   it("takes a scrub back on Escape", async () => {

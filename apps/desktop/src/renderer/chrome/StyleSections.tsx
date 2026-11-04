@@ -75,8 +75,11 @@ export interface StyleEditor {
   style: NodeStyle
   changed: (name: keyof NodeStyle) => boolean
   reset: (name: keyof NodeStyle) => void
-  /** Several properties as one undoable change. `undefined` clears a property. */
-  set: (values: StyleEdit, label?: string) => void
+  /**
+   * Several properties as one undoable change, or as part of a gesture's one step (a field's run of Up and Down
+   * presses). `undefined` clears a property.
+   */
+  set: (values: StyleEdit, label?: string, gesture?: string) => void
   /**
    * Shows properties on the canvas at once, without changing the design, while a field is typed in or scrubbed:
    * `set` then makes them, or `endPreview` takes them back.
@@ -117,7 +120,7 @@ function fieldEdits(
   return {
     onPreview: (update) => editor.preview?.(edit(update)),
     onCancel: () => editor.endPreview?.(),
-    onCommit: (update) => editor.set(edit(update), label)
+    onCommit: (update, gesture) => editor.set(edit(update), label, gesture)
   }
 }
 

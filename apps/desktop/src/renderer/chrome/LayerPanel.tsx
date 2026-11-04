@@ -96,9 +96,9 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
   const node = nodeOnBoard(container, location.node, state)
   const override = targetPatches(container, target)?.[nodeId]
 
-  const change = (label: string, value: NodeChange, field: string) =>
+  const change = (label: string, value: NodeChange, gesture?: string) =>
     store.updateContainer(key, label, (current) => editNode(current, boardTarget(current, state.id), nodeId, value), {
-      group: `edit:${nodeId}:${field}`
+      gesture
     })
   const reset = (field?: PatchField) =>
     store.updateContainer(key, "Reset change", (current) =>
@@ -143,7 +143,7 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
           node={node}
           own={location.node as InstanceNode}
           changed={(name) => override?.props?.[name] !== undefined}
-          onChange={(name, value) => change(`Change ${name}`, { props: { [name]: value } }, `props.${name}`)}
+          onChange={(name, value) => change(`Change ${name}`, { props: { [name]: value } })}
           onReset={(name) => reset({ kind: "props", key: name })}
         />
       )}
@@ -183,12 +183,12 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
   const own = inner.instance.overrides?.[inner.key]
   const main = entries.find((candidate) => candidate.container.id === inner.instance.design)
 
-  const change = (label: string, value: NodeChange, field: string) =>
+  const change = (label: string, value: NodeChange, gesture?: string) =>
     store.updateContainer(
       key,
       label,
       (current) => editLayer(store, current, boardTarget(current, state.id), path, value),
-      { group: `edit:${path}:${field}` }
+      { gesture }
     )
   const reset = (field?: PatchField) =>
     store.updateContainer(key, "Reset change", (current) =>
@@ -282,7 +282,7 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
           entry={entry}
           node={node}
           changed={(name) => override.props?.[name] !== undefined}
-          onChange={(name, value) => change(`Change ${name}`, { props: { [name]: value } }, `props.${name}`)}
+          onChange={(name, value) => change(`Change ${name}`, { props: { [name]: value } })}
           onReset={(name) => reset({ kind: "props", key: name })}
         />
       )}
@@ -318,7 +318,8 @@ function LayerSections({
   node: DesignNode
   /** What the state, variant or copy being edited changes about it, to mark and reset. */
   override: NodePatch | undefined
-  change: (label: string, value: NodeChange, field: string) => void
+  /** Makes a change, as part of a gesture's one undo step when given (see `NumberField`). */
+  change: (label: string, value: NodeChange, gesture?: string) => void
   reset: (field?: PatchField) => void
   parentStyle: NodeStyle | undefined
   /** Inside an instance, where an image's file and description belong to the component. */
@@ -356,10 +357,10 @@ function LayerSections({
     style: node.style ?? {},
     changed: (name) => override?.style?.[name] !== undefined,
     reset: (name) => reset({ kind: "style", key: name }),
-    set: (edit, label = "Change style") => {
+    set: (edit, label = "Change style", gesture) => {
       const values = styleValues(edit, node.style ?? {}, layer) as NodeStyle
       preview.settle(edited(values))
-      change(label, { style: values }, `style.${Object.keys(values).join(",")}`)
+      change(label, { style: values }, gesture)
     },
     preview: (edit) => preview.show(edited(styleValues(edit, node.style ?? {}, layer) as NodeStyle)),
     endPreview: () => preview.cancel(),
@@ -374,7 +375,7 @@ function LayerSections({
         <PanelSection title="Content">
           {node.type === "text" ? (
             <Field label="Text" changed={override?.text !== undefined} onReset={() => reset({ kind: "text" })}>
-              <TextInput multiline value={node.text} onCommit={(text) => change("Edit text", { text }, "text")} />
+              <TextInput multiline value={node.text} onCommit={(text) => change("Edit text", { text })} />
             </Field>
           ) : (
             <Field
@@ -385,7 +386,7 @@ function LayerSections({
               <TextInput
                 multiline
                 value={String((node.props?.children ?? "") as unknown)}
-                onCommit={(children) => change("Edit label", { props: { children } }, "props.children")}
+                onCommit={(children) => change("Edit label", { props: { children } })}
               />
             </Field>
           )}
@@ -396,10 +397,7 @@ function LayerSections({
 
       <PanelSection title="Visibility">
         <Field label="Visible" changed={override?.hidden !== undefined} onReset={() => reset({ kind: "hidden" })}>
-          <SwitchInput
-            value={!node.hidden}
-            onChange={(visible) => change("Toggle visibility", { hidden: !visible }, "hidden")}
-          />
+          <SwitchInput value={!node.hidden} onChange={(visible) => change("Toggle visibility", { hidden: !visible })} />
         </Field>
       </PanelSection>
 
@@ -408,7 +406,7 @@ function LayerSections({
           node={node}
           info={components[node.component]}
           changed={(name) => override?.props?.[name] !== undefined}
-          onChange={(name, value) => change(`Change ${name}`, { props: { [name]: value } }, `props.${name}`)}
+          onChange={(name, value, gesture) => change(`Change ${name}`, { props: { [name]: value } }, gesture)}
           onReset={(name) => reset({ kind: "props", key: name })}
         />
       )}

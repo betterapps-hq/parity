@@ -533,8 +533,9 @@ follow it. Escape takes the move back, leaving nothing to undo, and a drag that 
 
 This is the same rule nudging uses, one function for both. Code: `shiftInsets` in
 `apps/desktop/src/renderer/canvas/insets.ts`; `canvas/layer-drag.ts` (`followAbsolute`) reads where the sides are drawn
-with `frameDrawn` (`canvas/nudge.ts`), rounds the drag to half steps, and writes each move in one group, taking them
-back to a checkpoint (`DesignStore.checkpoint` and `revert`) on Escape or when the layer comes back to where it began.
+with `frameDrawn` (`canvas/nudge.ts`), rounds the drag to half steps, and writes each move in the drag's gesture, one
+undo step (PAR-441), taking them back to a checkpoint (`DesignStore.checkpoint` and `revert`) on Escape or when the
+layer comes back to where it began.
 
 Tests: `canvas/insets.test.ts`, moving: by the side it's placed from, both sides of a stretched layer (the Review slot),
 negative insets kept and going negative, half steps, tokens and unset sides from where they're drawn (a negative side
@@ -589,8 +590,8 @@ the style for each pointer position), `canvas/insets.ts` (`resizeInsets`), `pack
 (`handleBoxes`, where each handle goes, and `resizeStart`, what a resize reads, `@parity-app/editor`),
 `canvas/ResizeHandles.tsx` (the handles and their hint, which `chrome/Hint.tsx` lets a caller open and close), and
 `canvas/CanvasOverlay.tsx` (`startResize` measures the layer, its parent and its drawn insets, and writes the style;
-`drag` follows the pointer, holds the cursor, and on Escape reverts the store to a checkpoint taken when the drag began,
-with `DesignStore.checkpoint` and `revert` in `design-store.ts`).
+`drag` follows the pointer in one gesture, holds the cursor, and on Escape reverts the store to a checkpoint taken when
+the drag began, with `DesignStore.checkpoint` and `revert` in `design-store.ts`).
 
 Tests:
 
@@ -610,24 +611,24 @@ Tests:
   card (PAR-464), `resizeStart` reads its layout as the row its Inline option makes it, and the layer's style in a
   viewport and state, the Compact state's gap over the mobile patch.
 - `apps/desktop/src/renderer/design-store.test.ts`, reverting to a checkpoint: a gesture's writes more than a second
-  apart taken back with nothing left to undo for them; Redo kept; a first write that merged into the step before it
-  leaving that step as it was; another file reloaded mid-gesture kept, with its undo step undoing to the design as it
-  was; another design added to the same file mid-gesture kept, with its undo step; every step before the gesture kept
-  when its first write pushed the oldest out at the undo limit; and nothing changed since.
+  apart taken back with nothing left to undo for them; Redo kept; an earlier gesture's step left as it was; another file
+  reloaded mid-gesture kept, with its undo step undoing to the design as it was; another design added to the same file
+  mid-gesture kept, with its undo step; every step before the gesture kept when its first write pushed the oldest out at
+  the undo limit; and nothing changed since.
 - `apps/desktop/e2e/moving.e2e.ts` (6), end to end (PAR-202): New project's right handle, named by its hint when the
   pointer rests on it, dragged 48px right changes the width alone, in steps, with no hint during the drag or after; its
   top handle dragged sideways changes nothing and adds no undo step; the Review slot's top handle dragged up 16px gives
   top 36 and height 20 with the bottom edge where it was, and its left handle dragged right gives left 3 with right
   still 0; New project's right handle dragged in two moves, then Escape, leaves no style, nothing to undo, the width as
   it was and the button selected; and at 50%, New project's handles leave it but for its two end strips, and a press 3px
-  inside its top edge moves it past Export. The last two failed before PAR-193.
+  inside its top edge moves it past Export. The last two failed before PAR-193. A seventh drags New project's right
+  handle 24px, pauses a second and a half, drags on to 48px, and takes it all back with one undo (PAR-441).
 
 Gaps: a frame's own handles (a design's width and height) aren't covered by these tests, Escape on them included, which
-goes through the same `drag`. A resize writes as the pointer moves, and in a development build those writes can be more
-than a second apart, so one drag can take several undos; one undo step per gesture is PAR-441, after PAR-34 moves the
-history into `@parity-app/editor`. Escape doesn't depend on it: it goes back to the checkpoint however many steps the
-drag wrote. Checked in the app on 2026-10-30, in a copy on its own ports: the handles above and below New project at
-50%, the arrows over the design 90px below the handle, and Escape leaving the button as it was.
+goes through the same `drag`. A resize writes as the pointer moves, all of it one undo step however long it pauses
+(PAR-441, see "One undo step per gesture"). Checked in the app on 2026-10-30, in a copy on its own ports: the handles
+above and below New project at 50%, the arrows over the design 90px below the handle, and Escape leaving the button as
+it was.
 
 ### Empty layouts (PAR-193)
 
@@ -982,8 +983,9 @@ actions, since each needs to know which arrow was pressed.
   token, or left unset, moves from where the frame draws it, in half steps, as dragging moves it. When the layer isn't
   drawn, an unset side counts from 0, and an axis set by a token stays put, with a message saying so.
 - **Designs and text notes** move 1px, or 10px with Shift. A selected mode column moves its design.
-- **One undo step per run.** Presses on the same selection less than a second apart are one step (Undo nudge layer);
-  pausing, or changing the selection, starts another.
+- **One undo step per run** (PAR-441). Presses on the same selection are one step (Undo nudge layer), however long the
+  pauses between them. Another edit, an undo or a redo, or selecting something else, also when the selection comes back,
+  starts another. A run that comes back where it began leaves no step.
 - **Moving a layer by 1px** waits for PAR-194, since it would leave the spacing scale.
 - **Layers inside an instance don't move,** as they can't be dragged.
 - **The keys.** On the canvas, the arrows with Ctrl or Alt do nothing, so tldraw never moves a design behind the
@@ -995,23 +997,25 @@ reads a layout's flow, through `@parity-app/editor`'s `flowOf`, and a layer's dr
 `canvas/insets.ts` (`shiftInsets`, which moves an absolutely placed layer's insets for dragging too),
 `chrome/commands.ts` (`nudge`), `chrome/actions.ts` (`byKey` keeps it out of Search actions), `chrome/keymap.ts` and
 `chrome/keys.ts` (the arrows are written `←`, `→`, `↑` and `↓`), and `canvas/shortcuts.ts`, which passes the key event
-to the action and keeps the other arrows from tldraw.
+to the action and keeps the other arrows from tldraw. A run's gesture is `runGesture` in `nudge.ts`.
 
 Tests:
 
 - `apps/desktop/src/renderer/canvas/nudge.test.ts`: how far each arrow moves in a row, a column, reversed and a grid;
   reordering a layer, a block, past absolutely placed layers and down a grid; nudging a design's layers in a state,
-  following the frame's direction, and leaving instances alone; and, with the real stores, a run of presses as one undo
-  step, a pause or a new selection starting another, designs moving together and a mode column and a note moving.
+  following the frame's direction, and leaving instances alone; and, with the real stores, a run of presses with pauses
+  of four seconds as one undo step, another edit or an undo between presses starting another, a run there and back
+  leaving no step, a new selection starting another, also back to the one before, designs moving together and a mode
+  column and a note moving.
 - `apps/desktop/src/renderer/canvas/insets.test.ts`: moving insets from each side, both sides, tokens and unset sides
   with and without where they're drawn (`shiftInsets`, shared with dragging).
 - `apps/desktop/src/renderer/ModeView.test.ts`: `frameDrawn` reads a row, a column and a grid's columns from a design
   rendered as the canvas renders it, and an absolutely placed layer's insets in steps, at full size and at half scale.
 - `apps/desktop/src/renderer/chrome/keymap.test.ts`: the arrows match with and without Shift, and show as `⇧←` on a Mac.
-- `apps/desktop/e2e/keyboard.e2e.ts` (3), end to end (PAR-202): a link in Pricing's footer moved two places right by two
-  presses, nothing across the row, and one undo; Calendar's Planning slot moved down a step, then ten with Shift, and
-  right on both of its sides; and Pricing moved 1px and 10px, with Ctrl and Alt arrows moving neither the design nor
-  tldraw's board.
+- `apps/desktop/e2e/keyboard.e2e.ts` (4), end to end (PAR-202): a link in Pricing's footer moved two places right by two
+  presses, nothing across the row, and one undo; the same two presses a second and a half apart, still one undo
+  (PAR-441); Calendar's Planning slot moved down a step, then ten with Shift, and right on both of its sides; and
+  Pricing moved 1px and 10px, with Ctrl and Alt arrows moving neither the design nor tldraw's board.
 
 Gaps: the key handler's wiring is the end-to-end test above, apart from keeping a moved layer in view, which was checked
 in an isolated copy of the app on the example project.
@@ -1284,9 +1288,9 @@ numbers. A component's number props take any number.
   with a fraction is rounded ("Rounded to 2: it takes whole numbers"), each said under the row.
 - **Up and Down** move a length one step of the spacing scale (4px with a 4px unit) and Shift ten steps, the same
   distance nudging moves an absolutely placed layer; a half step goes to the whole step beside it. Opacity, counts and
-  numbers move by 1, and Shift by 10. Each press is made at once, and presses on a field less than a second apart are
-  one undo step, as a run of typing is. With something readable typed, it steps from that; with something it can't read,
-  nothing changes and the reason shows.
+  numbers move by 1, and Shift by 10. Each press is made at once, and a run of presses is one undo step, however slow
+  (PAR-441): typing, Enter, Escape, leaving the field or scrubbing it ends the run. With something readable typed, it
+  steps from that; with something it can't read, nothing changes and the reason shows.
 - **Scrubbing.** Dragging a field's label changes the value by one step for every 2px the pointer moves, ten with Shift,
   left to lower. The label is the row's (Width, Gap, Opacity, Max lines) when the row holds one field without a letter
   of its own, else the letter inside the field (V and H, T, R, B and L, X and Y, Cols and Rows). Such a label has a
@@ -1323,8 +1327,9 @@ Code:
   (`styleChanges`).
 - `apps/desktop/src/renderer/chrome/number-field.ts`: the field's behaviour as a reducer (`reduceField`): drafts, Enter,
   leaving, Escape, steps and scrubs, and the effects it asks for.
-- `chrome/fields.tsx`: `NumberField`, which runs those effects and handles keys and scrubbing, `NumberInput`, and
-  `Field`, whose label scrubs a lone field and which shows what its fields say under the row.
+- `chrome/fields.tsx`: `NumberField`, which runs those effects, handles keys and scrubbing, and begins and ends the
+  gesture a run of steps or a scrub commits in (`runEnders` says what ends a run), `NumberInput`, and `Field`, whose
+  label scrubs a lone field and which shows what its fields say under the row.
 - `chrome/StyleSections.tsx`: each style field's rules and how its edit reads and writes each layer's own style
   (`fieldEdits`), with `LengthInput` and `CompactNumber`. `StyleEditor` takes values, or a function of each layer's
   style, and has `preview` and `endPreview`. `chrome/PropsSection.tsx` has the number props.
@@ -1343,10 +1348,12 @@ Tests:
 - `apps/desktop/src/renderer/chrome/number-field.test.ts` (16): previews while typing, keeping the last one, the draft
   over a changing value, Enter committing and keeping focus, input it can't read kept with its reason, leaving the
   field, Escape, steps from the value and from a draft, and scrubbing.
-- `apps/desktop/src/renderer/chrome/fields.test.ts` (9), in Chrome: the real field in a row. 320 previews as it's typed;
-  Enter commits and keeps focus with the text selected; `16em` stays with its reason, also after leaving; a value
-  changing underneath, then Escape; a snapped note; Up, Shift+Up and Down; scrubbing the row's label to one commit, and
-  Escape during a scrub; and `Mixed+8` on two layers.
+- `apps/desktop/src/renderer/chrome/fields.test.ts` (10), in Chrome: the real field in a row. 320 previews as it's
+  typed; Enter commits and keeps focus with the text selected; `16em` stays with its reason, also after leaving; a value
+  changing underneath, then Escape; a snapped note; Up, Shift+Up and Down; a run of Up presses with a pause as one
+  gesture, ended by Enter, another ended by leaving the field, and a typed commit in none (PAR-441); scrubbing the row's
+  label to one commit, in a gesture from the press to the release, and Escape during a scrub; and `Mixed+8` on two
+  layers.
 - `apps/desktop/src/renderer/canvas/style-preview.test.ts` (6), in Chrome: a preview drawn in each state's frame, a
   state that sets its own width left alone, a later preview putting back what it doesn't change, taking it back exactly,
   settling for the change, and nothing written for no change.
@@ -1355,8 +1362,8 @@ Tests:
   real store and frames: 320 typed in Width drawn at each keystroke (4, 32 and 320px) while the design keeps its width,
   and Enter making 80 steps as one undo step, with the field focused and its text selected; `16px`; 281 landing on 282px
   with its note; `abc` kept with its reason, and Escape putting the value back; a value set underneath leaving `12` in
-  the field; Up, Shift+Up and Down as one undo step; `50-10` in Opacity; scrubbing the Width label, drawn while dragging
-  and one undo step on release; and `Mixed+8` on Brand mark and Plans.
+  the field; Up, Shift+Up and Down, more than a second apart, as one undo step; `50-10` in Opacity; scrubbing the Width
+  label, drawn while dragging and one undo step on release; and `Mixed+8` on Brand mark and Plans.
 
 Gaps: the timings were measured by hand in an isolated copy of the app on 2026-10-29: typing 320 in Width previewed at
 each keystroke in 25, 25 and 41 ms (a commit took 291 ms to show before), and scrubbing in 22 ms. The stories' play
@@ -1492,14 +1499,14 @@ Tests:
 Gaps: the composition test sends `compositionstart` and `compositionend` itself, so a real input method's keys haven't
 been tried. With several layers selected, Resizing measures each text layer in its own box, changes only the text layers
 of a mixed selection, and reads each one's own parent for `grow`; none of that has a test of its own, as the panel's
-edits are only driven end to end. Clicking two modes within a second makes one undo step, as other edits of the same
-field do. The resize handles changing the mode follows from reading it from the width and height, and has no test of its
-own. A text layer's own new lines, typed with Shift+Enter, are kept in the text but drawn as spaces, since text layers
-don't preserve white space (older than PAR-175). While the editor is open the text under it doesn't reflow as it's typed
-in, so layers after it move only once the edit is kept. Checked in an isolated copy of the app on 2026-10-30: a
-double-click on "upgrade" selected it, the editor followed a wheel pan and a zoom to 110% with "upgrade" still selected,
-Escape kept "grow" as one Edit text step with Lede still selected, and Resizing showed Auto height pressed and switched
-Lede to auto width, which its 560px maximum still wraps.
+edits are only driven end to end. Each click on a mode is an undo step of its own (PAR-441). The resize handles changing
+the mode follows from reading it from the width and height, and has no test of its own. A text layer's own new lines,
+typed with Shift+Enter, are kept in the text but drawn as spaces, since text layers don't preserve white space (older
+than PAR-175). While the editor is open the text under it doesn't reflow as it's typed in, so layers after it move only
+once the edit is kept. Checked in an isolated copy of the app on 2026-10-30: a double-click on "upgrade" selected it,
+the editor followed a wheel pan and a zoom to 110% with "upgrade" still selected, Escape kept "grow" as one Edit text
+step with Lede still selected, and Resizing showed Auto height pressed and switched Lede to auto width, which its 560px
+maximum still wraps.
 
 ## Saving and undo
 
@@ -1560,15 +1567,16 @@ stylesheet with `writeTokenChanges` in `packages/tokens/src/stylesheet.ts`, whic
 
 Tests:
 
-- `packages/editor/src/history.test.ts` (36): undo and redo with their labels; a group's changes less than a second
-  apart as one step; the 200-step limit; what a board shows left alone by Undo and not recorded; token edits undone,
-  redone and saved; nothing to write when they're back at the stylesheet's value; the stylesheet's value written back
-  after undoing past a save; a failed write naming the token and the file and clearing on success; several tokens
-  failing together; Save starting again after a failed write was undone back to the file being saved; an agent's call as
-  one step; undoing a merged call back to just before it, keeping an edit made during it; the modes a call set undone
-  with its designs; Show every state off again leaving the file clean; another state and back from a file with its view
-  written out in full; a file that differs in more than its view staying unsaved until undone; and files changed on disk
-  taken as saved, unless they have unsaved changes; and no token override left once an edit is undone (PAR-465).
+- `packages/editor/src/history.test.ts` (44 with the gestures below): undo and redo with their labels; each change
+  without a gesture a step of its own; the 200-step limit; what a board shows left alone by Undo and not recorded; token
+  edits undone, redone and saved; nothing to write when they're back at the stylesheet's value; the stylesheet's value
+  written back after undoing past a save; a failed write naming the token and the file and clearing on success; several
+  tokens failing together; Save starting again after a failed write was undone back to the file being saved; an agent's
+  call as one step; undoing a merged call back to just before it, keeping an edit made during it; the modes a call set
+  undone with its designs; Show every state off again leaving the file clean; another state and back from a file with
+  its view written out in full; a file that differs in more than its view staying unsaved until undone; and files
+  changed on disk taken as saved, unless they have unsaved changes; and no token override left once an edit is undone
+  (PAR-465).
 - `packages/editor/src/design-changes.test.ts` (14): changing, moving, adding and deleting designs, and notes; merging
   an agent's call: two calls changing different designs in one file both kept, the person's edit to another design kept,
   a design changed on both sides refused by name with nothing applied, tokens included ("refuses a design changed by
@@ -1579,7 +1587,7 @@ Tests:
 - `packages/agent/src/run.test.ts` (2 of its 29): a call gives each design it changed, created or deleted with the
   design as it read it, and no others; a refused call fails naming the design, keeps its snippet, and runs again by
   `editId`.
-- `apps/desktop/src/renderer/design-store.test.ts` (11 of its 18): Save writing the files and the stylesheet, saving
+- `apps/desktop/src/renderer/design-store.test.ts` (11 of its 20): Save writing the files and the stylesheet, saving
   automatically a moment later, a failed save thrown and cleared, a reload cancelling a save waiting to happen, and
   library designs never written.
 - `packages/tokens/src/stylesheet.test.ts` (11 of its 14): a value replaced in place, keeping comments and formatting; a
@@ -1600,6 +1608,56 @@ Tests:
   for frames drawn elsewhere; and a guest loaded again showing, then saving, an unsaved edit.
 - `chrome/TokensPanel.stories.tsx`: ReferenceToAnotherToken (an edit is one undo step, unsaved) and SaveFails (the
   panel's message and the marked row), both played in Storybook on 2026-10-29.
+
+### One undo step per gesture (PAR-441)
+
+A gesture is one undo step, however long it takes and however many changes it makes: a design or note dragged by its
+board, a layer drag, a resize handle, a scrub of a field's label, and a run of arrow presses, on the canvas or in a
+field. Time plays no part, so a slow drag with long pauses is still one step, and two quick edits are two.
+
+- **How a gesture says so.** Its source begins a gesture when it starts, passes it with each change it makes, and ends
+  it when it's over. The changes join one step while it's the latest, labelled by the first of them (Undo resize layer).
+- **Where each begins and ends.** A resize runs from the press on a handle to the release, or to Escape, which takes it
+  all back. A layer drag runs from the move past the threshold to the drop; an absolutely placed layer writes as it
+  moves, and Escape takes that back too. A design or note dragged by its board is tldraw's translate, from its first
+  move until tldraw stops translating; dragged by its title, it writes once on release. A scrub runs from the press on
+  the label to the release. A run of arrow presses on the canvas lasts while the selection stays the same and nothing
+  else changes: another edit, an undo or a redo, or selecting something else, also back to what it was, ends it. In a
+  field, typing, Enter, Escape, leaving the field or scrubbing it ends a run of Up and Down.
+- **Gestures that change nothing.** A gesture that changes nothing adds no step, and one that comes back where it began,
+  such as a drag back to its start or a nudge there and back, leaves none, with the file clean again.
+- **Changes from elsewhere.** An agent's call or a file reloaded during a gesture is a step of its own, so the gesture's
+  changes after it make a second step. The agent's work stays out of the gesture's undo.
+
+Code: `packages/editor/src/history.ts` (`recordChange` with the `gesture` option, `endGesture`, and `checkpoint` and
+`revertTo` by gesture) and `apps/desktop/src/renderer/design-store.ts` (`beginGesture`, `endGesture`). The sources are
+`canvas/CanvasOverlay.tsx` (`drag`, for resize handles), `canvas/layer-drag.ts`, `canvas/CanvasEditor.tsx` (tldraw's
+translate), `canvas/nudge.ts` (`runGesture`) and `chrome/fields.tsx` (`NumberField`'s runs and scrubs), whose gesture
+reaches the store through `StyleSections.tsx`'s `fieldEdits`, `LayerPanel.tsx`, `MultiPanel.tsx` and `PropsSection.tsx`.
+
+Tests:
+
+- `packages/editor/src/history.test.ts` (9 of its 44), without Electron: a drag, a resize, a scrub and a run of arrow
+  presses, each with five-second pauses between its changes, as one step labelled by its first change, undone to where
+  it began with the file clean, and redone; a gesture that changes nothing adding no step; one that comes back where it
+  began leaving none, and going on from there starting its step again; another change, an undo or the gesture's end
+  ending its step; two gestures' changes kept apart; and a file reloaded mid-gesture as a step of its own, between the
+  gesture's.
+- `apps/desktop/src/renderer/design-store.test.ts` (2 of its 20): a gesture's changes five seconds apart as one step
+  until it ends, and each gesture its own id; and a live drag written as an absolutely placed layer's is, taking a side
+  back to the checkpoint mid-drag, as one step, and as none once Escape reverts it. Its checkpoint tests are under
+  "Resize handles".
+- `apps/desktop/src/renderer/canvas/nudge.test.ts` and `chrome/fields.test.ts`: the runs and the scrub, under "Nudging"
+  and "Typing, stepping and scrubbing".
+- End to end, each pausing longer than the one-second window the history used to group by: `moving.e2e.ts`, New project
+  resized with a pause of a second and a half, then one undo; `keyboard.e2e.ts`, two arrow presses a second and a half
+  apart, then one undo; `fields.e2e.ts`, Up, Shift+Up and Down more than a second apart, then one undo; and
+  `selecting.e2e.ts`, Sign in dragged by its board with a pause, then one undo.
+
+Gaps: a layer drag in a layout and a title drag write once, on release, and have no slow test of their own; the live
+drag of an absolutely placed layer is tested through the store, not end to end with a pause. A frame's own handles and a
+note dragged by tldraw go through the same code as a resize and a board, without tests of their own. Escape during
+tldraw's drag of a board isn't covered.
 
 ### Edits in the state and variant shown (PAR-164)
 
