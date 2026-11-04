@@ -2,7 +2,7 @@ import { writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { describe, expect, it } from "vite-plus/test"
 import { describeExec } from "./client.ts"
-import { type ExecReply, execResponse, executeOperation, executeRequest, structuredExec } from "./execute.ts"
+import { type ExecReply, execResponse, executeRequest, structuredExec } from "./execute.ts"
 import { fixtureTab, toolReply, transportFixture } from "./transport-fixture.ts"
 
 const success: ExecReply = {
@@ -322,23 +322,11 @@ describe("execute transport contract", () => {
     )
   })
 
-  it("publishes execute's output schema with the failure every tool can return", async () => {
+  it("lists tools without output schemas, which cost agents context and no client needs (PAR-510)", async () => {
     const result = await run(["mcp"], JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }) + "\n")
-    expect(toolReply(result.stdout)).toEqual(
-      expect.objectContaining({
-        result: {
-          tools: expect.arrayContaining([
-            expect.objectContaining({
-              name: "execute",
-              outputSchema: {
-                type: "object",
-                anyOf: [executeOperation.outputSchema, expect.objectContaining({ required: ["error"] })]
-              }
-            })
-          ])
-        }
-      })
-    )
+    const { tools } = (toolReply(result.stdout) as { result: { tools: Record<string, unknown>[] } }).result
+    expect(tools.length).toBeGreaterThan(0)
+    for (const tool of tools) expect(tool).not.toHaveProperty("outputSchema")
   })
 })
 
