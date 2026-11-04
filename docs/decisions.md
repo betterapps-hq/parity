@@ -2477,6 +2477,36 @@ retry: 3 calls, about 66 KB. Now the failure carries `alternatives`: 2 calls, ab
 data and text both). Small reads grew by their structured copy (props 449 to 1,149), and `tools/list` from 8,565 to
 25,616 with the output schemas, once per session.
 
+## Agents read where edits stand (PAR-481)
+
+`parity status` and MCP `get_status` read, without changing anything, where a tab's edits stand: its revision, whether
+anything applied isn't on disk (`dirty`), the unsaved files, the token values waiting for the stylesheet, how the last
+save went and the writes that failed, how many steps undo and redo hold, and whether saving is automatic. `summary` adds
+each unsaved file's designs added, changed and removed, changed modes and token values, and the undo and redo labels, up
+to `limit` each (10 by default, at most 100). An agent couldn't tell before whether its changes, or the person's, were
+saved at all. My calls:
+
+- **The revision is the editor history's,** not a second history: `DesignHistory.revision` counts each change, undo,
+  redo, revert or file reload that changes the documents, modes or token edits, in `restore`, the one place they all go
+  through. Saving, view-only state such as the canvas's camera, zoom and drawn sizes, and presence leave it alone, so it
+  doesn't depend on volatile canvas layout. A board moved or a state shown is a change to the file, so it counts.
+- **Agents see it as an opaque string,** `<epoch>:<n>`, where the epoch is random per opened project, so a revision from
+  before a tab was reopened never matches one after. It's equal only while nothing has changed; ordering and deltas
+  since a revision are PAR-267's, which can read the counter after the colon. `get_app_state` now carries the same
+  `revision`, so a later read can tell whether the board moved on since.
+- **Applied, undoable and saved are kept apart.** `undo.count` is what's applied and can be taken back; `unsaved` and
+  `dirty` are what isn't on disk; `save` is the history's save state; `errors` are the history's write failures. Each
+  comes from `@parity-app/editor`'s `editStatus`, over the same history the canvas uses, so it can't disagree with the
+  title bar or the tab's unsaved dot.
+- **Save, undo and redo stay the person's.** The text says unsaved changes wait for the person to save, unless automatic
+  saving is on. Exposing those as agent operations needs its own reviewed contract.
+- **The status crosses as its own window request** (`agent.status`), so a snapshot doesn't carry the summary's diff, and
+  the summary is computed only when asked for, comparing designs with `sameDesign`.
+
+Measured on `examples/shadcn-vite` through MCP: telling whether anything changed meant reading `get_app_state` again
+(73,398 bytes) and comparing, and whether it was saved couldn't be read at all. `get_status` is 558 bytes, or 747 with a
+summary, and its revision says whether to read anything else. `tools/list` grows from 29,296 to 32,964 bytes.
+
 ## Agents discover modes in one read (PAR-473)
 
 `parity modes [design]` and MCP `get_modes` are a shared operation over the snippet API's `GetModes(design?)`, which now

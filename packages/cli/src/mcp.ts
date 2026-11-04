@@ -9,6 +9,7 @@ import {
   describeModes,
   describeProblems,
   describeProps,
+  describeStatus,
   describeTokens,
   setCaller
 } from "./client.ts"
@@ -83,6 +84,12 @@ const tools: Tool[] = [
     "Get a tab's state: its designs (ids, states, modes shown, where their boards are and how big), boards that overlap or crowd each other's titles, the selection, project modes, components and tokens, and what Parity detected in the project (each tool's version, where it's installed and its config, the package manager, and a note naming versions Parity doesn't test). Call it first, and again after the person may have changed things. Keep boards apart: Overlaps() and FindEmptySpace() in execute help place them.",
     operations.state,
     json
+  ),
+  operationTool(
+    "get_status",
+    "Read where a tab's edits stand, changing nothing: its revision (the same only while nothing has changed, so compare it before reading again), whether anything applied isn't saved (dirty), the files waiting for Save, token values waiting, how the last save went and writes that failed, and how many steps undo and redo hold. summary adds each unsaved file's designs added, changed and removed, the token values, and undo and redo labels, up to limit each. Changes are undoable once applied; only the person saves them, unless automatic saving is on.",
+    operations.status,
+    (result) => [text(describeStatus(result))]
   ),
   operationTool(
     "get_modes",

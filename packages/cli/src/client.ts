@@ -103,6 +103,64 @@ export interface TabsResponse {
   tabs: TabSummary[]
 }
 
+export interface StatusResponse {
+  tab: { id: string; name: string }
+  /** Opaque: the same only while nothing in the tab has changed. */
+  revision: string
+  /** Something applied (and undoable) isn't on disk yet. */
+  dirty: boolean
+  /** Changes save themselves a moment later; otherwise they wait for the person to save. */
+  autosave: boolean
+  unsaved: {
+    path: string
+    kind: "document" | "stylesheet"
+    designs?: { added: string[]; changed: string[]; removed: string[] }
+    modes?: boolean
+    tokens?: string[]
+    more?: number
+  }[]
+  tokenEdits: number
+  save: { status: "saved" | "unsaved" | "saving" | "failed"; error?: string }
+  errors: { path: string; error: string }[]
+  undo: { count: number; labels?: string[] }
+  redo: { count: number; labels?: string[] }
+}
+
+/** Where a tab's edits stand: the revision, what's applied and undoable, what's on disk, and what failed to write. */
+export function describeStatus(result: StatusResponse): string {
+  const { tab, revision, unsaved, undo, redo, save, errors } = result
+  const steps = (count: number) => (count === 1 ? "1 step" : `${count} steps`)
+  const lines = [`${tab.name} is at revision ${revision}.`]
+  if (unsaved.length === 0) lines.push("Everything applied is saved.")
+  else {
+    const how = result.autosave
+      ? "Automatic saving is on, so they save themselves."
+      : "They wait for the person to save; agents can't."
+    lines.push(`${unsaved.length === 1 ? "1 file isn't" : `${unsaved.length} files aren't`} saved. ${how}`)
+    for (const file of unsaved) {
+      const parts: string[] = []
+      if (file.designs) {
+        const { added, changed, removed } = file.designs
+        if (added.length > 0) parts.push(`added ${added.join(", ")}`)
+        if (changed.length > 0) parts.push(`changed ${changed.join(", ")}`)
+        if (removed.length > 0) parts.push(`removed ${removed.join(", ")}`)
+      }
+      if (file.modes) parts.push("changed the modes")
+      if (file.tokens?.length) parts.push(`token values ${file.tokens.join(", ")}`)
+      if (file.more) parts.push(`and ${file.more} more`)
+      lines.push(`  ${file.path}${parts.length > 0 ? `: ${parts.join("; ")}` : ""}`)
+    }
+  }
+  if (save.status === "saving") lines.push("Saving now.")
+  if (errors.length > 0) {
+    lines.push("", "Failed to write:", ...errors.map((entry) => `  ${entry.path}: ${entry.error}`))
+  }
+  lines.push("", `Undo has ${steps(undo.count)}${undo.labels?.length ? `: ${undo.labels.join(", ")}` : ""}.`)
+  if (redo.count > 0)
+    lines.push(`Redo has ${steps(redo.count)}${redo.labels?.length ? `: ${redo.labels.join(", ")}` : ""}.`)
+  return lines.join("\n")
+}
+
 export interface ModesResponse {
   tab: { id: string; name: string }
   variables: {

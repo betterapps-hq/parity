@@ -19,6 +19,7 @@ import type {
   ThemeVariable,
   UpdateState
 } from "@parity-app/core"
+import type { EditStatus } from "@parity-app/editor"
 import type { Token, TokenChange } from "@parity-app/tokens"
 
 /**
@@ -187,6 +188,8 @@ export interface ProjectProcess {
 export interface WindowMethods {
   "agent.tabs": { params: undefined; result: TabSummary[] }
   "agent.snapshot": { params: { tab?: string }; result: TabSnapshot }
+  /** Where a tab's edits stand: applied, undoable and saved. Reading it changes nothing. */
+  "agent.status": { params: { tab?: string; summary?: boolean; limit?: number }; result: TabStatus }
   /**
    * Merges an agent's changes in as one undoable step, or, when any overlaps what changed in the editor since the
    * agent's snapshot, applies nothing and gives back the conflicts.
@@ -288,8 +291,21 @@ export interface TabSummary {
 }
 
 /** Everything an agent reads from a tab before it works on it. */
+/**
+ * Where a tab's edits stand (see `editStatus` in `@parity-app/editor`), with the revision as the agent API gives it:
+ * opaque, and equal only while nothing has changed in this tab since it opened.
+ */
+export type TabStatus = Omit<EditStatus, "revision"> & {
+  tab: TabSummary
+  revision: string
+  /** Whether each change saves itself a moment later; otherwise changes wait for the person to save. */
+  autosave: boolean
+}
+
 export interface TabSnapshot {
   tab: TabSummary
+  /** The tab's revision (see `TabStatus`), which changes with every change to its designs, modes or token edits. */
+  revision: string
   projectId: string
   guestUrl: string
   components: string[]

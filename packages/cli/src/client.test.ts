@@ -5,6 +5,7 @@ import {
   describeComponents,
   describeModes,
   describeProblems,
+  describeStatus,
   describeTokens
 } from "./client.ts"
 
@@ -186,6 +187,63 @@ describe("describeModes", () => {
         "Design:",
         "  home (Home): every state (default, empty); main mode mobile-dark",
         "    mobile-dark: 390 by 600, in a 390 by 600 window"
+      ].join("\n")
+    )
+  })
+})
+
+describe("describeStatus", () => {
+  it("says what's applied but unsaved, that the person saves it, and what undo holds", () => {
+    const text = describeStatus({
+      tab: { id: "shop", name: "Shop" },
+      revision: "a1b2c3d4:4",
+      dirty: true,
+      autosave: false,
+      unsaved: [
+        { path: "app.par", kind: "document", designs: { added: ["pricing"], changed: ["home"], removed: [] } },
+        { path: "src/index.css", kind: "stylesheet", tokens: ["primary default"], more: 1 }
+      ],
+      tokenEdits: 2,
+      save: { status: "failed", error: "The disk is full" },
+      errors: [{ path: "app.par", error: "The disk is full" }],
+      undo: { count: 4, labels: ["Edit --primary"] },
+      redo: { count: 0, labels: [] }
+    })
+    expect(text).toBe(
+      [
+        "Shop is at revision a1b2c3d4:4.",
+        "2 files aren't saved. They wait for the person to save; agents can't.",
+        "  app.par: added pricing; changed home",
+        "  src/index.css: token values primary default; and 1 more",
+        "",
+        "Failed to write:",
+        "  app.par: The disk is full",
+        "",
+        "Undo has 4 steps: Edit --primary."
+      ].join("\n")
+    )
+  })
+
+  it("says when everything is saved", () => {
+    const text = describeStatus({
+      tab: { id: "shop", name: "Shop" },
+      revision: "a1b2c3d4:0",
+      dirty: false,
+      autosave: true,
+      unsaved: [],
+      tokenEdits: 0,
+      save: { status: "saved" },
+      errors: [],
+      undo: { count: 0 },
+      redo: { count: 2 }
+    })
+    expect(text).toBe(
+      [
+        "Shop is at revision a1b2c3d4:0.",
+        "Everything applied is saved.",
+        "",
+        "Undo has 0 steps.",
+        "Redo has 2 steps."
       ].join("\n")
     )
   })

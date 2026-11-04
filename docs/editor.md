@@ -2401,6 +2401,29 @@ Checked in the running app on `examples/shadcn-vite`: unknown tab, component, de
 `--json`, bounded tokens, and an execute that applied and was renamed back. Gaps: the end-to-end suite doesn't drive the
 CLI; `get_app_state` is unbounded (53 KB for 61 designs), left to PAR-479.
 
+### Where edits stand, for agents (PAR-481)
+
+`parity status`, MCP `get_status` and the window's `agent.status` request read a tab's revision, whether anything
+applied isn't saved, its unsaved files, token values waiting, the save state and failed writes, the undo and redo counts
+and whether saving is automatic. `summary` (with `limit`) adds each unsaved file's designs added, changed and removed,
+changed modes, token values, and the undo and redo labels. `get_app_state` carries the revision too. Reading it changes
+nothing; the revision changes with every change, undo, redo, revert or reload of designs, modes or token edits, and not
+with saving or the camera.
+
+Implementation: `revision` in `packages/editor/src/history.ts` (`restore`); `editStatus` in
+`packages/editor/src/status.ts`; `DesignStore.status` and `getRevision` in `apps/desktop/src/renderer/design-store.ts`;
+`agent.status` in `renderer/agent/handlers.ts` and `shared/protocol.ts`; the `status` RPC and state's revision in
+`utility/agent.ts`; the `status` operation in `packages/cli/src/operations.ts`, `describeStatus` in `client.ts`, and the
+adapters in `mcp.ts` and `bin.ts`.
+
+Tests: `packages/editor/src/status.test.ts` (clean at 0; change, undo and redo each counted and told apart from what's
+saved; saving and a failed write leave the revision; a bounded summary of added, changed and removed designs, token
+values and labels newest first; changed modes). `packages/cli/src/operations.test.ts` (CLI and MCP defaults, explicit
+summary and limit, structured output, invalid summary and limit) and `client.test.ts` (the text). Checked in the running
+app on `examples/shadcn-vite`: a clean tab, an agent's rename (dirty, `changed button`, one undo step), a token edit
+(the stylesheet unsaved), and `state`'s revision moving with them. Gap: no end-to-end test drives a person's edit and
+then reads the status; deltas since a revision are PAR-267.
+
 ### Discovering modes (PAR-473)
 
 `parity modes [design]`, MCP `get_modes` and the snippet API's `GetModes(design?)` return the project's variables, its
