@@ -131,7 +131,11 @@ function DownloadFlow() {
           Mac download
         </button>
       </div>
-      <Toaster position="bottom-right" offset={{ bottom: 40, right: 16 }} />
+      <Toaster
+        position="bottom-right"
+        offset={{ bottom: 40, right: 16 }}
+        mobileOffset={{ bottom: 40, left: 16, right: 16 }}
+      />
     </div>
   )
 }

@@ -130,7 +130,7 @@ export const Open: Story = {
   }
 }
 
-/** Storybook starting, just asked for: the status bar says so, and its light turns until it's ready. */
+/** Storybook starting, just asked for: its light turns until it's ready, and the lights' tooltip says what's starting. */
 export const Starting: Story = {
   loaders: [() => runningWith(storybook({ domain: undefined, status: "starting", startedAt: Date.now() - 9000 }))],
   play: async () => {
@@ -138,7 +138,7 @@ export const Starting: Story = {
   }
 }
 
-/** Storybook crashed a minute after starting: the status bar turns red, and the flyout says why and offers to start it again. */
+/** Storybook crashed a minute after starting: its light pings red, and the flyout says why and offers to start it again. */
 export const Crashed: Story = {
   loaders: [
     () =>
@@ -184,8 +184,8 @@ export const Stopping: Story = {
 }
 
 /**
- * A verify round and unit tests running beside the servers: what each is doing and how far it has got. The status bar
- * names the first, with its progress.
+ * A verify round and unit tests running beside the servers: what each is doing and how far it has got. The lights'
+ * tooltip names the first, with its progress.
  */
 export const TasksRunning: Story = {
   loaders: [
@@ -203,8 +203,8 @@ export const TasksRunning: Story = {
 }
 
 /**
- * Lint failed while the flyout was closed: the status bar says so in red, with a mark beside the lights, until the
- * flyout is opened.
+ * Lint failed while the flyout was closed: a red light pings beside the others, and the lights' tooltip says so, until
+ * the flyout is opened.
  */
 export const TaskFailed: Story = {
   loaders: [
