@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "A call without --tab finds the project its folder is in through links, such as macOS's /var",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
