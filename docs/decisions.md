@@ -2983,6 +2983,7 @@ frames several times over, which the 2026-11-04 speed audit found the most expen
 - **What it doesn't see** is layout that moves with no input, DOM change, resize, image or font load or animation it
   hears of, such as a video in a frame taking its size once its data arrives. The outline catches up at the next change,
   such as the pointer moving.
+
 ## A running process's light breathes by opacity (PAR-524)
 
 A running server's light in the status bar breathed by animating its `box-shadow`, which the browser has to paint again
