@@ -206,8 +206,7 @@ export async function importersOf(
     files.map(async (path) => {
       if (targets.has(moduleId(path))) return
       const source = await readFile(join(root, path), "utf8").catch(() => "")
-      for (const match of source.matchAll(/(?:\bfrom|\bimport)\s*\(?\s*["']([^"']+)["']/g)) {
-        const specifier = match[1]!
+      for (const specifier of importSpecifiers(source)) {
         const target = specifier.startsWith(".")
           ? posix.join(posix.dirname(path), specifier)
           : resolvePathAlias(root, tsconfig, specifier)
@@ -219,6 +218,18 @@ export async function importersOf(
     })
   )
   return found.sort()
+}
+
+/**
+ * What a module's source imports, as written: `import … from`, `export … from`, a bare `import "…"` and `import()`; a
+ * stylesheet's are its `@import`s. Read by pattern rather than parsed, so an import in a comment counts too, which errs
+ * toward reading a file more.
+ */
+export function importSpecifiers(source: string, stylesheet = false): string[] {
+  const pattern = stylesheet
+    ? /@import\s+(?:url\(\s*)?["']([^"']+)["']/g
+    : /(?:\bfrom|\bimport)\s*\(?\s*["']([^"']+)["']/g
+  return [...source.matchAll(pattern)].map((match) => match[1]!)
 }
 
 /** A module by its path without extension or `/index`, as imports name it. */

@@ -9,6 +9,7 @@ import { handleConsoleResult } from "./console.ts"
 import { undoProjectEdit } from "./edits.ts"
 import { importImage } from "./images.ts"
 import { addLibrary, catalogFor, importStyles } from "./libraries.ts"
+import { lookupPreviews, makePreview } from "./previews.ts"
 import { dismissProcess, listProcesses, restartProcess, stopProcess } from "./processes.ts"
 import {
   closeProject,
@@ -25,7 +26,7 @@ import {
   saveDocumentCopy,
   saveTokens
 } from "./projects.ts"
-import { handleRenderResult, renderOffscreen } from "./render.ts"
+import { handlePreviewResult, handleRenderResult, renderOffscreen } from "./render.ts"
 import { startReopening } from "./reopening.ts"
 import { openStorybook } from "./storybook.ts"
 
@@ -71,6 +72,8 @@ const handlers: Handlers = {
     return (served && (await storedBitmap(served, job))) ?? {}
   },
   "frames.clearStored": clearBitmaps,
+  "previews.lookup": async ({ previews }) => ({ previews: await lookupPreviews(previews) }),
+  "previews.make": ({ preview, priority }) => makePreview(preview, priority),
   "accessibility.check": (params) => checkAccessibility(editorWindow(), params),
   "project.components": projectComponents,
   "project.correctComponents": correctComponents,
@@ -147,6 +150,8 @@ process.parentPort.on("message", (event: { data: MainMessage; ports: MessagePort
     if (port) connect(port)
   } else if (event.data.type === "render-result") {
     handleRenderResult(event.data)
+  } else if (event.data.type === "preview-result") {
+    handlePreviewResult(event.data)
   } else if (event.data.type === "console-result") {
     handleConsoleResult(event.data)
   } else if (event.data.type === "builders") {

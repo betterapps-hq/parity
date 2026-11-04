@@ -31,7 +31,7 @@ import {
 import {
   appFiles,
   checkedChanges,
-  codeFingerprint,
+  codeSnapshot,
   detectProject,
   discoverProject,
   filesChanged,
@@ -86,9 +86,10 @@ interface OpenProject {
   /** Where the windows load the project's guest from: `info.guestUrl`, unless they couldn't load it after it moved. */
   drawnGuestUrl: string
   /**
-   * The project's code as each address first served it (`codeFingerprint`), and the components it served, which kept
-   * frame bitmaps are named by. A page never loads a module twice, so a guest drawn from an address shows the code it
-   * had then, however it has changed since: a builder started again on the same port keeps the address's first.
+   * The project's code as each address first served it (`codeSnapshot`), and the components it served, which kept
+   * frame bitmaps and component previews are named by. A page never loads a module twice, so a guest drawn from an
+   * address shows the code it had then, however it has changed since: a builder started again on the same port keeps
+   * the address's first.
    */
   fingerprints: Map<string, ServedCode>
   /**
@@ -384,10 +385,14 @@ async function restartBuilder(root: string): Promise<void> {
  */
 function servedCode(root: string, options: BuilderStartOptions): ServedCode {
   const guest = readFile(options.rendererGuestPath).catch(() => Buffer.alloc(0))
-  const fingerprint = guest.then((contents) =>
-    codeFingerprint(root, `${bitmapFormat}:${createHash("sha256").update(contents).digest("hex")}`)
+  const code = guest.then((contents) =>
+    codeSnapshot(root, `${bitmapFormat}:${createHash("sha256").update(contents).digest("hex")}`)
   )
-  return { fingerprint, sources: { ...options.config.components } }
+  return {
+    code,
+    fingerprint: code.then(({ fingerprint }) => fingerprint),
+    sources: { ...options.config.components }
+  }
 }
 
 /** Kept bitmaps carry their frame's height, and are named by the components their frames draw (PAR-179). */
@@ -396,6 +401,21 @@ const bitmapFormat = 2
 /** The project's code as the address a job draws from first served it, while the project is open. */
 export function codeServedAt(projectId: string, guestUrl: string): ServedCode | undefined {
   return projects.get(projectId)?.fingerprints.get(guestUrl)
+}
+
+/**
+ * What a component preview's key needs of an open project (PAR-207): its root, where its components come from, and the
+ * stylesheets its compiled CSS is made from.
+ */
+export function previewProject(
+  projectId: string
+): { root: string; sources: Record<string, ComponentSource>; stylesheets: string[] } | undefined {
+  const project = projects.get(projectId)
+  if (!project) return undefined
+  const stylesheets = project.info.styles
+    ? [project.info.styles.stylesheet, ...project.stylesheets]
+    : project.stylesheets
+  return { root: project.info.root, sources: project.sources, stylesheets: [...new Set(stylesheets)] }
 }
 
 /** Sends the builder the components the guest imports, once they've changed in place. */

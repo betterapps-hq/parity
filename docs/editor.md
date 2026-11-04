@@ -2167,7 +2167,7 @@ data, in `bitmaps`, one folder per project and one PNG per bitmap.
   shown past 200 MB, down to 180 MB. Showing a bitmap counts as using it. **View > Clear bitmap cache**, also in the
   actions search, removes them all; bitmaps on the canvas now are taken again when their frames next change.
 
-Code: `cacheRemovals` in `packages/core/src/bitmap-cache.ts`; `codeFingerprint` in
+Code: `cacheRemovals` in `packages/core/src/bitmap-cache.ts`; `codeSnapshot` in
 `packages/project/src/code-fingerprint.ts`; `apps/desktop/src/utility/bitmap-store.ts`, and `codeServedAt` and the
 `fingerprints` kept per address in `utility/projects.ts`, with the components each address served; `drawnComponents` in
 `apps/desktop/src/shared/render-job.ts`; `withPngText` and `pngText` in `packages/core/src/png-text.ts`; the
@@ -2195,6 +2195,84 @@ of their own; both were checked by reading `useFrameBitmap` and `restartBuilder`
 shown from disk with no capture, about 2 seconds after the window loaded, the service answering each read in about a
 millisecond once it reached it; Clear bitmap cache emptied the folder and showed its toast. Before the fix to wait for
 the read, the service answered after the 1-second wait, so every frame was captured again anyway.
+
+### Component previews, made offscreen and kept on disk (PAR-207)
+
+Each component has a picture of what inserting it would place, made in the offscreen window and kept on disk with the
+frame bitmaps, so no panel mounts a component and a project opened again draws none it already has. The Components panel
+shows it, for now, above the name in a component row's hint; PAR-208 gives it the List and Grid views, the card and the
+picker.
+
+- **What's pictured is what inserting places:** the node `nodeForItem` and `withLibraryContext` build for an empty
+  layout, with the component's sample and the parents a part needs, its layers numbered in order so the tree is the same
+  every time. It's drawn in the project's first mode, inside an element as wide as the component up to 640 pixels with 8
+  pixels around it, in a window the mode's width, at twice its size, and cropped to that element. Unsaved token previews
+  aren't drawn. A story's args aren't read yet; PAR-209 gives a component sample props, its first story's args first.
+- **Two pictures each,** scaled down in the main process to fit 240 by 152 pixels (rows, tiles, the picker) and 608 by
+  352 (the card), never larger than drawn. They go in the project's `previews` folder in the bitmap store, named by
+  their key, with `index.json` holding each component's latest key and, for one that fails to draw, its error. The
+  window shows them as plain `<img>`s from `parity-preview://<project>/<key>-<size>.png`, which main serves from the
+  store, so Chromium decodes only what's on screen and the window holds an address per picture, not its data.
+- **Keyed by what it depends on** (`previewKey`): the job less where it's drawn from (the tree, the mode, its size, the
+  theme, the scale), and the size and time of each file it depends on, as the address the job draws from first served
+  them (`codeSnapshot`, which also gives PAR-158's fingerprint). Those files are the components' own files and
+  everything they import, followed through relative paths, tsconfig aliases, `index` files and stylesheet `@import`s
+  (`importedFiles`, `moduleClosure`); the project's stylesheets and what they import; and the root's package.json,
+  tsconfigs, tool configs and every lockfile, which stand for the packages imported (`sharedPreviewFiles`). So an edit
+  changes only the keys of components that import what changed, a saved token or a stylesheet changes them all, and the
+  same code gives the same keys after a restart. Library parts whose tree is their parent's share its key and picture.
+- **Canvas and agents first.** The offscreen window's jobs are one queue (`renderQueue`): canvas bitmaps and agents'
+  renders, then previews of rows on screen, then the rest. Nothing is made until the tab is the one shown, its canvas is
+  up and no frame on it is waiting for its bitmap (`bitmapsWaiting`). Then the window asks for one at a time
+  (`nextPreview`): a component whose row is on screen first, whatever the person is doing; the rest only after 2 seconds
+  with no pointer, key, wheel or drag and no edit, the person's or an agent's, and the pass stops before its next one as
+  soon as they work. The offscreen window's idle close still shuts it a minute after the last.
+- **States:** waiting, being made, made, updating (the last picture, dimmed, with "Updating its preview" until the new
+  one is made) and fails to draw (with the error, kept, so the same code isn't drawn again on every open). One the
+  offscreen window couldn't finish isn't kept and is tried again after the next lookup. The window looks every preview
+  up again, 50 at a time, when the guest, its theme, the components, their props, the modes or the component designs
+  change.
+- **Kept under PAR-158's cleanup:** previews count toward the same 200 MB and 30 days, showing a picture counts as using
+  it, and Clear bitmap cache removes them too.
+
+Code: `componentPreviewTree` in `packages/editor/src/component-preview.ts`; `renderQueue`, `nextPreview` and `fitInside`
+in `packages/core/src/preview-order.ts`; `renderedComponents` in `packages/core/src/render.ts`; `previewKey`,
+`resolveModule`, `importedFiles`, `moduleClosure` and `sharedPreviewFiles` in `packages/project/src/preview-key.ts`;
+`codeSnapshot` in `packages/project/src/code-fingerprint.ts`; `importSpecifiers` in `packages/code/src/listing.ts`; the
+`previews.lookup` and `previews.make` handlers, `apps/desktop/src/utility/previews.ts` and the preview half of
+`utility/bitmap-store.ts`; `renderPreview`, `renderOffscreen` and `servePreview` in `apps/desktop/src/main/index.ts`;
+`previewJob`, `startPreviews`, `useComponentPreview` and `usePreviewOnScreen` in
+`apps/desktop/src/renderer/component-previews.ts`; `PreviewPicture` in `renderer/chrome/PreviewPicture.tsx` and
+`AssetRow` in `chrome/AssetsPanel.tsx`; `bitmapsWaiting` in `renderer/canvas/frame-bitmaps.ts`.
+
+Tests: `packages/core/src/preview-order.test.ts` (3 for `renderQueue`: canvas and agent jobs before previews on screen
+and those before the idle pass, one job at a time, and a failure going to its caller with the next job still run; 5 for
+`nextPreview`: nothing until the canvas settles, the first on screen even while the person works, the rest in order once
+idle, waiting out the rest of the idle time, and nothing left; 4 for `fitInside`).
+`packages/project/src/preview-key.test.ts` (9 for `resolveModule`, 2 for `importedFiles`, 2 for `moduleClosure`, 1 for
+`sharedPreviewFiles`, and 6 for `previewKey` on files on disk: the same for the same code and tree, new for a component
+importing the changed file and not for one that doesn't, new for every component when a stylesheet or one it imports
+changes or when the dependencies do, new with what's drawn, and 40 hex characters).
+`packages/project/src/code-fingerprint.test.ts` (1: each file's size and time by path).
+`packages/code/src/listing.test.ts` (2 for `importSpecifiers`). `packages/editor/src/component-preview.test.ts` (3: what
+inserting places inside the sized element, a part inside its parents, and the same tree every time).
+`apps/desktop/src/utility/bitmap-store.test.ts` (6: addresses and size for a kept preview, pictures and index kept
+across a restart, none for a key not made, kept in the previews folder with no partial file, swept with an unused
+project, and none once cleared). `apps/desktop/src/utility/previews.test.ts` (6, with the project and the offscreen
+window standing in: drawn once and not again after a restart with the same code; after an edit, drawn again only for the
+component importing what changed, with its last picture meanwhile; a draw failure kept; one that didn't finish tried
+again; two asks at once drawing once; and none for code the project hasn't served). Gaps: the window's store and
+scheduler (`component-previews.ts`), the queue's use in main and the protocol have no test of their own; they were tried
+in the app.
+
+Tried in a debug copy on `examples/shadcn-vite`, with 587 components: the canvas's 119 bitmaps were taken in 16 seconds
+and the first preview was made a second after the last. The idle pass then made 555 previews and kept 13 failures (parts
+that need their parent, which PAR-208 and PAR-209 handle) in 77 seconds, about 140 ms each; the other 19 are parts that
+share their parent's key. On disk they came to 3.1 MB: thumbnails 1.3 MB (2.3 KB each on average) and large pictures 1.8
+MB (3.3 KB on average, the largest 66 KB). The window keeps a key and two addresses per component and decodes a picture
+only while it's shown. Started again with nothing changed, none was drawn and Button's hint showed its picture at once.
+After an edit to `badge.tsx` and a restart, only Badge was drawn again, its hint showing the old picture dimmed as
+updating until then.
 
 ## What the editor itself loads
 

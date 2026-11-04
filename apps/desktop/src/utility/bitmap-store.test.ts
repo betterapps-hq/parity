@@ -30,6 +30,7 @@ const job = (guestUrl: string, text = "Sign in"): RenderJob => ({
 })
 /** What a guest's address was served: its code, and the components it was served with. */
 const code = (fingerprint: string, sources: Record<string, { path: string; export: string }> = {}) => ({
+  code: Promise.resolve({ fingerprint, files: new Map<string, string>(), salt: "" }),
   fingerprint: Promise.resolve(fingerprint),
   sources
 })
@@ -101,5 +102,77 @@ describe("the frame bitmap store", () => {
     await store.storeBitmap(code("code-1"), job("http://localhost:5001"), png, 100)
     await store.clearBitmaps()
     expect(await store.storedBitmap(code("code-1"), job("http://localhost:5001"))).toBeUndefined()
+  })
+})
+
+/** The start of a PNG of a size, which is all the store reads of one. */
+function png24(width: number, height: number): Buffer {
+  const header = Buffer.alloc(24)
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(header, 0)
+  header.writeUInt32BE(13, 8)
+  header.write("IHDR", 12, "latin1")
+  header.writeUInt32BE(width, 16)
+  header.writeUInt32BE(height, 20)
+  return header
+}
+
+const key = "a".repeat(40)
+const newer = "b".repeat(40)
+const pictures = () => ({ thumb: png24(240, 40), large: png24(600, 100) })
+
+describe("the component preview store", () => {
+  it("gives a preview's pictures as parity-preview addresses, with the large one's size", async () => {
+    await store.storePreview("D:/shop", "ui/Button", { key }, pictures(), { width: 600, height: 100 })
+    const image = await store.storedPreview("D:/shop", key)
+    expect(image).toEqual({
+      thumb: expect.stringMatching(new RegExp(`^parity-preview://[0-9a-f]{24}/${key}-thumb[.]png$`)),
+      large: expect.stringMatching(new RegExp(`^parity-preview://[0-9a-f]{24}/${key}-large[.]png$`)),
+      width: 600,
+      height: 100
+    })
+  })
+
+  it("keeps pictures and the index across a restart, so a reopen finds them without drawing", async () => {
+    await store.storePreview("D:/shop", "ui/Button", { key }, pictures(), { width: 600, height: 100 })
+    await store.storePreview("D:/shop", "ui/Card", { key: newer, error: "Card needs a CardProvider" })
+    vi.resetModules()
+    const restarted: typeof BitmapStore = await import("./bitmap-store.ts")
+    expect(await restarted.storedPreview("D:/shop", key)).toMatchObject({ width: 600, height: 100 })
+    expect([...(await restarted.previewIndex("D:/shop"))]).toEqual([
+      ["ui/Button", { key }],
+      ["ui/Card", { key: newer, error: "Card needs a CardProvider" }]
+    ])
+  })
+
+  it("has none for a key it hasn't made", async () => {
+    expect(await store.storedPreview("D:/shop", newer)).toBeUndefined()
+  })
+
+  it("keeps previews in the project's previews folder, with no partial file behind", async () => {
+    await store.storePreview("D:/shop", "ui/Button", { key }, pictures(), { width: 600, height: 100 })
+    const [project] = await readdir(folder)
+    expect((await readdir(join(folder, project!, "previews"))).sort()).toEqual([
+      `${key}-large.png`,
+      `${key}-thumb.png`,
+      "index.json"
+    ])
+  })
+
+  it("sweeps previews with their project once it's unused for over 30 days", async () => {
+    await store.storePreview("D:/shop", "ui/Button", { key }, pictures(), { width: 600, height: 100 })
+    const [project] = await readdir(folder)
+    const previews = join(folder, project!, "previews")
+    const old = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000)
+    for (const name of await readdir(previews)) await utimes(join(previews, name), old, old)
+    await store.sweepBitmaps()
+    expect(await readdir(folder)).toEqual([])
+    expect(await store.previewIndex("D:/shop")).toEqual(new Map())
+  })
+
+  it("keeps none once the bitmap cache is cleared", async () => {
+    await store.storePreview("D:/shop", "ui/Button", { key }, pictures(), { width: 600, height: 100 })
+    await store.clearBitmaps()
+    expect(await store.storedPreview("D:/shop", key)).toBeUndefined()
+    expect(await store.previewIndex("D:/shop")).toEqual(new Map())
   })
 })

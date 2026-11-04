@@ -2,7 +2,7 @@ import { mkdtemp, mkdir, rm, utimes, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
-import { codeFingerprint } from "./code-fingerprint.ts"
+import { codeSnapshot } from "./code-fingerprint.ts"
 
 let root: string
 
@@ -23,13 +23,13 @@ async function edit(path: string, contents: string): Promise<void> {
   await utimes(join(root, path), later, later)
 }
 
-describe("codeFingerprint", () => {
+describe("codeSnapshot", () => {
   it("is the same for the same files and salt", async () => {
-    expect(await codeFingerprint(root, "a")).toBe(await codeFingerprint(root, "a"))
+    expect((await codeSnapshot(root, "a")).fingerprint).toBe((await codeSnapshot(root, "a")).fingerprint)
   })
 
   it("changes with the salt, for a new version of what draws the project", async () => {
-    expect(await codeFingerprint(root, "a")).not.toBe(await codeFingerprint(root, "b"))
+    expect((await codeSnapshot(root, "a")).fingerprint).not.toBe((await codeSnapshot(root, "b")).fingerprint)
   })
 
   it.each([
@@ -37,18 +37,24 @@ describe("codeFingerprint", () => {
     ["a stylesheet", "src/index.css", "body { margin: 1px }"],
     ["a config", "vite.config.ts", "export default {}"]
   ])("changes when %s changes", async (_what, path, contents) => {
-    const before = await codeFingerprint(root, "a")
+    const before = (await codeSnapshot(root, "a")).fingerprint
     await edit(path, contents)
-    expect(await codeFingerprint(root, "a")).not.toBe(before)
+    expect((await codeSnapshot(root, "a")).fingerprint).not.toBe(before)
   })
 
   it("leaves out dependencies, build output, dot-folders and designs", async () => {
-    const before = await codeFingerprint(root, "a")
+    const before = (await codeSnapshot(root, "a")).fingerprint
     for (const folder of ["node_modules/pkg", "dist", ".git"]) {
       await mkdir(join(root, folder), { recursive: true })
       await writeFile(join(root, folder, "file.js"), "x")
     }
     await writeFile(join(root, "app.par"), "{}")
-    expect(await codeFingerprint(root, "a")).toBe(before)
+    expect((await codeSnapshot(root, "a")).fingerprint).toBe(before)
+  })
+
+  it("keeps each file's size and time by its path, which previews are named by", async () => {
+    const { files } = await codeSnapshot(root, "a")
+    expect([...files.keys()].sort()).toEqual(["package.json", "src/Button.tsx", "src/index.css"])
+    expect(files.get("src/Button.tsx")).toMatch(/^32:\d+$/)
   })
 })

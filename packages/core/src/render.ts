@@ -58,6 +58,14 @@ function unsizedAxes(style: NodeStyle): Axis[] {
   })
 }
 
+/** Every component a resolved tree draws, by id, outermost first, as often as it's drawn. */
+export function renderedComponents(tree: readonly RenderNode[]): string[] {
+  return tree.flatMap((node) => {
+    if (node.kind === "component") return [node.component, ...Object.values(node.slots).flatMap(renderedComponents)]
+    return node.kind === "element" ? renderedComponents(node.children) : []
+  })
+}
+
 /** Component designs by id, for expanding instances. */
 export type ComponentLibrary = ReadonlyMap<string, ContainerSpec>
 

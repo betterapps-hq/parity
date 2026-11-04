@@ -2855,6 +2855,41 @@ ends, and time plays no part (see editor.md, One undo step per gesture). My call
   Two quick edits of one field, such as clicking two of Text's Resizing modes, are two steps, where the window made them
   one.
 
+## Component previews are made offscreen and kept with the frame bitmaps (PAR-207)
+
+Each component now has a picture of what inserting it would place, made in the offscreen window and kept on disk (see
+editor.md, Component previews, made offscreen and kept on disk). The design is the Previews section above and
+[proposals/previews.md](proposals/previews.md). My calls in building it:
+
+- **Keyed by the code as its address first served it, not by what's on disk now.** The guest has no HMR, so the
+  offscreen window draws a project's code as its address first served it; a key from today's files would name a picture
+  of older code as new. PAR-158's fingerprint is now `codeSnapshot`, which also keeps each file's size and time, and a
+  preview's key hashes those of the files it depends on. An edit is pictured once the guest loads again at a new
+  address, as the canvas shows it, and then only the components importing what changed are drawn again. The imports
+  themselves are read from the files as they are when first asked, which errs toward reading a file more.
+- **"The compiled CSS" is the stylesheets and what they import, not Tailwind's output.** Tailwind compiles a rule for
+  every class anywhere in the project, so hashing its output would make each new class anywhere re-make every picture,
+  against "a file change re-makes only what imports it". A component's own classes are in its own files, which are in
+  its key, and a stylesheet or a saved token changes every key, as the proposal asks. The theme in the job is in the key
+  too.
+- **Packages are their lockfiles.** A library's components, and the packages a project's components import, are covered
+  by the lockfiles and the root's package.json, tsconfigs and tool configs, which every key includes, rather than by
+  following imports into `node_modules`.
+- **In the bitmap store, under its limits, not a cache of its own.** Previews go in a `previews` folder inside the
+  project's folder in `<userData>/bitmaps`, so PAR-158's 200 MB and 30 days, its sweep and Clear bitmap cache cover
+  them. The proposal's 50 MB a project isn't added: 555 previews came to 3.1 MB on the example.
+- **The pictures say whether they're made; the index only says what came before.** A preview is made when both its files
+  are there for its key, so code changed back finds its old pictures. `index.json` keeps each component's latest key,
+  for the dimmed picture while it's made again, and a draw's error, so a component that fails isn't drawn again on every
+  open. A draw that didn't finish isn't kept.
+- **One queue in main, ordered by who it's for.** Canvas bitmaps and agents' renders go before previews of rows on
+  screen, and those before the idle pass; a job running is never stopped. The window adds its own gate on top: none
+  until its tab is shown, its canvas is up and no frame waits for a bitmap, and the idle pass only after 2 seconds of
+  nothing.
+- **Shown in the Components panel's hints until PAR-208.** The List and Grid views, the card and the picker are PAR-208;
+  until then a component row's hint shows its large picture, which is enough to see them and lets a row on screen ask
+  for its picture first.
+
 ## Opening a project in seconds (PAR-179)
 
 Reopening the example project took 5.7 seconds to a usable canvas and 6.6 to its previews when started again, and 19

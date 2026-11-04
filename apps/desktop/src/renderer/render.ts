@@ -1,7 +1,7 @@
 // The offscreen render window's page. The main process asks it to draw one frame, measures it, and captures it, so
 // agents can lay out and screenshot any state in any mode without touching the person's canvas.
 import type { AccessibilityIssue, ContrastDetail } from "@parity-app/agent"
-import type { RenderNode } from "@parity-app/core"
+import { type RenderNode, renderedComponents } from "@parity-app/core"
 import axe, { type NodeResult, type RunOptions } from "axe-core"
 import type { MeasuredNode, RenderedFrame, RenderJob } from "../shared/protocol.ts"
 import { componentsGone } from "../shared/render-job.ts"
@@ -104,7 +104,7 @@ window.canvasRender = async (job) => {
       nodes,
       overflowsX: body.scrollWidth > body.clientWidth + 1,
       unknownComponents: [
-        ...new Set(componentsIn(tree).filter((name) => !known.has(name) && !loaded.guest.hasComponent(name)))
+        ...new Set(renderedComponents(tree).filter((name) => !known.has(name) && !loaded.guest.hasComponent(name)))
       ],
       ...(errors.length > 0 ? { error: errors.join("\n") } : {})
     }
@@ -230,13 +230,6 @@ function contrastOf(data: unknown): ContrastDetail | undefined {
     fontSize: Number(/\(([\d.]+)px\)/.exec(measured.fontSize ?? "")?.[1] ?? 0),
     bold: measured.fontWeight === "bold"
   }
-}
-
-function componentsIn(tree: RenderNode[]): string[] {
-  return tree.flatMap((node) => {
-    if (node.kind === "component") return [node.component, ...Object.values(node.slots).flatMap(componentsIn)]
-    return node.kind === "element" ? componentsIn(node.children) : []
-  })
 }
 
 /** Whether an ancestor that hides overflow cuts part of the element off. */

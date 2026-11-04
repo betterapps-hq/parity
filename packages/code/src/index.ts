@@ -24,6 +24,7 @@ export {
   filesChanged,
   findAppComponents,
   importersOf,
+  importSpecifiers,
   leftOutChanges,
   type ParsedComponent,
   readChangedFiles
