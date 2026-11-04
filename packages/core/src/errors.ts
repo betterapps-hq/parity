@@ -74,18 +74,33 @@ export function unknownReference(
 }
 
 /**
- * Candidates sharing text with the reference first, ignoring case, then the rest in their own order, up to the limit.
- * All of them when they fit.
+ * Candidates sharing text with the reference first, ignoring case, then the rest by how few single-character edits
+ * away they are, so a typo's intended id makes the cut; ties keep their own order. All of them when they fit.
  */
 export function closest(reference: string, candidates: readonly string[], limit = alternativeLimit): string[] {
   const unique = [...new Set(candidates)]
   if (unique.length <= limit) return unique
   const wanted = reference.toLowerCase()
-  const near = (candidate: string) => {
+  const ranked = unique.map((candidate, index) => {
     const lower = candidate.toLowerCase()
-    return wanted.length > 0 && (lower.includes(wanted) || wanted.includes(lower))
+    const near = wanted.length > 0 && (lower.includes(wanted) || wanted.includes(lower))
+    return { candidate, index, near: near ? 0 : 1, distance: near ? 0 : editDistance(wanted, lower) }
+  })
+  ranked.sort((a, b) => a.near - b.near || a.distance - b.distance || a.index - b.index)
+  return ranked.slice(0, limit).map(({ candidate }) => candidate)
+}
+
+/** How many single-character insertions, deletions or substitutions turn one string into the other. */
+function editDistance(a: string, b: string): number {
+  let previous = Array.from({ length: b.length + 1 }, (_, index) => index)
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i]
+    for (let j = 1; j <= b.length; j++) {
+      row[j] = Math.min(previous[j]! + 1, row[j - 1]! + 1, previous[j - 1]! + (a[i - 1] === b[j - 1] ? 0 : 1))
+    }
+    previous = row
   }
-  return [...unique.filter(near), ...unique.filter((candidate) => !near(candidate))].slice(0, limit)
+  return previous[b.length]!
 }
 
 /** A thrown value's details, when it carries them. */

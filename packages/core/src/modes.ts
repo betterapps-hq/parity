@@ -65,7 +65,8 @@ export interface ResolvedMode {
 }
 
 const variableKinds = ["viewport", "theme", "locale", "custom"] as const
-const defaultWidth = 1280
+/** A frame's width when no option in its mode sets one. */
+export const defaultWidth = 1280
 
 export const defaultModeSettings: ModeSettings = {
   version: 1,

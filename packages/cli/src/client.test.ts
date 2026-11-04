@@ -3,6 +3,7 @@ import {
   type AccessibilityFinding,
   describeAccessibility,
   describeComponents,
+  describeModes,
   describeProblems,
   describeTokens
 } from "./client.ts"
@@ -126,6 +127,67 @@ describe("describeAccessibility", () => {
       "  Member row (row-1, row-2), in default, error in desktop: #737373 on #f5f5f5 is 4.34:1, and 14px text needs 4.5:1."
     )
     expect(text.split("\n")[0]).toBe("1 rule broken in Team (team), 3 frames, with axe-core against WCAG 2.2 AA.")
+  })
+})
+
+describe("describeModes", () => {
+  it("tells viewport ids, which Responsive takes, from mode ids, which renders take, with each frame's window", () => {
+    const text = describeModes({
+      tab: { id: "shop", name: "Shop" },
+      variables: [
+        { id: "viewport", name: "Viewport", kind: "viewport", options: [{ id: "mobile", name: "Mobile", width: 390 }] },
+        {
+          id: "theme",
+          name: "Theme",
+          kind: "theme",
+          options: [
+            { id: "light", name: "Light" },
+            { id: "dark", name: "Dark", className: "dark" }
+          ]
+        }
+      ],
+      viewports: [{ id: "mobile", name: "Mobile", width: 390, height: 844 }],
+      modes: [
+        {
+          id: "mobile-dark",
+          name: "Mobile Dark",
+          primary: true,
+          viewport: "mobile",
+          width: 390,
+          height: 844,
+          values: { viewport: "mobile", theme: "dark" },
+          classNames: ["dark"],
+          attributes: {}
+        }
+      ],
+      designs: [
+        {
+          id: "home",
+          name: "Home",
+          state: "empty",
+          states: ["default", "empty"],
+          main: "mobile-dark",
+          beside: [],
+          frames: [{ mode: "mobile-dark", width: 390, height: 600, window: { width: 390, height: 600 } }]
+        }
+      ]
+    })
+    expect(text).toBe(
+      [
+        "Viewports, the ids Responsive(node, viewport, patch) takes:",
+        "  mobile: 390 wide, in a window 844 tall (Mobile)",
+        "",
+        "Other variables:",
+        "  theme (theme): light, dark (class dark)",
+        "",
+        "Modes, the ids screenshots and checks take, primary first:",
+        "  mobile-dark (primary): viewport mobile, theme dark; 390 by 844",
+        "",
+        "Design:",
+        "  home (Home): every state (default, empty); main mode mobile-dark",
+        "    mobile-dark: 390 by 600, in a 390 by 600 window"
+      ].join("\n")
+    )
   })
 })
 

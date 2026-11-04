@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "parity modes and the MCP get_modes tool list the project's viewports (the ids Responsive takes) with their window heights, its modes (the ids renders take) resolved, and what each design shows; naming a design adds its frames' sizes. Mistyped ids now suggest the nearest ones first.",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

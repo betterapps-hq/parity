@@ -2454,8 +2454,9 @@ returns it as `structuredContent`, beside the same text and image blocks as befo
 - **`path` points at the request,** as a JSON pointer in the transport's own field names (MCP execute's `/input` and
   `/description`, the CLI's `/code` and `/label`). An app error names its field, and it becomes a path only when the
   operation has that input: an unknown design inside a snippet has alternatives but no path.
-- **Alternatives are bounded to 20,** those sharing text with the reference first, then the rest in their own order. The
-  messages are unchanged, so people and clients that read only text lose nothing.
+- **Alternatives are bounded to 20,** those sharing text with the reference first, then the rest by edit distance (since
+  PAR-473, so a typo such as `dashbord` names `dashboard`), ties in their own order. The messages are unchanged, so
+  people and clients that read only text lose nothing.
 - **Details cross processes as checked data.** The RPC reply keeps `error` as the message and adds `details`, so an
   older CLI still reads it; the CLI and the service check details with `readErrorDetails` and treat an unknown code as
   `app_error`. The window's channel carries them the same way, and the canvas page answers the preload script as data
@@ -2475,6 +2476,37 @@ retry: 3 calls, about 66 KB. Now the failure carries `alternatives`: 2 calls, ab
 18,469 (the first 100, with `truncated`), and the console from 15,524 to 23,121 with 50 of 91 entries kept (structured
 data and text both). Small reads grew by their structured copy (props 449 to 1,149), and `tools/list` from 8,565 to
 25,616 with the output schemas, once per session.
+
+## Agents discover modes in one read (PAR-473)
+
+`parity modes [design]` and MCP `get_modes` are a shared operation over the snippet API's `GetModes(design?)`, which now
+returns, beside `settings` (still what `SetModes` takes back), the project's `variables`, its `viewports`, each mode
+resolved, and what each design's board shows. Discovering every viewport, theme and frame used to take `get_app_state`
+and a snippet, and gave no window heights at all. My calls:
+
+- **Two kinds of id, named apart.** `viewports` are viewport option ids, which `Responsive(node, viewport, patch)` and a
+  node's `responsive` keys take; `modes` are combined mode ids, which screenshots, `find_problems`,
+  `check_accessibility`, `Get(..., { mode })` and a design's main and beside modes take. The text and the schema
+  descriptions say which is which.
+- **Heights are the window a frame stands for,** from core's `frameViewport`: the option's own screen height, else the
+  preset screen nearest its width (`screenHeightForWidth`). A frame still grows with its content; a design's fixed
+  height for a viewport (`frames`) is reported as the frame's `height` beside its `window`, from `frameGeometry`, the
+  same geometry every renderer uses (PAR-466).
+- **Each mode is resolved,** with `values` naming every variable's option (including the ones a mode leaves to their
+  first option), and the classes and attributes its theme and locale set, from `resolveModes`.
+- **Every design's state, main mode and beside modes by default; frames only for a named design.** A board that shows
+  every state lists them all in `states`. Unscoped, it's every design without frames (15.7 KB on a 61-design project);
+  scoped, one design with its frames (3.3 KB). An unknown design is `unknown_design` with alternatives.
+- **The logic is core's** (`packages/core/src/mode-report.ts`: `modesReport`, `designModes`), over `shownModes`,
+  `resolveModes`, `frameViewport` and `frameGeometry`; the agent workspace finds the design; the desktop only reads its
+  snapshot. Nothing is written and no presence event is sent, so the board doesn't change.
+- **Alternatives rank by edit distance after shared text,** so `dashbord` names `dashboard` first in a 61-design
+  project.
+
+Measured on `examples/shadcn-vite` through MCP: discovering the modes and one design's frames took `get_app_state`
+(73,346 bytes), a `GetModes` snippet (3,896) and a snippet reading the design (1,076), 3 calls and about 78 KB, still
+without window heights or frame sizes. Now it's one `get_modes { design }` call of 3,255 bytes, and a mistyped design
+comes back with it as the first alternative. `tools/list` grows from 25,616 to 29,296 bytes for the new tool.
 
 ## Core owns effective evaluation (PAR-484)
 

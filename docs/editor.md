@@ -2401,6 +2401,26 @@ Checked in the running app on `examples/shadcn-vite`: unknown tab, component, de
 `--json`, bounded tokens, and an execute that applied and was renamed back. Gaps: the end-to-end suite doesn't drive the
 CLI; `get_app_state` is unbounded (53 KB for 61 designs), left to PAR-479.
 
+### Discovering modes (PAR-473)
+
+`parity modes [design]`, MCP `get_modes` and the snippet API's `GetModes(design?)` return the project's variables, its
+viewports (the ids `Responsive` takes) with each window's height, each mode (the ids renders take) resolved with its
+option per variable, classes and attributes, and each design's shown state or states, main mode and beside modes. Naming
+a design returns just it, with each frame's width, fixed height when it has one, and window. Reading changes nothing.
+
+Implementation: `packages/core/src/mode-report.ts` (`modesReport`, `designModes`); `GetModes` in
+`packages/agent/src/workspace.ts`; the `modes` RPC in `apps/desktop/src/utility/agent.ts`; the `modes` operation and
+schema in `packages/cli/src/operations.ts`, `describeModes` in `client.ts`, and the adapters in `mcp.ts` and `bin.ts`.
+
+Tests: `packages/core/src/mode-report.test.ts` (viewport windows, a device's own height, resolved values including
+defaults, theme classes and locale attributes, a design's main, beside, every-state and fixed-height frames).
+`packages/agent/src/run.test.ts` (`GetModes` with and without a design, no writes or changes, and `unknown_design` with
+alternatives). `packages/core/src/errors.test.ts` (a typo ranked first). `packages/cli/src/operations.test.ts` (CLI and
+MCP defaults, a named design, structured output, invalid and unknown input, an unknown design's code and alternatives)
+and `client.test.ts` (the text). Checked in the running app on `examples/shadcn-vite`: `parity modes dashboard`,
+`parity modes`, and a mistyped design with `--json`. Gap: locale and custom variables are reported as set; whether a
+project's code reads them is up to its decorators.
+
 ### Library import aliases (PAR-483)
 
 A library installed under an alias uses that alias for its components, providers, icon modules and values made by the

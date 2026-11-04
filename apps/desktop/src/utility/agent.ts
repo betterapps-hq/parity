@@ -15,7 +15,14 @@ import {
   type ExecRequest,
   type ExecResult
 } from "@parity-app/agent"
-import { describeRenderStatus, errorDetails, renderProblem, resolveModes } from "@parity-app/core"
+import {
+  describeRenderStatus,
+  type DesignModes,
+  errorDetails,
+  type ModesReport,
+  renderProblem,
+  resolveModes
+} from "@parity-app/core"
 import type { ServiceMethods, TabSnapshot, WindowMethods } from "../shared/protocol.ts"
 import { renderJobMode } from "../shared/render-job.ts"
 import { readConsole } from "./console.ts"
@@ -150,6 +157,13 @@ async function call(
       )
       return { tab: { id: snapshot.tab.id, name: snapshot.tab.name }, entries }
     }
+    case "modes": {
+      const snapshot = await window.request("agent.snapshot", { tab: params.tab as string | undefined })
+      const { settings: _settings, ...report } = readOnly(snapshot).GetModes(
+        typeof params.design === "string" ? params.design : undefined
+      )
+      return { tab: { id: snapshot.tab.id, name: snapshot.tab.name }, ...report }
+    }
     // Reads for a terminal, which agents do in a snippet.
     case "tokens":
     case "components":
@@ -165,7 +179,7 @@ async function call(
     }
     default:
       throw new Error(
-        `Unknown method ${method}. Methods: tabs, open, state, exec, screenshot, accessibility, problems, console, tokens, components, props`
+        `Unknown method ${method}. Methods: tabs, open, state, modes, exec, screenshot, accessibility, problems, console, tokens, components, props`
       )
   }
 }
@@ -471,6 +485,7 @@ async function checkDesign<T>(
 
 /** The agent API's reads, for calls that only look. */
 interface ReadApi {
+  GetModes(design?: string): ModesReport & { settings: unknown; designs: DesignModes[] }
   GetTokens(filter?: { category?: string; source?: string; search?: string }): unknown[]
   Components(): string[]
   Props(component: string, options?: { all?: boolean }): unknown
