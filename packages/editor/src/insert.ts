@@ -9,11 +9,11 @@ import {
   generateId,
   type ImageCredit,
   insertNode,
-  type LayoutNode,
   locateNode,
   nodeIds,
   withLibraryContext
 } from "@parity-app/core"
+import { placedAt } from "./paste-here.ts"
 
 /**
  * Inserting from the Assets panel: the layer an item becomes, where a click or a drop puts it, and the design with it
@@ -81,6 +81,11 @@ export interface InsertAt {
   /** Its place among the parent's children; the end when left out. */
   index?: number
   slot?: string
+  /**
+   * Placed absolutely at these insets, in half steps of the spacing scale, as an item dropped in an absolutely placed
+   * layout goes at the pointer (see `slotHere`).
+   */
+  at?: { left: number; top: number }
 }
 
 /** What inserting needs to know beyond the design. */
@@ -110,7 +115,8 @@ export function insertIntoDesign(
   const around = location
     ? [...location.ancestors, location.node].flatMap((node) => (node.type === "component" ? [node.component] : []))
     : []
-  const node = withLibraryContext(part, context.sources, around, taken)
+  const inContext = withLibraryContext(part, context.sources, around, taken)
+  const node = at.at ? placedAt(inContext, at.at) : inContext
   const placed = {
     ...container,
     root: insertNode(container.root, at.parent, node, { index: at.index, slot: at.slot })
@@ -136,60 +142,4 @@ export function whereToInsert(root: DesignNode, node?: string): InsertAt | undef
     return { parent: parent.id, index: location.index + 1, ...(location.slot ? { slot: location.slot } : {}) }
   }
   return root.type === "layout" ? { parent: root.id } : undefined
-}
-
-/** A box on screen, as the DOM measures one. */
-export interface ScreenBox {
-  left: number
-  top: number
-  right: number
-  bottom: number
-  width: number
-  height: number
-}
-
-/** A line to draw where a drop lands, in the same coordinates as the boxes it came from. */
-export interface DropLine {
-  x: number
-  y: number
-  w: number
-  h: number
-}
-
-/** The layout a drop goes into, as the canvas draws it. */
-export interface DropLayout {
-  /** Whether it lays its children out in a row; a column otherwise. */
-  row: boolean
-  box: ScreenBox
-  /** Its drawn children's boxes, each with its place among all its children, in order. */
-  children: { index: number; box: ScreenBox }[]
-  /** How many children it has, drawn or not. */
-  count: number
-}
-
-/** The layout a drop at a layer goes into: the deepest layout in the chain from the design's root down to the layer. */
-export function dropLayout(chain: readonly DesignNode[]): LayoutNode | undefined {
-  return chain.findLast((node): node is LayoutNode => node.type === "layout")
-}
-
-/**
- * Where among a layout's children a drop at `point` lands: before the first child whose middle is past the point along
- * the layout's direction, else at the end. Returns that place, and the line to draw there.
- */
-export function dropAt(layout: DropLayout, point: { x: number; y: number }): { index: number; line: DropLine } {
-  const { row, box, children } = layout
-  const after = children.find((child) =>
-    row ? point.x < child.box.left + child.box.width / 2 : point.y < child.box.top + child.box.height / 2
-  )
-  const last = children.at(-1)
-  const index = after?.index ?? layout.count
-  let edge: number
-  if (after) edge = row ? after.box.left - 2 : after.box.top - 2
-  else if (last) edge = row ? last.box.right + 1 : last.box.bottom + 1
-  else edge = row ? box.left + 4 : box.top + 4
-  const beside = (after ?? last)?.box
-  const line = row
-    ? { x: edge, y: beside?.top ?? box.top + 4, w: 2, h: beside?.height ?? box.height - 8 }
-    : { x: box.left + 4, y: edge, w: box.width - 8, h: 2 }
-  return { index, line }
 }

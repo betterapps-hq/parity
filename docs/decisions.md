@@ -453,7 +453,16 @@ still need your call.
   per gesture; and the browser's own grabbing, resize and text cursors, as the handles already showed, rather than
   tldraw's drawn ones.
 - **A duplicated design goes to the first free space to the right along its row,** 160px clear of every design and note,
-  as do designs pasted into their own project (CAN-47). Bringing it into view when that's off screen is PAR-204.
+  as do designs pasted into their own project (CAN-47).
+- **A duplicate or pasted design that lands off screen is brought into view, at the zoom it's at** (PAR-204). My calls:
+  - The view moves the least it can along each axis, rather than centring the copy, so what was in view stays as near as
+    it can and a run of duplicates walks the view along the row.
+  - The copy keeps 64px clear of the canvas's edges, room for its title above it. A copy wider or taller than the view
+    only needs its start in view, where the title is, since all of it can't fit at that zoom and the zoom isn't changed.
+  - Ctrl+D, Duplicate in the Layers menu and Ctrl+V of designs pan; Paste over selection and Paste here don't, since
+    their copies go where the person is already looking.
+  - The rule, `panToShow`, is in `@parity-app/editor` beside `freeSpotBeside`, taking the view and the copy's box; the
+    app's `bringIntoView` reads tldraw's view and camera and animates the pan over 250ms.
 - **The text editor opens on the double-clicked word, or the whole text** (PAR-175). A double-click selects what a
   browser's would: the word holding the character under the pointer, or the space or punctuation there. Enter, the text
   tool and the insert picker select the whole text, so typing replaces it.
@@ -2242,8 +2251,18 @@ How Parity's code is split, so the parts that change most are easy to find, repl
     change a layout's display or direction, so drops land where they did.
   - The package's names are its own (`dropTargetAt`, `moveLayersWithin`, `moveLayersAcross`, `snapBox`), and the app
     keeps `moveTarget`, `moveLayers` and `snapPosition`. The app's `dropInFrame` measures and asks `dropTargetAt`.
-  - The 8-pixel snapping distance moved with the maths, and the zoom is passed in. A design's box is tldraw's `x`, `y`,
-    `w` and `h`, so the canvas passes tldraw's boxes as they are and the lines are the same numbers as before.
+  - The 8-pixel snapping distance moved with the maths, and the zoom is passed in.
+  - **One `flowOf` for dropping, dragging and nudging** (PAR-205). My call: nudging's reading, which knew reversed rows,
+    right to left and a grid's columns, and dropping's, which knew wrapping, became one in `drop-slot.ts` that reads all
+    four (`direction`, `wraps`, `reversed`, `stride`). Nudging's own copy in the app is gone.
+  - **A component dropped from the panel lands by `slotHere`, as Paste here and dropped files do** (PAR-205). The old
+    one-line rule (`dropAt`, before the first child whose middle is past the pointer along the layout's direction) is
+    gone, with its tests, since it put a drop on a grid's second row into the first. My call: in a layout that's
+    absolutely placed as the board shows it, the component goes last, placed at the pointer, as a pasted layer and a
+    dropped image do, rather than in a slot that layout doesn't draw by. `InsertAt` takes the place (`at`), and the drag
+    shows the layout's outline with the slot's line, or a corner at the pointer, as a file drag does. A design's box is
+    tldraw's `x`, `y`, `w` and `h`, so the canvas passes tldraw's boxes as they are and the lines are the same numbers
+    as before.
   - Moving layers to another design copies them with the clipboard's `asShown`, which did the same as the drag's own
     copy of it, and goes through the store's `updateContainers`. When none of the layers is in their design any more it
     changes nothing, where before it added an empty undo step and selected nothing.
@@ -2771,3 +2790,20 @@ a copy does with the file, from its contents and the copy's own connection. My c
   it, or restores the copy it took over, only when the file still names it.
 - **The person's app started after a dev copy doesn't take agents from it.** Telling the installed app from a dev copy
   would let it, but a person working on Parity may run either as their own; set `PARITY_AGENT_TAKE_OVER=1` for that.
+
+## A hidden tab's frames sleep, rather than unmount (PAR-153)
+
+A tab that isn't showing stays mounted, so switching back is instant and agents can read it. It now lets go of its
+frames' designs through PAR-197's sleep, rather than unmounting them, which was tried and backed out on 2026-10-29: all
+119 frames remounting on the way back kept the page busy for 4 s, and boards changed size. My calls:
+
+- **Sleep, not a second mechanism.** A hidden tab makes every drawn board dormant (`boardDormant`), the selected one
+  too, so its frames show their bitmaps and drop their React roots and elements. Shown again, only frames near the view
+  wake, one each animation frame, and the rest keep their bitmaps until they come near, as after zooming out.
+- **3 seconds hidden first.** Flipping through tabs would otherwise take every frame apart and draw it again each time.
+- **Heights from the browser.** A frame put to sleep while nothing is laid out doesn't record a height of 0; it keeps
+  the size it last had when drawn (`contain-intrinsic-size: auto`). A board never drawn, in a tab restored behind
+  another, has no size to keep, so it doesn't sleep until it's been shown.
+- **Measured with every board woken.** `pnpm perf` visits each board at 100% before hiding the tab: zoomed out, frames
+  already sleep, and hiding would show no difference. On the example, the hidden tab's DOM nodes fell 76% (33,283 to
+  7,898) and its heap 14% (139 to 120 MB).

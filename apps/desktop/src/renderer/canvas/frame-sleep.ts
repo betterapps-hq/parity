@@ -11,6 +11,20 @@ export interface BoardRest {
   near: Signal<boolean>
 }
 
+/**
+ * How long a tab stays hidden before its frames sleep, so flipping through tabs doesn't take every frame apart and draw
+ * it again each time (PAR-153).
+ */
+export const hiddenSleepMs = 3000
+
+/**
+ * Whether a board's frames are to sleep (`BoardRest.dormant`): every board of a tab that's been hidden a while, once
+ * it's been drawn, so its frames have a size to keep; and zoomed far out, every board but the selected one.
+ */
+export function boardDormant(at: { hidden: boolean; drawn: boolean; far: boolean; selected: boolean }): boolean {
+  return (at.hidden && at.drawn) || (at.far && !at.selected)
+}
+
 /** Frames waiting to wake, in the order they asked. */
 const waking = new Set<() => void>()
 let frame = 0

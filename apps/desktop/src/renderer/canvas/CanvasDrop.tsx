@@ -22,10 +22,11 @@ interface Indicator {
 }
 
 /**
- * Drops onto the canvas, from the Assets panel and from the system's files. While dragging over a design, a line shows
- * where the item lands among the children of the layout under the pointer; dropping inserts it there as one undoable
- * step. Image files from Explorer or Finder also show the layout they go into and say what a drop does, and on the empty
- * canvas mark where the new design they make starts (see drop-files.ts).
+ * Drops onto the canvas, from the Assets panel and from the system's files. While dragging over a design, the layout
+ * under the pointer is outlined and a line shows the slot the item lands in, found as a dragged layer's is (`slotAt`),
+ * or a corner where it goes in an absolutely placed layout; dropping inserts it there as one undoable step. Image files
+ * from Explorer or Finder also say what a drop does, and on the empty canvas mark where the new design they make starts
+ * (see drop-files.ts).
  */
 export function CanvasDrop() {
   const session = useProject()
@@ -87,9 +88,17 @@ export function CanvasDrop() {
       }
       if (!carrying(event)) return
       event.preventDefault()
-      const target = dropTarget(area, session.store, pointOf(event))
+      const point = pointOf(event)
+      const target = dropTarget(session, area, point)
       if (event.dataTransfer) event.dataTransfer.dropEffect = target ? "copy" : "none"
-      show(target ? { line: relative(target.line) } : undefined)
+      // The layout it goes into, and the slot, or the corner where it goes in an absolutely placed layout.
+      const at = relative({ ...point, w: 0, h: 0 })
+      show(
+        target && {
+          outline: relative(target.box),
+          ...(target.line ? { line: relative(target.line) } : { corner: { at, color: kindColors.component } })
+        }
+      )
     }
     const onDragLeave = (event: DragEvent) => {
       if (!area.contains(event.relatedTarget as Node | null)) show(undefined)
@@ -110,7 +119,7 @@ export function CanvasDrop() {
       if (!carrying(event)) return
       event.preventDefault()
       show(undefined)
-      const target = dropTarget(area, session.store, pointOf(event))
+      const target = dropTarget(session, area, pointOf(event))
       if (!target) {
         toast.info("Drop it inside a design, onto one of its layouts")
         return

@@ -80,7 +80,7 @@ const badge = text("badge", { position: "absolute", top: 1, right: 2, width: 6 }
 const stats = (point: { x: number; y: number }, extra: Partial<HereLayout> = {}): HereLayout => ({
   layout: "stats",
   children: [0, 1, 2, 3].map((index) => ({ index, box: box(100 + index * 116, 200, 100, 60) })),
-  flow: { direction: "row", wraps: false },
+  flow: { direction: "row", wraps: false, reversed: false },
   box: box(100, 200, 448, 60),
   point,
   origin: { x: 100, y: 200 },
@@ -93,7 +93,7 @@ const stats = (point: { x: number; y: number }, extra: Partial<HereLayout> = {})
 const events = (point: { x: number; y: number }): HereLayout => ({
   layout: "events",
   children: [{ index: 0, box: box(60, 100, 400, 32) }],
-  flow: { direction: "column", wraps: false },
+  flow: { direction: "column", wraps: false, reversed: false },
   box: box(60, 80, 400, 600),
   point,
   origin: { x: 60, y: 80 },
@@ -254,12 +254,37 @@ describe("the slot here", () => {
       layout: "stats",
       free: false,
       index: 2,
+      at: { left: 45, top: 7.5 },
       line: { x: 330, y: 200, w: 2, h: 60 }
     })
   })
 
+  it("finds the slot in a grid's second row, where one line along all the children would pick the first (PAR-205)", () => {
+    // The stat cards wrapped into two rows of two, as a narrow frame draws them: Revenue, Issues; Users, Uptime.
+    const grid = stats(
+      // Left of Uptime's middle, in the second row.
+      { x: 230, y: 300 },
+      {
+        children: [0, 1, 2, 3].map((index) => ({
+          index,
+          box: box(100 + (index % 2) * 116, 200 + Math.floor(index / 2) * 76, 100, 60)
+        })),
+        flow: { direction: "row", wraps: true, reversed: false, stride: 2 },
+        box: box(100, 200, 216, 136)
+      }
+    )
+    expect(slotHere(dashboard(), grid, base)).toMatchObject({ index: 3, line: { x: 214, y: 276, w: 2, h: 60 } })
+    // Past the second row's last card, before the end.
+    expect(slotHere(dashboard(), { ...grid, point: { x: 330, y: 300 } }, base)?.index).toBe(4)
+  })
+
   it("goes last with no line in an absolutely placed layout, where layers go at the pointer", () => {
-    expect(slotHere(dashboard(), events({ x: 160, y: 280 }), base)).toEqual({ layout: "events", free: true, index: 1 })
+    expect(slotHere(dashboard(), events({ x: 160, y: 280 }), base)).toEqual({
+      layout: "events",
+      free: true,
+      index: 1,
+      at: { left: 50, top: 100 }
+    })
     expect(slotHere(dashboard(), stats({ x: 280, y: 230 }), floating)).toMatchObject({ free: true, index: 4 })
   })
 

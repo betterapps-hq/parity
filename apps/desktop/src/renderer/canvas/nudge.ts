@@ -10,7 +10,7 @@ import {
   type StateSpec,
   topmostNodes
 } from "@parity-app/core"
-import { boardReader } from "@parity-app/editor"
+import { boardReader, type Flow, flowOf } from "@parity-app/editor"
 import type { DesignStore } from "../design-store.ts"
 import { findNodeElement } from "../frame.ts"
 import { selectedDesigns, selectedNodes, type Selection, type SelectionStore } from "../selection.ts"
@@ -40,58 +40,12 @@ export function arrowOf(key: string): Arrow | undefined {
   return arrows[key]
 }
 
-/**
- * How a layout places its children on screen. `axis` is the way they follow each other: along a row or down a column.
- * `reversed` when that runs right to left or bottom to top. A grid fills rows, so `stride` is how many places one row
- * down is.
- */
-export interface Flow {
-  axis: "row" | "column"
-  reversed: boolean
-  stride?: number
-}
-
-/** The computed styles of the element a layout's children sit in, as `getComputedStyle` gives them. */
-export type FlowStyle = Pick<
-  CSSStyleDeclaration,
-  "display" | "flexDirection" | "gridTemplateColumns" | "gridAutoFlow" | "direction"
->
-
-/** How an element lays out its children, from its computed styles: a flex box, a grid, or blocks one under another. */
-export function flowOf(style: FlowStyle): Flow {
-  const rtl = style.direction === "rtl"
-  if (style.display.includes("grid")) {
-    if (style.gridAutoFlow.startsWith("column")) return { axis: "column", reversed: false }
-    return { axis: "row", reversed: rtl, stride: trackCount(style.gridTemplateColumns) }
-  }
-  if (style.display.includes("flex")) {
-    const reversed = style.flexDirection.endsWith("reverse")
-    return style.flexDirection.startsWith("row")
-      ? { axis: "row", reversed: reversed !== rtl }
-      : { axis: "column", reversed }
-  }
-  return { axis: "column", reversed: false }
-}
-
-/** The columns in a computed `grid-template-columns`: `120px 120px 120px`, or `repeat(3, …)` before layout. */
-function trackCount(columns: string): number {
-  const repeat = /^repeat\((\d+)/.exec(columns)
-  if (repeat) return Number(repeat[1])
-  const tracks = columns
-    .replace(/\[[^\]]*\]/g, " ")
-    .replace(/\([^)]*\)/g, "")
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-  return Math.max(1, tracks.length)
-}
-
 /** How a layout node lays out its children as the design says, for when its frame doesn't draw it. */
 export function modelFlow(parent: DesignNode): Flow {
-  if (parent.type !== "layout") return { axis: "column", reversed: false }
+  if (parent.type !== "layout") return { direction: "column", wraps: false, reversed: false }
   const style = parent.style ?? {}
-  if (style.display === "grid") return { axis: "row", reversed: false, stride: style.columns ?? 2 }
-  return { axis: style.direction === "row" ? "row" : "column", reversed: false }
+  if (style.display === "grid") return { direction: "row", wraps: true, reversed: false, stride: style.columns ?? 2 }
+  return { direction: style.direction === "row" ? "row" : "column", wraps: style.wrap === true, reversed: false }
 }
 
 /**
@@ -101,7 +55,7 @@ export function modelFlow(parent: DesignNode): Flow {
 export function reorderStep(flow: Flow, arrow: Arrow): number | undefined {
   const horizontal = arrow === "left" || arrow === "right"
   const forward = arrow === "right" || arrow === "down"
-  if (horizontal !== (flow.axis === "row")) {
+  if (horizontal !== (flow.direction === "row")) {
     // Up and down a grid move a row's worth of places.
     if (!horizontal && flow.stride) return forward ? flow.stride : -flow.stride
     return undefined

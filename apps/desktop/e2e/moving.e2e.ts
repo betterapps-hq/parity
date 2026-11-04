@@ -1,9 +1,9 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/test"
 import { App, type Box, center } from "./app.ts"
 
-// docs/editor.md, Moving, reordering and resizing (CAN-47, PAR-193): dragging layers, where they land, moving an
-// absolutely placed layer, resize handles, empty layouts, cursors and Escape during a gesture, and duplicating a design,
-// on the example's Dashboard and Calendar.
+// docs/editor.md, Moving, reordering and resizing (CAN-47, PAR-193, PAR-204): dragging layers, where they land, moving
+// an absolutely placed layer, resize handles, empty layouts, cursors and Escape during a gesture, duplicating a design,
+// and bringing a copy that lands off screen into view, on the example's Dashboard and Calendar.
 
 let app: App
 
@@ -396,4 +396,92 @@ describe("duplicating a design", () => {
     await app.page.keyboard.press("Control+z")
     await expect.poll(async () => (await app.designs()).length).toBe(before.length)
   })
+
+  it("brings a copy that lands off screen into view, at the same zoom (PAR-204)", async () => {
+    // At 50% Dashboard runs past the canvas's right edge, so its copy beside it starts well off screen.
+    await app.show("Dashboard", 0.5)
+    await app.selectDesign("Dashboard")
+    const before = await app.camera()
+    expect(await inView(await copyBounds("Dashboard"))).toBe(false)
+    const copy = await duplicated(() => app.page.keyboard.press("Control+d"))
+    await settled()
+    const after = await app.camera()
+    expect(after.z).toBe(before.z)
+    expect(after.x).not.toBe(before.x)
+    expect(await inView(await boundsOf(copy))).toBe(true)
+  })
+
+  it("brings a pasted design that lands off screen into view too", async () => {
+    await app.show("Dashboard", 0.5)
+    await app.selectDesign("Dashboard")
+    await app.page.keyboard.press("Control+c")
+    await expect.poll(() => app.clipboard()).toContain('"parity":"clipboard"')
+    const before = await app.camera()
+    const copy = await duplicated(() => app.page.keyboard.press("Control+v"))
+    await settled()
+    expect((await app.camera()).z).toBe(before.z)
+    expect(await inView(await boundsOf(copy))).toBe(true)
+  })
+
+  it("leaves the view where it was when the copy lands in it", async () => {
+    // Forgot password is the last design in its row, so its copy goes just beside it, well inside the view at 5%.
+    await app.show("Forgot password", 0.05)
+    await app.selectDesign("Forgot password")
+    const before = await app.camera()
+    const copy = await duplicated(() => app.page.keyboard.press("Control+d"))
+    await settled()
+    expect(await inView(await boundsOf(copy))).toBe(true)
+    expect(await app.camera()).toEqual(before)
+  })
 })
+
+interface PageBounds {
+  minX: number
+  minY: number
+  maxX: number
+  maxY: number
+}
+
+/** Runs `act`, which adds one design, and returns the new design's key once it's there. */
+async function duplicated(act: () => Promise<void>): Promise<string> {
+  const before = await app.designs()
+  await act()
+  await expect.poll(async () => (await app.designs()).length).toBe(before.length + 1)
+  const copy = (await app.designs()).find((design) => !before.some((other) => other.key === design.key))!
+  expect((await app.selection()).design).toBe(copy.key)
+  return copy.key
+}
+
+/** Where a design is on the canvas, in page coordinates. */
+function boundsOf(key: string): Promise<PageBounds> {
+  return app.page.evaluate((key) => {
+    const editor = window.e2e!.session().editor!
+    const shape = editor.getCurrentPageShapes().find((candidate) => candidate.id.endsWith(encodeURIComponent(key)))!
+    const { minX, minY, maxX, maxY } = editor.getShapePageBounds(shape)!
+    return { minX, minY, maxX, maxY }
+  }, key)
+}
+
+/** Where a copy of a design would land beside it, by the gap a duplicate keeps, before it's made. */
+async function copyBounds(design: string): Promise<PageBounds> {
+  const original = await boundsOf(await app.key(design))
+  const shift = original.maxX - original.minX + 160
+  return { ...original, minX: original.minX + shift, maxX: original.maxX + shift }
+}
+
+/** Whether a design's top left corner, where its title is, is in the view. */
+function inView(bounds: PageBounds): Promise<boolean> {
+  return app.page.evaluate((bounds) => {
+    const view = window.e2e!.session().editor!.getViewportPageBounds()
+    return bounds.minX >= view.minX && bounds.minX < view.maxX && bounds.minY >= view.minY && bounds.minY < view.maxY
+  }, bounds)
+}
+
+/** Waits for the camera to finish moving, once it's had time to start. */
+async function settled(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 400))
+  await expect
+    .poll(() => app.page.evaluate(() => window.e2e!.session().editor!.getCameraState()), { timeout: 5000 })
+    .toBe("idle")
+  await app.frames(2)
+}

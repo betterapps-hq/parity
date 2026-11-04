@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Drop components from the panel into the slot under the pointer in grids and wrapping rows, and bring a duplicated or pasted design that lands off screen into view",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

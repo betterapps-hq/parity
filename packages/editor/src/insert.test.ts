@@ -11,14 +11,10 @@ import {
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import {
   componentLabel,
-  dropAt,
-  type DropLayout,
-  dropLayout,
   type InsertContext,
   insertIntoDesign,
   insertLabel,
   nodeForItem,
-  type ScreenBox,
   whereToInsert
 } from "./insert.ts"
 
@@ -183,6 +179,17 @@ describe("inserting into a design", () => {
     expect(card?.type === "component" && card.slots?.header?.map((node) => node.id)).toEqual([placed.node, "title"])
   })
 
+  it("places the item absolutely at the pointer when it's dropped in an absolutely placed layout (PAR-205)", () => {
+    const placed = insertIntoDesign(
+      page(),
+      { parent: "root", at: { left: 12.5, top: 30 } },
+      { kind: "component", component: "Button" },
+      context({ info: button })
+    )
+    expect(childIds(placed.container, "root").at(-1)).toBe(placed.node)
+    expect(findNode(placed.container.root, placed.node)?.style).toEqual({ position: "absolute", left: 12.5, top: 30 })
+  })
+
   it("brings the library parents a part needs, unless they're around the layout already", () => {
     const source = (fields: Partial<ComponentSource>): ComponentSource => ({
       path: "@acme/ui",
@@ -262,72 +269,5 @@ describe("where a click inserts", () => {
     expect(whereToInsert(card)).toBeUndefined()
     expect(whereToInsert(card, "card")).toBeUndefined()
     expect(whereToInsert(root, "gone")).toBeUndefined()
-  })
-})
-
-describe("where a drop lands", () => {
-  const box = (left: number, top: number, width: number, height: number): ScreenBox => ({
-    left,
-    top,
-    width,
-    height,
-    right: left + width,
-    bottom: top + height
-  })
-  /** A row 400 wide at (100, 50) with three children 100 wide and 40 tall, 20 apart. */
-  const row: DropLayout = {
-    row: true,
-    box: box(100, 50, 400, 60),
-    children: [0, 1, 2].map((index) => ({ index, box: box(110 + index * 120, 60, 100, 40) })),
-    count: 3
-  }
-
-  it("goes into the deepest layout the layer is in", () => {
-    const { root } = page()
-    const actions = root.type === "layout" ? root.children[1]! : root
-    expect(dropLayout([root, actions, text("save")])?.id).toBe("actions")
-    expect(dropLayout([root])?.id).toBe("root")
-    expect(dropLayout([{ type: "component", id: "card", component: "Card" }])).toBeUndefined()
-  })
-
-  it("goes before the first child whose middle is past the point in a row, with a line at its left", () => {
-    expect(dropAt(row, { x: 120, y: 70 })).toEqual({ index: 0, line: { x: 108, y: 60, w: 2, h: 40 } })
-    expect(dropAt(row, { x: 200, y: 70 })).toEqual({ index: 1, line: { x: 228, y: 60, w: 2, h: 40 } })
-  })
-
-  it("goes at the end past the last child's middle, with a line at its right", () => {
-    expect(dropAt(row, { x: 450, y: 70 })).toEqual({ index: 3, line: { x: 451, y: 60, w: 2, h: 40 } })
-  })
-
-  it("goes down a column by the point's height, with a line across the layout", () => {
-    const column: DropLayout = {
-      row: false,
-      box: box(0, 0, 300, 200),
-      children: [
-        { index: 0, box: box(10, 10, 280, 50) },
-        { index: 1, box: box(10, 80, 280, 50) }
-      ],
-      count: 2
-    }
-    expect(dropAt(column, { x: 150, y: 70 })).toEqual({ index: 1, line: { x: 4, y: 78, w: 292, h: 2 } })
-    expect(dropAt(column, { x: 150, y: 190 })).toEqual({ index: 2, line: { x: 4, y: 131, w: 292, h: 2 } })
-  })
-
-  it("goes into an empty layout just inside its start", () => {
-    const empty = { box: box(0, 0, 300, 200), children: [], count: 0 }
-    expect(dropAt({ ...empty, row: true }, { x: 150, y: 100 })).toEqual({
-      index: 0,
-      line: { x: 4, y: 4, w: 2, h: 192 }
-    })
-    expect(dropAt({ ...empty, row: false }, { x: 150, y: 100 })).toEqual({
-      index: 0,
-      line: { x: 4, y: 4, w: 292, h: 2 }
-    })
-  })
-
-  it("counts children the canvas doesn't draw when it goes at the end", () => {
-    const hidden: DropLayout = { ...row, children: row.children.slice(0, 2), count: 3 }
-    expect(dropAt(hidden, { x: 450, y: 70 })).toEqual({ index: 3, line: { x: 331, y: 60, w: 2, h: 40 } })
-    expect(dropAt(hidden, { x: 120, y: 70 }).index).toBe(0)
   })
 })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { aboveEverything, type Bounds, freeSpotBeside, rightOfEverything } from "./placement.ts"
+import { aboveEverything, type Bounds, freeSpotBeside, panToShow, rightOfEverything } from "./placement.ts"
 
 const at = (x: number, y: number, w: number, h: number): Bounds => ({ minX: x, minY: y, maxX: x + w, maxY: y + h })
 
@@ -78,5 +78,38 @@ describe("placing a component made from layers", () => {
 
   it("goes above the design it came from on an otherwise empty canvas", () => {
     expect(aboveEverything({ x: 40, y: 500 }, [])).toEqual({ x: 40, y: -140 })
+  })
+})
+
+describe("bringing a duplicate into view (PAR-204)", () => {
+  // The view at 50%: 1728 by 1520 page units of a canvas 864 by 760 pixels, with 64px kept clear, 128 page units.
+  const view = at(0, 0, 1728, 1520)
+
+  it("leaves the view alone when the copy is in it already", () => {
+    expect(panToShow(view, at(200, 200, 1000, 800), 128)).toBeUndefined()
+  })
+
+  it("moves the view right just far enough for a copy past its right edge", () => {
+    expect(panToShow(view, at(1800, 300, 900, 1000), 128)).toEqual({ x: 1100, y: 0 })
+  })
+
+  it("moves the view left, up or down as far as it takes", () => {
+    expect(panToShow(view, at(-1000, 200, 600, 600), 128)).toEqual({ x: -1128, y: 0 })
+    expect(panToShow(view, at(200, -700, 600, 600), 128)).toEqual({ x: 0, y: -828 })
+    expect(panToShow(view, at(200, 1400, 600, 600), 128)).toEqual({ x: 0, y: 608 })
+  })
+
+  it("brings the start of a copy wider than the view to the view's start, where its title is", () => {
+    // The Dashboard's copy, 2700 wide, past the view's right edge.
+    expect(panToShow(view, at(2860, 200, 2700, 1000), 128)).toEqual({ x: 2732, y: 0 })
+  })
+
+  it("leaves a copy taller than the view alone while its top is in view", () => {
+    expect(panToShow(view, at(200, 300, 600, 4000), 128)).toBeUndefined()
+    expect(panToShow(view, at(200, 1500, 600, 4000), 128)).toEqual({ x: 0, y: 1372 })
+  })
+
+  it("keeps no margin unless asked", () => {
+    expect(panToShow(view, at(1700, 0, 100, 100))).toEqual({ x: 72, y: 0 })
   })
 })

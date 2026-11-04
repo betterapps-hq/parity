@@ -23,8 +23,9 @@ interface PerfWindow {
 const appDir = resolve(import.meta.dirname, "..")
 const repoDir = resolve(appDir, "../..")
 const outDir = join(repoDir, ".inspect/perf")
-const uiPort = 5320
-const debugPort = 9340
+// Others can be given, for a second run alongside, such as another session's.
+const uiPort = Number(process.env.PARITY_PERF_UI_PORT ?? 5320)
+const debugPort = Number(process.env.PARITY_PERF_DEBUG_PORT ?? 9340)
 
 const args = process.argv.slice(2)
 const option = (name: string) => {
@@ -79,8 +80,13 @@ interface Result {
     nodesHidden: number
     heapShownMb: number
     heapHiddenMb: number
+    /** Switching back, until every frame shows its design, or its bitmap while asleep. */
     backMs: number
-    /** The longest frame while switching back, until every frame has drawn. */
+    /** Switching back, until the last frame near the view woke; missing from runs made before frames slept there. */
+    backWokenMs?: number
+    /** Frames drawing their design once those near the view woke. */
+    backAwake?: number
+    /** The longest frame while switching back, until the frames near the view woke. */
     backLongestMs: number
     /** Boards whose size differs from before the switch, once their frames have drawn and a few seconds later. */
     resizedDrawn: number
@@ -91,7 +97,7 @@ interface Result {
 }
 
 await mkdir(outDir, { recursive: true })
-const profileDir = join(tmpdir(), "parity-perf-profile")
+const profileDir = join(tmpdir(), uiPort === 5320 ? "parity-perf-profile" : `parity-perf-profile-${uiPort}`)
 await rm(profileDir, { recursive: true, force: true })
 
 console.log(`Starting a copy of the app on ${project}`)
@@ -445,6 +451,21 @@ async function timeChanges(page: Page, cdp: CDPSession, change: "select" | "edit
  * boards kept their sizes.
  */
 async function hiddenTab(page: Page, cdp: CDPSession, frames: number): Promise<Result["hidden"]> {
+  // At 100%, each board is brought into view in turn, so its frames have woken, as after working across the project;
+  // then the camera rests on the first. Zoomed out, frames already sleep, and hiding the tab would free nothing more.
+  await page.evaluate(async () => {
+    const editor = (window as unknown as PerfWindow).perfSession.editor!
+    const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+    const shapes = editor.getCurrentPageShapesSorted()
+    for (const shape of [...shapes, shapes[0]]) {
+      const bounds = shape && editor.getShapePageBounds(shape)
+      if (!bounds) continue
+      editor.setCamera({ ...editor.getCamera(), z: 1 }, { immediate: true })
+      editor.centerOnPoint(bounds.center, { animation: { duration: 0 } })
+      await wait(400)
+    }
+    await wait(1500)
+  })
   const counts = async () => {
     await cdp.send("HeapProfiler.collectGarbage")
     const { metrics } = await cdp.send("Performance.getMetrics")
@@ -492,22 +513,35 @@ async function hiddenTab(page: Page, cdp: CDPSession, frames: number): Promise<R
     async ([url, id, frames]) => {
       const { workspace } = (await import(url)) as { workspace: Workspace }
       const frame = () => new Promise((resolve) => requestAnimationFrame(resolve))
-      const drawn = () =>
-        [...document.querySelectorAll("[data-frame]")].filter(
-          (host) => !host.closest("[hidden]") && host.shadowRoot?.querySelector("[data-canvas-node]")
+      const hosts = () => [...document.querySelectorAll("[data-frame]")].filter((host) => !host.closest("[hidden]"))
+      const awake = () => hosts().filter((host) => host.shadowRoot?.querySelector("[data-canvas-node]")).length
+      // A frame shows its design, or, asleep, its bitmap: frames away from the view stay asleep (PAR-153).
+      const shown = () =>
+        hosts().filter(
+          (host) =>
+            host.shadowRoot?.querySelector("[data-canvas-node]") ||
+            host.closest("[data-asleep]")?.hasAttribute("data-bitmap")
         ).length
       const started = performance.now()
       let last = started
       let longest = 0
+      let shownMs: number | undefined
+      // Done once every frame shows something and no frame has woken for half a second.
+      let woken = { count: -1, at: started }
       workspace.activate(id)
-      while (drawn() < frames && performance.now() - started < 10_000) {
+      while (performance.now() - started < 10_000) {
         await frame()
-        longest = Math.max(longest, performance.now() - last)
-        last = performance.now()
+        const now = performance.now()
+        longest = Math.max(longest, now - last)
+        last = now
+        if (shownMs === undefined && shown() >= frames) shownMs = now - started
+        const count = awake()
+        if (count !== woken.count) woken = { count, at: now }
+        if (shownMs !== undefined && now - woken.at >= 500) break
       }
       await frame()
       await frame()
-      return { ms: performance.now() - started, longest }
+      return { ms: shownMs ?? performance.now() - started, wokenMs: woken.at - started, awake: woken.count, longest }
     },
     ["/workspace.ts", first, frames] as const
   )
@@ -521,6 +555,8 @@ async function hiddenTab(page: Page, cdp: CDPSession, frames: number): Promise<R
     heapShownMb: shown.heapMb,
     heapHiddenMb: hidden.heapMb,
     backMs: round(back.ms),
+    backWokenMs: round(back.wokenMs),
+    backAwake: back.awake,
     backLongestMs: round(back.longest),
     resizedDrawn: resizedDrawn.length,
     resizedLater: resizedLater.length,
@@ -658,7 +694,11 @@ function report(result: Result, previous: Result | undefined): void {
     console.log(`  nodes hidden      ${column(result.hidden.nodesHidden, before?.nodesHidden)}`)
     console.log(`  heap shown MB     ${column(result.hidden.heapShownMb, before?.heapShownMb)}`)
     console.log(`  heap hidden MB    ${column(result.hidden.heapHiddenMb, before?.heapHiddenMb)}`)
-    console.log(`  back drawn ms     ${column(result.hidden.backMs, before?.backMs)}`)
+    console.log(`  back shown ms     ${column(result.hidden.backMs, before?.backMs)}`)
+    if (result.hidden.backWokenMs !== undefined) {
+      console.log(`  back woken ms     ${column(result.hidden.backWokenMs, before?.backWokenMs)}`)
+      console.log(`  frames awake      ${column(result.hidden.backAwake ?? 0, before?.backAwake)}`)
+    }
     console.log(`  back longest ms   ${column(result.hidden.backLongestMs, before?.backLongestMs)}`)
     console.log(`  boards resized    ${result.hidden.resizedDrawn} once drawn, ${result.hidden.resizedLater} after 3 s`)
     for (const board of result.hidden.resized?.slice(0, 10) ?? []) console.log(`    ${board}`)

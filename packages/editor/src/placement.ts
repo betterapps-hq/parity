@@ -1,7 +1,7 @@
 /**
  * Where new designs go on the canvas: a new design to the right of everything, a component made from layers above
- * everything, and copies beside their originals in the first free space. The app measures the designs' boxes with the
- * canvas and passes them in.
+ * everything, and copies beside their originals in the first free space, panning to them when they land off screen.
+ * The app measures the designs' boxes and the view with the canvas and passes them in.
  */
 
 /** A box on the canvas, in page coordinates, as tldraw's bounds give one. */
@@ -71,4 +71,28 @@ export function aboveEverything(
   let top = from.y
   for (const design of designs) top = Math.min(top, design.bounds?.minY ?? design.position.y)
   return { x: from.x, y: Math.round(top - componentRise) }
+}
+
+/** Screen pixels a design brought into view keeps from the canvas's edges, room for its title above it. */
+export const viewMargin = 64
+
+/**
+ * How far to move the view, in page units, so `target` is seen in it with `margin` clear (PAR-204): nothing when it's in
+ * view already; otherwise the least move along each axis that brings it in, so what was in view stays as near as it
+ * can. Along an axis where it's larger than the view, its start being in view is enough, where its title is; else its
+ * start comes to the view's start.
+ */
+export function panToShow(view: Bounds, target: Bounds, margin = 0): { x: number; y: number } | undefined {
+  const along = (viewMin: number, viewMax: number, min: number, max: number) => {
+    // Too large to fit: its start in view is enough, else it comes to the view's start.
+    if (max - min + 2 * margin > viewMax - viewMin) {
+      return min - margin < viewMin || min + margin > viewMax ? min - margin - viewMin : 0
+    }
+    if (min - margin < viewMin) return min - margin - viewMin
+    if (max + margin > viewMax) return max + margin - viewMax
+    return 0
+  }
+  const x = along(view.minX, view.maxX, target.minX, target.maxX)
+  const y = along(view.minY, view.maxY, target.minY, target.maxY)
+  return x === 0 && y === 0 ? undefined : { x, y }
 }
