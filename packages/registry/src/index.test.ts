@@ -92,6 +92,26 @@ describe("the registry", () => {
     }
   })
 
+  it("keeps sample text that ends at a sentence or a whole word, not cut mid-word at 60 characters", async () => {
+    const cut: string[] = []
+    const visit = (value: unknown, text: boolean) => {
+      if (typeof value === "string") {
+        if (text && value.length === 60 && !value.endsWith("…")) cut.push(value)
+      } else if (Array.isArray(value)) for (const item of value) visit(item, text)
+      else if (value && typeof value === "object") {
+        for (const [key, item] of Object.entries(value)) visit(item, ["children", "$render", "$element"].includes(key))
+      }
+    }
+    for (const entry of await registryEntries(registryDir())) {
+      for (const component of Object.values(entry.manifest.components?.list ?? {})) visit(component.sample, false)
+    }
+    expect(cut).toEqual([])
+    const nova = (await registryEntries(registryDir())).find((each) => each.manifest.id === "nova")!
+    expect(JSON.stringify(nova.manifest.components!.list.Accordion!.sample)).toContain(
+      '"Manage how you receive notifications."'
+    )
+  })
+
   it("samples Recharts' bar, line and area charts with data, sized by what holds them", async () => {
     const entry = (await registryEntries(registryDir())).find((each) => each.manifest.package?.name === "recharts")!
     const edits = entry.manifest.edits

@@ -24644,7 +24644,7 @@
         "visual": false,
         "sample": {
           "children": [
-            "This example shows how to use the useAnnounce() hook, howeve"
+            "This example shows how to use the useAnnounce() hook…"
           ]
         },
         "fingerprint": "5d52443f"
@@ -24691,7 +24691,7 @@
         "group": "Aria",
         "sample": {
           "children": [
-            "This example shows how to use the useAnnounce() hook connect"
+            "This example shows how to use the useAnnounce() hook…"
           ]
         },
         "fingerprint": "a761e30b",
@@ -25135,7 +25135,7 @@
         "group": "Text",
         "sample": {
           "children": [
-            "Donut chocolate bar oat cake. Dragée tiramisu lollipop bear "
+            "Donut chocolate bar oat cake."
           ]
         },
         "fingerprint": "b22e6c5b",
@@ -25259,7 +25259,7 @@
                 }
               }
             },
-            "Donut chocolate bar oat cake. Dragée tiramisu lollipop bear ",
+            "Donut chocolate bar oat cake.",
             {
               "component": "CardFooter",
               "children": [
@@ -25410,7 +25410,7 @@
                         "aria-label": "1 of 7"
                       },
                       "children": [
-                        "Lorem Ipsum Lorem ipsum dolor sit amet, consectetur adipisci"
+                        "Lorem Ipsum Lorem ipsum dolor sit amet, consectetur…"
                       ]
                     },
                     {
@@ -25566,7 +25566,7 @@
             "aria-label": "1 of 7"
           },
           "children": [
-            "Lorem Ipsum Lorem ipsum dolor sit amet, consectetur adipisci"
+            "Lorem Ipsum Lorem ipsum dolor sit amet, consectetur…"
           ]
         },
         "fingerprint": "71ce4902",
@@ -25736,7 +25736,7 @@
                 "aria-label": "1 of 7"
               },
               "children": [
-                "Lorem Ipsum Lorem ipsum dolor sit amet, consectetur adipisci"
+                "Lorem Ipsum Lorem ipsum dolor sit amet, consectetur…"
               ]
             },
             {
@@ -25801,7 +25801,7 @@
                     "aria-label": "1 of 7"
                   },
                   "children": [
-                    "Lorem Ipsum Lorem ipsum dolor sit amet, consectetur adipisci"
+                    "Lorem Ipsum Lorem ipsum dolor sit amet, consectetur…"
                   ]
                 },
                 {
@@ -26524,7 +26524,7 @@
                         "Outer dialog"
                       ]
                     },
-                    "This is the outer dialog. Open the inner dialog to see nesti",
+                    "This is the outer dialog.",
                     {
                       "component": "Dialog",
                       "children": [
@@ -26661,7 +26661,7 @@
                 "Outer dialog"
               ]
             },
-            "This is the outer dialog. Open the inner dialog to see nesti",
+            "This is the outer dialog.",
             {
               "component": "Dialog",
               "children": [
@@ -26680,7 +26680,7 @@
                         {
                           "component": "DialogTitle"
                         },
-                        "Press Escape — only this dialog closes; the outer stays open"
+                        "Press Escape — only this dialog closes; the outer stays…"
                       ]
                     },
                     {
@@ -26719,10 +26719,10 @@
         "parentsFrom": "example",
         "sample": {
           "children": [
-            "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed",
-            "Ut enim blandit volutpat maecenas volutpat. Venenatis urna c",
-            "Consequat interdum varius sit amet mattis vulputate enim. Am",
-            "At risus viverra adipiscing at. Interdum posuere lorem ipsum"
+            "Lorem ipsum dolor sit amet, consectetur adipiscing elit…",
+            "Ut enim blandit volutpat maecenas volutpat.",
+            "Consequat interdum varius sit amet mattis vulputate enim.",
+            "At risus viverra adipiscing at."
           ]
         },
         "fingerprint": "d8ef4867",
@@ -26756,7 +26756,7 @@
                     "Outer dialog"
                   ]
                 },
-                "This is the outer dialog. Open the inner dialog to see nesti",
+                "This is the outer dialog.",
                 {
                   "component": "Dialog",
                   "children": [
@@ -26937,10 +26937,10 @@
             {
               "component": "DrawerBody",
               "children": [
-                "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed",
-                "Ut enim blandit volutpat maecenas volutpat. Venenatis urna c",
-                "Consequat interdum varius sit amet mattis vulputate enim. Am",
-                "At risus viverra adipiscing at. Interdum posuere lorem ipsum"
+                "Lorem ipsum dolor sit amet, consectetur adipiscing elit…",
+                "Ut enim blandit volutpat maecenas volutpat.",
+                "Consequat interdum varius sit amet mattis vulputate enim.",
+                "At risus viverra adipiscing at."
               ]
             }
           ]
@@ -26962,10 +26962,10 @@
         "group": "Drawer",
         "sample": {
           "children": [
-            "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed",
-            "Ut enim blandit volutpat maecenas volutpat. Venenatis urna c",
-            "Consequat interdum varius sit amet mattis vulputate enim. Am",
-            "At risus viverra adipiscing at. Interdum posuere lorem ipsum"
+            "Lorem ipsum dolor sit amet, consectetur adipiscing elit…",
+            "Ut enim blandit volutpat maecenas volutpat.",
+            "Consequat interdum varius sit amet mattis vulputate enim.",
+            "At risus viverra adipiscing at."
           ]
         },
         "fingerprint": "d8ef4867",
@@ -28532,7 +28532,7 @@
                     "Descriptive title"
                   ]
                 },
-                "Message providing information to the user with actionable in",
+                "Message providing information to the user with actionable…",
                 " "
               ]
             },
@@ -28592,7 +28592,7 @@
                 "Descriptive title"
               ]
             },
-            "Message providing information to the user with actionable in",
+            "Message providing information to the user with actionable…",
             " "
           ]
         },
@@ -28629,7 +28629,7 @@
                         "Descriptive title"
                       ]
                     },
-                    "Message providing information to the user with actionable in"
+                    "Message providing information to the user with actionable…"
                   ]
                 },
                 {

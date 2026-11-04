@@ -107,6 +107,58 @@ describe("Fluent's slots", () => {
   })
 })
 
+describe("components that pass their props to a void element", () => {
+  let root: string
+  let found: ReturnType<typeof inferProps>
+
+  // React's shape: every element's attributes extend `DOMAttributes`, which declares `children`.
+  const react = [
+    "export type ReactNode = string | number | null | undefined",
+    "export type Ref<T> = { current: T | null }",
+    "export interface DOMAttributes { children?: ReactNode }",
+    "export interface HTMLAttributes extends DOMAttributes { id?: string }",
+    "export interface InputHTMLAttributes extends HTMLAttributes { value?: string }"
+  ]
+  const components = [
+    'import type { HTMLAttributes, InputHTMLAttributes, ReactNode, Ref } from "fake-react"',
+    "export function TextField(props: InputHTMLAttributes) { return null }",
+    "export function Rule(props: HTMLAttributes & { ref?: Ref<HTMLHRElement> }) { return null }",
+    "export function Box(props: HTMLAttributes & { ref?: Ref<HTMLDivElement> }) { return null }",
+    "export function LabelledField(props: InputHTMLAttributes & { children?: ReactNode }) { return null }"
+  ]
+
+  beforeAll(async () => {
+    root = (await mkdtemp(join(tmpdir(), "canvas-void-"))).replaceAll("\\", "/")
+    await mkdir(join(root, "node_modules", "fake-react"), { recursive: true })
+    await writeFile(join(root, "node_modules", "fake-react", "index.d.ts"), react.join("\n"))
+    await writeFile(join(root, "components.tsx"), components.join("\n"))
+    const names = ["TextField", "Rule", "Box", "LabelledField"]
+    found = inferProps(root, Object.fromEntries(names.map((name) => [name, { path: "components.tsx", export: name }])))
+  })
+
+  afterAll(async () => {
+    await rm(root, { recursive: true, force: true })
+  })
+
+  const takesChildren = (name: string) => found[name]?.props.some((prop) => prop.name === "children")
+
+  it("leaves out the children React declares for every element, which a void element throws on", () => {
+    expect(found.TextField?.props.map((prop) => prop.name)).toEqual(["id", "value"])
+    expect(takesChildren("Rule")).toBe(false)
+  })
+
+  it("keeps children for other elements, and for a component that declares its own", () => {
+    expect(takesChildren("Box")).toBe(true)
+    expect(takesChildren("LabelledField")).toBe(true)
+  })
+
+  it("leaves them out of shadcn's Input, which spreads its props onto an <input>", () => {
+    const input = inferProps(example, { Input: { path: "src/components/ui/input.tsx", export: "Input" } })
+    expect(input.Input?.props.some((prop) => prop.name === "children")).toBe(false)
+    expect(input.Input?.props.find((prop) => prop.name === "placeholder")).toMatchObject({ kind: "string" })
+  })
+}, 60_000)
+
 describe("whether a component takes a style", () => {
   let root: string
 

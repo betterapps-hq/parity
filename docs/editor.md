@@ -2234,6 +2234,17 @@ picker.
   change.
 - **Kept under PAR-158's cleanup:** previews count toward the same 200 MB and 30 days, showing a picture counts as using
   it, and Clear bitmap cache removes them too.
+- **A void element gets no children (PAR-513).** React declares `children` for every element, so a component whose props
+  are `ComponentProps<"input">` seemed to take them, and inserting it, on the canvas or for its preview, labelled it
+  with its name, which React refuses on an `<input>` (error 137). Props reading (`inferProps`) leaves that `children`
+  out for props that go to a void element: ones with an attribute only a void element has (`InputHTMLAttributes`,
+  `ImgHTMLAttributes` and the rest) or a ref to one (`HTMLHRElement`, `HTMLBRElement`). A component that declares its
+  own `children` keeps them. Library parts already had this from their samples' `children: []`.
+- **Sample text ends at a sentence or a word (PAR-513).** Libgen keeps at most 60 characters of an example's text, and
+  used to cut there mid-word, so the Accordion's preview read "…You can enable email a". It now ends where the last
+  sentence within them ends, else after the last whole word with "…" (`sampleText`), and the registry's files were
+  shortened the same way. Since a preview's key covers its tree, both changes give the affected components new keys and
+  new pictures without raising `previewFormat`.
 
 Code: `componentPreviewTree` in `packages/editor/src/component-preview.ts`; `renderQueue`, `nextPreview` and `fitInside`
 in `packages/core/src/preview-order.ts`; `renderedComponents` in `packages/core/src/render.ts`; `previewKey`,
@@ -2243,7 +2254,8 @@ in `packages/core/src/preview-order.ts`; `renderedComponents` in `packages/core/
 `utility/bitmap-store.ts`; `renderPreview`, `renderOffscreen` and `servePreview` in `apps/desktop/src/main/index.ts`;
 `previewJob`, `startPreviews`, `useComponentPreview` and `usePreviewOnScreen` in
 `apps/desktop/src/renderer/component-previews.ts`; `PreviewPicture` in `renderer/chrome/PreviewPicture.tsx` and
-`AssetRow` in `chrome/AssetsPanel.tsx`; `bitmapsWaiting` in `renderer/canvas/frame-bitmaps.ts`.
+`AssetRow` in `chrome/AssetsPanel.tsx`; `bitmapsWaiting` in `renderer/canvas/frame-bitmaps.ts`; `passesToVoidElement` in
+`packages/code/src/props.ts`; `sampleText` and `shortenedText` in `packages/libgen/src/sample-text.ts`.
 
 Tests: `packages/core/src/preview-order.test.ts` (3 for `renderQueue`: canvas and agent jobs before previews on screen
 and those before the idle pass, one job at a time, and a failure going to its caller with the next job still run; 5 for
@@ -2261,9 +2273,13 @@ across a restart, none for a key not made, kept in the previews folder with no p
 project, and none once cleared). `apps/desktop/src/utility/previews.test.ts` (6, with the project and the offscreen
 window standing in: drawn once and not again after a restart with the same code; after an edit, drawn again only for the
 component importing what changed, with its last picture meanwhile; a draw failure kept; one that didn't finish tried
-again; two asks at once drawing once; and none for code the project hasn't served). Gaps: the window's store and
-scheduler (`component-previews.ts`), the queue's use in main and the protocol have no test of their own; they were tried
-in the app.
+again; two asks at once drawing once; and none for code the project hasn't served). `packages/code/src/props.test.ts` (3
+for void elements: no `children` for `<input>` attributes or a ref to an `<hr>`, kept for other elements and for a
+component's own, and none for shadcn's Input). `packages/libgen/src/sample-text.test.ts` (6: short text whole, a long
+one ended at a sentence, at a whole word with "…", not at a too-short first sentence, text without spaces, and text cut
+before shortened as the whole would be). `packages/registry/src/index.test.ts` (1: no sample text in the registry cut
+mid-word, and nova's Accordion ending its sentence). Gaps: the window's store and scheduler (`component-previews.ts`),
+the queue's use in main and the protocol have no test of their own; they were tried in the app.
 
 Tried in a debug copy on `examples/shadcn-vite`, with 587 components: the canvas's 119 bitmaps were taken in 16 seconds
 and the first preview was made a second after the last. The idle pass then made 555 previews and kept 13 failures (parts

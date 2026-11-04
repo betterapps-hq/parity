@@ -1324,7 +1324,7 @@
                 {
                   "component": "AccordionContent",
                   "children": [
-                    "Manage how you receive notifications. You can enable email a"
+                    "Manage how you receive notifications."
                   ]
                 }
               ]
@@ -1344,7 +1344,7 @@
                 {
                   "component": "AccordionContent",
                   "children": [
-                    "Control your privacy settings and security preferences. Enab"
+                    "Control your privacy settings and security preferences."
                   ]
                 }
               ]
@@ -1364,7 +1364,7 @@
                 {
                   "component": "AccordionContent",
                   "children": [
-                    "View your current plan, payment history, and upcoming invoic"
+                    "View your current plan, payment history, and upcoming…"
                   ]
                 }
               ]
@@ -1398,7 +1398,7 @@
         "parentsFrom": "example",
         "sample": {
           "children": [
-            "Click on 'Forgot Password' on the login page, enter your ema"
+            "Click on 'Forgot Password' on the login page, enter your…"
           ]
         },
         "fingerprint": "dfce1c8e",
@@ -1432,7 +1432,7 @@
             {
               "component": "AccordionContent",
               "children": [
-                "This section contains information about premium features. Up"
+                "This section contains information about premium features."
               ]
             }
           ]
@@ -2694,7 +2694,7 @@
             {
               "component": "BubbleContent",
               "children": [
-                "Yes. You are reading a demo that is demoing itself. Very met"
+                "Yes. You are reading a demo that is demoing itself."
               ]
             },
             {
@@ -2728,7 +2728,7 @@
         "parentsFrom": "example",
         "sample": {
           "children": [
-            "This bubble is aligned to the start. This is the default ali"
+            "This bubble is aligned to the start."
           ]
         },
         "fingerprint": "fa1c0092",
@@ -3152,7 +3152,7 @@
         "parentsFrom": "example",
         "sample": {
           "children": [
-            "Add Photos & Files Create Image Deep Research Web Search Sen"
+            "Add Photos & Files Create Image Deep Research Web Search…"
           ]
         },
         "fingerprint": "c218e39e"
@@ -6211,7 +6211,7 @@
         "parentsFrom": "example",
         "sample": {
           "children": [
-            "The attachment trigger fills the card and opens the dialog, "
+            "The attachment trigger fills the card and opens the dialog…"
           ]
         },
         "fingerprint": "923d798d",
@@ -6277,7 +6277,7 @@
             {
               "component": "DialogDescription",
               "children": [
-                "The attachment trigger fills the card and opens the dialog, "
+                "The attachment trigger fills the card and opens the dialog…"
               ]
             }
           ]
@@ -7801,7 +7801,7 @@
                 {
                   "component": "EmptyDescription",
                   "children": [
-                    "The page you&apos;re looking for doesn&apos;t exist. Try sea"
+                    "The page you&apos;re looking for doesn&apos;t exist."
                   ]
                 }
               ]
@@ -10858,7 +10858,7 @@
                     {
                       "component": "NavigationMenuContent",
                       "children": [
-                        "Re-usable components built with Tailwind CSS. How to install"
+                        "Re-usable components built with Tailwind CSS."
                       ]
                     }
                   ]
@@ -10938,7 +10938,7 @@
         "parentsFrom": "example",
         "sample": {
           "children": [
-            "Re-usable components built with Tailwind CSS. How to install"
+            "Re-usable components built with Tailwind CSS."
           ]
         },
         "fingerprint": "e7d77b11",
@@ -10986,7 +10986,7 @@
             {
               "component": "NavigationMenuContent",
               "children": [
-                "Re-usable components built with Tailwind CSS. How to install"
+                "Re-usable components built with Tailwind CSS."
               ]
             }
           ]
@@ -11049,7 +11049,7 @@
                 {
                   "component": "NavigationMenuContent",
                   "children": [
-                    "Re-usable components built with Tailwind CSS. How to install"
+                    "Re-usable components built with Tailwind CSS."
                   ]
                 }
               ]
@@ -13266,12 +13266,12 @@
                     {
                       "component": "SheetDescription",
                       "children": [
-                        "Make changes to your profile here. Click save when you&apos;"
+                        "Make changes to your profile here."
                       ]
                     }
                   ]
                 },
-                "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed",
+                "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
                 {
                   "component": "SheetFooter",
                   "children": [
@@ -13371,12 +13371,12 @@
                 {
                   "component": "SheetDescription",
                   "children": [
-                    "Make changes to your profile here. Click save when you&apos;"
+                    "Make changes to your profile here."
                   ]
                 }
               ]
             },
-            "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed",
+            "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
             {
               "component": "SheetFooter",
               "children": [
@@ -16014,7 +16014,7 @@
             {
               "component": "TraceCollapsibleContent",
               "children": [
-                "Store the theme in a cookie so the server renders the right ",
+                "Store the theme in a cookie so the server renders the right…",
                 {
                   "component": "Trace",
                   "children": [

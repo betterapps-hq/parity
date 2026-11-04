@@ -58,7 +58,7 @@
             {
               "component": "Accordion.Panel",
               "children": [
-                "Base UI is a library of high-quality unstyled React componen"
+                "Base UI is a library of high-quality unstyled React…"
               ]
             }
           ]
@@ -83,7 +83,7 @@
         "parentsFrom": "example",
         "sample": {
           "children": [
-            "Base UI is a library of high-quality unstyled React componen"
+            "Base UI is a library of high-quality unstyled React…"
           ]
         },
         "fingerprint": "a6e70d5d",
@@ -120,7 +120,7 @@
                 {
                   "component": "Accordion.Panel",
                   "children": [
-                    "Standard shipping takes 3–5 business days. Express delivery "
+                    "Standard shipping takes 3–5 business days."
                   ]
                 }
               ]
@@ -142,7 +142,7 @@
                 {
                   "component": "Accordion.Panel",
                   "children": [
-                    "You can return any item within 30 days of delivery. Opened i"
+                    "You can return any item within 30 days of delivery."
                   ]
                 }
               ]
@@ -164,7 +164,7 @@
                 {
                   "component": "Accordion.Panel",
                   "children": [
-                    "Yes, we ship to over 40 countries. International orders typi"
+                    "Yes, we ship to over 40 countries."
                   ]
                 }
               ]
@@ -186,7 +186,7 @@
                 {
                   "component": "Accordion.Panel",
                   "children": [
-                    "Once your order ships, you’ll receive a tracking link by ema"
+                    "Once your order ships, you’ll receive a tracking link by…"
                   ]
                 }
               ]
@@ -1705,7 +1705,7 @@
                 "Right click here"
               ]
             },
-            "Add to Library Add to Playlist Play Next Play Last Favorite "
+            "Add to Library Add to Playlist Play Next Play Last Favorite…"
           ]
         },
         "fingerprint": "163e37d4",
@@ -1996,7 +1996,7 @@
             {
               "component": "Dialog.Popup",
               "children": [
-                "Dialog This layout keeps the popup fully on screen while all",
+                "Dialog This layout keeps the popup fully on screen while…",
                 "Close"
               ]
             }
@@ -2088,11 +2088,11 @@
             {
               "component": "Drawer.Description",
               "children": [
-                "Review sign-in activity and update your security preferences"
+                "Review sign-in activity and update your security…"
               ]
             },
-            "Passkeys enabled 2FA via authenticator app 3 signed-in devic",
-            "Advanced options Advanced This drawer is taller to demonstra"
+            "Passkeys enabled 2FA via authenticator app 3 signed-in…",
+            "Advanced options Advanced This drawer is taller to…"
           ]
         },
         "fingerprint": "c413c506",
@@ -2115,7 +2115,7 @@
         "parentsFrom": "example",
         "sample": {
           "children": [
-            "This is a drawer that slides in from the side. You can swipe"
+            "This is a drawer that slides in from the side."
           ]
         },
         "fingerprint": "beb84af4",
@@ -2134,7 +2134,7 @@
         "parentsFrom": "example",
         "sample": {
           "children": [
-            "Open drawer Notifications You are all caught up. Good job! C"
+            "Open drawer Notifications You are all caught up. Good job!"
           ]
         },
         "fingerprint": "141c3ab0",
@@ -2181,11 +2181,11 @@
                 {
                   "component": "Drawer.Description",
                   "children": [
-                    "Review sign-in activity and update your security preferences"
+                    "Review sign-in activity and update your security…"
                   ]
                 },
-                "Passkeys enabled 2FA via authenticator app 3 signed-in devic",
-                "Advanced options Advanced This drawer is taller to demonstra"
+                "Passkeys enabled 2FA via authenticator app 3 signed-in…",
+                "Advanced options Advanced This drawer is taller to…"
               ]
             }
           ]
@@ -2251,7 +2251,7 @@
         "visual": false,
         "sample": {
           "children": [
-            "Open drawer Notifications You are all caught up. Good job! C"
+            "Open drawer Notifications You are all caught up. Good job!"
           ]
         },
         "fingerprint": "a761e30b",
@@ -2417,11 +2417,11 @@
                     {
                       "component": "Drawer.Description",
                       "children": [
-                        "Review sign-in activity and update your security preferences"
+                        "Review sign-in activity and update your security…"
                       ]
                     },
-                    "Passkeys enabled 2FA via authenticator app 3 signed-in devic",
-                    "Advanced options Advanced This drawer is taller to demonstra"
+                    "Passkeys enabled 2FA via authenticator app 3 signed-in…",
+                    "Advanced options Advanced This drawer is taller to…"
                   ]
                 }
               ]
@@ -5909,8 +5909,8 @@
         "parentsFrom": "example",
         "sample": {
           "children": [
-            "Vernacular architecture is building done outside any academi",
-            "This type of architecture usually serves immediate, local ne"
+            "Vernacular architecture is building done outside any…",
+            "This type of architecture usually serves immediate, local…"
           ]
         },
         "fingerprint": "1c72c9cc",
@@ -6030,8 +6030,8 @@
             {
               "component": "ScrollArea.Content",
               "children": [
-                "Vernacular architecture is building done outside any academi",
-                "This type of architecture usually serves immediate, local ne"
+                "Vernacular architecture is building done outside any…",
+                "This type of architecture usually serves immediate, local…"
               ]
             }
           ]
@@ -7259,7 +7259,7 @@
                 }
               ]
             },
-            "Workspace stats and activity. Milestones and deadlines. Prof"
+            "Workspace stats and activity. Milestones and deadlines."
           ]
         },
         "fingerprint": "53a7c0df",
