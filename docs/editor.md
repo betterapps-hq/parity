@@ -1886,7 +1886,8 @@ Layers and Instance sections, and Insert detached copy placed plain layers.
 
 ## Zooming far out
 
-What the canvas draws, and what it lets go of, once it's zoomed out far enough for frames to show their bitmaps.
+What the canvas draws, and what it lets go of, once it's zoomed out far enough for frames to show their bitmaps, or its
+tab isn't showing.
 
 ### Frames sleep while their bitmaps show (PAR-197)
 
@@ -1934,6 +1935,46 @@ brings a design into view before finding a layer in it, so the other files' test
 order frames wake in, and waking on a changed design, have no test of their own; the first was checked by reading
 `wakeNext`, the second by reading `useAwake`. The memory it gives back and the time waking takes were measured by hand
 in a debug copy (see [decisions.md](decisions.md), Canvas), not by the suite.
+
+### A hidden tab's frames sleep (PAR-153)
+
+A tab that isn't showing keeps its session, its store and its boards, but 3 seconds after it's hidden every frame
+showing its bitmap sleeps, on every board including the selected one: its design's React root is unmounted and its
+elements removed, as zoomed far out (see above). Shown again, every frame shows at once, the frames near the view
+drawing their design or, until they wake, their bitmap, and frames away from the view keeping their bitmap until they
+come near. Frames wake one each animation frame, near the view only, so switching back doesn't remount the whole
+project.
+
+- **Sizes hold.** Boards keep the size they had: the tab's shapes aren't touched, and a frame put to sleep while nothing
+  is laid out keeps the height it last had when drawn (`contain-intrinsic-size: auto`) instead of recording none. A
+  board that has never been drawn, as in a tab restored behind another, has no size to keep, so its frames stay awake
+  until the tab is first shown.
+- **Agents** read a hidden tab's boards from its shapes, which keep every board's position and size, as before.
+- **Not at once.** A tab hidden for less than 3 seconds, as when flipping through tabs, lets go of nothing, so switching
+  straight back costs nothing either.
+- **What still runs:** a frame whose design changes while its tab is hidden (an agent's edit) wakes, draws offscreen,
+  and sleeps again once its new bitmap is taken, as a sleeping frame does anywhere. A frame without a bitmap, whose
+  design didn't render, never sleeps.
+
+Measured with `pnpm perf` on `examples/shadcn-vite` (61 designs, 119 frames), every board visited at 100% first and then
+`fixtures/vite7-js` opened in a second tab: the hidden tab held 7,898 DOM nodes and 120 MB of heap, against 33,283 and
+139 MB before; switching back, every frame showed something within 283 ms (317 ms before, when they were all still
+drawn), the 4 frames near the view had woken by 468 ms, and no board changed size.
+
+Code: `isTabHidden` and the `shown` prop of `CanvasEditor` in `apps/desktop/src/renderer/canvas/CanvasEditor.tsx`, which
+`ProjectView.tsx` passes the tab's being active; `boardDormant` and `hiddenSleepMs` in `canvas/frame-sleep.ts`, which
+the board's `dormant` signal in `canvas/ContainerShapeUtil.tsx` goes by; the height kept in `ModeView.tsx`'s teardown.
+`pnpm perf` visits every board at 100% before hiding the tab, and reports `back shown ms` (every frame showing its
+design or its bitmap), `back woken ms` and `frames awake`; `PARITY_PERF_UI_PORT` and `PARITY_PERF_DEBUG_PORT` let a
+second run go alongside another.
+
+Tests: `apps/desktop/src/renderer/canvas/frame-sleep.test.ts` (4: a shown tab's boards stay awake up close, sleep far
+out except the selected one, a hidden tab's boards all sleep at any zoom, and not before they've been drawn).
+`ModeView.test.ts` (1, from PAR-197: a frame put to sleep keeps its host and height). Gaps: that the tab's hiding
+reaches the boards after 3 seconds, and that sizes hold through it, have no unit test; both were measured by
+`pnpm perf`, above, and the hiding was checked by reading `CanvasEditor`. Before, tried 2026-10-29 without sleep:
+unmounting a hidden tab's frames cut its DOM nodes 77%, but all 119 remounting took 4 s, and remounting a few a frame
+took 7 s with boards changing size. Sleep's waking near the view only, and its held heights, are what this needed.
 
 ### What a frame shows, keyed once (PAR-439)
 

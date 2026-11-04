@@ -17,6 +17,7 @@ import { getResolvedTheme, useResolvedTheme } from "../theme.ts"
 import { ContainerShapeUtil, designDrag } from "./ContainerShapeUtil.tsx"
 import { useProject } from "./context.ts"
 import { bitmapScale } from "./frame-bitmaps.ts"
+import { hiddenSleepMs } from "./frame-sleep.ts"
 import { designColor, kindColors } from "./kinds.tsx"
 import { NoteShapeUtil } from "./NoteShapeUtil.tsx"
 import { sizeWhileShown } from "./overlay-canvas.ts"
@@ -141,6 +142,17 @@ function settleZoom(editor: Editor): () => void {
   }
 }
 
+/** Whether the editor's tab has been hidden for a while (see `hiddenSleepMs`), by editor. */
+const hiddenTabs = new WeakMap<Editor, Atom<boolean>>()
+
+/**
+ * Whether the canvas's tab has been hidden for `hiddenSleepMs`. Its frames then sleep, so a tab that isn't showing
+ * holds its session, store and boards but not its designs' elements and React roots (see frame-sleep.ts, PAR-153).
+ */
+export function isTabHidden(editor: Editor): boolean {
+  return hiddenTabs.get(editor)?.get() ?? false
+}
+
 /** Whether the camera has come to rest zoomed far out, by editor (see `markZoomedOut`). */
 const restingFar = new WeakMap<Editor, Atom<boolean>>()
 
@@ -214,7 +226,14 @@ function sizeOverlays(editor: Editor): () => void {
   }
 }
 
-export function CanvasEditor({ onEditor }: { onEditor: (editor: Editor | undefined) => void }) {
+export function CanvasEditor({
+  onEditor,
+  shown = true
+}: {
+  onEditor: (editor: Editor | undefined) => void
+  /** The canvas's tab is the one showing. Hidden a while, its frames sleep; shown again, those near the view wake. */
+  shown?: boolean
+}) {
   const { id: tab, store, selection, editor } = useProject()
   const theme = useResolvedTheme()
 
@@ -222,6 +241,18 @@ export function CanvasEditor({ onEditor }: { onEditor: (editor: Editor | undefin
   useEffect(() => {
     editor?.user.updateUserPreferences({ colorScheme: theme })
   }, [editor, theme])
+
+  // Shown, the tab's frames may wake at once; hidden, they sleep only once it's stayed hidden a moment.
+  useEffect(() => {
+    const hidden = editor && hiddenTabs.get(editor)
+    if (!hidden) return undefined
+    if (shown) {
+      hidden.set(false)
+      return undefined
+    }
+    const timer = setTimeout(() => hidden.set(true), hiddenSleepMs)
+    return () => clearTimeout(timer)
+  }, [editor, shown])
 
   const handleMount = useCallback(
     (editor: Editor) => {
@@ -232,6 +263,7 @@ export function CanvasEditor({ onEditor }: { onEditor: (editor: Editor | undefin
       const stopZoom = settleZoom(editor)
       const stopZoomedOut = markZoomedOut(editor)
       const stopOverlays = sizeOverlays(editor)
+      hiddenTabs.set(editor, atom("tab hidden", false))
 
       // Designs and notes come and go with undo and agents, so shapes follow the store rather than being made once.
       const sync = () => {
@@ -333,6 +365,7 @@ export function CanvasEditor({ onEditor }: { onEditor: (editor: Editor | undefin
         stopZoom()
         stopZoomedOut()
         stopOverlays()
+        hiddenTabs.delete(editor)
         stopStore()
         stopHeld()
         stopMoves()

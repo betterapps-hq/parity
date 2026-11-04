@@ -2763,3 +2763,20 @@ zoomed-out frames could sleep. They're now kept on disk too (see editor.md, Bitm
 - **Limits: 200 MB, trimmed to 180, and 30 days unused for a whole project.** At about 10 KB a bitmap that's some 20,000
   frames, more than anyone's recent projects. Use is recorded by touching the file's modification time when it's shown,
   so no index has to be kept in step. A Clear bitmap cache item covers the rest.
+
+## A hidden tab's frames sleep, rather than unmount (PAR-153)
+
+A tab that isn't showing stays mounted, so switching back is instant and agents can read it. It now lets go of its
+frames' designs through PAR-197's sleep, rather than unmounting them, which was tried and backed out on 2026-10-29: all
+119 frames remounting on the way back kept the page busy for 4 s, and boards changed size. My calls:
+
+- **Sleep, not a second mechanism.** A hidden tab makes every drawn board dormant (`boardDormant`), the selected one
+  too, so its frames show their bitmaps and drop their React roots and elements. Shown again, only frames near the view
+  wake, one each animation frame, and the rest keep their bitmaps until they come near, as after zooming out.
+- **3 seconds hidden first.** Flipping through tabs would otherwise take every frame apart and draw it again each time.
+- **Heights from the browser.** A frame put to sleep while nothing is laid out doesn't record a height of 0; it keeps
+  the size it last had when drawn (`contain-intrinsic-size: auto`). A board never drawn, in a tab restored behind
+  another, has no size to keep, so it doesn't sleep until it's been shown.
+- **Measured with every board woken.** `pnpm perf` visits each board at 100% before hiding the tab: zoomed out, frames
+  already sleep, and hiding would show no difference. On the example, the hidden tab's DOM nodes fell 76% (33,283 to
+  7,898) and its heap 14% (139 to 120 MB).
