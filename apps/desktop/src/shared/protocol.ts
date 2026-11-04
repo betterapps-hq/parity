@@ -96,6 +96,13 @@ export interface ServiceMethods {
    */
   "frames.capture": { params: { job: RenderJob }; result: { png?: string } }
   /**
+   * The bitmap of a frame kept on disk from an earlier capture of the same job with the same code, if there is one
+   * (PAR-158). It's asked for before anything is captured, so a project opened again shows its frames zoomed out at once.
+   */
+  "frames.stored": { params: { job: RenderJob }; result: { png?: string } }
+  /** Removes every frame bitmap kept on disk, for View > Clear bitmap cache. */
+  "frames.clearStored": { params: undefined; result: undefined }
+  /**
    * Checks a design with axe-core in every state, in the modes it shows, offscreen. Automated checks find only some
    * issues, so none found isn't a pass.
    */

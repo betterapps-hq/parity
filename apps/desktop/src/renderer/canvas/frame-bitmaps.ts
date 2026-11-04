@@ -122,7 +122,18 @@ export function useFrameBitmap({ key, job }: FrameShows): string | undefined {
         if (src === failed) timer = setTimeout(() => take(attempt + 1), retryMs * Math.min(2 ** attempt, 8))
         else setShown({ key, src })
       })
-    timer = setTimeout(() => take(0), bitmaps.has(key) ? 0 : settleMs)
+    if (bitmaps.has(key)) {
+      timer = setTimeout(() => take(0), 0)
+    } else {
+      // One kept on disk from an earlier session shows as soon as it's read, without waiting for the frame to settle or
+      // its turn to be captured (PAR-158). It's captured only once there's none, after what's left of the wait.
+      const asked = performance.now()
+      void stored(key, latest.current).then((src) => {
+        if (!current) return
+        if (src === undefined) timer = setTimeout(() => take(0), Math.max(0, settleMs - (performance.now() - asked)))
+        else setShown({ key, src })
+      })
+    }
     return () => {
       current = false
       want(key, -1)
@@ -131,6 +142,36 @@ export function useFrameBitmap({ key, job }: FrameShows): string | undefined {
   }, [key])
 
   return shown?.key === key ? shown.src : undefined
+}
+
+/** Reads of kept bitmaps under way, by key, so frames showing the same one share a read. */
+const reading = new Map<string, Promise<string | undefined>>()
+
+/**
+ * The bitmap kept on disk for a job, which then stands for its key as a capture would. Nothing when none was kept; when
+ * the frame was captured meanwhile, that capture.
+ */
+export function stored(key: string, job: RenderJob): Promise<string | undefined> {
+  let read = reading.get(key)
+  if (!read) {
+    read = readStored(key, job).finally(() => reading.delete(key))
+    reading.set(key, read)
+  }
+  return read
+}
+
+async function readStored(key: string, job: RenderJob): Promise<string | undefined> {
+  const { png } = await window.canvasHost.request("frames.stored", { job }).catch(() => ({ png: undefined }))
+  const captured = bitmaps.get(key)
+  if (captured) return captured.then((src) => (typeof src === "string" ? src : undefined))
+  if (png === undefined) return undefined
+  const src = `data:image/png;base64,${png}`
+  bitmaps.set(key, Promise.resolve(src))
+  for (const old of bitmaps.keys()) {
+    if (bitmaps.size <= kept) break
+    bitmaps.delete(old)
+  }
+  return src
 }
 
 export function capture(key: string, job: RenderJob): Promise<string | undefined | typeof failed> {

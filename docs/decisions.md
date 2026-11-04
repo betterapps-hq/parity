@@ -2580,3 +2580,23 @@ it, so the agent can't disagree with the canvas about a node. My calls:
 
 `packages/agent/src/workspace.test.ts` runs each case and viewport of `effectiveFixture` through Get, reading every
 layer by its path, and compares what the canvas would draw of them with `resolveDesign`'s tree.
+
+## Frame bitmaps are kept in app data, named by code and job (PAR-158)
+
+Frame bitmaps were kept only in the window's memory, so every session captured each frame again, one at a time, before
+zoomed-out frames could sleep. They're now kept on disk too (see editor.md, Bitmaps kept between sessions). My calls:
+
+- **App data, not the project.** Parity ships as an installer, so `node_modules/.cache` isn't ours to fill, and a
+  project's folder is the person's. They go in `<userData>/bitmaps`, which main gives the service as
+  `PARITY_BITMAP_DIR`; without it, as in tests, nothing is kept.
+- **Named by what's shown, not by when.** The window's in-memory keys hold a guest id and address that are new each
+  session, so the disk name is a hash of the code's fingerprint and the render job less its address. The fingerprint is
+  file paths, sizes and modification times rather than contents, which is fast (35 ms on the example) and errs toward a
+  miss: a file only touched costs a capture, never a stale bitmap. It's taken per guest address when first served, as
+  the guest has no HMR and draws the code its address first served. The guest module's hash and a format number are in
+  it, so a new Parity doesn't show an old one's bitmaps.
+- **The service holds the store,** since it already runs the captures and knows each project's fingerprint: the window
+  passes the job and gets a PNG or none, as with a capture.
+- **Limits: 200 MB, trimmed to 180, and 30 days unused for a whole project.** At about 10 KB a bitmap that's some 20,000
+  frames, more than anyone's recent projects. Use is recorded by touching the file's modification time when it's shown,
+  so no index has to be kept in step. A Clear bitmap cache item covers the rest.

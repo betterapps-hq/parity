@@ -93,6 +93,21 @@ export async function saveCopy(session = activeSession()): Promise<void> {
 }
 
 /** Renders the selected design, or every design, to PNGs in a folder the person picks. */
+/**
+ * Removes the frame bitmaps kept on disk (PAR-158). The canvas keeps showing the ones it has, and new ones are kept
+ * again as frames are captured.
+ */
+export async function clearBitmapCache(): Promise<void> {
+  try {
+    await window.canvasHost.request("frames.clearStored", undefined)
+    toast.success("Bitmap cache cleared", { duration: 2000 })
+  } catch (error) {
+    toast.error("The bitmap cache couldn't be cleared", {
+      description: error instanceof Error ? error.message : String(error)
+    })
+  }
+}
+
 export async function exportImages(scope: "selection" | "all", session = activeSession()): Promise<void> {
   if (!session) return
   const { store, selection } = session

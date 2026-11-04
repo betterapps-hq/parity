@@ -1960,6 +1960,50 @@ their own; both were checked by reading `useFrameShows`. That `setSources` and `
 checked by reading them. A component moving in the running app wasn't tried, since it means changing the example's
 files, which other sessions share; `ModeView.test.ts` drives the guest's side of it, from `addComponents` on.
 
+### Bitmaps kept between sessions (PAR-158)
+
+Frame bitmaps are kept on disk, so a project opened again, or Parity started again, shows its frames' bitmaps once
+they're read rather than capturing every one again, one at a time, before frames can sleep. They're kept in Parity's app
+data, in `bitmaps`, one folder per project and one PNG per bitmap.
+
+- **A bitmap is named by what it shows:** the project's code as the guest drawing it was loaded, and the render job less
+  the guest's address, which is new each time a project opens. The code is a fingerprint of the path, size and
+  modification time of every file in the project and of the lockfiles above it, skipping dependencies, build output,
+  dot-folders and designs, with the guest module Parity draws it with and a format number. It's taken when each address
+  is first served and kept for that address, since the page never loads a module twice: a builder started again on the
+  same port keeps it. Any edit to code, CSS or config gives a new name, so a bitmap of old code is never shown for new.
+- **A frame not yet captured this session asks for a kept one first,** and shows it as soon as it's read. Only when
+  there's none is it captured, after what's left of the 1-second wait; frames showing the same bitmap share one read,
+  and a capture that landed meanwhile wins. Every capture that rendered is kept, written beside its name and renamed so
+  a reader never finds half a file. A frame that didn't render isn't kept.
+- **What's kept is cleaned up** when the service starts and after every 50 writes: partial files a write left behind
+  over a minute ago, every bitmap of a project none of whose bitmaps was shown in 30 days, and then the least recently
+  shown past 200 MB, down to 180 MB. Showing a bitmap counts as using it. **View > Clear bitmap cache**, also in the
+  actions search, removes them all; bitmaps on the canvas now are taken again when their frames next change.
+
+Code: `cacheRemovals` in `packages/core/src/bitmap-cache.ts`; `codeFingerprint` in
+`packages/project/src/code-fingerprint.ts`; `apps/desktop/src/utility/bitmap-store.ts`, and `codeServedAt` and the
+`fingerprints` kept per address in `utility/projects.ts`; the `frames.capture`, `frames.stored` and `frames.clearStored`
+handlers in `utility/index.ts`; `useFrameBitmap` and `stored` in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`;
+`clearBitmapCache` in `renderer/chrome/commands.ts`, in the View menu (`AppMenu.tsx`) and the actions search
+(`ActionsSearch.tsx`); `PARITY_BITMAP_DIR`, which main gives the service.
+
+Tests: `packages/core/src/bitmap-cache.test.ts` (6: nothing goes while under the cap, a project unused for 30 days goes
+whole and one with a recent bitmap keeps its older ones, the least recently used go past the cap down to what's kept,
+the age limit counts before the cap, an old partial file goes and a new one stays, and a partial file doesn't keep its
+project). `packages/project/src/code-fingerprint.test.ts` (6: the same for the same files and salt, new with the salt,
+new for an edited component, stylesheet or config, and the same with dependencies, build output, dot-folders and designs
+added). `apps/desktop/src/utility/bitmap-store.test.ts` (5: a bitmap kept from one address is found from another, none
+for other code or another frame, no partial file left behind, an old project and an old partial file swept, and nothing
+once cleared). `apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (4: a kept bitmap stands in for its key so no
+capture is asked for, frames with the same key share a read, none when none was kept, and a capture taken during the
+read wins). Gaps: that a frame waits for the read before its capture, and the fingerprint kept per address, have no test
+of their own; both were checked by reading `useFrameBitmap` and `restartBuilder`. Tried in a debug copy on
+`examples/shadcn-vite`: the first session kept 119 bitmaps (1.1 MB) for 238 frames; started again, all 238 frames were
+shown from disk with no capture, about 2 seconds after the window loaded, the service answering each read in about a
+millisecond once it reached it; Clear bitmap cache emptied the folder and showed its toast. Before the fix to wait for
+the read, the service answered after the 1-second wait, so every frame was captured again anyway.
+
 ## What the editor itself loads
 
 What Parity's own UI costs the window, apart from the projects it shows.

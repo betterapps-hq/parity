@@ -2,6 +2,7 @@ import type { MessagePortMain } from "electron"
 import type { ChannelMessage, ServiceMethods, WindowMethods } from "../shared/protocol.ts"
 import type { MainMessage, ServiceMessage } from "../shared/service.ts"
 import { checkAccessibility, exportDesigns, startAgentServer } from "./agent.ts"
+import { clearBitmaps, storeBitmap, storedBitmap, sweepBitmaps } from "./bitmap-store.ts"
 import { builderReadings } from "./builders.ts"
 import { handleConsoleResult } from "./console.ts"
 import { undoProjectEdit } from "./edits.ts"
@@ -10,6 +11,7 @@ import { addLibrary, catalogFor, importStyles } from "./libraries.ts"
 import { dismissProcess, listProcesses, restartProcess, stopProcess } from "./processes.ts"
 import {
   closeProject,
+  codeServedAt,
   correctComponents,
   getProject,
   message,
@@ -41,8 +43,17 @@ const handlers: Handlers = {
   "designs.export": (params) => exportDesigns(editorWindow(), params),
   "frames.capture": async ({ job }) => {
     const { frame, png } = await renderOffscreen(job, true)
-    return frame.error ? {} : { png }
+    if (frame.error || !png) return {}
+    const code = codeServedAt(job.projectId, job.guestUrl)
+    if (code) void code.then((fingerprint) => storeBitmap(fingerprint, job, png))
+    return { png }
   },
+  "frames.stored": async ({ job }) => {
+    const code = codeServedAt(job.projectId, job.guestUrl)
+    const png = code && (await storedBitmap(await code, job))
+    return png ? { png } : {}
+  },
+  "frames.clearStored": clearBitmaps,
   "accessibility.check": (params) => checkAccessibility(editorWindow(), params),
   "project.components": projectComponents,
   "project.correctComponents": correctComponents,
@@ -141,6 +152,8 @@ onFileChange(
       : Promise.resolve(false)
 )
 
+// Kept bitmaps past their limits go when the service starts, so a session never begins over them.
+void sweepBitmaps()
 void startAgentServer(editorWindow).catch((error: unknown) =>
   console.error("[service] agent server failed to start", error)
 )

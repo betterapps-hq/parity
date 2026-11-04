@@ -39,6 +39,7 @@ export {
   type ProjectEdit,
   reverseEdit
 } from "./edits.ts"
+export { codeFingerprint } from "./code-fingerprint.ts"
 export { detectionFingerprint, fingerprintInputs } from "./fingerprint.ts"
 export { changesLockfiles, findLockfiles, lockfileFolders } from "./lockfile.ts"
 export { parseJsonc } from "./jsonc.ts"
