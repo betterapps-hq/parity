@@ -1,17 +1,18 @@
 import {
-  dropAt,
-  type DropLine,
-  dropLayout,
   type InsertAt,
   type InsertItem,
   insertIntoDesign,
   insertLabel,
+  slotHere,
   whereToInsert
 } from "@parity-app/editor"
-import type { ContainerEntry, DesignStore } from "../design-store.ts"
-import { findNodeElement, nodeBox } from "../frame.ts"
+import { editingState } from "../chrome/LayerPanel.tsx"
+import type { ContainerEntry } from "../design-store.ts"
+import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { hitTest, type Point } from "./hit.ts"
+import { measureHere } from "./paste-here.ts"
+import { frameViewport } from "./view.ts"
 
 /**
  * Inserting from the Assets panel, by a drop on the canvas or a click. The rules are `@parity-app/editor`'s; this
@@ -21,40 +22,50 @@ import { hitTest, type Point } from "./hit.ts"
 /** The drag data type for items dragged from the Components panel onto the canvas. */
 export const insertMime = "application/x-parity-insert"
 
+/** A box on screen, in client coordinates. */
+interface ScreenRect {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
 export interface DropTarget extends InsertAt {
   entry: ContainerEntry
   index: number
   mode: string
   state: string
-  /** Where the item would land, as a line in client coordinates. */
-  line: DropLine
+  /** The layout it goes into, on screen. */
+  box: ScreenRect
+  /** Where among the children it lands, as a line on screen; none in an absolutely placed layout. */
+  line?: ScreenRect
 }
 
 /**
- * Where a drop at a point lands: the deepest layout under it, between the children either side of the point along the
- * layout's direction, with the line to draw there.
+ * Where an item dragged from the panel and dropped at a point lands (PAR-205): the deepest of the design's own layouts
+ * under it, in the frame there, at the slot under the pointer, as a dragged layer, a dropped image file and Paste here
+ * land (`slotHere`, through `slotAt`), so in a grid or a wrapping row the line of children the pointer is on comes
+ * first. In an absolutely placed layout it goes last, at the pointer.
  */
-export function dropTarget(area: ParentNode, store: DesignStore, point: Point): DropTarget | undefined {
-  const hit = hitTest(area, store, point)
-  if (!hit) return undefined
-  const layout = dropLayout(hit.chain)
-  if (!layout) return undefined
-  const element = findNodeElement(hit.host, layout.id)
-  if (!element) return undefined
-  const children = layout.children.flatMap((child, index) => {
-    const box = nodeBox(hit.host, child.id)
-    return box ? [{ index, box }] : []
-  })
-  const { index, line } = dropAt(
-    {
-      row: getComputedStyle(element).flexDirection.startsWith("row"),
-      box: element.getBoundingClientRect(),
-      children,
-      count: layout.children.length
-    },
-    point
-  )
-  return { entry: hit.entry, parent: layout.id, index, mode: hit.mode, state: hit.state, line }
+export function dropTarget(session: ProjectSession, area: ParentNode, point: Point): DropTarget | undefined {
+  const { store, editor } = session
+  const hit = hitTest(area, store, point, editor)
+  const here = hit && measureHere(hit, point, spacingUnit(session.tokens.get()))
+  if (!hit || !here) return undefined
+  const state = editingState(hit.entry.container, hit.state)
+  const slot = slotHere(hit.entry.container, here, state, frameViewport(store.getModes(), hit.mode))
+  if (!slot) return undefined
+  const { box } = here
+  return {
+    entry: hit.entry,
+    parent: slot.layout,
+    index: slot.index,
+    mode: hit.mode,
+    state: hit.state,
+    box: { x: box.left, y: box.top, w: box.right - box.left, h: box.bottom - box.top },
+    ...(slot.line ? { line: slot.line } : {}),
+    ...(slot.free ? { at: slot.at } : {})
+  }
 }
 
 /** Inserts an item into a layout, as one undoable step, and selects it. Returns its id, unless the design is gone. */

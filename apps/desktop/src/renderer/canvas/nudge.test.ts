@@ -6,75 +6,20 @@ import {
   type NodeStyle,
   type NoteSpec
 } from "@parity-app/core"
+import type { Flow } from "@parity-app/editor"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { DesignStore } from "../design-store.ts"
 import { SelectionStore } from "../selection.ts"
-import {
-  arrowOf,
-  type Drawn,
-  type Flow,
-  flowOf,
-  type FlowStyle,
-  nudgeLayers,
-  nudgeSelection,
-  reorder,
-  reorderStep
-} from "./nudge.ts"
+import { arrowOf, type Drawn, nudgeLayers, nudgeSelection, reorder, reorderStep } from "./nudge.ts"
 
-const row: Flow = { axis: "row", reversed: false }
-const column: Flow = { axis: "column", reversed: false }
+const row: Flow = { direction: "row", wraps: false, reversed: false }
+const column: Flow = { direction: "column", wraps: false, reversed: false }
 
-const computed = (style: Partial<FlowStyle>): FlowStyle => ({
-  display: "block",
-  flexDirection: "row",
-  gridTemplateColumns: "none",
-  gridAutoFlow: "row",
-  direction: "ltr",
-  ...style
-})
-
-describe("reading a layout's flow", () => {
+describe("the arrow keys", () => {
   it("knows the arrow keys", () => {
     expect(arrowOf("ArrowLeft")).toBe("left")
     expect(arrowOf("ArrowDown")).toBe("down")
     expect(arrowOf("Enter")).toBeUndefined()
-  })
-
-  it("reads rows and columns, reversed or not, from a flex box", () => {
-    expect(flowOf(computed({ display: "flex", flexDirection: "row" }))).toEqual(row)
-    expect(flowOf(computed({ display: "inline-flex", flexDirection: "row-reverse" }))).toEqual({
-      axis: "row",
-      reversed: true
-    })
-    expect(flowOf(computed({ display: "flex", flexDirection: "column" }))).toEqual(column)
-    expect(flowOf(computed({ display: "flex", flexDirection: "column-reverse" }))).toEqual({
-      axis: "column",
-      reversed: true
-    })
-  })
-
-  it("runs a row right to left in a right-to-left page", () => {
-    expect(flowOf(computed({ display: "flex", flexDirection: "row", direction: "rtl" }))).toEqual({
-      axis: "row",
-      reversed: true
-    })
-    expect(flowOf(computed({ display: "flex", flexDirection: "row-reverse", direction: "rtl" }))).toEqual(row)
-  })
-
-  it("counts a grid's columns, as laid out or as written", () => {
-    expect(flowOf(computed({ display: "grid", gridTemplateColumns: "120px 120px 120px" }))).toEqual({
-      ...row,
-      stride: 3
-    })
-    expect(flowOf(computed({ display: "grid", gridTemplateColumns: "[start] 50px [middle] 50px [end]" })).stride).toBe(
-      2
-    )
-    expect(flowOf(computed({ display: "grid", gridTemplateColumns: "repeat(4, minmax(0px, 1fr))" })).stride).toBe(4)
-    expect(flowOf(computed({ display: "grid", gridAutoFlow: "column" }))).toEqual(column)
-  })
-
-  it("stacks blocks in a column", () => {
-    expect(flowOf(computed({ display: "block" }))).toEqual(column)
   })
 })
 
@@ -89,12 +34,12 @@ describe("how far an arrow moves a layer in a layout", () => {
   })
 
   it("follows the layout's order on screen when it's reversed", () => {
-    expect(reorderStep({ axis: "row", reversed: true }, "right")).toBe(-1)
-    expect(reorderStep({ axis: "column", reversed: true }, "up")).toBe(1)
+    expect(reorderStep({ ...row, reversed: true }, "right")).toBe(-1)
+    expect(reorderStep({ ...column, reversed: true }, "up")).toBe(1)
   })
 
   it("moves a row's worth of places up or down a grid", () => {
-    const grid: Flow = { axis: "row", reversed: false, stride: 3 }
+    const grid: Flow = { direction: "row", wraps: true, reversed: false, stride: 3 }
     expect(reorderStep(grid, "right")).toBe(1)
     expect(reorderStep(grid, "down")).toBe(3)
     expect(reorderStep(grid, "up")).toBe(-3)

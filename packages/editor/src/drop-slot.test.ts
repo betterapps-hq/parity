@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { type Flow, flowOf, type Rect, type SlotChild, slotAt } from "./drop-slot.ts"
+import { type Flow, flowOf, type FlowStyle, type Rect, type SlotChild, slotAt } from "./drop-slot.ts"
 
 const box = (left: number, top: number, width: number, height: number): Rect => ({
   left,
@@ -18,7 +18,7 @@ function grid(count: number, columns: number, size = 100, gap = 10): SlotChild[]
 
 const without = (children: SlotChild[], ...moving: number[]) =>
   children.filter((child) => !moving.includes(child.index))
-const gridFlow: Flow = { direction: "row", wraps: true }
+const gridFlow: Flow = { direction: "row", wraps: true, reversed: false }
 const area = (children: SlotChild[]): Rect => ({
   left: 0,
   top: 0,
@@ -117,7 +117,7 @@ describe("reordering in a wrapping row", () => {
     { index: 3, box: box(0, 40, 140, 30) },
     { index: 4, box: box(150, 40, 50, 30) }
   ]
-  const wrap: Flow = { direction: "row", wraps: true }
+  const wrap: Flow = { direction: "row", wraps: true, reversed: false }
   const drop = (moving: number, point: { x: number; y: number }) =>
     slotAt(without(chips, moving), point, wrap, area(chips), chips.length)
 
@@ -141,8 +141,8 @@ describe("reordering in a wrapping row", () => {
 })
 
 describe("reordering along one line", () => {
-  const row: Flow = { direction: "row", wraps: false }
-  const column: Flow = { direction: "column", wraps: false }
+  const row: Flow = { direction: "row", wraps: false, reversed: false }
+  const column: Flow = { direction: "column", wraps: false, reversed: false }
   const items = [
     { index: 0, box: box(0, 0, 60, 30) },
     { index: 1, box: box(70, 0, 120, 30) }
@@ -173,25 +173,60 @@ describe("reordering along one line", () => {
 })
 
 describe("a layout's flow", () => {
-  const style = { display: "flex", flexDirection: "row", flexWrap: "nowrap", gridAutoFlow: "row" }
+  // Dropping, dragging and nudging all read it here (PAR-205).
+  const computed = (style: Partial<FlowStyle>): FlowStyle => ({
+    display: "block",
+    flexDirection: "row",
+    flexWrap: "nowrap",
+    gridTemplateColumns: "none",
+    gridAutoFlow: "row",
+    direction: "ltr",
+    ...style
+  })
+  const row: Flow = { direction: "row", wraps: false, reversed: false }
+  const column: Flow = { direction: "column", wraps: false, reversed: false }
 
-  it("reads a grid as rows that wrap, or columns when it flows by columns", () => {
-    expect(flowOf({ ...style, display: "grid" })).toEqual({ direction: "row", wraps: true })
-    expect(flowOf({ ...style, display: "grid", gridAutoFlow: "column dense" })).toEqual({
-      direction: "column",
+  it("reads a flex box's direction, reversed or not, and its wrapping", () => {
+    expect(flowOf(computed({ display: "flex" }))).toEqual(row)
+    expect(flowOf(computed({ display: "inline-flex", flexDirection: "row-reverse" }))).toEqual({
+      ...row,
+      reversed: true
+    })
+    expect(flowOf(computed({ display: "flex", flexDirection: "column" }))).toEqual(column)
+    expect(flowOf(computed({ display: "flex", flexDirection: "column-reverse" }))).toEqual({
+      ...column,
+      reversed: true
+    })
+    expect(flowOf(computed({ display: "flex", flexDirection: "column", flexWrap: "wrap" }))).toEqual({
+      ...column,
       wraps: true
     })
+    expect(flowOf(computed({ display: "flex", flexWrap: "wrap-reverse" })).wraps).toBe(true)
   })
 
-  it("reads a flex box's direction and wrapping", () => {
-    expect(flowOf(style)).toEqual({ direction: "row", wraps: false })
-    expect(flowOf({ ...style, flexDirection: "column", flexWrap: "wrap" })).toEqual({
-      direction: "column",
-      wraps: true
+  it("runs a row right to left in a right-to-left page", () => {
+    expect(flowOf(computed({ display: "flex", direction: "rtl" }))).toEqual({ ...row, reversed: true })
+    expect(flowOf(computed({ display: "flex", flexDirection: "row-reverse", direction: "rtl" }))).toEqual(row)
+  })
+
+  it("reads a grid as rows that wrap, counting its columns as laid out or as written", () => {
+    expect(flowOf(computed({ display: "grid", gridTemplateColumns: "120px 120px 120px" }))).toEqual({
+      direction: "row",
+      wraps: true,
+      reversed: false,
+      stride: 3
     })
+    expect(flowOf(computed({ display: "grid", gridTemplateColumns: "[start] 50px [middle] 50px [end]" })).stride).toBe(
+      2
+    )
+    expect(flowOf(computed({ display: "grid", gridTemplateColumns: "repeat(4, minmax(0px, 1fr))" })).stride).toBe(4)
   })
 
-  it("reads anything else as a column", () => {
-    expect(flowOf({ ...style, display: "block" })).toEqual({ direction: "column", wraps: false })
+  it("reads a grid that flows by columns as columns that wrap", () => {
+    expect(flowOf(computed({ display: "grid", gridAutoFlow: "column dense" }))).toEqual({ ...column, wraps: true })
+  })
+
+  it("stacks blocks in a column", () => {
+    expect(flowOf(computed({ display: "block" }))).toEqual(column)
   })
 })

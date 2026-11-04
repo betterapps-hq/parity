@@ -60,11 +60,7 @@ export function pasteHere(
 ): { container: ContainerSpec; copies: string[] } {
   const slot = slotHere(container, here, state, viewport)
   if (!slot) return { container, copies: [] }
-  const { layout, free, index } = slot
-  const at = {
-    left: halfSteps(here.point.x - here.origin.x, here),
-    top: halfSteps(here.point.y - here.origin.y, here)
-  }
+  const { layout, free, index, at } = slot
   const taken = nodeIds(container.root)
   // Several copies placed at the pointer go side by side from it, each a gap right of the one before when that one has
   // a width of its own; one that fills or hugs leaves the next where it starts.
@@ -84,24 +80,42 @@ export function pasteHere(
   return { container: { ...container, root }, copies: copies.map((copy) => copy.id) }
 }
 
+/** Where layers pasted, dropped or inserted `here` go. */
+export interface HereSlot {
+  layout: string
+  /** Whether the layout is absolutely placed as the board shows it, so what goes in it goes at the pointer. */
+  free: boolean
+  /** Among the layout's children. */
+  index: number
+  /** The pointer from inside the layout's border, in half steps of the spacing scale. */
+  at: { left: number; top: number }
+  /** In a layout that flows, the line that marks the slot on screen. */
+  line?: Slot["line"]
+}
+
 /**
- * Where layers pasted or dropped `here` go: the layout, whether it's absolutely placed as the board shows it, the index
- * they go in at, and, in a layout that flows, the line that marks the slot on screen. Undefined when `here` isn't one of
- * the design's layouts.
+ * Where layers pasted, dropped or inserted `here` go, for Paste here, image files and components dragged from the
+ * panel alike: the slot under the pointer in a layout that flows (see `slotAt`), so in a grid or a wrapping row the
+ * line of children the pointer is on comes first; or last in an absolutely placed one, at the pointer. Undefined when
+ * `here` isn't one of the design's layouts.
  */
 export function slotHere(
   container: ContainerSpec,
   here: HereLayout,
   state: StateSpec,
   viewport?: string
-): { layout: string; free: boolean; index: number; line?: Slot["line"] } | undefined {
+): HereSlot | undefined {
   const layout = locateNode(container.root, here.layout)?.node
   if (layout?.type !== "layout") return undefined
   const free = boardReader(container, { state, viewport })(layout).style?.position === "absolute"
   const count = layout.children.length
-  if (free) return { layout: layout.id, free, index: count }
+  const at = {
+    left: halfSteps(here.point.x - here.origin.x, here),
+    top: halfSteps(here.point.y - here.origin.y, here)
+  }
+  if (free) return { layout: layout.id, free, index: count, at }
   const slot = slotAt(here.children, here.point, here.flow, here.box, count)
-  return { layout: layout.id, free, index: slot.index, line: slot.line }
+  return { layout: layout.id, free, index: slot.index, at, line: slot.line }
 }
 
 /** A distance on screen in half steps of the spacing scale, as dragging an absolutely placed layer writes them. */
@@ -110,7 +124,7 @@ function halfSteps(screen: number, here: HereLayout): number {
 }
 
 /** A layer placed absolutely from its parent's top left, its own insets dropped. */
-function placedAt(node: DesignNode, at: { left: number; top: number }): DesignNode {
+export function placedAt(node: DesignNode, at: { left: number; top: number }): DesignNode {
   const own = Object.fromEntries(
     Object.entries(node.style ?? {}).filter(([key]) => !(insets as readonly string[]).includes(key))
   )

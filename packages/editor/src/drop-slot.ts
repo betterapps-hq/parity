@@ -16,32 +16,59 @@ export interface Point {
   y: number
 }
 
-/** How a layout places its children: along a row or a column, and whether they go on to further lines. */
+/**
+ * How a layout places its children on screen, for dropping, dragging and nudging alike (PAR-205): along a row or down a
+ * column, whether they go on to further lines, and whether that runs right to left or bottom to top. A grid that fills
+ * rows has a `stride`, how many places one row down is.
+ */
 export interface Flow {
   direction: "row" | "column"
   wraps: boolean
+  reversed: boolean
+  stride?: number
 }
 
-/**
- * A layout's flow, from its computed style. A grid fills a row at a time (or a column, flowing by columns), line after
- * line, as a wrapping flex box does, so both are found the same way.
- */
-export function flowOf(style: {
+/** The computed styles of the element a layout's children sit in, as `getComputedStyle` gives them. */
+export interface FlowStyle {
   display: string
   flexDirection: string
   flexWrap: string
+  gridTemplateColumns: string
   gridAutoFlow: string
-}): Flow {
+  direction: string
+}
+
+/**
+ * A layout's flow, from its computed style: a flex box, a grid, or blocks one under another. A grid fills a row at a
+ * time (or a column, flowing by columns), line after line, as a wrapping flex box does, so both are found the same way.
+ */
+export function flowOf(style: FlowStyle): Flow {
+  const rtl = style.direction === "rtl"
   if (style.display.includes("grid")) {
-    return { direction: style.gridAutoFlow.includes("column") ? "column" : "row", wraps: true }
+    if (style.gridAutoFlow.startsWith("column")) return { direction: "column", wraps: true, reversed: false }
+    return { direction: "row", wraps: true, reversed: rtl, stride: trackCount(style.gridTemplateColumns) }
   }
   if (style.display.includes("flex")) {
-    return {
-      direction: style.flexDirection.startsWith("column") ? "column" : "row",
-      wraps: style.flexWrap.startsWith("wrap")
-    }
+    const reversed = style.flexDirection.endsWith("reverse")
+    const wraps = style.flexWrap.startsWith("wrap")
+    return style.flexDirection.startsWith("row")
+      ? { direction: "row", wraps, reversed: reversed !== rtl }
+      : { direction: "column", wraps, reversed }
   }
-  return { direction: "column", wraps: false }
+  return { direction: "column", wraps: false, reversed: false }
+}
+
+/** The columns in a computed `grid-template-columns`: `120px 120px 120px`, or `repeat(3, …)` before layout. */
+function trackCount(columns: string): number {
+  const repeat = /^repeat\((\d+)/.exec(columns)
+  if (repeat) return Number(repeat[1])
+  const tracks = columns
+    .replace(/\[[^\]]*\]/g, " ")
+    .replace(/\([^)]*\)/g, "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+  return Math.max(1, tracks.length)
 }
 
 export interface SlotChild {

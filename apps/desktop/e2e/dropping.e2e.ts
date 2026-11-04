@@ -7,7 +7,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, inject, it } from "vi
 import { App, center } from "./app.ts"
 
 // docs/editor.md, Adding images: dropping image files from Explorer or Finder (PAR-24), with Chromium's own drag
-// events carrying real files.
+// events carrying real files; and Moving, reordering and resizing: dropping a component from the panel into the slot
+// under the pointer (PAR-205).
 
 let app: App
 let folder: string
@@ -154,6 +155,44 @@ describe("dropping image files", () => {
     await expect.poll(() => hint().count()).toBe(0)
     expect(await app.children("Pricing", hero)).toEqual([badge, headline, lede, billing])
     expect(await app.undoLabel()).toBeUndefined()
+  })
+})
+
+describe("dropping a component from the panel", () => {
+  it("lands in the slot under the pointer in a grid's second row, not along its first (PAR-205)", async () => {
+    // Projects' grid: three cards a row, two rows.
+    const grid = "OAEPX"
+    const cards = ["HY5tQ", "MJct6", "MBVoe", "CySw9", "LpVGP", "HBxmB"]
+    await app.show("Projects", 0.5, grid)
+    await app.page.keyboard.press("Alt+2")
+    await app.page.getByRole("textbox", { name: "Search components" }).fill("Badge")
+    const badge = app.page
+      .getByRole("button")
+      .filter({ hasText: /^Badge$/ })
+      .first()
+    const from = center((await badge.boundingBox())!)
+    // The left of the second row's middle card: before it, where one line along every card would put it second.
+    const fifth = await app.box("Projects", cards[4]!)
+    const to = { x: fifth.x + fifth.width / 4, y: fifth.y + fifth.height / 2 }
+    const shown = await app.drag(from, to, async () => {
+      await expect.poll(() => app.page.locator("[data-drop-line]").count()).toBe(1)
+      const line = (await app.page.locator("[data-drop-line]").boundingBox())!
+      return {
+        outline: await app.page.locator("[data-drop-outline]").count(),
+        // The line stands just left of the fifth card, in its row.
+        beside: Math.abs(line.x + line.width - fifth.x) < 6 && line.y >= fifth.y - 1 && line.y < fifth.y + fifth.height
+      }
+    })
+    expect(shown).toEqual({ outline: 1, beside: true })
+    await expect.poll(async () => (await app.children("Projects", grid)).length).toBe(7)
+    const children = await app.children("Projects", grid)
+    const added = children[4]!
+    expect(children).toEqual([...cards.slice(0, 4), added, ...cards.slice(4)])
+    expect(await app.node("Projects", added)).toMatchObject({ type: "component", component: "Badge" })
+    expect((await app.selection()).node).toBe(added)
+    expect(await app.undoLabel()).toBe("Add Badge")
+    await app.page.keyboard.press("Control+z")
+    await expect.poll(() => app.children("Projects", grid)).toEqual(cards)
   })
 })
 
