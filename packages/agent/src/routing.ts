@@ -91,14 +91,22 @@ export function matchTab<T extends Omit<RoutedTab, "active">>(tabs: readonly T[]
   )
 }
 
-/** The open project a folder is in: the deepest one whose folder holds it, so a nested project wins over its parent. */
-export function projectFor<T extends Pick<RoutedTab, "root">>(folder: string, tabs: readonly T[]): T | undefined {
-  const inside = normalizeRoot(folder)
+/**
+ * The open project a folder is in: the deepest one whose folder holds it, so a nested project wins over its parent.
+ * `real` gives a folder's real path, so a project reached through a link, as macOS's `/var` is `/private/var`, still
+ * holds a folder inside it however each was named; routing itself reads no files, so the caller passes it.
+ */
+export function projectFor<T extends Pick<RoutedTab, "root">>(
+  folder: string,
+  tabs: readonly T[],
+  real: (path: string) => string = (path) => path
+): T | undefined {
+  const inside = normalizeRoot(real(folder))
   let best: T | undefined
   for (const tab of tabs) {
-    const root = normalizeRoot(tab.root)
+    const root = normalizeRoot(real(tab.root))
     const holds = inside === root || inside.startsWith(root.endsWith("/") ? root : `${root}/`)
-    if (holds && (!best || root.length > normalizeRoot(best.root).length)) best = tab
+    if (holds && (!best || root.length > normalizeRoot(real(best.root)).length)) best = tab
   }
   return best
 }
@@ -106,7 +114,7 @@ export function projectFor<T extends Pick<RoutedTab, "root">>(folder: string, ta
 /** What an agent's call asks for. */
 export type Request =
   /** A call on one tab, named by `tab` or else by the folder the agent works in. */
-  | { kind: "tab"; tab?: string; folder: string }
+  | { kind: "tab"; tab?: string; folder: string; real?: (path: string) => string }
   /** Opening a project: the copy that has it open already, or else the one the person used last. */
   | { kind: "open"; root: string }
 
@@ -144,7 +152,7 @@ export function route<T extends RoutedTab>(copies: readonly Copy<T>[], request: 
     }
   }
   if (!reference) {
-    const project = projectFor(request.folder, open)
+    const project = projectFor(request.folder, open, request.real)
     if (project) {
       const holding = holdersOf(copies, project.root)
       if (holding[0]) return { kind: "copy", copy: holding[0].copy, tab: holding[0].tab }
