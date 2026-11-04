@@ -12,6 +12,7 @@ import {
   describeModes,
   describeProblems,
   describeProps,
+  describeStatus,
   describeTokens
 } from "./client.ts"
 import { invalidInput, operationError } from "./errors.ts"
@@ -25,6 +26,10 @@ const usage = `parity: drive the Parity app from a terminal or an agent
 
   parity tabs                               list open project tabs
   parity state [--tab t]                    designs, selection, modes, components and tokens of a tab
+  parity status [--summary] [--limit 10] [--tab t]
+                                            the tab's revision, whether anything applied isn't saved, the files and
+                                            token values waiting for Save, the last save and failed writes, and undo
+                                            and redo; --summary names the designs, tokens and steps
   parity modes [design] [--tab t]           viewports (the ids Responsive takes), variables, modes (the ids renders
                                             take) and what each design shows; a design adds its frames' sizes
   parity exec [file] --label "Do x"         run a snippet (from a file, or stdin) as one undoable step
@@ -95,6 +100,7 @@ const { positionals, values } = parseArgs({
     json: { type: "boolean" },
     record: { type: "boolean" },
     clear: { type: "boolean" },
+    summary: { type: "boolean" },
     all: { type: "boolean" },
     category: { type: "string" },
     source: { type: "string" },
@@ -138,6 +144,8 @@ async function main(): Promise<void> {
       return show(operations.tabs, {})
     case "state":
       return show(operations.state, { tab: values.tab })
+    case "status":
+      return show(operations.status, { tab: values.tab, summary: values.summary, limit }, describeStatus)
     case "modes":
       return show(operations.modes, { tab: values.tab, design: rest[0] }, describeModes)
     case "open":

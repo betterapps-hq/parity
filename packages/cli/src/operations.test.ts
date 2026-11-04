@@ -7,6 +7,7 @@ import {
   type ModesResponse,
   type ProblemsResponse,
   type PropsResponse,
+  type StatusResponse,
   describeAccessibility,
   describeComponents,
   describeConsole,
@@ -14,6 +15,7 @@ import {
   describeModes,
   describeProblems,
   describeProps,
+  describeStatus,
   describeTokens
 } from "./client.ts"
 import { type ExecReply, type Screenshot, execResponse, structuredExec } from "./execute.ts"
@@ -37,6 +39,18 @@ const consoleResult: ConsoleResponse = { ...consoleReply, total: 0, truncated: f
 const noTokens = { tokens: [], total: 0, truncated: false }
 const components: ComponentsResponse = { components: ["Button", "Card"] }
 const props: PropsResponse = { component: "Button", known: true, props: [] }
+const status: StatusResponse = {
+  tab,
+  revision: "a1b2c3d4:3",
+  dirty: true,
+  autosave: false,
+  unsaved: [{ path: "app.par", kind: "document" }],
+  tokenEdits: 0,
+  save: { status: "unsaved" },
+  errors: [],
+  undo: { count: 3 },
+  redo: { count: 0 }
+}
 const modes: ModesResponse = {
   tab,
   variables: [
@@ -98,6 +112,17 @@ const cases: Case[] = [
     structured: { tab, designs: [] },
     text: JSON.stringify({ tab, designs: [] }, null, 2),
     mcpText: JSON.stringify({ tab, designs: [] })
+  },
+  {
+    name: "status",
+    cli: ["status"],
+    tool: "get_status",
+    method: "status",
+    input: {},
+    params: { summary: false, limit: 10 },
+    result: status,
+    structured: status,
+    text: describeStatus(status)
   },
   {
     name: "modes",
@@ -463,6 +488,14 @@ describe("remaining transport contracts", () => {
       result: []
     },
     {
+      cli: ["status", "--summary", "--limit", "3"],
+      tool: "get_status",
+      method: "status",
+      input: { summary: true, limit: 3 },
+      params: { summary: true, limit: 3 },
+      result: status
+    },
+    {
       cli: ["modes", "home"],
       tool: "get_modes",
       method: "modes",
@@ -677,6 +710,13 @@ describe("remaining transport contracts", () => {
       path: "/constructor"
     },
     { tool: "get_modes", input: { design: " " }, error: "design must be a nonblank string", path: "/design" },
+    { tool: "get_status", input: { summary: "yes" }, error: "summary must be a boolean", path: "/summary" },
+    {
+      tool: "get_status",
+      input: { limit: 101 },
+      error: "limit must be a whole number from 1 to 100",
+      path: "/limit"
+    },
     { tool: "get_modes", input: { mode: "mobile" }, error: "Unknown input field mode", path: "/mode" }
   ]
   it.each(malformedMcp)("rejects malformed MCP $tool arguments without RPC", async ({ tool, input, error, path }) => {

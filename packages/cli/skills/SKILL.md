@@ -28,6 +28,7 @@ active tab is the default.
 | MCP                   | CLI                          | What it does                                                                                                                                               |
 | --------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `get_app_state`       | `parity state`               | Designs, the selection, modes, components and token names, and what Parity detected (builder and config, package manager, installed versions). Start here. |
+| `get_status`          | `parity status`              | The revision, whether anything is unsaved and which files and tokens, the last save, and undo and redo; `summary` names them.                              |
 | `get_modes`           | `parity modes [design]`      | Viewports (the ids `Responsive` takes), modes (the ids renders take) and what each design shows; a design adds its frames.                                 |
 | `execute`             | `parity exec`                | Runs a JavaScript snippet against the designs. Its changes land as one undo step, merged per design with edits made meanwhile.                             |
 | `screenshot`          | `parity screenshot <design>` | Renders a design in its states and modes, offscreen, and returns the images.                                                                               |
@@ -89,7 +90,15 @@ keeping the designs there, so ask before running that in someone's project.
 
 Your changes to designs are on the canvas but not saved: the person saves (Ctrl+S) or undoes them, as with their own
 edits. Don't say they're saved. Token values from `SetTokens` are the same: they show at once, and go into the project's
-stylesheet when the person saves.
+stylesheet when the person saves. `get_status` says what's saved and what isn't, and its `revision` (also in
+`get_app_state`) stays the same until something changes, so compare it before reading the board again:
+
+```sh
+parity status --summary
+# shadcn-vite is at revision 7c612c04:1.
+# 1 file isn't saved. They wait for the person to save; agents can't.
+#   shadcn-vite.par: changed button
+```
 
 ## Rules
 

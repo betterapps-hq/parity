@@ -42,6 +42,11 @@ async function answer(method: WindowMethod, params: unknown): Promise<unknown> {
     }
     case "agent.snapshot":
       return snapshot((params as WindowMethods["agent.snapshot"]["params"]).tab)
+    case "agent.status": {
+      const { tab: reference, ...options } = params as WindowMethods["agent.status"]["params"]
+      const tab = findTab(reference)
+      return { tab: summary(tab), ...ready(tab).store.status(options) }
+    }
     case "agent.iconNames":
       return iconNames(params as WindowMethods["agent.iconNames"]["params"])
     case "agent.apply":
@@ -128,6 +133,7 @@ function snapshot(reference: string | undefined): TabSnapshot {
   }
   return {
     tab: summary(tab),
+    revision: session.store.getRevision(),
     projectId: session.id,
     guestUrl: session.info.guestUrl,
     // The guest keeps components whose files were deleted since it loaded; they aren't the project's any more.

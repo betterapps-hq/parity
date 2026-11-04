@@ -64,6 +64,11 @@ export interface DesignHistory {
   readonly future: readonly HistoryEntry[]
   /** The same object until a change, an undo or a redo. */
   readonly historyState: HistoryState
+  /**
+   * Counts what's here changing: each change, undo, redo, revert or reload that changes the documents, the modes or
+   * the token edits. Saving, and what the canvas draws or where it looks, leave it as it is.
+   */
+  readonly revision: number
   /** The same object while the state it describes stays the same. */
   readonly saveState: SaveState
   /** The project file new designs and the modes go into. */
@@ -126,6 +131,7 @@ export function openDesigns(
     past: [],
     future: [],
     historyState: { canUndo: false, canRedo: false },
+    revision: 0,
     saveState: { status: "saved" },
     mainPath,
     stylesheet,
@@ -390,8 +396,11 @@ function restore(history: DesignHistory, next: DesignSnapshot, persist = true): 
     if (next.tokens !== previous.tokens) writes.push(history.stylesheet)
   }
   const { past, future } = history
+  const moved =
+    next.documents !== previous.documents || next.modes !== previous.modes || next.tokens !== previous.tokens
   const state = withSaveState({
     ...history,
+    revision: moved ? history.revision + 1 : history.revision,
     current,
     saved,
     failures,

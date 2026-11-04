@@ -157,6 +157,14 @@ async function call(
       )
       return { tab: { id: snapshot.tab.id, name: snapshot.tab.name }, entries }
     }
+    case "status": {
+      const { tab, ...status } = await window.request("agent.status", {
+        ...(typeof params.tab === "string" ? { tab: params.tab } : {}),
+        summary: params.summary === true,
+        ...(typeof params.limit === "number" ? { limit: params.limit } : {})
+      })
+      return { tab: { id: tab.id, name: tab.name }, ...status }
+    }
     case "modes": {
       const snapshot = await window.request("agent.snapshot", { tab: params.tab as string | undefined })
       const { settings: _settings, ...report } = readOnly(snapshot).GetModes(
@@ -179,7 +187,7 @@ async function call(
     }
     default:
       throw new Error(
-        `Unknown method ${method}. Methods: tabs, open, state, modes, exec, screenshot, accessibility, problems, console, tokens, components, props`
+        `Unknown method ${method}. Methods: tabs, open, state, status, modes, exec, screenshot, accessibility, problems, console, tokens, components, props`
       )
   }
 }
@@ -266,6 +274,8 @@ async function state(snapshot: TabSnapshot) {
   const semantic = snapshot.tokens.filter((token) => token.source === "semantic")
   return {
     tab: snapshot.tab,
+    /** Changes with every change to the tab's designs, modes or token edits; `status` says what's saved. */
+    revision: snapshot.revision,
     selection: api.Selection(),
     designs: api.Designs(),
     /** Boards on top of each other, to move apart. */

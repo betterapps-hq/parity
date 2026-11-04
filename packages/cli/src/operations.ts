@@ -6,6 +6,7 @@ import type {
   ModesResponse,
   ProblemsResponse,
   PropsResponse,
+  StatusResponse,
   TabSummary,
   TabsResponse,
   TokenInfo,
@@ -411,6 +412,44 @@ const modesSchema = object({
   }
 })
 
+const historySide = object(
+  { count: integer, labels: { ...strings, description: "With summary: newest first, up to limit." } },
+  ["labels"]
+)
+const statusSchema = object(
+  {
+    tab: ref,
+    revision: {
+      type: "string",
+      description: "Opaque; the same only while nothing in the tab has changed. Compare it with state's revision."
+    },
+    dirty: { ...boolean_, description: "Something applied (and undoable) isn't on disk yet." },
+    autosave: { ...boolean_, description: "Changes save themselves; otherwise they wait for the person's Save." },
+    unsaved: {
+      type: "array",
+      items: object(
+        {
+          path: string,
+          kind: { type: "string", enum: ["document", "stylesheet"] },
+          designs: object({ added: strings, changed: strings, removed: strings }),
+          modes: boolean_,
+          tokens: strings,
+          more: integer
+        },
+        ["designs", "modes", "tokens", "more"]
+      )
+    },
+    tokenEdits: { ...integer, description: "Token values waiting for Save to write them to the stylesheet." },
+    save: object({ status: { type: "string", enum: ["saved", "unsaved", "saving", "failed"] }, error: string }, [
+      "error"
+    ]),
+    errors: { type: "array", items: object({ path: string, error: string }) },
+    undo: historySide,
+    redo: historySide
+  },
+  []
+)
+
 const checks = {
   tab,
   design,
@@ -426,6 +465,15 @@ export const operations = {
     (tabs) => ({ tabs })
   ),
   state: operation<Record<string, unknown>>("state", { tab }, stateSchema),
+  status: operation<StatusResponse>(
+    "status",
+    {
+      tab,
+      summary: boolean("Add each unsaved file's designs and token values, and the undo and redo labels."),
+      limit: limit("Most ids or labels in each list of the summary.", 10, 100)
+    },
+    statusSchema
+  ),
   modes: operation<ModesResponse>(
     "modes",
     {

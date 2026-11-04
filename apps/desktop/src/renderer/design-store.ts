@@ -25,6 +25,8 @@ import {
   type DesignSnapshot,
   type DesignStep,
   deleteDesign,
+  type EditStatus,
+  editStatus,
   type FileWrite,
   fileWrite,
   type HistoryState,
@@ -38,6 +40,7 @@ import {
   replaceDocuments,
   revertTo,
   type SaveState,
+  type StatusOptions,
   saveFailure,
   startSave,
   type TokenChange,
@@ -103,6 +106,8 @@ export class DesignStore {
   /** Saves waiting to happen, with automatic saving on. */
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>()
   private readonly writing = new Set<Promise<unknown>>()
+  /** Tells this store's revisions apart from another's, such as the same project's after it's reopened. */
+  private readonly epoch = Math.random().toString(36).slice(2, 10).padEnd(8, "0")
 
   constructor(
     documents: { path: string; document: CanvasDocument }[],
@@ -144,6 +149,14 @@ export class DesignStore {
   writeTokensWith(writer: TokenWriter): void {
     this.tokenWriter = writer
     this.state = withStylesheet(this.state, writer.path)
+  }
+
+  /** The revision agents see: opaque, and the same only while nothing here has changed. */
+  getRevision = (): string => `${this.epoch}:${this.state.revision}`
+
+  /** Where the edits stand for agents: applied, undoable, saved, and whether saving is automatic. */
+  status(options: StatusOptions = {}): Omit<EditStatus, "revision"> & { revision: string; autosave: boolean } {
+    return { ...editStatus(this.state, options), revision: this.getRevision(), autosave: this.persistence.autosave() }
   }
 
   /** Files with changes that aren't saved yet: project files, and the stylesheet when tokens were edited. */
