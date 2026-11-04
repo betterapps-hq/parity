@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Run Parity's window on React's production build under pnpm dev, with PARITY_REACT=development to bring back the development build",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
