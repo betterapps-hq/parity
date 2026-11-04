@@ -2761,6 +2761,48 @@ Gaps: a design that's hovered but not selected shows its menus, and they're in t
 yet keeps a future panel from scrolling the page by putting a focusable element outside its scroller; the root's clip
 keeps the page still, but such an element would sit outside its panel.
 
+### The status bar's process lights stay off the main thread (PAR-524)
+
+Each process in the status bar has a light: a running server's breathes, a starting or stopping one's ring turns, a
+crashed one pings red, and a stopped one is hollow. A project's build server runs for as long as it's open, so its light
+breathes almost all the time, and it mustn't cost the window anything while nothing else happens.
+
+- **Opacity only.** A running light is the dot and, behind it, its glow, a blurred shadow drawn once on its own layer.
+  The dot fades between 85% and full (`process-breathe`) and the glow fades in and out with it (`process-glow`), both by
+  opacity, which the compositor runs without the page repainting. Before, `process-breathe` animated the dot's
+  `box-shadow`, which had to be painted again every frame: an idle window painted, layerized and committed 60 times a
+  second, about 1.3 ms of main thread per frame.
+- **Measured.** `pnpm perf`'s idle run on the example, with its build server running, now spends 0 ms a frame on paint,
+  pre-paint and layerize. `document.getAnimations()` in the status bar lists `process-glow` and `process-breathe` on
+  opacity, and the turning ring's `spin` on transform, and nothing else.
+- **Reduced motion** stops every light, ring and shimmer (`[data-process-motion]` in `styles.css`): a running light is
+  then a steady dot with no glow.
+- **The lights stand alone.** The status bar shows no words beside them. What they used to say (a crash or failed task,
+  what's starting, a running task and its progress, or how many run) is now their tooltip and accessible name, and
+  clicking them opens the flyout.
+- **A narrow status bar shows icons and counts.** Below 56rem (a container query on the footer), the renderer and
+  builder show only their icons; components, tokens and Storybook show their icons and counts (Storybook's is how many
+  components have stories); a failed save is its warning icon; and the performance stats are the gauge and the frame
+  rate. The words stay for screen readers and each tooltip names the item, so the status bar fits a phone's width
+  (checked at 375px).
+- **Every tooltip has one shape:** a short title (the item's name and version, or its count), then one short line on
+  what it does or what a click does, such as "Storybook 10.6.5" over "3 components with stories. Click to open it". An
+  untested version adds "Parity doesn't test this version". Paths, discovery notes and error messages stay out, since
+  they can run long: a failed save's reason is in its notification.
+- **Notifications sit above the status bar** on a phone-sized window too: sonner places them by `mobileOffset` below
+  600px, which is now 40px like `offset`, rather than its default 16px, which covered the bar's buttons.
+
+Code: `Light` and `triggerLabel` in `apps/desktop/src/renderer/chrome/Processes.tsx`, `Words` in `chrome/StatusBar.tsx`,
+and the `process-*` keyframes in `styles.css`.
+
+Tests: Storybook, `chrome/StatusBar.stories.tsx` Everything: every item the status bar can hold at once, with a running,
+a starting and a stopped light side by side; EverythingNarrow: the same at 480px, as icons and counts; OlderProject: the
+renderer's and builder's tooltips name the version and note it's untested; `chrome/ProcessIcons.stories.tsx` EveryKind
+and EveryKindLight: each light in every status, in both themes; and `chrome/Processes.stories.tsx` JustTheBuildServer:
+one light, breathing.
+
+Gaps: nothing checks automatically that the lights stay on opacity and transform; the perf idle run shows it.
+
 ## Rendering frames
 
 How the project's code runs in the canvas's frames.

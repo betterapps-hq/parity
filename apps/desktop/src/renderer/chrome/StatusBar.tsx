@@ -1,5 +1,6 @@
 import { Blocks, BookOpen, Brush, Hammer, Palette, TriangleAlert } from "lucide-react"
 import type { ReactNode } from "react"
+import type { ProjectInfo } from "../../shared/protocol.ts"
 import { useProject } from "../canvas/context.ts"
 import { type DesignStore, useSaveState } from "../design-store.ts"
 import { useTokenList } from "../tokens-store.ts"
@@ -19,57 +20,94 @@ export function StatusBar() {
   const semantic = tokens.filter((token) => token.source === "semantic").length
   const { performanceStats } = usePreferences()
   const openTab = (tab: string) => setLayout({ left: true, leftTab: tab })
-  /** What detection found for a tool, and where. */
-  const detected = (id: string) => info.detection.tools.find((tool) => tool.id === id)?.summary ?? ""
+  const stories = info.storybook ? Object.keys(info.storybook.stories).length : 0
+  const themed = tokens.length - semantic
   return (
-    <footer className="flex h-7 shrink-0 items-center gap-1 border-t bg-background px-1.5 text-xs text-muted-foreground">
+    <footer className="@container/footer flex h-7 shrink-0 items-center gap-1 border-t bg-background px-1.5 text-xs text-muted-foreground">
       <Item
         icon={<Brush className="size-3.5" />}
-        hint="Renders components with the project's own framework"
-        detail={detected(info.renderer.id)}
+        hint={titled(info, info.renderer.id, info.renderer.name)}
+        detail={withStatus(info, info.renderer.id, "Renders the project's components")}
       >
-        <strong className="font-medium text-foreground">{info.renderer.name}</strong>
+        <Words>
+          <strong className="font-medium text-foreground">{info.renderer.name}</strong>
+        </Words>
       </Item>
       <Item
         icon={<Hammer className="size-3.5" />}
-        hint="Builds with the project's own toolchain"
-        detail={`${detected(info.builder.id)}\n${info.detection.packageManager.summary}`}
+        hint={titled(info, info.builder.id, info.builder.name)}
+        detail={withStatus(info, info.builder.id, `Builds the project, with ${info.detection.packageManager.name}`)}
       >
-        <strong className="font-medium text-foreground">{info.builder.name}</strong> {info.builder.toolVersion}
+        <Words>
+          <strong className="font-medium text-foreground">{info.builder.name}</strong> {info.builder.toolVersion}
+        </Words>
       </Item>
       <Item
         icon={<Blocks className="size-3.5" />}
-        hint="Show components"
-        detail={info.notes.join("\n")}
+        hint={plural(info.componentCount, "component")}
+        detail="Click to show them"
         onClick={() => openTab("components")}
       >
-        <strong className="font-medium text-foreground">{info.componentCount}</strong>{" "}
-        {info.componentCount === 1 ? "component" : "components"}
+        <strong className="font-medium text-foreground">{info.componentCount}</strong>
+        <Words> {info.componentCount === 1 ? "component" : "components"}</Words>
       </Item>
       <Item
         icon={<Palette className="size-3.5" />}
-        hint={`Show tokens: ${semantic} from the project and ${tokens.length - semantic} from ${info.styles?.name ?? "the theme"}`}
-        detail={info.styles && detected(info.styles.id)}
+        hint={plural(tokens.length, "token")}
+        detail={info.styles ? `${semantic} from the project, ${themed} from ${info.styles.name}` : "Click to show them"}
         onClick={() => openTab("tokens")}
       >
-        <strong className="font-medium text-foreground">{tokens.length}</strong> tokens
+        <strong className="font-medium text-foreground">{tokens.length}</strong>
+        <Words> tokens</Words>
       </Item>
       {info.storybook && (
         <Item
           icon={<BookOpen className="size-3.5" />}
-          hint={`Open Storybook in your browser: ${Object.keys(info.storybook.stories).length} components have stories`}
-          detail={detected("storybook")}
+          hint={titled(info, "storybook", "Storybook")}
+          detail={`${plural(stories, "component")} with stories. Click to open it`}
           onClick={() => void openInStorybook(session)}
         >
-          <strong className="font-medium text-foreground">Storybook</strong>
+          <strong className="font-medium text-foreground">{stories}</strong>
+          <Words> in Storybook</Words>
         </Item>
       )}
-      <span className="flex-1" />
+      <span className="min-w-0 flex-1" />
       <SaveFailure store={store} />
       <Processes />
       {performanceStats && <PerformanceStats />}
     </footer>
   )
+}
+
+/*
+ * Every item's tooltip has the same shape: a short title, the item's name and version or its count, then one short line
+ * saying what it does or what clicking it does. Paths, discovery notes and errors stay out, since they can run long; the
+ * Components panel, a notification or an agent's tools give them.
+ */
+
+/** A tool's name with its version, when detection found one. */
+function titled(info: ProjectInfo, id: string, name: string): string {
+  const version = info.detection.tools.find((tool) => tool.id === id)?.version
+  return version ? `${name} ${version}` : name
+}
+
+/** A tooltip's line, with a note when the tool's version is one Parity doesn't test. */
+function withStatus(info: ProjectInfo, id: string, line: string): string {
+  const status = info.detection.tools.find((tool) => tool.id === id)?.status
+  if (status === "dropped" || status === "newer") return `${line}. Parity doesn't test this version`
+  return line
+}
+
+function plural(count: number, noun: string): string {
+  return `${count.toLocaleString()} ${count === 1 ? noun : `${noun}s`}`
+}
+
+/**
+ * An item's words, beside its icon and count. When the status bar is narrower than 56rem they're left to screen readers,
+ * so the items fit as an icon and a number, and the tooltip says the rest.
+ */
+function Words({ children }: { children: ReactNode }) {
+  return <span className="@max-4xl/footer:sr-only">{children}</span>
 }
 
 /** A status bar item, with a tooltip saying what it is: a button when it leads somewhere, plain text otherwise. */
@@ -114,11 +152,13 @@ function SaveFailure({ store }: { store: DesignStore }) {
   return (
     <Item
       icon={<TriangleAlert className="size-3.5 text-destructive" />}
-      hint={state.error}
-      detail="Click to try again."
+      hint="Couldn't save"
+      detail="Click to try again"
       onClick={() => void save()}
     >
-      <span className="text-destructive">Couldn&apos;t save</span>
+      <Words>
+        <span className="text-destructive">Couldn&apos;t save</span>
+      </Words>
     </Item>
   )
 }

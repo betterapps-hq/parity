@@ -327,14 +327,26 @@ textarea,
   --process-stopped: oklch(0.55 0.01 260);
 }
 
+/*
+ * A running light breathes by opacity alone, so the compositor runs it and the window doesn't repaint: the dot fades
+ * between 85% and full, and its glow, drawn once on a layer behind it, fades in and out.
+ */
 @keyframes process-breathe {
   0%,
   100% {
-    box-shadow: 0 0 0 0 color-mix(in oklch, var(--process-light) 0%, transparent);
     opacity: 0.85;
   }
   50% {
-    box-shadow: 0 0 6px 1px color-mix(in oklch, var(--process-light) 70%, transparent);
+    opacity: 1;
+  }
+}
+
+@keyframes process-glow {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
     opacity: 1;
   }
 }
