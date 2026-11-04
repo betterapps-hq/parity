@@ -14,14 +14,14 @@ import {
   describeProps,
   describeTokens
 } from "./client.ts"
-import type { ExecResponse, Screenshot } from "./execute.ts"
-import { operations, skillOperation } from "./operations.ts"
+import { type ExecReply, type Screenshot, execResponse, structuredExec } from "./execute.ts"
+import { bounded, operations, skillOperation } from "./operations.ts"
 import { toolReply, transportFixture } from "./transport-fixture.ts"
 
 const fixture = transportFixture({})
 const { requests, run, mcp } = fixture
 const tab = { id: "project", name: "Project" }
-const screenshot: ExecResponse = { ok: true, applied: false, output: [], warnings: [], created: {}, screenshots: [] }
+const screenshot: ExecReply = { ok: true, applied: false, output: [], warnings: [], created: {}, screenshots: [] }
 const problems: ProblemsResponse = { tab, design: { id: "home", name: "Home" }, problems: [], frames: 1, warnings: [] }
 const accessibility: AccessibilityResponse = {
   tab,
@@ -30,7 +30,9 @@ const accessibility: AccessibilityResponse = {
   frames: 1,
   warnings: []
 }
-const consoleResult: ConsoleResponse = { tab, entries: [] }
+const consoleReply = { tab, entries: [] }
+const consoleResult: ConsoleResponse = { ...consoleReply, total: 0, truncated: false }
+const noTokens = { tokens: [], total: 0, truncated: false }
 const components: ComponentsResponse = { components: ["Button", "Card"] }
 const props: PropsResponse = { component: "Button", known: true, props: [] }
 const project = resolve("some/../project")
@@ -41,8 +43,13 @@ interface Case {
   method: keyof typeof operations
   input: Record<string, unknown>
   params: Record<string, unknown>
+  /** What the app answers. */
   result: unknown
+  /** What CLI --json prints and MCP returns as structuredContent. */
+  structured: unknown
   text: string
+  /** MCP's text when it differs: data results are compact JSON there. */
+  mcpText?: string
 }
 const cases: Case[] = [
   {
@@ -53,7 +60,9 @@ const cases: Case[] = [
     input: {},
     params: {},
     result: [tab],
-    text: JSON.stringify([tab], null, 2)
+    structured: { tabs: [tab] },
+    text: JSON.stringify({ tabs: [tab] }, null, 2),
+    mcpText: JSON.stringify({ tabs: [tab] })
   },
   {
     name: "state",
@@ -63,7 +72,9 @@ const cases: Case[] = [
     input: {},
     params: {},
     result: { tab, designs: [] },
-    text: JSON.stringify({ tab, designs: [] }, null, 2)
+    structured: { tab, designs: [] },
+    text: JSON.stringify({ tab, designs: [] }, null, 2),
+    mcpText: JSON.stringify({ tab, designs: [] })
   },
   {
     name: "open",
@@ -73,7 +84,9 @@ const cases: Case[] = [
     input: { root: project },
     params: { root: project },
     result: tab,
-    text: JSON.stringify(tab, null, 2)
+    structured: tab,
+    text: JSON.stringify(tab, null, 2),
+    mcpText: JSON.stringify(tab)
   },
   {
     name: "screenshot",
@@ -83,7 +96,8 @@ const cases: Case[] = [
     input: { design: "home" },
     params: { design: "home", scale: 1 },
     result: screenshot,
-    text: describeExec(screenshot)
+    structured: structuredExec(execResponse(screenshot)),
+    text: describeExec(execResponse(screenshot))
   },
   {
     name: "problems",
@@ -93,6 +107,7 @@ const cases: Case[] = [
     input: { design: "home" },
     params: { design: "home", state: "all", mode: "shown" },
     result: problems,
+    structured: problems,
     text: describeProblems(problems)
   },
   {
@@ -103,6 +118,7 @@ const cases: Case[] = [
     input: { design: "home" },
     params: { design: "home", state: "all", mode: "shown" },
     result: accessibility,
+    structured: accessibility,
     text: describeAccessibility(accessibility)
   },
   {
@@ -111,8 +127,9 @@ const cases: Case[] = [
     tool: "get_console",
     method: "console",
     input: {},
-    params: { clear: false },
-    result: consoleResult,
+    params: { clear: false, limit: 50 },
+    result: consoleReply,
+    structured: consoleResult,
     text: describeConsole(consoleResult)
   },
   {
@@ -121,9 +138,10 @@ const cases: Case[] = [
     tool: "get_tokens",
     method: "tokens",
     input: {},
-    params: {},
+    params: { limit: 100 },
     result: [],
-    text: describeTokens([])
+    structured: noTokens,
+    text: describeTokens(noTokens)
   },
   {
     name: "components",
@@ -133,6 +151,7 @@ const cases: Case[] = [
     input: {},
     params: {},
     result: components,
+    structured: components,
     text: describeComponents(components)
   },
   {
@@ -143,10 +162,11 @@ const cases: Case[] = [
     input: { component: "Button" },
     params: { component: "Button", all: false },
     result: props,
+    structured: props,
     text: describeProps(props)
   }
 ]
-function expectedReply(text: string, isError = false, images: Screenshot[] = []) {
+function expectedReply(text: string, structured: unknown, isError = false, images: Screenshot[] = []) {
   return {
     jsonrpc: "2.0",
     id: 2,
@@ -155,9 +175,14 @@ function expectedReply(text: string, isError = false, images: Screenshot[] = [])
         { type: "text", text },
         ...images.map((shot) => ({ type: "image", data: shot.png, mimeType: "image/png" }))
       ],
+      ...(structured === undefined ? {} : { structuredContent: structured }),
       isError
     }
   }
+}
+/** An invalid request's structured failure, pointing at the field. */
+function invalid(message: string, path?: string) {
+  return { error: { code: "invalid_input", message, retryable: false, ...(path ? { path } : {}) } }
 }
 function expectRequests(method: string, params: Record<string, unknown>) {
   expect(requests).toHaveLength(2)
@@ -171,7 +196,7 @@ describe("remaining transport contracts", () => {
     const [cli, protocol] = await Promise.all([run(entry.cli), mcp(entry.input, entry.tool)])
     expect(cli.code).toBe(0)
     expect(cli.stdout.trim()).toBe(entry.text)
-    expect(toolReply(protocol.stdout)).toEqual(expectedReply(entry.text))
+    expect(toolReply(protocol.stdout)).toEqual(expectedReply(entry.mcpText ?? entry.text, entry.structured))
     expectRequests(entry.method, entry.params)
   })
 
@@ -184,18 +209,120 @@ describe("remaining transport contracts", () => {
         mcp({ ...entry.input, tab: "project" }, entry.tool)
       ])
       expect(cli.code).toBe(0)
-      expect(JSON.parse(cli.stdout)).toEqual(entry.result)
-      expect(toolReply(protocol.stdout)).toEqual(expectedReply(entry.text))
+      expect(JSON.parse(cli.stdout)).toEqual(entry.structured)
+      expect(toolReply(protocol.stdout)).toEqual(expectedReply(entry.mcpText ?? entry.text, entry.structured))
       expectRequests(entry.method, { ...entry.params, tab: "project" })
     }
   )
 
-  it.each(cases)("preserves $name RPC errors", async (entry) => {
-    fixture.response = { error: "Tab is not ready" }
-    const [cli, protocol] = await Promise.all([run(entry.cli), mcp(entry.input, entry.tool)])
+  it.each(cases)("preserves $name RPC errors with the app's code", async (entry) => {
+    fixture.response = {
+      error: "Shop is still opening",
+      details: { code: "tab_not_ready", retryable: true }
+    }
+    const [cli, json, protocol] = await Promise.all([
+      run(entry.cli),
+      run([...entry.cli, "--json"]),
+      mcp(entry.input, entry.tool)
+    ])
     expect(cli.code).toBe(1)
-    expect(cli.stderr.trim()).toBe("Tab is not ready")
-    expect(toolReply(protocol.stdout)).toEqual(expectedReply("Tab is not ready", true))
+    expect(cli.stderr.trim()).toBe("Shop is still opening")
+    const failure = { error: { code: "tab_not_ready", message: "Shop is still opening", retryable: true } }
+    expect(json.code).toBe(1)
+    expect(JSON.parse(json.stdout)).toEqual(failure)
+    expect(toolReply(protocol.stdout)).toEqual(expectedReply("Shop is still opening", failure, true))
+  })
+
+  it.each([
+    {
+      cli: ["screenshot", "hom"],
+      tool: "screenshot",
+      input: { design: "hom" },
+      reply: {
+        result: {
+          ...screenshot,
+          ok: false,
+          error: 'No design "hom". Designs: home (Home)',
+          details: { code: "unknown_design", retryable: false, field: "design", alternatives: ["home"] }
+        }
+      },
+      error: {
+        code: "unknown_design",
+        message: 'No design "hom". Designs: home (Home)',
+        retryable: false,
+        path: "/design",
+        alternatives: ["home"]
+      }
+    },
+    {
+      cli: ["problems", "home", "--state", "loading"],
+      tool: "find_problems",
+      input: { design: "home", state: "loading" },
+      reply: {
+        error: 'No state "loading" in Home. States: default, empty',
+        details: { code: "unknown_state", retryable: false, field: "state", alternatives: ["default", "empty"] }
+      },
+      error: {
+        code: "unknown_state",
+        message: 'No state "loading" in Home. States: default, empty',
+        retryable: false,
+        path: "/state",
+        alternatives: ["default", "empty"]
+      }
+    },
+    {
+      cli: ["props", "Buton"],
+      tool: "get_props",
+      input: { component: "Buton" },
+      reply: {
+        error: "\"Buton\" isn't one of the project's components. Check Components().",
+        details: { code: "unknown_component", field: "component", alternatives: ["Button", "Card"] }
+      },
+      error: {
+        code: "unknown_component",
+        message: "\"Buton\" isn't one of the project's components. Check Components().",
+        retryable: false,
+        path: "/component",
+        alternatives: ["Button", "Card"]
+      }
+    },
+    {
+      cli: ["state", "--tab", "shop"],
+      tool: "get_app_state",
+      input: { tab: "shop" },
+      reply: {
+        error: 'No open tab matches "shop". Tabs: project',
+        details: { code: "unknown_tab", field: "tab", alternatives: ["project"], extra: "dropped" }
+      },
+      error: {
+        code: "unknown_tab",
+        message: 'No open tab matches "shop". Tabs: project',
+        retryable: false,
+        path: "/tab",
+        alternatives: ["project"]
+      }
+    }
+  ])(
+    "returns $error.code with the field and valid ids to use instead",
+    async ({ cli: args, tool, input, reply, error }) => {
+      fixture.response = reply
+      const [cli, protocol] = await Promise.all([run([...args, "--json"]), mcp(input, tool)])
+      expect(cli.code).toBe(1)
+      expect(JSON.parse(cli.stdout).error).toEqual(error)
+      expect(toolReply(protocol.stdout)).toEqual(
+        expect.objectContaining({
+          result: expect.objectContaining({ structuredContent: JSON.parse(cli.stdout), isError: true })
+        })
+      )
+    }
+  )
+
+  it("reads an unknown code from the app as app_error rather than trusting it", async () => {
+    fixture.response = { error: "Something broke", details: { code: "made_up", retryable: true } }
+    const [cli, protocol] = await Promise.all([run(["tabs", "--json"]), mcp({}, "get_tabs")])
+    const failure = { error: { code: "app_error", message: "Something broke", retryable: false } }
+    expect(JSON.parse(cli.stdout)).toEqual(failure)
+    expect(toolReply(protocol.stdout)).toEqual(expectedReply("Something broke", failure, true))
   })
 
   it.each([
@@ -235,10 +362,12 @@ describe("remaining transport contracts", () => {
       error: "mode must be a nonblank string or a nonempty list of nonblank strings"
     }
   ])("rejects malformed $tool input before RPC", async ({ cli: args, tool, input, error }) => {
-    const [cli, protocol] = await Promise.all([run(args), mcp(input, tool)])
+    const [cli, json, protocol] = await Promise.all([run(args), run([...args, "--json"]), mcp(input, tool)])
     expect(cli.code).toBe(1)
     expect(cli.stderr.trim()).toBe(error)
-    expect(toolReply(protocol.stdout)).toEqual(expectedReply(error, true))
+    const field = `/${error.split(" ")[0]}`
+    expect(JSON.parse(json.stdout)).toEqual(invalid(error, field))
+    expect(toolReply(protocol.stdout)).toEqual(expectedReply(error, invalid(error, field), true))
     expect(requests).toEqual([])
   })
 
@@ -268,19 +397,19 @@ describe("remaining transport contracts", () => {
       result: accessibility
     },
     {
-      cli: ["console", "--clear"],
+      cli: ["console", "--clear", "--limit", "5"],
       tool: "get_console",
       method: "console",
-      input: { clear: true },
-      params: { clear: true },
-      result: consoleResult
+      input: { clear: true, limit: 5 },
+      params: { clear: true, limit: 5 },
+      result: consoleReply
     },
     {
-      cli: ["tokens", "--category", "color", "--source", "theme", "--search", "brand"],
+      cli: ["tokens", "--category", "color", "--source", "theme", "--search", "brand", "--limit", "1000"],
       tool: "get_tokens",
       method: "tokens",
-      input: { category: "color", source: "theme", search: "brand" },
-      params: { category: "color", source: "theme", search: "brand" },
+      input: { category: "color", source: "theme", search: "brand", limit: 1000 },
+      params: { category: "color", source: "theme", search: "brand", limit: 1000 },
       result: []
     },
     {
@@ -308,7 +437,7 @@ describe("remaining transport contracts", () => {
     expectRequests("open", { root: project })
   })
 
-  it("preserves screenshot image blocks while JSON omits image data", async () => {
+  it("preserves screenshot image blocks while structured data omits image data", async () => {
     const shots = [{ path: "/shot.png", png: "AA==", design: "home", state: "default", mode: "desktop" }]
     const result = { ...screenshot, screenshots: shots }
     fixture.response = { result }
@@ -316,19 +445,69 @@ describe("remaining transport contracts", () => {
       run(["screenshot", "home", "--json"]),
       mcp({ design: "home" }, "screenshot")
     ])
-    expect(JSON.parse(cli.stdout)).toEqual({
+    const structured = {
       ...result,
       screenshots: [{ path: "/shot.png", design: "home", state: "default", mode: "desktop" }]
+    }
+    expect(JSON.parse(cli.stdout)).toEqual(structured)
+    expect(toolReply(protocol.stdout)).toEqual(
+      expectedReply(describeExec(execResponse(result)), structured, false, shots)
+    )
+  })
+
+  it("bounds tokens to the limit, the first ones, and says how many there were", async () => {
+    const token = (name: string) => ({ name, category: "color", source: "semantic", values: { default: "#000" } })
+    fixture.response = { result: [token("a"), token("b"), token("c")] }
+    const [cli, protocol] = await Promise.all([
+      run(["tokens", "--limit", "2", "--json"]),
+      mcp({ limit: 2 }, "get_tokens")
+    ])
+    const structured = { tokens: [token("a"), token("b")], total: 3, truncated: true }
+    expect(JSON.parse(cli.stdout)).toEqual(structured)
+    expect(toolReply(protocol.stdout)).toEqual(expectedReply(describeTokens(structured), structured))
+  })
+
+  it("bounds the console to the newest entries, oldest first", async () => {
+    const entry = (text: string, last: number) => ({
+      level: "info",
+      text,
+      source: "http://localhost/src/app.tsx",
+      line: 1,
+      where: "canvas",
+      count: 1,
+      first: last,
+      last
     })
-    expect(toolReply(protocol.stdout)).toEqual(expectedReply(describeExec(result), false, shots))
+    fixture.response = { result: { tab, entries: [entry("one", 1), entry("two", 2), entry("three", 3)] } }
+    const [cli, protocol] = await Promise.all([
+      run(["console", "--limit", "2", "--json"]),
+      mcp({ limit: 2 }, "get_console")
+    ])
+    const structured = { tab, entries: [entry("two", 2), entry("three", 3)], total: 3, truncated: true }
+    expect(JSON.parse(cli.stdout)).toEqual(structured)
+    expect(toolReply(protocol.stdout)).toEqual(
+      expect.objectContaining({ result: expect.objectContaining({ structuredContent: structured, isError: false }) })
+    )
+  })
+
+  it.each([0, 1.5, 1001, "10"])("rejects a limit of %j before RPC", async (value) => {
+    const protocol = await mcp({ limit: value }, "get_tokens")
+    const message = "limit must be a whole number from 1 to 1000"
+    expect(toolReply(protocol.stdout)).toEqual(expectedReply(message, invalid(message, "/limit"), true))
+    expect(requests).toEqual([])
+  })
+
+  it("keeps what it can within a bound", () => {
+    expect(bounded([1, 2, 3], 5)).toEqual({ items: [1, 2, 3], total: 3, truncated: false })
+    expect(bounded([1, 2, 3], 2, "last")).toEqual({ items: [2, 3], total: 3, truncated: true })
   })
 
   it.each([
     {
       cli: ["screenshot", "home"],
       tool: "screenshot",
-      result: { ...screenshot, ok: false, error: "Render failed", editId: "retry" },
-      text: describeExec({ ...screenshot, ok: false, error: "Render failed", editId: "retry" })
+      result: { ...screenshot, ok: false, error: "Render failed" },
+      text: describeExec(execResponse({ ...screenshot, ok: false, error: "Render failed" }))
     },
     {
       cli: ["problems", "home"],
@@ -370,10 +549,15 @@ describe("remaining transport contracts", () => {
     }
   ])("signals $tool failures consistently with full details", async ({ cli: args, tool, result, text }) => {
     fixture.response = { result }
-    const [cli, protocol] = await Promise.all([run(args), mcp({ design: "home" }, tool)])
+    const [cli, json, protocol] = await Promise.all([
+      run(args),
+      run([...args, "--json"]),
+      mcp({ design: "home" }, tool)
+    ])
     expect(cli.code).toBe(1)
     expect(cli.stdout.trim()).toBe(text)
-    expect(toolReply(protocol.stdout)).toEqual(expectedReply(text, true))
+    expect(json.code).toBe(1)
+    expect(toolReply(protocol.stdout)).toEqual(expectedReply(text, JSON.parse(json.stdout), true))
   })
 
   it.each([{}, { path: "execute.md" }])("shares skill reading without desktop RPC: %j", async (input) => {
@@ -388,37 +572,56 @@ describe("remaining transport contracts", () => {
     expect(requests).toEqual([])
   })
 
-  it.each([" ", "../package.json", "missing.md"])("shares skill errors for %j", async (path) => {
-    const [cli, protocol] = await Promise.all([run(["skill", path]), mcp({ path }, "read_skill")])
+  it.each([
+    { path: " ", alternatives: [] },
+    { path: "../package.json", alternatives: [] },
+    { path: "missing.md", alternatives: expect.arrayContaining(["SKILL.md", "execute.md"]) }
+  ])("shares skill errors for $path", async ({ path, alternatives }) => {
+    const [cli, json, protocol] = await Promise.all([
+      run(["skill", path]),
+      run(["skill", path, "--json"]),
+      mcp({ path }, "read_skill")
+    ])
     expect(cli.code).toBe(1)
-    expect(toolReply(protocol.stdout)).toEqual(expectedReply(cli.stderr.trim(), true))
+    const failure = JSON.parse(json.stdout)
+    expect(failure.error).toEqual(expect.objectContaining({ code: "invalid_input", path: "/path" }))
+    expect(failure.error.alternatives ?? []).toEqual(alternatives)
+    expect(toolReply(protocol.stdout)).toEqual(expectedReply(cli.stderr.trim(), failure, true))
     expect(requests).toEqual([])
   })
 
-  const malformedMcp: { tool: string; input: Record<string, unknown>; error: string }[] = [
-    { tool: "get_console", input: { clear: "false" }, error: "clear must be a boolean" },
-    { tool: "get_props", input: { component: "Button", all: 1 }, error: "all must be a boolean" },
-    { tool: "get_tokens", input: { search: 1 }, error: "search must be a string" },
+  const malformedMcp: { tool: string; input: Record<string, unknown>; error: string; path: string }[] = [
+    { tool: "get_console", input: { clear: "false" }, error: "clear must be a boolean", path: "/clear" },
+    { tool: "get_props", input: { component: "Button", all: 1 }, error: "all must be a boolean", path: "/all" },
+    { tool: "get_tokens", input: { search: 1 }, error: "search must be a string", path: "/search" },
     {
       tool: "screenshot",
       input: { design: "home", state: [] },
-      error: "state must be a nonblank string or a nonempty list of nonblank strings"
+      error: "state must be a nonblank string or a nonempty list of nonblank strings",
+      path: "/state"
     },
     {
       tool: "screenshot",
       input: { design: "home", mode: ["mobile", 3] },
-      error: "mode must be a nonblank string or a nonempty list of nonblank strings"
+      error: "mode must be a nonblank string or a nonempty list of nonblank strings",
+      path: "/mode"
     },
     {
       tool: "open_project",
       input: { root: "relative/project" },
-      error: "root must be an absolute project folder path"
+      error: "root must be an absolute project folder path",
+      path: "/root"
     },
-    { tool: "get_tabs", input: { constructor: "ignored?" }, error: "Unknown input field constructor" }
+    {
+      tool: "get_tabs",
+      input: { constructor: "ignored?" },
+      error: "Unknown input field constructor",
+      path: "/constructor"
+    }
   ]
-  it.each(malformedMcp)("rejects malformed MCP $tool arguments without RPC", async ({ tool, input, error }) => {
+  it.each(malformedMcp)("rejects malformed MCP $tool arguments without RPC", async ({ tool, input, error, path }) => {
     const protocol = await mcp(input, tool)
-    expect(toolReply(protocol.stdout)).toEqual(expectedReply(error, true))
+    expect(toolReply(protocol.stdout)).toEqual(expectedReply(error, invalid(error, path), true))
     expect(requests).toEqual([])
   })
 
@@ -432,7 +635,9 @@ describe("remaining transport contracts", () => {
         params: { name: "get_tabs", arguments: [] }
       }) + "\n"
     )
-    expect(toolReply(protocol.stdout)).toEqual(expectedReply("Operation input must be an object", true))
+    expect(toolReply(protocol.stdout)).toEqual(
+      expectedReply("Operation input must be an object", invalid("Operation input must be an object"), true)
+    )
     expect(requests).toEqual([])
   })
 
@@ -456,7 +661,11 @@ describe("remaining transport contracts", () => {
             tools: expect.arrayContaining([
               expect.objectContaining({
                 name: entry.tool,
-                inputSchema: operations[entry.method].inputSchema
+                inputSchema: operations[entry.method].inputSchema,
+                outputSchema: {
+                  type: "object",
+                  anyOf: [operations[entry.method].outputSchema, expect.objectContaining({ required: ["error"] })]
+                }
               })
             ])
           }

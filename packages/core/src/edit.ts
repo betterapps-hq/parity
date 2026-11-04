@@ -1,4 +1,5 @@
 import type { ContainerSpec, DesignNode, NodePatch, NodeStyle, StateSpec } from "./document.ts"
+import { unknownReference } from "./errors.ts"
 import { uniqueId } from "./modes.ts"
 import {
   applyPatch,
@@ -209,7 +210,16 @@ export function isBaseState(container: ContainerSpec, stateId: string): boolean 
 
 export function findState(container: ContainerSpec, stateId: string): StateSpec {
   const state = container.states.find((candidate) => candidate.id === stateId)
-  if (!state) throw new Error(`No state "${stateId}" in ${container.name}`)
+  if (!state) {
+    const ids = container.states.map((candidate) => candidate.id)
+    throw unknownReference(
+      "unknown_state",
+      `No state "${stateId}" in ${container.name}. States: ${ids.join(", ")}`,
+      stateId,
+      ids,
+      "state"
+    )
+  }
   return state
 }
 

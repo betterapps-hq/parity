@@ -262,6 +262,7 @@ Print(id, FindEmptySpace({width: 100, height: 100}).x > 1400)`
       'Not applied: since this call read the tab, "Sign up" (app.par) was changed in the editor, and this call ' +
         "changes it too. Run the call again to work from what's there now."
     )
+    expect(failed.details).toEqual({ code: "conflict", retryable: true })
     expect(failed.changes.designs).toEqual([])
     const accept: AgentHooks = { ...hooks(), apply: async (changes) => (applied.push(changes), []) }
     const retried = await execute({ label: "Rename", editId: failed.editId }, shared, accept)
@@ -837,5 +838,65 @@ Update("submit", {props: {variant: "primary", tone: "loud"}})`
         expect.stringContaining('Button has no prop "tone"')
       ])
     )
+  })
+})
+
+describe("coded failures", () => {
+  it.each([
+    {
+      code: `GetDesign("sign")`,
+      details: { code: "unknown_design", retryable: false, field: "design", alternatives: ["signup"] }
+    },
+    {
+      code: `await Screenshot("signup", { state: "loading" })`,
+      details: { code: "unknown_state", retryable: false, field: "state", alternatives: ["default"] }
+    },
+    {
+      code: `await Screenshot("signup", { mode: "tablet" })`,
+      details: expect.objectContaining({ code: "unknown_mode", field: "mode", alternatives: expect.any(Array) })
+    },
+    {
+      code: `Props("Buton")`,
+      details: { code: "unknown_component", retryable: false, field: "component", alternatives: ["Button", "Card"] }
+    },
+    {
+      code: `Update("nothing", { text: "x" })`,
+      details: { code: "unknown_node", retryable: false }
+    },
+    {
+      code: `Get("signup/Nope")`,
+      details: { code: "unknown_node", retryable: false }
+    },
+    {
+      code: `missing()`,
+      details: { code: "execution_failed", retryable: false }
+    }
+  ])("returns $details.code for $code, with the valid ids to use instead", async ({ code, details }) => {
+    const result = await execute({ label: "Read", code }, snapshot(), hooks())
+    expect(result.ok).toBe(false)
+    expect(result.editId).toBeTruthy()
+    expect(result.details).toEqual(details)
+  })
+
+  it("names how to write a node two designs share", async () => {
+    const shared = snapshot()
+    const copy = structuredClone(shared.documents[0]!.document.containers[0]!)
+    shared.documents[0]!.document.containers.push({ ...copy, id: "register", name: "Register" })
+    const result = await execute({ label: "Read", code: `Get("title")` }, shared, hooks())
+    expect(result.details).toEqual({
+      code: "ambiguous_reference",
+      retryable: false,
+      alternatives: ["signup/title", "register/title"]
+    })
+  })
+
+  it("throws coded errors for a retry it can't patch, before running anything", async () => {
+    await expect(execute({ label: "Retry", editId: "gone", edits: [] }, snapshot(), hooks())).rejects.toMatchObject({
+      details: { code: "unknown_edit_id", retryable: false, field: "editId" }
+    })
+    const failed = await execute({ label: "Read", code: `missing()` }, snapshot(), hooks())
+    await expect(
+      execute({ label: "Retry", editId: failed.editId, edits: [{ find: "absent", replace: "x" }] }, snapshot(), hooks())
+    ).rejects.toMatchObject({ details: { code: "invalid_input", field: "edits/0/find" } })
   })
 })

@@ -70,8 +70,8 @@ Send a nonblank snippet or a failed call's `editId`, not both. Retry patches nee
 (which can be empty), and optional boolean `all`; omitted patches default to an empty list. Invalid requests are
 rejected before reaching the desktop. Caller identity and session IDs travel separately from operation inputs.
 
-CLI failures exit with 1; MCP failures set `isError` and include the same failure and retry details. CLI `--json` omits
-screenshot image data; MCP returns image content blocks.
+CLI failures exit with 1; MCP failures set `isError` and include the same failure and retry details, as the structured
+`error` below. CLI `--json` omits screenshot image data; MCP returns image content blocks.
 
 ## Shared operations
 
@@ -101,6 +101,30 @@ Screenshots that fail and audits that find issues exit with 1 in the CLI and set
 report. CLI JSON omits screenshot image data; MCP emits image blocks. CLI `open` resolves relative folders; MCP requires
 an absolute path. Skill reading uses the same local reader and default `SKILL.md` in both transports. Library generation
 and checking remain CLI commands; library checking runs its snippets through the shared execute operation.
+
+## Structured results
+
+Every command takes `--json` and prints the same data the MCP tool returns as `structuredContent`; `tools/list`
+publishes each tool's `outputSchema`. Human text and screenshot images stay beside it. A failure is
+`{ "error": { code, message, retryable, path?, alternatives?, editId? } }` (with `--json` on stdout, and the message on
+stderr), or, for `exec` and `screenshot`, the whole report with `error` in it:
+
+- `code` is stable: `invalid_input`, `not_running`, `not_answering`, `unknown_tab`, `tab_not_ready`, `unknown_design`,
+  `unknown_node`, `ambiguous_reference`, `unknown_state`, `unknown_mode`, `unknown_viewport`, `unknown_component`,
+  `unknown_icon_set`, `unknown_edit_id`, `conflict`, `execution_failed` or `app_error`.
+- `retryable` is true when the same request, unchanged, can succeed: the app is starting, or edits collided.
+- `path` is a JSON pointer to the input at fault, in the transport's field names (`/design`, `/input`, `/edits/0/find`).
+- `alternatives` lists up to 20 valid ids for an unknown or ambiguous one, closest first.
+- `editId` retries a failed snippet with `edits`.
+
+```sh
+$ parity props Buton --json
+{ "error": { "code": "unknown_component", "message": "\"Buton\" isn't one of the project's components. Check Components().",
+  "retryable": false, "path": "/component", "alternatives": ["Avatar", "Badge", "Button", "Card", …] } }
+```
+
+`tokens` returns the first 100 unless `--limit` (up to 1000) says otherwise, and `console` the newest 50; both say
+`total` and `truncated`. `tabs` is `{ "tabs": [...] }`.
 
 ## Licence
 

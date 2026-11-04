@@ -4,6 +4,7 @@ import type {
   ComponentInfo,
   ContainerSpec,
   DesignChange,
+  ErrorDetails,
   LibraryIcons,
   ModeSettings,
   ModesChange,
@@ -205,6 +206,8 @@ export interface ExecResult {
   output: string[]
   warnings: string[]
   error?: string
+  /** Set when the call failed: why, as a stable code, with the field at fault and what to use instead. */
+  details?: ErrorDetails
   /** Set when the call failed: retry with edits to the snippet under this id. */
   editId?: string
   screenshots: Screenshot[]

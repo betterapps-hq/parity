@@ -1,5 +1,7 @@
 import { readdir, readFile } from "node:fs/promises"
 import { join, normalize, relative, sep } from "node:path"
+import { closest, CodedError } from "@parity-app/core/errors"
+import { invalidInput } from "./errors.ts"
 
 const root = join(import.meta.dirname, "..", "skills")
 
@@ -7,13 +9,17 @@ const root = join(import.meta.dirname, "..", "skills")
 export async function readSkill(path = "SKILL.md"): Promise<string> {
   const target = normalize(join(root, path))
   if (relative(root, target).startsWith("..") || relative(root, target).includes(`..${sep}`)) {
-    throw new Error(`${path} isn't part of the skill`)
+    throw invalidInput("path", `${path} isn't part of the skill`)
   }
   try {
     return await readFile(target, "utf8")
   } catch {
     const files = await list()
-    throw new Error(`No skill file ${path}. Files: ${files.join(", ")}`)
+    throw new CodedError(`No skill file ${path}. Files: ${files.join(", ")}`, {
+      code: "invalid_input",
+      field: "path",
+      alternatives: closest(path, files)
+    })
   }
 }
 

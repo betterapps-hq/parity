@@ -2429,6 +2429,53 @@ routed through the shared execute operation.
 Tests share one local RPC fixture and launch real CLI and MCP processes. Execute's contract tests remain alongside the
 new operation tests. No Electron is needed; a read-only check in the running app covers real wiring too.
 
+## Operations return structured results and coded errors (PAR-472)
+
+Agents read what a call returned without parsing the prose written for people. Each shared operation in
+`packages/cli/src/operations.ts` (and execute in `execute.ts`) now has an output schema, a canonical result built from
+the app's reply, and the structured form of that result. CLI `--json`, on every command, prints the structured form; MCP
+returns it as `structuredContent`, beside the same text and image blocks as before, and publishes each tool's
+`outputSchema` in `tools/list`. My calls:
+
+- **One error shape everywhere:** `{ code, message, retryable, path?, alternatives?, editId? }`. A call that fails
+  before producing a result returns `{ error }`; an execute or screenshot that fails returns its whole report with
+  `error` in it. The MCP output schema is the result or `{ error }` (`anyOf`), since clients validate structured content
+  against it on errors too. CLI failures still exit with 1 and print the message on stderr; with `--json` the
+  `{ error }` goes to stdout.
+- **The codes are a closed list in core** (`packages/core/src/errors.ts`, exported alone as `@parity-app/core/errors` so
+  the CLI doesn't load the rest of core): `invalid_input`, `not_running`, `not_answering`, `unknown_tab`,
+  `tab_not_ready`, `unknown_design`, `unknown_node`, `ambiguous_reference`, `unknown_state`, `unknown_mode`,
+  `unknown_viewport`, `unknown_component`, `unknown_icon_set`, `unknown_edit_id`, `conflict`, `execution_failed` and
+  `app_error`. The app throws `CodedError` where it knows the cause (core's `findState`, the agent workspace's lookups,
+  `execute`'s retry and conflict paths, the renderer's tab lookup); anything else is `app_error`, and a snippet that
+  throws something uncoded is `execution_failed`.
+- **`retryable` means the same request, unchanged, can succeed:** the app wasn't running or answering, a tab was still
+  opening, or edits collided (`conflict`). A failed snippet isn't retryable as sent; its `editId` says how to retry it.
+- **`path` points at the request,** as a JSON pointer in the transport's own field names (MCP execute's `/input` and
+  `/description`, the CLI's `/code` and `/label`). An app error names its field, and it becomes a path only when the
+  operation has that input: an unknown design inside a snippet has alternatives but no path.
+- **Alternatives are bounded to 20,** those sharing text with the reference first, then the rest in their own order. The
+  messages are unchanged, so people and clients that read only text lose nothing.
+- **Details cross processes as checked data.** The RPC reply keeps `error` as the message and adds `details`, so an
+  older CLI still reads it; the CLI and the service check details with `readErrorDetails` and treat an unknown code as
+  `app_error`. The window's channel carries them the same way, and the canvas page answers the preload script as data
+  (`ServeAnswer`), because a thrown error crossing Electron's context bridge keeps only its message.
+- **Large lists are bounded where agents filter them:** tokens default to the first 100 (`limit` up to 1000) and the
+  console to the newest 50 (up to 1000), each with `total` and `truncated`, and the text says how to see the rest.
+  Audits stay whole, since a gate needs every finding; the app state stays whole too, and its size is left to the
+  bounded batch reads of PAR-479. `tabs` returns `{ tabs }`, since structured content is an object.
+- **Text stays for people.** Readable reports keep their wording; data results (tabs, state, open) are compact JSON in
+  MCP text, as the spec suggests for clients that don't read `structuredContent`, and pretty in the terminal. The skill
+  read has no structured result: it's prose to read.
+- **Screenshots don't offer an `editId`,** since the snippet behind them is Parity's own and an agent can't patch it.
+
+Measured on `examples/shadcn-vite` (61 designs, 532 tokens) through MCP, bytes on the wire: a near-miss design id used
+to need the failed screenshot (1,914), then `get_app_state` (60,707) to learn the ids without parsing prose, then the
+retry: 3 calls, about 66 KB. Now the failure carries `alternatives`: 2 calls, about 8 KB. All tokens went from 28,574 to
+18,469 (the first 100, with `truncated`), and the console from 15,524 to 23,121 with 50 of 91 entries kept (structured
+data and text both). Small reads grew by their structured copy (props 449 to 1,149), and `tools/list` from 8,565 to
+25,616 with the output schemas, once per session.
+
 ## Core owns effective evaluation (PAR-484)
 
 What a node shows, once every patch over it applies, is worked out in one place: `@parity-app/core`'s

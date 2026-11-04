@@ -5,6 +5,8 @@ import {
   boardSize,
   type CanvasDocument,
   childEntries,
+  closest,
+  CodedError,
   type ContainerKind,
   type ContainerSpec,
   deleteNode,
@@ -44,6 +46,7 @@ import {
   resolveModes,
   type StateSpec,
   uniqueId,
+  unknownReference,
   withFreshIds
 } from "@parity-app/core"
 import { describeIconSets, findIcons, type IconMatch, type IconOptions, iconStyle, styleModule } from "./icons.ts"
@@ -402,7 +405,9 @@ export class AgentWorkspace {
       library: this.library()
     }
     const located = locateEffective(container, found.layer, context)
-    if (!located) throw new Error(`No layer "${found.layer}" in ${container.id}`)
+    if (!located) {
+      throw new CodedError(`No layer "${found.layer}" in ${container.id}`, { code: "unknown_node", field: "path" })
+    }
     const layer = drawnLayer(located.shown, found.layer, located.scope, mode.viewport, located.location.slot)
     const design = key(found.path, container.id)
     const node = found.layer === container.root.id ? undefined : found.layer.split("/")[0]
@@ -496,7 +501,11 @@ export class AgentWorkspace {
     const { path, container } = this.findDesign(reference)
     const modeIds = new Set(this.modes.modes.map((mode) => mode.id))
     for (const mode of [...(update.showModes ?? []), ...(update.mode ? [update.mode] : [])]) {
-      if (!modeIds.has(mode)) throw new Error(`No mode "${mode}". Modes: ${[...modeIds].join(", ")}`)
+      if (!modeIds.has(mode)) {
+        throw unknownReference("unknown_mode", `No mode "${mode}". Modes: ${[...modeIds].join(", ")}`, mode, [
+          ...modeIds
+        ])
+      }
     }
     if (update.state) findState(container, update.state)
     const main = update.mode ?? shownModes(this.modes, container.view).main.id
@@ -658,7 +667,15 @@ export class AgentWorkspace {
         .filter((variable) => variable.kind === "viewport")
         .flatMap((variable) => variable.options.map((option) => option.id))
     )
-    if (!viewports.has(viewport)) throw new Error(`No viewport "${viewport}". Viewports: ${[...viewports].join(", ")}`)
+    if (!viewports.has(viewport)) {
+      throw unknownReference(
+        "unknown_viewport",
+        `No viewport "${viewport}". Viewports: ${[...viewports].join(", ")}`,
+        viewport,
+        [...viewports],
+        "viewport"
+      )
+    }
     const { path: file, container, node } = this.findNode(path)
     const patch = input === null ? undefined : parseNodePatch(stripNulls(input), `Responsive(${viewport})`)
     const root = mapNode(container.root, node.id, (current) => {
@@ -751,7 +768,10 @@ export class AgentWorkspace {
     const modes = resolveModes(this.modes)
     if (!modeId) return modes[0]!
     const mode = modes.find((candidate) => candidate.id === modeId)
-    if (!mode) throw new Error(`No mode "${modeId}". Modes: ${modes.map((candidate) => candidate.id).join(", ")}`)
+    if (!mode) {
+      const ids = modes.map((candidate) => candidate.id)
+      throw unknownReference("unknown_mode", `No mode "${modeId}". Modes: ${ids.join(", ")}`, modeId, ids, "mode")
+    }
     return mode
   }
 
@@ -1095,12 +1115,15 @@ export class AgentWorkspace {
   private findDesign(reference: string): Located {
     const found = this.tryDesign(reference)
     if (!found) {
-      throw new Error(
+      const all = this.all()
+      throw unknownReference(
+        "unknown_design",
         `No design "${reference}". Designs: ${
-          this.all()
-            .map(({ container }) => `${container.id} (${container.name})`)
-            .join(", ") || "none"
-        }`
+          all.map(({ container }) => `${container.id} (${container.name})`).join(", ") || "none"
+        }`,
+        reference,
+        all.map(({ container }) => container.id),
+        "design"
       )
     }
     return found
@@ -1129,11 +1152,18 @@ export class AgentWorkspace {
     })
     if (matches.length === 1) return matches[0]!
     if (matches.length > 1) {
-      throw new Error(
-        `"${reference}" is in ${matches.map((match) => match.container.id).join(" and ")}; write it as design/node, e.g. "${matches[0]!.container.id}/${reference}"`
+      throw new CodedError(
+        `"${reference}" is in ${matches.map((match) => match.container.id).join(" and ")}; write it as design/node, e.g. "${matches[0]!.container.id}/${reference}"`,
+        {
+          code: "ambiguous_reference",
+          alternatives: closest(
+            reference,
+            matches.map((match) => `${match.container.id}/${reference}`)
+          )
+        }
       )
     }
-    throw new Error(`No node "${reference}". Paths are a node id, or design/node.`)
+    throw new CodedError(`No node "${reference}". Paths are a node id, or design/node.`, { code: "unknown_node" })
   }
 
   private setContainer(path: string, container: ContainerSpec, node?: string, state?: string, show = true): void {
@@ -1158,7 +1188,13 @@ export class AgentWorkspace {
    */
   private componentProps(component: string, options: { all?: boolean } = {}) {
     if (!this.snapshot.components.includes(component)) {
-      throw new Error(`"${component}" isn't one of the project's components. Check Components().`)
+      throw unknownReference(
+        "unknown_component",
+        `"${component}" isn't one of the project's components. Check Components().`,
+        component,
+        this.snapshot.components,
+        "component"
+      )
     }
     const info = this.snapshot.props[component]
     if (!info) return { component, known: false, props: [] }
@@ -1173,10 +1209,13 @@ export class AgentWorkspace {
     const sets = this.snapshot.iconSets ?? []
     const set = sets.find((candidate) => candidate.id === id)
     if (!set) {
-      throw new Error(
+      throw unknownReference(
+        "unknown_icon_set",
         sets.length > 0
           ? `"${id}" isn't one of the project's icon sets: ${sets.map((candidate) => candidate.id).join(", ")}`
-          : "The project has no icon sets"
+          : "The project has no icon sets",
+        id,
+        sets.map((candidate) => candidate.id)
       )
     }
     if (!this.hooks.iconNames) throw new Error("Icon names can't be read here")
@@ -1392,9 +1431,16 @@ function resolveInDesign(container: ContainerSpec, reference: string): DesignNod
   }
   visit(container.root)
   if (byName.length === 1) return byName[0]!
-  if (byName.length > 1)
-    throw new Error(`${byName.length} layers in ${container.id} are named "${reference}"; use an id`)
-  throw new Error(`No layer "${reference}" in ${container.id}`)
+  if (byName.length > 1) {
+    throw new CodedError(`${byName.length} layers in ${container.id} are named "${reference}"; use an id`, {
+      code: "ambiguous_reference",
+      alternatives: closest(
+        reference,
+        byName.map((node) => `${container.id}/${node.id}`)
+      )
+    })
+  }
+  throw new CodedError(`No layer "${reference}" in ${container.id}`, { code: "unknown_node" })
 }
 
 /** Whether a read asks for what the board draws rather than the stored nodes. */

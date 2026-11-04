@@ -15,7 +15,7 @@ import {
   type ExecRequest,
   type ExecResult
 } from "@parity-app/agent"
-import { describeRenderStatus, renderProblem, resolveModes } from "@parity-app/core"
+import { describeRenderStatus, errorDetails, renderProblem, resolveModes } from "@parity-app/core"
 import type { ServiceMethods, TabSnapshot, WindowMethods } from "../shared/protocol.ts"
 import { renderJobMode } from "../shared/render-job.ts"
 import { readConsole } from "./console.ts"
@@ -77,7 +77,8 @@ async function handle(request: IncomingMessage, response: ServerResponse, token:
     const caller = callerIdentity(agent, agentId)
     reply(200, { result: await call(method, params ?? {}, window(), caller) })
   } catch (error) {
-    reply(200, { error: error instanceof Error ? error.message : String(error) })
+    const details = errorDetails(error)
+    reply(200, { error: error instanceof Error ? error.message : String(error), ...(details ? { details } : {}) })
   }
 }
 
@@ -108,7 +109,8 @@ async function call(
       return exec(window, params.tab as string | undefined, params as unknown as ExecRequest, caller)
     case "screenshot": {
       const options = { state: params.state, mode: params.mode, scale: params.scale }
-      return exec(
+      // The snippet is Parity's own, so a failure has nothing for the agent to retry by editId.
+      const { editId: _editId, ...result } = await exec(
         window,
         params.tab as string | undefined,
         {
@@ -117,6 +119,7 @@ async function call(
         },
         caller
       )
+      return result
     }
     case "accessibility": {
       const snapshot = await window.request("agent.snapshot", { tab: params.tab as string | undefined })

@@ -131,14 +131,27 @@ describe("describeAccessibility", () => {
 
 describe("describeTokens", () => {
   it("groups tokens by category and lists the default theme first", () => {
-    const text = describeTokens([
-      {
-        name: "muted-foreground",
-        category: "color",
-        source: "semantic",
-        values: { dark: "#a1a1a1", default: "#737373" }
-      }
-    ])
+    const text = describeTokens({
+      tokens: [
+        {
+          name: "muted-foreground",
+          category: "color",
+          source: "semantic",
+          values: { dark: "#a1a1a1", default: "#737373" }
+        }
+      ],
+      total: 1,
+      truncated: false
+    })
     expect(text).toContain("color, semantic:\n  muted-foreground: default #737373, dark #a1a1a1")
+  })
+
+  it("says how many matched when a limit left some out, and how to see the rest", () => {
+    const token = { name: "primary", category: "color", source: "semantic", values: { default: "#000" } }
+    const text = describeTokens({ tokens: [token], total: 532, truncated: true })
+    expect(text.split("\n").slice(0, 2)).toEqual([
+      '532 tokens, the first 1 shown. Name them in styles without "--".',
+      "Narrow them with category, source or search, or raise limit, to see the rest."
+    ])
   })
 })

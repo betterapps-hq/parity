@@ -64,7 +64,7 @@ export async function runCheck(library: string | undefined, options: CheckOption
   const mode = options.mode ?? "desktop-light"
   const exec = async (label: string, code: string): Promise<string> => {
     const result = await executeOperation.run({ tab: options.tab, label, code }, call)
-    if (executeOperation.failed(result)) throw new Error(result.error ?? `${label} failed`)
+    if (executeOperation.failed(result)) throw new Error(result.error?.message ?? `${label} failed`)
     const line = result.output.find((item) => item.startsWith("{") || item.startsWith("["))
     if (!line) throw new Error(`${label} printed nothing`)
     return line

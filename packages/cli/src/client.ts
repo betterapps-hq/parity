@@ -2,12 +2,14 @@ import { randomUUID } from "node:crypto"
 import { readFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join } from "node:path"
+import { CodedError, readErrorDetails } from "@parity-app/core/errors"
 import { cliCallerName, sessionCallerId } from "./caller.ts"
 import type { ExecResponse } from "./execute.ts"
 
 /** Where the running app writes its address and token. */
 export const agentFile = process.env.PARITY_AGENT_FILE ?? join(homedir(), ".parity", "agent.json")
 
+export type { OperationError } from "./errors.ts"
 export type { Edit, ExecResponse, Screenshot } from "./execute.ts"
 
 let caller = cliCallerName(process.env)
@@ -24,13 +26,19 @@ export function setCaller(name: string | undefined, session = false): void {
   callerId = session ? sessionCallerId(caller, randomUUID()) : explicitCallerId
 }
 
-/** Calls the running Parity app. Fails with a clear message when it isn't running. */
+/**
+ * Calls the running Parity app. Fails with a clear message, and a code, when it isn't running or the call fails: the
+ * app's own code when it gives one.
+ */
 export async function call<T>(method: string, params: Record<string, unknown> = {}): Promise<T> {
   let connection: { url: string; token: string }
   try {
     connection = JSON.parse(await readFile(agentFile, "utf8")) as { url: string; token: string }
   } catch {
-    throw new Error(`Parity isn't running (no ${agentFile}). Start the app, then try again.`)
+    throw new CodedError(`Parity isn't running (no ${agentFile}). Start the app, then try again.`, {
+      code: "not_running",
+      retryable: true
+    })
   }
   let response: Response
   try {
@@ -40,10 +48,15 @@ export async function call<T>(method: string, params: Record<string, unknown> = 
       body: JSON.stringify({ method, params, agent: caller, agentId: callerId })
     })
   } catch {
-    throw new Error(`Parity isn't answering at ${connection.url}. Is the app still running?`)
+    throw new CodedError(`Parity isn't answering at ${connection.url}. Is the app still running?`, {
+      code: "not_answering",
+      retryable: true
+    })
   }
-  const body = (await response.json()) as { result?: T; error?: string }
-  if (body.error !== undefined) throw new Error(body.error)
+  const body = (await response.json()) as { result?: T; error?: string; details?: unknown }
+  if (body.error !== undefined) {
+    throw new CodedError(body.error, readErrorDetails(body.details) ?? { code: "app_error" })
+  }
   return body.result as T
 }
 
@@ -53,8 +66,12 @@ export function describeExec(result: ExecResponse): string {
   if (result.ok)
     lines.push(result.applied ? "Done. The changes are on the canvas as one undoable step." : "Done. Nothing changed.")
   else {
-    lines.push(`Failed, nothing changed: ${result.error}`)
-    lines.push(`Fix it by retrying with editId "${result.editId}" and edits ({find, replace}) to the snippet.`)
+    const error = result.error
+    lines.push(`Failed, nothing changed: ${error?.message ?? "unknown error"}`)
+    if (error?.retryable) lines.push("Nothing in the request was wrong; run it again.")
+    if (error?.editId) {
+      lines.push(`Fix it by retrying with editId "${error.editId}" and edits ({find, replace}) to the snippet.`)
+    }
   }
   if (result.output.length > 0) lines.push("", "Output:", ...result.output)
   const created = Object.entries(result.created)
@@ -69,6 +86,21 @@ export function describeExec(result: ExecResponse): string {
     )
   }
   return lines.join("\n")
+}
+
+/** One open project. */
+export interface TabSummary {
+  id: string
+  name: string
+  root: string
+  active: boolean
+  status: "loading" | "ready" | "error"
+  error?: string
+  designs: number
+}
+
+export interface TabsResponse {
+  tabs: TabSummary[]
 }
 
 export interface AccessibilityFinding {
@@ -187,10 +219,19 @@ export interface TokenInfo {
   values: Record<string, string>
 }
 
+export interface TokensResponse {
+  tokens: TokenInfo[]
+  /** How many matched, before the limit. */
+  total: number
+  truncated: boolean
+}
+
 /** Tokens by category, each with its value in every theme that sets one. */
-export function describeTokens(tokens: TokenInfo[]): string {
+export function describeTokens({ tokens, total, truncated }: TokensResponse): string {
   if (tokens.length === 0) return "No tokens match."
-  const lines = [`${tokens.length === 1 ? "1 token" : `${tokens.length} tokens`}. Name them in styles without "--".`]
+  const count = `${total === 1 ? "1 token" : `${total} tokens`}${truncated ? `, the first ${tokens.length} shown` : ""}`
+  const lines = [`${count}. Name them in styles without "--".`]
+  if (truncated) lines.push("Narrow them with category, source or search, or raise limit, to see the rest.")
   const categories = new Map<string, TokenInfo[]>()
   for (const token of tokens) {
     const key = `${token.category}, ${token.source}`
@@ -325,15 +366,20 @@ export interface ConsoleEntry {
 
 export interface ConsoleResponse {
   tab: { id: string; name: string }
+  /** The newest entries, up to the limit, oldest first. */
   entries: ConsoleEntry[]
+  /** How many there were, before the limit. */
+  total: number
+  truncated: boolean
 }
 
 /** A readable account of what a project's code wrote to the console, oldest first, with where each came from. */
 export function describeConsole(result: ConsoleResponse): string {
-  const { tab, entries } = result
+  const { tab, entries, total, truncated } = result
   if (entries.length === 0) return `${tab.name}'s code hasn't written anything to the console.`
-  const count = entries.length === 1 ? "1 message" : `${entries.length} messages`
-  const lines = [`${count} from ${tab.name}'s code, oldest first:`]
+  const count = total === 1 ? "1 message" : `${total} messages`
+  const shown = truncated ? `, the newest ${entries.length} shown` : ""
+  const lines = [`${count} from ${tab.name}'s code${shown}, oldest first:`]
   for (const entry of entries) {
     const time = new Date(entry.last).toLocaleTimeString([], { hour12: false })
     const repeats = entry.count > 1 ? ` (${entry.count} times)` : ""

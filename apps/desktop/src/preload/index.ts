@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron"
-import type { CanvasHost, ChannelMessage, ProcessUsage, WindowMethod } from "../shared/protocol.ts"
+import type { CanvasHost, ChannelMessage, ProcessUsage, ServeAnswer, WindowMethod } from "../shared/protocol.ts"
 
 interface Pending {
   resolve(value: unknown): void
@@ -10,7 +10,7 @@ let port: MessagePort | undefined
 let nextId = 1
 const pending = new Map<number, Pending>()
 const queued: ChannelMessage[] = []
-let handler: ((method: WindowMethod, params: unknown) => Promise<unknown>) | undefined
+let handler: ((method: WindowMethod, params: unknown) => Promise<ServeAnswer>) | undefined
 const reconnectListeners = new Set<() => void>()
 const showUpdateListeners = new Set<() => void>()
 let pendingShowUpdate = false
@@ -50,7 +50,7 @@ ipcRenderer.on("canvas:port", (event) => {
       ? handler(data.method as WindowMethod, data.params)
       : Promise.reject(new Error("The canvas window isn't ready yet"))
     answer.then(
-      (result) => send({ type: "response", id: data.id, result }),
+      (reply) => send({ type: "response", id: data.id, ...reply }),
       (error: unknown) =>
         send({ type: "response", id: data.id, error: error instanceof Error ? error.message : String(error) })
     )

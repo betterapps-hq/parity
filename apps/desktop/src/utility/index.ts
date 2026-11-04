@@ -1,3 +1,4 @@
+import { CodedError, readErrorDetails } from "@parity-app/core"
 import type { MessagePortMain } from "electron"
 import type { ChannelMessage, ServiceMethods, WindowMethods } from "../shared/protocol.ts"
 import type { MainMessage, ServiceMessage } from "../shared/service.ts"
@@ -89,8 +90,12 @@ function connect(port: MessagePortMain): void {
     if (data.type === "response") {
       const request = pending.get(data.id)
       pending.delete(data.id)
-      if (data.error === undefined) request?.resolve(data.result)
-      else request?.reject(new Error(data.error))
+      if (data.error === undefined) {
+        request?.resolve(data.result)
+        return
+      }
+      const details = readErrorDetails(data.details)
+      request?.reject(details ? new CodedError(data.error, details) : new Error(data.error))
       return
     }
     const handler = handlers[data.method as keyof Handlers] as ((params: unknown) => Promise<unknown>) | undefined
