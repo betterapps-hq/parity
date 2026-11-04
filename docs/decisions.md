@@ -2476,13 +2476,13 @@ new operation tests. No Electron is needed; a read-only check in the running app
 Agents read what a call returned without parsing the prose written for people. Each shared operation in
 `packages/cli/src/operations.ts` (and execute in `execute.ts`) now has an output schema, a canonical result built from
 the app's reply, and the structured form of that result. CLI `--json`, on every command, prints the structured form; MCP
-returns it as `structuredContent`, beside the same text and image blocks as before, and publishes each tool's
-`outputSchema` in `tools/list`. My calls:
+returns it as `structuredContent`, beside the same text and image blocks as before, and published each tool's
+`outputSchema` in `tools/list` until PAR-510 took them out. My calls:
 
 - **One error shape everywhere:** `{ code, message, retryable, path?, alternatives?, editId? }`. A call that fails
   before producing a result returns `{ error }`; an execute or screenshot that fails returns its whole report with
-  `error` in it. The MCP output schema is the result or `{ error }` (`anyOf`), since clients validate structured content
-  against it on errors too. CLI failures still exit with 1 and print the message on stderr; with `--json` the
+  `error` in it. The MCP output schema was the result or `{ error }` (`anyOf`), since clients validate structured
+  content against it on errors too. CLI failures still exit with 1 and print the message on stderr; with `--json` the
   `{ error }` goes to stdout.
 - **The codes are a closed list in core** (`packages/core/src/errors.ts`, exported alone as `@parity-app/core/errors` so
   the CLI doesn't load the rest of core): `invalid_input`, `not_running`, `not_answering`, `unknown_tab`,
@@ -2908,6 +2908,25 @@ editor.md, Component previews, made offscreen and kept on disk). The design is t
   until then a component row's hint shows its large picture, which is enough to see them and lets a row on screen ask
   for its picture first.
 
+## MCP's tool list leaves out output schemas (PAR-510)
+
+`tools/list` grew from 8.6 KB to 33 KB once every tool published an `outputSchema` (PAR-472) and `get_modes` and
+`get_status` arrived. Output schemas were 22 KB of it, the same 618-byte failure branch repeated in 13 of them. My
+calls, which you agreed on 2026-11-04:
+
+- **Tools publish no `outputSchema`; `structuredContent` stays.** The MCP spec allows structured content without a
+  schema. The schemas stay in the operation contracts (`operations.ts`, `execute.ts`), behind CLI `--json` and the
+  tests. The list is 11.7 KB.
+- **Why it was safe to drop.** Claude Code never shows an output schema to the model: Anthropic's tool definitions have
+  no field for one, and Claude Code defers MCP tools, so a session starts with their names and the server's instructions
+  and loads a tool's description and input schema when it's needed. Codex renders output schemas into the model's
+  context as TypeScript in its code mode, so there they cost context on every session. No client needed them to call the
+  tools.
+- **A test holds the list to 12 KiB** (`operations.test.ts`, "keeps the MCP tool list within its budget"). Raise it when
+  a tool earns it, not to make room for longer schemas or descriptions.
+- **Codex shows the model only `structuredContent` when a result has it,** dropping the text and images beside it, so
+  Codex users see no screenshots. That is PAR-528.
+
 ## Opening a project in seconds (PAR-179)
 
 Reopening the example project took 5.7 seconds to a usable canvas and 6.6 to its previews when started again, and 19
@@ -2983,6 +3002,33 @@ frames several times over, which the 2026-11-04 speed audit found the most expen
 - **What it doesn't see** is layout that moves with no input, DOM change, resize, image or font load or animation it
   hears of, such as a video in a frame taking its size once its data arrives. The outline catches up at the next change,
   such as the pointer moving.
+
+## Frame bitmaps are captured in four offscreen windows at once (PAR-523)
+
+A first launch of the example project took 21 to 29 seconds to have every frame's bitmap, captured one at a time in one
+offscreen window at about 150 ms each (see editor.md, Bitmaps kept between sessions and Opening in seconds). My calls:
+
+- **A pool of windows rather than several frames on one page.** Each frame is still drawn alone, in a page of its own,
+  at its own size, so its bitmap is the one a single window takes: 117 of 119 came out the same file byte for byte, and
+  the other 2 differed by rasterizing noise in a shadow. Laying several frames out on one page and cropping one capture
+  would save the per-frame waits but let frames share a window's height, its fixed-position layer and its lazy loading,
+  which a frame alone doesn't.
+- **Four windows, opened as jobs need them.** Each is a renderer process holding the project's modules while it's open,
+  so a lone agent render still opens only one, and all close a minute after the last job, as the one window did. Four
+  already leaves the windows waiting on the canvas (see below), so more would cost memory for nothing yet;
+  `offscreenWindows` in `packages/core/src/preview-order.ts` is the one number to change.
+- **Previews take one window at a time.** Component previews (PAR-207) stay behind canvas bitmaps and agents' renders in
+  `renderQueue`, and making only one at once keeps the other windows free for those, so a preview never delays them.
+  Agents' renders and the canvas's bitmaps keep one priority, in the order they're asked for; the canvas asks for at
+  most four at a time, so an agent's render waits for at most the four under way.
+- **The waits inside a capture stay.** Raising the windows' frame rate to 240 made each capture about 35 ms shorter, but
+  moved it to another point in CSS transitions, so two frames' bitmaps came out different from one taken alone; it was
+  dropped. Capturing a frame's first bitmap without the 1-second settle, and asking for two captures per window, gained
+  nothing measurable, since the window's own thread decides when captures are asked for. The 30 ms wait lets components
+  that load on demand start before `loaded()` looks for them, so it stays.
+- **The 8-second target isn't met alone** (12.0 to 12.6 seconds on a busy machine, from 29.1). Captures start only when
+  every frame has drawn its design, and the window then takes each drawn design apart as its bitmap comes, which paces
+  how fast it asks for the next. Showing a skeleton instead of drawing far frames first (PAR-525) removes both.
 
 ## A running process's light breathes by opacity (PAR-524)
 

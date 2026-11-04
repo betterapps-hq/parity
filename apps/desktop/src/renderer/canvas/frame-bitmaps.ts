@@ -1,4 +1,4 @@
-import type { FrameGeometry, RenderNode, ResolvedMode } from "@parity-app/core"
+import { type FrameGeometry, offscreenWindows, type RenderNode, type ResolvedMode, turns } from "@parity-app/core"
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { react } from "tldraw"
 import type { RenderJob } from "../../shared/protocol.ts"
@@ -27,8 +27,11 @@ const bitmaps = new Map<string, Promise<string | undefined | typeof failed>>()
 const heights = new Map<string, number>()
 /** How many frames on the canvas show each bitmap. One nothing waits for is skipped when its turn comes. */
 const wanted = new Map<string, number>()
-/** One capture at a time, so agents' renders and exports still get their turn in the offscreen window. */
-let queue: Promise<unknown> = Promise.resolve()
+/**
+ * One capture for each offscreen window at a time, so agents' renders and exports still get their turn there, and a
+ * frame nothing waits for any more is skipped when its turn comes (PAR-523).
+ */
+const captures = turns(offscreenWindows)
 /** Frames on the canvas still waiting for their first bitmap, kept or captured. */
 let waiting = 0
 
@@ -283,9 +286,9 @@ function forgetOldest(): void {
 }
 
 /**
- * The bitmap of a frame, taken offscreen one at a time. `measure` gives the live frame's height just before it's taken,
- * which is kept with it: the offscreen window lays the frame out at the bitmap's small zoom, where text rounds to other
- * heights, so its own measure can be a few pixels out.
+ * The bitmap of a frame, taken offscreen, as many at once as there are offscreen windows. `measure` gives the live
+ * frame's height just before it's taken, which is kept with it: the offscreen window lays the frame out at the bitmap's
+ * small zoom, where text rounds to other heights, so its own measure can be a few pixels out.
  */
 export function capture(
   key: string,
@@ -298,7 +301,7 @@ export function capture(
     bitmaps.set(key, known)
     return known
   }
-  const taking = queue.then(async () => {
+  const taking = captures.run(async () => {
     if (!wanted.has(key)) {
       bitmaps.delete(key)
       return undefined
@@ -311,7 +314,6 @@ export function capture(
     if (bitmaps.get(key) === settled) bitmaps.delete(key)
     return failed
   })
-  queue = settled
   bitmaps.set(key, settled)
   forgetOldest()
   return settled

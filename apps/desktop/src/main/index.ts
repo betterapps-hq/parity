@@ -3,7 +3,7 @@ import { readFile, utimes } from "node:fs/promises"
 import { availableParallelism, homedir } from "node:os"
 import { join } from "node:path"
 import { agentRegistry, removeEntry } from "@parity-app/agent/registry"
-import { fitInside, previewSizes, type RenderPriority, renderQueue } from "@parity-app/core"
+import { fitInside, offscreenWindows, previewSizes, type RenderPriority, renderQueue } from "@parity-app/core"
 import {
   app,
   BrowserWindow,
@@ -81,7 +81,7 @@ nativeTheme.on("updated", () => {
   if (process.platform === "darwin") return
   const { background, symbols } = titleBarColors()
   for (const window of BrowserWindow.getAllWindows()) {
-    if (window === renderWindow) continue
+    if (isRenderWindow(window)) continue
     window.setBackgroundColor(background)
     window.setTitleBarOverlay({ color: background, symbolColor: symbols, height: 40 })
   }
@@ -173,7 +173,7 @@ function restartService(): void {
   service = startService()
   previous?.kill()
   for (const window of BrowserWindow.getAllWindows()) {
-    if (window !== renderWindow && !window.webContents.isLoading()) connectWindow(window)
+    if (!isRenderWindow(window) && !window.webContents.isLoading()) connectWindow(window)
   }
 }
 
@@ -273,8 +273,8 @@ function createWindow(): void {
     }
     return { action: "deny" }
   })
-  // The hidden render window would otherwise keep the app running.
-  window.on("closed", closeRenderWindow)
+  // The hidden render windows would otherwise keep the app running.
+  window.on("closed", closeRenderWindows)
   window.on("closed", () => updateRestarts.delete(window.id))
   void window.loadURL(rendererUrl!)
 }
@@ -308,10 +308,10 @@ function applicationMenu(): Menu {
         {
           label: "Check for updates",
           click: () => {
-            let window = BrowserWindow.getAllWindows().find((candidate) => candidate !== renderWindow)
+            let window = BrowserWindow.getAllWindows().find((candidate) => !isRenderWindow(candidate))
             if (!window) {
               createWindow()
-              window = BrowserWindow.getAllWindows().find((candidate) => candidate !== renderWindow)
+              window = BrowserWindow.getAllWindows().find((candidate) => !isRenderWindow(candidate))
             }
             if (!window) return
             const contents = window.webContents
@@ -350,7 +350,7 @@ function updateOwner(event: Electron.IpcMainInvokeEvent): BrowserWindow {
   const window = ownerOf(event)
   if (
     !window ||
-    window === renderWindow ||
+    isRenderWindow(window) ||
     event.senderFrame !== event.sender.mainFrame ||
     event.sender.getURL() !== rendererUrl
   ) {
@@ -477,7 +477,7 @@ ipcMain.handle("canvas:metrics", async (event): Promise<ProcessUsage[]> => {
     if (metric.type === "Browser") role = "app"
     else if (metric.type === "GPU") role = "gpu"
     else if (metric.name === serviceName) role = "service"
-    else if (page && page === renderWindow?.webContents) role = "offscreen"
+    else if (page && renderWindows.some((render) => render?.window.webContents === page)) role = "offscreen"
     else if (page === event.sender) role = "this-window"
     else role = page ? "window" : "helper"
     const names: Record<ProcessUsage["role"], string> = {
@@ -506,36 +506,41 @@ ipcMain.handle("canvas:metrics", async (event): Promise<ProcessUsage[]> => {
   return [...usage, ...builderUsage]
 })
 
-// Agents measure and capture frames offscreen, so their work never moves the person's camera.
-let renderWindow: BrowserWindow | undefined
-let renderLoaded: Promise<void> | undefined
-// One job at a time, canvas bitmaps and agents' renders before component previews (PAR-207).
-const offscreen = renderQueue()
-// The window holds its page and every project module graph it imported, which only closing it returns, so it closes a
-// minute after its last job and the next job opens it again.
-const renderIdle = idleClose(60_000, closeRenderWindow)
+// Agents measure and capture frames offscreen, so their work never moves the person's camera. A few windows draw at once,
+// so a project's bitmaps are taken in a fraction of the time one window took (PAR-523).
+const renderWindows: ({ window: BrowserWindow; loaded: Promise<void> } | undefined)[] = []
+// One job in each window, canvas bitmaps and agents' renders before component previews (PAR-207).
+const offscreen = renderQueue(offscreenWindows)
+// Each window holds its page and every project module graph it imported, which only closing it returns, so they close
+// a minute after the last job and the next job opens them again.
+const renderIdle = idleClose(60_000, closeRenderWindows)
 
-function closeRenderWindow(): void {
-  renderIdle.cancel()
-  const window = renderWindow
-  renderWindow = undefined
-  renderLoaded = undefined
-  if (window && !window.isDestroyed()) window.destroy()
+function isRenderWindow(window: BrowserWindow): boolean {
+  return renderWindows.some((render) => render?.window === window)
 }
 
-function ensureRenderWindow(): Promise<BrowserWindow> {
-  if (!renderWindow || renderWindow.isDestroyed()) {
-    renderWindow = new BrowserWindow({
+function closeRenderWindows(): void {
+  renderIdle.cancel()
+  const closing = renderWindows.splice(0)
+  for (const render of closing) if (render && !render.window.isDestroyed()) render.window.destroy()
+}
+
+/** Offscreen window `index`, opened and loaded if it isn't. */
+function ensureRenderWindow(index: number): Promise<BrowserWindow> {
+  let render = renderWindows[index]
+  if (!render || render.window.isDestroyed()) {
+    const window = new BrowserWindow({
       show: false,
       width: 1280,
       height: 800,
       webPreferences: { offscreen: true, contextIsolation: true, sandbox: true }
     })
-    recordConsole(renderWindow.webContents, "offscreen", new URL(rendererUrl!).origin)
-    renderLoaded = renderWindow.loadURL(new URL("render.html", rendererUrl).href)
+    recordConsole(window.webContents, "offscreen", new URL(rendererUrl!).origin)
+    render = { window, loaded: window.loadURL(new URL("render.html", rendererUrl).href) }
+    renderWindows[index] = render
   }
-  const window = renderWindow
-  return renderLoaded!.then(() => window)
+  const { window, loaded } = render
+  return loaded.then(() => window)
 }
 
 function renderFrame(job: RenderJob, capture: boolean): Promise<{ frame?: RenderedFrame; png?: string }> {
@@ -598,7 +603,7 @@ async function renderPreview(
 }
 
 /**
- * Draws a job in the offscreen window when its turn comes (see `renderQueue`). When it's to be looked at whole, as a
+ * Draws a job in a free offscreen window when its turn comes (see `renderQueue`). When it's to be looked at whole, as a
  * capture or a check does, the window is made as tall as the frame and left to settle before `then`.
  */
 function renderOffscreen(
@@ -614,8 +619,8 @@ function renderOffscreen(
 ): Promise<{ frame: RenderedFrame; png?: string }> {
   // Held from the moment it's queued, so the window never closes under a job or with one waiting.
   const done = renderIdle.use()
-  const run = async () => {
-    const window = await ensureRenderWindow()
+  const run = async (index: number) => {
+    const window = await ensureRenderWindow(index)
     const width = Math.max(1, Math.ceil(job.mode.width * job.scale))
     window.setContentSize(width, 800)
     const frame = (await window.webContents.executeJavaScript(
@@ -672,7 +677,7 @@ void app.whenReady().then(() => {
   Menu.setApplicationMenu(applicationMenu())
   updates = createUpdates((state) => {
     for (const window of BrowserWindow.getAllWindows()) {
-      if (window !== renderWindow) window.webContents.send("canvas:update-changed", state)
+      if (!isRenderWindow(window)) window.webContents.send("canvas:update-changed", state)
     }
   })
   service = startService()
