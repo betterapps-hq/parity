@@ -1,0 +1,53 @@
+name: Preview cleanup
+
+# Deletes a closed pull request's Storybook preview through the shared template (PAR-113), and says so in preview.yml's
+# comment. The CLI stays on pkg.pr.new and the installers stay in their run until they expire, so they need nothing.
+on:
+  pull_request:
+    types: [closed]
+
+# Shared with preview.yml, so closing a pull request cancels a preview still building.
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  storybook:
+    name: Storybook
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: betterapps-hq/pipelines/.github/workflows/unpublish-storybook.yml@main
+    with:
+      preview-name: pr-${{ github.event.pull_request.number }}
+      comment: false
+
+  # Replaces the Storybook's URL in the comment, keeping the rest. A comment without one is left as it is.
+  comment:
+    name: Comment
+    needs: storybook
+    if: github.event.pull_request.head.repo.full_name == github.repository && needs.storybook.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          MARKER: "<!-- parity preview -->"
+        run: |
+          comment=$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR/comments" \
+            --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith($ENV.MARKER))) | tojson' |
+            sed -n 1p)
+          if [ -z "$comment" ]; then
+            echo "No preview comment to update."
+            exit 0
+          fi
+          id=$(jq -r .id <<< "$comment")
+          body=$(jq -r .body <<< "$comment" |
+            sed 's|^\*\*Storybook:\*\* https://.*|**Storybook:** removed when the pull request closed.|')
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -f body="$body" > /dev/null
