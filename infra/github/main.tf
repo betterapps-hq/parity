@@ -30,7 +30,7 @@ provider "github" {
 }
 
 module "rules" {
-  source = "git::https://github.com/betterapps-hq/pipelines.git//terraform/github-repository-rules?ref=c3b85f070cf22fbf7a4dae841461f82e2b16ea20" # v1.2.0
+  source = "git::https://github.com/betterapps-hq/pipelines.git//terraform/github-repository-rules?ref=main"
 
   repository      = "parity"
   required_checks = ["CI passes"]

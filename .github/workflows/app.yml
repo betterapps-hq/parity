@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   app:
-    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@127016e9eaa157353b3f5ddbe82a32564a28cc08 # v1.7.0
+    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@main
     with:
       os: '["windows-latest"]'
       command: pnpm test:app
