@@ -11,6 +11,7 @@ import {
   describeTokens,
   setCaller
 } from "./client.ts"
+import { failureSchema, operationError, renamePath } from "./errors.ts"
 import { executeOperation } from "./execute.ts"
 import { type Operation, operations, skillOperation } from "./operations.ts"
 import { readSkill } from "./skills.ts"
@@ -19,11 +20,30 @@ interface Tool {
   name: string
   description: string
   inputSchema: Record<string, unknown>
-  run(input: Record<string, unknown>): Promise<{ content: Content[]; isError?: boolean }>
+  /** The structured result's schema, or a failure's. Absent for prose, such as the skill. */
+  outputSchema?: Record<string, unknown>
+  /** The input fields an error's path can point at, in this tool's names. */
+  fields: readonly string[]
+  /** Renames the contract's fields to this tool's, in error paths. */
+  names?: Record<string, string>
+  run(input: Record<string, unknown>): Promise<Reply>
+}
+interface Reply {
+  content: Content[]
+  structuredContent?: Record<string, unknown>
+  isError?: boolean
 }
 type Content = { type: "text"; text: string } | { type: "image"; data: string; mimeType: "image/png" }
 
-/** One adapter for RPC-backed tools: operation contracts own defaults, validation and failure semantics. */
+/** A structured result's schema: the operation's result, or the failure every tool can return. */
+function outputSchema(result: Record<string, unknown>): Record<string, unknown> {
+  return { type: "object", anyOf: [result, failureSchema] }
+}
+
+/**
+ * One adapter for RPC-backed tools: operation contracts own defaults, validation, failure semantics and the structured
+ * result, which is what CLI --json prints. The text beside it is for people and clients that don't read structure.
+ */
 function operationTool<Result>(
   name: string,
   description: string,
@@ -34,13 +54,22 @@ function operationTool<Result>(
     name,
     description,
     inputSchema: operation.inputSchema,
+    outputSchema: outputSchema(operation.outputSchema),
+    fields: operation.fields,
     async run(input) {
       const result = await operation.run(input, call)
-      return { content: format(result), isError: operation.failed(result) }
+      return {
+        content: format(result),
+        structuredContent: operation.structured(result),
+        isError: operation.failed(result)
+      }
     }
   }
 }
-const json = (value: unknown): Content[] => [text(JSON.stringify(value, null, 2))]
+/** Results that are data to begin with, as compact JSON text for clients that don't read structuredContent. */
+const json = (value: unknown): Content[] => [text(JSON.stringify(value))]
+/** MCP's names for execute's label and code. */
+const executeNames = { label: "description", code: "input" }
 const tools: Tool[] = [
   operationTool(
     "get_tabs",
@@ -58,14 +87,19 @@ const tools: Tool[] = [
     name: "execute",
     description:
       'Run a JavaScript snippet with the Parity API (read_skill "execute.md"). All changes land as one undoable step, or none on failure. Retry failures with editId and edits.',
-    inputSchema: executeOperation.inputSchema({ label: "description", code: "input" }),
+    inputSchema: executeOperation.inputSchema(executeNames),
+    outputSchema: outputSchema(executeOperation.outputSchema),
+    fields: executeOperation.fields,
+    names: executeNames,
     async run(input) {
       const result = await executeOperation.run(
         { tab: input.tab, label: input.description, code: input.input, editId: input.editId, edits: input.edits },
         call
       )
+      const structured = executeOperation.structured(result)
       return {
         content: [text(describeExec(result)), ...result.screenshots.map((shot) => image(shot.png))],
+        structuredContent: result.error ? { ...structured, error: renamePath(result.error, executeNames) } : structured,
         isError: executeOperation.failed(result)
       }
     }
@@ -122,6 +156,7 @@ const tools: Tool[] = [
     name: "read_skill",
     description: "Read the Parity design skill or a file it references.",
     inputSchema: skillOperation.inputSchema,
+    fields: skillOperation.fields,
     run: async (input) => ({ content: [text(await skillOperation.run(input, readSkill))] })
   }
 ]
@@ -166,7 +201,14 @@ async function respond(message: { method?: string; params?: Record<string, unkno
       return { result: {} }
     case "tools/list":
       return {
-        result: { tools: tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema })) }
+        result: {
+          tools: tools.map(({ name, description, inputSchema, outputSchema }) => ({
+            name,
+            description,
+            inputSchema,
+            ...(outputSchema ? { outputSchema } : {})
+          }))
+        }
       }
     case "tools/call": {
       const tool = tools.find((candidate) => candidate.name === message.params?.name)
@@ -175,7 +217,8 @@ async function respond(message: { method?: string; params?: Record<string, unkno
         const result = await tool.run((message.params?.arguments ?? {}) as Record<string, unknown>)
         return { result }
       } catch (error) {
-        return { result: { content: [text(error instanceof Error ? error.message : String(error))], isError: true } }
+        const failure = renamePath(operationError(error, tool.fields), tool.names ?? {})
+        return { result: { content: [text(failure.message)], structuredContent: { error: failure }, isError: true } }
       }
     }
     default:

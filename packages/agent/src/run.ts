@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto"
 import { createContext, Script, type Context } from "node:vm"
-import { describeConflicts } from "@parity-app/core"
+import { CodedError, describeConflicts, errorDetails } from "@parity-app/core"
 import type { AgentHooks, AgentSnapshot, ExecResult } from "./types.ts"
 import { AgentWorkspace } from "./workspace.ts"
 
@@ -25,7 +25,12 @@ const failed = new Map<string, string>()
  */
 export async function execute(request: ExecRequest, snapshot: AgentSnapshot, hooks: AgentHooks): Promise<ExecResult> {
   const code = request.editId ? patch(request.editId, request.edits ?? []) : request.code
-  if (!code?.trim()) throw new Error("Nothing to run: pass a snippet, or an editId with edits")
+  if (!code?.trim()) {
+    throw new CodedError("Nothing to run: pass a snippet, or an editId with edits", {
+      code: "invalid_input",
+      field: "code"
+    })
+  }
   const workspace = new AgentWorkspace(snapshot, hooks, request.label)
   workspace.emit({ kind: "start" })
 
@@ -35,7 +40,9 @@ export async function execute(request: ExecRequest, snapshot: AgentSnapshot, hoo
     const { designs, modes, tokens } = result.changes
     if (hooks.apply && (designs.length > 0 || modes || tokens.length > 0)) {
       const conflicts = await hooks.apply(result.changes)
-      if (conflicts.length > 0) throw new Error(describeConflicts(conflicts))
+      if (conflicts.length > 0) {
+        throw new CodedError(describeConflicts(conflicts), { code: "conflict", retryable: true })
+      }
     }
     if (request.editId) failed.delete(request.editId)
     workspace.emit({ kind: "end" })
@@ -50,6 +57,7 @@ export async function execute(request: ExecRequest, snapshot: AgentSnapshot, hoo
     return {
       ok: false,
       error: message,
+      details: errorDetails(error) ?? { code: "execution_failed", retryable: false },
       editId,
       output: workspace.output,
       warnings: [],
@@ -74,12 +82,24 @@ async function run(tab: string, code: string, api: Record<string, unknown>): Pro
 
 function patch(editId: string, edits: { find: string; replace: string; all?: boolean }[]): string {
   let code = failed.get(editId)
-  if (code === undefined) throw new Error(`No failed snippet with editId ${editId}; send the whole snippet again`)
+  if (code === undefined) {
+    throw new CodedError(`No failed snippet with editId ${editId}; send the whole snippet again`, {
+      code: "unknown_edit_id",
+      field: "editId"
+    })
+  }
   for (const [index, edit] of edits.entries()) {
     const count = code.split(edit.find).length - 1
-    if (count === 0) throw new Error(`Edit ${index + 1}: "${edit.find}" isn't in the snippet`)
-    if (count > 1 && !edit.all)
-      throw new Error(`Edit ${index + 1}: "${edit.find}" appears ${count} times; make it unique or set all`)
+    const field = `edits/${index}/find`
+    if (count === 0) {
+      throw new CodedError(`Edit ${index + 1}: "${edit.find}" isn't in the snippet`, { code: "invalid_input", field })
+    }
+    if (count > 1 && !edit.all) {
+      throw new CodedError(`Edit ${index + 1}: "${edit.find}" appears ${count} times; make it unique or set all`, {
+        code: "invalid_input",
+        field
+      })
+    }
     code = edit.all ? code.replaceAll(edit.find, edit.replace) : code.replace(edit.find, edit.replace)
   }
   return code

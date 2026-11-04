@@ -51,6 +51,19 @@ failures and audit findings exit with 1 in the CLI and set MCP `isError`, with d
 `clear` to false; `get_props` defaults `all` to false. MCP project paths must be absolute; the CLI resolves relative
 folders from its working directory. Skill reading is local and needs no running app.
 
+Every tool returns its result as data too: MCP `structuredContent`, or `--json` in the CLI. Read that rather than the
+text. A failure has `error.code` to branch on, `retryable` (send it again unchanged), `path` (the input at fault) and
+`alternatives` (valid ids for one it didn't know), so a mistyped id is fixed in one retry:
+
+```sh
+parity problems button --state loading --json
+# {"error": {"code": "unknown_state", "path": "/state", "alternatives": ["default", "outline", "destructive", "disabled"], ...}}
+parity problems button --state disabled --json
+```
+
+`get_tokens` returns the first 100 tokens and `get_console` the newest 50 messages, with `total` and `truncated`; narrow
+the read or raise `limit` when `truncated` is true.
+
 When a library's components, tokens or icons don't show, `parity lib <package> --root <project>` describes the package
 in a `.lib.par`: its components, tokens and the providers its frames need. It writes `./<id>.lib.par` in the current
 folder, or prints with `--out -`. With no package it describes the app at `--root` into the `.lib.par` at its root,
@@ -100,7 +113,8 @@ stylesheet when the person saves.
 
 ## When something fails
 
-`execute` returns an `editId` when a snippet throws, and nothing changes. Fix it with `editId` and `edits` (exact find
-and replace on the snippet) instead of sending it all again. The error names the line. Common causes: a node path that
-matches two designs (write it as `design/node`), a node property that doesn't exist, and a state change to something
-states can't change (only `hidden`, `text`, `props` and `style`).
+`execute` returns an `editId` when a snippet throws, and nothing changes; `error.code` says why, and
+`error.alternatives` names the valid ids when a design, state, mode or component wasn't found. Fix it with `editId` and
+`edits` (exact find and replace on the snippet) instead of sending it all again. The error names the line. Common
+causes: a node path that matches two designs (write it as `design/node`), a node property that doesn't exist, and a
+state change to something states can't change (only `hidden`, `text`, `props` and `style`).

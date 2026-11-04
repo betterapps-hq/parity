@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Agents get every result as data, in --json and MCP structuredContent with published output schemas, and failures as stable error codes with the input at fault, whether to retry, and the valid ids to use instead. Token and console reads are bounded by --limit.",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

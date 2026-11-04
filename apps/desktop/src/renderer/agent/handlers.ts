@@ -1,7 +1,14 @@
 import type { IconNames, IconSet } from "@parity-app/agent"
-import type { ChangeConflict, LibraryInfo } from "@parity-app/core"
+import { type ChangeConflict, CodedError, errorDetails, type LibraryInfo, unknownReference } from "@parity-app/core"
 import { toast } from "sonner"
-import type { AgentChanges, TabSnapshot, TabSummary, WindowMethod, WindowMethods } from "../../shared/protocol.ts"
+import type {
+  AgentChanges,
+  ServeAnswer,
+  TabSnapshot,
+  TabSummary,
+  WindowMethod,
+  WindowMethods
+} from "../../shared/protocol.ts"
 import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
 import { type ProjectSession, type Tab, workspace } from "../workspace.ts"
 import { presence } from "./presence.ts"
@@ -11,53 +18,64 @@ import { presence } from "./presence.ts"
  * changes in the service, and apply them here as one undoable step, so people see them land and can undo them.
  */
 export function serveAgents(): void {
-  window.canvasHost.serve(async (method: WindowMethod, params: unknown) => {
-    switch (method) {
-      case "agent.tabs":
-        return workspace.summaries()
-      case "agent.open": {
-        const { root } = params as WindowMethods["agent.open"]["params"]
-        const tab = await workspace.open(root)
-        return summary(tab)
-      }
-      case "agent.snapshot":
-        return snapshot((params as WindowMethods["agent.snapshot"]["params"]).tab)
-      case "agent.iconNames":
-        return iconNames(params as WindowMethods["agent.iconNames"]["params"])
-      case "agent.apply":
-        return apply(params as AgentChanges)
-      case "agent.presence":
-        presence.push(params as WindowMethods["agent.presence"]["params"])
-        return undefined
-      case "project.componentsChanged": {
-        const { projectId, components, sources, leftOut } =
-          params as WindowMethods["project.componentsChanged"]["params"]
-        const tab = workspace.getTabs().find((candidate) => candidate.session?.id === projectId)
-        if (sources && tab) workspace.setSources(tab.id, sources, leftOut)
-        tab?.session?.components.set(components)
-        return undefined
-      }
-      case "project.guestMoved": {
-        const { projectId, guestUrl } = params as WindowMethods["project.guestMoved"]["params"]
-        // A tab that couldn't load it says so, and the service tries again when the builder is started again.
-        if (!(await workspace.moveGuest(projectId, guestUrl))) throw new Error(`The guest at ${guestUrl} didn't load`)
-        return undefined
-      }
-      case "project.fileChanged": {
-        const { projectId, path, document } = params as WindowMethods["project.fileChanged"]["params"]
-        const store = workspace.getTabs().find((tab) => tab.session?.id === projectId)?.session?.store
-        // Unsaved changes here win until the person says otherwise.
-        if (store && !store.reloadDocument(path, document)) {
-          toast.warning(`${path} changed on disk`, {
-            description: "Your unsaved changes are kept. Saving writes them over it.",
-            duration: 15000,
-            action: { label: "Load from disk", onClick: () => store.reloadDocument(path, document, true) }
-          })
-        }
-        return undefined
-      }
+  window.canvasHost.serve((method: WindowMethod, params: unknown) => settle(() => answer(method, params)))
+}
+
+/** An answer as data, since only a failure's message would cross the bridge to the preload script. */
+async function settle(run: () => Promise<unknown>): Promise<ServeAnswer> {
+  try {
+    return { result: await run() }
+  } catch (error) {
+    const details = errorDetails(error)
+    return { error: error instanceof Error ? error.message : String(error), ...(details ? { details } : {}) }
+  }
+}
+
+async function answer(method: WindowMethod, params: unknown): Promise<unknown> {
+  switch (method) {
+    case "agent.tabs":
+      return workspace.summaries()
+    case "agent.open": {
+      const { root } = params as WindowMethods["agent.open"]["params"]
+      const tab = await workspace.open(root)
+      return summary(tab)
     }
-  })
+    case "agent.snapshot":
+      return snapshot((params as WindowMethods["agent.snapshot"]["params"]).tab)
+    case "agent.iconNames":
+      return iconNames(params as WindowMethods["agent.iconNames"]["params"])
+    case "agent.apply":
+      return apply(params as AgentChanges)
+    case "agent.presence":
+      presence.push(params as WindowMethods["agent.presence"]["params"])
+      return undefined
+    case "project.componentsChanged": {
+      const { projectId, components, sources, leftOut } = params as WindowMethods["project.componentsChanged"]["params"]
+      const tab = workspace.getTabs().find((candidate) => candidate.session?.id === projectId)
+      if (sources && tab) workspace.setSources(tab.id, sources, leftOut)
+      tab?.session?.components.set(components)
+      return undefined
+    }
+    case "project.guestMoved": {
+      const { projectId, guestUrl } = params as WindowMethods["project.guestMoved"]["params"]
+      // A tab that couldn't load it says so, and the service tries again when the builder is started again.
+      if (!(await workspace.moveGuest(projectId, guestUrl))) throw new Error(`The guest at ${guestUrl} didn't load`)
+      return undefined
+    }
+    case "project.fileChanged": {
+      const { projectId, path, document } = params as WindowMethods["project.fileChanged"]["params"]
+      const store = workspace.getTabs().find((tab) => tab.session?.id === projectId)?.session?.store
+      // Unsaved changes here win until the person says otherwise.
+      if (store && !store.reloadDocument(path, document)) {
+        toast.warning(`${path} changed on disk`, {
+          description: "Your unsaved changes are kept. Saving writes them over it.",
+          duration: 15000,
+          action: { label: "Load from disk", onClick: () => store.reloadDocument(path, document, true) }
+        })
+      }
+      return undefined
+    }
+  }
 }
 
 /** A tab by id, root or name; the active tab when none is given. */
@@ -68,13 +86,28 @@ function findTab(reference: string | undefined): Tab {
       tabs.find((candidate) => candidate.session?.info.root === reference) ??
       tabs.find((candidate) => candidate.title === reference))
     : workspace.getActive()
-  if (!tab) throw new Error(reference ? `No open tab matches "${reference}"` : "No project is open")
+  if (!tab) {
+    if (!reference) throw new CodedError("No project is open", { code: "unknown_tab", field: "tab" })
+    const ids = tabs.map((candidate) => candidate.id)
+    throw unknownReference(
+      "unknown_tab",
+      `No open tab matches "${reference}". Tabs: ${ids.join(", ")}`,
+      reference,
+      ids,
+      "tab"
+    )
+  }
   return tab
 }
 
 function ready(tab: Tab): ProjectSession {
-  if (!tab.session)
-    throw new Error(`${tab.title} is ${tab.status === "error" ? `broken: ${tab.message}` : "still opening"}`)
+  if (!tab.session) {
+    const broken = tab.status === "error"
+    throw new CodedError(`${tab.title} is ${broken ? `broken: ${tab.message}` : "still opening"}`, {
+      code: "tab_not_ready",
+      retryable: !broken
+    })
+  }
   return tab.session
 }
 

@@ -2372,6 +2372,35 @@ through the otherwise transparent overlay, so the full hover title is reachable 
 The cursor component was checked in Storybook with a long name; its text and title remain intact and its visible width
 is bounded with ellipsis.
 
+### Structured results and coded errors (PAR-472)
+
+Every shared operation returns the same data as CLI `--json` and MCP `structuredContent`, with an `outputSchema` per
+tool in `tools/list`, beside the text and images people read. Failures carry a stable `code`, the `message`,
+`retryable`, a JSON-pointer `path` to the input at fault, up to 20 `alternatives` (valid ids for an unknown or ambiguous
+one) and a failed snippet's `editId`. Unknown tabs, designs, nodes, states, modes, viewports, components, icon sets and
+retry ids are coded where the app finds them; invalid input is coded before anything reaches the app; a missing app is
+`not_running`. Tokens and the console are bounded by `limit`, with `total` and `truncated`.
+
+Implementation: `packages/core/src/errors.ts` (codes, `CodedError`, `closest`, `readErrorDetails`);
+`packages/cli/src/errors.ts` (the operation error, its schema and path mapping); `operations.ts` and `execute.ts`
+(output schemas, canonical results, bounds); `mcp.ts` and `bin.ts` (structured output in each transport);
+`packages/agent/src/workspace.ts` and `run.ts` (coded lookups, conflicts and retries, `ExecResult.details`);
+`apps/desktop/src/utility/agent.ts` (RPC `details`), `utility/index.ts`, `preload/index.ts` and
+`renderer/agent/handlers.ts` (details across the window channel, `ServeAnswer`, coded tab lookup).
+
+Tests: `packages/core/src/errors.test.ts` (defaults, bounded closest-first alternatives, checking details from another
+process, coded unknown state). `packages/agent/src/run.test.ts` ("coded failures": unknown design, state, mode,
+component and node, ambiguous node, uncoded throw, unknown retry id, a patch that doesn't match, and the conflict code).
+`packages/cli/src/operations.test.ts` and `execute.test.ts` launch the real CLI and MCP: structured data equal to CLI
+`--json` for every operation, app codes with paths and alternatives for unknown tab, design, state and component,
+unknown codes read as `app_error`, invalid input paths in each transport's names, `not_running`, bounds and limits,
+image data kept out of structured results, and every tool's output schema. `client.test.ts` covers the truncated token
+text.
+
+Checked in the running app on `examples/shadcn-vite`: unknown tab, component, design and state through the CLI with
+`--json`, bounded tokens, and an execute that applied and was renamed back. Gaps: the end-to-end suite doesn't drive the
+CLI; `get_app_state` is unbounded (53 KB for 61 designs), left to PAR-479.
+
 ### Library import aliases (PAR-483)
 
 A library installed under an alias uses that alias for its components, providers, icon modules and values made by the

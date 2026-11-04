@@ -11,13 +11,13 @@ import {
   describeExec,
   describeProblems,
   describeProps,
-  describeTokens,
-  type ExecResponse
+  describeTokens
 } from "./client.ts"
+import { invalidInput, operationError } from "./errors.ts"
 import { executeOperation } from "./execute.ts"
 import { runLib } from "./lib.ts"
 import { serveMcp } from "./mcp.ts"
-import { operations, skillOperation } from "./operations.ts"
+import { type Operation, operations, skillOperation } from "./operations.ts"
 import { readSkill } from "./skills.ts"
 
 const usage = `parity: drive the Parity app from a terminal or an agent
@@ -33,10 +33,13 @@ const usage = `parity: drive the Parity app from a terminal or an agent
   parity problems <design> [--state s|all] [--mode m|shown|all] [--tab t]
                                             render errors, overflow, clipping and unknown components, in every state
                                             and the modes shown unless narrowed; exits with 1 when it finds any
-  parity console [--clear] [--tab t]        what the project's code wrote to the console, on the canvas and in
-                                            offscreen renders; --clear empties it after reading
-  parity tokens [--category c] [--source semantic|theme] [--search s] [--tab t]
-                                            the tokens styles can name, with their values per theme
+  parity console [--clear] [--limit 50] [--tab t]
+                                            what the project's code wrote to the console, on the canvas and in
+                                            offscreen renders, the newest 50 unless --limit says; --clear empties it
+                                            after reading
+  parity tokens [--category c] [--source semantic|theme] [--search s] [--limit 100] [--tab t]
+                                            the tokens styles can name, with their values per theme, the first 100
+                                            unless --limit says
   parity components [--tab t]               the components designs can use, by library
   parity props <Component> [--all] [--tab t]
                                             a component's props from its source; --all adds the attributes it passes on
@@ -72,7 +75,9 @@ const usage = `parity: drive the Parity app from a terminal or an agent
   parity skill [file]                       print the design skill, or one of its files
   parity mcp                                serve these as MCP tools on stdio
 
-Options take a tab id, project root or name with --tab; the active tab is the default.`
+Options take a tab id, project root or name with --tab; the active tab is the default. --json prints any command's
+result as the data MCP returns as structuredContent, and a failure as {"error": {code, message, retryable, path,
+alternatives, editId}}.`
 
 const { positionals, values } = parseArgs({
   allowPositionals: true,
@@ -91,6 +96,7 @@ const { positionals, values } = parseArgs({
     category: { type: "string" },
     source: { type: "string" },
     search: { type: "string" },
+    limit: { type: "string" },
     root: { type: "string" },
     out: { type: "string" },
     registry: { type: "boolean" },
@@ -106,11 +112,15 @@ const { positionals, values } = parseArgs({
 })
 
 const [command, ...rest] = positionals
+/** The running command's input fields, which a failure's path can point at. */
+let fields: readonly string[] | undefined
 
 try {
   await main()
 } catch (error) {
-  console.error(error instanceof Error ? error.message : String(error))
+  const failure = operationError(error, fields)
+  if (values.json) print({ error: failure })
+  console.error(failure.message)
   process.exitCode = 1
 }
 
@@ -119,14 +129,16 @@ async function main(): Promise<void> {
     console.log(usage)
     return
   }
+  const limit = values.limit === undefined ? undefined : Number(values.limit)
   switch (command) {
     case "tabs":
-      return print(await operations.tabs.run({}, call))
+      return show(operations.tabs, {})
     case "state":
-      return print(await operations.state.run({ tab: values.tab }, call))
+      return show(operations.state, { tab: values.tab })
     case "open":
-      return print(await operations.open.run({ root: rest[0]?.trim() ? resolve(rest[0]) : rest[0] }, call))
+      return show(operations.open, { root: rest[0]?.trim() ? resolve(rest[0]) : rest[0] })
     case "skill":
+      fields = skillOperation.fields
       console.log(await skillOperation.run({ path: rest[0] }, readSkill))
       return
     case "mcp":
@@ -156,17 +168,26 @@ async function main(): Promise<void> {
         ...(values.json ? { json: true } : {})
       })
     case "exec": {
+      fields = executeOperation.fields
       const editId = values["edit-id"]
       let code: string | undefined
       if (rest[0]) code = await readFile(rest[0], "utf8")
       else if (!editId) code = (await stdin()) || undefined
-      const edits: unknown = values.edits === undefined ? undefined : JSON.parse(values.edits)
+      let edits: unknown
+      try {
+        edits = values.edits === undefined ? undefined : JSON.parse(values.edits)
+      } catch {
+        throw invalidInput("edits", "edits must be JSON: a list of {find, replace}")
+      }
       const result = await executeOperation.run({ tab: values.tab, label: values.label, code, editId, edits }, call)
-      report(result, executeOperation.failed(result))
+      if (values.json) print(executeOperation.structured(result))
+      else console.log(describeExec(result))
+      if (executeOperation.failed(result)) process.exitCode = 1
       return
     }
-    case "screenshot": {
-      const result = await operations.screenshot.run(
+    case "screenshot":
+      return show(
+        operations.screenshot,
         {
           tab: values.tab,
           design: rest[0],
@@ -174,76 +195,57 @@ async function main(): Promise<void> {
           mode: values.mode,
           scale: values.scale === undefined ? undefined : Number(values.scale)
         },
-        call
+        describeExec
       )
-      report(result, operations.screenshot.failed(result))
-      return
-    }
     case "a11y":
-    case "accessibility": {
-      const result = await operations.accessibility.run(
-        {
-          tab: values.tab,
-          design: rest[0],
-          state: values.state,
-          mode: values.mode
-        },
-        call
+    case "accessibility":
+      return show(
+        operations.accessibility,
+        { tab: values.tab, design: rest[0], state: values.state, mode: values.mode },
+        describeAccessibility
       )
-      if (values.json) print(result)
-      else console.log(describeAccessibility(result))
-      if (operations.accessibility.failed(result)) process.exitCode = 1
-      return
-    }
-    case "problems": {
-      const result = await operations.problems.run(
-        {
-          tab: values.tab,
-          design: rest[0],
-          state: values.state,
-          mode: values.mode
-        },
-        call
+    case "problems":
+      return show(
+        operations.problems,
+        { tab: values.tab, design: rest[0], state: values.state, mode: values.mode },
+        describeProblems
       )
-      if (values.json) print(result)
-      else console.log(describeProblems(result))
-      if (operations.problems.failed(result)) process.exitCode = 1
-      return
-    }
-    case "tokens": {
-      const filter = { category: values.category, source: values.source, search: values.search }
-      const tokens = await operations.tokens.run({ tab: values.tab, ...filter }, call)
-      if (values.json) print(tokens)
-      else console.log(describeTokens(tokens))
-      return
-    }
-    case "components": {
-      const result = await operations.components.run({ tab: values.tab }, call)
-      if (values.json) print(result)
-      else console.log(describeComponents(result))
-      return
-    }
-    case "props": {
-      const result = await operations.props.run({ tab: values.tab, component: rest[0], all: values.all }, call)
-      if (values.json) print(result)
-      else console.log(describeProps(result))
-      return
-    }
-    case "console": {
-      const result = await operations.console.run({ tab: values.tab, clear: values.clear }, call)
-      if (values.json) print(result)
-      else console.log(describeConsole(result))
-      return
-    }
+    case "tokens":
+      return show(
+        operations.tokens,
+        { tab: values.tab, category: values.category, source: values.source, search: values.search, limit },
+        describeTokens
+      )
+    case "components":
+      return show(operations.components, { tab: values.tab }, describeComponents)
+    case "props":
+      return show(operations.props, { tab: values.tab, component: rest[0], all: values.all }, describeProps)
+    case "console":
+      return show(operations.console, { tab: values.tab, clear: values.clear, limit }, describeConsole)
     default:
-      throw new Error(`Unknown command ${command}\n\n${usage}`)
+      throw invalidInput(
+        undefined,
+        `Unknown command ${command}
+
+${usage}`
+      )
   }
 }
 
-function report(result: ExecResponse, failed: boolean): void {
-  if (values.json) print({ ...result, screenshots: result.screenshots.map(({ png: _png, ...shot }) => shot) })
-  else console.log(describeExec(result))
-  if (failed) process.exitCode = 1
+/**
+ * Runs a shared operation and prints it: the structured result with --json, the same data MCP returns as
+ * structuredContent, or the account for people. A failure exits with 1 either way.
+ */
+async function show<Result>(
+  operation: Operation<Result>,
+  input: Record<string, unknown>,
+  describe?: (result: Result) => string
+): Promise<void> {
+  fields = operation.fields
+  const result = await operation.run(input, call)
+  if (values.json || !describe) print(operation.structured(result))
+  else console.log(describe(result))
+  if (operation.failed(result)) process.exitCode = 1
 }
 
 function print(value: unknown): void {

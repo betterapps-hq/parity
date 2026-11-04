@@ -2,10 +2,10 @@ import { writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { describe, expect, it } from "vite-plus/test"
 import { describeExec } from "./client.ts"
-import { type ExecResponse, executeRequest } from "./execute.ts"
+import { type ExecReply, execResponse, executeOperation, executeRequest, structuredExec } from "./execute.ts"
 import { toolReply, transportFixture } from "./transport-fixture.ts"
 
-const success: ExecResponse = {
+const success: ExecReply = {
   ok: true,
   applied: true,
   output: ["Read 28 designs"],
@@ -13,6 +13,7 @@ const success: ExecResponse = {
   created: { home: "home-id" },
   screenshots: [{ path: "/shot.png", png: "AA==", design: "home", state: "default", mode: "desktop" }]
 }
+const structuredSuccess = structuredExec(execResponse(success))
 const fixture = transportFixture(success)
 const { requests, run, mcp } = fixture
 
@@ -77,6 +78,9 @@ describe("execute transport contract", () => {
       id: 2,
       result: {
         content: [{ type: "text", text: cli.stderr.trim() }],
+        structuredContent: {
+          error: { code: "invalid_input", message: cli.stderr.trim(), retryable: false, path: "/editId" }
+        },
         isError: true
       }
     })
@@ -86,15 +90,16 @@ describe("execute transport contract", () => {
     const [cli, protocol] = await Promise.all([run(["exec"], code), mcp({ input: code })])
     expectRequests({ code, label: "Edit designs" })
     expect(cli.code).toBe(0)
-    expect(cli.stdout.trim()).toBe(describeExec(success))
+    expect(cli.stdout.trim()).toBe(describeExec(execResponse(success)))
     expect(toolReply(protocol.stdout)).toEqual({
       jsonrpc: "2.0",
       id: 2,
       result: {
         content: [
-          { type: "text", text: describeExec(success) },
+          { type: "text", text: describeExec(execResponse(success)) },
           { type: "image", data: "AA==", mimeType: "image/png" }
         ],
+        structuredContent: structuredSuccess,
         isError: false
       }
     })
@@ -104,7 +109,7 @@ describe("execute transport contract", () => {
     const code = "Print('file input')"
     const file = join(fixture.directory, "input.js")
     await writeFile(file, code)
-    const [cli] = await Promise.all([
+    const [cli, protocol] = await Promise.all([
       run(["exec", file, "--label", "Review home screen", "--tab", "project", "--json"], ""),
       mcp({ input: code, description: "Review home screen", tab: "project" })
     ])
@@ -113,6 +118,9 @@ describe("execute transport contract", () => {
       ...success,
       screenshots: [{ path: "/shot.png", design: "home", state: "default", mode: "desktop" }]
     })
+    expect(toolReply(protocol.stdout)).toEqual(
+      expect.objectContaining({ result: expect.objectContaining({ structuredContent: JSON.parse(cli.stdout) }) })
+    )
   })
 
   it("maps retry patches identically, preserving empty replacement strings and all", async () => {
@@ -137,79 +145,197 @@ describe("execute transport contract", () => {
       args: [],
       stdin: "",
       input: {},
-      error: "Nothing to run: pass a snippet, or an editId with edits"
+      error: "Nothing to run: pass a snippet, or an editId with edits",
+      cliPath: "/code",
+      mcpPath: "/input"
     },
     {
       name: "blank label",
       args: ["--label", " "],
       stdin: "Print(1)",
       input: { input: "Print(1)", description: " " },
-      error: "label must be a nonblank string"
+      error: "label must be a nonblank string",
+      cliPath: "/label",
+      mcpPath: "/description"
     },
     {
       name: "non-array edits",
       args: ["--edit-id", "failed", "--edits", "null"],
       stdin: "",
       input: { editId: "failed", edits: null },
-      error: "edits must be an array"
+      error: "edits must be an array",
+      cliPath: "/edits",
+      mcpPath: "/edits"
     },
     {
       name: "invalid patch",
       args: ["--edit-id", "failed", "--edits", '[{"find":"x"}]'],
       stdin: "",
       input: { editId: "failed", edits: [{ find: "x" }] },
-      error: "Each edit needs a replace string"
+      error: "Each edit needs a replace string",
+      cliPath: "/edits/0/replace",
+      mcpPath: "/edits/0/replace"
     },
     {
       name: "edits without retry",
       args: ["--edits", "[]"],
       stdin: "Print(1)",
       input: { input: "Print(1)", edits: [] },
-      error: "edits requires an editId"
+      error: "edits requires an editId",
+      cliPath: "/edits",
+      mcpPath: "/edits"
     }
-  ])("rejects $name before sending RPC in either transport", async ({ args, stdin, input, error }) => {
-    const [cli, protocol] = await Promise.all([run(["exec", ...args], stdin), mcp(input)])
-    expect(requests).toEqual([])
-    expect(cli.code).toBe(1)
-    expect(cli.stderr.trim()).toBe(error)
-    expect(toolReply(protocol.stdout)).toEqual({
-      jsonrpc: "2.0",
-      id: 2,
-      result: { content: [{ type: "text", text: error }], isError: true }
-    })
-  })
+  ])(
+    "rejects $name before sending RPC in either transport, with the field at fault",
+    async ({ args, stdin, input, error, cliPath, mcpPath }) => {
+      const [cli, json, protocol] = await Promise.all([
+        run(["exec", ...args], stdin),
+        run(["exec", ...args, "--json"], stdin),
+        mcp(input)
+      ])
+      expect(requests).toEqual([])
+      expect(cli.code).toBe(1)
+      expect(cli.stderr.trim()).toBe(error)
+      const failure = { code: "invalid_input", message: error, retryable: false }
+      expect(JSON.parse(json.stdout)).toEqual({ error: { ...failure, path: cliPath } })
+      expect(toolReply(protocol.stdout)).toEqual({
+        jsonrpc: "2.0",
+        id: 2,
+        result: {
+          content: [{ type: "text", text: error }],
+          structuredContent: { error: { ...failure, path: mcpPath } },
+          isError: true
+        }
+      })
+    }
+  )
 
   it("reports failed execution as a CLI failure and MCP tool error with retry details", async () => {
-    const failure = {
+    const failure: ExecReply = {
       ...success,
       ok: false,
       applied: false,
-      error: "Unknown design",
+      error: 'No design "hom". Designs: home (Home)',
+      details: { code: "unknown_design", retryable: false, field: "design", alternatives: ["home"] },
       editId: "retry-id",
       created: {},
       screenshots: []
     }
     fixture.response = { result: failure }
-    const [cli, protocol] = await Promise.all([run(["exec"], "Print(1)"), mcp({ input: "Print(1)" })])
+    const [cli, json, protocol] = await Promise.all([
+      run(["exec"], "Print(1)"),
+      run(["exec", "--json"], "Print(1)"),
+      mcp({ input: "Print(1)" })
+    ])
+    const canonical = execResponse(failure)
+    // A snippet's unknown design isn't one of execute's inputs, so there's no path, but the alternatives stay.
+    expect(canonical.error).toEqual({
+      code: "unknown_design",
+      message: 'No design "hom". Designs: home (Home)',
+      retryable: false,
+      alternatives: ["home"],
+      editId: "retry-id"
+    })
     expect(cli.code).toBe(1)
-    expect(cli.stdout.trim()).toBe(describeExec(failure))
+    expect(cli.stdout.trim()).toBe(describeExec(canonical))
+    expect(cli.stdout).toContain('retrying with editId "retry-id"')
+    expect(json.code).toBe(1)
+    expect(JSON.parse(json.stdout)).toEqual(structuredExec(canonical))
     expect(toolReply(protocol.stdout)).toEqual({
       jsonrpc: "2.0",
       id: 2,
-      result: { content: [{ type: "text", text: describeExec(failure) }], isError: true }
+      result: {
+        content: [{ type: "text", text: describeExec(canonical) }],
+        structuredContent: structuredExec(canonical),
+        isError: true
+      }
     })
   })
 
-  it("preserves desktop RPC errors in both transports", async () => {
+  it("codes a snippet failure without details as execution_failed", () => {
+    const reply: ExecReply = { ...success, ok: false, error: "x is not defined (line 1)", editId: "e1" }
+    expect(execResponse(reply).error).toEqual({
+      code: "execution_failed",
+      message: "x is not defined (line 1)",
+      retryable: false,
+      editId: "e1"
+    })
+  })
+
+  it("preserves desktop RPC errors in both transports, coded app_error when the app gives no code", async () => {
     fixture.response = { error: "Tab is not ready" }
-    const [cli, protocol] = await Promise.all([run(["exec"], "Print(1)"), mcp({ input: "Print(1)" })])
+    const [cli, json, protocol] = await Promise.all([
+      run(["exec"], "Print(1)"),
+      run(["exec", "--json"], "Print(1)"),
+      mcp({ input: "Print(1)" })
+    ])
     expect(cli.code).toBe(1)
     expect(cli.stderr.trim()).toBe("Tab is not ready")
+    const error = { code: "app_error", message: "Tab is not ready", retryable: false }
+    expect(JSON.parse(json.stdout)).toEqual({ error })
     expect(toolReply(protocol.stdout)).toEqual({
       jsonrpc: "2.0",
       id: 2,
-      result: { content: [{ type: "text", text: "Tab is not ready" }], isError: true }
+      result: { content: [{ type: "text", text: "Tab is not ready" }], structuredContent: { error }, isError: true }
     })
+  })
+
+  it("keeps the app's code for a retry whose snippet it no longer has, pointing at editId in both", async () => {
+    fixture.response = {
+      error: "No failed snippet with editId gone; send the whole snippet again",
+      details: { code: "unknown_edit_id", retryable: false, field: "editId" }
+    }
+    const [json, protocol] = await Promise.all([
+      run(["exec", "--edit-id", "gone", "--json"], ""),
+      mcp({ editId: "gone" })
+    ])
+    const error = {
+      code: "unknown_edit_id",
+      message: "No failed snippet with editId gone; send the whole snippet again",
+      retryable: false,
+      path: "/editId"
+    }
+    expect(JSON.parse(json.stdout)).toEqual({ error })
+    expect(toolReply(protocol.stdout)).toEqual(
+      expect.objectContaining({ result: expect.objectContaining({ structuredContent: { error }, isError: true }) })
+    )
+  })
+
+  it("says the app isn't running, as a retryable not_running, in both", async () => {
+    const env = { PARITY_AGENT_FILE: join(fixture.directory, "missing.json") }
+    const messages = [
+      { jsonrpc: "2.0", id: 1, method: "initialize", params: { clientInfo: { name: "Contract Caller" } } },
+      { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "execute", arguments: { input: "Print(1)" } } }
+    ]
+    const [json, protocol] = await Promise.all([
+      run(["exec", "--json"], "Print(1)", env),
+      run(["mcp"], messages.map((message) => JSON.stringify(message) + "\n").join(""), env)
+    ])
+    const error = expect.objectContaining({ code: "not_running", retryable: true })
+    expect(json.code).toBe(1)
+    expect(JSON.parse(json.stdout)).toEqual({ error })
+    expect(toolReply(protocol.stdout)).toEqual(
+      expect.objectContaining({ result: expect.objectContaining({ structuredContent: { error }, isError: true }) })
+    )
+  })
+
+  it("publishes execute's output schema with the failure every tool can return", async () => {
+    const result = await run(["mcp"], JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }) + "\n")
+    expect(toolReply(result.stdout)).toEqual(
+      expect.objectContaining({
+        result: {
+          tools: expect.arrayContaining([
+            expect.objectContaining({
+              name: "execute",
+              outputSchema: {
+                type: "object",
+                anyOf: [executeOperation.outputSchema, expect.objectContaining({ required: ["error"] })]
+              }
+            })
+          ])
+        }
+      })
+    )
   })
 })
 

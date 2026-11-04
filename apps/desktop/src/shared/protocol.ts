@@ -216,13 +216,22 @@ export interface WindowMethods {
   "project.guestMoved": { params: { projectId: string; guestUrl: string }; result: undefined }
 }
 
+/**
+ * A window's answer to the service, as data: a failure's details wouldn't survive the bridge from the page to the
+ * preload script as a thrown error, which keeps only its message.
+ */
+export type ServeAnswer = { result: unknown } | { error: string; details?: unknown }
+
 export type ServiceMethod = keyof ServiceMethods
 export type WindowMethod = keyof WindowMethods
 
-/** Messages on a window's channel to the service. Either side can make requests. */
+/**
+ * Messages on a window's channel to the service. Either side can make requests. A failed one carries its message, and
+ * the coded error's details when it had them, which the receiving side checks before trusting.
+ */
 export type ChannelMessage =
   | { type: "request"; id: number; method: string; params?: unknown }
-  | { type: "response"; id: number; result?: unknown; error?: string }
+  | { type: "response"; id: number; result?: unknown; error?: string; details?: unknown }
 
 export interface ProjectInfo {
   /** Identifies the open project; its absolute root. */
@@ -363,7 +372,7 @@ export interface CanvasHost {
   initialProject?: string
   request<M extends ServiceMethod>(method: M, params: ServiceMethods[M]["params"]): Promise<ServiceMethods[M]["result"]>
   /** Answers the service's requests. One handler per window. */
-  serve(handler: (method: WindowMethod, params: unknown) => Promise<unknown>): void
+  serve(handler: (method: WindowMethod, params: unknown) => Promise<ServeAnswer>): void
   /**
    * Runs when the window is connected to a fresh project service, after the old one was restarted: its projects need
    * opening again. Requests the old service hadn't answered fail.
