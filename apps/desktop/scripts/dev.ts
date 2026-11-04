@@ -2,7 +2,10 @@
 // The UI reloads in place through Vite. A change to the project service (the utility script and every workspace package
 // it bundles) restarts only the service: Electron watches its bundle and reconnects its windows, which keep their unsaved
 // work. Only a change to the main process or the preload script restarts Electron.
+// The window runs React's production build, and a change to a component reloads the page (scripts/react-build.ts).
 // Usage: pnpm dev [project-root]
+//   PARITY_REACT=development    run the window on React's development build, for its warnings, StrictMode's checks and
+//                               components updating in place as they change
 //   PARITY_STANDARD_ELECTRON=1  run Electron as installed, not Parity's copy of it (scripts/parity-electron.ts)
 import { type ChildProcess, spawn } from "node:child_process"
 import { cpSync } from "node:fs"
@@ -10,6 +13,7 @@ import { join, resolve } from "node:path"
 import { type BuildContext, type BuildOptions, context, type Plugin } from "esbuild"
 import { createServer } from "vite"
 import { parityElectron } from "./parity-electron.ts"
+import { reactBuild } from "./react-build.ts"
 
 const appDir = resolve(import.meta.dirname, "..")
 const repoDir = resolve(appDir, "../..")
@@ -24,6 +28,10 @@ const debugPort = process.env.PARITY_DEBUG_PORT ?? "9333"
 const installedElectron = (await import("electron")).default as unknown as string
 const electronPath =
   process.env.PARITY_STANDARD_ELECTRON === "1" ? installedElectron : parityElectron(installedElectron)
+
+// The UI's Vite config reads this; anything else that uses the config, such as Storybook, keeps React's development build.
+process.env.PARITY_REACT = process.env.PARITY_REACT ? reactBuild(process.env.PARITY_REACT) : "production"
+console.log(`[dev] React's ${process.env.PARITY_REACT} build`)
 
 const ui = await createServer({ configFile: join(appDir, "vite.config.ts"), root: join(appDir, "src/renderer") })
 await ui.listen()
