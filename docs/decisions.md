@@ -1815,7 +1815,7 @@ to PAR-209 build it.
   `app.yml` runs them for every pull request and push to main on Windows, whose runners have a desktop for the window.
   It doesn't block merging yet: on its first run the example never opened on the runner within 180 s, so it stays out of
   CI until it runs reliably there (PAR-438). It's a workflow of its own, not a job `CI passes` leaves out, since a
-  failed job still fails CI's run, and `cd-npm.yml` and `cd-desktop.yml` run only after CI's run on `main` succeeds.
+  failed job still fails CI's run, which would hold up the CLI's release there and `cd-desktop.yml`.
 - **Packages and scripts use only TypeScript that Node can strip,** because the CLI and scripts run them with plain
   `node`: no parameter properties, namespaces or enums. oxlint rejects the first two in `packages/**` and
   `apps/*/scripts/**`; the app's bundled code may use them. The Library files session found CAN-48's parser had broken
@@ -1931,9 +1931,10 @@ the Repository, CI and releases stream in Linear.
   - **pnpm's `publishConfig` points `bin` and `exports` at `dist` when it packs,** so the workspace still runs the CLI
     from source.
   - **It needs Node 24,** as the repository does.
-  - **Provenance comes from the CD workflow's `--provenance`, not `publishConfig`,** since npm only makes it in CI and
-    the first version is published by hand, which npm needs before it can trust the workflow. 0.0.0 went up by hand on
-    2026-10-30, and `npm trust` then named `cd-npm.yml` and the `npm` environment as its only publisher.
+  - **Provenance comes from trusted publishing in CI, not `publishConfig`,** since npm only makes it in CI and the first
+    version is published by hand, which npm needs before it can trust the workflow. 0.0.0 went up by hand on 2026-10-30,
+    and `npm trust` then named `cd-npm.yml` and the `npm` environment as its only publisher. Since the release moved
+    into CI (PAR-10), it names `ci.yml`.
   - **`pnpm --filter @parity-app/cli try-packed` installs the packed tarball in an empty folder and runs it.** CI runs
     it on each system. The packed tarball is 2.6 MB.
 - **Hooks keep what doesn't belong out of pull requests (PAR-3),** as you asked on 2026-10-29. My calls:
@@ -1973,32 +1974,33 @@ the Repository, CI and releases stream in Linear.
   - **OpenAI reviews use AGENTS.md and conventions.md as guidance.** The disabled review service's configuration is
     removed, and lint, format, types, tests and change files stay with CI.
   - **GitHub's secret scanning and push protection stay on,** as they are by default for public repositories.
-- **Releases follow Buildkit's flow.** After CI passes on `main`, pending change files are released straight to `main`,
-  with no release pull request, as you asked on 2026-11-04: Beachball bumps the versions and changelogs, commits them
-  and pushes the commit to `main`, and once CI passes on that commit it's delivered: the CLI to npm through trusted
-  publishing with provenance, and the desktop app to GitHub Releases. My calls: installers come from electron-builder,
-  since one tool makes installers, signs them and serves updates, and only the desktop app makes GitHub Releases, so the
-  updater never mistakes a CLI release for an app update.
-  - **`cd-npm.yml` calls the shared templates** (PAR-10, PAR-14), `beachball-publish-npm` and `cd-npm-publish`, as
-    `betterapps-hq/pipelines`' README shows, after CI passes for a push to `main`. Like every workflow here, they call
-    the templates at `main`, not a pinned commit, so Parity gets each change as it merges, as you asked on 2026-11-03.
-    My calls:
-    - **A deploy key pushes the release commit,** as Buildkit's does: the one actor `main`'s ruleset lets skip a pull
-      request, through `infra/github`. Its private key is the `npm` environment's `RELEASE_DEPLOY_KEY` secret, passed by
-      name. A deploy key's push starts CI and delivery, which the job's own token's wouldn't. It replaces the release
-      GitHub App and its release pull request, which `release.yml` opened until 2026-11-04.
-    - **Beachball doesn't publish,** since it would publish the desktop app too, and its `shouldPublish: false` would
-      stop it versioning the app. `cd-npm-publish` publishes the CLI once CI passes on the release commit, so what npm
-      gets is a commit CI passed on, and `cd-desktop.yml` publishes the app's beta from the same commit.
-    - **The release runs only while the commit CI passed on is `main`'s head,** since a newer commit's own CI run
-      releases it.
-    - **The `npm` environment comes from Terraform,** in `infra/github`, kept to `main` with administrators unable to
-      bypass it, and with no approval, since every release ships.
-    - **`cd-npm.yml` runs on every CI pass on `main`,** not only when a version changes, since the template publishes
-      only versions npm doesn't have: a run without one publishes nothing and asks for no approval, and a failed run is
-      caught up by the next. It also runs by hand, through `workflow_dispatch`, from template v1.7.1 on (PAR-14): the
-      template publishes such a run only from `main`, and only a commit `ci.yml` passed on as a push to `main`, which it
-      reads with `actions: read`. Re-run also retries a failed publish with the CI run it started from.
+- **Releases follow Buildkit's flow, with the CLI and the desktop app released apart.** After CI passes on `main`,
+  pending change files are released straight to `main`, with no release pull request, as you asked on 2026-11-04:
+  Beachball bumps the versions and changelogs, commits them and pushes the commit to `main`. The CLI goes to npm through
+  trusted publishing with provenance, and the desktop app to GitHub Releases, each in a release of its own, as you asked
+  the same day. My calls: installers come from electron-builder, since one tool makes installers, signs them and serves
+  updates, and only the desktop app makes GitHub Releases, so the updater never mistakes a CLI release for an app
+  update.
+  - **Both call the shared `beachball-publish-npm` template** (PAR-10, PAR-14), as `betterapps-hq/pipelines`' README
+    shows. Like every workflow here, they call it at `main`, not a pinned commit, so Parity gets each change as it
+    merges, as you asked on 2026-11-03. My calls:
+    - **`ci.yml`'s `release` job releases the CLI,** as Buildkit's CI does, once `verify` and `checks` pass on a push to
+      `main`. Beachball runs scoped to leave out `apps/desktop`, so it bumps the CLI, publishes it to npm, then commits,
+      tags and pushes. It runs in the `npm` environment, which the CLI's trusted publisher names with `ci.yml`.
+    - **`cd-desktop.yml`'s `version` job versions the desktop app** once CI passes on `main`. Beachball publishes every
+      package it versions and has no setting to version one without publishing it, so this run is scoped to
+      `apps/desktop` with publishing off: it bumps, commits, tags and pushes. CI's run on that commit starts
+      `cd-desktop.yml` again, whose `release` job publishes the new version as a beta.
+    - **Each scoped run leaves the other's change files alone,** so a failed npm release doesn't hold up the app, or the
+      other way round. A commit with change files for both is released in turn, a commit for each.
+    - **A deploy key pushes the release commits,** as Buildkit's does: the one actor `main`'s ruleset lets skip a pull
+      request, through `infra/github`. Its private key is the `RELEASE_DEPLOY_KEY` secret of the `npm` and `desktop`
+      environments, passed by name. A deploy key's push starts CI and delivery, which the job's own token's wouldn't. It
+      replaces the release GitHub App and its release pull request, which `release.yml` opened until 2026-11-04.
+    - **A release runs only while the commit CI passed on is `main`'s head,** since a newer commit's own CI run releases
+      it.
+    - **The `npm` and `desktop` environments come from Terraform,** in `infra/github`, kept to `main` with
+      administrators unable to bypass them, and with no approval, since every release ships.
     - **Four change files written under the old name `@parity/desktop` were renamed** to `@parity-app/desktop`, since
       `beachball bump` skips a change file for a package that doesn't exist, leaving it and dropping its changelog line.
 - **Desktop releases reach the beta first, and everyone when promoted,** as you asked on 2026-10-29: beta builds and
@@ -2474,13 +2476,13 @@ new operation tests. No Electron is needed; a read-only check in the running app
 Agents read what a call returned without parsing the prose written for people. Each shared operation in
 `packages/cli/src/operations.ts` (and execute in `execute.ts`) now has an output schema, a canonical result built from
 the app's reply, and the structured form of that result. CLI `--json`, on every command, prints the structured form; MCP
-returns it as `structuredContent`, beside the same text and image blocks as before, and publishes each tool's
-`outputSchema` in `tools/list`. My calls:
+returns it as `structuredContent`, beside the same text and image blocks as before, and published each tool's
+`outputSchema` in `tools/list` until PAR-510 took them out. My calls:
 
 - **One error shape everywhere:** `{ code, message, retryable, path?, alternatives?, editId? }`. A call that fails
   before producing a result returns `{ error }`; an execute or screenshot that fails returns its whole report with
-  `error` in it. The MCP output schema is the result or `{ error }` (`anyOf`), since clients validate structured content
-  against it on errors too. CLI failures still exit with 1 and print the message on stderr; with `--json` the
+  `error` in it. The MCP output schema was the result or `{ error }` (`anyOf`), since clients validate structured
+  content against it on errors too. CLI failures still exit with 1 and print the message on stderr; with `--json` the
   `{ error }` goes to stdout.
 - **The codes are a closed list in core** (`packages/core/src/errors.ts`, exported alone as `@parity-app/core/errors` so
   the CLI doesn't load the rest of core): `invalid_input`, `not_running`, `not_answering`, `unknown_tab`,
@@ -2906,6 +2908,25 @@ editor.md, Component previews, made offscreen and kept on disk). The design is t
   until then a component row's hint shows its large picture, which is enough to see them and lets a row on screen ask
   for its picture first.
 
+## MCP's tool list leaves out output schemas (PAR-510)
+
+`tools/list` grew from 8.6 KB to 33 KB once every tool published an `outputSchema` (PAR-472) and `get_modes` and
+`get_status` arrived. Output schemas were 22 KB of it, the same 618-byte failure branch repeated in 13 of them. My
+calls, which you agreed on 2026-11-04:
+
+- **Tools publish no `outputSchema`; `structuredContent` stays.** The MCP spec allows structured content without a
+  schema. The schemas stay in the operation contracts (`operations.ts`, `execute.ts`), behind CLI `--json` and the
+  tests. The list is 11.7 KB.
+- **Why it was safe to drop.** Claude Code never shows an output schema to the model: Anthropic's tool definitions have
+  no field for one, and Claude Code defers MCP tools, so a session starts with their names and the server's instructions
+  and loads a tool's description and input schema when it's needed. Codex renders output schemas into the model's
+  context as TypeScript in its code mode, so there they cost context on every session. No client needed them to call the
+  tools.
+- **A test holds the list to 12 KiB** (`operations.test.ts`, "keeps the MCP tool list within its budget"). Raise it when
+  a tool earns it, not to make room for longer schemas or descriptions.
+- **Codex shows the model only `structuredContent` when a result has it,** dropping the text and images beside it, so
+  Codex users see no screenshots. That is PAR-528.
+
 ## Opening a project in seconds (PAR-179)
 
 Reopening the example project took 5.7 seconds to a usable canvas and 6.6 to its previews when started again, and 19
@@ -2953,6 +2974,62 @@ calls:
   discovery while the tools are found was tried and gained nothing, as both work on the service's one thread. Caching
   discovery, or starting the canvas before the guest loads, would go further, and each is a change of its own.
 
+## The selection overlay measures when what it shows can change (PAR-522)
+
+While anything was selected, the overlay measured every animation frame, each time searching the canvas for the design's
+frames several times over, which the 2026-11-04 speed audit found the most expensive work in every interaction's profile
+(see editor.md, The overlay measures only when what it shows can change). My calls:
+
+- **Frames are indexed where `ModeView` mounts them,** in a layout effect around the host element, rather than by a
+  MutationObserver over the canvas or in `FrameTile`. The host is `ModeView`'s, every frame on the canvas is one, and a
+  MutationObserver would wake on every change anywhere in the canvas to find the few that matter. `findFrames` reads the
+  index, so agents' presence, Reveal, the style preview and the tab order overlay use it too. Something that draws its
+  own `data-frame` host, as a story or a test does, registers it (`registerFrame`).
+- **Measuring wakes on changes, then settles for half a second.** The selection, hover, tool and preferences; the design
+  store; tldraw's store, which holds the camera and the boards; pointer, wheel and key input, which drive drags,
+  snapping, resizing and Alt's redlines; the canvas area or a frame changing size; DOM, attribute or text changes and
+  images loading inside a frame drawn over; and fonts loading. After each, it measures every animation frame for 500 ms
+  (`settleMs`), which covers what follows a change by a frame or two, as a design drawing after an edit does, and a
+  transition a change starts.
+- **Animations are followed while they run, found by the browser rather than by a timer.** Once settled, the overlay
+  asks the frames it draws over for their running animations and transitions (`getAnimations` on each frame's shadow
+  root) and keeps measuring every frame while there are any, and only then. A component animated by script writes styles
+  or DOM as it goes, which the frame's MutationObserver catches. So a spinner anywhere in a selected design keeps the
+  overlay measuring, as before this change; a design that doesn't animate costs nothing while it's still. Measuring for
+  a short while after each change, without asking, would have dropped an outline behind a long animation.
+- **Only frames drawn over wake it:** the selected and hovered designs', or every frame's while the layout grid shows. A
+  design animating elsewhere on the canvas doesn't keep the overlay measuring.
+- **What it doesn't see** is layout that moves with no input, DOM change, resize, image or font load or animation it
+  hears of, such as a video in a frame taking its size once its data arrives. The outline catches up at the next change,
+  such as the pointer moving.
+
+## Frame bitmaps are captured in four offscreen windows at once (PAR-523)
+
+A first launch of the example project took 21 to 29 seconds to have every frame's bitmap, captured one at a time in one
+offscreen window at about 150 ms each (see editor.md, Bitmaps kept between sessions and Opening in seconds). My calls:
+
+- **A pool of windows rather than several frames on one page.** Each frame is still drawn alone, in a page of its own,
+  at its own size, so its bitmap is the one a single window takes: 117 of 119 came out the same file byte for byte, and
+  the other 2 differed by rasterizing noise in a shadow. Laying several frames out on one page and cropping one capture
+  would save the per-frame waits but let frames share a window's height, its fixed-position layer and its lazy loading,
+  which a frame alone doesn't.
+- **Four windows, opened as jobs need them.** Each is a renderer process holding the project's modules while it's open,
+  so a lone agent render still opens only one, and all close a minute after the last job, as the one window did. Four
+  already leaves the windows waiting on the canvas (see below), so more would cost memory for nothing yet;
+  `offscreenWindows` in `packages/core/src/preview-order.ts` is the one number to change.
+- **Previews take one window at a time.** Component previews (PAR-207) stay behind canvas bitmaps and agents' renders in
+  `renderQueue`, and making only one at once keeps the other windows free for those, so a preview never delays them.
+  Agents' renders and the canvas's bitmaps keep one priority, in the order they're asked for; the canvas asks for at
+  most four at a time, so an agent's render waits for at most the four under way.
+- **The waits inside a capture stay.** Raising the windows' frame rate to 240 made each capture about 35 ms shorter, but
+  moved it to another point in CSS transitions, so two frames' bitmaps came out different from one taken alone; it was
+  dropped. Capturing a frame's first bitmap without the 1-second settle, and asking for two captures per window, gained
+  nothing measurable, since the window's own thread decides when captures are asked for. The 30 ms wait lets components
+  that load on demand start before `loaded()` looks for them, so it stays.
+- **The 8-second target isn't met alone** (12.0 to 12.6 seconds on a busy machine, from 29.1). Captures start only when
+  every frame has drawn its design, and the window then takes each drawn design apart as its bitmap comes, which paces
+  how fast it asks for the next. Showing a skeleton instead of drawing far frames first (PAR-525) removes both.
+
 ## The app's UI kit moves to Buildkit's Base UI Nova (PAR-530)
 
 - **The app's shadcn components move to Buildkit's `@buildkitgg/shadcn-baseui-nova`,** as you asked on 2026-11-04, so
@@ -2962,8 +3039,9 @@ calls:
   `@buildkitgg/shadcn-baseui-kit`, so code names no style. Only Storybook uses it until the migration.
 - **Each component is compared side by side in Storybook before its copy goes,** under Parity/Kit comparison/Side by
   side: the app's copy and the kit's, with the same content and their popups open, each in its own frame, in the
-  toolbar's theme. Five copies were changed by hand: `kbd`, `command`, `context-menu`, `dropdown-menu` and `menubar`
-  show keys through `formatKeys`, `menubar` has the title bar's own look, and `sonner` follows the app's theme rather
+  toolbar's theme. Six copies were changed by hand: `kbd`, `command`, `context-menu`, `dropdown-menu` and `menubar` show
+  keys through `formatKeys`, `menubar` has the title bar's own look (and its menus size to what they hold, where the
+  kit's are its dropdown menus, as wide as their trigger and at least 9rem), and `sonner` follows the app's theme rather
   than `next-themes`. Those show a third side, the kit with the change made from outside it, which is where it has to
   live once the kit can't be edited. The rest are as `shadcn add` wrote them.
 - **Radix's menus and selects close when their window loses focus; Base UI's don't.** In the comparison, the app's side

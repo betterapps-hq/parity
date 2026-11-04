@@ -113,8 +113,9 @@ and checking remain CLI commands; library checking runs its snippets through the
 
 ## Structured results
 
-Every command takes `--json` and prints the same data the MCP tool returns as `structuredContent`; `tools/list`
-publishes each tool's `outputSchema`. Human text and screenshot images stay beside it. A failure is
+Every command takes `--json` and prints the same data the MCP tool returns as `structuredContent`. `tools/list` doesn't
+publish output schemas, since agents would pay for them in context; `operations.ts` and `execute.ts` hold them. Human
+text and screenshot images stay beside it. A failure is
 `{ "error": { code, message, retryable, path?, alternatives?, editId? } }` (with `--json` on stdout, and the message on
 stderr), or, for `exec` and `screenshot`, the whole report with `error` in it:
 

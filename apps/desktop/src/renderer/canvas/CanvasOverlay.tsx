@@ -12,15 +12,24 @@ import {
   type NodeStyle,
   resolveModes
 } from "@parity-app/core"
-import { distancesBetween, type Edge, resizeStart } from "@parity-app/editor"
+import {
+  distancesBetween,
+  drawsOver,
+  type Edge,
+  measuresNext,
+  overlayDesigns,
+  resizeStart,
+  settleUntil
+} from "@parity-app/editor"
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react"
 import { editingState } from "../chrome/LayerPanel.tsx"
 import { getPreferences, subscribePreferences } from "../chrome/preferences.ts"
-import { findFrames, findNodeElement, nodeBox } from "../frame.ts"
+import { allFrames, findFrames, findNodeElement, nodeBox, subscribeFrames } from "../frame.ts"
 import { selectedNodes, toggleLayer, useEditing } from "../selection.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { useProject } from "./context.ts"
+import { onGestureEnd } from "./gesture-end.ts"
 import { holdCursor } from "./held-cursor.ts"
 import {
   frameAt,
@@ -245,22 +254,35 @@ export function CanvasOverlay() {
     }
   }, [session])
 
-  // Outlines follow the camera, layout changes and animations, so they're measured every frame while there are any:
-  // while something is selected or hovered, layers are dragged or the layout grid shows. Otherwise measuring rests
-  // until one of those changes.
+  // Outlines follow the camera, layout changes, animations and drags, so they're measured when one of those can have
+  // moved them, not every frame (PAR-522, see `@parity-app/editor`'s overlay-measuring.ts): each change measures every
+  // frame for a moment, and after that only while an animation runs in a frame drawn over. Measuring rests otherwise.
   useEffect(() => {
-    const { selection } = session
+    const { selection, store, editor } = session
+    const area = rootRef.current?.parentElement
+    if (!area) return undefined
     let frame = 0
     let last = ""
-    const drawing = () =>
+    let until = 0
+    const showing = () =>
       !!selection.get().design || !!selection.getHover()?.node || !!getDragView() || getPreferences().layoutGrid
+    const designs = () =>
+      overlayDesigns({
+        selected: selection.get().design,
+        hovered: selection.getHover()?.design,
+        layoutGrid: getPreferences().layoutGrid
+      })
+    const animating = () => {
+      const drawn = designs()
+      return allFrames(area).some((host) => drawsOver(drawn, host.dataset.design) && animates(host))
+    }
     const tick = () => {
-      frame = drawing() ? requestAnimationFrame(tick) : 0
-      const root = rootRef.current
-      const area = root?.parentElement
-      if (!root || !area || area.closest("[hidden]")) return
+      frame = 0
+      if (measuresNext({ now: performance.now(), until, showing: showing(), animating }))
+        frame = requestAnimationFrame(tick)
+      if (area.closest("[hidden]")) return
       // Interacting, outlines and handles would sit over the components being tried.
-      const next = session.selection.getTool() === "interact" ? empty : measure(session, area, pointer.current.alt)
+      const next = selection.getTool() === "interact" ? empty : measure(session, area, pointer.current.alt)
       const serialized = JSON.stringify(next)
       if (serialized !== last) {
         last = serialized
@@ -268,15 +290,71 @@ export function CanvasOverlay() {
       }
     }
     const wake = () => {
+      until = settleUntil(performance.now(), until)
       frame ||= requestAnimationFrame(tick)
     }
+    // A frame's change wakes measuring only when it's drawn over.
+    const wakeFor = (host: HTMLElement) => {
+      if (drawsOver(designs(), host.dataset.design)) wake()
+    }
+
+    // The canvas area resizing or showing again, and frames changing size.
+    const resizes = new ResizeObserver((entries) => {
+      const drawn = designs()
+      const moved = ({ target }: ResizeObserverEntry) =>
+        target === area || (target instanceof HTMLElement && drawsOver(drawn, target.dataset.design))
+      if (entries.some(moved)) wake()
+    })
+    resizes.observe(area)
+    // What frames draw changing: React committing, a component's own DOM and style writes, a class starting a
+    // transition, an image loading.
+    const watched = new Map<HTMLElement, () => void>()
+    const watch = (host: HTMLElement, mounted: boolean) => {
+      const shadow = host.shadowRoot
+      if (!mounted || !area.contains(host)) {
+        watched.get(host)?.()
+        watched.delete(host)
+        resizes.unobserve(host)
+        return
+      }
+      resizes.observe(host)
+      if (!shadow || watched.has(host)) return
+      const changes = new MutationObserver(() => wakeFor(host))
+      changes.observe(shadow, { subtree: true, childList: true, attributes: true, characterData: true })
+      const loaded = () => wakeFor(host)
+      shadow.addEventListener("load", loaded, true)
+      watched.set(host, () => {
+        changes.disconnect()
+        shadow.removeEventListener("load", loaded, true)
+      })
+    }
+    for (const host of allFrames(area)) watch(host, true)
+    const stopFrames = subscribeFrames((host, mounted) => {
+      watch(host, mounted)
+      if (area.contains(host)) wakeFor(host)
+    })
+
+    // The selection, hover, tool and preferences; the designs; tldraw's camera and boards; and the pointer and keys,
+    // which drive drags, snapping, resizing and Alt's redlines.
     const stopSelection = selection.subscribe(wake)
     const stopPreferences = subscribePreferences(wake)
+    const stopStore = store.subscribe(wake)
+    const stopEditor = editor?.store.listen(wake)
+    const inputs = ["pointermove", "pointerdown", "pointerup", "pointercancel", "wheel", "keydown", "keyup"]
+    for (const type of inputs) window.addEventListener(type, wake, { capture: true, passive: true })
+    document.fonts.addEventListener("loadingdone", wake)
     wake()
     return () => {
       cancelAnimationFrame(frame)
+      resizes.disconnect()
+      for (const stop of watched.values()) stop()
+      stopFrames()
       stopSelection()
       stopPreferences()
+      stopStore()
+      stopEditor?.()
+      for (const type of inputs) window.removeEventListener(type, wake, { capture: true })
+      document.fonts.removeEventListener("loadingdone", wake)
     }
   }, [session])
 
@@ -419,6 +497,11 @@ function RedlineView({ line }: { line: Redline }) {
       </div>
     </>
   )
+}
+
+/** Whether an animation or a transition runs in a frame, which the outlines over it follow as it goes. */
+function animates(host: HTMLElement): boolean {
+  return !!host.shadowRoot?.getAnimations().some((animation) => animation.playState === "running")
 }
 
 /** Whether a free text note is under a point, whose double-click tldraw handles to edit it. */
@@ -696,7 +779,7 @@ function layoutSpacing(
 function layoutColumns(area: HTMLElement, zoom: number, toBox: (rect: DOMRect) => Box): { key: string; box: Box }[] {
   const columns: { key: string; box: Box }[] = []
   const view = area.getBoundingClientRect()
-  for (const host of area.querySelectorAll<HTMLElement>("[data-frame]")) {
+  for (const host of allFrames(area)) {
     const rect = host.getBoundingClientRect()
     if (rect.right < view.left || rect.left > view.right || rect.bottom < view.top || rect.top > view.bottom) continue
     const scale = zoom * frameScale(host)
@@ -738,13 +821,15 @@ function redline(from: Point, to: Point, length: number, unit: number): Redline 
 /**
  * Follows the pointer until it's released, showing a cursor wherever it goes, as the drag writes to a design in one
  * gesture, so it's one undo step. Escape cancels: everything the drag wrote is taken back, leaving nothing to undo, and
- * the release that follows does nothing.
+ * the release that follows does nothing. The pointer cancelled or the window losing focus ends it as a release does.
+ * `done` runs once it's over, whichever way it ended.
  */
 function drag(
   session: ProjectSession,
   design: string,
   cursor: string,
-  move: (event: PointerEvent, gesture: string) => void
+  move: (event: PointerEvent, gesture: string) => void,
+  done?: () => void
 ): void {
   const { store } = session
   const gesture = store.beginGesture()
@@ -754,25 +839,15 @@ function drag(
     event.preventDefault()
     move(event, gesture)
   }
-  const end = () => {
+  window.addEventListener("pointermove", onMove)
+  // Released, cancelled or cut short, it keeps what it did; Escape takes it all back.
+  onGestureEnd(window, (how) => {
+    if (how === "escape" && checkpoint) store.revert(checkpoint)
     releaseCursor()
     window.removeEventListener("pointermove", onMove)
-    window.removeEventListener("pointerup", end)
-    window.removeEventListener("pointercancel", end)
-    window.removeEventListener("keydown", onKey, true)
     store.endGesture(gesture)
-  }
-  const onKey = (event: KeyboardEvent) => {
-    if (event.key !== "Escape") return
-    event.preventDefault()
-    event.stopImmediatePropagation()
-    if (checkpoint) store.revert(checkpoint)
-    end()
-  }
-  window.addEventListener("pointermove", onMove)
-  window.addEventListener("pointerup", end)
-  window.addEventListener("pointercancel", end)
-  window.addEventListener("keydown", onKey, true)
+    done?.()
+  })
 }
 
 /** How close, in screen pixels, an edge has to come to snap. */
@@ -862,7 +937,8 @@ function startResize(
   // proportions.
   const snapping = drawn ? LayerSnapping.measure(editor, host, entry.container, location.node.id, scale) : undefined
 
-  drag(session, entry.key, resizeCursors[edge], (moveEvent, undoStep) => {
+  // The snap guides go when the drag ends, however it ends.
+  const moveEdge = (moveEvent: PointerEvent, undoStep: string) => {
     const delta = { x: moveEvent.clientX - start.x, y: moveEvent.clientY - start.y }
     const proportional = moveEvent.shiftKey && horizontal && vertical
     if (proportional) snapping?.clear()
@@ -887,7 +963,8 @@ function startResize(
         editNode(container, boardTarget(container, state.id), location.node.id, { style: style as NodeStyle }),
       { gesture: undoStep }
     )
-  })
+  }
+  drag(session, entry.key, resizeCursors[edge], moveEdge, () => snapping?.clear())
 }
 
 /** Double-clicking a handle goes back to the default size on its axes. */

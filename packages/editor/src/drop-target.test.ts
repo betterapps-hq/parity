@@ -9,9 +9,9 @@ const box = (left: number, top: number, width: number, height: number): Rect => 
   right: left + width,
   bottom: top + height
 })
-const column: Flow = { direction: "column", wraps: false, reversed: false }
-const row: Flow = { direction: "row", wraps: false, reversed: false }
-const grid: Flow = { direction: "row", wraps: true, reversed: false }
+const column: Flow = { direction: "column", wraps: false, reversed: false, linesReversed: false }
+const row: Flow = { direction: "row", wraps: false, reversed: false, linesReversed: false }
+const grid: Flow = { direction: "row", wraps: true, reversed: false, linesReversed: false }
 
 /**
  * The dashboard's stats as a frame 832px wide draws them at full size: four cards 188px wide with 16px between, in a

@@ -11,8 +11,9 @@ import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor } from "../canvas/kinds.tsx"
 import { containerModes, withMainMode } from "../canvas/view.ts"
 import { type ContainerEntry, useContainerEntry, useModeSettings, useNotes } from "../design-store.ts"
-import { useSelection } from "../selection.ts"
+import { selectionKey, useSelection } from "../selection.ts"
 import { ComponentsSection, ParamsSection } from "./ComponentsSection.tsx"
+import { FieldTarget } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import { LayerPanel } from "./LayerPanel.tsx"
 import { ArrangePanel, MultiLayerPanel } from "./MultiPanel.tsx"
@@ -20,8 +21,21 @@ import { PanelSection } from "./PanelSection.tsx"
 import { StatesSection } from "./StatesSection.tsx"
 import { ModeViewportIcon } from "./viewports.tsx"
 
-/** The Design tab: whatever is selected, a design, one of its layers or modes, or text on the canvas. */
+/**
+ * The Design tab: whatever is selected, a design, one of its layers or modes, or text on the canvas. Its number fields
+ * edit the selection, so a run of Up and Down presses in one ends when the selection changes.
+ */
 export function DesignTab() {
+  const { selection } = useProject()
+  const selected = useSelection(selection)
+  return (
+    <FieldTarget value={selectionKey(selected)}>
+      <SelectedPanel />
+    </FieldTarget>
+  )
+}
+
+function SelectedPanel() {
   const { store, selection } = useProject()
   const selected = useSelection(selection)
   const entry = useContainerEntry(store, selected.design)

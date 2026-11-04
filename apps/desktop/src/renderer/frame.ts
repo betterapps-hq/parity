@@ -171,6 +171,8 @@ const drawnBy = new WeakMap<Element, () => DrawnNodes | undefined>()
 export function setDrawnNodes(host: Element, drawnNodes: (() => DrawnNodes | undefined) | undefined): void {
   if (drawnNodes) drawnBy.set(host, drawnNodes)
   else drawnBy.delete(host)
+  // Its layers are found another way now, and the overlay measures them again.
+  if (host instanceof HTMLElement && isRegistered(host)) tellFrameListeners(host, true)
 }
 
 function drawnNodes(host: Element): DrawnNodes | undefined {
@@ -215,6 +217,20 @@ export function elementBox(element: Element): DOMRect {
     clippedAway.set(element, hidden)
   }
   return hidden ? new DOMRect(rect.left, rect.top, 0, 0) : rect
+}
+
+/**
+ * The boxes of what a layout element lays out, in order: its children, and theirs through elements that don't draw a
+ * box of their own (display: contents), leaving out those placed absolutely and those not drawn.
+ */
+export function flowingBoxes(layout: Element): DOMRect[] {
+  return [...layout.children].flatMap((child) => {
+    const style = getComputedStyle(child)
+    if (style.display === "contents") return flowingBoxes(child)
+    if (style.display === "none" || style.position === "absolute" || style.position === "fixed") return []
+    const box = child.getBoundingClientRect()
+    return box.width > 0 || box.height > 0 ? [box] : []
+  })
 }
 
 /** The box around a node's elements' boxes, leaving out empty ones unless they're all empty. */
@@ -268,16 +284,70 @@ function attributeElements(host: Element): HTMLElement[] {
   return [...(host.shadowRoot?.querySelectorAll<HTMLElement>("[data-canvas-node]") ?? [])]
 }
 
-/** The frames drawn for a design, optionally one mode or state. */
-export function findFrames(
-  root: ParentNode,
-  design: string,
-  filter: { mode?: string; state?: string } = {}
-): HTMLElement[] {
-  return [...root.querySelectorAll<HTMLElement>("[data-frame]")].filter(
-    (host) =>
-      host.dataset.design === design &&
-      (filter.mode === undefined || host.dataset.mode === filter.mode) &&
-      (filter.state === undefined || host.dataset.state === filter.state)
-  )
+/**
+ * Every frame's host element by its design, kept as frames mount and unmount (`registerFrame`), so finding a design's
+ * frames doesn't search the canvas. The selection overlay finds them several times each time it measures (PAR-522).
+ */
+const framesByDesign = new Map<string, Set<HTMLElement>>()
+
+/** Who hears of a frame mounting, unmounting or being drawn afresh, with whether it's mounted. */
+const frameListeners = new Set<(host: HTMLElement, mounted: boolean) => void>()
+
+/**
+ * Puts a frame's host element (`data-frame`) in the index `findFrames` reads, for as long as it's mounted, under the
+ * design it draws. Returns what takes it out again.
+ */
+export function registerFrame(host: HTMLElement, design: string): () => void {
+  let hosts = framesByDesign.get(design)
+  if (!hosts) framesByDesign.set(design, (hosts = new Set()))
+  hosts.add(host)
+  tellFrameListeners(host, true)
+  return () => {
+    hosts.delete(host)
+    if (hosts.size === 0 && framesByDesign.get(design) === hosts) framesByDesign.delete(design)
+    tellFrameListeners(host, false)
+  }
+}
+
+/**
+ * Hears of frames mounting and unmounting, and of a mounted frame being drawn afresh, as when it wakes or its guest
+ * mounts. Returns what stops it.
+ */
+export function subscribeFrames(listener: (host: HTMLElement, mounted: boolean) => void): () => void {
+  frameListeners.add(listener)
+  return () => frameListeners.delete(listener)
+}
+
+function tellFrameListeners(host: HTMLElement, mounted: boolean): void {
+  for (const listener of frameListeners) listener(host, mounted)
+}
+
+function isRegistered(host: HTMLElement): boolean {
+  const design = host.dataset.design
+  return design !== undefined && !!framesByDesign.get(design)?.has(host)
+}
+
+/** The frames drawn for a design inside `root`, in the page's order, optionally one mode or state. */
+export function findFrames(root: Node, design: string, filter: { mode?: string; state?: string } = {}): HTMLElement[] {
+  const found: HTMLElement[] = []
+  for (const host of framesByDesign.get(design) ?? []) {
+    if (filter.mode !== undefined && host.dataset.mode !== filter.mode) continue
+    if (filter.state !== undefined && host.dataset.state !== filter.state) continue
+    if (root.contains(host)) found.push(host)
+  }
+  return inPageOrder(found)
+}
+
+/** Every frame drawn inside `root`, in the page's order. */
+export function allFrames(root: Node): HTMLElement[] {
+  const found: HTMLElement[] = []
+  for (const hosts of framesByDesign.values()) for (const host of hosts) if (root.contains(host)) found.push(host)
+  return inPageOrder(found)
+}
+
+/** Frames mount in the page's order, but one that mounts again goes last, so they're put back in it. */
+function inPageOrder(hosts: HTMLElement[]): HTMLElement[] {
+  return hosts.length < 2
+    ? hosts
+    : hosts.sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1))
 }

@@ -13,7 +13,7 @@ import {
   describeTokens,
   setCaller
 } from "./client.ts"
-import { failureSchema, operationError, renamePath } from "./errors.ts"
+import { operationError, renamePath } from "./errors.ts"
 import { executeOperation } from "./execute.ts"
 import { type Operation, operations, skillOperation } from "./operations.ts"
 import { readSkill } from "./skills.ts"
@@ -22,8 +22,6 @@ interface Tool {
   name: string
   description: string
   inputSchema: Record<string, unknown>
-  /** The structured result's schema, or a failure's. Absent for prose, such as the skill. */
-  outputSchema?: Record<string, unknown>
   /** The input fields an error's path can point at, in this tool's names. */
   fields: readonly string[]
   /** Renames the contract's fields to this tool's, in error paths. */
@@ -37,14 +35,13 @@ interface Reply {
 }
 type Content = { type: "text"; text: string } | { type: "image"; data: string; mimeType: "image/png" }
 
-/** A structured result's schema: the operation's result, or the failure every tool can return. */
-function outputSchema(result: Record<string, unknown>): Record<string, unknown> {
-  return { type: "object", anyOf: [result, failureSchema] }
-}
-
 /**
  * One adapter for RPC-backed tools: operation contracts own defaults, validation, failure semantics and the structured
  * result, which is what CLI --json prints. The text beside it is for people and clients that don't read structure.
+ *
+ * Tools publish no outputSchema (PAR-510). Claude Code never shows one to the model, Codex's code mode puts it in the
+ * model's context, and with them tools/list was 33 KB rather than 11. structuredContent needs no schema; the contracts
+ * keep theirs for CLI --json and the tests.
  */
 function operationTool<Result>(
   name: string,
@@ -56,7 +53,6 @@ function operationTool<Result>(
     name,
     description,
     inputSchema: operation.inputSchema,
-    outputSchema: outputSchema(operation.outputSchema),
     fields: operation.fields,
     async run(input) {
       const result = await operation.run(input, call)
@@ -102,7 +98,6 @@ const tools: Tool[] = [
     description:
       'Run a JavaScript snippet with the Parity API (read_skill "execute.md"). All changes land as one undoable step, or none on failure. Retry failures with editId and edits.',
     inputSchema: executeOperation.inputSchema(executeNames),
-    outputSchema: outputSchema(executeOperation.outputSchema),
     fields: executeOperation.fields,
     names: executeNames,
     async run(input) {
@@ -216,12 +211,7 @@ async function respond(message: { method?: string; params?: Record<string, unkno
     case "tools/list":
       return {
         result: {
-          tools: tools.map(({ name, description, inputSchema, outputSchema }) => ({
-            name,
-            description,
-            inputSchema,
-            ...(outputSchema ? { outputSchema } : {})
-          }))
+          tools: tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema }))
         }
       }
     case "tools/call": {

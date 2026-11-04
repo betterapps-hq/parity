@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Give CI's slower runners room in the unit tests' timeouts",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

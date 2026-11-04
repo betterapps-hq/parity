@@ -23,6 +23,7 @@ import { isRestingFar, isTabHidden, shapeIdFor } from "./CanvasEditor.tsx"
 import { ContainerView } from "./ContainerView.tsx"
 import { useProject } from "./context.ts"
 import { type BoardRest, boardDormant } from "./frame-sleep.ts"
+import { setBoardSized } from "./free-space.ts"
 import { holdCursor } from "./held-cursor.ts"
 import { clearSnaps, snapPosition } from "./snap.ts"
 import { useTitleLayer } from "./title-layer.tsx"
@@ -125,7 +126,8 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
   )
 
   // Layout sizes are unaffected by the camera's scale, so they can be written straight to the shape. A board that isn't
-  // drawn at all, in a tab that isn't showing, has no size to give, rather than a size of nothing.
+  // drawn at all, in a tab that isn't showing, has no size to give, rather than a size of nothing. Once it has given
+  // one, it says so, for a pasted design brought into view at its real size.
   useLayoutEffect(() => {
     const element = ref.current
     if (!element) return undefined
@@ -135,13 +137,18 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
       setDrawn(true)
       const w = element.offsetWidth
       const h = element.offsetHeight
-      if (Math.abs(current.props.w - w) < 1 && Math.abs(current.props.h - h) < 1) return
-      editor.run(() => editor.updateShape({ id: shape.id, type: "canvas-container", props: { w, h } }), {
-        history: "ignore"
-      })
+      if (Math.abs(current.props.w - w) >= 1 || Math.abs(current.props.h - h) >= 1) {
+        editor.run(() => editor.updateShape({ id: shape.id, type: "canvas-container", props: { w, h } }), {
+          history: "ignore"
+        })
+      }
+      setBoardSized(editor, shape.id, true)
     })
     observer.observe(element)
-    return () => observer.disconnect()
+    return () => {
+      observer.disconnect()
+      setBoardSized(editor, shape.id, false)
+    }
   }, [editor, shape.id])
 
   // Out of view, with a margin so frames are drawn before they scroll in, a board skips drawing its frames. Only once

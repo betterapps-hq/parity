@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vite-plus/test"
-import { aboveEverything, type Bounds, freeSpotBeside, panToShow, rightOfEverything } from "./placement.ts"
+import {
+  aboveEverything,
+  type Bounds,
+  freeSpotBeside,
+  panToShow,
+  pastedPlacement,
+  rightOfEverything
+} from "./placement.ts"
 
 const at = (x: number, y: number, w: number, h: number): Bounds => ({ minX: x, minY: y, maxX: x + w, maxY: y + h })
 
@@ -41,6 +48,32 @@ describe("placing a duplicate design", () => {
     const original = at(0, 1000, 1000, 800)
     const below = at(1200, 1900, 600, 800)
     expect(freeSpotBeside(original, [original, below])).toEqual({ x: 1960, y: 1000 })
+  })
+})
+
+describe("placing pasted designs", () => {
+  const center = { x: 5000, y: 3000 }
+
+  it("puts copies of designs on this canvas beside them, the originals' size", () => {
+    const dashboard = at(0, 0, 2700, 1400)
+    const placed = pastedPlacement([{ position: { x: 0, y: 0 }, bounds: dashboard }], center, [dashboard])
+    expect(placed).toEqual({ shift: { x: 2860, y: 0 }, shown: at(2860, 0, 2700, 1400) })
+  })
+
+  it("puts copies from another project in the middle of the view, with no size guessed for them", () => {
+    // A phone screen from another project: its size is only known once the canvas draws it.
+    const placed = pastedPlacement([{ position: { x: 120, y: 80 } }, { position: { x: 600, y: 40 } }], center, [])
+    expect(placed).toEqual({ shift: { x: 4880, y: 2960 } })
+  })
+
+  it("puts copies in the view when an original is no longer on the canvas", () => {
+    const home = at(0, 0, 1280, 800)
+    const placed = pastedPlacement(
+      [{ position: { x: 0, y: 0 }, bounds: home }, { position: { x: 2000, y: 0 } }],
+      center,
+      [home]
+    )
+    expect(placed).toEqual({ shift: { x: 5000, y: 3000 } })
   })
 })
 
