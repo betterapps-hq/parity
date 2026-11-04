@@ -1,18 +1,40 @@
 import { Fragment, jsx } from "react/jsx-runtime"
 import { describe, expect, it } from "vite-plus/test"
 import { Fragment as StandInFragment, jsxDEV } from "./jsx-dev-runtime.ts"
-import { jsxDevRuntimeStandIn, reactBuild, reactBuildConfig } from "./react-build.ts"
+import { jsxDevRuntimeStandIn, reactBuild, reactBuildConfig, reactFlag } from "./react-build.ts"
 
 describe("reactBuild", () => {
-  it("reads PARITY_REACT, where unset is the development build", () => {
+  it("reads a --react value, where none is the development build", () => {
     expect(reactBuild("production")).toBe("production")
     expect(reactBuild("development")).toBe("development")
     expect(reactBuild(undefined)).toBe("development")
-    expect(reactBuild("")).toBe("development")
   })
 
   it("rejects a build it doesn't know", () => {
-    expect(() => reactBuild("prod")).toThrow(/PARITY_REACT is "prod"/)
+    expect(() => reactBuild("prod")).toThrow(/--react is "prod"/)
+  })
+})
+
+describe("reactFlag", () => {
+  it("is the development build without the flag, leaving the arguments as they were", () => {
+    expect(reactFlag(["examples/shop"])).toEqual({ build: "development", rest: ["examples/shop"] })
+    expect(reactFlag([])).toEqual({ build: "development", rest: [] })
+  })
+
+  it("takes the flag and its value out wherever they are", () => {
+    expect(reactFlag(["--react", "production", "examples/shop"])).toEqual({
+      build: "production",
+      rest: ["examples/shop"]
+    })
+    expect(reactFlag(["examples/shop", "--react", "development"])).toEqual({
+      build: "development",
+      rest: ["examples/shop"]
+    })
+  })
+
+  it("rejects the flag without a value", () => {
+    expect(() => reactFlag(["--react"])).toThrow(/--react needs/)
+    expect(() => reactFlag(["--react", "--other"])).toThrow(/--react needs/)
   })
 })
 

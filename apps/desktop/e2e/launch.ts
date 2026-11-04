@@ -45,13 +45,11 @@ export async function launch(): Promise<RunningApp> {
   const debugPort = await freePort(suitePorts.debug)
   const log = join(dir, "app.log")
   const output = createWriteStream(log)
+  // On React's development build, as `pnpm dev` runs it, so StrictMode's checks and React's warnings run on every test.
   const runner = spawn(process.execPath, [join(appDir, "scripts/dev.ts"), project], {
     cwd: appDir,
     env: {
       ...appEnvironment(),
-      // React's development build, as the suite has always run, where StrictMode's checks and React's warnings run
-      // on every test: `pnpm dev` now runs the production build (PAR-519, see decisions.md).
-      PARITY_REACT: "development",
       PARITY_UI_PORT: String(uiPort),
       PARITY_UI_FROZEN: "1",
       PARITY_DEBUG_PORT: String(debugPort),
