@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Snap absolutely placed layers to their siblings and parent while moving and resizing, with guides, distances and even spacing",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

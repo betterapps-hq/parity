@@ -122,4 +122,14 @@ describe("resizing an absolutely placed layer", () => {
   it("never fills", () => {
     expect(drag(from("s", { top: 40, left: 0, right: 0 }), [0, 336])).toEqual({ height: 100 })
   })
+
+  it("takes an edge that snapped exactly where it locked, rather than in steps (PAR-174)", () => {
+    // The bottom handle dragged 26px, its edge snapped 32px down to the Lunch slot's top: 24 steps, not 23.
+    const gesture = resizeGesture(from("s", { top: 40, left: 0, right: 0, height: 16 }))
+    expect(gesture({ dx: 0, dy: 26, shift: false, snapped: { y: 32 } })).toEqual({ height: 24 })
+    // Snapped 30px down, it's 23.5 steps high, to the half pixel.
+    expect(gesture({ dx: 0, dy: 26, shift: false, snapped: { y: 30 } })).toEqual({ height: 23.5 })
+    // Along an axis that didn't snap, the pointer counts, in steps.
+    expect(gesture({ dx: 0, dy: 26, shift: false, snapped: {} })).toEqual({ height: 23 })
+  })
 })

@@ -618,12 +618,19 @@ export class App {
 
   /**
    * Presses at one point and moves through others in small steps, as a hand does, then releases. `during` runs before
-   * the release, to look at the drag in progress or press a key.
+   * the release, to look at the drag in progress or press a key. Keys in `hold` go down once the press has begun and
+   * come up after the release, as Ctrl is held to move freely.
    */
-  async drag<T>(from: Point, to: Point | Point[], during?: () => Promise<T>): Promise<T | undefined> {
+  async drag<T>(
+    from: Point,
+    to: Point | Point[],
+    during?: () => Promise<T>,
+    hold: ("Control" | "Shift" | "Alt")[] = []
+  ): Promise<T | undefined> {
     await this.apart()
     await this.page.mouse.move(from.x, from.y)
     await this.page.mouse.down()
+    for (const key of hold) await this.page.keyboard.down(key)
     let at = from
     for (const point of Array.isArray(to) ? to : [to]) {
       const steps = Math.max(4, Math.round(Math.hypot(point.x - at.x, point.y - at.y) / 8))
@@ -634,6 +641,7 @@ export class App {
     await this.frames(2)
     const seen = during ? await during() : undefined
     await this.page.mouse.up()
+    for (const key of hold) await this.page.keyboard.up(key)
     this.pressed()
     // Let the release finish drawing and committing before the next input, particularly Undo.
     await this.frames(2)

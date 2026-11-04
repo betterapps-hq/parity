@@ -12,7 +12,7 @@ import {
   type NodeStyle,
   resolveModes
 } from "@parity-app/core"
-import { type Edge, resizeStart } from "@parity-app/editor"
+import { distancesBetween, type Edge, resizeStart } from "@parity-app/editor"
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react"
 import { editingState } from "../chrome/LayerPanel.tsx"
 import { getPreferences, subscribePreferences } from "../chrome/preferences.ts"
@@ -36,6 +36,7 @@ import {
 } from "./hit.ts"
 import { designColor, kindColors, layerLabel, nodeColor } from "./kinds.tsx"
 import { type DragView, getDragView, pressLayers } from "./layer-drag.ts"
+import { getSnapMeasures, LayerSnapping } from "./layer-snap.ts"
 import { findLayer } from "./layers.ts"
 import { frameDrawn } from "./nudge.ts"
 import { editableText, hoverTarget, pickDeeper, pressTarget } from "./pick.ts"
@@ -347,17 +348,19 @@ export function CanvasOverlay() {
       ))}
       {model.drag && (
         <>
-          <div
-            className="absolute rounded-[2px]"
-            style={{
-              left: model.drag.ghost.x,
-              top: model.drag.ghost.y,
-              width: model.drag.ghost.w,
-              height: model.drag.ghost.h,
-              outline: `1px dashed ${kindColors.layer}`,
-              background: `color-mix(in oklch, ${kindColors.layer} 12%, transparent)`
-            }}
-          />
+          {model.drag.ghost && (
+            <div
+              className="absolute rounded-[2px]"
+              style={{
+                left: model.drag.ghost.x,
+                top: model.drag.ghost.y,
+                width: model.drag.ghost.w,
+                height: model.drag.ghost.h,
+                outline: `1px dashed ${kindColors.layer}`,
+                background: `color-mix(in oklch, ${kindColors.layer} 12%, transparent)`
+              }}
+            />
+          )}
           {model.drag.line && (
             <div
               className="absolute rounded-full"
@@ -447,8 +450,9 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
   const picked = entry ? selectionFrame(area, entry.key, current) : undefined
 
   let selectedRect: DOMRect | undefined
-  // While layers are dragged they are hidden where they were, so they have no outline there.
-  const layers = entry && !getDragView() ? selectedNodes(current) : []
+  // While layers are dragged they are hidden where they were, so they have no outline there. An absolutely placed layer
+  // moves itself, so its outline follows it.
+  const layers = entry && !getDragView()?.ghost ? selectedNodes(current) : []
   const pickedRects: DOMRect[] = []
   for (const id of layers) {
     const node = findLayer(store, entry!.container, id)
@@ -560,6 +564,24 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
         if (parentRect) model.redlines = redlines(rect, parentRect, scale, unit).map(toArea)
       }
     }
+  }
+
+  // A layer snapping as it's moved or resized shows its distances to what it lines up with.
+  const snapped = getSnapMeasures()
+  if (snapped.length > 0) {
+    const unit = spacingUnit(session.tokens.get())
+    model.redlines = snapped.flatMap(({ from, to, length }) =>
+      Math.hypot(to.x - from.x, to.y - from.y) < 0.5
+        ? []
+        : [
+            redline(
+              { x: from.x - areaRect.left, y: from.y - areaRect.top },
+              { x: to.x - areaRect.left, y: to.y - areaRect.top },
+              length,
+              unit
+            )
+          ]
+    )
   }
 
   // A selected layout shows the space inside it: padding along its edges, gaps between its children.
@@ -700,37 +722,17 @@ function layoutColumns(area: HTMLElement, zoom: number, toBox: (rect: DOMRect) =
  * otherwise the gaps between them on each axis.
  */
 export function redlines(a: DOMRect, b: DOMRect, scale: number, unit: number): Redline[] {
-  const lines: Redline[] = []
-  const add = (x1: number, y1: number, x2: number, y2: number) => {
-    const screen = Math.hypot(x2 - x1, y2 - y1)
-    if (screen < 0.5) return
-    const px = Math.round((screen / scale) * 10) / 10
-    const steps = px / unit
-    lines.push({ x1, y1, x2, y2, px, steps: Number.isInteger(steps * 2) ? steps : undefined })
-  }
-  const midY = (Math.max(a.top, b.top) + Math.min(a.bottom, b.bottom)) / 2
-  const midX = (Math.max(a.left, b.left) + Math.min(a.right, b.right)) / 2
-  const containsA = b.left <= a.left && b.right >= a.right && b.top <= a.top && b.bottom >= a.bottom
-  if (containsA) {
-    const cy = a.top + a.height / 2
-    const cx = a.left + a.width / 2
-    add(b.left, cy, a.left, cy)
-    add(a.right, cy, b.right, cy)
-    add(cx, b.top, cx, a.top)
-    add(cx, a.bottom, cx, b.bottom)
-    return lines
-  }
-  const overlapY = a.top < b.bottom && b.top < a.bottom
-  const overlapX = a.left < b.right && b.left < a.right
-  if (b.left >= a.right)
-    add(a.right, overlapY ? midY : a.top + a.height / 2, b.left, overlapY ? midY : a.top + a.height / 2)
-  if (b.right <= a.left)
-    add(b.right, overlapY ? midY : a.top + a.height / 2, a.left, overlapY ? midY : a.top + a.height / 2)
-  if (b.top >= a.bottom)
-    add(overlapX ? midX : a.left + a.width / 2, a.bottom, overlapX ? midX : a.left + a.width / 2, b.top)
-  if (b.bottom <= a.top)
-    add(overlapX ? midX : a.left + a.width / 2, b.bottom, overlapX ? midX : a.left + a.width / 2, a.top)
-  return lines
+  const box = (rect: DOMRect) => ({ x: rect.left, y: rect.top, w: rect.width, h: rect.height })
+  return distancesBetween(box(a), box(b)).flatMap(({ from, to, length }) =>
+    length < 0.5 ? [] : [redline(from, to, length / scale, unit)]
+  )
+}
+
+/** A distance to draw, from and to points on screen, `length` pixels of the design long. */
+function redline(from: Point, to: Point, length: number, unit: number): Redline {
+  const px = Math.round(length * 10) / 10
+  const steps = px / unit
+  return { x1: from.x, y1: from.y, x2: to.x, y2: to.y, px, steps: Number.isInteger(steps * 2) ? steps : undefined }
 }
 
 /**
@@ -778,7 +780,8 @@ const snapDistance = 6
  * Resizing by a handle. A frame takes a size in pixels for its viewport, snapping back to the viewport's width and the
  * content's height. A layer takes a fixed size in whole spacing steps, or fill when its edge comes back to the inside
  * of its parent, changing only the handle's own axes (see `resizeGesture`); an absolutely placed layer keeps its far
- * edge where it was. Shift on a corner keeps its proportions, and Escape takes the whole drag back.
+ * edge where it was, and its dragged edges snap to its siblings' and its parent's (see `LayerSnapping`). Shift on a
+ * corner keeps its proportions, and Escape takes the whole drag back.
  */
 function startResize(
   session: ProjectSession,
@@ -854,12 +857,20 @@ function startResize(
     absolute: drawn ? { style: shownStyle, drawn } : undefined
   })
 
+  // An absolutely placed layer's dragged edges snap to its siblings' and its parent's, unless Shift keeps a corner's
+  // proportions.
+  const snapping = drawn ? LayerSnapping.measure(editor, host, entry.container, location.node.id, scale) : undefined
+
   const group = `resize:${entry.key}:${location.node.id}`
   drag(session, { design: entry.key, group }, resizeCursors[edge], (moveEvent) => {
+    const delta = { x: moveEvent.clientX - start.x, y: moveEvent.clientY - start.y }
+    const proportional = moveEvent.shiftKey && horizontal && vertical
+    if (proportional) snapping?.clear()
     const change = gesture({
-      dx: moveEvent.clientX - start.x,
-      dy: moveEvent.clientY - start.y,
-      shift: moveEvent.shiftKey
+      dx: delta.x,
+      dy: delta.y,
+      shift: moveEvent.shiftKey,
+      snapped: proportional ? undefined : snapping?.resize(edge, delta, moveEvent)
     })
     if (!change) return
     const style: Partial<Record<keyof NodeStyle, unknown>> = { ...change }

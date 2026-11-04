@@ -113,4 +113,19 @@ describe("resizing an absolutely placed layer", () => {
       insets: { left: 0 }
     })
   })
+
+  it("goes exactly where a snapped edge locks, to the half pixel, rather than in steps", () => {
+    // 6px on a 4px scale is 1.5 steps, so the size is 26.5 where whole steps would round it; 5px is 1.25.
+    expect(resizeInsets({ left: 3 }, drawn({ left: 3 }), "x", true, 6, 100, unit, true)).toEqual({
+      size: 26.5,
+      insets: {}
+    })
+    expect(resizeInsets({ left: 3 }, drawn({ left: 3 }), "x", false, 5, 100, unit, true)).toEqual({
+      size: 23.75,
+      insets: { left: 4.25 }
+    })
+    expect(resizeInsets({ left: 0, right: 0 }, drawn(), "x", false, 6.3, 300, unit, true)).toEqual({
+      insets: { left: 1.625 }
+    })
+  })
 })

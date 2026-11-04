@@ -1,4 +1,4 @@
-import { boardTarget, editNode, findNode, locateNode, topmostNodes } from "@parity-app/core"
+import { boardTarget, editNode, findNode, locateNode, type NodeStyle, topmostNodes } from "@parity-app/core"
 import { boardReader, moveLayersAcross, moveLayersWithin, type MoveTarget } from "@parity-app/editor"
 import { editingState } from "../chrome/LayerPanel.tsx"
 import { type ContainerEntry, containerKey } from "../design-store.ts"
@@ -9,24 +9,29 @@ import type { ProjectSession } from "../workspace.ts"
 import { type DropAt, DragLayouts, dropInFrame } from "./drop-target.ts"
 import { holdCursor } from "./held-cursor.ts"
 import { frameAt, frameScale, type Point } from "./hit.ts"
-import { type DrawnSteps, shiftInsets } from "./insets.ts"
+import { shiftInsets } from "./insets.ts"
 import { kindColors } from "./kinds.tsx"
+import { LayerSnapping } from "./layer-snap.ts"
 import { frameDrawn } from "./nudge.ts"
 import { frameViewport } from "./view.ts"
 
 /**
  * Moving layers by dragging them, on the canvas or in the Layers panel. In a layout they go wherever they're dropped,
- * between other layers or into another layout, in the same design or another. A layer placed absolutely moves by its
- * insets instead, in steps of the spacing scale. Where they land and how they move are `@parity-app/editor`'s
- * (`dropTargetAt`, `moveLayersWithin`, `moveLayersAcross`); this follows the pointer, measures the frames, shows the
+ * between other layers or into another layout, in the same design or another. A layer placed absolutely moves live by
+ * its insets instead, snapping to its siblings and its parent. Where they land and how they move are
+ * `@parity-app/editor`'s (`dropTargetAt`, `moveLayersWithin`, `moveLayersAcross`, `snapLayer`); this follows the
+ * pointer, measures the frames, shows the
  * preview and applies the move to the store and the selection.
  */
 
 export type { MoveTarget } from "@parity-app/editor"
 
-/** What the canvas draws while layers are dragged: where they'd go, and an outline following the pointer. */
+/**
+ * What the canvas draws while layers are dragged: where they'd go, and an outline following the pointer. An absolutely
+ * placed layer moves itself, so it has neither.
+ */
 export interface DragView {
-  ghost: { x: number; y: number; w: number; h: number }
+  ghost?: { x: number; y: number; w: number; h: number }
   line?: { x: number; y: number; w: number; h: number }
 }
 
@@ -82,7 +87,7 @@ export function pressLayers(
   let preview: DropPreview | undefined
   // Targets are found in the layouts as they were when the drag began, not as the preview reflows them.
   const layouts = new DragLayouts()
-  let drawn: DrawnSteps | undefined
+  let placed: ReturnType<typeof followAbsolute>
   let releaseCursor: (() => void) | undefined
 
   const restore = () => {
@@ -97,24 +102,23 @@ export function pressLayers(
       if (Math.hypot(delta.x, delta.y) < threshold) return
       dragging = true
       releaseCursor = holdCursor("grabbing")
-      if (absolute) {
-        drawn = frameDrawn(area, entry.key, current, spacingUnit(session.tokens.get())).insets(ids[0]!)
-        for (const element of elements) element.style.opacity = "0.35"
-      } else {
+      if (absolute) placed = followAbsolute(session, area, entry, ids[0]!, host)
+      else {
         layouts.measure(host, entry.container.root)
         preview = new DropPreview(elements)
       }
     }
     event.preventDefault()
+    if (absolute) {
+      placed?.move(delta, event)
+      view = {}
+      return
+    }
     const ghost = {
       x: union.left + delta.x - origin.left,
       y: union.top + delta.y - origin.top,
       w: union.right - union.left,
       h: union.bottom - union.top
-    }
-    if (absolute) {
-      view = { ghost }
-      return
     }
     const found = moveTarget(area, session, { x: event.clientX, y: event.clientY }, entry, ids, layouts)
     target = found?.target
@@ -136,10 +140,8 @@ export function pressLayers(
       if (drop) onClick()
       return
     }
-    if (!drop) return
-    if (absolute)
-      nudgeAbsolute(session, entry, ids[0]!, delta, frameScale(host) * (session.editor?.getZoomLevel() ?? 1), drawn)
-    else if (target) moveLayers(session, entry, ids, target)
+    if (absolute) placed?.end(drop)
+    else if (drop && target) moveLayers(session, entry, ids, target)
   }
   const onUp = () => finish(true)
   const onKey = (event: KeyboardEvent) => {
@@ -265,29 +267,65 @@ export function moveLayers(
 }
 
 /**
- * Moves an absolutely placed layer by its insets, in half steps of the spacing scale, keeping both sides, negative
- * insets and tokens, as nudging does (see `shiftInsets`). `delta` is in screen pixels, `scale` is screen pixels per
- * layout pixel, and `drawn` is where its sides were drawn when the drag began.
+ * Moves an absolutely placed layer live, as the pointer moves, by its insets, keeping both sides, negative insets and
+ * tokens, as nudging does (see `shiftInsets`). It moves in half steps of the spacing scale, except along an axis where
+ * it snaps to its siblings or its parent (see `LayerSnapping`), where it goes exactly where it locks, to the half
+ * pixel. Every write is in one group: Escape takes them all back, and a drag that ends where it began leaves nothing
+ * to undo.
  */
-function nudgeAbsolute(
+function followAbsolute(
   session: ProjectSession,
+  area: ParentNode,
   entry: ContainerEntry,
   id: string,
-  delta: { x: number; y: number },
-  scale: number,
-  drawn: DrawnSteps | undefined
-): void {
-  const unit = spacingUnit(session.tokens.get())
+  host: HTMLElement
+): { move(delta: Point, held: { ctrlKey: boolean; metaKey: boolean }): void; end(drop: boolean): void } | undefined {
+  const { store, editor } = session
   const current = session.selection.get()
+  const unit = spacingUnit(session.tokens.get())
   const state = editingState(entry.container, current.state)
   const location = locateNode(entry.container.root, id)
-  if (!location) return
-  const viewport = frameViewport(session.store.getModes(), current.mode)
+  if (!location) return undefined
+  const viewport = frameViewport(store.getModes(), current.mode)
   const style = boardReader(entry.container, { state, viewport })(location.node).style ?? {}
-  const steps = (px: number) => Math.round((px / scale / unit) * 2) / 2
-  const { change } = shiftInsets(style, steps(delta.x), steps(delta.y), drawn)
-  if (Object.keys(change).length === 0) return
-  session.store.updateContainer(entry.key, "Move layer", (container) =>
-    editNode(container, boardTarget(container, state.id), id, { style: change })
-  )
+  // Where its sides are drawn, for those set by a token or not at all.
+  const drawn = frameDrawn(area, entry.key, current, unit).insets(id)
+  // Screen pixels per pixel of the design.
+  const scale = frameScale(host) * (editor?.getZoomLevel() ?? 1)
+  const snapping = LayerSnapping.measure(editor, host, entry.container, id, scale)
+  const group = `move-layer:${entry.key}:${id}`
+  const checkpoint = store.checkpoint(entry.key, group)
+  const halfSteps = (px: number) => Math.round((px / unit) * 2) / 2
+  const exactly = (px: number) => Math.round(px * 2) / 2 / unit
+  let written: NodeStyle = {}
+
+  const takeBack = () => {
+    if (checkpoint && Object.keys(written).length > 0) store.revert(checkpoint)
+    written = {}
+  }
+  return {
+    move(delta, held) {
+      const free = { x: delta.x / scale, y: delta.y / scale }
+      const from = snapping?.box
+      const snapped = from && snapping.snap({ ...from, x: from.x + free.x, y: from.y + free.y }, held)
+      const along = (axis: "x" | "y") =>
+        snapped?.locked[axis] && from ? exactly(snapped.box[axis] - from[axis]) : halfSteps(free[axis])
+      const { change } = shiftInsets(style, along("x"), along("y"), drawn)
+      if (JSON.stringify(change) === JSON.stringify(written)) return
+      // A side moved back to where it began goes back to what was written, which only the checkpoint has.
+      if (Object.keys(written).some((side) => !(side in change))) takeBack()
+      if (Object.keys(change).length === 0) return
+      written = change
+      store.updateContainer(
+        entry.key,
+        "Move layer",
+        (container) => editNode(container, boardTarget(container, state.id), id, { style: change }),
+        { group }
+      )
+    },
+    end(drop) {
+      snapping?.clear()
+      if (!drop) takeBack()
+    }
+  }
 }

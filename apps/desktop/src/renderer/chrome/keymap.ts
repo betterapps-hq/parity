@@ -101,7 +101,7 @@ export type Command = keyof typeof keymap
 /** Keys held while dragging or clicking, which the shortcuts list shows beside the commands. */
 export const gestures: readonly { group: Group; label: string; keys: string; with: "drag" | "click" }[] = [
   { group: "Tools", label: "Pan the canvas", keys: "Space", with: "drag" },
-  { group: "Tools", label: "Move a design without snapping", keys: "Ctrl", with: "drag" },
+  { group: "Tools", label: "Move or resize without snapping", keys: "Ctrl", with: "drag" },
   { group: "Selection", label: "Select the deepest layer under the pointer", keys: "Ctrl", with: "click" }
 ]
 

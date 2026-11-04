@@ -33,6 +33,11 @@ export interface ResizeMove {
   dy: number
   /** Keeps a corner's proportions, and turns off filling. */
   shift: boolean
+  /**
+   * For an absolutely placed layer, how far each edge that snapped to a line moves, in layout pixels, in place of the
+   * pointer's movement along that axis. It goes exactly there, rather than in steps.
+   */
+  snapped?: { x?: number; y?: number }
 }
 
 /**
@@ -62,7 +67,7 @@ export function resizeGesture(start: ResizeStart): (move: ResizeMove) => NodeSty
   const armed = { width: away.width >= fillDistance, height: away.height >= fillDistance }
   let started = false
 
-  return ({ dx: pointerX, dy: pointerY, shift }) => {
+  return ({ dx: pointerX, dy: pointerY, shift, snapped }) => {
     const dx = axes.width ? pointerX : 0
     let dy = axes.height ? pointerY : 0
     // Shift on a corner keeps the proportions, following the horizontal movement.
@@ -81,9 +86,10 @@ export function resizeGesture(start: ResizeStart): (move: ResizeMove) => NodeSty
       ] as const) {
         if (!axes[size]) continue
         const end = axis === "x" ? edge.includes("e") : edge.includes("s")
-        const moved = (axis === "x" ? dx : dy) / scale
+        const exact = snapped?.[axis]
+        const moved = exact ?? (axis === "x" ? dx : dy) / scale
         const length = (axis === "x" ? rect.right - rect.left : rect.bottom - rect.top) / scale
-        const result = resizeInsets(absolute.style, absolute.drawn, axis, end, moved, length, unit)
+        const result = resizeInsets(absolute.style, absolute.drawn, axis, end, moved, length, unit, exact !== undefined)
         if (result.size !== undefined) style[size] = result.size
         Object.assign(style, result.insets)
       }
