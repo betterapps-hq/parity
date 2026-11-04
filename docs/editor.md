@@ -2831,8 +2831,9 @@ Implementation: `packages/agent/src/routing.ts` (the rules, data in and out, als
 Tests: `packages/agent/src/routing.test.ts` (two copies with different projects, the same project in both, `active` by
 focus, the working folder, nested projects, Windows case and slashes, nothing open or running),
 `packages/agent/src/registry.test.ts` (entries written, listed and removed; the file before the registry; a copy kept
-apart), and `packages/cli/src/copies.test.ts` (the real CLI against two fake copies: routing, `active`, the merged list,
-an unknown tab, a stale entry removed, and each operation's routing).
+apart), and `packages/cli/src/copies.test.ts` (the real CLI and MCP server against two fake copies: routing, `active`,
+the merged list, an unknown tab, a stale entry removed, each operation's routing, and MCP tools routed and answering
+exactly as the CLI's commands do, since both run the same operations through the same `call`).
 
 Checked with two dev copies sharing a registry, one with `examples/shadcn-vite` and one with a copy of it: `parity tabs`
 listed both; `state` reached each by folder (in any case and slashes) and from inside each project's folder; `exec` ran

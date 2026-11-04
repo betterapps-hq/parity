@@ -83,9 +83,9 @@ beforeEach(async () => {
   await writeFile(join(registry, `${gone.app}.json`), JSON.stringify(gone))
 })
 
-function run(args: string[], cwd = tmpdir()) {
+function run(args: string[], cwd = tmpdir(), input?: string) {
   return new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve, reject) => {
-    const child = spawn(process.execPath, [bin, ...args, "--json"], {
+    const child = spawn(process.execPath, [bin, ...args, ...(input === undefined ? ["--json"] : [])], {
       cwd,
       env: {
         ...process.env,
@@ -94,8 +94,9 @@ function run(args: string[], cwd = tmpdir()) {
         HOME: registry,
         USERPROFILE: registry
       },
-      stdio: ["ignore", "pipe", "pipe"]
+      stdio: [input === undefined ? "ignore" : "pipe", "pipe", "pipe"]
     })
+    if (input !== undefined) child.stdin!.end(input)
     let stdout = ""
     let stderr = ""
     child.stdout.setEncoding("utf8").on("data", (chunk: string) => (stdout += chunk))
@@ -105,7 +106,38 @@ function run(args: string[], cwd = tmpdir()) {
   })
 }
 
+/** The same call through the MCP server: its structured result, or its error. */
+async function tool(name: string, input: Record<string, unknown>, cwd = tmpdir()) {
+  const messages = [
+    { jsonrpc: "2.0", id: 1, method: "initialize", params: { clientInfo: { name: "Copies" } } },
+    { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name, arguments: input } }
+  ]
+  const lines = messages.map((message) => JSON.stringify(message) + "\n").join("")
+  const { stdout } = await run(["mcp"], cwd, lines)
+  const reply = stdout
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line) as { id?: number; result?: { structuredContent?: unknown } })
+    .find((message) => message.id === 2)
+  return reply?.result?.structuredContent
+}
+
 describe("routing between copies", () => {
+  it("routes MCP tools exactly as the CLI routes commands", async () => {
+    await tool("get_app_state", { tab: "blog" })
+    await tool("get_app_state", { tab: "active" })
+    expect(person.requests).toEqual([])
+    expect(session.requests).toEqual([
+      { method: "state", params: { tab: blog } },
+      { method: "state", params: { tab: blog } }
+    ])
+    const cli = JSON.parse((await run(["tabs"])).stdout) as unknown
+    expect(await tool("get_tabs", {})).toEqual(cli)
+    expect(await tool("get_app_state", { tab: "docs" })).toEqual(
+      JSON.parse((await run(["state", "--tab", "docs"])).stdout)
+    )
+  })
+
   it("sends each call to the copy that has its project open", async () => {
     expect((await run(["state", "--tab", "shop"])).code).toBe(0)
     expect((await run(["state", "--tab", blog])).code).toBe(0)
