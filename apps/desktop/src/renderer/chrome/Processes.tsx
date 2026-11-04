@@ -103,14 +103,22 @@ export function Processes() {
   const task = active.find((process) => process.shape === "task")
   const stoppable = active.filter((process) => process.shape === "server" && process.canStop)
   const manyProjects = new Set(processes.map((process) => process.projectId)).size > 1
+  const label = triggerLabel({
+    crashed,
+    failed: unseenFailure,
+    starting,
+    task,
+    running: active.filter((process) => !ended.has(process.status)).length
+  })
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Hint label="Show what's running" hidden={open}>
+        <Hint label={label} detail="Click to see what's running" hidden={open}>
           <button
             type="button"
             data-slot="processes-trigger"
+            aria-label={label}
             className="flex h-6 shrink-0 items-center gap-2 rounded px-1.5 hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground"
           >
             <span className="flex items-center gap-[3px]" aria-hidden>
@@ -120,13 +128,6 @@ export function Processes() {
               {active.length > 5 && <span className="ml-0.5 text-[10px]">+{active.length - 5}</span>}
               {unseen[0] && <Light process={unseenFailure ?? unseen[0]} size={6} />}
             </span>
-            <TriggerLabel
-              crashed={crashed}
-              failed={unseenFailure}
-              starting={starting}
-              task={task}
-              running={active.filter((process) => !ended.has(process.status)).length}
-            />
           </button>
         </Hint>
       </PopoverTrigger>
@@ -185,8 +186,11 @@ export function Processes() {
   )
 }
 
-/** What the status bar says: a crash or a failed task first, then what's starting or running, else how many run. */
-function TriggerLabel({
+/**
+ * What the lights say, as their tooltip and accessible name: a crash or a failed task first, then what's starting or
+ * running, else how many run. The status bar shows only the lights, to leave its room to the project's items.
+ */
+function triggerLabel({
   crashed,
   failed,
   starting,
@@ -198,27 +202,12 @@ function TriggerLabel({
   starting: ProjectProcess | undefined
   task: ProjectProcess | undefined
   running: number
-}) {
-  if (crashed) return <span style={{ color: "var(--process-failed)" }}>{crashed.name} crashed</span>
-  if (failed) return <span style={{ color: "var(--process-failed)" }}>{failed.name} failed</span>
-  if (starting) return <span>Starting {starting.name}</span>
-  if (task) {
-    return (
-      <span className="tabular-nums">
-        {task.name}
-        {task.progress && (
-          <span className="ml-1.5 text-muted-foreground">
-            {task.progress.done} of {task.progress.total}
-          </span>
-        )}
-      </span>
-    )
-  }
-  return (
-    <span>
-      <strong className="font-medium text-foreground tabular-nums">{running}</strong> running
-    </span>
-  )
+}): string {
+  if (crashed) return `${crashed.name} crashed`
+  if (failed) return `${failed.name} failed`
+  if (starting) return `Starting ${starting.name}`
+  if (task) return task.progress ? `${task.name}, ${task.progress.done} of ${task.progress.total}` : task.name
+  return `${running} running`
 }
 
 interface Group {

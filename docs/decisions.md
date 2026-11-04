@@ -2955,7 +2955,6 @@ calls:
   discovery while the tools are found was tried and gained nothing, as both work on the service's one thread. Caching
   discovery, or starting the canvas before the guest loads, would go further, and each is a change of its own.
 
-<<<<<<< HEAD
 ## The selection overlay measures when what it shows can change (PAR-522)
 
 While anything was selected, the overlay measured every animation frame, each time searching the canvas for the design's
@@ -2984,7 +2983,6 @@ frames several times over, which the 2026-11-04 speed audit found the most expen
 - **What it doesn't see** is layout that moves with no input, DOM change, resize, image or font load or animation it
   hears of, such as a video in a frame taking its size once its data arrives. The outline catches up at the next change,
   such as the pointer moving.
-=======
 ## A running process's light breathes by opacity (PAR-524)
 
 A running server's light in the status bar breathed by animating its `box-shadow`, which the browser has to paint again
@@ -2995,4 +2993,7 @@ every frame, so an idle window with its build server running painted 60 times a 
   compositor, so the light still looks alive and costs the window's thread nothing; the idle perf run shows no paint.
 - **With reduced motion it doesn't animate,** as every process light, ring and shimmer already didn't, and shows no
   glow: a steady dot.
->>>>>>> e4c7b4e (fix(desktop): stop the running status light repainting the window (PAR-524))
+- **The status bar leaves the lights' words out and, when narrow, the items' too.** In a small window the footer ran off
+  screen. The lights' words ("Starting Storybook", "Lint failed") moved to their tooltip, since a click on the lights
+  lists it all anyway. Below 56rem each project item is its icon and count, with the words kept for screen readers,
+  rather than wrapping or scrolling the footer.

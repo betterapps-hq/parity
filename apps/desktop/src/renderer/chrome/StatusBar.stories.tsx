@@ -104,6 +104,21 @@ export const Everything: Story = {
   }
 }
 
+/**
+ * The same in a window narrower than 56rem: each item is its icon, with its count where it has one, and its tooltip
+ * says the rest. The lights stand alone; hovering them says what's starting, and clicking them lists it all.
+ */
+export const EverythingNarrow: Story = {
+  ...Everything,
+  decorators: [
+    (Story) => (
+      <div className="mx-auto flex h-screen w-[720px] flex-col justify-end border-x">
+        <Story />
+      </div>
+    )
+  ]
+}
+
 /** Saving when the project's file can't be written: the status bar says so in red, and a notification says why. */
 export const SaveFailed: Story = {
   loaders: [

@@ -2703,12 +2703,21 @@ breathes almost all the time, and it mustn't cost the window anything while noth
   opacity, and the turning ring's `spin` on transform, and nothing else.
 - **Reduced motion** stops every light, ring and shimmer (`[data-process-motion]` in `styles.css`): a running light is
   then a steady dot with no glow.
+- **The lights stand alone.** The status bar shows no words beside them. What they used to say (a crash or failed task,
+  what's starting, a running task and its progress, or how many run) is now their tooltip and accessible name, and
+  clicking them opens the flyout.
+- **A narrow status bar shows icons and counts.** Below 56rem (a container query on the footer), the renderer, builder
+  and Storybook items show only their icons, and components and tokens show their icons and counts. The words stay for
+  screen readers, and each tooltip names the item, so nothing goes off screen in a small window. A failed save keeps its
+  words.
 
-Code: `Light` in `apps/desktop/src/renderer/chrome/Processes.tsx`, and the `process-*` keyframes in `styles.css`.
+Code: `Light` and `triggerLabel` in `apps/desktop/src/renderer/chrome/Processes.tsx`, `Words` in `chrome/StatusBar.tsx`,
+and the `process-*` keyframes in `styles.css`.
 
 Tests: Storybook, `chrome/StatusBar.stories.tsx` Everything: every item the status bar can hold at once, with a running,
-a starting and a stopped light side by side; `chrome/ProcessIcons.stories.tsx` EveryKind and EveryKindLight: each light
-in every status, in both themes; and `chrome/Processes.stories.tsx` JustTheBuildServer: one light, breathing.
+a starting and a stopped light side by side; EverythingNarrow: the same at 720px, as icons and counts;
+`chrome/ProcessIcons.stories.tsx` EveryKind and EveryKindLight: each light in every status, in both themes; and
+`chrome/Processes.stories.tsx` JustTheBuildServer: one light, breathing.
 
 Gaps: nothing checks automatically that the lights stay on opacity and transform; the perf idle run shows it.
 
