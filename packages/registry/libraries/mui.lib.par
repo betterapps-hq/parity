@@ -3582,7 +3582,7 @@
             {
               "component": "AccordionDetails",
               "children": [
-                "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sus"
+                "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
               ]
             },
             {
@@ -3636,7 +3636,7 @@
         "parentsFrom": "example",
         "sample": {
           "children": [
-            "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sus"
+            "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
           ]
         },
         "fingerprint": "d169c6f2",
@@ -4904,7 +4904,7 @@
                     "id": "alert-dialog-description"
                   },
                   "children": [
-                    "Let Google help apps determine location. This means sending "
+                    "Let Google help apps determine location."
                   ]
                 }
               ]
@@ -4980,7 +4980,7 @@
                 "id": "alert-dialog-description"
               },
               "children": [
-                "Let Google help apps determine location. This means sending "
+                "Let Google help apps determine location."
               ]
             }
           ]
@@ -5007,7 +5007,7 @@
             "id": "alert-dialog-description"
           },
           "children": [
-            "Let Google help apps determine location. This means sending "
+            "Let Google help apps determine location."
           ]
         },
         "fingerprint": "d8752e24",

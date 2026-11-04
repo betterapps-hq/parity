@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Keep the canvas idle while a selection is held: the overlay measures only after something changes or while a frame animates",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

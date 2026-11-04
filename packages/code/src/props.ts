@@ -122,12 +122,17 @@ function componentProps(
   const propsType = checker.getTypeOfSymbolAtLocation(parameter, file)
   const defaults = destructuredDefaults(symbol)
   const takesStyle = declaresStyle(checker, propsType)
+  const toVoidElement = passesToVoidElement(checker, propsType, file)
 
   const props: ComponentProp[] = []
   for (const prop of checker.getPropertiesOfType(propsType)) {
     if (skipped.has(prop.name)) continue
-    const type = checker.getTypeOfSymbolAtLocation(prop, file)
     const declaration = prop.declarations?.[0]
+    // React declares `children` for every element, but an `<input>` given any throws (React error 137), so a component
+    // passing its props to one takes none, unless it declares its own.
+    const fromReact = prop.declarations?.every((declared) => declaredBy(declared, "DOMAttributes"))
+    if (prop.name === "children" && toVoidElement && fromReact) continue
+    const type = checker.getTypeOfSymbolAtLocation(prop, file)
     const declared = declaration?.getSourceFile().fileName ?? ""
     const classified = classify(checker, type, declaration, prop.name)
     const { kind } = classified
@@ -164,6 +169,42 @@ function componentProps(
     return a.group === "variant" || a.group === "own" ? 0 : a.name.localeCompare(b.name)
   })
   return takesStyle === undefined ? { props } : { props, takesStyle }
+}
+
+/** The interfaces React declares a void element's own attributes in: `InputHTMLAttributes` is an `<input>`'s. */
+const voidAttributes = new Set([
+  "AreaHTMLAttributes",
+  "BaseHTMLAttributes",
+  "ColHTMLAttributes",
+  "EmbedHTMLAttributes",
+  "ImgHTMLAttributes",
+  "InputHTMLAttributes",
+  "LinkHTMLAttributes",
+  "MetaHTMLAttributes",
+  "SourceHTMLAttributes",
+  "TrackHTMLAttributes"
+])
+/** The DOM interfaces of void elements, which a ref to one names: `<hr>` and `<br>` have no attributes of their own. */
+const voidElement = /\bHTML(Area|Base|BR|Embed|HR|Image|Input|Link|Meta|Source|Track)Element\b/
+
+/**
+ * Whether props go to a void element, which can't have children: they include attributes only one takes, as
+ * `ComponentProps<"input">` does, or a ref to one.
+ */
+function passesToVoidElement(checker: ts.TypeChecker, propsType: ts.Type, file: ts.SourceFile): boolean {
+  const props = checker.getPropertiesOfType(propsType)
+  if (props.some((prop) => prop.declarations?.some((declaration) => declaredBy(declaration, voidAttributes)))) {
+    return true
+  }
+  const ref = props.find((prop) => prop.name === "ref")
+  return !!ref && voidElement.test(checker.typeToString(checker.getTypeOfSymbolAtLocation(ref, file)))
+}
+
+/** Whether a property is declared in an interface of one of these names. */
+function declaredBy(declaration: ts.Declaration | undefined, names: string | Set<string>): boolean {
+  const parent = declaration?.parent
+  if (!parent || !ts.isInterfaceDeclaration(parent)) return false
+  return typeof names === "string" ? parent.name.text === names : names.has(parent.name.text)
 }
 
 /** Props types that could have any key: `any`, `unknown`, `object` and a type parameter. */

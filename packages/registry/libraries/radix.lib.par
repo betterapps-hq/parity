@@ -44,7 +44,7 @@
           "children": [
             "Odio placerat",
             "quisque",
-            "sapien sagittis non sociis ligula penatibus dignissim vitae,",
+            "sapien sagittis non sociis ligula penatibus dignissim…",
             "Cool"
           ]
         },
@@ -105,7 +105,7 @@
               "children": [
                 "Odio placerat",
                 "quisque",
-                "sapien sagittis non sociis ligula penatibus dignissim vitae,",
+                "sapien sagittis non sociis ligula penatibus dignissim…",
                 "Cool"
               ]
             }
@@ -148,7 +148,7 @@
                 {
                   "component": "Accordion.Content",
                   "children": [
-                    "Per erat orci nostra luctus sociosqu mus risus penatibus, du"
+                    "Per erat orci nostra luctus sociosqu mus risus penatibus…"
                   ]
                 }
               ]
@@ -173,7 +173,7 @@
                 {
                   "component": "Accordion.Content",
                   "children": [
-                    "Cursus sed mattis commodo fermentum conubia ipsum pulvinar s"
+                    "Cursus sed mattis commodo fermentum conubia ipsum pulvinar…"
                   ]
                 }
               ]
@@ -199,7 +199,7 @@
                 {
                   "component": "Accordion.Content",
                   "children": [
-                    "Sociis hac sapien turpis conubia sagittis justo dui, incepto"
+                    "Sociis hac sapien turpis conubia sagittis justo dui…"
                   ]
                 }
               ]
@@ -226,7 +226,7 @@
                   "children": [
                     "Odio placerat",
                     "quisque",
-                    "sapien sagittis non sociis ligula penatibus dignissim vitae,",
+                    "sapien sagittis non sociis ligula penatibus dignissim…",
                     "Cool"
                   ]
                 }
@@ -460,7 +460,7 @@
                     {
                       "component": "AlertDialog.Description",
                       "children": [
-                        "Houses are very expensive and it looks like you only have €2"
+                        "Houses are very expensive and it looks like you only have…"
                       ]
                     },
                     {
@@ -1728,7 +1728,7 @@
           },
           "children": [
             "Right-to-left Animated Scrollable",
-            "Undo Cut Copy Paste Disabled One One Two Three Four Five Six"
+            "Undo Cut Copy Paste Disabled One One Two Three Four Five…"
           ]
         },
         "fingerprint": "8d5487ad",
@@ -4755,7 +4755,7 @@
         "sample": {
           "children": [
             "This content is rendered in a portal (another DOM tree)",
-            "Because of the portal, it can appear in a different DOM tree"
+            "Because of the portal, it can appear in a different DOM…"
           ]
         },
         "fingerprint": "9b7f1046",
@@ -5992,7 +5992,7 @@
                 "value": "tab1"
               },
               "children": [
-                "Dis metus rhoncus sit convallis sollicitudin vel cum, hac pu"
+                "Dis metus rhoncus sit convallis sollicitudin vel cum, hac…"
               ]
             },
             {
@@ -6010,7 +6010,7 @@
                 "value": "tab3"
               },
               "children": [
-                "Ut nisi elementum metus semper mauris dui fames accumsan aen"
+                "Ut nisi elementum metus semper mauris dui fames accumsan…"
               ]
             }
           ]

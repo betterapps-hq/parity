@@ -83,7 +83,9 @@ const usage = `parity: drive the Parity app from a terminal or an agent
   parity skill [file]                       print the design skill, or one of its files
   parity mcp                                serve these as MCP tools on stdio
 
-Options take a tab id, project root or name with --tab; the active tab is the default. --json prints any command's
+Options take a tab id, project root or name with --tab, or "active" for what the person is looking at; without it, a
+command acts on the open project the current folder is in, else on "active". Each call goes to the running copy of
+Parity that has its project open. --json prints any command's
 result as the data MCP returns as structuredContent, and a failure as {"error": {code, message, retryable, path,
 alternatives, editId}}.`
 

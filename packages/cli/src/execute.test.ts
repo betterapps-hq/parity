@@ -3,7 +3,7 @@ import { join } from "node:path"
 import { describe, expect, it } from "vite-plus/test"
 import { describeExec } from "./client.ts"
 import { type ExecReply, execResponse, executeOperation, executeRequest, structuredExec } from "./execute.ts"
-import { toolReply, transportFixture } from "./transport-fixture.ts"
+import { fixtureTab, toolReply, transportFixture } from "./transport-fixture.ts"
 
 const success: ExecReply = {
   ok: true,
@@ -17,10 +17,13 @@ const structuredSuccess = structuredExec(execResponse(success))
 const fixture = transportFixture(success)
 const { requests, run, mcp } = fixture
 
+/** What reaches the app: the request, with the tab the CLI routed it to. */
 function expectRequests(params: Record<string, unknown>) {
   expect(requests).toHaveLength(2)
   for (const request of requests) {
-    expect(request).toEqual(expect.objectContaining({ method: "exec", params, agent: "Contract Caller" }))
+    expect(request).toEqual(
+      expect.objectContaining({ method: "exec", params: { tab: fixtureTab.id, ...params }, agent: "Contract Caller" })
+    )
   }
   expect(requests).toContainEqual(expect.objectContaining({ agentId: "cli-session" }))
   expect(requests).toContainEqual(expect.objectContaining({ agentId: expect.stringMatching(/^Contract Caller#/) }))
@@ -30,12 +33,12 @@ describe("execute transport contract", () => {
   it("omits undeclared CLI ids so long names remain distinct at the desktop boundary", async () => {
     const prefix = "Harness ".repeat(16)
     for (const suffix of ["One", "Two"]) {
-      const cli = await run(["tabs"], "", { PARITY_AGENT_NAME: prefix + suffix, PARITY_AGENT_ID: undefined })
+      const cli = await run(["state"], "", { PARITY_AGENT_NAME: prefix + suffix, PARITY_AGENT_ID: undefined })
       expect(cli.code).toBe(0)
     }
     expect(requests).toEqual([
-      { method: "tabs", params: {}, agent: prefix + "One" },
-      { method: "tabs", params: {}, agent: prefix + "Two" }
+      { method: "state", params: { tab: fixtureTab.id }, agent: prefix + "One" },
+      { method: "state", params: { tab: fixtureTab.id }, agent: prefix + "Two" }
     ])
   })
   it("publishes execute defaults and patch constraints through MCP discovery", async () => {

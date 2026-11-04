@@ -1815,7 +1815,7 @@ to PAR-209 build it.
   `app.yml` runs them for every pull request and push to main on Windows, whose runners have a desktop for the window.
   It doesn't block merging yet: on its first run the example never opened on the runner within 180 s, so it stays out of
   CI until it runs reliably there (PAR-438). It's a workflow of its own, not a job `CI passes` leaves out, since a
-  failed job still fails CI's run, and `cd-npm.yml` and `cd-desktop.yml` run only after CI's run on `main` succeeds.
+  failed job still fails CI's run, which would hold up the CLI's release there and `cd-desktop.yml`.
 - **Packages and scripts use only TypeScript that Node can strip,** because the CLI and scripts run them with plain
   `node`: no parameter properties, namespaces or enums. oxlint rejects the first two in `packages/**` and
   `apps/*/scripts/**`; the app's bundled code may use them. The Library files session found CAN-48's parser had broken
@@ -1931,9 +1931,10 @@ the Repository, CI and releases stream in Linear.
   - **pnpm's `publishConfig` points `bin` and `exports` at `dist` when it packs,** so the workspace still runs the CLI
     from source.
   - **It needs Node 24,** as the repository does.
-  - **Provenance comes from the CD workflow's `--provenance`, not `publishConfig`,** since npm only makes it in CI and
-    the first version is published by hand, which npm needs before it can trust the workflow. 0.0.0 went up by hand on
-    2026-10-30, and `npm trust` then named `cd-npm.yml` and the `npm` environment as its only publisher.
+  - **Provenance comes from trusted publishing in CI, not `publishConfig`,** since npm only makes it in CI and the first
+    version is published by hand, which npm needs before it can trust the workflow. 0.0.0 went up by hand on 2026-10-30,
+    and `npm trust` then named `cd-npm.yml` and the `npm` environment as its only publisher. Since the release moved
+    into CI (PAR-10), it names `ci.yml`.
   - **`pnpm --filter @parity-app/cli try-packed` installs the packed tarball in an empty folder and runs it.** CI runs
     it on each system. The packed tarball is 2.6 MB.
 - **Hooks keep what doesn't belong out of pull requests (PAR-3),** as you asked on 2026-10-29. My calls:
@@ -1973,32 +1974,33 @@ the Repository, CI and releases stream in Linear.
   - **OpenAI reviews use AGENTS.md and conventions.md as guidance.** The disabled review service's configuration is
     removed, and lint, format, types, tests and change files stay with CI.
   - **GitHub's secret scanning and push protection stay on,** as they are by default for public repositories.
-- **Releases follow Buildkit's flow.** After CI passes on `main`, pending change files are released straight to `main`,
-  with no release pull request, as you asked on 2026-11-04: Beachball bumps the versions and changelogs, commits them
-  and pushes the commit to `main`, and once CI passes on that commit it's delivered: the CLI to npm through trusted
-  publishing with provenance, and the desktop app to GitHub Releases. My calls: installers come from electron-builder,
-  since one tool makes installers, signs them and serves updates, and only the desktop app makes GitHub Releases, so the
-  updater never mistakes a CLI release for an app update.
-  - **`cd-npm.yml` calls the shared templates** (PAR-10, PAR-14), `beachball-publish-npm` and `cd-npm-publish`, as
-    `betterapps-hq/pipelines`' README shows, after CI passes for a push to `main`. Like every workflow here, they call
-    the templates at `main`, not a pinned commit, so Parity gets each change as it merges, as you asked on 2026-11-03.
-    My calls:
-    - **A deploy key pushes the release commit,** as Buildkit's does: the one actor `main`'s ruleset lets skip a pull
-      request, through `infra/github`. Its private key is the `npm` environment's `RELEASE_DEPLOY_KEY` secret, passed by
-      name. A deploy key's push starts CI and delivery, which the job's own token's wouldn't. It replaces the release
-      GitHub App and its release pull request, which `release.yml` opened until 2026-11-04.
-    - **Beachball doesn't publish,** since it would publish the desktop app too, and its `shouldPublish: false` would
-      stop it versioning the app. `cd-npm-publish` publishes the CLI once CI passes on the release commit, so what npm
-      gets is a commit CI passed on, and `cd-desktop.yml` publishes the app's beta from the same commit.
-    - **The release runs only while the commit CI passed on is `main`'s head,** since a newer commit's own CI run
-      releases it.
-    - **The `npm` environment comes from Terraform,** in `infra/github`, kept to `main` with administrators unable to
-      bypass it, and with no approval, since every release ships.
-    - **`cd-npm.yml` runs on every CI pass on `main`,** not only when a version changes, since the template publishes
-      only versions npm doesn't have: a run without one publishes nothing and asks for no approval, and a failed run is
-      caught up by the next. It also runs by hand, through `workflow_dispatch`, from template v1.7.1 on (PAR-14): the
-      template publishes such a run only from `main`, and only a commit `ci.yml` passed on as a push to `main`, which it
-      reads with `actions: read`. Re-run also retries a failed publish with the CI run it started from.
+- **Releases follow Buildkit's flow, with the CLI and the desktop app released apart.** After CI passes on `main`,
+  pending change files are released straight to `main`, with no release pull request, as you asked on 2026-11-04:
+  Beachball bumps the versions and changelogs, commits them and pushes the commit to `main`. The CLI goes to npm through
+  trusted publishing with provenance, and the desktop app to GitHub Releases, each in a release of its own, as you asked
+  the same day. My calls: installers come from electron-builder, since one tool makes installers, signs them and serves
+  updates, and only the desktop app makes GitHub Releases, so the updater never mistakes a CLI release for an app
+  update.
+  - **Both call the shared `beachball-publish-npm` template** (PAR-10, PAR-14), as `betterapps-hq/pipelines`' README
+    shows. Like every workflow here, they call it at `main`, not a pinned commit, so Parity gets each change as it
+    merges, as you asked on 2026-11-03. My calls:
+    - **`ci.yml`'s `release` job releases the CLI,** as Buildkit's CI does, once `verify` and `checks` pass on a push to
+      `main`. Beachball runs scoped to leave out `apps/desktop`, so it bumps the CLI, publishes it to npm, then commits,
+      tags and pushes. It runs in the `npm` environment, which the CLI's trusted publisher names with `ci.yml`.
+    - **`cd-desktop.yml`'s `version` job versions the desktop app** once CI passes on `main`. Beachball publishes every
+      package it versions and has no setting to version one without publishing it, so this run is scoped to
+      `apps/desktop` with publishing off: it bumps, commits, tags and pushes. CI's run on that commit starts
+      `cd-desktop.yml` again, whose `release` job publishes the new version as a beta.
+    - **Each scoped run leaves the other's change files alone,** so a failed npm release doesn't hold up the app, or the
+      other way round. A commit with change files for both is released in turn, a commit for each.
+    - **A deploy key pushes the release commits,** as Buildkit's does: the one actor `main`'s ruleset lets skip a pull
+      request, through `infra/github`. Its private key is the `RELEASE_DEPLOY_KEY` secret of the `npm` and `desktop`
+      environments, passed by name. A deploy key's push starts CI and delivery, which the job's own token's wouldn't. It
+      replaces the release GitHub App and its release pull request, which `release.yml` opened until 2026-11-04.
+    - **A release runs only while the commit CI passed on is `main`'s head,** since a newer commit's own CI run releases
+      it.
+    - **The `npm` and `desktop` environments come from Terraform,** in `infra/github`, kept to `main` with
+      administrators unable to bypass them, and with no approval, since every release ships.
     - **Four change files written under the old name `@parity/desktop` were renamed** to `@parity-app/desktop`, since
       `beachball bump` skips a change file for a package that doesn't exist, leaving it and dropping its changelog line.
 - **Desktop releases reach the beta first, and everyone when promoted,** as you asked on 2026-10-29: beta builds and
@@ -2089,8 +2091,8 @@ the Repository, CI and releases stream in Linear.
     little is lost; cache it once the TypeScript under `oxlint-tsgolint` is 7.1 or later.
 - **Dependabot keeps dependencies current (PAR-394),** from `.github/dependabot.yml`, as the agency monorepo, Buildkit
   and the pipelines repository do. My calls:
-  - **Each week, one pull request for npm's minor and patch updates and one for GitHub Actions,** which also moves the
-    shared pipelines' pinned commits and their version comments. npm's major updates come one pull request each, at most
+  - **Each week, one pull request for npm's minor and patch updates and one for GitHub Actions.** The shared pipelines
+    are called at `main`, so it has nothing of theirs to move. npm's major updates come one pull request each, at most
     ten open, since each may need code to change.
   - **It waits 3 days before offering a direct dependency's new version,** longer than the day pnpm's
     `minimumReleaseAge` asks. That doesn't cover the transitive versions its lockfile refresh resolves, which pnpm also
@@ -2124,9 +2126,9 @@ the Repository, CI and releases stream in Linear.
   - The setup action checks out without keeping credentials, and on Windows turns off `core.autocrlf` first, since the
     runners' CRLF made Vite+'s formatter fail every file.
   - It picks Vite+ when the workspace names `vite-plus`, and plain pnpm otherwise.
-  - Templates name the repository's own actions by a release's commit, which Dependabot moves, as they pin third-party
-    actions. A tag under the old `Fencing-Club` name would have resolved to whoever claimed that name. And with pull
-    requests required, a release's commit is only tagged after it merges, so a template pins the release before.
+  - Templates name the repository's own actions by full path at `main`, as callers name the templates, so a change to an
+    action reaches every template as it merges. A path under the old `Fencing-Club` name would have resolved to whoever
+    claimed that name.
   - A caller's extra steps before verifying, such as Parity's fixture installs, go in ci-verify's `prepare` input, with
     their own cache.
   - It's MIT licensed, as Parity is.
@@ -2144,9 +2146,9 @@ the Repository, CI and releases stream in Linear.
 - **Pipelines are shared across Parity, Buildkit, Better Apps and Copacker,** from one repository of templates, as you
   asked on 2026-10-29. Each repository has thin top-level pipelines, one per stage (CI, previews, and CD split by what's
   delivered: npm packages, the desktop app, web apps), calling reusable workflows and composite actions from it. My
-  calls: the repository is public, because callers span `AndrewCraswell` and `betterapps-hq`; callers pin a full commit
-  SHA that Dependabot moves; and CI is shared as far as `pnpm verify`, with each repository's extra jobs beside the
-  call.
+  calls: the repository is public, because callers span `AndrewCraswell` and `betterapps-hq`; callers call the templates
+  at `main` (since 2026-11-03; they first pinned a commit Dependabot moved); and CI is shared as far as `pnpm verify`,
+  with each repository's extra jobs beside the call.
 - **The shared pipelines live in `betterapps-hq/pipelines`, with a folder per CI system** (your call, 2026-10-29, Q8):
   `github/` holds the composite actions and their docs. Reusable workflows can't go there, because GitHub only calls
   them from a repository's own `.github/workflows/`, so they live there, named by stage.
@@ -2785,32 +2787,48 @@ zoomed-out frames could sleep. They're now kept on disk too (see editor.md, Bitm
   frames, more than anyone's recent projects. Use is recorded by touching the file's modification time when it's shown,
   so no index has to be kept in step. A Clear bitmap cache item covers the rest.
 
-## Agents keep reaching the copy that was running first (PAR-280)
+## Agents' calls go to the copy that has their project open (PAR-514)
 
-A second copy of Parity, such as the one `pnpm perf` or a session's `pnpm dev` starts, used to write its address over
-`~/.parity/agent.json`, so the person's agents drove that copy instead of their own app, and quitting it removed the
-file and left agents with none. `@parity-app/agent`'s [connection.ts](../packages/agent/src/connection.ts) decides what
-a copy does with the file, from its contents and the copy's own connection. My calls:
+Several copies of Parity can run at once: the person's app, a session's `pnpm dev`, `pnpm perf`. One file named one
+copy, so whichever copy held it, agents couldn't reach the projects open in the others. PAR-280 kept the file with the
+first copy, which fixed a dev copy taking the person's agents but left the second copy's projects out of reach. Agents
+care about the project, not the copy, so the copy is now chosen per call. My calls:
 
-- **A copy is its main process.** The file names the app's main process (`app`) beside the service's (`pid`), which main
-  gives the service as `PARITY_APP_PID`. A service the dev runner restarts is then the same copy, and takes its own file
-  back while the old service is still answering. A file without `app`, from an older Parity, stands for its service's
-  copy.
-- **Running means answering.** A starting copy asks each connection in the file, with its token, and the first that
-  answers within 2 seconds is running. A process id alone can be reused after a crash; a reply with the token can't.
-- **The first copy running keeps agents, unless asked.** A later copy leaves a running copy's file alone and closes its
-  own agent server, saying so in its log. `PARITY_AGENT_TAKE_OVER=1` asks it to take over, as an environment variable
-  like the rest of the instance's settings (`PARITY_AGENT_FILE`, `PARITY_UI_PORT`). A copy that wants agents of its own
-  without disturbing the person's still sets `PARITY_AGENT_FILE`, as `pnpm perf`, the end-to-end tests and the backtest
-  do.
-- **A copy that takes over keeps what it took** in the file's `previous`, and gives it back when it quits, to the newest
-  copy in that chain whose main process is still running. A file naming a copy that's gone, over one still running, goes
-  back to the running one when the next copy starts.
-- **Main lets go of the file, not the service.** Quitting ends the service outright, on Windows and with a signal
-  elsewhere, so its exit handler never ran and the file outlived every copy. Main reads the file as it quits and removes
-  it, or restores the copy it took over, only when the file still names it.
-- **The person's app started after a dev copy doesn't take agents from it.** Telling the installed app from a dev copy
-  would let it, but a person working on Parity may run either as their own; set `PARITY_AGENT_TAKE_OVER=1` for that.
+- **Every copy registers itself.** Each writes an entry to `~/.parity/agents/<main process id>.json`: its address,
+  token, main process and when it started. A service the dev runner restarts writes the same entry, since main gives it
+  `PARITY_APP_PID`. Main removes the entry as the copy quits, because quitting ends the service before it could. The CLI
+  removes an entry whose copy doesn't answer and whose process is gone. There's no owner to hand over, so PAR-280's
+  take-over rules and `PARITY_AGENT_TAKE_OVER` are gone.
+- **The registry says how to reach a copy, not what it has open.** The CLI asks each copy (`copy`) for its tabs and when
+  its window last had focus, every call. A list kept in the file would go stale as tabs open and close; the question is
+  one local request per running copy.
+- **One module decides.** `@parity-app/agent`'s [routing.ts](../packages/agent/src/routing.ts) holds every rule, as data
+  in and out, with no files or network: how folders compare, how a reference matches a tab (which the app's own
+  `findTab` uses too), which project holds a folder, and where a call goes.
+  [registry.ts](../packages/agent/src/registry.ts) holds where entries live and their format, for both the app and the
+  CLI.
+- **The CLI decides once, and sends the tab it chose.** The app gets an exact tab id, never "the active tab" or a name
+  to look up again, so it can't reach a different answer than the CLI did.
+- **A call names its project, or the folder does.** `--tab` takes an id, folder or name, as before. Without it, a call
+  goes to the open project the agent's working folder is in, so an agent working in a repository edits that project even
+  while the person looks at another; outside any open project, it goes to `active`.
+- **`active` is what the person is looking at:** the active tab of the copy whose window had focus last. "Last" rather
+  than "now", because while the person types to an agent in a terminal no Parity window has focus. It's for when the
+  person says "this" or "what I've selected"; `get_app_state` gives the selection.
+- **A project open in two copies goes to the one running longest.** Either would do, but a copy a session starts while
+  the person works is usually the newer one, and it may be running unfinished code. A newly launched window takes focus,
+  so focus would favour it instead.
+- **Opening a project goes to a copy that has it, else to the one used last.**
+- **Each operation's routing follows from its fields.** One with a `tab` field goes to the copy that has the tab, one
+  with a `root` opens, and one with neither (`tabs`) asks every copy, listing each project once with `active` marked
+  only where `--tab active` points. A test lists each operation's routing, so a new one is a deliberate choice.
+- **A copy kept apart is still kept apart.** `PARITY_AGENT_FILE` names one file instead of the registry, as `pnpm perf`,
+  the end-to-end tests and the backtest set: that copy writes only that file, and a CLI given the same file reaches only
+  it.
+- **Older apps and CLIs.** The CLI also reads `~/.parity/agent.json`, which apps from before the registry write, and
+  asks such an app for its tabs when it doesn't know `copy`. An entry with a newer format than the CLI knows stops the
+  call with a message to update the CLI, rather than being guessed at. A CLI from before the registry doesn't find a new
+  app; the CLI is before 1.0, and `npx @parity-app/cli` fetches the current one.
 
 ## A hidden tab's frames sleep, rather than unmount (PAR-153)
 
@@ -2936,6 +2954,35 @@ calls:
   left on the service's side is Vite starting in the builder's process, which needs discovery's results; running
   discovery while the tools are found was tried and gained nothing, as both work on the service's one thread. Caching
   discovery, or starting the canvas before the guest loads, would go further, and each is a change of its own.
+
+## The selection overlay measures when what it shows can change (PAR-522)
+
+While anything was selected, the overlay measured every animation frame, each time searching the canvas for the design's
+frames several times over, which the 2026-11-04 speed audit found the most expensive work in every interaction's profile
+(see editor.md, The overlay measures only when what it shows can change). My calls:
+
+- **Frames are indexed where `ModeView` mounts them,** in a layout effect around the host element, rather than by a
+  MutationObserver over the canvas or in `FrameTile`. The host is `ModeView`'s, every frame on the canvas is one, and a
+  MutationObserver would wake on every change anywhere in the canvas to find the few that matter. `findFrames` reads the
+  index, so agents' presence, Reveal, the style preview and the tab order overlay use it too. Something that draws its
+  own `data-frame` host, as a story or a test does, registers it (`registerFrame`).
+- **Measuring wakes on changes, then settles for half a second.** The selection, hover, tool and preferences; the design
+  store; tldraw's store, which holds the camera and the boards; pointer, wheel and key input, which drive drags,
+  snapping, resizing and Alt's redlines; the canvas area or a frame changing size; DOM, attribute or text changes and
+  images loading inside a frame drawn over; and fonts loading. After each, it measures every animation frame for 500 ms
+  (`settleMs`), which covers what follows a change by a frame or two, as a design drawing after an edit does, and a
+  transition a change starts.
+- **Animations are followed while they run, found by the browser rather than by a timer.** Once settled, the overlay
+  asks the frames it draws over for their running animations and transitions (`getAnimations` on each frame's shadow
+  root) and keeps measuring every frame while there are any, and only then. A component animated by script writes styles
+  or DOM as it goes, which the frame's MutationObserver catches. So a spinner anywhere in a selected design keeps the
+  overlay measuring, as before this change; a design that doesn't animate costs nothing while it's still. Measuring for
+  a short while after each change, without asking, would have dropped an outline behind a long animation.
+- **Only frames drawn over wake it:** the selected and hovered designs', or every frame's while the layout grid shows. A
+  design animating elsewhere on the canvas doesn't keep the overlay measuring.
+- **What it doesn't see** is layout that moves with no input, DOM change, resize, image or font load or animation it
+  hears of, such as a video in a frame taking its size once its data arrives. The outline catches up at the next change,
+  such as the pointer moving.
 
 ## Tooltips are raised, and a component's preview is a card (PAR-515)
 
