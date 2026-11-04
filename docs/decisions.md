@@ -3030,6 +3030,25 @@ offscreen window at about 150 ms each (see editor.md, Bitmaps kept between sessi
   every frame has drawn its design, and the window then takes each drawn design apart as its bitmap comes, which paces
   how fast it asks for the next. Showing a skeleton instead of drawing far frames first (PAR-525) removes both.
 
+## A running process's light breathes by opacity (PAR-524)
+
+A running server's light in the status bar breathed by animating its `box-shadow`, which the browser has to paint again
+every frame, so an idle window with its build server running painted 60 times a second. My calls:
+
+- **It keeps breathing, by opacity alone,** rather than holding steady after a few breaths. The glow is a shadow drawn
+  once on a layer behind the dot, faded in and out, and the dot fades between 85% and full as before. Both run on the
+  compositor, so the light still looks alive and costs the window's thread nothing; the idle perf run shows no paint.
+- **With reduced motion it doesn't animate,** as every process light, ring and shimmer already didn't, and shows no
+  glow: a steady dot.
+- **The status bar leaves the lights' words out and, when narrow, the items' too.** In a small window the footer ran off
+  screen. The lights' words ("Starting Storybook", "Lint failed") moved to their tooltip, since a click on the lights
+  lists it all anyway. Below 56rem each project item is its icon and count, with the words kept for screen readers,
+  rather than wrapping or scrolling the footer.
+- **Status bar tooltips are a title and one line, never details that can run long.** They had shown detection's
+  summaries with paths, every discovery note, and raw error messages, which ran to several lines. Those details are
+  still there for anyone who needs them: agents' tools report detection, and a failed save's notification gives its
+  reason.
+
 ## The app's UI kit moves to Buildkit's Base UI Nova (PAR-530)
 
 - **The app's shadcn components move to Buildkit's `@buildkitgg/shadcn-baseui-nova`,** as you asked on 2026-11-04, so
