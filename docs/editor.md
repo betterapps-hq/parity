@@ -2687,6 +2687,31 @@ Gaps: a design that's hovered but not selected shows its menus, and they're in t
 yet keeps a future panel from scrolling the page by putting a focusable element outside its scroller; the root's clip
 keeps the page still, but such an element would sit outside its panel.
 
+### The status bar's process lights stay off the main thread (PAR-524)
+
+Each process in the status bar has a light: a running server's breathes, a starting or stopping one's ring turns, a
+crashed one pings red, and a stopped one is hollow. A project's build server runs for as long as it's open, so its light
+breathes almost all the time, and it mustn't cost the window anything while nothing else happens.
+
+- **Opacity only.** A running light is the dot and, behind it, its glow, a blurred shadow drawn once on its own layer.
+  The dot fades between 85% and full (`process-breathe`) and the glow fades in and out with it (`process-glow`), both by
+  opacity, which the compositor runs without the page repainting. Before, `process-breathe` animated the dot's
+  `box-shadow`, which had to be painted again every frame: an idle window painted, layerized and committed 60 times a
+  second, about 1.3 ms of main thread per frame.
+- **Measured.** `pnpm perf`'s idle run on the example, with its build server running, now spends 0 ms a frame on paint,
+  pre-paint and layerize. `document.getAnimations()` in the status bar lists `process-glow` and `process-breathe` on
+  opacity, and the turning ring's `spin` on transform, and nothing else.
+- **Reduced motion** stops every light, ring and shimmer (`[data-process-motion]` in `styles.css`): a running light is
+  then a steady dot with no glow.
+
+Code: `Light` in `apps/desktop/src/renderer/chrome/Processes.tsx`, and the `process-*` keyframes in `styles.css`.
+
+Tests: Storybook, `chrome/StatusBar.stories.tsx` Everything: every item the status bar can hold at once, with a running,
+a starting and a stopped light side by side; `chrome/ProcessIcons.stories.tsx` EveryKind and EveryKindLight: each light
+in every status, in both themes; and `chrome/Processes.stories.tsx` JustTheBuildServer: one light, breathing.
+
+Gaps: nothing checks automatically that the lights stay on opacity and transform; the perf idle run shows it.
+
 ## Rendering frames
 
 How the project's code runs in the canvas's frames.

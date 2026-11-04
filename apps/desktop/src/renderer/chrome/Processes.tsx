@@ -304,13 +304,24 @@ export function Light({ process, size = 7, delay = 0 }: { process: ProjectProces
           style={{ background: color, animation: "process-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite" }}
         />
       )}
+      {status === "running" && (
+        <span
+          data-process-motion
+          data-process-glow
+          className="absolute inset-0 rounded-full"
+          style={{
+            boxShadow: `0 0 6px 1px color-mix(in oklch, ${color} 70%, transparent)`,
+            opacity: 0,
+            animation: `process-glow 2.8s ease-in-out ${delay}s infinite`
+          }}
+        />
+      )}
       <span
         data-process-motion
         className="relative inline-block rounded-full"
         style={{
           ...box,
           background: color,
-          ["--process-light" as string]: color,
           ...(status === "running" ? { animation: `process-breathe 2.8s ease-in-out ${delay}s infinite` } : {})
         }}
       />

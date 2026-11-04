@@ -12,7 +12,7 @@ import {
   preferring,
   projectAt
 } from "../stories/fixtures.tsx"
-import { answering, service } from "../stories/host.ts"
+import { answering, roots, running, service } from "../stories/host.ts"
 import { workspace } from "../workspace.ts"
 import { AtBottom, olderProjectAt, renameDesign, Window } from "./chrome-fixtures.tsx"
 import { save } from "./commands.ts"
@@ -51,6 +51,57 @@ export const ExampleProject: Story = {
       preferring({ performanceStats: false })
     }
   ]
+}
+
+/**
+ * Everything the status bar can hold at once: the project's renderer, builder, components, tokens and Storybook; a save
+ * that failed; a light for each process, with the build server's breathing, Storybook's turning as it starts and a
+ * stopped Playwright run's hollow; and the performance stats.
+ */
+export const Everything: Story = {
+  loaders: [
+    async () => {
+      await openProjects("example")
+      preferring({ performanceStats: true })
+      const base = {
+        projectId: roots.example,
+        project: "shadcn-vite",
+        startedBy: "parity",
+        canStop: true,
+        canRestart: true
+      } as const
+      running.processes.push(
+        {
+          ...base,
+          id: `storybook:${roots.example}`,
+          kind: "storybook",
+          shape: "server",
+          name: "Storybook",
+          status: "starting",
+          startedAt: Date.now() - 9000,
+          url: "http://localhost:6006"
+        },
+        {
+          ...base,
+          id: `e2e:${roots.example}`,
+          kind: "e2e",
+          shape: "task",
+          name: "Playwright",
+          status: "canceled",
+          startedAt: Date.now() - 300_000,
+          stoppedAt: Date.now() - 240_000,
+          summary: "Canceled after 18 of 42 tests"
+        }
+      )
+      renameDesign("Pricing", "Pricing (annual)")
+      service.saveFails = true
+      await save()
+    }
+  ],
+  play: async () => {
+    await expect(await body().findByRole("button", { name: /Couldn't save/ })).toBeVisible()
+    await expect(await body().findByText("CPU", { exact: false }, { timeout: 4000 })).toBeVisible()
+  }
 }
 
 /** Saving when the project's file can't be written: the status bar says so in red, and a notification says why. */

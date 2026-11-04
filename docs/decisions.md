@@ -2955,6 +2955,7 @@ calls:
   discovery while the tools are found was tried and gained nothing, as both work on the service's one thread. Caching
   discovery, or starting the canvas before the guest loads, would go further, and each is a change of its own.
 
+<<<<<<< HEAD
 ## The selection overlay measures when what it shows can change (PAR-522)
 
 While anything was selected, the overlay measured every animation frame, each time searching the canvas for the design's
@@ -2983,3 +2984,15 @@ frames several times over, which the 2026-11-04 speed audit found the most expen
 - **What it doesn't see** is layout that moves with no input, DOM change, resize, image or font load or animation it
   hears of, such as a video in a frame taking its size once its data arrives. The outline catches up at the next change,
   such as the pointer moving.
+=======
+## A running process's light breathes by opacity (PAR-524)
+
+A running server's light in the status bar breathed by animating its `box-shadow`, which the browser has to paint again
+every frame, so an idle window with its build server running painted 60 times a second. My calls:
+
+- **It keeps breathing, by opacity alone,** rather than holding steady after a few breaths. The glow is a shadow drawn
+  once on a layer behind the dot, faded in and out, and the dot fades between 85% and full as before. Both run on the
+  compositor, so the light still looks alive and costs the window's thread nothing; the idle perf run shows no paint.
+- **With reduced motion it doesn't animate,** as every process light, ring and shimmer already didn't, and shows no
+  glow: a steady dot.
+>>>>>>> e4c7b4e (fix(desktop): stop the running status light repainting the window (PAR-524))

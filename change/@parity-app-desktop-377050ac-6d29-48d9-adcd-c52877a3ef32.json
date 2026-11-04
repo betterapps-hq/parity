@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "The running status light breathes by opacity, so an idle window no longer repaints every frame",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
