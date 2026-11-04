@@ -17,7 +17,7 @@ const named = new WeakSet<DesignNode>()
 
 /**
  * A new node for a component, ready to show something: required props get their default or first option, and a
- * component that takes children gets its own name as text, so it isn't an empty box.
+ * component that takes children gets its own name as text, so it isn't an empty box, unless `given` has its own.
  */
 export function componentNode(
   component: string,
@@ -34,7 +34,8 @@ export function componentNode(
     else if (prop.kind === "number") props[prop.name] = 0
     else if (prop.kind === "string") props[prop.name] = prop.name
   }
-  const labelled = info?.props.some((prop) => prop.name === "children" && prop.kind === "node")
+  const labelled =
+    !("children" in given) && info?.props.some((prop) => prop.name === "children" && prop.kind === "node")
   if (labelled) props.children = component.split("/").at(-1) ?? component
   const node: DesignNode = {
     type: "component",

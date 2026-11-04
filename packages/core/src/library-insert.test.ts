@@ -50,6 +50,10 @@ describe("inserting a library part", () => {
     }
     const kept = withLibraryContext(same, sources, [], taken)
     expect(kept.type === "component" && kept.props).toEqual({ children: "Highlight" })
+    // Text given to componentNode is kept, not labelled over, even when it's the part's name.
+    const given = componentNode("acme/Highlight", takesChildren, taken, { children: "Highlight" })
+    const placed = withLibraryContext(given, sources, [], taken)
+    expect(placed.type === "component" && placed.props).toEqual({ children: "Highlight" })
   })
 })
 
