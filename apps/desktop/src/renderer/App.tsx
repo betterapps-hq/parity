@@ -48,7 +48,11 @@ export function AppWindow() {
           tabs.map((tab) => <ProjectView key={tab.id} id={tab.id} active={tab.id === active} />)
         )}
       </div>
-      <Toaster position="bottom-right" offset={{ bottom: 40, right: 16 }} />
+      <Toaster
+        position="bottom-right"
+        offset={{ bottom: 40, right: 16 }}
+        mobileOffset={{ bottom: 40, left: 16, right: 16 }}
+      />
       <QuickInsert />
       <ActionsSearch />
       <SettingsDialog />

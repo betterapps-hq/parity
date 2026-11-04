@@ -46,24 +46,28 @@ export function PerformanceStats() {
   const cpu = processes.reduce((sum, process) => sum + process.cpu, 0)
   const lowest = history.length > 0 ? Math.min(...history) : undefined
 
+  const label = latest ? `${latest.fps} fps, ${megabytes(memory)}, ${percent(cpu)} CPU` : "Measuring"
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Hint label="Show each process" hidden={open}>
+        <Hint label={label} detail="Click to show each process" hidden={open}>
           <button
             type="button"
+            aria-label={label}
             className="flex h-6 shrink-0 items-center gap-2.5 rounded px-1.5 tabular-nums hover:bg-accent hover:text-foreground"
           >
             <Gauge className="size-3.5" />
             {latest ? (
+              // In a status bar narrower than 56rem only the frame rate shows; the rest is left to screen readers.
               <>
                 <span>
-                  <strong className={`font-medium ${fpsTone(latest.fps)}`}>{latest.fps}</strong> fps
+                  <strong className={`font-medium ${fpsTone(latest.fps)}`}>{latest.fps}</strong>
+                  <span className="@max-4xl/footer:sr-only"> fps</span>
                 </span>
-                <span>
+                <span className="@max-4xl/footer:sr-only">
                   <strong className="font-medium text-foreground">{megabytes(memory)}</strong>
                 </span>
-                <span>
+                <span className="@max-4xl/footer:sr-only">
                   <strong className="font-medium text-foreground">{percent(cpu)}</strong> CPU
                 </span>
               </>
