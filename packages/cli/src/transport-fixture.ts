@@ -13,6 +13,12 @@ export function toolReply(stdout: string): unknown {
     .find((value) => value !== null && typeof value === "object" && "id" in value && value.id === 2)
 }
 
+/**
+ * How long one CLI or MCP process may take. A start on CI's Windows runners, with every test file's processes and
+ * Chrome on four cores, took more than 10 seconds (PAR-533); the limit stays under the test's own 20 there.
+ */
+const spawnLimit = process.env.CI ? 18_000 : 10_000
+
 /** The one project the fixture's app has open, which calls without a tab are routed to. */
 export const fixtureTab = { id: "project", name: "Project", root: "/fixture/project", active: true }
 
@@ -96,7 +102,7 @@ export function transportFixture(defaultResult: unknown) {
       const timeout = setTimeout(() => {
         child.kill()
         reject(new Error("Transport did not finish"))
-      }, 10_000)
+      }, spawnLimit)
       child.on("error", (error) => {
         clearTimeout(timeout)
         reject(error)

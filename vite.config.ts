@@ -1,3 +1,4 @@
+import { availableParallelism } from "node:os"
 import { defineConfig } from "vite-plus"
 
 /*
@@ -271,13 +272,17 @@ export default defineConfig({
       "apps/*/scripts/*.test.ts",
       "scripts/*.test.ts"
     ],
-    // CI's runners have four cores. Locally twelve, which Copacker's tests settled on for this machine.
-    maxWorkers: process.env.CI ? 4 : 12,
-    // Closing Chrome after the browser tests takes more than the default 10 seconds on CI's macOS runners.
-    hookTimeout: 30_000,
+    // One worker per core on CI: four on its Ubuntu and Windows runners, three on macOS, where four workers each with
+    // Chrome left too little for any. Locally twelve, which Copacker's tests settled on for this machine.
+    maxWorkers: process.env.CI ? availableParallelism() : 12,
+    // Closing Chrome after the browser tests takes more than the default 10 seconds on CI's macOS runners, and starting
+    // it with a bundle (frame.test.ts, frame-nodes.test.ts) took more than 30 on its macOS and Windows runners (PAR-533).
+    hookTimeout: process.env.CI ? 60_000 : 30_000,
     // CI's Windows runners take longer than the default 5 seconds over whichever tests run slowest, a different few
     // each run, with Chrome and the fixture projects on four cores. Locally a slow test still fails at 5.
-    testTimeout: process.env.CI ? 20_000 : 5_000
+    testTimeout: process.env.CI ? 20_000 : 5_000,
+    // A page in Chrome can take more than the default second to show a change on CI's runners (PAR-533).
+    expect: { poll: { timeout: process.env.CI ? 5_000 : 1_000 } }
   },
   // The checks, as tasks so Vite Task replays one whose inputs haven't changed since it last passed, here and in CI.
   // `pnpm verify` runs `check` and `test`, and `pnpm check:types` runs `types`; a task can't share a script's name.
