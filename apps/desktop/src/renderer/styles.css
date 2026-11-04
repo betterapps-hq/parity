@@ -192,8 +192,11 @@ textarea,
   contain-intrinsic-size: auto none;
 }
 
-/* A frame with a skeleton was measured, so it keeps that height even if the browser never noted one. */
-[data-skeleton] [data-frame] {
+/*
+ * A frame with a skeleton was measured, and one with a bitmap kept from an earlier session was kept with its height, so
+ * it keeps that height even if the browser never noted one, as for a frame that hasn't drawn yet.
+ */
+[data-measured] [data-frame] {
   contain-intrinsic-height: auto var(--frame-height);
 }
 

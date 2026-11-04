@@ -18,6 +18,7 @@ import {
   message,
   onFileChange,
   openProject,
+  openRoots,
   projectComponents,
   projectRootFor,
   saveDocument,
@@ -25,6 +26,7 @@ import {
   saveTokens
 } from "./projects.ts"
 import { handleRenderResult, renderOffscreen } from "./render.ts"
+import { startReopening } from "./reopening.ts"
 import { openStorybook } from "./storybook.ts"
 
 // Dependencies such as Rollup probe process.execPath. In an installed app that is Parity.exe, so their children
@@ -33,26 +35,40 @@ process.env.ELECTRON_RUN_AS_NODE = "1"
 
 type Handlers = { [M in keyof ServiceMethods]: (params: ServiceMethods[M]["params"]) => Promise<unknown> }
 
+// The projects open when the service last ran open again as it starts, before the window asks for them (PAR-179).
+const reopening = startReopening({
+  file: process.env.PARITY_REOPEN_FILE,
+  open: (root) => openProject(root).finally(rememberOpen),
+  close: (root) => closeProject(root).finally(rememberOpen)
+})
+
+function rememberOpen(): void {
+  reopening.remember(openRoots())
+}
+
 const handlers: Handlers = {
-  "project.open": ({ root }) => openProject(projectRootFor(root)),
-  "project.close": ({ projectId }) => closeProject(projectId),
+  "project.open": ({ root }) => {
+    const projectRoot = projectRootFor(root)
+    reopening.claim(projectRoot)
+    return openProject(projectRoot).finally(rememberOpen)
+  },
+  "project.close": ({ projectId }) => closeProject(projectId).finally(rememberOpen),
   "document.save": saveDocument,
   "document.saveCopy": saveDocumentCopy,
   "images.import": importImage,
   "project.undoEdit": ({ projectId, id }) => undoProjectEdit(getProject(projectId), id),
   "storybook.open": openStorybook,
   "designs.export": (params) => exportDesigns(editorWindow(), params),
-  "frames.capture": async ({ job }) => {
+  "frames.capture": async ({ job, height }) => {
     const { frame, png } = await renderOffscreen(job, true)
     if (frame.error || !png) return {}
-    const code = codeServedAt(job.projectId, job.guestUrl)
-    if (code) void code.then((fingerprint) => storeBitmap(fingerprint, job, png))
+    const served = codeServedAt(job.projectId, job.guestUrl)
+    if (served) void storeBitmap(served, job, png, height ?? frame.height)
     return { png }
   },
   "frames.stored": async ({ job }) => {
-    const code = codeServedAt(job.projectId, job.guestUrl)
-    const png = code && (await storedBitmap(await code, job))
-    return png ? { png } : {}
+    const served = codeServedAt(job.projectId, job.guestUrl)
+    return (served && (await storedBitmap(served, job))) ?? {}
   },
   "frames.clearStored": clearBitmaps,
   "accessibility.check": (params) => checkAccessibility(editorWindow(), params),

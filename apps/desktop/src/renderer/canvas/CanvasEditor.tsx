@@ -22,9 +22,10 @@ import { designColor, kindColors } from "./kinds.tsx"
 import { NoteShapeUtil } from "./NoteShapeUtil.tsx"
 import { sizeWhileShown } from "./overlay-canvas.ts"
 import { TitleLayer } from "./title-layer.tsx"
+import { withoutPatternFills } from "./tldraw-fills.ts"
 import { withoutTldrawShortcuts } from "./tldraw-shortcuts.ts"
 
-const shapeUtils = [ContainerShapeUtil, NoteShapeUtil]
+const shapeUtils = [ContainerShapeUtil, NoteShapeUtil, ...withoutPatternFills]
 
 export function shapeIdFor(key: string): TLShapeId {
   return createShapeId(encodeURIComponent(key))
@@ -260,9 +261,6 @@ export function CanvasEditor({
       editor.user.updateUserPreferences({ colorScheme: getResolvedTheme(), isSnapMode: true })
       // Out to 1%, past tldraw's 5%, so a project with dozens of screens fits in view at once.
       editor.setCameraOptions({ zoomSteps: [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 4, 8] })
-      const stopZoom = settleZoom(editor)
-      const stopZoomedOut = markZoomedOut(editor)
-      const stopOverlays = sizeOverlays(editor)
       hiddenTabs.set(editor, atom("tab hidden", false))
 
       // Designs and notes come and go with undo and agents, so shapes follow the store rather than being made once.
@@ -294,6 +292,16 @@ export function CanvasEditor({
         )
       }
       sync()
+      // The canvas opens on the whole project, placed roughly by where its boards are before they've sized themselves, so
+      // frames start at the zoom they're shown at: zoomed far out, a frame with a bitmap kept from an earlier session
+      // sleeps on it without drawing its design first (PAR-179). It's fitted again once the boards have their sizes.
+      // Boards not sized yet are small, so a small project would start zoomed in; that one starts where it did.
+      const opening = editor.getCamera()
+      editor.zoomToFit()
+      if (editor.getZoomLevel() > opening.z) editor.setCamera(opening, { immediate: true })
+      const stopZoom = settleZoom(editor)
+      const stopZoomedOut = markZoomedOut(editor)
+      const stopOverlays = sizeOverlays(editor)
       const stopStore = store.subscribe(sync)
       const stopHeld = heldBoards.subscribe(sync)
 

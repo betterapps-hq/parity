@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import type { RenderJob } from "../../shared/protocol.ts"
-import { capture, failed, stored, want } from "./frame-bitmaps.ts"
+import { capture, failed, holdsFirstDraw, stored, type UndrawnFrame, want } from "./frame-bitmaps.ts"
 
 const job = {} as RenderJob
 
@@ -40,16 +40,18 @@ describe("capture", () => {
 
 describe("stored", () => {
   /** Answers each method the service is asked with `answers[method]`, counting what's asked. */
-  function service(answers: Record<string, () => Promise<{ png?: string }>>) {
-    const request = vi.fn<(method: string) => Promise<{ png?: string }>>((method) => answers[method]!())
+  function service(answers: Record<string, () => Promise<{ png?: string; height?: number }>>) {
+    const request = vi.fn<(method: string) => Promise<{ png?: string; height?: number }>>((method) =>
+      answers[method]!()
+    )
     vi.stubGlobal("window", { canvasHost: { request } })
     return request
   }
 
-  it("stands a bitmap kept on disk in for its key, so the frame isn't captured", async () => {
-    const request = service({ "frames.stored": () => Promise.resolve({ png: "KEPT" }) })
+  it("stands a bitmap kept on disk in for its key, with its frame's height, so the frame isn't captured", async () => {
+    const request = service({ "frames.stored": () => Promise.resolve({ png: "KEPT", height: 640 }) })
     want("kept", 1)
-    expect(await stored("kept", job)).toBe("data:image/png;base64,KEPT")
+    expect(await stored("kept", job)).toEqual({ src: "data:image/png;base64,KEPT", height: 640 })
     expect(await capture("kept", job)).toBe("data:image/png;base64,KEPT")
     expect(request.mock.calls.map(([method]) => method)).toEqual(["frames.stored"])
     want("kept", -1)
@@ -77,7 +79,30 @@ describe("stored", () => {
     const read = stored("raced", job)
     await capture("raced", job)
     answer({ png: "OLD" })
-    expect(await read).toBe("data:image/png;base64,NEW")
+    expect(await read).toEqual({ src: "data:image/png;base64,NEW" })
     want("raced", -1)
+  })
+})
+
+describe("a frame not drawn yet", () => {
+  const far: UndrawnFrame = { bitmap: { reading: true }, awake: true, interactive: false, dormant: true }
+  const kept = { reading: false, src: "data:image/png;base64,KEPT", height: 640 }
+
+  it("waits zoomed far out while its kept bitmap is looked for, and once found, until it falls asleep on it", () => {
+    expect(holdsFirstDraw(far)).toBe(true)
+    expect(holdsFirstDraw({ ...far, bitmap: kept })).toBe(true)
+    // Asleep, it isn't drawn anyway; waking later draws it as any frame.
+    expect(holdsFirstDraw({ ...far, bitmap: kept, awake: false })).toBe(false)
+  })
+
+  it("draws at once when none was kept, or only a capture without a height came", () => {
+    expect(holdsFirstDraw({ ...far, bitmap: { reading: false } })).toBe(false)
+    expect(holdsFirstDraw({ ...far, bitmap: { reading: false, src: "data:image/png;base64,NEW" } })).toBe(false)
+  })
+
+  it("draws at once where it wouldn't sleep: zoomed in, on the selected board, or while interacting", () => {
+    expect(holdsFirstDraw({ ...far, dormant: false })).toBe(false)
+    expect(holdsFirstDraw({ ...far, bitmap: kept, dormant: false })).toBe(false)
+    expect(holdsFirstDraw({ ...far, interactive: true })).toBe(false)
   })
 })
