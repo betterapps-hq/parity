@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto"
+import { realpathSync } from "node:fs"
 import { homedir } from "node:os"
 import { agentRegistry, isRunning, readEntries, removeStaleEntry } from "@parity-app/agent/registry"
 import {
@@ -58,7 +59,7 @@ export async function call<T>(
   const request: Request =
     routing === "open"
       ? { kind: "open", root: String(params.root) }
-      : { kind: "tab", ...(typeof params.tab === "string" ? { tab: params.tab } : {}), folder: process.cwd() }
+      : { kind: "tab", ...(typeof params.tab === "string" ? { tab: params.tab } : {}), folder: process.cwd(), real }
   const target = route(copies, request)
   if (target.kind === "none") {
     if (target.code === "not_running") throw new CodedError(target.message, { code: target.code, retryable: true })
@@ -66,6 +67,15 @@ export async function call<T>(
     throw unknownReference("unknown_tab", target.message, typeof params.tab === "string" ? params.tab : "", ids, "tab")
   }
   return send<T>(target.copy.entry, method, target.tab ? { ...params, tab: target.tab.id } : params)
+}
+
+/** A folder's real path, through any link, or the folder as named when it can't be read. */
+function real(path: string): string {
+  try {
+    return realpathSync.native(path)
+  } catch {
+    return path
+  }
 }
 
 /** Every copy that answers, with what it has open. An entry whose copy has quit is removed on the way. */

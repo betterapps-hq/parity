@@ -66,6 +66,15 @@ describe("route", () => {
     expect(goes([person(5000), session(6000)], { kind: "tab", folder: anywhere })).toEqual({ app: 20, tab: blog })
   })
 
+  it("finds the folder's project through a link, as macOS's /var is /private/var", () => {
+    const real = (path: string) => path.replace(/^\/var\//, "/private/var/")
+    const copies = [person(5000, [tab("/var/folders/shop", true)])]
+    expect(goes(copies, { kind: "tab", folder: "/private/var/folders/shop/src", real })).toEqual({
+      app: 10,
+      tab: "/var/folders/shop"
+    })
+  })
+
   it("prefers the deepest project holding the folder", () => {
     const copies = [person(5000, [tab("/work"), tab("/work/shop/packages/ui", true)])]
     expect(goes(copies, { kind: "tab", folder: "/work/shop/packages/ui/src" })).toEqual({
