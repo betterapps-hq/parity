@@ -2476,13 +2476,13 @@ new operation tests. No Electron is needed; a read-only check in the running app
 Agents read what a call returned without parsing the prose written for people. Each shared operation in
 `packages/cli/src/operations.ts` (and execute in `execute.ts`) now has an output schema, a canonical result built from
 the app's reply, and the structured form of that result. CLI `--json`, on every command, prints the structured form; MCP
-returns it as `structuredContent`, beside the same text and image blocks as before, and publishes each tool's
-`outputSchema` in `tools/list`. My calls:
+returns it as `structuredContent`, beside the same text and image blocks as before, and published each tool's
+`outputSchema` in `tools/list` until PAR-510 took them out. My calls:
 
 - **One error shape everywhere:** `{ code, message, retryable, path?, alternatives?, editId? }`. A call that fails
   before producing a result returns `{ error }`; an execute or screenshot that fails returns its whole report with
-  `error` in it. The MCP output schema is the result or `{ error }` (`anyOf`), since clients validate structured content
-  against it on errors too. CLI failures still exit with 1 and print the message on stderr; with `--json` the
+  `error` in it. The MCP output schema was the result or `{ error }` (`anyOf`), since clients validate structured
+  content against it on errors too. CLI failures still exit with 1 and print the message on stderr; with `--json` the
   `{ error }` goes to stdout.
 - **The codes are a closed list in core** (`packages/core/src/errors.ts`, exported alone as `@parity-app/core/errors` so
   the CLI doesn't load the rest of core): `invalid_input`, `not_running`, `not_answering`, `unknown_tab`,
@@ -2907,6 +2907,25 @@ editor.md, Component previews, made offscreen and kept on disk). The design is t
 - **Shown in the Components panel's hints until PAR-208.** The List and Grid views, the card and the picker are PAR-208;
   until then a component row's hint shows its large picture, which is enough to see them and lets a row on screen ask
   for its picture first.
+
+## MCP's tool list leaves out output schemas (PAR-510)
+
+`tools/list` grew from 8.6 KB to 33 KB once every tool published an `outputSchema` (PAR-472) and `get_modes` and
+`get_status` arrived. Output schemas were 22 KB of it, the same 618-byte failure branch repeated in 13 of them. My
+calls, which you agreed on 2026-11-04:
+
+- **Tools publish no `outputSchema`; `structuredContent` stays.** The MCP spec allows structured content without a
+  schema. The schemas stay in the operation contracts (`operations.ts`, `execute.ts`), behind CLI `--json` and the
+  tests. The list is 11.7 KB.
+- **Why it was safe to drop.** Claude Code never shows an output schema to the model: Anthropic's tool definitions have
+  no field for one, and Claude Code defers MCP tools, so a session starts with their names and the server's instructions
+  and loads a tool's description and input schema when it's needed. Codex renders output schemas into the model's
+  context as TypeScript in its code mode, so there they cost context on every session. No client needed them to call the
+  tools.
+- **A test holds the list to 12 KiB** (`operations.test.ts`, "keeps the MCP tool list within its budget"). Raise it when
+  a tool earns it, not to make room for longer schemas or descriptions.
+- **Codex shows the model only `structuredContent` when a result has it,** dropping the text and images beside it, so
+  Codex users see no screenshots. That is PAR-528.
 
 ## Opening a project in seconds (PAR-179)
 

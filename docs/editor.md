@@ -2868,12 +2868,13 @@ is bounded with ellipsis.
 
 ### Structured results and coded errors (PAR-472)
 
-Every shared operation returns the same data as CLI `--json` and MCP `structuredContent`, with an `outputSchema` per
-tool in `tools/list`, beside the text and images people read. Failures carry a stable `code`, the `message`,
-`retryable`, a JSON-pointer `path` to the input at fault, up to 20 `alternatives` (valid ids for an unknown or ambiguous
-one) and a failed snippet's `editId`. Unknown tabs, designs, nodes, states, modes, viewports, components, icon sets and
-retry ids are coded where the app finds them; invalid input is coded before anything reaches the app; a missing app is
-`not_running`. Tokens and the console are bounded by `limit`, with `total` and `truncated`.
+Every shared operation returns the same data as CLI `--json` and MCP `structuredContent`, beside the text and images
+people read. Each operation's output schema stays in its contract; `tools/list` leaves them out, which keeps it under 12
+KiB (PAR-510). Failures carry a stable `code`, the `message`, `retryable`, a JSON-pointer `path` to the input at fault,
+up to 20 `alternatives` (valid ids for an unknown or ambiguous one) and a failed snippet's `editId`. Unknown tabs,
+designs, nodes, states, modes, viewports, components, icon sets and retry ids are coded where the app finds them;
+invalid input is coded before anything reaches the app; a missing app is `not_running`. Tokens and the console are
+bounded by `limit`, with `total` and `truncated`.
 
 Implementation: `packages/core/src/errors.ts` (codes, `CodedError`, `closest`, `readErrorDetails`);
 `packages/cli/src/errors.ts` (the operation error, its schema and path mapping); `operations.ts` and `execute.ts`

@@ -62,10 +62,3 @@ export const operationErrorSchema = {
   },
   required: ["code", "message", "retryable"]
 }
-
-/** What a call that failed before producing a result returns as structured data. */
-export const failureSchema = {
-  type: "object",
-  properties: { error: operationErrorSchema },
-  required: ["error"]
-}

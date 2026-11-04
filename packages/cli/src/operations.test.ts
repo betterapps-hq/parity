@@ -767,17 +767,19 @@ describe("remaining transport contracts", () => {
         expect.objectContaining({
           result: {
             tools: expect.arrayContaining([
-              expect.objectContaining({
-                name: entry.tool,
-                inputSchema: operations[entry.method].inputSchema,
-                outputSchema: {
-                  type: "object",
-                  anyOf: [operations[entry.method].outputSchema, expect.objectContaining({ required: ["error"] })]
-                }
-              })
+              expect.objectContaining({ name: entry.tool, inputSchema: operations[entry.method].inputSchema })
             ])
           }
         })
       )
+  })
+
+  // Every agent that loads Parity's tools pays for this list in its context, so it grows only on purpose (PAR-510).
+  // Raise the budget when a tool earns it, not to make room for longer schemas or descriptions.
+  it("keeps the MCP tool list within its budget", async () => {
+    const protocol = await run(["mcp"], JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }) + "\n")
+    const { tools } = (toolReply(protocol.stdout) as { result: { tools: unknown[] } }).result
+    // 11.7 KB when set, down from 33 KB with output schemas.
+    expect(Buffer.byteLength(JSON.stringify(tools))).toBeLessThanOrEqual(12 * 1024)
   })
 })
