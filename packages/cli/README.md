@@ -21,12 +21,13 @@ or install it to get the `parity` command:
 npm install --global @parity-app/cli
 ```
 
-Most commands act on a running Parity app, on its active tab unless `--tab` names another. `parity lib` runs without the
+Most commands act on a project open in a running Parity app: the one `--tab` names, else the one the current folder is
+in, else the active tab of the Parity window used last (`--tab active` names that one). `parity lib` runs without the
 app.
 
-The app writes where to reach it to `~/.parity/agent.json`, or the file `PARITY_AGENT_FILE` names. With two copies
-running, that's the one that started first: a later copy takes it only when started with `PARITY_AGENT_TAKE_OVER=1`, and
-gives it back when it quits.
+Each running copy of the app writes where to reach it to `~/.parity/agents`, and each call goes to the copy that has its
+project open; a project open in two copies goes to the one running longest. A copy started with `PARITY_AGENT_FILE`
+writes only that file, and a CLI given the same file reaches only that copy.
 
 ## Commands
 
@@ -70,7 +71,7 @@ Then have the agent read the skill first, with the `read_skill` tool or `parity 
 
 CLI `exec` and MCP `execute` share one operation. CLI file/stdin becomes MCP's `input`; `--label` becomes `description`;
 `--tab`, `--edit-id` and parsed `--edits` have the same meaning in both. The default task label is `Edit designs`, and
-an omitted tab uses the active tab.
+an omitted tab uses the open project the current folder is in, else the active tab.
 
 Send a nonblank snippet or a failed call's `editId`, not both. Retry patches need a nonempty `find`, a string `replace`
 (which can be empty), and optional boolean `all`; omitted patches default to an empty list. Invalid requests are

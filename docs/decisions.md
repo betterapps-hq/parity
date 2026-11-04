@@ -2785,32 +2785,48 @@ zoomed-out frames could sleep. They're now kept on disk too (see editor.md, Bitm
   frames, more than anyone's recent projects. Use is recorded by touching the file's modification time when it's shown,
   so no index has to be kept in step. A Clear bitmap cache item covers the rest.
 
-## Agents keep reaching the copy that was running first (PAR-280)
+## Agents' calls go to the copy that has their project open (PAR-514)
 
-A second copy of Parity, such as the one `pnpm perf` or a session's `pnpm dev` starts, used to write its address over
-`~/.parity/agent.json`, so the person's agents drove that copy instead of their own app, and quitting it removed the
-file and left agents with none. `@parity-app/agent`'s [connection.ts](../packages/agent/src/connection.ts) decides what
-a copy does with the file, from its contents and the copy's own connection. My calls:
+Several copies of Parity can run at once: the person's app, a session's `pnpm dev`, `pnpm perf`. One file named one
+copy, so whichever copy held it, agents couldn't reach the projects open in the others. PAR-280 kept the file with the
+first copy, which fixed a dev copy taking the person's agents but left the second copy's projects out of reach. Agents
+care about the project, not the copy, so the copy is now chosen per call. My calls:
 
-- **A copy is its main process.** The file names the app's main process (`app`) beside the service's (`pid`), which main
-  gives the service as `PARITY_APP_PID`. A service the dev runner restarts is then the same copy, and takes its own file
-  back while the old service is still answering. A file without `app`, from an older Parity, stands for its service's
-  copy.
-- **Running means answering.** A starting copy asks each connection in the file, with its token, and the first that
-  answers within 2 seconds is running. A process id alone can be reused after a crash; a reply with the token can't.
-- **The first copy running keeps agents, unless asked.** A later copy leaves a running copy's file alone and closes its
-  own agent server, saying so in its log. `PARITY_AGENT_TAKE_OVER=1` asks it to take over, as an environment variable
-  like the rest of the instance's settings (`PARITY_AGENT_FILE`, `PARITY_UI_PORT`). A copy that wants agents of its own
-  without disturbing the person's still sets `PARITY_AGENT_FILE`, as `pnpm perf`, the end-to-end tests and the backtest
-  do.
-- **A copy that takes over keeps what it took** in the file's `previous`, and gives it back when it quits, to the newest
-  copy in that chain whose main process is still running. A file naming a copy that's gone, over one still running, goes
-  back to the running one when the next copy starts.
-- **Main lets go of the file, not the service.** Quitting ends the service outright, on Windows and with a signal
-  elsewhere, so its exit handler never ran and the file outlived every copy. Main reads the file as it quits and removes
-  it, or restores the copy it took over, only when the file still names it.
-- **The person's app started after a dev copy doesn't take agents from it.** Telling the installed app from a dev copy
-  would let it, but a person working on Parity may run either as their own; set `PARITY_AGENT_TAKE_OVER=1` for that.
+- **Every copy registers itself.** Each writes an entry to `~/.parity/agents/<main process id>.json`: its address,
+  token, main process and when it started. A service the dev runner restarts writes the same entry, since main gives it
+  `PARITY_APP_PID`. Main removes the entry as the copy quits, because quitting ends the service before it could. The CLI
+  removes an entry whose copy doesn't answer and whose process is gone. There's no owner to hand over, so PAR-280's
+  take-over rules and `PARITY_AGENT_TAKE_OVER` are gone.
+- **The registry says how to reach a copy, not what it has open.** The CLI asks each copy (`copy`) for its tabs and when
+  its window last had focus, every call. A list kept in the file would go stale as tabs open and close; the question is
+  one local request per running copy.
+- **One module decides.** `@parity-app/agent`'s [routing.ts](../packages/agent/src/routing.ts) holds every rule, as data
+  in and out, with no files or network: how folders compare, how a reference matches a tab (which the app's own
+  `findTab` uses too), which project holds a folder, and where a call goes.
+  [registry.ts](../packages/agent/src/registry.ts) holds where entries live and their format, for both the app and the
+  CLI.
+- **The CLI decides once, and sends the tab it chose.** The app gets an exact tab id, never "the active tab" or a name
+  to look up again, so it can't reach a different answer than the CLI did.
+- **A call names its project, or the folder does.** `--tab` takes an id, folder or name, as before. Without it, a call
+  goes to the open project the agent's working folder is in, so an agent working in a repository edits that project even
+  while the person looks at another; outside any open project, it goes to `active`.
+- **`active` is what the person is looking at:** the active tab of the copy whose window had focus last. "Last" rather
+  than "now", because while the person types to an agent in a terminal no Parity window has focus. It's for when the
+  person says "this" or "what I've selected"; `get_app_state` gives the selection.
+- **A project open in two copies goes to the one running longest.** Either would do, but a copy a session starts while
+  the person works is usually the newer one, and it may be running unfinished code. A newly launched window takes focus,
+  so focus would favour it instead.
+- **Opening a project goes to a copy that has it, else to the one used last.**
+- **Each operation's routing follows from its fields.** One with a `tab` field goes to the copy that has the tab, one
+  with a `root` opens, and one with neither (`tabs`) asks every copy, listing each project once with `active` marked
+  only where `--tab active` points. A test lists each operation's routing, so a new one is a deliberate choice.
+- **A copy kept apart is still kept apart.** `PARITY_AGENT_FILE` names one file instead of the registry, as `pnpm perf`,
+  the end-to-end tests and the backtest set: that copy writes only that file, and a CLI given the same file reaches only
+  it.
+- **Older apps and CLIs.** The CLI also reads `~/.parity/agent.json`, which apps from before the registry write, and
+  asks such an app for its tabs when it doesn't know `copy`. An entry with a newer format than the CLI knows stops the
+  call with a message to update the CLI, rather than being guessed at. A CLI from before the registry doesn't find a new
+  app; the CLI is before 1.0, and `npx @parity-app/cli` fetches the current one.
 
 ## A hidden tab's frames sleep, rather than unmount (PAR-153)
 

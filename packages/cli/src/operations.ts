@@ -1,5 +1,6 @@
 import type {
   AccessibilityResponse,
+  Routing,
   ComponentsResponse,
   ConsoleEntry,
   ConsoleResponse,
@@ -19,7 +20,8 @@ import {
   execOutputSchema,
   execResponse,
   executionFailed,
-  structuredExec
+  structuredExec,
+  tabDescription
 } from "./execute.ts"
 
 interface Field {
@@ -86,7 +88,7 @@ function limit(description: string, fallback: number, most: number): Field {
     }
   }
 }
-const tab = text("Tab id, project root or name. Defaults to the active tab.")
+const tab = text(tabDescription)
 const design = text("Design id or name.", true)
 const scale: Field = {
   schema: { type: "number", minimum: 0.25, maximum: 3, default: 1, description: "Pixel density." },
@@ -112,7 +114,7 @@ const root: Field = {
   }
 }
 
-type Send = <T>(method: string, params: Record<string, unknown>) => Promise<T>
+type Send = <T>(method: string, params: Record<string, unknown>, routing?: Routing) => Promise<T>
 
 /**
  * The adapters share these contracts; they only parse their syntax and format results. `run` gives the canonical
@@ -123,6 +125,11 @@ export interface Operation<Result> {
   outputSchema: Record<string, unknown>
   /** The input fields, which an error's path can point at. */
   fields: readonly string[]
+  /**
+   * Which copy of the app the call goes to, from its fields: one with a tab goes to the copy that has it open, one with
+   * a root to the copy that has that project or the one the person used last, and one with neither asks every copy.
+   */
+  routing: Routing
   run(input: Record<string, unknown>, send: Send): Promise<Result>
   failed(result: Result): boolean
   structured(result: Result): Record<string, unknown>
@@ -164,17 +171,25 @@ function mapped<Result extends object, Reply>(
   options: Options<Result> = {}
 ): Operation<Result> {
   const contract = fieldsContract(fields)
+  const routing = routingFor(fields)
   return {
     inputSchema: contract.inputSchema,
     outputSchema,
     fields: Object.keys(fields),
+    routing,
     async run(input, send) {
       const request = contract.request(input)
-      return result(await send<Reply>(method, request), request)
+      return result(await send<Reply>(method, request, routing), request)
     },
     failed: options.failed ?? (() => false),
     structured: options.structured ?? ((value) => Object.fromEntries(Object.entries(value)))
   }
+}
+/** Which copy a call goes to, from its fields: see `Operation.routing`. */
+function routingFor(fields: Record<string, Field>): Routing {
+  if ("tab" in fields) return "tab"
+  if ("root" in fields) return "open"
+  return "copies"
 }
 /** An operation whose canonical result is the app's reply. */
 function operation<Result extends object>(

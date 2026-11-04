@@ -1,4 +1,5 @@
 import type { AccessibilityFinding, AccessibilityIssue, AgentEvent, IconNames, IconSet } from "@parity-app/agent"
+import type { CopyReport } from "@parity-app/agent/routing"
 import type {
   CanvasDocument,
   ChangeConflict,
@@ -207,6 +208,8 @@ export interface ProjectProcess {
  */
 export interface WindowMethods {
   "agent.tabs": { params: undefined; result: TabSummary[] }
+  /** The window's tabs and when it last had focus, which agents' calls are routed by (PAR-514). */
+  "agent.copy": { params: undefined; result: CopyReport<TabSummary> }
   "agent.snapshot": { params: { tab?: string }; result: TabSnapshot }
   /** Where a tab's edits stand: applied, undoable and saved. Reading it changes nothing. */
   "agent.status": { params: { tab?: string; summary?: boolean; limit?: number }; result: TabStatus }

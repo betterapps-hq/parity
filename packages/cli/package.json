@@ -53,6 +53,7 @@
     "typescript": "6.0.3"
   },
   "devDependencies": {
+    "@parity-app/agent": "workspace:*",
     "@parity-app/core": "workspace:*",
     "@parity-app/libgen": "workspace:*",
     "@parity-app/registry": "workspace:*"

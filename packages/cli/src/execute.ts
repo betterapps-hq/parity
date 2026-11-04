@@ -101,9 +101,14 @@ export const execOutputSchema = {
 
 const defaultLabel = "Edit designs"
 
+/** What every call's tab field says, the same in the CLI's help, MCP tools and the skill (PAR-514). */
+export const tabDescription =
+  'Tab id, project root or name, or "active" for what the person is looking at. Defaults to the open project the ' +
+  'current folder is in, else "active".'
+
 /** Canonical properties, also used by MCP discovery after renaming label and code. */
 const executeProperties = {
-  tab: { type: "string", minLength: 1, description: "Tab id, project root or name. Defaults to the active tab." },
+  tab: { type: "string", minLength: 1, description: tabDescription },
   label: {
     type: "string",
     minLength: 1,
