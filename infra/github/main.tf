@@ -1,7 +1,7 @@
 # Parity's repository rules on GitHub, from the shared github-repository-rules module: main takes changes only through
-# squashed pull requests that pass CI with the OpenAI review addressed and every thread resolved. Release tags never
-# move. It also keeps the npm environment, which publishes the CLI, to main. The terraform-apply workflow runs it with its state in R2,
-# as Copacker's projects run.
+# squashed pull requests that pass CI with the OpenAI review addressed and every thread resolved, except the release
+# commits a deploy key pushes. Release tags never move. It also keeps the npm environment, which publishes the CLI, to
+# main. The terraform-apply workflow runs it with its state in R2, as Copacker's projects run.
 terraform {
   required_version = "= 1.16.6"
   required_providers {
@@ -34,6 +34,10 @@ module "rules" {
 
   repository      = "parity"
   required_checks = ["CI passes"]
+
+  # cd-npm.yml pushes the release commit to main with a deploy key, whose private key is the npm environment's
+  # RELEASE_DEPLOY_KEY secret (PAR-10). Deploy keys are the one actor that skips main's pull request rule, as on Buildkit.
+  bypass_actors = [{ actor_type = "DeployKey" }]
 }
 
 # The rulesets were made by hand on 2026-10-29, to match this module, so main was protected before Terraform ran here.

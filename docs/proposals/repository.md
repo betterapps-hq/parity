@@ -46,17 +46,17 @@ to npm and of unsigned installers to GitHub Releases, as betas first and to ever
 - **npm delivery is configured** (PAR-14). `cd-npm.yml` calls `cd-npm-publish` at v1.7.1 after CI passes on `main`,
   publishing `@parity-app/cli` through npm's trusted publishing with provenance. `0.0.0` was published by hand, and npm
   trusts `cd-npm.yml` with the `npm` environment. Terraform has provisioned that environment, restricted to `main` with
-  administrator bypass disabled, and adopted the repository's existing rulesets. A manually prepared release PR can use
-  this publishing workflow without a release GitHub App or a stored npm token.
+  administrator bypass disabled, and adopted the repository's existing rulesets. No npm token is stored.
 - **Pull requests get previews** (PAR-400, PAR-113). `preview.yml` calls the shared `preview-npm`, `preview-desktop` and
   `publish-storybook` and writes one comment linking all three; `preview-cleanup.yml` deletes the Storybook when the
   pull request closes. The installers build on every pull request but Dependabot's. The CLI waits for pkg.pr.new's
   GitHub App on the repository, and the Storybook for `infra/cloudflare`'s apply, which needs Cloudflare tokens in
   `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_READ_API_TOKEN`; until then each says so in the comment and skips with a
   notice, and Terraform skips that project.
-- **Automatic release PRs still wait for their GitHub App** (PAR-10). `release.yml` calls the shared `release-prepare`
-  and `release-merge` after CI passes on `main`. Until `RELEASE_APP_CLIENT_ID` and `RELEASE_APP_PRIVATE_KEY` exist, it
-  skips with a notice. The release templates at v1.7.0 give the hooks `origin/main` to compare the release commit with.
+- **Releases go straight to `main`** (PAR-10). After CI passes on `main`, `cd-npm.yml` calls the shared
+  `beachball-publish-npm`, which bumps the versions from the change files and pushes the release commit to `main` with a
+  deploy key that `main`'s ruleset lets skip a pull request. Until the `npm` environment has its `RELEASE_DEPLOY_KEY`
+  secret, it skips with a notice.
 
 ## Vite+
 
@@ -125,14 +125,15 @@ This is how Buildkit and the agency monorepo already release, and you asked for 
   - **Everything else stays `private` too:** the example project, the fixtures and anything not shipped.
 - **Beachball 2.66 understands pnpm's `workspace:` and `catalog:` versions,** and treats a catalog change as a change to
   the packages that use it.
-- **A release PR, then delivery,** as Buildkit does it (PAR-10): after CI passes on `main`, pending change files open a
-  pull request with `beachball bump`'s versions and changelogs, which merges itself once its checks pass. Its version
-  changes start the CD pipelines. Sessions pull before they push, so they pick up the release commits. A release commit
-  changes only versions, changelogs and change files, which the hooks and CI's checks accept: `scripts/changes.ts`
-  ignores a `package.json` whose only change is its version, and CI skips `beachball check` on `beachball/release`.
-- **Every merged release PR ships,** the CLI to npm and the app to GitHub Releases, as Buildkit's packages do. The app
-  goes to the beta, and reaches everyone only when it's promoted (see Betas), so how often release PRs merge doesn't
-  decide how often people's Parity changes.
+- **A release commit on `main`, then delivery,** as Buildkit does it (PAR-10): after CI passes on `main`, pending change
+  files are released by `beachball publish`, which writes the versions and changelogs, commits them and pushes the
+  commit to `main` with a deploy key, with no pull request. CI runs on that commit, and passing starts the CD pipelines.
+  Sessions pull before they push, so they pick up the release commits. A release commit changes only versions,
+  changelogs and change files, which the hooks accept: `scripts/changes.ts` ignores a `package.json` whose only change
+  is its version.
+- **Every release ships,** the CLI to npm and the app to GitHub Releases, as Buildkit's packages do. The app goes to the
+  beta, and reaches everyone only when it's promoted (see Betas), so how often releases happen doesn't decide how often
+  people's Parity changes.
 
 ## npm packages
 
@@ -150,8 +151,8 @@ This is how Buildkit and the agency monorepo already release, and you asked for 
   npmjs.com. npm only trusts a workflow for a package that exists, so the first version is published by hand, then
   `npm trust github @parity-app/cli --repo betterapps-hq/parity --file cd-npm.yml --env npm --allow-publish` hands it to
   CI. `cd-npm.yml` runs whenever CI passes on `main`, and the template publishes only the versions npm doesn't have, so
-  only a merged release PR's new version publishes. It can't be run by hand, which could publish a commit whose CI
-  failed: a failed publish is retried with Re-run, or caught up by the next CI pass.
+  only a release commit's new version publishes. It can't be run by hand, which could publish a commit whose CI failed:
+  a failed publish is retried with Re-run, or caught up by the next CI pass.
 - **Only packages with a `publishConfig` are published,** which the CLI gets with its npm name. The desktop app isn't
   private, since Beachball versions it, so `private` alone can't tell the publish step what goes to npm.
 
@@ -184,8 +185,8 @@ installed Windows/Linux updates and an unsigned Mac download fallback; publisher
    AppImage for Linux, with Parity's name, icon and version. The utility process needs TypeScript 6 at runtime with its
    `lib.*.d.ts` files on disk, so it ships unbundled and outside the asar archive. Everything else is bundled, which
    keeps pnpm's symlinked `node_modules` out of the package.
-3. **cd-desktop** (PAR-11): when a release PR raises the desktop app's version on `main`, it builds the installers on
-   all three systems and publishes them as a GitHub pre-release tagged `v<version>`, the form electron-updater reads,
+3. **cd-desktop** (PAR-11): when a release commit raises the desktop app's version on `main`, it builds the installers
+   on all three systems and publishes them as a GitHub pre-release tagged `v<version>`, the form electron-updater reads,
    with the app's changelog and the update metadata. The tldraw licence key comes from a repository secret, and signing
    steps skip with a notice until their secrets exist.
 4. **Promotion** (PAR-12): run by hand with a version, it marks that pre-release a full release, so it reaches everyone.
@@ -258,8 +259,7 @@ from discrete templates, with a pipeline per stage rather than one that does eve
 | `ci.yml`              | pull requests and `main`                             | `ci-verify`, plus the repository's own extra jobs                                             |
 | `preview.yml`         | pull requests                                        | `preview-npm`, `preview-desktop`, `preview-web`, or `publish-storybook` to `preview`          |
 | `preview-cleanup.yml` | a closed pull request, and a schedule                | `preview-web-cleanup` or `unpublish-storybook`                                                |
-| `release.yml`         | CI passing on `main`                                 | `release-prepare` and `release-merge`, Beachball's PR                                         |
-| `cd-npm.yml`          | a published package's version changing               | `cd-npm-publish`; this file is npm's trusted publisher                                        |
+| `cd-npm.yml`          | CI passing on `main`                                 | `beachball-publish-npm` to release, `cd-npm-publish`; npm's trusted publisher                 |
 | `cd-desktop.yml`      | the desktop app's version changing, then a promotion | `cd-desktop-build` and `cd-desktop-release` for the beta, `cd-desktop-promote` for everyone   |
 | `cd-web.yml`          | `main`, then a promotion to production               | `cd-web-deploy` for staging, `cd-web-promote` for production, and `publish-storybook` to each |
 
@@ -348,6 +348,6 @@ What it doesn't take:
 2. PAR-2, CI through the shared template, PAR-3, checks on commit, and PAR-4, change files. PAR-393 when sessions are
    quiet.
 3. PAR-397, a README and licence, then PAR-398, the repository on GitHub, once CI passes on a clean checkout.
-4. PAR-10, the release PR, then PAR-8, PAR-9, PAR-11 and PAR-12, the first unsigned desktop release and its promotion.
-   PAR-13 and PAR-14, the CLI on npm, once PAR-26 names it.
+4. PAR-10, releasing from `main`, then PAR-8, PAR-9, PAR-11 and PAR-12, the first unsigned desktop release and its
+   promotion. PAR-13 and PAR-14, the CLI on npm, once PAR-26 names it.
 5. PAR-400, previews, then PAR-394, PAR-395 and PAR-396 whenever there's room. PAR-399 when signing is set up.
