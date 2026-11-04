@@ -98,9 +98,9 @@ async function lookup(preview: PreviewJob): Promise<ComponentPreview | undefined
  */
 async function keyFor({ job }: PreviewJob): Promise<string | undefined> {
   const project = previewProject(job.projectId)
-  const code = codeServedAt(job.projectId, job.guestUrl)
-  if (!project || !code) return undefined
-  const snapshot = await code
+  const served = codeServedAt(job.projectId, job.guestUrl)
+  if (!project || !served) return undefined
+  const snapshot = await served.code
   // A library's components are its package, which the lockfile stands for.
   const entries = [...new Set(renderedComponents(job.tree as RenderNode[]))].flatMap((id) => {
     const own = project.sources[id]

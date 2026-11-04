@@ -15,7 +15,10 @@ const open = vi.hoisted(() => ({
 }))
 
 vi.mock("./projects.ts", () => ({
-  codeServedAt: (_projectId: string, guestUrl: string) => open.snapshots.get(guestUrl),
+  codeServedAt: (_projectId: string, guestUrl: string) => {
+    const code = open.snapshots.get(guestUrl)
+    return code && { code, fingerprint: code.then(({ fingerprint }) => fingerprint), sources: {} }
+  },
   previewProject: () => ({
     root: open.root,
     stylesheets: ["src/index.css"],

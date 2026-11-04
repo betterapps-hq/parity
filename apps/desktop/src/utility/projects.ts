@@ -31,7 +31,6 @@ import {
 import {
   appFiles,
   checkedChanges,
-  type CodeSnapshot,
   codeSnapshot,
   detectProject,
   discoverProject,
@@ -47,6 +46,7 @@ import { reactRenderer } from "@parity-app/renderer-react"
 import { tailwindStyles } from "@parity-app/styles-tailwind"
 import { writeTokenChanges } from "@parity-app/tokens"
 import type { ProjectEditResult, ProjectInfo, ServiceMethods, WindowMethods } from "../shared/protocol.ts"
+import type { ServedCode } from "./bitmap-store.ts"
 import { startBuilder } from "./builders.ts"
 import { saveDetection, savedDetection } from "./detection-cache.ts"
 import { applyProjectEdit } from "./edits.ts"
@@ -86,11 +86,12 @@ interface OpenProject {
   /** Where the windows load the project's guest from: `info.guestUrl`, unless they couldn't load it after it moved. */
   drawnGuestUrl: string
   /**
-   * The project's code as each address first served it (`codeSnapshot`), which kept frame bitmaps and component
-   * previews are named by. A page never loads a module twice, so a guest drawn from an address shows the code it had
-   * then, however it has changed since: a builder started again on the same port keeps the address's first snapshot.
+   * The project's code as each address first served it (`codeSnapshot`), and the components it served, which kept
+   * frame bitmaps and component previews are named by. A page never loads a module twice, so a guest drawn from an
+   * address shows the code it had then, however it has changed since: a builder started again on the same port keeps
+   * the address's first.
    */
-  fingerprints: Map<string, Promise<CodeSnapshot>>
+  fingerprints: Map<string, ServedCode>
   /**
    * The project's config inputs (its tsconfigs, package.json and lockfiles, see `configInputs`), absolute, and the
    * folders where a lockfile appearing changes which ones it has (see `lockfileFolders`): a change to either reads props
@@ -158,6 +159,11 @@ export function openProject(root: string): Promise<ProjectInfo> {
     opening.set(root, pending)
   }
   return pending
+}
+
+/** The roots of the projects open now. */
+export function openRoots(): string[] {
+  return [...projects.keys()]
 }
 
 export async function closeProject(projectId: string): Promise<undefined> {
@@ -282,7 +288,7 @@ async function start(root: string): Promise<ProjectInfo> {
     builder,
     startOptions,
     drawnGuestUrl: session.guestUrl,
-    fingerprints: new Map([[session.guestUrl, fingerprintCode(root, startOptions)]]),
+    fingerprints: new Map([[session.guestUrl, servedCode(root, startOptions)]]),
     stylesheets: config.styles,
     known,
     sources: config.components,
@@ -363,7 +369,7 @@ async function restartBuilder(root: string): Promise<void> {
   project.session = session
   project.info.guestUrl = session.guestUrl
   if (!project.fingerprints.has(session.guestUrl)) {
-    project.fingerprints.set(session.guestUrl, fingerprintCode(root, project.startOptions))
+    project.fingerprints.set(session.guestUrl, servedCode(root, project.startOptions))
   }
   // It has its old port back unless something took it; then the open windows load the guest from the new one. That's
   // checked against where they draw it, so a move they couldn't load is tried again when it's started again.
@@ -374,19 +380,26 @@ async function restartBuilder(root: string): Promise<void> {
 
 /**
  * The project's code as its guest will draw it, for kept bitmaps: its files, and the guest module Parity draws it with, so
- * a new version of Parity doesn't show bitmaps the last one drew. `bitmapFormat` goes up when what's kept changes.
+ * a new version of Parity doesn't show bitmaps the last one drew, and the components the builder serves it with now,
+ * which change in place later. `bitmapFormat` goes up when what's kept changes.
  */
-function fingerprintCode(root: string, options: BuilderStartOptions): Promise<CodeSnapshot> {
+function servedCode(root: string, options: BuilderStartOptions): ServedCode {
   const guest = readFile(options.rendererGuestPath).catch(() => Buffer.alloc(0))
-  return guest.then((contents) =>
+  const code = guest.then((contents) =>
     codeSnapshot(root, `${bitmapFormat}:${createHash("sha256").update(contents).digest("hex")}`)
   )
+  return {
+    code,
+    fingerprint: code.then(({ fingerprint }) => fingerprint),
+    sources: { ...options.config.components }
+  }
 }
 
-const bitmapFormat = 1
+/** Kept bitmaps carry their frame's height, and are named by the components their frames draw (PAR-179). */
+const bitmapFormat = 2
 
 /** The project's code as the address a job draws from first served it, while the project is open. */
-export function codeServedAt(projectId: string, guestUrl: string): Promise<CodeSnapshot> | undefined {
+export function codeServedAt(projectId: string, guestUrl: string): ServedCode | undefined {
   return projects.get(projectId)?.fingerprints.get(guestUrl)
 }
 

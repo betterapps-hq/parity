@@ -1,17 +1,29 @@
 import { createHash } from "node:crypto"
 import { mkdir, open, readdir, readFile, rename, rm, stat, utimes, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import { type CachedFile, cacheRemovals } from "@parity-app/core"
+import { type CachedFile, type ComponentSource, cacheRemovals, pngText, withPngText } from "@parity-app/core"
+import type { CodeSnapshot } from "@parity-app/project"
 import type { PreviewImage, RenderJob } from "../shared/protocol.ts"
+import { drawnComponents } from "../shared/render-job.ts"
 
 /**
  * Frame bitmaps and component previews kept on disk, so a project opened again shows them at once (PAR-158, PAR-207).
  * They live in Parity's app data, which main names (`PARITY_BITMAP_DIR`), one folder per project. A frame bitmap is a
- * PNG named by what it shows: the project's code as the guest drawing it was loaded (`codeSnapshot`) and the render
- * job, less the guest's address, which is new each time the project opens. Component previews are in the project's
- * `previews` folder, two PNGs each, named by `previewKey`, with an index of each component's latest. Without a folder,
- * as in tests, nothing is kept.
+ * PNG named by what it shows: the project's code as the guest drawing it was loaded (`codeSnapshot`), the render job,
+ * less the guest's address, which is new each time the project opens, and where the components it draws come from.
+ * Each PNG carries its frame's height. Component previews are in the project's `previews` folder, two PNGs each, named
+ * by `previewKey`, with an index of each component's latest. Without a folder, as in tests, nothing is kept.
  */
+
+/**
+ * What a guest's address was first served, which kept bitmaps and previews are named by: the project's code
+ * (`codeSnapshot`) and its fingerprint, and the components the guest was served with.
+ */
+export interface ServedCode {
+  code: Promise<CodeSnapshot>
+  fingerprint: Promise<string>
+  sources: Readonly<Record<string, Pick<ComponentSource, "path" | "export">>>
+}
 const folder = process.env.PARITY_BITMAP_DIR
 
 /** Writes since the cache was last swept; it's swept again after this many, and when the service starts. */
@@ -19,25 +31,41 @@ const sweepEvery = 50
 let writes = 0
 let sweeping: Promise<void> | undefined
 
-/** The bitmap a job draws, if one was kept for the code it's drawn with. Showing it counts as using it. */
-export async function storedBitmap(fingerprint: string, job: RenderJob): Promise<string | undefined> {
+/** The PNG text the frame's height is kept under. */
+const heightKeyword = "parity:height"
+
+/**
+ * The bitmap a job draws, as base64, and the frame's height when it was captured, if one was kept for the code it's
+ * drawn with. Showing it counts as using it.
+ */
+export async function storedBitmap(
+  served: ServedCode,
+  job: RenderJob
+): Promise<{ png: string; height: number } | undefined> {
   if (!folder) return undefined
-  const file = bitmapFile(fingerprint, job)
+  const file = bitmapFile(await served.fingerprint, served, job)
   try {
     const png = await readFile(file)
+    const height = Number(pngText(png, heightKeyword))
+    // Every bitmap kept says how tall its frame was; one that doesn't isn't one this version wrote.
+    if (!(height > 0)) return undefined
     const now = new Date()
     void utimes(file, now, now).catch(() => undefined)
-    return png.toString("base64")
+    return { png: png.toString("base64"), height }
   } catch {
     return undefined
   }
 }
 
-/** Keeps a captured bitmap. It's written beside its name and then renamed, so a reader never finds half a file. */
-export async function storeBitmap(fingerprint: string, job: RenderJob, png: string): Promise<void> {
+/**
+ * Keeps a captured bitmap, with the frame's height in its own CSS pixels inside the PNG. It's written beside its name and
+ * then renamed, so a reader never finds half a file.
+ */
+export async function storeBitmap(served: ServedCode, job: RenderJob, png: string, height: number): Promise<void> {
   if (!folder) return
   try {
-    await writeWhole(bitmapFile(fingerprint, job), Buffer.from(png, "base64"))
+    const file = bitmapFile(await served.fingerprint, served, job)
+    await writeWhole(file, withPngText(Buffer.from(png, "base64"), heightKeyword, String(height)))
   } catch (error) {
     console.warn(`[service] couldn't keep a frame bitmap: ${message(error)}`)
     return
@@ -229,7 +257,7 @@ function isRecord(value: unknown): value is PreviewRecord {
 }
 
 /** Writes a file beside its name and then renames it, so a reader never finds half of it. */
-async function writeWhole(file: string, contents: Buffer): Promise<void> {
+async function writeWhole(file: string, contents: Uint8Array): Promise<void> {
   const partial = `${file}.${process.pid}.${Math.random().toString(36).slice(2)}.partial`
   try {
     await mkdir(join(file, ".."), { recursive: true })
@@ -266,8 +294,19 @@ function previewFile(projectId: string, key: string, size: PreviewSize): string 
   return join(previewFolder(projectId), `${key}-${size}.png`)
 }
 
-function bitmapFile(fingerprint: string, job: RenderJob): string {
-  const { guestUrl: _address, ...drawn } = job
-  const name = createHash("sha256").update(fingerprint).update("\0").update(JSON.stringify(drawn)).digest("hex")
+/**
+ * A bitmap's file, named by the code its guest was served and the job less the guest's address, which is new each time
+ * the project opens. The components the job gave the guest are named with those it was served, by where each one the
+ * frame draws comes from (`drawnComponents`), so the name is the same in a session whose guest was served them all.
+ */
+function bitmapFile(fingerprint: string, served: ServedCode, job: RenderJob): string {
+  const { guestUrl: _address, components, ...drawn } = job
+  const name = createHash("sha256")
+    .update(fingerprint)
+    .update("\0")
+    .update(JSON.stringify(drawn))
+    .update("\0")
+    .update(JSON.stringify(drawnComponents(job.tree, served.sources, components)))
+    .digest("hex")
   return join(projectFolder(job.projectId), `${name.slice(0, 40)}.png`)
 }

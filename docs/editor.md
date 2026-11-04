@@ -2146,12 +2146,18 @@ Frame bitmaps are kept on disk, so a project opened again, or Parity started aga
 they're read rather than capturing every one again, one at a time, before frames can sleep. They're kept in Parity's app
 data, in `bitmaps`, one folder per project and one PNG per bitmap.
 
-- **A bitmap is named by what it shows:** the project's code as the guest drawing it was loaded, and the render job less
-  the guest's address, which is new each time a project opens. The code is a fingerprint of the path, size and
-  modification time of every file in the project and of the lockfiles above it, skipping dependencies, build output,
-  dot-folders and designs, with the guest module Parity draws it with and a format number. It's taken when each address
-  is first served and kept for that address, since the page never loads a module twice: a builder started again on the
-  same port keeps it. Any edit to code, CSS or config gives a new name, so a bitmap of old code is never shown for new.
+- **A bitmap is named by what it shows:** the project's code as the guest drawing it was loaded, the render job less the
+  guest's address, which is new each time a project opens, and where each component the frame draws comes from, whether
+  the guest was served it or given it since, as when the type checker finds one (PAR-179). The code is a fingerprint of
+  the path, size and modification time of every file in the project and of the lockfiles above it, skipping
+  dependencies, build output, dot-folders and designs, with the guest module Parity draws it with and a format number.
+  It's taken when each address is first served and kept for that address, since the page never loads a module twice: a
+  builder started again on the same port keeps it. Any edit to code, CSS or config gives a new name, so a bitmap of old
+  code is never shown for new.
+- **Each PNG carries its frame's height** as the canvas drew it, in a `parity:height` text chunk, so a frame that hasn't
+  drawn yet can show its kept bitmap at its size (see Opening in seconds). The offscreen window lays a frame out at the
+  bitmap's quarter zoom, where text rounds to other heights, so its own measure is kept only for a frame the canvas
+  hadn't drawn. A file without a height, as versions before PAR-179 kept, isn't shown.
 - **A frame not yet captured this session asks for a kept one first,** and shows it as soon as it's read. Only when
   there's none is it captured, after what's left of the 1-second wait; frames showing the same bitmap share one read,
   and a capture that landed meanwhile wins. Every capture that rendered is kept, written beside its name and renamed so
@@ -2163,19 +2169,25 @@ data, in `bitmaps`, one folder per project and one PNG per bitmap.
 
 Code: `cacheRemovals` in `packages/core/src/bitmap-cache.ts`; `codeSnapshot` in
 `packages/project/src/code-fingerprint.ts`; `apps/desktop/src/utility/bitmap-store.ts`, and `codeServedAt` and the
-`fingerprints` kept per address in `utility/projects.ts`; the `frames.capture`, `frames.stored` and `frames.clearStored`
-handlers in `utility/index.ts`; `useFrameBitmap` and `stored` in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`;
-`clearBitmapCache` in `renderer/chrome/commands.ts`, in the View menu (`AppMenu.tsx`) and the actions search
-(`ActionsSearch.tsx`); `PARITY_BITMAP_DIR`, which main gives the service.
+`fingerprints` kept per address in `utility/projects.ts`, with the components each address served; `drawnComponents` in
+`apps/desktop/src/shared/render-job.ts`; `withPngText` and `pngText` in `packages/core/src/png-text.ts`; the
+`frames.capture`, `frames.stored` and `frames.clearStored` handlers in `utility/index.ts`; `useFrameBitmap` and `stored`
+in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `clearBitmapCache` in `renderer/chrome/commands.ts`, in the View
+menu (`AppMenu.tsx`) and the actions search (`ActionsSearch.tsx`); `PARITY_BITMAP_DIR`, which main gives the service.
 
 Tests: `packages/core/src/bitmap-cache.test.ts` (6: nothing goes while under the cap, a project unused for 30 days goes
 whole and one with a recent bitmap keeps its older ones, the least recently used go past the cap down to what's kept,
 the age limit counts before the cap, an old partial file goes and a new one stays, and a partial file doesn't keep its
 project). `packages/project/src/code-fingerprint.test.ts` (6: the same for the same files and salt, new with the salt,
 new for an edited component, stylesheet or config, and the same with dependencies, build output, dot-folders and designs
-added). `apps/desktop/src/utility/bitmap-store.test.ts` (5: a bitmap kept from one address is found from another, none
-for other code or another frame, no partial file left behind, an old project and an old partial file swept, and nothing
-once cleared). `apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (4: a kept bitmap stands in for its key so no
+added). `apps/desktop/src/utility/bitmap-store.test.ts` (7: a bitmap kept from one address is found from another with
+its frame's height, one whose guest was given a component is found from a guest served it and not from one served it
+from another file, none for a file without a height, none for other code or another frame, no partial file left behind,
+an old project and an old partial file swept, and nothing once cleared). `apps/desktop/src/shared/render-job.test.ts` (2
+for `drawnComponents`: the components a tree draws, nested in slots and props, by where they come from, and the same
+whether served or given). `packages/core/src/png-text.test.ts` (4: text kept right after the header with valid CRCs and
+read back, replaced under the same keyword, none in a PNG without it, and what isn't a PNG left alone).
+`apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (4: a kept bitmap stands in for its key, with its height, so no
 capture is asked for, frames with the same key share a read, none when none was kept, and a capture taken during the
 read wins). Gaps: that a frame waits for the read before its capture, and the fingerprint kept per address, have no test
 of their own; both were checked by reading `useFrameBitmap` and `restartBuilder`. Tried in a debug copy on
@@ -2298,6 +2310,87 @@ What opening a project loads into the windows, and what closing it gives back.
 
 On first launch the installed app shows the welcome page. Later launches restore the saved project tabs. Development can
 request an initial project through its runner. `workspace.test.ts` covers these startup choices (PAR-8).
+
+### Opening in seconds (PAR-179)
+
+Started again, Parity shows the example project's canvas, with every frame on its bitmap from last time, about 3.2
+seconds after its window starts loading, in a development build, where it took 5.7 to show every frame and 6.6 to have
+every bitmap. Reopened in the same window, every frame shows its bitmap at 2.2 seconds, where the bitmaps took 19.
+
+- **Frames start on the bitmaps kept from last time.** Zoomed far out, a frame that hasn't drawn its design yet waits
+  for the bitmap kept from an earlier session (see Bitmaps kept between sessions) and falls asleep on it without ever
+  drawing, at the height kept with it, so its board has its size. It draws at once when none was kept, and where it
+  wouldn't sleep: on the selected board, zoomed in, and while interacting. Once it's stopped waiting it never waits
+  again, and wakes and draws as any sleeping frame does. Before, every frame drew its design first, about 2 seconds on
+  the example, only to be taken apart once its bitmap showed, and the kept bitmaps' replies, which the service gave in a
+  millisecond each, waited behind that drawing.
+- **The canvas opens roughly fitted.** It fits the project as soon as its boards are placed, before they've sized
+  themselves, so frames start at the zoom they're shown at, and fits it again once they have, as before. Boards not
+  sized yet are small, so one that would fit nearer than where the canvas starts starts there instead, as before.
+- **The project opens as Parity starts.** The service keeps which projects are open, in `open-projects.json` in Parity's
+  app data, and opens them as it starts, while the window loads its UI; the window's open of the same project joins the
+  one under way. One the window doesn't ask for within a minute, as when its tabs and the list disagree, is closed
+  again.
+- **tldraw's hatched fill is left out.** tldraw draws the pattern its arrows, drawings and geo shapes can be filled with
+  as an image for every power of two up to the farthest zoom in over the farthest out, and the canvas's 1% to 800% made
+  that 1,024 times: a canvas over 8,000 pixels square for each theme, painted and encoded as a PNG on the window's
+  thread each time a canvas mounted, about a second. The canvas draws none of those shapes, so they're given without it.
+- **A bitmap kept in a session where the type checker found components is found in the next,** since it's named by where
+  the components a frame draws come from (see Bitmaps kept between sessions). Before, every frame missed in the session
+  after one where the checker ran, which is the first open after any change to the code.
+
+**What `pnpm perf` times.** Opening is timed three ways on the example project (61 designs, 119 frames): the first
+launch, on a fresh profile; closing the tab and opening the project again in the same window; and starting the app again
+on the same profile, which restores the tab. A canvas is usable once every frame shows its design or its bitmap, and has
+its previews once every frame has its bitmap. Launches are timed from the window's page starting to load, which
+Electron's own start comes before, by about 0.1 seconds; a reopen from the open. `--open-only` times just this.
+
+| Opening, usable / previews  | Before (`main` at PAR-441)    | After                         |
+| --------------------------- | ----------------------------- | ----------------------------- |
+| First launch, fresh profile | 5.9 to 8.6 s / 23.7 to 26.2 s | 4.8 to 5.2 s / 21.4 to 21.5 s |
+| Again in the same window    | 2.8 to 2.9 s / 19.3 to 19.4 s | 2.2 s / 2.2 s                 |
+| Started again, same profile | 5.7 to 6.0 s / 6.6 to 6.9 s   | 3.2 to 3.3 s / 3.2 to 3.3 s   |
+
+Two runs each, on Windows 11, in development builds, with other sessions using the machine. The audit's 8.6 and 27
+seconds were timed by hand before bitmaps were kept on disk (PAR-158); a first launch's previews are still captured one
+at a time, about 21 seconds for 119 frames.
+
+**Where the time went, started again.** Before: the window loaded Parity's UI (1.0 s, from Vite's development server);
+asked the service for the project, which took 1.3 s to open it (finding its tools 0.2 s, discovering its components 0.35
+s, starting Vite in the builder's process 0.6 s); loaded the project's guest (0.4 s); then mounted the canvas, which
+drew all 119 frames and tldraw's fill images, so the kept bitmaps came in at 6.4 s. After: the UI loads in the same 1.0
+s while the service, opening the project from 0.35 s, has it ready at about 1.6 s; the guest loads (0.35 s); the canvas
+mounts and shows every kept bitmap by about 3.2 s, the last 1.3 s almost all React's development build drawing the
+canvas, its panels and 119 tiles.
+
+**The targets.** Reopened in the same window, the canvas is usable and has its previews within 3 seconds. Started again,
+it has its previews within 5 seconds but is usable at 3.2 to 3.3, short of 3. What's left is the development build's:
+loading the UI from Vite's server (1.0 s) and React's development build, which renders each component twice under
+StrictMode, drawing the canvas; an installed app has neither, and wasn't measured. The service's part, now overlapping
+the UI's load, is mostly Vite starting in the builder's process, which needs discovery's results first; discovering
+while the tools are found was tried and gained nothing, as both work on the service's one thread.
+
+Code: `useFirstDrawWaits`, `holdsFirstDraw`, `drawnHeight` and the `measure` that `useFrameBitmap` and `capture` take,
+in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `FrameTile` in `canvas/ContainerView.tsx`, and the
+`[data-measured]` rule in `styles.css`; the first fit in `handleMount` in `canvas/CanvasEditor.tsx`;
+`withoutPatternFills` in `canvas/tldraw-fills.ts`; `startReopening` in `apps/desktop/src/utility/reopening.ts`, wired in
+`utility/index.ts`, with `openRoots` in `utility/projects.ts` and `PARITY_REOPEN_FILE`, which main gives the service;
+the opening timings in `apps/desktop/scripts/perf.ts`.
+
+Tests: `apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (3 for `holdsFirstDraw`: a frame zoomed far out waits
+while its kept bitmap is read and, once found, until it falls asleep on it; draws at once when none was kept or only a
+capture came; and draws at once zoomed in, on the selected board or while interacting).
+`apps/desktop/src/utility/reopening.test.ts` (5: each project kept is opened and those a window asks for stay open, one
+no window asks for in time is closed, one a window asked for before the list was read is left to it, the last list given
+is kept whole for the next start, and nothing is opened without a list or with a broken one).
+`apps/desktop/src/renderer/canvas/tldraw-fills.test.ts` (2: none of tldraw's shapes adds to the canvas's defs, and only
+the shapes whose defs add the fill are replaced, keeping their types). The bitmaps' heights and names are covered under
+Bitmaps kept between sessions. Gaps: `useFirstDrawWaits` itself, the first fit and the service opening projects as it
+starts have no automated test; the end-to-end suite starts each copy on a fresh profile, so none of it opens on kept
+bitmaps. They were checked with `pnpm perf` in a copy of the app, and with a script that started a copy again, recorded
+every board's size while all 119 frames showed kept bitmaps without having drawn, then selected each board so its frames
+drew, and found none of the 61 boards changed size. With the offscreen window's heights, 28 boards were 3 to 66 pixels
+too tall, which is why the canvas's own height is kept.
 
 ### Reopening loads the project afresh (PAR-195, PAR-422, PAR-433)
 

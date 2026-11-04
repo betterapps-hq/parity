@@ -50,7 +50,7 @@ import { useLibrary, useModeSettings } from "../design-store.ts"
 import { ModeView } from "../ModeView.tsx"
 import { useDesignSelection, useInteracting, useInteractions, useRenameRequest } from "../selection.ts"
 import { useProject } from "./context.ts"
-import { useFrameBitmap, useFrameShows } from "./frame-bitmaps.ts"
+import { drawnHeight, useFirstDrawWaits, useFrameBitmap, useFrameShows } from "./frame-bitmaps.ts"
 import { useFrameSkeleton } from "./frame-skeletons.ts"
 import { type BoardRest, useAwake } from "./frame-sleep.ts"
 import { FrameSkeleton } from "./FrameSkeleton.tsx"
@@ -549,14 +549,20 @@ const FrameTile = memo(function FrameTile({
   // What the frame shows, worked out once, which the live frame, its bitmap, its skeleton and its sleep all go by.
   const shows = useFrameShows(session, tree, mode, frame, scale)
   const { key } = shows
-  const bitmap = useFrameBitmap(shows)
+  // The live frame's height as it's drawn when its bitmap is taken, which is kept with it.
+  const kept = useFrameBitmap(shows, () => drawnHeight(tile.current, frame.width))
+  const bitmap = kept.src
   // The bitmap shows once it's decoded, so the frame doesn't go blank in between; until then, its skeleton, which then
   // leaves the page.
   const [decoded, setDecoded] = useState<string>()
   const shown = !!bitmap && decoded === bitmap
   // Interacting, frames are the real thing at any zoom.
   const awake = useAwake(shown && !interactive, rest, key)
-  const skeleton = useFrameSkeleton(key, tile, frame.width, !bitmap && awake)
+  // Zoomed far out, a frame not drawn yet waits for the bitmap kept from an earlier session, and sleeps on it, at the
+  // height it was kept with, without drawing its design.
+  const waiting = useFirstDrawWaits(rest, { bitmap: kept, awake, interactive })
+  const skeleton = useFrameSkeleton(key, tile, frame.width, !bitmap && awake && !waiting)
+  const height = skeleton?.height ?? kept.height
   const onSelect = () => selection.set({ design: entry.key, mode: mode.id })
   return (
     <figure
@@ -597,13 +603,15 @@ const FrameTile = memo(function FrameTile({
         style={
           {
             ...(selected ? { boxShadow: `0 0 0 3px ${kindColors.mode}` } : {}),
-            // How tall the frame was measured, for when it skips drawing before the browser has noted its size.
-            ...(skeleton ? { "--frame-height": `${skeleton.height}px` } : {})
+            // How tall the frame was measured, or kept with its bitmap, for when it skips drawing before the browser has
+            // noted its size.
+            ...(height === undefined ? {} : { "--frame-height": `${height}px` })
           } as CSSProperties
         }
         data-bitmap={shown ? "" : undefined}
         data-skeleton={skeleton ? "" : undefined}
-        data-asleep={awake ? undefined : ""}
+        data-measured={height === undefined ? undefined : ""}
+        data-asleep={awake && !waiting ? undefined : ""}
       >
         <ModeView
           loaded={loaded}
@@ -616,7 +624,7 @@ const FrameTile = memo(function FrameTile({
           primary={primary}
           interactions={interactions}
           interactive={interactive}
-          asleep={!awake}
+          asleep={!awake || waiting}
           shows={shows.drawn}
         />
         {skeleton && !shown && <FrameSkeleton skeleton={skeleton} />}
