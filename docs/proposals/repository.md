@@ -11,10 +11,10 @@ to npm and of unsigned installers to GitHub Releases, as betas first and to ever
 
 ## Where things stand
 
-- **PAR-11 and PAR-12 are implemented:** `cd-desktop.yml` pins shared Pipelines v1.11.0 for beta releases and promotion.
-  Terraform has applied the main-only production environment with Andrew approval. Automatic beta publishing needs a
-  desktop version bump; manual release retries can publish the current version after main CI verification. Promotion
-  reuses the beta's files after checking their hashes.
+- **PAR-11 and PAR-12 are implemented:** `cd-desktop.yml` calls the shared Pipelines templates at `main` for beta
+  releases and promotion. Terraform has applied the main-only production environment with Andrew approval. Automatic
+  beta publishing needs a desktop version bump; manual release retries can publish the current version after main CI
+  verification. Promotion reuses the beta's files after checking their hashes.
 
 - **PAR-9 packages the production build:** electron-builder makes Windows NSIS, macOS DMG/ZIP and Linux AppImage
   installers. Windows CI installs and opens the real installer with a cold fixture, checks the canvas and service, then
@@ -43,7 +43,7 @@ to npm and of unsigned installers to GitHub Releases, as betas first and to ever
   job runs it; `pnpm verify` doesn't.
 - **Dependabot keeps dependencies current** (PAR-394): weekly, grouped, a few days behind each release, and never in the
   fixtures or the Vite+ toolchain. decisions.md has the calls.
-- **npm delivery is configured** (PAR-14). `cd-npm.yml` calls `cd-npm-publish` at v1.7.1 after CI passes on `main`,
+- **npm delivery is configured** (PAR-14). `cd-npm.yml` calls `cd-npm-publish` at `main` after CI passes on `main`,
   publishing `@parity-app/cli` through npm's trusted publishing with provenance. `0.0.0` was published by hand, and npm
   trusts `cd-npm.yml` with the `npm` environment. Terraform has provisioned that environment, restricted to `main` with
   administrator bypass disabled, and adopted the repository's existing rulesets. No npm token is stored.
@@ -166,8 +166,8 @@ This is how Buildkit and the agency monorepo already release, and you asked for 
   fails.
 - **Pull requests also run `beachball check`.**
 - **A newer push cancels the run before it.** Release and deploy runs never cancel.
-- **Dependabot opens a weekly PR** for npm minor and patch updates, grouped, and one for Actions, which also keeps the
-  shared pipelines' pinned versions current (PAR-394). It waits out a cooldown longer than pnpm's minimum release age,
+- **Dependabot opens a weekly PR** for npm minor and patch updates, grouped, and one for Actions (PAR-394). The shared
+  pipelines need none, since they're called at `main`. It waits out a cooldown longer than pnpm's minimum release age,
   and its pull requests need no change file, since Beachball's config ignores manifests on its own pull requests.
 
 ## Desktop releases
@@ -305,9 +305,9 @@ pipeline itself:
 
 - **It's public.** Callers span `AndrewCraswell/*` and `betterapps-hq/*`, and a private repository's workflows can only
   be called from its own owner.
-- **Callers pin a full commit SHA,** with the version in a comment, and Dependabot moves the pins. Buildkit already
-  calls its merge workflow this way, so a pull request can never run a changed copy.
-- **Templates call their own actions by full path and release tag.** In a reusable workflow, `./` means the caller's
+- **Callers call the templates at `main`,** not a pinned commit, so each repository gets a change as soon as it merges,
+  as Andrew asked on 2026-11-03. Pipelines' own tests and its required check are what keep `main` safe to call.
+- **Templates call their own actions by full path at `main`.** In a reusable workflow, `./` means the caller's
   repository.
 - **Secrets are passed by name,** not `secrets: inherit`, and each job asks for the least permissions it needs. The
   exception is a template whose job reads a GitHub environment's secrets, such as `publish-storybook`: GitHub leaves

@@ -2089,8 +2089,8 @@ the Repository, CI and releases stream in Linear.
     little is lost; cache it once the TypeScript under `oxlint-tsgolint` is 7.1 or later.
 - **Dependabot keeps dependencies current (PAR-394),** from `.github/dependabot.yml`, as the agency monorepo, Buildkit
   and the pipelines repository do. My calls:
-  - **Each week, one pull request for npm's minor and patch updates and one for GitHub Actions,** which also moves the
-    shared pipelines' pinned commits and their version comments. npm's major updates come one pull request each, at most
+  - **Each week, one pull request for npm's minor and patch updates and one for GitHub Actions.** The shared pipelines
+    are called at `main`, so it has nothing of theirs to move. npm's major updates come one pull request each, at most
     ten open, since each may need code to change.
   - **It waits 3 days before offering a direct dependency's new version,** longer than the day pnpm's
     `minimumReleaseAge` asks. That doesn't cover the transitive versions its lockfile refresh resolves, which pnpm also
@@ -2124,9 +2124,9 @@ the Repository, CI and releases stream in Linear.
   - The setup action checks out without keeping credentials, and on Windows turns off `core.autocrlf` first, since the
     runners' CRLF made Vite+'s formatter fail every file.
   - It picks Vite+ when the workspace names `vite-plus`, and plain pnpm otherwise.
-  - Templates name the repository's own actions by a release's commit, which Dependabot moves, as they pin third-party
-    actions. A tag under the old `Fencing-Club` name would have resolved to whoever claimed that name. And with pull
-    requests required, a release's commit is only tagged after it merges, so a template pins the release before.
+  - Templates name the repository's own actions by full path at `main`, as callers name the templates, so a change to an
+    action reaches every template as it merges. A path under the old `Fencing-Club` name would have resolved to whoever
+    claimed that name.
   - A caller's extra steps before verifying, such as Parity's fixture installs, go in ci-verify's `prepare` input, with
     their own cache.
   - It's MIT licensed, as Parity is.
@@ -2144,9 +2144,9 @@ the Repository, CI and releases stream in Linear.
 - **Pipelines are shared across Parity, Buildkit, Better Apps and Copacker,** from one repository of templates, as you
   asked on 2026-10-29. Each repository has thin top-level pipelines, one per stage (CI, previews, and CD split by what's
   delivered: npm packages, the desktop app, web apps), calling reusable workflows and composite actions from it. My
-  calls: the repository is public, because callers span `AndrewCraswell` and `betterapps-hq`; callers pin a full commit
-  SHA that Dependabot moves; and CI is shared as far as `pnpm verify`, with each repository's extra jobs beside the
-  call.
+  calls: the repository is public, because callers span `AndrewCraswell` and `betterapps-hq`; callers call the templates
+  at `main` (since 2026-11-03; they first pinned a commit Dependabot moved); and CI is shared as far as `pnpm verify`,
+  with each repository's extra jobs beside the call.
 - **The shared pipelines live in `betterapps-hq/pipelines`, with a folder per CI system** (your call, 2026-10-29, Q8):
   `github/` holds the composite actions and their docs. Reusable workflows can't go there, because GitHub only calls
   them from a repository's own `.github/workflows/`, so they live there, named by stage.
