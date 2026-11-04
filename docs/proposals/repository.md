@@ -33,7 +33,7 @@ to npm and of unsigned installers to GitHub Releases, as betas first and to ever
   in PAR-9 and PAR-11.
 - **Only the desktop app and the CLI are versioned,** from Beachball change files (PAR-4). The packages they bundle stay
   `private`. The CLI is on npm as `@parity-app/cli` (PAR-13): 0.0.0 was published by hand on 2026-10-30, and npm trusts
-  `cd-npm.yml` in the `npm` environment to publish the rest.
+  `ci.yml` in the `npm` environment to publish the rest.
 - **The agency monorepo's stricter lint rules are on** (PAR-396), apart from the three left out below.
 - **Hooks check what a commit stages and what a push sends** (PAR-3), so other sessions' unfinished work no longer fails
   a commit. `pnpm verify` still checks the whole folder.
@@ -43,20 +43,21 @@ to npm and of unsigned installers to GitHub Releases, as betas first and to ever
   job runs it; `pnpm verify` doesn't.
 - **Dependabot keeps dependencies current** (PAR-394): weekly, grouped, a few days behind each release, and never in the
   fixtures or the Vite+ toolchain. decisions.md has the calls.
-- **npm delivery is configured** (PAR-14). `cd-npm.yml` calls `cd-npm-publish` at `main` after CI passes on `main`,
-  publishing `@parity-app/cli` through npm's trusted publishing with provenance. `0.0.0` was published by hand, and npm
-  trusts `cd-npm.yml` with the `npm` environment. Terraform has provisioned that environment, restricted to `main` with
-  administrator bypass disabled, and adopted the repository's existing rulesets. No npm token is stored.
+- **npm delivery is configured** (PAR-14, PAR-10). `ci.yml`'s `release` job publishes `@parity-app/cli` through npm's
+  trusted publishing with provenance, once CI passes on `main`. `0.0.0` was published by hand, and npm trusts `ci.yml`
+  with the `npm` environment. Terraform has provisioned that environment, restricted to `main` with administrator bypass
+  disabled, and adopted the repository's existing rulesets. No npm token is stored.
 - **Pull requests get previews** (PAR-400, PAR-113). `preview.yml` calls the shared `preview-npm`, `preview-desktop` and
   `publish-storybook` and writes one comment linking all three; `preview-cleanup.yml` deletes the Storybook when the
   pull request closes. The installers build on every pull request but Dependabot's. The CLI waits for pkg.pr.new's
   GitHub App on the repository, and the Storybook for `infra/cloudflare`'s apply, which needs Cloudflare tokens in
   `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_READ_API_TOKEN`; until then each says so in the comment and skips with a
   notice, and Terraform skips that project.
-- **Releases go straight to `main`** (PAR-10). After CI passes on `main`, `cd-npm.yml` calls the shared
-  `beachball-publish-npm`, which bumps the versions from the change files and pushes the release commit to `main` with a
-  deploy key that `main`'s ruleset lets skip a pull request. Until the `npm` environment has its `RELEASE_DEPLOY_KEY`
-  secret, it skips with a notice.
+- **Releases go straight to `main`, the CLI's and the desktop app's apart** (PAR-10). After CI passes on `main`, the
+  shared `beachball-publish-npm` bumps the versions from the change files and pushes the release commit to `main` with a
+  deploy key that `main`'s ruleset lets skip a pull request: `ci.yml` scoped to leave the app out, publishing the CLI to
+  npm, and `cd-desktop.yml` scoped to the app, without npm, before it publishes the app's beta. Until the `npm` and
+  `desktop` environments have their `RELEASE_DEPLOY_KEY` secret, each skips with a notice.
 
 ## Vite+
 
@@ -147,12 +148,11 @@ This is how Buildkit and the agency monorepo already release, and you asked for 
   share the scope, so every package is `@parity-app/*` (PAR-425).
 - **Publishing uses npm's trusted publishing,** with provenance and no token: `pnpm publish --provenance` from a job
   with `id-token: write` in a protected `npm` environment, as Buildkit's `publish.yml` does (PAR-14). npm checks the
-  _top-level_ workflow's file name, not a reusable one it calls, so each repository registers its own `cd-npm.yml` on
-  npmjs.com. npm only trusts a workflow for a package that exists, so the first version is published by hand, then
-  `npm trust github @parity-app/cli --repo betterapps-hq/parity --file cd-npm.yml --env npm --allow-publish` hands it to
-  CI. `cd-npm.yml` runs whenever CI passes on `main`, and the template publishes only the versions npm doesn't have, so
-  only a release commit's new version publishes. It can't be run by hand, which could publish a commit whose CI failed:
-  a failed publish is retried with Re-run, or caught up by the next CI pass.
+  _top-level_ workflow's file name, not a reusable one it calls, so Parity registers `ci.yml`, whose `release` job
+  publishes, on npmjs.com. npm only trusts a workflow for a package that exists, so the first version is published by
+  hand, then `npm trust github @parity-app/cli --repo betterapps-hq/parity --file ci.yml --env npm --allow-publish`
+  hands it to CI. The release runs whenever CI passes on `main` and publishes only when a change file bumps the CLI. A
+  failed release is retried with Re-run, or caught up by the next CI pass.
 - **Only packages with a `publishConfig` are published,** which the CLI gets with its npm name. The desktop app isn't
   private, since Beachball versions it, so `private` alone can't tell the publish step what goes to npm.
 
@@ -254,14 +254,14 @@ from discrete templates, with a pipeline per stage rather than one that does eve
 
 **Each repository keeps thin top-level pipelines, one per stage, and only the ones it needs:**
 
-| Pipeline              | Runs on                                              | Calls                                                                                         |
-| --------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `ci.yml`              | pull requests and `main`                             | `ci-verify`, plus the repository's own extra jobs                                             |
-| `preview.yml`         | pull requests                                        | `preview-npm`, `preview-desktop`, `preview-web`, or `publish-storybook` to `preview`          |
-| `preview-cleanup.yml` | a closed pull request, and a schedule                | `preview-web-cleanup` or `unpublish-storybook`                                                |
-| `cd-npm.yml`          | CI passing on `main`                                 | `beachball-publish-npm` to release, `cd-npm-publish`; npm's trusted publisher                 |
-| `cd-desktop.yml`      | the desktop app's version changing, then a promotion | `cd-desktop-build` and `cd-desktop-release` for the beta, `cd-desktop-promote` for everyone   |
-| `cd-web.yml`          | `main`, then a promotion to production               | `cd-web-deploy` for staging, `cd-web-promote` for production, and `publish-storybook` to each |
+| Pipeline              | Runs on                                | Calls                                                                                         |
+| --------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `ci.yml`              | pull requests and `main`               | `ci-verify`, plus the repository's own extra jobs                                             |
+| `preview.yml`         | pull requests                          | `preview-npm`, `preview-desktop`, `preview-web`, or `publish-storybook` to `preview`          |
+| `preview-cleanup.yml` | a closed pull request, and a schedule  | `preview-web-cleanup` or `unpublish-storybook`                                                |
+| `ci.yml`'s `release`  | CI passing on `main`                   | `beachball-publish-npm` to version and publish; npm's trusted publisher                       |
+| `cd-desktop.yml`      | CI passing on `main`, then a promotion | `beachball-publish-npm` to version, `cd-desktop-release` for the beta, `cd-desktop-promote`   |
+| `cd-web.yml`          | `main`, then a promotion to production | `cd-web-deploy` for staging, `cd-web-promote` for production, and `publish-storybook` to each |
 
 **`betterapps-hq/pipelines` holds the templates,** with a folder per CI system, as you said on 2026-10-29: `github/`
 now, and room for others such as Azure DevOps, which PAR-239's visual tests also target.

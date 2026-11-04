@@ -1,7 +1,7 @@
 # Parity's repository rules on GitHub, from the shared github-repository-rules module: main takes changes only through
 # squashed pull requests that pass CI with the OpenAI review addressed and every thread resolved, except the release
-# commits a deploy key pushes. Release tags never move. It also keeps the npm environment, which publishes the CLI, to
-# main. The terraform-apply workflow runs it with its state in R2, as Copacker's projects run.
+# commits a deploy key pushes. Release tags never move. It also keeps the environments that release the CLI and the
+# desktop app to main. The terraform-apply workflow runs it with its state in R2, as Copacker's projects run.
 terraform {
   required_version = "= 1.16.6"
   required_providers {
@@ -35,8 +35,9 @@ module "rules" {
   repository      = "parity"
   required_checks = ["CI passes"]
 
-  # cd-npm.yml pushes the release commit to main with a deploy key, whose private key is the npm environment's
-  # RELEASE_DEPLOY_KEY secret (PAR-10). Deploy keys are the one actor that skips main's pull request rule, as on Buildkit.
+  # ci.yml and cd-desktop.yml push their release commits to main with a deploy key, whose private key is the npm and
+  # desktop environments' RELEASE_DEPLOY_KEY secret (PAR-10). Deploy keys are the one actor that skips main's pull
+  # request rule, as on Buildkit.
   bypass_actors = [{ actor_type = "DeployKey" }]
 }
 
@@ -52,9 +53,9 @@ import {
   id = "parity:26170708"
 }
 
-# cd-npm.yml publishes the CLI from the npm environment, which @parity-app/cli's trusted publisher on npmjs.com names
-# (PAR-14). Only main deploys to it, administrators included, so no other branch's run can publish. The publish job
-# names it, so a run before this is applied would make it unprotected; applying then protects the same environment.
+# ci.yml's release job publishes the CLI from the npm environment, which @parity-app/cli's trusted publisher on
+# npmjs.com names (PAR-10, PAR-14). Only main deploys to it, administrators included, so no other branch's run can
+# publish or push a release.
 resource "github_repository_environment" "npm" {
   repository        = "parity"
   environment       = "npm"
@@ -69,6 +70,25 @@ resource "github_repository_environment" "npm" {
 resource "github_repository_environment_deployment_policy" "npm_main" {
   repository     = "parity"
   environment    = github_repository_environment.npm.environment
+  branch_pattern = "main"
+}
+
+# cd-desktop.yml's version job pushes the desktop app's release commit from this environment, which holds its own copy
+# of RELEASE_DEPLOY_KEY, so the npm environment's stays with npm (PAR-10). Only main deploys to it.
+resource "github_repository_environment" "desktop" {
+  repository        = "parity"
+  environment       = "desktop"
+  can_admins_bypass = false
+
+  deployment_branch_policy {
+    protected_branches     = false
+    custom_branch_policies = true
+  }
+}
+
+resource "github_repository_environment_deployment_policy" "desktop_main" {
+  repository     = "parity"
+  environment    = github_repository_environment.desktop.environment
   branch_pattern = "main"
 }
 
