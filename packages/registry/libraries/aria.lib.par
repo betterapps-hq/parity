@@ -4061,7 +4061,7 @@
           "children": [
             {
               "$render": [
-                "DropzoneArea isHovered: isFocused: isFocusVisible: isDropTar"
+                "DropzoneArea isHovered: isFocused: isFocusVisible…"
               ]
             }
           ]
@@ -9023,7 +9023,7 @@
               "children": [
                 {
                   "$render": [
-                    "Details Drag the handle up to expand this sheet to full heig"
+                    "Details Drag the handle up to expand this sheet to full…"
                   ]
                 }
               ]
@@ -9235,7 +9235,7 @@
           "children": [
             {
               "$render": [
-                "Sign up First Name: Last Name: Submit In an iPhone app, cons"
+                "Sign up First Name: Last Name: Submit In an iPhone app…"
               ]
             }
           ]
@@ -9365,7 +9365,7 @@
                   "children": [
                     {
                       "$render": [
-                        "Details Drag the handle up to expand this sheet to full heig"
+                        "Details Drag the handle up to expand this sheet to full…"
                       ]
                     }
                   ]
@@ -9512,7 +9512,7 @@
                       "children": [
                         {
                           "$render": [
-                            "Details Drag the handle up to expand this sheet to full heig"
+                            "Details Drag the handle up to expand this sheet to full…"
                           ]
                         }
                       ]

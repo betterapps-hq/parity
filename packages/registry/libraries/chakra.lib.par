@@ -7275,7 +7275,7 @@
                 {
                   "component": "Accordion.ItemBody",
                   "children": [
-                    "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cur"
+                    "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
                   ]
                 }
               ]
@@ -11647,7 +11647,7 @@
                     {
                       "component": "Accordion.ItemBody",
                       "children": [
-                        "Click the accordion button to see a different style when exp"
+                        "Click the accordion button to see a different style when…"
                       ]
                     }
                   ]
@@ -11680,7 +11680,7 @@
                     {
                       "component": "Accordion.ItemBody",
                       "children": [
-                        "The trigger background changes to teal with white text when "
+                        "The trigger background changes to teal with white text when…"
                       ]
                     }
                   ]
@@ -31040,7 +31040,7 @@
             "cite": "Uzumaki Naruto"
           },
           "children": [
-            "If anyone thinks he is something when he is nothing, he dece"
+            "If anyone thinks he is something when he is nothing, he…"
           ]
         },
         "fingerprint": "ca28c419",
@@ -32776,7 +32776,7 @@
                 "cite": "Uzumaki Naruto"
               },
               "children": [
-                "If anyone thinks he is something when he is nothing, he dece"
+                "If anyone thinks he is something when he is nothing, he…"
               ]
             },
             {
@@ -42420,7 +42420,7 @@
                 "color": "gray.600"
               },
               "children": [
-                "This is the card body. Lorem ipsum dolor sit amet, consectet"
+                "This is the card body."
               ]
             }
           ]
@@ -45919,7 +45919,7 @@
                     "color": "gray.600"
                   },
                   "children": [
-                    "This is the card body. Lorem ipsum dolor sit amet, consectet"
+                    "This is the card body."
                   ]
                 }
               ]
@@ -143482,7 +143482,7 @@
             "fluid": true
           },
           "children": [
-            "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nul"
+            "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
           ]
         },
         "fingerprint": "29eb410f",
@@ -186407,7 +186407,7 @@
             {
               "component": "Dialog.Description",
               "children": [
-                "This dialog uses backdropFilter=\"auto\" and backdropBlur so t"
+                "This dialog uses backdropFilter=\"auto\" and backdropBlur so…"
               ]
             }
           ]
@@ -197034,7 +197034,7 @@
         "sample": {
           "children": [
             "Drawer is open:",
-            "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed",
+            "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
             "Close"
           ]
         },
@@ -199673,7 +199673,7 @@
                   },
                   "children": [
                     "Drawer is open:",
-                    "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed",
+                    "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
                     "Close"
                   ]
                 }
@@ -337542,7 +337542,7 @@
                 {
                   "component": "Popover.Description",
                   "children": [
-                    "A Japanese manga series written and illustrated by Masashi K"
+                    "A Japanese manga series written and illustrated by Masashi…"
                   ]
                 }
               ]
@@ -338452,7 +338452,7 @@
         "parentsFrom": "example",
         "sample": {
           "children": [
-            "A Japanese manga series written and illustrated by Masashi K"
+            "A Japanese manga series written and illustrated by Masashi…"
           ]
         },
         "fingerprint": "ca28c419",
@@ -340190,7 +340190,7 @@
             {
               "component": "Popover.Description",
               "children": [
-                "A Japanese manga series written and illustrated by Masashi K"
+                "A Japanese manga series written and illustrated by Masashi…"
               ]
             }
           ]
@@ -341074,7 +341074,7 @@
                     {
                       "component": "Popover.Description",
                       "children": [
-                        "A Japanese manga series written and illustrated by Masashi K"
+                        "A Japanese manga series written and illustrated by Masashi…"
                       ]
                     }
                   ]
@@ -413986,7 +413986,7 @@
             "loading": false
           },
           "children": [
-            "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pro"
+            "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
           ]
         },
         "fingerprint": "eac0f96c",
@@ -488299,7 +488299,7 @@
             {
               "component": "Tag.Label",
               "children": [
-                "Lorem ipsum dolor sit amet consectetur adipisicing elit. Qui"
+                "Lorem ipsum dolor sit amet consectetur adipisicing elit."
               ]
             },
             {

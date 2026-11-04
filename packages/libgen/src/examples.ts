@@ -13,6 +13,7 @@ import {
   type SampleRender
 } from "@parity-app/core"
 import ts from "typescript"
+import { sampleText } from "./sample-text.ts"
 
 const run = promisify(execFile)
 
@@ -853,7 +854,7 @@ function collectChildren(
     if (children.length >= 4) return
     if (ts.isJsxText(child)) {
       const text = child.text.replace(/\s+/g, " ").trim()
-      if (text) children.push(text.slice(0, 60))
+      if (text) children.push(sampleText(text))
     } else if (ts.isJsxFragment(child)) collectChildren(child.children, context, depth, children)
     else if (ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child)) pushElement(child, context, depth, children)
     else if (ts.isJsxExpression(child) && child.expression) {
@@ -934,7 +935,7 @@ function pushExpression(expression: ts.Expression, context: Context, depth: numb
     return
   }
   const value = evaluate(expression, context, 0)
-  if (typeof value === "string" || typeof value === "number") children.push(String(value).slice(0, 60))
+  if (typeof value === "string" || typeof value === "number") children.push(sampleText(String(value)))
 }
 
 /**
@@ -1392,7 +1393,7 @@ function textIn(node: ts.Node): string {
     ts.forEachChild(child, visit)
   }
   visit(node)
-  return parts.join(" ").replace(/\s+/g, " ").trim().slice(0, 60)
+  return sampleText(parts.join(" ").replace(/\s+/g, " ").trim())
 }
 
 function sampleWeight(sample: ComponentSample): number {
