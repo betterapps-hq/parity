@@ -12,8 +12,8 @@ import { DesignStore } from "../design-store.ts"
 import { SelectionStore } from "../selection.ts"
 import { arrowOf, type Drawn, nudgeLayers, nudgeSelection, reorder, reorderStep } from "./nudge.ts"
 
-const row: Flow = { direction: "row", wraps: false, reversed: false }
-const column: Flow = { direction: "column", wraps: false, reversed: false }
+const row: Flow = { direction: "row", wraps: false, reversed: false, linesReversed: false }
+const column: Flow = { direction: "column", wraps: false, reversed: false, linesReversed: false }
 
 describe("the arrow keys", () => {
   it("knows the arrow keys", () => {
@@ -39,7 +39,7 @@ describe("how far an arrow moves a layer in a layout", () => {
   })
 
   it("moves a row's worth of places up or down a grid", () => {
-    const grid: Flow = { direction: "row", wraps: true, reversed: false, stride: 3 }
+    const grid: Flow = { direction: "row", wraps: true, reversed: false, linesReversed: false, stride: 3 }
     expect(reorderStep(grid, "right")).toBe(1)
     expect(reorderStep(grid, "down")).toBe(3)
     expect(reorderStep(grid, "up")).toBe(-3)
@@ -257,6 +257,21 @@ describe("nudging what's selected", () => {
     expect(top()).toBe(5)
     store.undo()
     expect(top()).toBe(4)
+  })
+
+  it("keeps a run going when the same layers are selected again, picked in another order", () => {
+    const nudging = session()
+    const { store, selection } = nudging
+    const top = () => findNode(store.getEntry("app.par#card")!.container.root, "badge")?.style?.top
+    selection.set({ design: "app.par#card", node: "badge", nodes: ["title", "badge"] })
+    nudgeSelection(nudging, "down", false)
+    // As syncing the canvas's selection can set it: the same layers, so the same run.
+    selection.set({ design: "app.par#card", node: "title", nodes: ["badge", "title"] })
+    nudgeSelection(nudging, "down", false)
+    expect(top()).toBe(4)
+    store.undo()
+    expect(top()).toBe(2)
+    expect(store.getHistory().canUndo).toBe(false)
   })
 
   it("moves designs by 1px, or 10px with Shift, together as one step", () => {

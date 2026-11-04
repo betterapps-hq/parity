@@ -53,7 +53,11 @@ export class LayerSnapping {
 
   /**
    * Measures, in the frame `host` draws at `scale`, the layer's box, the boxes of its siblings that are drawn, and the
-   * box its insets count from: its containing block inside the border.
+   * box its insets count from, inside its border: its containing block, which `offsetParent` gives, a transformed or
+   * contained ancestor as well as a positioned one. That's the parent's own box when the parent is a layout, as layouts
+   * are always positioned; only in a component's slot can it be another, whatever the component's elements make the
+   * containing block, since that's where the layer's insets are written from. Snapped to that box's edge, a side's inset
+   * is 0. The gesture that measures it says when it ends, with `clear`.
    */
   static measure(
     editor: Editor | undefined,
@@ -91,9 +95,7 @@ export class LayerSnapping {
       w: outer.w - border("left") - border("right"),
       h: outer.h - border("top") - border("bottom")
     }
-    const snapping = new LayerSnapping(editor, host, scale, toBox(own), { siblings, parent: inner })
-    snapping.clearWhenDone()
-    return snapping
+    return new LayerSnapping(editor, host, scale, toBox(own), { siblings, parent: inner })
   }
 
   /**
@@ -145,26 +147,7 @@ export class LayerSnapping {
     return snapped ? lockedEdgeMoves(this.box, snapped, edges) : {}
   }
 
-  /**
-   * Takes the guides away when the pointer is released or Escape is pressed, for a gesture that doesn't say when it
-   * ends. Listening from before the gesture's own listeners, it hears Escape before they stop it.
-   */
-  private clearWhenDone(): void {
-    const end = () => {
-      window.removeEventListener("pointerup", end, true)
-      window.removeEventListener("pointercancel", end, true)
-      window.removeEventListener("keydown", onKey, true)
-      this.clear()
-    }
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") end()
-    }
-    window.addEventListener("pointerup", end, true)
-    window.addEventListener("pointercancel", end, true)
-    window.addEventListener("keydown", onKey, true)
-  }
-
-  /** Takes the guides and distances away, when the gesture ends or moves freely. */
+  /** Takes the guides and distances away, when the gesture ends, however it ends, or moves freely. */
   clear(): void {
     measures = []
     if (this.editor) clearSnaps(this.editor)

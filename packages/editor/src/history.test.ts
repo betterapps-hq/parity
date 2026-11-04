@@ -259,6 +259,24 @@ describe("gestures", () => {
     expect(unsavedPaths(back)).toEqual([])
   })
 
+  it("keeps what Redo had when a gesture comes back where it began", () => {
+    let history = rename(open(), "Start")
+    history = taken(undoChange(history))
+    // A drag, or Right then Left, that drops the design where it was: nothing changed, so Redo still renames it.
+    history = taken(write(history, "Move design", moveTo(30), "drag"))
+    expect(history.historyState.canRedo).toBe(false)
+    history = taken(write(history, "Move design", moveTo(0), "drag"))
+    expect(history.historyState).toEqual({ canUndo: false, canRedo: true, redoLabel: "Rename to Start" })
+    history = taken(redoChange(history))
+    expect(shown(history).name).toBe("Start")
+
+    // Once the gesture has ended somewhere else, what was undone is gone, as after any other change.
+    history = taken(undoChange(history))
+    history = endGesture(taken(write(history, "Move design", moveTo(30), "drag")), "drag")
+    history = taken(write(history, "Move design", moveTo(0), "drag again"))
+    expect(history.historyState.canRedo).toBe(false)
+  })
+
   it("ends a gesture's step at another change, an undo, or the gesture's end", () => {
     let history = taken(write(open(), "Nudge design", moveTo(1), "run"))
     history = rename(history, "Hero")

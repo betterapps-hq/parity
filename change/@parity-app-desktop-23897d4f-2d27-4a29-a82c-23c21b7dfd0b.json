@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Drop into right-to-left and reversed layouts where the pointer is, snap and undo gestures correctly, and bring pasted designs into view at their real size",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

@@ -57,6 +57,13 @@ interface FieldProps {
 
 const MixedContext = createContext(false)
 
+/**
+ * What the number fields inside edit, as a key that changes when that does: the selection, for the inspector (see
+ * `selectionKey`). A field keeps focus while the selection changes under it, so a run of its Up and Down presses ends
+ * when this changes rather than carrying on into the next layer's edits.
+ */
+export const FieldTarget = createContext<string | undefined>(undefined)
+
 /** Whether the field an input sits in has different values across the selected layers. */
 export function useMixed(): boolean {
   return useContext(MixedContext)
@@ -287,15 +294,21 @@ export function NumberField({
   const register = useContext(ScrubContext)
   const say = useContext(MessageContext)
   const store = useContext(ProjectContext)?.store
+  const target = useContext(FieldTarget)
   /**
-   * The gesture a run of Up and Down presses, or a scrub, is in. A run lasts while only Up and Down are pressed:
-   * typing, Enter, Escape, leaving the field or scrubbing ends it.
+   * The gesture a run of Up and Down presses, or a scrub, is in, and what it edits. A run lasts while only Up and Down
+   * are pressed on one target: typing, Enter, Escape, leaving the field, scrubbing or the target changing ends it.
    */
   const gesture = useRef<string | undefined>(undefined)
-  const beginGesture = () => (gesture.current ??= store?.beginGesture())
+  const gestureTarget = useRef(target)
   const endGesture = () => {
     if (gesture.current) store?.endGesture(gesture.current)
     gesture.current = undefined
+  }
+  const beginGesture = () => {
+    if (gestureTarget.current !== target) endGesture()
+    gestureTarget.current = target
+    return (gesture.current ??= store?.beginGesture())
   }
   const input = useRef<HTMLInputElement>(null)
   const messageId = useId()
@@ -412,6 +425,10 @@ export function NumberField({
     },
     []
   )
+  // A run ends as its target changes, so its step takes nothing more, as well as at the next press.
+  useEffect(() => {
+    if (gestureTarget.current !== target) ending.current()
+  }, [target])
 
   const scrub = (event: ReactPointerEvent<HTMLElement>) => {
     if (event.button !== 0) return

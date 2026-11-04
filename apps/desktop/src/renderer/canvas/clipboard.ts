@@ -8,11 +8,11 @@ import {
   copyNotes,
   designOfLayers,
   designsAt,
-  freeSpotBeside,
   isParityCopy,
   isSvgMarkup,
   missingComponents,
   nodeForItem,
+  pastedPlacement,
   pasteHere,
   pasteLayers,
   type PasteTarget,
@@ -31,7 +31,7 @@ import { designsSelection, layersSelection, selectedDesigns, selectedNodes } fro
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { shapeIdFor } from "./CanvasEditor.tsx"
-import { bringIntoView, takenBounds } from "./free-space.ts"
+import { bringIntoView, bringIntoViewOnceSized, takenBounds } from "./free-space.ts"
 import { hitTest, type Point } from "./hit.ts"
 import { measureHere } from "./paste-here.ts"
 import { frameViewport } from "./view.ts"
@@ -509,28 +509,13 @@ function pasteDesigns(session: ProjectSession, designs: ContainerSpec[], samePro
   const { store, selection, editor } = session
   const ids = store.getEntries().map((entry) => entry.container.id)
   // Pasted into the project they came from, they sit to the right of the originals, in the first free space along
-  // their row; elsewhere, in the view.
-  const bounds = designs.map((design) => {
+  // their row; elsewhere, in the view (see `pastedPlacement`).
+  const placed = designs.map((design) => {
     const original = sameProject ? store.getEntries().find((entry) => entry.container.id === design.id) : undefined
-    const box = original ? editor?.getShapePageBounds(shapeIdFor(original.key)) : undefined
-    return (
-      box ?? {
-        minX: design.position.x,
-        maxX: design.position.x + 1280,
-        minY: design.position.y,
-        maxY: design.position.y + 800
-      }
-    )
+    const bounds = original ? editor?.getShapePageBounds(shapeIdFor(original.key)) : undefined
+    return { position: design.position, ...(bounds ? { bounds } : {}) }
   })
-  const left = Math.min(...bounds.map((box) => box.minX))
-  const right = Math.max(...bounds.map((box) => box.maxX))
-  const top = Math.min(...bounds.map((box) => box.minY))
-  const bottom = Math.max(...bounds.map((box) => box.maxY))
-  const center = viewCenter(session)
-  const spot = sameProject
-    ? freeSpotBeside({ minX: left, minY: top, maxX: right, maxY: bottom }, editor ? takenBounds(editor) : bounds)
-    : undefined
-  const shift = spot ? { x: spot.x - left, y: 0 } : { x: center.x - left, y: center.y - top }
+  const { shift, shown } = pastedPlacement(placed, viewCenter(session), editor ? takenBounds(editor) : [])
   const copies = copyDesigns(designs, ids, shift)
   const path = store.mainPath
   store.change(copies.length === 1 ? "Paste design" : `Paste ${copies.length} designs`, (snapshot) => {
@@ -538,11 +523,14 @@ function pasteDesigns(session: ProjectSession, designs: ContainerSpec[], samePro
     const next = { ...document, containers: [...document.containers, ...copies] }
     return { ...snapshot, documents: new Map(snapshot.documents).set(path, next) }
   })
-  selection.set(designsSelection(copies.map((copy) => containerKey(path, copy.id))))
-  // A copy that lands off screen, as a duplicate beside a wide design does, is brought into view (PAR-204).
-  if (editor) {
-    bringIntoView(editor, { minX: left + shift.x, minY: top + shift.y, maxX: right + shift.x, maxY: bottom + shift.y })
-  }
+  const keys = copies.map((copy) => containerKey(path, copy.id))
+  selection.set(designsSelection(keys))
+  // A copy that lands off screen, as a duplicate beside a wide design does, is brought into view (PAR-204), at the
+  // size it's drawn at, which for a copy from elsewhere is known once its board has drawn it.
+  if (!editor) return
+  const boards = keys.map((key) => shapeIdFor(key))
+  if (shown) bringIntoView(editor, shown)
+  else bringIntoViewOnceSized(editor, boards)
 }
 
 /**

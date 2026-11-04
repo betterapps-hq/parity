@@ -16,6 +16,8 @@ export interface HistoryEntry {
   before: DesignSnapshot
   /** The gesture whose changes this step holds, until the gesture ends (see `ChangeOptions.gesture`). */
   gesture?: string
+  /** What Redo had when the gesture's step began, back again if the gesture ends up changing nothing. */
+  redo?: readonly HistoryEntry[]
 }
 
 /** A design and the history at one moment, to go back to (see `checkpoint`). */
@@ -155,7 +157,8 @@ export function withStylesheet(history: DesignHistory, stylesheet: string): Desi
  * A gesture's changes (see `ChangeOptions.gesture`) go into one step: its first change makes the step, labelled by
  * that change, and the rest join it while it's the latest step, whatever time passes between them. A change made
  * since by something else, or an undo, ends the step, and the gesture's next change starts another. A gesture that
- * comes back to where its step began leaves no step, and one that changes nothing makes none.
+ * comes back to where its step began leaves no step, and Redo as it was before the gesture; one that changes nothing
+ * makes none.
  */
 export function recordChange(
   history: DesignHistory,
@@ -173,12 +176,12 @@ export function recordChange(
     const last = past.at(-1)
     if (gesture && last?.gesture === gesture) {
       if (sameSnapshot(last.before, next)) {
-        // Back where the gesture's step began: the step goes, and so does the difference.
-        return restore({ ...history, past: past.slice(0, -1), future: [] }, keepViews(last.before, next))
+        // Back where the gesture's step began: the step goes, and so does the difference, and Redo is as it was.
+        return restore({ ...history, past: past.slice(0, -1), future: last.redo ?? [] }, keepViews(last.before, next))
       }
     } else {
       if (gesture && sameSnapshot(before, next)) return undefined
-      past = [...past, gesture ? { label, before, gesture } : { label, before }]
+      past = [...past, gesture ? { label, before, gesture, redo: future } : { label, before }]
       if (past.length > historyLimit) past = past.slice(1)
     }
     future = []
@@ -187,8 +190,8 @@ export function recordChange(
 }
 
 /**
- * A gesture has ended: its step takes no more changes, so a change made with it later starts a step of its own. The
- * same history when it has no step.
+ * A gesture has ended: its step takes no more changes, so a change made with it later starts a step of its own, and
+ * what Redo had before it is gone for good. The same history when it has no step.
  */
 export function endGesture(history: DesignHistory, gesture: string): DesignHistory {
   if (!history.past.some((step) => step.gesture === gesture)) return history

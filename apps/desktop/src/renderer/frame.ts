@@ -219,6 +219,20 @@ export function elementBox(element: Element): DOMRect {
   return hidden ? new DOMRect(rect.left, rect.top, 0, 0) : rect
 }
 
+/**
+ * The boxes of what a layout element lays out, in order: its children, and theirs through elements that don't draw a
+ * box of their own (display: contents), leaving out those placed absolutely and those not drawn.
+ */
+export function flowingBoxes(layout: Element): DOMRect[] {
+  return [...layout.children].flatMap((child) => {
+    const style = getComputedStyle(child)
+    if (style.display === "contents") return flowingBoxes(child)
+    if (style.display === "none" || style.position === "absolute" || style.position === "fixed") return []
+    const box = child.getBoundingClientRect()
+    return box.width > 0 || box.height > 0 ? [box] : []
+  })
+}
+
 /** The box around a node's elements' boxes, leaving out empty ones unless they're all empty. */
 export function boxAround(rects: readonly DOMRect[]): DOMRect | undefined {
   const drawn = rects.filter((rect) => rect.width > 0 || rect.height > 0)
