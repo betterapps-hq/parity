@@ -2706,18 +2706,26 @@ breathes almost all the time, and it mustn't cost the window anything while noth
 - **The lights stand alone.** The status bar shows no words beside them. What they used to say (a crash or failed task,
   what's starting, a running task and its progress, or how many run) is now their tooltip and accessible name, and
   clicking them opens the flyout.
-- **A narrow status bar shows icons and counts.** Below 56rem (a container query on the footer), the renderer, builder
-  and Storybook items show only their icons, and components and tokens show their icons and counts. The words stay for
-  screen readers, and each tooltip names the item, so nothing goes off screen in a small window. A failed save keeps its
-  words.
+- **A narrow status bar shows icons and counts.** Below 56rem (a container query on the footer), the renderer and
+  builder show only their icons; components, tokens and Storybook show their icons and counts (Storybook's is how many
+  components have stories); a failed save is its warning icon; and the performance stats are the gauge and the frame
+  rate. The words stay for screen readers and each tooltip names the item, so the status bar fits a phone's width
+  (checked at 375px).
+- **Every tooltip has one shape:** a short title (the item's name and version, or its count), then one short line on
+  what it does or what a click does, such as "Storybook 10.6.5" over "3 components with stories. Click to open it". An
+  untested version adds "Parity doesn't test this version". Paths, discovery notes and error messages stay out, since
+  they can run long: a failed save's reason is in its notification.
+- **Notifications sit above the status bar** on a phone-sized window too: sonner places them by `mobileOffset` below
+  600px, which is now 40px like `offset`, rather than its default 16px, which covered the bar's buttons.
 
 Code: `Light` and `triggerLabel` in `apps/desktop/src/renderer/chrome/Processes.tsx`, `Words` in `chrome/StatusBar.tsx`,
 and the `process-*` keyframes in `styles.css`.
 
 Tests: Storybook, `chrome/StatusBar.stories.tsx` Everything: every item the status bar can hold at once, with a running,
-a starting and a stopped light side by side; EverythingNarrow: the same at 720px, as icons and counts;
-`chrome/ProcessIcons.stories.tsx` EveryKind and EveryKindLight: each light in every status, in both themes; and
-`chrome/Processes.stories.tsx` JustTheBuildServer: one light, breathing.
+a starting and a stopped light side by side; EverythingNarrow: the same at 480px, as icons and counts; OlderProject: the
+renderer's and builder's tooltips name the version and note it's untested; `chrome/ProcessIcons.stories.tsx` EveryKind
+and EveryKindLight: each light in every status, in both themes; and `chrome/Processes.stories.tsx` JustTheBuildServer:
+one light, breathing.
 
 Gaps: nothing checks automatically that the lights stay on opacity and transform; the perf idle run shows it.
 

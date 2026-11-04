@@ -112,7 +112,7 @@ export const EverythingNarrow: Story = {
   ...Everything,
   decorators: [
     (Story) => (
-      <div className="mx-auto flex h-screen w-[720px] flex-col justify-end border-x">
+      <div className="mx-auto flex h-screen w-[480px] flex-col justify-end border-x">
         <Story />
       </div>
     )
@@ -189,9 +189,12 @@ export const OlderProject: Story = {
   ],
   play: async () => {
     await userEvent.hover(await statusBar().findByText("React"))
-    await expect(await body().findByText(/React 18\.3\.1 from node_modules\/react; untested/)).toBeInTheDocument()
+    await expect(await body().findByText("React 18.3.1")).toBeInTheDocument()
+    await expect(
+      body().getByText(/Renders the project's components\. Parity doesn't test this version/)
+    ).toBeInTheDocument()
     await userEvent.hover(statusBar().getByText("Vite"))
-    await expect(await body().findByText(/Vite 5\.4\.11 from node_modules\/vite; untested/)).toBeInTheDocument()
+    await expect(await body().findByText("Vite 5.4.11")).toBeInTheDocument()
   }
 }
 
@@ -278,7 +281,7 @@ export const OpeningStorybook: Story = {
     }
   ],
   play: async () => {
-    await userEvent.click(await body().findByRole("button", { name: "Storybook" }))
+    await userEvent.click(await body().findByRole("button", { name: /in Storybook$/ }))
     await holdToast("Opening Storybook…")
   }
 }
@@ -293,7 +296,7 @@ export const OpenedStorybook: Story = {
     }
   ],
   play: async () => {
-    await userEvent.click(await body().findByRole("button", { name: "Storybook" }))
+    await userEvent.click(await body().findByRole("button", { name: /in Storybook$/ }))
     await holdToast("Opened in your browser")
   }
 }
@@ -312,7 +315,7 @@ export const StorybookFailed: Story = {
     }
   ],
   play: async () => {
-    await userEvent.click(await body().findByRole("button", { name: "Storybook" }))
+    await userEvent.click(await body().findByRole("button", { name: /in Storybook$/ }))
     await holdToast("Couldn't open Storybook")
   }
 }

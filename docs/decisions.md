@@ -2997,3 +2997,7 @@ every frame, so an idle window with its build server running painted 60 times a 
   screen. The lights' words ("Starting Storybook", "Lint failed") moved to their tooltip, since a click on the lights
   lists it all anyway. Below 56rem each project item is its icon and count, with the words kept for screen readers,
   rather than wrapping or scrolling the footer.
+- **Status bar tooltips are a title and one line, never details that can run long.** They had shown detection's
+  summaries with paths, every discovery note, and raw error messages, which ran to several lines. Those details are
+  still there for anyone who needs them: agents' tools report detection, and a failed save's notification gives its
+  reason.
