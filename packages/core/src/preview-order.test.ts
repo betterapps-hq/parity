@@ -50,6 +50,52 @@ describe("renderQueue", () => {
     expect(await Promise.all(done)).toEqual(["a", "b"])
   })
 
+  it("runs one job in each window at once, in the lowest window free", async () => {
+    const queue = renderQueue(2)
+    const log: string[] = []
+    const windows: number[] = []
+    const job = (name: string) => {
+      const job = held(log, name)
+      return {
+        ...job,
+        run: (window: number) => {
+          windows.push(window)
+          return job.run()
+        }
+      }
+    }
+    const [a, b, c] = [job("a"), job("b"), job("c")]
+    const done = [queue.add("render", a.run), queue.add("render", b.run), queue.add("render", c.run)]
+    await Promise.resolve()
+    expect(log).toEqual(["a", "b"])
+    expect(queue.waiting()).toBe(1)
+    a.release()
+    await done[0]
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    // The window "a" freed is the one "c" takes.
+    expect(log).toEqual(["a", "b", "c"])
+    expect(windows).toEqual([0, 1, 0])
+    b.release()
+    c.release()
+    expect(await Promise.all(done)).toEqual(["a", "b", "c"])
+  })
+
+  it("makes one preview at a time, leaving the other windows to the canvas and agents", async () => {
+    const queue = renderQueue(3)
+    const log: string[] = []
+    const preview = held(log, "visible")
+    const running = queue.add("visible", preview.run)
+    const waiting = queue.add("idle", async () => log.push("idle"))
+    const bitmap = queue.add("render", async () => log.push("bitmap"))
+    await bitmap
+    // The bitmap didn't wait for the preview, and the second preview waits for the first even with a window free.
+    expect(log).toEqual(["visible", "bitmap"])
+    expect(queue.waiting()).toBe(1)
+    preview.release()
+    await Promise.all([running, waiting])
+    expect(log).toEqual(["visible", "bitmap", "idle"])
+  })
+
   it("gives a job's failure to whoever added it and goes on with the next", async () => {
     const queue = renderQueue()
     const failing = queue.add("visible", async () => {
