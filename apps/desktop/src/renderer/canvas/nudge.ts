@@ -195,12 +195,13 @@ export interface NudgeSession {
 const nothingDrawn: Drawn = { flow: () => undefined, insets: () => undefined }
 
 /**
- * Nudges what's selected: layers, designs or a text note. Presses in a run, on the same selection, a second or less
- * apart, are one undo step. Returns what couldn't move, if anything.
+ * Nudges what's selected: layers, designs or a text note. A run of presses is one undo step (see `runGesture`).
+ * Returns what couldn't move, if anything.
  */
 export function nudgeSelection(session: NudgeSession, arrow: Arrow, big: boolean): LayersNudge["blocked"] {
   const { store, selection } = session
   const current = selection.get()
+  const gesture = runGesture(store, current)
   const layers = selectedNodes(current)
   const entry = current.design ? store.getEntry(current.design) : undefined
   if (entry && layers.length > 0) {
@@ -216,7 +217,7 @@ export function nudgeSelection(session: NudgeSession, arrow: Arrow, big: boolean
         blocked = result.blocked
         return result.container
       },
-      { group: nudgeGroup(current) }
+      { gesture }
     )
     return blocked
   }
@@ -231,19 +232,31 @@ export function nudgeSelection(session: NudgeSession, arrow: Arrow, big: boolean
       designs,
       designs.length === 1 ? "Nudge design" : `Nudge ${designs.length} designs`,
       (containers) => containers.map((container) => ({ ...container, position: moved(container.position, by) })),
-      { group: nudgeGroup(current) }
+      { gesture }
     )
   } else if (current.note) {
     store.updateNote(current.note, "Nudge text", (note) => ({ ...note, position: moved(note.position, by) }), {
-      group: nudgeGroup(current)
+      gesture
     })
   }
   return undefined
 }
 
-/** One undo step for a run of presses on the same selection. */
-function nudgeGroup(current: Selection): string {
-  return `nudge:${JSON.stringify([current.note, current.design, current.designs, current.node, current.nodes])}`
+/** Each store's run of arrow presses: the selection it nudges, and its gesture. */
+const runs = new WeakMap<DesignStore, { selection: Selection; gesture: string }>()
+
+/**
+ * The gesture a press nudging `selection` is in. A run of presses on one selection is one gesture, however long it
+ * takes. Selecting something else ends it, and so does any other change, an undo or a redo, since the history only
+ * adds to the latest step (see `recordChange` in `@parity-app/editor`).
+ */
+function runGesture(store: DesignStore, selection: Selection): string {
+  const run = runs.get(store)
+  if (run?.selection === selection) return run.gesture
+  if (run) store.endGesture(run.gesture)
+  const gesture = store.beginGesture()
+  runs.set(store, { selection, gesture })
+  return gesture
 }
 
 function moved(position: { x: number; y: number }, by: { x: number; y: number }) {

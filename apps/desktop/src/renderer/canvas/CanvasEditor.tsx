@@ -297,16 +297,23 @@ export function CanvasEditor({
       const stopStore = store.subscribe(sync)
       const stopHeld = heldBoards.subscribe(sync)
 
+      // A board or note dragged by tldraw moves in one gesture, from its first move until tldraw stops translating.
+      let translation: string | undefined
+      const stopTranslation = react("translation ends", () => {
+        if (editor.isIn("select.translating") || !translation) return
+        store.endGesture(translation)
+        translation = undefined
+      })
       const stopMoves = editor.sideEffects.registerAfterChangeHandler("shape", (previous, next, source) => {
         if (source !== "user" || designDrag.active || (previous.x === next.x && previous.y === next.y)) return
+        if (editor.isIn("select.translating")) translation ??= store.beginGesture()
+        const gesture = editor.isIn("select.translating") ? translation : undefined
         if (next.type === "canvas-container" && !heldBoards.at(tab, next.props.key)) {
-          store.setPosition(next.props.key, { x: next.x, y: next.y })
+          store.setPosition(next.props.key, { x: next.x, y: next.y }, { gesture })
         }
         if (next.type === "canvas-note") {
           const position = { x: Math.round(next.x), y: Math.round(next.y) }
-          store.updateNote(next.props.key, "Move text", (note) => ({ ...note, position }), {
-            group: `move:${next.props.key}`
-          })
+          store.updateNote(next.props.key, "Move text", (note) => ({ ...note, position }), { gesture })
         }
       })
 
@@ -368,6 +375,7 @@ export function CanvasEditor({
         hiddenTabs.delete(editor)
         stopStore()
         stopHeld()
+        stopTranslation()
         stopMoves()
         stopSelection()
         stopFollowing()

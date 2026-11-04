@@ -70,10 +70,8 @@ function useSelectedLayer() {
   const { container, key } = entry
   const state = editingState(container, selected.state)
   const override = isBaseState(container, state.id) ? undefined : state.overrides?.[nodeId]
-  const change = (label: string, value: NodeChange, field: string) =>
-    store.updateContainer(key, label, (current) => editNode(current, state.id, nodeId, value), {
-      group: `edit:${nodeId}:${field}`
-    })
+  const change = (label: string, value: NodeChange, gesture?: string) =>
+    store.updateContainer(key, label, (current) => editNode(current, state.id, nodeId, value), { gesture })
   const reset = (field: Parameters<typeof resetOverride>[3]) =>
     store.updateContainer(key, "Reset change", (current) => resetOverride(current, state.id, nodeId, field))
   const shown = boardReader(container, { state })
@@ -84,14 +82,14 @@ function useSelectedLayer() {
     style: node.style ?? {},
     changed: (name) => override?.style?.[name] !== undefined,
     reset: (name) => reset({ kind: "style", key: name }),
-    set: (edit, label = "Change style") => {
+    set: (edit, label = "Change style", gesture) => {
       const values = styleValues(edit, node.style ?? {}, {
         base: true,
         measure: () => undefined,
         type: node.type,
         column: !!parentStyle && (parentStyle.direction ?? "column") === "column"
       }) as NodeStyle
-      change(label, { style: values }, `style.${Object.keys(values).join(",")}`)
+      change(label, { style: values }, gesture)
     },
     tokens,
     unit: spacingUnit(tokens),
@@ -120,7 +118,7 @@ export function SelectedProps() {
       node={node}
       info={components[node.component]}
       changed={(name) => override?.props?.[name] !== undefined}
-      onChange={(name, value) => change(`Change ${name}`, { props: { [name]: value } }, `props.${name}`)}
+      onChange={(name, value, gesture) => change(`Change ${name}`, { props: { [name]: value } }, gesture)}
       onReset={(name) => reset({ kind: "props", key: name })}
     />
   )

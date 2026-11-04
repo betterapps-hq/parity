@@ -166,11 +166,70 @@ describe("saving", () => {
   })
 })
 
-describe("reverting to a checkpoint", () => {
-  const rename = (store: DesignStore, name: string, group?: string) =>
-    store.updateContainer("app.par#home", "Rename", (container) => ({ ...container, name }), { group })
+describe("gestures", () => {
+  const rename = (store: DesignStore, name: string, gesture?: string) =>
+    store.updateContainer("app.par#home", "Rename", (container) => ({ ...container, name }), { gesture })
   const name = (store: DesignStore) => store.getEntry("app.par#home")?.container.name
-  /** A checkpoint for a gesture renaming home in the "resize" group. */
+
+  it("makes a gesture's changes one step until it ends, and gives each gesture its own id", () => {
+    vi.useFakeTimers()
+    const { store } = setup()
+    const first = store.beginGesture()
+    for (const step of ["One", "Two", "Three"]) {
+      rename(store, step, first)
+      vi.advanceTimersByTime(5000)
+    }
+    store.endGesture(first)
+    rename(store, "Four", first)
+    const second = store.beginGesture()
+    expect(second).not.toBe(first)
+    rename(store, "Five", second)
+    store.undo()
+    expect(name(store)).toBe("Four")
+    store.undo()
+    expect(name(store)).toBe("Three")
+    store.undo()
+    expect(name(store)).toBe("home")
+    expect(store.getHistory().canUndo).toBe(false)
+  })
+
+  it("makes a live drag one step, though it took a side back mid-drag, and none once Escape cancels it", () => {
+    vi.useFakeTimers()
+    // As an absolutely placed layer moved live writes: each move, and back to the checkpoint when a side it moved
+    // comes back to where it began.
+    const live = (escape: boolean) => {
+      const { store } = setup()
+      rename(store, "Before")
+      const gesture = store.beginGesture()
+      const checkpoint = store.checkpoint("app.par#home", gesture)!
+      rename(store, "Left 2", gesture)
+      vi.advanceTimersByTime(3000)
+      store.revert(checkpoint)
+      rename(store, "Top 4", gesture)
+      vi.advanceTimersByTime(3000)
+      rename(store, "Top 6", gesture)
+      if (escape) store.revert(checkpoint)
+      store.endGesture(gesture)
+      return store
+    }
+    const dropped = live(false)
+    expect(name(dropped)).toBe("Top 6")
+    dropped.undo()
+    expect(name(dropped)).toBe("Before")
+
+    const cancelled = live(true)
+    expect(name(cancelled)).toBe("Before")
+    expect(cancelled.getHistory()).toMatchObject({ undoLabel: "Rename", canRedo: false })
+    cancelled.undo()
+    expect(cancelled.getHistory().canUndo).toBe(false)
+  })
+})
+
+describe("reverting to a checkpoint", () => {
+  const rename = (store: DesignStore, name: string, gesture?: string) =>
+    store.updateContainer("app.par#home", "Rename", (container) => ({ ...container, name }), { gesture })
+  const name = (store: DesignStore) => store.getEntry("app.par#home")?.container.name
+  /** A checkpoint for a gesture renaming home, "resize". */
   const start = (store: DesignStore) => {
     const checkpoint = store.checkpoint("app.par#home", "resize")
     if (!checkpoint) throw new Error("No design home")
@@ -194,7 +253,7 @@ describe("reverting to a checkpoint", () => {
     const { store } = setup()
     rename(store, "Before")
     const checkpoint = start(store)
-    // Written as a pointer moves, some more than a second apart, so they'd be several undo steps.
+    // Written as a pointer moves, some more than a second apart.
     for (const step of ["One", "Two", "Three"]) {
       rename(store, step, "resize")
       vi.advanceTimersByTime(1500)
@@ -220,13 +279,11 @@ describe("reverting to a checkpoint", () => {
     expect(name(store)).toBe("Before")
   })
 
-  it("leaves the step before the gesture as it was, though the gesture's first change merged into it", () => {
-    vi.useFakeTimers()
+  it("leaves the step of an earlier gesture as it was, however soon before", () => {
     const { store } = setup()
-    rename(store, "First drag", "resize")
+    rename(store, "First drag", "earlier")
+    store.endGesture("earlier")
     const checkpoint = start(store)
-    // Within a second of the step before, in the same group: it merges into that step rather than making its own.
-    vi.advanceTimersByTime(500)
     rename(store, "Second drag", "resize")
     store.revert(checkpoint)
     expect(name(store)).toBe("First drag")

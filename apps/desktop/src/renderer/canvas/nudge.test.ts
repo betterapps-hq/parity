@@ -191,7 +191,7 @@ afterEach(() => {
 })
 
 describe("nudging what's selected", () => {
-  it("makes a run of presses one undo step, and a pause the start of another", () => {
+  it("makes a run of presses one undo step, however long the pauses between them", () => {
     vi.useFakeTimers()
     const nudging = session()
     const { store, selection } = nudging
@@ -199,21 +199,43 @@ describe("nudging what's selected", () => {
     const top = () => findNode(store.getEntry("app.par#card")!.container.root, "badge")?.style?.top
     for (let press = 0; press < 5; press++) {
       nudgeSelection(nudging, "down", false)
-      vi.advanceTimersByTime(30)
+      vi.advanceTimersByTime(press % 2 === 0 ? 30 : 4000)
     }
-    expect(top()).toBe(7)
-    vi.advanceTimersByTime(1500)
     nudgeSelection(nudging, "down", true)
     expect(top()).toBe(17)
-    store.undo()
-    expect(top()).toBe(7)
     store.undo()
     expect(top()).toBe(2)
     expect(store.getHistory().canUndo).toBe(false)
   })
 
-  it("starts a new step when the selection changes", () => {
-    vi.useFakeTimers()
+  it("starts a new step after another edit or an undo between presses", () => {
+    const nudging = session()
+    const { store, selection } = nudging
+    selection.set({ design: "app.par#card", node: "badge" })
+    const top = () => findNode(store.getEntry("app.par#card")!.container.root, "badge")?.style?.top
+    nudgeSelection(nudging, "down", false)
+    store.updateContainer("app.par#card", "Rename", (container) => ({ ...container, name: "Profile" }))
+    nudgeSelection(nudging, "down", false)
+    expect(top()).toBe(4)
+    store.undo()
+    expect(top()).toBe(3)
+    nudgeSelection(nudging, "down", true)
+    store.undo()
+    expect(top()).toBe(3)
+    expect(store.getHistory().undoLabel).toBe("Rename")
+  })
+
+  it("leaves no step for a run that comes back where it began", () => {
+    const nudging = session()
+    const { store, selection } = nudging
+    selection.set({ design: "app.par#card", node: "badge" })
+    nudgeSelection(nudging, "down", false)
+    nudgeSelection(nudging, "up", false)
+    expect(store.getHistory().canUndo).toBe(false)
+    expect(store.hasUnsaved()).toBe(false)
+  })
+
+  it("starts a new step when the selection changes, also back to what it was", () => {
     const nudging = session()
     const { store, selection } = nudging
     selection.set({ design: "app.par#card", node: "badge" })
@@ -223,6 +245,18 @@ describe("nudging what's selected", () => {
     store.undo()
     expect(order(store.getEntry("app.par#card")!.container)[1]).toBe("title")
     expect(store.getHistory().undoLabel).toBe("Nudge layer")
+    store.redo()
+
+    const top = () => findNode(store.getEntry("app.par#card")!.container.root, "badge")?.style?.top
+    selection.set({ design: "app.par#card", node: "badge" })
+    nudgeSelection(nudging, "down", false)
+    // Away and back with no press between: the next press starts a run of its own.
+    selection.set({ design: "app.par#card", node: "title" })
+    selection.set({ design: "app.par#card", node: "badge" })
+    nudgeSelection(nudging, "down", false)
+    expect(top()).toBe(5)
+    store.undo()
+    expect(top()).toBe(4)
   })
 
   it("moves designs by 1px, or 10px with Shift, together as one step", () => {

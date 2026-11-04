@@ -1,12 +1,13 @@
 import { type CanvasDocument, type ContainerSpec, defaultModeSettings, type ModeSettings } from "@parity-app/core"
 import type { Token, TokenChange } from "@parity-app/tokens"
-import { describe, expect, it } from "vite-plus/test"
-import { addDesign, changeDesign, mergeAgentChanges } from "./design-changes.ts"
+import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { addDesign, changeDesign, mergeAgentChanges, moveDesign } from "./design-changes.ts"
 import { withTidyView } from "./document-equality.ts"
 import {
   type ChangeOptions,
   type DesignHistory,
   type DesignStep,
+  endGesture,
   type FileWrite,
   fileWrite,
   historyLimit,
@@ -52,13 +53,13 @@ function taken(step: DesignStep | undefined): DesignHistory {
   return step.history
 }
 
-function add(history: DesignHistory, id: string, now = 0): DesignHistory {
-  return taken(recordChange(history, "Add design", addDesign(history.current, "app.par", design(id)), {}, now))
+function add(history: DesignHistory, id: string): DesignHistory {
+  return taken(recordChange(history, "Add design", addDesign(history.current, "app.par", design(id))))
 }
 
-function rename(history: DesignHistory, name: string, options: ChangeOptions = {}, now = 0): DesignHistory {
+function rename(history: DesignHistory, name: string, options: ChangeOptions = {}): DesignHistory {
   const next = changeDesign(history.current, { path: "app.par", id: "home" }, (container) => ({ ...container, name }))
-  return taken(recordChange(history, `Rename to ${name}`, next, options, now))
+  return taken(recordChange(history, `Rename to ${name}`, next, options))
 }
 
 function showAllStates(history: DesignHistory, allStates: boolean): DesignHistory {
@@ -127,27 +128,11 @@ describe("undo", () => {
     expect(recordChange(history, "Nothing", { ...history.current })).toBeUndefined()
   })
 
-  it("merges changes in one group less than a second apart into one step, keeping the first one's label", () => {
-    let history = rename(open(), "H", { group: "typing" }, 0)
-    history = rename(history, "Ho", { group: "typing" }, 900)
-    history = rename(history, "Hom", { group: "typing" }, 1800)
-    expect(history.past).toHaveLength(1)
-    expect(history.historyState.undoLabel).toBe("Rename to H")
-
-    history = rename(history, "Home", { group: "typing" }, 2900)
-    expect(history.past).toHaveLength(2)
-    history = taken(undoChange(history))
-    expect(history.current.documents.get("app.par")!.containers[0]!.name).toBe("Hom")
-    history = taken(undoChange(history))
-    expect(history.current.documents.get("app.par")!.containers[0]!.name).toBe("home")
-  })
-
-  it("starts a new step for a change in another group, or none", () => {
-    let history = rename(open(), "A", { group: "one" }, 0)
-    history = rename(history, "B", { group: "two" }, 10)
-    history = rename(history, "C", {}, 20)
-    history = rename(history, "D", {}, 30)
-    expect(history.past).toHaveLength(4)
+  it("makes each change without a gesture a step of its own, however close together", () => {
+    let history = rename(open(), "A")
+    history = rename(history, "B")
+    history = rename(history, "C")
+    expect(history.past).toHaveLength(3)
   })
 
   it("forgets what was undone once something else changes", () => {
@@ -183,6 +168,130 @@ describe("undo", () => {
     taken(undoChange(before))
     expect(before.current).toBe(current)
     expect(before.past).toHaveLength(1)
+  })
+})
+
+describe("gestures", () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  const home = { path: "app.par", id: "home" }
+  const shown = (history: DesignHistory) => history.current.documents.get("app.par")!.containers[0]!
+  const width = (container: ContainerSpec) => (container.root.type === "layout" ? container.root.style?.width : 0)
+  const withWidth = (value: number) => (container: ContainerSpec) =>
+    container.root.type === "layout"
+      ? { ...container, root: { ...container.root, style: { ...container.root.style, width: value } } }
+      : container
+  const withOpacity = (value: number) => (container: ContainerSpec) =>
+    container.root.type === "layout"
+      ? { ...container, root: { ...container.root, style: { ...container.root.style, opacity: value } } }
+      : container
+  const moveTo = (x: number) => (container: ContainerSpec) => moveDesign(container, { x, y: 0 })
+
+  /** One change a gesture makes, as its source writes it. */
+  function write(
+    history: DesignHistory,
+    label: string,
+    update: (container: ContainerSpec) => ContainerSpec,
+    gesture?: string
+  ): DesignStep | undefined {
+    return recordChange(history, label, changeDesign(history.current, home, update), { gesture })
+  }
+
+  // What each gesture writes as it goes, from the design at x 0 and no style.
+  const gestures = [
+    // Moving a design by its board writes its position at each pointer move.
+    { name: "a drag", label: "Move design", writes: [moveTo(4), moveTo(19), moveTo(40)] },
+    // A resize handle writes the layer's size at each pointer move that changes it.
+    { name: "a resize", label: "Resize layer", writes: [withWidth(9), withWidth(12), withWidth(20)] },
+    // A scrub previews as the label is dragged and writes once on release, in its gesture.
+    { name: "a scrub", label: "Change opacity", writes: [withOpacity(40)] },
+    // Each arrow press nudges, and a run of them is one gesture.
+    { name: "a run of arrow presses", label: "Nudge design", writes: [moveTo(1), moveTo(2), moveTo(12), moveTo(13)] }
+  ]
+
+  it.each(gestures)("makes $name one undo step, however long it pauses between changes", ({ label, writes }) => {
+    vi.useFakeTimers()
+    const start = open()
+    let history = start
+    for (const update of writes) {
+      // Longer than any person's pause between two pointer moves or two presses.
+      vi.advanceTimersByTime(5000)
+      history = taken(write(history, label, update, "gesture"))
+    }
+    const end = shown(history)
+    expect(history.past).toHaveLength(1)
+    expect(history.historyState).toEqual({ canUndo: true, canRedo: false, undoLabel: label })
+
+    history = taken(undoChange(history))
+    expect(shown(history)).toBe(shown(start))
+    expect(history.historyState.canUndo).toBe(false)
+    expect(unsavedPaths(history)).toEqual([])
+    history = taken(redoChange(history))
+    expect(shown(history)).toEqual(end)
+  })
+
+  it("adds no step for a gesture that changes nothing", () => {
+    const history = open()
+    // A resize that writes the size the layer already has, as a new object.
+    expect(write(history, "Resize layer", (container) => ({ ...container }), "gesture")).toBeUndefined()
+    expect(write(history, "Move design", moveTo(0), "gesture")).toBeUndefined()
+  })
+
+  it("leaves no step when a gesture comes back where it began, and the file clean", () => {
+    let history = rename(open(), "Start")
+    history = taken(write(history, "Move design", moveTo(30), "drag"))
+    history = taken(write(history, "Move design", moveTo(0), "drag"))
+    expect(history.past).toHaveLength(1)
+    expect(history.historyState.undoLabel).toBe("Rename to Start")
+    expect(shown(history).position).toEqual({ x: 0, y: 0 })
+    // Going on from there starts its step again.
+    history = taken(write(history, "Move design", moveTo(8), "drag"))
+    expect(history.past).toHaveLength(2)
+    history = taken(undoChange(history))
+    expect(shown(history).position).toEqual({ x: 0, y: 0 })
+    history = taken(undoChange(history))
+    expect(unsavedPaths(history)).toEqual([])
+
+    const back = taken(write(taken(write(open(), "Nudge", moveTo(1), "run")), "Nudge", moveTo(0), "run"))
+    expect(back.historyState.canUndo).toBe(false)
+    expect(unsavedPaths(back)).toEqual([])
+  })
+
+  it("ends a gesture's step at another change, an undo, or the gesture's end", () => {
+    let history = taken(write(open(), "Nudge design", moveTo(1), "run"))
+    history = rename(history, "Hero")
+    history = taken(write(history, "Nudge design", moveTo(2), "run"))
+    expect(history.past.map((step) => step.label)).toEqual(["Nudge design", "Rename to Hero", "Nudge design"])
+
+    history = taken(undoChange(history))
+    history = taken(write(history, "Nudge design", moveTo(3), "run"))
+    expect(history.past).toHaveLength(3)
+    expect(history.historyState.canRedo).toBe(false)
+
+    history = endGesture(history, "run")
+    history = taken(write(history, "Nudge design", moveTo(4), "run"))
+    expect(history.past).toHaveLength(4)
+    expect(endGesture(history, "another")).toBe(history)
+  })
+
+  it("keeps two gestures' changes in steps of their own", () => {
+    let history = taken(write(open(), "Resize layer", withWidth(9), "resize"))
+    history = taken(write(history, "Change opacity", withOpacity(50), "scrub"))
+    history = taken(write(history, "Resize layer", withWidth(10), "resize"))
+    expect(history.past).toHaveLength(3)
+    expect(width(shown(history))).toBe(10)
+  })
+
+  it("puts a file reloaded mid-gesture in a step of its own, between the gesture's", () => {
+    let history = taken(write(open(), "Move design", moveTo(10), "drag"))
+    history = taken(reloadFile(history, "more.par", { version: 3, containers: [design("about")] }))
+    history = taken(write(history, "Move design", moveTo(20), "drag"))
+    expect(history.past.map((step) => step.label)).toEqual(["Move design", "Reload more.par", "Move design"])
+    history = taken(undoChange(history))
+    expect(shown(history).position).toEqual({ x: 10, y: 0 })
+    expect(history.current.documents.has("more.par")).toBe(true)
   })
 })
 

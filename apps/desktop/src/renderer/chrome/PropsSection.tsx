@@ -20,7 +20,8 @@ interface PropsSectionProps {
   /** What the component accepts, when its source could be read. */
   info: ComponentInfo | undefined
   changed: (name: string) => boolean
-  onChange: (name: string, value: unknown) => void
+  /** Sets a prop, as part of a gesture's one undo step when given (a number field's run of Up and Down presses). */
+  onChange: (name: string, value: unknown, gesture?: string) => void
   onReset: (name: string) => void
 }
 
@@ -59,7 +60,7 @@ export function PropsSection({ node, info, changed, onChange, onReset }: PropsSe
               prop={prop}
               value={values[prop.name]}
               inSlot={inSlot.has(prop.name)}
-              onChange={(value) => onChange(prop.name, value)}
+              onChange={(value, gesture) => onChange(prop.name, value, gesture)}
             />
           </Field>
         ))}
@@ -73,7 +74,7 @@ export function PropsSection({ node, info, changed, onChange, onReset }: PropsSe
                 prop={prop}
                 value={values[name]}
                 inSlot={inSlot.has(name)}
-                onChange={(value) => onChange(name, value)}
+                onChange={(value, gesture) => onChange(name, value, gesture)}
               />
             )
           else input = <ValueInput value={values[name]} onCommit={(value) => onChange(name, value)} />
@@ -132,7 +133,7 @@ function PropInput({
   value: unknown
   /** Whether its layers are in a slot of its name, which the canvas passes in place of the value. */
   inSlot?: boolean
-  onChange: (value: unknown) => void
+  onChange: (value: unknown, gesture?: string) => void
 }) {
   if (isMadeValue(value)) return <MadeValue value={value} />
   const fallback = prop.default === undefined || prop.default === null ? undefined : String(prop.default)
@@ -167,7 +168,7 @@ function PropInput({
           placeholder={fallback ?? ""}
           // Maths that works from the value there starts from the default when the prop isn't set.
           blank={() => (typeof prop.default === "number" ? prop.default : undefined)}
-          onCommit={(update) => onChange(update(typeof value === "number" ? value : undefined))}
+          onCommit={(update, gesture) => onChange(update(typeof value === "number" ? value : undefined), gesture)}
         />
       )
     case "string":

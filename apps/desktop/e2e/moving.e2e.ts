@@ -296,6 +296,25 @@ describe("resize handles", () => {
     expect((await app.selection()).node).toBe(button)
   })
 
+  it("makes a slow resize one undo step, however long it pauses (PAR-441)", async () => {
+    await app.show("Dashboard", 1, button)
+    await app.selectLayer("Dashboard", button)
+    const box = await app.box("Dashboard", button)
+    const handle = { x: box.x + box.width, y: box.y + box.height / 2 }
+    const width = async () => (await app.style("Dashboard", button)).width
+    // A write, a pause longer than a second, then more writes, which grouping by time made two undo steps.
+    await app.drag(handle, { x: handle.x + 24, y: handle.y }, async () => {
+      await expect.poll(width).toBe(Math.round((box.width + 24) / 4))
+      await app.page.waitForTimeout(1500)
+      await app.page.mouse.move(handle.x + 48, handle.y, { steps: 6 })
+      await expect.poll(width).toBe(Math.round((box.width + 48) / 4))
+    })
+    expect(await app.undoLabel()).toBe("Resize layer")
+    await app.page.keyboard.press("Control+z")
+    await expect.poll(() => app.style("Dashboard", button)).toEqual({})
+    expect(await app.undoLabel()).toBeUndefined()
+  })
+
   it("sits outside a layer under 24px, so a press just inside its edge drags it (PAR-193)", async () => {
     // At 50%, New project is 16px high, so its top and bottom handles and its corners sit above and below it.
     await app.show("Dashboard", zoom)

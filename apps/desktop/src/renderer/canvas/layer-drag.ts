@@ -81,6 +81,8 @@ export function pressLayers(
     boardReader(entry.container, { state, viewport })(primary).style?.position === "absolute"
   const origin = area.getBoundingClientRect()
   let dragging = false
+  /** The drag's gesture, from when it starts to the drop, so what it writes is one undo step. */
+  let gesture: string | undefined
   let target: MoveTarget | undefined
   let delta = { x: 0, y: 0 }
 
@@ -101,8 +103,10 @@ export function pressLayers(
     if (!dragging) {
       if (Math.hypot(delta.x, delta.y) < threshold) return
       dragging = true
+      const begun = session.store.beginGesture()
+      gesture = begun
       releaseCursor = holdCursor("grabbing")
-      if (absolute) placed = followAbsolute(session, area, entry, ids[0]!, host)
+      if (absolute) placed = followAbsolute(session, area, entry, ids[0]!, host, begun)
       else {
         layouts.measure(host, entry.container.root)
         preview = new DropPreview(elements)
@@ -141,7 +145,8 @@ export function pressLayers(
       return
     }
     if (absolute) placed?.end(drop)
-    else if (drop && target) moveLayers(session, entry, ids, target)
+    else if (drop && target) moveLayers(session, entry, ids, target, gesture)
+    if (gesture) session.store.endGesture(gesture)
   }
   const onUp = () => finish(true)
   const onKey = (event: KeyboardEvent) => {
@@ -234,21 +239,22 @@ class DropPreview {
 }
 
 /**
- * Moves layers to a target as one undo step. Within a design they keep their ids, and every state's changes to them;
- * into another design they go as they're shown, with fresh ids.
+ * Moves layers to a target as one undo step, in the drag's gesture when given. Within a design they keep their ids,
+ * and every state's changes to them; into another design they go as they're shown, with fresh ids.
  */
 export function moveLayers(
   session: ProjectSession,
   source: ContainerEntry,
   ids: readonly string[],
-  target: MoveTarget
+  target: MoveTarget,
+  gesture?: string
 ): void {
   const { store, selection } = session
   const frame = { mode: selection.get().mode, state: selection.get().state }
   const label = ids.length === 1 ? "Move layer" : `Move ${ids.length} layers`
   if (target.design === source.key) {
     if (moveLayersWithin(source.container, ids, target) === source.container) return
-    store.updateContainer(source.key, label, (container) => moveLayersWithin(container, ids, target))
+    store.updateContainer(source.key, label, (container) => moveLayersWithin(container, ids, target), { gesture })
     selection.set(layersSelection(source.key, [...ids], frame))
     return
   }
@@ -257,11 +263,16 @@ export function moveLayers(
   const state = editingState(source.container, frame.state)
   const viewport = frameViewport(store.getModes(), frame.mode)
   let copies: string[] = []
-  store.updateContainers([source.key, destination.key], label, ([from, to]) => {
-    const moved = moveLayersAcross(from!, to!, ids, target, state, viewport)
-    copies = moved.copies
-    return [moved.source, moved.destination]
-  })
+  store.updateContainers(
+    [source.key, destination.key],
+    label,
+    ([from, to]) => {
+      const moved = moveLayersAcross(from!, to!, ids, target, state, viewport)
+      copies = moved.copies
+      return [moved.source, moved.destination]
+    },
+    { gesture }
+  )
   if (copies.length === 0) return
   selection.set(layersSelection(containerKey(destination.path, destination.container.id), copies))
 }
@@ -270,15 +281,16 @@ export function moveLayers(
  * Moves an absolutely placed layer live, as the pointer moves, by its insets, keeping both sides, negative insets and
  * tokens, as nudging does (see `shiftInsets`). It moves in half steps of the spacing scale, except along an axis where
  * it snaps to its siblings or its parent (see `LayerSnapping`), where it goes exactly where it locks, to the half
- * pixel. Every write is in one group: Escape takes them all back, and a drag that ends where it began leaves nothing
- * to undo.
+ * pixel. Every write is in the drag's gesture, one undo step: Escape takes them all back, and a drag that ends where
+ * it began leaves nothing to undo.
  */
 function followAbsolute(
   session: ProjectSession,
   area: ParentNode,
   entry: ContainerEntry,
   id: string,
-  host: HTMLElement
+  host: HTMLElement,
+  gesture: string
 ): { move(delta: Point, held: { ctrlKey: boolean; metaKey: boolean }): void; end(drop: boolean): void } | undefined {
   const { store, editor } = session
   const current = session.selection.get()
@@ -293,8 +305,7 @@ function followAbsolute(
   // Screen pixels per pixel of the design.
   const scale = frameScale(host) * (editor?.getZoomLevel() ?? 1)
   const snapping = LayerSnapping.measure(editor, host, entry.container, id, scale)
-  const group = `move-layer:${entry.key}:${id}`
-  const checkpoint = store.checkpoint(entry.key, group)
+  const checkpoint = store.checkpoint(entry.key, gesture)
   const halfSteps = (px: number) => Math.round((px / unit) * 2) / 2
   const exactly = (px: number) => Math.round(px * 2) / 2 / unit
   let written: NodeStyle = {}
@@ -320,7 +331,7 @@ function followAbsolute(
         entry.key,
         "Move layer",
         (container) => editNode(container, boardTarget(container, state.id), id, { style: change }),
-        { group }
+        { gesture }
       )
     },
     end(drop) {

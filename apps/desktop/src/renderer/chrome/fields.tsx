@@ -29,6 +29,7 @@ import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
+import { ProjectContext } from "../canvas/context.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import { Hint } from "./Hint.tsx"
 import {
@@ -66,6 +67,9 @@ type Scrub = (event: ReactPointerEvent<HTMLElement>) => void
 
 /** Number fields in a row without a label of their own, which the row's label scrubs. */
 const ScrubContext = createContext<((scrub: Scrub) => () => void) | undefined>(undefined)
+
+/** What ends a field's run of Up and Down presses, which is one undo step. */
+const runEnders = new Set<FieldEvent["type"]>(["type", "enter", "blur", "escape", "scrubStart"])
 
 /** What a field says under itself: why it can't read what's typed, or what it did with a value. */
 interface FieldMessage {
@@ -249,8 +253,11 @@ export interface NumberFieldProps {
   onPreview?: (update: FieldUpdate) => void
   /** Takes the preview back. */
   onCancel?: () => void
-  /** Makes the edit, as one undo step. */
-  onCommit: (update: FieldUpdate) => void
+  /**
+   * Makes the edit, as one undo step. A run of Up and Down presses, and a scrub, pass the gesture they're in, so the
+   * whole run is one step.
+   */
+  onCommit: (update: FieldUpdate, gesture?: string) => void
 }
 
 /**
@@ -279,6 +286,17 @@ export function NumberField({
   const mixed = useMixed()
   const register = useContext(ScrubContext)
   const say = useContext(MessageContext)
+  const store = useContext(ProjectContext)?.store
+  /**
+   * The gesture a run of Up and Down presses, or a scrub, is in. A run lasts while only Up and Down are pressed:
+   * typing, Enter, Escape, leaving the field or scrubbing ends it.
+   */
+  const gesture = useRef<string | undefined>(undefined)
+  const beginGesture = () => (gesture.current ??= store?.beginGesture())
+  const endGesture = () => {
+    if (gesture.current) store?.endGesture(gesture.current)
+    gesture.current = undefined
+  }
   const input = useRef<HTMLInputElement>(null)
   const messageId = useId()
   const [state, setState] = useState(initialFieldState)
@@ -358,7 +376,7 @@ export function NumberField({
       }
       case "step": {
         const { update, summary } = editFor(effect.from, effect.count)
-        onCommit(update)
+        onCommit(update, beginGesture())
         previewing.current = false
         return dispatch({ type: "committed", note: summary() })
       }
@@ -370,6 +388,7 @@ export function NumberField({
   }
 
   function dispatch(event: FieldEvent) {
+    if (runEnders.has(event.type)) endGesture()
     const update = reduceField(current.current, event, read)
     current.current = update.state
     setState(update.state)
@@ -381,12 +400,15 @@ export function NumberField({
     if (selecting > 0) input.current?.select()
   }, [selecting])
 
-  // A preview doesn't outlive its field, as when the selection changes while typing.
+  // A preview doesn't outlive its field, as when the selection changes while typing, and neither does a run of steps.
   const cancel = useRef(onCancel)
   cancel.current = onCancel
+  const ending = useRef(endGesture)
+  ending.current = endGesture
   useEffect(
     () => () => {
       if (previewing.current) cancel.current?.()
+      ending.current()
     },
     []
   )
@@ -400,6 +422,7 @@ export function NumberField({
     let steps = 0
     let update: FieldUpdate | undefined
     dispatch({ type: "scrubStart" })
+    beginGesture()
     const move = (moveEvent: PointerEvent) => {
       const next = scrubSteps(moveEvent.clientX - start, moveEvent.shiftKey)
       if (next === steps) return
@@ -418,10 +441,11 @@ export function NumberField({
       dispatch({ type: "scrubEnd" })
       if (commit && steps !== 0) {
         const { update: final, summary } = editFor(undefined, steps)
-        onCommit(final)
+        onCommit(final, gesture.current)
         previewing.current = false
         dispatch({ type: "committed", note: summary() })
       } else run({ type: "cancel" })
+      endGesture()
       // A press without a drag is a click: on a label inside the field, it goes to the field.
       if (steps === 0 && inner) input.current?.focus()
     }

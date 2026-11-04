@@ -27,6 +27,7 @@ import {
   deleteDesign,
   type EditStatus,
   editStatus,
+  endGesture,
   type FileWrite,
   fileWrite,
   type HistoryState,
@@ -108,6 +109,8 @@ export class DesignStore {
   private readonly writing = new Set<Promise<unknown>>()
   /** Tells this store's revisions apart from another's, such as the same project's after it's reopened. */
   private readonly epoch = Math.random().toString(36).slice(2, 10).padEnd(8, "0")
+  /** How many gestures have begun, to give each its own id. */
+  private gestures = 0
 
   constructor(
     documents: { path: string; document: CanvasDocument }[],
@@ -190,12 +193,26 @@ export class DesignStore {
   }
 
   /**
-   * Where a design and the history are now, for a gesture that writes to it as it goes, in one group (see `change`), and
-   * can be cancelled: resizing writes each step as the pointer moves, and Escape takes it all back with `revert`.
+   * Begins a gesture: a drag, a resize, a scrub or a run of arrow presses. Changes made with the id it returns (the
+   * `gesture` option) are one undo step, however long the gesture takes, until `endGesture`.
    */
-  checkpoint(key: string, group: string): Checkpoint | undefined {
+  beginGesture(): string {
+    this.gestures += 1
+    return `${this.epoch}:${this.gestures}`
+  }
+
+  /** Ends a gesture: a change made with it later starts a step of its own. */
+  endGesture(gesture: string): void {
+    this.state = endGesture(this.state, gesture)
+  }
+
+  /**
+   * Where a design and the history are now, for a gesture that writes to it as it goes and can be cancelled: resizing
+   * writes each step as the pointer moves, and Escape takes it all back with `revert`.
+   */
+  checkpoint(key: string, gesture: string): Checkpoint | undefined {
     const entry = this.getEntry(key)
-    return entry && historyCheckpoint(this.state, entry.path, entry.container, group)
+    return entry && historyCheckpoint(this.state, entry.path, entry.container, gesture)
   }
 
   /**
@@ -261,8 +278,8 @@ export class DesignStore {
     this.change(label, (snapshot) => ({ ...snapshot, tokens: withTokenEdits(snapshot.tokens, edits) }), options)
   }
 
-  setPosition(key: string, position: { x: number; y: number }): void {
-    this.updateContainer(key, "Move design", (container) => moveDesign(container, position), { group: `move:${key}` })
+  setPosition(key: string, position: { x: number; y: number }, options?: ChangeOptions): void {
+    this.updateContainer(key, "Move design", (container) => moveDesign(container, position), options)
   }
 
   setModes(modes: ModeSettings, label = "Edit modes"): void {

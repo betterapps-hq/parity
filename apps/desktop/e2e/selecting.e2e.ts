@@ -167,6 +167,29 @@ describe("selecting what you point at", () => {
     await expect.poll(moved).toBe(true)
   })
 
+  it("moves the board by its background as one undo step, however long the drag pauses (PAR-441)", async () => {
+    await app.show("Sign in", 0.5)
+    const before = await position("Sign in")
+    const around = await app.page.evaluate(() => {
+      const e2e = window.e2e!
+      const key = e2e.key("Sign in")
+      const board = document.querySelector(`.container-view[data-design="${CSS.escape(key)}"]`)!.getBoundingClientRect()
+      const frame = e2e.frame(key).getBoundingClientRect()
+      return { x: (board.left + frame.left) / 2, y: frame.top + frame.height / 2 }
+    })
+    // Moves, a pause longer than a second, then more moves, which grouping by time made two undo steps.
+    await app.drag(around, { x: around.x + 20, y: around.y + 10 }, async () => {
+      await app.page.waitForTimeout(1500)
+      await app.page.mouse.move(around.x + 40, around.y + 20, { steps: 6 })
+      await app.frames(2)
+    })
+    await expect.poll(async () => (await position("Sign in")).x - before.x).toBeGreaterThan(40)
+    expect(await app.undoLabel()).toBe("Move design")
+    await app.page.keyboard.press("Control+z")
+    await expect.poll(() => position("Sign in")).toEqual(before)
+    expect(await app.undoLabel()).toBeUndefined()
+  })
+
   it("selects the top-level layers a box from a frame's background touches, with tldraw's box drawn meanwhile", async () => {
     await app.show("Sign in", 0.5)
     const frame = await app.page.evaluate(() => {
