@@ -2952,3 +2952,32 @@ calls:
   left on the service's side is Vite starting in the builder's process, which needs discovery's results; running
   discovery while the tools are found was tried and gained nothing, as both work on the service's one thread. Caching
   discovery, or starting the canvas before the guest loads, would go further, and each is a change of its own.
+
+## The selection overlay measures when what it shows can change (PAR-522)
+
+While anything was selected, the overlay measured every animation frame, each time searching the canvas for the design's
+frames several times over, which the 2026-11-04 speed audit found the most expensive work in every interaction's profile
+(see editor.md, The overlay measures only when what it shows can change). My calls:
+
+- **Frames are indexed where `ModeView` mounts them,** in a layout effect around the host element, rather than by a
+  MutationObserver over the canvas or in `FrameTile`. The host is `ModeView`'s, every frame on the canvas is one, and a
+  MutationObserver would wake on every change anywhere in the canvas to find the few that matter. `findFrames` reads the
+  index, so agents' presence, Reveal, the style preview and the tab order overlay use it too. Something that draws its
+  own `data-frame` host, as a story or a test does, registers it (`registerFrame`).
+- **Measuring wakes on changes, then settles for half a second.** The selection, hover, tool and preferences; the design
+  store; tldraw's store, which holds the camera and the boards; pointer, wheel and key input, which drive drags,
+  snapping, resizing and Alt's redlines; the canvas area or a frame changing size; DOM, attribute or text changes and
+  images loading inside a frame drawn over; and fonts loading. After each, it measures every animation frame for 500 ms
+  (`settleMs`), which covers what follows a change by a frame or two, as a design drawing after an edit does, and a
+  transition a change starts.
+- **Animations are followed while they run, found by the browser rather than by a timer.** Once settled, the overlay
+  asks the frames it draws over for their running animations and transitions (`getAnimations` on each frame's shadow
+  root) and keeps measuring every frame while there are any, and only then. A component animated by script writes styles
+  or DOM as it goes, which the frame's MutationObserver catches. So a spinner anywhere in a selected design keeps the
+  overlay measuring, as before this change; a design that doesn't animate costs nothing while it's still. Measuring for
+  a short while after each change, without asking, would have dropped an outline behind a long animation.
+- **Only frames drawn over wake it:** the selected and hovered designs', or every frame's while the layout grid shows. A
+  design animating elsewhere on the canvas doesn't keep the overlay measuring.
+- **What it doesn't see** is layout that moves with no input, DOM change, resize, image or font load or animation it
+  hears of, such as a video in a frame taking its size once its data arrives. The outline catches up at the next change,
+  such as the pointer moving.

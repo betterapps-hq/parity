@@ -40,16 +40,23 @@ const design: ContainerSpec = {
 const entry = `
 export { StylePreview } from "./style-preview.ts"
 import { boardRoot, editNode, resolveDesign } from "@parity-app/core"
+import { registerFrame } from "../frame.ts"
 export { editNode }
+
+let unregister = []
 
 export function draw(design) {
   document.body.style.setProperty("--spacing", "4px")
   document.querySelector("#frames").replaceChildren()
+  for (const stop of unregister) stop()
+  unregister = []
   for (const state of design.states) {
     const host = document.createElement("div")
     Object.assign(host.dataset, { frame: "", design: "app.par#card", state: state.id, viewport: "desktop" })
     host.style.width = "600px"
     document.querySelector("#frames").append(host)
+    // The preview finds the design's frames from the index ModeView registers them in.
+    unregister.push(registerFrame(host, "app.par#card"))
     const shadow = host.attachShadow({ mode: "open" })
     const render = (node) => {
       if (node.kind === "text") return document.createTextNode(node.text)
