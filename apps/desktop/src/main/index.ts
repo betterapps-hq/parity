@@ -1,4 +1,4 @@
-import { readFileSync, watch, writeFileSync } from "node:fs"
+import { existsSync, readFileSync, watch, writeFileSync } from "node:fs"
 import { availableParallelism } from "node:os"
 import { join } from "node:path"
 import {
@@ -86,10 +86,11 @@ const serviceName = "Parity project service"
 const serviceDirectory = isPackaged(app.isPackaged, process.env)
   ? join(process.resourcesPath, "app.asar.unpacked")
   : import.meta.dirname
+const serviceEntry = join(serviceDirectory, "utility.mjs")
 
 /** Builders, file access, agents and other heavy work run here, never in the UI process. */
 function startService(): UtilityProcess {
-  const child = utilityProcess.fork(join(serviceDirectory, "utility.mjs"), [], {
+  const child = utilityProcess.fork(serviceEntry, [], {
     serviceName,
     stdio: "inherit",
     env: { ...process.env, PARITY_ALLOWED_ORIGINS: rendererOrigin }
@@ -115,7 +116,11 @@ function startService(): UtilityProcess {
   })
   child.on("exit", (code) => {
     if (service === child) service = undefined
-    if (code !== 0 && !retired.has(child)) console.error(`Project service exited with code ${code}`)
+    if (code === 0 || retired.has(child)) return
+    // A utility process whose script is missing exits with code 1 and prints nothing, even with Electron's logging on,
+    // so the path it was given is named (PAR-489).
+    const missing = existsSync(serviceEntry) ? "" : `, since ${serviceEntry} doesn't exist`
+    console.error(`Project service exited with code ${code}${missing}`)
   })
   return child
 }

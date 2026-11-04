@@ -3,6 +3,7 @@
 // it bundles) restarts only the service: Electron watches its bundle and reconnects its windows, which keep their unsaved
 // work. Only a change to the main process or the preload script restarts Electron.
 // Usage: pnpm dev [project-root]
+//   PARITY_STANDARD_ELECTRON=1  run Electron as installed, not Parity's copy of it (scripts/parity-electron.ts)
 import { type ChildProcess, spawn } from "node:child_process"
 import { cpSync } from "node:fs"
 import { join, resolve } from "node:path"
@@ -20,7 +21,9 @@ const outDir = uiPort === "5310" ? join(appDir, "out") : join(appDir, "out", uiP
 const frozen = process.env.PARITY_UI_FROZEN === "1"
 const project = resolve(process.argv[2] ?? process.env.PARITY_PROJECT ?? join(repoDir, "examples/shadcn-vite"))
 const debugPort = process.env.PARITY_DEBUG_PORT ?? "9333"
-const electronPath = parityElectron((await import("electron")).default as unknown as string)
+const installedElectron = (await import("electron")).default as unknown as string
+const electronPath =
+  process.env.PARITY_STANDARD_ELECTRON === "1" ? installedElectron : parityElectron(installedElectron)
 
 const ui = await createServer({ configFile: join(appDir, "vite.config.ts"), root: join(appDir, "src/renderer") })
 await ui.listen()

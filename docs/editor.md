@@ -2066,6 +2066,42 @@ Not tested: a tab changed or closed while a reopen saves its unsaved changes, an
 after its tab closed. Both were checked by reading `reload`: after saving it reads the tab again and stops only when
 it's gone or already reopening, and a failed `project.open` leaves no project to close.
 
+### The project service starts under Parity's copy of Electron (PAR-489)
+
+`pnpm dev` runs Electron as `Parity.exe` on Windows (decisions.md, "The app is named Parity"), and that copy starts the
+project service and opens a project just as Electron under its own name does. Electron counts any program not named
+`electron` as packaged, so the copy once looked for the service in `resources\app.asar.unpacked\utility.mjs` beside
+`Parity.exe`, which isn't there: the utility process exited with code 1 before any of the service's code ran, again for
+every window load, and printed nothing, even with `ELECTRON_ENABLE_LOGGING=1`. The dev runner sets `PARITY_DEV_RUNNER`,
+and the main process counts the app as packaged only without it, so the service starts from `out\utility.mjs` beside the
+bundles and update checks stay off. If the service's script is ever missing again, the main process says so: it logs
+`Project service exited with code 1, since <path> doesn't exist`, naming the path it was given.
+
+Smoke check, on Windows, from a fresh worktree:
+
+1. `pnpm install --frozen-lockfile`, then delete `apps/desktop/node_modules/.cache/parity-electron-*` so the copy is
+   made anew, and start `pnpm dev`.
+2. Its output has no `Project service exited` line, and the service runs from the copy: in PowerShell,
+   `Get-CimInstance Win32_Process -Filter "name='Parity.exe'" | ? CommandLine -like '*NodeService*'` lists one process,
+   and another `Parity.exe` runs `out\builder-process.mjs`.
+3. With the app running, `node apps/desktop/scripts/inspect.ts` waits for the canvas, prints every design's frames and
+   no `errors`, and saves `.inspect/canvas.png`, where the status bar shows the project's builder running.
+4. Stop it, and run the same steps with `PARITY_STANDARD_ELECTRON=1 pnpm dev`, which runs Electron as installed
+   (`electron.exe`). The report lists the same designs and modes. A frame can show live in one and as a bitmap in the
+   other, depending on when the report was taken.
+
+Checked on Windows 11 (10.0.26200) on 2026-11-03 with `examples/shadcn-vite`: both runs showed the same 119 modes with
+no errors. With the dev runner's check removed, the copy failed as above and logged the missing path.
+
+Code: `isPackaged` in `apps/desktop/src/main/packaged.ts`, `serviceEntry` and `startService` in
+`apps/desktop/src/main/index.ts`; `parityElectron` in `apps/desktop/scripts/parity-electron.ts`, which `scripts/dev.ts`
+skips under `PARITY_STANDARD_ELECTRON=1`.
+
+Tests: `apps/desktop/src/main/packaged.test.ts` covers the copy under the dev runner counting as not packaged. The app
+tests start Parity through `scripts/dev.ts`, so on CI's Windows runner they run under `Parity.exe` too. Gap: nothing
+automated starts the service from a freshly made copy and compares it with Electron as installed. That's the smoke check
+above.
+
 ## The window
 
 How the app's window holds the canvas and the panels around it.
