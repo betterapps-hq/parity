@@ -108,19 +108,26 @@ function TitleBarMenubarTrigger({ className, ...props }: ComponentProps<typeof M
   )
 }
 
-/** Wider menus, a little closer to the bar, that fade as they close. */
+/**
+ * Menus as wide as what they hold, from 14rem, a little closer to the bar, that fade as they close. The kit's menubar
+ * menus are its dropdown menus, as wide as their trigger and at least 9rem, so a menu under "Edit" wraps its items.
+ */
 function TitleBarMenubarContent({ className, sideOffset = 6, ...props }: ComponentProps<typeof MenubarContent>) {
   return (
     <MenubarContent
       sideOffset={sideOffset}
-      className={cn("min-w-56 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", className)}
+      className={cn(
+        "w-auto min-w-56 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+        className
+      )}
       {...props}
     />
   )
 }
 
+/** Submenus as wide as what they hold, rather than as their item in the menu. */
 function TitleBarMenubarSubContent({ className, ...props }: ComponentProps<typeof MenubarSubContent>) {
-  return <MenubarSubContent className={cn("min-w-[96px]", className)} {...props} />
+  return <MenubarSubContent className={cn("w-auto min-w-[96px]", className)} {...props} />
 }
 
 /** Group names small and dimmed, as the other menus' are. */
