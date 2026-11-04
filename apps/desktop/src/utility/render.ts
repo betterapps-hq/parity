@@ -8,8 +8,8 @@ const pending = new Map<
 >()
 
 /**
- * Draws a frame in the offscreen render window (owned by the main process) and measures it, optionally capturing a
- * PNG. The person's canvas is never touched.
+ * Draws a frame in one of the offscreen render windows (owned by the main process) and measures it, optionally
+ * capturing a PNG. The person's canvas is never touched.
  */
 export function renderOffscreen(job: RenderJob, capture: boolean): Promise<{ frame: RenderedFrame; png?: string }> {
   return new Promise((resolve, reject) => {

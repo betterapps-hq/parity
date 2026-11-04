@@ -8,7 +8,7 @@ import { App, center } from "./app.ts"
 
 // docs/editor.md, Adding images: dropping image files from Explorer or Finder (PAR-24), with Chromium's own drag
 // events carrying real files; and Moving, reordering and resizing: dropping a component from the panel into the slot
-// under the pointer (PAR-205).
+// under the pointer (PAR-205), or at the pointer in a layout that's placed absolutely.
 
 let app: App
 let folder: string
@@ -193,6 +193,46 @@ describe("dropping a component from the panel", () => {
     expect(await app.undoLabel()).toBe("Add Badge")
     await app.page.keyboard.press("Control+z")
     await expect.poll(() => app.children("Projects", grid)).toEqual(cards)
+  })
+
+  it("lands at the pointer, last, in a layout that's placed absolutely", async () => {
+    // Calendar's Events: placed absolutely over the day's timeline, holding the event slots, the first at top 16.
+    const events = "zEb2T"
+    const planning = "aAaEs"
+    const before = await app.children("Calendar", events)
+    await app.show("Calendar", 1, planning)
+    await app.page.keyboard.press("Alt+2")
+    await app.page.getByRole("textbox", { name: "Search components" }).fill("Badge")
+    const badge = app.page
+      .getByRole("button")
+      .filter({ hasText: /^Badge$/ })
+      .first()
+    const from = center((await badge.boundingBox())!)
+    // Above the Planning slot, 40px of the design right of Events' left and 24px below its top: 10 and 6 steps.
+    const box = await app.box("Calendar", events)
+    const to = { x: box.x + 40, y: box.y + 24 }
+    const shown = await app.drag(from, to, async () => {
+      await expect.poll(() => app.page.locator("[data-drop-corner]").count()).toBe(1)
+      return {
+        outline: await app.page.locator("[data-drop-outline]").count(),
+        line: await app.page.locator("[data-drop-line]").count()
+      }
+    })
+    // A corner marks where it goes, and no line, as there's no slot among children placed absolutely.
+    expect(shown).toEqual({ outline: 1, line: 0 })
+    await expect.poll(async () => (await app.children("Calendar", events)).length).toBe(before.length + 1)
+    const children = await app.children("Calendar", events)
+    const added = children.at(-1)!
+    expect(children).toEqual([...before, added])
+    expect(await app.node("Calendar", added)).toMatchObject({
+      type: "component",
+      component: "Badge",
+      style: { position: "absolute", left: 10, top: 6 }
+    })
+    expect((await app.selection()).node).toBe(added)
+    expect(await app.undoLabel()).toBe("Add Badge")
+    await app.page.keyboard.press("Control+z")
+    await expect.poll(() => app.children("Calendar", events)).toEqual(before)
   })
 })
 

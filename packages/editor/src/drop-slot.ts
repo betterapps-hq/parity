@@ -18,13 +18,15 @@ export interface Point {
 
 /**
  * How a layout places its children on screen, for dropping, dragging and nudging alike (PAR-205): along a row or down a
- * column, whether they go on to further lines, and whether that runs right to left or bottom to top. A grid that fills
- * rows has a `stride`, how many places one row down is.
+ * column, whether they go on to further lines, whether each line runs right to left or bottom to top (`reversed`), and
+ * whether the lines follow one another upwards or leftwards (`linesReversed`), as `wrap-reverse` and right-to-left
+ * columns do. A grid that fills rows has a `stride`, how many places one row down is, when its columns can be counted.
  */
 export interface Flow {
   direction: "row" | "column"
   wraps: boolean
   reversed: boolean
+  linesReversed: boolean
   stride?: number
 }
 
@@ -41,34 +43,78 @@ export interface FlowStyle {
 /**
  * A layout's flow, from its computed style: a flex box, a grid, or blocks one under another. A grid fills a row at a
  * time (or a column, flowing by columns), line after line, as a wrapping flex box does, so both are found the same way.
+ * In a right-to-left page a row runs right to left, and so do the lines of a column that wraps. `children` are the
+ * boxes of the children in the layout's flow, when they're measured, for counting a grid's columns when its style
+ * doesn't (see `trackCount`).
  */
-export function flowOf(style: FlowStyle): Flow {
+export function flowOf(style: FlowStyle, children: readonly Rect[] = []): Flow {
   const rtl = style.direction === "rtl"
   if (style.display.includes("grid")) {
-    if (style.gridAutoFlow.startsWith("column")) return { direction: "column", wraps: true, reversed: false }
-    return { direction: "row", wraps: true, reversed: rtl, stride: trackCount(style.gridTemplateColumns) }
+    if (style.gridAutoFlow.startsWith("column")) {
+      return { direction: "column", wraps: true, reversed: false, linesReversed: rtl }
+    }
+    const stride = trackCount(style.gridTemplateColumns, children)
+    return { direction: "row", wraps: true, reversed: rtl, linesReversed: false, ...(stride ? { stride } : {}) }
   }
   if (style.display.includes("flex")) {
     const reversed = style.flexDirection.endsWith("reverse")
     const wraps = style.flexWrap.startsWith("wrap")
+    const wrapsBack = style.flexWrap === "wrap-reverse"
     return style.flexDirection.startsWith("row")
-      ? { direction: "row", wraps, reversed: reversed !== rtl }
-      : { direction: "column", wraps, reversed }
+      ? { direction: "row", wraps, reversed: reversed !== rtl, linesReversed: wrapsBack }
+      : { direction: "column", wraps, reversed, linesReversed: wrapsBack !== rtl }
   }
-  return { direction: "column", wraps: false, reversed: false }
+  return { direction: "column", wraps: false, reversed: false, linesReversed: false }
 }
 
-/** The columns in a computed `grid-template-columns`: `120px 120px 120px`, or `repeat(3, …)` before layout. */
-function trackCount(columns: string): number {
-  const repeat = /^repeat\((\d+)/.exec(columns)
-  if (repeat) return Number(repeat[1])
-  const tracks = columns
-    .replace(/\[[^\]]*\]/g, " ")
-    .replace(/\([^)]*\)/g, "")
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-  return Math.max(1, tracks.length)
+/**
+ * How many columns a grid has. Its computed `grid-template-columns` lists them once it's laid out (`120px 120px`), and
+ * `repeat(3, …)` says how many before. One that only layout resolves, such as `repeat(auto-fill, …)` before layout or
+ * a `subgrid`, is counted from where its children are drawn: one column for each place a child starts. Undefined when
+ * neither tells.
+ */
+function trackCount(columns: string, children: readonly Rect[]): number | undefined {
+  const written = writtenTracks(columns)
+  if (written) return written
+  const starts = new Set(children.map((child) => Math.round(child.left * 2) / 2))
+  return starts.size > 0 ? starts.size : undefined
+}
+
+/** The tracks a `grid-template-columns` value lists, line names aside; undefined when it takes layout to count them. */
+function writtenTracks(value: string): number | undefined {
+  let count = 0
+  for (const track of topLevel(value.replace(/\[[^\]]*\]/g, " "))) {
+    const repeat = /^repeat\(\s*(\d+)\s*,(.*)\)$/s.exec(track)
+    if (repeat) {
+      const each = writtenTracks(repeat[2]!)
+      if (!each) return undefined
+      count += Number(repeat[1]) * each
+    } else if (/^(repeat\(|subgrid$|none$|masonry$)/.test(track)) {
+      return undefined
+    } else {
+      count += 1
+    }
+  }
+  return count > 0 ? count : undefined
+}
+
+/** A value's space-separated parts, keeping what's in parentheses whole: `minmax(0, 1fr) 2fr` is two. */
+function topLevel(value: string): string[] {
+  const parts: string[] = []
+  let depth = 0
+  let part = ""
+  for (const char of value) {
+    if (char === "(") depth++
+    if (char === ")") depth--
+    if (depth === 0 && /\s/.test(char)) {
+      if (part) parts.push(part)
+      part = ""
+    } else {
+      part += char
+    }
+  }
+  if (part) parts.push(part)
+  return parts
 }
 
 export interface SlotChild {
@@ -88,9 +134,39 @@ export interface Slot {
  * The slot under a point. First the line of children the point is on: a grid's row, a wrapping layout's line, or the
  * nearest one when it's between them; past the last line, the slot is the end. Then, along that line, before the first
  * child whose middle is past the point, or after the line's last child. `children` are in the layout's order, without
- * the layers being moved, and `count` is how many children the layout has in all.
+ * the layers being moved, and `count` is how many children the layout has in all. "Past" and "last" go the way the
+ * layout runs: leftwards along a right-to-left row, upwards past lines that wrap in reverse.
  */
 export function slotAt(children: readonly SlotChild[], point: Point, flow: Flow, layout: Rect, count: number): Slot {
+  // Mirrored so the layout runs right and down, the slot is found there and its line mirrored back.
+  const row = flow.direction === "row"
+  const mirror = {
+    x: row ? flow.reversed : flow.wraps && flow.linesReversed,
+    y: row ? flow.wraps && flow.linesReversed : flow.reversed
+  }
+  const slot = forwardSlotAt(
+    children.map((child) => ({ index: child.index, box: mirrored(child.box, mirror) })),
+    { x: mirror.x ? -point.x : point.x, y: mirror.y ? -point.y : point.y },
+    flow,
+    mirrored(layout, mirror),
+    count
+  )
+  const { x, y, w, h } = slot.line
+  return { index: slot.index, line: { x: mirror.x ? -(x + w) : x, y: mirror.y ? -(y + h) : y, w, h } }
+}
+
+/** A box flipped across the axes `mirror` says. */
+function mirrored(box: Rect, mirror: { x: boolean; y: boolean }): Rect {
+  return {
+    left: mirror.x ? -box.right : box.left,
+    right: mirror.x ? -box.left : box.right,
+    top: mirror.y ? -box.bottom : box.top,
+    bottom: mirror.y ? -box.top : box.bottom
+  }
+}
+
+/** `slotAt` for a layout whose lines run right or down, each after the one before rightwards or downwards. */
+function forwardSlotAt(children: readonly SlotChild[], point: Point, flow: Flow, layout: Rect, count: number): Slot {
   const row = flow.direction === "row"
   const axis = row ? axes.row : axes.column
   const lines: readonly (readonly SlotChild[])[] = flow.wraps ? linesOf(children, axis) : [children]
