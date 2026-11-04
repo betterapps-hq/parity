@@ -28,7 +28,7 @@ jobs:
     permissions:
       contents: write
       actions: read
-    uses: betterapps-hq/pipelines/.github/workflows/cd-desktop-release.yml@c2e002c29b8f1d8eee612805e9aa715c61dcb7e4 # v1.11.0
+    uses: betterapps-hq/pipelines/.github/workflows/cd-desktop-release.yml@main
     with:
       ci-workflow: ci.yml
       build-secret-env: VITE_TLDRAW_LICENSE_KEY
@@ -60,7 +60,7 @@ jobs:
       (needs.release.outputs.published == 'true' && needs.beta.result == 'success'))
     permissions:
       contents: write
-    uses: betterapps-hq/pipelines/.github/workflows/cd-desktop-promote.yml@efa1c3e00652cca72174fdf3abdb911a5c501c45 # v1.11.1
+    uses: betterapps-hq/pipelines/.github/workflows/cd-desktop-promote.yml@main
     with:
       version: ${{ needs.release.outputs.version || inputs.version }}
       environment: production

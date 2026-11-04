@@ -55,8 +55,8 @@ updates:
     ignore:
       - dependency-name: "*"
 
-  # The workflows call the shared pipelines' templates pinned to a commit, with the version in a comment, and Dependabot
-  # moves both. Better Apps' own releases come straight away; other actions wait out the same cooldown as npm.
+  # The workflows call the shared pipelines' templates at main, so they get the latest without Dependabot. Other actions
+  # are at their major version's tag, and Dependabot moves them to a new major after the same cooldown as npm.
   - package-ecosystem: github-actions
     directory: /
     schedule:

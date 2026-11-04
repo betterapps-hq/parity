@@ -1934,10 +1934,11 @@ the Repository, CI and releases stream in Linear.
   provenance, and the desktop app to GitHub Releases. My calls: installers come from electron-builder, since one tool
   makes installers, signs them and serves updates, and only the desktop app makes GitHub Releases, so the updater never
   mistakes a CLI release for an app update.
-  - **`release.yml` and `cd-npm.yml` call the shared templates** (PAR-10, PAR-14), `release-prepare`, `release-merge` at
-    v1.7.0 and `cd-npm-publish` at v1.7.1, as `betterapps-hq/pipelines`' README shows, after CI passes for a push to
-    `main`. The release templates give the release commit's hooks `origin/main`, which `scripts/changes.ts` compares
-    with. My calls:
+  - **`release.yml` and `cd-npm.yml` call the shared templates** (PAR-10, PAR-14), `release-prepare`, `release-merge`
+    and `cd-npm-publish`, as `betterapps-hq/pipelines`' README shows, after CI passes for a push to `main`. Like every
+    workflow here, they call the templates at `main`, not a pinned commit, so Parity gets each change as it merges, as
+    you asked on 2026-11-03. The release templates give the release commit's hooks `origin/main`, which
+    `scripts/changes.ts` compares with. My calls:
     - **A GitHub App pushes and merges the release PR,** not a personal access token, so the release commits aren't
       yours and nothing expires with a person's token. It needs read and write access to contents and pull requests,
       installed on this repository only. A manually prepared release PR can bootstrap npm delivery before that App is
