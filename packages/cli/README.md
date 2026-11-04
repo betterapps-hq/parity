@@ -24,6 +24,10 @@ npm install --global @parity-app/cli
 Most commands act on a running Parity app, on its active tab unless `--tab` names another. `parity lib` runs without the
 app.
 
+The app writes where to reach it to `~/.parity/agent.json`, or the file `PARITY_AGENT_FILE` names. With two copies
+running, that's the one that started first: a later copy takes it only when started with `PARITY_AGENT_TAKE_OVER=1`, and
+gives it back when it quits.
+
 ## Commands
 
 | Command                      | What it does                                                                               |

@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "A second copy of Parity leaves agents with the copy already running unless started with PARITY_AGENT_TAKE_OVER=1, and a copy that quits gives the agent file back instead of removing another copy's",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

@@ -18,6 +18,7 @@ import {
 } from "electron"
 import type { ProcessUsage, RenderedFrame, RenderJob, SaveDialogOptions } from "../shared/protocol.ts"
 import type { BuilderReading, MainMessage, ServiceMessage } from "../shared/service.ts"
+import { releaseAgentConnection } from "./agent-file.ts"
 import { InstalledBuild } from "./build-info.ts"
 import { readConsole, recordConsole } from "./console-log.ts"
 import { idleClose } from "./idle-close.ts"
@@ -97,7 +98,9 @@ function startService(): UtilityProcess {
       ...process.env,
       PARITY_ALLOWED_ORIGINS: rendererOrigin,
       // Frame bitmaps are kept in the app's own data, so an installed Parity never writes them into a project.
-      PARITY_BITMAP_DIR: join(app.getPath("userData"), "bitmaps")
+      PARITY_BITMAP_DIR: join(app.getPath("userData"), "bitmaps"),
+      // Names this copy in the agent file, so a restarted service takes its own file back (PAR-280).
+      PARITY_APP_PID: String(process.pid)
     }
   })
   child.on("message", (message: ServiceMessage) => {
@@ -568,7 +571,10 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit()
 })
 
-app.on("quit", () => service?.kill())
+app.on("quit", () => {
+  service?.kill()
+  releaseAgentConnection()
+})
 
 // Under the dev runner, which sets PARITY_DEV_RUNNER to its process id.
 const devRunner = Number(process.env.PARITY_DEV_RUNNER)
