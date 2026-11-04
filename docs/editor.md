@@ -485,6 +485,48 @@ a library, rather than left out. Previews are PAR-208. The time is measured to t
 that shows it, since in a window in the background frames come about once a second; the trace showed the key press
 taking 31ms and the frame after it 18ms.
 
+### A component's stories and code from its menu (PAR-527)
+
+Right-clicking a component in the Components panel opens its menu: **View in Storybook**, then **View code**, which
+opens the component's file in the person's editor at the line of its export. Each is greyed with why when it can't act,
+rather than left out, so the menu is the same for every component: View in Storybook says "No stories" for one without
+any, and View code "Not in the project" for a library component without type declarations, whose declarations are
+otherwise its code. With stories, View in Storybook stays enabled while Storybook isn't running and says "Starts
+Storybook": choosing it starts the project's Storybook, reusing one already serving it, and opens the component's docs
+or first story once it's up, as the row's book button does. Whether it's running is the service's process list, which
+the status bar polls. A project without a Storybook has no View in Storybook. A library's component design offers Insert
+linked instance and Insert detached copy after them.
+
+Resting the pointer on a component opens its card beside the row (PAR-515, "Component previews" below), which names it
+and its file, or the package a library's comes from, and says when it fails on the canvas and why. One listed by hand
+says so.
+
+- **Which editor:** Settings > Code > Editor. The choices are Automatic, VS Code, Cursor, Windsurf, Zed or System
+  default. Automatic tries them in that order and opens the first one installed, or the system's default app for the
+  file when none is. A named editor that isn't installed says so in a toast, with where to choose another.
+- **Finding one:** each editor's command on PATH (`code`, `cursor`, `windsurf`, `zed`), on Windows with PATHEXT's
+  extensions, as `code` is `code.cmd`. On macOS and Linux the usual folders are searched too, since an app the Dock
+  starts has only the system's PATH. It's started apart from Parity, so it stays open when Parity quits.
+- **The line:** the export's declaration, read from the file when it's opened: `export function Button`, or the
+  `function Badge` that shadcn's `export { Badge }` names. When neither is in the file, as for one re-exported from
+  another, the file opens at its top. A part named through its family, as `Dialog.Root`, opens at the family's export.
+
+Code: `codeEditors`, `editorsFor`, `commandPaths` and `exportLine` in `packages/core/src/code-editors.ts`;
+`openInEditor` in `apps/desktop/src/main/code-editor.ts`, behind `canvas:open-in-editor`; `componentFile` and `viewCode`
+in `renderer/chrome/code-editor.ts`; the menu's items in `chrome/ComponentMenu.tsx`, used by `chrome/AssetsPanel.tsx`;
+the setting in `chrome/SettingsDialog.tsx` and `chrome/preferences.ts`.
+
+Tests: `packages/core/src/code-editors.test.ts` (10: the editors each choice tries; VS Code's and Zed's arguments; the
+paths on PATH on Windows and elsewhere; and the export's line for a function, constant or class, one an export list
+names, a list over several lines, a longer name that isn't it, a default export, a declared one, a missing one, and
+Windows line endings). `apps/desktop/src/renderer/chrome/code-editor.test.ts` (2: the project's own component's file
+from a Windows or POSIX root, and a library component's declarations, or none). `chrome/ComponentMenu.stories.tsx`:
+WithStories, ChoosingViewCode, StorybookNotRunning, WithoutStories, NoCodeInTheProject and LibraryDesign; and
+ComponentMenu, ListedByHand and FailingToDraw in `chrome/ComponentsPanel.stories.tsx`. Gaps: launching the editor and
+the system's default app in `main/code-editor.ts` have no test of their own. They were tried in a debug copy: View code
+on Button opened VS Code at `button.tsx:43`, its `function Button`, and Badge's menu said "Starts Storybook" with none
+running.
+
 ## Moving, reordering and resizing
 
 Dragging layers and designs, where they land, resize handles and duplicates.
@@ -2297,8 +2339,13 @@ the end-to-end suite starts each copy on a fresh profile, so it captures its fra
 
 Each component has a picture of what inserting it would place, made in the offscreen window and kept on disk with the
 frame bitmaps, so no panel mounts a component and a project opened again draws none it already has. The Components panel
-shows it, for now, above the name in a component row's hint; PAR-208 gives it the List and Grid views, the card and the
-picker.
+shows it in a component's card, opened by resting the pointer on its row as a token's is, beside the row (PAR-515): the
+picture on the project's page in a framed box that fits it, then its name, file and, when it fails on the canvas, why.
+PAR-208 gives it the List and Grid views and the picker. The card is `ComponentCard` and `ComponentPopover` in
+`chrome/ComponentCard.tsx`, with the stories Pictures (six real previews of different shapes), States (waiting, being
+drawn, updating and failing), BesideItsRow and Tooltips in `chrome/ComponentCard.stories.tsx`; `AssetEntry` in
+`chrome/AssetsPanel.tsx` opens it. Tooltips are raised in the theme's own colors, a step lighter than a popover in the
+dark theme, through the variables shadcn's tooltip reads, set in `styles.css`.
 
 - **What's pictured is what inserting places:** the node `nodeForItem` and `withLibraryContext` build for an empty
   layout, with the component's sample and the parents a part needs, its layers numbered in order so the tree is the same
@@ -2351,8 +2398,8 @@ in `packages/core/src/preview-order.ts`; `renderedComponents` in `packages/core/
 `previews.lookup` and `previews.make` handlers, `apps/desktop/src/utility/previews.ts` and the preview half of
 `utility/bitmap-store.ts`; `renderPreview`, `renderOffscreen` and `servePreview` in `apps/desktop/src/main/index.ts`;
 `previewJob`, `startPreviews`, `useComponentPreview` and `usePreviewOnScreen` in
-`apps/desktop/src/renderer/component-previews.ts`; `PreviewPicture` in `renderer/chrome/PreviewPicture.tsx` and
-`AssetRow` in `chrome/AssetsPanel.tsx`; `bitmapsWaiting` in `renderer/canvas/frame-bitmaps.ts`; `passesToVoidElement` in
+`apps/desktop/src/renderer/component-previews.ts`; `ComponentCard` in `renderer/chrome/ComponentCard.tsx` and `AssetRow`
+in `chrome/AssetsPanel.tsx`; `bitmapsWaiting` in `renderer/canvas/frame-bitmaps.ts`; `passesToVoidElement` in
 `packages/code/src/props.ts`; `sampleText` and `shortenedText` in `packages/libgen/src/sample-text.ts`.
 
 Tests: `packages/core/src/preview-order.test.ts` (5 for `renderQueue`: canvas and agent jobs before previews on screen

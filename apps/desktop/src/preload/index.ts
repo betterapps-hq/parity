@@ -109,6 +109,7 @@ const host: CanvasHost = {
   pickProjectFile: () => ipcRenderer.invoke("canvas:pick-project-file") as Promise<string | undefined>,
   saveFile: (options) => ipcRenderer.invoke("canvas:save-dialog", options) as Promise<string | undefined>,
   showItem: (path) => ipcRenderer.invoke("canvas:show-item", path) as Promise<void>,
+  openInEditor: (request) => ipcRenderer.invoke("canvas:open-in-editor", request) as Promise<{ opened: string }>,
   quit: () => ipcRenderer.invoke("canvas:quit") as Promise<void>,
   toggleDevTools: () => ipcRenderer.invoke("canvas:toggle-dev-tools") as Promise<void>,
   setTheme: (theme) => ipcRenderer.invoke("canvas:set-theme", theme) as Promise<void>,
