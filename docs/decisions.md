@@ -3002,3 +3002,30 @@ frames several times over, which the 2026-11-04 speed audit found the most expen
 - **What it doesn't see** is layout that moves with no input, DOM change, resize, image or font load or animation it
   hears of, such as a video in a frame taking its size once its data arrives. The outline catches up at the next change,
   such as the pointer moving.
+
+## Frame bitmaps are captured in four offscreen windows at once (PAR-523)
+
+A first launch of the example project took 21 to 29 seconds to have every frame's bitmap, captured one at a time in one
+offscreen window at about 150 ms each (see editor.md, Bitmaps kept between sessions and Opening in seconds). My calls:
+
+- **A pool of windows rather than several frames on one page.** Each frame is still drawn alone, in a page of its own,
+  at its own size, so its bitmap is the one a single window takes: 117 of 119 came out the same file byte for byte, and
+  the other 2 differed by rasterizing noise in a shadow. Laying several frames out on one page and cropping one capture
+  would save the per-frame waits but let frames share a window's height, its fixed-position layer and its lazy loading,
+  which a frame alone doesn't.
+- **Four windows, opened as jobs need them.** Each is a renderer process holding the project's modules while it's open,
+  so a lone agent render still opens only one, and all close a minute after the last job, as the one window did. Four
+  already leaves the windows waiting on the canvas (see below), so more would cost memory for nothing yet;
+  `offscreenWindows` in `packages/core/src/preview-order.ts` is the one number to change.
+- **Previews take one window at a time.** Component previews (PAR-207) stay behind canvas bitmaps and agents' renders in
+  `renderQueue`, and making only one at once keeps the other windows free for those, so a preview never delays them.
+  Agents' renders and the canvas's bitmaps keep one priority, in the order they're asked for; the canvas asks for at
+  most four at a time, so an agent's render waits for at most the four under way.
+- **The waits inside a capture stay.** Raising the windows' frame rate to 240 made each capture about 35 ms shorter, but
+  moved it to another point in CSS transitions, so two frames' bitmaps came out different from one taken alone; it was
+  dropped. Capturing a frame's first bitmap without the 1-second settle, and asking for two captures per window, gained
+  nothing measurable, since the window's own thread decides when captures are asked for. The 30 ms wait lets components
+  that load on demand start before `loaded()` looks for them, so it stays.
+- **The 8-second target isn't met alone** (12.0 to 12.6 seconds on a busy machine, from 29.1). Captures start only when
+  every frame has drawn its design, and the window then takes each drawn design apart as its bitmap comes, which paces
+  how fast it asks for the next. Showing a skeleton instead of drawing far frames first (PAR-525) removes both.
