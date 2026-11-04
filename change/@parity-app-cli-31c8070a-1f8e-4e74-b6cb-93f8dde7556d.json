@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Frame bitmaps are kept on disk in app data, so a project opened again shows them without capturing each frame again; View > Clear bitmap cache removes them.",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

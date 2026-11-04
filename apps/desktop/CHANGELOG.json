@@ -2,6 +2,73 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Wed, 04 Nov 2026 10:16:09 GMT",
+      "version": "0.5.0",
+      "tag": "@parity-app/desktop_v0.5.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "7516b6935b6587a66cd953fadda1ee0f55cc44ac",
+            "comment": "Frame bitmaps are kept on disk in app data, so a project opened again shows them without capturing each frame again; View > Clear bitmap cache removes them."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "7516b6935b6587a66cd953fadda1ee0f55cc44ac",
+            "comment": "Agents get every result as data, in --json and MCP structuredContent with published output schemas, and failures as stable error codes with the input at fault, whether to retry, and the valid ids to use instead. Token and console reads are bounded by --limit."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "7516b6935b6587a66cd953fadda1ee0f55cc44ac",
+            "comment": "parity modes and the MCP get_modes tool list the project's viewports (the ids Responsive takes) with their window heights, its modes (the ids renders take) resolved, and what each design shows; naming a design adds its frames' sizes. Mistyped ids now suggest the nearest ones first."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "7516b6935b6587a66cd953fadda1ee0f55cc44ac",
+            "comment": "parity status and the MCP get_status tool say where a tab's edits stand: its revision, what's applied but not saved (files and token values), the last save and failed writes, and undo and redo, with an optional bounded summary. get_app_state carries the revision too."
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "7516b6935b6587a66cd953fadda1ee0f55cc44ac",
+            "comment": "Name the missing script when the project service can't start, and let pnpm dev run Electron as installed for comparison"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "7516b6935b6587a66cd953fadda1ee0f55cc44ac",
+            "comment": "Keep text given to a new library part rather than labelling over it"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "7516b6935b6587a66cd953fadda1ee0f55cc44ac",
+            "comment": "pnpm dev on a port other than 5310 no longer stops before its window opens, since the updater is only made for installed builds."
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "7516b6935b6587a66cd953fadda1ee0f55cc44ac",
+            "comment": "Opening a project no longer pre-bundles its build tools, such as ESLint and Vite, which failed on Tailwind's native module."
+          }
+        ],
+        "none": [
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "7516b6935b6587a66cd953fadda1ee0f55cc44ac",
+            "comment": "e2e: describe what a failed click met"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sun, 01 Nov 2026 03:52:41 GMT",
       "version": "0.4.2",
       "tag": "@parity-app/desktop_v0.4.2",

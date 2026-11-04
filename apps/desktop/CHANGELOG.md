@@ -1,8 +1,36 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sun, 01 Nov 2026 03:52:41 GMT and should not be manually modified. -->
+<!-- This log was last generated on Wed, 04 Nov 2026 10:16:09 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.5.0
+
+Wed, 04 Nov 2026 10:16:09 GMT
+
+### Minor changes
+
+- Frame bitmaps are kept on disk in app data, so a project opened again shows them without capturing each frame again;
+  View > Clear bitmap cache removes them. (ajcraswell@gmail.com)
+- Agents get every result as data, in --json and MCP structuredContent with published output schemas, and failures as
+  stable error codes with the input at fault, whether to retry, and the valid ids to use instead. Token and console
+  reads are bounded by --limit. (ajcraswell@gmail.com)
+- parity modes and the MCP get_modes tool list the project's viewports (the ids Responsive takes) with their window
+  heights, its modes (the ids renders take) resolved, and what each design shows; naming a design adds its frames'
+  sizes. Mistyped ids now suggest the nearest ones first. (ajcraswell@gmail.com)
+- parity status and the MCP get_status tool say where a tab's edits stand: its revision, what's applied but not saved
+  (files and token values), the last save and failed writes, and undo and redo, with an optional bounded summary.
+  get_app_state carries the revision too. (ajcraswell@gmail.com)
+
+### Patches
+
+- Name the missing script when the project service can't start, and let pnpm dev run Electron as installed for
+  comparison (ajcraswell@gmail.com)
+- Keep text given to a new library part rather than labelling over it (ajcraswell@gmail.com)
+- pnpm dev on a port other than 5310 no longer stops before its window opens, since the updater is only made for
+  installed builds. (noreply@anthropic.com)
+- Opening a project no longer pre-bundles its build tools, such as ESLint and Vite, which failed on Tailwind's native
+  module. (noreply@anthropic.com)
 
 ## 0.4.2
 
