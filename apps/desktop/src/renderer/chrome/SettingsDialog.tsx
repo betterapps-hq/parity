@@ -1,6 +1,8 @@
+import { type CodeEditorChoice, codeEditors } from "@parity-app/core"
 import { Monitor, Moon, Sun } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { workspace } from "../workspace.ts"
@@ -90,6 +92,30 @@ export function SettingsDialog() {
               onCheckedChange={(performanceStats) => setPreferences({ performanceStats })}
               aria-label="Performance stats"
             />
+          </Row>
+        </Section>
+        <Section title="Code">
+          <Row
+            label="Editor"
+            detail="Where View code opens a component's file. Automatic uses the first one installed."
+          >
+            <Select
+              value={preferences.codeEditor}
+              onValueChange={(codeEditor) => setPreferences({ codeEditor: codeEditor as CodeEditorChoice })}
+            >
+              <SelectTrigger size="sm" className="w-36" aria-label="Editor">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">Automatic</SelectItem>
+                {codeEditors.map((editor) => (
+                  <SelectItem key={editor.id} value={editor.id}>
+                    {editor.name}
+                  </SelectItem>
+                ))}
+                <SelectItem value="system">System default</SelectItem>
+              </SelectContent>
+            </Select>
           </Row>
         </Section>
         <Section title="Export">

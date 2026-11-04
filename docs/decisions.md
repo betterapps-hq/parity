@@ -682,15 +682,15 @@ recommended answer to each of its questions.
   canvas gets what the app gets, and Vite compiles it as the app's own code. A package that doesn't build costs only its
   own components, as a project module does.
 - **Why something is or isn't a component is shown where people look for it.** My call: each component's tooltip in the
-  Components panel says what it was recognised as ("made with forwardRef"), and a search that matches exports the type
-  checker left out lists them under Not listed with its reason ("takes 2 arguments, not one props object"). Agents get
-  the same list from `parity components`. Only capitalised exports are listed, as lowercase helpers and types aren't
-  candidates.
+  Components panel said what it was recognised as ("made with forwardRef"); since PAR-527 its card names its file
+  instead, as you found that said nothing a person needs. A search that matches exports the type checker left out lists
+  them under Not listed with its reason ("takes 2 arguments, not one props object"). Agents get the same list from
+  `parity components`. Only capitalised exports are listed, as lowercase helpers and types aren't candidates.
 - **Corrections name an export by its file and export name, and live in the main project file.** My call: `detection`
-  holds `include` and `exclude` lists of `{ path, export }`, so a correction outlasts ids changing on a clash. A
-  correction is an ordinary, undoable change to the file, saved when the file is, and the list follows it straight away.
-  Doing the opposite of a correction removes it rather than adding another, so detection decides again, and the field
-  goes once it's empty. Only the project's own components can be corrected; a library's list is its `.lib.par`'s.
+  holds an `include` list of `{ path, export }`, so a correction outlasts ids changing on a clash. A correction is an
+  ordinary, undoable change to the file, saved when the file is, and the list follows it straight away. Only the
+  project's own components can be corrected; a library's list is its `.lib.par`'s. It also held an `exclude` list, for
+  taking a component off by hand, which PAR-531 removed.
 - **A component's render status is how it fares on the canvas now.** My call: it fails while any frame shows its error,
   and otherwise draws once it has drawn somewhere, so fixing it or removing the design clears the warning. The status
   comes from each component's error boundary in the guest, and a component loaded on demand only counts as drawn once
@@ -2888,7 +2888,7 @@ editor.md, Component previews, made offscreen and kept on disk). The design is t
   nothing.
 - **Shown in the Components panel's hints until PAR-208.** The List and Grid views, the card and the picker are PAR-208;
   until then a component row's hint shows its large picture, which is enough to see them and lets a row on screen ask
-  for its picture first.
+  for its picture first. PAR-515 replaced the hint with the card.
 
 ## Opening a project in seconds (PAR-179)
 
@@ -2936,3 +2936,46 @@ calls:
   left on the service's side is Vite starting in the builder's process, which needs discovery's results; running
   discovery while the tools are found was tried and gained nothing, as both work on the service's one thread. Caching
   discovery, or starting the canvas before the guest loads, would go further, and each is a change of its own.
+
+## Tooltips are raised, and a component's preview is a card (PAR-515)
+
+- **Tooltips read raised colors through the variables shadcn's tooltip already uses.** The tooltip is drawn in the
+  theme's foreground with its text in the background, so it was white on the dark theme. You found that as wrong as the
+  old dark tooltip, which blended into the panel. A rule in `styles.css` sets `--foreground` and `--background` inside
+  `[data-slot="tooltip-content"]` to `--tooltip` and `--tooltip-foreground`. Those are a step lighter than a popover in
+  the dark theme and white in the light. shadcn's components stay as shadcn ships them, as you asked, so the tooltip,
+  its pointer and shortcut keys follow without an edit to each. The edge and shadow are one `drop-shadow` round the box
+  and its pointer together, since a border on each showed a seam where they met.
+- **A component's preview goes in a card beside its row, not in a tooltip,** the way a token's card opens: same width,
+  side and gap, opened by resting the pointer on the row. The picture sits on the project's own page in a framed box
+  that fits it, so a small part isn't lost in white. Placeholders sit on the card's muted fill, so they never pass for a
+  picture. It replaces the hint on component rows; a library's component design keeps its hint. Its stories are in
+  Parity / Left panel / Component card. Pictures are drawn in the project's first mode, which is light in the example.
+  Drawing them in the mode matching Parity's theme is PAR-521.
+
+## A component's code opens in the person's editor (PAR-527)
+
+- **The editor is a setting, Automatic by default:** VS Code, Cursor, Windsurf, Zed or the system's default app.
+  Automatic opens the first one installed, in that order, and the system's app when none is. Reading the editor from
+  `$VISUAL` or `$EDITOR` would usually find a terminal editor for an app started from the Dock or Start, so it's chosen
+  in Parity's settings instead.
+- **Editors are found by their command on PATH,** since that's what each installs to open a file at a line. The usual
+  folders are searched too on macOS and Linux, since an app the Dock started has only the system's PATH. No dependency
+  was added for it: the four commands and their arguments are a small table in core.
+- **The line is the export's declaration,** found by reading the file when it's opened, not from the type checker, which
+  would mean a round trip to the service for a line that a pattern finds in shadcn's and most projects' files.
+- **A library component's code is its type declarations,** the only code of it in the project. One without them has View
+  code greyed, saying it's not in the project.
+- **The menu's items are greyed with why rather than left out,** so it's the same for every component: View in Storybook
+  says "No stories" for one without. With stories, it stays enabled while Storybook isn't running and says "Starts
+  Storybook", since choosing it starts the project's Storybook and opens the story once it's up, as the row's book
+  button always has. Disabling it until Storybook runs would leave no way to start it from there.
+
+## Taking a component off the list by hand is gone (PAR-531)
+
+- **A component detected wrongly is a bug in detection, not something to correct by hand.** You asked for "Not a
+  component" to go, which took one off the list, recorded as `detection.exclude` in the main project file, with "List it
+  again" under Not listed. Detection's mistakes go to Linear as bugs instead. Listing an export the type checker left
+  out (`detection.include`, "List it") stays, as you didn't ask for that to go.
+- **A project file with an `exclude` list still opens.** It's read and dropped, so the next save leaves it out, rather
+  than the file failing to open over a list no version reads now.

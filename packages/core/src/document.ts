@@ -32,28 +32,22 @@ export interface ComponentRef {
   export: string
 }
 
-/** Exports the person put on the component list, and components they took off it, which detection then respects. */
+/**
+ * Exports the person put on the component list, which detection then keeps there. A component detected wrongly is a bug
+ * in detection to fix, so there's no taking one off the list by hand (PAR-531).
+ */
 export interface DetectionCorrections {
   include?: ComponentRef[]
-  exclude?: ComponentRef[]
 }
 
-/**
- * The corrections after putting an export on the component list (`include`) or taking one off it (`exclude`). Doing the
- * opposite of an earlier correction removes it, so detection decides again. Unset when nothing is left to correct.
- */
-export function correctDetection(
+/** The corrections after putting an export on the component list, each once. */
+export function includeComponent(
   corrections: DetectionCorrections | undefined,
-  change: "include" | "exclude",
   ref: ComponentRef
-): DetectionCorrections | undefined {
-  const same = (other: ComponentRef) => other.path === ref.path && other.export === ref.export
-  const opposite = change === "include" ? "exclude" : "include"
-  const next: DetectionCorrections = { ...corrections }
-  if (next[opposite]?.some(same)) next[opposite] = next[opposite].filter((other) => !same(other))
-  else if (!next[change]?.some(same)) next[change] = [...(next[change] ?? []), ref]
-  for (const kind of ["include", "exclude"] as const) if (next[kind]?.length === 0) delete next[kind]
-  return next.include || next.exclude ? next : undefined
+): DetectionCorrections {
+  const listed = corrections?.include ?? []
+  if (listed.some((other) => other.path === ref.path && other.export === ref.export)) return { include: listed }
+  return { include: [...listed, ref] }
 }
 
 export interface NoteSpec {
@@ -399,6 +393,7 @@ export function parseCanvasDocument(value: unknown): CanvasDocument {
 
 function parseDetection(value: unknown, path: string): DetectionCorrections {
   const detection = expectObject(value, path)
+  // An earlier version could take components off the list as `exclude`; a file that did still opens, without it.
   expectKnownKeys(detection, ["include", "exclude"], path)
   const refs = (list: unknown, at: string) =>
     expectArray(list, at).map((item, index) => {
@@ -410,8 +405,7 @@ function parseDetection(value: unknown, path: string): DetectionCorrections {
       }
     })
   return compact({
-    include: optional(detection.include, (list) => refs(list, `${path}/include`)),
-    exclude: optional(detection.exclude, (list) => refs(list, `${path}/exclude`))
+    include: optional(detection.include, (list) => refs(list, `${path}/include`))
   })
 }
 

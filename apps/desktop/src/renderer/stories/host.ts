@@ -112,6 +112,7 @@ export function installHost(): void {
     onReconnect: () => undefined,
     ...cancelled,
     showItem: () => Promise.resolve(),
+    openInEditor: () => Promise.resolve({ opened: "VS Code" }),
     quit: () => Promise.resolve(),
     toggleDevTools: () => Promise.resolve(),
     setTheme: () => Promise.resolve(),

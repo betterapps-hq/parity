@@ -18,10 +18,17 @@ import {
   utilityProcess,
   webContents
 } from "electron"
-import type { ProcessUsage, RenderedFrame, RenderJob, SaveDialogOptions } from "../shared/protocol.ts"
+import type {
+  OpenInEditorRequest,
+  ProcessUsage,
+  RenderedFrame,
+  RenderJob,
+  SaveDialogOptions
+} from "../shared/protocol.ts"
 import type { BuilderReading, MainMessage, ServiceMessage } from "../shared/service.ts"
 import { releaseAgentConnection } from "./agent-file.ts"
 import { InstalledBuild } from "./build-info.ts"
+import { openInEditor } from "./code-editor.ts"
 import { readConsole, recordConsole } from "./console-log.ts"
 import { idleClose } from "./idle-close.ts"
 import { isPackaged } from "./packaged.ts"
@@ -419,6 +426,8 @@ ipcMain.handle("canvas:save-dialog", async (event, options: SaveDialogOptions) =
 })
 
 ipcMain.handle("canvas:show-item", (_event, path: string) => shell.showItemInFolder(path))
+
+ipcMain.handle("canvas:open-in-editor", (_event, request: OpenInEditorRequest) => openInEditor(request))
 
 ipcMain.handle("canvas:quit", () => app.quit())
 

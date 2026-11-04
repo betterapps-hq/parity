@@ -404,8 +404,8 @@ export interface ComponentsResponse {
   drawn?: number
   /** Components failing to draw on the canvas now: why in words, and the kind of problem. */
   failing?: { id: string; problem: "provider" | "server" | "async" | "error"; reason: string }[]
-  /** The person's corrections in the main project file, saved or not: exports listed by hand, and ones taken off. */
-  corrections?: { include?: ComponentRef[]; exclude?: ComponentRef[] }
+  /** The person's corrections in the main project file, saved or not: exports listed by hand. */
+  corrections?: { include?: ComponentRef[] }
 }
 
 /** One of the app's exports, by its file and export name. */
@@ -451,12 +451,11 @@ export function describeComponents({
     for (const entry of failing) lines.push(`  ${entry.id}: ${entry.reason}`)
     lines.push("")
   }
-  const { include = [], exclude = [] } = corrections
-  if (include.length > 0 || exclude.length > 0) {
+  const { include = [] } = corrections
+  if (include.length > 0) {
     const name = (ref: ComponentRef) => (ref.export === "default" ? "the default export" : ref.export)
     lines.push("Corrected by hand in the project file:")
     for (const ref of include) lines.push(`  listed: ${name(ref)}, in ${ref.path}`)
-    for (const ref of exclude) lines.push(`  taken off: ${name(ref)}, in ${ref.path}`)
   }
   return lines.join("\n").trimEnd()
 }
