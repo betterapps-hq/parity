@@ -38,6 +38,7 @@
     "unconfig": "^7.5.0"
   },
   "devDependencies": {
+    "@buildkitgg/shadcn-baseui-kit": "catalog:",
     "@parity-app/agent": "workspace:*",
     "@parity-app/builder-vite": "workspace:*",
     "@parity-app/code": "workspace:*",

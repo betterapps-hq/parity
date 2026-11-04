@@ -3103,3 +3103,25 @@ You chose these on 2026-11-04 from the new-user audit
   to the design we should build in storybook first so it can be approved, then move into the app." So each change people
   see is a design issue, which ends with your approval of its stories, and a build issue it blocks. Work in packages
   with no UI, such as PAR-539, doesn't need the first step.
+
+## The app's UI kit moves to Buildkit's Base UI Nova (PAR-530)
+
+- **The app's shadcn components move to Buildkit's `@buildkitgg/shadcn-baseui-nova`,** as you asked on 2026-11-04, so
+  the 23 copies in `apps/desktop/src/renderer/components/ui` and their config leave the repository and nobody edits them
+  in place. The copies are radix-nova, and Buildkit publishes only Base UI styles; you said the app should use Base UI
+  only, so the move swaps Radix for Base UI too. The kit is a dependency under the alias its README suggests,
+  `@buildkitgg/shadcn-baseui-kit`, so code names no style. Only Storybook uses it until the migration.
+- **Each component is compared side by side in Storybook before its copy goes,** under Parity/Kit comparison/Side by
+  side: the app's copy and the kit's, with the same content and their popups open, each in its own frame, in the
+  toolbar's theme. Six copies were changed by hand: `kbd`, `command`, `context-menu`, `dropdown-menu` and `menubar` show
+  keys through `formatKeys`, `menubar` has the title bar's own look (and its menus size to what they hold, where the
+  kit's are its dropdown menus, as wide as their trigger and at least 9rem), and `sonner` follows the app's theme rather
+  than `next-themes`. Those show a third side, the kit with the change made from outside it, which is where it has to
+  live once the kit can't be edited. The rest are as `shadcn add` wrote them.
+- **Radix's menus and selects close when their window loses focus; Base UI's don't.** In the comparison, the app's side
+  doesn't hear its window lose focus, so its popups stay open beside the kit's, which take focus as they open. Whether
+  the app wants Radix's behaviour back is the migration's call.
+- **Prebundled dependencies import each lucide icon from its own file too.** The kit imports its icons from
+  lucide-react's index, which isn't prebundled (see Developing Parity), so a window drawing the kit fetched every icon
+  file, about 3,000 requests, and three such frames at once failed to load. `iconImportsPlugin` now rewrites a
+  dependency's icon imports as Vite prebundles it, as it does the app's own as they're served.
