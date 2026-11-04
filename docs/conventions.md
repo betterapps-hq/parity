@@ -42,10 +42,10 @@ from the agency monorepo's guidelines on 2026-10-29, keeping what fits Parity; w
 - **A change people see is tried in the running app,** not only in tests. Start `pnpm dev`, drive the change with
   `scripts/drive.ts`, and look at the screenshots it saves in `.inspect`. Check it with the keyboard, and check that
   controls have accessible names.
-- **`pnpm dev` runs the window on React's production build,** as `pnpm perf`'s copy does, which makes selecting, editing
-  and undo 3 to 10 times faster (PAR-519). React's warnings and StrictMode's checks don't run there, and a change to a
-  component reloads the page rather than updating in place. For those, start it as `PARITY_REACT=development pnpm dev`
-  (in PowerShell, `$env:PARITY_REACT = "development"` first). The end-to-end suite always runs the development build.
+- **`pnpm dev` is the daily driver,** on React's development build, with StrictMode's checks, Fast Refresh and React's
+  warnings. `pnpm dev:prod` runs the window on React's production build instead, as `pnpm perf`'s copy does, which makes
+  selecting, editing and undo 3 to 10 times faster (PAR-519), but leaves those out: a change to a component reloads the
+  page. It takes a project root, as `pnpm dev` does. The end-to-end suite runs the development build.
 
 ## Interface text
 

@@ -3003,27 +3003,32 @@ frames several times over, which the 2026-11-04 speed audit found the most expen
   hears of, such as a video in a frame taking its size once its data arrives. The outline catches up at the next change,
   such as the pointer moving.
 
-## Parity's window runs React's production build in development (PAR-519)
+## Parity's window runs React's production build on request (PAR-519, PAR-550)
 
 The speed audit of 2026-11-04 found most of what still felt slow under `pnpm dev` was React's development build in
 Parity's own window: on the example project, selecting a design took 240 to 360 ms to the next paint, undo about 210,
-and opening the Components panel 1.4 s, against 48 to 88 ms, about 64 and 0.14 s on the production build. My calls:
+and opening the Components panel 1.4 s, against 48 to 88 ms, about 64 and 0.14 s on the production build.
 
-- **`pnpm dev`, and the copy `pnpm perf` starts, run the production build by default,** the way frames run a project's
-  dependencies (PAR-198): the UI's dependencies are prebundled with `process.env.NODE_ENV` set to `production`, and
-  `react/jsx-dev-runtime` is aliased to React's `jsx`, since the app's own modules are still compiled and served as in
-  development. A local `pnpm build` couldn't stand in, as a page off localhost shows no canvas without the tldraw key.
-  The config asks for the build through `PARITY_REACT`, which `scripts/dev.ts` sets to `production` unless it's already
-  set, so Storybook, which uses the same config without the dev script, keeps the development build.
-- **`PARITY_REACT=development` brings the development build back,** for React's warnings, StrictMode's checks and Fast
-  Refresh. It's a variable, like the dev script's others, so `pnpm perf` and the e2e launcher pass it through too.
+- **`pnpm dev` stays on the development build, as the daily driver; `pnpm dev:prod` runs the production build**
+  (PAR-550). PAR-519 first made the production build `pnpm dev`'s default. You reversed that the same day: "I want
+  development to all happen in dev build, so we can use StrictMode, Fast Refresh, etc. It's okay to have a script that
+  runs from a production build, but our daily driver is going to be the dev mode."
+- **The build is a flag, not an environment variable,** as you asked: "I don't want multiple environment variables
+  floating around." The dev script takes `--react production`, which `pnpm dev:prod` passes, and starts the UI's Vite
+  server in a mode of its own (`react-production`), which the config reads. Storybook and the end-to-end suite pass
+  nothing and get the development build. PAR-519's `PARITY_REACT` is gone.
+- **`pnpm perf`'s copy runs the production build,** passing the flag itself, so its timings compare with PAR-519's runs;
+  `pnpm perf --react development` measures the build `pnpm dev` runs. Each result records which it ran. My call, as
+  measuring isn't developing; it's one option to flip if you'd rather it timed the daily driver.
+- **The production build is made the way frames run a project's dependencies** (PAR-198): the UI's dependencies are
+  prebundled with `process.env.NODE_ENV` set to `production`, and `react/jsx-dev-runtime` is aliased to React's `jsx`,
+  since the app's own modules are still compiled and served as in development. A local `pnpm build` couldn't stand in,
+  as a page off localhost shows no canvas without the tldraw key.
 - **Fast Refresh is off on the production build,** so a change to a component reloads the window rather than updating in
   place. Fast Refresh reaches React only through the development build's renderer; left on, an edited component was
-  taken in and never drawn again. Working on the UI itself with state kept across edits is what the variable is for.
-- **The end-to-end suite keeps the development build,** as it ran before. With people and agents on the production build
-  day to day, the suite is where StrictMode's double effects and React's warnings still run on every test, and its tests
-  check results and behaviour, not timings, so the production build's speed buys it little. The packaged app's
-  production build is covered by trying the installed app, as before.
+  taken in and never drawn again.
+- **The end-to-end suite runs the development build,** as it always has, so StrictMode's double effects and React's
+  warnings run on every test. The packaged app's production build is covered by trying the installed app, as before.
 - **Switching builds bundles the dependencies again,** in the same cache folder: Vite's key for the prebundle covers the
   aliases and the optimizer's options, and it changed between the two on the example project (`cdc88e51` and
   `3d73713f`), with Vite reporting that the config changed. Each switch costs one prebundle, a few seconds, which is why
