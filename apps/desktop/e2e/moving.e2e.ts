@@ -129,9 +129,94 @@ describe("dragging an absolutely placed layer", () => {
     await app.show("Calendar", zoom, review)
     await app.selectLayer("Calendar", review)
     const before = await app.box("Calendar", review)
-    await app.drag(center(before), { x: center(before).x + 16 * zoom, y: center(before).y })
+    // With Ctrl, so its left doesn't snap to the parent's, 8px away (PAR-174).
+    await app.drag(center(before), { x: center(before).x + 16 * zoom, y: center(before).y }, undefined, ["Control"])
     await expect.poll(() => app.style("Calendar", review)).toMatchObject({ top: "spacing", left: 2, right: -3 })
     expect((await app.box("Calendar", review)).width).toBeCloseTo(before.width, 0)
+  })
+})
+
+// The Review slot sits between the Planning slot (top 16) and the Lunch slot (top 64), 8 steps from each, all 16 steps
+// high and as wide as the day.
+describe("snapping an absolutely placed layer (PAR-174)", () => {
+  /** What tldraw's snap indicators show: a guide is `points`, spacing marks `gaps`, with how many gaps each marks. */
+  const indicators = () =>
+    app.page.evaluate(() =>
+      (window.e2e!.session().editor?.snaps.getIndicators() ?? []).map((indicator) =>
+        indicator.type === "gaps" ? `gaps:${indicator.gaps.length}` : indicator.type
+      )
+    )
+  /** Distance labels on the overlay reading 32px, the gap between the slots. */
+  const distances = () =>
+    app.page
+      .locator("span")
+      .filter({ hasText: /^32px$/ })
+      .count()
+
+  it("holds a layer evenly spaced with its siblings, with spacing marks, a guide and the distance", async () => {
+    await app.show("Calendar", 1, review)
+    await app.selectLayer("Calendar", review)
+    const from = center(await app.box("Calendar", review))
+    const before = await distances()
+    // 6px down is within 8 of where it's evenly spaced, so it stays.
+    const during = await app.drag(from, { x: from.x, y: from.y + 6 }, async () => ({
+      indicators: await indicators(),
+      distances: await distances(),
+      style: await app.style("Calendar", review)
+    }))
+    // Marks in the three gaps, Planning to Review, Review to Lunch and Lunch to Usability, and a guide along its left,
+    // which lines up with Planning's, whose distance to it shows.
+    expect(during?.indicators).toEqual(expect.arrayContaining(["points", "gaps:3"]))
+    expect(during?.distances).toBeGreaterThan(before)
+    expect(during?.style).toMatchObject({ top: 40 })
+    expect(await app.undoLabel()).toBeUndefined()
+    expect(await indicators()).toEqual([])
+    expect(await distances()).toBe(before)
+  })
+
+  it("moves live and locks its bottom to the next layer's top", async () => {
+    await app.show("Calendar", 1, review)
+    await app.selectLayer("Calendar", review)
+    const from = center(await app.box("Calendar", review))
+    // 36px down puts its bottom 4px past the Lunch slot's top, so it locks there: top 48, not 49.
+    const during = await app.drag(from, { x: from.x, y: from.y + 36 }, () => app.style("Calendar", review))
+    expect(during).toMatchObject({ top: 48, left: 0, right: 0, height: 16 })
+    await expect.poll(() => app.style("Calendar", review)).toMatchObject({ top: 48 })
+    await app.page.keyboard.press("Control+z")
+    await expect.poll(() => app.style("Calendar", review)).toMatchObject({ top: 40 })
+  })
+
+  it("moves freely with Ctrl held", async () => {
+    await app.show("Calendar", 1, review)
+    await app.selectLayer("Calendar", review)
+    const from = center(await app.box("Calendar", review))
+    const during = await app.drag(from, { x: from.x, y: from.y + 36 }, indicators, ["Control"])
+    expect(during).toEqual([])
+    await expect.poll(() => app.style("Calendar", review)).toMatchObject({ top: 49 })
+  })
+
+  it("takes a live move back when Escape is pressed mid-drag, leaving nothing to undo", async () => {
+    await app.show("Calendar", 1, review)
+    await app.selectLayer("Calendar", review)
+    const from = center(await app.box("Calendar", review))
+    await app.drag(from, { x: from.x, y: from.y + 36 }, async () => {
+      await expect.poll(() => app.style("Calendar", review)).toMatchObject({ top: 48 })
+      await app.page.keyboard.press("Escape")
+      await app.frames(2)
+    })
+    expect(await app.style("Calendar", review)).toMatchObject({ top: 40 })
+    expect(await app.undoLabel()).toBeUndefined()
+    expect(await indicators()).toEqual([])
+  })
+
+  it("locks a dragged edge to a sibling's when resizing", async () => {
+    await app.show("Calendar", 1, review)
+    await app.selectLayer("Calendar", review)
+    const box = await app.box("Calendar", review)
+    const bottom = { x: box.x + box.width / 2, y: box.y + box.height }
+    // 26px down puts its bottom 6px short of the Lunch slot's top: 24 steps high, where steps alone would make it 23.
+    await app.drag(bottom, { x: bottom.x, y: bottom.y + 26 })
+    await expect.poll(() => app.style("Calendar", review)).toMatchObject({ top: 40, height: 24 })
   })
 })
 

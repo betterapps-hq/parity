@@ -21,7 +21,7 @@ Features built before 2026-10-29 are being added under PAR-392 in Linear.
 ## Testing in the app (PAR-202)
 
 `pnpm test:app` drives a copy of Parity as a person does, with the system's own pointer and keyboard, and checks what
-the canvas, the panels and the project show: 96 tests, which take five to eight minutes. It isn't part of `vp run test`
+the canvas, the panels and the project show: 101 tests, which take five to eight minutes. It isn't part of `vp run test`
 or `pnpm verify`. End-to-end tests run only in CI, never in local checks or Git hooks, including focused files. The
 `App tests` workflow (`.github/workflows/app.yml`) runs them on Windows for every pull request and every push to main,
 without blocking the merge until they run reliably there (PAR-438). Each feature's tests below name the end-to-end ones
@@ -519,8 +519,9 @@ is now the end-to-end test above. A component dropped from the Components panel 
 
 ### Moving an absolutely placed layer by dragging (CAN-47)
 
-A layer placed absolutely moves by its insets, in half steps of the spacing scale, from where the pointer was pressed to
-where it's released.
+A layer placed absolutely moves by its insets, live, as the pointer moves (PAR-174): in half steps of the spacing scale,
+except along an axis where it snaps (see "Snapping layers while moving and resizing", below). Its outline and size label
+follow it. Escape takes the move back, leaving nothing to undo, and a drag that ends where it began adds no undo step.
 
 - **Both sides.** Along each axis it moves by the side it's placed from: the left (or top), unless only the right (or
   bottom) is set. A layer stretched between both sides moves both, so it keeps its size: Calendar's Review slot, placed
@@ -531,15 +532,16 @@ where it's released.
   written, tokens included.
 
 This is the same rule nudging uses, one function for both. Code: `shiftInsets` in
-`apps/desktop/src/renderer/canvas/insets.ts`; `canvas/layer-drag.ts` (`nudgeAbsolute`) reads where the sides are drawn
-with `frameDrawn` (`canvas/nudge.ts`) and rounds the drag to half steps.
+`apps/desktop/src/renderer/canvas/insets.ts`; `canvas/layer-drag.ts` (`followAbsolute`) reads where the sides are drawn
+with `frameDrawn` (`canvas/nudge.ts`), rounds the drag to half steps, and writes each move in one group, taking them
+back to a checkpoint (`DesignStore.checkpoint` and `revert`) on Escape or when the layer comes back to where it began.
 
 Tests: `canvas/insets.test.ts`, moving: by the side it's placed from, both sides of a stretched layer (the Review slot),
 negative insets kept and going negative, half steps, tokens and unset sides from where they're drawn (a negative side
 with a token on the other), and an axis with a token that isn't drawn staying put. End to end (PAR-202),
 `apps/desktop/e2e/moving.e2e.ts` (2) drags Calendar's Review slot 24px right to left 6 and right -6, and, with left -2
-and both right and top set to the `spacing` token, 16px right to left 2 and right -3, with top still `spacing` and the
-width unchanged.
+and both right and top set to the `spacing` token, 16px right with Ctrl held to left 2 and right -3, with top still
+`spacing` and the width unchanged. Moving live and Escape are covered under "Snapping layers while moving and resizing".
 
 Gaps: none known. Dragging itself was first checked by hand, as the end-to-end test now does it.
 
@@ -560,7 +562,8 @@ design has them on its frames' right and bottom.
   edge, so the right or bottom stays put; a layer stretched between both sides changes the dragged side's inset alone,
   keeping both sides; a layer placed from the right or bottom alone moves that inset when its right or bottom handle is
   dragged. Negative and token insets follow the moving rules above, and a side that doesn't move keeps its token. They
-  never fill.
+  never fill. Their dragged edges snap (PAR-174, "Snapping layers while moving and resizing", below), unless Shift keeps
+  a corner's proportions.
 - **The hint** ("Drag to resize") closes when a handle is pressed and stays closed through the drag and after it, until
   the pointer next rests on a handle.
 - **Small layers keep their middle** (PAR-193). Along an axis where a layer is under 24 screen pixels, its handles sit
@@ -697,16 +700,73 @@ current zoom. Of lines just as near, the first design's wins. A line shows where
 Mac) moves freely, and so does turning snapping off under View; designs dragged together don't snap to each other.
 
 Code: `snapBox` in `packages/editor/src/snap.ts` takes the boxes and the zoom and returns where the design goes and the
-guides to draw; `apps/desktop/src/renderer/canvas/snap.ts` (`snapPosition`) reads the shapes' boxes from tldraw, checks
-the preference and draws the guides as tldraw's snap indicators, and `canvas/ContainerShapeUtil.tsx` calls it while a
-design is dragged.
+guides to draw, and `snaps` says whether a drag snaps, from the preference and Ctrl, for designs and layers alike;
+`apps/desktop/src/renderer/canvas/snap.ts` (`snapPosition`) reads the shapes' boxes from tldraw and draws the guides as
+tldraw's snap indicators, and `canvas/ContainerShapeUtil.tsx` calls it while a design is dragged.
 
 Tests: `packages/editor/src/snap.test.ts` (9): a left locking within 8 pixels and not past them, the distance counted on
 screen at half and double zoom, centres and ends lining up, each axis on its own, the nearest line though a farther one
-comes first, the first design's of lines just as near, the guides, and nothing around.
+comes first, the first design's of lines just as near, the guides, and nothing around. Ctrl is tested with layers'
+snapping, below.
 
 Gaps: the pointer handling and the preference aren't tested; `apps/desktop/e2e/selecting.e2e.ts` drags a design with
 snapping on, but doesn't check where it locks.
+
+### Snapping layers while moving and resizing (PAR-174)
+
+An absolutely placed layer dragged inside its design locks to its siblings and its parent, the way a dragged design
+locks to the designs around it, with the same 8 screen pixels, the same red guides, and Ctrl (Cmd on a Mac) or View's
+snapping preference to move freely.
+
+- **Edges and centres.** Along each axis, the nearest of its left, centre and right (or top, middle and bottom) to any
+  of its siblings' or its parent's, within 8 screen pixels at the current zoom. Of lines just as near, a sibling's wins
+  over the parent's, and the first sibling's over the next. The parent is the box its insets count from, inside its
+  border.
+- **Even spacing.** Along each axis, it also takes the place that spaces it evenly with the siblings beside it across
+  that axis, as in a row or a column: in the middle between two, or the same gap after or before a run of them that's
+  already evenly spaced, so three or more are evenly spaced. Of an edge and an even space, the nearer wins; when both
+  come to the same place, both show.
+- **What shows.** A red guide along each line it locked to, spanning it and what it locked to; spacing marks in every
+  gap of the evenly spaced run; and the distances to what it lined up with, drawn as Alt's redlines are, with the
+  spacing step they come to: the gap to a sibling, or its four insets in its parent. They go when the drag ends, and
+  while Ctrl is held.
+- **Exact where it locks.** Along an axis it locked along, it goes exactly there, to the half pixel, in fractions of a
+  step where the line isn't on the scale; along an axis that didn't lock it moves in half steps as before.
+- **Resizing.** Only the edges a handle drags lock, to the same lines; even spacing doesn't count, and the size goes to
+  the half pixel rather than to whole steps. Shift on a corner keeps the proportions instead of snapping. Layers in a
+  layout keep sizing in whole steps or filling, and don't snap.
+
+On the Calendar's day, the Review slot sits 8 steps below the Planning slot and 8 above Lunch: dragged 6px down at 100%,
+it stays, with marks in its gaps and Lunch's gap to the Usability slot, a guide down their left edges and 32px,
+spacing-8 to Planning. Dragged 36px down, its bottom locks to Lunch's top at top 48, where it would be 49 with Ctrl.
+
+Code: `snapLayer` in `packages/editor/src/snap.ts` (`@parity-app/editor`) takes the layer's box, its siblings' and its
+parent's, the zoom and, for a resize, the edges the handle drags (`resizeEdges`, `resizedBox`), and returns where it
+goes, the axes it locked, the guides, the distances (`distancesBetween`, which Alt's redlines use too) and the spacing
+marks; `lockedEdgeMoves` says how far a resize's locked edges moved. `apps/desktop/src/renderer/canvas/layer-snap.ts`
+(`LayerSnapping`) measures those boxes in the frame when the gesture begins, shows the guides and marks as tldraw's snap
+indicators and keeps the distances for `canvas/CanvasOverlay.tsx` to draw. `canvas/layer-drag.ts` (`followAbsolute`)
+moves the layer by them, and `CanvasOverlay.tsx`'s `startResize` passes a resize's locked edges to `resizeGesture`
+(`canvas/resize.ts`), which `resizeInsets` (`canvas/insets.ts`) takes exactly.
+
+Tests:
+
+- `packages/editor/src/snap.test.ts` (14 more): a left locking to a sibling's within 8 pixels, with its guide and the
+  gap between them; a centre locking to the parent's, with the four insets; the distance counted on screen at half and
+  double zoom; nothing near; a resize locking only the dragged edge, left or right, and how far it moved; an axis the
+  handle doesn't drag left alone; the edges each handle drags; the same gap after a run and before one, in the middle
+  between two, with the marks; a nearer line winning over even spacing, and both showing when they agree; spacing
+  needing three beside each other; distances apart and inside; and Ctrl or Cmd, or snapping turned off, moving freely.
+- `canvas/resize.test.ts`: a snapped edge taken exactly, to the half pixel, and an axis that didn't snap in steps.
+  `canvas/insets.test.ts`: sizes and insets to the half pixel with `exact`.
+- `apps/desktop/e2e/moving.e2e.ts` (5), end to end, on the Review slot at 100%: dragged 6px down it stays, with spacing
+  marks over three gaps, a guide and the 32px distance during the drag, and nothing to undo or shown after; dragged 36px
+  down it's at top 48 during the drag and after, and Undo puts it back; with Ctrl it's at 49, with nothing shown; Escape
+  mid-drag puts it back with nothing to undo; and its bottom handle dragged 26px makes it 24 steps high.
+
+Gaps: the spacing marks and guides are read from tldraw's snap indicators, not from what's drawn. Checked in the app on
+2026-11-04, in a copy on its own ports: the guide, marks and distance on the Review slot, its bottom locked to Lunch's
+top, Ctrl, Escape and the bottom handle.
 
 ### Duplicating a design (CAN-47)
 

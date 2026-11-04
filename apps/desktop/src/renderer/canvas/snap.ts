@@ -1,10 +1,10 @@
 import { snapBox } from "@parity-app/editor"
 import type { Box, Editor, TLShapeId } from "tldraw"
-import { getPreferences } from "../chrome/preferences.ts"
 
 /**
  * Snaps a shape being dragged to the shapes around it, Figma style, by `@parity-app/editor`'s `snapBox`, and shows
- * tldraw's snap lines where it locks. Returns the position to use. Turned off from the View menu, it moves freely.
+ * tldraw's snap lines where it locks. Returns the position to use. Callers ask `snaps` first, for the View menu's
+ * preference and Ctrl.
  */
 export function snapPosition(
   editor: Editor,
@@ -13,7 +13,6 @@ export function snapPosition(
   /** Shapes moving along with it, which it doesn't snap to. */
   moving: ReadonlySet<TLShapeId> = new Set()
 ): { x: number; y: number } {
-  if (!getPreferences().snapping) return position
   const shape = editor.getShape(id)
   const own = editor.getShapePageBounds(id)
   if (!shape || !own) return position

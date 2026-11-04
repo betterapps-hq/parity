@@ -203,8 +203,26 @@ still need your call.
   their state, time, address and Portless name, and stops, restarts or dismisses each. My calls: stopping asks first,
   and each kind has an icon and a hue at least 25° from the others, using the canvas's own colours for the build server
   and formatting.
-- **Snapping is on by default.** Designs lock to each other's edges and centres within 8 screen pixels. Hold Ctrl to
-  move freely, or turn it off under View.
+- **Snapping is on by default.** Designs lock to each other's edges and centres within 8 screen pixels, and absolutely
+  placed layers to their siblings' and their parent's, and to even spacing among their siblings (PAR-174). Hold Ctrl to
+  move or resize freely, or turn it off under View.
+- **Layers snap through the same code as designs** (PAR-174): `snapLayer` beside `snapBox` in `@parity-app/editor`, with
+  the same distance, tldraw's red snap indicators for the guides and spacing marks, and one `snaps` deciding Ctrl and
+  the preference for both. My calls:
+  - **An absolutely placed layer moves live,** writing as the pointer moves in one group, as resizing already did, with
+    Escape going back to the checkpoint. It used to show an outline and move on release.
+  - **Where it locks, it's written exactly,** to the half pixel, in fractions of a step when the line isn't on the
+    spacing scale. Rounding to half steps would leave a centre or an odd-sized sibling's edge a pixel off while the
+    guide said it lined up. An axis that doesn't lock moves in half steps as before, and a resize in whole steps.
+  - **Only absolutely placed layers snap.** Layers in a layout are placed by it, and their sizes stay whole steps or
+    fill.
+  - **Even spacing counts the siblings beside it across the axis,** as a row or column, and takes the middle between two
+    or the same gap beside an evenly spaced run. When a line is just as near, the line wins; when both land on the same
+    place, both show.
+  - **The distances shown are to what it locked to:** the gap to a sibling, or its four insets when it locked to its
+    parent, drawn as Alt's redlines, whose geometry (`distancesBetween`) moved into the package for both.
+  - **Resizing snaps only the dragged edges,** without even spacing, and Shift on a corner keeps the proportions instead
+    of snapping.
 - **A click inside a board selects what's under the pointer, as in Figma's top-level frames** (PAR-163, which replaced
   double-click drilling in first). A click selects the top-level layer, or, with a layer of that design selected, its
   sibling there. The board is selected by its title or background, and a click on a frame's background selects it too.

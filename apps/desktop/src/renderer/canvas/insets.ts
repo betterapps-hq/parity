@@ -62,7 +62,8 @@ export function shiftInsets(
  * A layer placed from both sides with no size of its own is sized by its insets, so the dragged side's inset moves. A
  * layer placed from the far side alone grows from there, so a handle on that side moves its inset as the size changes.
  * Otherwise it's placed from the near side, which moves with a handle there. A side moves from where it is, as in
- * `shiftInsets`, and only a side that moves is written, so one that stays keeps a token.
+ * `shiftInsets`, and only a side that moves is written, so one that stays keeps a token. With `exact`, as when the edge
+ * snaps to a line, sizes and insets go to the half pixel rather than to steps.
  */
 export function resizeInsets(
   style: NodeStyle,
@@ -71,8 +72,13 @@ export function resizeInsets(
   end: boolean,
   delta: number,
   size: number,
-  unit: number
+  unit: number,
+  exact = false
 ): { size?: number; insets: NodeStyle } {
+  // Steps to the half pixel, or insets to half steps and sizes to whole ones.
+  const fine = (steps: number) => Math.round(steps * unit * 2) / (2 * unit)
+  const inset = exact ? fine : half
+  const length = exact ? fine : Math.round
   const [near, far] = sides[axis]
   const hasNear = style[near] !== undefined
   const hasFar = style[far] !== undefined
@@ -80,13 +86,13 @@ export function resizeInsets(
   const shift = (side: Side, by: number): NodeStyle => {
     const value = style[side]
     const from = typeof value === "number" ? value : drawn[side]
-    const to = half(from + by)
+    const to = inset(from + by)
     return to === from ? {} : { [side]: to }
   }
   if (hasNear && hasFar && !sized) {
     return { insets: end ? shift(far, -delta / unit) : shift(near, delta / unit) }
   }
-  const next = Math.max(0, Math.round((size + (end ? delta : -delta)) / unit))
+  const next = Math.max(0, length((size + (end ? delta : -delta)) / unit))
   // How far the edge that isn't anchored moved, in steps, once the size is rounded to whole steps.
   const grown = next - size / unit
   const fromFar = hasFar && !hasNear
