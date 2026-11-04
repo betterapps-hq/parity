@@ -6,45 +6,69 @@ export type RenderPriority = "render" | "visible" | "idle"
 
 const rank: Record<RenderPriority, number> = { render: 0, visible: 1, idle: 2 }
 
-/** The offscreen window's jobs, run one at a time. */
+/**
+ * How many offscreen windows draw at once, and so how many bitmaps the canvas asks for at a time (PAR-523). Each is a
+ * renderer process holding the project's modules while it's open.
+ */
+export const offscreenWindows = 4
+
+/** The offscreen windows' jobs, each run in a window of its own. */
 export interface RenderQueue {
-  /** Runs `run` once every job of a higher priority, and every earlier one of the same, has finished. */
-  add<T>(priority: RenderPriority, run: () => Promise<T>): Promise<T>
-  /** Jobs waiting their turn, not counting the one running. */
+  /**
+   * Runs `run` in a free window, numbered from 0, once every job of a higher priority, and every earlier one of the
+   * same, has started.
+   */
+  add<T>(priority: RenderPriority, run: (window: number) => Promise<T>): Promise<T>
+  /** Jobs waiting their turn, not counting those running. */
   waiting(): number
 }
 
 interface QueuedJob {
   priority: number
-  start(): Promise<void>
+  start(window: number): Promise<void>
 }
 
 /**
- * A queue for the offscreen window that runs one job at a time, the most urgent waiting first and, among equals, the
- * earliest. A job running is never stopped, so a preview at most delays a canvas bitmap by the one being made.
+ * A queue for the offscreen windows that runs one job in each of `windows` at once, the most urgent waiting first and,
+ * among equals, the earliest (PAR-523). A free window goes to the lowest number, so the others open only when jobs
+ * wait. Component previews take one window at a time, so with more than one a preview never holds up the canvas's
+ * bitmaps or agents' renders, and with one it delays them by at most the one being made. A job running is never stopped.
  */
-export function renderQueue(): RenderQueue {
+export function renderQueue(windows = 1): RenderQueue {
   const queued: QueuedJob[] = []
-  let running = false
+  const busy = new Set<number>()
+  let previewing = false
   const pump = () => {
-    if (running || queued.length === 0) return
-    let next = 0
-    for (let index = 1; index < queued.length; index++) {
-      if (queued[index]!.priority < queued[next]!.priority) next = index
+    while (busy.size < windows) {
+      let next = -1
+      for (let index = 0; index < queued.length; index++) {
+        const job = queued[index]!
+        if (job.priority !== rank.render && previewing) continue
+        if (next === -1 || job.priority < queued[next]!.priority) next = index
+      }
+      if (next === -1) return
+      const [job] = queued.splice(next, 1)
+      let window = 0
+      while (busy.has(window)) window++
+      busy.add(window)
+      const preview = job!.priority !== rank.render
+      if (preview) previewing = true
+      void job!.start(window).finally(() => {
+        busy.delete(window)
+        if (preview) previewing = false
+        pump()
+      })
     }
-    const [job] = queued.splice(next, 1)
-    running = true
-    void job!.start().finally(() => {
-      running = false
-      pump()
-    })
   }
   return {
     add(priority, run) {
       return new Promise((resolve, reject) => {
         queued.push({
           priority: rank[priority],
-          start: () => Promise.resolve().then(run).then(resolve, reject)
+          start: (window) =>
+            Promise.resolve()
+              .then(() => run(window))
+              .then(resolve, reject)
         })
         pump()
       })
