@@ -317,6 +317,15 @@ still need your call.
   drawn from `dock.png` and the bundle signed again ad hoc; Electron finds its helpers by its own name first, so they
   keep theirs. On Linux it's Electron's folder linked, with the program as `parity`, since Linux names a process by its
   file; the window's icon comes from the app. The macOS and Linux copies haven't run on those systems yet.
+  - **The copy runs as development, not as an installed app** (PAR-489). Electron's `app.isPackaged` is true for any
+    program not named `electron`, so the copy looks packaged to Electron. The dev runner sets `PARITY_DEV_RUNNER`, and
+    `main/packaged.ts` counts the app as packaged only without it: the project service starts from `out/utility.mjs`
+    beside the bundles, not from `resources/app.asar.unpacked` beside the program, and update checks stay off. Before
+    that check (it landed with PAR-490), the copy on Windows forked a service script that didn't exist, and the utility
+    process exited with code 1 for every window load, printing nothing. The main process now names the missing path when
+    the service exits that way. The copy is kept, rather than running Electron under its own name in development, since
+    it's what gives the app its name and icon; `PARITY_STANDARD_ELECTRON=1 pnpm dev` runs Electron as installed, to tell
+    a fault in the copy from one in the app. The smoke check is in editor.md, "Opening and closing projects".
 - **A selected design shows only its own rounded outline.** tldraw's square selection box is drawn only around several
   designs at once.
 - **tldraw's overlay canvas holds a bitmap only while an overlay shows** (PAR-196). tldraw draws the selection box,
