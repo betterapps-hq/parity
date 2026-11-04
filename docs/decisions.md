@@ -1815,7 +1815,7 @@ to PAR-209 build it.
   `app.yml` runs them for every pull request and push to main on Windows, whose runners have a desktop for the window.
   It doesn't block merging yet: on its first run the example never opened on the runner within 180 s, so it stays out of
   CI until it runs reliably there (PAR-438). It's a workflow of its own, not a job `CI passes` leaves out, since a
-  failed job still fails CI's run, which would hold up the CLI's release there and `cd-desktop.yml`.
+  failed job still fails CI's run, and `cd-npm.yml` and `cd-desktop.yml` run only after CI's run on `main` succeeds.
 - **Packages and scripts use only TypeScript that Node can strip,** because the CLI and scripts run them with plain
   `node`: no parameter properties, namespaces or enums. oxlint rejects the first two in `packages/**` and
   `apps/*/scripts/**`; the app's bundled code may use them. The Library files session found CAN-48's parser had broken
@@ -1933,8 +1933,7 @@ the Repository, CI and releases stream in Linear.
   - **It needs Node 24,** as the repository does.
   - **Provenance comes from trusted publishing in CI, not `publishConfig`,** since npm only makes it in CI and the first
     version is published by hand, which npm needs before it can trust the workflow. 0.0.0 went up by hand on 2026-10-30,
-    and `npm trust` then named `cd-npm.yml` and the `npm` environment as its only publisher. Since the release moved
-    into CI (PAR-10), it names `ci.yml`.
+    and `npm trust` then named `cd-npm.yml` and the `npm` environment as its only publisher, which releases it still.
   - **`pnpm --filter @parity-app/cli try-packed` installs the packed tarball in an empty folder and runs it.** CI runs
     it on each system. The packed tarball is 2.6 MB.
 - **Hooks keep what doesn't belong out of pull requests (PAR-3),** as you asked on 2026-10-29. My calls:
@@ -1974,23 +1973,25 @@ the Repository, CI and releases stream in Linear.
   - **OpenAI reviews use AGENTS.md and conventions.md as guidance.** The disabled review service's configuration is
     removed, and lint, format, types, tests and change files stay with CI.
   - **GitHub's secret scanning and push protection stay on,** as they are by default for public repositories.
-- **Releases follow Buildkit's flow, with the CLI and the desktop app released apart.** After CI passes on `main`,
+- **Releases go straight to `main`, with the CLI and the desktop app released apart.** After CI passes on `main`,
   pending change files are released straight to `main`, with no release pull request, as you asked on 2026-11-04:
   Beachball bumps the versions and changelogs, commits them and pushes the commit to `main`. The CLI goes to npm through
-  trusted publishing with provenance, and the desktop app to GitHub Releases, each in a release of its own, as you asked
-  the same day. My calls: installers come from electron-builder, since one tool makes installers, signs them and serves
-  updates, and only the desktop app makes GitHub Releases, so the updater never mistakes a CLI release for an app
-  update.
-  - **Both call the shared `beachball-publish-npm` template** (PAR-10, PAR-14), as `betterapps-hq/pipelines`' README
-    shows. Like every workflow here, they call it at `main`, not a pinned commit, so Parity gets each change as it
-    merges, as you asked on 2026-11-03. My calls:
-    - **`ci.yml`'s `release` job releases the CLI,** as Buildkit's CI does, once `verify` and `checks` pass on a push to
-      `main`. Beachball runs scoped to leave out `apps/desktop`, so it bumps the CLI, publishes it to npm, then commits,
-      tags and pushes. It runs in the `npm` environment, which the CLI's trusted publisher names with `ci.yml`.
+  trusted publishing with provenance, and the desktop app to GitHub Releases, each in a pipeline of its own named for
+  what it ships, as you asked the same day. Buildkit releases from its `ci.yml` since it only publishes packages; Parity
+  ships a desktop app too. My calls: installers come from electron-builder, since one tool makes installers, signs them
+  and serves updates, and only the desktop app makes GitHub Releases, so the updater never mistakes a CLI release for an
+  app update.
+  - **Each calls a shared template made for this** (PAR-10, PAR-14): `cd-npm-release` and `cd-desktop-version`, which
+    `betterapps-hq/pipelines`' README shows, both running `beachball-publish-npm`. Like every workflow here, they call
+    them at `main`, not a pinned commit, so Parity gets each change as it merges, as you asked on 2026-11-03. My calls:
+    - **`cd-npm.yml` releases the CLI** once CI passes on `main`. Beachball runs scoped to leave out `apps/desktop`, so
+      it bumps the CLI, publishes it to npm, then commits, tags and pushes, in one job. It runs in the `npm`
+      environment, which the CLI's trusted publisher names with `cd-npm.yml`.
     - **`cd-desktop.yml`'s `version` job versions the desktop app** once CI passes on `main`. Beachball publishes every
       package it versions and has no setting to version one without publishing it, so this run is scoped to
       `apps/desktop` with publishing off: it bumps, commits, tags and pushes. CI's run on that commit starts
       `cd-desktop.yml` again, whose `release` job publishes the new version as a beta.
+    - **The templates check that CI passed on a push to `main`,** so the workflows here carry no condition of their own.
     - **Each scoped run leaves the other's change files alone,** so a failed npm release doesn't hold up the app, or the
       other way round. A commit with change files for both is released in turn, a commit for each.
     - **A deploy key pushes the release commits,** as Buildkit's does: the one actor `main`'s ruleset lets skip a pull
