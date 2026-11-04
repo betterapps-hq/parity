@@ -53,6 +53,16 @@ failures and audit findings exit with 1 in the CLI and set MCP `isError`, with d
 `clear` to false; `get_props` defaults `all` to false. MCP project paths must be absolute; the CLI resolves relative
 folders from its working directory. Skill reading is local and needs no running app.
 
+The tools reach the Parity the person is running, through `~/.parity/agent.json`. A second copy, such as one `pnpm perf`
+or a dev session starts, leaves that to the copy already running unless it was started with `PARITY_AGENT_TAKE_OVER=1`,
+and gives it back when it quits. To reach a copy that writes its own file, point `PARITY_AGENT_FILE` at it:
+
+```sh
+parity tabs                                         # the person's app
+PARITY_AGENT_FILE=copy/agent.json pnpm dev &        # a copy of Parity with a file of its own
+PARITY_AGENT_FILE=copy/agent.json parity tabs       # that copy
+```
+
 Every tool returns its result as data too: MCP `structuredContent`, or `--json` in the CLI. Read that rather than the
 text. A failure has `error.code` to branch on, `retryable` (send it again unchanged), `path` (the input at fault) and
 `alternatives` (valid ids for one it didn't know), so a mistyped id is fixed in one retry:

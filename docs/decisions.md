@@ -2785,6 +2785,33 @@ zoomed-out frames could sleep. They're now kept on disk too (see editor.md, Bitm
   frames, more than anyone's recent projects. Use is recorded by touching the file's modification time when it's shown,
   so no index has to be kept in step. A Clear bitmap cache item covers the rest.
 
+## Agents keep reaching the copy that was running first (PAR-280)
+
+A second copy of Parity, such as the one `pnpm perf` or a session's `pnpm dev` starts, used to write its address over
+`~/.parity/agent.json`, so the person's agents drove that copy instead of their own app, and quitting it removed the
+file and left agents with none. `@parity-app/agent`'s [connection.ts](../packages/agent/src/connection.ts) decides what
+a copy does with the file, from its contents and the copy's own connection. My calls:
+
+- **A copy is its main process.** The file names the app's main process (`app`) beside the service's (`pid`), which main
+  gives the service as `PARITY_APP_PID`. A service the dev runner restarts is then the same copy, and takes its own file
+  back while the old service is still answering. A file without `app`, from an older Parity, stands for its service's
+  copy.
+- **Running means answering.** A starting copy asks each connection in the file, with its token, and the first that
+  answers within 2 seconds is running. A process id alone can be reused after a crash; a reply with the token can't.
+- **The first copy running keeps agents, unless asked.** A later copy leaves a running copy's file alone and closes its
+  own agent server, saying so in its log. `PARITY_AGENT_TAKE_OVER=1` asks it to take over, as an environment variable
+  like the rest of the instance's settings (`PARITY_AGENT_FILE`, `PARITY_UI_PORT`). A copy that wants agents of its own
+  without disturbing the person's still sets `PARITY_AGENT_FILE`, as `pnpm perf`, the end-to-end tests and the backtest
+  do.
+- **A copy that takes over keeps what it took** in the file's `previous`, and gives it back when it quits, to the newest
+  copy in that chain whose main process is still running. A file naming a copy that's gone, over one still running, goes
+  back to the running one when the next copy starts.
+- **Main lets go of the file, not the service.** Quitting ends the service outright, on Windows and with a signal
+  elsewhere, so its exit handler never ran and the file outlived every copy. Main reads the file as it quits and removes
+  it, or restores the copy it took over, only when the file still names it.
+- **The person's app started after a dev copy doesn't take agents from it.** Telling the installed app from a dev copy
+  would let it, but a person working on Parity may run either as their own; set `PARITY_AGENT_TAKE_OVER=1` for that.
+
 ## A hidden tab's frames sleep, rather than unmount (PAR-153)
 
 A tab that isn't showing stays mounted, so switching back is instant and agents can read it. It now lets go of its
