@@ -21,7 +21,7 @@ Features built before 2026-10-29 are being added under PAR-392 in Linear.
 ## Testing in the app (PAR-202)
 
 `pnpm test:app` drives a copy of Parity as a person does, with the system's own pointer and keyboard, and checks what
-the canvas, the panels and the project show: 92 tests, which take five to eight minutes. It isn't part of `vp run test`
+the canvas, the panels and the project show: 96 tests, which take five to eight minutes. It isn't part of `vp run test`
 or `pnpm verify`. End-to-end tests run only in CI, never in local checks or Git hooks, including focused files. The
 `App tests` workflow (`.github/workflows/app.yml`) runs them on Windows for every pull request and every push to main,
 without blocking the merge until they run reliably there (PAR-438). Each feature's tests below name the end-to-end ones
@@ -475,20 +475,22 @@ decisions.md describes. Where it lands follows the pointer:
   reorder; it moves by its insets (below).
 
 Code: the rules are in `@parity-app/editor` (PAR-33), from measures the canvas passes in:
-`packages/editor/src/drop-slot.ts` (`slotAt` and `flowOf`, geometry only), `drop-target.ts` (`frameLayout` keeps what
-was measured, and `dropTargetAt` finds the layout and slot, and the line marking it) and `move-layers.ts`
-(`moveLayersWithin` and `moveLayersAcross`). The app's `apps/desktop/src/renderer/canvas/drop-target.ts` measures
-(`DragLayouts` reads a frame's layers' boxes through `frame.ts`'s `nodeBox`, and each layout's flow from its computed
-style, and `dropInFrame` passes them in), and `canvas/layer-drag.ts` follows the pointer (`pressLayers` measures when
-the drag begins; `moveTarget` finds the frame under the pointer; `DropPreview` shows the copy; `moveLayers` applies the
-move to the store and the selection).
+`packages/editor/src/drop-slot.ts` (`slotAt`, geometry only, and `flowOf`, the one reading of a layout's flow that
+dropping, dragging and nudging share since PAR-205), `drop-target.ts` (`frameLayout` keeps what was measured, and
+`dropTargetAt` finds the layout and slot, and the line marking it) and `move-layers.ts` (`moveLayersWithin` and
+`moveLayersAcross`). The app's `apps/desktop/src/renderer/canvas/drop-target.ts` measures (`DragLayouts` reads a frame's
+layers' boxes through `frame.ts`'s `nodeBox`, and each layout's flow from its computed style, and `dropInFrame` passes
+them in), and `canvas/layer-drag.ts` follows the pointer (`pressLayers` measures when the drag begins; `moveTarget`
+finds the frame under the pointer; `DropPreview` shows the copy; `moveLayers` applies the move to the store and the
+selection).
 
 Tests:
 
 - `packages/editor/src/drop-slot.test.ts`: the stat cards in both directions and anywhere up or down their row, a card
   short of a neighbour's middle staying put, two-row grids going up and down, the gap between rows, above and below
   every row, a row that moving a card empties, wrapping rows of different widths and centred lines, one-line rows and
-  columns, an empty layout, and reading a flow from computed styles.
+  columns, an empty layout; and reading a flow from computed styles: a flex box's direction, reversed or not, and its
+  wrapping, a row right to left, a grid's columns as laid out or as written, a grid flowing by columns, and blocks.
 - `packages/editor/src/drop-target.test.ts` (13), from boxes: the stat cards dragged right and left; the line where the
   layout was, and the same slot after the camera zooms out and pans; a card that stays in its own slot while the pointer
   is where it was; a card dragged over neighbours that are layouts, or the text in them, changing places with them; a
@@ -512,9 +514,8 @@ Tests:
   everything back.
 
 Gaps: the pointer handling in `pressLayers` (the threshold, Escape, the preview), first checked by hand on 2026-10-29,
-is now the end-to-end test above. Dropping a component from the Components panel (`dropAt` in
-`packages/editor/src/insert.ts`) still goes by the older one-line rule, so it lands wrongly in a grid of more than one
-row.
+is now the end-to-end test above. A component dropped from the Components panel lands by the same rule since PAR-205
+(see "Inserting, Make component and new designs").
 
 ### Moving an absolutely placed layer by dragging (CAN-47)
 
@@ -714,17 +715,28 @@ place along that row where it keeps 160px clear of every design and note on the 
 design and their titles don't meet. Several selected designs move as one block, and pasting designs into the project
 they were copied from places them the same way.
 
-Code: `freeSpotBeside` in `packages/editor/src/placement.ts` (`@parity-app/editor`), with `takenBounds` in
-`apps/desktop/src/renderer/canvas/free-space.ts`, which reads the canvas's shapes, used by `chrome/designs.ts`
-(`duplicateDesign`) and `canvas/clipboard.ts` (`pasteDesigns`).
+- **A copy that lands off screen comes into view** (PAR-204). After Ctrl+D, Duplicate in the Layers menu, or a paste of
+  designs, the canvas pans, at the zoom it's at, so the selected copy is seen 64px clear of the canvas's edges, room for
+  its title. It moves the least it can along each axis, so what was in view stays as near as it can. A copy wider or
+  taller than the view only needs its start in view, where its title is; otherwise its start comes to the view's start.
+  A copy already in view leaves the view where it was. The pan takes 250ms.
+
+Code: `freeSpotBeside` and `panToShow` in `packages/editor/src/placement.ts` (`@parity-app/editor`), with `takenBounds`
+and `bringIntoView` in `apps/desktop/src/renderer/canvas/free-space.ts`, which read the canvas's shapes and move its
+camera, used by `chrome/designs.ts` (`duplicateDesign`) and `canvas/clipboard.ts` (`pasteDesigns`).
 
 Tests: `packages/editor/src/placement.test.ts`: the original alone, the example's Dashboard with Projects 176px to its
 right, a run of designs and gaps too narrow for the copy, a gap wide enough, designs well above or below the row, and
-one just inside the gap below it. End to end (PAR-202), `apps/desktop/e2e/moving.e2e.ts` (1) presses Ctrl+D on
-Dashboard: the copy is selected, top-aligned with it to its right, with no design or note within 160px, and Undo takes
-it away.
+one just inside the gap below it; and bringing a copy into view (`panToShow`): none needed when it's in view, right just
+far enough, left, up and down, a copy wider than the view brought to its start, a taller one left alone while its top
+shows, and no margin unless asked. End to end (PAR-202), `apps/desktop/e2e/moving.e2e.ts` (4): Ctrl+D on Dashboard puts
+the copy selected, top-aligned with it to its right, with no design or note within 160px, and Undo takes it away; Ctrl+D
+on Dashboard at 50%, whose copy starts off screen, pans to it at the same zoom; Ctrl+C and Ctrl+V of it do the same; and
+Ctrl+D on Forgot password at 5%, whose copy lands in view, leaves the view where it was.
 
-Gaps: the view doesn't follow a copy that lands off screen.
+Gaps: a design pasted from another project goes in the middle of the view, and is brought into view the same way when it
+reaches past the edge. A copy pasted over the selection (Ctrl+Shift+V) or at the pointer doesn't pan, since it goes
+where the person is looking.
 
 ### Arranging layers and designs (PAR-7)
 
@@ -772,9 +784,13 @@ Gaps: the commands, menus and messages have no automated test. They didn't chang
 Components, component designs and images go in from the Assets panel and Quick insert; Make component turns layers into
 a component design; the Layers panel's add buttons start new designs. Each is one undo step, and selects what it made.
 
-- **A drop lands in the deepest layout under the pointer,** before the first child whose middle is past the pointer
-  along the layout's direction, else at the end, and a line shows where while dragging. A drop outside a layout says to
-  drop onto one.
+- **A drop lands in the slot under the pointer** (PAR-205), in the deepest of the design's own layouts there, as a
+  dragged layer, a dropped image file and Paste here land (`slotHere`, through `slotAt`): in a grid or a wrapping row
+  the line of children the pointer is on comes first, then the slot along it, so a card dropped on the second row of
+  Projects' grid goes there, not in the first row. In a layout that's absolutely placed as the board shows it, it goes
+  last, placed at the pointer in half steps of the spacing scale. While dragging, the layout is outlined and a line
+  shows the slot, or a corner marks the pointer where it goes in an absolutely placed layout. A drop outside a layout
+  says to drop onto one.
 - **A click inserts at the selection:** into a selected layout, at its end; just after any other selected layer, in its
   layout or slot; or at the end of a selected design's root. With nothing to insert into, a message says to select a
   layout.
@@ -802,20 +818,25 @@ adds a new design and zooms to it.
 
 Tests: `packages/editor/src/insert.test.ts`: the layer for a component (required props, given props, a library's name),
 an instance and an image (its size, alt text and credit, and a tiny one); the labels; inserting between children, at the
-end, in a slot, inside a library part's parents or among them already, and a detached copy; where a click inserts (a
-layout, after a layer, in a slot, the root, and nowhere); and where a drop lands (the deepest layout, a row, a column,
-the end, an empty layout and children the canvas doesn't draw). `components.test.ts`: making a component into the
-project file, a taken id and param names, a project file that doesn't exist yet, and the errors; and instances in
-layouts and slots across designs. `create.test.ts`: a new screen and component, and a taken id. `placement.test.ts`: a
-new design beside everything, one the canvas hasn't drawn, an empty canvas, and a component above everything. A library
-part's parents and samples are core's, in `packages/core/src/library-insert.test.ts`. The extraction and its check are
-core's `extractComponent`, in `packages/core/src/decompose.test.ts`: occurrences become instances that render the same,
-a state changing the part refused, a single part's texts as params, and the check against the board, refused under a
-variant option that changes the part but not one that changes what's outside it or isn't shown, and refused when a layer
-in the part shows a param's default.
+end, in a slot, at the pointer in an absolutely placed layout, inside a library part's parents or among them already,
+and a detached copy; and where a click inserts (a layout, after a layer, in a slot, the root, and nowhere). Where a drop
+lands is `slotHere`'s, in `packages/editor/src/paste-here.test.ts`: the slot and its line in a row, a grid's second row
+where one line along every child would pick the first, and the pointer's place in an absolutely placed layout.
+`components.test.ts`: making a component into the project file, a taken id and param names, a project file that doesn't
+exist yet, and the errors; and instances in layouts and slots across designs. `create.test.ts`: a new screen and
+component, and a taken id. `placement.test.ts`: a new design beside everything, one the canvas hasn't drawn, an empty
+canvas, and a component above everything. A library part's parents and samples are core's, in
+`packages/core/src/library-insert.test.ts`. The extraction and its check are core's `extractComponent`, in
+`packages/core/src/decompose.test.ts`: occurrences become instances that render the same, a state changing the part
+refused, a single part's texts as params, and the check against the board, refused under a variant option that changes
+the part but not one that changes what's outside it or isn't shown, and refused when a layer in the part shows a param's
+default.
 
-Gaps: dragging and clicking in the panels, the messages, and measuring on the canvas have no automated test. They didn't
-change when the rules moved into the package.
+End to end, `apps/desktop/e2e/dropping.e2e.ts` drags Badge from the Components panel onto the left of the fifth card in
+Projects' grid: the grid is outlined and the line stands beside that card while dragging, Badge lands fifth, selected,
+as "Add Badge", and Undo takes it out.
+
+Gaps: clicking in the panels, the messages, and a drop into an absolutely placed layout have no end-to-end test.
 
 ## Keyboard
 
@@ -910,18 +931,18 @@ actions, since each needs to know which arrow was pressed.
   view.
 
 Code: `apps/desktop/src/renderer/canvas/nudge.ts` (the rules, which take data and return data, and `frameDrawn`, which
-reads a layout's direction and a layer's drawn insets from its frame), `canvas/insets.ts` (`shiftInsets`, which moves an
-absolutely placed layer's insets for dragging too), `chrome/commands.ts` (`nudge`), `chrome/actions.ts` (`byKey` keeps
-it out of Search actions), `chrome/keymap.ts` and `chrome/keys.ts` (the arrows are written `←`, `→`, `↑` and `↓`), and
-`canvas/shortcuts.ts`, which passes the key event to the action and keeps the other arrows from tldraw.
+reads a layout's flow, through `@parity-app/editor`'s `flowOf`, and a layer's drawn insets from its frame),
+`canvas/insets.ts` (`shiftInsets`, which moves an absolutely placed layer's insets for dragging too),
+`chrome/commands.ts` (`nudge`), `chrome/actions.ts` (`byKey` keeps it out of Search actions), `chrome/keymap.ts` and
+`chrome/keys.ts` (the arrows are written `←`, `→`, `↑` and `↓`), and `canvas/shortcuts.ts`, which passes the key event
+to the action and keeps the other arrows from tldraw.
 
 Tests:
 
-- `apps/desktop/src/renderer/canvas/nudge.test.ts`: reading a flow from computed styles (rows, columns, reversed, right
-  to left, grids as laid out or as written, blocks); how far each arrow moves in each; reordering a layer, a block, past
-  absolutely placed layers and down a grid; nudging a design's layers in a state, following the frame's direction, and
-  leaving instances alone; and, with the real stores, a run of presses as one undo step, a pause or a new selection
-  starting another, designs moving together and a mode column and a note moving.
+- `apps/desktop/src/renderer/canvas/nudge.test.ts`: how far each arrow moves in a row, a column, reversed and a grid;
+  reordering a layer, a block, past absolutely placed layers and down a grid; nudging a design's layers in a state,
+  following the frame's direction, and leaving instances alone; and, with the real stores, a run of presses as one undo
+  step, a pause or a new selection starting another, designs moving together and a mode column and a note moving.
 - `apps/desktop/src/renderer/canvas/insets.test.ts`: moving insets from each side, both sides, tokens and unset sides
   with and without where they're drawn (`shiftInsets`, shared with dragging).
 - `apps/desktop/src/renderer/ModeView.test.ts`: `frameDrawn` reads a row, a column and a grid's columns from a design

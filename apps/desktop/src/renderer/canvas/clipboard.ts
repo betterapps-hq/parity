@@ -31,7 +31,7 @@ import { designsSelection, layersSelection, selectedDesigns, selectedNodes } fro
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { shapeIdFor } from "./CanvasEditor.tsx"
-import { takenBounds } from "./free-space.ts"
+import { bringIntoView, takenBounds } from "./free-space.ts"
 import { hitTest, type Point } from "./hit.ts"
 import { measureHere } from "./paste-here.ts"
 import { frameViewport } from "./view.ts"
@@ -539,6 +539,10 @@ function pasteDesigns(session: ProjectSession, designs: ContainerSpec[], samePro
     return { ...snapshot, documents: new Map(snapshot.documents).set(path, next) }
   })
   selection.set(designsSelection(copies.map((copy) => containerKey(path, copy.id))))
+  // A copy that lands off screen, as a duplicate beside a wide design does, is brought into view (PAR-204).
+  if (editor) {
+    bringIntoView(editor, { minX: left + shift.x, minY: top + shift.y, maxX: right + shift.x, maxY: bottom + shift.y })
+  }
 }
 
 /**
