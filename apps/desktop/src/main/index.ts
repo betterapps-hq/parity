@@ -93,7 +93,12 @@ function startService(): UtilityProcess {
   const child = utilityProcess.fork(serviceEntry, [], {
     serviceName,
     stdio: "inherit",
-    env: { ...process.env, PARITY_ALLOWED_ORIGINS: rendererOrigin }
+    env: {
+      ...process.env,
+      PARITY_ALLOWED_ORIGINS: rendererOrigin,
+      // Frame bitmaps are kept in the app's own data, so an installed Parity never writes them into a project.
+      PARITY_BITMAP_DIR: join(app.getPath("userData"), "bitmaps")
+    }
   })
   child.on("message", (message: ServiceMessage) => {
     if (message.type === "render") {

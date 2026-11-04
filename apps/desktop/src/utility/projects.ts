@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import { existsSync, type FSWatcher, realpathSync, watch } from "node:fs"
 import { readFile, writeFile } from "node:fs/promises"
 import { createRequire } from "node:module"
@@ -30,6 +31,7 @@ import {
 import {
   appFiles,
   checkedChanges,
+  codeFingerprint,
   detectProject,
   discoverProject,
   filesChanged,
@@ -82,6 +84,12 @@ interface OpenProject {
   corrections?: DetectionCorrections
   /** Where the windows load the project's guest from: `info.guestUrl`, unless they couldn't load it after it moved. */
   drawnGuestUrl: string
+  /**
+   * The project's code as each address first served it (`codeFingerprint`), which kept frame bitmaps are named by. A
+   * page never loads a module twice, so a guest drawn from an address shows the code it had then, however it has changed
+   * since: a builder started again on the same port keeps the address's first fingerprint.
+   */
+  fingerprints: Map<string, Promise<string>>
   /**
    * The project's config inputs (its tsconfigs, package.json and lockfiles, see `configInputs`), absolute, and the
    * folders where a lockfile appearing changes which ones it has (see `lockfileFolders`): a change to either reads props
@@ -273,6 +281,7 @@ async function start(root: string): Promise<ProjectInfo> {
     builder,
     startOptions,
     drawnGuestUrl: session.guestUrl,
+    fingerprints: new Map([[session.guestUrl, fingerprintCode(root, startOptions)]]),
     stylesheets: config.styles,
     known,
     sources: config.components,
@@ -352,11 +361,32 @@ async function restartBuilder(root: string): Promise<void> {
   }
   project.session = session
   project.info.guestUrl = session.guestUrl
+  if (!project.fingerprints.has(session.guestUrl)) {
+    project.fingerprints.set(session.guestUrl, fingerprintCode(root, project.startOptions))
+  }
   // It has its old port back unless something took it; then the open windows load the guest from the new one. That's
   // checked against where they draw it, so a move they couldn't load is tried again when it's started again.
   const drawn = await followGuest(root, project.drawnGuestUrl, session.guestUrl, notifyGuestMoved)
   // Unless it was started again meanwhile, and what the windows were told is already out of date.
   if (project.info.guestUrl === session.guestUrl) project.drawnGuestUrl = drawn
+}
+
+/**
+ * The project's code as its guest will draw it, for kept bitmaps: its files, and the guest module Parity draws it with, so
+ * a new version of Parity doesn't show bitmaps the last one drew. `bitmapFormat` goes up when what's kept changes.
+ */
+function fingerprintCode(root: string, options: BuilderStartOptions): Promise<string> {
+  const guest = readFile(options.rendererGuestPath).catch(() => Buffer.alloc(0))
+  return guest.then((contents) =>
+    codeFingerprint(root, `${bitmapFormat}:${createHash("sha256").update(contents).digest("hex")}`)
+  )
+}
+
+const bitmapFormat = 1
+
+/** The project's code as the address a job draws from first served it, while the project is open. */
+export function codeServedAt(projectId: string, guestUrl: string): Promise<string> | undefined {
+  return projects.get(projectId)?.fingerprints.get(guestUrl)
 }
 
 /** Sends the builder the components the guest imports, once they've changed in place. */

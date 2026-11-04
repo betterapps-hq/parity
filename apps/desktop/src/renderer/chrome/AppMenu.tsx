@@ -16,6 +16,7 @@ import {
   FileInput,
   FolderOpen,
   Gauge,
+  ImageOff,
   Grid3x3,
   Group,
   History,
@@ -66,7 +67,7 @@ import {
 import { useActiveTabId, useRecentProjects, workspace } from "../workspace.ts"
 import { actions } from "./actions.ts"
 import { openDialog } from "./app-dialogs.ts"
-import { activeSession, exit, exportImages, selectedDesign, selectedInstance } from "./commands.ts"
+import { activeSession, clearBitmapCache, exit, exportImages, selectedDesign, selectedInstance } from "./commands.ts"
 import { type Command, keymap } from "./keymap.ts"
 import { isMac } from "./keys.ts"
 import { setLayout, useLayout } from "./layout.ts"
@@ -256,6 +257,9 @@ function ViewItems() {
       >
         <Gauge /> Performance stats
       </MenubarCheckboxItem>
+      <MenubarItem onSelect={() => void clearBitmapCache()}>
+        <ImageOff /> Clear bitmap cache
+      </MenubarItem>
     </>
   )
 }

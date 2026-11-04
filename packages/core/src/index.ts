@@ -1,4 +1,5 @@
 export * from "./adapters.ts"
+export * from "./bitmap-cache.ts"
 export * from "./board.ts"
 export * from "./builder-process.ts"
 export * from "./css.ts"

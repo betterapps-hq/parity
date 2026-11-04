@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/command"
 import { type Action, actions } from "./actions.ts"
 import { closeDialog, openDialog, useOpenDialog } from "./app-dialogs.ts"
-import { exportImages } from "./commands.ts"
+import { clearBitmapCache, exportImages } from "./commands.ts"
 import { type Command as KeyCommand, type Group, groups, keymap } from "./keymap.ts"
 import { getPreferences, setPreferences } from "./preferences.ts"
 
@@ -37,6 +37,7 @@ const extras: Item[] = [
     label: "Performance stats",
     run: () => setPreferences({ performanceStats: !getPreferences().performanceStats })
   },
+  { id: "clearBitmapCache", group: "View", label: "Clear bitmap cache", run: () => void clearBitmapCache() },
   { id: "about", group: "Help", label: "About Parity", run: () => openDialog("about") }
 ]
 
