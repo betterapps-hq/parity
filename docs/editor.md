@@ -2466,6 +2466,47 @@ and comments left, other modules unchanged). The e2e suite (`pnpm test:app`) run
 the minified prebundle has no test of its own; it was checked in an isolated copy of the app on 2026-10-29, where all
 736 icons on screen drew and the window's scripts were measured over the DevTools protocol.
 
+### React's production build in development (PAR-519)
+
+`pnpm dev`, and the copy `pnpm perf` starts, run Parity's window on React's production build, where it had run the
+development build. The audit timed, by hand on the example project, selecting a design, committing a field and undo
+going from 210 to 360 ms to the next paint to under 90, and opening the Components panel from 1.4 s to 0.14 s.
+
+| `pnpm perf` on the example project              | Development build | Production build |
+| ----------------------------------------------- | ----------------- | ---------------- |
+| Select a design, median / max                   | 180 / 298 ms      | 71 / 126 ms      |
+| Edit a design, median / max                     | 134 / 386 ms      | 47 / 117 ms      |
+| Started again, usable (`--open-only`, two runs) | 9.4 and 4.4 s     | 2.7 and 3.0 s    |
+| The window's memory                             | 764 MB            | 590 MB           |
+
+On 2026-11-04, on Windows 11 with other sessions using the machine, which the development build's restart times show.
+Started again after a full run's measuring, both builds took about 4.7 s.
+
+- **Dependencies are prebundled as production:** the UI's Vite config sets `process.env.NODE_ENV` to `production` in the
+  dependency optimizer (Rolldown's `transform.define`), as builder-vite does for frames (PAR-198). The app's own modules
+  are still served as in development, so `import.meta.env.DEV` stays true.
+- **The app's JSX calls the production `jsx`:** it's still compiled for development, calling `jsxDEV`, which the
+  production build leaves out, so `react/jsx-dev-runtime` is aliased to `scripts/jsx-dev-runtime.ts`, React's `jsx`.
+- **Fast Refresh is off,** since it reaches React only through the development build: a change to a component reloads
+  the page, as a change to any other module already did.
+- **`PARITY_REACT=development`** brings back the development build, with React's warnings, StrictMode's checks and Fast
+  Refresh. `pnpm dev` prints which build it runs, and `pnpm perf` records it in each result. The end-to-end suite always
+  runs the development build ([decisions.md](decisions.md) has why). Storybook, which uses the same config but not the
+  dev script, keeps the development build.
+- **tldraw still draws,** since the window is on localhost, where tldraw needs no licence key.
+- **Switching builds rebuilds the prebundle:** Vite keys it by the optimizer's options and the aliases, so the other
+  build's is never served.
+
+Code: `reactBuild` and `reactBuildConfig` in `apps/desktop/scripts/react-build.ts`, used by
+`apps/desktop/vite.config.ts`; the default in `apps/desktop/scripts/dev.ts`; `PARITY_REACT` in
+`apps/desktop/e2e/launch.ts`.
+
+Tests: `apps/desktop/scripts/react-build.test.ts` (5: the variable's values, an unknown one rejected, nothing added for
+the development build, the production build's define, alias and Fast Refresh filter, the stand-in being React's `jsx`).
+Gaps: the window's build is checked by hand, as the e2e suite runs the development build. On 2026-11-04, in an isolated
+copy, React's renderer reported the production bundle, tldraw drew the canvas, an edited component reloaded the page,
+and the prebundle's config hash differed between the builds.
+
 ## Opening and closing projects
 
 What opening a project loads into the windows, and what closing it gives back.

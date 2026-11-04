@@ -3003,6 +3003,32 @@ frames several times over, which the 2026-11-04 speed audit found the most expen
   hears of, such as a video in a frame taking its size once its data arrives. The outline catches up at the next change,
   such as the pointer moving.
 
+## Parity's window runs React's production build in development (PAR-519)
+
+The speed audit of 2026-11-04 found most of what still felt slow under `pnpm dev` was React's development build in
+Parity's own window: on the example project, selecting a design took 240 to 360 ms to the next paint, undo about 210,
+and opening the Components panel 1.4 s, against 48 to 88 ms, about 64 and 0.14 s on the production build. My calls:
+
+- **`pnpm dev`, and the copy `pnpm perf` starts, run the production build by default,** the way frames run a project's
+  dependencies (PAR-198): the UI's dependencies are prebundled with `process.env.NODE_ENV` set to `production`, and
+  `react/jsx-dev-runtime` is aliased to React's `jsx`, since the app's own modules are still compiled and served as in
+  development. A local `pnpm build` couldn't stand in, as a page off localhost shows no canvas without the tldraw key.
+  The config asks for the build through `PARITY_REACT`, which `scripts/dev.ts` sets to `production` unless it's already
+  set, so Storybook, which uses the same config without the dev script, keeps the development build.
+- **`PARITY_REACT=development` brings the development build back,** for React's warnings, StrictMode's checks and Fast
+  Refresh. It's a variable, like the dev script's others, so `pnpm perf` and the e2e launcher pass it through too.
+- **Fast Refresh is off on the production build,** so a change to a component reloads the window rather than updating in
+  place. Fast Refresh reaches React only through the development build's renderer; left on, an edited component was
+  taken in and never drawn again. Working on the UI itself with state kept across edits is what the variable is for.
+- **The end-to-end suite keeps the development build,** as it ran before. With people and agents on the production build
+  day to day, the suite is where StrictMode's double effects and React's warnings still run on every test, and its tests
+  check results and behaviour, not timings, so the production build's speed buys it little. The packaged app's
+  production build is covered by trying the installed app, as before.
+- **Switching builds bundles the dependencies again,** in the same cache folder: Vite's key for the prebundle covers the
+  aliases and the optimizer's options, and it changed between the two on the example project (`cdc88e51` and
+  `3d73713f`), with Vite reporting that the config changed. Each switch costs one prebundle, a few seconds, which is why
+  the builds don't keep caches of their own.
+
 ## Frame bitmaps are captured in four offscreen windows at once (PAR-523)
 
 A first launch of the example project took 21 to 29 seconds to have every frame's bitmap, captured one at a time in one
@@ -3048,6 +3074,35 @@ every frame, so an idle window with its build server running painted 60 times a 
   summaries with paths, every discovery note, and raw error messages, which ran to several lines. Those details are
   still there for anyone who needs them: agents' tools report detection, and a failed save's notification gives its
   reason.
+
+## Starting from scratch, and what things are called (PAR-537)
+
+You chose these on 2026-11-04 from the new-user audit
+([proposals/new-user-experience.md](proposals/new-user-experience.md), PAR-529), taking each of its recommendations:
+"Yes, record them." The work is PAR-538 to PAR-548.
+
+- **Frames are a third, light kind of design, beside screens and components.** A frame is a top-level layout drawn on
+  the canvas, once, at its own size, in the primary mode, with no states, no modes beside it, no route and no code
+  written. It holds anything a screen holds, and only a top-level one is a frame: drawn inside another design, it's a
+  layout. Any frame becomes a component or a screen, and a screen or component made a frame again keeps its layers and
+  drops its states, modes, params and variants, after saying so. It's the word Figma users reach for, and F's key
+  (PAR-539, PAR-540, PAR-545).
+- **The per-mode tiles inside a board are previews,** so frame means one thing. The rest of the words follow the
+  proposal's glossary ("One set of words"): screen or component rather than design for the thing, main only for a main
+  component, Default rather than Base for the first state, and board and view kept to the code (PAR-538).
+- **A screen and its root layout are one selection,** as Figma's top-level frames are. Selecting a screen or component
+  edits its root layout's size, fill, padding and auto layout first, with its states and modes below, and Layers lists
+  the root's children straight under it (PAR-542, PAR-547).
+- **T on the empty canvas makes a text layer in a frame that hugs it.** Notes stay, as annotations, under a tool of
+  their own (PAR-540, PAR-545).
+- **A blank app opens on a Home screen** for its `/` route, in its desktop and mobile modes, rather than on an empty
+  canvas (PAR-284).
+- **Frames are never written to code or checked for drift.** One becomes a component or a screen first, which keeps what
+  gets written to the two kinds that have a place in the app (PAR-539).
+- **Design changes are built in Storybook first, approved, then built in the app.** You said the same day: "any changes
+  to the design we should build in storybook first so it can be approved, then move into the app." So each change people
+  see is a design issue, which ends with your approval of its stories, and a build issue it blocks. Work in packages
+  with no UI, such as PAR-539, doesn't need the first step.
 
 ## Tooltips are raised, and a component's preview is a card (PAR-515)
 

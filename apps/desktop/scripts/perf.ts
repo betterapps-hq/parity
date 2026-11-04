@@ -12,13 +12,15 @@
 //   --keep      leaves the app running afterwards, until the script is stopped
 //   --open-only times opening the project and nothing else
 // PARITY_PERF_UI_PORT and PARITY_PERF_DEBUG_PORT choose the copy's ports (5320 and 9340), so two sessions can measure at
-// once.
+// once. The copy runs React's production build, as `pnpm dev` does; PARITY_REACT=development measures the development
+// build, and each result says which it ran.
 import { type ChildProcess, spawn } from "node:child_process"
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { chromium, type CDPSession, type Page } from "playwright-core"
 import type { ProjectSession, Workspace } from "../src/renderer/workspace.ts"
+import { type ReactBuild, reactBuild } from "./react-build.ts"
 
 /** What the page holds for these measurements: the open tab's session. */
 interface PerfWindow {
@@ -47,6 +49,8 @@ const keep = args.includes("--keep")
 const openOnly = args.includes("--open-only")
 const profiling = args.includes("--profile")
 const second = resolve(option("second") ?? join(repoDir, "fixtures/vite7-js"))
+// What scripts/dev.ts runs the copy on, which inherits this.
+const react = process.env.PARITY_REACT ? reactBuild(process.env.PARITY_REACT) : "production"
 
 /** A function's own time over a run, with `--profile`. */
 interface Hot {
@@ -115,6 +119,8 @@ interface Result extends Partial<Measured> {
   label: string
   date: string
   project: string
+  /** The window's React build; missing from runs made before `pnpm dev` ran the production build, all development. */
+  react?: ReactBuild
   css?: string
   /**
    * Opening the project: on the first launch, timed from the window's page loading; again in the same window, from the
@@ -128,7 +134,7 @@ await mkdir(outDir, { recursive: true })
 const profileDir = join(tmpdir(), uiPort === 5320 ? "parity-perf-profile" : `parity-perf-profile-${uiPort}`)
 await rm(profileDir, { recursive: true, force: true })
 
-console.log(`Starting a copy of the app on ${project}`)
+console.log(`Starting a copy of the app on ${project}, on React's ${react} build`)
 let runner = launch()
 let page: Page | undefined
 try {
@@ -146,6 +152,7 @@ try {
     label,
     date: new Date().toISOString(),
     project,
+    react,
     ...(css ? { css } : {}),
     open,
     ...measured
