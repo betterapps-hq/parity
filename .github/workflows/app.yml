@@ -2,8 +2,8 @@ name: App tests
 
 # The editor's end-to-end tests (PAR-436), which open a copy of Parity on the example and drive it. On Windows, whose
 # runners have a desktop to open its window on; Linux would need a virtual display. A workflow of its own until they
-# run reliably on the runner (PAR-438): a failing job in CI would fail CI's run, which cd-npm.yml and cd-desktop.yml
-# wait on, though `CI passes` leaves it out. Then it moves back into CI, and `CI passes` waits for it.
+# run reliably on the runner (PAR-438): a failing job in CI would fail CI's run, and hold up the CLI's release there and
+# the desktop app's in cd-desktop.yml, though `CI passes` leaves it out. Then it moves back into CI, and `CI passes` waits for it.
 on:
   pull_request:
   push:
