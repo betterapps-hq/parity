@@ -237,6 +237,49 @@ made, set one after another as fast as they drew, took 1.06 to 1.37 s, before co
 what a box selects, where Figma's selects the layers deeper inside. Right-click's Select layer, listing everything under
 the pointer, is PAR-168.
 
+### The overlay measures only when what it shows can change (PAR-522)
+
+The overlay draws outlines, the selected layer's name and size, resize handles, a layout's spacing, redlines and the
+layout grid over the frames. It used to measure them every animation frame while anything was selected, searching the
+whole canvas for the design's frames several times each time, so a selection held still cost the window's thread as much
+as the rest of the canvas. Now it rests while nothing moves, and still follows everything it did.
+
+- **Frames are found from an index,** kept as `ModeView` mounts and unmounts each frame, not by searching the canvas.
+  Everything that finds a design's frames uses it: the overlay, hovering and clicking, agents' presence, Reveal, the
+  style preview and the tab order overlay.
+- **It measures after a change** to the camera or a board, the selection or the hover, the tool or View's settings, a
+  design, a frame's size or what it draws, an image or font loading, or the pointer, wheel and keys, which drive drags,
+  snapping, resizing and Alt's redlines. After each it measures every animation frame for half a second, then rests.
+- **Animations are followed while they run.** Once it has settled, it keeps measuring while an animation or transition
+  runs in a frame of the selected or hovered design, so outlines move with it, and stops when it ends. A component that
+  animates by script writes to its DOM, which counts as a change. A design animating elsewhere doesn't keep it going.
+- **Measured** on 2026-11-04 in an isolated copy of the app on the example project (119 frames), its development build,
+  held still for 3 seconds with the pointer over empty canvas: the window's script time with Home selected went from 91
+  to 7 ms per second, and with its nav selected and zoomed to from 81 to 7, against 8 with nothing selected. The outline
+  landed on the same pixels before and after, through tldraw's animated zoom and a 3-second CSS animation inside the
+  frame, which it followed from start to end; afterwards the window was back at 6 ms per second.
+
+Code: the index is `registerFrame`, `findFrames` and `allFrames` in `apps/desktop/src/renderer/frame.ts`, registered by
+`ModeView.tsx`. When to measure is `packages/editor/src/overlay-measuring.ts` (`overlayDesigns`, `drawsOver`,
+`settleUntil`, `measuresNext`), and what wakes it is the measuring effect in `canvas/CanvasOverlay.tsx`, with its
+`animates`. The calls are in decisions.md, The selection overlay measures when what it shows can change.
+
+Tests:
+
+- `packages/editor/src/overlay-measuring.test.ts` (11): the designs drawn over, the layout grid's every frame, the
+  settle window and how changes move it on, resting once settled, following an animation without asking about it while
+  settling, and resting while nothing shows.
+- `canvas/CanvasOverlay.test.ts`, "finding a design's frames" (2), in Chrome: the frames `ModeView` registers, found in
+  the page's order, by state and mode, only inside the root asked, and left out once they unmount. Its other tests drive
+  the overlay with the real mouse, through the index.
+- `canvas/style-preview.test.ts` finds its frames through the index too.
+- `apps/desktop/e2e/selecting.e2e.ts`, on CI: hovering and selecting outline layers, with the selected one's name and
+  size, and a dragged layer shows where it would land, all through the index and the measuring.
+
+Gaps: outlines following the camera and an animation inside a frame, and the window's idle script time, have no
+automated test; they were checked in the app as above. Layout that moves with nothing the overlay hears of, such as a
+video taking its size once its data arrives, is caught up at the next change.
+
 ### Right-click menus (PAR-168)
 
 A right-click on a design opens Figma's canvas menu, as far as Parity's commands go, for what's selected. Each item

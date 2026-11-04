@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useEffect, useId, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react"
 import type { PresenceEvent } from "../../shared/protocol.ts"
 import { ProjectContext } from "../canvas/context.ts"
+import { registerFrame } from "../frame.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { AgentPresence } from "./AgentPresence.tsx"
 import { heldBoards } from "./held-boards.ts"
@@ -91,7 +92,7 @@ function Frame({ board }: { board: MockBoard }) {
   const ref = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     const host = ref.current
-    if (!host) return
+    if (!host) return undefined
     const shadow = host.shadowRoot ?? host.attachShadow({ mode: "open" })
     shadow.innerHTML = board.nodes
       .map(
@@ -99,6 +100,8 @@ function Frame({ board }: { board: MockBoard }) {
           `<div data-canvas-node="${node.id}" style="position:absolute;left:${node.x}px;top:${node.y}px;width:${node.w}px;height:${node.h}px;border-radius:6px;background:${node.color}"></div>`
       )
       .join("")
+    // Agents' presence finds a board's frames from the index frames register in, as ModeView's do.
+    return registerFrame(host, board.key)
   }, [board])
   return (
     <div

@@ -21,7 +21,7 @@ import { DesignStore } from "../design-store.ts"
 import { SelectionStore } from "../selection.ts"
 import { CanvasOverlay } from "./CanvasOverlay.tsx"
 import { ProjectContext } from "./context.ts"
-export { boxAround, findNodeElements, nodeBox } from "../frame.ts"
+export { allFrames, boxAround, findFrames, findNodeElements, nodeBox } from "../frame.ts"
 
 // Draws its control and, beside it, a hidden input for forms, a pixel square clipped to nothing at the corner of what
 // it's fixed to, as Base UI's checkbox does.
@@ -211,6 +211,38 @@ function order() {
   // @ts-expect-error The page's session.
   return page.evaluate(() => window.session.store.getEntry("app.par#dash").container.root.children.map((n) => n.id))
 }
+
+describe("finding a design's frames", () => {
+  /** Each frame found for the dashboard, by its state, and every frame on the page. */
+  function found(filter = {}) {
+    return page.evaluate(
+      ({ design, filter }) => ({
+        // @ts-expect-error The bundle's global.
+        states: app.findFrames(document, design, filter).map((host: HTMLElement) => host.dataset.state),
+        // @ts-expect-error The bundle's global.
+        all: app.allFrames(document).length,
+        // @ts-expect-error The bundle's global.
+        elsewhere: app.findFrames(document.querySelector("#tldraw"), design).length
+      }),
+      { design, filter }
+    )
+  }
+
+  it("reads the frames ModeView registers, in the page's order, one state or all, inside the root asked", async () => {
+    expect(await found()).toEqual({ states: ["default", "loading"], all: 2, elsewhere: 0 })
+    expect(await found({ state: "loading" })).toEqual({ states: ["loading"], all: 2, elsewhere: 0 })
+    expect(await found({ mode: "elsewhere" })).toEqual({ states: [], all: 2, elsewhere: 0 })
+  })
+
+  it("leaves out a frame once it unmounts", async () => {
+    await page.evaluate(
+      // @ts-expect-error The bundle's global.
+      (containers) => app.mount(containers),
+      [{ ...dashboard, states: [dashboard.states[0]] }, statCard]
+    )
+    expect(await found()).toEqual({ states: ["default"], all: 1, elsewhere: 0 })
+  })
+})
 
 describe("a click inside a board", () => {
   it("selects the top-level layer under the pointer, with nothing selected, and keeps it from tldraw", async () => {
