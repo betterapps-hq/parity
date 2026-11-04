@@ -94,9 +94,9 @@ function run(args: string[], cwd = tmpdir(), input?: string) {
         HOME: registry,
         USERPROFILE: registry
       },
-      stdio: [input === undefined ? "ignore" : "pipe", "pipe", "pipe"]
+      stdio: ["pipe", "pipe", "pipe"]
     })
-    if (input !== undefined) child.stdin!.end(input)
+    child.stdin.end(input ?? "")
     let stdout = ""
     let stderr = ""
     child.stdout.setEncoding("utf8").on("data", (chunk: string) => (stdout += chunk))
