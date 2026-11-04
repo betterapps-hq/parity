@@ -3,8 +3,9 @@
 Status: an audit and plan from the New design experience session, 2026-11-04 (PAR-529). You asked how someone is meant
 to build a new app from scratch, whether it matches what a person coming from Figma expects, and said the words Design,
 Screen, View and Layer don't say what they are. You also said the start page was designed but never built, because its
-templates waited on the Buildkit scaffolder, which is ready now. Nothing here is decided until it's in
-[decisions.md](../decisions.md).
+templates waited on the Buildkit scaffolder, which is ready now. You took all six recommendations below on 2026-11-04;
+they're in [decisions.md](../decisions.md), "Starting from scratch, and what things are called (PAR-537)", and the tasks
+are in Linear. Each change people see is designed in Storybook for your approval before it's built in the app.
 
 ## In one line
 
@@ -203,25 +204,30 @@ than "Components".
 
 ## The tasks, ordered by impact
 
-Sizes are S, M and L, as [work.md](../work.md) describes them.
+Sizes are S, M and L, as [work.md](../work.md) describes them. Each change people see is a design issue in Storybook,
+which ends with your approval, and a build issue it blocks.
 
 1. **New project and the start page** (PAR-283's status first, then PAR-284, PAR-133 and PAR-188; L). The first thing
-   anyone sees, designed already, and unblocked.
+   anyone sees, designed already, and unblocked. PAR-284 makes a blank app's Home screen (decision 5).
 2. **Make creating visible** (M): the empty canvas's start, New screen and New component in File, Object, the
    right-click menu and Ctrl+K, Layers' + always shown, one rule for what lands on the empty canvas, and no "Pasted".
-   Doesn't need the decisions below, and ships the most for its size.
-3. **The screen is its container** (M): selecting a screen edits its root layout, and Layers drops the root's row. Needs
-   decision 3.
+   Designed in PAR-541, built in PAR-546.
+3. **The screen is its container** (M): selecting a screen edits its root layout, and Layers drops the root's row
+   (decision 3). Designed in PAR-542, built in PAR-547.
 4. **Frames and the frame tool** (L): a third, light kind of container, F to draw one, presets from the modes'
-   viewports, Make it a screen from a frame, and text on the empty canvas as a text layer. Needs decisions 1, 4 and 6.
-5. **One set of words** (M): the glossary in decisions.md, then the strings, toasts, hints and docs that use the old
-   ones. Needs decisions 1 and 2.
+   viewports, Make it a screen from a frame, and text on the empty canvas as a text layer (decisions 1, 4 and 6). The
+   model is PAR-539, the design PAR-540, and the app PAR-545, after PAR-538.
+5. **One set of words** (M): the glossary, then the strings, toasts, hints and docs that use the old ones (decisions 1
+   and 2). PAR-538, checked in its pull request's Storybook preview.
 6. **Lighter first steps** (S): hide "Editing Default" until a design has a second state, inserts that keep their own
    width in a new screen, the inspector's file chip out of the way, and the status bar's count saying it's components in
-   code.
-7. **Drag a preview narrower without saving** (PAR-170, already planned).
+   code. PAR-543.
+7. **Offer an app new to Parity its pages** (M). Designed in PAR-544, built in PAR-548.
+8. **Drag a preview narrower without saving** (PAR-170, already planned).
 
-## Decisions needed from you
+## Decisions
+
+You took each recommendation on 2026-11-04; decisions.md has them as decided.
 
 1. **A light third kind on the canvas, and its name.** My recommendation: yes, called a frame, the word Figma users
    reach for and F's key. The alternatives are a sketch or a draft.

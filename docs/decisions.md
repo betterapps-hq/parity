@@ -3074,3 +3074,32 @@ every frame, so an idle window with its build server running painted 60 times a 
   summaries with paths, every discovery note, and raw error messages, which ran to several lines. Those details are
   still there for anyone who needs them: agents' tools report detection, and a failed save's notification gives its
   reason.
+
+## Starting from scratch, and what things are called (PAR-537)
+
+You chose these on 2026-11-04 from the new-user audit
+([proposals/new-user-experience.md](proposals/new-user-experience.md), PAR-529), taking each of its recommendations:
+"Yes, record them." The work is PAR-538 to PAR-548.
+
+- **Frames are a third, light kind of design, beside screens and components.** A frame is a top-level layout drawn on
+  the canvas, once, at its own size, in the primary mode, with no states, no modes beside it, no route and no code
+  written. It holds anything a screen holds, and only a top-level one is a frame: drawn inside another design, it's a
+  layout. Any frame becomes a component or a screen, and a screen or component made a frame again keeps its layers and
+  drops its states, modes, params and variants, after saying so. It's the word Figma users reach for, and F's key
+  (PAR-539, PAR-540, PAR-545).
+- **The per-mode tiles inside a board are previews,** so frame means one thing. The rest of the words follow the
+  proposal's glossary ("One set of words"): screen or component rather than design for the thing, main only for a main
+  component, Default rather than Base for the first state, and board and view kept to the code (PAR-538).
+- **A screen and its root layout are one selection,** as Figma's top-level frames are. Selecting a screen or component
+  edits its root layout's size, fill, padding and auto layout first, with its states and modes below, and Layers lists
+  the root's children straight under it (PAR-542, PAR-547).
+- **T on the empty canvas makes a text layer in a frame that hugs it.** Notes stay, as annotations, under a tool of
+  their own (PAR-540, PAR-545).
+- **A blank app opens on a Home screen** for its `/` route, in its desktop and mobile modes, rather than on an empty
+  canvas (PAR-284).
+- **Frames are never written to code or checked for drift.** One becomes a component or a screen first, which keeps what
+  gets written to the two kinds that have a place in the app (PAR-539).
+- **Design changes are built in Storybook first, approved, then built in the app.** You said the same day: "any changes
+  to the design we should build in storybook first so it can be approved, then move into the app." So each change people
+  see is a design issue, which ends with your approval of its stories, and a build issue it blocks. Work in packages
+  with no UI, such as PAR-539, doesn't need the first step.
