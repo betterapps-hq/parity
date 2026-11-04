@@ -11,6 +11,7 @@ import {
   type ContainerSpec,
   deleteNode,
   type DesignChange,
+  designModes,
   type DesignNode,
   editNode,
   type EvalScope,
@@ -29,6 +30,7 @@ import {
   mapNode,
   type ModeSettings,
   type NodeStyle,
+  modesReport,
   moveNode,
   type NodeChange,
   nodeIds,
@@ -174,7 +176,7 @@ export class AgentWorkspace {
       Icons: (set?: string, options?: IconOptions) =>
         set === undefined ? describeIconSets(this.snapshot.iconSets ?? []) : this.icons(set, options),
       GetTokens: (filter?: { category?: string; source?: string; search?: string }) => this.getTokens(filter),
-      GetModes: () => ({ settings: structuredClone(this.modes), modes: resolveModes(this.modes).map(describeMode) }),
+      GetModes: (design?: string) => this.getModes(design),
       Selection: () => this.selection(),
       CreateDesign: (spec: DesignInput) => this.createDesign(spec),
       UpdateDesign: (design: string, update: DesignUpdate) => this.updateDesign(design, update),
@@ -450,6 +452,19 @@ export class AgentWorkspace {
         source: token.source,
         values: { ...token.values }
       }))
+  }
+
+  /**
+   * The project's modes, as set (`settings`, to change and pass to SetModes) and resolved, with what each design's
+   * board shows. Naming a design gives just that one, with each of its frames' sizes. Reading changes nothing.
+   */
+  private getModes(reference?: string) {
+    if (reference !== undefined && typeof reference !== "string") throw new TypeError("GetModes(design?)")
+    const designs =
+      reference === undefined
+        ? this.all().map(({ container }) => designModes(this.modes, container))
+        : [designModes(this.modes, this.findDesign(reference).container, true)]
+    return { settings: structuredClone(this.modes), ...modesReport(this.modes), designs }
   }
 
   private selection() {
@@ -1408,17 +1423,6 @@ function nodeNames(container: ContainerSpec, designName: (id: string) => string 
   }
   collect(container.root)
   return names
-}
-
-function describeMode(mode: ResolvedMode) {
-  return {
-    id: mode.id,
-    name: mode.name,
-    width: mode.width,
-    viewport: mode.viewport,
-    classNames: mode.classNames,
-    attributes: mode.attributes
-  }
 }
 
 function resolveInDesign(container: ContainerSpec, reference: string): DesignNode {

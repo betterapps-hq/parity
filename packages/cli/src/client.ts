@@ -103,6 +103,93 @@ export interface TabsResponse {
   tabs: TabSummary[]
 }
 
+export interface ModesResponse {
+  tab: { id: string; name: string }
+  variables: {
+    id: string
+    name: string
+    kind: "viewport" | "theme" | "locale" | "custom"
+    options: {
+      id: string
+      name: string
+      width?: number
+      height?: number
+      device?: string
+      className?: string
+      attributes?: Record<string, string>
+    }[]
+  }[]
+  /** Viewport options: the ids Responsive takes, with the window each stands for. */
+  viewports: { id: string; name: string; width: number; height: number; device?: string }[]
+  /** Modes: the ids renders take, each a combination of one option per variable. */
+  modes: {
+    id: string
+    name: string
+    primary: boolean
+    viewport: string
+    width: number
+    height: number
+    values: Record<string, string>
+    classNames: string[]
+    attributes: Record<string, string>
+  }[]
+  designs: {
+    id: string
+    name: string
+    state: string
+    states: string[]
+    main: string
+    beside: string[]
+    frames?: { mode: string; width: number; height?: number; window: { width: number; height: number } }[]
+  }[]
+}
+
+/**
+ * The project's viewports (what Responsive takes), its other variables, its modes (what renders take) and what each
+ * design's board shows, with a named design's frames.
+ */
+export function describeModes(result: ModesResponse): string {
+  const { variables, viewports, modes, designs } = result
+  const lines = [
+    "Viewports, the ids Responsive(node, viewport, patch) takes:",
+    ...viewports.map(
+      (viewport) => `  ${viewport.id}: ${viewport.width} wide, in a window ${viewport.height} tall (${viewport.name})`
+    )
+  ]
+  const others = variables.filter((variable) => variable.kind !== "viewport")
+  if (others.length > 0) {
+    lines.push("", "Other variables:")
+    for (const variable of others) {
+      const options = variable.options.map((option) => {
+        const effects = [
+          ...(option.className ? [`class ${option.className}`] : []),
+          ...Object.entries(option.attributes ?? {}).map(([name, value]) => `${name}="${value}"`)
+        ]
+        return effects.length > 0 ? `${option.id} (${effects.join(", ")})` : option.id
+      })
+      lines.push(`  ${variable.id} (${variable.kind}): ${options.join(", ")}`)
+    }
+  }
+  lines.push("", "Modes, the ids screenshots and checks take, primary first:")
+  for (const mode of modes) {
+    const values = Object.entries(mode.values)
+      .map(([variable, option]) => `${variable} ${option}`)
+      .join(", ")
+    lines.push(`  ${mode.id}${mode.primary ? " (primary)" : ""}: ${values}; ${mode.width} by ${mode.height}`)
+  }
+  lines.push("", designs.length === 1 ? "Design:" : "Designs:")
+  for (const design of designs) {
+    const states = design.states.length > 1 ? `every state (${design.states.join(", ")})` : `state ${design.state}`
+    const beside = design.beside.length > 0 ? `, beside it ${design.beside.join(", ")}` : ""
+    lines.push(`  ${design.id} (${design.name}): ${states}; main mode ${design.main}${beside}`)
+    for (const frame of design.frames ?? []) {
+      const size = frame.height === undefined ? `${frame.width} wide, growing` : `${frame.width} by ${frame.height}`
+      lines.push(`    ${frame.mode}: ${size}, in a ${frame.window.width} by ${frame.window.height} window`)
+    }
+  }
+  return lines.join("\n")
+}
+
 export interface AccessibilityFinding {
   state: string
   mode: string

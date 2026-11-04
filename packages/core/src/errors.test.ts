@@ -31,6 +31,8 @@ describe("coded errors", () => {
     const picked = closest("button", [...many, "IconButton", "Button"])
     expect(picked).toHaveLength(alternativeLimit)
     expect(picked.slice(0, 2)).toEqual(["IconButton", "Button"])
+    // A typo shares no text with what was meant, so it comes next by edit distance, ahead of the rest.
+    expect(closest("dashbord", [...many, "dashboard"])[0]).toBe("dashboard")
   })
 
   it("checks details from another process, dropping what it doesn't know", () => {

@@ -6,6 +6,7 @@ import {
   describeComponents,
   describeConsole,
   describeExec,
+  describeModes,
   describeProblems,
   describeProps,
   describeTokens,
@@ -82,6 +83,12 @@ const tools: Tool[] = [
     "Get a tab's state: its designs (ids, states, modes shown, where their boards are and how big), boards that overlap or crowd each other's titles, the selection, project modes, components and tokens, and what Parity detected in the project (each tool's version, where it's installed and its config, the package manager, and a note naming versions Parity doesn't test). Call it first, and again after the person may have changed things. Keep boards apart: Overlaps() and FindEmptySpace() in execute help place them.",
     operations.state,
     json
+  ),
+  operationTool(
+    "get_modes",
+    "Read the project's modes and what each design shows. viewports are the ids Responsive takes; modes are the ids screenshot, find_problems and check_accessibility take, each one option per variable (viewport, theme, locale), with its width, window height and the classes and attributes it sets. designs gives each board's state, main mode and the modes beside it; name a design to get just it, with each frame's size and window. Reading changes nothing.",
+    operations.modes,
+    (result) => [text(describeModes(result))]
   ),
   {
     name: "execute",

@@ -43,7 +43,7 @@ Props(component, { all? }?): PropsInfo           // a component's props, from it
 Icons(): IconSet[]                               // the project's icon sets, with their styles
 Icons(set, { search?, style?, limit? }): Icon[]  // async: a set's icons, as component nodes name them
 GetTokens({ category?, source?, search? }?): Token[]
-GetModes(): { settings, modes }                  // the project's modes, and each resolved
+GetModes(design?): { settings, variables, viewports, modes, designs }   // modes resolved; what each design shows
 Selection(): { design?, node?, mode? }           // what the person has selected
 
 // Designs
@@ -273,6 +273,18 @@ ExtractComponent("team-members", rows.nodes, { name: "Member row", params: { [ro
 
 `SetModes(settings)` replaces the project's modes: take `GetModes().settings`, change it, and pass it back. Modes are
 shared by every design.
+
+`GetModes()` also gives `viewports`, the ids `Responsive` takes, each with its width and window height; `modes`, the ids
+`Screenshot` and the checks take, each with its `values` (one option per variable), width, window height, classes and
+attributes; and `designs`, each design's `state` (or `states` when it shows every state), `main` mode and `beside`
+modes. `GetModes("dashboard")` gives just that design, with each frame's width, fixed `height` if it has one, and
+`window`.
+
+```js
+const { viewports, designs } = GetModes("dashboard")
+Print(viewports.map((viewport) => viewport.id)) // ["desktop", "tablet", "mobile"]: for Responsive
+Print(designs[0].frames.map((frame) => `${frame.mode} ${frame.window.width}x${frame.window.height}`))
+```
 
 `SetTokens` changes token values in the project's stylesheets: `SetTokens({ primary: "oklch(0.55 0.2 260)" })` for every
 theme, or `SetTokens({ primary: { default: "…", dark: "…" } })` per theme. Every frame shows the new values at once, and

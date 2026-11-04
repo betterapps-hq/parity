@@ -3,6 +3,7 @@ import type {
   ComponentsResponse,
   ConsoleEntry,
   ConsoleResponse,
+  ModesResponse,
   ProblemsResponse,
   PropsResponse,
   TabSummary,
@@ -349,6 +350,67 @@ const propsSchema = object(
   ["path", "import"]
 )
 
+const viewportSchema = object(
+  { id: string, name: string, width: { type: "number" }, height: { type: "number" }, device: string },
+  ["device"]
+)
+const frameReportSchema = object(
+  {
+    mode: string,
+    width: { type: "number" },
+    height: { type: "number", description: "Fixed frame height, which clips; absent when it grows." },
+    window: object({ width: { type: "number" }, height: { type: "number" } })
+  },
+  ["height"]
+)
+const modesSchema = object({
+  tab: ref,
+  variables: {
+    type: "array",
+    items: object({
+      id: string,
+      name: string,
+      kind: { type: "string", enum: ["viewport", "theme", "locale", "custom"] },
+      options: { type: "array", items: { type: "object" } }
+    })
+  },
+  viewports: {
+    type: "array",
+    items: viewportSchema,
+    description: "Viewport ids, which Responsive and a node's responsive patches take. Not mode ids."
+  },
+  modes: {
+    type: "array",
+    description: "Mode ids, which renders (screenshot, problems, accessibility) and a design's modes take.",
+    items: object({
+      id: string,
+      name: string,
+      primary: boolean_,
+      viewport: string,
+      width: { type: "number" },
+      height: { type: "number" },
+      values: { type: "object", additionalProperties: string },
+      classNames: strings,
+      attributes: { type: "object", additionalProperties: string }
+    })
+  },
+  designs: {
+    type: "array",
+    items: object(
+      {
+        id: string,
+        name: string,
+        state: string,
+        states: strings,
+        main: string,
+        beside: strings,
+        frames: { type: "array", items: frameReportSchema }
+      },
+      ["frames"]
+    )
+  }
+})
+
 const checks = {
   tab,
   design,
@@ -364,6 +426,14 @@ export const operations = {
     (tabs) => ({ tabs })
   ),
   state: operation<Record<string, unknown>>("state", { tab }, stateSchema),
+  modes: operation<ModesResponse>(
+    "modes",
+    {
+      tab,
+      design: text("Design id or name. With it, just that design, with each of its frames' sizes.")
+    },
+    modesSchema
+  ),
   open: operation<TabSummary>("open", { root }, tabSchema),
   screenshot: mapped<ExecResponse, ExecReply>(
     "screenshot",

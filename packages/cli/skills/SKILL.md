@@ -28,6 +28,7 @@ active tab is the default.
 | MCP                   | CLI                          | What it does                                                                                                                                               |
 | --------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `get_app_state`       | `parity state`               | Designs, the selection, modes, components and token names, and what Parity detected (builder and config, package manager, installed versions). Start here. |
+| `get_modes`           | `parity modes [design]`      | Viewports (the ids `Responsive` takes), modes (the ids renders take) and what each design shows; a design adds its frames.                                 |
 | `execute`             | `parity exec`                | Runs a JavaScript snippet against the designs. Its changes land as one undo step, merged per design with edits made meanwhile.                             |
 | `screenshot`          | `parity screenshot <design>` | Renders a design in its states and modes, offscreen, and returns the images.                                                                               |
 | `find_problems`       | `parity problems <design>`   | Render errors, overflow, clipping and unknown components, per frame.                                                                                       |

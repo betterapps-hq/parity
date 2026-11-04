@@ -171,6 +171,65 @@ Print(Get("page", {depth: 1}).children.length)`
     expect(renamed.changes.modes?.after.modes[0]!.name).toBe("X")
   })
 
+  it("reads the modes and what each design shows with GetModes, changing nothing", async () => {
+    const read = snapshot()
+    read.documents[0]!.document.containers[0]!.view = { modes: ["mobile-light"] }
+    const before = structuredClone(read)
+    const events: AgentEvent[] = []
+    const result = await execute(
+      {
+        label: "Read modes",
+        code: `const all = GetModes()
+const one = GetModes("Sign up")
+Print(JSON.stringify({ viewports: all.viewports.map((v) => v.id), modes: all.modes.map((m) => m.id), designs: all.designs, one: one.designs }))`
+      },
+      read,
+      hooks(events)
+    )
+    expect(result.ok).toBe(true)
+    expect(JSON.parse(result.output[0]!)).toEqual({
+      viewports: ["desktop", "tablet", "mobile"],
+      modes: ["desktop-light", "desktop-dark", "tablet-light", "mobile-light"],
+      designs: [
+        {
+          id: "signup",
+          name: "Sign up",
+          state: "default",
+          states: ["default"],
+          main: "desktop-light",
+          beside: ["mobile-light"]
+        }
+      ],
+      one: [
+        {
+          id: "signup",
+          name: "Sign up",
+          state: "default",
+          states: ["default"],
+          main: "desktop-light",
+          beside: ["mobile-light"],
+          frames: [
+            { mode: "desktop-light", width: 1280, window: { width: 1280, height: 800 } },
+            { mode: "mobile-light", width: 390, window: { width: 390, height: 844 } }
+          ]
+        }
+      ]
+    })
+    expect(result.changes).toEqual({ designs: [], tokens: [] })
+    expect(events.some((event) => event.kind === "write")).toBe(false)
+    expect(read).toEqual(before)
+  })
+
+  it("names the designs GetModes knows when asked for one it doesn't", async () => {
+    const result = await execute({ label: "Read modes", code: `GetModes("sign")` }, snapshot(), hooks())
+    expect(result.details).toEqual({
+      code: "unknown_design",
+      retryable: false,
+      field: "design",
+      alternatives: ["signup"]
+    })
+  })
+
   it("changes nothing when the snippet fails, and retries with edits", async () => {
     const shared = snapshot()
     const failed = await execute(

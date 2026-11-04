@@ -4,12 +4,14 @@ import {
   type AccessibilityResponse,
   type ComponentsResponse,
   type ConsoleResponse,
+  type ModesResponse,
   type ProblemsResponse,
   type PropsResponse,
   describeAccessibility,
   describeComponents,
   describeConsole,
   describeExec,
+  describeModes,
   describeProblems,
   describeProps,
   describeTokens
@@ -35,6 +37,27 @@ const consoleResult: ConsoleResponse = { ...consoleReply, total: 0, truncated: f
 const noTokens = { tokens: [], total: 0, truncated: false }
 const components: ComponentsResponse = { components: ["Button", "Card"] }
 const props: PropsResponse = { component: "Button", known: true, props: [] }
+const modes: ModesResponse = {
+  tab,
+  variables: [
+    { id: "viewport", name: "Viewport", kind: "viewport", options: [{ id: "mobile", name: "Mobile", width: 390 }] }
+  ],
+  viewports: [{ id: "mobile", name: "Mobile", width: 390, height: 844 }],
+  modes: [
+    {
+      id: "mobile-light",
+      name: "Mobile Light",
+      primary: true,
+      viewport: "mobile",
+      width: 390,
+      height: 844,
+      values: { viewport: "mobile" },
+      classNames: [],
+      attributes: {}
+    }
+  ],
+  designs: [{ id: "home", name: "Home", state: "default", states: ["default"], main: "mobile-light", beside: [] }]
+}
 const project = resolve("some/../project")
 interface Case {
   name: string
@@ -75,6 +98,17 @@ const cases: Case[] = [
     structured: { tab, designs: [] },
     text: JSON.stringify({ tab, designs: [] }, null, 2),
     mcpText: JSON.stringify({ tab, designs: [] })
+  },
+  {
+    name: "modes",
+    cli: ["modes"],
+    tool: "get_modes",
+    method: "modes",
+    input: {},
+    params: {},
+    result: modes,
+    structured: modes,
+    text: describeModes(modes)
   },
   {
     name: "open",
@@ -271,6 +305,22 @@ describe("remaining transport contracts", () => {
       }
     },
     {
+      cli: ["modes", "dashbord"],
+      tool: "get_modes",
+      input: { design: "dashbord" },
+      reply: {
+        error: 'No design "dashbord". Designs: home (Home), dashboard (Dashboard)',
+        details: { code: "unknown_design", field: "design", alternatives: ["dashboard", "home"] }
+      },
+      error: {
+        code: "unknown_design",
+        message: 'No design "dashbord". Designs: home (Home), dashboard (Dashboard)',
+        retryable: false,
+        path: "/design",
+        alternatives: ["dashboard", "home"]
+      }
+    },
+    {
       cli: ["props", "Buton"],
       tool: "get_props",
       input: { component: "Buton" },
@@ -411,6 +461,14 @@ describe("remaining transport contracts", () => {
       input: { category: "color", source: "theme", search: "brand", limit: 1000 },
       params: { category: "color", source: "theme", search: "brand", limit: 1000 },
       result: []
+    },
+    {
+      cli: ["modes", "home"],
+      tool: "get_modes",
+      method: "modes",
+      input: { design: "home" },
+      params: { design: "home" },
+      result: modes
     },
     {
       cli: ["props", "Button", "--all"],
@@ -617,7 +675,9 @@ describe("remaining transport contracts", () => {
       input: { constructor: "ignored?" },
       error: "Unknown input field constructor",
       path: "/constructor"
-    }
+    },
+    { tool: "get_modes", input: { design: " " }, error: "design must be a nonblank string", path: "/design" },
+    { tool: "get_modes", input: { mode: "mobile" }, error: "Unknown input field mode", path: "/mode" }
   ]
   it.each(malformedMcp)("rejects malformed MCP $tool arguments without RPC", async ({ tool, input, error, path }) => {
     const protocol = await mcp(input, tool)

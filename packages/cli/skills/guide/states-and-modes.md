@@ -30,9 +30,11 @@ Modes are the project's, shared by every design. Each mode picks one option of e
 - **Theme:** a class on the frame, such as `dark`, that switches the project's tokens.
 - **Locale:** `lang` and `dir` attributes, for languages and right-to-left scripts.
 
-`GetModes()` lists them. A design shows its main mode and, beside it, any others you choose with
-`UpdateDesign(design, { showModes: ["desktop-dark", "mobile-light"] })`. Show the modes that matter for the design: a
-dashboard in desktop and mobile, a component in light and dark.
+`get_modes` (`parity modes`) lists them, and `get_modes` with a design gives its frames: run it before a responsive
+change, since the ids `Responsive` takes are viewports (`mobile`) and the ids screenshots take are modes
+(`mobile-light`). `GetModes()` gives the same in a snippet. A design shows its main mode and, beside it, any others you
+choose with `UpdateDesign(design, { showModes: ["desktop-dark", "mobile-light"] })`. Show the modes that matter for the
+design: a dashboard in desktop and mobile, a component in light and dark.
 
 ## Viewports and responsive patches
 

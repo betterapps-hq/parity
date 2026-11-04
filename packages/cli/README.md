@@ -30,6 +30,7 @@ app.
 | ---------------------------- | ------------------------------------------------------------------------------------------ |
 | `parity tabs`                | Lists the open projects.                                                                   |
 | `parity state`               | A tab's designs, selection, modes, components and tokens. Start here.                      |
+| `parity modes [design]`      | Viewports, modes and what each design shows; a design adds its frames' sizes.              |
 | `parity exec [file]`         | Runs a JavaScript snippet against the designs, from a file or stdin, as one undoable step. |
 | `parity screenshot <design>` | Renders a design in its states and modes, offscreen, as images.                            |
 | `parity problems <design>`   | Render errors, overflow, clipping and unknown components, per frame.                       |
@@ -81,6 +82,7 @@ All desktop commands use the same operation contracts as their MCP counterparts:
 | ------------------------ | --------------------- |
 | `tabs`                   | `get_tabs`            |
 | `state`                  | `get_app_state`       |
+| `modes`                  | `get_modes`           |
 | `exec`                   | `execute`             |
 | `screenshot`             | `screenshot`          |
 | `problems`               | `find_problems`       |
