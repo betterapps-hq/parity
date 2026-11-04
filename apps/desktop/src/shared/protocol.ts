@@ -92,15 +92,18 @@ export interface ServiceMethods {
     result: { files: string[]; warnings: string[] }
   }
   /**
-   * Draws one frame offscreen and captures it as a PNG, for the canvas to show in its place when zoomed far out. No
-   * PNG when the frame didn't render.
+   * Draws one frame offscreen and captures it as a PNG, for the canvas to show in its place when zoomed far out, and
+   * keeps it on disk. No PNG when the frame didn't render. `height` is the live frame's height in its own CSS pixels,
+   * kept with the bitmap; without one, the offscreen frame's is kept, which can be a few pixels out (PAR-179).
    */
-  "frames.capture": { params: { job: RenderJob }; result: { png?: string } }
+  "frames.capture": { params: { job: RenderJob; height?: number }; result: { png?: string } }
   /**
    * The bitmap of a frame kept on disk from an earlier capture of the same job with the same code, if there is one
    * (PAR-158). It's asked for before anything is captured, so a project opened again shows its frames zoomed out at once.
+   * `height` is the frame's height as it was captured, in its own CSS pixels, which a frame that hasn't drawn yet takes
+   * while it shows the bitmap (PAR-179).
    */
-  "frames.stored": { params: { job: RenderJob }; result: { png?: string } }
+  "frames.stored": { params: { job: RenderJob }; result: { png?: string; height?: number } }
   /** Removes every frame bitmap kept on disk, for View > Clear bitmap cache. */
   "frames.clearStored": { params: undefined; result: undefined }
   /**

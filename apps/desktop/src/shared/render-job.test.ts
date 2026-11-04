@@ -1,7 +1,7 @@
 import { execute, type FrameRequest } from "@parity-app/agent"
 import { type ContainerSpec, frameGeometry, type ModeSettings, resolveModes } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
-import { componentsGone, renderJobMode } from "./render-job.ts"
+import { componentsGone, drawnComponents, renderJobMode } from "./render-job.ts"
 
 /** A 1280px screen 1234px tall, whose height is the mode's own rather than the nearest device's 800. */
 const modes: ModeSettings = {
@@ -104,5 +104,41 @@ describe("componentsGone", () => {
   it("is nothing before any job gave components, or for a job that carries none", () => {
     expect(componentsGone(undefined, { Card: card })).toEqual([])
     expect(componentsGone({ Badge: badge }, undefined)).toEqual([])
+  })
+})
+
+describe("drawnComponents", () => {
+  const served = {
+    Button: { path: "src/button.tsx", export: "Button" },
+    Card: { path: "src/card.tsx", export: "Card", library: undefined },
+    Unused: { path: "src/unused.tsx", export: "Unused" }
+  }
+  const tree = [
+    {
+      kind: "component",
+      nodeId: "a",
+      component: "Card",
+      props: { icon: { kind: "component", nodeId: "i", component: "Icon", props: {}, slots: {} } },
+      slots: { children: [{ kind: "component", nodeId: "b", component: "Button", props: {}, slots: {} }] }
+    },
+    { kind: "text", text: "Card" }
+  ]
+
+  it("lists the components a tree draws, wherever they're nested, by where they come from", () => {
+    expect(drawnComponents(tree, served)).toEqual([
+      ["Button", "src/button.tsx#Button"],
+      ["Card", "src/card.tsx#Card"],
+      ["Icon", null]
+    ])
+  })
+
+  it("is the same whether a component was served or given since, and follows one given from another file", () => {
+    const { Button: _button, ...withoutButton } = served
+    const given = { Button: { path: "src/button.tsx", export: "Button" } }
+    expect(drawnComponents(tree, withoutButton, given)).toEqual(drawnComponents(tree, served))
+    expect(drawnComponents(tree, served, { Card: { path: "src/cards.tsx", export: "Card" } })[1]).toEqual([
+      "Card",
+      "src/cards.tsx#Card"
+    ])
   })
 })

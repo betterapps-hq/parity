@@ -1,13 +1,18 @@
-// Measures how the canvas copes with a project: the frame rate while the camera zooms and pans every frame, where each
-// frame's time goes (style, layout, paint, raster), how long selecting a design takes to settle, and memory. It starts
-// its own copy of the app on its own ports and profile, so a copy already running is left alone, and stops it after.
+// Measures how the canvas copes with a project: how long it takes to open, the frame rate while the camera zooms and pans
+// every frame, where each frame's time goes (style, layout, paint, raster), how long selecting a design takes to settle,
+// and memory. It starts its own copy of the app on its own ports and profile, so a copy already running is left alone,
+// and stops it after. Opening is timed three ways: the first launch, on a fresh profile; reopening the project in the
+// same window; and starting the app again on the same profile, as someone does each day.
 // Results go to .inspect/perf/<label>.json; --compare prints another run's numbers beside them.
 // Usage: pnpm perf [--label name] [--compare name] [--project root] [--seconds 4] [--viewport 1439x901] [--css "rules"]
-//                  [--profile] [--keep]
-//   --viewport the page's size in CSS pixels, the same every run (the default is the first runs' window)
-//   --css      adds a stylesheet to the page before measuring, to try an idea without changing the code
-//   --profile  samples the page's JavaScript too, and lists the functions that took the most time in each run
-//   --keep     leaves the app running afterwards, until the script is stopped
+//                  [--profile] [--keep] [--open-only]
+//   --viewport  the page's size in CSS pixels, the same every run (the default is the first runs' window)
+//   --css       adds a stylesheet to the page before measuring, to try an idea without changing the code
+//   --profile   samples the page's JavaScript too, and lists the functions that took the most time in each run
+//   --keep      leaves the app running afterwards, until the script is stopped
+//   --open-only times opening the project and nothing else
+// PARITY_PERF_UI_PORT and PARITY_PERF_DEBUG_PORT choose the copy's ports (5320 and 9340), so two sessions can measure at
+// once.
 import { type ChildProcess, spawn } from "node:child_process"
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
@@ -39,6 +44,7 @@ const seconds = Number(option("seconds") ?? 4)
 const css = option("css")
 const viewport = option("viewport") ?? "1439x901"
 const keep = args.includes("--keep")
+const openOnly = args.includes("--open-only")
 const profiling = args.includes("--profile")
 const second = resolve(option("second") ?? join(repoDir, "fixtures/vite7-js"))
 
@@ -63,16 +69,25 @@ interface Run {
   hidden?: true
 }
 
-interface Result {
-  label: string
-  date: string
-  project: string
-  css?: string
+/**
+ * How long a project took to open, in milliseconds: until every frame on the canvas showed its design or its bitmap, so
+ * the canvas can be worked on, and until every frame had its bitmap, which zooming out shows.
+ */
+interface Opening {
+  usableMs: number
+  previewsMs: number
+  frames: number
+  /** Frames showing their bitmaps by then: fewer than `frames` when some never got one. */
+  bitmaps: number
+}
+
+/** What's measured once the project has opened, which `--open-only` skips. */
+interface Measured {
   census: Record<string, number>
   runs: Run[]
   select: { medianMs: number; maxMs: number; mainMsPerSelect: number; hot?: Hot[] }
   /** Editing one design at a time; missing from runs made before it was measured. */
-  edit?: Result["select"]
+  edit?: Measured["select"]
   memoryMb: Record<string, number>
   /** What the tab still holds while another is showing, and how long switching back takes to draw it. */
   hidden?: {
@@ -96,42 +111,95 @@ interface Result {
   }
 }
 
+interface Result extends Partial<Measured> {
+  label: string
+  date: string
+  project: string
+  css?: string
+  /**
+   * Opening the project: on the first launch, timed from the window's page loading; again in the same window, from the
+   * open; and in the app started again on the same profile, from its page loading. Missing from runs made before it was
+   * measured.
+   */
+  open?: { launch: Opening; reopen?: Opening; restart?: Opening }
+}
+
 await mkdir(outDir, { recursive: true })
 const profileDir = join(tmpdir(), uiPort === 5320 ? "parity-perf-profile" : `parity-perf-profile-${uiPort}`)
 await rm(profileDir, { recursive: true, force: true })
 
 console.log(`Starting a copy of the app on ${project}`)
-const runner = spawn(process.execPath, [join(appDir, "scripts/dev.ts"), project], {
-  cwd: appDir,
-  env: {
-    ...process.env,
-    PARITY_UI_PORT: String(uiPort),
-    PARITY_UI_FROZEN: "1",
-    PARITY_DEBUG_PORT: String(debugPort),
-    PARITY_USER_DATA: profileDir,
-    // The window opens at the size to measure, rather than the page being held at it, so the window still behaves like
-    // a window if someone maximizes it.
-    PARITY_WINDOW_SIZE: viewport,
-    // Agents find the app through this file. The copy keeps its own, so agents keep working with the person's app and
-    // can't change the copy while it's measured.
-    PARITY_AGENT_FILE: join(profileDir, "agent.json")
-  },
-  stdio: ["ignore", "ignore", "inherit"]
-})
-
+let runner = launch()
 let page: Page | undefined
 try {
   page = await connect()
-  const result = await measure(page)
+  const open: NonNullable<Result["open"]> = { launch: await opened(page) }
+  const measured = openOnly ? {} : await measure(page)
+  open.reopen = await opened(page, project)
+  // Started again on the same profile, it restores the tab and finds the bitmaps it kept.
+  console.log("Starting the copy again on the same profile")
+  await quit(page, runner)
+  runner = launch()
+  page = await connect()
+  open.restart = await opened(page)
+  const result: Result = {
+    label,
+    date: new Date().toISOString(),
+    project,
+    ...(css ? { css } : {}),
+    open,
+    ...measured
+  }
   await writeFile(join(outDir, `${label}.json`), JSON.stringify(result, null, 2))
   const previous = compare ? (JSON.parse(await readFile(join(outDir, `${compare}.json`), "utf8")) as Result) : undefined
   report(result, previous)
-  console.log(`\nSaved ${join(outDir, `${label}.json`)}`)
+  console.log(`
+Saved ${join(outDir, `${label}.json`)}`)
 } finally {
   await page?.context().browser()?.close()
   // The runner stops the app once this script ends, so a kept app lasts until this script is stopped.
   if (keep) console.log(`The app keeps running, with DevTools on port ${debugPort}, until this script is stopped`)
   else stop(runner)
+}
+
+function launch(): ChildProcess {
+  return spawn(process.execPath, [join(appDir, "scripts/dev.ts"), project], {
+    cwd: appDir,
+    env: {
+      ...process.env,
+      PARITY_UI_PORT: String(uiPort),
+      PARITY_UI_FROZEN: "1",
+      PARITY_DEBUG_PORT: String(debugPort),
+      PARITY_USER_DATA: profileDir,
+      // What the type checker found is kept with the profile too, so the first launch finds none, as on a fresh install,
+      // and the person's own cache is left alone.
+      PARITY_CACHE_DIR: join(profileDir, "detection"),
+      // The window opens at the size to measure, rather than the page being held at it, so the window still behaves
+      // like a window if someone maximizes it.
+      PARITY_WINDOW_SIZE: viewport,
+      // Agents find the app through this file. The copy keeps its own, so agents keep working with the person's app and
+      // can't change the copy while it's measured.
+      PARITY_AGENT_FILE: join(profileDir, "agent.json")
+    },
+    stdio: ["ignore", "ignore", "inherit"]
+  })
+}
+
+/**
+ * Closes the copy's window as someone would, so it saves its tabs, and waits for the app to end; one that hasn't ended
+ * after 20 seconds is stopped.
+ */
+async function quit(page: Page, child: ChildProcess): Promise<void> {
+  const ended = new Promise((resolve) => child.once("exit", resolve))
+  await page.evaluate(() => window.close()).catch(() => undefined)
+  await page
+    .context()
+    .browser()
+    ?.close()
+    .catch(() => undefined)
+  const timer = setTimeout(() => stop(child), 20_000)
+  await ended
+  clearTimeout(timer)
 }
 
 async function connect(): Promise<Page> {
@@ -150,12 +218,12 @@ async function connect(): Promise<Page> {
     } catch {
       // Not listening yet.
     }
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    await new Promise((resolve) => setTimeout(resolve, 250))
   }
   throw new Error("The app's window didn't appear")
 }
 
-async function measure(page: Page): Promise<Result> {
+async function measure(page: Page): Promise<Measured> {
   // The same size every run, since a larger window draws more. The window opens at it, give or take the few pixels
   // Windows rounds by, which the census reports; one that didn't, such as on a screen too small for it, is held at it.
   // Sizes come from the protocol, which reads the window itself.
@@ -192,9 +260,9 @@ async function measure(page: Page): Promise<Result> {
     }
     await document.fonts.ready
   })
-  // Bitmaps for zooming far out are taken one frame at a time in the background; measure once they're all there.
+  // Bitmaps for zooming far out are read from disk or taken one frame at a time in the background, which opening waited
+  // for; any a frame still lacks after settling, measure once they're all there.
   const bitmapsReady = await page.evaluate(async () => {
-    const started = performance.now()
     const frames = document.querySelectorAll("[data-frame]").length
     let last = -1
     let still = 0
@@ -205,7 +273,7 @@ async function measure(page: Page): Promise<Result> {
       still = now === last ? still + 1 : 0
       last = now
     }
-    return { bitmaps: document.querySelectorAll("[data-bitmap]").length, seconds: (performance.now() - started) / 1000 }
+    return document.querySelectorAll("[data-bitmap]").length
   })
   // The app's own module instance, as Vite serves it to the page. Sessions are replaced as they change (the editor
   // mounting, the type checker's results), so the open tab's is looked up each time.
@@ -230,8 +298,7 @@ async function measure(page: Page): Promise<Result> {
   })
   Object.assign(census, {
     ...(await pageSize()),
-    bitmaps: bitmapsReady.bitmaps,
-    bitmapSeconds: Math.round(bitmapsReady.seconds)
+    bitmaps: bitmapsReady
   })
 
   await cdp.send("Performance.enable")
@@ -272,16 +339,56 @@ async function measure(page: Page): Promise<Result> {
   })
   await cdp.detach()
   return {
-    label,
-    date: new Date().toISOString(),
-    project,
-    ...(css ? { css } : {}),
     census,
     runs,
     select,
     edit,
     memoryMb,
     ...(hidden ? { hidden } : {})
+  }
+}
+
+/**
+ * Times opening the project: until every frame on the canvas shows its design or its bitmap, then until every frame
+ * shows its bitmap. Given a project, it closes every tab and opens that project again in this window, timed from the
+ * open; otherwise it times the page's own load, from when it started, with the tabs it restores.
+ */
+async function opened(page: Page, reopen?: string): Promise<Opening> {
+  const opening = await page.evaluate(
+    async ([url, root]) => {
+      const frame = () => new Promise((resolve) => setTimeout(resolve, 25))
+      const frames = () => [...document.querySelectorAll("[data-frame]")]
+      let start = 0
+      if (root) {
+        const { workspace } = (await import(url)) as { workspace: Workspace }
+        for (const tab of workspace.getTabs()) await workspace.close(tab.id)
+        while (frames().length > 0) await frame()
+        start = performance.now()
+        void workspace.open(root)
+      }
+      const drawn = (host: Element) =>
+        Boolean(host.closest("[data-bitmap]") ?? host.shadowRoot?.querySelector("[data-canvas-node]"))
+      let usable: number | undefined
+      let count = { frames: 0, bitmaps: 0 }
+      while (performance.now() - start < 180_000) {
+        const all = frames()
+        count = { frames: all.length, bitmaps: document.querySelectorAll("[data-bitmap]").length }
+        if (all.length > 0) {
+          usable ??= all.every(drawn) ? performance.now() : undefined
+          if (usable !== undefined && count.bitmaps >= all.length) {
+            return { usableMs: usable - start, previewsMs: performance.now() - start, ...count }
+          }
+        }
+        await frame()
+      }
+      return { usableMs: (usable ?? performance.now()) - start, previewsMs: performance.now() - start, ...count }
+    },
+    ["/workspace.ts", reopen] as const
+  )
+  return {
+    ...opening,
+    usableMs: Math.round(opening.usableMs),
+    previewsMs: Math.round(opening.previewsMs)
   }
 }
 
@@ -395,7 +502,7 @@ async function moveCamera(page: Page, cdp: CDPSession, motion: Motion): Promise<
  * Selects designs one after another, or edits them, timing how long each change takes to settle. An edit adds a space
  * to the design's name in memory, neither saved nor undoable, and takes it out again untimed.
  */
-async function timeChanges(page: Page, cdp: CDPSession, change: "select" | "edit"): Promise<Result["select"]> {
+async function timeChanges(page: Page, cdp: CDPSession, change: "select" | "edit"): Promise<Measured["select"]> {
   await page.evaluate(() => {
     const editor = (window as unknown as PerfWindow).perfSession.editor!
     editor.zoomToFit({ animation: { duration: 0 } })
@@ -450,7 +557,7 @@ async function timeChanges(page: Page, cdp: CDPSession, change: "select" | "edit
  * garbage; then switches back and times how long until every frame has drawn its design again, and checks that the
  * boards kept their sizes.
  */
-async function hiddenTab(page: Page, cdp: CDPSession, frames: number): Promise<Result["hidden"]> {
+async function hiddenTab(page: Page, cdp: CDPSession, frames: number): Promise<Measured["hidden"]> {
   // At 100%, each board is brought into view in turn, so its frames have woken, as after working across the project;
   // then the camera rests on the first. Zoomed out, frames already sleep, and hiding the tab would free nothing more.
   await page.evaluate(async () => {
@@ -651,20 +758,29 @@ function report(result: Result, previous: Result | undefined): void {
     return `${before} → ${value}${change}`
   }
   console.log(`\n${result.label}${previous ? ` compared with ${previous.label}` : ""}`)
-  console.log(
-    `${result.census.designs} designs, ${result.census.frames} frames, ${result.census.frameElements} elements in frames, ` +
-      `${result.census.width}×${result.census.height} at ${result.census.pixelRatio}x`
-  )
-  if (result.census.bitmaps) {
-    console.log(`${result.census.bitmaps} frames had bitmaps, ${result.census.bitmapSeconds}s after the frames settled`)
+  const { census } = result
+  if (census) {
+    console.log(
+      `${census.designs} designs, ${census.frames} frames, ${census.frameElements} elements in frames, ` +
+        `${census.width}×${census.height} at ${census.pixelRatio}x, ${census.bitmaps} with bitmaps`
+    )
   }
-  if (previous && previous.census.frameElements !== result.census.frameElements) {
+  if (census && previous?.census && previous.census.frameElements !== census.frameElements) {
     console.log(
       `  (the earlier run had ${previous.census.designs} designs and ${previous.census.frameElements} elements)`
     )
   }
-  for (const run of result.runs) {
-    const before = previous?.runs.find((candidate) => candidate.name === run.name)
+  if (result.open) {
+    console.log(`\nopening, ms until every frame shows its design or bitmap, then until every frame has its bitmap`)
+    for (const [name, now] of Object.entries(result.open)) {
+      const before = previous?.open?.[name as keyof NonNullable<Result["open"]>]
+      const missing = now.bitmaps < now.frames ? `, ${now.frames - now.bitmaps} of ${now.frames} never got one` : ""
+      console.log(`  ${`${name} usable`.padEnd(18)}${column(now.usableMs, before?.usableMs)}`)
+      console.log(`  ${`${name} previews`.padEnd(18)}${column(now.previewsMs, before?.previewsMs)}${missing}`)
+    }
+  }
+  for (const run of result.runs ?? []) {
+    const before = previous?.runs?.find((candidate) => candidate.name === run.name)
     console.log(`\n${run.name}${run.hidden ? " (the window was hidden, so these don't count)" : ""}`)
     console.log(`  fps               ${column(run.fps, before?.fps)}`)
     console.log(`  frame p50 ms      ${column(run.frameMs.p50, before?.frameMs.p50)}`)
@@ -703,9 +819,11 @@ function report(result: Result, previous: Result | undefined): void {
     console.log(`  boards resized    ${result.hidden.resizedDrawn} once drawn, ${result.hidden.resizedLater} after 3 s`)
     for (const board of result.hidden.resized?.slice(0, 10) ?? []) console.log(`    ${board}`)
   }
-  console.log(`\nmemory MB`)
-  for (const [role, value] of Object.entries(result.memoryMb)) {
-    console.log(`  ${role.padEnd(13)}${column(value, previous?.memoryMb[role])}`)
+  if (result.memoryMb) {
+    console.log(`\nmemory MB`)
+    for (const [role, value] of Object.entries(result.memoryMb)) {
+      console.log(`  ${role.padEnd(13)}${column(value, previous?.memoryMb?.[role])}`)
+    }
   }
 }
 

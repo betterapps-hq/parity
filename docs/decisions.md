@@ -2854,3 +2854,50 @@ ends, and time plays no part (see editor.md, One undo step per gesture). My call
 - **Other edits are a step each.** Typing in a field commits on Enter or on leaving it, so it was already one commit.
   Two quick edits of one field, such as clicking two of Text's Resizing modes, are two steps, where the window made them
   one.
+
+## Opening a project in seconds (PAR-179)
+
+Reopening the example project took 5.7 seconds to a usable canvas and 6.6 to its previews when started again, and 19
+seconds to its previews reopened in the same window (see editor.md, Opening in seconds, for where the time went). My
+calls:
+
+- **Opening is timed by `pnpm perf`, three ways:** a first launch on a fresh profile, a reopen in the same window, and a
+  start on the same profile. Usable means every frame shows its design or its bitmap, and previews every frame has its
+  bitmap. Launches count from the page starting to load, so they leave out Electron's own start, about 0.1 seconds, and
+  are development builds, so they include loading the UI from Vite's server and React's development build. The type
+  checker's results are kept with the profile (`PARITY_CACHE_DIR`), so a first launch finds none and the person's own
+  cache is left alone.
+- **A frame that would only show its bitmap waits for it rather than drawing first.** Zoomed far out, a frame not drawn
+  yet holds off until its kept bitmap is read, and sleeps on it if there is one. Drawing first and sleeping later was
+  correct but cost every open about 2 seconds of drawing that nobody saw, and held up the replies the kept bitmaps came
+  in. A frame with none still draws at once, so the first launch behaves as before.
+- **A kept bitmap carries its frame's height, as the canvas drew it, inside the PNG.** A frame that never drew has no
+  height of its own, and its board's size is read by agents and laid out around. A text chunk keeps one file per bitmap,
+  which the cache's sweeping and partial-file handling already assume, where a file beside it would need both kept in
+  step. Working the height out from the image's size was a few pixels out, from rounding at a quarter of the size, and
+  the offscreen window's own measure was too, by up to 66 pixels on a tall board, since text lays out differently at
+  that zoom. So the window measures its drawn frame when it asks for the capture, and the offscreen measure is kept only
+  for a frame it hasn't drawn. Bitmaps kept before this have no height and aren't shown; they age out with the cache.
+- **Kept bitmaps are named by where the components a frame draws come from,** not by the components the job gave the
+  guest. The first session after a change to the code runs the type checker, which gives the guest the components it
+  finds, and the next session's guest is served them from the start, so naming by the job made every frame miss once
+  more after each change. Only the components the frame's tree draws count, so one the checker dropped doesn't change
+  the name of frames that don't use it. The format number went up to 2.
+- **The service opens the projects it last had open as it starts,** from a list it keeps in app data, rather than main
+  reading the window's saved tabs or the window telling main its tabs. The service already knows which projects are
+  open, and the window's tabs are those projects in practice; one the window doesn't ask for within a minute is closed,
+  so a list that disagrees costs a builder for a minute at most. It takes the project's open off the window's critical
+  path, about half a second here.
+- **tldraw's pattern fill is left out of its arrow, drawing and geo shapes,** by giving tldraw subclasses whose canvas
+  defs are empty. Its textures go up to the farthest zoom in over the farthest out, which Parity's 1% to 800% makes
+  1,024 times, and painting them took about a second of the window's thread each time a canvas mounted. Parity draws
+  none of those shapes; if one ever came onto the canvas, as by pasting from tldraw, its pattern fill would show as no
+  fill. Narrowing the zoom range or replacing tldraw's canvas would have changed what people see.
+- **The canvas fits the project as its boards are placed,** before they've sized themselves, then again once they have,
+  so frames start at the zoom they're shown at. A fit that would start nearer than before is undone, since unsized
+  boards are small and a small project would flash zoomed in.
+- **Started again, the 3-second target isn't met in a development build** (3.2 to 3.3 seconds), and wasn't measured in
+  an installed one, which loads its UI from files and runs React's production build, the two largest parts left. What's
+  left on the service's side is Vite starting in the builder's process, which needs discovery's results; running
+  discovery while the tools are found was tried and gained nothing, as both work on the service's one thread. Caching
+  discovery, or starting the canvas before the guest loads, would go further, and each is a change of its own.

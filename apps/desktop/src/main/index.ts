@@ -97,6 +97,8 @@ function startService(): UtilityProcess {
     env: {
       ...process.env,
       PARITY_ALLOWED_ORIGINS: rendererOrigin,
+      // Which projects were open, so the service opens them again as it starts, before the window asks (PAR-179).
+      PARITY_REOPEN_FILE: join(app.getPath("userData"), "open-projects.json"),
       // Frame bitmaps are kept in the app's own data, so an installed Parity never writes them into a project.
       PARITY_BITMAP_DIR: join(app.getPath("userData"), "bitmaps"),
       // Names this copy in the agent file, so a restarted service takes its own file back (PAR-280).
