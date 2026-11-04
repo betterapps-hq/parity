@@ -17,7 +17,8 @@ import { useTool } from "./selection.ts"
 import { useTabs, workspace } from "./workspace.ts"
 
 /**
- * One project tab. Inactive tabs stay mounted, so switching back is instant and agents can still read them. It's given
+ * One project tab. Inactive tabs stay mounted, so switching back is instant and agents can still read them, though a
+ * while after one's hidden its frames sleep, showing their bitmaps, until it's shown again (PAR-153). It's given
  * the tab's id rather than the tab: React keeps the props its parent drew last, and a closed tab's session, canvas
  * included, would stay in memory until the window drew again.
  */
@@ -40,7 +41,7 @@ export function ProjectView({ id, active }: { id: string; active: boolean }) {
       <div hidden={!active} className="flex min-h-0 flex-1 flex-col">
         <main className="flex min-h-0 flex-1">
           <LeftPanel />
-          <CanvasArea tabId={tab.id} />
+          <CanvasArea tabId={tab.id} shown={active} />
           <Inspector />
         </main>
         <StatusBar />
@@ -49,7 +50,7 @@ export function ProjectView({ id, active }: { id: string; active: boolean }) {
   )
 }
 
-function CanvasArea({ tabId }: { tabId: string }) {
+function CanvasArea({ tabId, shown }: { tabId: string; shown: boolean }) {
   const session = workspace.getTab(tabId)?.session
   const tool = useTool(session!.selection)
   const onEditor = useCallback((editor: Editor | undefined) => workspace.setEditor(tabId, editor), [tabId])
@@ -68,7 +69,7 @@ function CanvasArea({ tabId }: { tabId: string }) {
         className={`canvas-area relative isolate min-w-0 flex-1 ${tool === "text" ? "cursor-text" : ""}`}
         data-tool={tool}
       >
-        <CanvasEditor onEditor={onEditor} />
+        <CanvasEditor onEditor={onEditor} shown={shown} />
         <CanvasOverlay />
         <TabOrderOverlay />
         <CanvasDrop />

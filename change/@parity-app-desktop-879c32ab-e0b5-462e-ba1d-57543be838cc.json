@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "A tab that isn't showing lets its frames sleep after 3 seconds, freeing their DOM and React roots; switching back shows bitmaps at once and wakes only the frames near the view.",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

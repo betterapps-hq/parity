@@ -17,10 +17,10 @@ import {
 import { moveDesigns } from "../chrome/arrange.ts"
 import { useContainerEntry } from "../design-store.ts"
 import { designsSelection, selectedDesigns } from "../selection.ts"
-import { isRestingFar, shapeIdFor } from "./CanvasEditor.tsx"
+import { isRestingFar, isTabHidden, shapeIdFor } from "./CanvasEditor.tsx"
 import { ContainerView } from "./ContainerView.tsx"
 import { useProject } from "./context.ts"
-import type { BoardRest } from "./frame-sleep.ts"
+import { type BoardRest, boardDormant } from "./frame-sleep.ts"
 import { holdCursor } from "./held-cursor.ts"
 import { clearSnaps, snapPosition } from "./snap.ts"
 import { useTitleLayer } from "./title-layer.tsx"
@@ -105,13 +105,21 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
   const titleLayer = useTitleLayer(editor)
 
   const [drawn, setDrawn] = useState(false)
-  // Its frames sleep zoomed far out, except on the selected board, and wake near the view (see frame-sleep.ts).
+  // Its frames sleep zoomed far out, except on the selected board, and in a tab hidden a while once they've been drawn;
+  // they wake near the view (see frame-sleep.ts).
   const rest = useMemo<BoardRest & { near: Atom<boolean> }>(
     () => ({
       near: atom("board near", true),
-      dormant: computed("board dormant", () => isRestingFar(editor) && !editor.getSelectedShapeIds().includes(shape.id))
+      dormant: computed("board dormant", () =>
+        boardDormant({
+          hidden: isTabHidden(editor),
+          drawn,
+          far: isRestingFar(editor),
+          selected: editor.getSelectedShapeIds().includes(shape.id)
+        })
+      )
     }),
-    [editor, shape.id]
+    [editor, shape.id, drawn]
   )
 
   // Layout sizes are unaffected by the camera's scale, so they can be written straight to the shape. A board that isn't

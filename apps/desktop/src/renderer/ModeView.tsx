@@ -150,7 +150,9 @@ export function ModeView({
     const held = requestAnimationFrame(() => outer.style.removeProperty("min-height"))
     return () => {
       cancelAnimationFrame(held)
-      outer.style.minHeight = `${outer.offsetHeight}px`
+      // In a tab that isn't showing, nothing is laid out: the frame keeps the height it last had when drawn (see the
+      // `contain-intrinsic-size` rule on `[data-frame]`), rather than holding none.
+      if (outer.getClientRects().length > 0) outer.style.minHeight = `${outer.offsetHeight}px`
       handleRef.current = undefined
       setDrawnNodes(host, undefined)
       host.shadowRoot?.replaceChildren()
