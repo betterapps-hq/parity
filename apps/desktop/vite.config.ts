@@ -1,9 +1,10 @@
 import { resolve } from "node:path"
 import { dependencySourceMaps } from "@parity-app/builder-vite/dependency-maps"
 import tailwindcss from "@tailwindcss/vite"
-import react from "@vitejs/plugin-react"
+import reactPlugin from "@vitejs/plugin-react"
 import { defineConfig, lazyPlugins } from "vite-plus"
 import { iconImportsPlugin } from "./scripts/icon-imports.ts"
+import { reactBuild, reactBuildConfig } from "./scripts/react-build.ts"
 
 /**
  * A second copy of the app, such as the one `pnpm perf` starts, runs on its own port, with its own dependency cache so
@@ -12,6 +13,12 @@ import { iconImportsPlugin } from "./scripts/icon-imports.ts"
 const port = Number(process.env.PARITY_UI_PORT ?? 5310)
 /** Serves the code as it was when the server started, so edits made meanwhile can't reload a page being measured. */
 const frozen = process.env.PARITY_UI_FROZEN === "1"
+/**
+ * React's production build when `pnpm dev` asks for it, as it does unless PARITY_REACT=development; see
+ * scripts/react-build.ts. Vite keys its prebundled dependencies by the alias and the optimizer's options among the rest,
+ * so switching builds bundles them again rather than serving the other build's.
+ */
+const react = reactBuildConfig(reactBuild(process.env.PARITY_REACT))
 
 /** The canvas UI itself. Customer projects are served by their own builder, not by this config. */
 export default defineConfig({
@@ -21,13 +28,13 @@ export default defineConfig({
   base: "./",
   // Dependencies come without their source maps inlined, which cost the window more memory than their code, and each
   // lucide icon loads on its own rather than every one with the first.
-  plugins: lazyPlugins(() => [react(), tailwindcss(), dependencySourceMaps(), iconImportsPlugin()]),
+  plugins: lazyPlugins(() => [reactPlugin(react.react), tailwindcss(), dependencySourceMaps(), iconImportsPlugin()]),
   resolve: {
-    alias: { "@": resolve(import.meta.dirname, "src/renderer") }
+    alias: { "@": resolve(import.meta.dirname, "src/renderer"), ...react.alias }
   },
   // Prebundled dependencies are minified, which halves what the window holds of tldraw and React DOM. Their source maps
   // still lead DevTools to the code as published; only the app's own code is served as written.
-  optimizeDeps: { rolldownOptions: { output: { minify: true } } },
+  optimizeDeps: { rolldownOptions: { output: { minify: true }, ...react.dependencies } },
   ...(port === 5310 ? {} : { cacheDir: resolve(import.meta.dirname, `node_modules/.vite-${port}`) }),
   server: {
     port,

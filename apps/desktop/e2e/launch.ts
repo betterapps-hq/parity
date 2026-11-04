@@ -49,6 +49,9 @@ export async function launch(): Promise<RunningApp> {
     cwd: appDir,
     env: {
       ...appEnvironment(),
+      // React's development build, as the suite has always run, where StrictMode's checks and React's warnings run
+      // on every test: `pnpm dev` now runs the production build (PAR-519, see decisions.md).
+      PARITY_REACT: "development",
       PARITY_UI_PORT: String(uiPort),
       PARITY_UI_FROZEN: "1",
       PARITY_DEBUG_PORT: String(debugPort),
