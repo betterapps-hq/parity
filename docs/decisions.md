@@ -4306,8 +4306,8 @@ measuring, previewing and the store (see editor.md, Typing, stepping and scrubbi
   component has it, without the copy's or the variant's changes; it's read as that copy shows it now.
 - **Several layers can include layers inside instances.** The several-layers panel skipped them; they're edited as each
   copy's changes now, as one such layer is.
-- **`editingState` moved with it,** since the module works out the state from the one the layers were picked in.
-  `chrome/LayerPanel.tsx` passes it on, so the canvas's commands are unchanged.
+- **It works out the state itself,** from the one the layers were picked in, with `editingState`
+  from` `editing-state.ts`(PAR-551), so a panel passes the picked state rather than a`StateSpec`.
 
 ## Installed packages are read one way (PAR-573)
 

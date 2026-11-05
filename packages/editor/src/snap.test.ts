@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test"
 import {
   distancesBetween,
+  EvenSpacing,
   lockedEdgeMoves,
   resizedBox,
   resizeEdges,
@@ -221,6 +222,17 @@ describe("spacing a layer evenly with its siblings", () => {
     expect(both.box.x).toBe(200)
     expect(both.spacing).toHaveLength(1)
     expect(both.guides).toContainEqual({ axis: "x", from: { x: 200, y: 0 }, to: { x: 200, y: 140 } })
+  })
+
+  it("snaps the same through a gesture with the places kept, as the layer moves into and out of the row", () => {
+    const siblings = [tile(0), tile(100), tile(201, 0), tile(300, 160)]
+    const kept = { siblings, parent: row, spacing: new EvenSpacing(siblings) }
+    // Across the row and above and below it, so it joins other rows of siblings and comes back to ones it's been in.
+    const path = [97, 140, 203, 260, 330, 203, 97].flatMap((x) => [0, 100, 150, 100].map((y) => tile(x, y)))
+    for (const box of path) {
+      expect(snapLayer(box, kept, 1)).toEqual(snapLayer(box, { siblings, parent: row }, 1))
+      expect(snapLayer(box, kept, 2)).toEqual(snapLayer(box, { siblings, parent: row }, 2))
+    }
   })
 
   it("needs three, beside each other across the axis", () => {

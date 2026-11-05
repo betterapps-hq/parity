@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 05 Nov 2026 22:59:52 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 05 Nov 2026 23:43:49 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.12.2
+
+Thu, 05 Nov 2026 23:43:49 GMT
+
+### Patches
+
+- The CLI and MCP server check Parity's answers before reading them, and say what they can't read; MCP execute refuses
+  fields it doesn't take (ajcraswell@gmail.com)
 
 ## 0.12.1
 

@@ -174,14 +174,20 @@ describe("snapping an absolutely placed layer (PAR-174)", () => {
     expect(await distances()).toBe(before)
   })
 
-  it("moves live and locks its bottom to the next layer's top", async () => {
+  it("shows the move as it goes, locks its bottom to the next layer's top and writes it once dropped", async () => {
     await app.show("Calendar", 1, review)
     await app.selectLayer("Calendar", review)
-    const from = center(await app.box("Calendar", review))
-    // 36px down puts its bottom 4px past the Lunch slot's top, so it locks there: top 48, not 49.
-    const during = await app.drag(from, { x: from.x, y: from.y + 36 }, () => app.style("Calendar", review))
-    expect(during).toMatchObject({ top: 48, left: 0, right: 0, height: 16 })
-    await expect.poll(() => app.style("Calendar", review)).toMatchObject({ top: 48 })
+    const before = await app.box("Calendar", review)
+    const from = center(before)
+    // 36px down puts its bottom 4px past the Lunch slot's top, so it locks there: top 48, not 49. That's 8 steps down,
+    // half its 16 steps of height. The design is written only when it's dropped (PAR-551).
+    const during = await app.drag(from, { x: from.x, y: from.y + 36 }, async () => ({
+      style: await app.style("Calendar", review),
+      box: await app.box("Calendar", review)
+    }))
+    expect(during?.style).toMatchObject({ top: 40 })
+    expect(during?.box.y).toBeCloseTo(before.y + before.height / 2, 0)
+    await expect.poll(() => app.style("Calendar", review)).toMatchObject({ top: 48, left: 0, right: 0, height: 16 })
     await app.page.keyboard.press("Control+z")
     await expect.poll(() => app.style("Calendar", review)).toMatchObject({ top: 40 })
   })
@@ -195,16 +201,18 @@ describe("snapping an absolutely placed layer (PAR-174)", () => {
     await expect.poll(() => app.style("Calendar", review)).toMatchObject({ top: 49 })
   })
 
-  it("takes a live move back when Escape is pressed mid-drag, leaving nothing to undo", async () => {
+  it("puts a move back when Escape is pressed mid-drag, leaving nothing to undo", async () => {
     await app.show("Calendar", 1, review)
     await app.selectLayer("Calendar", review)
-    const from = center(await app.box("Calendar", review))
+    const before = await app.box("Calendar", review)
+    const from = center(before)
     await app.drag(from, { x: from.x, y: from.y + 36 }, async () => {
-      await expect.poll(() => app.style("Calendar", review)).toMatchObject({ top: 48 })
+      await expect.poll(async () => (await app.box("Calendar", review)).y).toBeGreaterThan(before.y + 1)
       await app.page.keyboard.press("Escape")
       await app.frames(2)
     })
     expect(await app.style("Calendar", review)).toMatchObject({ top: 40 })
+    expect((await app.box("Calendar", review)).y).toBeCloseTo(before.y, 0)
     expect(await app.undoLabel()).toBeUndefined()
     expect(await indicators()).toEqual([])
   })

@@ -3,7 +3,6 @@ import { effectiveFixture } from "@parity-app/core/fixtures"
 import { describe, expect, it } from "vite-plus/test"
 import { boardReader } from "./shown.ts"
 import {
-  editingState,
   fieldEdit,
   layoutTypeEdit,
   placementEdit,
@@ -57,13 +56,6 @@ const styleOf = (container: ContainerSpec, id: string, state?: string) =>
   ).style ?? {}
 
 describe("the state a style edit goes to", () => {
-  it("is the one the layers were picked in, else the one the design shows, else the first", () => {
-    const design = toolbar()
-    expect(editingState(design, "hover").id).toBe("hover")
-    expect(editingState({ ...design, view: { state: "hover" } }, undefined).id).toBe("hover")
-    expect(editingState(design, "gone").id).toBe("default")
-  })
-
   it("takes the variant option the board shows, so an edit lands in that option", () => {
     const selection = styleSelection(fixture("card", { layout: "inline" }), ["body"], undefined)!
     expect(selection.target).toEqual({ state: "base", variant: { param: "layout", option: "inline" } })

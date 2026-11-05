@@ -1,4 +1,4 @@
-import { dropHint, type InsertItem, mayBeImage } from "@parity-app/editor"
+import { type Box, dropHint, type InsertItem, mayBeImage } from "@parity-app/editor"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { useProject } from "./context.ts"
@@ -7,8 +7,7 @@ import type { Point } from "./hit.ts"
 import { addScreenOfItem, dropTarget, insertItem, insertMime } from "./insert.ts"
 import { kindColors } from "./kinds.tsx"
 import { emptyCanvasAt } from "./new-screen.ts"
-
-type Box = { x: number; y: number; w: number; h: number }
+import { HereMeasures } from "./paste-here.ts"
 
 /** What the canvas shows while something is dragged over it, relative to the canvas area. */
 interface Indicator {
@@ -46,10 +45,18 @@ export function CanvasDrop() {
     // A drag goes on sending dragover while it's over the canvas, even with the pointer still; a drag called off can
     // end without a dragleave, so what's shown goes once they stop.
     let idle: ReturnType<typeof setTimeout> | undefined
+    // The layout under the pointer, measured once while the drag stays over it.
+    const measures = new HereMeasures()
     const show = (indicator: Indicator | undefined) => {
       clearTimeout(idle)
       setShown(indicator)
-      if (indicator) idle = setTimeout(() => setShown(undefined), 1000)
+      if (!indicator) measures.clear()
+      else {
+        idle = setTimeout(() => {
+          setShown(undefined)
+          measures.clear()
+        }, 1000)
+      }
     }
     // In Interact a design takes what's dropped on it, as a file field in it would.
     const toDesign = (event: DragEvent) =>
@@ -90,7 +97,7 @@ export function CanvasDrop() {
       if (!carrying(event)) return
       event.preventDefault()
       const point = pointOf(event)
-      const target = dropTarget(session, area, point)
+      const target = dropTarget(session, area, point, measures)
       // Over no layout, the empty canvas takes it as a new screen there.
       const canvas = !target && !!emptyCanvasAt(session, area, point)
       if (event.dataTransfer) event.dataTransfer.dropEffect = target || canvas ? "copy" : "none"

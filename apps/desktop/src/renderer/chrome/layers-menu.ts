@@ -1,7 +1,8 @@
 import { boardTarget, editTargetName, hiddenOnBoard } from "@parity-app/core"
+import { editingState } from "@parity-app/editor"
 import type { ContainerEntry } from "../design-store.ts"
 import { selectedDesigns, selectedNodes, type Selection } from "../selection.ts"
-import { editingState, item, layerCommands, type MenuEntry, ownLayers, sections } from "./canvas-menu.ts"
+import { item, layerCommands, type MenuEntry, ownLayers, sections } from "./canvas-menu.ts"
 
 /**
  * What a row's right-click menu in the Layers panel shows, and what the right-click selects first. These take data and

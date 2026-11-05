@@ -65,9 +65,6 @@ import { hasStories, openInStorybook } from "./storybook.ts"
 import { useStyleEditor } from "./style-editor.ts"
 import { StyleSections } from "./StyleSections.tsx"
 
-/** The state edits go to, which the canvas's commands share with the panels. */
-export { editingState }
-
 /**
  * A selected layer's properties. Edits apply to the state being shown: in the base state they change the design; in
  * any other state they're saved as that state's changes, marked, and each can be reset. A variant shown on a

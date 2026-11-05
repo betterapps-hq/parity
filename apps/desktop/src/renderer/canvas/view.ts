@@ -4,8 +4,7 @@ import {
   type ModeSettings,
   type ResolvedMode,
   resolveModes,
-  shownModes,
-  type StateSpec
+  shownModes
 } from "@parity-app/core"
 
 export interface ContainerModes {
@@ -71,10 +70,6 @@ export function toggleShownMode(
 export function modeNames(all: readonly ResolvedMode[], ids: readonly string[]): string {
   const names = all.filter((mode) => ids.includes(mode.id)).map((mode) => mode.name)
   return names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`
-}
-
-export function activeState(container: ContainerSpec): StateSpec {
-  return container.states.find((state) => state.id === container.view?.state) ?? container.states[0]!
 }
 
 /**

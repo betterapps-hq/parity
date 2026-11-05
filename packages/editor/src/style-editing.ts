@@ -22,6 +22,7 @@ import {
   styleKeys,
   targetPatches
 } from "@parity-app/core"
+import { editingState } from "./editing-state.ts"
 import { boardReader } from "./shown.ts"
 import { type TextSizing, textSizingKeys, withTextSizing } from "./text-editing.ts"
 
@@ -172,15 +173,6 @@ export type LayerMeasure = (
   axis: "width" | "height",
   round: (steps: number) => number
 ) => number | undefined
-
-/** The state edits go to: the one the layers were picked in, else the one the design shows. */
-export function editingState(container: ContainerSpec, picked: string | undefined): StateSpec {
-  return (
-    container.states.find((state) => state.id === picked) ??
-    container.states.find((state) => state.id === container.view?.state) ??
-    container.states[0]!
-  )
-}
 
 /**
  * The selected layers' style, edited in the state they were picked in (`picked`) and the variant the board shows.
