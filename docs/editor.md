@@ -1599,7 +1599,11 @@ numbers. A component's number props take any number.
 
 - **What a field shows.** A length shows in pixels: a gap of 4 steps shows 16, with `px` after it, hidden while the
   field has focus. Hovering it gives its step (`Gap, spacing-4`). A length token shows its name, in a code font. When
-  the selected layers differ, the field shows the word Mixed, as text that can be typed after.
+  the selected layers differ, the field shows the word Mixed, as text that can be typed after. Values are in the panel's
+  12px text, as its labels and lists are.
+- **Width and Height show their whole value** (PAR-496). At the inspector's usual width and wider, the length has room
+  for four digits and `px` beside its Fixed, Fill or Hug list. Below that, from about 310 pixels down to the narrowest
+  260, the list goes under the length rather than squeezing it, so a 96 by 48 layer shows 96 and 48, not 9 and 4.
 - **What it reads.** A number; `px`, `rem` (16px) and `%`; maths with `+ - * /` (`×` and `÷` too) and brackets; for a
   length, a token's name (`container-sm` or `--container-sm`) or a step's (`spacing-4`). An empty field clears the
   property, as before. Typing 320 in Width gives 320px, kept as 80 steps (`w-80`), following the project's spacing unit:
@@ -1714,6 +1718,9 @@ Tests:
   state that sets its own width left alone, a later preview putting back what it doesn't change, taking it back exactly,
   settling for the change, and nothing written for no change.
 - `chrome/fields.stories.tsx`: a Length row in every look, and TypingMaths, SnappedToTheScale, CantRead and Stepping.
+- `chrome/StyleSections.stories.tsx`, SizeAtNarrowest and LargeSize (PAR-496): a 96 by 48 brand mark at the narrowest
+  inspector and a 1440 by 900 one at the usual width, each play function checking that Width and Height show the value
+  whole. Both fail on the layout before PAR-496.
 - `apps/desktop/e2e/fields.e2e.ts` (10), end to end on Pricing's Brand mark (PAR-202), the inspector's wiring against
   the real store and frames: 320 typed in Width drawn at each keystroke (4, 32 and 320px) while the design keeps its
   width, and Enter making 80 steps as one undo step, with the field focused and its text selected; `16px`; 281 landing
@@ -1726,8 +1733,8 @@ Tests:
 Gaps: the timings were measured by hand in an isolated copy of the app on 2026-10-29: typing 320 in Width previewed at
 each keystroke in 25, 25 and 41 ms (a commit took 291 ms to show before), and scrubbing in 22 ms. The stories' play
 functions weren't run in Storybook. A number prop's preview wasn't timed: it draws the component again, as a commit
-does. Params' number fields don't preview yet. In a 320px inspector, Width and Height show about three characters of
-what's typed (PAR-189).
+does. Params' number fields don't preview yet. Padding, Margin, Min, Max and an absolutely placed layer's insets, two
+lengths to a row, can still clip a value in an inspector narrower than its usual 320 pixels.
 
 ### One right edge in the inspector (PAR-552)
 

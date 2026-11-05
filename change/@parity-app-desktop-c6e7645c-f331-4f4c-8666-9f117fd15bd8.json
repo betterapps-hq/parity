@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Show the whole value in the inspector's Width and Height fields, at every panel width",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

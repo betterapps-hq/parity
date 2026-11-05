@@ -3892,3 +3892,15 @@ event and returns the next list, and every path goes through it. My calls:
 - **An export the person puts on the list shows at once,** before its file is read again. One they take back off waits
   for the read, as before. PAR-604 is the case where it stays listed after that.
 - **The program cache stays in the app's worker for now.** Moving it into `@parity-app/code` is its own issue, PAR-603.
+
+## Width and Height make room for their value (PAR-496)
+
+Called on 2026-11-05, for your approval in Storybook. A 96 by 48 layer showed "9" and "4" in the Size section. Both
+width and font played a part: the length field shared its row with a 92px Fixed, Fill or Hug list, a token button and
+`px`, leaving it about 9px for the value before PAR-552 widened rows and 17px at 300 pixels after it, and nothing at the
+narrowest 260. Its text was also 14px rather than the 12px it asks for, since the UI kit's input turns to 14px from the
+`md` breakpoint and the field's `text-xs` didn't override that. Now every number field's value is 12px, and when the
+Size row is narrower than 176px (an inspector under about 310 pixels) the list goes under the length rather than beside
+it, so the row is taller there instead of the value being cut. Shrinking the list or dropping `px` wouldn't have made
+room for four digits at 260 pixels. Padding, Margin, Min, Max and insets keep two lengths to a row and still clip at the
+narrowest; they're left for another issue.
