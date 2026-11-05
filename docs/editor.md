@@ -1940,23 +1940,26 @@ separate setting that could disagree with them, and the resize handles change it
   keeps its own size, and each one's own parent decides whether `grow` goes. In a selection of text and other layers,
   Resizing changes only the text. In a state, a variant or an instance, a height or `grow` the design sets would show
   again if the change only dropped it, so auto width and auto height set the height to hug, and `grow` to false, over
-  it.
+  it. Resetting Resizing there takes back all three of width, height and `grow`, so no `grow: false` stays behind
+  (PAR-582).
 
 Code: what the editor selects, the modes and switching between them are `packages/editor/src/text-editing.ts` (`wordAt`,
-`openingSelection`, `textSizing`, `withTextSizing`). Drawing hug text as `max-content` is `textCss` in
-`packages/core/src/render.ts`. The editor is `apps/desktop/src/renderer/canvas/TextEditor.tsx`: it finds the character
-under the double-click from the text's own ranges, measures the text each frame, and handles the keys. The double-click
-passes its point through `SelectionStore.setEditing` (`selection.ts`), from `canvas/CanvasOverlay.tsx`. The Resizing
-control is `TextResizing` in `chrome/StyleSections.tsx`, and `measure` in `chrome/LayerPanel.tsx` rounds up for it. The
-agent's skill says how text sizes in `packages/cli/skills/document.md`.
+`openingSelection`, `textSizing`, `withTextSizing`, and `textSizingKeys`, the properties a switch writes and a reset
+clears). Drawing hug text as `max-content` is `textCss` in `packages/core/src/render.ts`. The editor is
+`apps/desktop/src/renderer/canvas/TextEditor.tsx`: it finds the character under the double-click from the text's own
+ranges, measures the text each frame, and handles the keys. The double-click passes its point through
+`SelectionStore.setEditing` (`selection.ts`), from `canvas/CanvasOverlay.tsx`. The Resizing control is `TextResizing` in
+`chrome/StyleSections.tsx`, and `measure` in `chrome/LayerPanel.tsx` rounds up for it. The agent's skill says how text
+sizes in `packages/cli/skills/document.md`.
 
 Tests:
 
-- `packages/editor/src/text-editing.test.ts` (12): the word holding a character, from any of its letters; a space or
+- `packages/editor/src/text-editing.test.ts` (13): the word holding a character, from any of its letters; a space or
   punctuation on its own; the end of the text and an empty one; apostrophes and digits kept in a word; the whole text
   without a point on it; the mode read from widths and heights; each switch, keeping fill and a fixed height; the height
   set to hug and `grow` to false over the design's in a state; `grow` dropped by auto height and fixed in a column and
-  kept in a row; and every switch landing where `textSizing` reads it back.
+  kept in a row; every switch in a state writing only the keys Resizing's reset clears, so resetting leaves the state as
+  it was (PAR-582); and every switch landing where `textSizing` reads it back.
 - `packages/core/src/render.test.ts`, sizing: hug text drawn `max-content`, still wrapped by a maximum width, and other
   widths as before.
 - `apps/desktop/e2e/text.e2e.ts` (7), end to end (PAR-202), on Pricing's subtitle and FAQ heading: a double-click on

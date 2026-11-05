@@ -21,7 +21,7 @@ import {
   type Padding,
   type Size
 } from "@parity-app/core"
-import { type TextSizing, textSizing, withTextSizing } from "@parity-app/editor"
+import { type TextSizing, textSizing, textSizingKeys, withTextSizing } from "@parity-app/editor"
 import { spacingStepName, type Token } from "@parity-app/tokens"
 import {
   AlignCenter,
@@ -1112,14 +1112,14 @@ function TextSection({ editor, node }: SectionProps) {
 function TextResizing({ editor }: { editor: StyleEditor }) {
   const { style, set, changed, reset } = editor
   const mixed = mixedOf(editor)
-  const differs = mixed("width") || mixed("height") || mixed("grow")
+  const differs = textSizingKeys.some(mixed)
   return (
     <Field
       label="Resizing"
       hint="Auto width grows along its line, auto height wraps at its width and grows down, fixed keeps its size"
-      changed={changed("width") || changed("height")}
+      changed={textSizingKeys.some(changed)}
       mixed={differs}
-      onReset={() => (reset("width"), reset("height"))}
+      onReset={() => textSizingKeys.forEach(reset)}
     >
       <ToggleGroup
         variant="outline"
