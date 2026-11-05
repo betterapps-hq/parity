@@ -91,6 +91,11 @@ to pass on to its DOM.
   so the attribute, reach the input, but its box is its outer element, and the input belongs to it.
 - **Nested layers keep their own DOM.** A layer's elements stop at the layers inside it, so pointing at a card's title
   picks the title, and a layer's parent is the layer it's drawn inside.
+- **What a parent hands a layer reaches it** (PAR-200). A `Button asChild` around a `Link` layer gives the link the
+  button's class, attributes, handlers and ref, merged under the link's own as Radix merges them onto an element, and a
+  `$render:` or `$renderWith:` slot gives its layer what the component renders it with. That holds for component layers
+  as for element layers: the boundary that marks a component layer sits inside what the parent clones, so the props go
+  past it to the component, and the layer is still found and still keeps its errors to itself.
 - **Edge cases.** A component that draws nothing has no box: it can be selected from Layers but not on the canvas.
   Content portaled out of the frame, as a dialog's often is, isn't part of the layer's box; content portaled to a place
   inside the frame is. A component that draws only text, with no element around it, has no box of its own either. A slot
@@ -114,14 +119,14 @@ to pass on to its DOM.
   that belongs in the component design. Props typed `any`, `object` or with an index signature could take anything, so
   the note doesn't show for them.
 
-Code: the walk is `packages/renderer-react/src/drawn-nodes.ts`, the guest's side (boundaries, when to walk again, the
-check against the attribute) is in `guest.ts`, and the canvas's lookups (`findNodeElements`, `nodeBox`, `nodesAt`,
-`nodeParent`, `nodeOfElement`, with the attribute as fallback) are in `apps/desktop/src/renderer/frame.ts`. `ModeView`
-and the offscreen renderer (`render.ts`) register each frame's guest. Hovering and clicking go through `canvas/hit.ts`,
-outlines, sizes and resize handles through `canvas/CanvasOverlay.tsx`, dragging through `canvas/layer-drag.ts`,
-inserting through `canvas/insert.ts` (its rules in `packages/editor/src/insert.ts`), and `chrome/reveal.ts` scrolls to a
-layer's box. Whether a component takes `style` is read in `packages/code/src/props.ts` (`takesStyle`), and the note is
-in `chrome/LayerPanel.tsx`.
+Code: the walk is `packages/renderer-react/src/drawn-nodes.ts`, the guest's side (boundaries, `ComponentLayer` and the
+props it merges, when to walk again, the check against the attribute) is in `guest.ts`, and the canvas's lookups
+(`findNodeElements`, `nodeBox`, `nodesAt`, `nodeParent`, `nodeOfElement`, with the attribute as fallback) are in
+`apps/desktop/src/renderer/frame.ts`. `ModeView` and the offscreen renderer (`render.ts`) register each frame's guest.
+Hovering and clicking go through `canvas/hit.ts`, outlines, sizes and resize handles through `canvas/CanvasOverlay.tsx`,
+dragging through `canvas/layer-drag.ts`, inserting through `canvas/insert.ts` (its rules in
+`packages/editor/src/insert.ts`), and `chrome/reveal.ts` scrolls to a layer's box. Whether a component takes `style` is
+read in `packages/code/src/props.ts` (`takesStyle`), and the note is in `chrome/LayerPanel.tsx`.
 
 Tests:
 
@@ -131,8 +136,11 @@ Tests:
 - `apps/desktop/src/renderer/frame-nodes.test.ts`: the same cases on React itself in Chrome, through the canvas's
   lookups: each layer found, its box measured and resolved from a point, DOM a component adds by itself, ids React moves
   to other DOM without adding any, and the fallback to the attribute. Seven of these eight fail with the attribute
-  alone, the prop-ignoring row first. It also renders slots that hand their layers props, Radix's `asChild` and a
-  `$renderWith:` slot, and keeps the two cases below that don't work yet as `it.fails`.
+  alone, the prop-ignoring row first. It also renders slots that hand their layers props (PAR-200): Radix's `asChild`
+  giving an element layer and a component layer the button's class and attributes, a component layer its handler and ref
+  with its own class kept, the component layer still found inside the button and under the pointer, and a failing
+  component in the slot keeping its error to itself; and a `$renderWith:` slot giving an element layer and a component
+  layer what each copy is rendered with, the node's style and each copy's key kept, and both spread and named props.
 - `packages/code/src/props.test.ts`: whether a component's props take a `style`.
 - `chrome/LayerPanel.stories.tsx`, ComponentWithoutStyle: the note, and wrapping the component from it.
 - `apps/desktop/e2e/selecting.e2e.ts` (6), end to end (PAR-202), on the Members screen the run adds: hovering a
@@ -142,12 +150,7 @@ Tests:
 
 Gaps: the canvas's pointer handling over such a component, first checked by hand on 2026-10-29, is now the end-to-end
 test above. A component that declares `style` but puts it on an inner element, as a field passing it to its input, is
-outlined around the field but sized at the input, and the note doesn't say so. A component layer in a slot doesn't get
-the props its parent hands it: a `Button asChild` around a `Link` layer leaves the link without the button's class,
-attributes and handlers, and a `$renderWith:` slot's component layer without what it's rendered with. Both clone the
-slot's element, which for a component layer is the guest's error boundary around it, and the boundary drops them. An
-element layer gets them. This is older than CAN-45: the boundary dates from the first commit and `$renderWith:` from
-7c9c8c3.
+outlined around the field but sized at the input, and the note doesn't say so.
 
 ### Selecting what you point at (PAR-163)
 
