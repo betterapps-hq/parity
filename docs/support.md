@@ -120,7 +120,7 @@ at the end of this page are the plan for testing more. Four of them exist in `fi
 | `prefers-color-scheme` blocks              | ◐      | Not read as a theme in a project; the defaults keep the light values. `parity lib` reads them as a library's `dark`, below its `.dark` or `[data-theme]` values.                                                         |
 | Selectors that only scope a theme          | ❌     | `.dark .card`, `.dark.contrast` and `:where(:root, :host)` name no theme.                                                                                                                                                |
 | Breakpoints (`--breakpoint-*`, `.lib.par`) | ✅     | Plus device presets.                                                                                                                                                                                                     |
-| DTCG token files and resolvers             | ✅     | Read from a `.lib.par`'s `tokens`, filed by the category `$extensions.parity` gives, each theme as a mode.                                                                                                               |
+| DTCG token files and resolvers             | ✅     | Read from a `.lib.par`'s `tokens`, filed by the category `$extensions.parity` gives, each theme as a mode. A malformed token is left out, and the project's notes say why.                                               |
 | JavaScript themes (MUI, Chakra, Fluent)    | ✅     | Read by `parity lib` into the registry's DTCG.                                                                                                                                                                           |
 
 ### Finding components

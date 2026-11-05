@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Leave out malformed tokens in a library's DTCG files, and note why, instead of reading them as broken CSS",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

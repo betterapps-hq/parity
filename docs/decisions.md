@@ -3733,7 +3733,20 @@ below. My calls on how they move:
   through Parity's packages, and fails if it reaches zod.
 - **MCP's input schemas come from zod** through `z.toJSONSchema`, and `tools/list` keeps its 12 KiB budget (PAR-510).
 - **Token files stay lenient.** A malformed token is skipped and reported rather than failing its file, since a strict
-  check would refuse files that load today (PAR-591).
+  check would refuse files that load today (PAR-591). Each of the 12 registry libraries with tokens read the same before
+  and after, with nothing skipped. My calls:
+  - Each `$type`'s `$value` is a schema in `tokens/src/dtcg-values.ts`, checked once aliases are followed. Any value can
+    be a string instead, CSS read as written, since libgen writes CSS where DTCG has no form for it.
+  - The parts Parity filled in when they were missing stay optional: a shadow's offsets, blur, spread and inset, and a
+    typography's weight, line height and letter spacing. A dimension takes any CSS unit, since libgen writes `em`.
+  - A token malformed in one context is left out of that context only. A malformed set, modifier or step of a resolver's
+    resolution order is left out too. A broken alias still fails the file.
+  - Each skip is reported once. `readDesignTokens` passes it to its caller, and project discovery adds it to the
+    project's notes, as `acme.lib.par: skipped radius (/$value: expected a string or an object)`. The Tokens panel
+    doesn't show these yet.
+  - A stroke style's dash pattern is written as `dashed`, since a CSS border can't draw one.
+  - `parseData` passes over a union's options for another type of value, so a malformed shadow reports its bad part
+    rather than `expected a string`.
 - **New code adds no hand-written parsers.**
 
 The issues, in order. PAR-588 comes first, since it adds zod.
