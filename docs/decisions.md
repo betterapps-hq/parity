@@ -3272,10 +3272,11 @@ You approved the explorations on 2026-11-04 ("Looks pretty good! Let's ship it")
 Explorations / Starting on the canvas, from the audit's "Making something is always one visible step"
 ([proposals/new-user-experience.md](proposals/new-user-experience.md)). PAR-546 builds them in the app.
 
-- **An empty canvas says how to start in its middle:** a tile each for New screen and New component, saying what each
-  is, with its keys, and below them Insert (`/`) and "Drop or paste an image here" (Ctrl+V). It goes once anything is on
-  the canvas, and the canvas around it still pans, zooms and takes drops. Once frames exist, Draw a frame (F) is a third
-  tile in the same row, and the heading names all three; PAR-540 designs the frame itself.
+- **Dropped on 2026-11-05 (PAR-560): an empty canvas says how to start in its middle:** a tile each for New screen and
+  New component, saying what each is, with its keys, and below them Insert (`/`) and "Drop or paste an image here"
+  (Ctrl+V). It goes once anything is on the canvas, and the canvas around it still pans, zooms and takes drops. Once
+  frames exist, Draw a frame (F) is a third tile in the same row, and the heading names all three; PAR-540 designs the
+  frame itself.
 - **New screen is Ctrl+Alt+N and New component Ctrl+Alt+Shift+N.** Ctrl+N stays free for New project, which the start
   page explorations give it. They join the keymap, in the Object group, so the menus, Search actions and the shortcuts
   dialog show them.
@@ -3289,9 +3290,10 @@ Explorations / Starting on the canvas, from the audit's "Making something is alw
 - **Layers' + always shows** beside Components and Screens, with its keys in the tooltip. An empty group's row is a
   button, "No screens yet. New screen", with the action in the kind's color. The count is left out at none, since the
   row says so.
-- **The inspector on an empty canvas** says "Nothing to inspect yet", that a screen or component makes a start and that
-  its size, layout and styles show there once one is selected, with New screen and New component buttons and their keys.
-  With something on the canvas and nothing selected, it asks for "a screen or component on the canvas or in Layers".
+- **Dropped on 2026-11-05 (PAR-560): the inspector on an empty canvas** says "Nothing to inspect yet", that a screen or
+  component makes a start and that its size, layout and styles show there once one is selected, with New screen and New
+  component buttons and their keys. With something on the canvas and nothing selected, it asks for "a screen or
+  component on the canvas or in Layers".
 
 ## Far frames wait on a placeholder rather than drawing (PAR-525)
 
@@ -3463,3 +3465,17 @@ component" or "Convert to screen" in the canvas menu, the Object menu and a boar
 component" or "Make it a screen". Undo names the change the same way, whether it came from those menus or the Design
 tab's Screen and Component toggle, where it said "Make component" and "Make screen". Make component keeps its name for
 turning layers into a new component.
+
+## The empty-canvas start is dropped (PAR-560)
+
+You dropped it on 2026-11-05. A blank app already opens on a Home screen (PAR-284), so the start in the middle of an
+empty canvas would only have shown the first time an existing app's folder was opened. Asked whether to drop it and open
+every project on a screen instead, you said "Drop it."
+
+- **Every project opens on a screen.** A folder or project with no `.par` file yet opens on a Home screen for its `/`
+  route, in its desktop and mobile modes, as a blank app does (PAR-561).
+- **The canvas has no start in its middle, and the inspector no empty-canvas state.** With nothing selected, the
+  inspector asks for "a screen or component on the canvas or in Layers", whatever is on the canvas.
+- **The rest of PAR-541 stays:** New screen and New component in File, Object, the canvas's right-click menu and Search
+  actions, with their keys, and Layers' + always showing, with its empty rows as buttons. PAR-546 builds those. The
+  exploration's stories open on a project with screens, and its empty-canvas stories are gone.

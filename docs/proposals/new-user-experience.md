@@ -5,7 +5,8 @@ to build a new app from scratch, whether it matches what a person coming from Fi
 Screen, View and Layer don't say what they are. You also said the start page was designed but never built, because its
 templates waited on the Buildkit scaffolder, which is ready now. You took all six recommendations below on 2026-11-04;
 they're in [decisions.md](../decisions.md), "Starting from scratch, and what things are called (PAR-537)", and the tasks
-are in Linear. Each change people see is designed in Storybook for your approval before it's built in the app.
+are in Linear. Each change people see is designed in Storybook for your approval before it's built in the app. On
+2026-11-05 you dropped the start in the middle of an empty canvas, since every project opens on a screen (PAR-560).
 
 ## In one line
 
@@ -155,8 +156,9 @@ design, as Figma lists a frame's, so "Page" no longer sits between a screen and 
 
 ### Making something is always one visible step
 
-- **An empty canvas says how to start.** In its middle: New screen, New component and Draw a frame (F), with Insert
-  (`/`) and dropping an image beneath, each with its keys. It goes once anything is on the canvas.
+- **Every project opens on a screen,** so there's no empty canvas to explain. A blank app opens on a Home screen
+  (PAR-284), and so does a project with no `.par` file (PAR-561). The start this proposal put in the middle of an empty
+  canvas was dropped on 2026-11-05 (PAR-560).
 - **New screen and New component are everywhere a command is:** File, Object, the canvas's right-click menu, Ctrl+K, and
   the toolbar's frame tool, whose menu lists the modes' viewports as sizes.
 - **Layers' + always shows,** and its empty rows are buttons: "No screens yet. New screen".
@@ -208,10 +210,11 @@ Sizes are S, M and L, as [work.md](../work.md) describes them. Each change peopl
 which ends with your approval, and a build issue it blocks.
 
 1. **New project and the start page** (PAR-283's status first, then PAR-284, PAR-133 and PAR-188; L). The first thing
-   anyone sees, designed already, and unblocked. PAR-284 makes a blank app's Home screen (decision 5).
-2. **Make creating visible** (M): the empty canvas's start, New screen and New component in File, Object, the
-   right-click menu and Ctrl+K, Layers' + always shown, one rule for what lands on the empty canvas, and no "Pasted".
-   Designed in PAR-541, built in PAR-546.
+   anyone sees, designed already, and unblocked. PAR-284 makes a blank app's Home screen (decision 5), and PAR-561 opens
+   a project with no `.par` file on one too.
+2. **Make creating visible** (M): New screen and New component in File, Object, the right-click menu and Ctrl+K, Layers'
+   - always shown, one rule for what lands on empty space on the canvas, and no "Pasted". Designed in PAR-541, built in
+     PAR-546. The empty canvas's start was dropped (PAR-560).
 3. **The screen is its container** (M): selecting a screen edits its root layout, and Layers drops the root's row
    (decision 3). Designed in PAR-542, built in PAR-547.
 4. **Frames and the frame tool** (L): a third, light kind of container, F to draw one, presets from the modes'
@@ -238,5 +241,6 @@ You took each recommendation on 2026-11-04; decisions.md has them as decided.
 4. **What T on the empty canvas makes.** My recommendation: a text layer in a frame that hugs it, with notes kept as
    annotations under their own tool.
 5. **What a blank app opens with.** My recommendation: a Home screen for `/`, with the empty canvas's start beside it.
+   You dropped the start on 2026-11-05 (PAR-560).
 6. **Whether a frame can be written to code.** My recommendation: no. It becomes a component or a screen first, which
    keeps "what gets written" to the two kinds that have a place in the app.

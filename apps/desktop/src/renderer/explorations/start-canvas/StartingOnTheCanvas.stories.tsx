@@ -5,11 +5,12 @@ import { design, example, findTooltip, frameDesigns, openProjects, ProjectStage 
 import { StartInspectorPanel, StartLeftPanel, StartWindow } from "./StartWindow.tsx"
 
 /**
- * Starting on an empty canvas, as the new-user audit proposes (PAR-529, "Making something is always one visible
- * step"): the canvas says how to start in its middle; New screen and New component are in File, Object, the canvas's
- * right-click menu and Search actions, each with its keys; Layers' + always shows and its empty rows make the first
- * one; and the inspector says how to start rather than asking for a selection. Everything is the app's own but the
- * proposed parts, and they work: New screen makes a real one, and the start goes.
+ * Making a screen or component in one visible step, as the new-user audit proposes (PAR-529, "Making something is
+ * always one visible step"): New screen and New component are in File, Object, the canvas's right-click menu and
+ * Search actions, each with its keys; Layers' + always shows and its empty rows make the first one; and the inspector
+ * asks for a screen or component rather than a design. Everything is the app's own but the proposed parts, and they
+ * work: New screen makes a real one. The start in the middle of an empty canvas was dropped (PAR-560), since every
+ * project opens on a screen.
  */
 const meta = {
   title: "Parity/Explorations/Starting on the canvas",
@@ -56,45 +57,12 @@ async function canvasBox(): Promise<DOMRect> {
   return area.getBoundingClientRect()
 }
 
-/**
- * An empty canvas, in a project with nothing on it yet. In its middle, a tile each for New screen and New component,
- * with what each is and its keys, then Insert and dropping an image with theirs. Layers' + shows beside both groups,
- * and each empty row makes the first one. The inspector says how to start. Try a tile, a row or the keys: the start
- * goes once something is on the canvas.
- */
-export const EmptyCanvas: Story = {
-  loaders: [() => openProjects("empty")],
-  render: () => <StartWindow />
-}
-
-/**
- * Once frames exist (PAR-540 designs them), Draw a frame joins the tiles with its key, F. The tiles share the row, so
- * nothing else moves; the tool itself is PAR-540's.
- */
-export const EmptyCanvasOnceFramesExist: Story = {
-  loaders: [() => openProjects("empty")],
-  render: () => <StartWindow frames />
-}
-
-/**
- * After New screen, from the start: the screen is made and selected, the start goes, Layers lists it under Screens
- * beside its +, and the inspector shows it.
- */
-export const AfterNewScreen: Story = {
-  loaders: [() => openProjects("empty")],
-  render: () => <StartWindow />,
-  play: async () => {
-    const start = await body().findByRole("region", { name: "Start with a screen or a component" })
-    await userEvent.click(within(start).getByRole("button", { name: /^New screen/ }))
-    await waitFor(() => expect(body().queryByRole("region", { name: /^Start with/ })).toBeNull())
-  }
-}
-
-/** File, on the empty canvas: New screen and New component first, with their keys, above opening and saving. */
+/** File: New screen and New component first, with their keys, above opening and saving. */
 export const FileMenu: Story = {
-  loaders: [() => openProjects("empty")],
+  loaders: [() => openProjects("example")],
   render: () => <StartWindow />,
   play: async () => {
+    await frameDesigns("Pricing")
     const menu = await openMenu("File")
     await expect(within(menu).getByRole("menuitem", { name: /^New screen/ })).toBeEnabled()
   }
@@ -105,28 +73,24 @@ export const FileMenu: Story = {
  * to select for the rest, in the glossary's words.
  */
 export const ObjectMenu: Story = {
-  loaders: [() => openProjects("empty")],
+  loaders: [
+    async () => {
+      await openProjects("example")
+      example().selection.set({})
+    }
+  ],
   render: () => <StartWindow />,
   play: async () => {
+    await frameDesigns("Pricing")
     await openMenu("Object")
   }
 }
 
 /**
- * Right-click on the empty canvas: New screen and New component, made where you right-clicked, then Insert and Paste
- * here. Select all and Zoom to fit are unavailable until something's on the canvas.
+ * Right-click on the canvas around screens and components: New screen and New component, made where you
+ * right-clicked, then Insert, Paste here, Select all and Zoom to fit.
  */
 export const CanvasMenu: Story = {
-  loaders: [() => openProjects("empty")],
-  render: () => <StartWindow />,
-  play: async () => {
-    const box = await canvasBox()
-    await rightClick({ x: box.left + box.width * 0.12, y: box.top + box.height * 0.12 })
-  }
-}
-
-/** Right-click on the canvas around screens and components: the same menu, with Select all and Zoom to fit available. */
-export const CanvasMenuAroundDesigns: Story = {
   loaders: [() => openProjects("example")],
   render: () => <StartWindow />,
   play: async () => {
@@ -140,7 +104,7 @@ export const CanvasMenuAroundDesigns: Story = {
 
 /** Search actions (Ctrl K), searched for "new": New screen and New component, with their keys, in the Object group. */
 export const SearchActions: Story = {
-  loaders: [() => openProjects("empty")],
+  loaders: [() => openProjects("example")],
   render: () => <StartWindow search="new" />,
   play: async () => {
     openDialog("actions")
@@ -150,8 +114,9 @@ export const SearchActions: Story = {
 }
 
 /**
- * Layers on its own, in a project with nothing yet: each group's + shows without hovering, and its empty row is a
- * button that makes the first one. The count is left out at none, since the row says so.
+ * Layers on its own, with no screens or components, as once they're all deleted: each group's + shows without
+ * hovering, and its empty row is a button that makes the first one. The count is left out at none, since the row says
+ * so.
  */
 export const Layers: Story = {
   loaders: [() => openProjects("empty")],
@@ -190,23 +155,7 @@ export const LayersWithScreensAndComponents: Story = {
   )
 }
 
-/**
- * The inspector on its own, on an empty canvas: nothing to select, so it says how to start and what it will show,
- * with New screen and New component and their keys.
- */
-export const Inspector: Story = {
-  loaders: [() => openProjects("empty")],
-  render: () => (
-    <ProjectStage project="empty" className="flex h-screen justify-end bg-background text-foreground">
-      <StartInspectorPanel />
-    </ProjectStage>
-  )
-}
-
-/**
- * The inspector once there's something on the canvas, with nothing selected: it asks for a screen or component, in
- * the glossary's words, rather than a design.
- */
+/** The inspector with nothing selected: it asks for a screen or component, in the glossary's words, rather than a design. */
 export const InspectorNothingSelected: Story = {
   loaders: [
     async () => {

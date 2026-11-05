@@ -194,26 +194,32 @@ function LayerSketch({
   )
 }
 
-/** The root's padding, hatched in the selection color while the pointer's over it, as Figma shows a frame's. */
+/**
+ * One "/" line per 8px tile, drawn smooth. A tile of whole pixels at 100%, 125%, 150% and 200% repeats exactly, so
+ * every line comes out the same width and the same distance apart, which a hard-edged gradient at 45° can't do.
+ */
+const hatchTile = `url("data:image/svg+xml,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><path d="M0 8L8 0M-1 1L1 -1M7 9L9 7" stroke="#000"/></svg>'
+)}")`
+
+/**
+ * The root's padding, hatched in the selection color while the pointer's over it, as Figma shows a frame's. It's one
+ * box masked to the padding, so the lines run on round the corners rather than starting again on each side.
+ */
 function PaddingHatch({ padding, color, name }: { padding: number[]; color: string; name: string }) {
   const [top, right, bottom, left] = padding
-  const hatch = `repeating-linear-gradient(-45deg, color-mix(in oklch, ${color} 45%, transparent) 0 1px, transparent 1px 5px)`
-  const strips: CSSProperties[] = [
-    { top: 0, left: 0, right: 0, height: top },
-    { top, bottom, right: 0, width: right },
-    { bottom: 0, left: 0, right: 0, height: bottom },
-    { top, bottom, left: 0, width: left }
-  ]
+  const hatch: CSSProperties = {
+    padding: `${top}px ${right}px ${bottom}px ${left}px`,
+    background: `color-mix(in oklch, ${color} 60%, transparent)`,
+    maskImage: `${hatchTile}, linear-gradient(#000 0 0), linear-gradient(#000 0 0)`,
+    maskSize: "8px 8px, auto, auto",
+    maskRepeat: "repeat, no-repeat, no-repeat",
+    maskClip: "border-box, content-box, border-box",
+    maskComposite: "intersect, exclude"
+  }
   return (
     <>
-      {strips.map((strip, index) => (
-        <span
-          key={index}
-          aria-hidden
-          className="pointer-events-none absolute"
-          style={{ ...strip, background: hatch }}
-        />
-      ))}
+      <span aria-hidden className="pointer-events-none absolute inset-0" style={hatch} />
       <span
         className="pointer-events-none absolute -top-6 right-0 rounded-sm px-1.5 py-0.5 text-[11px] text-white"
         style={{ background: color }}

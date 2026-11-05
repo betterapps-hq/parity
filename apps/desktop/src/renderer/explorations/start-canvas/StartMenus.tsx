@@ -52,11 +52,19 @@ import { closeDialog, useOpenDialog } from "../../chrome/app-dialogs.ts"
 import { activeSession, exit, exportImages } from "../../chrome/commands.ts"
 import { type Command, groups, keymap } from "../../chrome/keymap.ts"
 import { formatKeys, isMac } from "../../chrome/keys.ts"
+import { useContainerEntries, useNotes } from "../../design-store.ts"
 import { useRecentProjects, workspace } from "../../workspace.ts"
-import { useCanvasEmpty } from "./CanvasStart.tsx"
 import { keysOf, makeNew, startKeymap } from "./commands.ts"
 
 const mac = isMac()
+
+/** Whether the active tab's canvas has nothing on it: no screen, no component and no note. */
+function useCanvasEmpty(): boolean {
+  const { store } = useProject()
+  const entries = useContainerEntries(store)
+  const notes = useNotes(store)
+  return entries.length === 0 && notes.length === 0
+}
 
 /**
  * The title bar's menus as proposed. File and Object open, with New screen and New component at the top of each; Edit,

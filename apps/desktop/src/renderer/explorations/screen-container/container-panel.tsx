@@ -37,7 +37,6 @@ import { useStylePreview } from "../../canvas/style-preview.ts"
 import { containerModes, modeNames, withMainMode } from "../../canvas/view.ts"
 import { extractIntoComponent } from "../../chrome/components.ts"
 import { ParamsSection } from "../../chrome/ComponentsSection.tsx"
-import { createDesign } from "../../chrome/create.ts"
 import { DesignTab } from "../../chrome/DesignPanel.tsx"
 import { FieldTarget } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
@@ -49,7 +48,7 @@ import { StatesSection } from "../../chrome/StatesSection.tsx"
 import { type EditedLayer, type StyleEditor, StyleSections, styleValues } from "../../chrome/StyleSections.tsx"
 import { ModeViewportIcon } from "../../chrome/viewports.tsx"
 import { useComponents } from "../../components-store.ts"
-import { type ContainerEntry, useContainerEntries, useContainerEntry, useModeSettings } from "../../design-store.ts"
+import { type ContainerEntry, useContainerEntry, useModeSettings } from "../../design-store.ts"
 import { type Selection, selectionKey, useSelection } from "../../selection.ts"
 import { spacingUnit, useTokenList } from "../../tokens-store.ts"
 
@@ -86,36 +85,15 @@ export function ContainerTab() {
 }
 
 /**
- * Nothing selected, in the words PAR-541 settled: on an empty canvas, how to start; otherwise, what to select. The
- * shipped panel still says "Select a design".
+ * Nothing selected, in the words PAR-541 settled: what to select. There's no empty-canvas state, since every project
+ * opens on a screen (PAR-560). The shipped panel still says "Select a design".
  */
 function NothingSelected() {
-  const session = useProject()
-  const empty = useContainerEntries(session.store).length === 0
   return (
     <div className="flex flex-col items-center gap-2 px-6 py-12 text-center text-sm text-muted-foreground">
       <MousePointerClick className="size-5" />
-      {empty ? (
-        <>
-          <span className="text-foreground">Nothing to inspect yet</span>
-          <span className="text-xs">
-            Make a screen or component to start. Its size, layout and styles show here once it&apos;s selected.
-          </span>
-          <div className="mt-2 flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => createDesign(session, "screen")}>
-              New screen
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => createDesign(session, "component")}>
-              New component
-            </Button>
-          </div>
-        </>
-      ) : (
-        <>
-          Select a screen or component on the canvas or in Layers.
-          <span className="text-xs">Its size, layout and styles show here, then its states and modes.</span>
-        </>
-      )}
+      Select a screen or component on the canvas or in Layers.
+      <span className="text-xs">Its size, layout and styles show here, then its states and modes.</span>
     </div>
   )
 }
