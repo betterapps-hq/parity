@@ -14,7 +14,7 @@ const entry = `
 export { prepareFrame, setDrawnNodes, findNodeElement, findNodeElements, nodeBox, nodesAt, nodeParent, nodeOfElement,
   drawnNodeIds } from "./frame.ts"
 export { createGuest } from "@parity-app/renderer-react/guest"
-import { createElement, Fragment, useState } from "react"
+import { createElement, Fragment, useEffect, useRef, useState } from "react"
 import { Slot } from "radix-ui"
 
 // Takes the props it needs and renders none of the rest, data-canvas-node included.
@@ -62,6 +62,21 @@ export function Grows() {
 // Lends its class and attributes to its child with asChild, as shadcn's Button does through Radix's Slot.
 export function SlotButton({ asChild, ...props }) {
   return createElement(asChild ? Slot.Root : "button", { className: "slot-button", "data-slot": "button", ...props })
+}
+
+// Counts presses on its asChild child through a handler and a ref, as a trigger does.
+export function PressButton({ asChild, ...props }) {
+  const ref = useRef(null)
+  const [presses, setPresses] = useState(0)
+  useEffect(() => {
+    ref.current?.setAttribute("data-ref", ref.current.localName)
+  })
+  return createElement(asChild ? Slot.Root : "button",
+    { ...props, ref, "data-presses": String(presses), onClick: () => setPresses((count) => count + 1) })
+}
+
+export function Broken() {
+  throw new Error("Broken on purpose")
 }
 
 export function Link({ className, ...props }) {
@@ -343,9 +358,7 @@ describe("finding a design node's DOM", () => {
 /**
  * A component handing props to what's in its slot: Radix's Slot merging a button's onto its asChild child, and a
  * `$renderWith:` slot spreading what the component calls it with. A component layer is drawn inside the guest's error
- * boundary. The guest gives a render slot's props to the layer itself, so `$renderWith:` reaches it; Radix's Slot
- * clones the boundary, which draws its child as it was, so asChild's props are lost. The failing case is kept as
- * `it.fails` until it's fixed.
+ * boundary, so these check that what the parent hands it still reaches the component.
  */
 describe("props a component hands to its slot", () => {
   const slots: Node[] = [
@@ -373,6 +386,13 @@ describe("props a component hands to its slot", () => {
             children: [component("link-component", "Link", { children: "B" })]
           }
         ),
+        component(
+          "press-component",
+          "PressButton",
+          { asChild: true },
+          { children: [component("press-link", "Link", { className: "pressed", children: "Press" })] }
+        ),
+        component("broken-slot", "SlotButton", { asChild: true }, { children: [component("broken", "Broken")] }),
         component(
           "repeat-element",
           "Repeat",
@@ -423,8 +443,47 @@ describe("props a component hands to its slot", () => {
     ])
   })
 
-  it.fails("gives a component in an asChild slot the button's class and attributes", async () => {
-    expect(await drawn("a.link")).toEqual([{ className: "link slot-button", slot: "button", index: undefined }])
+  it("gives a component in an asChild slot the button's class and attributes", async () => {
+    expect(await drawn("a.link:not(.pressed)")).toEqual([
+      { className: "link slot-button", slot: "button", index: undefined }
+    ])
+  })
+
+  it("gives a component in an asChild slot the button's handler and ref, its own class kept", async () => {
+    await mount(slots)
+    const press = () =>
+      page.evaluate(() => {
+        const link = document.querySelector("#host")!.shadowRoot!.querySelector<HTMLElement>("a.pressed")!
+        link.click()
+        return { className: link.className, ref: link.dataset.ref }
+      })
+    expect(await press()).toEqual({ className: "link pressed", ref: "a" })
+    await page.waitForTimeout(50)
+    const presses = await page.evaluate(
+      () => document.querySelector("#host")!.shadowRoot!.querySelector<HTMLElement>("a.pressed")!.dataset.presses
+    )
+    expect(presses).toBe("1")
+  })
+
+  it("still finds a component layer in an asChild slot, inside its parent", async () => {
+    await mount(slots)
+    const found = await lookup("link-component", "a.link:not(.pressed)")
+    expect(found.elements).toEqual(["link slot-button"])
+    expect(found.box).toEqual(found.expected[0])
+    expect(await at("a.link:not(.pressed)")).toEqual(["slots", "button-component", "link-component"])
+  })
+
+  it("keeps the error of a component in an asChild slot to itself", async () => {
+    await mount(slots)
+    const shown = await page.evaluate(() => {
+      const root = document.querySelector("#host")!.shadowRoot!
+      return {
+        error: root.textContent!.includes("Broken: Broken on purpose"),
+        links: root.querySelectorAll("a").length
+      }
+    })
+    expect(shown).toEqual({ error: true, links: 3 })
+    expect((await lookup("broken")).elements).toHaveLength(1)
   })
 
   it("gives an element in a $renderWith: slot what the component renders it with", async () => {

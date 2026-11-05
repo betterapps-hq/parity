@@ -1041,6 +1041,13 @@ recommended answer to each of its questions.
   - A value an owner part works out for a part it draws is tried with each value the examples make.
 - **A render function's arguments go over the node's own (PAR-418):** its props over the node's props and slots, its
   style merged over the node's, its key on the returned node, and a slot that both spreads and names props gives both.
+- **A component layer takes what a parent clones onto it (PAR-200):** the guest draws each component layer through a
+  function component that holds its error boundary, so a parent that clones the layer, as Radix's Slot does for
+  `asChild`, hands its props to the component rather than to the boundary. They're merged under the layer's own as
+  Radix's `mergeProps` merges onto an element: class names joined, styles merged, both handlers called with the layer's
+  first, and the layer's other props over the parent's. A ref goes to the component, since React 19 passes `ref` to a
+  function component as a prop. A parent that clones with plain `cloneElement` would replace a class rather than join
+  it; layers set from the canvas rarely have one, so the one rule covers both.
 - **`parity lib` tries parts with React's server renderer,** from the project's own React, rather than in the app: it
   needs no window, runs in seconds, and still throws the context errors that name a part's parents. The library's
   decorator providers wrap each try, with their imports and calls made, a mode's default value, and no frame, so
