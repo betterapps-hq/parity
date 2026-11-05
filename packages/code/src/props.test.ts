@@ -1,6 +1,7 @@
+import { realpathSync } from "node:fs"
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { join, resolve } from "node:path"
+import { join, relative, resolve } from "node:path"
 import type { ComponentProp } from "@parity-app/core"
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
 import { inferProps } from "./index.ts"
@@ -102,8 +103,8 @@ describe("Fluent's slots", () => {
     expect(prop("root")).toMatchObject({ kind: "node", group: "html", required: true })
   })
 
-  it("still reads a library's other props as before", () => {
-    expect(prop("appearance")).toMatchObject({ kind: "enum", options: ["primary", "subtle"], group: "html" })
+  it("lists a library's other props its component's file declares as its own (PAR-457)", () => {
+    expect(prop("appearance")).toMatchObject({ kind: "enum", options: ["primary", "subtle"], group: "own" })
   })
 })
 
@@ -156,6 +157,121 @@ describe("components that pass their props to a void element", () => {
     const input = inferProps(example, { Input: { path: "src/components/ui/input.tsx", export: "Input" } })
     expect(input.Input?.props.some((prop) => prop.name === "children")).toBe(false)
     expect(input.Input?.props.find((prop) => prop.name === "placeholder")).toMatchObject({ kind: "string" })
+  })
+}, 60_000)
+
+describe("a library's own props, declared beside the attributes it passes on (PAR-457)", () => {
+  let root: string
+  let found: ReturnType<typeof inferProps>
+
+  // A kit shaped as Nova is: each component's props are an element's attributes and a type of its own, and its
+  // compiled JavaScript holds the cva variants and the defaults its declarations drop.
+  const react = [
+    "export interface DOMAttributes { children?: string }",
+    "export interface ButtonHTMLAttributes extends DOMAttributes { disabled?: boolean; type?: 'submit' | 'button' }",
+    "export interface HTMLAttributes extends DOMAttributes { hidden?: boolean; id?: string }"
+  ]
+  const declarations = [
+    'import type { ButtonHTMLAttributes, HTMLAttributes } from "fake-react"',
+    "export declare function MenuButton({ isActive, variant, size, ...props }: ButtonHTMLAttributes & {",
+    "  isActive?: boolean",
+    "} & { variant?: 'default' | 'outline' | null; size?: 'sm' | 'lg' | null }): null",
+    "export declare function Panel({ variant, ...props }: HTMLAttributes & { variant?: 'sidebar' | 'floating' }): null",
+    "export declare function Provider({ defaultOpen, open, ...props }: HTMLAttributes & {",
+    "  defaultOpen?: boolean",
+    "  open?: boolean",
+    "}): null"
+  ]
+  const implementation = [
+    'import { cva } from "class-variance-authority"',
+    'const menuButtonVariants = cva("", {',
+    '  variants: { variant: { default: "", outline: "" }, size: { sm: "", lg: "" } },',
+    '  defaultVariants: { variant: "default", size: "sm" }',
+    "})",
+    'export function MenuButton({ isActive = false, variant = "default", size = "sm", ...props }) { return null }',
+    'export function Panel({ variant = "sidebar", ...props }) { return null }',
+    "export function Provider({ defaultOpen = true, open, ...props }) { return null }"
+  ]
+
+  beforeAll(async () => {
+    root = (await mkdtemp(join(tmpdir(), "canvas-kit-"))).replaceAll("\\", "/")
+    await mkdir(join(root, "node_modules", "fake-react"), { recursive: true })
+    await mkdir(join(root, "node_modules", "kit"), { recursive: true })
+    await writeFile(join(root, "node_modules", "fake-react", "index.d.ts"), react.join("\n"))
+    await writeFile(join(root, "node_modules", "kit", "index.d.ts"), declarations.join("\n"))
+    await writeFile(join(root, "node_modules", "kit", "index.js"), implementation.join("\n"))
+    const source = (name: string) => ({
+      path: "kit",
+      export: name,
+      library: "kit",
+      declaration: "node_modules/kit/index.d.ts"
+    })
+    found = inferProps(root, { MenuButton: source("MenuButton"), Panel: source("Panel"), Provider: source("Provider") })
+  })
+
+  afterAll(async () => {
+    await rm(root, { recursive: true, force: true })
+  })
+
+  const listed = (name: string) =>
+    found[name]?.props.filter((prop) => prop.group === "variant" || prop.group === "own").map((prop) => prop.name)
+  const prop = (component: string, name: string) => found[component]?.props.find((each) => each.name === name)
+
+  it("lists a prop the component's own file adds to its element's attributes, with its default from the JavaScript", () => {
+    expect(prop("MenuButton", "isActive")).toMatchObject({ kind: "boolean", group: "own", default: false })
+    expect(prop("Provider", "defaultOpen")).toMatchObject({ kind: "boolean", group: "own", default: true })
+    expect(listed("Provider")).toEqual(["defaultOpen", "open"])
+  })
+
+  it("keeps the attributes it passes on with the attributes", () => {
+    expect(prop("MenuButton", "disabled")).toMatchObject({ group: "html" })
+    expect(prop("Provider", "id")).toMatchObject({ group: "html" })
+    expect(listed("MenuButton")).toEqual(["variant", "size", "isActive"])
+  })
+
+  it("takes a cva variant's options only for a prop whose type has them", () => {
+    expect(prop("MenuButton", "variant")).toMatchObject({
+      group: "variant",
+      options: ["default", "outline"],
+      default: "default"
+    })
+    expect(prop("Panel", "variant")).toMatchObject({
+      kind: "enum",
+      group: "own",
+      options: expect.arrayContaining(["sidebar", "floating"]),
+      default: "sidebar"
+    })
+  })
+
+  it("reads Nova's sidebar as it ships in the example", () => {
+    // Where the package really is, as discovery finds it: pnpm links it from the store.
+    const folder = realpathSync(join(example, "node_modules/@buildkitgg/shadcn-baseui-nova"))
+    const nova = (name: string) => ({
+      path: "@buildkitgg/shadcn-baseui-nova",
+      export: name,
+      library: "nova",
+      declaration: relative(example, join(folder, "dist/ui/sidebar.d.ts")).replaceAll("\\", "/")
+    })
+    const sidebar = inferProps(example, {
+      SidebarMenuButton: nova("SidebarMenuButton"),
+      SidebarProvider: nova("SidebarProvider"),
+      Sidebar: nova("Sidebar")
+    })
+    const own = (name: string) =>
+      sidebar[name]?.props.filter((each) => each.group === "variant" || each.group === "own").map((each) => each.name)
+    expect(sidebar.SidebarMenuButton?.props.find((each) => each.name === "isActive")).toMatchObject({
+      kind: "boolean",
+      group: "own",
+      default: false
+    })
+    expect(own("SidebarMenuButton")).toEqual(expect.arrayContaining(["variant", "size", "isActive", "tooltip"]))
+    expect(own("SidebarMenuButton")).not.toContain("disabled")
+    expect(own("SidebarProvider")).toEqual(expect.arrayContaining(["defaultOpen", "open"]))
+    expect(sidebar.Sidebar?.props.find((each) => each.name === "variant")).toMatchObject({
+      group: "own",
+      options: expect.arrayContaining(["sidebar", "floating", "inset"]),
+      default: "sidebar"
+    })
   })
 }, 60_000)
 

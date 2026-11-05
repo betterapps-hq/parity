@@ -956,7 +956,13 @@ recommended answer to each of its questions.
   is: text, or layers in a slot of its name. One that takes only its part's props (an `input`, an `img`) is an object.
   My call: a content slot is listed with the component's own props though its package declares it, since it's one of the
   component's parts and not an HTML attribute; `root` is the component itself, so it stays with the attributes. A
-  library's other props, `children` included, still sit with the attributes, as before.
+  library's other props sat with the attributes until PAR-457, below.
+- **A library's own props are those its component's declaration file declares (PAR-457).** Nova's `SidebarMenuButton`
+  adds `isActive` to a button's attributes, and hiding it behind `all` hid how an item shows as current. A prop declared
+  in the file that declares the component is its own; one from React or another package stays with the attributes, as
+  does a slot that isn't content. Defaults come from the compiled JavaScript beside the declarations, and a cva
+  variant's options go to a prop only when its type has the same options, since one file can hold several components'
+  variants. Upstream components and styles are unchanged; only Parity's reading of them is.
 - **A node prop held in a slot says so (PAR-127):** once its slot has layers, the Props panel says "Set in layers" in
   place of a text field and doesn't offer the prop again, since the canvas passes the slot's layers over a value.
 - **Components declared but missing when they run are left out (LIB-37):** MUI's types declare `BadgeRoot`, `ModalRoot`

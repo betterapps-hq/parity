@@ -131,8 +131,9 @@ Print(Get((node, at) => (node.type === "component" && node.component === "Button
 ### Components and Props
 
 `Components()` is everything a `component` node can name. `Props("Button")` returns the props found in the component's
-source: variants with their options (`variant`, `size`), its own props, and with `{ all: true }` the attributes it
-passes to its element. A prop that isn't listed, or a variant value outside its options, comes back as a warning.
+source: variants with their options (`variant`, `size`), its own props, including those a library's component adds to
+its element's (Nova's `isActive`), and with `{ all: true }` the attributes it passes to its element. A prop that isn't
+listed, or a variant value outside its options, comes back as a warning.
 
 Its `composition` says what it needs around it and holds, before you insert it:
 
