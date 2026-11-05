@@ -1,3 +1,14 @@
+import { cn } from "@buildkitgg/shadcn-baseui-kit"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput
+} from "@buildkitgg/shadcn-baseui-kit"
 // The list is ARIA's combobox pattern: focus stays in the search field, which takes the keys and points at the active
 // option with aria-activedescendant, so the options are neither focusable nor keyed, and they're divs, which a
 // virtualized list draws and a native select can't hold.
@@ -5,7 +16,6 @@
 import type { DesignNode, LibraryInfo } from "@parity-app/core"
 import { type InsertItem, type InsertOption, type InsertOrigin, type InsertRow, insertRows } from "@parity-app/editor"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { cn } from "cn"
 import { Columns3, Component, Diamond, Rows3, SearchIcon, Shapes, Type } from "lucide-react"
 import {
   type KeyboardEvent,
@@ -19,15 +29,6 @@ import {
   useSyncExternalStore
 } from "react"
 import { toast } from "sonner"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogPortal,
-  DialogTitle
-} from "@/components/ui/dialog"
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
 import { placeLayers } from "../canvas/clipboard.ts"
 import { insertAtSelection } from "../canvas/insert.ts"
 import { kindColors } from "../canvas/kinds.tsx"
@@ -177,14 +178,17 @@ export function QuickInsert() {
     })
     return () => cancelIdleCallback(ready)
   }, [info])
+  // The picker is in the page only while it's open. Base UI keeps a closed dialog and its backdrop until it has seen
+  // the closing animation end, a frame or two after its 100ms, and the backdrop took the clicks meant for the canvas
+  // until then: in a window in the background, where frames come about once a second, for over a second (PAR-554).
+  // The list left the moment the picker closed, so the animation only faded out the backdrop and an empty box.
+  if (!session) return null
   return (
     // Not modal: a modal dialog locks the page's scrolling, hides everything else from screen readers and stops the
     // pointer on the body, which restyled all of the window's 6,000 elements to open it, 100 to 150ms of the 400ms the
-    // picker took (PAR-178). The backdrop takes the clicks outside instead, and the search field keeps Tab.
-    <Dialog open={isOpen && !!session} onOpenChange={setOpen} modal={false}>
-      <DialogPortal>
-        <div aria-hidden className="fixed inset-0 z-50 bg-black/10 supports-backdrop-filter:backdrop-blur-xs" />
-      </DialogPortal>
+    // picker took (PAR-178). The kit's backdrop, which Base UI draws for a dialog that isn't modal too, takes the clicks
+    // outside instead, and the search field keeps Tab.
+    <Dialog open onOpenChange={setOpen} modal={false}>
       <DialogContent
         className="top-1/3 max-w-xl translate-y-0 gap-0 overflow-hidden rounded-xl! p-0"
         showCloseButton={false}
@@ -193,7 +197,7 @@ export function QuickInsert() {
           <DialogTitle>Insert</DialogTitle>
           <DialogDescription>Search for a layer, component or icon to insert</DialogDescription>
         </DialogHeader>
-        {session && <InsertList session={session} />}
+        <InsertList session={session} />
       </DialogContent>
     </Dialog>
   )
@@ -322,6 +326,11 @@ function InsertList({ session }: { session: ProjectSession }) {
             aria-autocomplete="list"
             aria-activedescendant={current === undefined ? undefined : optionId(current)}
             aria-label="Insert a layer, component or icon"
+            // The field takes the keys as it opens. Base UI moves focus into a dialog a frame later, and until then the
+            // canvas had the keys: Escape selected the parent and left the picker open, in a window in the background
+            // for up to a second (PAR-554).
+            // oxlint-disable-next-line jsx-a11y/no-autofocus
+            autoFocus
             value={query}
             onChange={(event) => setQuery(event.currentTarget.value)}
             onKeyDown={onKeyDown}
@@ -478,7 +487,7 @@ function RowContent({ row, searching, onPick }: { row: InsertRow; searching: boo
 
 function insert(session: ProjectSession, item: InsertItem): void {
   setOpen(false)
-  if (!insertAtSelection(session, item)) toast.info("Select a design or a layout to insert into")
+  if (!insertAtSelection(session, item)) toast.info("Select a screen, component or layout to insert into")
 }
 
 function insertBasic(session: ProjectSession, { node: make, label }: (typeof basics)[number]): void {

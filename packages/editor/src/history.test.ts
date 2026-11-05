@@ -1,5 +1,5 @@
 import { type CanvasDocument, type ContainerSpec, defaultModeSettings, type ModeSettings } from "@parity-app/core"
-import type { Token, TokenChange } from "@parity-app/tokens"
+import { type Token, type TokenChange, writeTokenChanges } from "@parity-app/tokens"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { addDesign, changeDesign, mergeAgentChanges, moveDesign } from "./design-changes.ts"
 import { withTidyView } from "./document-equality.ts"
@@ -570,6 +570,34 @@ describe("token values", () => {
     expect(fileWrite(undone, "src/index.css")).toMatchObject({
       changes: [{ name: "primary", theme: "default", value: "oklch(0.205 0 0)" }]
     })
+  })
+
+  it("take a value a theme didn't have out of the stylesheet when it's undone after a save, offscreen too (PAR-420)", () => {
+    const css = ":root {\n  --radius: 0.5rem;\n}\n"
+    const loaded: Token[] = [{ name: "radius", category: "radius", source: "semantic", values: { default: "0.5rem" } }]
+    /** The stylesheet after a save, as `saveTokens` writes it. */
+    const written = (stylesheet: string, write: FileWrite) =>
+      write.kind === "tokens" ? writeTokenChanges(stylesheet, write.changes, new Set()) : stylesheet
+    const step = (overrides: readonly TokenChange[], from: DesignHistory, to: DesignHistory) =>
+      withTokenOverrides(overrides, tokenDifferences(from.current.tokens, to.current.tokens), loaded)
+
+    const start = open()
+    const edited = tokens(start, [{ name: "radius", theme: "dark", value: "1rem" }], "Edit --radius")
+    const first = save(edited, "src/index.css")
+    const saved = written(css, first.write)
+    expect(saved).toBe(":root {\n  --radius: 0.5rem;\n}\n\n.dark {\n  --radius: 1rem;\n}\n")
+    const shown = step([], start, edited)
+    expect(shown).toEqual([{ name: "radius", theme: "dark", value: "1rem" }])
+
+    const undone = taken(undoChange(first.history))
+    expect(unsavedPaths(undone)).toEqual(["src/index.css"])
+    // Frames drawn offscreen start from the CSS the guest loaded, so with no override they draw no dark radius.
+    expect(step(shown, first.history, undone)).toEqual([])
+    const second = save(undone, "src/index.css")
+    expect(second.write).toMatchObject({ changes: [{ name: "radius", theme: "dark", value: undefined }] })
+    expect(written(saved, second.write)).toBe(css)
+    expect(unsavedPaths(second.history)).toEqual([])
+    expect(second.history.saveState).toEqual({ status: "saved" })
   })
 
   it("name the token and the stylesheet when a write fails, and stay unsaved until one succeeds", () => {

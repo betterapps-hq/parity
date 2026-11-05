@@ -5,6 +5,7 @@ import {
   type TokenEdit,
   type TokenEdits,
   type TokenFailure,
+  type TokenWrite,
   tokenDifferences,
   tokensWithEdits,
   withTokenOverrides
@@ -33,7 +34,7 @@ export class TokenStore {
     /** The tokens as the project's stylesheet had them when its guest loaded. */
     private readonly loaded: Token[],
     private readonly sheet: CSSStyleSheet,
-    write: (changes: TokenChange[]) => Promise<unknown>,
+    write: (changes: TokenWrite[]) => Promise<unknown>,
     private readonly history: DesignStore,
     /** The stylesheet the tokens are written to, as the project names it. */
     readonly stylesheet = "the stylesheet",

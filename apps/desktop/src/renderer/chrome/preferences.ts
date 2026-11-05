@@ -1,3 +1,4 @@
+import type { CodeEditorChoice } from "@parity-app/core"
 import { useSyncExternalStore } from "react"
 
 /** How the app looks and behaves, set from the File and View menus. Shared by every tab, and remembered between runs. */
@@ -14,6 +15,8 @@ export interface Preferences {
   autosave: boolean
   /** Frame rate, memory and CPU in the status bar, for spotting what slows the app down. */
   performanceStats: boolean
+  /** The editor View code opens a component's file in: one, the first installed, or the system's default app. */
+  codeEditor: CodeEditorChoice
 }
 
 export type ThemePreference = "light" | "dark" | "system"
@@ -25,7 +28,8 @@ const defaults: Preferences = {
   exportScale: 2,
   layoutGrid: false,
   autosave: false,
-  performanceStats: false
+  performanceStats: false,
+  codeEditor: "auto"
 }
 
 let preferences = load()

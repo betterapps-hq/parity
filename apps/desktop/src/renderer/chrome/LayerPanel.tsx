@@ -1,5 +1,15 @@
 import {
+  Button,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@buildkitgg/shadcn-baseui-kit"
+import {
   boardTarget,
+  changesField,
   type ComponentLibrary,
   type ContainerSpec,
   type DesignNode,
@@ -20,6 +30,7 @@ import {
   type NodeStyle,
   overrideCount,
   type PatchField,
+  propChange,
   patchSize,
   pushOverrides,
   resetInstance,
@@ -31,9 +42,7 @@ import {
 import { boardReader } from "@parity-app/editor"
 import { BookOpen, Diamond, Group, Info, Sparkles, Unlink } from "lucide-react"
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useChangePreview } from "../canvas/change-preview.ts"
 import { useProject } from "../canvas/context.ts"
 import { frameScale, nodeInFrames, selectionFrame } from "../canvas/hit.ts"
 import { focusOnMount, kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
@@ -51,7 +60,7 @@ import { ChoiceInput, Field, SwitchInput, TextInput, ValueInput } from "./fields
 import { Hint } from "./Hint.tsx"
 import { keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
-import { PanelSection } from "./PanelSection.tsx"
+import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { valueKind } from "./prop-values.ts"
 import { PropsSection } from "./PropsSection.tsx"
 import { revealSelection } from "./reveal.ts"
@@ -109,7 +118,7 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
 
   return (
     <>
-      <div className="border-b px-4 py-3">
+      <div className={`border-b py-3 pl-4 ${panelEnd}`}>
         <div className="flex items-center gap-2">
           <NodeIcon node={location.node} className="size-4 shrink-0" style={{ color: nodeColor(location.node) }} />
           <Input
@@ -142,8 +151,8 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
           entry={entry}
           node={node}
           own={location.node as InstanceNode}
-          changed={(name) => override?.props?.[name] !== undefined}
-          onChange={(name, value) => change(`Change ${name}`, { props: { [name]: value } })}
+          changed={(name) => changesField(override, { kind: "props", key: name })}
+          onChange={(name, value) => change(`Change ${name}`, propChange(name, value))}
           onReset={(name) => reset({ kind: "props", key: name })}
         />
       )}
@@ -208,7 +217,7 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
 
   return (
     <>
-      <div className="border-b px-4 py-3">
+      <div className={`border-b py-3 pl-4 ${panelEnd}`}>
         <div className="flex h-7 items-center gap-2">
           <NodeIcon node={inner.node} className="size-4 shrink-0" style={{ color: kindColors.component }} />
           <span className="truncate px-1.5 text-sm font-medium">
@@ -281,8 +290,8 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
         <InstanceSection
           entry={entry}
           node={node}
-          changed={(name) => override.props?.[name] !== undefined}
-          onChange={(name, value) => change(`Change ${name}`, { props: { [name]: value } })}
+          changed={(name) => changesField(override, { kind: "props", key: name })}
+          onChange={(name, value) => change(`Change ${name}`, propChange(name, value))}
           onReset={(name) => reset({ kind: "props", key: name })}
         />
       )}
@@ -335,6 +344,10 @@ function LayerSections({
     : undefined
   // A field's edit previews on the canvas, applied as `change` would apply it, until it's made or taken back.
   const preview = useStylePreview(session, entry.key)
+  // A number prop previews by being made, as the component has to draw again for it, and is taken back unless it's made.
+  const propPreview = useChangePreview(session.store, entry.key)
+  const setProp = (name: string, value: unknown) => (gesture?: string) =>
+    change(`Change ${name}`, propChange(name, value), gesture)
   const edited = (style: NodeStyle) => (current: ContainerSpec) => {
     const target = boardTarget(current, editingState(current, selected.state).id)
     return inner
@@ -355,7 +368,7 @@ function LayerSections({
   }
   const styleEditor: StyleEditor = {
     style: node.style ?? {},
-    changed: (name) => override?.style?.[name] !== undefined,
+    changed: (name) => changesField(override, { kind: "style", key: name }),
     reset: (name) => reset({ kind: "style", key: name }),
     set: (edit, label = "Change style", gesture) => {
       const values = styleValues(edit, node.style ?? {}, layer) as NodeStyle
@@ -380,7 +393,7 @@ function LayerSections({
           ) : (
             <Field
               label="Label"
-              changed={override?.props?.children !== undefined}
+              changed={changesField(override, { kind: "props", key: "children" })}
               onReset={() => reset({ kind: "props", key: "children" })}
             >
               <TextInput
@@ -405,8 +418,11 @@ function LayerSections({
         <PropsSection
           node={node}
           info={components[node.component]}
-          changed={(name) => override?.props?.[name] !== undefined}
-          onChange={(name, value, gesture) => change(`Change ${name}`, { props: { [name]: value } }, gesture)}
+          changed={(name) => changesField(override, { kind: "props", key: name })}
+          taken={override?.unset?.props}
+          onChange={(name, value, gesture) => propPreview.commit(setProp(name, value), gesture)}
+          onPreview={(name, value) => propPreview.show(setProp(name, value))}
+          onCancel={() => propPreview.cancel()}
           onReset={(name) => reset({ kind: "props", key: name })}
         />
       )}
@@ -440,7 +456,7 @@ function LayerSections({
 function NoStyleNote({ component, wrap }: { component: string; wrap: boolean }) {
   const session = useProject()
   return (
-    <div className="flex flex-col gap-2 border-b px-4 py-2.5">
+    <div className={`flex flex-col gap-2 border-b py-2.5 pl-4 ${panelEnd}`}>
       <p className="text-xs text-muted-foreground">
         {component} doesn&apos;t take a <code>style</code>, so the size and styles below don&apos;t change it.
         {wrap ? " Wrap it in a layout and size that instead." : ""}
@@ -528,9 +544,7 @@ function InstanceSection({
   if (!design) {
     return (
       <PanelSection title="Instance">
-        <p className="px-1 text-xs text-destructive">
-          The component design &quot;{node.design}&quot; doesn&apos;t exist.
-        </p>
+        <p className="px-1 text-xs text-destructive">The component &quot;{node.design}&quot; doesn&apos;t exist.</p>
       </PanelSection>
     )
   }
@@ -651,11 +665,11 @@ function InstanceSection({
             )}
           </div>
           <div className="flex gap-1.5">
-            <Select
-              value=""
-              onValueChange={(design) =>
-                replace("Swap instance", (container) => swapInstance(container, node.id, design, library))
-              }
+            <Select<string>
+              value={null}
+              onValueChange={(design) => {
+                if (design) replace("Swap instance", (container) => swapInstance(container, node.id, design, library))
+              }}
             >
               <SelectTrigger size="sm" className="h-7 flex-1 text-xs">
                 <SelectValue placeholder="Swap component" />
@@ -697,11 +711,11 @@ function StateTarget({ entry, state, target }: { entry: ContainerEntry; state: S
     entry.container.params?.[target.variant.param]?.options?.find((option) => option.id === target.variant!.option)
   const variantOnly = !base && variant && state.id === entry.container.states[0]!.id
   let changes = "changes only this state"
-  if (base) changes = "changes the design"
+  if (base) changes = "changes every state"
   else if (variantOnly) changes = `changes only the ${variant.name} variant`
   return (
     <div
-      className="mt-3 flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs"
+      className="mt-3 flex items-center gap-1 rounded-md border px-2 py-1.5 text-xs"
       style={
         base
           ? undefined
@@ -710,15 +724,18 @@ function StateTarget({ entry, state, target }: { entry: ContainerEntry; state: S
     >
       <span className="shrink-0 text-muted-foreground">Editing</span>
       <Select
+        items={entry.container.states.map((candidate) => ({ value: candidate.id, label: candidate.name }))}
         value={state.id}
         onValueChange={(id) => {
-          store.updateView(entry.key, (view) => ({ ...view, state: id }))
+          if (!id) return
+          const name = entry.container.states.find((candidate) => candidate.id === id)?.name ?? id
+          store.updateView(entry.key, `Show ${name}`, (view) => ({ ...view, state: id }))
           selection.set({ ...selected, state: id })
         }}
       >
         <SelectTrigger
           size="sm"
-          className="h-6 flex-1 border-none bg-transparent px-1.5 text-xs shadow-none dark:bg-transparent"
+          className="h-6 w-auto max-w-32 shrink-0 gap-1 border-none bg-transparent px-1 text-xs shadow-none dark:bg-transparent"
         >
           <SelectValue />
         </SelectTrigger>
@@ -730,7 +747,8 @@ function StateTarget({ entry, state, target }: { entry: ContainerEntry; state: S
           ))}
         </SelectContent>
       </Select>
-      <span className="shrink-0 text-muted-foreground">{changes}</span>
+      {/* What edits change wraps rather than spilling past the bar when it doesn't fit beside the state. */}
+      <span className="min-w-0 text-muted-foreground">{changes}</span>
     </div>
   )
 }
@@ -829,7 +847,7 @@ function ImageSection({ entry, node }: { entry: ContainerEntry; node: ImageNode 
         />
       </Field>
       {node.credit && (
-        <p className="px-1 text-xs text-muted-foreground">
+        <p className="-mt-1 ml-24 text-xs text-muted-foreground">
           Photo by{" "}
           <a href={node.credit.url} target="_blank" rel="noreferrer" className="text-foreground hover:underline">
             {node.credit.name}

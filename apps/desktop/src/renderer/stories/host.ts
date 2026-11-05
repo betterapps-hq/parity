@@ -1,6 +1,6 @@
 import type { AccessibilityFinding } from "@parity-app/agent"
 import { type ComponentInfo, type ContainerSpec, defaultModeSettings, type DesignNode } from "@parity-app/core"
-import type { TokenChange } from "@parity-app/tokens"
+import type { TokenWrite } from "@parity-app/tokens"
 import discovered from "virtual:parity/example-project"
 import desktop from "../../../package.json"
 import type {
@@ -112,6 +112,7 @@ export function installHost(): void {
     onReconnect: () => undefined,
     ...cancelled,
     showItem: () => Promise.resolve(),
+    openInEditor: () => Promise.resolve({ opened: "VS Code" }),
     quit: () => Promise.resolve(),
     toggleDevTools: () => Promise.resolve(),
     setTheme: () => Promise.resolve(),
@@ -316,7 +317,7 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
       return undefined
     case "tokens.save": {
       if (service.saveFails) throw new Error("EPERM: operation not permitted, open 'src/index.css'")
-      const changes = params.changes as TokenChange[]
+      const changes = params.changes as TokenWrite[]
       const [change] = changes
       return edited(changes.length === 1 ? "Edit a token" : `Edit ${changes.length} tokens`, [
         "@@ -7,7 +7,7 @@",

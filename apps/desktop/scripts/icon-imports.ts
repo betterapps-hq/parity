@@ -76,8 +76,10 @@ export function iconImports(
 /**
  * Serves each lucide icon Parity's UI uses on its own. Vite prebundles a dependency whole, and lucide-react's index
  * imports all of its icons, so importing one from `lucide-react` loaded every one into the window. The package stays
- * out of Vite's prebundling, so the window fetches the few files each icon needs. Only the app's own code is rewritten:
- * a project's icons come from its own builder.
+ * out of Vite's prebundling, so the window fetches the few files each icon needs. The app's own code is rewritten as
+ * Vite serves it, and its dependencies as Vite prebundles them: a component kit such as Buildkit's imports its icons
+ * from the index too, which would otherwise fetch every icon file one by one. A project's icons come from its own
+ * builder.
  */
 export function iconImportsPlugin(): Plugin {
   const require = createRequire(import.meta.url)
@@ -88,10 +90,34 @@ export function iconImportsPlugin(): Plugin {
     apply: "serve",
     // Before TypeScript's types are erased, so `type` names are dropped here rather than leaving an empty import.
     enforce: "pre",
-    config: () => ({ optimizeDeps: { exclude: ["lucide-react"] } }),
+    config: () => ({
+      optimizeDeps: {
+        exclude: ["lucide-react"],
+        rolldownOptions: { plugins: [dependencyIconImports(exports, "lucide-react/dist/esm")] }
+      }
+    }),
     transform(code, id) {
       if (id.includes("/node_modules/") || !/\.[cm]?[jt]sx?(\?|$)/.test(id)) return undefined
       const next = iconImports(code, exports, "lucide-react/dist/esm", id.split("?")[0])
+      return next === undefined ? undefined : { code: next, map: null }
+    }
+  }
+}
+
+/**
+ * Rewrites the icon imports of the dependencies Vite prebundles, as `iconImportsPlugin` does the app's. Their imports
+ * of lucide-react's own files are left for Vite to serve, since the package isn't prebundled.
+ */
+export function dependencyIconImports(
+  exports: Map<string, IconExport>,
+  dist: string
+): { name: string; transform: (code: string, id: string) => { code: string; map: null } | undefined } {
+  return {
+    name: "parity:dependency-icon-imports",
+    transform(code, id) {
+      const file = id.split("?")[0]!
+      if (/[\\/]lucide-react[\\/]/.test(file) || !/\.[cm]?jsx?$/.test(file)) return undefined
+      const next = iconImports(code, exports, dist, file)
       return next === undefined ? undefined : { code: next, map: null }
     }
   }

@@ -1,6 +1,3 @@
-import { isInnerPath } from "@parity-app/core"
-import { CheckIcon } from "lucide-react"
-import { type MouseEvent as ReactMouseEvent, type ReactElement, useEffect, useRef, useState } from "react"
 import {
   ContextMenu,
   ContextMenuContent,
@@ -11,9 +8,13 @@ import {
   ContextMenuSubContent,
   ContextMenuSubTrigger,
   ContextMenuTrigger
-} from "@/components/ui/context-menu"
+} from "@buildkitgg/shadcn-baseui-kit"
+import { isInnerPath } from "@parity-app/core"
+import { CheckIcon } from "lucide-react"
+import { type ComponentProps, type ReactElement, useEffect, useRef, useState } from "react"
 import { pasteAtPointer } from "../canvas/clipboard.ts"
 import { useProject } from "../canvas/context.ts"
+import { onGestureEnd } from "../canvas/gesture-end.ts"
 import { hitTest, type Point, selectedIn, underPoint } from "../canvas/hit.ts"
 import { DesignIcon, designColor, kindColors, NodeIcon, nodeColor } from "../canvas/kinds.tsx"
 import { pickLayer } from "../canvas/pick.ts"
@@ -22,6 +23,9 @@ import { type Selection, useInteracting, useSelection } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { actions } from "./actions.ts"
 import { canvasMenu, type LayerChoice, type MenuAction, type MenuTarget, rightClickSelection } from "./canvas-menu.ts"
+import { formatKeys } from "./keys.ts"
+
+type TriggerProps = ComponentProps<typeof ContextMenuTrigger>
 
 /** Where the menu opened: the pointer, and the design under it, if any. */
 interface Opened {
@@ -43,7 +47,8 @@ interface Press {
  * The canvas's right-click menu, around the canvas area. A right-click on a design selects what's under the pointer
  * first, unless that's inside the selection, then lists what can be done with the selection, each item with its keys
  * from the keymap (see `canvasMenu`). On the canvas around designs it offers Paste here, Select all and Zoom to fit.
- * While interacting, right-clicks are the designs', and nothing opens.
+ * While interacting, right-clicks are the designs', and nothing opens. A right-click on the canvas while it's open opens
+ * it again at the new point, as in Figma.
  *
  * tldraw pans while the right button is dragged, so it keeps the system's menu from the press and opens this one when
  * the button comes up without panning, by sending a `contextmenu` of its own. It has selected the board under the
@@ -69,9 +74,13 @@ export function CanvasMenu({ children }: { children: ReactElement }) {
     return () => area.removeEventListener("pointerdown", onPointerDown, { capture: true })
   }, [area, session])
 
-  const onContextMenu = (event: ReactMouseEvent<HTMLElement>) => {
+  const onContextMenu: TriggerProps["onContextMenu"] = (event) => {
     // tldraw keeps the system's menu from a right-click on the canvas; its own event follows when the button comes up.
-    if (event.defaultPrevented) return
+    // The menu would open for either, so the first is kept from it.
+    if (event.defaultPrevented) {
+      event.preventBaseUIHandler()
+      return
+    }
     // From the pointer, the press this right-click began with, which a release from elsewhere doesn't have; from the
     // keyboard, there's none.
     const pressed = event.button === 2 ? press.current : undefined
@@ -80,6 +89,7 @@ export function CanvasMenu({ children }: { children: ReactElement }) {
     if (session.selection.getTool() === "interact" || !from || !onCanvas(from)) {
       // Nothing opens: not from a control drawn on the canvas, nor while interacting.
       event.preventDefault()
+      event.preventBaseUIHandler()
       return
     }
     const point = { x: event.clientX, y: event.clientY }
@@ -93,21 +103,64 @@ export function CanvasMenu({ children }: { children: ReactElement }) {
     setOpened({ point, target: under?.target })
   }
 
+  // A right-click on the canvas while the menu is open opens it again there, as in Figma. The open menu lays a backdrop
+  // over the page, so tldraw never hears of the press: the menu stays open, and when the button comes up the canvas
+  // under the backdrop gets the `contextmenu` tldraw would have sent, which moves the menu to the press. Anywhere else,
+  // the press closes the menu.
+  const reopensOnCanvas = (event: Event): boolean => {
+    if (!(event instanceof MouseEvent) || event.button !== 2 || !area) return false
+    const from = underBackdrop(event)
+    if (!from || !area.contains(from) || !onCanvas(from)) return false
+    const selection = session.selection.get()
+    const deep = event.ctrlKey || event.metaKey
+    onGestureEnd(window, (how) => {
+      if (how !== "release") return
+      // What Select layer outlined goes with the menu it was in.
+      session.selection.setHover(undefined)
+      press.current = { target: from, selection, deep }
+      from.dispatchEvent(
+        new PointerEvent("contextmenu", {
+          bubbles: true,
+          cancelable: true,
+          clientX: event.clientX,
+          clientY: event.clientY,
+          button: 2,
+          ctrlKey: event.ctrlKey,
+          metaKey: event.metaKey
+        })
+      )
+    })
+    return true
+  }
+
   return (
     <ContextMenu
-      onOpenChange={(open) => {
+      disabled={interacting}
+      onOpenChange={(open, details) => {
+        if (!open && details.reason === "outside-press" && reopensOnCanvas(details.event)) {
+          details.cancel()
+          return
+        }
         // Select layer outlines the layer an entry names; nothing stays outlined once the menu closes.
         if (!open) session.selection.setHover(undefined)
       }}
     >
-      <ContextMenuTrigger asChild ref={setArea} disabled={interacting} onContextMenu={onContextMenu}>
-        {children}
-      </ContextMenuTrigger>
+      <ContextMenuTrigger ref={setArea} onContextMenu={onContextMenu} render={children} />
       <ContextMenuContent className="w-60" aria-label="Canvas">
         {opened && <MenuItems opened={opened} />}
       </ContextMenuContent>
     </ContextMenu>
   )
+}
+
+/**
+ * What a press on the open menu's backdrop would have reached without it: the element under the backdrop at the
+ * pointer. Undefined when the press wasn't on something hit testing finds there.
+ */
+function underBackdrop(event: MouseEvent): Element | undefined {
+  const stack = document.elementsFromPoint(event.clientX, event.clientY)
+  const at = event.target instanceof Element ? stack.indexOf(event.target) : -1
+  return at === -1 ? undefined : stack[at + 1]
 }
 
 /** The menu's items, for what's selected now, which the right-click has just set. */
@@ -126,10 +179,10 @@ function MenuItems({ opened }: { opened: Opened }) {
       <ContextMenuItem
         key={entry.action}
         disabled={!entry.enabled}
-        onSelect={() => run(session, entry.action, opened.point)}
+        onClick={() => run(session, entry.action, opened.point)}
       >
         {entry.label}
-        {entry.keys && <ContextMenuShortcut>{entry.keys}</ContextMenuShortcut>}
+        {entry.keys && <ContextMenuShortcut>{formatKeys(entry.keys)}</ContextMenuShortcut>}
       </ContextMenuItem>
     )
   })
@@ -153,7 +206,7 @@ function SelectLayer({ label, choices, target }: { label: string; choices: Layer
             key={choice.id}
             onFocus={() => outline(choice)}
             onBlur={() => outline(undefined)}
-            onSelect={() =>
+            onClick={() =>
               selection.set(
                 choice.whole ? { design: target.design } : { design: target.design, node: choice.id, ...frame }
               )

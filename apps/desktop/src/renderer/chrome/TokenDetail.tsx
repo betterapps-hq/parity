@@ -1,20 +1,21 @@
 // A token's detail, opened from its row in the Tokens panel: a large preview, the facts about it, and Edit and Copy.
 // docs/proposals/previews.md has the design; docs/editor.md says how it behaves.
 
-import { codeForms, substituteReferences, tokenReferences, valueParts } from "@parity-app/tokens"
-import { Check, ChevronDown, Pause, Pencil, Play } from "lucide-react"
-import { Fragment, useEffect, useId, useRef, useState } from "react"
-import { Button } from "@/components/ui/button"
 import {
+  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
-import { Input } from "@/components/ui/input"
+  DropdownMenuTrigger,
+  Input,
+  type Popover
+} from "@buildkitgg/shadcn-baseui-kit"
+import { codeForms, substituteReferences, tokenReferences, valueParts } from "@parity-app/tokens"
+import { Check, ChevronDown, Pause, Pencil, Play } from "lucide-react"
+import { type ComponentProps, Fragment, useEffect, useId, useRef, useState } from "react"
 import { CopyButton, useCopy } from "./Copy.tsx"
 import { Swatch } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
@@ -348,11 +349,16 @@ export function TokenDetail({
 
 /**
  * Escape in a field being edited leaves editing, which the field handles, rather than closing the detail. From the
- * buttons, Escape closes the detail, which changes nothing either. Give it to the popover's `onEscapeKeyDown`.
+ * buttons, Escape closes the detail, which changes nothing either. Give it what the popover's `onOpenChange` is told.
  */
-export function keepEditing(event: KeyboardEvent): void {
-  if (event.target instanceof Element && event.target.matches("[data-token-editing] input")) event.preventDefault()
+export function keepEditing(details: PopoverChange): void {
+  const target = details.event.target
+  if (details.reason === "escape-key" && target instanceof Element && target.matches("[data-token-editing] input")) {
+    details.cancel()
+  }
 }
+
+type PopoverChange = Parameters<NonNullable<ComponentProps<typeof Popover>["onOpenChange"]>>[1]
 
 /**
  * A theme's name as people say it, as the Modes panel names it: Light and Dark, or a library's own (Teams high
@@ -370,7 +376,7 @@ export function themeLabel(theme: string, themes: readonly string[], names: Read
 /** What the edit bar says beside Apply: why it can't apply yet, or what applying does. */
 function applyHint(valid: boolean, changed: boolean): string {
   if (!valid) return "Fix the value to apply"
-  return changed ? "Every frame shows it at once" : "Nothing to apply yet"
+  return changed ? "Every preview shows it at once" : "Nothing to apply yet"
 }
 
 /**
@@ -390,11 +396,13 @@ function CopyMenu({ token }: { token: PreviewToken }) {
       <span aria-hidden className="h-4 w-px bg-border" />
       <DropdownMenu>
         <Hint label="Copy as">
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label="Copy as" className="w-6 rounded-l-none">
-              <ChevronDown className="size-3.5" />
-            </Button>
-          </DropdownMenuTrigger>
+          <DropdownMenuTrigger
+            render={
+              <Button variant="ghost" size="icon-sm" aria-label="Copy as" className="w-6 rounded-l-none">
+                <ChevronDown className="size-3.5" />
+              </Button>
+            }
+          />
         </Hint>
         <DropdownMenuContent align="end" className="w-72">
           {[...groups].map(([group, forms], index) => (
@@ -402,7 +410,7 @@ function CopyMenu({ token }: { token: PreviewToken }) {
               {index > 0 && <DropdownMenuSeparator />}
               <DropdownMenuLabel>{group}</DropdownMenuLabel>
               {forms.map((form) => (
-                <DropdownMenuItem key={form.text} onSelect={() => copying.copy(form.text)} className="gap-3 text-xs">
+                <DropdownMenuItem key={form.text} onClick={() => copying.copy(form.text)} className="gap-3 text-xs">
                   <span className="shrink-0">{form.label}</span>
                   <code className="ml-auto min-w-0 truncate font-mono text-muted-foreground">{form.text}</code>
                 </DropdownMenuItem>

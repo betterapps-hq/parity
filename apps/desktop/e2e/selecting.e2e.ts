@@ -184,7 +184,7 @@ describe("selecting what you point at", () => {
       await app.frames(2)
     })
     await expect.poll(async () => (await position("Sign in")).x - before.x).toBeGreaterThan(40)
-    expect(await app.undoLabel()).toBe("Move design")
+    expect(await app.undoLabel()).toBe("Move screen")
     await app.page.keyboard.press("Control+z")
     await expect.poll(() => position("Sign in")).toEqual(before)
     expect(await app.undoLabel()).toBeUndefined()

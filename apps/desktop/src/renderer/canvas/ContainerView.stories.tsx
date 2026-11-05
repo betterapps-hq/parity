@@ -1,3 +1,4 @@
+import { newDesign, turnInto } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { Box } from "tldraw"
 import { AppWindow } from "../App.tsx"
@@ -31,7 +32,7 @@ export const Components: Story = onCanvas(["Stat card", "Plan card", "Activity i
 
 /** A design showing every one of its states at once, each frame labelled with its state. */
 export const EveryState: Story = onCanvas(["Button"], () =>
-  example().store.updateView(design("Button"), (view) => ({ ...view, allStates: true }))
+  example().store.updateView(design("Button"), "Show every state", (view) => ({ ...view, allStates: true }))
 )
 
 /**
@@ -40,7 +41,7 @@ export const EveryState: Story = onCanvas(["Button"], () =>
  */
 export const EveryStateZoomedOut: Story = onCanvas(
   ["Button"],
-  () => example().store.updateView(design("Button"), (view) => ({ ...view, allStates: true })),
+  () => example().store.updateView(design("Button"), "Show every state", (view) => ({ ...view, allStates: true })),
   () => {
     const { editor } = example()
     const bounds = editor?.getShapePageBounds(shapeIdFor(design("Button")))
@@ -50,12 +51,12 @@ export const EveryStateZoomedOut: Story = onCanvas(
 
 /** Every state of a design with only one: a single frame, with no label beside it, since there's nothing to tell apart. */
 export const EveryStateOfOne: Story = onCanvas(["Plan card"], () =>
-  example().store.updateView(design("Plan card"), (view) => ({ ...view, allStates: true }))
+  example().store.updateView(design("Plan card"), "Show every state", (view) => ({ ...view, allStates: true }))
 )
 
 /** A design showing one state, the one picked on its board, rather than all of them. */
 export const OneState: Story = onCanvas(["Sign in"], () =>
-  example().store.updateView(design("Sign in"), (view) => ({ ...view, state: "wrong-password" }))
+  example().store.updateView(design("Sign in"), "Show Wrong password", (view) => ({ ...view, state: "wrong-password" }))
 )
 
 /**
@@ -66,11 +67,52 @@ export const ZoomedOut: Story = onCanvas(
   [],
   () => {
     for (const name of ["Button", "Sign in"]) {
-      example().store.updateView(design(name), (view) => ({ ...view, allStates: true }))
+      example().store.updateView(design(name), "Show every state", (view) => ({ ...view, allStates: true }))
     }
   },
   () => example().editor?.zoomToFit()
 )
+
+/**
+ * Frames, the light kind (PAR-539), on today's board until PAR-545 gives them their own: a new one at 480 by 320, and the
+ * Sign in screen turned into one. Each shows one preview, in the primary mode, at its own size.
+ */
+export const Frames: Story = onCanvas(["Pricing ideas", "Sign in sketch"], () => {
+  const { store } = example()
+  const taken = store.getEntries().map((entry) => entry.container.id)
+  const blank = newDesign("frame", taken, { x: -1400, y: -900 }, { size: { width: 480, height: 320 } })
+  store.addContainer(store.mainPath, {
+    ...blank,
+    id: "pricing-ideas",
+    name: "Pricing ideas",
+    root: {
+      ...blank.root,
+      ...(blank.root.type === "layout"
+        ? {
+            children: [
+              {
+                id: "fp-title",
+                type: "text",
+                tag: "h2",
+                text: "Pricing ideas",
+                style: { size: "text-xl", weight: 600 }
+              },
+              { id: "fp-body", type: "text", text: "Three tiers, yearly discount up front?" },
+              { id: "fp-cta", type: "component", component: "Button", props: { children: "Compare plans" } }
+            ]
+          }
+        : {})
+    }
+  })
+  const signIn = store.getEntries().find((entry) => entry.container.name === "Sign in")!.container
+  const { design: turned } = turnInto(signIn, "frame", store.getModes())
+  store.addContainer(store.mainPath, {
+    ...turned,
+    id: "sign-in-sketch",
+    name: "Sign in sketch",
+    position: { x: -1400, y: -300 }
+  })
+})
 
 /** Free text notes beside a design, for comments and to-dos on the canvas. */
 export const Notes: Story = onCanvas(["Pricing"], undefined, async () => {

@@ -32,28 +32,22 @@ export interface ComponentRef {
   export: string
 }
 
-/** Exports the person put on the component list, and components they took off it, which detection then respects. */
+/**
+ * Exports the person put on the component list, which detection then keeps there. A component detected wrongly is a bug
+ * in detection to fix, so there's no taking one off the list by hand (PAR-531).
+ */
 export interface DetectionCorrections {
   include?: ComponentRef[]
-  exclude?: ComponentRef[]
 }
 
-/**
- * The corrections after putting an export on the component list (`include`) or taking one off it (`exclude`). Doing the
- * opposite of an earlier correction removes it, so detection decides again. Unset when nothing is left to correct.
- */
-export function correctDetection(
+/** The corrections after putting an export on the component list, each once. */
+export function includeComponent(
   corrections: DetectionCorrections | undefined,
-  change: "include" | "exclude",
   ref: ComponentRef
-): DetectionCorrections | undefined {
-  const same = (other: ComponentRef) => other.path === ref.path && other.export === ref.export
-  const opposite = change === "include" ? "exclude" : "include"
-  const next: DetectionCorrections = { ...corrections }
-  if (next[opposite]?.some(same)) next[opposite] = next[opposite].filter((other) => !same(other))
-  else if (!next[change]?.some(same)) next[change] = [...(next[change] ?? []), ref]
-  for (const kind of ["include", "exclude"] as const) if (next[kind]?.length === 0) delete next[kind]
-  return next.include || next.exclude ? next : undefined
+): DetectionCorrections {
+  const listed = corrections?.include ?? []
+  if (listed.some((other) => other.path === ref.path && other.export === ref.export)) return { include: listed }
+  return { include: [...listed, ref] }
 }
 
 export interface NoteSpec {
@@ -64,8 +58,15 @@ export interface NoteSpec {
   width?: number
 }
 
-/** A screen is a whole page or view; a component is a reusable piece that screens place as instances. */
-export type ContainerKind = "screen" | "component"
+/**
+ * What a design is. A screen is a whole page or view; a component is a reusable piece that screens place as instances.
+ * A frame is the light kind, for sketching on the canvas: a layout drawn once, at its own `size`, in the project's
+ * primary mode, with one state, no params, no modes beside it, and no code written from it. Only a top-level design is
+ * a frame; one placed inside another design becomes a layout there.
+ */
+export type ContainerKind = (typeof containerKinds)[number]
+
+export const containerKinds = ["screen", "component", "frame"] as const
 
 /**
  * One design, like a Storybook CSF file. `root` is the design itself. States are authored and patch nodes (content,
@@ -89,10 +90,15 @@ export interface ContainerSpec {
    */
   context?: { component: string; props?: Record<string, unknown> }[]
   /**
-   * Frame sizes in CSS pixels, keyed by viewport option id. Without one, a frame is as wide as its mode's viewport and
-   * as tall as its content.
+   * A screen's or component's frame sizes in CSS pixels, keyed by viewport option id. Without one, a frame is as wide
+   * as its mode's viewport and as tall as its content.
    */
   frames?: Record<string, FrameSize>
+  /**
+   * A frame's own size in CSS pixels, whatever the project's viewports are. Without a width it's as wide as the primary
+   * mode's viewport, and without a height as tall as its content. Only a frame has one.
+   */
+  size?: FrameSize
 }
 
 export interface FrameSize {
@@ -315,7 +321,17 @@ export interface NodePatch {
   text?: string
   props?: Record<string, unknown>
   style?: NodeStyle
+  /** What the patch takes away from what's under it, so a state can turn off a prop or style the design sets. */
+  unset?: PatchUnset
 }
+
+/** Props and style keys a patch takes away. A key a patch sets isn't also taken away by it. */
+export interface PatchUnset {
+  props?: string[]
+  style?: StyleKey[]
+}
+
+export type StyleKey = keyof NodeStyle
 
 const textTags = ["p", "span", "h1", "h2", "h3", "h4", "strong"] as const
 export const imageFits = ["cover", "contain", "fill"] as const
@@ -399,6 +415,7 @@ export function parseCanvasDocument(value: unknown): CanvasDocument {
 
 function parseDetection(value: unknown, path: string): DetectionCorrections {
   const detection = expectObject(value, path)
+  // An earlier version could take components off the list as `exclude`; a file that did still opens, without it.
   expectKnownKeys(detection, ["include", "exclude"], path)
   const refs = (list: unknown, at: string) =>
     expectArray(list, at).map((item, index) => {
@@ -410,8 +427,7 @@ function parseDetection(value: unknown, path: string): DetectionCorrections {
       }
     })
   return compact({
-    include: optional(detection.include, (list) => refs(list, `${path}/include`)),
-    exclude: optional(detection.exclude, (list) => refs(list, `${path}/exclude`))
+    include: optional(detection.include, (list) => refs(list, `${path}/include`))
   })
 }
 
@@ -431,7 +447,7 @@ function parseContainer(value: unknown, path: string): ContainerSpec {
   const container = expectObject(value, path)
   expectKnownKeys(
     container,
-    ["id", "name", "kind", "position", "root", "states", "view", "params", "context", "frames"],
+    ["id", "name", "kind", "position", "root", "states", "view", "params", "context", "frames", "size"],
     path
   )
   const position = expectObject(container.position, `${path}/position`)
@@ -468,11 +484,16 @@ function parseContainer(value: unknown, path: string): ContainerSpec {
     }
   })
   if (states.length === 0) throw new TypeError(`${path}/states: expected at least one state`)
+  const kind = optional(container.kind, (v) => expectOneOf(v, containerKinds, `${path}/kind`))
+  if (kind === "frame") checkFrame(container, root, states, path)
+  else if (container.size !== undefined) {
+    throw new TypeError(`${path}/size: only a frame has a size of its own; size a ${kind ?? "screen"} in frames`)
+  }
 
   return compact({
     id: expectString(container.id, `${path}/id`),
     name: expectString(container.name, `${path}/name`),
-    kind: optional(container.kind, (v) => expectOneOf(v, ["screen", "component"] as const, `${path}/kind`)),
+    kind,
     context: optional(container.context, (v) =>
       expectArray(v, `${path}/context`).map((item, index) => {
         const at = `${path}/context/${index}`
@@ -521,21 +542,42 @@ function parseContainer(value: unknown, path: string): ContainerSpec {
     frames: optional(container.frames, (v) => {
       const frames: Record<string, FrameSize> = {}
       for (const [viewport, entry] of Object.entries(expectObject(v, `${path}/frames`))) {
-        const at = `${path}/frames/${viewport}`
-        const size = expectObject(entry, at)
-        expectKnownKeys(size, ["width", "height"], at)
-        frames[viewport] = compact({
-          width: optional(size.width, (w) => expectNumber(w, `${at}/width`)),
-          height: optional(size.height, (h) => expectNumber(h, `${at}/height`))
-        })
+        frames[viewport] = parseFrameSize(entry, `${path}/frames/${viewport}`)
       }
       return frames
     }),
+    size: optional(container.size, (v) => parseFrameSize(v, `${path}/size`)),
     position: { x: expectNumber(position.x, `${path}/position/x`), y: expectNumber(position.y, `${path}/position/y`) },
     root,
     states,
     view
   })
+}
+
+function parseFrameSize(value: unknown, path: string): FrameSize {
+  const size = expectObject(value, path)
+  expectKnownKeys(size, ["width", "height"], path)
+  return compact({
+    width: optional(size.width, (w) => expectNumber(w, `${path}/width`)),
+    height: optional(size.height, (h) => expectNumber(h, `${path}/height`))
+  })
+}
+
+/**
+ * What a frame may hold: a layout at its root and one state, drawn as its layers are, with no params, no view (it
+ * shows only the primary mode and that state) and no sizes per viewport, since it has one of its own.
+ */
+function checkFrame(container: Record<string, unknown>, root: DesignNode, states: StateSpec[], path: string): void {
+  if (root.type !== "layout") throw new TypeError(`${path}/root: a frame's root is a layout`)
+  if (states.length > 1) throw new TypeError(`${path}/states: a frame has one state`)
+  if (Object.keys(states[0]!.overrides ?? {}).length > 0) {
+    throw new TypeError(`${path}/states/0/overrides: a frame is drawn as its layers are`)
+  }
+  if (container.params !== undefined) throw new TypeError(`${path}/params: a frame has no params`)
+  if (container.view !== undefined) {
+    throw new TypeError(`${path}/view: a frame shows only the primary mode and its one state`)
+  }
+  if (container.frames !== undefined) throw new TypeError(`${path}/frames: a frame's size is in size, not per viewport`)
 }
 
 /** Validates one node tree on its own, as agents insert them. */
@@ -662,12 +704,26 @@ function parsePatches(value: unknown, path: string, ids?: Set<string>): Record<s
 
 function parsePatch(value: unknown, path: string): NodePatch {
   const patch = expectObject(value, path)
-  expectKnownKeys(patch, ["hidden", "text", "props", "style"], path)
+  expectKnownKeys(patch, ["hidden", "text", "props", "style", "unset"], path)
   return compact({
     hidden: optional(patch.hidden, (v) => expectBoolean(v, `${path}/hidden`)),
     text: optional(patch.text, (v) => expectString(v, `${path}/text`)),
     props: optional(patch.props, (v) => expectObject(v, `${path}/props`)),
-    style: optional(patch.style, (v) => parseStyle(v, `${path}/style`))
+    style: optional(patch.style, (v) => parseStyle(v, `${path}/style`)),
+    unset: optional(patch.unset, (v) => parseUnset(v, `${path}/unset`))
+  })
+}
+
+function parseUnset(value: unknown, path: string): PatchUnset {
+  const unset = expectObject(value, path)
+  expectKnownKeys(unset, ["props", "style"], path)
+  const keys = <T>(key: "props" | "style", item: (v: unknown, where: string) => T) =>
+    optional(unset[key], (v) =>
+      expectArray(v, `${path}/${key}`).map((entry, index) => item(entry, `${path}/${key}/${index}`))
+    )
+  return compact({
+    props: keys("props", expectString),
+    style: keys("style", (v, where) => expectOneOf(v, styleKeys, where))
   })
 }
 

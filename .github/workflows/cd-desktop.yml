@@ -1,9 +1,9 @@
 name: CD desktop
 
-# Delivers the desktop app on its own, apart from the CLI that ci.yml releases to npm (PAR-10). Once CI passes on main,
-# `version` bumps the app's version and changelog from its change files, then commits, tags and pushes them to main
-# with the desktop environment's RELEASE_DEPLOY_KEY, the one actor main's ruleset lets skip a pull request. CI's run on
-# that commit starts this workflow again, and `release` publishes the new version to GitHub Releases as a beta, which
+# Delivers the desktop app on its own, apart from the CLI that cd-npm.yml releases to npm (PAR-10). Once CI passes on
+# main, `version` bumps the app's version and changelog from its change files, then commits, tags and pushes them to
+# main with the desktop environment's RELEASE_DEPLOY_KEY, the one actor main's ruleset lets skip a pull request. CI's run
+# on that commit starts this workflow again, and `release` publishes the new version to GitHub Releases as a beta, which
 # production then waits on its owner to approve.
 on:
   workflow_run:
@@ -25,23 +25,16 @@ permissions:
   contents: read
 
 jobs:
-  # Beachball publishes every package it versions, so the shared template runs it scoped to the app with publishing
-  # off. It runs only while main's head is the commit CI passed on: a newer commit's own run versions it.
+  # Beachball publishes every package it versions, so the shared cd-desktop-version template runs it scoped to
+  # apps/desktop, in the desktop environment, with publishing off. It versions only for CI's run on a push to main, and
+  # only while that commit is still main's head: a newer commit's own run versions it.
   version:
     name: Version
-    if: >-
-      github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push' && github.event.workflow_run.head_sha == github.sha
     permissions:
       contents: read
       # The template's job asks for it, for npm, though with publishing off nothing here uses it.
       id-token: write
-    uses: betterapps-hq/pipelines/.github/workflows/beachball-publish-npm.yml@main
-    with:
-      environment: desktop
-      scope: apps/desktop
-      publish: false
-      message: "chore(release): version the desktop app"
+    uses: betterapps-hq/pipelines/.github/workflows/cd-desktop-version.yml@main
     secrets:
       RELEASE_DEPLOY_KEY: ${{ secrets.RELEASE_DEPLOY_KEY }}
 

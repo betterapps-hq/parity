@@ -1,8 +1,6 @@
+import { Button, Tooltip, TooltipContent, TooltipTrigger, Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import type { ReactNode } from "react"
-import { Button } from "@/components/ui/button"
-import { Kbd } from "@/components/ui/kbd"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-
+import { formatKeys } from "./keys.ts"
 interface IconButtonProps {
   label: string
   shortcut?: string
@@ -15,20 +13,22 @@ interface IconButtonProps {
 export function IconButton({ label, shortcut, disabled, className, onClick, children }: IconButtonProps) {
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label={label}
-          disabled={disabled}
-          className={className}
-          onClick={onClick}
-        >
-          {children}
-        </Button>
-      </TooltipTrigger>
+      <TooltipTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={label}
+            disabled={disabled}
+            className={className}
+            onClick={onClick}
+          >
+            {children}
+          </Button>
+        }
+      />
       <TooltipContent>
-        {label} {shortcut && <Kbd>{shortcut}</Kbd>}
+        {label} {shortcut && <Kbd>{formatKeys(shortcut)}</Kbd>}
       </TooltipContent>
     </Tooltip>
   )

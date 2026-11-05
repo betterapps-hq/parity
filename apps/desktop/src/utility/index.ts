@@ -29,6 +29,7 @@ import {
 import { handlePreviewResult, handleRenderResult, renderOffscreen } from "./render.ts"
 import { startReopening } from "./reopening.ts"
 import { openStorybook } from "./storybook.ts"
+import { losslessWebp } from "./webp.ts"
 
 // Dependencies such as Rollup probe process.execPath. In an installed app that is Parity.exe, so their children
 // must inherit Node mode; otherwise a platform probe launches another app and overwrites agent discovery.
@@ -63,13 +64,20 @@ const handlers: Handlers = {
   "frames.capture": async ({ job, height }) => {
     const { frame, png } = await renderOffscreen(job, true)
     if (frame.error || !png) return {}
+    // The height kept with it, which a frame that hasn't drawn its design takes when it shows the bitmap (PAR-525): the
+    // live frame's, or else the offscreen window's, measured at full size as the canvas lays it out.
+    const kept = height ?? frame.canvasHeight ?? frame.height
+    // Kept and shown as a lossless WebP (PAR-535); where sharp can't load, the PNG shows and nothing's kept.
+    const webp = await losslessWebp(Buffer.from(png, "base64")).catch(() => undefined)
+    if (!webp) return { src: `data:image/png;base64,${png}`, height: kept }
     const served = codeServedAt(job.projectId, job.guestUrl)
-    if (served) void storeBitmap(served, job, png, height ?? frame.height)
-    return { png }
+    if (served) void storeBitmap(served, job, webp, kept)
+    return { src: `data:image/webp;base64,${webp.toString("base64")}`, height: kept }
   },
   "frames.stored": async ({ job }) => {
     const served = codeServedAt(job.projectId, job.guestUrl)
-    return (served && (await storedBitmap(served, job))) ?? {}
+    const kept = served && (await storedBitmap(served, job))
+    return kept ? { src: `data:image/webp;base64,${kept.webp}`, height: kept.height } : {}
   },
   "frames.clearStored": clearBitmaps,
   "previews.lookup": async ({ previews }) => ({ previews: await lookupPreviews(previews) }),

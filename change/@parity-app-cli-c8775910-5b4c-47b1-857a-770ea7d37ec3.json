@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Capture frames' bitmaps in four offscreen windows at once, so a project opened for the first time has them in less than half the time",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

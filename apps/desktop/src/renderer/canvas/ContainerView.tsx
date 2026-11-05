@@ -1,4 +1,19 @@
 import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@buildkitgg/shadcn-baseui-kit"
+import {
   boardLayout,
   boardRoot,
   changeCount,
@@ -12,6 +27,7 @@ import {
   type StateSpec,
   variantChoices
 } from "@parity-app/core"
+import { kindTitle } from "@parity-app/editor"
 import { ChevronDown, Crown, Rows3 } from "lucide-react"
 import {
   type CSSProperties,
@@ -19,29 +35,13 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   type Ref,
+  useEffect,
   useMemo,
   useRef,
   useState
 } from "react"
 import { createPortal } from "react-dom"
 import { stopEventPropagation } from "tldraw"
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger
-} from "@/components/ui/context-menu"
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
 import { deleteDesign, duplicateDesign, renameDesign, setDesignKind } from "../chrome/designs.ts"
 import { Hint } from "../chrome/Hint.tsx"
 import { ModeViewportIcon } from "../chrome/viewports.tsx"
@@ -57,7 +57,7 @@ import { FrameSkeleton } from "./FrameSkeleton.tsx"
 import { DesignIcon, designColor, kindColors } from "./kinds.tsx"
 import { useCanvasLabel } from "./labels.ts"
 import { ModesMenu } from "./ModesMenu.tsx"
-import { activeState, containerModes, withShownModes } from "./view.ts"
+import { activeState, containerModes, modeNames, withShownModes } from "./view.ts"
 
 interface ContainerViewProps {
   ref?: Ref<HTMLDivElement>
@@ -90,9 +90,11 @@ export function ContainerView({ ref, entry, hovered, onTitlePointerDown, title, 
   const columns = [primary, ...companions]
   const color = designColor(container.kind)
 
-  const selectState = (state: string) => store.updateView(key, (view) => ({ ...view, state, allStates: false }))
+  const stateName = (id: string) => container.states.find((state) => state.id === id)?.name ?? id
+  const selectState = (state: string) =>
+    store.updateView(key, `Show ${stateName(state)}`, (view) => ({ ...view, state, allStates: false }))
   const showModes = (main: string, shown: string[]) =>
-    store.updateView(key, (view) => withShownModes(view, main, shown, all))
+    store.updateView(key, `Show ${modeNames(all, shown)}`, (view) => withShownModes(view, main, shown, all))
 
   const titleBar = (
     <TitleBar showControls={hovered || isSelected}>
@@ -108,7 +110,11 @@ export function ContainerView({ ref, entry, hovered, onTitlePointerDown, title, 
             params={container.params!}
             choices={variantChoices(container.params, container.view?.variants)}
             onSelect={(param, option) =>
-              store.updateView(key, (view) => ({ ...view, variants: { ...view.variants, [param]: option } }))
+              store.updateView(
+                key,
+                `Show ${container.params?.[param]?.options?.find(({ id }) => id === option)?.name ?? option}`,
+                (view) => ({ ...view, variants: { ...view.variants, [param]: option } })
+              )
             }
           />
         )}
@@ -117,7 +123,12 @@ export function ContainerView({ ref, entry, hovered, onTitlePointerDown, title, 
           active={active.id}
           allStates={allStates}
           onSelect={selectState}
-          onShowAll={(on) => store.updateView(key, (view) => ({ ...view, allStates: on }))}
+          onShowAll={(on) =>
+            store.updateView(key, on ? "Show every state" : `Show ${active.name}`, (view) => ({
+              ...view,
+              allStates: on
+            }))
+          }
         />
         <ModesMenu modes={all} main={primary} beside={companions} triggerClassName={menuTrigger} onChange={showModes} />
       </TitleControls>
@@ -221,7 +232,7 @@ function TitleBar({ showControls, children }: { showControls: boolean; children:
 function TitleControls({ children }: { children: ReactNode }) {
   return (
     <div
-      className="ml-auto hidden shrink-0 items-center gap-1.5 animate-in duration-150 fade-in-0 group-hover/title:flex group-data-[controls=true]/title:flex has-data-[state=open]:flex @max-[22rem]:hidden!"
+      className="ml-auto hidden shrink-0 items-center gap-1.5 animate-in duration-150 fade-in-0 group-hover/title:flex group-data-[controls=true]/title:flex has-aria-expanded:flex @max-[22rem]:hidden!"
       // Enter and the arrows on its menus open them, rather than going to the canvas (see shortcuts.ts).
       data-canvas-control
       onPointerDown={stopEventPropagation}
@@ -272,7 +283,7 @@ function TitleButton({
         <input
           ref={focusAndSelect}
           defaultValue={container.name}
-          aria-label="Design name"
+          aria-label={`${kindTitle(container.kind)} name`}
           className="h-7 w-56 min-w-0 rounded-md border bg-background px-2 text-sm font-medium outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
           onBlur={(event) => {
             renameDesign(session, entry, event.currentTarget.value)
@@ -289,35 +300,37 @@ function TitleButton({
   }
   return (
     <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <Hint label={`${container.name}, in ${entry.path}`} detail="Double-click to rename." wait>
-          <button
-            type="button"
-            tabIndex={selected ? 0 : -1}
-            onPointerDown={onPointerDown}
-            onContextMenu={stopEventPropagation}
-            onDoubleClick={(event) => {
-              event.stopPropagation()
-              setRenaming(true)
-            }}
-            className="flex min-w-0 cursor-default items-center gap-1.5 rounded-md px-1 py-0.5 text-sm font-medium text-foreground/90 hover:text-foreground"
-            style={color ? { color } : undefined}
-          >
-            {icon}
-            <span className="truncate">{container.name}</span>
-          </button>
-        </Hint>
-      </ContextMenuTrigger>
+      <ContextMenuTrigger
+        render={
+          <Hint label={`${container.name}, in ${entry.path}`} detail="Double-click to rename." wait>
+            <button
+              type="button"
+              tabIndex={selected ? 0 : -1}
+              onPointerDown={onPointerDown}
+              onContextMenu={stopEventPropagation}
+              onDoubleClick={(event) => {
+                event.stopPropagation()
+                setRenaming(true)
+              }}
+              className="flex min-w-0 cursor-default items-center gap-1.5 rounded-md px-1 py-0.5 text-sm font-medium text-foreground/90 hover:text-foreground"
+              style={color ? { color } : undefined}
+            >
+              {icon}
+              <span className="truncate">{container.name}</span>
+            </button>
+          </Hint>
+        }
+      />
       <ContextMenuContent className="w-52" onPointerDown={stopEventPropagation}>
-        <ContextMenuItem onSelect={() => setRenaming(true)}>Rename</ContextMenuItem>
-        <ContextMenuItem onSelect={() => duplicateDesign(session, entry)}>Duplicate</ContextMenuItem>
+        <ContextMenuItem onClick={() => setRenaming(true)}>Rename</ContextMenuItem>
+        <ContextMenuItem onClick={() => duplicateDesign(session, entry)}>Duplicate</ContextMenuItem>
         <ContextMenuItem
-          onSelect={() => setDesignKind(session, entry, container.kind === "component" ? "screen" : "component")}
+          onClick={() => setDesignKind(session, entry, container.kind === "component" ? "screen" : "component")}
         >
-          {container.kind === "component" ? "Make it a screen" : "Make it a component"}
+          {container.kind === "component" ? "Convert to screen" : "Convert to component"}
         </ContextMenuItem>
         <ContextMenuSeparator />
-        <ContextMenuItem variant="destructive" onSelect={() => deleteDesign(session, entry)}>
+        <ContextMenuItem variant="destructive" onClick={() => deleteDesign(session, entry)}>
           Delete
         </ContextMenuItem>
       </ContextMenuContent>
@@ -332,7 +345,7 @@ function focusAndSelect(element: HTMLInputElement | null): void {
 }
 
 const menuTrigger =
-  "flex h-8 items-center gap-1.5 rounded-md border bg-background/80 px-2.5 text-sm shadow-xs backdrop-blur hover:bg-accent data-[state=open]:bg-accent"
+  "flex h-8 items-center gap-1.5 rounded-md border bg-background/80 px-2.5 text-sm shadow-xs backdrop-blur hover:bg-accent aria-expanded:bg-accent"
 
 /**
  * Which option of each variant the board shows. Edits on the board in its base state go to the options picked here,
@@ -361,8 +374,8 @@ function VariantMenu({
         {variants.map(([name, param], index) => (
           <div key={name}>
             {index > 0 && <DropdownMenuSeparator />}
-            <DropdownMenuLabel>{name}</DropdownMenuLabel>
-            <DropdownMenuRadioGroup value={choices[name]} onValueChange={(option) => onSelect(name, option)}>
+            <DropdownMenuRadioGroup value={choices[name]} onValueChange={(option: string) => onSelect(name, option)}>
+              <DropdownMenuLabel>{name}</DropdownMenuLabel>
               {(param.options ?? []).map((option) => (
                 <DropdownMenuRadioItem key={option.id} value={option.id}>
                   <span className="flex-1 truncate">{option.name}</span>
@@ -402,16 +415,16 @@ function StateMenu({
         <ChevronDown className="size-3.5 opacity-60" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel>State</DropdownMenuLabel>
         <DropdownMenuRadioGroup value={allStates ? "" : active} onValueChange={onSelect}>
+          <DropdownMenuLabel>State</DropdownMenuLabel>
           {states.map((state, index) => {
             const changes = changeCount(state)
             return (
               <DropdownMenuRadioItem key={state.id} value={state.id}>
                 <span className="flex-1 truncate">{state.name}</span>
-                <span className="text-xs text-muted-foreground">
-                  {index === 0 ? "Base" : `${changes} change${changes === 1 ? "" : "s"}`}
-                </span>
+                {index > 0 && (
+                  <span className="text-xs text-muted-foreground">{`${changes} change${changes === 1 ? "" : "s"}`}</span>
+                )}
               </DropdownMenuRadioItem>
             )
           })}
@@ -460,9 +473,9 @@ function StateLabel({
         style={{ top: offset }}
       >
         <span className="text-sm font-medium text-foreground">{state.name}</span>
-        <span className="text-xs text-muted-foreground">
-          {base ? "Base state" : `${changes} change${changes === 1 ? "" : "s"}`}
-        </span>
+        {!base && (
+          <span className="text-xs text-muted-foreground">{`${changes} change${changes === 1 ? "" : "s"}`}</span>
+        )}
       </button>
     </Hint>
   )
@@ -549,8 +562,14 @@ const FrameTile = memo(function FrameTile({
   // What the frame shows, worked out once, which the live frame, its bitmap, its skeleton and its sleep all go by.
   const shows = useFrameShows(session, tree, mode, frame, scale)
   const { key } = shows
+  // Whether the frame is holding off drawing its design for its bitmap, which then needn't wait to be captured.
+  const holding = useRef(false)
   // The live frame's height as it's drawn when its bitmap is taken, which is kept with it.
-  const kept = useFrameBitmap(shows, () => drawnHeight(tile.current, frame.width))
+  const kept = useFrameBitmap(
+    shows,
+    () => drawnHeight(tile.current, frame.width),
+    () => holding.current
+  )
   const bitmap = kept.src
   // The bitmap shows once it's decoded, so the frame doesn't go blank in between; until then, its skeleton, which then
   // leaves the page.
@@ -558,11 +577,16 @@ const FrameTile = memo(function FrameTile({
   const shown = !!bitmap && decoded === bitmap
   // Interacting, frames are the real thing at any zoom.
   const awake = useAwake(shown && !interactive, rest, key)
-  // Zoomed far out, a frame not drawn yet waits for the bitmap kept from an earlier session, and sleeps on it, at the
-  // height it was kept with, without drawing its design.
+  // Zoomed far out, a frame not drawn yet waits for its bitmap, kept from an earlier session or captured offscreen, and
+  // sleeps on it, at the height kept with it, without drawing its design. Until it comes, a placeholder stands in at the
+  // frame's own height or, for one that grows with its content, its window's (PAR-525).
   const waiting = useFirstDrawWaits(rest, { bitmap: kept, awake, interactive })
   const skeleton = useFrameSkeleton(key, tile, frame.width, !bitmap && awake && !waiting)
-  const height = skeleton?.height ?? kept.height
+  useEffect(() => {
+    holding.current = waiting
+  }, [waiting])
+  const placeholder = waiting && !shown && !skeleton
+  const height = skeleton?.height ?? kept.height ?? (waiting ? (frame.height ?? frame.viewport.height) : undefined)
   const onSelect = () => selection.set({ design: entry.key, mode: mode.id })
   return (
     <figure
@@ -628,6 +652,7 @@ const FrameTile = memo(function FrameTile({
           shows={shows.drawn}
         />
         {skeleton && !shown && <FrameSkeleton skeleton={skeleton} />}
+        {placeholder && <div className="frame-placeholder" data-placeholder aria-hidden />}
         {bitmap && (
           <img
             className="frame-bitmap"

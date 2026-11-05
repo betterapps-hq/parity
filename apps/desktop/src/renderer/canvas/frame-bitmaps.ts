@@ -119,29 +119,42 @@ export function useFrameShows(
 export interface FrameBitmap {
   /** As a data URL: nothing while it's read or taken, or when the frame didn't render. */
   src?: string
-  /** The frame's height in its own CSS pixels, for a bitmap kept from an earlier session. */
+  /** The frame's height in its own CSS pixels, kept with the bitmap. */
   height?: number
-  /** A bitmap kept from an earlier session is still being looked for. */
-  reading: boolean
+  /**
+   * The bitmap is still to come: a kept one is being looked for, or the frame waits its turn to be captured or is being
+   * captured. Not once a capture has failed, which is tried again later.
+   */
+  pending: boolean
 }
 
 /**
  * A bitmap of a frame as it's drawn now: one kept on disk from an earlier session, or else one taken offscreen once the
  * frame has stayed the same for a moment. `measure` gives the live frame's height as it's drawn when it's captured, which
- * is kept with the bitmap; nothing while it isn't drawn.
+ * is kept with the bitmap; nothing while it isn't drawn. `holding` says whether the frame is holding off drawing its
+ * design for the bitmap (`useFirstDrawWaits`): then nothing is being edited, so what it first shows is captured without
+ * the wait (PAR-525).
  */
-export function useFrameBitmap({ key, job }: FrameShows, measure?: () => number | undefined): FrameBitmap {
+export function useFrameBitmap(
+  { key, job }: FrameShows,
+  measure?: () => number | undefined,
+  holding?: () => boolean
+): FrameBitmap {
   const [shown, setShown] = useState<{ key: string; src?: string; height?: number }>()
-  // The key whose kept bitmap was looked for and not found.
-  const [missed, setMissed] = useState<string>()
+  // The key whose capture failed, until a later try gives its bitmap.
+  const [failedKey, setFailedKey] = useState<string>()
   // A new job for the same key draws the same, so it doesn't start the wait or the retries again: each try takes the
   // latest.
   const latest = useRef(job)
   const measured = useRef(measure)
+  const held = useRef(holding)
+  // What the frame showed first, which no edit led to.
+  const first = useRef(key)
   useEffect(() => {
     latest.current = job
     measured.current = measure
-  }, [job, measure])
+    held.current = holding
+  }, [job, measure, holding])
 
   useEffect(() => {
     let current = true
@@ -159,8 +172,10 @@ export function useFrameBitmap({ key, job }: FrameShows, measure?: () => number 
       void capture(key, latest.current, () => measured.current?.()).then((src) => {
         if (!current) return
         settle()
-        if (src === failed) timer = setTimeout(() => take(attempt + 1), retryMs * Math.min(2 ** attempt, 8))
-        else setShown({ key, src, ...(heights.has(key) ? { height: heights.get(key) } : {}) })
+        if (src === failed) {
+          setFailedKey(key)
+          timer = setTimeout(() => take(attempt + 1), retryMs * Math.min(2 ** attempt, 8))
+        } else setShown({ key, src, ...(heights.has(key) ? { height: heights.get(key) } : {}) })
       })
     if (bitmaps.has(key)) {
       timer = setTimeout(() => take(0), 0)
@@ -171,8 +186,8 @@ export function useFrameBitmap({ key, job }: FrameShows, measure?: () => number 
       void stored(key, latest.current).then((kept) => {
         if (!current) return
         if (kept === undefined) {
-          setMissed(key)
-          timer = setTimeout(() => take(0), Math.max(0, settleMs - (performance.now() - asked)))
+          const settled = first.current === key && held.current?.() === true
+          timer = setTimeout(() => take(0), settled ? 0 : Math.max(0, settleMs - (performance.now() - asked)))
         } else {
           settle()
           setShown({ key, ...kept })
@@ -187,8 +202,8 @@ export function useFrameBitmap({ key, job }: FrameShows, measure?: () => number 
     }
   }, [key])
 
-  if (shown?.key === key) return { ...shown, reading: false }
-  return { reading: missed !== key && !bitmaps.has(key) }
+  if (shown?.key === key) return { ...shown, pending: false }
+  return { pending: failedKey !== key }
 }
 
 /** A frame that hasn't drawn its design yet, as `holdsFirstDraw` decides whether it waits. */
@@ -202,19 +217,20 @@ export interface UndrawnFrame {
 }
 
 /**
- * Whether a frame that hasn't drawn its design yet holds off drawing it, where it would only show its bitmap: while a
- * bitmap kept from an earlier session is looked for, and once found, until the frame falls asleep on it. Not while
- * interacting, where frames are the real thing, nor once none was kept, nor for a capture, which has no height to show it
- * at.
+ * Whether a frame that hasn't drawn its design yet holds off drawing it, where it would only show its bitmap, showing a
+ * placeholder at its size instead: while its bitmap is to come, kept from an earlier session or captured offscreen, and
+ * once it has come, until the frame falls asleep on it (PAR-525). Not while interacting, where frames are the real thing,
+ * nor once a capture failed or came without a height, as when the frame didn't render, so it draws and shows why.
  */
 export function holdsFirstDraw({ bitmap, awake, interactive, dormant }: UndrawnFrame): boolean {
-  return dormant && !interactive && (bitmap.reading || (bitmap.height !== undefined && awake))
+  return dormant && !interactive && (bitmap.pending || (bitmap.height !== undefined && awake))
 }
 
 /**
- * Whether a frame that hasn't drawn its design yet holds off drawing it (`holdsFirstDraw`). A frame waiting for a bitmap
- * kept from an earlier session then sleeps on it without ever drawing its design, which opening a project spent seconds
- * on, every frame drawn only to be taken apart again (PAR-179). Once it stops waiting, it never waits again.
+ * Whether a frame that hasn't drawn its design yet holds off drawing it (`holdsFirstDraw`). A frame waiting for its
+ * bitmap, kept from an earlier session (PAR-179) or captured offscreen (PAR-525), then sleeps on it without ever drawing
+ * its design, which opening a project spent seconds on, every frame drawn only to be taken apart again. Once it stops
+ * waiting, it never waits again.
  */
 export function useFirstDrawWaits(rest: BoardRest | undefined, frame: Omit<UndrawnFrame, "dormant">): boolean {
   const [done, setDone] = useState(!rest)
@@ -263,13 +279,18 @@ export function stored(key: string, job: RenderJob): Promise<KeptBitmap | undefi
 }
 
 async function readStored(key: string, job: RenderJob): Promise<KeptBitmap | undefined> {
-  const { png, height } = await window.canvasHost
+  const { src, height } = await window.canvasHost
     .request("frames.stored", { job })
-    .catch((): { png?: string; height?: number } => ({}))
+    .catch((): { src?: string; height?: number } => ({}))
   const captured = bitmaps.get(key)
-  if (captured) return captured.then((src) => (typeof src === "string" ? { src } : undefined))
-  if (png === undefined) return undefined
-  const src = `data:image/png;base64,${png}`
+  if (captured) {
+    return captured.then((src) => {
+      if (typeof src !== "string") return undefined
+      const height = heights.get(key)
+      return { src, ...(height === undefined ? {} : { height }) }
+    })
+  }
+  if (src === undefined) return undefined
   bitmaps.set(key, Promise.resolve(src))
   if (height !== undefined) heights.set(key, height)
   forgetOldest()
@@ -307,8 +328,11 @@ export function capture(
       return undefined
     }
     const height = measure?.()
-    const { png } = await window.canvasHost.request("frames.capture", { job, ...(height ? { height } : {}) })
-    return png === undefined ? undefined : `data:image/png;base64,${png}`
+    const taken = await window.canvasHost.request("frames.capture", { job, ...(height ? { height } : {}) })
+    if (taken.src === undefined) return undefined
+    // The height kept with it: the live frame's, or the offscreen window's for a frame that hasn't drawn.
+    if (taken.height !== undefined) heights.set(key, taken.height)
+    return taken.src
   })
   const settled = taking.catch((): typeof failed => {
     if (bitmaps.get(key) === settled) bitmaps.delete(key)

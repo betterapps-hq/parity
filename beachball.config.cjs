@@ -5,8 +5,8 @@ const { readFileSync } = require("node:fs")
  * Beachball versions the two packages that aren't private, the desktop app and the CLI, from change files. A commit that
  * changes either, or a private package they bundle, carries a change file: `pnpm changefile --type patch --message "…"`
  * writes it, and scripts/changes.ts works out which of the two it's for, since Beachball doesn't look inside private
- * packages. Each ships in a release of its own (PAR-10). Beachball publishes every package it versions, so ci.yml runs
- * it scoped to leave the app out, and publishes the CLI to npm, while cd-desktop.yml runs it scoped to the app with
+ * packages. Each ships in a release of its own (PAR-10). Beachball publishes every package it versions, so cd-npm.yml
+ * runs it scoped to leave the app out, and publishes the CLI to npm, while cd-desktop.yml runs it scoped to the app with
  * publishing off, then puts the app on GitHub Releases. Each run leaves the other's change files alone.
  */
 
@@ -59,8 +59,13 @@ function isDependabots() {
 module.exports = {
   // A name with a slash is used as written; without one, Beachball would add the remote.
   branch: hasOriginMain() ? "origin/main" : "refs/heads/main",
-  // `pnpm changefile` runs Beachball locally, which shouldn't wait on the network. CI fetches when it checks out.
-  fetch: false,
+  // `pnpm changefile` runs Beachball locally, which shouldn't wait on the network. In CI it fetches: cd-npm.yml and
+  // cd-desktop.yml can push to main at the same time, and `beachball publish` retries a rejected push only after
+  // fetching main and merging it in. Without that, 0.3.0 of the CLI reached npm but its release commit didn't reach main.
+  fetch: process.env.GITHUB_ACTIONS === "true",
+  // Beachball publishes a scoped package with `--access restricted` unless told otherwise, which overrides the CLI's
+  // publishConfig and makes npm refuse it as a private package (E402), as Buildkit's config also says.
+  access: "public",
   // Parity stays below 1.0 until the user says otherwise.
   disallowedChangeTypes: ["major"],
   changehint:

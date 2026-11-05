@@ -1,0 +1,32 @@
+name: CD npm
+
+# Releases the CLI to npm on its own, apart from the desktop app that cd-desktop.yml delivers (PAR-10). Once CI passes
+# on main, the shared cd-npm-release template runs Beachball scoped to leave the app out: it bumps the CLI's version and
+# changelog from its change files, publishes it to npm through trusted publishing, then commits, tags and pushes to main
+# with the npm environment's RELEASE_DEPLOY_KEY, the one actor main's ruleset lets skip a pull request. The template
+# checks CI passed on a push to main and that the commit is still main's head, so a newer commit's run releases that.
+#
+# npm's trusted publishing, with provenance and no token, trusts this file by name, so it must stay
+# .github/workflows/cd-npm.yml: @parity-app/cli's trusted publisher on npmjs.com names it, with the npm environment,
+# which infra/github keeps to main.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    permissions:
+      contents: read
+      # npm's trusted publishing exchanges the run's OIDC token for a short-lived one, and signs provenance with it.
+      id-token: write
+    uses: betterapps-hq/pipelines/.github/workflows/cd-npm-release.yml@main
+    with:
+      scope: "!apps/desktop"
+      build-command: pnpm --filter @parity-app/cli build
+    secrets:
+      RELEASE_DEPLOY_KEY: ${{ secrets.RELEASE_DEPLOY_KEY }}

@@ -78,8 +78,7 @@ describe("describeComponents", () => {
         }
       ],
       corrections: {
-        include: [{ path: "src/promo.tsx", export: "PromoPrice" }],
-        exclude: [{ path: "src/pages/legacy.tsx", export: "default" }]
+        include: [{ path: "src/promo.tsx", export: "PromoPrice" }]
       }
     })
     expect(text).toBe(
@@ -91,8 +90,7 @@ describe("describeComponents", () => {
         "  PromoGate: Needs a provider, which a decorator can add: PromoGate must be used within a PromoProvider",
         "",
         "Corrected by hand in the project file:",
-        "  listed: PromoPrice, in src/promo.tsx",
-        "  taken off: the default export, in src/pages/legacy.tsx"
+        "  listed: PromoPrice, in src/promo.tsx"
       ].join("\n")
     )
   })

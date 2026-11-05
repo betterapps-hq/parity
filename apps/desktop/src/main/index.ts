@@ -19,9 +19,16 @@ import {
   utilityProcess,
   webContents
 } from "electron"
-import type { ProcessUsage, RenderedFrame, RenderJob, SaveDialogOptions } from "../shared/protocol.ts"
+import type {
+  OpenInEditorRequest,
+  ProcessUsage,
+  RenderedFrame,
+  RenderJob,
+  SaveDialogOptions
+} from "../shared/protocol.ts"
 import type { BuilderReading, MainMessage, ServiceMessage } from "../shared/service.ts"
 import { InstalledBuild } from "./build-info.ts"
+import { openInEditor } from "./code-editor.ts"
 import { readConsole, recordConsole } from "./console-log.ts"
 import { idleClose } from "./idle-close.ts"
 import { isPackaged } from "./packaged.ts"
@@ -425,6 +432,8 @@ ipcMain.handle("canvas:save-dialog", async (event, options: SaveDialogOptions) =
 
 ipcMain.handle("canvas:show-item", (_event, path: string) => shell.showItemInFolder(path))
 
+ipcMain.handle("canvas:open-in-editor", (_event, request: OpenInEditorRequest) => openInEditor(request))
+
 ipcMain.handle("canvas:quit", () => app.quit())
 
 ipcMain.handle("canvas:toggle-dev-tools", (event) => event.sender.toggleDevTools())
@@ -553,6 +562,14 @@ function renderFrame(job: RenderJob, capture: boolean): Promise<{ frame?: Render
     }
     if (!capture) return { frame }
     const image = await window.webContents.capturePage({ x: 0, y: 0, width, height })
+    // A frame that grows with its content keeps the height the canvas lays it out at, measured after the capture
+    // (PAR-525).
+    if (job.mode.height === undefined) {
+      const canvasHeight = (await window.webContents.executeJavaScript("window.canvasHeight()", true)) as
+        | number
+        | undefined
+      if (canvasHeight !== undefined) frame.canvasHeight = canvasHeight
+    }
     return { frame, png: image.toPNG().toString("base64") }
   })
 }
@@ -643,23 +660,23 @@ function bitmapFolder(): string {
 }
 
 /**
- * Serves a component preview's picture from the store, as `parity-preview://<project>/<key>-<size>.png`, the address
+ * Serves a component preview's picture from the store, as `parity-preview://<project>/<key>-<size>.webp`, the address
  * the service gives. Showing it counts as using it, for the cache's limits. Its name is its content, so the same
  * address never shows another picture.
  */
 async function servePreview(request: Request): Promise<Response> {
   const { host, pathname } = new URL(request.url)
   const name = pathname.slice(1)
-  if (!/^[0-9a-f]{24}$/.test(host) || !/^[0-9a-f]{40}-(thumb|large)\.png$/.test(name)) {
+  if (!/^[0-9a-f]{24}$/.test(host) || !/^[0-9a-f]{40}-(thumb|large)\.webp$/.test(name)) {
     return new Response(null, { status: 400 })
   }
   const file = join(bitmapFolder(), host, "previews", name)
   try {
-    const png = await readFile(file)
+    const picture = await readFile(file)
     const now = new Date()
     void utimes(file, now, now).catch(() => undefined)
-    return new Response(png, {
-      headers: { "content-type": "image/png", "cache-control": "max-age=31536000, immutable" }
+    return new Response(picture, {
+      headers: { "content-type": "image/webp", "cache-control": "max-age=31536000, immutable" }
     })
   } catch {
     return new Response(null, { status: 404 })

@@ -17,7 +17,7 @@ export interface ContainerModes {
 }
 
 export function containerModes(settings: ModeSettings, container: ContainerSpec): ContainerModes {
-  const { main, beside, all } = shownModes(settings, container.view)
+  const { main, beside, all } = shownModes(settings, container)
   return { primary: main, companions: beside, all }
 }
 
@@ -65,6 +65,12 @@ export function toggleShownMode(
   const rest = shown.filter((id) => id !== mode)
   if (rest.length === 0) return { main, shown }
   return { main: mode === main ? all.find((candidate) => rest.includes(candidate.id))!.id : main, shown: rest }
+}
+
+/** The modes with these ids, named in project order for a label: "Desktop Light and Mobile Light". */
+export function modeNames(all: readonly ResolvedMode[], ids: readonly string[]): string {
+  const names = all.filter((mode) => ids.includes(mode.id)).map((mode) => mode.name)
+  return names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`
 }
 
 export function activeState(container: ContainerSpec): StateSpec {

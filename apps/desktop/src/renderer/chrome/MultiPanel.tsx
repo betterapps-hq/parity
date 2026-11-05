@@ -1,5 +1,7 @@
+import { Button } from "@buildkitgg/shadcn-baseui-kit"
 import {
   boardTarget,
+  changesField,
   editsDesign,
   type ContainerSpec,
   type DesignNode,
@@ -12,7 +14,7 @@ import {
   styleKeys,
   targetPatches
 } from "@parity-app/core"
-import { type Alignment, boardReader } from "@parity-app/editor"
+import { type Alignment, boardReader, kindsName } from "@parity-app/editor"
 import {
   AlignCenterHorizontal,
   AlignCenterVertical,
@@ -27,7 +29,6 @@ import {
   Layers,
   Trash2
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { useProject } from "../canvas/context.ts"
 import { designColor, kindColors } from "../canvas/kinds.tsx"
 import { useStylePreview } from "../canvas/style-preview.ts"
@@ -38,7 +39,7 @@ import { alignSelection, deleteSelection, distributeSelection, duplicateSelectio
 import { IconButton } from "./IconButton.tsx"
 import { keymap } from "./keymap.ts"
 import { editingState, measureNode } from "./LayerPanel.tsx"
-import { PanelSection } from "./PanelSection.tsx"
+import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { type EditedLayer, type StyleEdit, type StyleEditor, StyleSections, styleValues } from "./StyleSections.tsx"
 
 const alignments: { value: Alignment; label: string; shortcut: string; icon: typeof AlignStartVertical }[] = [
@@ -97,19 +98,19 @@ export function ArrangePanel({ keys }: { keys: string[] }) {
   const entries = keys.flatMap((key) => store.getEntry(key) ?? [])
   return (
     <>
-      <div className="border-b px-4 py-3">
+      <div className={`border-b py-3 pl-4 ${panelEnd}`}>
         <div className="flex items-center gap-2 font-semibold">
           <Layers className="size-4 shrink-0" style={{ color: designColor("screen") }} />
-          {entries.length} designs
+          {kindsName(entries.map((entry) => entry.container.kind))}
         </div>
         <p className="mt-0.5 truncate pl-6 text-xs text-muted-foreground">
           {entries.map((entry) => entry.container.name).join(", ")}
         </p>
       </div>
-      <PanelSection title="Arrange" description="Line up and space out the designs on the canvas.">
+      <PanelSection title="Arrange" description="Line up and space them out on the canvas.">
         <AlignButtons distribute={entries.length > 2} />
       </PanelSection>
-      <div className="flex gap-2 px-4 py-3">
+      <div className={`flex gap-2 py-3 pl-4 ${panelEnd}`}>
         <Button variant="outline" size="sm" className="flex-1" onClick={() => duplicateSelection()}>
           <Copy /> Duplicate
         </Button>
@@ -173,7 +174,7 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
   const parentStyle = parent?.type === "layout" ? (shown(parent).style ?? {}) : undefined
   const editor: StyleEditor = {
     style: common,
-    changed: (name) => present.some((id) => patches?.[id]?.style?.[name] !== undefined),
+    changed: (name) => present.some((id) => changesField(patches?.[id], { kind: "style", key: name })),
     reset: (name) =>
       store.updateContainer(key, "Reset changes", (current) =>
         present.reduce(
@@ -196,7 +197,7 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
 
   return (
     <>
-      <div className="border-b px-4 py-3">
+      <div className={`border-b py-3 pl-4 ${panelEnd}`}>
         <div className="flex items-center gap-2 font-semibold">
           <Layers className="size-4 shrink-0" style={{ color: kindColors.layer }} />
           {present.length} layers
@@ -215,8 +216,9 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
         </div>
       </PanelSection>
       {mixed.length > 0 && (
-        <p className="border-b px-4 py-2.5 text-xs text-muted-foreground">
-          Different across these layers: {mixed.map(styleLabel).join(", ")}. Setting one gives them all the same value.
+        <p className={`border-b py-2.5 pl-4 text-xs text-muted-foreground ${panelEnd}`}>
+          Different across these layers: {mixed.map(styleLabel).join(", ")}. Setting one gives them all the same value,
+          and <code className="font-mono">Mixed+8</code> adds 8 to each layer&apos;s own value.
         </p>
       )}
       <StyleSections

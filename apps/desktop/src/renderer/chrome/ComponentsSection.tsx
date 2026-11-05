@@ -1,3 +1,4 @@
+import { Button, Input } from "@buildkitgg/shadcn-baseui-kit"
 import {
   addVariant,
   addVariantOption,
@@ -12,8 +13,6 @@ import {
 import { instancesOf } from "@parity-app/editor"
 import { Diamond, Plus, ScanSearch, Sparkles, Trash2, X } from "lucide-react"
 import { type ReactNode, useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { useProject } from "../canvas/context.ts"
 import { focusOnMount, kindColors } from "../canvas/kinds.tsx"
 import type { ContainerEntry } from "../design-store.ts"
@@ -60,8 +59,8 @@ export function ComponentsSection({ entry }: { entry: ContainerEntry }) {
   }
   return (
     <PanelSection
-      title="Components"
-      description="Find parts that repeat and turn them into component designs. Each copy becomes an instance with its own content."
+      title="Repeated parts"
+      description="Find parts that repeat and turn them into components. Each copy becomes an instance with its own content."
     >
       {content}
     </PanelSection>
@@ -148,7 +147,7 @@ export function ParamsSection({ entry }: { entry: ContainerEntry }) {
       <PanelSection
         title="Params"
         count={params.length}
-        description="What each instance sets. Defaults show on this board."
+        description="What each instance sets. The main component shows the defaults."
       >
         {params.length === 0 ? (
           <p className="px-1 text-xs text-muted-foreground">No params: every instance looks the same.</p>
@@ -222,7 +221,7 @@ function VariantsSection({ entry, variants }: { entry: ContainerEntry; variants:
     <PanelSection
       title="Variants"
       count={variants.length}
-      description="Choices each instance makes, like size or tone. Pick one in the title bar to edit it on the board."
+      description="Choices each instance makes, like size or tone. Pick one in the title bar to edit it on the canvas."
       action={
         !adding && (
           <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setAdding(true)}>
@@ -264,7 +263,7 @@ function VariantsSection({ entry, variants }: { entry: ContainerEntry; variants:
         </form>
       )}
       {variants.length === 0 && !adding && (
-        <p className="px-1 text-xs text-muted-foreground">No variants: every instance has the same design.</p>
+        <p className="px-1 text-xs text-muted-foreground">No variants: every instance looks the same.</p>
       )}
       <div className="flex flex-col gap-3">
         {variants.map(([name, param]) => (

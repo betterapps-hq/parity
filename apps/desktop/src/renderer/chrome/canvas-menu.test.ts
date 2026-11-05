@@ -2,7 +2,7 @@ import { type ContainerSpec, type DesignNode, findNode, nodeOnBoard, toggleHidde
 import { describe, expect, it } from "vite-plus/test"
 import type { ContainerEntry } from "../design-store.ts"
 import { designsSelection, layersSelection, type Selection } from "../selection.ts"
-import { canvasMenu, type MenuEntry, type MenuTarget, rightClickSelection } from "./canvas-menu.ts"
+import { canvasMenu, layerCommands, type MenuEntry, type MenuTarget, rightClickSelection } from "./canvas-menu.ts"
 import { keymap } from "./keymap.ts"
 
 const text = (id: string, extra: { name?: string; hidden?: boolean } = {}): DesignNode => ({
@@ -173,7 +173,7 @@ describe("the canvas menu", () => {
     expect(labelOf(menuFor({ ...compact, view: { variants: { density: "comfortable" } } }), "hide")).toBe("Hide")
   })
 
-  it("leaves what acts on layers out for a design, and offers to make it a component", () => {
+  it("leaves what acts on layers out for a design, and offers to convert it to a component", () => {
     const menu = canvasMenu(overTitle, { design }, entries)
     expect(outline(menu)).toEqual([
       "Select layer >",
@@ -185,9 +185,9 @@ describe("the canvas menu", () => {
       "---",
       "makeComponent"
     ])
-    expect(labelOf(menu, "makeComponent")).toBe("Make it a component")
+    expect(labelOf(menu, "makeComponent")).toBe("Convert to component")
     const card = canvasMenu({ design: component, path: ["card"] }, { design: component }, entries)
-    expect(labelOf(card, "makeComponent")).toBe("Make it a screen")
+    expect(labelOf(card, "makeComponent")).toBe("Convert to screen")
   })
 
   it("makes no component of several designs", () => {
@@ -232,6 +232,23 @@ describe("the canvas menu", () => {
       keymap.selectAll.keys[0],
       keymap.zoomToFit.keys[0]
     ])
+  })
+})
+
+describe("the commands for layers, which the menubar shares", () => {
+  const can = (ids: string[]) => layerCommands(layersSelection(design, ids), dashboard.root)
+
+  it("act on the design's own layers, the order on one alone", () => {
+    expect(can(["title"])).toEqual({ copy: true, duplicate: true, order: true, wrap: true, hide: true })
+    expect(can(["title", "chart"])).toEqual({ copy: true, duplicate: true, order: false, wrap: true, hide: true })
+  })
+
+  it("don't act on a layer inside an instance, or the design's root", () => {
+    const none = { copy: false, duplicate: false, order: false, wrap: false, hide: false }
+    expect(can(["users/value"])).toEqual(none)
+    expect(can(["root"])).toEqual(none)
+    // With one of the design's own beside it, all but the order act on that one.
+    expect(can(["users/value", "title"])).toEqual({ copy: true, duplicate: true, order: false, wrap: true, hide: true })
   })
 })
 

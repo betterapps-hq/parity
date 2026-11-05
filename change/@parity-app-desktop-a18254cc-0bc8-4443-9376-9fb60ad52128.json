@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Draw the canvas sharp once the zoom settles, rather than leaving it blurry after zooming in from far out",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

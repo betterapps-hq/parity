@@ -2,6 +2,282 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Thu, 05 Nov 2026 03:41:17 GMT",
+      "version": "0.4.0",
+      "tag": "@parity-app/cli_v0.4.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "892d47dc7132ac4659696e300090c4cb78c231fe",
+            "comment": "Add frames, a light kind of design drawn once at its own size, to the project file, the editor and the agent API"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 05 Nov 2026 02:45:34 GMT",
+      "version": "0.3.1",
+      "tag": "@parity-app/cli_v0.3.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "5c64b357af6fda3c48933698944e2e8190dd7557",
+            "comment": "Turn a prop off in one state when the base design has it on, and reset it from the inspector"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "54a9d3335e5709f23c7cd5cc7d77e31cb67d2a0b",
+            "comment": "Preview number props on the canvas while typing or scrubbing, round Opacity to whole percentages, and name Mixed+8 in the note on what differs across selected layers"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "d41bcf05fd325ec6857273bc5ee9b097b16239c5",
+            "comment": "Keep frame bitmaps and component previews as lossless WebP, about 40% smaller than the PNGs they replace, with the same pixels"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 05 Nov 2026 02:15:39 GMT",
+      "version": "0.3.0",
+      "tag": "@parity-app/cli_v0.3.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "88f5efd582a759b0b6373343f72a9b841237cb2f",
+            "comment": "A state can take away a prop or style the design sets, and Paste style in a state leaves only the copied style"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "8d0da6ca6e408391f85a3d60b1e7f5a938a03ce4",
+            "comment": "Saving after undoing a token value a theme didn't have takes it back out of the stylesheet, with any rule it leaves empty"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "11588733165ffbed935e3667b5eac1e8f68e6d1d",
+            "comment": "Box a component that draws only text by its text, so it can be hovered, picked and sized on the canvas"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 05 Nov 2026 01:01:24 GMT",
+      "version": "0.2.0",
+      "tag": "@parity-app/cli_v0.2.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "45a0fcfe280e2d28e109509c39c1dbfd802156df",
+            "comment": "Load aliased library providers, icons and sample values consistently and reject obsolete manifests"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/cli",
+            "commit": "a583154cff433654a64ffb260ef0bb69eab6dfff",
+            "comment": "Align, Wrap, resizing, nudging, dragging and the clipboard read layers as the frame shows them, with variants, viewport patches and bound values; a copied binding is kept only where the design pasted into has that param"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/cli",
+            "commit": "c15e6f69dbf8965a98d02e9714d78c7022d3a0ae",
+            "comment": "Zoomed-out frames and agents' renders no longer draw a component from a file that's gone"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/cli",
+            "commit": "5526ddee3eab4e5d294128413dcc61e194167f9d",
+            "comment": "Agents' frames, exports and accessibility checks draw library designs' instances and unsaved token values as the canvas does, and no offscreen frame inherits another's token values"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "459b6cca03a9dabb9dc12d0b0fe0ea195640e695",
+            "comment": "MCP's tools/list no longer publishes output schemas, cutting it from 33 KB to under 12 KB; structuredContent and CLI --json are unchanged"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "7516b6935b6587a66cd953fadda1ee0f55cc44ac",
+            "comment": "Keep text given to a new library part rather than labelling over it"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "1687fede313e598f4f8aa476bb88afd1be0f59a0",
+            "comment": "A call without --tab finds the project its folder is in through links, such as macOS's /var"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/cli",
+            "commit": "a6882469a1795ee1467e20339955bc0cd6d35c87",
+            "comment": "The canvas menu says Show for a layer the variant shown hides, and Make component checks the result against the variant and param defaults the board shows"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/cli",
+            "commit": "3edd66ac4fac2a7df5826fbe60e21feadcc3b6fb",
+            "comment": "Fingerprint every lockfile package-manager detection recognizes, such as npm-shrinkwrap.json, and the tsconfigs a project's configs extend, so cached props refresh when they change"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/cli",
+            "commit": "4a71e5257476a5f0123e4cc00b730d2597ae3482",
+            "comment": "Estimate the size of a board the canvas hasn't drawn from its frames, laid out as the canvas lays them out, so Overlaps() catches wide and tall boards"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "5277f9364cb83dc6d166d2d2d4812d65eb537b7e",
+            "comment": "Inserting a component that passes its props to an input no longer gives it children, and library samples' text ends at a sentence or a whole word"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/cli",
+            "commit": "8f24f607a4d8dc6124483f9846ae3f8c5fbcd1ce",
+            "comment": "Props refresh after you change tsconfig paths or dependencies"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "55c4845bf746fbd9b552fb9403c245bddd922c98",
+            "comment": "Default execute labels to \"Edit designs\", report failed MCP executions as tool errors, and reject ambiguous requests, blank labels and malformed patches before they reach the app"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/cli",
+            "commit": "9209414602063974bf49adc3534af06cbd3ae01d",
+            "comment": "Draw zoomed-out bitmaps, agent screenshots and measurements, exports and accessibility checks in the same window height as the live frame, keeping a mode's screen height when the frame grows with its content"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "1984e7710a779b2bdf06b5781331a8c5b85014d7",
+            "comment": "Capture frames' bitmaps in four offscreen windows at once, so a project opened for the first time has them in less than half the time"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/cli",
+            "commit": "6981f697becb9983d8f5a6ca266764a2033142af",
+            "comment": "Generate an app's library from the same sources and global stylesheets project detection finds, following tsconfig references, the HTML entry's stylesheet imports and relative @imports"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/cli",
+            "commit": "cb9a37b5343ac55cafc6a937f3514bddb0683675",
+            "comment": "Read token themes and categories the same way in parity lib and the app: [data-theme] attributes are themes, names like fontSizeBase300 are font sizes, and a library's .dark beats its prefers-color-scheme block"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/cli",
+            "commit": "02cbf5c3206e113bc0860b39c35719e870cd8d8e",
+            "comment": "Keep values under media queries, such as a prefers-color-scheme: dark block, out of the default theme's tokens"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "fa59f4885fc1bc0894df28741b77df92794064c6",
+            "comment": "Use declared caller names instead of guessing agent identity"
+          }
+        ],
+        "minor": [
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/cli",
+            "commit": "f84a4ce1392ff6d073eaaad94b43cb4f9b14ddea",
+            "comment": "Agent calls merge per design with edits made while they run, and are refused naming the designs when both changed the same one"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "d80a6a79a6ab0680d1cc7258cad2a11908d6d257",
+            "comment": "Make a picture of every component offscreen, after the canvas's bitmaps, and keep it on disk so a reopened project draws none again"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "933ee27f4aa0c2c9de15388abdacb44760036267",
+            "comment": "parity modes and the MCP get_modes tool list the project's viewports (the ids Responsive takes) with their window heights, its modes (the ids renders take) resolved, and what each design shows; naming a design adds its frames' sizes. Mistyped ids now suggest the nearest ones first."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "940bae774d38719ceaf4eeab58292a2ad460b0e1",
+            "comment": "Frame bitmaps are kept on disk in app data, so a project opened again shows them without capturing each frame again; View > Clear bitmap cache removes them."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "3c12b4650b3089ada072345fee6b6202c1c126d1",
+            "comment": "Components show their preview in a card beside the row, and right-clicking one offers View in Storybook and View code, which opens it in your editor (chosen in Settings). Tooltips are raised in the theme's own colors. Taking a component off the list by hand is gone."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "3e386bed25a9bfb40df33470fdf64cfd6ac0ad73",
+            "comment": "Agents get every result as data, in --json and MCP structuredContent with published output schemas, and failures as stable error codes with the input at fault, whether to retry, and the valid ids to use instead. Token and console reads are bounded by --limit."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "aa237245032cc4ccc4842cb890835f62bdc2f84b",
+            "comment": "Add MCP token, component and prop reads, validate options consistently, and report screenshot and audit failures in both interfaces"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "e9d14cc8ee88af44c5560dc311ed703b349b3559",
+            "comment": "parity status and the MCP get_status tool say where a tab's edits stand: its revision, what's applied but not saved (files and token values), the last save and failed writes, and undo and redo, with an optional bounded summary. get_app_state carries the revision too."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "583b9fd66f0d9b5ad35e12e32b08bc3f8a84c38b",
+            "comment": "Agents' calls go to the running copy of Parity that has their project open; --tab active names what the person is looking at, and a call without --tab goes to the project its folder is in"
+          }
+        ],
+        "none": [
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/cli",
+            "commit": "8b61400da611adb07e4337a87dbe00a5a4cd17fa",
+            "comment": "Work out what each layer shows in one place in core; nothing changes on screen"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "a40a6a4875099e3a617546ea383fb832d6838eb6",
+            "comment": "No CLI behavior change; the shared update state is used only by the desktop app"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "32f7037a4cebb75cb608ff6cb894ba30adc1970b",
+            "comment": "Give CI's slower runners room in the unit tests' timeouts"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "0ce863b773253c74edabc7d7129bd74cc319afa3",
+            "comment": "Core can keep text inside a PNG, which the CLI doesn't use"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sat, 31 Oct 2026 05:16:05 GMT",
       "version": "0.1.0",
       "tag": "@parity-app/cli_v0.1.0",

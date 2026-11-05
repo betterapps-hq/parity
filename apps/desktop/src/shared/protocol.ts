@@ -2,6 +2,7 @@ import type { AccessibilityFinding, AccessibilityIssue, AgentEvent, IconNames, I
 import type { CopyReport } from "@parity-app/agent/routing"
 import type {
   CanvasDocument,
+  CodeEditorChoice,
   ChangeConflict,
   ComponentInfo,
   ComponentRenderStatus,
@@ -21,7 +22,7 @@ import type {
   UpdateState
 } from "@parity-app/core"
 import type { EditStatus } from "@parity-app/editor"
-import type { Token, TokenChange } from "@parity-app/tokens"
+import type { Token, TokenChange, TokenWrite } from "@parity-app/tokens"
 
 /**
  * An edit the service made to a project's files: what it was for, each file's change as a unified diff (or a binary
@@ -97,14 +98,15 @@ export interface ServiceMethods {
    * keeps it on disk. No PNG when the frame didn't render. `height` is the live frame's height in its own CSS pixels,
    * kept with the bitmap; without one, the offscreen frame's is kept, which can be a few pixels out (PAR-179).
    */
-  "frames.capture": { params: { job: RenderJob; height?: number }; result: { png?: string } }
+  /** The bitmap as a data URL, a lossless WebP as it's kept (PAR-535), and the frame's height kept with it. */
+  "frames.capture": { params: { job: RenderJob; height?: number }; result: { src?: string; height?: number } }
   /**
    * The bitmap of a frame kept on disk from an earlier capture of the same job with the same code, if there is one
    * (PAR-158). It's asked for before anything is captured, so a project opened again shows its frames zoomed out at once.
    * `height` is the frame's height as it was captured, in its own CSS pixels, which a frame that hasn't drawn yet takes
    * while it shows the bitmap (PAR-179).
    */
-  "frames.stored": { params: { job: RenderJob }; result: { png?: string; height?: number } }
+  "frames.stored": { params: { job: RenderJob }; result: { src?: string; height?: number } }
   /** Removes every frame bitmap and component preview kept on disk, for View > Clear bitmap cache. */
   "frames.clearStored": { params: undefined; result: undefined }
   /**
@@ -125,8 +127,8 @@ export interface ServiceMethods {
     params: { projectId: string; design: string }
     result: { findings: AccessibilityFinding[]; frames: number; warnings: string[] }
   }
-  /** Writes token values back to the project's stylesheets. */
-  "tokens.save": { params: { projectId: string; changes: TokenChange[] }; result: ProjectEditResult }
+  /** Writes token values back to the project's stylesheets, taking out those without a value. */
+  "tokens.save": { params: { projectId: string; changes: TokenWrite[] }; result: ProjectEditResult }
   /**
    * What Parity runs for the open projects: each one's build server and the Storybook it started, the tasks running,
    * and each task's last result.
@@ -423,6 +425,8 @@ export interface CanvasHost {
   saveFile(options: SaveDialogOptions): Promise<string | undefined>
   /** Shows a file in the system's file manager. */
   showItem(path: string): Promise<void>
+  /** Opens a file in the person's editor, at its export's line when one is named, and says which opened it. */
+  openInEditor(request: OpenInEditorRequest): Promise<{ opened: string }>
   quit(): Promise<void>
   /** Opens the window's developer tools, or closes them. */
   toggleDevTools(): Promise<void>
@@ -450,6 +454,16 @@ export interface ProcessUsage {
   cpu: number
   /** Memory in use, in bytes. */
   memory: number
+}
+
+/** A file to open in the person's editor (PAR-527). */
+export interface OpenInEditorRequest {
+  /** Its absolute path. */
+  file: string
+  /** The export to open it at, as a component's source names it. */
+  export?: string
+  /** What Settings says to open it with. */
+  editor: CodeEditorChoice
 }
 
 export interface SaveDialogOptions {
@@ -525,6 +539,11 @@ export interface ComponentPreview {
 export interface RenderedFrame {
   width: number
   height: number
+  /**
+   * For a frame drawn smaller, as for a bitmap, and growing with its content: its height as the canvas lays it out at
+   * full size, which the bitmap keeps (PAR-525).
+   */
+  canvasHeight?: number
   nodes: MeasuredNode[]
   overflowsX: boolean
   unknownComponents: string[]

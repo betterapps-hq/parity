@@ -1,4 +1,13 @@
 import {
+  Button,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from "@buildkitgg/shadcn-baseui-kit"
+import {
   Accessibility,
   BookOpen,
   Braces,
@@ -19,9 +28,6 @@ import {
   Zap
 } from "lucide-react"
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { ProcessStatus, ProjectProcess } from "../../shared/protocol.ts"
 import { useProject } from "../canvas/context.ts"
 import { Hint } from "./Hint.tsx"
@@ -52,7 +58,7 @@ const kinds: Record<ProjectProcess["kind"], { icon: typeof Hammer; tint: string;
   lint: { icon: SearchCheck, tint: "oklch(0.82 0.15 98)", role: "Lints files" },
   verify: { icon: ShieldCheck, tint: "oklch(0.75 0.13 175)", role: "Verifies the project" },
   build: { icon: Hammer, tint: "oklch(0.68 0.03 260)", role: "Builds the project" },
-  export: { icon: ImageDown, tint: "oklch(0.74 0.12 205)", role: "Exports designs" },
+  export: { icon: ImageDown, tint: "oklch(0.74 0.12 205)", role: "Exports images" },
   accessibility: { icon: Accessibility, tint: "oklch(0.72 0.17 330)", role: "Checks accessibility" }
 }
 
@@ -103,33 +109,36 @@ export function Processes() {
   const task = active.find((process) => process.shape === "task")
   const stoppable = active.filter((process) => process.shape === "server" && process.canStop)
   const manyProjects = new Set(processes.map((process) => process.projectId)).size > 1
+  const label = triggerLabel({
+    crashed,
+    failed: unseenFailure,
+    starting,
+    task,
+    running: active.filter((process) => !ended.has(process.status)).length
+  })
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Hint label="Show what's running" hidden={open}>
-          <button
-            type="button"
-            data-slot="processes-trigger"
-            className="flex h-6 shrink-0 items-center gap-2 rounded px-1.5 hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground"
-          >
-            <span className="flex items-center gap-[3px]" aria-hidden>
-              {active.slice(0, 5).map((process, index) => (
-                <Light key={process.id} process={process} size={6} delay={index * 0.45} />
-              ))}
-              {active.length > 5 && <span className="ml-0.5 text-[10px]">+{active.length - 5}</span>}
-              {unseen[0] && <Light process={unseenFailure ?? unseen[0]} size={6} />}
-            </span>
-            <TriggerLabel
-              crashed={crashed}
-              failed={unseenFailure}
-              starting={starting}
-              task={task}
-              running={active.filter((process) => !ended.has(process.status)).length}
-            />
-          </button>
-        </Hint>
-      </PopoverTrigger>
+      <PopoverTrigger
+        render={
+          <Hint label={label} detail="Click to see what's running" hidden={open}>
+            <button
+              type="button"
+              data-slot="processes-trigger"
+              aria-label={label}
+              className="flex h-6 shrink-0 items-center gap-2 rounded px-1.5 hover:bg-accent hover:text-foreground aria-expanded:bg-accent aria-expanded:text-foreground"
+            >
+              <span className="flex items-center gap-[3px]" aria-hidden>
+                {active.slice(0, 5).map((process, index) => (
+                  <Light key={process.id} process={process} size={6} delay={index * 0.45} />
+                ))}
+                {active.length > 5 && <span className="ml-0.5 text-[10px]">+{active.length - 5}</span>}
+                {unseen[0] && <Light process={unseenFailure ?? unseen[0]} size={6} />}
+              </span>
+            </button>
+          </Hint>
+        }
+      />
       <PopoverContent
         side="top"
         align="end"
@@ -185,8 +194,11 @@ export function Processes() {
   )
 }
 
-/** What the status bar says: a crash or a failed task first, then what's starting or running, else how many run. */
-function TriggerLabel({
+/**
+ * What the lights say, as their tooltip and accessible name: a crash or a failed task first, then what's starting or
+ * running, else how many run. The status bar shows only the lights, to leave its room to the project's items.
+ */
+function triggerLabel({
   crashed,
   failed,
   starting,
@@ -198,27 +210,12 @@ function TriggerLabel({
   starting: ProjectProcess | undefined
   task: ProjectProcess | undefined
   running: number
-}) {
-  if (crashed) return <span style={{ color: "var(--process-failed)" }}>{crashed.name} crashed</span>
-  if (failed) return <span style={{ color: "var(--process-failed)" }}>{failed.name} failed</span>
-  if (starting) return <span>Starting {starting.name}</span>
-  if (task) {
-    return (
-      <span className="tabular-nums">
-        {task.name}
-        {task.progress && (
-          <span className="ml-1.5 text-muted-foreground">
-            {task.progress.done} of {task.progress.total}
-          </span>
-        )}
-      </span>
-    )
-  }
-  return (
-    <span>
-      <strong className="font-medium text-foreground tabular-nums">{running}</strong> running
-    </span>
-  )
+}): string {
+  if (crashed) return `${crashed.name} crashed`
+  if (failed) return `${failed.name} failed`
+  if (starting) return `Starting ${starting.name}`
+  if (task) return task.progress ? `${task.name}, ${task.progress.done} of ${task.progress.total}` : task.name
+  return `${running} running`
 }
 
 interface Group {
@@ -304,13 +301,24 @@ export function Light({ process, size = 7, delay = 0 }: { process: ProjectProces
           style={{ background: color, animation: "process-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite" }}
         />
       )}
+      {status === "running" && (
+        <span
+          data-process-motion
+          data-process-glow
+          className="absolute inset-0 rounded-full"
+          style={{
+            boxShadow: `0 0 6px 1px color-mix(in oklch, ${color} 70%, transparent)`,
+            opacity: 0,
+            animation: `process-glow 2.8s ease-in-out ${delay}s infinite`
+          }}
+        />
+      )}
       <span
         data-process-motion
         className="relative inline-block rounded-full"
         style={{
           ...box,
           background: color,
-          ["--process-light" as string]: color,
           ...(status === "running" ? { animation: `process-breathe 2.8s ease-in-out ${delay}s infinite` } : {})
         }}
       />
@@ -589,16 +597,18 @@ function Action({
 }) {
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          aria-label={label}
-          onClick={onClick}
-          className={`grid size-7 place-items-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-background hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 [&_svg]:size-3.5 ${danger ? "hover:text-[var(--process-failed)]" : ""}`}
-        >
-          {children}
-        </button>
-      </TooltipTrigger>
+      <TooltipTrigger
+        render={
+          <button
+            type="button"
+            aria-label={label}
+            onClick={onClick}
+            className={`grid size-7 place-items-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-background hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 [&_svg]:size-3.5 ${danger ? "hover:text-[var(--process-failed)]" : ""}`}
+          >
+            {children}
+          </button>
+        }
+      />
       <TooltipContent side="top">{label}</TooltipContent>
     </Tooltip>
   )

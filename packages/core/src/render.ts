@@ -85,13 +85,13 @@ export function boardRoot(design: ContainerSpec): DesignNode {
 
 /**
  * The size a design's frame is drawn at in a mode: the design's own size for the mode's viewport if it has one, else
- * as wide as the viewport and as tall as its content (no height).
+ * as wide as the viewport and as tall as its content (no height). A frame has one size of its own, whatever the mode.
  */
 export function frameSize(
   design: ContainerSpec,
   mode: { viewport: string; width: number }
 ): { width: number; height?: number } {
-  const size = design.frames?.[mode.viewport]
+  const size = design.kind === "frame" ? design.size : design.frames?.[mode.viewport]
   return { width: size?.width ?? mode.width, ...(size?.height === undefined ? {} : { height: size.height }) }
 }
 
@@ -300,7 +300,11 @@ export function applyPatch(node: DesignNode, patch: NodePatch, args?: Record<str
     if (hidden) next.hidden = true
     else delete next.hidden
   }
-  if (patch.style && Object.keys(patch.style).length > 0) next.style = { ...node.style, ...patch.style }
+  if ((patch.style && Object.keys(patch.style).length > 0) || patch.unset?.style?.length) {
+    const style = { ...without(node.style, patch.unset?.style), ...patch.style }
+    if (Object.keys(style).length > 0) next.style = style
+    else delete next.style
+  }
   if (next.type === "text") {
     const text = bound(next.bind?.text)
     if (patch.text !== undefined) next.text = patch.text
@@ -312,13 +316,27 @@ export function applyPatch(node: DesignNode, patch: NodePatch, args?: Record<str
       const value = bound(param)
       if (value) props[prop] = value.value
     }
+    for (const prop of patch.unset?.props ?? []) delete props[prop]
     Object.assign(props, patch.props)
     if (Object.keys(props).length > 0) next.props = props
+    else delete next.props
   }
-  if (next.type === "instance" && patch.props && Object.keys(patch.props).length > 0) {
-    next.args = { ...next.args, ...patch.props }
+  if (
+    next.type === "instance" &&
+    ((patch.props && Object.keys(patch.props).length > 0) || patch.unset?.props?.length)
+  ) {
+    const args = { ...without(next.args, patch.unset?.props), ...patch.props }
+    if (Object.keys(args).length > 0) next.args = args
+    else delete next.args
   }
   return next
+}
+
+/** `values` without `keys`. */
+export function without<T extends object>(values: T | undefined, keys: readonly string[] | undefined): T {
+  const next = { ...values } as Record<string, unknown>
+  for (const key of keys ?? []) delete next[key]
+  return next as T
 }
 
 /**
@@ -392,7 +410,8 @@ export function instanceScope(
   layers: readonly PatchLayer[]
 ): { args: Record<string, unknown>; layers: PatchLayer[] } {
   const defaults = paramDefaults(component.params)
-  const given = { ...node.args, ...patch.props }
+  // A param the patch takes away goes back to its default.
+  const given = { ...without(node.args, patch.unset?.props), ...patch.props }
   const choices = variantChoices(component.params, given)
   const componentState = component.states.find((candidate) => candidate.id === node.state) ?? component.states[0]
   return {
@@ -510,12 +529,26 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
 /** `over` applied on top of `under`. */
 export function mergePatches(under: NodePatch | undefined, over: NodePatch | undefined): NodePatch {
   if (!over) return under ?? {}
+  // What the upper patch takes away goes from the lower one's values, and what it sets is no longer taken away.
+  const props = mergeUnset(under?.unset?.props, over.unset?.props, over.props)
+  const style = mergeUnset(under?.unset?.style, over.unset?.style, over.style)
   return {
     hidden: over.hidden ?? under?.hidden,
     text: over.text ?? under?.text,
-    props: { ...under?.props, ...over.props },
-    style: { ...under?.style, ...over.style }
+    props: { ...without(under?.props, over.unset?.props), ...over.props },
+    style: { ...without(under?.style, over.unset?.style), ...over.style },
+    ...(props || style ? { unset: { ...(props ? { props } : {}), ...(style ? { style } : {}) } } : {})
   }
+}
+
+/** The keys two patches take away, one over the other, less those the upper one sets. */
+function mergeUnset<K extends string>(
+  under: readonly K[] | undefined,
+  over: readonly K[] | undefined,
+  set: object | undefined
+): K[] | undefined {
+  const keys = [...new Set([...(under ?? []), ...(over ?? [])])].filter((key) => !Object.hasOwn(set ?? {}, key))
+  return keys.length > 0 ? keys : undefined
 }
 
 /** A step of the spacing scale (a multiple of the project's spacing unit), or a length token. */

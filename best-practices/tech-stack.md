@@ -3,8 +3,8 @@
 The tools we reach for **first**. Prefer them before introducing an alternative for the same job.
 
 > **Deviating from this list requires a discussion with a human.** If a task seems to need a library that isn't here (or
-> a different one than what's listed), raise it — in the issue or PR — and get agreement before adding it. Don't
-> silently swap in a different tool.
+> a different one than what's listed), raise it in the PR and get agreement before adding it. Don't silently swap in a
+> different tool.
 
 Agents must follow the [permission rule](../AGENTS.md#permission-to-change-guidance) before editing this guide.
 
@@ -55,12 +55,7 @@ For building command-line tools.
 
 - [zod](https://github.com/colinhacks/zod) — schema validation (Standard Schema; powers forms + env parsing).
 - [@t3-oss/env-core](https://github.com/t3-oss/t3-env/tree/main/packages/core) — type-safe environment variables.
-- In apps, import shared helpers and types from [`@buildkitgg/typescript-utils`](https://github.com/betterapps-hq/buildkit/tree/main/packages/core/typescript-utils). Set up its `/reset` entry in the app’s TypeScript configuration. Published libraries should import the upstream helpers directly to avoid changing consumers’ global types.
-- [es-toolkit](https://github.com/toss/es-toolkit) — general runtime helpers.
-- [ts-extras](https://github.com/sindresorhus/ts-extras) — typed built-ins and narrowing helpers.
-- [type-fest](https://github.com/sindresorhus/type-fest) — compile-time utility types such as `SetRequired` and `PartialDeep`.
-- [ts-reset](https://github.com/total-typescript/ts-reset) — stricter built-in typings for apps. Keep global type changes out of published libraries.
-- [ts-pattern](https://github.com/gvergnaud/ts-pattern) — pattern matching and exhaustive handling of unions.
+- In apps, import shared helpers and types from [`@buildkitgg/typescript-utils`](https://github.com/betterapps-hq/buildkit/tree/main/packages/core/typescript-utils). See the [helper catalog and app setup](typescript.md#helper-catalog). Published libraries should import the upstream helpers directly to avoid changing consumers’ global types.
 - [date-fns](https://github.com/date-fns/date-fns) — date utilities.
 - [@mantine/hooks](https://github.com/mantinedev/mantine/tree/master/packages/@mantine/hooks) — React hooks catalog.
 - [react-error-boundary](https://github.com/bvaughn/react-error-boundary) — error boundaries · [nuqs](https://github.com/47ng/nuqs/tree/next/packages/nuqs) — type-safe URL state.
@@ -72,14 +67,30 @@ For building command-line tools.
 ## UI & components
 
 - Use [shadcn/ui](https://github.com/shadcn-ui/ui) with [`@buildkitgg/shadcn-baseui-nova`](https://github.com/betterapps-hq/buildkit/tree/main/packages/shadcn/shadcn-baseui-nova) as the default style. Install it under the `@buildkitgg/shadcn-baseui-kit` alias so app components and BuildKit adapters share the same kit.
+
+  Install Nova under the package name the adapters expect:
+
+  ```sh
+  pnpm add @buildkitgg/shadcn-baseui-kit@npm:@buildkitgg/shadcn-baseui-nova
+  ```
+
+  Import components through that same name in app code:
+
+  ```tsx
+  import { Button } from "@buildkitgg/shadcn-baseui-kit"
+
+  export function SaveButton() {
+    return <Button type="submit">Save</Button>
+  }
+  ```
 - Load one reset. With Tailwind 4, import the kit’s `tailwind.css` alongside Tailwind. Without Tailwind, use the kit’s compiled `styles.css`, which includes Preflight. If the app supplies its own reset, use `styles-no-reset.css`. Use [the-new-css-reset](https://github.com/elad2412/the-new-css-reset) only when neither the kit nor the app loads Preflight or another reset.
 - Use [Recharts](https://github.com/recharts/recharts) for charts.
 
 | Need | BuildKit packages |
 | --- | --- |
-| Persistent inline alerts | [`@buildkitgg/react-alerts`](https://github.com/betterapps-hq/buildkit/tree/main/packages/react/react-alerts) manages alert state. [`@buildkitgg/shadcn-alerts-manager`](https://github.com/betterapps-hq/buildkit/tree/main/packages/shadcn/shadcn-alerts-manager) renders the alerts. |
-| Modals | [`@buildkitgg/react-modals`](https://github.com/betterapps-hq/buildkit/tree/main/packages/react/react-modals) manages typed modal state and results. [`@buildkitgg/shadcn-modals-manager`](https://github.com/betterapps-hq/buildkit/tree/main/packages/shadcn/shadcn-modals-manager) renders the dialogs. |
-| Themes | [`@buildkitgg/react-theme`](https://github.com/betterapps-hq/buildkit/tree/main/packages/react/react-theme) manages theme state. [`@buildkitgg/shadcn-theme`](https://github.com/betterapps-hq/buildkit/tree/main/packages/shadcn/shadcn-theme) applies it to shadcn surfaces. |
+| Persistent inline alerts | Use [`@buildkitgg/shadcn-alerts-manager`](https://github.com/betterapps-hq/buildkit/tree/main/packages/shadcn/shadcn-alerts-manager) for inline messages that stay visible while the user works, such as a billing warning with an action to update payment details. |
+| Modals | Use [`@buildkitgg/shadcn-modals-manager`](https://github.com/betterapps-hq/buildkit/tree/main/packages/shadcn/shadcn-modals-manager) when an action needs a dialog result, such as awaiting confirmation before deleting a draft. |
+| Themes | Import `{ createShadcnTheme, useTheme }` from [`@buildkitgg/shadcn-theme`](https://github.com/betterapps-hq/buildkit/tree/main/packages/shadcn/shadcn-theme). Create the store once and call `useTheme(store)` in React components. |
 | User preferences | [`@buildkitgg/react-preferences`](https://github.com/betterapps-hq/buildkit/tree/main/packages/react/react-preferences) manages user preferences. |
 | App configuration | [`@buildkitgg/react-configuration`](https://github.com/betterapps-hq/buildkit/tree/main/packages/react/react-configuration) provides typed configuration and developer overrides. |
 | URL-driven tabs and panels | Use [`@buildkitgg/react-routing`](https://github.com/betterapps-hq/buildkit/tree/main/packages/react/react-routing) with the adapter for the app’s router, either [`@buildkitgg/tanstack-router`](https://github.com/betterapps-hq/buildkit/tree/main/packages/react/tanstack-router) or [`@buildkitgg/react-router`](https://github.com/betterapps-hq/buildkit/tree/main/packages/react/react-router). |
@@ -96,9 +107,8 @@ Built on the [unified](https://github.com/unifiedjs/unified) ([remark](https://g
 
 ## State management
 
-- [zustand](https://github.com/pmndrs/zustand) — lightweight client state (default for local/global UI state).
-- [@reduxjs/toolkit](https://github.com/reduxjs/redux-toolkit) — formal store for larger apps; includes [RTK Query](https://github.com/reduxjs/redux-toolkit/tree/master/packages/toolkit/src/query), our **preferred data-fetching /
-  server-cache** layer.
+- Use [Zustand](https://github.com/pmndrs/zustand) for most global client state.
+- Use [RTK Query](https://github.com/reduxjs/redux-toolkit/tree/master/packages/toolkit/src/query) for API repositories. Define endpoints with `createApi` and provide the API to React components with `ApiProvider`.
 
 ## Database & data layer
 

@@ -1,8 +1,9 @@
+import { SonnerToaster } from "@buildkitgg/shadcn-baseui-kit"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import { fn } from "storybook/test"
-import { Toaster } from "@/components/ui/sonner"
+import { useResolvedTheme } from "../theme.ts"
 import { type UpdateNotice, UpdateToast } from "./UpdateToast.tsx"
 
 /** Update notifications at their real size, with the same Sonner host and placement as the app. No updater runs. */
@@ -87,6 +88,7 @@ export const DesignReview: Story = {
 
 /** Controls let the reviewer watch the same toast change and dismiss it; these controls are only in Storybook. */
 function DownloadFlow() {
+  const theme = useResolvedTheme()
   const [notice, setNotice] = useState<UpdateNotice>({
     kind: "downloading",
     version: "0.4.0",
@@ -131,7 +133,12 @@ function DownloadFlow() {
           Mac download
         </button>
       </div>
-      <Toaster position="bottom-right" offset={{ bottom: 40, right: 16 }} />
+      <SonnerToaster
+        theme={theme}
+        position="bottom-right"
+        offset={{ bottom: 40, right: 16 }}
+        mobileOffset={{ bottom: 40, left: 16, right: 16 }}
+      />
     </div>
   )
 }

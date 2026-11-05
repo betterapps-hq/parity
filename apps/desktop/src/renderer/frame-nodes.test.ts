@@ -14,8 +14,28 @@ const entry = `
 export { prepareFrame, setDrawnNodes, findNodeElement, findNodeElements, nodeBox, nodesAt, nodeParent, nodeOfElement,
   drawnNodeIds } from "./frame.ts"
 export { createGuest } from "@parity-app/renderer-react/guest"
-import { createElement, Fragment, useState } from "react"
-import { Slot } from "radix-ui"
+import { cloneElement, createElement, Fragment, useEffect, useRef, useState } from "react"
+
+// Radix's Slot, as shadcn's Button uses it for asChild: draws its one child with its own props under the child's, the
+// two classes joined, both handlers called, the child's first, and both refs set.
+function Slot({ children, ...props }) {
+  const own = children.props
+  const merged = { ...props, ...own }
+  for (const key of Object.keys(props)) {
+    if (/^on[A-Z]/.test(key) && typeof own[key] === "function") {
+      merged[key] = (...args) => {
+        own[key](...args)
+        props[key](...args)
+      }
+    }
+  }
+  merged.className = [props.className, own.className].filter(Boolean).join(" ") || undefined
+  const refs = [props.ref, own.ref].filter(Boolean)
+  merged.ref = (node) => {
+    for (const ref of refs) typeof ref === "function" ? ref(node) : (ref.current = node)
+  }
+  return cloneElement(children, merged)
+}
 
 // Takes the props it needs and renders none of the rest, data-canvas-node included.
 export function MemberRow({ member }) {
@@ -51,6 +71,11 @@ export function Nothing() {
   return null
 }
 
+// Draws only text, with no element around it.
+export function Label() {
+  return "Email address"
+}
+
 // Adds a root of its own when pressed, without the canvas rendering it again.
 export function Grows() {
   const [more, setMore] = useState(false)
@@ -61,7 +86,22 @@ export function Grows() {
 
 // Lends its class and attributes to its child with asChild, as shadcn's Button does through Radix's Slot.
 export function SlotButton({ asChild, ...props }) {
-  return createElement(asChild ? Slot.Root : "button", { className: "slot-button", "data-slot": "button", ...props })
+  return createElement(asChild ? Slot : "button", { className: "slot-button", "data-slot": "button", ...props })
+}
+
+// Counts presses on its asChild child through a handler and a ref, as a trigger does.
+export function PressButton({ asChild, ...props }) {
+  const ref = useRef(null)
+  const [presses, setPresses] = useState(0)
+  useEffect(() => {
+    ref.current?.setAttribute("data-ref", ref.current.localName)
+  })
+  return createElement(asChild ? Slot : "button",
+    { ...props, ref, "data-presses": String(presses), onClick: () => setPresses((count) => count + 1) })
+}
+
+export function Broken() {
+  throw new Error("Broken on purpose")
 }
 
 export function Link({ className, ...props }) {
@@ -158,7 +198,8 @@ const design: Node[] = [
       ),
       component("group", "Group", {}, { children: [text("a", "A"), text("b", "B")] }),
       component("nothing", "Nothing"),
-      component("grows", "Grows")
+      component("grows", "Grows"),
+      component("label", "Label")
     ]
   }
 ]
@@ -292,8 +333,33 @@ describe("finding a design node's DOM", () => {
       "a",
       "b",
       "nothing",
-      "grows"
+      "grows",
+      "label"
     ])
+  })
+
+  it("gives a component that draws only text its text's box", async () => {
+    const found = await page.evaluate(() => {
+      const host = document.querySelector("#host")!
+      const page = host.shadowRoot!.querySelector("[data-canvas-node=page]")!
+      const text = [...page.childNodes].find((node) => node.nodeType === 3 && node.textContent === "Email address")!
+      const range = document.createRange()
+      range.selectNodeContents(text)
+      const rect = range.getBoundingClientRect()
+      // @ts-expect-error The bundle's global.
+      const { nodeBox, nodesAt, findNodeElements } = frame
+      const box = nodeBox(host, "label") as DOMRect
+      return {
+        box: [box.left, box.top, box.width, box.height],
+        text: [rect.left, rect.top, rect.width, rect.height],
+        elements: (findNodeElements(host, "label") as Element[]).length,
+        under: nodesAt(host, { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }) as string[]
+      }
+    })
+    expect(found.box).toEqual(found.text)
+    expect(found.text[2]).toBeGreaterThan(0)
+    expect(found.elements).toBe(0)
+    expect(found.under).toEqual(["page", "label"])
   })
 
   it("follows DOM a component adds by itself", async () => {
@@ -343,9 +409,7 @@ describe("finding a design node's DOM", () => {
 /**
  * A component handing props to what's in its slot: Radix's Slot merging a button's onto its asChild child, and a
  * `$renderWith:` slot spreading what the component calls it with. A component layer is drawn inside the guest's error
- * boundary. The guest gives a render slot's props to the layer itself, so `$renderWith:` reaches it; Radix's Slot
- * clones the boundary, which draws its child as it was, so asChild's props are lost. The failing case is kept as
- * `it.fails` until it's fixed.
+ * boundary, so these check that what the parent hands it still reaches the component.
  */
 describe("props a component hands to its slot", () => {
   const slots: Node[] = [
@@ -373,6 +437,13 @@ describe("props a component hands to its slot", () => {
             children: [component("link-component", "Link", { children: "B" })]
           }
         ),
+        component(
+          "press-component",
+          "PressButton",
+          { asChild: true },
+          { children: [component("press-link", "Link", { className: "pressed", children: "Press" })] }
+        ),
+        component("broken-slot", "SlotButton", { asChild: true }, { children: [component("broken", "Broken")] }),
         component(
           "repeat-element",
           "Repeat",
@@ -423,8 +494,47 @@ describe("props a component hands to its slot", () => {
     ])
   })
 
-  it.fails("gives a component in an asChild slot the button's class and attributes", async () => {
-    expect(await drawn("a.link")).toEqual([{ className: "link slot-button", slot: "button", index: undefined }])
+  it("gives a component in an asChild slot the button's class and attributes", async () => {
+    expect(await drawn("a.link:not(.pressed)")).toEqual([
+      { className: "link slot-button", slot: "button", index: undefined }
+    ])
+  })
+
+  it("gives a component in an asChild slot the button's handler and ref, its own class kept", async () => {
+    await mount(slots)
+    const press = () =>
+      page.evaluate(() => {
+        const link = document.querySelector("#host")!.shadowRoot!.querySelector<HTMLElement>("a.pressed")!
+        link.click()
+        return { className: link.className, ref: link.dataset.ref }
+      })
+    expect(await press()).toEqual({ className: "link pressed", ref: "a" })
+    await page.waitForTimeout(50)
+    const presses = await page.evaluate(
+      () => document.querySelector("#host")!.shadowRoot!.querySelector<HTMLElement>("a.pressed")!.dataset.presses
+    )
+    expect(presses).toBe("1")
+  })
+
+  it("still finds a component layer in an asChild slot, inside its parent", async () => {
+    await mount(slots)
+    const found = await lookup("link-component", "a.link:not(.pressed)")
+    expect(found.elements).toEqual(["link slot-button"])
+    expect(found.box).toEqual(found.expected[0])
+    expect(await at("a.link:not(.pressed)")).toEqual(["slots", "button-component", "link-component"])
+  })
+
+  it("keeps the error of a component in an asChild slot to itself", async () => {
+    await mount(slots)
+    const shown = await page.evaluate(() => {
+      const root = document.querySelector("#host")!.shadowRoot!
+      return {
+        error: root.textContent!.includes("Broken: Broken on purpose"),
+        links: root.querySelectorAll("a").length
+      }
+    })
+    expect(shown).toEqual({ error: true, links: 3 })
+    expect((await lookup("broken")).elements).toHaveLength(1)
   })
 
   it("gives an element in a $renderWith: slot what the component renders it with", async () => {
@@ -470,5 +580,59 @@ describe("props a component hands to its slot", () => {
     ])
     // Each copy keeps the key the component gave it.
     expect(errors.filter((error) => error.includes("same key"))).toEqual([])
+  })
+})
+
+describe("a component that puts its style on an element inside it (PAR-201)", () => {
+  const sized = { width: "320px", marginTop: "4px" }
+  const styled: Node[] = [
+    {
+      kind: "element",
+      nodeId: "page",
+      tag: "div",
+      style: { display: "flex", flexDirection: "column", alignItems: "start", gap: "10px" },
+      children: [
+        component("sized-field", "Field", { placeholder: "you@example.com", style: sized }),
+        component("plain-field", "Field", { placeholder: "Plain" }),
+        component("sized-link", "Link", { children: "Docs", style: { display: "block", width: "120px" } })
+      ]
+    }
+  ]
+
+  /** A layer's elements, its box, and its field's and input's widths and inline width. */
+  function measure(id: string) {
+    return page.evaluate((id) => {
+      const host = document.querySelector("#host")!
+      // @ts-expect-error The bundle's global.
+      const { findNodeElements, nodeBox } = frame
+      const elements = findNodeElements(host, id) as HTMLElement[]
+      const field = elements[0]!.querySelector<HTMLElement>(".field") ?? elements[0]!
+      const input = field.querySelector<HTMLInputElement>("input")
+      return {
+        elements: elements.map((element) => element.className || element.localName),
+        width: (nodeBox(host, id) as DOMRect).width,
+        field: field.getBoundingClientRect().width,
+        input: input && { width: input.getBoundingClientRect().width, inline: input.style.width }
+      }
+    }, id)
+  }
+
+  it("draws a div around it with the style, which the whole field fills", async () => {
+    await mount(styled)
+    const found = await measure("sized-field")
+    expect(found.elements).toEqual(["div"])
+    expect(found.width).toBe(320)
+    expect(found.field).toBe(320)
+    // The input is the field's to size, as the component lays it out.
+    expect(found.input?.inline).toBe("")
+    expect(found.input!.width).toBeLessThan(320)
+  })
+
+  it("leaves a layer of it without a style as it is, and a component that puts its style on its root", async () => {
+    await mount(styled)
+    expect((await measure("plain-field")).elements).toEqual(["field"])
+    const link = await measure("sized-link")
+    expect(link.elements).toEqual(["link"])
+    expect(link.width).toBe(120)
   })
 })

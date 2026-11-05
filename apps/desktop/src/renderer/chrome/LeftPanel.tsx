@@ -1,5 +1,5 @@
+import { TabsContent } from "@buildkitgg/shadcn-baseui-kit"
 import { Component, ImageIcon, Layers, Palette, Smile } from "lucide-react"
-import { TabsContent } from "@/components/ui/tabs"
 import { ComponentsPanel, IconsPanel, ImagesPanel } from "./AssetsPanel.tsx"
 import { LayerTree } from "./LayerTree.tsx"
 import { SidePanel } from "./SidePanel.tsx"

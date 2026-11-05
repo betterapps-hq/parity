@@ -73,12 +73,10 @@ change into an open-ended refactor.
 
 ## Intentional compatibility
 
-Compatibility is a product requirement, not a default. Ask the user before preserving an old behavior, API, schema, data
-shape, or code path unless the request already requires compatibility. If they have not confirmed it, proceed without a
-compatibility layer. Unreleased apps do not need backward compatibility: replace the obsolete implementation and update
-its callers, schema, and migration baseline together. Do not add shims, dual paths, or data rewrites for disposable
-prototype state.
+Prefer to fix forward. Update the canonical implementation and its callers together. Before proposing backward
+compatibility, identify who depends on the old behavior, how many users or integrations would be affected, and what
+would break. State what is known and where usage is unknown. Consider the app’s release stage and tolerance for
+breaking changes. Get explicit permission before adding a compatibility layer unless the user already requested one.
 
-Keep one canonical implementation. Names such as `ThingV2`, `Phase2`, and `legacy` are a code smell when they merely
-postpone cleanup. Use a versioned name when the version is part of a real external contract or required migration
-record.
+Update `library.ts` in place. A parallel `libraryV2.ts` is a code smell. Use a versioned filename only when the version
+identifies an external contract or a required migration record.

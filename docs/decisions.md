@@ -96,6 +96,14 @@ still need your call.
   button is Apply, with a line saying Save writes it to the stylesheet. Don't save writes nothing. A failed write names
   the token and the file in the save notice, the status bar and the Tokens panel, where its row is marked and a banner
   offers Try again; a stylesheet changed since it was read fails the same way.
+- **Save takes out a token value that's been undone back to nothing** (PAR-420): a value given to a theme that had none
+  (a dark `--radius`), saved and then undone, is written as a `TokenWrite` without a value, rather than as an empty
+  value, so a value that's empty on purpose can't be mistaken for one taken out. `writeTokenChanges` takes the
+  declaration out of every block that would hold it (the theme's `.dark` and `[data-theme="dark"]` alike, but no `:root`
+  under `@media`), with its line, and a rule left with nothing in it goes too, with one of the blank lines around it, so
+  a value Save added in a new block leaves the file as it was. A rule that keeps only a comment stays, and so do the
+  at-rules around one taken out, which Save never adds. The frames' overrides are unchanged: compared with the CSS the
+  canvas loaded, so the render window is assumed to have loaded the same CSS.
 - **Closing a tab or quitting with unsaved changes asks** Save, Don't save or Cancel, with Save focused so Enter does
   it. Quitting with several projects unsaved asks once, with Save all.
 - **Changes from outside reload as one undoable step.** That covers agents, git and text editors. A file with unsaved
@@ -185,6 +193,22 @@ still need your call.
   layout of the design under the pointer, in the slot there, or at the pointer in an absolutely placed one, in half
   steps of the spacing scale. It never pastes into a layout inside an instance. Select layer lists the design first,
   then every layer under the pointer, those inside instances included.
+- **A component's slot is a Paste here target like a layout** (PAR-419), and so for dropped files and components from
+  the panel, which share `measureHere`. My calls: a slot is under the pointer when the element its layers are drawn in
+  is, since only the component knows where it draws a slot, so a slot with no layers yet isn't a target and the copy
+  goes to the layout around the component; the slot of the layer under the pointer is tried first; and a slot is never
+  absolutely placed, whatever the component's own position, so copies go in its flow. A dragged layer still doesn't drop
+  into a slot.
+- **A stretched copy pasted at the pointer keeps its far insets** (PAR-419). My call: a copy with a left and a right and
+  no width keeps its right, and one with a top and a bottom and no height its bottom, so it still reaches that edge; its
+  left and top go to the pointer as before. A copy with a width drops its right, as CSS ignores it then.
+- **A right-click on the canvas while its menu is open opens it again there** (PAR-419), as Figma does; off the canvas
+  it only closes it. My call: Base UI's menu lays a backdrop over the page while it's open, so the menu cancels the
+  close for that press and, on release, sends the canvas under the backdrop the `contextmenu` tldraw would have, rather
+  than being made non-modal, which would let a left click outside the menu act on the canvas as well as close it.
+- **The menubar greys what the canvas menu greys for layers inside an instance** (PAR-419): Copy, Duplicate, the order,
+  Wrap in layout and Hide or show, through one rule (`layerCommands`), and their keys do nothing then. Cut and Delete,
+  which the canvas menu doesn't have, are unchanged.
 
 ## Canvas
 
@@ -323,7 +347,10 @@ still need your call.
 - **The canvas doesn't restyle its elements while the camera moves.** tldraw's `--tl-zoom` changes only once zooming
   stops, titles and labels size themselves from the zoom directly, selection colours go through tldraw's theme rather
   than custom properties, and the layer the camera moves is composited, so panning and zooming move what's already drawn
-  until the camera stops. Boards well out of view skip drawing their frames but keep their layout.
+  until the camera stops. Chrome never draws a composited layer again at a new scale, so once the zoom settles the layer
+  goes without the hint for two frames and is drawn sharp at that zoom (`redrawLayer`, PAR-556); keeping the hint off
+  whenever the camera is still would also do, but would repaint the whole layer when panning starts. Boards well out of
+  view skip drawing their frames but keep their layout.
 - **The app is named Parity, with Parity's icon, to every system.** The main process names itself Parity and keeps its
   settings where the package's name put them (`%APPDATA%\@parity\desktop` on Windows). Each system names and draws an
   app from its program rather than its windows, so `pnpm dev` runs a copy of Electron carrying Parity's name and icon
@@ -439,7 +466,21 @@ still need your call.
   focus with the text selected, and Escape reverts and leaves. A value changing underneath doesn't touch what's being
   typed.
 - **The canvas previews a field's edit as inline styles on the frames already drawn,** not through the store, so typing
-  shows in about 25 ms and commits as one undo step. Number props don't preview yet (PAR-203).
+  shows in about 25 ms and commits as one undo step.
+- **A number prop previews by being made in the design and taken back,** since the component has to draw again for it
+  (PAR-203). My call: the preview is a change in a gesture of its own, reverted to its checkpoint before the next
+  keystroke and on Escape, as a resize writes as the pointer moves, rather than a second source of designs for the
+  frames to draw beside the store. So while it shows, the panels, agents and, with automatic saving on, the file see it,
+  as they see a resize in progress; taking it back leaves nothing to undo, and making it is one undo step. Edits work
+  from the value as it was before the preview.
+- **Opacity takes whole percentages** (PAR-203). My call, of the two the issue offered: a typed fraction is rounded to
+  the nearest whole percentage and the field says so ("Rounded to 33%: it takes whole percentages"), as a count's is,
+  rather than keeping the fraction and naming what it shows. It's the same code path counts already had, and the field
+  shows two decimals, so `100/3` would have kept 33.333… behind a 33.33. An opacity already off a whole percentage stays
+  as it is until it's edited.
+- **The example's code field takes `value`, not `defaultValue`** (PAR-203). input-otp, under nova's InputOTP, reads
+  `defaultValue` for itself but also passes it to its input beside its own `value`, which React warned about in
+  development. Verify email's code is now fixed at 482913 (482931 in Wrong code), so in Interact it can't be typed over.
 - **The field parser is in `@parity-app/core`** until `@parity-app/editor` exists (PAR-7).
 - **A dragged layer stays in its own layout while the pointer is over that layout** (CAN-47): it changes places with its
   neighbours and never drops into one of them, so cards and bars that are layouts themselves don't swallow the neighbour
@@ -537,6 +578,21 @@ section has the details. The user asked for "variants, instance overrides and th
 - **Prop and param fields follow the declared type** (PAR-164), not the value's: a number param with no value takes a
   number, JSON that doesn't parse is refused with the reason rather than saved as text, and an empty field clears the
   value.
+- **A state can take a value away (PAR-426):** a patch's `unset` lists prop names and style keys to drop from what's
+  under it, `{ "unset": { "style": ["gap"], "props": ["disabled"] } }`, so a state, a variant option, an instance's
+  overrides or a viewport can show a layer without what the design sets. Patches layer as before: an upper patch's
+  `unset` drops the lower ones' values, and a value it sets wins over a key a lower one took away. Taking an instance's
+  param value away gives the param its default. In the base design, taking a key away removes it. A key is only kept in
+  `unset` when what's under the patch has it, and never both set and taken away by one patch. My call over `null` in a
+  patch's values: agents' `Update` already reads `null` as "take back this change", and a prop can be `null` on purpose,
+  so a list says it apart from both. Paste style in a state takes away what the copy doesn't set, so it replaces the
+  look there as it does in the base, and the inspector marks a value taken away as changed, with Reset.
+- **Clearing a prop in a state takes it away there (PAR-421):** a switch back to its default, emptied text or a removed
+  attribute is the prop taken away in the state being edited, not the state's change taken back, so a prop the design
+  turns on can be off in one state. Reset is how to take the change back. My call over writing the default's value
+  (`false`) into the state: a prop's declared default isn't always known, and taking the prop away shows what the
+  component does without it, as clearing does in the base. An attribute taken away stays listed in the props, so it can
+  be set again or reset.
 - **The variant grid shows each variant on its own, plus combinations someone pins.** You chose this on 2026-10-28 over
   every combination, which multiplies fast.
 - **A component design in `.par` stays the source, linked to a real component file.** You set the direction on
@@ -682,15 +738,15 @@ recommended answer to each of its questions.
   canvas gets what the app gets, and Vite compiles it as the app's own code. A package that doesn't build costs only its
   own components, as a project module does.
 - **Why something is or isn't a component is shown where people look for it.** My call: each component's tooltip in the
-  Components panel says what it was recognised as ("made with forwardRef"), and a search that matches exports the type
-  checker left out lists them under Not listed with its reason ("takes 2 arguments, not one props object"). Agents get
-  the same list from `parity components`. Only capitalised exports are listed, as lowercase helpers and types aren't
-  candidates.
+  Components panel said what it was recognised as ("made with forwardRef"); since PAR-527 its card names its file
+  instead, as you found that said nothing a person needs. A search that matches exports the type checker left out lists
+  them under Not listed with its reason ("takes 2 arguments, not one props object"). Agents get the same list from
+  `parity components`. Only capitalised exports are listed, as lowercase helpers and types aren't candidates.
 - **Corrections name an export by its file and export name, and live in the main project file.** My call: `detection`
-  holds `include` and `exclude` lists of `{ path, export }`, so a correction outlasts ids changing on a clash. A
-  correction is an ordinary, undoable change to the file, saved when the file is, and the list follows it straight away.
-  Doing the opposite of a correction removes it rather than adding another, so detection decides again, and the field
-  goes once it's empty. Only the project's own components can be corrected; a library's list is its `.lib.par`'s.
+  holds an `include` list of `{ path, export }`, so a correction outlasts ids changing on a clash. A correction is an
+  ordinary, undoable change to the file, saved when the file is, and the list follows it straight away. Only the
+  project's own components can be corrected; a library's list is its `.lib.par`'s. It also held an `exclude` list, for
+  taking a component off by hand, which PAR-531 removed.
 - **A component's render status is how it fares on the canvas now.** My call: it fails while any frame shows its error,
   and otherwise draws once it has drawn somewhere, so fixing it or removing the design clears the warning. The status
   comes from each component's error boundary in the guest, and a component loaded on demand only counts as drawn once
@@ -1041,6 +1097,21 @@ recommended answer to each of its questions.
   - A value an owner part works out for a part it draws is tried with each value the examples make.
 - **A render function's arguments go over the node's own (PAR-418):** its props over the node's props and slots, its
   style merged over the node's, its key on the returned node, and a slot that both spreads and names props gives both.
+- **A component layer takes what a parent clones onto it (PAR-200):** the guest draws each component layer through a
+  function component that holds its error boundary, so a parent that clones the layer, as Radix's Slot does for
+  `asChild`, hands its props to the component rather than to the boundary. They're merged under the layer's own as
+  Radix's `mergeProps` merges onto an element: class names joined, styles merged, both handlers called with the layer's
+  first, and the layer's other props over the parent's. A ref goes to the component, since React 19 passes `ref` to a
+  function component as a prop. A parent that clones with plain `cloneElement` would replace a class rather than join
+  it; layers set from the canvas rarely have one, so the one rule covers both.
+- **A component that puts its style inside is drawn in a div that takes it (PAR-201, the user's call):** when a layer
+  draws a component with a size or other style, and the component puts its `style` on an element inside another it drew,
+  as a field passes its props to its input, the guest draws a plain div around the component and gives the div the
+  style, so W 320 makes the whole field 320 wide. The design and the layers panel don't change, and nothing tells the
+  person, since all they need to see is the style working. The guest finds where the style went in React's tree once a
+  component first draws with one and keeps that for every frame, and draws the div before the frame is painted. The user
+  chose this over a note in the inspector, with or without a Wrap in layout button. Code generated from a design, when
+  there is some, has to draw the same div. A component that takes no `style` keeps its note.
 - **`parity lib` tries parts with React's server renderer,** from the project's own React, rather than in the app: it
   needs no window, runs in seconds, and still throws the context errors that name a part's parents. The library's
   decorator providers wrap each try, with their imports and calls made, a mode's default value, and no frame, so
@@ -1815,7 +1886,7 @@ to PAR-209 build it.
   `app.yml` runs them for every pull request and push to main on Windows, whose runners have a desktop for the window.
   It doesn't block merging yet: on its first run the example never opened on the runner within 180 s, so it stays out of
   CI until it runs reliably there (PAR-438). It's a workflow of its own, not a job `CI passes` leaves out, since a
-  failed job still fails CI's run, which would hold up the CLI's release there and `cd-desktop.yml`.
+  failed job still fails CI's run, and `cd-npm.yml` and `cd-desktop.yml` run only after CI's run on `main` succeeds.
 - **Packages and scripts use only TypeScript that Node can strip,** because the CLI and scripts run them with plain
   `node`: no parameter properties, namespaces or enums. oxlint rejects the first two in `packages/**` and
   `apps/*/scripts/**`; the app's bundled code may use them. The Library files session found CAN-48's parser had broken
@@ -1933,8 +2004,7 @@ the Repository, CI and releases stream in Linear.
   - **It needs Node 24,** as the repository does.
   - **Provenance comes from trusted publishing in CI, not `publishConfig`,** since npm only makes it in CI and the first
     version is published by hand, which npm needs before it can trust the workflow. 0.0.0 went up by hand on 2026-10-30,
-    and `npm trust` then named `cd-npm.yml` and the `npm` environment as its only publisher. Since the release moved
-    into CI (PAR-10), it names `ci.yml`.
+    and `npm trust` then named `cd-npm.yml` and the `npm` environment as its only publisher, which releases it still.
   - **`pnpm --filter @parity-app/cli try-packed` installs the packed tarball in an empty folder and runs it.** CI runs
     it on each system. The packed tarball is 2.6 MB.
 - **Hooks keep what doesn't belong out of pull requests (PAR-3),** as you asked on 2026-10-29. My calls:
@@ -1974,23 +2044,25 @@ the Repository, CI and releases stream in Linear.
   - **OpenAI reviews use AGENTS.md and conventions.md as guidance.** The disabled review service's configuration is
     removed, and lint, format, types, tests and change files stay with CI.
   - **GitHub's secret scanning and push protection stay on,** as they are by default for public repositories.
-- **Releases follow Buildkit's flow, with the CLI and the desktop app released apart.** After CI passes on `main`,
+- **Releases go straight to `main`, with the CLI and the desktop app released apart.** After CI passes on `main`,
   pending change files are released straight to `main`, with no release pull request, as you asked on 2026-11-04:
   Beachball bumps the versions and changelogs, commits them and pushes the commit to `main`. The CLI goes to npm through
-  trusted publishing with provenance, and the desktop app to GitHub Releases, each in a release of its own, as you asked
-  the same day. My calls: installers come from electron-builder, since one tool makes installers, signs them and serves
-  updates, and only the desktop app makes GitHub Releases, so the updater never mistakes a CLI release for an app
-  update.
-  - **Both call the shared `beachball-publish-npm` template** (PAR-10, PAR-14), as `betterapps-hq/pipelines`' README
-    shows. Like every workflow here, they call it at `main`, not a pinned commit, so Parity gets each change as it
-    merges, as you asked on 2026-11-03. My calls:
-    - **`ci.yml`'s `release` job releases the CLI,** as Buildkit's CI does, once `verify` and `checks` pass on a push to
-      `main`. Beachball runs scoped to leave out `apps/desktop`, so it bumps the CLI, publishes it to npm, then commits,
-      tags and pushes. It runs in the `npm` environment, which the CLI's trusted publisher names with `ci.yml`.
+  trusted publishing with provenance, and the desktop app to GitHub Releases, each in a pipeline of its own named for
+  what it ships, as you asked the same day. Buildkit releases from its `ci.yml` since it only publishes packages; Parity
+  ships a desktop app too. My calls: installers come from electron-builder, since one tool makes installers, signs them
+  and serves updates, and only the desktop app makes GitHub Releases, so the updater never mistakes a CLI release for an
+  app update.
+  - **Each calls a shared template made for this** (PAR-10, PAR-14): `cd-npm-release` and `cd-desktop-version`, which
+    `betterapps-hq/pipelines`' README shows, both running `beachball-publish-npm`. Like every workflow here, they call
+    them at `main`, not a pinned commit, so Parity gets each change as it merges, as you asked on 2026-11-03. My calls:
+    - **`cd-npm.yml` releases the CLI** once CI passes on `main`. Beachball runs scoped to leave out `apps/desktop`, so
+      it bumps the CLI, publishes it to npm, then commits, tags and pushes, in one job. It runs in the `npm`
+      environment, which the CLI's trusted publisher names with `cd-npm.yml`.
     - **`cd-desktop.yml`'s `version` job versions the desktop app** once CI passes on `main`. Beachball publishes every
       package it versions and has no setting to version one without publishing it, so this run is scoped to
       `apps/desktop` with publishing off: it bumps, commits, tags and pushes. CI's run on that commit starts
       `cd-desktop.yml` again, whose `release` job publishes the new version as a beta.
+    - **The templates check that CI passed on a push to `main`,** so the workflows here carry no condition of their own.
     - **Each scoped run leaves the other's change files alone,** so a failed npm release doesn't hold up the app, or the
       other way round. A commit with change files for both is released in turn, a commit for each.
     - **A deploy key pushes the release commits,** as Buildkit's does: the one actor `main`'s ruleset lets skip a pull
@@ -2906,7 +2978,7 @@ editor.md, Component previews, made offscreen and kept on disk). The design is t
   nothing.
 - **Shown in the Components panel's hints until PAR-208.** The List and Grid views, the card and the picker are PAR-208;
   until then a component row's hint shows its large picture, which is enough to see them and lets a row on screen ask
-  for its picture first.
+  for its picture first. PAR-515 replaced the hint with the card.
 
 ## MCP's tool list leaves out output schemas (PAR-510)
 
@@ -3003,6 +3075,37 @@ frames several times over, which the 2026-11-04 speed audit found the most expen
   hears of, such as a video in a frame taking its size once its data arrives. The outline catches up at the next change,
   such as the pointer moving.
 
+## Parity's window runs React's production build on request (PAR-519, PAR-550)
+
+The speed audit of 2026-11-04 found most of what still felt slow under `pnpm dev` was React's development build in
+Parity's own window: on the example project, selecting a design took 240 to 360 ms to the next paint, undo about 210,
+and opening the Components panel 1.4 s, against 48 to 88 ms, about 64 and 0.14 s on the production build.
+
+- **`pnpm dev` stays on the development build, as the daily driver; `pnpm dev:prod` runs the production build**
+  (PAR-550). PAR-519 first made the production build `pnpm dev`'s default. You reversed that the same day: "I want
+  development to all happen in dev build, so we can use StrictMode, Fast Refresh, etc. It's okay to have a script that
+  runs from a production build, but our daily driver is going to be the dev mode."
+- **The build is a flag, not an environment variable,** as you asked: "I don't want multiple environment variables
+  floating around." The dev script takes `--react production`, which `pnpm dev:prod` passes, and starts the UI's Vite
+  server in a mode of its own (`react-production`), which the config reads. Storybook and the end-to-end suite pass
+  nothing and get the development build. PAR-519's `PARITY_REACT` is gone.
+- **`pnpm perf`'s copy runs the production build,** passing the flag itself, so its timings compare with PAR-519's runs;
+  `pnpm perf --react development` measures the build `pnpm dev` runs. Each result records which it ran. My call, as
+  measuring isn't developing; it's one option to flip if you'd rather it timed the daily driver.
+- **The production build is made the way frames run a project's dependencies** (PAR-198): the UI's dependencies are
+  prebundled with `process.env.NODE_ENV` set to `production`, and `react/jsx-dev-runtime` is aliased to React's `jsx`,
+  since the app's own modules are still compiled and served as in development. A local `pnpm build` couldn't stand in,
+  as a page off localhost shows no canvas without the tldraw key.
+- **Fast Refresh is off on the production build,** so a change to a component reloads the window rather than updating in
+  place. Fast Refresh reaches React only through the development build's renderer; left on, an edited component was
+  taken in and never drawn again.
+- **The end-to-end suite runs the development build,** as it always has, so StrictMode's double effects and React's
+  warnings run on every test. The packaged app's production build is covered by trying the installed app, as before.
+- **Switching builds bundles the dependencies again,** in the same cache folder: Vite's key for the prebundle covers the
+  aliases and the optimizer's options, and it changed between the two on the example project (`cdc88e51` and
+  `3d73713f`), with Vite reporting that the config changed. Each switch costs one prebundle, a few seconds, which is why
+  the builds don't keep caches of their own.
+
 ## Frame bitmaps are captured in four offscreen windows at once (PAR-523)
 
 A first launch of the example project took 21 to 29 seconds to have every frame's bitmap, captured one at a time in one
@@ -3029,3 +3132,334 @@ offscreen window at about 150 ms each (see editor.md, Bitmaps kept between sessi
 - **The 8-second target isn't met alone** (12.0 to 12.6 seconds on a busy machine, from 29.1). Captures start only when
   every frame has drawn its design, and the window then takes each drawn design apart as its bitmap comes, which paces
   how fast it asks for the next. Showing a skeleton instead of drawing far frames first (PAR-525) removes both.
+
+## A running process's light breathes by opacity (PAR-524)
+
+A running server's light in the status bar breathed by animating its `box-shadow`, which the browser has to paint again
+every frame, so an idle window with its build server running painted 60 times a second. My calls:
+
+- **It keeps breathing, by opacity alone,** rather than holding steady after a few breaths. The glow is a shadow drawn
+  once on a layer behind the dot, faded in and out, and the dot fades between 85% and full as before. Both run on the
+  compositor, so the light still looks alive and costs the window's thread nothing; the idle perf run shows no paint.
+- **With reduced motion it doesn't animate,** as every process light, ring and shimmer already didn't, and shows no
+  glow: a steady dot.
+- **The status bar leaves the lights' words out and, when narrow, the items' too.** In a small window the footer ran off
+  screen. The lights' words ("Starting Storybook", "Lint failed") moved to their tooltip, since a click on the lights
+  lists it all anyway. Below 56rem each project item is its icon and count, with the words kept for screen readers,
+  rather than wrapping or scrolling the footer.
+- **Status bar tooltips are a title and one line, never details that can run long.** They had shown detection's
+  summaries with paths, every discovery note, and raw error messages, which ran to several lines. Those details are
+  still there for anyone who needs them: agents' tools report detection, and a failed save's notification gives its
+  reason.
+
+## Starting from scratch, and what things are called (PAR-537)
+
+You chose these on 2026-11-04 from the new-user audit
+([proposals/new-user-experience.md](proposals/new-user-experience.md), PAR-529), taking each of its recommendations:
+"Yes, record them." The work is PAR-538 to PAR-548.
+
+- **Frames are a third, light kind of design, beside screens and components.** A frame is a top-level layout drawn on
+  the canvas, once, at its own size, in the primary mode, with no states, no modes beside it, no route and no code
+  written. It holds anything a screen holds, and only a top-level one is a frame: drawn inside another design, it's a
+  layout. Any frame becomes a component or a screen, and a screen or component made a frame again keeps its layers and
+  drops its states, modes, params and variants, after saying so. It's the word Figma users reach for, and F's key
+  (PAR-539, PAR-540, PAR-545).
+- **The per-mode tiles inside a board are previews,** so frame means one thing. The rest of the words follow the
+  proposal's glossary ("One set of words"): screen or component rather than design for the thing, main only for a main
+  component, Default rather than Base for the first state, and board and view kept to the code (PAR-538).
+- **A screen and its root layout are one selection,** as Figma's top-level frames are. Selecting a screen or component
+  edits its root layout's size, fill, padding and auto layout first, with its states and modes below, and Layers lists
+  the root's children straight under it (PAR-542, PAR-547).
+- **T on the empty canvas makes a text layer in a frame that hugs it.** Notes stay, as annotations, under a tool of
+  their own (PAR-540, PAR-545).
+- **A blank app opens on a Home screen** for its `/` route, in its desktop and mobile modes, rather than on an empty
+  canvas (PAR-284).
+- **Frames are never written to code or checked for drift.** One becomes a component or a screen first, which keeps what
+  gets written to the two kinds that have a place in the app (PAR-539).
+- **Design changes are built in Storybook first, approved, then built in the app.** You said the same day: "any changes
+  to the design we should build in storybook first so it can be approved, then move into the app." So each change people
+  see is a design issue, which ends with your approval of its stories, and a build issue it blocks. Work in packages
+  with no UI, such as PAR-539, doesn't need the first step.
+
+## The app's UI kit moves to Buildkit's Base UI Nova (PAR-530)
+
+- **The app's shadcn components move to Buildkit's `@buildkitgg/shadcn-baseui-nova`,** as you asked on 2026-11-04, so
+  the 23 copies in `apps/desktop/src/renderer/components/ui` and their config leave the repository and nobody edits them
+  in place. The copies are radix-nova, and Buildkit publishes only Base UI styles; you said the app should use Base UI
+  only, so the move swaps Radix for Base UI too. The kit is a dependency under the alias its README suggests,
+  `@buildkitgg/shadcn-baseui-kit`, so code names no style. Only Storybook uses it until the migration.
+- **Each component is compared side by side in Storybook before its copy goes,** under Parity/Kit comparison/Side by
+  side: the app's copy and the kit's, with the same content and their popups open, each in its own frame, in the
+  toolbar's theme. Six copies were changed by hand: `kbd`, `command`, `context-menu`, `dropdown-menu` and `menubar` show
+  keys through `formatKeys`, `menubar` has the title bar's own look (and its menus size to what they hold, where the
+  kit's are its dropdown menus, as wide as their trigger and at least 9rem), and `sonner` follows the app's theme rather
+  than `next-themes`. Those show a third side, the kit with the change made from outside it, which is where it has to
+  live once the kit can't be edited. The rest are as `shadcn add` wrote them.
+- **Radix's menus and selects close when their window loses focus; Base UI's don't.** In the comparison, the app's side
+  doesn't hear its window lose focus, so its popups stay open beside the kit's, which take focus as they open. Whether
+  the app wants Radix's behaviour back is the migration's call.
+- **Prebundled dependencies import each lucide icon from its own file too.** The kit imports its icons from
+  lucide-react's index, which isn't prebundled (see Developing Parity), so a window drawing the kit fetched every icon
+  file, about 3,000 requests, and three such frames at once failed to load. `iconImportsPlugin` now rewrites a
+  dependency's icon imports as Vite prebundles it, as it does the app's own as they're served.
+
+## Tooltips are raised, and a component's preview is a card (PAR-515)
+
+- **Tooltips read raised colors through the variables shadcn's tooltip already uses.** The tooltip is drawn in the
+  theme's foreground with its text in the background, so it was white on the dark theme. You found that as wrong as the
+  old dark tooltip, which blended into the panel. A rule in `styles.css` sets `--foreground` and `--background` inside
+  `[data-slot="tooltip-content"]` to `--tooltip` and `--tooltip-foreground`. Those are a step lighter than a popover in
+  the dark theme and white in the light. shadcn's components stay as shadcn ships them, as you asked, so the tooltip,
+  its pointer and shortcut keys follow without an edit to each. The edge and shadow are one `drop-shadow` round the box
+  and its pointer together, since a border on each showed a seam where they met.
+- **A component's preview goes in a card beside its row, not in a tooltip,** the way a token's card opens: same width,
+  side and gap, opened by resting the pointer on the row. The picture sits on the project's own page in a framed box
+  that fits it, so a small part isn't lost in white. Placeholders sit on the card's muted fill, so they never pass for a
+  picture. It replaces the hint on component rows; a library's component design keeps its hint. Its stories are in
+  Parity / Left panel / Component card. Pictures are drawn in the project's first mode, which is light in the example.
+  Drawing them in the mode matching Parity's theme is PAR-521.
+
+## A component's code opens in the person's editor (PAR-527)
+
+- **The editor is a setting, Automatic by default:** VS Code, Cursor, Windsurf, Zed or the system's default app.
+  Automatic opens the first one installed, in that order, and the system's app when none is. Reading the editor from
+  `$VISUAL` or `$EDITOR` would usually find a terminal editor for an app started from the Dock or Start, so it's chosen
+  in Parity's settings instead.
+- **Editors are found by their command on PATH,** since that's what each installs to open a file at a line. The usual
+  folders are searched too on macOS and Linux, since an app the Dock started has only the system's PATH. No dependency
+  was added for it: the four commands and their arguments are a small table in core.
+- **The line is the export's declaration,** found by reading the file when it's opened, not from the type checker, which
+  would mean a round trip to the service for a line that a pattern finds in shadcn's and most projects' files.
+- **A library component's code is its type declarations,** the only code of it in the project. One without them has View
+  code greyed, saying it's not in the project.
+- **The menu's items are greyed with why rather than left out,** so it's the same for every component: View in Storybook
+  says "No stories" for one without. With stories, it stays enabled while Storybook isn't running and says "Starts
+  Storybook", since choosing it starts the project's Storybook and opens the story once it's up, as the row's book
+  button always has. Disabling it until Storybook runs would leave no way to start it from there.
+
+## Taking a component off the list by hand is gone (PAR-531)
+
+- **A component detected wrongly is a bug in detection, not something to correct by hand.** You asked for "Not a
+  component" to go, which took one off the list, recorded as `detection.exclude` in the main project file, with "List it
+  again" under Not listed. Detection's mistakes go to Linear as bugs instead. Listing an export the type checker left
+  out (`detection.include`, "List it") stays, as you didn't ask for that to go.
+- **A project file with an `exclude` list still opens.** It's read and dropped, so the next save leaves it out, rather
+  than the file failing to open over a list no version reads now.
+
+## The labels that follow the glossary (PAR-538)
+
+Calls made on 2026-11-04 while renaming the editor's labels to the glossary above, for you to approve in the pull
+request's Storybook preview:
+
+- **The modes menu offers "Only Desktop Light", by the mode's name,** rather than the issue's "Only this one", which
+  says nothing beside Show all. The inspector's Modes section already said "Only Desktop Light". The preview a board
+  shows first is marked "Shown first", and the others offer Show first.
+- **The first state shows its name alone.** With Base gone, the state menu, the every-state grid's labels and the States
+  section show no tag beside the first state rather than a count of changes, and a field's reset says "Reset to
+  Default", or whatever the first state is called.
+- **A label names the kind when it knows it,** counted for several ("Delete 2 components", "Move 3 screens and
+  components", screens first), and says "screen or component" when it can't. Export stays short in the File menu (Export
+  selected…, Export all…), and Interact is "Interact with previews".
+- **A screen's icon is lucide's AppWindow,** which reads as a window of the app.
+- **The Components panel calls the project's own components Local components,** as Figma's assets do, and a library's
+  ready-made ones Ready-made components, so neither is "Component designs".
+- **Left as they were:** the explorations under `apps/desktop/src/renderer/explorations/`, which are design sketches;
+  the agent tools' and `packages/core`'s messages ("No component design"), which agents read; and "Pasted" (PAR-546).
+
+## Starting on an empty canvas is one visible step (PAR-541)
+
+You approved the explorations on 2026-11-04 ("Looks pretty good! Let's ship it"). They're in Storybook under Parity /
+Explorations / Starting on the canvas, from the audit's "Making something is always one visible step"
+([proposals/new-user-experience.md](proposals/new-user-experience.md)). PAR-546 builds them in the app.
+
+- **An empty canvas says how to start in its middle:** a tile each for New screen and New component, saying what each
+  is, with its keys, and below them Insert (`/`) and "Drop or paste an image here" (Ctrl+V). It goes once anything is on
+  the canvas, and the canvas around it still pans, zooms and takes drops. Once frames exist, Draw a frame (F) is a third
+  tile in the same row, and the heading names all three; PAR-540 designs the frame itself.
+- **New screen is Ctrl+Alt+N and New component Ctrl+Alt+Shift+N.** Ctrl+N stays free for New project, which the start
+  page explorations give it. They join the keymap, in the Object group, so the menus, Search actions and the shortcuts
+  dialog show them.
+- **New screen and New component lead File and Object,** above opening a project and above Insert. Object's hint for the
+  rest says "Select layers, a screen or a component to act on them".
+- **The canvas's right-click menu** offers New screen, New component and Insert… above Paste here, Select all and Zoom
+  to fit. What it makes goes where you right-clicked, as Paste here does. On an empty canvas, Select all and Zoom to fit
+  are unavailable. Over a screen or component, the menu stays as it is.
+- **Search actions matches the start of a word,** not letters scattered through a name, so "new" finds New screen and
+  New component rather than Interact with designs.
+- **Layers' + always shows** beside Components and Screens, with its keys in the tooltip. An empty group's row is a
+  button, "No screens yet. New screen", with the action in the kind's color. The count is left out at none, since the
+  row says so.
+- **The inspector on an empty canvas** says "Nothing to inspect yet", that a screen or component makes a start and that
+  its size, layout and styles show there once one is selected, with New screen and New component buttons and their keys.
+  With something on the canvas and nothing selected, it asks for "a screen or component on the canvas or in Layers".
+
+## Far frames wait on a placeholder rather than drawing (PAR-525)
+
+On a first launch every frame of the example project drew its design live while it had no bitmap, only to be taken apart
+once its bitmap came, which held the canvas up and paced the captures (see editor.md, Opening in seconds). You decided
+frames show a skeleton loader until their image loads. My calls:
+
+- **Zoomed far out, a frame that hasn't drawn waits for any bitmap, kept or captured,** where PAR-179 waited only for a
+  kept one. It draws at once where it wouldn't sleep (the selected board, zoomed in, interacting), and once its capture
+  fails or its design doesn't render, so a broken frame shows its error rather than a placeholder for good.
+- **The placeholder is a plain block, not a skeleton of the frame's boxes.** The skeletons frames already show are
+  measured from the drawn frame (`frameSkeleton`), and a frame that never drew has nothing to measure. A block in the
+  muted color at the frame's size reads as loading at the zooms it shows at. It doesn't pulse: an animation on 119
+  frames would repaint the canvas the whole time they wait.
+- **Its height is the frame's own, the height kept with an earlier bitmap, or the mode's window height,** as the issue
+  set out. A short component's placeholder is then much taller than the component, and its board takes the right height
+  when the bitmap comes. Boards keep their places on the canvas, so this changes their outlines, not where anything is.
+- **The height kept with a captured bitmap is measured at full size, after the capture.** No frame draws live on a first
+  launch now, so the offscreen window's own measure, up to 66 pixels out at the bitmap's quarter zoom, would have become
+  every kept height, and boards would have jumped when their frames first drew. Laying the frame out again at full size
+  gives the canvas's height (in the example, 4 of 61 boards still change by 12 to 24 pixels when they draw, against 28
+  boards by up to 66). It's measured after `capturePage` because measuring first made the capture fail on tall app
+  screens, and so the bitmap is the one the window took before, pixel for pixel.
+- **A frame holding off drawing is captured without the 1-second settle,** on what it first shows. The wait is there so
+  edits aren't captured at every step, and nothing is being edited in a frame that hasn't drawn.
+- **`pnpm perf` counts a frame as shown once it's asleep,** which is when it shows its bitmap or its placeholder, and
+  still times every bitmap separately.
+
+## Frame bitmaps and component previews are kept as lossless WebP (PAR-535)
+
+Kept bitmaps were PNGs as Electron's `capturePage` writes them, about 7.6 KB each on the example project. You asked to
+keep these files small, so Parity doesn't fill people's disks with images, and to keep them lossless. My calls, and
+yours:
+
+- **Lossless WebP, encoded with sharp (your call), in the project service.** On the example's 119 bitmaps, libwebp's
+  lossless mode made 562 KB of 908 KB, the same pixels. Re-compressing the PNGs with zlib at its best gained nothing
+  (929 KB), and Chromium's own WebP encoder, lossless at full quality, wrote 957 KB. Lossy WebP would be smaller still
+  but isn't what you asked for. Encoding runs in the service, off main's thread, where a capture's PNG already passes.
+- **The canvas is given the WebP, not the PNG,** so the window reads, holds and decodes the smaller file, and what it
+  shows is what's kept.
+- **The frame's height stays inside the file,** in a chunk of its own after the image (`withWebpText`), as it was in the
+  PNG's text chunk, so each bitmap is still one file for the cache's sweeping and partial-file handling. A plain WebP
+  has only its image, so the extended header goes in front first, which the format requires.
+- **The PNGs kept before aren't read.** Bitmaps are named `.webp` now, so the old files are never found and go with the
+  cache's 30-day and 200 MB sweeps, as earlier format changes did; the PNG text helper is gone.
+- **sharp ships beside the service, unpacked,** since it loads its prebuilt libvips at runtime. The build copies it and
+  the packages installed with it, its binaries for the system building, and on macOS also fetches the other
+  architecture's from npm, since one Mac build packages both. The build then loads the shipped sharp in Parity's
+  Electron and encodes a WebP, and fails if it can't, so each platform's installer is checked as it's made; the other
+  Mac architecture's binaries are checked to be there. A system where it can't load keeps nothing rather than failing,
+  and captures each session.
+
+## A screen is its own container (PAR-542)
+
+You approved the explorations on 2026-11-04 ("Yeah, let's ship it"). They're in Storybook under Parity / Explorations /
+A screen is its container, from the audit's "Selecting any of them selects the container"
+([proposals/new-user-experience.md](proposals/new-user-experience.md)). PAR-547 builds them in the app.
+
+- **Selecting a screen or component shows its root's sections first,** the ones a layer's inspector has today: Layout
+  (auto layout), Spacing (padding), Size, Appearance (fill), Stroke and Text inside. A component whose root is a code
+  component, as Plan card's is a Card, starts with that component's props. There's no Visibility or Position section,
+  since a root has no parent.
+- **What only a screen or component has comes below:** a component's Variants and Params, with where it's used, then
+  States, Modes, and for a screen Repeated parts, the heading Find repeated parts now sits under rather than
+  "Components". The header keeps the name, the Screen or Component toggle and the file.
+- **The editing bar shows only once there's somewhere else for edits to go:** a second state or a variant. It says
+  "changes every state" or "changes only this state", and the root's edits go to the state being edited, as a layer's
+  do.
+- **Layers lists the root's children straight under the screen or component,** with no Page row. A change the root has
+  in the shown state, or on a viewport, marks the screen's own row. The headings and empty rows are the start design's
+  (above).
+- **A click on a screen's padding selects the screen,** and Enter from there selects the layers inside, as Figma's Enter
+  selects a frame's children. Shift+Enter or Esc from one of them selects the screen again, never a root layer between.
+- **With nothing selected, the inspector asks for "a screen or component on the canvas or in Layers"** and says its
+  size, layout and styles show there, matching the empty canvas's wording.
+
+Seen in review, for PAR-547 to weigh: a screen's own sections now start below six style sections, about 1,300px down
+Plan card's panel; and at the inspector's default 320px the shipped padding and minimum height fields cut off values
+such as 64 and 800, which are now among the first fields a person sees.
+
+## The inspector's rows run to its edge, with reset arrows by the label (PAR-552)
+
+Called on 2026-11-04 after you noticed the inspector's inputs stopped short of the right edge while bars, buttons and
+headers ran to it, and then asked for everything to reach further rather than stop where the inputs did: every row in
+the Design tab now runs to the panel's padding, and a field's reset arrow sits right after its label instead of in a
+slot beside the input. An input keeps its width whether or not it can be reset, and the arrow never covers what's typed;
+a long label truncates a little sooner while the arrow shows. For your approval in the pull request's Storybook preview.
+
+## The app runs on Buildkit's Base UI Nova (PAR-549)
+
+The 23 copies in `components/ui` are gone, with `components.json`, Radix, `shadcn`, `tw-animate-css`, `cmdk` and the
+`cn` package; the app imports every component from `@buildkitgg/shadcn-baseui-kit`, and its stylesheet is the kit's
+`tailwind.css`. The comparison stories went with them. Your calls:
+
+- **The kit's components are used bare,** as you asked on 2026-11-04: no app-owned wrappers around them. What the app
+  needs beyond the kit is said where a component is used. Keys pass through `formatKeys` inside the kit's `Kbd` and
+  `*Shortcut` parts, and `SonnerToaster` gets the app's theme from `useResolvedTheme` where it's placed, since the kit's
+  reads `next-themes`, which Parity doesn't use.
+- **The title bar's menubar keeps two classes, in `AppMenu.tsx`:** no border around the bar, and menus as wide as what
+  they hold (`w-auto`), since the kit's are as wide as their trigger and wrap their items. The rest of its old look,
+  taller names, checks at the end of items, small dimmed labels and a fade as menus close, went.
+- **Menus and selects stay open when the window loses focus,** Base UI's default. Radix's closed.
+- **The side panel's tab strip is the kit's tabs,** a muted track with the open tab raised, rather than the app's own
+  look on an unstyled primitive. Its panels are the kit's `TabsContent`, which need Base UI's tabs around them, and the
+  kit's are those, so `@base-ui/react` isn't a dependency of its own.
+
+My calls:
+
+- **A token's row is its detail's trigger.** Base UI's popover has no anchor apart from its trigger, so the row, already
+  a button saying it opens a dialog, is the `PopoverTrigger`, with its click kept from toggling the detail, since a
+  click copies the token. Escape in a field being edited is kept from closing it through `onOpenChange`'s reason.
+- **The canvas menu turns events away with `preventBaseUIHandler`.** Base UI opens a context menu for a `contextmenu`
+  even when it's been cancelled, where Radix didn't, so the canvas's menu stops tldraw's held-back event and
+  right-clicks in Interact mode that way.
+- **Tooltips are visual labels only.** Base UI gives them no `tooltip` role and doesn't tie them to their trigger, so a
+  control with one needs its own name (`aria-label`), as IconButton and the toolbar give theirs. Stories find the open
+  one by the kit's `data-slot="tooltip-content"`.
+- **Toggle groups are pressed buttons, not radios.** Base UI's is a `group` of buttons with `aria-pressed`, where
+  Radix's single-choice one was `radio`s with `aria-checked`. The kit styles the pressed one, so the app's
+  `aria-checked` classes, there because Radix's tooltip took over a toggle's `data-state`, went; the toolbar's tools key
+  their look off `aria-pressed`.
+- **Open triggers style by `aria-expanded`,** which Base UI sets on every menu, popover and select trigger, where Radix
+  set `data-state="open"`; a closing popup is `[data-closed]` for the canvas's shortcuts.
+
+## Frames are a third, light kind of design (PAR-539)
+
+Decision 1 of PAR-537 adds frames beside screens and components, and decision 6 keeps them out of code. They're now in
+the file and the packages, with no UI yet: PAR-540 designs their look and tools in Storybook, and PAR-545 builds them in
+the app. My calls:
+
+- **A frame is `kind: "frame"`, and its size is `size`.** `frames` stays a screen's and a component's sizes per
+  viewport. A frame has one size, `{ width?, height? }` in pixels, whatever the project's viewports are, so it doesn't
+  move when the modes change. Without a width it's as wide as the primary mode, and without a height as tall as its
+  content, as a screen's main preview is. `frameSize` gives a frame that size in every mode. A frame that hugs its text
+  (decision 4) is PAR-545's to add.
+- **The file checks what a frame holds.** Its root is a layout and it has one state, with no patches of its own; it has
+  no `params`, `view` or `frames`, and no other kind has a `size`. There's no route to refuse, since screens have none
+  in the file yet; when routes land, a frame takes none.
+- **One mode and one state, decided in core.** `shownModes` takes the design rather than its view and gives a frame the
+  primary mode alone, so the canvas, the accessibility checks, `GetModes`, `Designs()` and agents' renders draw it once.
+  With one state there's nothing else to show. The editor's `tidyView` keeps no view on a frame, so the state and mode
+  controls a frame's board still has until PAR-545 change nothing. Core's `addState`, `duplicateState` and `addVariant`
+  refuse a frame with `invalid_input`.
+- **Becoming a frame keeps what the board showed.** `turnInto` in `@parity-app/editor` (`kinds.ts`) keeps a design's
+  layers as its first state drew them, with the variant options shown and bound values filled in, since its params and
+  their bindings go, as a paste into a design without the param does (PAR-464). Responsive patches stay on the layers.
+  It takes the size it was drawn at in the primary mode, puts a root that isn't a layout inside one, and returns what it
+  dropped (its other states, the modes it showed besides the primary one, its params and its variants), for the app to
+  say before it does it. A frame becoming a screen or a component drops nothing, and its size becomes its preview's in
+  the primary viewport, so it shows as it did. A screen and a component still become each other by their kind alone. The
+  app's two kind switches go through `turnInto` already, so a frame in the file can't become a component with a `size`.
+- **Inside another design, a frame is a layout.** `frameAsLayout` is its root layout, named after it, with its size as a
+  width and height in spacing steps on the half step, as typed lengths land. `pasteFramesInto` and `moveFrameInto` paste
+  and move it in with fresh ids; designs that aren't all frames don't paste inside, since a screen or a component
+  doesn't go inside another design.
+- **Never written to code.** Nothing writes designs to code or checks them for drift yet, so the rule lives on
+  `ContainerKind` and here: whatever writes screens and components to code, and the drift review, leaves frames out.
+- **Agents read and write frames.** `CreateDesign({ kind: "frame", width, height })` makes one, in empty space for its
+  own size. `UpdateDesign` takes `width` and `height` for a frame and refuses them on the other kinds, and its `kind`
+  goes through `turnInto`, saying what was dropped in the call's warnings. A frame refuses `mode`, `showModes`, `state`
+  and `allStates`, and renders only in the primary mode: `mode: "all"` is that one, and another mode is `invalid_input`
+  naming it. `@parity-app/agent` now depends on `@parity-app/editor`, which is pure, for `turnInto` and `newDesign`.
+
+## "Convert to" changes what a design is (PAR-553)
+
+Andrew decided on 2026-11-04, in PAR-540: "We should say "Convert to" and you're right, it should be changed
+everywhere." So the item that turns a screen into a component, or a component back into a screen, reads "Convert to
+component" or "Convert to screen" in the canvas menu, the Object menu and a board title's menu, rather than "Make it a
+component" or "Make it a screen". Undo names the change the same way, whether it came from those menus or the Design
+tab's Screen and Component toggle, where it said "Make component" and "Make screen". Make component keeps its name for
+turning layers into a new component.

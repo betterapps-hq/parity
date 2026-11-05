@@ -28,7 +28,7 @@ function Board({ main: initialMain, shown: initialShown }: { main: string; shown
             modes={modes}
             main={mainMode}
             beside={beside}
-            triggerClassName="flex h-8 items-center gap-1.5 rounded-md border bg-background/80 px-2.5 text-sm shadow-xs backdrop-blur hover:bg-accent data-[state=open]:bg-accent"
+            triggerClassName="flex h-8 items-center gap-1.5 rounded-md border bg-background/80 px-2.5 text-sm shadow-xs backdrop-blur hover:bg-accent aria-expanded:bg-accent"
             onChange={(nextMain, nextShown) => {
               setMain(nextMain)
               setShown(nextShown)
@@ -71,13 +71,13 @@ const openMenu: Story["play"] = async ({ canvasElement }) => {
 /** A screen in light desktop, with dark desktop and light mobile beside it, as the example project's screens are. */
 export const Default: Story = {}
 
-/** The menu open: every mode once, checked while it's on the board, the main one marked. */
+/** The menu open: every mode once, checked while it's on the board, the one shown first marked. */
 export const Open: Story = { play: openMenu }
 
-/** Only the main frame. */
-export const MainOnly: Story = { args: { shown: ["desktop-light"] }, play: openMenu }
+/** Only the preview shown first. */
+export const OnlyOnePreview: Story = { args: { shown: ["desktop-light"] }, play: openMenu }
 
-/** Every mode, with mobile as the main frame. */
+/** Every mode, with mobile shown first. */
 export const EveryMode: Story = {
   args: { main: "mobile-light", shown: modes.map((mode) => mode.id) },
   play: openMenu

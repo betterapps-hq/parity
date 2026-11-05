@@ -47,13 +47,14 @@ interface Drawn {
   id: string
   parent?: string
   elements: Element[]
+  texts: Text[]
 }
 
 export interface IndexOptions {
   /** The design node a fiber stands for, if it stands for one. */
   nodeOf(fiber: Fiber): string | undefined
-  /** Whether an element is drawn in the frame. Content portaled out of it, or hoisted to `<head>`, isn't. */
-  inside(element: Element): boolean
+  /** Whether an element or text is drawn in the frame. Content portaled out of it, or hoisted to `<head>`, isn't. */
+  inside(node: Node): boolean
 }
 
 /**
@@ -63,7 +64,8 @@ export interface IndexOptions {
  * fragment gets each of its roots, and one that draws only its children (a provider) gets the children's.
  *
  * Each element also gets an owner, the innermost node it's collected for, so a point over a child layer's DOM belongs
- * to the child even when the parent draws it at its own top level.
+ * to the child even when the parent draws it at its own top level. Text is collected the same way, for nodes that draw
+ * it outside any element of their own, so a component that draws only text has its text's box.
  *
  * A fiber that carries the id of a node it's already inside is that node's: a component passes its props, `data-canvas-
  * node` included, to the element or component it wraps. A node drawn twice, as a list's `renderItem` slot is, is one
@@ -85,7 +87,7 @@ export function indexDrawnNodes(root: Fiber, options: IndexOptions): DrawnNodes 
       if (id !== undefined && !within.includes(id)) {
         let node = byId.get(id)
         if (!node) {
-          node = { id, ...(within.length > 0 ? { parent: within.at(-1) } : {}), elements: [] }
+          node = { id, ...(within.length > 0 ? { parent: within.at(-1) } : {}), elements: [], texts: [] }
           nodes.push(node)
           byId.set(id, node)
         }
@@ -94,6 +96,7 @@ export function indexDrawnNodes(root: Fiber, options: IndexOptions): DrawnNodes 
         entered = true
       }
       const element = elementOf(fiber.stateNode)
+      const text = element ? undefined : textOf(fiber.stateNode)
       if (element) {
         if (options.inside(element)) {
           for (const node of here) node.elements.push(element)
@@ -101,6 +104,8 @@ export function indexDrawnNodes(root: Fiber, options: IndexOptions): DrawnNodes 
           if (owner !== undefined) owners.set(element, owner)
           visit(fiber.child, [])
         }
+      } else if (text) {
+        if (options.inside(text)) for (const node of here) node.texts.push(text)
       } else {
         visit(fiber.child, here)
       }
@@ -117,6 +122,7 @@ export function indexDrawnNodes(root: Fiber, options: IndexOptions): DrawnNodes 
   return {
     ids: nodes.map((node) => node.id),
     elements: (id) => byId.get(id)?.elements ?? [],
+    texts: (id) => byId.get(id)?.texts ?? [],
     parent: (id) => byId.get(id)?.parent,
     nodeOf(element) {
       for (let current: Element | null = element; current; current = current.parentElement) {
@@ -128,9 +134,65 @@ export function indexDrawnNodes(root: Fiber, options: IndexOptions): DrawnNodes 
   }
 }
 
-/** A host fiber's DOM element. Text nodes don't count: a component that draws only text has no box of its own. */
+/** Where a component put the `style` it was given, among the elements it drew. */
+export type StylePlacement = "root" | "inner" | "none"
+
+/**
+ * Where a component, from its fiber, put the `style` it was given: on an element at its top level (`root`), on one
+ * inside another element it drew (`inner`), as a field passing its props to its input does, or on none of them
+ * (`none`). The element is the first whose `style` has every value of the one given, its top-level elements looked at
+ * first. Fibers `isLayer` says are another layer's are left out, since a slot's layers draw their own styles. Undefined
+ * when it was given no style or drew no element, as one still loading or failing hasn't. Throws when the tree isn't
+ * shaped as expected.
+ */
+export function stylePlacement(component: Fiber, isLayer: (fiber: Fiber) => boolean): StylePlacement | undefined {
+  const given = styleOf(component)
+  if (!given) return undefined
+  const top: Fiber[] = []
+  const collect = (first: Fiber | null): void => {
+    for (let fiber = first; fiber; fiber = fiber.sibling) {
+      if (!isFiber(fiber)) throw new Error("Not a fiber")
+      if (isLayer(fiber)) continue
+      if (elementOf(fiber.stateNode)) top.push(fiber)
+      else collect(fiber.child)
+    }
+  }
+  const carries = (fiber: Fiber) => {
+    const style = styleOf(fiber)
+    return style !== undefined && Object.entries(given).every(([key, value]) => style[key] === value)
+  }
+  const inside = (first: Fiber | null): boolean => {
+    for (let fiber = first; fiber; fiber = fiber.sibling) {
+      if (!isFiber(fiber)) throw new Error("Not a fiber")
+      if (isLayer(fiber)) continue
+      if ((elementOf(fiber.stateNode) && carries(fiber)) || inside(fiber.child)) return true
+    }
+    return false
+  }
+  collect(component.child)
+  if (top.length === 0) return undefined
+  if (top.some(carries)) return "root"
+  return top.some((fiber) => inside(fiber.child)) ? "inner" : "none"
+}
+
+/** The `style` a fiber was given, when it has any values. */
+function styleOf(fiber: Fiber): Record<string, unknown> | undefined {
+  const style = (fiber.memoizedProps as { style?: unknown } | null)?.style
+  return typeof style === "object" && style !== null && Object.keys(style).length > 0
+    ? (style as Record<string, unknown>)
+    : undefined
+}
+
+/** A host fiber's DOM element. */
 function elementOf(stateNode: unknown): Element | undefined {
   return typeof stateNode === "object" && stateNode !== null && (stateNode as Node).nodeType === 1
     ? (stateNode as Element)
+    : undefined
+}
+
+/** A text fiber's DOM text. */
+function textOf(stateNode: unknown): Text | undefined {
+  return typeof stateNode === "object" && stateNode !== null && (stateNode as Node).nodeType === 3
+    ? (stateNode as Text)
     : undefined
 }

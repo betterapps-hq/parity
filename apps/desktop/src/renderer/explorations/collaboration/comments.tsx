@@ -1,4 +1,16 @@
 import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+  Textarea
+} from "@buildkitgg/shadcn-baseui-kit"
+import {
   ArrowUp,
   AtSign,
   BellOff,
@@ -25,18 +37,6 @@ import {
   X
 } from "lucide-react"
 import { Fragment, type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from "react"
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
-import { Textarea } from "@/components/ui/textarea"
 import { agentPalettes } from "../../agent/agent-colors.ts"
 import { me, type Person } from "../explore-data.ts"
 import { accent, Avatar } from "../parts.tsx"
@@ -255,28 +255,31 @@ export function Comment({
         )}
       </div>
       {mode === "view" && (
-        <div className="absolute top-1.5 right-1.5 flex rounded-md border bg-popover opacity-0 shadow-sm group-hover/comment:opacity-100 focus-within:opacity-100 has-[[data-state=open]]:opacity-100">
+        <div className="absolute top-1.5 right-1.5 flex rounded-md border bg-popover opacity-0 shadow-sm group-hover/comment:opacity-100 focus-within:opacity-100 has-aria-expanded:opacity-100">
           <EmojiPopover align="end" onPick={(emoji) => onReact?.(emoji)}>
             <Button size="icon-xs" variant="ghost" aria-label="Add a reaction">
               <SmilePlus />
             </Button>
           </EmojiPopover>
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="icon-xs" variant="ghost" aria-label="More">
-                <Ellipsis />
-              </Button>
-            </DropdownMenuTrigger>
+            <DropdownMenuTrigger
+              render={
+                <Button size="icon-xs" variant="ghost" aria-label="More">
+                  <Ellipsis />
+                </Button>
+              }
+            />
             <DropdownMenuContent
               align="end"
               className="w-48"
-              onCloseAutoFocus={(event) => {
-                if (leaving.current) event.preventDefault()
+              finalFocus={() => {
+                const returns = !leaving.current
                 leaving.current = false
+                return returns
               }}
             >
               {comment.author === me && (
-                <DropdownMenuItem onSelect={() => leaveFor("edit")}>
+                <DropdownMenuItem onClick={() => leaveFor("edit")}>
                   <Pencil /> Edit
                 </DropdownMenuItem>
               )}
@@ -289,7 +292,7 @@ export function Comment({
               {comment.author === me && (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem variant="destructive" onSelect={() => leaveFor("delete")}>
+                  <DropdownMenuItem variant="destructive" onClick={() => leaveFor("delete")}>
                     <Trash2 /> Delete
                   </DropdownMenuItem>
                 </>
@@ -785,31 +788,34 @@ function ThreadMenu({
   }
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button size="icon-xs" variant="ghost" aria-label="More">
-          <Ellipsis />
-        </Button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <Button size="icon-xs" variant="ghost" aria-label="More">
+            <Ellipsis />
+          </Button>
+        }
+      />
       <DropdownMenuContent
         align="end"
         className="w-52"
-        onCloseAutoFocus={(event) => {
-          if (leaving.current) event.preventDefault()
+        finalFocus={() => {
+          const returns = !leaving.current
           leaving.current = false
+          return returns
         }}
       >
-        <DropdownMenuItem onSelect={onMarkUnread}>
+        <DropdownMenuItem onClick={onMarkUnread}>
           <Mail /> Mark as unread
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={onCopyLink}>
+        <DropdownMenuItem onClick={onCopyLink}>
           <Link /> Copy link
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={onMute}>
+        <DropdownMenuItem onClick={onMute}>
           <BellOff /> {muted ? "Unmute this thread" : "Mute this thread"}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         {issue ? (
-          <DropdownMenuItem onSelect={onUnlink}>
+          <DropdownMenuItem onClick={onUnlink}>
             <Unlink /> Unlink {issue}
           </DropdownMenuItem>
         ) : (
@@ -819,12 +825,12 @@ function ThreadMenu({
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent className="w-56">
               {trackers.map((tracker) => (
-                <DropdownMenuItem key={tracker.id} onSelect={() => openIssue(tracker.id, "create")}>
+                <DropdownMenuItem key={tracker.id} onClick={() => openIssue(tracker.id, "create")}>
                   <TrackerMark id={tracker.id} size={14} /> In {tracker.name}
                 </DropdownMenuItem>
               ))}
               {trackers.length > 0 ? (
-                <DropdownMenuItem onSelect={() => openIssue(undefined, "link")}>
+                <DropdownMenuItem onClick={() => openIssue(undefined, "link")}>
                   <Link2 /> Link an existing issue
                 </DropdownMenuItem>
               ) : (
@@ -840,7 +846,7 @@ function ThreadMenu({
           </DropdownMenuSub>
         )}
         <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" onSelect={onDelete}>
+        <DropdownMenuItem variant="destructive" onClick={onDelete}>
           <Trash2 /> Delete thread
         </DropdownMenuItem>
       </DropdownMenuContent>

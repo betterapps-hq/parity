@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Keep text given to a new library part rather than labelling over it",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

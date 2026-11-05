@@ -1,4 +1,23 @@
 import {
+  Button,
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  Input,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Switch
+} from "@buildkitgg/shadcn-baseui-kit"
+import {
   applyFieldInput,
   type FieldNote,
   type FieldRules,
@@ -23,12 +42,6 @@ import {
   useRef,
   useState
 } from "react"
-import { Button } from "@/components/ui/button"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
-import { Input } from "@/components/ui/input"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
 import { ProjectContext } from "../canvas/context.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import { Hint } from "./Hint.tsx"
@@ -56,6 +69,9 @@ interface FieldProps {
 }
 
 const MixedContext = createContext(false)
+
+/** The first state's name, which a field's reset goes back to: Default unless it's been renamed. */
+export const FirstStateName = createContext("Default")
 
 /**
  * What the number fields inside edit, as a key that changes when that does: the selection, for the inspector (see
@@ -93,6 +109,7 @@ const MessageContext = createContext<((id: string, message: FieldMessage | undef
  * the row.
  */
 export function Field({ label, hint, changed, mixed = false, onReset, children }: FieldProps) {
+  const firstState = useContext(FirstStateName)
   const scrubs = useRef(new Set<Scrub>())
   const [scrub, setScrub] = useState<Scrub>()
   const register = useCallback((added: Scrub) => {
@@ -116,22 +133,37 @@ export function Field({ label, hint, changed, mixed = false, onReset, children }
     })
   }, [])
   return (
-    <div className="grid min-h-8 grid-cols-[88px_1fr_20px] items-center gap-2">
-      <Hint
-        label={changed ? `${label}: changed in this state` : label}
-        detail={[mixed && "Different across the selected layers", hint, scrub && "Drag to change it"]
-          .filter(Boolean)
-          .join("\n")}
-        wait
-      >
-        <span
-          className={`truncate text-xs text-muted-foreground ${scrub ? "cursor-ew-resize touch-none select-none" : ""}`}
-          style={changed ? { color: kindColors.agent } : undefined}
-          onPointerDown={scrub}
+    <div className="grid min-h-8 grid-cols-[88px_1fr] items-center gap-2">
+      <div className="flex min-w-0 items-center gap-0.5">
+        <Hint
+          label={changed ? `${label}: changed in this state` : label}
+          detail={[mixed && "Different across the selected layers", hint, scrub && "Drag to change it"]
+            .filter(Boolean)
+            .join("\n")}
+          wait
         >
-          {label}
-        </span>
-      </Hint>
+          <span
+            className={`truncate text-xs text-muted-foreground ${scrub ? "cursor-ew-resize touch-none select-none" : ""}`}
+            style={changed ? { color: kindColors.agent } : undefined}
+            onPointerDown={scrub}
+          >
+            {label}
+          </span>
+        </Hint>
+        {/* The reset arrow sits beside the label, so the control keeps the row's full width whether or not it can be reset. */}
+        {changed && onReset && (
+          <Hint label={`Reset to ${firstState}`}>
+            <button
+              type="button"
+              onClick={onReset}
+              className="grid size-5 shrink-0 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
+              aria-label={`Reset ${label} to ${firstState}`}
+            >
+              <RotateCcw className="size-3" />
+            </button>
+          </Hint>
+        )}
+      </div>
       <div className="min-w-0">
         <ScrubContext value={register}>
           <MessageContext value={say}>
@@ -139,22 +171,8 @@ export function Field({ label, hint, changed, mixed = false, onReset, children }
           </MessageContext>
         </ScrubContext>
       </div>
-      {changed && onReset ? (
-        <Hint label="Reset to the base design">
-          <button
-            type="button"
-            onClick={onReset}
-            className="grid size-5 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
-            aria-label={`Reset ${label} to the base design`}
-          >
-            <RotateCcw className="size-3" />
-          </button>
-        </Hint>
-      ) : (
-        <span />
-      )}
       {messages.size > 0 && (
-        <div className="col-span-2 col-start-2 -mt-1 flex flex-col gap-0.5 pb-1">
+        <div className="col-start-2 -mt-1 flex flex-col gap-0.5 pb-1">
           {[...messages].map(([id, message]) => (
             <FieldMessageLine key={id} id={id} message={message} />
           ))}
@@ -594,21 +612,23 @@ export function ChoiceInput<T extends string>({
   placeholder?: string
 }) {
   const mixed = useMixed()
+  const items: { value: string; label: ReactNode }[] = [
+    { value: "__unset", label: <span className="text-muted-foreground">{placeholder}</span> },
+    ...options
+  ]
   return (
     <Select
-      value={value ?? (mixed ? "" : "__unset")}
-      onValueChange={(next) => onChange(next === "__unset" ? undefined : (next as T))}
+      items={items}
+      value={value ?? (mixed ? null : "__unset")}
+      onValueChange={(next) => onChange(next === null || next === "__unset" ? undefined : (next as T))}
     >
       <SelectTrigger size="sm" className="h-7 w-full text-xs">
         <SelectValue placeholder="Mixed" />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="__unset">
-          <span className="text-muted-foreground">{placeholder}</span>
-        </SelectItem>
-        {options.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
-            {option.label}
+        {items.map((item) => (
+          <SelectItem key={item.value} value={item.value}>
+            {item.label}
           </SelectItem>
         ))}
       </SelectContent>
@@ -630,39 +650,98 @@ export function SwitchInput({
 }
 
 /** Rules for a number a prop or param takes: any number, with maths. */
-export const numberRules: FieldRules = { kind: "number" }
+const numberRules: FieldRules = { kind: "number" }
+
+/** A number value previewed on the canvas, before it's made. */
+export interface NumberPreview {
+  onPreview: (value: number | undefined) => void
+  /** Takes the preview back. */
+  onCancel: () => void
+}
+
+/**
+ * A number a prop or param takes, with maths, Up and Down and scrubbing. Given `preview`, it shows on the canvas while
+ * it's typed or scrubbed. A preview is made in the design while it shows (see `ChangePreview`), so the value the field
+ * gets then is the preview's: edits work from the value as it was before it, so `+8` doesn't add to itself.
+ */
+export function NumberValueInput({
+  value,
+  title,
+  placeholder,
+  blank,
+  preview,
+  onCommit
+}: {
+  value: unknown
+  title: string
+  placeholder?: string
+  /** What an unset value counts as when an edit works from it, such as the prop's default. */
+  blank?: () => number | undefined
+  preview?: NumberPreview
+  onCommit: (value: number | undefined, gesture?: string) => void
+}) {
+  const current = typeof value === "number" ? value : undefined
+  const before = useRef<{ value: number | undefined }>(undefined)
+  const from = () => (before.current ? before.current.value : current)
+  return (
+    <NumberInput
+      value={current}
+      rules={numberRules}
+      title={title}
+      placeholder={placeholder}
+      blank={blank}
+      onPreview={
+        preview &&
+        ((update) => {
+          const base = from()
+          before.current = { value: base }
+          preview.onPreview(numberOrUnset(update(base)))
+        })
+      }
+      onCancel={
+        preview &&
+        (() => {
+          before.current = undefined
+          preview.onCancel()
+        })
+      }
+      onCommit={(update, gesture) => {
+        const base = from()
+        const previewed = before.current !== undefined
+        before.current = undefined
+        const next = numberOrUnset(update(base))
+        if (next !== base) onCommit(next, gesture)
+        else if (previewed) preview?.onCancel()
+      }}
+    />
+  )
+}
+
+/** A number field's value as a number prop takes it; number rules give no token names. */
+function numberOrUnset(value: FieldValue): number | undefined {
+  return typeof value === "number" ? value : undefined
+}
 
 /**
  * A prop's or param's value, edited so it keeps its type: a switch for a boolean, a number field for a number, text
  * for text, and JSON for the rest. `kind` says which, from what the value is declared to take (`valueKind`); without
- * it, the value's own type decides.
+ * it, the value's own type decides. A number previews on the canvas when given `preview`.
  */
 export function ValueInput({
   value,
   title = "Value",
   kind = valueKind(value),
+  preview,
   onCommit
 }: {
   value: unknown
   title?: string
   kind?: ValueKind
-  onCommit: (value: unknown) => void
+  preview?: NumberPreview
+  onCommit: (value: unknown, gesture?: string) => void
 }) {
   if (kind === "boolean") return <SwitchInput value={value === true} label={title} onChange={onCommit} />
-  if (kind === "number") {
-    const current = typeof value === "number" ? value : undefined
-    return (
-      <NumberInput
-        value={current}
-        rules={numberRules}
-        title={title}
-        onCommit={(update) => {
-          const next = update(current)
-          if (next !== current) onCommit(next)
-        }}
-      />
-    )
-  }
+  if (kind === "number") return <NumberValueInput value={value} title={title} preview={preview} onCommit={onCommit} />
   if (kind === "text") {
     return <TextInput value={value === undefined ? "" : String(value as unknown)} onCommit={onCommit} />
   }
@@ -736,17 +815,19 @@ export function TokenInput({
   const groups = Map.groupBy(choices, (token) => token.source)
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="h-7 w-full justify-between gap-1.5 px-2 text-xs font-normal">
-          <span className="flex min-w-0 items-center gap-1.5">
-            {value && categories.includes("color") && <Swatch value={current?.values.default ?? `var(--${value})`} />}
-            <span className={`truncate font-mono ${value ? "" : "text-muted-foreground"}`}>
-              {value ?? (mixed ? "Mixed" : "None")}
+      <PopoverTrigger
+        render={
+          <Button variant="outline" size="sm" className="h-7 w-full justify-between gap-1.5 px-2 text-xs font-normal">
+            <span className="flex min-w-0 items-center gap-1.5">
+              {value && categories.includes("color") && <Swatch value={current?.values.default ?? `var(--${value})`} />}
+              <span className={`truncate font-mono ${value ? "" : "text-muted-foreground"}`}>
+                {value ?? (mixed ? "Mixed" : "None")}
+              </span>
             </span>
-          </span>
-          <ChevronsUpDown className="size-3 opacity-50" />
-        </Button>
-      </PopoverTrigger>
+            <ChevronsUpDown className="size-3 opacity-50" />
+          </Button>
+        }
+      />
       <PopoverContent className="w-64 p-0" align="start">
         <Command>
           <CommandInput placeholder="Search tokens" className="h-8 text-xs" />

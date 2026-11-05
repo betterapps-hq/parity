@@ -63,4 +63,10 @@ describe("boardSize", () => {
     })
     expect(boardSize(states, [desktop!]).height).toBe(2 * 800 + (48 + 1 + 48) + 36 + 66)
   })
+
+  it("draws a frame at its own size, whatever the mode's viewport", () => {
+    const frame = design({ kind: "frame", size: { width: 400, height: 300 } })
+    expect(boardSize(frame, [desktop!])).toEqual({ width: 400 + 66, height: 300 + 36 + 66 })
+    expect(boardSize(frame, [mobile!])).toEqual(boardSize(frame, [desktop!]))
+  })
 })

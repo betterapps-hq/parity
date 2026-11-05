@@ -1,3 +1,13 @@
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@buildkitgg/shadcn-baseui-kit"
 /**
  * A project opened from the portal on what changed: its canvas in the browser, comparing two versions. Quiet around
  * the edges so the changes are what you see: the changed boards before and after, each change marked and numbered,
@@ -21,15 +31,6 @@ import {
   Monitor
 } from "lucide-react"
 import { type ReactNode, useState } from "react"
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
 import { people, type Person } from "../explore-data.ts"
 import { Avatar, ParityMark } from "../parts.tsx"
 import type { Look } from "../start/data.ts"
@@ -596,11 +597,13 @@ function Board({
 function MoreMenu({ code, to }: { code: Comparison["code"]; to: number }) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button size="icon-sm" variant="ghost" aria-label="More">
-          <Ellipsis />
-        </Button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <Button size="icon-sm" variant="ghost" aria-label="More">
+            <Ellipsis />
+          </Button>
+        }
+      />
       <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuItem>
           <Link2 /> Copy link to this comparison
@@ -614,13 +617,15 @@ function MoreMenu({ code, to }: { code: Comparison["code"]; to: number }) {
         {code && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">{code.label}</DropdownMenuLabel>
-            <DropdownMenuItem>
-              <GitBranch /> <span className="truncate font-mono text-xs">{code.branch}</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <GitPullRequest /> Pull request #{code.pr.number}, {code.pr.state}
-            </DropdownMenuItem>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">{code.label}</DropdownMenuLabel>
+              <DropdownMenuItem>
+                <GitBranch /> <span className="truncate font-mono text-xs">{code.branch}</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <GitPullRequest /> Pull request #{code.pr.number}, {code.pr.state}
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
           </>
         )}
       </DropdownMenuContent>
@@ -650,38 +655,42 @@ function VersionPicker({
     named[n] ?? (n === versions[0]!.n ? "now" : versions.find((version) => version.n === n)!.label)
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className="group -mx-1.5 flex w-fit items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-white/55 hover:bg-white/[0.06] hover:text-white/75 data-[state=open]:bg-white/[0.06]"
-        >
-          <span>
-            <span className="font-medium text-white/85">v{value}</span>, {describe(value)}
-          </span>
-          <ChevronDown className="size-3 opacity-60 group-hover:opacity-100" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-80">
-        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-          {side === "before" ? "Compare from" : "Compare to"}
-        </DropdownMenuLabel>
-        {versions.map((version) => (
-          <DropdownMenuItem
-            key={version.n}
-            disabled={side === "before" ? version.n >= other : version.n <= other}
-            onSelect={() => onPick(version.n)}
-            className="gap-2.5"
+      <DropdownMenuTrigger
+        render={
+          <button
+            type="button"
+            className="group -mx-1.5 flex w-fit items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-white/55 hover:bg-white/[0.06] hover:text-white/75 aria-expanded:bg-white/[0.06]"
           >
-            <Avatar person={version.who} size={18} />
-            <span className="w-7 shrink-0 font-medium tabular-nums">v{version.n}</span>
-            <span className="min-w-0 flex-1 truncate">
-              {version.label}
-              {version.draft && <span className="text-muted-foreground">, a draft</span>}
+            <span>
+              <span className="font-medium text-white/85">v{value}</span>, {describe(value)}
             </span>
-            <span className="shrink-0 text-xs text-muted-foreground">{version.when}</span>
-            <Check className={`size-3.5 ${version.n === value ? "" : "invisible"}`} />
-          </DropdownMenuItem>
-        ))}
+            <ChevronDown className="size-3 opacity-60 group-hover:opacity-100" />
+          </button>
+        }
+      />
+      <DropdownMenuContent align="start" className="w-80">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+            {side === "before" ? "Compare from" : "Compare to"}
+          </DropdownMenuLabel>
+          {versions.map((version) => (
+            <DropdownMenuItem
+              key={version.n}
+              disabled={side === "before" ? version.n >= other : version.n <= other}
+              onClick={() => onPick(version.n)}
+              className="gap-2.5"
+            >
+              <Avatar person={version.who} size={18} />
+              <span className="w-7 shrink-0 font-medium tabular-nums">v{version.n}</span>
+              <span className="min-w-0 flex-1 truncate">
+                {version.label}
+                {version.draft && <span className="text-muted-foreground">, a draft</span>}
+              </span>
+              <span className="shrink-0 text-xs text-muted-foreground">{version.when}</span>
+              <Check className={`size-3.5 ${version.n === value ? "" : "invisible"}`} />
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )

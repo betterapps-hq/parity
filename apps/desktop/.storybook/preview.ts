@@ -1,7 +1,7 @@
+import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
 import type { Preview } from "@storybook/react-vite"
 import { createElement } from "react"
 import { setPreferences } from "../src/renderer/chrome/preferences.ts"
-import { TooltipProvider } from "../src/renderer/components/ui/tooltip.tsx"
 import { restore } from "../src/renderer/stories/fixtures.tsx"
 import { installHost } from "../src/renderer/stories/host.ts"
 import { startTheme } from "../src/renderer/theme.ts"

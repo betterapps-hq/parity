@@ -298,9 +298,8 @@ describe("correctedSources", () => {
     "nova/Card": { path: "@acme/nova", export: "Card", library: "nova" }
   }
 
-  it("drops what the person took off the list, and adds what they put on it, loading as it's drawn", () => {
+  it("adds what the person put on the list, loading as it's drawn", () => {
     const corrected = correctedSources(sources, {
-      exclude: [{ path: "src/components/ui/sonner.tsx", export: "Toaster" }],
       include: [
         { path: "src/promo.tsx", export: "PromoPrice" },
         { path: "src/pages/user-card.tsx", export: "default" },
@@ -309,6 +308,7 @@ describe("correctedSources", () => {
     })
     expect(corrected).toEqual({
       Button: sources.Button,
+      Toaster: sources.Toaster,
       "nova/Card": sources["nova/Card"],
       PromoPrice: { path: "src/promo.tsx", export: "PromoPrice", lazy: true, included: true },
       UserCard: { path: "src/pages/user-card.tsx", export: "default", lazy: true, included: true },

@@ -46,7 +46,7 @@ async function open(): Promise<number> {
   return app.page.evaluate(() => window.pickerOpened!)
 }
 
-/** Closes the picker with Escape, once it has played its closing animation. */
+/** Closes the picker with Escape, which takes it out of the page. */
 async function close(): Promise<void> {
   await app.page.keyboard.press("Escape")
   await expect.poll(() => app.page.getByRole("dialog").count()).toBe(0)
@@ -93,6 +93,19 @@ describe("the insert picker", () => {
     expect(sorted[3]).toBeLessThan(150)
   })
 
+  it("takes Escape as soon as it opens, and leaves nothing behind to take the next click", async () => {
+    await app.show("Members", 0.5)
+    await app.selectDesign("Members")
+    const members = { design: await app.key("Members") }
+    await open()
+    // Straight after `/`, Escape is the picker's. The canvas would select the design's parent and leave the picker open.
+    await app.page.keyboard.press("Escape")
+    expect(await app.selection()).toEqual(members)
+    // Straight after Escape, a click is the canvas's, not a backdrop's that's playing its closing animation (PAR-554).
+    await app.selectLayer("Members", "ada")
+    expect(await app.page.getByRole("dialog").count()).toBe(0)
+  })
+
   it("lists basic layers, then the project's component designs and its own components, and libraries' last", async () => {
     await open()
     const first = await lines()
@@ -101,7 +114,7 @@ describe("the insert picker", () => {
       "Text",
       "Vertical layout",
       "Horizontal layout",
-      "# Component designs"
+      "# Local components"
     ])
     // Only the lines in view are drawn, so the list is scrolled a screen at a time to read every heading. Each scroll
     // is announced at once, as a wheel's would be a frame later, since frames are slow in a window in the background.
@@ -121,14 +134,7 @@ describe("the insert picker", () => {
     })
     // The example has no pages, and App and ThemeProvider aren't listed until searched for, so the app's own section
     // holds the run's MemberRow, MemberNames and EmailField.
-    expect(headings).toEqual([
-      "Basics",
-      "Component designs",
-      "UI kit",
-      "shadcn-vite",
-      "Shadcn Nova",
-      "Radix Primitives"
-    ])
+    expect(headings).toEqual(["Basics", "Local components", "UI kit", "shadcn-vite", "Shadcn Nova", "Radix Primitives"])
   })
 
   it("finds Badge for `badge`, once, with both its sources, and nothing that only scatters its letters", async () => {

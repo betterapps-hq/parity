@@ -1,8 +1,112 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Sat, 31 Oct 2026 05:16:05 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 05 Nov 2026 03:41:17 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.4.0
+
+Thu, 05 Nov 2026 03:41:17 GMT
+
+### Minor changes
+
+- Add frames, a light kind of design drawn once at its own size, to the project file, the editor and the agent API
+  (ajcraswell@gmail.com)
+
+## 0.3.1
+
+Thu, 05 Nov 2026 02:45:34 GMT
+
+### Patches
+
+- Turn a prop off in one state when the base design has it on, and reset it from the inspector (ajcraswell@gmail.com)
+- Preview number props on the canvas while typing or scrubbing, round Opacity to whole percentages, and name Mixed+8 in
+  the note on what differs across selected layers (ajcraswell@gmail.com)
+- Keep frame bitmaps and component previews as lossless WebP, about 40% smaller than the PNGs they replace, with the
+  same pixels (ajcraswell@gmail.com)
+
+## 0.3.0
+
+Thu, 05 Nov 2026 02:15:39 GMT
+
+### Minor changes
+
+- A state can take away a prop or style the design sets, and Paste style in a state leaves only the copied style
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- Saving after undoing a token value a theme didn't have takes it back out of the stylesheet, with any rule it leaves
+  empty (ajcraswell@gmail.com)
+- Box a component that draws only text by its text, so it can be hovered, picked and sized on the canvas
+  (ajcraswell@gmail.com)
+
+## 0.2.0
+
+Thu, 05 Nov 2026 01:01:24 GMT
+
+### Minor changes
+
+- Agent calls merge per design with edits made while they run, and are refused naming the designs when both changed the
+  same one (noreply@anthropic.com)
+- Make a picture of every component offscreen, after the canvas's bitmaps, and keep it on disk so a reopened project
+  draws none again (ajcraswell@gmail.com)
+- parity modes and the MCP get_modes tool list the project's viewports (the ids Responsive takes) with their window
+  heights, its modes (the ids renders take) resolved, and what each design shows; naming a design adds its frames'
+  sizes. Mistyped ids now suggest the nearest ones first. (ajcraswell@gmail.com)
+- Frame bitmaps are kept on disk in app data, so a project opened again shows them without capturing each frame again;
+  View > Clear bitmap cache removes them. (ajcraswell@gmail.com)
+- Components show their preview in a card beside the row, and right-clicking one offers View in Storybook and View code,
+  which opens it in your editor (chosen in Settings). Tooltips are raised in the theme's own colors. Taking a component
+  off the list by hand is gone. (ajcraswell@gmail.com)
+- Agents get every result as data, in --json and MCP structuredContent with published output schemas, and failures as
+  stable error codes with the input at fault, whether to retry, and the valid ids to use instead. Token and console
+  reads are bounded by --limit. (ajcraswell@gmail.com)
+- Add MCP token, component and prop reads, validate options consistently, and report screenshot and audit failures in
+  both interfaces (ajcraswell@gmail.com)
+- parity status and the MCP get_status tool say where a tab's edits stand: its revision, what's applied but not saved
+  (files and token values), the last save and failed writes, and undo and redo, with an optional bounded summary.
+  get_app_state carries the revision too. (ajcraswell@gmail.com)
+- Agents' calls go to the running copy of Parity that has their project open; --tab active names what the person is
+  looking at, and a call without --tab goes to the project its folder is in (ajcraswell@gmail.com)
+
+### Patches
+
+- Load aliased library providers, icons and sample values consistently and reject obsolete manifests
+  (ajcraswell@gmail.com)
+- Align, Wrap, resizing, nudging, dragging and the clipboard read layers as the frame shows them, with variants,
+  viewport patches and bound values; a copied binding is kept only where the design pasted into has that param
+  (noreply@anthropic.com)
+- Zoomed-out frames and agents' renders no longer draw a component from a file that's gone (noreply@anthropic.com)
+- Agents' frames, exports and accessibility checks draw library designs' instances and unsaved token values as the
+  canvas does, and no offscreen frame inherits another's token values (noreply@anthropic.com)
+- MCP's tools/list no longer publishes output schemas, cutting it from 33 KB to under 12 KB; structuredContent and CLI
+  --json are unchanged (ajcraswell@gmail.com)
+- Keep text given to a new library part rather than labelling over it (ajcraswell@gmail.com)
+- A call without --tab finds the project its folder is in through links, such as macOS's /var (ajcraswell@gmail.com)
+- The canvas menu says Show for a layer the variant shown hides, and Make component checks the result against the
+  variant and param defaults the board shows (noreply@anthropic.com)
+- Fingerprint every lockfile package-manager detection recognizes, such as npm-shrinkwrap.json, and the tsconfigs a
+  project's configs extend, so cached props refresh when they change (noreply@anthropic.com)
+- Estimate the size of a board the canvas hasn't drawn from its frames, laid out as the canvas lays them out, so
+  Overlaps() catches wide and tall boards (noreply@anthropic.com)
+- Inserting a component that passes its props to an input no longer gives it children, and library samples' text ends at
+  a sentence or a whole word (ajcraswell@gmail.com)
+- Props refresh after you change tsconfig paths or dependencies (noreply@anthropic.com)
+- Default execute labels to "Edit designs", report failed MCP executions as tool errors, and reject ambiguous requests,
+  blank labels and malformed patches before they reach the app (ajcraswell@gmail.com)
+- Draw zoomed-out bitmaps, agent screenshots and measurements, exports and accessibility checks in the same window
+  height as the live frame, keeping a mode's screen height when the frame grows with its content (noreply@anthropic.com)
+- Capture frames' bitmaps in four offscreen windows at once, so a project opened for the first time has them in less
+  than half the time (ajcraswell@gmail.com)
+- Generate an app's library from the same sources and global stylesheets project detection finds, following tsconfig
+  references, the HTML entry's stylesheet imports and relative @imports (noreply@anthropic.com)
+- Read token themes and categories the same way in parity lib and the app: [data-theme] attributes are themes, names
+  like fontSizeBase300 are font sizes, and a library's .dark beats its prefers-color-scheme block
+  (noreply@anthropic.com)
+- Keep values under media queries, such as a prefers-color-scheme: dark block, out of the default theme's tokens
+  (noreply@anthropic.com)
+- Use declared caller names instead of guessing agent identity (ajcraswell@gmail.com)
 
 ## 0.1.0
 

@@ -13,7 +13,8 @@ export { measureHere } from "./paste-here.ts"`
 
 /**
  * The dashboard's stat cards in a four-column grid, a day of a calendar whose Events layout is placed absolutely and
- * has a border, and a hidden card.
+ * has a border, a hidden card, and a code component, a card that draws a title of its own above the layers in its
+ * default slot and those in its footer.
  */
 const container = {
   id: "dashboard",
@@ -34,6 +35,15 @@ const container = {
         id: "events",
         style: { position: "absolute", top: 50, left: 4 },
         children: [{ type: "text", id: "review", text: "Review" }]
+      },
+      {
+        type: "component",
+        id: "plan",
+        component: "ui/Card",
+        slots: {
+          children: ["price", "seats"].map((id) => ({ type: "text", id, text: id })),
+          footer: [{ type: "text", id: "buy", text: "Buy" }]
+        }
       }
     ]
   },
@@ -81,6 +91,13 @@ beforeEach(async () => {
         border: 4px solid">
         ${cell("review")}
       </div>
+      <div data-canvas-node="plan" style="position: absolute; top: 200px; left: 480px; width: 320px; padding: 20px">
+        <div style="height: 40px">Pro</div>
+        <div style="display: flex; gap: 20px; height: 100px">
+          <div style="display: contents">${cell("price")}${cell("seats")}</div>
+        </div>
+        <footer style="height: 60px">${cell("buy")}</footer>
+      </div>
     </div>`
   })
 })
@@ -89,14 +106,13 @@ beforeEach(async () => {
 function pasteAt(chain: string[], point: { x: number; y: number }) {
   return page.evaluate(
     ({ container, chain, point, card }) => {
+      type Node = { id: string; style?: unknown; children?: Node[]; slots?: Record<string, Node[]> }
       const host = document.querySelector<HTMLElement>("#host")!
-      const find = (node: { id: string; children?: unknown[] }, id: string): unknown =>
+      const inside = (node: Node) => [...(node.children ?? []), ...Object.values(node.slots ?? {}).flat()]
+      const find = (node: Node, id: string): Node | undefined =>
         node.id === id
           ? node
-          : (node.children ?? []).reduce(
-              (found: unknown, child) => found ?? find(child as { id: string }, id),
-              undefined
-            )
+          : inside(node).reduce<Node | undefined>((found, child) => found ?? find(child, id), undefined)
       const hit = {
         entry: { key: "app.par#dashboard", path: "app.par", container },
         host,
@@ -111,12 +127,14 @@ function pasteAt(chain: string[], point: { x: number; y: number }) {
       const measured = here.measureHere(hit, screen, 4)
       // @ts-expect-error The bundle's global.
       const pasted = here.pasteHere(container, [card], measured, container.states[0])
-      const parent = find(pasted.container.root, measured.layout) as { children: { id: string; style?: unknown }[] }
+      const parent = find(pasted.container.root, measured.layout)
+      const siblings = (measured.slot ? parent?.slots?.[measured.slot] : parent?.children) ?? []
       return {
         layout: measured.layout,
+        slot: measured.slot,
         scale: measured.scale,
-        order: parent.children.map((child) => (child.id === pasted.copies[0] ? "pasted" : child.id)),
-        style: parent.children.find((child) => child.id === pasted.copies[0])?.style
+        order: siblings.map((child) => (child.id === pasted.copies[0] ? "pasted" : child.id)),
+        style: siblings.find((child) => child.id === pasted.copies[0])?.style
       }
     },
     { container, chain, point, card }
@@ -149,5 +167,24 @@ describe("paste here, measured in a frame", () => {
   it("measures the deepest of the design's own layouts under the pointer", async () => {
     const result = await pasteAt(["root", "stats", "users"], { x: 330, y: 50 })
     expect(result.layout).toBe("stats")
+  })
+
+  it("finds a component's slot under the pointer, by the element its layers are drawn in", async () => {
+    // Plan's layers start 20px inside it, at 500: just inside Price, before its middle, it goes first.
+    const first = await pasteAt(["root", "plan", "price"], { x: 502, y: 300 })
+    expect(first).toMatchObject({ layout: "plan", slot: "children", order: ["pasted", "price", "seats"] })
+    // Over the row past Seats, though not over a layer: after Seats.
+    const after = await pasteAt(["root", "plan"], { x: 790, y: 300 })
+    expect(after).toMatchObject({ layout: "plan", slot: "children", order: ["price", "seats", "pasted"] })
+    // In the footer, the other slot.
+    const footer = await pasteAt(["root", "plan"], { x: 700, y: 400 })
+    expect(footer).toMatchObject({ layout: "plan", slot: "footer", order: ["buy", "pasted"] })
+  })
+
+  it("goes to the layout around a component where none of its slots is under the pointer", async () => {
+    // Over the title the card draws itself.
+    const result = await pasteAt(["root", "plan"], { x: 600, y: 240 })
+    expect(result.layout).toBe("root")
+    expect(result.slot).toBeUndefined()
   })
 })

@@ -1,5 +1,5 @@
-import type { ContainerSpec, DesignNode, NodePatch, NodeStyle, StateSpec } from "./document.ts"
-import { unknownReference } from "./errors.ts"
+import type { ContainerSpec, DesignNode, NodePatch, NodeStyle, PatchUnset, StateSpec } from "./document.ts"
+import { CodedError, unknownReference } from "./errors.ts"
 import { uniqueId } from "./modes.ts"
 import {
   applyPatch,
@@ -9,7 +9,8 @@ import {
   optionPatches,
   type PatchLayer,
   scopeOf,
-  variantChoices
+  variantChoices,
+  without
 } from "./render.ts"
 
 /** Where a node sits in a design's tree. */
@@ -232,7 +233,9 @@ export function patchSize(patch: NodePatch): number {
     (patch.hidden === undefined ? 0 : 1) +
     (patch.text === undefined ? 0 : 1) +
     Object.keys(patch.props ?? {}).length +
-    Object.keys(patch.style ?? {}).length
+    Object.keys(patch.style ?? {}).length +
+    (patch.unset?.props?.length ?? 0) +
+    (patch.unset?.style?.length ?? 0)
   )
 }
 
@@ -262,13 +265,25 @@ export function nodeOnBoard(container: ContainerSpec, node: DesignNode, state: S
 
 /**
  * A change to one node. A key present with the value `undefined` clears it: in the base state that removes the value
- * from the design; in another state it removes the override, so the node goes back to its base value.
+ * from the design; in another state it removes the override, so the node goes back to its base value. `unset` takes
+ * props and style keys away: in the base state that removes them too; in another state the state shows the node
+ * without them, even where the design sets them.
  */
 export interface NodeChange {
   hidden?: boolean
   text?: string
   props?: Record<string, unknown>
   style?: { [K in keyof NodeStyle]?: NodeStyle[K] | undefined }
+  unset?: PatchUnset
+}
+
+/**
+ * A prop set to `value`, as the inspector sets one; cleared (`undefined`), it's taken away rather than taken back. In
+ * the base state that removes it from the design, as clearing always did; in another state the state turns it off,
+ * even where the design sets it. Taking back a state's change is Reset (`resetOverride`).
+ */
+export function propChange(name: string, value: unknown): NodeChange {
+  return value === undefined ? { unset: { props: [name] } } : { props: { [name]: value } }
 }
 
 /**
@@ -437,9 +452,54 @@ export function patchWith(
     patch.props = mergeValues(patch.props, change.props, baseProps)
   }
   if (change.style) patch.style = mergeValues(patch.style as Values, change.style, (under.style ?? {}) as Values)
+  if (patch.unset || change.unset) {
+    patch.unset = unsetWith(patch, under, change)
+    // What's taken away isn't also set.
+    if (change.unset?.props) patch.props = without(patch.props, change.unset.props)
+    if (change.unset?.style) patch.style = without(patch.style, change.unset.style)
+  }
   const next = { ...patches, [key]: tidyPatch(patch) }
   if (patchSize(next[key]!) === 0) delete next[key]
   return Object.keys(next).length > 0 ? next : undefined
+}
+
+/**
+ * What a patch takes away once `change` is applied to it: a key the change sets or takes back is no longer taken away,
+ * and a key the change takes away is, when `under` has it, and leaves the patch's values. One `under` doesn't have
+ * shows as taken away already, so there's nothing to keep.
+ */
+function unsetWith(patch: NodePatch, under: DesignNode, change: NodeChange): PatchUnset | undefined {
+  let baseProps: Record<string, unknown> = {}
+  if (under.type === "component") baseProps = under.props ?? {}
+  else if (under.type === "instance") baseProps = under.args ?? {}
+  const keys = <K extends string>(
+    kept: readonly K[] | undefined,
+    changed: object | undefined,
+    taken: readonly K[] | undefined,
+    base: object
+  ) => {
+    const next = new Set((kept ?? []).filter((key) => !Object.hasOwn(changed ?? {}, key)))
+    for (const key of taken ?? []) {
+      if (Object.hasOwn(base, key)) next.add(key)
+      else next.delete(key)
+    }
+    return next.size > 0 ? [...next] : undefined
+  }
+  const props = keys(patch.unset?.props, change.props, change.unset?.props, baseProps)
+  const style = keys(patch.unset?.style, change.style, change.unset?.style, under.style ?? {})
+  if (!props && !style) return undefined
+  return { ...(props ? { props } : {}), ...(style ? { style } : {}) }
+}
+
+/** Whether a patch changes a field: sets it, or for a prop or style key, takes it away. */
+export function changesField(patch: NodePatch | undefined, field: PatchField): boolean {
+  if (!patch) return false
+  if (field.kind === "props" || field.kind === "style") {
+    const values: Values = { ...patch[field.kind] }
+    const unset: readonly string[] = patch.unset?.[field.kind] ?? []
+    return values[field.key] !== undefined || unset.includes(field.key)
+  }
+  return patch[field.kind] !== undefined
 }
 
 /** A field of a node's patch: whether it's hidden, its text, or one prop or style value. */
@@ -453,15 +513,27 @@ export function patchWithout(patches: PatchLayer, key: string, field?: PatchFiel
   if (!field) delete next[key]
   else {
     const patch: NodePatch = { ...existing }
-    if (field.kind === "props" || field.kind === "style") {
-      const values = { ...patch[field.kind] } as Values
-      delete values[field.key]
-      patch[field.kind] = values as never
+    if (field.kind === "props") {
+      patch.props = without(patch.props, [field.key])
+      patch.unset = withoutUnset(patch.unset, "props", field.key)
+    } else if (field.kind === "style") {
+      patch.style = without(patch.style, [field.key])
+      patch.unset = withoutUnset(patch.unset, "style", field.key)
     } else delete patch[field.kind]
     next[key] = tidyPatch(patch)
     if (patchSize(next[key]!) === 0) delete next[key]
   }
   return Object.keys(next).length > 0 ? next : undefined
+}
+
+/** What a patch takes away, less one key. */
+function withoutUnset(unset: PatchUnset | undefined, kind: keyof PatchUnset, key: string): PatchUnset | undefined {
+  const keys: readonly string[] = unset?.[kind] ?? []
+  if (!unset || !keys.includes(key)) return unset
+  const next: PatchUnset = { ...unset }
+  if (kind === "props") next.props = unset.props!.filter((name) => name !== key)
+  else next.style = unset.style!.filter((name) => name !== key)
+  return next
 }
 
 /** Drops every override a state (or variant option) has for a node, or one field of it. */
@@ -487,6 +559,11 @@ function applyChange(node: DesignNode, change: NodeChange): DesignNode {
   if (change.props && next.type === "component") next.props = mergeValues(next.props, change.props, {})
   if (change.props && next.type === "instance") next.args = mergeValues(next.args, change.props, {})
   if (change.style) next.style = mergeValues(next.style as Values, change.style, {})
+  // In the design, taking a key away removes it.
+  const taken = change.unset
+  if (taken?.props && next.type === "component") next.props = emptyAsUndefined(without(next.props, taken.props))
+  if (taken?.props && next.type === "instance") next.args = emptyAsUndefined(without(next.args, taken.props))
+  if (taken?.style) next.style = emptyAsUndefined(without(next.style, taken.style))
   if (next.type === "component" && next.props === undefined) delete next.props
   if (next.type === "instance" && next.args === undefined) delete next.args
   if (next.style === undefined) delete next.style
@@ -505,6 +582,10 @@ function mergeValues<T extends object>(current: T | undefined, change: object, b
   return Object.keys(next).length > 0 ? (next as T) : undefined
 }
 
+function emptyAsUndefined<T extends object>(values: T): T | undefined {
+  return Object.keys(values).length > 0 ? values : undefined
+}
+
 function sameValue(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b)
 }
@@ -515,6 +596,9 @@ export function tidyPatch(patch: NodePatch): NodePatch {
   if (patch.text !== undefined) next.text = patch.text
   if (patch.props && Object.keys(patch.props).length > 0) next.props = patch.props
   if (patch.style && Object.keys(patch.style).length > 0) next.style = patch.style
+  const props = patch.unset?.props?.length ? patch.unset.props : undefined
+  const style = patch.unset?.style?.length ? patch.unset.style : undefined
+  if (props || style) next.unset = { ...(props ? { props } : {}), ...(style ? { style } : {}) }
   return next
 }
 
@@ -524,7 +608,16 @@ function replaceState(container: ContainerSpec, state: StateSpec): ContainerSpec
   return { ...container, states: container.states.map((candidate) => (candidate.id === state.id ? next : candidate)) }
 }
 
+/** Refuses to give a frame what only screens and components have, such as states and variants, saying why. */
+function refuseOnFrame(container: ContainerSpec, why: string): void {
+  if (container.kind !== "frame") return
+  throw new CodedError(`${container.name} is a frame, ${why}`, { code: "invalid_input", field: "design" })
+}
+
+const oneState = "which has one state. Make it a screen or a component to add states."
+
 export function addState(container: ContainerSpec, name: string): { container: ContainerSpec; id: string } {
+  refuseOnFrame(container, oneState)
   const id = uniqueId(
     name,
     container.states.map((state) => state.id)
@@ -538,6 +631,7 @@ export function renameState(container: ContainerSpec, stateId: string, name: str
 }
 
 export function duplicateState(container: ContainerSpec, stateId: string): { container: ContainerSpec; id: string } {
+  refuseOnFrame(container, oneState)
   const state = findState(container, stateId)
   const name = `${state.name} copy`
   const id = uniqueId(
@@ -723,6 +817,7 @@ export function unwrapNode(container: ContainerSpec, id: string): ContainerSpec 
 
 /** Adds a variant param to a component design, with one option per name. The first option is the default. */
 export function addVariant(container: ContainerSpec, name: string, options: readonly string[]): ContainerSpec {
+  refuseOnFrame(container, "which has no variants. Make it a component to add them.")
   if (container.params?.[name]) throw new Error(`${container.name} already has a param "${name}"`)
   if (options.length === 0) throw new Error("A variant needs at least one option")
   const ids: string[] = []

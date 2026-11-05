@@ -1,9 +1,10 @@
+import { parseCanvasDocument } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { newDesign } from "./create.ts"
 
 describe("a new design", () => {
   it("starts a screen as a padded page with its name as a heading", () => {
-    const screen = newDesign("screen", ["home"], { x: 2000, y: 0 }, "desktop")
+    const screen = newDesign("screen", ["home"], { x: 2000, y: 0 }, { viewport: "desktop" })
     expect(screen).toMatchObject({
       id: "untitled-screen",
       name: "Untitled screen",
@@ -21,7 +22,7 @@ describe("a new design", () => {
   })
 
   it("starts a component small, on a narrower frame in the first viewport", () => {
-    const component = newDesign("component", [], { x: 0, y: 0 }, "desktop")
+    const component = newDesign("component", [], { x: 0, y: 0 }, { viewport: "desktop" })
     expect(component).toMatchObject({
       id: "untitled-component",
       name: "Untitled component",
@@ -35,6 +36,26 @@ describe("a new design", () => {
       frames: { desktop: { width: 480 } }
     })
     expect(newDesign("component", [], { x: 0, y: 0 })).not.toHaveProperty("frames")
+  })
+
+  it("starts a frame as an empty layout at its own size, with one state and nothing else", () => {
+    const frame = newDesign("frame", [], { x: 0, y: 0 }, { viewport: "desktop", size: { width: 400, height: 300 } })
+    expect(frame).toEqual({
+      id: "untitled-frame",
+      name: "Untitled frame",
+      kind: "frame",
+      position: { x: 0, y: 0 },
+      root: {
+        type: "layout",
+        id: frame.root.id,
+        style: { padding: 6, gap: 4, background: "background", foreground: "foreground" },
+        children: []
+      },
+      states: [{ id: "default", name: "Default" }],
+      size: { width: 400, height: 300 }
+    })
+    expect(parseCanvasDocument({ version: 3, containers: [frame] }).containers[0]).toEqual(frame)
+    expect(newDesign("frame", [], { x: 0, y: 0 })).not.toHaveProperty("size")
   })
 
   it("takes an id no design has, and gives its layers different ids", () => {
