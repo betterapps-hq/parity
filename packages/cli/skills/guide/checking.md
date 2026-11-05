@@ -15,8 +15,10 @@ small details.
 
 - **Render errors.** A component threw. Usually a prop with the wrong type, or a part used outside its parent (a
   `TabsTrigger` without `Tabs`). `parity components` lists the components failing anywhere on the canvas, with why.
-- **Overflow.** Content wider than the frame, usually a row that needs to wrap or stack on mobile.
-- **Clipping.** A node cut off by a parent with `overflow: hidden` or a fixed size.
+- **Overflow.** A node that sticks out of the frame, by its width or where it's placed, usually a row that needs to wrap
+  or stack on mobile. The finding gives the node, its box, the frame's, and how many pixels past which edge.
+- **Clipping.** A node cut off by an ancestor with `overflow: hidden` or a fixed size, named in the finding with its
+  box. A node that only spills past a parent that doesn't clip still shows, so it isn't listed.
 - **Unknown components.** A name that isn't in `Components()`; it draws as a placeholder.
 
 `Measure` gives every node's box in one frame, for checking alignment or sizes by numbers.

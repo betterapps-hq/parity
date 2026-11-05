@@ -58,6 +58,7 @@ import {
 } from "@parity-app/core"
 import { componentComposition, type DroppedParts, newDesign, turnInto } from "@parity-app/editor"
 import { describeIconSets, findIcons, type IconMatch, type IconOptions, iconStyle, styleModule } from "./icons.ts"
+import { describeLayoutFinding, layoutFindings } from "./overflow.ts"
 import type {
   AccessibilityFinding,
   AgentEvent,
@@ -66,6 +67,7 @@ import type {
   DiscardedNode,
   DiscardedPatches,
   ExecResult,
+  Problem,
   Screenshot,
   TokenChange
 } from "./types.ts"
@@ -932,10 +934,12 @@ export class AgentWorkspace {
   }
 
   private async measure(reference: string, options: FrameOptions = {}) {
-    const { container, frame } = await this.render(reference, options, "measure")
+    const { container, state, mode, frame } = await this.render(reference, options, "measure")
     if (frame.error) throw new Error(`The frame failed to render: ${frame.error}`)
     const names = nodeNames(container, this.designName)
     return {
+      state: state.id,
+      mode: mode.id,
       width: frame.width,
       height: frame.height,
       overflowsX: frame.overflowsX,
@@ -943,21 +947,47 @@ export class AgentWorkspace {
     }
   }
 
-  private async problems(reference: string, options: MatrixOptions = {}) {
+  private async problems(reference: string, options: MatrixOptions = {}): Promise<Problem[]> {
     const { container } = this.findDesign(reference)
-    const found: { state: string; mode: string; problem: string; node?: string }[] = []
+    const names = nodeNames(container, this.designName)
+    // Inside an instance, ids carry the instance's as a prefix; the instance is the layer in this design.
+    const name = (id: string) => names.get(id) ?? names.get(id.split("/")[0]!)
+    const found: Problem[] = []
     for (const state of this.statesFor(container, options.state)) {
       for (const mode of this.modesFor(container, options.mode)) {
         const { frame } = await this.render(reference, { state: state.id, mode: mode.id }, "problems")
-        const add = (problem: string, node?: string) =>
-          found.push({ state: state.id, mode: mode.id, problem, ...(node ? { node } : {}) })
-        if (frame.error) add(`render error: ${frame.error}`)
-        const { width } = frameSize(container, mode)
-        if (frame.overflowsX) add(`content is wider than the ${width}px frame`)
-        for (const name of frame.unknownComponents) add(`"${name}" isn't one of the project's components`)
-        for (const node of frame.nodes) {
-          if (node.clipped) add("cut off by a parent that clips", node.id)
-          if (node.width > width + 0.5) add(`${node.width}px wide, more than the frame`, node.id)
+        const add = (problem: Omit<Problem, "state" | "mode">) =>
+          found.push({ state: state.id, mode: mode.id, ...problem })
+        if (frame.error) add({ kind: "render-error", problem: `render error: ${frame.error}` })
+        for (const component of frame.unknownComponents) {
+          add({ kind: "unknown-component", problem: `"${component}" isn't one of the project's components` })
+        }
+        const size = frameSize(container, mode)
+        const layout = layoutFindings(frame.nodes, {
+          width: size.width,
+          height: size.height ?? frame.height,
+          fixedHeight: size.height !== undefined
+        })
+        for (const finding of layout) {
+          const label = name(finding.node)
+          const by = finding.container.node
+          const byName = by ? name(by) : undefined
+          add({
+            kind: finding.kind,
+            problem: describeLayoutFinding(finding, name),
+            node: finding.node,
+            ...(label ? { name: label } : {}),
+            box: finding.box,
+            container: { ...finding.container, ...(byName ? { name: byName } : {}) },
+            overflow: finding.overflow
+          })
+        }
+        // Content wider than the frame that no node accounts for, such as a component's own element.
+        if (
+          frame.overflowsX &&
+          !layout.some((finding) => finding.kind === "frame-overflow" && finding.overflow.right)
+        ) {
+          add({ kind: "content-wider", problem: `content is wider than the ${size.width}px frame` })
         }
       }
     }

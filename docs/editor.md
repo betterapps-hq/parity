@@ -3304,6 +3304,34 @@ Gaps: the snapshot and `renderFor` wiring has no test of its own, and checked by
 CI. The snapshot crosses from the window to the service as the window's other replies do, unchecked; its library designs
 were checked when their `.lib.par` was read.
 
+### Which node overflows what (PAR-456)
+
+Agents' `Measure` gives each node's box with the node it's drawn inside (`parent`), the ancestor that clips it when one
+cuts it off (`clip`, with its box), and the state and mode it drew. `Problems`, `find_problems` and `parity problems`
+give each layout problem as a finding: its `kind` (`frame-overflow` or `clipped`), the node and its name, its box, the
+`container` it overflows (the node that clips it, or the frame) with that box, and the pixels past each edge in
+`overflow`. The sentence with it says the same, such as "at x 340, y 100 and 60 × 36px, it sticks out of the 390px frame
+by 10px on the right", and the CLI puts the layer's name before its id. Overflow of a parent that doesn't clip, inside
+the frame, isn't reported; see [decisions.md](decisions.md), "Problems reports where a node overflows".
+
+Code: `layoutFindings` and `describeLayoutFinding` in `packages/agent/src/overflow.ts`, used by `problems` in
+`packages/agent/src/workspace.ts`; `clipper` and `nodeParent` in `apps/desktop/src/renderer/render.ts` measure each
+node; `describeProblems` in `packages/cli/src/client.ts` and the problems schema in `operations.ts`.
+
+Tests:
+
+- `packages/agent/src/overflow.test.ts` (13): a node narrower than the frame that its position takes past the right
+  edge; the half-pixel tolerance; a badge past a parent that doesn't clip isn't reported; nested clipping names the
+  nearest ancestor at each level; a clipping element outside the layers; children going no further than their reported
+  parent left out, one going further kept; a bottom edge only with a fixed height; nodes drawn at no size; the
+  sentences.
+- `packages/agent/src/run.test.ts` (2 of its 46): the finding in only the mode whose frame the button passes, with its
+  boxes, the frame's overflow not reported again, a clipped title in every mode, and Measure's parent, state and mode; a
+  node wider than every frame found once in each.
+- `packages/cli/src/client.test.ts` (1 of its 11): the readable line names the layer.
+
+Gaps: the renderer's `clipper` and `nodeParent` run in the offscreen window, which the end-to-end tests cover in CI.
+
 ### Every frame drawn in the same window (PAR-466)
 
 A frame stands for a browser window, and every path that draws it gives it the same one: the live frame in its mode on

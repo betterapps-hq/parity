@@ -396,8 +396,29 @@ Frames draw as the canvas does: instances of a library's component designs (from
 token values not yet saved show, the person's edits and this call's own `SetTokens` alike, so
 `SetTokens({ primary: "red" }); await Screenshot(id)` shows the new value in the same call.
 
-`Measure` lays out one frame and returns its size, whether it overflows sideways, and every node's box (`clipped` when a
-parent cuts it off). `Problems` checks frames for render errors, overflow, clipping and unknown components.
+`Measure` lays out one frame and returns its state, mode and size, whether it overflows sideways, and every node's box
+with the node it's drawn inside (`parent`); a node an ancestor cuts off has `clipped` and that ancestor's box in `clip`.
+`Problems` checks frames for render errors, overflow, clipping and unknown components. Each layout problem has its
+`kind`: `frame-overflow` for a node that sticks out of the frame, by its position or its width, or `clipped` for one an
+ancestor that hides overflow cuts off. It names the `node`, its `box`, the `container` it overflows (the clipping node,
+or the frame, which has no `node`) with that box, and the pixels past each edge in `overflow`. A node past a parent that
+doesn't clip, inside the frame, shows, so it isn't a problem; children going no further than a reported parent are left
+out.
+
+```js
+const id = CreateDesign({ name: "Checkout" })
+Insert(id, { type: "component", component: "Button", name: "Pay", props: { children: "Pay" } })
+// Each one, such as { kind: "frame-overflow", node: "pay", name: "Pay", box: { x: 340, y: 100, width: 60, height: 36 },
+// container: { box: { x: 0, y: 0, width: 390, height: 600 } }, overflow: { right: 10 }, problem: "at x 340, …" }
+for (const problem of await Problems(id, { mode: "shown" })) Print(problem.kind, problem.name, problem.overflow)
+const layout = await Measure(id)
+Print(
+  layout.state,
+  layout.mode,
+  layout.nodes.map((node) => `${node.id} in ${node.parent}`)
+)
+```
+
 `Accessibility` returns axe-core's findings per node and frame, with the rule, its impact and what's wrong.
 
 These frames are drawn in the same window as the canvas's: as wide as the frame, and as tall as the design's fixed

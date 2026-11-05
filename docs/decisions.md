@@ -1653,6 +1653,21 @@ recommended answer to each of its questions.
   for each frame. The render window starts each job's stylesheet from the compiled CSS and lays the set over it
   (`showTokenOverrides` in `renderer/guest.ts`), going back only when the set changed, so no frame inherits another's
   values, and an undone edit leaves nothing behind. The canvas's own stylesheet is still edited in place, as before.
+- **Problems reports where a node overflows, not only that it does** (PAR-456). Each measured node carries the node it's
+  drawn inside (`parent`), and Measure says which state and mode it drew. A layout finding names the node, what it
+  overflows and both boxes, and how far past each edge, in CSS pixels. Three cases are kept apart:
+  - **Clipped:** the nearest ancestor that hides overflow cuts part of it off. That ancestor is named, or given by its
+    box alone when it's an element outside the design's layers.
+  - **Frame overflow:** it reaches past the frame's left or right edge, or the bottom of a frame with a fixed height, by
+    its position as much as its width, so a 60px button at x 340 overflows a 375px frame.
+  - **Visible overflow** of a parent that doesn't clip, inside the frame, is drawn, so it's taken as intended (a badge
+    over a card's corner) and isn't reported.
+
+  Half a CSS pixel of overflow is allowed for subpixel layout, as before. A node that goes no further past the same
+  edges of the same container than an ancestor already reported is left out, so the finding is on the node to fix.
+  "Content is wider than the frame" now shows only when no node accounts for it. The old "wider than the frame" finding
+  on each node is replaced by frame overflow, which also catches a node pushed out by its position.
+
 - **The offscreen renderer closes when it's idle,** a minute after its last job, and the next job opens it again
   (CAN-83). Its page holds every module graph the project's guest imported, which a page can't unload, so it held 115 to
   215 MB for the whole session and grew each time a project reopened (452 MB after five). A job counts from when it's
