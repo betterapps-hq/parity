@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Compare the app's shadcn components with Buildkit's Base UI kit in Storybook",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

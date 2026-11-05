@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Undo takes back a whole drag, resize, scrub or run of arrow presses in one step, however slowly it was made",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
