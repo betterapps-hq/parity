@@ -49,6 +49,7 @@ import { getSnapMeasures, LayerSnapping } from "./layer-snap.ts"
 import { findLayer } from "./layers.ts"
 import { frameDrawn } from "./nudge.ts"
 import { editableText, hoverTarget, pickDeeper, pressTarget } from "./pick.ts"
+import { formatPx, type Redline, RedlineView } from "./Redline.tsx"
 import { edgeAxes, resizeGesture } from "./resize.ts"
 import { resizeCursors, ResizeHandles } from "./ResizeHandles.tsx"
 import { pressBackground } from "./select-box.ts"
@@ -60,17 +61,6 @@ interface Box {
   y: number
   w: number
   h: number
-}
-
-interface Redline {
-  x1: number
-  y1: number
-  x2: number
-  y2: number
-  /** Layout pixels, as the design sees them. */
-  px: number
-  /** The spacing step the distance comes to, when it's a whole or half step. */
-  steps?: number
 }
 
 /** Resize handles around a selected layer, or around each frame of a selected design. */
@@ -468,34 +458,6 @@ export function CanvasOverlay() {
         ))}
       {editing && <TextEditor key={`${editing.design}/${editing.node}`} />}
     </div>
-  )
-}
-
-function RedlineView({ line }: { line: Redline }) {
-  const horizontal = Math.abs(line.y2 - line.y1) < 0.5
-  const color = line.steps === undefined ? "oklch(0.64 0.21 25)" : "oklch(0.66 0.2 20)"
-  const box = horizontal
-    ? { left: Math.min(line.x1, line.x2), top: line.y1, width: Math.abs(line.x2 - line.x1), height: 1 }
-    : { left: line.x1, top: Math.min(line.y1, line.y2), width: 1, height: Math.abs(line.y2 - line.y1) }
-  const mid = { x: (line.x1 + line.x2) / 2, y: (line.y1 + line.y2) / 2 }
-  // The distance in pixels first, then the spacing token it matches, or a warning that it's off the scale.
-  return (
-    <>
-      <div className="absolute" style={{ ...box, background: color }} />
-      <div
-        className="absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-md bg-neutral-950 p-0.5 pl-1.5 text-[11px] whitespace-nowrap text-white tabular-nums shadow-lg ring-1 ring-white/10"
-        style={{ left: mid.x, top: mid.y }}
-      >
-        <span className="font-semibold">{formatPx(line.px)}px</span>
-        {line.steps === undefined ? (
-          <span className="rounded bg-red-500/90 px-1 font-medium">off scale</span>
-        ) : (
-          <span className="rounded px-1 font-mono" style={{ background: color }}>
-            spacing-{formatSteps(line.steps)}
-          </span>
-        )}
-      </div>
-    </>
   )
 }
 
@@ -1055,13 +1017,4 @@ function addText(session: ProjectSession, hit: Hit | undefined, point: Point): v
       .find((candidate) => candidate.type === "canvas-note" && candidate.props.key === key)
     if (shape) editor.setEditingShape(shape.id)
   }, 50)
-}
-
-function formatPx(value: number): string {
-  const rounded = Math.round(value * 10) / 10
-  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
-}
-
-function formatSteps(value: number): string {
-  return Number.isInteger(value) ? String(value) : value.toFixed(1)
 }
