@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Components that set their own size, and library parts whose examples give them no text, are inserted without their name cut off inside them",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

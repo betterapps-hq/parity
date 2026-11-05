@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Frames no longer pick up Parity's own CSS variables: a variable the project uses but never defines takes its fallback, as in Chrome",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
