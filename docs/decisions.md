@@ -738,10 +738,10 @@ recommended answer to each of its questions.
   included, and any lockfile name appearing in the folders `findLockfiles` searches (`lockfileFolders`,
   `changesLockfiles`), and reads props and the type check again a moment after one changes, so the answers match a
   project opened afresh. The saved detection needs nothing more: its fingerprint already changes with them.
-- **A config change sorts the app's sources again, as opening does.** My call (PAR-492): `rediscoveredSources` reads
-  every file the config includes now, and the files the list came from, through `filesChanged`, so components in files
-  it leaves out are removed, those in files it newly includes are added, and the rest keep their ids. Exports only the
-  type checker decided lose `as` and wait for it again, which the full type check that follows gives back, so the list
+- **A config change sorts the app's sources again, as opening does.** My call (PAR-492): `rediscoveredFiles` reads every
+  file the config includes now, and the files the list came from, through `filesChanged`, so components in files it
+  leaves out are removed, those in files it newly includes are added, and the rest keep their ids. Exports only the type
+  checker decided lose `as` and wait for it again, which the full type check that follows gives back, so the list
   matches a fresh open. Libraries' and workspace packages' components aren't touched, and the person's corrections are
   applied after, so an export they included stays even when its file is left out. The UI kit folder isn't looked for
   again; that still takes reopening.
@@ -3850,3 +3850,35 @@ gesture). My calls:
   Down in a field. A nudge run follows the selection while it lasts; a field's follows its `FieldTarget`.
 - **tldraw's own drag of a board stays tldraw's,** ending when tldraw stops translating, since tldraw follows that
   pointer, not Parity.
+
+## One step works out the component list (PAR-566)
+
+The order that keeps the component list current was written four times in the project service, and the copies disagreed.
+PAR-492 then added a fifth, for a config change. `nextComponentList` in `@parity-app/code` now takes the list and an
+event and returns the next list, and every path goes through it. My calls:
+
+- **Five events, not four.** Opening takes two: `discovered` gives discovery's list with the person's corrections, whose
+  fingerprint finds a saved detection, and `restored` takes that in. The rest are `checked`, `filesRead` and
+  `corrected`.
+- **A config change is a `filesRead` event.** `rediscoveredFiles`, which was `rediscoveredSources`, now returns the
+  files it read, every one the config includes and those the list came from, and the step sorts them as it does any
+  files read again (PAR-492).
+- **Every event applies the person's corrections last,** so they outlast each pass of detection, as before.
+- **Ids taken off the list are let go before new ones are given.** The whole-app check already did this. The check after
+  files changed added first, so a new component that took a removed id was deleted. That settles PAR-581's order;
+  PAR-581 still adds its test.
+- **The service keeps one list per project.** The project's info, the builder's start options and the service no longer
+  share one object changed in place. The info the windows get, and the options a restarted builder gets, are made from
+  the list when they're needed. A project's info now always carries `leftOut`, empty until the type checker has read the
+  app.
+- **What a guest is given and takes back is `guestChanges`, in core.** The windows can't load `@parity-app/code`, which
+  brings TypeScript and Node, and core already declares the `Guest` that does the giving. Each guest works it out from
+  what it last had: the canvas's from the list it last heard, the offscreen renderer's from each guest's last job. The
+  service doesn't send its own step's changes, since a window that reloads, or hears two changes out of order, would
+  drift from its guest. The offscreen renderer now gives a guest only what changed since its last job, rather than
+  everything every time, which the guest ignored anyway.
+- **After a type check, only the components it added or moved have their props read.** The check after files changed
+  used to read every component's props again, straight after the parse's pass had read them all.
+- **An export the person puts on the list shows at once,** before its file is read again. One they take back off waits
+  for the read, as before. PAR-604 is the case where it stays listed after that.
+- **The program cache stays in the app's worker for now.** Moving it into `@parity-app/code` is its own issue, PAR-603.
