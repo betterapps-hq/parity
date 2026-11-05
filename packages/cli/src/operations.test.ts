@@ -39,6 +39,27 @@ const consoleResult: ConsoleResponse = { ...consoleReply, total: 0, truncated: f
 const noTokens = { tokens: [], total: 0, truncated: false }
 const components: ComponentsResponse = { components: ["Button", "Card"] }
 const props: PropsResponse = { component: "Button", known: true, props: [] }
+const sidebar: PropsResponse = {
+  component: "nova/Sidebar",
+  path: "@buildkit/nova",
+  known: true,
+  props: [{ name: "collapsible", kind: "enum", group: "own", options: ["offcanvas", "icon", "none"] }],
+  composition: {
+    role: "wrapper",
+    parents: { status: "listed", chain: [{ component: "nova/SidebarProvider" }], from: "example" },
+    holds: ["nova/SidebarContent"],
+    slots: [{ name: "children", key: "children", kind: "children" }],
+    example: {
+      node: {
+        type: "component",
+        id: "p1",
+        component: "nova/SidebarProvider",
+        slots: { children: [{ type: "component", id: "p2", component: "nova/Sidebar" }] }
+      },
+      status: "drawn"
+    }
+  }
+}
 const status: StatusResponse = {
   tab,
   revision: "a1b2c3d4:3",
@@ -224,6 +245,17 @@ const cases: Case[] = [
     result: props,
     structured: props,
     text: describeProps(props)
+  },
+  {
+    name: "props with a composition",
+    cli: ["props", "nova/Sidebar"],
+    tool: "get_props",
+    method: "props",
+    input: { component: "nova/Sidebar" },
+    params: { component: "nova/Sidebar", all: false },
+    result: sidebar,
+    structured: sidebar,
+    text: describeProps(sidebar)
   }
 ]
 function expectedReply(text: string, structured: unknown, isError = false, images: Screenshot[] = []) {
@@ -772,6 +804,17 @@ describe("remaining transport contracts", () => {
           }
         })
       )
+  })
+
+  it("says in text what a component goes inside, with the example to insert", () => {
+    expect(describeProps(sidebar).split("\n").slice(-6, -1)).toEqual([
+      "It's a wrapper, which other parts go inside.",
+      "Goes inside, outermost first: nova/SidebarProvider (from its example)",
+      "Holds: nova/SidebarContent",
+      "Slots: children (children)",
+      "Example for Insert, drawn on the canvas:"
+    ])
+    expect(describeProps(sidebar)).toContain(JSON.stringify(sidebar.composition!.example.node))
   })
 
   // Every agent that loads Parity's tools pays for this list in its context, so it grows only on purpose (PAR-510).
