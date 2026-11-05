@@ -1654,7 +1654,11 @@ numbers. A component's number props take any number.
 
 - **What a field shows.** A length shows in pixels: a gap of 4 steps shows 16, with `px` after it, hidden while the
   field has focus. Hovering it gives its step (`Gap, spacing-4`). A length token shows its name, in a code font. When
-  the selected layers differ, the field shows the word Mixed, as text that can be typed after.
+  the selected layers differ, the field shows the word Mixed, as text that can be typed after. Values are in the panel's
+  12px text, as its labels and lists are.
+- **Width and Height show their whole value** (PAR-496). At the inspector's usual width and wider, the length has room
+  for four digits and `px` beside its Fixed, Fill or Hug list. Below that, from about 310 pixels down to the narrowest
+  260, the list goes under the length rather than squeezing it, so a 96 by 48 layer shows 96 and 48, not 9 and 4.
 - **What it reads.** A number; `px`, `rem` (16px) and `%`; maths with `+ - * /` (`×` and `÷` too) and brackets; for a
   length, a token's name (`container-sm` or `--container-sm`) or a step's (`spacing-4`). An empty field clears the
   property, as before. Typing 320 in Width gives 320px, kept as 80 steps (`w-80`), following the project's spacing unit:
@@ -1769,6 +1773,9 @@ Tests:
   state that sets its own width left alone, a later preview putting back what it doesn't change, taking it back exactly,
   settling for the change, and nothing written for no change.
 - `chrome/fields.stories.tsx`: a Length row in every look, and TypingMaths, SnappedToTheScale, CantRead and Stepping.
+- `chrome/StyleSections.stories.tsx`, SizeAtNarrowest and LargeSize (PAR-496): a 96 by 48 brand mark at the narrowest
+  inspector and a 1440 by 900 one at the usual width, each play function checking that Width and Height show the value
+  whole. Both fail on the layout before PAR-496.
 - `apps/desktop/e2e/fields.e2e.ts` (10), end to end on Pricing's Brand mark (PAR-202), the inspector's wiring against
   the real store and frames: 320 typed in Width drawn at each keystroke (4, 32 and 320px) while the design keeps its
   width, and Enter making 80 steps as one undo step, with the field focused and its text selected; `16px`; 281 landing
@@ -1781,8 +1788,8 @@ Tests:
 Gaps: the timings were measured by hand in an isolated copy of the app on 2026-10-29: typing 320 in Width previewed at
 each keystroke in 25, 25 and 41 ms (a commit took 291 ms to show before), and scrubbing in 22 ms. The stories' play
 functions weren't run in Storybook. A number prop's preview wasn't timed: it draws the component again, as a commit
-does. Params' number fields don't preview yet. In a 320px inspector, Width and Height show about three characters of
-what's typed (PAR-189).
+does. Params' number fields don't preview yet. Padding, Margin, Min, Max and an absolutely placed layer's insets, two
+lengths to a row, can still clip a value in an inspector narrower than its usual 320 pixels.
 
 ### One right edge in the inspector (PAR-552)
 
@@ -3071,7 +3078,7 @@ On first launch the installed app shows Home. Later launches restore the saved p
 the window was. Development can request an initial project through its runner. `workspace.test.ts` covers these startup
 choices (PAR-8, PAR-605).
 
-### The start page: Home and new tabs (PAR-605)
+### The start page: Home and new tabs (PAR-605, PAR-607)
 
 Home is pinned first in the tab strip, an icon that can't be closed, and shows whenever no tab is chosen. Alt+Home or
 View > Home goes there, and Ctrl+Tab goes round with Home first. The strip's +, Ctrl+T and File > New tab open a new tab
@@ -3087,21 +3094,48 @@ at the end of the strip. Both are the start page from the explorations (decision
   offers to continue.
 - **Opening from a new tab uses that tab.** A project already open elsewhere is switched to, and the new tab closes.
 - **Search is Ctrl+K,** which lists your projects as well as actions: first on Home and in a new tab, last in a project.
-- **Stubs:** pictures are placeholders in a color of each project's own; For you and Shared with you are empty; New
-  project, New project from this, cloning, Copy link, Invite people and New organization show a toast saying they aren't
-  ready yet. New project's toast also offers Open a folder.
+- **A project's picture is its canvas as last saved (PAR-607).** It shows the project's first screens as the canvas drew
+  them, each its main frame with the phone frame beside it where its board shows one, each frame the shape of its
+  window, or shorter where the frame is. Moving the pointer across a card flips through them, naming each; Home's
+  Continue picture names the frames above them, as the canvas does. Up to five screens are pictured: those with a phone
+  frame beside them first, then the rest, each in Layers' order; components and frames aren't. A project not opened
+  since shows a placeholder, a board and a phone in a color of its own with its initial.
+  - **When it's taken:** two seconds after the project opens and after each save, once the canvas has drawn the frames
+    and has every bitmap it's waiting for, from those bitmaps; no frame is drawn again for it. A run of saves takes one.
+    Edits not saved yet are never pictured: a picture that would show them waits for the next save.
+  - **Where it's kept:** in Parity's app data, in `pictures`, one file per project with each frame cut to the top of its
+    window, about 70 KB for the example's five screens. Clear bitmap cache leaves them. A project's picture goes when
+    the start page stops listing it.
+- **Stubs:** For you and Shared with you are empty; New project, New project from this, cloning, Copy link, Invite
+  people and New organization show a toast saying they aren't ready yet. New project's toast also offers Open a folder.
 
 Code: `apps/desktop/src/renderer/start/` (`HomePage.tsx`, `NewTabPage.tsx`, `ProjectList.tsx`, `ProjectCard.tsx`,
 `StartControls.tsx`, and `projects.ts` for what's listed and how times read); `workspace.ts` keeps Home, new tabs and
 each project's notes; `chrome/TabBar.tsx` draws the Home tab and the + button; `chrome/ActionsSearch.tsx` lists the
-projects.
+projects. Pictures: `start/ProjectArt.tsx` draws one, `start/pictures.ts` reads them for the page, and
+`start/picture-screens.ts` (`picturedScreens`, `isPhone`) picks the screens and frames; `renderer/project-picture.ts`
+(`keepProjectPicture`, started by `ProjectView.tsx`) takes them, from `useFirstRowFrame`, `firstRowFrame` and
+`frameBitmap` in `canvas/frame-bitmaps.ts`; the service keeps them in `utility/pictures.ts`, cut by `topOfPicture` in
+`utility/webp.ts`, through the `pictures.store`, `pictures.read` and `pictures.keepOnly` handlers in `utility/index.ts`,
+in the folder main names as `PARITY_PICTURE_DIR`.
 
 Tests: `start/projects.test.ts` (8: the order recent and starred projects list in, each scope, the times from minutes to
-another year, the picture's hue, folder names) and `workspace.test.ts`'s "Home and new tabs" (7) and "starting the
-workspace" (Home on a fresh install, and staying there). Stories: Parity/Start page (Home, the first time, Starred,
-Shared with you, a project's menu, New project, Open, a new tab), Parity/App's On Home, New tab, No project open and
-Nothing opened yet, and the tab bar's On Home, With new tab and New tab tooltip. Gaps: no end-to-end test drives Home or
-a new tab yet; `reopening.e2e.ts` opens the project again with Home's Resume.
+another year, the picture's hue, folder names) and `workspace.test.ts`'s "Home and new tabs" (8, with a project's
+picture let go once it isn't listed) and "starting the workspace" (Home on a fresh install, and staying there).
+`start/picture-screens.test.ts` (4: screens with a phone frame first, then the rest, in Layers' order; no components or
+frames, and no more than the most; no second phone beside a phone; a phone by its device or its width) and
+`utility/pictures.test.ts` (6: a picture kept with each frame cut to its window and read back; the latest in place of
+the one before; projects with none, or a file that can't be read, left out; a kept frame that isn't an image refused;
+the pictures of projects no longer listed let go, and partial files only once old; nothing kept without a folder).
+Stories: Parity/Start page (Home, a card flipping through screens, which plays, Home without pictures, the first time,
+Starred, Shared with you, a project's menu, New project, Open, a new tab), with the example project's pictures,
+Parity/App's On Home, New tab, No project open and Nothing opened yet, and the tab bar's On Home, With new tab and New
+tab tooltip. Gaps: no end-to-end test drives Home or a new tab yet; `reopening.e2e.ts` opens the project again with
+Home's Resume. Taking a picture, which waits on the canvas, has no test of its own: it was checked in `pnpm dev` on
+2026-11-05, where opening the example kept its five screens (72 KB), Home showed Team members with Mobile Light, moving
+across its card flipped through Team members, Sign in and Pricing, and Team members' main frame set to Desktop Dark and
+saved with Ctrl+S showed dark on the card once taken again; chakra's Home screen, shorter than its window, was drawn as
+tall as its content.
 
 ### A project with no Parity file opens on a Home screen (PAR-561)
 

@@ -372,6 +372,11 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
     case "frames.stored":
       // No bitmap kept, as on a first launch: a frame that sleeps draws first, or waits on its placeholder.
       return {}
+    case "pictures.store":
+      return params.picture
+    case "pictures.read":
+      // No project's picture kept, as on a first launch: the start page shows placeholders.
+      return {}
     default:
       return undefined
   }
