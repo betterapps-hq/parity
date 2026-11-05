@@ -9,7 +9,7 @@ import { type Design, FramesWorkspace, type Start } from "./workspace.tsx"
  * Frames, the light weight beside screens and components (docs/proposals/new-user-experience.md, "Three weights" and
  * "Making something is always one visible step"). A frame is drawn once, at its own size, in the primary mode: no
  * states, no previews in other modes, and never written to code. It holds anything a screen holds, and becomes a
- * component or a screen when it's ready. The frame tool (F) draws one, T on the empty canvas makes text in one, and
+ * component or a screen when it's ready. The frame tool (F) draws one, T in empty space on the canvas makes text in one, and
  * notes get a tool of their own.
  *
  * Every story is the same canvas, started in a different place, and all of it works: click a design or its row in
@@ -83,6 +83,9 @@ const plansText: Design = {
   modes: []
 }
 
+/** Pricing off to the left, as a project opens on a screen, leaving empty space to its right at 100%. */
+const besidePricing: Design = { ...pricing, x: -1900, y: -200 }
+
 /** The canvas element, which takes the pointer for the tools. */
 function canvasOf(canvasElement: HTMLElement): HTMLElement {
   return within(canvasElement).getByRole("application", { name: "Canvas" })
@@ -146,7 +149,7 @@ export const Titles: Story = {
 
 /**
  * Click a design, on the canvas or in Layers, and the inspector follows: Plan card's kind and params, from the
- * example's real component. A click on the empty canvas selects nothing again.
+ * example's real component. A click on empty space selects nothing again.
  */
 export const ClickToSelect: Story = {
   render: workspace({ designs: [pricing, planCard, welcome], zoom: 0.35, pan: { x: 48, y: 120 } }),
@@ -272,36 +275,36 @@ export const FrameMenu: Story = {
   }
 }
 
-// Text and notes on the empty canvas
+// Text and notes in empty space
 
 /**
- * T, then a click on the empty canvas: a text layer, being typed, in a frame that hugs it. The frame is named after
+ * T, then a click in empty space beside a screen: a text layer, being typed, in a frame that hugs it. The frame is named after
  * its text, never "Pasted", and it's a frame like any other, so the text has styles and can be built on.
  */
 export const TextOnTheEmptyCanvas: Story = {
   render: workspace({
-    designs: [plansText],
+    designs: [besidePricing, plansText],
     selected: "plans-text",
     editing: "plans-text",
     zoom: 1,
-    pan: { x: 420, y: 300 },
+    pan: { x: 560, y: 300 },
     overlay: (
       <Explainer title="Text makes a frame">
-        On the empty canvas, Text makes a text layer in a frame that hugs it, as a layout, an image or a paste make a
-        frame there too.
+        In empty space, Text makes a text layer in a frame that hugs it, as a layout, an image or a paste make a frame
+        there too.
       </Explainer>
     )
   })
 }
 
-/** T, a click and some typing: the frame takes the text's name as it's typed, in Layers and the inspector. */
+/** T, a click in empty space and some typing: the frame takes the text's name as it's typed, in Layers and the inspector. */
 export const TypeOnTheEmptyCanvas: Story = {
-  render: workspace({ designs: [], zoom: 1 }),
+  render: workspace({ designs: [besidePricing], zoom: 1, pan: { x: 560, y: 300 } }),
   play: async ({ canvasElement }) => {
     const canvas = canvasOf(canvasElement)
     await userEvent.keyboard("t")
     const box = canvas.getBoundingClientRect()
-    await fireEvent.pointerDown(canvas, { clientX: box.left + 300, clientY: box.top + 300, pointerId: 1, button: 0 })
+    await fireEvent.pointerDown(canvas, { clientX: box.left + 700, clientY: box.top + 300, pointerId: 1, button: 0 })
     await userEvent.keyboard("Hello there")
     await expect(await within(layersOf(canvasElement)).findByRole("button", { name: "Hello there" })).toBeVisible()
   }
@@ -312,7 +315,12 @@ export const TypeOnTheEmptyCanvas: Story = {
  * fill. Enter types into it again.
  */
 export const TextFrameSelected: Story = {
-  render: workspace({ designs: [plansText], selected: "plans-text", zoom: 1, pan: { x: 200, y: 300 } })
+  render: workspace({
+    designs: [besidePricing, plansText],
+    selected: "plans-text",
+    zoom: 1,
+    pan: { x: 560, y: 300 }
+  })
 }
 
 /**
