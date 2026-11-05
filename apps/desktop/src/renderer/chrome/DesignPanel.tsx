@@ -37,10 +37,7 @@ export function DesignTab() {
   return (
     <FieldTarget value={selectionKey(selected)}>
       <FirstStateName value={entry?.container.states[0]?.name ?? "Default"}>
-        {/* A gutter beside every row for a field's reset arrow, so the rows end at one edge (see `panelEnd`). */}
-        <div className="[--reset-gutter:1.75rem]">
-          <SelectedPanel />
-        </div>
+        <SelectedPanel />
       </FirstStateName>
     </FieldTarget>
   )

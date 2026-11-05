@@ -10,11 +10,8 @@ interface PanelSectionProps {
   children: ReactNode
 }
 
-/**
- * The right padding of the inspector's sections and headers: 12px, and the reset gutter the Design tab sets beside it
- * (`--reset-gutter`), where a field's reset arrow sits. So inputs, bars, buttons and section actions end at one edge.
- */
-export const panelEnd = "pr-[calc(0.75rem+var(--reset-gutter,0px))]"
+/** The right padding of the inspector's sections and headers, so inputs, bars, buttons and section actions end at one edge. */
+export const panelEnd = "pr-3"
 
 export function PanelSection({ title, count, description, action, children }: PanelSectionProps) {
   return (

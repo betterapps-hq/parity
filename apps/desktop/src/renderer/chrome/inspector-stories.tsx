@@ -35,10 +35,7 @@ export function InspectorStage({ children }: { children: ReactNode }) {
 /** One section of the panel on its own, as wide and scrolling as the inspector's content. */
 export function PanelColumn({ children, width = 320 }: { children: ReactNode; width?: number }) {
   return (
-    <aside
-      className="flex min-h-0 shrink-0 flex-col overflow-x-hidden overflow-y-auto border-l [--reset-gutter:1.75rem]"
-      style={{ width }}
-    >
+    <aside className="flex min-h-0 shrink-0 flex-col overflow-x-hidden overflow-y-auto border-l" style={{ width }}>
       {children}
     </aside>
   )

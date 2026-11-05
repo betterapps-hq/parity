@@ -3361,13 +3361,13 @@ Seen in review, for PAR-547 to weigh: a screen's own sections now start below si
 Plan card's panel; and at the inspector's default 320px the shipped padding and minimum height fields cut off values
 such as 64 and 800, which are now among the first fields a person sees.
 
-## The inspector keeps a gutter for reset arrows (PAR-552)
+## The inspector's rows run to its edge, with reset arrows by the label (PAR-552)
 
 Called on 2026-11-04 after you noticed the inspector's inputs stopped short of the right edge while bars, buttons and
-headers ran to it: everything in the Design tab now ends where the inputs end, and a field's reset arrow sits outside
-that edge in a gutter of its own, rather than inputs growing into the arrow's slot with the arrow floating inside the
-field. An input keeps its width whether or not it can be reset, and the arrow never covers what's typed. For your
-approval in the pull request's Storybook preview.
+headers ran to it, and then asked for everything to reach further rather than stop where the inputs did: every row in
+the Design tab now runs to the panel's padding, and a field's reset arrow sits right after its label instead of in a
+slot beside the input. An input keeps its width whether or not it can be reset, and the arrow never covers what's typed;
+a long label truncates a little sooner while the arrow shows. For your approval in the pull request's Storybook preview.
 
 ## The app runs on Buildkit's Base UI Nova (PAR-549)
 

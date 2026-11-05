@@ -134,40 +134,42 @@ export function Field({ label, hint, changed, mixed = false, onReset, children }
   }, [])
   return (
     <div className="grid min-h-8 grid-cols-[88px_1fr] items-center gap-2">
-      <Hint
-        label={changed ? `${label}: changed in this state` : label}
-        detail={[mixed && "Different across the selected layers", hint, scrub && "Drag to change it"]
-          .filter(Boolean)
-          .join("\n")}
-        wait
-      >
-        <span
-          className={`truncate text-xs text-muted-foreground ${scrub ? "cursor-ew-resize touch-none select-none" : ""}`}
-          style={changed ? { color: kindColors.agent } : undefined}
-          onPointerDown={scrub}
+      <div className="flex min-w-0 items-center gap-0.5">
+        <Hint
+          label={changed ? `${label}: changed in this state` : label}
+          detail={[mixed && "Different across the selected layers", hint, scrub && "Drag to change it"]
+            .filter(Boolean)
+            .join("\n")}
+          wait
         >
-          {label}
-        </span>
-      </Hint>
-      {/* The reset arrow sits outside the control, in the gutter the inspector keeps beside every row (see `panelEnd`). */}
-      <div className="relative min-w-0">
-        <ScrubContext value={register}>
-          <MessageContext value={say}>
-            <MixedContext value={mixed}>{children}</MixedContext>
-          </MessageContext>
-        </ScrubContext>
+          <span
+            className={`truncate text-xs text-muted-foreground ${scrub ? "cursor-ew-resize touch-none select-none" : ""}`}
+            style={changed ? { color: kindColors.agent } : undefined}
+            onPointerDown={scrub}
+          >
+            {label}
+          </span>
+        </Hint>
+        {/* The reset arrow sits beside the label, so the control keeps the row's full width whether or not it can be reset. */}
         {changed && onReset && (
           <Hint label={`Reset to ${firstState}`}>
             <button
               type="button"
               onClick={onReset}
-              className="absolute top-1/2 left-full ml-2 grid size-5 -translate-y-1/2 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
+              className="grid size-5 shrink-0 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
               aria-label={`Reset ${label} to ${firstState}`}
             >
               <RotateCcw className="size-3" />
             </button>
           </Hint>
         )}
+      </div>
+      <div className="min-w-0">
+        <ScrubContext value={register}>
+          <MessageContext value={say}>
+            <MixedContext value={mixed}>{children}</MixedContext>
+          </MessageContext>
+        </ScrubContext>
       </div>
       {messages.size > 0 && (
         <div className="col-start-2 -mt-1 flex flex-col gap-0.5 pb-1">
