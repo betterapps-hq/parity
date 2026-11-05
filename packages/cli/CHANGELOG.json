@@ -2,6 +2,21 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Thu, 05 Nov 2026 23:00:05 GMT",
+      "version": "0.7.1",
+      "tag": "@parity-app/cli_v0.7.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "f1d2fcc0a8672ed8370ccb39192483416368958a",
+            "comment": "Component previews draw dialogs, popovers, menus and closed content open, and say when a component draws nothing of its own"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 05 Nov 2026 22:43:16 GMT",
       "version": "0.7.0",
       "tag": "@parity-app/cli_v0.7.0",

@@ -1,8 +1,17 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Thu, 05 Nov 2026 22:43:16 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 05 Nov 2026 23:00:05 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.7.1
+
+Thu, 05 Nov 2026 23:00:05 GMT
+
+### Patches
+
+- Component previews draw dialogs, popovers, menus and closed content open, and say when a component draws nothing of
+  its own (ajcraswell@gmail.com)
 
 ## 0.7.0
 
