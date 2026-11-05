@@ -4043,3 +4043,23 @@ project's discovery, libgen, the Tailwind adapter and `parity lib check`, and th
   so it's found as any package's stylesheet is.
 - **PAR-587's case now works.** A library's components come from its declarations found in `exports` too, so a package
   whose types are only there lists them. PAR-587 adds its test.
+
+## Parity's own telemetry goes to Sentry, on by default
+
+The plan is [proposals/product-telemetry.md](proposals/product-telemetry.md), and the work is the Product telemetry
+stream in Linear. You set its direction on 2026-11-05, after a first draft that kept everything local unless people
+opted in: "we actually need to log the telemetry to the Sentry service. The app is still in development and not
+released, so all of our testers expect to have the telemetry collected. Mostly it's agents running test passes, so we
+need to default on." The aim is that agents "capture traces and replays so the agents can file bugs, pick them up, and
+address issues with actual context."
+
+- **Sentry receives it:** errors, crashes, traces, structured events and replays, through `@sentry/electron` in the app
+  and `@sentry/node` in the CLI. Adding both is approved with this direction.
+- **On by default, at its fullest level, everywhere Parity runs,** development and CI included, each tagged with its
+  environment. Settings and `PARITY_TELEMETRY` turn it down or off; unit tests leave it off.
+- **Names, paths, values and messages are sent as written.** My call: secrets are still scrubbed (keys, tokens,
+  passwords, `.env` values), since a leaked key is never what makes a bug findable.
+- **Session Replay records the editor window unmasked,** every session while testers and agents are few.
+- **The CLI sends too, at the same level, read from the same setting.** My call, since agents drive Parity through it
+  and their calls are half of each trace.
+- **All of this is revisited before the first public release,** in its own Backlog issue.
