@@ -193,6 +193,22 @@ still need your call.
   layout of the design under the pointer, in the slot there, or at the pointer in an absolutely placed one, in half
   steps of the spacing scale. It never pastes into a layout inside an instance. Select layer lists the design first,
   then every layer under the pointer, those inside instances included.
+- **A component's slot is a Paste here target like a layout** (PAR-419), and so for dropped files and components from
+  the panel, which share `measureHere`. My calls: a slot is under the pointer when the element its layers are drawn in
+  is, since only the component knows where it draws a slot, so a slot with no layers yet isn't a target and the copy
+  goes to the layout around the component; the slot of the layer under the pointer is tried first; and a slot is never
+  absolutely placed, whatever the component's own position, so copies go in its flow. A dragged layer still doesn't drop
+  into a slot.
+- **A stretched copy pasted at the pointer keeps its far insets** (PAR-419). My call: a copy with a left and a right and
+  no width keeps its right, and one with a top and a bottom and no height its bottom, so it still reaches that edge; its
+  left and top go to the pointer as before. A copy with a width drops its right, as CSS ignores it then.
+- **A right-click on the canvas while its menu is open opens it again there** (PAR-419), as Figma does; off the canvas
+  it only closes it. My call: Base UI's menu lays a backdrop over the page while it's open, so the menu cancels the
+  close for that press and, on release, sends the canvas under the backdrop the `contextmenu` tldraw would have, rather
+  than being made non-modal, which would let a left click outside the menu act on the canvas as well as close it.
+- **The menubar greys what the canvas menu greys for layers inside an instance** (PAR-419): Copy, Duplicate, the order,
+  Wrap in layout and Hide or show, through one rule (`layerCommands`), and their keys do nothing then. Cut and Delete,
+  which the canvas menu doesn't have, are unchanged.
 
 ## Canvas
 
@@ -447,7 +463,21 @@ still need your call.
   focus with the text selected, and Escape reverts and leaves. A value changing underneath doesn't touch what's being
   typed.
 - **The canvas previews a field's edit as inline styles on the frames already drawn,** not through the store, so typing
-  shows in about 25 ms and commits as one undo step. Number props don't preview yet (PAR-203).
+  shows in about 25 ms and commits as one undo step.
+- **A number prop previews by being made in the design and taken back,** since the component has to draw again for it
+  (PAR-203). My call: the preview is a change in a gesture of its own, reverted to its checkpoint before the next
+  keystroke and on Escape, as a resize writes as the pointer moves, rather than a second source of designs for the
+  frames to draw beside the store. So while it shows, the panels, agents and, with automatic saving on, the file see it,
+  as they see a resize in progress; taking it back leaves nothing to undo, and making it is one undo step. Edits work
+  from the value as it was before the preview.
+- **Opacity takes whole percentages** (PAR-203). My call, of the two the issue offered: a typed fraction is rounded to
+  the nearest whole percentage and the field says so ("Rounded to 33%: it takes whole percentages"), as a count's is,
+  rather than keeping the fraction and naming what it shows. It's the same code path counts already had, and the field
+  shows two decimals, so `100/3` would have kept 33.333… behind a 33.33. An opacity already off a whole percentage stays
+  as it is until it's edited.
+- **The example's code field takes `value`, not `defaultValue`** (PAR-203). input-otp, under nova's InputOTP, reads
+  `defaultValue` for itself but also passes it to its input beside its own `value`, which React warned about in
+  development. Verify email's code is now fixed at 482913 (482931 in Wrong code), so in Interact it can't be typed over.
 - **The field parser is in `@parity-app/core`** until `@parity-app/editor` exists (PAR-7).
 - **A dragged layer stays in its own layout while the pointer is over that layout** (CAN-47): it changes places with its
   neighbours and never drops into one of them, so cards and bars that are layouts themselves don't swallow the neighbour
@@ -554,6 +584,12 @@ section has the details. The user asked for "variants, instance overrides and th
   patch's values: agents' `Update` already reads `null` as "take back this change", and a prop can be `null` on purpose,
   so a list says it apart from both. Paste style in a state takes away what the copy doesn't set, so it replaces the
   look there as it does in the base, and the inspector marks a value taken away as changed, with Reset.
+- **Clearing a prop in a state takes it away there (PAR-421):** a switch back to its default, emptied text or a removed
+  attribute is the prop taken away in the state being edited, not the state's change taken back, so a prop the design
+  turns on can be off in one state. Reset is how to take the change back. My call over writing the default's value
+  (`false`) into the state: a prop's declared default isn't always known, and taking the prop away shows what the
+  component does without it, as clearing does in the base. An attribute taken away stays listed in the props, so it can
+  be set again or reset.
 - **The variant grid shows each variant on its own, plus combinations someone pins.** You chose this on 2026-10-28 over
   every combination, which multiplies fast.
 - **A component design in `.par` stays the source, linked to a real component file.** You set the direction on
@@ -3272,6 +3308,30 @@ frames show a skeleton loader until their image loads. My calls:
   edits aren't captured at every step, and nothing is being edited in a frame that hasn't drawn.
 - **`pnpm perf` counts a frame as shown once it's asleep,** which is when it shows its bitmap or its placeholder, and
   still times every bitmap separately.
+
+## Frame bitmaps and component previews are kept as lossless WebP (PAR-535)
+
+Kept bitmaps were PNGs as Electron's `capturePage` writes them, about 7.6 KB each on the example project. You asked to
+keep these files small, so Parity doesn't fill people's disks with images, and to keep them lossless. My calls, and
+yours:
+
+- **Lossless WebP, encoded with sharp (your call), in the project service.** On the example's 119 bitmaps, libwebp's
+  lossless mode made 562 KB of 908 KB, the same pixels. Re-compressing the PNGs with zlib at its best gained nothing
+  (929 KB), and Chromium's own WebP encoder, lossless at full quality, wrote 957 KB. Lossy WebP would be smaller still
+  but isn't what you asked for. Encoding runs in the service, off main's thread, where a capture's PNG already passes.
+- **The canvas is given the WebP, not the PNG,** so the window reads, holds and decodes the smaller file, and what it
+  shows is what's kept.
+- **The frame's height stays inside the file,** in a chunk of its own after the image (`withWebpText`), as it was in the
+  PNG's text chunk, so each bitmap is still one file for the cache's sweeping and partial-file handling. A plain WebP
+  has only its image, so the extended header goes in front first, which the format requires.
+- **The PNGs kept before aren't read.** Bitmaps are named `.webp` now, so the old files are never found and go with the
+  cache's 30-day and 200 MB sweeps, as earlier format changes did; the PNG text helper is gone.
+- **sharp ships beside the service, unpacked,** since it loads its prebuilt libvips at runtime. The build copies it and
+  the packages installed with it, its binaries for the system building, and on macOS also fetches the other
+  architecture's from npm, since one Mac build packages both. The build then loads the shipped sharp in Parity's
+  Electron and encodes a WebP, and fails if it can't, so each platform's installer is checked as it's made; the other
+  Mac architecture's binaries are checked to be there. A system where it can't load keeps nothing rather than failing,
+  and captures each session.
 
 ## A screen is its own container (PAR-542)
 

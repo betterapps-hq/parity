@@ -15,6 +15,7 @@ import type { ComponentPreview, PreviewJob } from "../shared/protocol.ts"
 import { previewIndex, storedPreview, storePreview } from "./bitmap-store.ts"
 import { codeServedAt, previewProject } from "./projects.ts"
 import { renderPreview } from "./render.ts"
+import { losslessWebp } from "./webp.ts"
 
 /**
  * Component previews (PAR-207): pictures of what inserting a component would place, made in the offscreen window behind
@@ -70,7 +71,11 @@ async function make(
     return { component, key, error: drawn.error }
   }
   const { thumb, large, width, height } = drawn.pictures
-  const pictures = { thumb: Buffer.from(thumb, "base64"), large: Buffer.from(large, "base64") }
+  // Kept as lossless WebP, as frame bitmaps are (PAR-535).
+  const [thumbWebp, largeWebp] = await Promise.all(
+    [thumb, large].map((picture) => losslessWebp(Buffer.from(picture, "base64")))
+  )
+  const pictures = { thumb: thumbWebp!, large: largeWebp! }
   const image = await storePreview(job.projectId, component, { key }, pictures, { width, height })
   const bytes = pictures.thumb.length + pictures.large.length
   console.log(

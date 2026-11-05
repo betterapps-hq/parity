@@ -1,6 +1,6 @@
 {
   "type": "patch",
-  "comment": "Box a component that draws only text by its text, so it can be hovered, picked and sized on the canvas",
+  "comment": "Turn a prop off in one state when the base design has it on, and reset it from the inspector",
   "packageName": "@parity-app/cli",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "patch"

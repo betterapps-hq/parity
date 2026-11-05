@@ -1,5 +1,6 @@
 import { selectedDesigns, selectedNodes } from "../selection.ts"
 import { openDialog } from "./app-dialogs.ts"
+import { type LayerCommand, layerCommands } from "./canvas-menu.ts"
 import {
   activeSession,
   alignSelection,
@@ -85,6 +86,13 @@ const designs = () => {
 const hasLayer = () => layers() > 0
 const hasDesigns = () => (activeSession()?.store.getEntries().length ?? 0) > 0
 const oneLayer = () => layers() === 1
+/** Whether a command that copies, moves or changes layers can act on the selected ones, as the canvas menu says. */
+const can = (command: LayerCommand) => {
+  const session = activeSession()
+  const selection = session?.selection.get()
+  const root = selection?.design ? session?.store.getEntry(selection.design)?.container.root : undefined
+  return !!selection && layerCommands(selection, root)[command]
+}
 const alignable = () => layers() > 0 || designs() > 1
 const tool = (name: "select" | "hand" | "text" | "interact"): Action => ({
   run: () => activeSession()?.selection.setTool(name),
@@ -111,27 +119,27 @@ export const actions: Record<Command, Action> = {
   undo: { run: () => undo(), available: () => !!activeSession()?.store.getHistory().canUndo },
   redo: { run: () => redo(), available: () => !!activeSession()?.store.getHistory().canRedo },
   cut: { run: () => cut(), available: hasSomething },
-  copy: { run: () => copy(), available: hasSomething },
+  copy: { run: () => copy(), available: () => (hasLayer() ? can("copy") : hasSomething()) },
   paste: { run: () => paste(), available: hasSession },
   pasteOver: { run: () => pasteOver(), available: () => hasLayer() || designs() > 0 },
   pasteReplace: { run: () => pasteReplace(), available: hasLayer },
-  duplicate: { run: () => duplicateSelection(), available: hasDesign },
+  duplicate: { run: () => duplicateSelection(), available: () => (hasLayer() ? can("duplicate") : hasDesign()) },
   delete: { run: () => deleteSelection(), available: hasSomething },
   copyStyle: { run: () => copySelectionStyle(), available: hasLayer },
   pasteStyle: { run: () => pasteSelectionStyle(), available: hasLayer },
   rename: { run: () => renameSelection(), available: hasDesign },
 
   insert: { run: openQuickInsert, available: hasSession },
-  wrap: { run: () => wrapSelection(), available: hasLayer },
+  wrap: { run: () => wrapSelection(), available: () => can("wrap") },
   unwrap: { run: () => unwrapSelection(), available: oneLayer },
   makeComponent: { run: () => makeComponent(), available: () => !!selectedDesign() || !!selectedOwnLayer() },
   goToMain: { run: () => goToMainComponent(), available: () => !!selectedInstance() },
   detach: { run: () => detachSelection(), available: () => !!selectedInstance() },
-  bringForward: { run: () => orderSelection("forward"), available: oneLayer },
-  sendBackward: { run: () => orderSelection("backward"), available: oneLayer },
-  bringToFront: { run: () => orderSelection("front"), available: oneLayer },
-  sendToBack: { run: () => orderSelection("back"), available: oneLayer },
-  hide: { run: () => hideSelection(), available: hasLayer },
+  bringForward: { run: () => orderSelection("forward"), available: () => can("order") },
+  sendBackward: { run: () => orderSelection("backward"), available: () => can("order") },
+  bringToFront: { run: () => orderSelection("front"), available: () => can("order") },
+  sendToBack: { run: () => orderSelection("back"), available: () => can("order") },
+  hide: { run: () => hideSelection(), available: () => can("hide") },
 
   alignLeft: { run: () => alignSelection("left"), available: alignable },
   alignCenter: { run: () => alignSelection("center"), available: alignable },

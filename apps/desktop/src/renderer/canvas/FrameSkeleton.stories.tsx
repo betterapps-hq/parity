@@ -89,7 +89,7 @@ export const Swap: Story = onCanvas(
         let bitmap = signInBitmaps["desktop-light"]
         if (job.mode.width < 768) bitmap = signInBitmaps.mobile
         else if (job.mode.classNames.includes("dark")) bitmap = signInBitmaps["desktop-dark"]
-        return { png: bitmap.split(",")[1] }
+        return { src: bitmap }
       }
     }),
   () => zoomOut(["Settings", "Sign in"])

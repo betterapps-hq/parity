@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, rm, utimes, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { type CodeSnapshot, codeSnapshot } from "@parity-app/project"
+import sharp from "sharp"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { PreviewJob, RenderJob } from "../shared/protocol.ts"
 import type * as Previews from "./previews.ts"
@@ -39,17 +40,17 @@ vi.mock("./render.ts", () => ({
 let store: string
 let previews: typeof Previews
 
-/** The image the offscreen window gives: not a real picture, but with a PNG's header, which the store reads. */
-function picture(width: number, height: number): string {
-  const header = Buffer.alloc(24)
-  header.write("IHDR", 12, "latin1")
-  header.writeUInt32BE(width, 16)
-  header.writeUInt32BE(height, 20)
-  return header.toString("base64")
+/** A PNG the offscreen window gives, of a size, as base64; the store keeps it as a WebP. */
+async function picture(width: number, height: number): Promise<string> {
+  const png = await sharp({ create: { width, height, channels: 3, background: "#ffffff" } })
+    .png()
+    .toBuffer()
+  return png.toString("base64")
 }
 
-const drawn = () =>
-  Promise.resolve({ pictures: { thumb: picture(240, 40), large: picture(600, 100), width: 600, height: 100 } })
+const drawn = async () => ({
+  pictures: { thumb: await picture(240, 40), large: await picture(600, 100), width: 600, height: 100 }
+})
 
 async function write(path: string, contents: string): Promise<void> {
   await mkdir(dirname(join(open.root, path)), { recursive: true })

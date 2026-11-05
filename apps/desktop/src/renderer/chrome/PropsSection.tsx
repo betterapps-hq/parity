@@ -20,7 +20,15 @@ import {
 } from "@parity-app/core"
 import { Plus, X } from "lucide-react"
 import { type ReactNode, useState } from "react"
-import { ChoiceInput, Field, NumberInput, numberRules, SwitchInput, TextInput, ValueInput } from "./fields.tsx"
+import {
+  ChoiceInput,
+  Field,
+  type NumberPreview,
+  NumberValueInput,
+  SwitchInput,
+  TextInput,
+  ValueInput
+} from "./fields.tsx"
 import { PanelSection } from "./PanelSection.tsx"
 import { parseLooseValue, valueKind } from "./prop-values.ts"
 
@@ -29,8 +37,14 @@ interface PropsSectionProps {
   /** What the component accepts, when its source could be read. */
   info: ComponentInfo | undefined
   changed: (name: string) => boolean
+  /** Props the state being edited takes away, still listed so they can be set or reset there. */
+  taken?: readonly string[]
   /** Sets a prop, as part of a gesture's one undo step when given (a number field's run of Up and Down presses). */
   onChange: (name: string, value: unknown, gesture?: string) => void
+  /** Shows a number prop on the canvas while it's typed or scrubbed, before it's made. */
+  onPreview?: (name: string, value: number | undefined) => void
+  /** Takes the preview back. */
+  onCancel?: () => void
   onReset: (name: string) => void
 }
 
@@ -41,11 +55,25 @@ const groupTitles = { html: "Attributes", aria: "Accessibility", event: "Events"
  * shows its default when unset. Attributes it passes to its element are added one at a time from a searchable list.
  * Node props, `children` and a Fluent slot alike, take text or say they're set in layers (see `propsPanel`).
  */
-export function PropsSection({ node, info, changed, onChange, onReset }: PropsSectionProps) {
+export function PropsSection({
+  node,
+  info,
+  changed,
+  taken = [],
+  onChange,
+  onPreview,
+  onCancel,
+  onReset
+}: PropsSectionProps) {
   const values = node.props ?? {}
   const known = new Map((info?.props ?? []).map((prop) => [prop.name, prop]))
-  // Variants and own props always show; pass-through attributes only once set.
-  const { main, extra, addable, inSlot } = propsPanel(info, node)
+  // Variants and own props always show; pass-through attributes only once set, or taken away in this state.
+  const panel = propsPanel(info, node)
+  const { main, addable, inSlot } = panel
+  const listed = new Set([...main.map((prop) => prop.name), ...panel.extra])
+  const extra = [...panel.extra, ...taken.filter((name) => !listed.has(name))]
+  const preview = (name: string): NumberPreview | undefined =>
+    onPreview && onCancel ? { onPreview: (value) => onPreview(name, value), onCancel } : undefined
 
   return (
     <PanelSection
@@ -69,6 +97,7 @@ export function PropsSection({ node, info, changed, onChange, onReset }: PropsSe
               prop={prop}
               value={values[prop.name]}
               inSlot={inSlot.has(prop.name)}
+              preview={preview(prop.name)}
               onChange={(value, gesture) => onChange(prop.name, value, gesture)}
             />
           </Field>
@@ -83,10 +112,19 @@ export function PropsSection({ node, info, changed, onChange, onReset }: PropsSe
                 prop={prop}
                 value={values[name]}
                 inSlot={inSlot.has(name)}
+                preview={preview(name)}
                 onChange={(value, gesture) => onChange(name, value, gesture)}
               />
             )
-          else input = <ValueInput value={values[name]} onCommit={(value) => onChange(name, value)} />
+          else
+            input = (
+              <ValueInput
+                value={values[name]}
+                title={name}
+                preview={preview(name)}
+                onCommit={(value, gesture) => onChange(name, value, gesture)}
+              />
+            )
           return (
             <div key={name} className="group relative">
               <Field
@@ -136,12 +174,15 @@ function PropInput({
   prop,
   value,
   inSlot = false,
+  preview,
   onChange
 }: {
   prop: ComponentProp
   value: unknown
   /** Whether its layers are in a slot of its name, which the canvas passes in place of the value. */
   inSlot?: boolean
+  /** Shows a number on the canvas while it's typed or scrubbed. */
+  preview?: NumberPreview
   onChange: (value: unknown, gesture?: string) => void
 }) {
   if (isMadeValue(value)) return <MadeValue value={value} />
@@ -170,14 +211,14 @@ function PropInput({
       )
     case "number":
       return (
-        <NumberInput
-          value={typeof value === "number" ? value : undefined}
-          rules={numberRules}
+        <NumberValueInput
+          value={value}
           title={prop.name}
           placeholder={fallback ?? ""}
           // Maths that works from the value there starts from the default when the prop isn't set.
           blank={() => (typeof prop.default === "number" ? prop.default : undefined)}
-          onCommit={(update, gesture) => onChange(update(typeof value === "number" ? value : undefined), gesture)}
+          preview={preview}
+          onCommit={onChange}
         />
       )
     case "string":
@@ -194,7 +235,15 @@ function PropInput({
       }
       // A value that isn't text (a number, `null`) is edited as one, as before slots were nodes.
       if (nodePropInput(value, inSlot) === "value") {
-        return <ValueInput value={value} kind={valueKind(value, prop.kind)} title={prop.name} onCommit={onChange} />
+        return (
+          <ValueInput
+            value={value}
+            kind={valueKind(value, prop.kind)}
+            title={prop.name}
+            preview={preview}
+            onCommit={onChange}
+          />
+        )
       }
       return (
         <TextInput
@@ -205,7 +254,15 @@ function PropInput({
       )
     default:
       // An object prop takes JSON; one whose type isn't known takes whatever's typed, as JSON when it reads as JSON.
-      return <ValueInput value={value} kind={valueKind(value, prop.kind)} title={prop.name} onCommit={onChange} />
+      return (
+        <ValueInput
+          value={value}
+          kind={valueKind(value, prop.kind)}
+          title={prop.name}
+          preview={preview}
+          onCommit={onChange}
+        />
+      )
   }
 }
 

@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "A state can take away a prop or style the design sets, and Paste style in a state leaves only the copied style",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

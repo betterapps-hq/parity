@@ -30,6 +30,7 @@ import {
   type NodeStyle,
   overrideCount,
   type PatchField,
+  propChange,
   patchSize,
   pushOverrides,
   resetInstance,
@@ -41,6 +42,7 @@ import {
 import { boardReader } from "@parity-app/editor"
 import { BookOpen, Diamond, Group, Info, Sparkles, Unlink } from "lucide-react"
 import { useState } from "react"
+import { useChangePreview } from "../canvas/change-preview.ts"
 import { useProject } from "../canvas/context.ts"
 import { frameScale, nodeInFrames, selectionFrame } from "../canvas/hit.ts"
 import { focusOnMount, kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
@@ -150,7 +152,7 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
           node={node}
           own={location.node as InstanceNode}
           changed={(name) => changesField(override, { kind: "props", key: name })}
-          onChange={(name, value) => change(`Change ${name}`, { props: { [name]: value } })}
+          onChange={(name, value) => change(`Change ${name}`, propChange(name, value))}
           onReset={(name) => reset({ kind: "props", key: name })}
         />
       )}
@@ -289,7 +291,7 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
           entry={entry}
           node={node}
           changed={(name) => changesField(override, { kind: "props", key: name })}
-          onChange={(name, value) => change(`Change ${name}`, { props: { [name]: value } })}
+          onChange={(name, value) => change(`Change ${name}`, propChange(name, value))}
           onReset={(name) => reset({ kind: "props", key: name })}
         />
       )}
@@ -342,6 +344,10 @@ function LayerSections({
     : undefined
   // A field's edit previews on the canvas, applied as `change` would apply it, until it's made or taken back.
   const preview = useStylePreview(session, entry.key)
+  // A number prop previews by being made, as the component has to draw again for it, and is taken back unless it's made.
+  const propPreview = useChangePreview(session.store, entry.key)
+  const setProp = (name: string, value: unknown) => (gesture?: string) =>
+    change(`Change ${name}`, propChange(name, value), gesture)
   const edited = (style: NodeStyle) => (current: ContainerSpec) => {
     const target = boardTarget(current, editingState(current, selected.state).id)
     return inner
@@ -413,7 +419,10 @@ function LayerSections({
           node={node}
           info={components[node.component]}
           changed={(name) => changesField(override, { kind: "props", key: name })}
-          onChange={(name, value, gesture) => change(`Change ${name}`, { props: { [name]: value } }, gesture)}
+          taken={override?.unset?.props}
+          onChange={(name, value, gesture) => propPreview.commit(setProp(name, value), gesture)}
+          onPreview={(name, value) => propPreview.show(setProp(name, value))}
+          onCancel={() => propPreview.cancel()}
           onReset={(name) => reset({ kind: "props", key: name })}
         />
       )}
@@ -447,7 +456,7 @@ function LayerSections({
 function NoStyleNote({ component, wrap }: { component: string; wrap: boolean }) {
   const session = useProject()
   return (
-    <div className="flex flex-col gap-2 border-b px-4 py-2.5">
+    <div className={`flex flex-col gap-2 border-b py-2.5 pl-4 ${panelEnd}`}>
       <p className="text-xs text-muted-foreground">
         {component} doesn&apos;t take a <code>style</code>, so the size and styles below don&apos;t change it.
         {wrap ? " Wrap it in a layout and size that instead." : ""}

@@ -80,11 +80,8 @@ export function canvasMenu(
   const entry = selection.design ? entries.find((candidate) => candidate.key === selection.design) : undefined
   const ids = entry ? selectedNodes(selection) : []
   const root = entry?.container.root
-  // The selected layers that are the design's own, as the commands that move or change layers need.
-  const own = ids.flatMap((id) => {
-    const node = root && !isInnerPath(id) && id !== root.id ? findNode(root, id) : undefined
-    return node ? [node] : []
-  })
+  const own = ownLayers(selection, root)
+  const can = layerCommands(selection, root)
   const layers = ids.length > 0
   const designs = layers ? 0 : selectedDesigns(selection).length
   const alone = entry && !selection.node && !selection.designs?.length ? entry.container : undefined
@@ -98,22 +95,47 @@ export function canvasMenu(
   return sections([
     [{ kind: "select-layer", label: "Select layer", choices: layerChoices(target, selection, entries) }],
     [
-      item("copy", layers ? own.length > 0 : !!selection.design),
+      item("copy", layers ? can.copy : !!selection.design),
       item("pasteHere", true),
       item("pasteOver", layers || designs > 0),
       ...(layers ? [item("pasteReplace", true)] : []),
-      item("duplicate", layers ? own.length > 0 : !!selection.design)
+      item("duplicate", layers ? can.duplicate : !!selection.design)
     ],
-    layers ? order.map((command) => item(command, !!one)) : [],
+    layers ? order.map((command) => item(command, can.order)) : [],
     [
-      ...(layers ? [item("wrap", own.length > 0)] : []),
+      ...(layers ? [item("wrap", can.wrap)] : []),
       item("makeComponent", !!alone || !!one, makeLabel(alone)),
       ...(instance
         ? [item("goToMain", true, `Go to ${designName(entries, instance.design) ?? "the main component"}`)]
         : [])
     ],
-    layers ? [item("hide", own.length > 0, hidden ? "Show" : "Hide")] : []
+    layers ? [item("hide", can.hide, hidden ? "Show" : "Hide")] : []
   ])
+}
+
+/** The commands that copy, move or change the selected layers themselves. */
+export type LayerCommand = "copy" | "duplicate" | "order" | "wrap" | "hide"
+
+/**
+ * Which commands that copy, move or change the selected layers can act on them, for this menu and the menubar alike:
+ * Copy, Duplicate, Wrap in layout and Hide when any is the design's own, and the order when one layer is selected and
+ * it's the design's own. Layers inside an instance, and the design's root, aren't (see `ownLayers`).
+ */
+export function layerCommands(selection: Selection, root: DesignNode | undefined): Record<LayerCommand, boolean> {
+  const own = ownLayers(selection, root).length
+  const one = own === 1 && selectedNodes(selection).length === 1
+  return { copy: own > 0, duplicate: own > 0, order: one, wrap: own > 0, hide: own > 0 }
+}
+
+/**
+ * The selected layers that are the design `root` draws as its own, as the commands that move or change layers need:
+ * not its root, nor a layer inside an instance (`card/title`), which belongs to the instance's component.
+ */
+export function ownLayers(selection: Selection, root: DesignNode | undefined): DesignNode[] {
+  return selectedNodes(selection).flatMap((id) => {
+    const node = root && !isInnerPath(id) && id !== root.id ? findNode(root, id) : undefined
+    return node ? [node] : []
+  })
 }
 
 /**
