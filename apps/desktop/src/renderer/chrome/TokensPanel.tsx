@@ -8,7 +8,7 @@ import {
   ToggleGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
 import { type ModeSettings } from "@parity-app/core"
-import { defaultValues, type PreviewKind, previewKind, type Token, tokenReferences } from "@parity-app/tokens"
+import { builtOn, defaultValues, type PreviewKind, previewKind, type Token } from "@parity-app/tokens"
 import { type LibraryToken, matchDescribed, type TokenWrite } from "@parity-app/tokens"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { Check, LayoutGrid, List, Search, X } from "lucide-react"
@@ -772,12 +772,7 @@ function Detail({ entry }: { entry: Kinded }) {
         .map((other) => previewOf(other, panel.tokens, panel.themes))}
       stylesheet={store.stylesheet}
       lookup={(name, theme) => comesTo(panel.tokens, name, theme)}
-      references={(name, theme) => {
-        const other = panel.tokens.get(name)
-        if (!other) return []
-        const built = tokenReferences(other.values[theme] ?? other.values.default ?? "")
-        return other.derived ? [other.derived.from, ...built] : built
-      }}
+      references={(name, theme) => builtOn(panel.tokens.get(name), theme)}
       onApply={(changes) =>
         store.set(Object.entries(changes).map(([theme, value]) => ({ name: token.name, theme, value })))
       }

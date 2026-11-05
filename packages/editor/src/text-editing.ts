@@ -48,8 +48,17 @@ export function textSizing(style: NodeStyle): TextSizing {
   return "auto-height"
 }
 
+/**
+ * Every style property switching modes can write. Resizing shows as changed when any of them is, and resetting it
+ * resets all of them, so a reset in a state doesn't leave the `grow: false` a switch set behind.
+ */
+export const textSizingKeys = ["width", "height", "grow"] as const satisfies readonly (keyof NodeStyle)[]
+
 /** Style properties to set; `undefined` clears one. */
-export type TextSizingValues = Pick<{ [K in keyof NodeStyle]: NodeStyle[K] | undefined }, "width" | "height" | "grow">
+export type TextSizingValues = Pick<
+  { [K in keyof NodeStyle]: NodeStyle[K] | undefined },
+  (typeof textSizingKeys)[number]
+>
 
 /**
  * The style that puts a text layer in a mode, keeping it the size it's drawn at, in spacing steps (`measured`): auto

@@ -97,7 +97,7 @@ when it's spread through UI code. Today:
 | `@parity-app/models`, then one per lens | The lens schemas (PAR-15), then each lens's standards reader and model operations. Each adapter, such as Drizzle or TanStack Router, is a package of its own.                             | New code.                                                                                          |
 | `@parity-app/storybook`                 | Everything Storybook-specific, behind the `StoryAdapter` in [storybook.md](../storybook.md).                                                                                              | `project/storybook.ts` and `utility/storybook.ts` (PAR-114).                                       |
 | `@parity-app/account`                   | Signing in with WorkOS without the views: the authorize URL and PKCE, the link the browser hands back, the code exchange and refresh, the token's claims, and when to refresh.            | New code, from [sign-in.md](sign-in.md) (PAR-613).                                                 |
-| `@parity-app/tokens`                    | Reading tokens (Tailwind, DTCG), editing them in stylesheets, and matching described tokens to custom properties.                                                                         | `core/tokens.ts`, `core/tokens-dtcg.ts`, `core/css-source.ts`, the Tokens panel's matching.        |
+| `@parity-app/tokens`                    | Reading tokens (Tailwind, DTCG), editing them in stylesheets, matching described tokens to custom properties, and checking what a token edit may write (PAR-569).                         | `core/tokens.ts`, `core/tokens-dtcg.ts`, `core/css-source.ts`, the Tokens panel's matching.        |
 
 ### `@parity-app/code`: design and code, both ways
 
@@ -196,7 +196,8 @@ and the copies disagreed.
 5. **`@parity-app/models` with PAR-15,** then a package per lens and adapter as each starts.
 6. **`@parity-app/storybook` with PAR-114.**
 7. **`@parity-app/tokens`** (PAR-35, done on 2026-10-30; it depends on core, which keeps the token types its own
-   contracts name), and the agent API's 1,320-line workspace split by area when it next grows.
+   contracts name; the token detail's value checks followed on 2026-11-05, PAR-569), and the agent API's 1,320-line
+   workspace split by area when it next grows.
 
 ## Calls made here
 

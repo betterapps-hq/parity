@@ -18,11 +18,12 @@ import { IconButton } from "./IconButton.tsx"
 import { keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
 
-const tools: { id: Tool; label: string; shortcut: string; icon: typeof Hand }[] = [
-  { id: "select", label: "Move and select", shortcut: keymap.select.keys[0], icon: MousePointer2 },
-  { id: "hand", label: "Hand", shortcut: keymap.hand.keys[0], icon: Hand },
-  { id: "text", label: "Text", shortcut: keymap.text.keys[0], icon: Type },
-  { id: "interact", label: "Interact with previews", shortcut: keymap.interact.keys[0], icon: Pointer }
+/** The tools, each named and with its keys as the keymap has it. */
+const tools: { id: Tool; icon: typeof Hand }[] = [
+  { id: "select", icon: MousePointer2 },
+  { id: "hand", icon: Hand },
+  { id: "text", icon: Type },
+  { id: "interact", icon: Pointer }
 ]
 
 /** A pill floating over the canvas. */
@@ -50,24 +51,27 @@ export function FloatingToolbar() {
         aria-label="Tools"
         className="gap-0.5"
       >
-        {tools.map(({ id, label, shortcut, icon: Icon }) => (
-          <Tooltip key={id}>
-            <TooltipTrigger
-              render={
-                <ToggleGroupItem
-                  value={id}
-                  aria-label={label}
-                  className="size-9 rounded-lg aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:hover:bg-primary/90"
-                >
-                  <Icon />
-                </ToggleGroupItem>
-              }
-            />
-            <TooltipContent side="top">
-              {label} <Kbd>{formatKeys(shortcut)}</Kbd>
-            </TooltipContent>
-          </Tooltip>
-        ))}
+        {tools.map(({ id, icon: Icon }) => {
+          const { label, keys } = keymap[id]
+          return (
+            <Tooltip key={id}>
+              <TooltipTrigger
+                render={
+                  <ToggleGroupItem
+                    value={id}
+                    aria-label={label}
+                    className="size-9 rounded-lg aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:hover:bg-primary/90"
+                  >
+                    <Icon />
+                  </ToggleGroupItem>
+                }
+              />
+              <TooltipContent side="top">
+                {label} <Kbd>{formatKeys(keys[0])}</Kbd>
+              </TooltipContent>
+            </Tooltip>
+          )
+        })}
       </ToggleGroup>
     </Floating>
   )
@@ -81,7 +85,7 @@ export function ViewControls() {
   return (
     <Floating className="top-3 right-3">
       <IconButton
-        label={history.undoLabel ? `Undo ${history.undoLabel.toLowerCase()}` : "Undo"}
+        label={history.undoLabel ? `Undo ${history.undoLabel.toLowerCase()}` : keymap.undo.label}
         shortcut={keymap.undo.keys[0]}
         disabled={!history.canUndo}
         onClick={() => store.undo()}
@@ -89,7 +93,7 @@ export function ViewControls() {
         <Undo2 />
       </IconButton>
       <IconButton
-        label={history.redoLabel ? `Redo ${history.redoLabel.toLowerCase()}` : "Redo"}
+        label={history.redoLabel ? `Redo ${history.redoLabel.toLowerCase()}` : keymap.redo.label}
         shortcut={keymap.redo.keys[0]}
         disabled={!history.canRedo}
         onClick={() => store.redo()}
@@ -98,7 +102,7 @@ export function ViewControls() {
       </IconButton>
       <Separator orientation="vertical" className="mx-1 h-5" />
       <IconButton
-        label="Zoom out"
+        label={keymap.zoomOut.label}
         shortcut={keymap.zoomOut.keys[0]}
         disabled={!editor}
         onClick={() => editor?.zoomOut()}
@@ -120,14 +124,19 @@ export function ViewControls() {
           }
         />
         <TooltipContent side="top">
-          Zoom to 100% <Kbd>{formatKeys(keymap.zoomTo100.keys[0])}</Kbd>
+          {keymap.zoomTo100.label} <Kbd>{formatKeys(keymap.zoomTo100.keys[0])}</Kbd>
         </TooltipContent>
       </Tooltip>
-      <IconButton label="Zoom in" shortcut={keymap.zoomIn.keys[0]} disabled={!editor} onClick={() => editor?.zoomIn()}>
+      <IconButton
+        label={keymap.zoomIn.label}
+        shortcut={keymap.zoomIn.keys[0]}
+        disabled={!editor}
+        onClick={() => editor?.zoomIn()}
+      >
         <Plus />
       </IconButton>
       <IconButton
-        label="Zoom to fit"
+        label={keymap.zoomToFit.label}
         shortcut={keymap.zoomToFit.keys[0]}
         disabled={!editor}
         onClick={() => editor?.zoomToFit()}

@@ -217,6 +217,12 @@ still need your call.
 - **The menubar greys what the canvas menu greys for layers inside an instance** (PAR-419): Copy, Duplicate, the order,
   Wrap in layout and Hide or show, through one rule (`layerCommands`), and their keys do nothing then. Cut and Delete,
   which the canvas menu doesn't have, are unchanged.
+- **A Layers row's menu runs the menubar's commands on the selection** (PAR-571), as the canvas menu does, so a
+  right-click on a row selects it first unless it's in the selection. My calls: Rename still renames the row in place
+  rather than going through Edit > Rename, which renames a design on its title on the canvas, out of sight from Layers;
+  a design's row gains Duplicate, since the command duplicates designs; the root's row keeps only Rename, as the
+  commands can't duplicate, hide or delete a design's root, where the old menu could hide it; and Hide keeps naming
+  where the change lands (Hide in Default, PAR-497), read from the state the selection was picked in.
 
 ## Canvas
 
@@ -2896,6 +2902,20 @@ app's derived spacing steps (`spacing-4`) stay the app's, as libgen writes only 
 The detection snapshots changed with it: `chakra`'s `--app-gap` is spacing, `mantine`'s `--app-radius` a radius, and
 `vite7-js` has its `[data-theme="dark"]` theme.
 
+## Token value checks live in `@parity-app/tokens` (PAR-569)
+
+My calls: what a token edit may write is decided in `packages/tokens/src/checks.ts`, not in the token detail, so the
+agent's `SetTokens` can refuse what the detail refuses (PAR-584).
+
+- `checkTokenEdit` takes the token, its values, the drafts and how to read other tokens in a theme, and gives each
+  theme's problem, whether all pass, and the smallest changes: the themes whose trimmed value differs. A loop is checked
+  before the value's kind, as before.
+- The browser's `CSS.supports` is passed in as `supports`, so the package runs without a DOM and its tests use a
+  stand-in. What a reference comes to is passed in too, since the app's `comesTo` measures a spacing step's pixels in
+  the browser.
+- `builtOn` gives the tokens a token is built on in a theme, a scale step's base first, which the panel had written
+  inline.
+
 ## A mode's theme class also sets the theme's attribute (PAR-22)
 
 My call: a frame whose mode adds a theme's class also gets the attribute the project's stylesheet switches that theme on
@@ -3681,9 +3701,9 @@ use, with Layers and the inspector beside it, and every story starts it in a dif
   36px band for the captions and 24px between previews. Past 40% it shrinks with the canvas, as labels do, so boards
   zoomed far out don't run into each other. You had found the canvas-unit gutter "super thick on one, and non-existent
   or text overflowing on others". Captions never truncate: short of room they drop the shrink, then the width, then the
-  mode's name, and they stay until 10%. A board's title drops its menus before its name. The app's canvas still sizes
-  the gutter in canvas units (`boardLayout` in core, `ContainerView`), so PAR-545 changes both, and the agent's
-  `boardSize` estimate with them.
+  mode's name, and they stay until 10%. A board's title drops its menus before its name. PAR-602 sizes the app's gutter
+  in screen pixels too, in `boardLayout` in core and `ContainerView`, and the agent's `boardSize` estimate with them
+  (see "A board's gutter keeps its screen size up close").
 
 ## A project with no Parity file opens on a Home screen (PAR-561)
 
@@ -4018,6 +4038,26 @@ kept on disk). My calls in fixing it:
   reason: a provider, a part whose sample holds nothing, or content that couldn't be opened. It follows the Previews
   exploration's States story (an eye-off icon and "Draws nothing of its own" on the muted fill), which designs it.
   Previews made before are made again once, as `previewFormat` went up to 2.
+
+## The offscreen window never scrolls (PAR-520)
+
+Five component previews on the example (Separator, AlertAction, Bubble, BubbleGroup, BubbleReactions) showed a
+horizontal scrollbar along their bottom. Watching the offscreen window draw them showed why: for a capture it's made as
+tall as the frame, and whatever reaches below the frame (a part's name under a 1px Separator, a bubble's reactions,
+which hang three quarters below it) makes the page scroll. The vertical scrollbar takes room, so the frame, as wide as
+the window, overflows sideways too, and the horizontal scrollbar is drawn at the window's bottom, which is the bottom of
+the picture. My calls:
+
+- **The render page's root hides its overflow,** so the window has no scrollbars, rather than growing the window to what
+  overflows. A frame's picture is its frame: a bitmap is captured at the frame's size, and a component's preview is
+  cropped to its box. This applies to frame bitmaps and agents' captures as well as previews; none of them should show
+  scrollbars, and the window is never scrolled.
+- **What reaches past a preview's box is still cut off.** Bubble's reactions hang past its 8 pixels of room and show cut
+  through at the bottom, and BubbleReactions on its own, inside an otherwise empty Bubble, hangs wholly below it, so its
+  picture is now empty where it was a scrollbar. Cropping to everything the component draws would be a separate change.
+- **`previewFormat` went up to 2.** A preview's key covers its tree and code, not the renderer, so pictures kept with a
+  scrollbar would otherwise stay until their code changed. Every project's previews are made again once, in the idle
+  pass.
 
 ## Component previews follow Parity's light or dark theme (PAR-521)
 
@@ -4406,3 +4446,42 @@ captions do:
 - **A label isn't clipped to the gap beside its board.** At 60% a screen's state label can reach over the board to its
   left when zoomed far out, since how far away that board is isn't known to the label. The example's boards are 400
   apart. Keeping labels to that gap would be its own change.
+
+## A board's gutter keeps its screen size up close (PAR-602)
+
+Called on 2026-11-05, for your approval in Storybook. PAR-540 decided the gutter (12 at the sides and bottom, a 36 band
+for the captions, 24 between previews, in screen pixels, shrinking with the canvas past 40%), and its bullet said
+PAR-545 would change the canvas, `boardLayout` and `boardSize`. PAR-602 has done that, so PAR-545 no longer carries the
+gutter. My calls:
+
+- **The rule is in core, beside the estimate.** `boardLayout` is now the gutter in screen pixels, and `boardLayoutAt`
+  gives it in canvas pixels at a zoom: its screen size over the zoom, and past 40% what it is at 40%. The 40% line,
+  `shrinkBelow`, moved to core too, and `labelLook` reads it there, so labels and gutters can't shrink from different
+  zooms.
+- **The divider before the companions is 12, the line and 12,** as the exploration draws it, one pixel more than the 24
+  between later previews. **Rows of states are 36, the line and 36 apart:** three quarters of the 48 either side they
+  had, as the gap between previews went from 32 to 24, which is the caption band's height, so a later row sits below its
+  line as the first sits below its band.
+- **Lines are a screen pixel wide.** The board's edge is a pixel at any zoom, as in the exploration, drawn over the
+  board so it takes no room: a border a pixel wide on screen would have been 100 canvas pixels at 1%, outgrowing the
+  agent's estimate. The dashed lines are a pixel up close and thin with the gutter past 40%, so they're inside the
+  estimate. Both are drawn at screen size and scaled to fit, since browsers round a border up to a whole device pixel
+  before the canvas's zoom, which made a quarter-pixel border four pixels wide at 400%.
+- **Corners round 10 pixels, as the exploration's do, but shrink past 40%,** where the exploration's stay 10. A corner
+  wider than the gutter would cut into the frames' corners. tldraw's outline of a board follows.
+- **A board stays where its top left corner is,** so its frames shift on the canvas as the gutter changes with the zoom,
+  as they do in the exploration: from 40% to 400% the first frame moves 81 canvas pixels up, nearer the corner.
+  Anchoring the frames instead would have meant moving a design's position with the zoom.
+- **The shape takes a board's new size once the camera stops.** Taking it on every frame of a zoom would draw every
+  board's title and menus again each frame. While the camera moves, the outline of a selected board is off by the change
+  in its gutter. The gutter itself follows the zoom live, as labels do, through each part's own style, not a custom
+  property that every frame's elements would inherit (PAR-556).
+- **The agent's estimate takes the gutter at 40%,** where it's widest on the canvas, so it's never smaller than the
+  board drawn at any zoom. A drawn board's bounds are still as the canvas has them at its zoom, so `Overlaps()` sees
+  drawn boards as they are now: boards set close together up close grow towards each other as the canvas zooms out to
+  40%, by 18 at each side and 54 in the band between 100% and 40%.
+- **A state's label measures its row's frames, and the gutter at 40%.** A row's own height is now its frames' alone,
+  whatever the zoom; the space to the next row's label adds the gutter at 40%, which is exact from there out, where a
+  label can be short of space. Closer in, the line between rows alone is 73 pixels on screen.
+- **Left for later:** captions still truncate and fade by 25% (PAR-151), where the exploration's drop their chips
+  instead, never truncate, and stay until 10%; and a title doesn't yet drop its menus before its name.
