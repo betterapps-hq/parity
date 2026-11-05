@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Components show their preview in a card beside the row, and right-clicking one offers View in Storybook and View code, which opens it in your editor (chosen in Settings). Tooltips are raised in the theme's own colors. Taking a component off the list by hand is gone.",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

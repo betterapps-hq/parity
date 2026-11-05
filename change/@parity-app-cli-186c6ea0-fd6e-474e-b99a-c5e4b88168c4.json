@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "MCP's tools/list no longer publishes output schemas, cutting it from 33 KB to under 12 KB; structuredContent and CLI --json are unchanged",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

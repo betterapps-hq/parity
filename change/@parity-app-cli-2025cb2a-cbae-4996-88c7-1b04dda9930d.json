@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Make a picture of every component offscreen, after the canvas's bitmaps, and keep it on disk so a reopened project draws none again",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Core can keep text inside a PNG, which the CLI doesn't use",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
