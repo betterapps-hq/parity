@@ -75,6 +75,62 @@ describe("right-click menus", () => {
     expect(await app.undoLabel()).toBeUndefined()
   })
 
+  it("opens again at the new point when right-clicked while it's open, as Figma does", async () => {
+    await app.show("Members", 1)
+    const ada = await app.box("Members", "ada")
+    const first = { x: ada.x + ada.width * 0.25, y: center(ada).y }
+    await app.rightClick(first)
+    await expect.poll(() => menu().count()).toBe(1)
+    const opened = (await menu().boundingBox())!
+    // The next row, further right: the press reaches the canvas, rather than only closing the menu.
+    const lin = await app.box("Members", "lin")
+    const second = { x: lin.x + lin.width * 0.75, y: center(lin).y }
+    await app.rightClick(second)
+    await expect.poll(async () => (await app.selection()).node).toBe("lin")
+    // It moved as far right as the pointer did, and there's still the one menu.
+    const moved = async () => Math.abs(((await menu().boundingBox())?.x ?? Infinity) - opened.x - (second.x - first.x))
+    await expect.poll(moved).toBeLessThan(2)
+    expect(await menu().count()).toBe(1)
+    // It acts on what that right-click selected.
+    await menu()
+      .getByRole("menuitem", { name: /^Duplicate/ })
+      .click()
+    await expect
+      .poll(() => app.children("Members", "page"))
+      .toEqual(["ada", "lin", expect.any(String), "grace", "names", "email"])
+    await closed()
+  })
+
+  it("greys out in the menubar what can't act on a layer inside an instance, as the canvas menu does", async () => {
+    await app.show("Dashboard", 0.5)
+    // Ctrl and a click select the deepest layer under the pointer: the Users card's value, inside the instance.
+    await app.click(center(await app.box("Dashboard", "BtvqI/BSm2g")), ["Control"])
+    await expect.poll(async () => (await app.selection()).node).toMatch(/^BtvqI\//)
+    const unavailable = async (menuName: string, items: RegExp[]) => {
+      await app.page.getByRole("menubar", { name: "Application" }).getByRole("menuitem", { name: menuName }).click()
+      const open = app.page.getByRole("menu")
+      await expect.poll(() => open.count()).toBe(1)
+      const states: (string | null)[] = []
+      for (const item of items) {
+        states.push(await open.getByRole("menuitem").filter({ hasText: item }).getAttribute("aria-disabled"))
+      }
+      await app.page.keyboard.press("Escape")
+      await closed()
+      return states
+    }
+    const edit = [/^\s*Copy\s*Ctrl/, /^\s*Duplicate/, /^\s*Paste over selection/, /^\s*Paste to replace/]
+    expect(await unavailable("Edit", edit)).toEqual(["true", "true", null, null])
+    const object = [
+      /Wrap in layout/,
+      /Bring forward/,
+      /Send backward/,
+      /Bring to front/,
+      /Send to back/,
+      /Hide or show/
+    ]
+    expect(await unavailable("Object", object)).toEqual(object.map(() => "true"))
+  })
+
   it("picks a deeper layer under the pointer from Select layer", async () => {
     // A right-click on a stat card selects Main, the column it's in, as a click would; Select layer reaches the card.
     await app.show("Dashboard", 0.5)

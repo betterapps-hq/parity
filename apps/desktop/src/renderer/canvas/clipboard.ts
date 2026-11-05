@@ -208,8 +208,9 @@ export async function pasteToReplace(session: ProjectSession): Promise<void> {
 /**
  * Paste here, from the canvas's right-click menu: what's on the clipboard goes where the pointer was (client
  * coordinates), whatever's selected. Copied designs go there on the canvas, their top left at the pointer, sitting as
- * they sat together, as do copied notes. Layers, text and images go into the layout under the pointer, in the frame
- * there, at the slot under it, or at the pointer when the layout is absolutely placed (see `pasteHere`). Over no design,
+ * they sat together, as do copied notes. Layers, text and images go into the layout or component's slot under the
+ * pointer, in the frame there, at the place under it, or at the pointer when the layout is absolutely placed (see
+ * `measureHere` and `pasteHere`). Over no design,
  * text is a note there and layers a new screen there. One undo step, and the copies end up selected.
  */
 export async function pasteAtPointer(session: ProjectSession, point: Point): Promise<void> {

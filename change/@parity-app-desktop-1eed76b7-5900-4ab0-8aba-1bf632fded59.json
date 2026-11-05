@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Paste here goes into a component's slots, keeps a stretched copy's right and bottom, and a right-click while the canvas menu is open opens it again there; the menubar greys what can't act on a layer inside an instance",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

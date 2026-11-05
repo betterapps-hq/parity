@@ -233,6 +233,56 @@ export const ObjectOneLayer: Story = {
   }
 }
 
+/** The value of Dashboard's Users card selected, a layer inside an instance, which belongs to its component. */
+const valueInUsersCard = async () => {
+  await openProjects("example")
+  const inner = `${node("Dashboard", "Users card")}/${node("Stat card", "Value")}`
+  example().selection.set(layersSelection(design("Dashboard"), [inner]))
+}
+
+/** Whether each of the open menu's items, by its label, is unavailable; undefined for one it doesn't list. */
+function unavailable(labels: readonly string[]): Record<string, boolean | undefined> {
+  const items = [...body().getByRole("menu").querySelectorAll("[role=menuitem]")]
+  const label = (item: Element) =>
+    [...item.childNodes]
+      .filter((child) => !(child instanceof Element && child.matches("[data-slot=menubar-shortcut], svg")))
+      .map((child) => child.textContent)
+      .join("")
+      .trim()
+  return Object.fromEntries(
+    labels.map((name) => [name, items.find((item) => label(item) === name)?.hasAttribute("data-disabled")])
+  )
+}
+
+/**
+ * Edit with a layer inside an instance selected: Copy and Duplicate are unavailable, as the canvas menu has them, since
+ * they can't act on it. Pasting over it or to replace it stays, and says why it can't.
+ */
+export const EditLayerInInstance: Story = {
+  loaders: [valueInUsersCard],
+  play: async () => {
+    await frameDesigns("Dashboard")
+    await openMenu("Edit")
+    await expect(unavailable(["Copy", "Duplicate", "Paste over selection", "Paste to replace"])).toEqual({
+      Copy: true,
+      Duplicate: true,
+      "Paste over selection": false,
+      "Paste to replace": false
+    })
+  }
+}
+
+/** Object with a layer inside an instance selected: wrapping it, ordering it and hiding it are unavailable. */
+export const ObjectLayerInInstance: Story = {
+  loaders: [valueInUsersCard],
+  play: async () => {
+    await frameDesigns("Dashboard")
+    await openMenu("Object")
+    const items = ["Wrap in layout", "Bring forward", "Send backward", "Bring to front", "Send to back", "Hide or show"]
+    await expect(unavailable(items)).toEqual(Object.fromEntries(items.map((name) => [name, true])))
+  }
+}
+
 /** Arrange with nothing selected: everything unavailable, and a hint saying what to select. */
 export const ArrangeWithNothingSelected: Story = {
   loaders: [() => openProjects("example")],

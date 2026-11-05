@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/context-menu"
 import { pasteAtPointer } from "../canvas/clipboard.ts"
 import { useProject } from "../canvas/context.ts"
+import { onGestureEnd } from "../canvas/gesture-end.ts"
 import { hitTest, type Point, selectedIn, underPoint } from "../canvas/hit.ts"
 import { DesignIcon, designColor, kindColors, NodeIcon, nodeColor } from "../canvas/kinds.tsx"
 import { pickLayer } from "../canvas/pick.ts"
@@ -27,7 +28,12 @@ import { canvasMenu, type LayerChoice, type MenuAction, type MenuTarget, rightCl
 interface Opened {
   point: Point
   target?: MenuTarget
+  /** Counts the times it opened, so opening it again while it's open draws it afresh at the new point. */
+  count: number
 }
+
+/** A press outside an open menu, as Radix's menus report it. */
+type OutsidePress = CustomEvent<{ originalEvent: PointerEvent }>
 
 /**
  * The right button going down: where, the selection then, before tldraw selected the board under it, and whether Ctrl
@@ -43,7 +49,8 @@ interface Press {
  * The canvas's right-click menu, around the canvas area. A right-click on a design selects what's under the pointer
  * first, unless that's inside the selection, then lists what can be done with the selection, each item with its keys
  * from the keymap (see `canvasMenu`). On the canvas around designs it offers Paste here, Select all and Zoom to fit.
- * While interacting, right-clicks are the designs', and nothing opens.
+ * While interacting, right-clicks are the designs', and nothing opens. A right-click on the canvas while it's open opens
+ * it again at the new point, as in Figma.
  *
  * tldraw pans while the right button is dragged, so it keeps the system's menu from the press and opens this one when
  * the button comes up without panning, by sending a `contextmenu` of its own. It has selected the board under the
@@ -90,7 +97,37 @@ export function CanvasMenu({ children }: { children: ReactElement }) {
     if (under) {
       session.selection.set(handle ? before : rightClickSelection(before, under.target, under.clicked, under.root))
     }
-    setOpened({ point, target: under?.target })
+    setOpened((last) => ({ point, target: under?.target, count: (last?.count ?? 0) + 1 }))
+  }
+
+  // A right-click on the canvas while the menu is open opens it again there, as in Figma. The open menu keeps pointer
+  // events from the page, so tldraw never hears of the press: the menu stays open, and when the button comes up the
+  // canvas gets the `contextmenu` tldraw would have sent, at the press. Anywhere else, the press closes the menu.
+  const onPointerDownOutside = (event: OutsidePress) => {
+    const pressed = event.detail.originalEvent
+    if (pressed.button !== 2 || !area) return
+    const point = { x: pressed.clientX, y: pressed.clientY }
+    const from = elementAt(point)
+    if (!from || !area.contains(from) || !onCanvas(from)) return
+    event.preventDefault()
+    const selection = session.selection.get()
+    onGestureEnd(window, (how) => {
+      if (how !== "release") return
+      // What Select layer outlined goes with the menu it was in.
+      session.selection.setHover(undefined)
+      press.current = { target: from, selection, deep: pressed.ctrlKey || pressed.metaKey }
+      from.dispatchEvent(
+        new PointerEvent("contextmenu", {
+          bubbles: true,
+          cancelable: true,
+          clientX: point.x,
+          clientY: point.y,
+          button: 2,
+          ctrlKey: pressed.ctrlKey,
+          metaKey: pressed.metaKey
+        })
+      )
+    })
   }
 
   return (
@@ -103,11 +140,32 @@ export function CanvasMenu({ children }: { children: ReactElement }) {
       <ContextMenuTrigger asChild ref={setArea} disabled={interacting} onContextMenu={onContextMenu}>
         {children}
       </ContextMenuTrigger>
-      <ContextMenuContent className="w-60" aria-label="Canvas">
+      {/* Drawn afresh each time it opens, so opening it again while it's open puts it at the new point. */}
+      <ContextMenuContent
+        key={opened?.count}
+        className="w-60"
+        aria-label="Canvas"
+        onPointerDownOutside={onPointerDownOutside}
+      >
         {opened && <MenuItems opened={opened} />}
       </ContextMenuContent>
     </ContextMenu>
   )
+}
+
+/**
+ * The element under a point while a menu is open. The menu keeps pointer events from the rest of the page by setting
+ * the body's `pointer-events: none`, which hit testing respects, so this sets it back while it looks.
+ */
+function elementAt(point: Point): Element | null {
+  const { style } = document.body
+  const kept = style.pointerEvents
+  style.pointerEvents = ""
+  try {
+    return document.elementFromPoint(point.x, point.y)
+  } finally {
+    style.pointerEvents = kept
+  }
 }
 
 /** The menu's items, for what's selected now, which the right-click has just set. */
