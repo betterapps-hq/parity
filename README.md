@@ -77,8 +77,7 @@ installed globally, `vp` works without `pnpm exec`):
 | `pnpm storybook`                            | The app's interface in Storybook, against a stand-in project service.          |
 
 Some tests open the projects in `fixtures/`, which need installing first:
-`pnpm --filter @parity-app/fixtures install-projects` installs those it knows, and the rest install with `npm ci` in
-their folders.
+`pnpm --filter @parity-app/fixtures install-projects` installs all of them, each with its own package manager.
 
 Run `pnpm build` before packaging. Windows produces a per-user NSIS installer, macOS produces DMG and ZIP files for
 Apple Silicon and Intel, and Linux produces an x64 AppImage. These first installers are unsigned. TypeScript and the

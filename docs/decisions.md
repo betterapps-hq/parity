@@ -2172,8 +2172,9 @@ the Repository, CI and releases stream in Linear.
     deploy's secrets.
 - **Parity's CI (PAR-2) runs `pnpm verify` through ci-verify on Ubuntu, Windows and macOS.** My calls:
   - Its `prepare` installs the fixture projects when any is missing, with Bun 1.4.3 and Corepack 0.35.0 pinned from npm
-    on every system, and `npm ci` for the five fixtures `install-projects` doesn't know (buildkit, chakra, fluent,
-    headless, mui). Their `node_modules`, about 2 GB per system, are cached on their lockfiles.
+    on every system. `install-projects` installs every project in `fixtures/`: those `generate.ts` makes with their own
+    package manager, and the rest (buildkit, chakra, fluent, headless, mui) with `npm ci` from their committed
+    `package-lock.json` (PAR-404). Their `node_modules`, about 2 GB per system, are cached on their lockfiles.
   - Runners get 45 minutes, since a run that installs the fixtures can outlast 30 on Windows.
   - After `pnpm verify`, each system also installs and runs the CLI's packed tarball (`try-packed`, PAR-13).
   - A second ci-verify call, `checks`, runs once on Ubuntu with full history: `pnpm check:types`, and on pull requests
