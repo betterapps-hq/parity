@@ -152,7 +152,7 @@ export const ThreeWeights: Story = {
  * The three titles on a canvas you can zoom, so you can check each at any zoom instead of one. The screen's names its
  * state and the modes it shows, with its icon in the screen color; the component's the same in purple; the frame's is
  * only its name, smaller and quieter, with Figma's frame icon. Up close, a board's gutter stays 12px at the sides and
- * bottom with a 36px band for the captions, whatever the zoom; past 40% it shrinks with the names, down to 60%, and its captions never fade. Captions drop their
+ * bottom with a 36px band for the captions, whatever the zoom; past 40% it shrinks with the canvas, so boards zoomed far out don't run into each other, and its captions stay until they're too small to read, at 10%. Captions drop their
  * chips, then the mode's name, before anything is cut off, and a title drops its menus before its name.
  */
 export const Titles: Story = {

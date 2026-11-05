@@ -272,10 +272,11 @@ export function Board({
 /**
  * The board's gutter in screen pixels, so the band around the previews is the same at every zoom up close: 12px at the
  * sides and bottom, and a 36px band at the top for the captions. Past 40% it shrinks with the canvas, with the
- * captions in it, down to 60%, as names do. The captions never fade, so the band is never left empty.
+ * captions in it, so a board never takes more room on the canvas than it does at 40% and boards zoomed far out don't
+ * run into each other. The captions don't fade; they hide only once they're too small to read, at 10%.
  */
 function gutterAt(zoom: number) {
-  const s = labelLook("name", zoom).scale
+  const s = labelLook("detail", zoom).scale
   return { side: 12 * s, caption: 36 * s, between: 24 * s }
 }
 
@@ -295,7 +296,7 @@ function PreviewTile({
   divider: boolean
 }) {
   const scale = first ? 1 : companionScale(preview.width)
-  const look = labelLook("name", zoom)
+  const look = labelLook("detail", zoom)
   // The room its caption has on screen: the preview's width, and the last one the gutter past it too.
   const room = Math.round(preview.width * scale * zoom + (last ? gutter.side : 0))
   // The first preview starts at the gutter, the divider sits halfway to the next, and the rest follow at the gap.
@@ -313,7 +314,7 @@ function PreviewTile({
       <figcaption className="relative" style={{ height: gutter.caption }}>
         <div
           className="absolute inset-y-0 left-0 flex items-center"
-          style={{ zoom: look.scale, width: room / look.scale }}
+          style={{ zoom: look.scale, width: room / look.scale, visibility: zoom < 0.1 ? "hidden" : undefined }}
         >
           <Caption key={room} preview={preview} scale={scale} />
         </div>
