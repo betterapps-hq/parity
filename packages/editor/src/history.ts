@@ -1,6 +1,6 @@
 import { type CanvasDocument, type ContainerSpec, defaultModeSettings, type ModeSettings } from "@parity-app/core"
 import { sameDocument, sameValue } from "./document-equality.ts"
-import { noTokenEdits, sameTokenValues, type TokenChange, type TokenEdits, tokenWrites } from "./token-edits.ts"
+import { noTokenEdits, sameTokenValues, type TokenEdits, type TokenWrite, tokenWrites } from "./token-edits.ts"
 
 /** What the editor holds of a project: its open documents, its modes, and the token values edited on the canvas. */
 export interface DesignSnapshot {
@@ -48,7 +48,7 @@ export type SaveState =
 /** Why the stylesheet couldn't take the last token values Save wrote, and which tokens they were. */
 export interface TokenFailure {
   error: string
-  tokens: readonly TokenChange[]
+  tokens: readonly TokenWrite[]
 }
 
 /**
@@ -112,7 +112,7 @@ export type FileWrite =
       /** What goes into the file: the main file carries the modes. Undefined when there's nothing to write. */
       content: CanvasDocument | undefined
     }
-  | { kind: "tokens"; path: string; tokens: TokenEdits; changes: TokenChange[] }
+  | { kind: "tokens"; path: string; tokens: TokenEdits; changes: TokenWrite[] }
 
 /** The most steps Undo goes back. */
 export const historyLimit = 200

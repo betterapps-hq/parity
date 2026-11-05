@@ -1,6 +1,6 @@
 import { type ModeSettings } from "@parity-app/core"
 import { defaultValues, type PreviewKind, previewKind, type Token, tokenReferences } from "@parity-app/tokens"
-import { type LibraryToken, matchDescribed, type TokenChange } from "@parity-app/tokens"
+import { type LibraryToken, matchDescribed, type TokenWrite } from "@parity-app/tokens"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { Check, LayoutGrid, List, Search, X } from "lucide-react"
 import {
@@ -779,7 +779,7 @@ function Detail({ entry }: { entry: Kinded }) {
 }
 
 /** The tokens a save couldn't write, by name: one, or how many. */
-function failedNames(changes: readonly TokenChange[]): string {
+function failedNames(changes: readonly TokenWrite[]): string {
   const names = [...new Set(changes.map((change) => change.name))]
   return names.length === 1 ? names[0]! : `${names.length} tokens`
 }

@@ -96,6 +96,14 @@ still need your call.
   button is Apply, with a line saying Save writes it to the stylesheet. Don't save writes nothing. A failed write names
   the token and the file in the save notice, the status bar and the Tokens panel, where its row is marked and a banner
   offers Try again; a stylesheet changed since it was read fails the same way.
+- **Save takes out a token value that's been undone back to nothing** (PAR-420): a value given to a theme that had none
+  (a dark `--radius`), saved and then undone, is written as a `TokenWrite` without a value, rather than as an empty
+  value, so a value that's empty on purpose can't be mistaken for one taken out. `writeTokenChanges` takes the
+  declaration out of every block that would hold it (the theme's `.dark` and `[data-theme="dark"]` alike, but no `:root`
+  under `@media`), with its line, and a rule left with nothing in it goes too, with one of the blank lines around it, so
+  a value Save added in a new block leaves the file as it was. A rule that keeps only a comment stays, and so do the
+  at-rules around one taken out, which Save never adds. The frames' overrides are unchanged: compared with the CSS the
+  canvas loaded, so the render window is assumed to have loaded the same CSS.
 - **Closing a tab or quitting with unsaved changes asks** Save, Don't save or Cancel, with Save focused so Enter does
   it. Quitting with several projects unsaved asks once, with Save all.
 - **Changes from outside reload as one undoable step.** That covers agents, git and text editors. A file with unsaved
