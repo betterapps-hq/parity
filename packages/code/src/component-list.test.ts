@@ -1,4 +1,4 @@
-import type { ComponentRef, ComponentSource, LeftOutExport } from "@parity-app/core"
+import type { ComponentRef, ComponentSource, DetectionCorrections, LeftOutExport } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import {
   type ComponentList,
@@ -6,6 +6,7 @@ import {
   type ComponentListStep,
   nextComponentList
 } from "./component-list.ts"
+import type { CheckedComponent } from "./listing.ts"
 
 /** The UI kit's components load with the canvas; the rest of the app's load as they're drawn. */
 const button: ComponentSource = { path: "src/ui/button.tsx", export: "Button", as: "function" }
@@ -19,6 +20,10 @@ const badge: ComponentSource = { path: "@acme/nova", export: "Badge", library: "
 /** An export the person put on the list, which detection leaves out. */
 const menuRef: ComponentRef = { path: "src/menu.tsx", export: "Menu" }
 const menu: ComponentSource = { ...menuRef, lazy: true, included: true }
+/** The same export once the person takes it back off, waiting for the type checker. */
+const undecidedMenu: ComponentSource = { ...menuRef, lazy: true }
+/** Another Select, which only the type checker recognises. */
+const formSelect: ComponentSource = { path: "src/forms/select.tsx", export: "Select", as: "function", lazy: true }
 
 const leftOut = (path: string, name: string): LeftOutExport => ({
   name,
@@ -35,6 +40,15 @@ interface Case {
   list: ComponentList
   event: ComponentListEvent
   expected: ComponentListStep
+}
+
+/** The person changing their correction to Menu, then the steps that follow: its file read again and checked. */
+interface StepsCase {
+  name: string
+  corrections: DetectionCorrections
+  /** What the checker finds in Menu's file. */
+  checked: CheckedComponent[]
+  expected: Record<string, ComponentSource>
 }
 
 describe("nextComponentList", () => {
@@ -241,18 +255,72 @@ describe("nextComponentList", () => {
       }
     },
     {
-      name: "an export the person takes back off stays listed until its file is read again",
+      name: "an export the person takes back off loses its mark and stays listed until the checker reads its file",
       list: { sources: { Button: button, Menu: menu }, leftOut: [], corrections: { include: [menuRef] } },
       event: { kind: "corrected", corrections: { include: [] } },
       expected: {
-        list: { sources: { Button: button, Menu: menu }, leftOut: [], corrections: { include: [] } },
+        list: { sources: { Button: button, Menu: undecidedMenu }, leftOut: [], corrections: { include: [] } },
         guest: { add: {}, drop: [] },
         props: [],
         reread: [menuRef.path],
-        changed: false
+        changed: true
+      }
+    },
+    {
+      name: "a component the checker finds keeps an id it took off the list in the same check",
+      list: { sources: { Button: button, Select: select }, leftOut: [] },
+      event: {
+        kind: "checked",
+        result: {
+          components: [{ name: "Select", path: "src/forms/select.tsx", export: "Select", as: "function" }],
+          leftOut: [selectLeftOut]
+        },
+        files: new Set([select.path, "src/forms/select.tsx"])
+      },
+      expected: {
+        list: { sources: { Button: button, Select: formSelect }, leftOut: [selectLeftOut] },
+        guest: { add: { Select: formSelect }, drop: [] },
+        props: ["Select"],
+        reread: [],
+        changed: true
       }
     }
   ])("$name", ({ list, event, expected }) => {
     expect(nextComponentList(list, event)).toEqual(expected)
+  })
+
+  it.each<StepsCase>([
+    {
+      name: "an export the person took back off drops off once its file is read again and the checker leaves it out",
+      corrections: { include: [] },
+      checked: [],
+      expected: { Button: button }
+    },
+    {
+      name: "an export the person took back off stays listed if the checker finds it",
+      corrections: { include: [] },
+      checked: [{ name: "Menu", path: menuRef.path, export: "Menu", as: "exotic" }],
+      expected: { Button: button, Menu: { ...menuRef, lazy: true, as: "exotic" } }
+    },
+    {
+      name: "an export still on the person's list keeps its mark while its file is read again",
+      corrections: { include: [menuRef] },
+      checked: [],
+      expected: { Button: button, Menu: menu }
+    }
+  ])("$name", ({ corrections, checked, expected }) => {
+    // Changing a correction reads the export's file again, where the parse can't decide it, then the checker reads it.
+    const start: ComponentList = {
+      sources: { Button: button, Menu: menu },
+      leftOut: [],
+      corrections: { include: [menuRef] }
+    }
+    const events: ComponentListEvent[] = [
+      { kind: "corrected", corrections },
+      { kind: "filesRead", read: new Map([[menuRef.path, [{ name: "Menu", ...menuRef, uiKit: false }]]]) },
+      { kind: "checked", result: { components: checked, leftOut: [] }, files: new Set([menuRef.path]) }
+    ]
+    const end = events.reduce((list, event) => nextComponentList(list, event).list, start)
+    expect(end.sources).toEqual(expected)
   })
 })

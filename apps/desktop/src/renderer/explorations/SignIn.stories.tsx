@@ -1,25 +1,23 @@
 import { Button, Input } from "@buildkitgg/shadcn-baseui-kit"
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { ArrowLeft, ArrowRight, Building2, Copy, ExternalLink, KeyRound, Lock, Mail, Plus } from "lucide-react"
+import { ArrowLeft, ArrowRight, Building2, KeyRound, Lock, Mail, Plus } from "lucide-react"
 import { type CSSProperties, type ReactNode, useState } from "react"
 import { agentPalettes } from "../agent/agent-colors.ts"
 import { AgentBadge, AgentPointer } from "../agent/AgentPointer.tsx"
 import { me, organizations, people } from "./explore-data.ts"
-import {
-  accent,
-  Avatar,
-  ExploreWindow,
-  GitHubMark,
-  GoogleMark,
-  MicrosoftMark,
-  MiniScreen,
-  ParityMark
-} from "./parts.tsx"
+import { accent, Avatar, ExploreWindow, MiniScreen, ParityMark } from "./parts.tsx"
+import { AuthKitBranding, HandBackPage } from "./sign-in/browser.tsx"
+import { glow, Legal, providers, SignInForm } from "./sign-in/panels.tsx"
+import { SignInPrototype } from "./sign-in/prototype.tsx"
 
 /**
  * Signing in to Parity with WorkOS. Sign-in happens in the browser, through AuthKit, so Parity never handles a
- * password: each button opens AuthKit with its provider chosen, and a work email lets WorkOS route people to their
- * organization's single sign-on. These are proposals for the screen that starts it, and the states around it.
+ * password: each button opens the browser with its provider chosen, and a work email lets WorkOS route people to their
+ * organization's single sign-on. Signing in is optional, and nothing on this computer needs it.
+ *
+ * The working stories are one prototype, each starting at a different point: the sign-in screen on first launch, Home
+ * signed out, the sign-in dialog from the title bar, and waiting for the browser with every way that ends. While
+ * Parity waits, a panel marked Prototype plays the browser.
  */
 const meta = {
   title: "Parity/Explorations/Sign in",
@@ -29,92 +27,12 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-const providers = [
-  { name: "Google", mark: <GoogleMark /> },
-  { name: "GitHub", mark: <GitHubMark /> },
-  { name: "Microsoft", mark: <MicrosoftMark /> }
-]
-
-/** Provider buttons, then a work email for single sign-on or a code. */
-function SignInForm({ onContinue }: { onContinue?: () => void }) {
-  return (
-    <div className="flex flex-col gap-3">
-      {providers.map((provider) => (
-        <Button
-          key={provider.name}
-          variant="outline"
-          size="lg"
-          className="h-10 justify-center gap-2.5"
-          onClick={onContinue}
-        >
-          {provider.mark}
-          Continue with {provider.name}
-        </Button>
-      ))}
-      <div className="my-1 flex items-center gap-3 text-xs text-muted-foreground">
-        <span className="h-px flex-1 bg-border" />
-        or
-        <span className="h-px flex-1 bg-border" />
-      </div>
-      <div className="flex flex-col gap-1.5 text-sm">
-        <label htmlFor="work-email" className="text-muted-foreground">
-          Work email
-        </label>
-        <Input id="work-email" type="email" placeholder="you@company.com" className="h-10" />
-      </div>
-      <Button size="lg" className="h-10" onClick={onContinue}>
-        Continue
-      </Button>
-      <p className="text-center text-xs leading-relaxed text-muted-foreground">
-        If your company signs in with Okta, Entra ID or Google Workspace, your email takes you there.
-      </p>
-    </div>
-  )
-}
-
-function Legal() {
-  return (
-    <p className="text-center text-xs text-muted-foreground">
-      Sign-in opens your browser, so Parity never sees your password.{" "}
-      <span className="underline underline-offset-2">Terms</span> and{" "}
-      <span className="underline underline-offset-2">Privacy</span>
-    </p>
-  )
-}
-
-/** Quiet light behind the form, in the mark's colors. */
-const glow = {
-  backgroundImage: `radial-gradient(60% 50% at 50% 0%, color-mix(in oklch, ${accent(275, 0.6, 0.2)} 22%, transparent), transparent 70%), radial-gradient(40% 30% at 80% 100%, color-mix(in oklch, ${accent(220, 0.6, 0.16)} 10%, transparent), transparent 70%)`
-}
-
-/** Centered and calm: the mark, one line on what Parity is, and the ways in. */
-function Focused() {
-  return (
-    <ExploreWindow>
-      <div className="flex h-full flex-col items-center justify-center px-6" style={glow}>
-        <div className="flex w-full max-w-[22rem] flex-col gap-7">
-          <div className="flex flex-col items-center gap-4 text-center">
-            <ParityMark size={48} />
-            <div className="flex flex-col gap-1.5">
-              <h1 className="text-2xl font-semibold tracking-tight">Sign in to Parity</h1>
-              <p className="text-sm text-muted-foreground">
-                Design with your real components, your team and your agents.
-              </p>
-            </div>
-          </div>
-          <SignInForm />
-          <Legal />
-        </div>
-        <button type="button" className="absolute bottom-6 text-xs text-muted-foreground hover:text-foreground">
-          Open a folder on this computer without signing in
-        </button>
-      </div>
-    </ExploreWindow>
-  )
-}
-
-/** The proposal to start from: centered, with nothing but the ways in. */
-export const CenteredForm: Story = { render: () => <Focused /> }
+/**
+ * The sign-in screen, the first time Parity opens: centered, with nothing but the ways in. Each button opens the
+ * browser and waits. "Open a folder on this computer without signing in" opens the folder picker over Home, and Home
+ * stays if the picker is closed.
+ */
+export const CenteredForm: Story = { render: () => <SignInPrototype place="window" /> }
 
 const showcaseStyles = `
 @keyframes showcase-a { 0%,100% { transform: translate(0,0) } 30% { transform: translate(120px,40px) } 60% { transform: translate(60px,140px) } }
@@ -377,34 +295,51 @@ export const EmailFirstSingleSignOn: Story = { render: () => <EmailFirst initial
 /** No single sign-on: a one-time code by email, no password. */
 export const EmailFirstCode: Story = { render: () => <EmailFirst initial="code" /> }
 
-/** After a button: the browser has AuthKit open, and Parity waits for it to hand back. */
+/**
+ * After a button: the browser has sign-in open, and Parity waits for it to hand back. Cancel goes back to the ways in.
+ * The Prototype panel plays the browser: sign in, cancel there, hit an error, or use an account WorkOS turns down.
+ */
 export const WaitingForBrowser: Story = {
-  render: () => (
-    <ExploreWindow>
-      <div className="flex h-full flex-col items-center justify-center gap-8 px-6" style={glow}>
-        <div className="relative grid size-24 place-items-center">
-          <span className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-[oklch(0.72_0.17_275)] [animation-duration:1.4s]" />
-          <span className="absolute inset-2 rounded-full bg-[oklch(0.6_0.18_275/0.12)]" />
-          <ParityMark size={44} />
-        </div>
-        <div className="flex max-w-sm flex-col items-center gap-2 text-center">
-          <h1 className="text-xl font-semibold tracking-tight">Continue in your browser</h1>
-          <p className="text-sm text-muted-foreground">
-            We opened Google sign-in in your browser. When you&apos;re done there, you&apos;ll come straight back here.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" className="gap-1.5">
-            <ExternalLink /> Open it again
-          </Button>
-          <Button variant="outline" className="gap-1.5">
-            <Copy /> Copy the link
-          </Button>
-          <Button variant="ghost">Cancel</Button>
-        </div>
-      </div>
-    </ExploreWindow>
-  )
+  render: () => <SignInPrototype place="window" flow={{ at: "waiting", via: "Google" }} />
+}
+
+/**
+ * The browser never hands back: the page didn't open, opened in a browser the person doesn't use, or its tab was
+ * closed. Parity doesn't give up on its own, since the person may still be signing in. After 30 seconds it says what
+ * to try, and Open it again becomes the main button.
+ */
+export const BrowserNeverHandsBack: Story = {
+  render: () => <SignInPrototype place="window" flow={{ at: "waiting", via: "Google", slow: true }} />
+}
+
+/** Sign-in was turned down in the browser, at Google or AuthKit: nothing changed, so try again or another way. */
+export const SignInCanceled: Story = {
+  render: () => <SignInPrototype place="window" flow={{ at: "problem", via: "Google", problem: "canceled" }} />
+}
+
+/**
+ * Sign-in went wrong: the browser handed back an error, or trading its code failed. What WorkOS said is under Details,
+ * to copy for help.
+ */
+export const SignInFailed: Story = {
+  render: () => <SignInPrototype place="window" flow={{ at: "problem", via: "Google", problem: "failed" }} />
+}
+
+/**
+ * WorkOS turned the account down. Parity can't know WorkOS's rules, so it names the account, offers another way in,
+ * and keeps what WorkOS said under Details.
+ */
+export const AccountRefused: Story = {
+  render: () => <SignInPrototype place="window" flow={{ at: "problem", via: "Google", problem: "refused" }} />
+}
+
+/**
+ * WorkOS turned the account down because its organization signs in through single sign-on. WorkOS says so without
+ * naming the organization or its identity provider, so neither does Parity. Continue with single sign-on opens the
+ * browser at the organization's sign-in.
+ */
+export const SingleSignOnRequired: Story = {
+  render: () => <SignInPrototype place="window" flow={{ at: "problem", via: "Google", problem: "single-sign-on" }} />
 }
 
 /** Signed in, and in more than one organization: where to work, and invitations waiting. */
@@ -506,3 +441,53 @@ export const SessionEnded: Story = {
     </ExploreWindow>
   )
 }
+
+/**
+ * Home after "Open a folder on this computer without signing in", before any project. Where your avatar goes, an
+ * outline of one opens the account menu with Sign in in your name's place; agents, settings and help stay, since they
+ * don't need an account. Sign in opens the sign-in screen in a dialog over Home.
+ */
+export const SignedOut: Story = { render: () => <SignInPrototype /> }
+
+/**
+ * Home just after Sign out. Projects on this computer stay open and listed, all under Personal, since Parity can't
+ * tell which organization a folder belongs to until you sign in. There's no inbox, For you offers Sign in, and so do
+ * the account menu and the organization switcher.
+ */
+export const AfterSigningOut: Story = { render: () => <SignInPrototype home="home" notice="signed-out" /> }
+
+/**
+ * Signed in, and in no organization yet. The account menu shows your email where Kestrel and your role would be.
+ * Home's switcher has Personal alone, and its menu offers New organization but not Invite people, which needs an
+ * organization to invite to. Sign out and in again to come back the same.
+ */
+export const NoOrganization: Story = {
+  render: () => <SignInPrototype home="home" account="no-organization" profile="no-organization" />
+}
+
+/**
+ * Signed in on a system with no keyring, where Electron would keep the session in plain text, so Parity keeps it only
+ * until it quits. A toast says so once, after signing in, and the account menu keeps saying it: Signed in until you
+ * quit Parity, which explains what to do.
+ */
+export const SignedInUntilQuit: Story = {
+  render: () => <SignInPrototype home="home" account="no-keychain" profile="no-keychain" notice="until-quit" />
+}
+
+/**
+ * The browser after it has handed back to a `pnpm dev` copy: the page that copy's loopback serves, once the code is
+ * traded. It's the whole page, plain HTML with no scripts, in the system's light or dark. Installed apps hand back
+ * through `parity://`, and the browser shows its own prompt instead.
+ */
+export const BrowserAfterHandingBack: Story = { render: () => <HandBackPage outcome="signed-in" /> }
+
+/** The same page when the code couldn't be traded: Parity's window says why, so the page only points there. */
+export const BrowserAfterAProblem: Story = { render: () => <HandBackPage outcome="problem" /> }
+
+/**
+ * AuthKit's own pages, dressed by WorkOS's branding settings, beside the settings that do it: the app's colors, font
+ * and corners, the icon, and the sign-in screen's glow as custom CSS. People only pass through these: the code for a
+ * work email without single sign-on, choosing an organization, an invitation. The pages work: Continue goes on to the
+ * next one.
+ */
+export const AuthKitPages: Story = { render: () => <AuthKitBranding /> }

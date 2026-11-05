@@ -114,7 +114,8 @@ describe("zoomed far out", () => {
   it("draws the selected board's frames", { timeout: 180_000 }, async () => {
     await zoomOut()
     expect(await drawn("Members")).toBe(false)
-    await app.selectDesign("Members")
+    // Zoomed this far out, Members' board is too narrow on screen to show its title.
+    await app.selectDesignInLayers("Members")
     await expect.poll(() => drawn("Members")).toBe(true)
     // Selecting nothing lets it sleep again.
     await app.page.keyboard.press("Escape")
