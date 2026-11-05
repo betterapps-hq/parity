@@ -3,6 +3,7 @@ import {
   type DrawnNodes,
   type FrameViewport,
   emptyLayoutAttribute,
+  resetCustomProperties,
   rewriteSheetViewportUnits,
   rewriteViewportUnits,
   viewportContainerName,
@@ -19,6 +20,9 @@ export interface FrameEnvironment {
 
 let rootSheet: CSSStyleSheet | undefined
 
+/** The custom properties a frame's root sets to `initial`: every one Parity's page has given a frame's host to inherit. */
+const resetNames = new Set<string>()
+
 /** The least an empty layout takes on the canvas each way, in the design's pixels. */
 export const emptyLayoutSize = 24
 
@@ -28,6 +32,10 @@ export const emptyLayoutSize = 24
  * canvas's color scheme and font. Its body has a browser's 8px margin, which, as at a page's root, stays inside the
  * frame. It's the first layer, so the project's own `html` and `body` rules still win. Pointer events, the cursor and
  * text selection stay inherited, since the canvas decides those.
+ *
+ * `all` leaves custom properties alone, so the root also sets every custom property Parity's page passes the frame to
+ * `initial` (`keepOutInherited`), and a variable the project uses but never defines takes its fallback, as in Chrome,
+ * rather than Parity's value: shadcn's names, `--background` and `--border`, are Parity's too.
  *
  * A layout with nothing in it would draw nothing, where it can't be seen, selected or dropped into, so on the canvas it
  * takes at least `emptyLayoutSize` along each axis its content would size, dashed. Along an axis the design sizes it
@@ -39,10 +47,8 @@ export const emptyLayoutSize = 24
  * width. A container lays out on its own, as a page's root does, and fixed elements place themselves in it, as in a
  * browser's viewport. On the body it would keep a first heading's margin from joining the body's.
  */
-function frameRootSheet(): CSSStyleSheet {
-  if (rootSheet) return rootSheet
-  rootSheet = new CSSStyleSheet()
-  rootSheet.replaceSync(`@layer canvas-frame-root {
+function frameRootCss(): string {
+  return `@layer canvas-frame-root {
   :host {
     all: initial;
     display: flow-root;
@@ -50,6 +56,7 @@ function frameRootSheet(): CSSStyleSheet {
     pointer-events: inherit;
     cursor: inherit;
     user-select: inherit;
+    ${resetCustomProperties(resetNames)}
   }
   [${bodyAttribute}] { margin: 8px; }
   [${emptyLayoutAttribute}] {
@@ -58,8 +65,35 @@ function frameRootSheet(): CSSStyleSheet {
   }
   [${emptyLayoutAttribute}~="width"] { min-width: ${emptyLayoutSize}px !important; }
   [${emptyLayoutAttribute}~="height"] { min-height: ${emptyLayoutSize}px !important; }
-}`)
+}`
+}
+
+function frameRootSheet(): CSSStyleSheet {
+  if (rootSheet) return rootSheet
+  rootSheet = new CSSStyleSheet()
+  rootSheet.replaceSync(frameRootCss())
   return rootSheet
+}
+
+/**
+ * Keeps the custom properties a host would inherit from Parity's page out of its frame, by adding any its root doesn't
+ * set to `initial` yet. They're read from the computed style of the element around the host, which lists every custom
+ * property that reaches it, from any rule or inline style. One sheet serves every frame, and setting a property nothing
+ * passes down changes nothing, so the list only grows; it's written again only when it does, normally for the first
+ * frame alone. A property defined on the frame's host, as the project's `:root` rules and its viewport are, still wins.
+ */
+function keepOutInherited(host: HTMLElement): void {
+  const parent = host.parentNode instanceof ShadowRoot ? host.parentNode.host : host.parentElement
+  if (!parent) return
+  const style = getComputedStyle(parent)
+  let added = false
+  for (let index = 0; index < style.length; index++) {
+    const name = style.item(index)
+    if (!name.startsWith("--") || resetNames.has(name)) continue
+    resetNames.add(name)
+    added = true
+  }
+  if (added) frameRootSheet().replaceSync(frameRootCss())
 }
 
 /**
@@ -71,6 +105,7 @@ export function prepareFrame(host: HTMLElement, sheet: CSSStyleSheet, environmen
   const shadow = host.shadowRoot ?? host.attachShadow({ mode: "open" })
   watchFrameStyles(shadow)
   shadow.adoptedStyleSheets = [frameRootSheet(), sheet]
+  keepOutInherited(host)
   if (environment.viewport) setFrameViewport(host, environment.viewport)
   const body = document.createElement("div")
   body.setAttribute(bodyAttribute, "")

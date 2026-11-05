@@ -3409,6 +3409,32 @@ Gaps: nothing checks automatically that the lights stay on opacity and transform
 
 How the project's code runs in the canvas's frames.
 
+### Parity's variables stay out of frames (PAR-157)
+
+A frame shows what the project's CSS gives on its own page in Chrome, not Parity's variables. Custom properties inherit
+into a shadow root, so a project that uses `var(--background, white)` or `var(--border, 1px)` without defining them used
+to get Parity's values, since shadcn's names are Parity's too. Now it gets its fallback.
+
+- **Every custom property that reaches a frame's host is set to `initial` at its root,** in the lowest layer, beside the
+  `all: initial` that resets the other properties. The names come from the computed style of the element around the
+  host, read as the frame is prepared, so Parity's stylesheets, tldraw's and inline variables all count.
+- **The project's own variables win,** from `:root` and `html` (which become `:host`), in any layer, as do the viewport
+  sizes each frame sets on its host and token previews.
+- **Registered properties stay the document's.** A name Parity registers with `@property` keeps its initial value in
+  frames, since shadow roots ignore `@property` (see [decisions.md](decisions.md), "Parity's own custom properties stay
+  out of frames").
+
+Code: `resetCustomProperties` in `packages/core/src/css.ts`; `keepOutInherited` and `frameRootCss` in
+`apps/desktop/src/renderer/frame.ts`, called by `prepareFrame`.
+
+Tests: `packages/core/src/css.test.ts` (3: each name set to `initial`; names that aren't custom properties left out; a
+name with `:`, a space or `;` escaped, so it can't set another property). `apps/desktop/src/renderer/frame.test.ts` (2),
+in Chrome, on a page that defines `--background` and `--border` in a stylesheet and `--tl-zoom` inline around the frame:
+a box using them with fallbacks has the same background and border in the frame as on a fresh page, its fallbacks, and
+no `--tl-zoom`; and with the project defining two of them on `:root` and in a layer on `html`, the project's values, as
+on the page. Gap: a variable Parity first defines after a frame is prepared isn't tested; it reaches the frame until
+it's prepared again.
+
 ### Frames run React's production build (PAR-198)
 
 Frames draw with the production builds of the project's dependencies, React's among them, so the window doesn't keep a

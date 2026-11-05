@@ -11,6 +11,32 @@ export const bodyAttribute = "data-canvas-body"
 export const viewportWidthProperty = "--canvas-vw"
 export const viewportHeightProperty = "--canvas-vh"
 
+/**
+ * Declarations that set each custom property to `initial`, the guaranteed-invalid value, so an element doesn't inherit
+ * it and `var(--name, fallback)` takes its fallback, as where nothing defines it. A frame's root takes these for the
+ * custom properties Parity's own page defines around it, which would otherwise inherit into the frame. Names that
+ * aren't custom properties are left out, and characters a name can't hold as they are are escaped, so a name never
+ * reads as a different declaration.
+ */
+export function resetCustomProperties(names: Iterable<string>): string {
+  const declarations: string[] = []
+  for (const name of names) {
+    if (!name.startsWith("--") || name.length === 2) continue
+    declarations.push(`--${escapeIdentifier(name.slice(2))}: initial;`)
+  }
+  return declarations.join(" ")
+}
+
+/** Escapes what can't stand as it is in the rest of an identifier: a character other than a letter, digit, `-` or `_`. */
+function escapeIdentifier(text: string): string {
+  let escaped = ""
+  for (const char of text) {
+    const code = char.codePointAt(0)!
+    escaped += /[\w-]/.test(char) || code >= 0x80 ? char : `\\${code.toString(16)} `
+  }
+  return escaped
+}
+
 export interface CanvasCss {
   /** Adopted by every rendered mode's shadow root. */
   scoped: string
