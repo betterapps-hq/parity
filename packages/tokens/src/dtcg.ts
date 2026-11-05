@@ -2,25 +2,76 @@
 // files, and resolvers that layer them into contexts such as light and dark themes. Parity reads them to describe a
 // library's tokens; the stylesheet stays what frames render with.
 
-import type { DescribedToken, TokenExtension } from "@parity-app/core"
+import type { DescribedToken } from "@parity-app/core"
+import { parseData, plainObject } from "@parity-app/core/schema"
+import { z } from "zod"
+import { untypedCss, valueTypes } from "./dtcg-values.ts"
 
 /** Reads a JSON file that tokens refer to, by its path. */
 export type ReadTokenFile = (path: string) => Promise<unknown>
 
-interface Resolver {
-  sets: Record<string, { sources: unknown[] }>
-  modifiers: Record<string, { contexts: Record<string, unknown[]>; default?: string }>
-  resolutionOrder: unknown[]
+/** A token, or a part of a resolver, left out of what's read because it isn't what DTCG describes. */
+export interface SkippedToken {
+  /** The token's path, as `color.primary`, or the part of the resolver, as a JSON pointer such as `/sets/base`. */
+  path: string
+  /** Where in it the problem is, as a JSON pointer, and what was expected: `/$value/alpha: expected at most 1`. */
+  problem: string
 }
 
 type Group = Record<string, unknown>
+
+/** Token groups, or `$ref`s to them in this file or another. */
+const tokenSources = z.array(plainObject)
+const resolverSet = z.object({ sources: tokenSources })
+const resolverModifier = z.object({
+  contexts: z.record(z.string(), tokenSources).transform((contexts) => new Map(Object.entries(contexts))),
+  default: z.string().optional()
+})
+/** A step of the resolution order: a `$ref` to a set or a modifier, or one written in place. */
+const reference = z.object({ $ref: z.string() })
+/** A modifier written in the resolution order, set by the input of its `name`. */
+const inlineModifier = resolverModifier.extend({ name: z.string().optional() })
+
+type ResolverSet = z.infer<typeof resolverSet>
+type ResolverModifier = z.infer<typeof resolverModifier>
+type ResolutionStep = z.infer<typeof reference> | ResolverSet | z.infer<typeof inlineModifier>
+
+interface Resolver {
+  sets: Map<string, ResolverSet>
+  modifiers: Map<string, ResolverModifier>
+  resolutionOrder: ResolutionStep[]
+}
+
+/** A token's fields besides its value: its own type, its description, and Parity's extension (`TokenExtension`). */
+const tokenFields = z.object({
+  $type: z.string().optional(),
+  $description: z.string().optional(),
+  $extensions: z
+    .object({
+      parity: z
+        .object({ var: z.string().optional(), category: z.string().optional(), lineHeight: z.string().optional() })
+        .optional()
+    })
+    .optional()
+})
+
+/** Says what was skipped: a token by its path, or a part of the resolver by its pointer. */
+type Skip = (path: string, problem: string) => void
 
 /**
  * Reads design tokens from a token file or a resolver. `source` is a path, read with `read`, or the document itself;
  * `folder` is where relative paths start, with `/` between folders. A resolver gives values for its defaults and for
  * each context of each modifier, the other modifiers staying at their defaults.
+ *
+ * A malformed token, set, modifier or step of the resolution order is left out rather than failing the file, and
+ * `report` hears of each once. A broken alias still fails it.
  */
-export async function readDesignTokens(source: unknown, read: ReadTokenFile, folder = ""): Promise<DescribedToken[]> {
+export async function readDesignTokens(
+  source: unknown,
+  read: ReadTokenFile,
+  folder = "",
+  report?: (skipped: SkippedToken) => void
+): Promise<DescribedToken[]> {
   let directory = folder
   let document = source
   if (typeof source === "string") {
@@ -29,7 +80,14 @@ export async function readDesignTokens(source: unknown, read: ReadTokenFile, fol
     document = await read(file)
   }
   if (!isObject(document)) throw new TypeError("Design tokens must be a JSON object")
-  const resolver = asResolver(document)
+  const reported = new Set<string>()
+  const skip: Skip = (path, problem) => {
+    const key = JSON.stringify([path, problem])
+    if (reported.has(key)) return
+    reported.add(key)
+    report?.({ path, problem })
+  }
+  const resolver = asResolver(document, skip)
   const files = new Map<string, Promise<unknown>>()
   const load = (path: string) => {
     if (!files.has(path)) files.set(path, read(path))
@@ -38,14 +96,14 @@ export async function readDesignTokens(source: unknown, read: ReadTokenFile, fol
 
   const inputs: [string, Record<string, string>][] = []
   const defaults = Object.fromEntries(
-    Object.entries(resolver.modifiers).map(([name, modifier]) => [
+    [...resolver.modifiers].map(([name, modifier]) => [
       name,
-      modifier.default ?? Object.keys(modifier.contexts)[0] ?? ""
+      modifier.default ?? modifier.contexts.keys().next().value ?? ""
     ])
   )
   inputs.push(["default", defaults])
-  for (const [name, modifier] of Object.entries(resolver.modifiers)) {
-    for (const context of Object.keys(modifier.contexts)) {
+  for (const [name, modifier] of resolver.modifiers) {
+    for (const context of modifier.contexts.keys()) {
       if (context !== defaults[name]) inputs.push([context, { ...defaults, [name]: context }])
     }
   }
@@ -53,13 +111,14 @@ export async function readDesignTokens(source: unknown, read: ReadTokenFile, fol
   const tokens = new Map<string, DescribedToken>()
   for (const [context, input] of inputs) {
     const merged: Group = {}
-    for (const item of resolver.resolutionOrder) {
-      for (const source of await sourcesFor(item, resolver, input, document, directory, load)) {
+    for (const step of resolver.resolutionOrder) {
+      for (const source of await sourcesFor(step, resolver, input, document, directory, load)) {
         merge(merged, await expandSource(source, document, directory, load))
       }
     }
-    for (const token of collectTokens(merged)) {
-      const value = toCss(resolveAliases(token.value, merged, new Set([token.path])), token.type)
+    for (const found of collectTokens(merged)) {
+      const token = readToken(found, merged, skip)
+      if (!token) continue
       const entry = tokens.get(token.path) ?? {
         path: token.path,
         ...(token.type ? { type: token.type } : {}),
@@ -68,66 +127,75 @@ export async function readDesignTokens(source: unknown, read: ReadTokenFile, fol
         ...(token.parity ? { parity: token.parity } : {})
       }
       // Only what differs from the defaults is kept per context.
-      if (context === "default" || entry.values.default !== value) entry.values[context] = value
+      if (context === "default" || entry.values.default !== token.css) entry.values[context] = token.css
       tokens.set(token.path, entry)
     }
   }
   return [...tokens.values()]
 }
 
-/** A token file is a resolver with one set: itself. */
-function asResolver(document: Group): Resolver {
+/** A token file is a resolver with one set: itself. A resolver's malformed sets, modifiers and steps are skipped. */
+function asResolver(document: Group, skip: Skip): Resolver {
   if (!Array.isArray(document.resolutionOrder)) {
-    return { sets: { tokens: { sources: [document] } }, modifiers: {}, resolutionOrder: [{ $ref: "#/sets/tokens" }] }
+    return {
+      sets: new Map([["tokens", { sources: [document] }]]),
+      modifiers: new Map(),
+      resolutionOrder: [{ $ref: "#/sets/tokens" }]
+    }
   }
-  const sets = isObject(document.sets) ? document.sets : {}
-  const modifiers = isObject(document.modifiers) ? document.modifiers : {}
   return {
-    sets: Object.fromEntries(
-      Object.entries(sets).map(([name, set]) => [name, { sources: isObject(set) ? arrayOf(set.sources) : [] }])
-    ),
-    modifiers: Object.fromEntries(
-      Object.entries(modifiers).map(([name, modifier]) => {
-        const contexts = isObject(modifier) && isObject(modifier.contexts) ? modifier.contexts : {}
-        return [
-          name,
-          {
-            contexts: Object.fromEntries(Object.entries(contexts).map(([key, list]) => [key, arrayOf(list)])),
-            ...(isObject(modifier) && typeof modifier.default === "string" ? { default: modifier.default } : {})
-          }
-        ]
-      })
-    ),
-    resolutionOrder: document.resolutionOrder
+    sets: namedParts(resolverSet, document.sets, "/sets", skip),
+    modifiers: namedParts(resolverModifier, document.modifiers, "/modifiers", skip),
+    resolutionOrder: document.resolutionOrder.flatMap((step: unknown, index) => {
+      const report = (problem: string) => skip(`/resolutionOrder/${index}`, problem)
+      const object = checked(plainObject, step, report)
+      return object ? (checked(stepSchema(object), object, report) ?? []) : []
+    })
   }
+}
+
+/** The schema for a step of the resolution order, told by its keys, so a problem is reported against what it meant. */
+function stepSchema(step: Group) {
+  if ("$ref" in step) return reference
+  if ("sources" in step) return resolverSet
+  return inlineModifier
+}
+
+/** A resolver's named sets or modifiers, those `schema` takes; the rest are skipped. */
+function namedParts<T extends z.ZodType>(schema: T, value: unknown, at: string, skip: Skip): Map<string, z.output<T>> {
+  const parts = new Map<string, z.output<T>>()
+  if (value === undefined) return parts
+  const named = checked(plainObject, value, (problem) => skip(at, problem)) ?? {}
+  for (const [name, part] of Object.entries(named)) {
+    const pointer = `${at}/${encodePointer(name)}`
+    const parsed = checked(schema, part, (problem) => skip(pointer, problem))
+    if (parsed !== undefined) parts.set(name, parsed)
+  }
+  return parts
 }
 
 /** The sources one step of the resolution order contributes, for this input. */
 async function sourcesFor(
-  item: unknown,
+  step: ResolutionStep,
   resolver: Resolver,
   input: Record<string, string>,
   document: Group,
   directory: string,
   load: ReadTokenFile
-): Promise<unknown[]> {
-  const ref = isObject(item) && typeof item.$ref === "string" ? item.$ref : undefined
-  const set = /^#\/sets\/(.+)$/.exec(ref ?? "")?.[1]
-  if (set !== undefined) return resolver.sets[decodePointer(set)]?.sources ?? []
-  const modifier = /^#\/modifiers\/(.+)$/.exec(ref ?? "")?.[1]
-  if (modifier !== undefined) {
-    const name = decodePointer(modifier)
-    return resolver.modifiers[name]?.contexts[input[name] ?? ""] ?? []
+): Promise<Group[]> {
+  if ("$ref" in step) {
+    const set = /^#\/sets\/(.+)$/.exec(step.$ref)?.[1]
+    if (set !== undefined) return resolver.sets.get(decodePointer(set))?.sources ?? []
+    const modifier = /^#\/modifiers\/(.+)$/.exec(step.$ref)?.[1]
+    if (modifier !== undefined) {
+      const name = decodePointer(modifier)
+      return resolver.modifiers.get(name)?.contexts.get(input[name] ?? "") ?? []
+    }
+    return [await expandSource(step, document, directory, load)]
   }
-  if (isObject(item) && Array.isArray(item.sources)) return item.sources
-  if (isObject(item) && isObject(item.contexts)) {
-    const contexts = item.contexts
-    const name = typeof item.name === "string" ? item.name : ""
-    const chosen = input[name] ?? (typeof item.default === "string" ? item.default : Object.keys(contexts)[0])
-    return arrayOf(contexts[chosen ?? ""])
-  }
-  if (ref) return [await expandSource(item, document, directory, load)]
-  return []
+  if ("sources" in step) return step.sources
+  const chosen = input[step.name ?? ""] ?? step.default ?? step.contexts.keys().next().value
+  return step.contexts.get(chosen ?? "") ?? []
 }
 
 /** A source as token groups: inline groups as they are, or what a `$ref` points at, in this file or another. */
@@ -157,47 +225,51 @@ function merge(into: Group, from: Group): void {
   }
 }
 
-interface RawToken {
+interface FoundToken {
   path: string
-  value: unknown
+  /** The token itself: its `$value` and its other `$` fields. */
+  token: Group
+  /** The type the groups around it give it. */
   type?: string
-  description?: string
-  parity?: TokenExtension
 }
 
 /** Every token in the groups, with the type it inherits from the groups around it. */
-function collectTokens(group: Group, prefix: string[] = [], inherited?: string): RawToken[] {
+function collectTokens(group: Group, prefix: string[] = [], inherited?: string): FoundToken[] {
   const type = typeof group.$type === "string" ? group.$type : inherited
-  const found: RawToken[] = []
+  const found: FoundToken[] = []
   for (const [key, value] of Object.entries(group)) {
     if (!isObject(value)) continue
     // `$root` is a group's own token, named after the group.
     if (key.startsWith("$") && key !== "$root") continue
     const path = key === "$root" ? prefix : [...prefix, key]
-    if ("$value" in value) {
-      const ownType = typeof value.$type === "string" ? value.$type : type
-      const parity = isObject(value.$extensions) ? tokenExtension(value.$extensions.parity) : undefined
-      found.push({
-        path: path.join("."),
-        value: value.$value,
-        ...(ownType ? { type: ownType } : {}),
-        ...(typeof value.$description === "string" ? { description: value.$description } : {}),
-        ...(parity ? { parity } : {})
-      })
-    } else {
-      found.push(...collectTokens(value, path, type))
-    }
+    if ("$value" in value) found.push({ path: path.join("."), token: value, ...(type ? { type } : {}) })
+    else found.push(...collectTokens(value, path, type))
   }
   return found
 }
 
-function tokenExtension(value: unknown): TokenExtension | undefined {
-  if (!isObject(value)) return undefined
-  const extension: TokenExtension = {}
-  for (const key of ["var", "category", "lineHeight"] as const) {
-    if (typeof value[key] === "string") extension[key] = value[key]
+/** A token as Parity describes it, with its value as CSS; nothing, with the problem reported, when it's malformed. */
+function readToken(
+  found: FoundToken,
+  groups: Group,
+  skip: Skip
+): (Omit<DescribedToken, "values"> & { css: string }) | undefined {
+  const report = (problem: string) => skip(found.path, problem)
+  const fields = checked(tokenFields, found.token, report)
+  if (!fields) return undefined
+  const type = fields.$type ?? found.type
+  const value = resolveAliases(found.token.$value, groups, new Set([found.path]))
+  const schema = type === undefined ? undefined : valueTypes.get(type)
+  const css = schema ? checked(schema, value, report, "/$value") : untypedCss(value)
+  if (css === undefined) return undefined
+  const parity = fields.$extensions?.parity
+  return {
+    path: found.path,
+    ...(type ? { type } : {}),
+    ...(fields.$description ? { description: fields.$description } : {}),
+    ...(parity && Object.keys(parity).length > 0 ? { parity } : {}),
+    css
   }
-  return Object.keys(extension).length > 0 ? extension : undefined
 }
 
 /** Follows aliases, `{color.base}` or `{ "$ref": "#/color/base" }`, to the values they stand for. */
@@ -229,61 +301,23 @@ function resolveAliases(value: unknown, groups: Group, seen: Set<string>): unkno
   return value
 }
 
-/** A token's value written as CSS would take it. */
-function toCss(value: unknown, type: string | undefined): string {
-  if (typeof value === "string") return value
-  if (typeof value === "number") return String(value)
-  if (Array.isArray(value)) {
-    if (type === "cubicBezier") return `cubic-bezier(${value.join(", ")})`
-    if (type === "fontFamily") return value.map((name) => fontName(String(name))).join(", ")
-    if (type === "shadow") return value.map((item) => toCss(item, "shadow")).join(", ")
-    if (type === "gradient") {
-      const stops = value.map((stop) =>
-        isObject(stop) ? `${toCss(stop.color, "color")} ${percent(stop.position)}` : ""
-      )
-      return `linear-gradient(${stops.join(", ")})`
-    }
-    return value.map((item) => toCss(item, undefined)).join(" ")
+/**
+ * What `schema` reads from `value`, or nothing, with the problem reported as `/json/pointer: message`. `at` is where
+ * the value sits in what's reported.
+ */
+function checked<T extends z.ZodType>(
+  schema: T,
+  value: unknown,
+  report: (problem: string) => void,
+  at = ""
+): z.output<T> | undefined {
+  try {
+    return parseData(schema, value, at)
+  } catch (error) {
+    if (!(error instanceof TypeError)) throw error
+    report(error.message)
+    return undefined
   }
-  if (!isObject(value)) return JSON.stringify(value) ?? ""
-  if ("colorSpace" in value || type === "color") return colorToCss(value)
-  if ("value" in value && "unit" in value) return `${String(value.value)}${String(value.unit)}`
-  if (type === "shadow") {
-    const parts = ["offsetX", "offsetY", "blur", "spread"].map((key) => toCss(value[key] ?? "0", "dimension"))
-    return `${value.inset === true ? "inset " : ""}${parts.join(" ")} ${toCss(value.color, "color")}`
-  }
-  if (type === "border") return [value.width, value.style, value.color].map((part) => toCss(part, undefined)).join(" ")
-  if (type === "typography") {
-    const size = toCss(value.fontSize, "dimension")
-    const line = value.lineHeight === undefined ? "" : `/${toCss(value.lineHeight, "number")}`
-    return `${toCss(value.fontWeight ?? "normal", "fontWeight")} ${size}${line} ${toCss(value.fontFamily, "fontFamily")}`
-  }
-  if (type === "transition") {
-    return [value.duration, value.timingFunction, value.delay].map((part) => toCss(part, "cubicBezier")).join(" ")
-  }
-  return JSON.stringify(value)
-}
-
-function colorToCss(color: Group): string {
-  const alpha = typeof color.alpha === "number" && color.alpha < 1 ? color.alpha : undefined
-  if (typeof color.hex === "string" && alpha === undefined) return color.hex
-  const components = arrayOf(color.components).map((part) => (typeof part === "number" ? part : "none"))
-  const space = typeof color.colorSpace === "string" ? color.colorSpace : "srgb"
-  const slash = alpha === undefined ? "" : ` / ${alpha}`
-  if (space === "srgb") {
-    const [r, g, b] = components.map((part) => (typeof part === "number" ? Math.round(part * 255) : part))
-    return `rgb(${r} ${g} ${b}${slash})`
-  }
-  if (["hsl", "hwb", "lab", "lch", "oklab", "oklch"].includes(space)) return `${space}(${components.join(" ")}${slash})`
-  return `color(${space} ${components.join(" ")}${slash})`
-}
-
-function fontName(name: string): string {
-  return /^[\w-]+$/.test(name) ? name : `"${name}"`
-}
-
-function percent(position: unknown): string {
-  return typeof position === "number" ? `${Math.round(position * 1000) / 10}%` : ""
 }
 
 function pointAt(value: unknown, pointer: string): unknown {
@@ -297,6 +331,10 @@ function pointAt(value: unknown, pointer: string): unknown {
 
 function decodePointer(part: string): string {
   return part.replaceAll("~1", "/").replaceAll("~0", "~")
+}
+
+function encodePointer(key: string): string {
+  return key.replaceAll("~", "~0").replaceAll("/", "~1")
 }
 
 /** Joins a relative path onto a folder, POSIX style, resolving `.` and `..`. */
@@ -316,8 +354,4 @@ function dirnameOf(path: string): string {
 
 function isObject(value: unknown): value is Group {
   return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function arrayOf(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : []
 }
