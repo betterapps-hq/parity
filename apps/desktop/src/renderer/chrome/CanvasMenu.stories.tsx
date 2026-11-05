@@ -163,7 +163,7 @@ export const Design: Story = onCanvas(
       "Paste over selection",
       "Duplicate",
       "---",
-      "Make it a component"
+      "Convert to component"
     ])
   }
 )

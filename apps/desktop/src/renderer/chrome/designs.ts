@@ -51,7 +51,7 @@ export function setDesignKind(session: ProjectSession, entry: ContainerEntry, ki
   const { store } = session
   store.updateContainer(
     entry.key,
-    kind === "component" ? "Make component" : "Make screen",
+    kind === "component" ? "Convert to component" : "Convert to screen",
     (container) => turnInto(container, kind, store.getModes()).design
   )
 }

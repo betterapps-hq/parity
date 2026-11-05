@@ -112,7 +112,7 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
               value &&
               store.updateContainer(
                 key,
-                value === "component" ? "Make component" : "Make screen",
+                value === "component" ? "Convert to component" : "Convert to screen",
                 (current) => turnInto(current, value as ContainerKind, store.getModes()).design
               )
             }

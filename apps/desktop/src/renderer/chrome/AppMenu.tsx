@@ -275,8 +275,8 @@ function ObjectItems() {
   const instance = selectedInstance()
   const current = activeSession()?.selection.get() ?? {}
   let makeComponent = "Make component"
-  if (design?.container.kind === "component") makeComponent = "Make it a screen"
-  else if (design) makeComponent = "Make it a component"
+  if (design?.container.kind === "component") makeComponent = "Convert to screen"
+  else if (design) makeComponent = "Convert to component"
   return (
     <>
       <Item command="insert" icon={SquarePlus}>

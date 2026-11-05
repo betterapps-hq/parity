@@ -193,10 +193,10 @@ function layerChoices(target: MenuTarget, selection: Selection, entries: readonl
   return choices
 }
 
-/** What Make component says for a design picked alone: it turns a component back into a screen. */
+/** What Make component says for a design picked alone: Convert to component, or Convert to screen for a component. */
 function makeLabel(alone: ContainerSpec | undefined): string | undefined {
-  if (alone?.kind === "component") return "Make it a screen"
-  return alone ? "Make it a component" : undefined
+  if (alone?.kind === "component") return "Convert to screen"
+  return alone ? "Convert to component" : undefined
 }
 
 function item(action: MenuAction, enabled: boolean, label?: string): MenuItem {
