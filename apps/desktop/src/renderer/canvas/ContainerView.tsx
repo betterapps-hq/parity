@@ -27,7 +27,7 @@ import {
   type StateSpec,
   variantChoices
 } from "@parity-app/core"
-import { kindTitle } from "@parity-app/editor"
+import { kindTitle, activeState } from "@parity-app/editor"
 import { ChevronDown, Crown, Rows3 } from "lucide-react"
 import {
   type CSSProperties,
@@ -58,7 +58,7 @@ import { FrameSkeleton } from "./FrameSkeleton.tsx"
 import { DesignIcon, designColor, kindColors } from "./kinds.tsx"
 import { useCanvasLabel } from "./labels.ts"
 import { ModesMenu } from "./ModesMenu.tsx"
-import { activeState, containerModes, modeNames, withShownModes } from "./view.ts"
+import { containerModes, modeNames, withShownModes } from "./view.ts"
 
 interface ContainerViewProps {
   ref?: Ref<HTMLDivElement>

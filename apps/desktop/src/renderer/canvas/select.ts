@@ -8,10 +8,10 @@ import {
   topmostNodes,
   walkNodes
 } from "@parity-app/core"
-import { boardReader } from "@parity-app/editor"
+import { boardReader, activeState } from "@parity-app/editor"
 import type { ContainerEntry, DesignStore } from "../design-store.ts"
 import { designsSelection, layersSelection, selectedDesigns, selectedNodes, type Selection } from "../selection.ts"
-import { activeState, frameViewport } from "./view.ts"
+import { frameViewport } from "./view.ts"
 
 /** Select inverse, select matching layers, and stepping from one design to the next, as Figma's keys do them. */
 

@@ -1,4 +1,11 @@
-import { childEntries, type ComponentNode, type DesignNode, type LayoutNode, locateNode } from "@parity-app/core"
+import {
+  childEntries,
+  type ComponentNode,
+  type ContainerSpec,
+  type DesignNode,
+  type LayoutNode,
+  locateNode
+} from "@parity-app/core"
 import { flowOf, type HereLayout, type Point } from "@parity-app/editor"
 import { findNodeElement, flowingBoxes, nodeBox } from "../frame.ts"
 import { type Hit, inside } from "./hit.ts"
@@ -9,61 +16,105 @@ import { type Hit, inside } from "./hit.ts"
  * the pointer on the canvas, which needs no rules of its own (see `pasteAtPointer` in clipboard.ts).
  */
 
+/** What's measured of a layout, or a component's slot, that doesn't depend on where the pointer is in it. */
+type Measured = Omit<HereLayout, "point" | "box">
+
+/**
+ * The layout under the pointer as it was measured, kept while the pointer stays over it, so a drag over a big grid
+ * doesn't measure every child's box and style again at each event (PAR-551). It's measured again once the pointer is
+ * over another layout or slot, or the frame has changed under it: another design or version of it, another unit, or
+ * the frame drawn elsewhere on screen, as when the canvas pans or zooms.
+ */
+export class HereMeasures {
+  private frame: { host: HTMLElement; container: ContainerSpec; unit: number; at: string } | undefined
+  private kept: { key: string; measured: Measured } | undefined
+
+  /** The measurement kept for `key` in this frame, or `measure`'s, which is kept in its place. */
+  get(hit: Hit, at: DOMRect, unit: number, key: string, measure: () => Measured | undefined): Measured | undefined {
+    const where = `${at.left}:${at.top}:${at.width}:${at.height}`
+    const frame = this.frame
+    if (!frame || frame.host !== hit.host || frame.container !== hit.entry.container || frame.unit !== unit) {
+      this.frame = { host: hit.host, container: hit.entry.container, unit, at: where }
+      this.kept = undefined
+    } else if (frame.at !== where) {
+      frame.at = where
+      this.kept = undefined
+    }
+    if (this.kept?.key === key) return this.kept.measured
+    const measured = measure()
+    this.kept = measured ? { key, measured } : undefined
+    return measured
+  }
+
+  /** Forgets what was measured, as when the drag leaves the canvas or drops. */
+  clear(): void {
+    this.frame = undefined
+    this.kept = undefined
+  }
+}
+
 /**
  * Measures the layout under a point in the frame `hit` found there, for `pasteHere`: the deepest of the design's own
  * layouts, or of its components' slots, never one inside an instance. A slot is under the point when the element its
  * layers are drawn in is, so only a slot that holds layers is found. Undefined when there's none, or the frame isn't
- * drawn.
+ * drawn. Given `measures`, what it measured for the same layout before is used again (see `HereMeasures`).
  */
-export function measureHere(hit: Hit, point: Point, unit: number): HereLayout | undefined {
+export function measureHere(hit: Hit, point: Point, unit: number, measures?: HereMeasures): HereLayout | undefined {
   const width = parseFloat(hit.host.style.width)
   if (!(width > 0)) return undefined
-  const scale = hit.host.getBoundingClientRect().width / width
+  const at = hit.host.getBoundingClientRect()
+  const scale = at.width / width
+  const kept = (key: string, measure: () => Measured | undefined) =>
+    measures ? measures.get(hit, at, unit, key, measure) : measure()
   for (let depth = hit.chain.length - 1; depth >= 0; depth--) {
     const node = hit.chain[depth]!
-    if (node.type === "layout") return measureLayout(hit, node, point, scale, unit)
+    if (node.type === "layout") {
+      const box = nodeBox(hit.host, node.id)
+      const measured = box && kept(node.id, () => measureLayout(hit, node, scale, unit))
+      return measured && { ...measured, box, point }
+    }
     if (node.type !== "component") continue
-    const slot = measureSlot(hit, node, hit.chain[depth + 1], point, scale, unit)
-    if (slot) return slot
+    const slot = slotUnder(hit, node, hit.chain[depth + 1], point)
+    if (!slot) continue
+    const measured = kept(`${node.id}/${slot.slot}`, () => measureSlot(hit, node, slot, scale, unit))
+    if (measured) return { ...measured, box: slot.box, point }
   }
   return undefined
 }
 
-function measureLayout(
-  hit: Hit,
-  layout: LayoutNode,
-  point: Point,
-  scale: number,
-  unit: number
-): HereLayout | undefined {
+function measureLayout(hit: Hit, layout: LayoutNode, scale: number, unit: number): Measured | undefined {
   const element = findNodeElement(hit.host, layout.id)
-  const box = nodeBox(hit.host, layout.id)
-  if (!element || !box) return undefined
-  const style = getComputedStyle(element)
+  if (!element) return undefined
   return {
     layout: layout.id,
     children: drawnChildren(hit, layout.children),
-    flow: flowOf(style),
-    box,
-    point,
+    flow: flowOf(getComputedStyle(element)),
     origin: insideBorder(element, scale),
     scale,
     unit
   }
 }
 
+/** A component's slot under the point, with the element its layers are drawn in and that element's box. */
+interface SlotUnder {
+  slot: string
+  nodes: readonly DesignNode[]
+  element: HTMLElement
+  /** The layers' containing block, which their insets count from. */
+  around: HTMLElement
+  box: DOMRect
+}
+
 /**
  * A component's slot under the point: the one the layer under it is in first, then any other whose layers are drawn in
- * an element under it. Its flow and box are that element's, and its layers' insets count from their containing block.
+ * an element under it.
  */
-function measureSlot(
+function slotUnder(
   hit: Hit,
   component: ComponentNode,
   under: DesignNode | undefined,
-  point: Point,
-  scale: number,
-  unit: number
-): HereLayout | undefined {
+  point: Point
+): SlotUnder | undefined {
   const first = under && locateNode(component, under.id)?.slot
   const slots = childEntries(component).toSorted((a, b) => Number(b.slot === first) - Number(a.slot === first))
   for (const { slot, nodes } of slots) {
@@ -72,20 +123,22 @@ function measureSlot(
     const around = drawn?.offsetParent
     if (!slot || !element || !(around instanceof HTMLElement)) continue
     const box = element.getBoundingClientRect()
-    if (!inside(box, point)) continue
-    return {
-      layout: component.id,
-      slot,
-      children: drawnChildren(hit, nodes),
-      flow: flowOf(getComputedStyle(element), flowingBoxes(element)),
-      box,
-      point,
-      origin: insideBorder(around, scale),
-      scale,
-      unit
-    }
+    if (inside(box, point)) return { slot, nodes, element, around, box }
   }
   return undefined
+}
+
+/** A slot is measured as a layout is: its flow is the element's its layers are drawn in. */
+function measureSlot(hit: Hit, component: ComponentNode, under: SlotUnder, scale: number, unit: number): Measured {
+  return {
+    layout: component.id,
+    slot: under.slot,
+    children: drawnChildren(hit, under.nodes),
+    flow: flowOf(getComputedStyle(under.element), flowingBoxes(under.element)),
+    origin: insideBorder(under.around, scale),
+    scale,
+    unit
+  }
 }
 
 /** The element a layer is drawn in: its parent element, through those that draw no box of their own. */

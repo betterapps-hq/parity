@@ -323,8 +323,9 @@ export function CanvasEditor({
       })
       const stopMoves = editor.sideEffects.registerAfterChangeHandler("shape", (previous, next, source) => {
         if (source !== "user" || designDrag.active || (previous.x === next.x && previous.y === next.y)) return
-        if (editor.isIn("select.translating")) translation ??= store.beginGesture()
-        const gesture = editor.isIn("select.translating") ? translation : undefined
+        const translating = editor.isIn("select.translating")
+        if (translating) translation ??= store.beginGesture()
+        const gesture = translating ? translation : undefined
         if (next.type === "canvas-container" && !heldBoards.at(tab, next.props.key)) {
           store.setPosition(next.props.key, { x: next.x, y: next.y }, { gesture })
         }

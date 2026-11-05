@@ -20,11 +20,11 @@ import {
   resetOverride,
   type StateSpec
 } from "@parity-app/core"
+import { activeState } from "@parity-app/editor"
 import { Copy, MoreHorizontal, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { useProject } from "../canvas/context.ts"
 import { focusOnMount, kindColors, layerLabel, NodeIcon } from "../canvas/kinds.tsx"
-import { activeState } from "../canvas/view.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { Hint } from "./Hint.tsx"
 import { PanelSection } from "./PanelSection.tsx"

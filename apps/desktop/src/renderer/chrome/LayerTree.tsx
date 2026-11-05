@@ -19,13 +19,12 @@ import {
   toggleHidden,
   withFreshIds
 } from "@parity-app/core"
-import { kindName } from "@parity-app/editor"
+import { kindName, activeState } from "@parity-app/editor"
 import { ChevronRight, EyeOff, FileWarning, Plus, MonitorSmartphone, PenLine, StickyNote } from "lucide-react"
 import { type DragEvent, type KeyboardEvent, type MouseEvent, useEffect, useMemo, useState } from "react"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor, focusOnMount, kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
 import { moveLayers, type MoveTarget } from "../canvas/layer-drag.ts"
-import { activeState } from "../canvas/view.ts"
 import { type ContainerEntry, useContainerEntries, useNotes } from "../design-store.ts"
 import {
   designsSelection,

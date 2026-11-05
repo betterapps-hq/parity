@@ -1,6 +1,20 @@
-import { boardTarget, editNode, findNode, locateNode, type NodeStyle, topmostNodes } from "@parity-app/core"
-import { absoluteDrag, boardReader, moveLayersAcross, moveLayersWithin, type MoveTarget } from "@parity-app/editor"
-import { editingState } from "../chrome/LayerPanel.tsx"
+import {
+  boardTarget,
+  type ContainerSpec,
+  editNode,
+  findNode,
+  locateNode,
+  type NodeStyle,
+  topmostNodes
+} from "@parity-app/core"
+import {
+  absoluteDrag,
+  boardReader,
+  moveLayersAcross,
+  moveLayersWithin,
+  type MoveTarget,
+  editingState
+} from "@parity-app/editor"
 import { type ContainerEntry, containerKey } from "../design-store.ts"
 import { findFrames, findNodeElement, findNodeElements, nodeBox } from "../frame.ts"
 import { layersSelection, selectedNodes } from "../selection.ts"
@@ -12,6 +26,7 @@ import { frameAt, frameScale, type Point } from "./hit.ts"
 import { kindColors } from "./kinds.tsx"
 import { LayerSnapping } from "./layer-snap.ts"
 import { frameDrawn } from "./nudge.ts"
+import { StylePreview } from "./style-preview.ts"
 import { frameViewport } from "./view.ts"
 
 /**
@@ -119,11 +134,11 @@ export function pressLayers(
           : {})
       }
     },
-    // Dropped, layers in a layout move; an absolutely placed layer has moved already.
+    // Dropped, layers in a layout move, and so does an absolutely placed layer, which was previewed as it moved.
     end(kept, drag) {
       preview?.end()
       view = undefined
-      placed?.end()
+      placed?.end(kept)
       if (kept && !absolute && target) moveLayers(session, entry, ids, target, drag.gesture)
     },
     click: onClick
@@ -248,9 +263,12 @@ export function moveLayers(
 }
 
 /**
- * Moves an absolutely placed layer live, as the pointer moves, by the insets `@parity-app/editor`'s `absoluteDrag`
- * gives, snapping to its siblings and its parent as `LayerSnapping` measured them. Every write is in the drag's
- * gesture, one undo step: Escape takes them all back, and a drag that ends where it began leaves nothing to undo.
+ * Moves an absolutely placed layer as the pointer moves, by the insets `@parity-app/editor`'s `absoluteDrag` gives,
+ * snapping to its siblings and its parent as `LayerSnapping` measured them. While it's dragged the move is previewed
+ * on the frames' elements (`StylePreview`), and the design is written once, when it's dropped (PAR-551): one undo
+ * step, and nothing to undo when it ends where it began or Escape calls it off. A component that doesn't draw the
+ * styles it's given on its root can't be previewed (CAN-45), so it's written as it moves instead, in the drag's
+ * gesture, which Escape takes back.
  */
 function followAbsolute(
   session: ProjectSession,
@@ -259,7 +277,7 @@ function followAbsolute(
   id: string,
   host: HTMLElement,
   drag: Drag
-): { move(delta: Point, held: { ctrlKey: boolean; metaKey: boolean }): void; end(): void } | undefined {
+): { move(delta: Point, held: { ctrlKey: boolean; metaKey: boolean }): void; end(kept: boolean): void } | undefined {
   const { store, editor } = session
   const current = session.selection.get()
   const unit = spacingUnit(session.tokens.get())
@@ -278,29 +296,42 @@ function followAbsolute(
     scale,
     snapping
   })
-  let written: NodeStyle = {}
+  const moved = (style: NodeStyle) => (container: ContainerSpec) =>
+    editNode(container, boardTarget(container, state.id), id, { style })
+  const write = (style: NodeStyle) =>
+    store.updateContainer(entry.key, "Move layer", moved(style), { gesture: drag.gesture })
+  const preview = new StylePreview(session, entry.key)
+  // Whether the move is written as it goes, for a layer the preview can't show.
+  let live = false
+  let shown: NodeStyle = {}
 
   return {
     move(delta, held) {
       const { change, snapped } = follow({ dx: delta.x, dy: delta.y, snaps: snapping?.snaps(held) ?? false })
       snapping?.show(snapped)
-      if (JSON.stringify(change) === JSON.stringify(written)) return
-      // A side moved back to where it began goes back to what was written, which only the drag's checkpoint has.
-      if (Object.keys(written).some((side) => !(side in change))) {
-        drag.revert()
-        written = {}
+      if (JSON.stringify(change) === JSON.stringify(shown)) return
+      const moving = Object.keys(change).length > 0
+      if (live) {
+        // A side moved back to where it began goes back to what was written, which only the drag's checkpoint has.
+        if (Object.keys(shown).some((side) => !(side in change))) drag.revert()
+        if (moving) write(change)
+      } else {
+        preview.show(moving ? moved(change) : (container) => container)
+        live = moving && !preview.active
+        if (live) write(change)
       }
-      if (Object.keys(change).length === 0) return
-      written = change
-      store.updateContainer(
-        entry.key,
-        "Move layer",
-        (container) => editNode(container, boardTarget(container, state.id), id, { style: change }),
-        { gesture: drag.gesture }
-      )
+      shown = change
     },
-    end() {
+    end(kept) {
       snapping?.clear()
+      const moving = Object.keys(shown).length > 0
+      if (live || !kept || !moving) {
+        preview.cancel()
+        return
+      }
+      // The frames already show the move, so they're left as they are while the design draws it.
+      preview.settle(moved(shown))
+      write(shown)
     }
   }
 }
