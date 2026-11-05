@@ -3861,6 +3861,23 @@ gesture). My calls:
 - **tldraw's own drag of a board stays tldraw's,** ending when tldraw stops translating, since tldraw follows that
   pointer, not Parity.
 
+## Agents tell board collisions from title clearance, and a call's warnings from an audit (PAR-462)
+
+An agent read an execute call with no overlap warnings as a tidy canvas, and a title too close as boards on top of each
+other. The two checks already differed, and `Overlaps()` already marked `titleOnly` and `estimated`; this makes what
+they mean, and what each check covers, plain:
+
+- **Two categories for a call's own boards.** `overlap` is two boards colliding; `title_clearance` is boards that are
+  clear, but so close that the lower one's title covers the upper. Both are warnings, and both stay limited to boards
+  the call created, changed or moved, as before.
+- **The rest of the canvas is counted, not listed.** When boards the call didn't touch are too close, one
+  `canvas_overlaps` suggestion says how many pairs and points to `Overlaps()`. A call that only reads therefore doesn't
+  look like a clean canvas, without repeating every old overlap on every call.
+- **Measured or estimated, in words.** A warning says "measured" when the canvas drew both boards, and otherwise names
+  the board that isn't drawn yet. `Overlaps()` keeps `titleOnly` and `estimated` as they were, with no new fields, and
+  `state`'s schema now describes them. Real sizes for undrawn boards remain PAR-279's, and the 1400 × 1000 room a new
+  screen is placed with isn't treated as a placement bug: it's placed right of every board.
+
 ## One step works out the component list (PAR-566)
 
 The order that keeps the component list current was written four times in the project service, and the copies disagreed.

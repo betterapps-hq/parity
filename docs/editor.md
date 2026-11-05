@@ -3717,14 +3717,14 @@ as CLI text, `--json` and MCP). `packages/cli/src/skill-examples.test.ts` runs t
 
 An execute call's findings are grouped: one per category and message, with how many places it was found and which.
 `warningGroups` gives each group's stable `category` (`render_failed`, `unknown_component`, `unknown_component_design`,
-`unknown_prop`, `invalid_option`, `not_a_token`, `not_a_length_token`, `overlap`, `kind_changed`, `unnamed_layout`), its
-`severity`, its `message`, its `count` and `at`, which lists every place as a `design/node` path or frame. Errors come
-first, then warnings, then suggestions, each in the order found. A render that failed is an error. A new unnamed layout
-that groups things is a suggestion, reported only for layouts the call added. `warnings` keeps one line per group: the
-place and message for one place, and for several the count, the first five and how many more
-(`12 places (home/a, …, home/e and 7 more): name layouts…`). The CLI and MCP text list the lines under "Render
-failures", "Warnings" and "Suggestions". A copy of the app without groups has every line read as a warning. Nothing is
-named or renamed for the agent.
+`unknown_prop`, `invalid_option`, `not_a_token`, `not_a_length_token`, `overlap`, `title_clearance`, `canvas_overlaps`,
+`kind_changed`, `unnamed_layout`), its `severity`, its `message`, its `count` and `at`, which lists every place as a
+`design/node` path or frame. Errors come first, then warnings, then suggestions, each in the order found. A render that
+failed is an error. A new unnamed layout that groups things is a suggestion, reported only for layouts the call added.
+`warnings` keeps one line per group: the place and message for one place, and for several the count, the first five and
+how many more (`12 places (home/a, …, home/e and 7 more): name layouts…`). The CLI and MCP text list the lines under
+"Render failures", "Warnings" and "Suggestions". A copy of the app without groups has every line read as a warning.
+Nothing is named or renamed for the agent.
 
 Implementation: `packages/agent/src/warnings.ts` (categories and severities, `groupWarnings`, `warningLine`);
 `packages/agent/src/workspace.ts` (`warn`, and the groups in `result`); `packages/cli/src/execute.ts` (the field and its
@@ -3736,6 +3736,26 @@ finding repeats there; categories and messages kept apart, errors first and sugg
 already there left out, two unknown props, a token, and a render failure first). `packages/cli/src/client.test.ts`
 (headings by severity; lines from an app without groups). `packages/cli/src/execute.test.ts` (groups in `--json` and
 structured content).
+
+### Board collisions and title clearance (PAR-462)
+
+`Overlaps()` checks every board on the canvas and lists each pair that's too close: a collision when the boards overlap,
+or `titleOnly` when they're clear but the lower one starts less than 160 below the upper, so its title covers it.
+`estimated` marks a pair where a board isn't drawn yet and is sized from its frames; without it both sizes are as the
+canvas drew them. `state` returns the same list. An execute call's warnings cover only the boards it created, changed or
+moved: `overlap` for a collision, `title_clearance` for a title too close, each saying "measured" or naming the board
+that isn't drawn yet. Pairs the call didn't touch are counted in one `canvas_overlaps` suggestion that points to
+`Overlaps()`, so a call that only reads doesn't make a crowded canvas look clear. The skill's canvas section shows an
+audit with `Overlaps()` and placing a board with `FindEmptySpace({ width, height })`.
+
+Implementation: `packages/agent/src/workspace.ts` (`overlaps`, `overlapWarnings`), `packages/agent/src/warnings.ts` (the
+categories), `packages/cli/src/operations.ts` (`state`'s overlap schema) and `execute.ts` (the categories' description).
+
+Tests: `packages/agent/src/run.test.ts` ("shows a move as a drag…": a collision with an estimated board; "counts a
+board's title as part of it": title clearance; "says measured when both boards were drawn"; "estimates an undrawn
+board's height…": both boards named when neither is drawn; "doesn't call a crowded canvas clear when the call moved
+nothing": a read on a canvas with three crowded pairs; "warns only about the boards the call moved, and counts the
+rest"). `packages/cli/src/skill-examples.test.ts` runs the audit example.
 
 ### Which copy of the app a call reaches (PAR-514)
 
