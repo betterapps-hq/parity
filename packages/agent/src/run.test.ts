@@ -511,13 +511,76 @@ Print(await Screenshot("signup", {mode: ["desktop-light", "tablet-light"]}))`
     )
     expect(result.ok).toBe(true)
     expect(result.output[0]).toBe("390 Title")
-    // Every mode's title is wider than its viewport, and the mobile frame also overflows.
-    expect(result.output[1]).toBe("5")
+    // Every mode's title is wider than its viewport; that accounts for the mobile frame's overflow.
+    expect(result.output[1]).toBe("4")
     expect(result.output[2]).toBe("2")
     expect(result.screenshots.map((shot) => shot.mode)).toEqual(["desktop-light", "tablet-light"])
     // Each look shows as what it is, so the agent's cursor can say so.
     const looks = new Set(events.filter((event) => event.design).map((event) => event.kind))
     expect(looks).toEqual(new Set(["measure", "problems", "screenshot"]))
+  })
+
+  it("says which node overflows what, and by how much, in each mode", async () => {
+    const result = await execute(
+      {
+        label: "Check",
+        code: `const m = await Measure("signup", {mode: "mobile-light"})
+Print(m.state, m.mode, m.nodes.find((node) => node.id === "submit").parent)
+Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
+      },
+      snapshot(),
+      {
+        ...hooks(),
+        render: async ({ mode }) => ({
+          width: mode.width,
+          height: 600,
+          overflowsX: mode.width < 400,
+          unknownComponents: [],
+          nodes: [
+            { id: "page", x: 0, y: 0, width: mode.width, height: 600 },
+            // Narrower than any viewport, but placed so its right edge passes the phone's.
+            { id: "submit", parent: "page", x: 340, y: 100, width: 60, height: 36 },
+            {
+              id: "title",
+              parent: "page",
+              x: 0,
+              y: 0,
+              width: 200,
+              height: 40,
+              clipped: true,
+              clip: { node: "page", x: 0, y: 10, width: mode.width, height: 590 }
+            }
+          ]
+        })
+      }
+    )
+    expect(result.ok).toBe(true)
+    expect(result.output[0]).toBe("default mobile-light page")
+    const problems = JSON.parse(result.output[1]!) as { kind: string; mode: string }[]
+    expect(problems.filter((problem) => problem.kind === "frame-overflow")).toEqual([
+      {
+        state: "default",
+        mode: "mobile-light",
+        kind: "frame-overflow",
+        problem: "at x 340, y 100 and 60 × 36px, it sticks out of the 390px frame by 10px on the right",
+        node: "submit",
+        name: "Submit",
+        box: { x: 340, y: 100, width: 60, height: 36 },
+        container: { box: { x: 0, y: 0, width: 390, height: 600 } },
+        overflow: { right: 10 }
+      }
+    ])
+    // The phone's overflow is the button's, so it isn't reported again as the frame's.
+    expect(problems.some((problem) => problem.kind === "content-wider")).toBe(false)
+    const clipped = problems.filter((problem) => problem.kind === "clipped")
+    expect(clipped.length).toBe(new Set(problems.map((problem) => problem.mode)).size)
+    expect(clipped[0]).toMatchObject({
+      node: "title",
+      name: "Title",
+      container: { node: "page", name: "Page" },
+      overflow: { top: 10 },
+      problem: "10px at the top cut off by Page (page), which clips its overflow"
+    })
   })
 
   it("draws each frame in the window the canvas gives it", async () => {

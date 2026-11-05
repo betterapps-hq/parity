@@ -433,9 +433,33 @@ export function describeAccessibility(result: AccessibilityResponse): string {
 export interface ProblemsResponse {
   tab: { id: string; name: string }
   design: { id: string; name: string }
-  problems: { state: string; mode: string; problem: string; node?: string }[]
+  problems: Problem[]
   frames: number
   warnings: string[]
+}
+
+/** A box in a frame, in CSS pixels from its top left corner. */
+export interface FrameBox {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+/**
+ * One problem in one frame. Layout problems (`frame-overflow`, `clipped`) name the node, what it overflows (the node
+ * that clips it, or the frame, which has none), both boxes, and how far past each edge it reaches.
+ */
+export interface Problem {
+  state: string
+  mode: string
+  kind?: "render-error" | "unknown-component" | "content-wider" | "frame-overflow" | "clipped"
+  problem: string
+  node?: string
+  name?: string
+  box?: FrameBox
+  container?: { node?: string; name?: string; box: FrameBox }
+  overflow?: { left?: number; right?: number; top?: number; bottom?: number }
 }
 
 /** A readable account of the layout problems in a design's frames, each once with the frames it's in. */
@@ -443,7 +467,8 @@ export function describeProblems(result: ProblemsResponse): string {
   const { design, problems, frames } = result
   const checked = `${design.name} (${design.id}), ${frames === 1 ? "1 frame" : `${frames} frames`}`
   const grouped = new Map<string, { problem: string; node?: string; frames: { state: string; mode: string }[] }>()
-  for (const { problem, node, state, mode } of problems) {
+  for (const { problem, node: id, name, state, mode } of problems) {
+    const node = id && name ? `${name} (${id})` : id
     const key = `${node ?? ""}\n${problem}`
     const entry = grouped.get(key) ?? { problem, ...(node ? { node } : {}), frames: [] }
     entry.frames.push({ state, mode })

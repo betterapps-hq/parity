@@ -36,6 +36,34 @@ describe("describeProblems", () => {
     )
   })
 
+  it("names the layer a layout problem is on, and says what it overflows by how much", () => {
+    const text = describeProblems({
+      tab,
+      design: { id: "checkout", name: "Checkout" },
+      frames: 2,
+      warnings: [],
+      problems: [
+        {
+          state: "default",
+          mode: "mobile",
+          kind: "frame-overflow",
+          problem: "at x 340, y 100 and 60 × 36px, it sticks out of the 390px frame by 10px on the right",
+          node: "pay",
+          name: "Pay",
+          box: { x: 340, y: 100, width: 60, height: 36 },
+          container: { box: { x: 0, y: 0, width: 390, height: 600 } },
+          overflow: { right: 10 }
+        }
+      ]
+    })
+    expect(text).toBe(
+      [
+        "1 problem in Checkout (checkout), 2 frames:",
+        "  Pay (pay): at x 340, y 100 and 60 × 36px, it sticks out of the 390px frame by 10px on the right, in default in mobile"
+      ].join("\n")
+    )
+  })
+
   it("says when there's nothing to fix", () => {
     const text = describeProblems({ tab, design: { id: "home", name: "Home" }, frames: 1, warnings: [], problems: [] })
     expect(text).toBe("No problems found in Home (home), 1 frame.")

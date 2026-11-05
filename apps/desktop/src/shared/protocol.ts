@@ -1,4 +1,11 @@
-import type { AccessibilityFinding, AccessibilityIssue, AgentEvent, IconNames, IconSet } from "@parity-app/agent"
+import type {
+  AccessibilityFinding,
+  AccessibilityIssue,
+  AgentEvent,
+  IconNames,
+  IconSet,
+  MeasuredNode
+} from "@parity-app/agent"
 import type { CopyReport } from "@parity-app/agent/routing"
 import type {
   CanvasDocument,
@@ -538,6 +545,8 @@ export interface ComponentPreview {
   last?: PreviewImage
 }
 
+export type { MeasuredNode }
+
 export interface RenderedFrame {
   width: number
   height: number
@@ -566,14 +575,4 @@ export interface ConsoleEntry {
   /** When it was first and last written, in milliseconds since 1970. */
   first: number
   last: number
-}
-
-export interface MeasuredNode {
-  id: string
-  x: number
-  y: number
-  width: number
-  height: number
-  /** True when part of the node is cut off by an ancestor that clips. */
-  clipped?: boolean
 }
