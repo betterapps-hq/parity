@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Take radius-full, Tailwind's rounded-full, in the radius field, and list it with GetTokens as a keyword",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

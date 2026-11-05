@@ -172,6 +172,31 @@ describe("resolveDesign", () => {
     expect(card.slots.children?.[0]).toMatchObject({ component: "Button" })
     expect(card.slots.children?.[0]).not.toHaveProperty("props.children")
   })
+
+  it("rounds radius-full as fully as the box allows, unless the project declares --radius-full (PAR-458)", () => {
+    const full = "var(--radius-full, calc(infinity * 1px))"
+    const avatars: DesignNode = {
+      type: "layout",
+      id: "people",
+      style: { radius: "radius-md" },
+      responsive: { mobile: { style: { radius: "radius-full" } } },
+      children: [
+        { type: "layout", id: "small", style: { width: 6, height: 6, radius: "radius-full" }, children: [] },
+        { type: "layout", id: "large", style: { width: 96, height: 96, radius: "radius-full" }, children: [] },
+        { type: "component", id: "pill", component: "Badge", style: { radius: "radius-full" } }
+      ]
+    }
+    const [desktop] = resolveDesign(avatars, undefined, "desktop")
+    const [mobile] = resolveDesign(avatars, undefined, "mobile")
+    if (desktop?.kind !== "element" || mobile?.kind !== "element") throw new Error("expected elements")
+    expect(desktop.style.borderRadius).toBe("var(--radius-md)")
+    expect(mobile.style.borderRadius).toBe(full)
+    const [small, large, pill] = desktop.children
+    expect(small).toMatchObject({ kind: "element", style: { borderRadius: full } })
+    expect(large).toMatchObject({ kind: "element", style: { borderRadius: full } })
+    // A component takes it on its root, as an inline style.
+    expect(pill).toMatchObject({ kind: "component", props: { style: { borderRadius: full } } })
+  })
 })
 
 describe("layering patches that take values away", () => {
