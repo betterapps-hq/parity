@@ -19,7 +19,7 @@ import { createElement as h, useState } from "react"
 import { createRoot } from "react-dom/client"
 import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
 import { ProjectContext } from "../canvas/context.ts"
-import { Field, FieldTarget, NumberField } from "./fields.tsx"
+import { Field, FieldTarget, NumberField, NumberValueInput } from "./fields.tsx"
 
 const rules = { kind: "length", unit: 4, min: 0, label: "Width" }
 window.log = []
@@ -38,9 +38,12 @@ function Harness() {
   const [value, setValue] = useState(8)
   const [layers, setLayers] = useState([8, 75])
   const [target, setTarget] = useState("first layer")
+  // A number prop of 70, whose preview is made in the design while it shows, as ChangePreview makes it.
+  const [prop, setProp] = useState(70)
   window.setOutside = setValue
   window.setTarget = setTarget
   window.layers = layers
+  window.prop = prop
   return h(ProjectContext.Provider, { value: { store } }, h(FieldTarget.Provider, { value: target }, h(TooltipProvider, null,
     h(Field, { label: "Width" }, h(NumberField, {
       value, rules, title: "Width", blank: () => 0,
@@ -56,6 +59,23 @@ function Harness() {
     h(Field, { label: "Both", mixed: true }, h(NumberField, {
       value: undefined, rules, title: "Both", blank: () => 0,
       onCommit: (update) => setLayers(layers.map((layer) => update(layer)))
+    })),
+    h(Field, { label: "value" }, h(NumberValueInput, {
+      value: prop, title: "value",
+      preview: {
+        onPreview: (next) => {
+          window.log.push(["prop preview", next])
+          setProp(next)
+        },
+        onCancel: () => {
+          window.log.push(["prop cancel"])
+          setProp(70)
+        }
+      },
+      onCommit: (next) => {
+        window.log.push(["prop commit", next])
+        setProp(next)
+      }
     }))
   )))
 }
@@ -274,5 +294,52 @@ describe("mixed values", () => {
     // @ts-expect-error The page's layers.
     expect(await page.evaluate(() => window.layers)).toEqual([10, 77])
     expect(errors).toEqual([])
+  })
+})
+
+describe("number props (PAR-203)", () => {
+  const props = async () => (await log()).filter(([kind]) => String(kind).startsWith("prop"))
+  // @ts-expect-error The page's prop.
+  const prop = () => page.evaluate(() => window.prop as number)
+
+  it("previews from the value as it was, though the design holds the preview, and commits from it", async () => {
+    await typeInto("value", "/20")
+    await page.getByRole("textbox", { name: "value" }).press("Enter")
+    // "/" can't be read; "/2" halves 70, and "/20" divides 70, not the 35 shown.
+    expect(await props()).toEqual([
+      ["prop preview", 35],
+      ["prop preview", 3.5],
+      ["prop commit", 3.5]
+    ])
+    expect(await prop()).toBe(3.5)
+  })
+
+  it("takes the preview back on Escape, and on Enter when it comes back to the value", async () => {
+    const field = page.getByRole("textbox", { name: "value" })
+    await typeInto("value", "5")
+    await field.press("Escape")
+    expect(await field.inputValue()).toBe("70")
+    await typeInto("value", "70")
+    await field.press("Enter")
+    expect(await props()).toEqual([
+      ["prop preview", 5],
+      ["prop cancel"],
+      ["prop preview", 7],
+      ["prop preview", 70],
+      ["prop cancel"]
+    ])
+    expect(await prop()).toBe(70)
+  })
+
+  it("scrubs from the value as it was", async () => {
+    const label = await page.getByText("value", { exact: true }).boundingBox()
+    await page.mouse.move(label!.x + 5, label!.y + 5)
+    await page.mouse.down()
+    await page.mouse.move(label!.x + 25, label!.y + 5)
+    await page.mouse.up()
+    expect(await props()).toEqual([
+      ["prop preview", 80],
+      ["prop commit", 80]
+    ])
   })
 })
