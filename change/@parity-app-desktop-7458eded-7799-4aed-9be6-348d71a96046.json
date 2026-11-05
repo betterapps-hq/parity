@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Keep pnpm dev on React's development build and choose the build with a flag",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

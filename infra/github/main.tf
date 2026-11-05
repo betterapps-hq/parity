@@ -35,7 +35,7 @@ module "rules" {
   repository      = "parity"
   required_checks = ["CI passes"]
 
-  # ci.yml and cd-desktop.yml push their release commits to main with a deploy key, whose private key is the npm and
+  # cd-npm.yml and cd-desktop.yml push their release commits to main with a deploy key, whose private key is the npm and
   # desktop environments' RELEASE_DEPLOY_KEY secret (PAR-10). Deploy keys are the one actor that skips main's pull
   # request rule, as on Buildkit.
   bypass_actors = [{ actor_type = "DeployKey" }]
@@ -53,8 +53,8 @@ import {
   id = "parity:26170708"
 }
 
-# ci.yml's release job publishes the CLI from the npm environment, which @parity-app/cli's trusted publisher on
-# npmjs.com names (PAR-10, PAR-14). Only main deploys to it, administrators included, so no other branch's run can
+# cd-npm.yml publishes the CLI from the npm environment, which @parity-app/cli's trusted publisher on npmjs.com names
+# (PAR-10, PAR-14). Only main deploys to it, administrators included, so no other branch's run can
 # publish or push a release.
 resource "github_repository_environment" "npm" {
   repository        = "parity"

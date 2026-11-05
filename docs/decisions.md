@@ -682,15 +682,15 @@ recommended answer to each of its questions.
   canvas gets what the app gets, and Vite compiles it as the app's own code. A package that doesn't build costs only its
   own components, as a project module does.
 - **Why something is or isn't a component is shown where people look for it.** My call: each component's tooltip in the
-  Components panel says what it was recognised as ("made with forwardRef"), and a search that matches exports the type
-  checker left out lists them under Not listed with its reason ("takes 2 arguments, not one props object"). Agents get
-  the same list from `parity components`. Only capitalised exports are listed, as lowercase helpers and types aren't
-  candidates.
+  Components panel said what it was recognised as ("made with forwardRef"); since PAR-527 its card names its file
+  instead, as you found that said nothing a person needs. A search that matches exports the type checker left out lists
+  them under Not listed with its reason ("takes 2 arguments, not one props object"). Agents get the same list from
+  `parity components`. Only capitalised exports are listed, as lowercase helpers and types aren't candidates.
 - **Corrections name an export by its file and export name, and live in the main project file.** My call: `detection`
-  holds `include` and `exclude` lists of `{ path, export }`, so a correction outlasts ids changing on a clash. A
-  correction is an ordinary, undoable change to the file, saved when the file is, and the list follows it straight away.
-  Doing the opposite of a correction removes it rather than adding another, so detection decides again, and the field
-  goes once it's empty. Only the project's own components can be corrected; a library's list is its `.lib.par`'s.
+  holds an `include` list of `{ path, export }`, so a correction outlasts ids changing on a clash. A correction is an
+  ordinary, undoable change to the file, saved when the file is, and the list follows it straight away. Only the
+  project's own components can be corrected; a library's list is its `.lib.par`'s. It also held an `exclude` list, for
+  taking a component off by hand, which PAR-531 removed.
 - **A component's render status is how it fares on the canvas now.** My call: it fails while any frame shows its error,
   and otherwise draws once it has drawn somewhere, so fixing it or removing the design clears the warning. The status
   comes from each component's error boundary in the guest, and a component loaded on demand only counts as drawn once
@@ -1815,7 +1815,7 @@ to PAR-209 build it.
   `app.yml` runs them for every pull request and push to main on Windows, whose runners have a desktop for the window.
   It doesn't block merging yet: on its first run the example never opened on the runner within 180 s, so it stays out of
   CI until it runs reliably there (PAR-438). It's a workflow of its own, not a job `CI passes` leaves out, since a
-  failed job still fails CI's run, which would hold up the CLI's release there and `cd-desktop.yml`.
+  failed job still fails CI's run, and `cd-npm.yml` and `cd-desktop.yml` run only after CI's run on `main` succeeds.
 - **Packages and scripts use only TypeScript that Node can strip,** because the CLI and scripts run them with plain
   `node`: no parameter properties, namespaces or enums. oxlint rejects the first two in `packages/**` and
   `apps/*/scripts/**`; the app's bundled code may use them. The Library files session found CAN-48's parser had broken
@@ -1933,8 +1933,7 @@ the Repository, CI and releases stream in Linear.
   - **It needs Node 24,** as the repository does.
   - **Provenance comes from trusted publishing in CI, not `publishConfig`,** since npm only makes it in CI and the first
     version is published by hand, which npm needs before it can trust the workflow. 0.0.0 went up by hand on 2026-10-30,
-    and `npm trust` then named `cd-npm.yml` and the `npm` environment as its only publisher. Since the release moved
-    into CI (PAR-10), it names `ci.yml`.
+    and `npm trust` then named `cd-npm.yml` and the `npm` environment as its only publisher, which releases it still.
   - **`pnpm --filter @parity-app/cli try-packed` installs the packed tarball in an empty folder and runs it.** CI runs
     it on each system. The packed tarball is 2.6 MB.
 - **Hooks keep what doesn't belong out of pull requests (PAR-3),** as you asked on 2026-10-29. My calls:
@@ -1974,23 +1973,25 @@ the Repository, CI and releases stream in Linear.
   - **OpenAI reviews use AGENTS.md and conventions.md as guidance.** The disabled review service's configuration is
     removed, and lint, format, types, tests and change files stay with CI.
   - **GitHub's secret scanning and push protection stay on,** as they are by default for public repositories.
-- **Releases follow Buildkit's flow, with the CLI and the desktop app released apart.** After CI passes on `main`,
+- **Releases go straight to `main`, with the CLI and the desktop app released apart.** After CI passes on `main`,
   pending change files are released straight to `main`, with no release pull request, as you asked on 2026-11-04:
   Beachball bumps the versions and changelogs, commits them and pushes the commit to `main`. The CLI goes to npm through
-  trusted publishing with provenance, and the desktop app to GitHub Releases, each in a release of its own, as you asked
-  the same day. My calls: installers come from electron-builder, since one tool makes installers, signs them and serves
-  updates, and only the desktop app makes GitHub Releases, so the updater never mistakes a CLI release for an app
-  update.
-  - **Both call the shared `beachball-publish-npm` template** (PAR-10, PAR-14), as `betterapps-hq/pipelines`' README
-    shows. Like every workflow here, they call it at `main`, not a pinned commit, so Parity gets each change as it
-    merges, as you asked on 2026-11-03. My calls:
-    - **`ci.yml`'s `release` job releases the CLI,** as Buildkit's CI does, once `verify` and `checks` pass on a push to
-      `main`. Beachball runs scoped to leave out `apps/desktop`, so it bumps the CLI, publishes it to npm, then commits,
-      tags and pushes. It runs in the `npm` environment, which the CLI's trusted publisher names with `ci.yml`.
+  trusted publishing with provenance, and the desktop app to GitHub Releases, each in a pipeline of its own named for
+  what it ships, as you asked the same day. Buildkit releases from its `ci.yml` since it only publishes packages; Parity
+  ships a desktop app too. My calls: installers come from electron-builder, since one tool makes installers, signs them
+  and serves updates, and only the desktop app makes GitHub Releases, so the updater never mistakes a CLI release for an
+  app update.
+  - **Each calls a shared template made for this** (PAR-10, PAR-14): `cd-npm-release` and `cd-desktop-version`, which
+    `betterapps-hq/pipelines`' README shows, both running `beachball-publish-npm`. Like every workflow here, they call
+    them at `main`, not a pinned commit, so Parity gets each change as it merges, as you asked on 2026-11-03. My calls:
+    - **`cd-npm.yml` releases the CLI** once CI passes on `main`. Beachball runs scoped to leave out `apps/desktop`, so
+      it bumps the CLI, publishes it to npm, then commits, tags and pushes, in one job. It runs in the `npm`
+      environment, which the CLI's trusted publisher names with `cd-npm.yml`.
     - **`cd-desktop.yml`'s `version` job versions the desktop app** once CI passes on `main`. Beachball publishes every
       package it versions and has no setting to version one without publishing it, so this run is scoped to
       `apps/desktop` with publishing off: it bumps, commits, tags and pushes. CI's run on that commit starts
       `cd-desktop.yml` again, whose `release` job publishes the new version as a beta.
+    - **The templates check that CI passed on a push to `main`,** so the workflows here carry no condition of their own.
     - **Each scoped run leaves the other's change files alone,** so a failed npm release doesn't hold up the app, or the
       other way round. A commit with change files for both is released in turn, a commit for each.
     - **A deploy key pushes the release commits,** as Buildkit's does: the one actor `main`'s ruleset lets skip a pull
@@ -2906,7 +2907,7 @@ editor.md, Component previews, made offscreen and kept on disk). The design is t
   nothing.
 - **Shown in the Components panel's hints until PAR-208.** The List and Grid views, the card and the picker are PAR-208;
   until then a component row's hint shows its large picture, which is enough to see them and lets a row on screen ask
-  for its picture first.
+  for its picture first. PAR-515 replaced the hint with the card.
 
 ## MCP's tool list leaves out output schemas (PAR-510)
 
@@ -3003,6 +3004,37 @@ frames several times over, which the 2026-11-04 speed audit found the most expen
   hears of, such as a video in a frame taking its size once its data arrives. The outline catches up at the next change,
   such as the pointer moving.
 
+## Parity's window runs React's production build on request (PAR-519, PAR-550)
+
+The speed audit of 2026-11-04 found most of what still felt slow under `pnpm dev` was React's development build in
+Parity's own window: on the example project, selecting a design took 240 to 360 ms to the next paint, undo about 210,
+and opening the Components panel 1.4 s, against 48 to 88 ms, about 64 and 0.14 s on the production build.
+
+- **`pnpm dev` stays on the development build, as the daily driver; `pnpm dev:prod` runs the production build**
+  (PAR-550). PAR-519 first made the production build `pnpm dev`'s default. You reversed that the same day: "I want
+  development to all happen in dev build, so we can use StrictMode, Fast Refresh, etc. It's okay to have a script that
+  runs from a production build, but our daily driver is going to be the dev mode."
+- **The build is a flag, not an environment variable,** as you asked: "I don't want multiple environment variables
+  floating around." The dev script takes `--react production`, which `pnpm dev:prod` passes, and starts the UI's Vite
+  server in a mode of its own (`react-production`), which the config reads. Storybook and the end-to-end suite pass
+  nothing and get the development build. PAR-519's `PARITY_REACT` is gone.
+- **`pnpm perf`'s copy runs the production build,** passing the flag itself, so its timings compare with PAR-519's runs;
+  `pnpm perf --react development` measures the build `pnpm dev` runs. Each result records which it ran. My call, as
+  measuring isn't developing; it's one option to flip if you'd rather it timed the daily driver.
+- **The production build is made the way frames run a project's dependencies** (PAR-198): the UI's dependencies are
+  prebundled with `process.env.NODE_ENV` set to `production`, and `react/jsx-dev-runtime` is aliased to React's `jsx`,
+  since the app's own modules are still compiled and served as in development. A local `pnpm build` couldn't stand in,
+  as a page off localhost shows no canvas without the tldraw key.
+- **Fast Refresh is off on the production build,** so a change to a component reloads the window rather than updating in
+  place. Fast Refresh reaches React only through the development build's renderer; left on, an edited component was
+  taken in and never drawn again.
+- **The end-to-end suite runs the development build,** as it always has, so StrictMode's double effects and React's
+  warnings run on every test. The packaged app's production build is covered by trying the installed app, as before.
+- **Switching builds bundles the dependencies again,** in the same cache folder: Vite's key for the prebundle covers the
+  aliases and the optimizer's options, and it changed between the two on the example project (`cdc88e51` and
+  `3d73713f`), with Vite reporting that the config changed. Each switch costs one prebundle, a few seconds, which is why
+  the builds don't keep caches of their own.
+
 ## Frame bitmaps are captured in four offscreen windows at once (PAR-523)
 
 A first launch of the example project took 21 to 29 seconds to have every frame's bitmap, captured one at a time in one
@@ -3030,6 +3062,119 @@ offscreen window at about 150 ms each (see editor.md, Bitmaps kept between sessi
   every frame has drawn its design, and the window then takes each drawn design apart as its bitmap comes, which paces
   how fast it asks for the next. Showing a skeleton instead of drawing far frames first (PAR-525) removes both.
 
+## A running process's light breathes by opacity (PAR-524)
+
+A running server's light in the status bar breathed by animating its `box-shadow`, which the browser has to paint again
+every frame, so an idle window with its build server running painted 60 times a second. My calls:
+
+- **It keeps breathing, by opacity alone,** rather than holding steady after a few breaths. The glow is a shadow drawn
+  once on a layer behind the dot, faded in and out, and the dot fades between 85% and full as before. Both run on the
+  compositor, so the light still looks alive and costs the window's thread nothing; the idle perf run shows no paint.
+- **With reduced motion it doesn't animate,** as every process light, ring and shimmer already didn't, and shows no
+  glow: a steady dot.
+- **The status bar leaves the lights' words out and, when narrow, the items' too.** In a small window the footer ran off
+  screen. The lights' words ("Starting Storybook", "Lint failed") moved to their tooltip, since a click on the lights
+  lists it all anyway. Below 56rem each project item is its icon and count, with the words kept for screen readers,
+  rather than wrapping or scrolling the footer.
+- **Status bar tooltips are a title and one line, never details that can run long.** They had shown detection's
+  summaries with paths, every discovery note, and raw error messages, which ran to several lines. Those details are
+  still there for anyone who needs them: agents' tools report detection, and a failed save's notification gives its
+  reason.
+
+## Starting from scratch, and what things are called (PAR-537)
+
+You chose these on 2026-11-04 from the new-user audit
+([proposals/new-user-experience.md](proposals/new-user-experience.md), PAR-529), taking each of its recommendations:
+"Yes, record them." The work is PAR-538 to PAR-548.
+
+- **Frames are a third, light kind of design, beside screens and components.** A frame is a top-level layout drawn on
+  the canvas, once, at its own size, in the primary mode, with no states, no modes beside it, no route and no code
+  written. It holds anything a screen holds, and only a top-level one is a frame: drawn inside another design, it's a
+  layout. Any frame becomes a component or a screen, and a screen or component made a frame again keeps its layers and
+  drops its states, modes, params and variants, after saying so. It's the word Figma users reach for, and F's key
+  (PAR-539, PAR-540, PAR-545).
+- **The per-mode tiles inside a board are previews,** so frame means one thing. The rest of the words follow the
+  proposal's glossary ("One set of words"): screen or component rather than design for the thing, main only for a main
+  component, Default rather than Base for the first state, and board and view kept to the code (PAR-538).
+- **A screen and its root layout are one selection,** as Figma's top-level frames are. Selecting a screen or component
+  edits its root layout's size, fill, padding and auto layout first, with its states and modes below, and Layers lists
+  the root's children straight under it (PAR-542, PAR-547).
+- **T on the empty canvas makes a text layer in a frame that hugs it.** Notes stay, as annotations, under a tool of
+  their own (PAR-540, PAR-545).
+- **A blank app opens on a Home screen** for its `/` route, in its desktop and mobile modes, rather than on an empty
+  canvas (PAR-284).
+- **Frames are never written to code or checked for drift.** One becomes a component or a screen first, which keeps what
+  gets written to the two kinds that have a place in the app (PAR-539).
+- **Design changes are built in Storybook first, approved, then built in the app.** You said the same day: "any changes
+  to the design we should build in storybook first so it can be approved, then move into the app." So each change people
+  see is a design issue, which ends with your approval of its stories, and a build issue it blocks. Work in packages
+  with no UI, such as PAR-539, doesn't need the first step.
+
+## The app's UI kit moves to Buildkit's Base UI Nova (PAR-530)
+
+- **The app's shadcn components move to Buildkit's `@buildkitgg/shadcn-baseui-nova`,** as you asked on 2026-11-04, so
+  the 23 copies in `apps/desktop/src/renderer/components/ui` and their config leave the repository and nobody edits them
+  in place. The copies are radix-nova, and Buildkit publishes only Base UI styles; you said the app should use Base UI
+  only, so the move swaps Radix for Base UI too. The kit is a dependency under the alias its README suggests,
+  `@buildkitgg/shadcn-baseui-kit`, so code names no style. Only Storybook uses it until the migration.
+- **Each component is compared side by side in Storybook before its copy goes,** under Parity/Kit comparison/Side by
+  side: the app's copy and the kit's, with the same content and their popups open, each in its own frame, in the
+  toolbar's theme. Six copies were changed by hand: `kbd`, `command`, `context-menu`, `dropdown-menu` and `menubar` show
+  keys through `formatKeys`, `menubar` has the title bar's own look (and its menus size to what they hold, where the
+  kit's are its dropdown menus, as wide as their trigger and at least 9rem), and `sonner` follows the app's theme rather
+  than `next-themes`. Those show a third side, the kit with the change made from outside it, which is where it has to
+  live once the kit can't be edited. The rest are as `shadcn add` wrote them.
+- **Radix's menus and selects close when their window loses focus; Base UI's don't.** In the comparison, the app's side
+  doesn't hear its window lose focus, so its popups stay open beside the kit's, which take focus as they open. Whether
+  the app wants Radix's behaviour back is the migration's call.
+- **Prebundled dependencies import each lucide icon from its own file too.** The kit imports its icons from
+  lucide-react's index, which isn't prebundled (see Developing Parity), so a window drawing the kit fetched every icon
+  file, about 3,000 requests, and three such frames at once failed to load. `iconImportsPlugin` now rewrites a
+  dependency's icon imports as Vite prebundles it, as it does the app's own as they're served.
+
+## Tooltips are raised, and a component's preview is a card (PAR-515)
+
+- **Tooltips read raised colors through the variables shadcn's tooltip already uses.** The tooltip is drawn in the
+  theme's foreground with its text in the background, so it was white on the dark theme. You found that as wrong as the
+  old dark tooltip, which blended into the panel. A rule in `styles.css` sets `--foreground` and `--background` inside
+  `[data-slot="tooltip-content"]` to `--tooltip` and `--tooltip-foreground`. Those are a step lighter than a popover in
+  the dark theme and white in the light. shadcn's components stay as shadcn ships them, as you asked, so the tooltip,
+  its pointer and shortcut keys follow without an edit to each. The edge and shadow are one `drop-shadow` round the box
+  and its pointer together, since a border on each showed a seam where they met.
+- **A component's preview goes in a card beside its row, not in a tooltip,** the way a token's card opens: same width,
+  side and gap, opened by resting the pointer on the row. The picture sits on the project's own page in a framed box
+  that fits it, so a small part isn't lost in white. Placeholders sit on the card's muted fill, so they never pass for a
+  picture. It replaces the hint on component rows; a library's component design keeps its hint. Its stories are in
+  Parity / Left panel / Component card. Pictures are drawn in the project's first mode, which is light in the example.
+  Drawing them in the mode matching Parity's theme is PAR-521.
+
+## A component's code opens in the person's editor (PAR-527)
+
+- **The editor is a setting, Automatic by default:** VS Code, Cursor, Windsurf, Zed or the system's default app.
+  Automatic opens the first one installed, in that order, and the system's app when none is. Reading the editor from
+  `$VISUAL` or `$EDITOR` would usually find a terminal editor for an app started from the Dock or Start, so it's chosen
+  in Parity's settings instead.
+- **Editors are found by their command on PATH,** since that's what each installs to open a file at a line. The usual
+  folders are searched too on macOS and Linux, since an app the Dock started has only the system's PATH. No dependency
+  was added for it: the four commands and their arguments are a small table in core.
+- **The line is the export's declaration,** found by reading the file when it's opened, not from the type checker, which
+  would mean a round trip to the service for a line that a pattern finds in shadcn's and most projects' files.
+- **A library component's code is its type declarations,** the only code of it in the project. One without them has View
+  code greyed, saying it's not in the project.
+- **The menu's items are greyed with why rather than left out,** so it's the same for every component: View in Storybook
+  says "No stories" for one without. With stories, it stays enabled while Storybook isn't running and says "Starts
+  Storybook", since choosing it starts the project's Storybook and opens the story once it's up, as the row's book
+  button always has. Disabling it until Storybook runs would leave no way to start it from there.
+
+## Taking a component off the list by hand is gone (PAR-531)
+
+- **A component detected wrongly is a bug in detection, not something to correct by hand.** You asked for "Not a
+  component" to go, which took one off the list, recorded as `detection.exclude` in the main project file, with "List it
+  again" under Not listed. Detection's mistakes go to Linear as bugs instead. Listing an export the type checker left
+  out (`detection.include`, "List it") stays, as you didn't ask for that to go.
+- **A project file with an `exclude` list still opens.** It's read and dropped, so the next save leaves it out, rather
+  than the file failing to open over a list no version reads now.
+
 ## Frames are a third, light kind of design (PAR-539)
 
 Decision 1 of PAR-537 adds frames beside screens and components, and decision 6 keeps them out of code. They're now in
@@ -3039,7 +3184,7 @@ the app. My calls:
 - **A frame is `kind: "frame"`, and its size is `size`.** `frames` stays a screen's and a component's sizes per
   viewport. A frame has one size, `{ width?, height? }` in pixels, whatever the project's viewports are, so it doesn't
   move when the modes change. Without a width it's as wide as the primary mode, and without a height as tall as its
-  content, as a screen's main frame is. `frameSize` gives a frame that size in every mode. A frame that hugs its text
+  content, as a screen's main preview is. `frameSize` gives a frame that size in every mode. A frame that hugs its text
   (decision 4) is PAR-545's to add.
 - **The file checks what a frame holds.** Its root is a layout and it has one state, with no patches of its own; it has
   no `params`, `view` or `frames`, and no other kind has a `size`. There's no route to refuse, since screens have none
@@ -3054,8 +3199,8 @@ the app. My calls:
   their bindings go, as a paste into a design without the param does (PAR-464). Responsive patches stay on the layers.
   It takes the size it was drawn at in the primary mode, puts a root that isn't a layout inside one, and returns what it
   dropped (its other states, the modes it showed besides the primary one, its params and its variants), for the app to
-  say before it does it. A frame becoming a screen or a component drops nothing, and its size becomes its frame's in the
-  primary viewport, so it shows as it did. A screen and a component still become each other by their kind alone. The
+  say before it does it. A frame becoming a screen or a component drops nothing, and its size becomes its preview's in
+  the primary viewport, so it shows as it did. A screen and a component still become each other by their kind alone. The
   app's two kind switches go through `turnInto` already, so a frame in the file can't become a component with a `size`.
 - **Inside another design, a frame is a layout.** `frameAsLayout` is its root layout, named after it, with its size as a
   width and height in spacing steps on the half step, as typed lengths land. `pasteFramesInto` and `moveFrameInto` paste

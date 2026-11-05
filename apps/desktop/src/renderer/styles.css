@@ -55,6 +55,9 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
+  /* Tooltips are raised above whatever they're over, in the theme's own colors, never inverted (PAR-515). */
+  --tooltip: oklch(1 0 0);
+  --tooltip-foreground: oklch(0.145 0 0);
   --primary: oklch(0.205 0 0);
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
@@ -91,6 +94,9 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
+  /* A step above a popover, so one over a card or menu still stands off it. */
+  --tooltip: oklch(0.285 0 0);
+  --tooltip-foreground: oklch(0.985 0 0);
   --primary: oklch(0.922 0 0);
   --primary-foreground: oklch(0.205 0 0);
   --secondary: oklch(0.269 0 0);
@@ -116,6 +122,21 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+}
+
+/*
+ * Tooltips (PAR-515). shadcn's tooltip is drawn in the theme's foreground with its text in the background, inverted:
+ * white on the dark theme. Here it reads the raised tooltip colors through those same variables instead, so the
+ * component stays as shadcn ships it, and its edge and shadow are one drop shadow round the box and its pointer
+ * together, so they never show a seam between them.
+ */
+[data-slot="tooltip-content"] {
+  --foreground: var(--tooltip);
+  --background: var(--tooltip-foreground);
+  filter: drop-shadow(0 0 0.5px oklch(0 0 0 / 30%)) drop-shadow(0 2px 4px oklch(0 0 0 / 12%));
+}
+.dark [data-slot="tooltip-content"] {
+  filter: drop-shadow(0 2px 6px oklch(0 0 0 / 50%));
 }
 
 @layer base {
@@ -306,14 +327,26 @@ textarea,
   --process-stopped: oklch(0.55 0.01 260);
 }
 
+/*
+ * A running light breathes by opacity alone, so the compositor runs it and the window doesn't repaint: the dot fades
+ * between 85% and full, and its glow, drawn once on a layer behind it, fades in and out.
+ */
 @keyframes process-breathe {
   0%,
   100% {
-    box-shadow: 0 0 0 0 color-mix(in oklch, var(--process-light) 0%, transparent);
     opacity: 0.85;
   }
   50% {
-    box-shadow: 0 0 6px 1px color-mix(in oklch, var(--process-light) 70%, transparent);
+    opacity: 1;
+  }
+}
+
+@keyframes process-glow {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
     opacity: 1;
   }
 }

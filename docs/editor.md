@@ -485,6 +485,48 @@ a library, rather than left out. Previews are PAR-208. The time is measured to t
 that shows it, since in a window in the background frames come about once a second; the trace showed the key press
 taking 31ms and the frame after it 18ms.
 
+### A component's stories and code from its menu (PAR-527)
+
+Right-clicking a component in the Components panel opens its menu: **View in Storybook**, then **View code**, which
+opens the component's file in the person's editor at the line of its export. Each is greyed with why when it can't act,
+rather than left out, so the menu is the same for every component: View in Storybook says "No stories" for one without
+any, and View code "Not in the project" for a library component without type declarations, whose declarations are
+otherwise its code. With stories, View in Storybook stays enabled while Storybook isn't running and says "Starts
+Storybook": choosing it starts the project's Storybook, reusing one already serving it, and opens the component's docs
+or first story once it's up, as the row's book button does. Whether it's running is the service's process list, which
+the status bar polls. A project without a Storybook has no View in Storybook. A library's component design offers Insert
+linked instance and Insert detached copy after them.
+
+Resting the pointer on a component opens its card beside the row (PAR-515, "Component previews" below), which names it
+and its file, or the package a library's comes from, and says when it fails on the canvas and why. One listed by hand
+says so.
+
+- **Which editor:** Settings > Code > Editor. The choices are Automatic, VS Code, Cursor, Windsurf, Zed or System
+  default. Automatic tries them in that order and opens the first one installed, or the system's default app for the
+  file when none is. A named editor that isn't installed says so in a toast, with where to choose another.
+- **Finding one:** each editor's command on PATH (`code`, `cursor`, `windsurf`, `zed`), on Windows with PATHEXT's
+  extensions, as `code` is `code.cmd`. On macOS and Linux the usual folders are searched too, since an app the Dock
+  starts has only the system's PATH. It's started apart from Parity, so it stays open when Parity quits.
+- **The line:** the export's declaration, read from the file when it's opened: `export function Button`, or the
+  `function Badge` that shadcn's `export { Badge }` names. When neither is in the file, as for one re-exported from
+  another, the file opens at its top. A part named through its family, as `Dialog.Root`, opens at the family's export.
+
+Code: `codeEditors`, `editorsFor`, `commandPaths` and `exportLine` in `packages/core/src/code-editors.ts`;
+`openInEditor` in `apps/desktop/src/main/code-editor.ts`, behind `canvas:open-in-editor`; `componentFile` and `viewCode`
+in `renderer/chrome/code-editor.ts`; the menu's items in `chrome/ComponentMenu.tsx`, used by `chrome/AssetsPanel.tsx`;
+the setting in `chrome/SettingsDialog.tsx` and `chrome/preferences.ts`.
+
+Tests: `packages/core/src/code-editors.test.ts` (10: the editors each choice tries; VS Code's and Zed's arguments; the
+paths on PATH on Windows and elsewhere; and the export's line for a function, constant or class, one an export list
+names, a list over several lines, a longer name that isn't it, a default export, a declared one, a missing one, and
+Windows line endings). `apps/desktop/src/renderer/chrome/code-editor.test.ts` (2: the project's own component's file
+from a Windows or POSIX root, and a library component's declarations, or none). `chrome/ComponentMenu.stories.tsx`:
+WithStories, ChoosingViewCode, StorybookNotRunning, WithoutStories, NoCodeInTheProject and LibraryDesign; and
+ComponentMenu, ListedByHand and FailingToDraw in `chrome/ComponentsPanel.stories.tsx`. Gaps: launching the editor and
+the system's default app in `main/code-editor.ts` have no test of their own. They were tried in a debug copy: View code
+on Button opened VS Code at `button.tsx:43`, its `function Button`, and Badge's menu said "Starts Storybook" with none
+running.
+
 ## Moving, reordering and resizing
 
 Dragging layers and designs, where they land, resize handles and duplicates.
@@ -2297,8 +2339,13 @@ the end-to-end suite starts each copy on a fresh profile, so it captures its fra
 
 Each component has a picture of what inserting it would place, made in the offscreen window and kept on disk with the
 frame bitmaps, so no panel mounts a component and a project opened again draws none it already has. The Components panel
-shows it, for now, above the name in a component row's hint; PAR-208 gives it the List and Grid views, the card and the
-picker.
+shows it in a component's card, opened by resting the pointer on its row as a token's is, beside the row (PAR-515): the
+picture on the project's page in a framed box that fits it, then its name, file and, when it fails on the canvas, why.
+PAR-208 gives it the List and Grid views and the picker. The card is `ComponentCard` and `ComponentPopover` in
+`chrome/ComponentCard.tsx`, with the stories Pictures (six real previews of different shapes), States (waiting, being
+drawn, updating and failing), BesideItsRow and Tooltips in `chrome/ComponentCard.stories.tsx`; `AssetEntry` in
+`chrome/AssetsPanel.tsx` opens it. Tooltips are raised in the theme's own colors, a step lighter than a popover in the
+dark theme, through the variables shadcn's tooltip reads, set in `styles.css`.
 
 - **What's pictured is what inserting places:** the node `nodeForItem` and `withLibraryContext` build for an empty
   layout, with the component's sample and the parents a part needs, its layers numbered in order so the tree is the same
@@ -2351,8 +2398,8 @@ in `packages/core/src/preview-order.ts`; `renderedComponents` in `packages/core/
 `previews.lookup` and `previews.make` handlers, `apps/desktop/src/utility/previews.ts` and the preview half of
 `utility/bitmap-store.ts`; `renderPreview`, `renderOffscreen` and `servePreview` in `apps/desktop/src/main/index.ts`;
 `previewJob`, `startPreviews`, `useComponentPreview` and `usePreviewOnScreen` in
-`apps/desktop/src/renderer/component-previews.ts`; `PreviewPicture` in `renderer/chrome/PreviewPicture.tsx` and
-`AssetRow` in `chrome/AssetsPanel.tsx`; `bitmapsWaiting` in `renderer/canvas/frame-bitmaps.ts`; `passesToVoidElement` in
+`apps/desktop/src/renderer/component-previews.ts`; `ComponentCard` in `renderer/chrome/ComponentCard.tsx` and `AssetRow`
+in `chrome/AssetsPanel.tsx`; `bitmapsWaiting` in `renderer/canvas/frame-bitmaps.ts`; `passesToVoidElement` in
 `packages/code/src/props.ts`; `sampleText` and `shortenedText` in `packages/libgen/src/sample-text.ts`.
 
 Tests: `packages/core/src/preview-order.test.ts` (5 for `renderQueue`: canvas and agent jobs before previews on screen
@@ -2418,6 +2465,50 @@ file per icon under the module's own names, lines kept, types dropped, unknown n
 and comments left, other modules unchanged). The e2e suite (`pnpm test:app`) runs the editor with both in place. Gaps:
 the minified prebundle has no test of its own; it was checked in an isolated copy of the app on 2026-10-29, where all
 736 icons on screen drew and the window's scripts were measured over the DevTools protocol.
+
+### React's production build on request (PAR-519, PAR-550)
+
+`pnpm dev` runs Parity's window on React's development build, with StrictMode's checks, Fast Refresh and React's
+warnings, as the daily driver. `pnpm dev:prod`, and the copy `pnpm perf` starts, run it on React's production build,
+which is faster. The audit timed, by hand on the example project, selecting a design, committing a field and undo going
+from 210 to 360 ms to the next paint to under 90, and opening the Components panel from 1.4 s to 0.14 s.
+
+| `pnpm perf` on the example project              | Development build | Production build |
+| ----------------------------------------------- | ----------------- | ---------------- |
+| Select a design, median / max                   | 180 / 298 ms      | 71 / 126 ms      |
+| Edit a design, median / max                     | 134 / 386 ms      | 47 / 117 ms      |
+| Started again, usable (`--open-only`, two runs) | 9.4 and 4.4 s     | 2.7 and 3.0 s    |
+| The window's memory                             | 764 MB            | 590 MB           |
+
+On 2026-11-04, on Windows 11 with other sessions using the machine, which the development build's restart times show.
+Started again after a full run's measuring, both builds took about 4.7 s.
+
+- **The dev script takes the build as a flag,** `--react production`, which `pnpm dev:prod` passes, and starts the UI's
+  Vite server in a mode of its own (`react-production`), which the UI's Vite config reads. No environment variable is
+  involved. `pnpm perf` passes the flag too, unless it's run with `--react development`, and records the build in each
+  result. Storybook and the end-to-end suite, which don't pass it, run the development build.
+- **Dependencies are prebundled as production:** the UI's Vite config sets `process.env.NODE_ENV` to `production` in the
+  dependency optimizer (Rolldown's `transform.define`), as builder-vite does for frames (PAR-198). The app's own modules
+  are still served as in development, so `import.meta.env.DEV` stays true.
+- **The app's JSX calls the production `jsx`:** it's still compiled for development, calling `jsxDEV`, which the
+  production build leaves out, so `react/jsx-dev-runtime` is aliased to `scripts/jsx-dev-runtime.ts`, React's `jsx`.
+- **Fast Refresh is off,** since it reaches React only through the development build: a change to a component reloads
+  the page, as a change to any other module already did.
+- **The dev script prints which build it runs.** [decisions.md](decisions.md) has why development is the default.
+- **tldraw still draws,** since the window is on localhost, where tldraw needs no licence key.
+- **Switching builds rebuilds the prebundle:** Vite keys it by the optimizer's options and the aliases, so the other
+  build's is never served.
+
+Code: `reactFlag`, `reactBuild`, `reactProductionMode` and `reactBuildConfig` in `apps/desktop/scripts/react-build.ts`,
+used by `apps/desktop/vite.config.ts`, `apps/desktop/scripts/dev.ts` and `apps/desktop/scripts/perf.ts`; `dev:prod` in
+both `package.json` files.
+
+Tests: `apps/desktop/scripts/react-build.test.ts` (8: the flag's values, an unknown one rejected, the flag taken out of
+the arguments wherever it is, the flag without a value rejected, nothing added for the development build, the production
+build's define, alias and Fast Refresh filter, the stand-in being React's `jsx`). Gaps: the window's build is checked by
+hand, as the e2e suite runs the development build. On 2026-11-04, in an isolated copy, React's fibers had no development
+fields on the production build and had them on the development build, tldraw drew the canvas on both, an edited
+component reloaded the page on the production build, and the prebundle's config hash differed between the builds.
 
 ## Opening and closing projects
 
@@ -2713,6 +2804,48 @@ Sign in's title.
 Gaps: a design that's hovered but not selected shows its menus, and they're in the tab order while they show. Nothing
 yet keeps a future panel from scrolling the page by putting a focusable element outside its scroller; the root's clip
 keeps the page still, but such an element would sit outside its panel.
+
+### The status bar's process lights stay off the main thread (PAR-524)
+
+Each process in the status bar has a light: a running server's breathes, a starting or stopping one's ring turns, a
+crashed one pings red, and a stopped one is hollow. A project's build server runs for as long as it's open, so its light
+breathes almost all the time, and it mustn't cost the window anything while nothing else happens.
+
+- **Opacity only.** A running light is the dot and, behind it, its glow, a blurred shadow drawn once on its own layer.
+  The dot fades between 85% and full (`process-breathe`) and the glow fades in and out with it (`process-glow`), both by
+  opacity, which the compositor runs without the page repainting. Before, `process-breathe` animated the dot's
+  `box-shadow`, which had to be painted again every frame: an idle window painted, layerized and committed 60 times a
+  second, about 1.3 ms of main thread per frame.
+- **Measured.** `pnpm perf`'s idle run on the example, with its build server running, now spends 0 ms a frame on paint,
+  pre-paint and layerize. `document.getAnimations()` in the status bar lists `process-glow` and `process-breathe` on
+  opacity, and the turning ring's `spin` on transform, and nothing else.
+- **Reduced motion** stops every light, ring and shimmer (`[data-process-motion]` in `styles.css`): a running light is
+  then a steady dot with no glow.
+- **The lights stand alone.** The status bar shows no words beside them. What they used to say (a crash or failed task,
+  what's starting, a running task and its progress, or how many run) is now their tooltip and accessible name, and
+  clicking them opens the flyout.
+- **A narrow status bar shows icons and counts.** Below 56rem (a container query on the footer), the renderer and
+  builder show only their icons; components, tokens and Storybook show their icons and counts (Storybook's is how many
+  components have stories); a failed save is its warning icon; and the performance stats are the gauge and the frame
+  rate. The words stay for screen readers and each tooltip names the item, so the status bar fits a phone's width
+  (checked at 375px).
+- **Every tooltip has one shape:** a short title (the item's name and version, or its count), then one short line on
+  what it does or what a click does, such as "Storybook 10.6.5" over "3 components with stories. Click to open it". An
+  untested version adds "Parity doesn't test this version". Paths, discovery notes and error messages stay out, since
+  they can run long: a failed save's reason is in its notification.
+- **Notifications sit above the status bar** on a phone-sized window too: sonner places them by `mobileOffset` below
+  600px, which is now 40px like `offset`, rather than its default 16px, which covered the bar's buttons.
+
+Code: `Light` and `triggerLabel` in `apps/desktop/src/renderer/chrome/Processes.tsx`, `Words` in `chrome/StatusBar.tsx`,
+and the `process-*` keyframes in `styles.css`.
+
+Tests: Storybook, `chrome/StatusBar.stories.tsx` Everything: every item the status bar can hold at once, with a running,
+a starting and a stopped light side by side; EverythingNarrow: the same at 480px, as icons and counts; OlderProject: the
+renderer's and builder's tooltips name the version and note it's untested; `chrome/ProcessIcons.stories.tsx` EveryKind
+and EveryKindLight: each light in every status, in both themes; and `chrome/Processes.stories.tsx` JustTheBuildServer:
+one light, breathing.
+
+Gaps: nothing checks automatically that the lights stay on opacity and transform; the perf idle run shows it.
 
 ## Rendering frames
 

@@ -856,7 +856,7 @@ export async function correctComponents({
       ...now.filter((ref) => !was.some((other) => same(ref, other)))
     ]
   }
-  const paths = [...new Set([...changed("include"), ...changed("exclude")].map((ref) => ref.path))]
+  const paths = [...new Set(changed("include").map((ref) => ref.path))]
   if (paths.length > 0) await rescanComponents(project, paths)
   return undefined
 }

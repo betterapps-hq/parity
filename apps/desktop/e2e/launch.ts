@@ -45,6 +45,7 @@ export async function launch(): Promise<RunningApp> {
   const debugPort = await freePort(suitePorts.debug)
   const log = join(dir, "app.log")
   const output = createWriteStream(log)
+  // On React's development build, as `pnpm dev` runs it, so StrictMode's checks and React's warnings run on every test.
   const runner = spawn(process.execPath, [join(appDir, "scripts/dev.ts"), project], {
     cwd: appDir,
     env: {

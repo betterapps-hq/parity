@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs"
 import { createRequire } from "node:module"
 import { dirname, join } from "node:path"
 import { describe, expect, it } from "vite-plus/test"
-import { iconExports, iconImports } from "./icon-imports.ts"
+import { dependencyIconImports, iconExports, iconImports } from "./icon-imports.ts"
 
 const index = `
 import * as index from './icons/index.mjs';
@@ -71,5 +71,23 @@ describe("iconImports", () => {
   it("changes nothing in a module that doesn't import lucide-react", () => {
     expect(iconImports(`import { Plus } from "./icons"`, exports, dist)).toBeUndefined()
     expect(iconImports(`import { Plus } from "lucide-react/icons/plus"`, exports, dist)).toBeUndefined()
+  })
+})
+
+describe("dependencyIconImports", () => {
+  const { transform } = dependencyIconImports(exports, dist)
+  const kit = "D:\\project\\node_modules\\@buildkitgg\\shadcn-baseui-nova\\dist\\ui\\menubar.js"
+
+  it("imports a prebundled dependency's icons each from its own file", () => {
+    expect(transform(`import { PlusIcon } from "lucide-react";\n_jsx(PlusIcon, {})`, `${kit}?v=1`)).toEqual({
+      code: `import { default as PlusIcon } from "${dist}/icons/plus.mjs";\n_jsx(PlusIcon, {})`,
+      map: null
+    })
+  })
+
+  it("leaves lucide-react's own files, and files that aren't JavaScript, as they are", () => {
+    const index = "/project/node_modules/lucide-react/dist/esm/lucide-react.mjs"
+    expect(transform(`import { Plus } from "lucide-react"`, index)).toBeUndefined()
+    expect(transform(`import { Plus } from "lucide-react"`, kit.replace(".js", ".css"))).toBeUndefined()
   })
 })

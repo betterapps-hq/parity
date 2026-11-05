@@ -5,7 +5,9 @@
 // same window; and starting the app again on the same profile, as someone does each day.
 // Results go to .inspect/perf/<label>.json; --compare prints another run's numbers beside them.
 // Usage: pnpm perf [--label name] [--compare name] [--project root] [--seconds 4] [--viewport 1439x901] [--css "rules"]
-//                  [--profile] [--keep] [--open-only]
+//                  [--profile] [--keep] [--open-only] [--react development]
+//   --react     the window's React build: production, as `pnpm dev:prod` runs it, unless this says development, as
+//               `pnpm dev` runs it; each result says which it ran
 //   --viewport  the page's size in CSS pixels, the same every run (the default is the first runs' window)
 //   --css       adds a stylesheet to the page before measuring, to try an idea without changing the code
 //   --profile   samples the page's JavaScript too, and lists the functions that took the most time in each run
@@ -19,6 +21,7 @@ import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { chromium, type CDPSession, type Page } from "playwright-core"
 import type { ProjectSession, Workspace } from "../src/renderer/workspace.ts"
+import { type ReactBuild, reactBuild } from "./react-build.ts"
 
 /** What the page holds for these measurements: the open tab's session. */
 interface PerfWindow {
@@ -47,6 +50,8 @@ const keep = args.includes("--keep")
 const openOnly = args.includes("--open-only")
 const profiling = args.includes("--profile")
 const second = resolve(option("second") ?? join(repoDir, "fixtures/vite7-js"))
+// The production build unless asked otherwise, so runs compare with those since PAR-519.
+const react = option("react") === undefined ? "production" : reactBuild(option("react"))
 
 /** A function's own time over a run, with `--profile`. */
 interface Hot {
@@ -115,6 +120,8 @@ interface Result extends Partial<Measured> {
   label: string
   date: string
   project: string
+  /** The window's React build; missing from runs made before PAR-519, all development. */
+  react?: ReactBuild
   css?: string
   /**
    * Opening the project: on the first launch, timed from the window's page loading; again in the same window, from the
@@ -128,7 +135,7 @@ await mkdir(outDir, { recursive: true })
 const profileDir = join(tmpdir(), uiPort === 5320 ? "parity-perf-profile" : `parity-perf-profile-${uiPort}`)
 await rm(profileDir, { recursive: true, force: true })
 
-console.log(`Starting a copy of the app on ${project}`)
+console.log(`Starting a copy of the app on ${project}, on React's ${react} build`)
 let runner = launch()
 let page: Page | undefined
 try {
@@ -146,6 +153,7 @@ try {
     label,
     date: new Date().toISOString(),
     project,
+    react,
     ...(css ? { css } : {}),
     open,
     ...measured
@@ -163,7 +171,7 @@ Saved ${join(outDir, `${label}.json`)}`)
 }
 
 function launch(): ChildProcess {
-  return spawn(process.execPath, [join(appDir, "scripts/dev.ts"), project], {
+  return spawn(process.execPath, [join(appDir, "scripts/dev.ts"), "--react", react, project], {
     cwd: appDir,
     env: {
       ...process.env,

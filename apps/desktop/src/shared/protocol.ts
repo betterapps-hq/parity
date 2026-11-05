@@ -2,6 +2,7 @@ import type { AccessibilityFinding, AccessibilityIssue, AgentEvent, IconNames, I
 import type { CopyReport } from "@parity-app/agent/routing"
 import type {
   CanvasDocument,
+  CodeEditorChoice,
   ChangeConflict,
   ComponentInfo,
   ComponentRenderStatus,
@@ -423,6 +424,8 @@ export interface CanvasHost {
   saveFile(options: SaveDialogOptions): Promise<string | undefined>
   /** Shows a file in the system's file manager. */
   showItem(path: string): Promise<void>
+  /** Opens a file in the person's editor, at its export's line when one is named, and says which opened it. */
+  openInEditor(request: OpenInEditorRequest): Promise<{ opened: string }>
   quit(): Promise<void>
   /** Opens the window's developer tools, or closes them. */
   toggleDevTools(): Promise<void>
@@ -450,6 +453,16 @@ export interface ProcessUsage {
   cpu: number
   /** Memory in use, in bytes. */
   memory: number
+}
+
+/** A file to open in the person's editor (PAR-527). */
+export interface OpenInEditorRequest {
+  /** Its absolute path. */
+  file: string
+  /** The export to open it at, as a component's source names it. */
+  export?: string
+  /** What Settings says to open it with. */
+  editor: CodeEditorChoice
 }
 
 export interface SaveDialogOptions {

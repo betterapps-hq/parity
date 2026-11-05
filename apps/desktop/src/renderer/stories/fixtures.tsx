@@ -201,7 +201,11 @@ export function ProjectStage({
       <ProjectContext value={session}>
         <div className={className}>{children}</div>
       </ProjectContext>
-      <Toaster position="bottom-right" offset={{ bottom: 40, right: 16 }} />
+      <Toaster
+        position="bottom-right"
+        offset={{ bottom: 40, right: 16 }}
+        mobileOffset={{ bottom: 40, left: 16, right: 16 }}
+      />
     </TooltipProvider>
   )
 }

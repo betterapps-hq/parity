@@ -5,11 +5,9 @@ import {
   type ComponentRole,
   type ComponentSource,
   componentRole,
-  correctDetection,
-  describeEvidence,
   describeRenderStatus,
-  type DetectionCorrections,
   groupComponents,
+  includeComponent,
   type LeftOutExport,
   type LibraryInfo
 } from "@parity-app/core"
@@ -49,12 +47,16 @@ import type { ProjectInfo } from "../../shared/protocol.ts"
 import { useProject } from "../canvas/context.ts"
 import { insertAtSelection, insertMime } from "../canvas/insert.ts"
 import { kindColors } from "../canvas/kinds.tsx"
-import { usePreviewOnScreen } from "../component-previews.ts"
+import { useComponentPreview, usePreviewOnScreen } from "../component-previews.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { type ProjectSession, workspace } from "../workspace.ts"
+import { componentFile, viewCode } from "./code-editor.ts"
+import { ComponentPopover } from "./ComponentCard.tsx"
+import { ComponentMenu } from "./ComponentMenu.tsx"
 import { Hint } from "./Hint.tsx"
+import { useHoverCard } from "./hover-card.ts"
 import { GuestIcon, iconCatalog, iconLibraries, iconStyles, iconsOf } from "./icons.tsx"
-import { PreviewPicture } from "./PreviewPicture.tsx"
+import { useProcesses } from "./process-store.ts"
 import { announceEdit } from "./project-edits.tsx"
 import { hasStories, openInStorybook } from "./storybook.ts"
 
@@ -67,15 +69,6 @@ function addAtSelection(session: ProjectSession, item: InsertItem): void {
   if (!insertAtSelection(session, item)) toast.info("Select a layout, or a layer to add it after")
 }
 
-/** The main project file's corrections to the component list, as the canvas has it now. */
-function useCorrections(session: ProjectSession): DetectionCorrections | undefined {
-  const { store } = session
-  return useSyncExternalStore(
-    store.subscribe,
-    () => store.getDocuments().find((entry) => entry.path === store.mainPath)?.document.detection
-  )
-}
-
 const noStatus: Record<string, ComponentRenderStatus> = {}
 const noSubscription = () => () => undefined
 
@@ -86,10 +79,10 @@ function useRenderStatus(session: ProjectSession): Record<string, ComponentRende
 }
 
 /**
- * Puts an export on the component list, or takes a component off it, as an undoable change to the main project file,
- * saved with it. The list follows straight away.
+ * Puts an export on the component list, as an undoable change to the main project file, saved with it. The list follows
+ * straight away.
  */
-function correct(session: ProjectSession, change: "include" | "exclude", target: ComponentRef, name: string): void {
+function listByHand(session: ProjectSession, target: ComponentRef, name: string): void {
   const { store } = session
   const ref = { path: target.path, export: target.export }
   const main: CanvasDocument = store.getDocuments().find((entry) => entry.path === store.mainPath)?.document ?? {
@@ -97,9 +90,8 @@ function correct(session: ProjectSession, change: "include" | "exclude", target:
     containers: []
   }
   const { detection: _, ...rest } = main
-  const detection = correctDetection(main.detection, change, ref)
-  const label = change === "include" ? `List ${name} as a component` : `Take ${name} off the component list`
-  store.applyDocuments(label, [{ path: store.mainPath, document: detection ? { ...rest, detection } : rest }])
+  const detection = includeComponent(main.detection, ref)
+  store.applyDocuments(`List ${name} as a component`, [{ path: store.mainPath, document: { ...rest, detection } }])
 }
 
 function dragItem(item: InsertItem) {
@@ -163,7 +155,8 @@ export interface Source {
  */
 function families(sources: [string, ComponentSource][], by: "file" | "folder" | "route" = "file"): Family[] {
   const evidence = new Map(
-    sources.map(([key, source]) => [key, source.included ? "listed by hand" : source.as && describeEvidence(source.as)])
+    // Why detection counts it says nothing a person needs, so only one they listed themselves says so.
+    sources.map(([key, source]) => [key, source.included ? "listed by hand" : undefined])
   )
   const hidden = new Map(sources.map(([key, source]) => [key, hiddenReason(key, { internal: source.internal })]))
   const grouped: Family[] = groupComponents(sources, by).map((group) => ({
@@ -314,10 +307,7 @@ export function ComponentsPanel() {
         .map((source) => ({ ...source, families: searchFamilies(source, needle) }))
         .filter((source) => source.families.length > 0)
     : sources.filter((source) => source.families.length > 0 || source.library)
-  const corrections = useCorrections(session)
-  const leftOut = needle
-    ? notListed(info, corrections).filter((entry) => entry.name.toLowerCase().includes(needle))
-    : []
+  const leftOut = needle ? notListed(info).filter((entry) => entry.name.toLowerCase().includes(needle)) : []
 
   return (
     <>
@@ -346,33 +336,18 @@ export function ComponentsPanel() {
   )
 }
 
-/** An export that isn't listed as a component, with why; `excluded` when the person took it off the list. */
-type NotListedEntry = LeftOutExport & { excluded?: true }
-
-/**
- * The app's exports that aren't listed as components: what the type checker left out, less what the person listed,
- * and what the person took off the list.
- */
-function notListed(info: ProjectInfo, corrections: DetectionCorrections | undefined): NotListedEntry[] {
+/** The app's exports that aren't listed as components: what the type checker left out, less what the person listed. */
+function notListed(info: ProjectInfo): LeftOutExport[] {
   const key = (ref: ComponentRef) => `${ref.path}#${ref.export}`
   const listed = new Set(Object.values(info.sources).map(key))
-  const excluded = (corrections?.exclude ?? [])
-    .filter((ref) => !listed.has(key(ref)))
-    .map((ref) => ({
-      name: ref.export === "default" ? (ref.path.split("/").at(-1) ?? ref.path) : ref.export,
-      ...ref,
-      reason: "taken off the list by hand",
-      excluded: true as const
-    }))
-  const taken = new Set(excluded.map(key))
-  return [...(info.leftOut ?? []).filter((entry) => !listed.has(key(entry)) && !taken.has(key(entry))), ...excluded]
+  return (info.leftOut ?? []).filter((entry) => !listed.has(key(entry)))
 }
 
 /**
  * The app's exports a search matches that aren't listed as components, with why, so looking for one explains itself.
  * Each can be listed by hand, which the main project file keeps.
  */
-function NotListed({ entries }: { entries: NotListedEntry[] }) {
+function NotListed({ entries }: { entries: LeftOutExport[] }) {
   const session = useProject()
   return (
     <section className="mt-2 border-t pt-2" aria-label="Not listed as components">
@@ -397,9 +372,9 @@ function NotListed({ entries }: { entries: NotListedEntry[] }) {
               variant="ghost"
               size="sm"
               className="h-6 shrink-0 px-2 text-[11px]"
-              onClick={() => correct(session, "include", entry, entry.name)}
+              onClick={() => listByHand(session, entry, entry.name)}
             >
-              {entry.excluded ? "List it again" : "List it"}
+              List it
             </Button>
           </Hint>
         </div>
@@ -412,6 +387,9 @@ function NotListed({ entries }: { entries: NotListedEntry[] }) {
 function SourceSection({ source, open }: { source: Source; open: boolean }) {
   const session = useProject()
   const statuses = useRenderStatus(session)
+  const storybookRunning = useProcesses(false).some(
+    (process) => process.kind === "storybook" && process.projectId === session.id && process.status === "running"
+  )
   const [expanded, setExpanded] = useState<boolean>()
   const count = source.families.reduce((total, family) => total + family.items.length, 0)
   const isOpen = expanded ?? open
@@ -435,97 +413,144 @@ function SourceSection({ source, open }: { source: Source; open: boolean }) {
             {family.name && (family.items.length > 1 || family.heading) && (
               <div className="px-8 pt-1 text-[11px] text-muted-foreground">{family.name}</div>
             )}
-            {family.items.map((entry) => {
-              const stories = entry.item.kind === "component" && hasStories(session, entry.key)
-              // The project's own components can be taken off the list, which the main project file keeps.
-              const own = entry.item.kind === "component" ? session.info.sources[entry.key] : undefined
-              // Known once it's drawn somewhere on the canvas.
-              const status = entry.item.kind === "component" ? statuses[entry.key] : undefined
-              const failing = status && "error" in status
-              const row = (
-                <Hint
-                  label={
-                    <>
-                      {entry.item.kind === "component" && <PreviewPicture component={entry.key} />}
-                      {entry.evidence ? `${entry.key}, ${entry.evidence}` : entry.key}
-                    </>
-                  }
-                  detail={[
-                    status && describeRenderStatus(status),
-                    "Drag onto a design, or click to add it to the selection.",
-                    source.library && entry.item.kind === "instance" && "Right-click to insert a detached copy."
-                  ]
-                    .filter(Boolean)
-                    .join("\n")}
-                  wait
-                >
-                  <button
-                    type="button"
-                    {...dragItem(entry.item)}
-                    onClick={() => addAtSelection(session, entry.item)}
-                    className="flex h-7 w-full cursor-grab items-center gap-2 rounded-md pr-8 pl-8 text-left hover:bg-accent active:cursor-grabbing"
-                  >
-                    {entry.item.kind === "instance" ? (
-                      <Diamond className="size-3.5 shrink-0" style={{ color: kindColors.component }} />
-                    ) : (
-                      <Component className="size-3.5 shrink-0" style={{ color: kindColors.component }} />
-                    )}
-                    <span className="truncate">{entry.label}</span>
-                    {failing && (
-                      <CircleAlert className="size-3.5 shrink-0 text-destructive" aria-label="Fails to draw" />
-                    )}
-                  </button>
-                </Hint>
-              )
-              const { item } = entry
-              let menu: ReactNode
-              if (own && !own.library) {
-                menu = (
-                  <ContextMenuItem onSelect={() => correct(session, "exclude", own, entry.key)}>
-                    Not a component
-                  </ContextMenuItem>
-                )
-              } else if (source.library && item.kind === "instance") {
-                // A library's design is placed linked, following the library, or as a copy to change freely.
-                menu = (
-                  <>
-                    <ContextMenuItem onSelect={() => addAtSelection(session, item)}>
-                      Insert linked instance
-                    </ContextMenuItem>
-                    <ContextMenuItem onSelect={() => addAtSelection(session, { ...item, detached: true })}>
-                      Insert detached copy
-                    </ContextMenuItem>
-                  </>
-                )
-              }
-              return (
-                <AssetRow key={entry.key} component={entry.item.kind === "component" ? entry.key : undefined}>
-                  {menu ? (
-                    <ContextMenu>
-                      <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
-                      <ContextMenuContent className="w-52">{menu}</ContextMenuContent>
-                    </ContextMenu>
-                  ) : (
-                    row
-                  )}
-                  {stories && (
-                    <Hint label="Open in Storybook">
-                      <button
-                        type="button"
-                        aria-label={`Open ${entry.label} in Storybook`}
-                        onClick={() => void openInStorybook(session, entry.key)}
-                        className="absolute top-1/2 right-1.5 grid size-5 -translate-y-1/2 place-items-center rounded text-muted-foreground opacity-0 group-hover/asset:opacity-100 hover:bg-background hover:text-foreground focus-visible:opacity-100"
-                      >
-                        <BookOpen className="size-3.5" />
-                      </button>
-                    </Hint>
-                  )}
-                </AssetRow>
-              )
-            })}
+            {family.items.map((entry) => (
+              <AssetEntry
+                key={entry.key}
+                entry={entry}
+                source={source}
+                status={entry.item.kind === "component" ? statuses[entry.key] : undefined}
+                storybookRunning={storybookRunning}
+              />
+            ))}
           </div>
         ))}
     </section>
+  )
+}
+
+/**
+ * An item of a source: a component, whose card opens beside it when the pointer rests on it (PAR-515), or a library's
+ * component design, with a hint. Right-clicking a component opens its menu (PAR-527): View in Storybook, and View code
+ * in the person's editor, each greyed with why when it can't. A library's design offers its two ways to insert.
+ */
+function AssetEntry({
+  entry,
+  source,
+  status,
+  storybookRunning
+}: {
+  entry: Family["items"][number]
+  source: Source
+  status: ComponentRenderStatus | undefined
+  storybookRunning: boolean
+}) {
+  const session = useProject()
+  const { item } = entry
+  const component = item.kind === "component" ? entry.key : undefined
+  const own = component ? session.info.sources[component] : undefined
+  const stories = component !== undefined && hasStories(session, component)
+  const failing = status && "error" in status
+  const card = useHoverCard()
+  const preview = useComponentPreview(session.id, component ?? "")
+  // Pressing it, to add or drag it, or right-clicking it puts the card away.
+  const putAway = () => card.setOpen(false)
+  const button = (
+    <button
+      type="button"
+      {...dragItem(item)}
+      onClick={() => addAtSelection(session, item)}
+      {...(component
+        ? {
+            onPointerEnter: card.enter,
+            onPointerLeave: card.leave,
+            onPointerDown: putAway,
+            onContextMenu: putAway,
+            "aria-expanded": card.open,
+            "aria-controls": card.open ? card.id : undefined
+          }
+        : {})}
+      className="flex h-7 w-full cursor-grab items-center gap-2 rounded-md pr-8 pl-8 text-left hover:bg-accent active:cursor-grabbing aria-expanded:bg-accent"
+    >
+      {item.kind === "instance" ? (
+        <Diamond className="size-3.5 shrink-0" style={{ color: kindColors.component }} />
+      ) : (
+        <Component className="size-3.5 shrink-0" style={{ color: kindColors.component }} />
+      )}
+      <span className="truncate">{entry.label}</span>
+      {failing && <CircleAlert className="size-3.5 shrink-0 text-destructive" aria-label="Fails to draw" />}
+    </button>
+  )
+  const instance = source.library && item.kind === "instance"
+  const menu = (component || instance) && (
+    <ComponentMenu
+      storybook={
+        component && session.info.storybook
+          ? { stories, running: storybookRunning, open: () => void openInStorybook(session, component) }
+          : undefined
+      }
+      code={
+        component
+          ? { file: componentFile(session, component) !== undefined, open: () => void viewCode(session, component) }
+          : undefined
+      }
+    >
+      {instance && (
+        // A library's design is placed linked, following the library, or as a copy to change freely.
+        <>
+          <ContextMenuItem onSelect={() => addAtSelection(session, item)}>Insert linked instance</ContextMenuItem>
+          <ContextMenuItem onSelect={() => addAtSelection(session, { ...item, detached: true })}>
+            Insert detached copy
+          </ContextMenuItem>
+        </>
+      )}
+    </ComponentMenu>
+  )
+  const trigger = menu ? <ContextMenuTrigger asChild>{button}</ContextMenuTrigger> : button
+  const row = component ? (
+    <ComponentPopover
+      card={card}
+      name={component}
+      path={own?.path}
+      note={entry.evidence}
+      preview={preview}
+      status={failing ? describeRenderStatus(status) : undefined}
+    >
+      {trigger}
+    </ComponentPopover>
+  ) : (
+    <Hint
+      label={entry.key}
+      detail={[status && describeRenderStatus(status), instance && "Right-click to insert a detached copy."]
+        .filter(Boolean)
+        .join("\n")}
+      wait
+    >
+      {trigger}
+    </Hint>
+  )
+  return (
+    <AssetRow component={component}>
+      {menu ? (
+        <ContextMenu>
+          {row}
+          <ContextMenuContent className="w-auto min-w-56 whitespace-nowrap">{menu}</ContextMenuContent>
+        </ContextMenu>
+      ) : (
+        row
+      )}
+      {stories && (
+        <Hint label="Open in Storybook">
+          <button
+            type="button"
+            aria-label={`Open ${entry.label} in Storybook`}
+            onClick={() => void openInStorybook(session, entry.key)}
+            className="absolute top-1/2 right-1.5 grid size-5 -translate-y-1/2 place-items-center rounded text-muted-foreground opacity-0 group-hover/asset:opacity-100 hover:bg-background hover:text-foreground focus-visible:opacity-100"
+          >
+            <BookOpen className="size-3.5" />
+          </button>
+        </Hint>
+      )}
+    </AssetRow>
   )
 }
 
