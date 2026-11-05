@@ -4023,6 +4023,14 @@ union of two strict objects, a snippet or an `editId` with edits; MCP's `input` 
 and `label` before the check, and its discovery schema lists both kinds' fields with a `oneOf` rule for each. A selector
 is published as `anyOf` nonblank text or a nonempty list of it.
 
+`AgentMethods` in the same module pairs each method's checked input with its answer (PAR-564). The CLI client's `call`
+asks by it, and the app answers by it through `dispatch` in `packages/agent/src/dispatch.ts`, which holds the app's half
+of every call: defaults, the caller's cursor, the state report, a check's frame count and the answer's shape.
+`apps/desktop/src/utility/agent.ts` keeps the HTTP endpoint and `desktopHost`, the `AgentHost` that reaches the window,
+the offscreen renderer and the console, and writes screenshots. `packages/agent/src/dispatch.test.ts` runs every method
+through a fixture host and checks each answer against its schema in `replies`, with presence, applied changes, saved
+screenshots, frame counts, the primary mode (PAR-579) and an unknown method.
+
 `packages/cli/src/operations.test.ts` launches both real entry points against local RPC, covering each operation's
 defaults, explicit tab/options, human and JSON output, invalid inputs, RPC errors, image blocks, audit and screenshot
 failures, local skill reads and errors, MCP discovery, the selector's published schema, and an answer the CLI can't
@@ -4073,10 +4081,11 @@ Implementation: `packages/core/src/errors.ts` (codes, `CodedError`, `closest`, `
 `packages/cli/src/errors.ts` (the operation error, its schema and path mapping); `packages/agent/src/contracts.ts`
 (request and answer schemas); `operations.ts` and `execute.ts` (canonical results, bounds); `client.ts` (checked
 answers); `mcp.ts` and `bin.ts` (structured output in each transport); `packages/agent/src/workspace.ts` and `run.ts`
-(coded lookups, conflicts and retries, `ExecResult.details`); `apps/desktop/src/utility/agent.ts` (RPC `details`),
-`packages/channel/src/channel.ts` and `apps/desktop/src/shared/coded-errors.ts` (details both ways across every port),
-`preload/index.ts`, `renderer/service.ts` (answers as data across the bridge to the page, PAR-580) and
-`renderer/agent/handlers.ts` (`ServeAnswer`, coded tab lookup).
+(coded lookups, conflicts and retries, `ExecResult.details`); `packages/agent/src/dispatch.ts` (coded unknown methods)
+and `apps/desktop/src/utility/agent.ts` (RPC `details`), `packages/channel/src/channel.ts` and
+`apps/desktop/src/shared/coded-errors.ts` (details both ways across every port), `preload/index.ts`,
+`renderer/service.ts` (answers as data across the bridge to the page, PAR-580) and `renderer/agent/handlers.ts`
+(`ServeAnswer`, coded tab lookup).
 
 Tests: `packages/core/src/errors.test.ts` (defaults, bounded closest-first alternatives, checking details from another
 process, coded unknown state). `packages/agent/src/run.test.ts` ("coded failures": unknown design, state, mode,

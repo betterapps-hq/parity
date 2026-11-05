@@ -7,9 +7,11 @@ import type {
   ContainerSpec,
   DesignChange,
   ErrorDetails,
+  LeftOutExport,
   LibraryIcons,
   ModeSettings,
   ModesChange,
+  ProjectDetection,
   ResolvedMode,
   ThemeVariable
 } from "@parity-app/core"
@@ -50,6 +52,61 @@ export interface AgentSnapshot {
   selection: { design?: string; node?: string; mode?: string }
   /** Each design's board on the canvas, by design key, so new designs can be placed in empty space. */
   bounds: Record<string, { x: number; y: number; width: number; height: number }>
+}
+
+/** An open project, as an agent's calls name it and the CLI routes them by (PAR-514). */
+export type TabSummary = {
+  id: string
+  name: string
+  root: string
+  active: boolean
+  status: "loading" | "ready" | "error"
+  error?: string
+  designs: number
+}
+
+/**
+ * A tab as the editor window gives it for an agent call: what the workspace starts from, with the tab itself in place of
+ * its id, and what the reports read beside it. The workspace takes it as it is, with `tab` set to the tab's id.
+ */
+export type TabSnapshot = Omit<AgentSnapshot, "tab"> & {
+  tab: TabSummary
+  /** Opaque, and equal only while nothing has changed in this tab since it opened. */
+  revision: string
+  projectId: string
+  guestUrl: string
+  /** Components the type checker found after the guest loaded, which other pages' guests have to add themselves. */
+  addedComponents?: Record<string, Pick<ComponentSource, "path" | "export">>
+  /** The app's exports the type checker left out, with why. */
+  leftOut?: LeftOutExport[]
+  /** The part of the canvas the person is looking at. */
+  viewport: { x: number; y: number; width: number; height: number; zoom: number }
+  /** What detection found in the project, and where. */
+  detection: ProjectDetection
+}
+
+/** What an agent touched, on its tab, with who's calling, so the editor can show it working. */
+export type PresenceEvent = AgentEvent & {
+  tab: string
+  /** Who is calling, such as "Claude Code" or "Cursor", named on the cursor. */
+  agent?: string
+  /** Tells agents with the same name apart, each with its own cursor. */
+  agentId?: string
+}
+
+/** A message the project's own code wrote to the console. The same message several times in a row is one entry. */
+export type ConsoleEntry = {
+  level: "info" | "warning" | "error" | "debug"
+  text: string
+  /** The script that wrote it, and the line. */
+  source: string
+  line: number
+  /** On the person's canvas, or in the hidden window agents render in. */
+  where: "canvas" | "offscreen"
+  count: number
+  /** When it was first and last written, in milliseconds since 1970. */
+  first: number
+  last: number
 }
 
 /** An icon set the project has, as its `.lib.par` describes it, without the tags its icons are searched by. */

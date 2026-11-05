@@ -633,3 +633,22 @@ export const replies = {
   components: componentsReply,
   props: propsReply
 }
+
+/**
+ * Each RPC method's params, as the CLI sends them once its request schema has read them, and its answer (PAR-564). The
+ * CLI client asks by it and the app's dispatch answers by it, so a shape that drifts on either side fails to compile.
+ * `copy` takes nothing.
+ */
+export type AgentMethods = {
+  [M in keyof typeof replies]: {
+    params: M extends keyof typeof requests ? z.output<(typeof requests)[M]> : Record<string, never>
+    result: z.output<(typeof replies)[M]>
+  }
+}
+
+export type AgentMethod = keyof AgentMethods
+
+/** Whether `method` is one the app answers. */
+export function isAgentMethod(method: string): method is AgentMethod {
+  return Object.hasOwn(replies, method)
+}

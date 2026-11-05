@@ -172,6 +172,21 @@ and the copies disagreed.
   move or arrow press: steps or fill, insets, snapped edges, `grow`, a frame's snap-back and smallest size, and
   reordering. The app keeps the measuring (`frameDrawn`, `LayerSnapping`), the gesture lifecycle and the writes.
 
+### Agent calls, in `@parity-app/agent`
+
+Built in PAR-564 (2026-11-05). The app's half of every agent call was 527 lines of `utility/agent.ts` that ran only in
+Electron, with no tests.
+
+- **`dispatch` in [dispatch.ts](../../packages/agent/src/dispatch.ts) answers each RPC method:** its defaults, the
+  caller's cursor starting and ending, the state report, counting a check's frames, the answer's shape, and a coded
+  error for a method the app doesn't have. The window's Export and accessibility check use its `exportPictures` and
+  `accessibility`.
+- **What only the desktop can do comes through an `AgentHost`:** the editor window's tabs and snapshot, applying
+  changes, presence, the offscreen renderer, the console and saving screenshots. The app's `desktopHost` is one host,
+  and `dispatch.test.ts`'s fixture tab is another.
+- **The method map is `AgentMethods` in [contracts.ts](../../packages/agent/src/contracts.ts),** from PAR-590's schemas.
+  The CLI client asks by it and `dispatch` answers by it, so a shape that drifts fails to compile on either side.
+
 ### Lenses and adapters
 
 - **Core stays the `.par` model.** Lens models are JSON Schemas in `@parity-app/models`; each lens's reader and
@@ -188,6 +203,8 @@ and the copies disagreed.
   method map: the preload script the window's `MessagePort`, the service each window's `MessagePortMain` and its
   `parentPort`, main the service's `UtilityProcess`, and the type checker's client its `Worker`. The method maps and the
   service's param checks are in `shared/`, and the `canvas:*` IPC names in `shared/channels.ts`.
+- **Agent calls' desktop half** (PAR-564): `utility/agent.ts` is the HTTP endpoint and `desktopHost`, which reaches the
+  window, the offscreen renderer and the console, and writes PNG files. Which method does what is `@parity-app/agent`'s.
 - **The renderer:** views, tldraw wiring, hooks, and DOM measuring.
 
 ## Order

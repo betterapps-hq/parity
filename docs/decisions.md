@@ -4554,3 +4554,25 @@ gutter. My calls:
   label can be short of space. Closer in, the line between rows alone is 73 pixels on screen.
 - **Left for later:** captions still truncate and fade by 25% (PAR-151), where the exploration's drop their chips
   instead, never truncate, and stay until 10%; and a title doesn't yet drop its menus before its name.
+
+## The app's half of an agent call is in `@parity-app/agent` (PAR-564)
+
+The app's side of every agent call was `utility/agent.ts`, which only ran in Electron and had no tests, and each
+method's shapes were declared four times. My calls:
+
+- **`dispatch` answers by `AgentMethods`,** the map in `contracts.ts` that pairs each method's checked input with its
+  answer, from PAR-590's schemas. The CLI client's `call` asks by the same map, so the request and answer types are one
+  declaration. The answer schemas' objects stay open, so `dispatch` checks its answers against them with the index
+  signatures taken out, which lets the agent's own interfaces stand in without a cast.
+- **The seam is an `AgentHost`,** beside `AgentHooks`. `dispatch` builds each call's `AgentHooks` from it: presence,
+  rendering, icon names and applying changes. It also reads tabs, snapshots, status and the console, and keeps
+  screenshots. The desktop and the tests' fixture tab are its two hosts.
+- **The window's snapshot is the agent's `TabSnapshot`,** declared in the agent package, as are `TabSummary`,
+  `PresenceEvent` and `ConsoleEntry`, which `shared/protocol.ts` now re-exports. The workspace takes the snapshot as it
+  is, with `tab` set to the tab's id, so `toAgentSnapshot`'s copy of 13 fields is gone.
+- **An unknown method fails with `invalid_input` on `method`,** naming the methods there are, rather than a plain error
+  the CLI reports as `app_error`.
+- **Params still arrive unchecked.** `dispatch` takes them as the CLI sends them, after its own check. Checking them in
+  the app with the same schemas is PAR-598.
+- **Export and the window's accessibility check go through the package too:** `exportPictures` names each picture and
+  `accessibility` checks a design, and the app writes the files.
