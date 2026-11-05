@@ -275,7 +275,19 @@ const stateSchema = object(
         ["width", "height", "titleOnly", "estimated"]
       )
     },
-    modes: { type: "array", items: object({ id: string, name: string, width: { type: "number" }, primary: boolean_ }) },
+    modes: {
+      type: "array",
+      description: "The project's modes, primary first.",
+      items: object({
+        id: string,
+        name: string,
+        width: { type: "number" },
+        primary: {
+          ...boolean_,
+          description: "The project's first mode: every design's main frame unless it picks another. Only one is."
+        }
+      })
+    },
     components: strings,
     tokens: object({ count: integer, semantic: strings, themeCategories: strings }),
     viewport: { type: "object" },
