@@ -1133,6 +1133,11 @@ recommended answer to each of its questions.
 - **A part that draws nothing is still one of the project's components (PAR-428),** marked `visual: false`, so the parts
   whose chains need it (Chakra's `CodeBlock.AdapterProvider`, Base UI's `Tooltip.Provider`) insert inside it with its
   sample. Only the Components panel leaves it out. Leaving it off the project's list made every part inside one fail.
+- **Agents put a part in its provider themselves (PAR-453).** `Components()` lists providers such as
+  `nova/SidebarProvider`, and an agent's `Insert` places what it's given as written, without wrapping a part in the
+  parents the panel would add, so a design never gains layers the agent didn't write. A part placed without its provider
+  shows a render error that names it. `Props()`'s `composition` (PAR-454) says which parents a part needs, with an
+  example that inserts it inside them.
 - **More generator rules (PAR-428):**
   - A failing part's error from the app that names no parent puts the examples' own chain in place of the one it has,
     when that's another.
