@@ -2455,13 +2455,20 @@ field leaves editing without changing anything, and Escape from the buttons clos
 at once as one undoable step, unsaved, as any edit is (see "One history, saved together"): the detail then says
 "Applied. Saving writes it to src/index.css.", with Undo while that's still the last step, even after Edit and Cancel.
 
+An agent's `SetTokens` is refused the same values, with the same words (PAR-584):
+`SetTokens/primary/default: A bracket isn't closed. Add ) at the end.` A bracket, a reference or a loop is refused as
+`SetTokens` runs, keeping none of that call's values; a value that isn't its kind is refused once the snippet ends, when
+the agent asks the window's `CSS.supports` about every value at once, and then nothing in the call is applied.
+
 Code: `apps/desktop/src/renderer/chrome/TokenDetail.tsx` (`TokenDetail`, `DetailPreview`, `themeLabel`, `CopyMenu`); the
 panel's `TokenPopover` and `Detail` in `chrome/TokensPanel.tsx`, which name themes with `themeNamesOf` from the
 project's modes and apply through `TokenStore.set`. What an edit may write is decided in `packages/tokens/src/checks.ts`
 (PAR-569): `checkTokenEdit` gives each theme's problem and the smallest changes to save, from `loopProblem` and
 `valueProblem`, with `builtOn` for the tokens another is built on; the detail passes in the browser's `CSS.supports`,
 and keeps only the view. The Storybook exploration's own detail (`explorations/previews/token-panels.tsx`) is the design
-it came from, with Save in place of Apply.
+it came from, with Save in place of Apply. An agent's checks are `setTokens`, `checkTokenKinds` and `tokenReading` in
+`packages/agent/src/workspace.ts`, the `supports` hook asking `agent.supports` in
+`apps/desktop/src/renderer/agent/handlers.ts`.
 
 Tests: `packages/tokens/src/checks.test.ts` (14): a value of its kind with references filled in, an empty one, a bracket
 left open, a reference to no token, a value the browser refuses named with an example, a blur checked as its filter, a
@@ -2471,8 +2478,10 @@ edit saving only the themes that change, each theme's problem with a loop first,
 EditingAPaletteShade, SpacingStep (Built on `--spacing × 4`, Edit off), InvalidValue and UnclosedBracket (refused as
 typed, a token built on itself too, Apply off), ReferenceToAnotherToken (Apply as one unsaved step, Edit and Cancel
 keeping Undo, then the detail's Undo), ReferenceLoop (refused through another token), and SaveFails. All 24 of the
-file's stories played in Storybook on 2026-10-29. Gaps: the inspector's pickers don't show previews yet, the rest of
-PAR-143.
+file's stories played in Storybook on 2026-10-29. `packages/agent/src/run.test.ts` (4, PAR-584): an agent's bracket left
+open, reference to no token and loop refused with the token named and nothing applied; a value not its kind refused
+after asking the browser once; good values, a reference filled in, applied. Gaps: the inspector's pickers don't show
+previews yet, the rest of PAR-143.
 
 ### Full round beside the radius tokens (PAR-458)
 

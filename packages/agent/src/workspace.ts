@@ -58,7 +58,15 @@ import {
   withFreshIds
 } from "@parity-app/core"
 import { componentComposition, type DroppedParts, newDesign, turnInto } from "@parity-app/editor"
-import { contrastFix } from "@parity-app/tokens"
+import {
+  builtOn,
+  categorize,
+  checkTokenEdit,
+  contrastFix,
+  type CssSupports,
+  previewKind,
+  substituteReferences
+} from "@parity-app/tokens"
 import { describeIconSets, findIcons, type IconMatch, type IconOptions, iconStyle, styleModule } from "./icons.ts"
 import { describeLayoutFinding, layoutFindings } from "./overflow.ts"
 import type {
@@ -869,15 +877,102 @@ export class AgentWorkspace {
     this.modesChanged = true
   }
 
+  /**
+   * Sets token values, refusing any the token detail would: a bracket or quote left open, a reference to no token, or
+   * a token built on itself. Nothing in the call is kept when one is refused. Whether each value is its kind's (a color
+   * a color) needs the browser, so `checkTokenKinds` asks once the snippet has finished, before anything is applied.
+   */
   private setTokens(values: Record<string, string | Record<string, string>>): void {
+    const changes: TokenChange[] = []
     for (const [rawName, value] of Object.entries(expectObject(values, "SetTokens"))) {
       const name = rawName.replace(/^--/, "")
       const themes = typeof value === "string" ? { default: value } : expectObject(value, `SetTokens/${name}`)
       for (const [theme, themed] of Object.entries(themes)) {
-        if (typeof themed !== "string" || !themed.trim())
-          throw new TypeError(`SetTokens/${name}/${theme}: expected a CSS value`)
-        this.tokenChanges.push({ name, theme, value: themed.trim() })
+        if (typeof themed !== "string") throw new TypeError(`SetTokens/${name}/${theme}: expected a CSS value`)
+        changes.push({ name, theme, value: themed.trim() })
       }
+    }
+    // Checked with the whole call's values in, so one token may refer to another set beside it.
+    const reading = this.tokenReading([...this.tokenChanges, ...changes])
+    for (const change of changes) {
+      const problem = reading.problem(change, () => true)
+      if (problem) throw refusedToken(change, problem)
+    }
+    this.tokenChanges.push(...changes)
+  }
+
+  /**
+   * Refuses the call when a value it sets isn't its token's kind, as the token detail does, asking `hooks.supports`
+   * (the browser's `CSS.supports`) about every value at once. Without the hook, kinds aren't checked.
+   */
+  async checkTokenKinds(): Promise<void> {
+    const hooks = this.hooks
+    if (!hooks.supports || this.tokenChanges.length === 0) return
+    const latest = new Map(this.tokenChanges.map((change) => [`${change.name} ${change.theme}`, change]))
+    const reading = this.tokenReading(this.tokenChanges)
+    const asked: { property: string; value: string }[] = []
+    for (const change of latest.values()) {
+      reading.problem(change, (property, value) => {
+        asked.push({ property, value })
+        return true
+      })
+    }
+    if (asked.length === 0) return
+    const answers = await hooks.supports(asked)
+    const known = new Map(asked.map((query, index) => [`${query.property}\n${query.value}`, answers[index] ?? false]))
+    for (const change of latest.values()) {
+      const problem = reading.problem(change, (property, value) => known.get(`${property}\n${value}`) ?? true)
+      if (problem) throw refusedToken(change, problem)
+    }
+  }
+
+  /**
+   * The project's tokens with the canvas's unsaved values and `changes` laid over them, and the token detail's checks
+   * on a change against them. A token comes to its value with every reference filled in; a step of a scale to its
+   * base times its factor. A token the project doesn't have yet takes its kind from its name and value.
+   */
+  private tokenReading(changes: readonly TokenChange[]) {
+    const tokens = new Map(this.snapshot.tokens.map((token) => [token.name, { ...token, values: { ...token.values } }]))
+    for (const change of [...this.snapshot.tokenOverrides, ...changes]) {
+      const token = tokens.get(change.name)
+      if (token) token.values[change.theme] = change.value
+      else {
+        tokens.set(change.name, {
+          name: change.name,
+          category: categorize(change.name, change.value),
+          source: "semantic",
+          values: { [change.theme]: change.value }
+        })
+      }
+    }
+    const comesTo = (name: string, theme: string, depth = 0): string | undefined => {
+      const token = tokens.get(name)
+      if (!token) return undefined
+      const value = token.values[theme] ?? token.values.default ?? Object.values(token.values)[0] ?? ""
+      if (depth > 8) return value
+      if (token.derived) {
+        const base = comesTo(token.derived.from, theme, depth + 1)
+        if (base !== undefined) return `calc(${base} * ${token.derived.factor})`
+      }
+      return substituteReferences(value, (reference) => comesTo(reference, theme, depth + 1))
+    }
+    const lookup = (name: string, theme = "default") => comesTo(name, theme)
+    // A token's kind comes from what the project has, not what the call types, as the detail's does.
+    const kindOf = (name: string) => {
+      const known = this.snapshot.tokens.find((token) => token.name === name) ?? tokens.get(name)!
+      return previewKind(known, undefined, lookup)
+    }
+    return {
+      problem: (change: TokenChange, supports: CssSupports) =>
+        checkTokenEdit({
+          name: change.name,
+          kind: kindOf(change.name),
+          values: {},
+          drafts: { [change.theme]: change.value },
+          lookup: comesTo,
+          references: (name, theme) => builtOn(tokens.get(name), theme),
+          supports
+        }).problems[change.theme]
     }
   }
 
@@ -1847,6 +1942,12 @@ function withOverrides(state: StateSpec, overrides: Record<string, NodePatch>): 
 function expectObject(value: unknown, where: string): Values {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new TypeError(`${where}: expected an object`)
   return value as Values
+}
+
+/** A token value refused as the token detail refuses it, naming the token, its theme and the problem. */
+function refusedToken(change: TokenChange, problem: string): CodedError {
+  const field = `SetTokens/${change.name}/${change.theme}`
+  return new CodedError(`${field}: ${problem}`, { code: "invalid_input", field })
 }
 
 /** The size of a board the canvas hasn't drawn: its shown frames, laid out as the canvas lays them out. */

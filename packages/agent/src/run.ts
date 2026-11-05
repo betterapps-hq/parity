@@ -36,6 +36,7 @@ export async function execute(request: ExecRequest, snapshot: AgentSnapshot, hoo
 
   try {
     await run(snapshot.tab, code, workspace.api())
+    await workspace.checkTokenKinds()
     const result = workspace.result()
     const { designs, modes, tokens } = result.changes
     if (hooks.apply && (designs.length > 0 || modes || tokens.length > 0)) {
