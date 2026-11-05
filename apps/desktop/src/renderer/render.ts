@@ -13,6 +13,7 @@ declare global {
     canvasRender(job: RenderJob): Promise<RenderedFrame>
     canvasSettle(): Promise<void>
     canvasAudit(): Promise<AccessibilityIssue[]>
+    canvasHeight(): number | undefined
   }
 }
 
@@ -249,6 +250,21 @@ function clipped(element: HTMLElement, rect: DOMRect, body: HTMLElement): boolea
     }
   }
   return false
+}
+
+/**
+ * The height of the frame drawn last, in its own CSS pixels, as the canvas lays it out at full size; nothing for one
+ * drawn at full size already. A bitmap's frame is drawn at a quarter of its size, where text rounds to other heights,
+ * which put tall frames up to 66 pixels out, so it's laid out again at full size to measure. That's left until after its
+ * capture, since some frames lay themselves out again as they're resized, which `capturePage` then failed on. Frames
+ * that haven't drawn on the canvas take this height when their bitmap shows, so their boards keep their size when they
+ * draw (PAR-525). Rounded as the canvas's own measure is (`drawnHeight`).
+ */
+window.canvasHeight = () => {
+  const host = currentHost
+  if (!host || host.style.zoom === "" || host.style.zoom === "1") return undefined
+  host.style.zoom = "1"
+  return Math.round(host.getBoundingClientRect().height * 100) / 100
 }
 
 function imagesLoaded(host: HTMLElement): Promise<unknown> {

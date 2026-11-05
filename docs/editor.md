@@ -2149,6 +2149,13 @@ back in, a sleeping frame keeps showing its bitmap until it wakes, then draws it
   of view stays asleep, still showing its bitmap, until it comes near. Selecting a board wakes its frames at any zoom.
 - **A frame whose design changes while it sleeps** (an agent's edit, a token, a reloaded project) wakes wherever it is,
   so its board lays out the new size, and sleeps again once its new bitmap is taken.
+- **A frame that hasn't drawn waits on a placeholder (PAR-525).** Zoomed far out, a frame not drawn yet doesn't draw its
+  design while its bitmap is to come, whether kept from an earlier session or still to be captured: it shows a plain
+  block in the muted color, at its mode's width and its own height, or for a frame that grows with its content, its
+  window's height or the height kept with an earlier bitmap. It falls asleep on its bitmap when it comes, at the height
+  kept with it, so it never draws on the way. The block is still, since a pulse on every frame would repaint the canvas
+  the whole time. A frame on the selected board, zoomed in or while interacting draws at once, and so does one whose
+  capture failed or whose design doesn't render, so it shows why.
 - **Sizes hold through sleep and waking.** The frame's element keeps the height it had when it fell asleep until it's
   drawn again, and its host skips drawing while it sleeps, as a board out of view does, so the browser keeps the size it
   last had when drawn rather than an empty frame's.
@@ -2157,10 +2164,10 @@ back in, a sleeping frame keeps showing its bitmap until it wakes, then draws it
   that measures layers does so on the selected board, which never sleeps.
 
 Code: `useAwake` in `apps/desktop/src/renderer/canvas/frame-sleep.ts`; `FrameTile` in `canvas/ContainerView.tsx`, which
-decides from its bitmap and passes `asleep` to `ModeView.tsx`, which unmounts the guest and holds the frame's height;
-the board's `near` and `dormant` signals in `canvas/ContainerShapeUtil.tsx`; `isRestingFar` in
-`canvas/CanvasEditor.tsx`; the `[data-asleep]` rules in `styles.css`; `capture` in `canvas/frame-bitmaps.ts`, which
-drops a failed capture.
+decides from its bitmap and passes `asleep` to `ModeView.tsx`, which unmounts the guest and holds the frame's height,
+and shows the placeholder, with the `.frame-placeholder` rule in `styles.css`; the board's `near` and `dormant` signals
+in `canvas/ContainerShapeUtil.tsx`; `isRestingFar` in `canvas/CanvasEditor.tsx`; the `[data-asleep]` rules in
+`styles.css`; `capture` in `canvas/frame-bitmaps.ts`, which drops a failed capture.
 
 Tests: `apps/desktop/e2e/sleeping.e2e.ts` (2: zoomed out, every frame with a bitmap sleeps, the window's DOM nodes fall
 by at least the elements the awake frames held, and no board changes size; back at 100% the design's frames draw again
@@ -2523,13 +2530,22 @@ Started again, Parity shows the example project's canvas, with every frame on it
 seconds after its window starts loading, in a development build, where it took 5.7 to show every frame and 6.6 to have
 every bitmap. Reopened in the same window, every frame shows its bitmap at 2.2 seconds, where the bitmaps took 19.
 
-- **Frames start on the bitmaps kept from last time.** Zoomed far out, a frame that hasn't drawn its design yet waits
-  for the bitmap kept from an earlier session (see Bitmaps kept between sessions) and falls asleep on it without ever
-  drawing, at the height kept with it, so its board has its size. It draws at once when none was kept, and where it
-  wouldn't sleep: on the selected board, zoomed in, and while interacting. Once it's stopped waiting it never waits
-  again, and wakes and draws as any sleeping frame does. Before, every frame drew its design first, about 2 seconds on
-  the example, only to be taken apart once its bitmap showed, and the kept bitmaps' replies, which the service gave in a
-  millisecond each, waited behind that drawing.
+- **Frames start on their bitmaps, kept from last time or captured.** Zoomed far out, a frame that hasn't drawn its
+  design yet waits for its bitmap, kept from an earlier session (see Bitmaps kept between sessions) or, since PAR-525,
+  captured offscreen, showing a placeholder meanwhile (see Frames sleep while their bitmaps show), and falls asleep on
+  it without ever drawing, at the height kept with it, so its board has its size. It draws at once where it wouldn't
+  sleep: on the selected board, zoomed in, and while interacting, and when its capture fails. Once it's stopped waiting
+  it never waits again, and wakes and draws as any sleeping frame does. Before PAR-179, every frame drew its design
+  first, about 2 seconds on the example, only to be taken apart once its bitmap showed, and the kept bitmaps' replies,
+  which the service gave in a millisecond each, waited behind that drawing; until PAR-525, a frame with none kept still
+  drew, which held a first launch up.
+- **A captured bitmap keeps the canvas's height (PAR-525).** A frame that never drew has no height of its own to keep
+  with its bitmap, and the offscreen window lays the frame out at the bitmap's quarter zoom, where text rounds to other
+  heights. So once the bitmap is captured, the offscreen page lays the frame out again at full size and measures it
+  (`canvasHeight`), which is what's kept and what the frame takes when its bitmap shows. Measuring before the capture
+  made `capturePage` fail on tall app screens that lay themselves out again as they're resized, so it comes after. A
+  frame that has nothing being edited is captured as soon as there's no kept bitmap, without the 1-second wait for edits
+  to settle.
 - **The canvas opens roughly fitted.** It fits the project as soon as its boards are placed, before they've sized
   themselves, so frames start at the zoom they're shown at, and fits it again once they have, as before. Boards not
   sized yet are small, so one that would fit nearer than where the canvas starts starts there instead, as before.
@@ -2547,9 +2563,10 @@ every bitmap. Reopened in the same window, every frame shows its bitmap at 2.2 s
 
 **What `pnpm perf` times.** Opening is timed three ways on the example project (61 designs, 119 frames): the first
 launch, on a fresh profile; closing the tab and opening the project again in the same window; and starting the app again
-on the same profile, which restores the tab. A canvas is usable once every frame shows its design or its bitmap, and has
-its previews once every frame has its bitmap. Launches are timed from the window's page starting to load, which
-Electron's own start comes before, by about 0.1 seconds; a reopen from the open. `--open-only` times just this.
+on the same profile, which restores the tab. A canvas is usable once every frame shows its design, its bitmap or, since
+PAR-525, its placeholder, and has its previews once every frame has its bitmap. Launches are timed from the window's
+page starting to load, which Electron's own start comes before, by about 0.1 seconds; a reopen from the open.
+`--open-only` times just this.
 
 | Opening, usable / previews  | Before (`main` at PAR-441)    | After                         |
 | --------------------------- | ----------------------------- | ----------------------------- |
@@ -2571,6 +2588,14 @@ puts that frame to sleep, which takes its drawn design apart, about 40 ms a fram
 once it has handled the last, so the offscreen windows waited 43% of the time. A far frame that shows a skeleton instead
 of drawing first (PAR-525) takes away both.
 
+**Placeholders instead of drawing (PAR-525).** Measured back to back with `main` on the same machine, while other
+sessions used it, on React's production build: a first launch is usable at 5.6 to 6.3 seconds where `main` took 7.4 to
+8.5, and has every bitmap at 12.2 to 13.5 where `main` took 14.8 to 15.9. No frame draws on the way: every frame shows
+its placeholder the moment it mounts, and its bitmap as it's captured, four at a time. The 3-second target for a first
+launch isn't met, and frames aren't what holds it now: they mount only once the project has opened and its guest has
+loaded, which on a fresh profile, with nothing cached, took about 5 seconds in these runs. Reopening and starting again
+show kept bitmaps as before, give or take this machine's load.
+
 **Where the time went, started again.** Before: the window loaded Parity's UI (1.0 s, from Vite's development server);
 asked the service for the project, which took 1.3 s to open it (finding its tools 0.2 s, discovering its components 0.35
 s, starting Vite in the builder's process 0.6 s); loaded the project's guest (0.4 s); then mounted the canvas, which
@@ -2586,27 +2611,35 @@ StrictMode, drawing the canvas; an installed app has neither, and wasn't measure
 the UI's load, is mostly Vite starting in the builder's process, which needs discovery's results first; discovering
 while the tools are found was tried and gained nothing, as both work on the service's one thread.
 
-Code: `useFirstDrawWaits`, `holdsFirstDraw`, `drawnHeight` and the `measure` that `useFrameBitmap` and `capture` take,
-in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `FrameTile` in `canvas/ContainerView.tsx`, and the
-`[data-measured]` rule in `styles.css`; the first fit in `handleMount` in `canvas/CanvasEditor.tsx`;
-`withoutPatternFills` in `canvas/tldraw-fills.ts`; `startReopening` in `apps/desktop/src/utility/reopening.ts`, wired in
-`utility/index.ts`, with `openRoots` in `utility/projects.ts` and `PARITY_REOPEN_FILE`, which main gives the service;
-the opening timings in `apps/desktop/scripts/perf.ts`.
+Code: `useFirstDrawWaits`, `holdsFirstDraw`, `drawnHeight`, and the `measure` and `holding` that `useFrameBitmap` and
+`capture` take, in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `FrameTile` in `canvas/ContainerView.tsx`, and
+the `[data-measured]` and `.frame-placeholder` rules in `styles.css`; `window.canvasHeight` in `renderer/render.ts`,
+which `renderFrame` in `main/index.ts` asks after a capture, and the `frames.capture` handler in `utility/index.ts`,
+which keeps it; the first fit in `handleMount` in `canvas/CanvasEditor.tsx`; `withoutPatternFills` in
+`canvas/tldraw-fills.ts`; `startReopening` in `apps/desktop/src/utility/reopening.ts`, wired in `utility/index.ts`, with
+`openRoots` in `utility/projects.ts` and `PARITY_REOPEN_FILE`, which main gives the service; the opening timings in
+`apps/desktop/scripts/perf.ts`.
 
 Tests: `apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (3 for `holdsFirstDraw`: a frame zoomed far out waits
-while its kept bitmap is read and, once found, until it falls asleep on it; draws at once when none was kept or only a
-capture came; and draws at once zoomed in, on the selected board or while interacting).
-`apps/desktop/src/utility/reopening.test.ts` (5: each project kept is opened and those a window asks for stay open, one
-no window asks for in time is closed, one a window asked for before the list was read is left to it, the last list given
-is kept whole for the next start, and nothing is opened without a list or with a broken one).
-`apps/desktop/src/renderer/canvas/tldraw-fills.test.ts` (2: none of tldraw's shapes adds to the canvas's defs, and only
-the shapes whose defs add the fill are replaced, keeping their types). The bitmaps' heights and names are covered under
-Bitmaps kept between sessions. Gaps: `useFirstDrawWaits` itself, the first fit and the service opening projects as it
-starts have no automated test; the end-to-end suite starts each copy on a fresh profile, so none of it opens on kept
-bitmaps. They were checked with `pnpm perf` in a copy of the app, and with a script that started a copy again, recorded
-every board's size while all 119 frames showed kept bitmaps without having drawn, then selected each board so its frames
-drew, and found none of the 61 boards changed size. With the offscreen window's heights, 28 boards were 3 to 66 pixels
-too tall, which is why the canvas's own height is kept.
+while its bitmap is to come, kept or captured, and once it has come, until it falls asleep on it; draws once its capture
+failed or came without a height; and draws at once zoomed in, on the selected board or while interacting; and 1 that a
+capture's height is kept with it, so a read during the capture gives both). `apps/desktop/src/utility/reopening.test.ts`
+(5: each project kept is opened and those a window asks for stay open, one no window asks for in time is closed, one a
+window asked for before the list was read is left to it, the last list given is kept whole for the next start, and
+nothing is opened without a list or with a broken one). `apps/desktop/src/renderer/canvas/tldraw-fills.test.ts` (2: none
+of tldraw's shapes adds to the canvas's defs, and only the shapes whose defs add the fill are replaced, keeping their
+types). The bitmaps' heights and names are covered under Bitmaps kept between sessions. Gaps: `useFirstDrawWaits`
+itself, the first fit and the service opening projects as it starts have no automated test; the end-to-end suite starts
+each copy on a fresh profile, so none of it opens on kept bitmaps. They were checked with `pnpm perf` in a copy of the
+app, and with a script that started a copy again, recorded every board's size while all 119 frames showed kept bitmaps
+without having drawn, then selected each board so its frames drew, and found none of the 61 boards changed size. With
+the offscreen window's heights, 28 boards were 3 to 66 pixels too tall, which is why the canvas's own height is kept.
+Since PAR-525, a script on a fresh profile watched every frame: all 119 showed placeholders, then bitmaps, with none
+drawn on the way; no board changed size between its placeholder and its bitmap other than taking its height; and
+selecting each board so its frames drew changed 4 of 61 by 12 to 24 pixels, where heights measured at the bitmap's zoom
+changed 28 by up to 66. The bitmaps were the same pixels as before the full-size measure, but for the 2 whose shadows
+rasterize differently between runs. The placeholder and capturing without the wait have no automated test of their own;
+they were checked that way and by reading `FrameTile` and `useFrameBitmap`.
 
 ### Reopening loads the project afresh (PAR-195, PAR-422, PAR-433)
 

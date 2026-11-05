@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Use declared caller names instead of guessing agent identity",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

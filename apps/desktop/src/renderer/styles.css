@@ -264,6 +264,17 @@ textarea,
   display: block;
 }
 
+/*
+ * A frame zoomed far out that hasn't drawn its design shows a placeholder until its bitmap comes, rather than drawing
+ * first (PAR-525). It's still, since a pulse on every frame would repaint the canvas while they wait.
+ */
+.frame-placeholder {
+  position: absolute;
+  inset: 0;
+  background: var(--muted);
+  pointer-events: none;
+}
+
 /* Further out, boards and frames drop their shadows, which are the most costly part to draw and barely show. */
 .canvas-area[data-tiny] :is(.container-view, .mode-frame) {
   --tw-shadow: 0 0 #0000;

@@ -69,35 +69,35 @@ describe("stored", () => {
     expect(await stored("none", job)).toBeUndefined()
   })
 
-  it("gives the capture taken while it was read, which is the frame as it's drawn now", async () => {
+  it("gives the capture taken while it was read, which is the frame as it's drawn now, with its height", async () => {
     let answer!: (result: { png?: string }) => void
     service({
       "frames.stored": () => new Promise((resolve) => (answer = resolve)),
-      "frames.capture": () => Promise.resolve({ png: "NEW" })
+      "frames.capture": () => Promise.resolve({ png: "NEW", height: 812.5 })
     })
     want("raced", 1)
     const read = stored("raced", job)
     await capture("raced", job)
     answer({ png: "OLD" })
-    expect(await read).toEqual({ src: "data:image/png;base64,NEW" })
+    expect(await read).toEqual({ src: "data:image/png;base64,NEW", height: 812.5 })
     want("raced", -1)
   })
 })
 
 describe("a frame not drawn yet", () => {
-  const far: UndrawnFrame = { bitmap: { reading: true }, awake: true, interactive: false, dormant: true }
-  const kept = { reading: false, src: "data:image/png;base64,KEPT", height: 640 }
+  const far: UndrawnFrame = { bitmap: { pending: true }, awake: true, interactive: false, dormant: true }
+  const kept = { pending: false, src: "data:image/png;base64,KEPT", height: 640 }
 
-  it("waits zoomed far out while its kept bitmap is looked for, and once found, until it falls asleep on it", () => {
+  it("waits zoomed far out while its bitmap is to come, kept or captured, and once come, until it sleeps on it", () => {
     expect(holdsFirstDraw(far)).toBe(true)
     expect(holdsFirstDraw({ ...far, bitmap: kept })).toBe(true)
     // Asleep, it isn't drawn anyway; waking later draws it as any frame.
     expect(holdsFirstDraw({ ...far, bitmap: kept, awake: false })).toBe(false)
   })
 
-  it("draws at once when none was kept, or only a capture without a height came", () => {
-    expect(holdsFirstDraw({ ...far, bitmap: { reading: false } })).toBe(false)
-    expect(holdsFirstDraw({ ...far, bitmap: { reading: false, src: "data:image/png;base64,NEW" } })).toBe(false)
+  it("draws once its capture failed, or came without a height, as for a frame that didn't render", () => {
+    expect(holdsFirstDraw({ ...far, bitmap: { pending: false } })).toBe(false)
+    expect(holdsFirstDraw({ ...far, bitmap: { pending: false, src: "data:image/png;base64,NEW" } })).toBe(false)
   })
 
   it("draws at once where it wouldn't sleep: zoomed in, on the selected board, or while interacting", () => {

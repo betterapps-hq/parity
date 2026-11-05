@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Inserting a component that passes its props to an input no longer gives it children, and library samples' text ends at a sentence or a whole word",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
