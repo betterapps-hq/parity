@@ -1,8 +1,16 @@
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  Kbd
+} from "@buildkitgg/shadcn-baseui-kit"
 import { Search } from "lucide-react"
 import { Fragment, useState } from "react"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
-import { Kbd } from "@/components/ui/kbd"
 import { closeDialog, useOpenDialog } from "./app-dialogs.ts"
 import { type Binding, gestures, groups, keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
@@ -75,7 +83,7 @@ export function ShortcutsDialog() {
                           {row.keys.map((keys, index) => (
                             <Fragment key={keys}>
                               {index > 0 && <span>or</span>}
-                              <Kbd>{keys}</Kbd>
+                              <Kbd>{formatKeys(keys)}</Kbd>
                             </Fragment>
                           ))}
                           {row.with && <span>and {row.with}</span>}

@@ -1,8 +1,8 @@
+import { Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { Component } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
 import { expect, within } from "storybook/test"
-import { Kbd } from "@/components/ui/kbd"
 import type { PreviewImage } from "../../shared/protocol.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import type { PreviewState } from "../component-previews.ts"
@@ -15,6 +15,7 @@ import select from "../stories/previews/select.png?inline"
 import { ComponentCard, type ComponentCardProps, ComponentPopover } from "./ComponentCard.tsx"
 import { Hint } from "./Hint.tsx"
 import { useHoverCard } from "./hover-card.ts"
+import { formatKeys } from "./keys.ts"
 
 /**
  * A component's card in the Assets panel: its preview, large, with its name, file and what to do with it. It opens
@@ -246,7 +247,7 @@ export const Tooltips: Story = {
             label={
               <span className="flex items-center gap-1.5">
                 {label}
-                {keys && <Kbd>{keys}</Kbd>}
+                {keys && <Kbd>{formatKeys(keys)}</Kbd>}
               </span>
             }
             detail={detail}

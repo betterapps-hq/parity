@@ -1,9 +1,9 @@
+import { Button, Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import { MousePointerClick, SlidersHorizontal } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Kbd } from "@/components/ui/kbd"
 import { useProject } from "../../canvas/context.ts"
 import { DesignIcon, designColor } from "../../canvas/kinds.tsx"
 import { DesignTab } from "../../chrome/DesignPanel.tsx"
+import { formatKeys } from "../../chrome/keys.ts"
 import { useSelection } from "../../selection.ts"
 import { useCanvasEmpty } from "./CanvasStart.tsx"
 import { keysOf, makeNew } from "./commands.ts"
@@ -53,12 +53,12 @@ function EmptyCanvas() {
           <Button key={kind} variant="outline" size="sm" onClick={() => makeNew(session, kind)}>
             <DesignIcon kind={kind} style={{ color: designColor(kind) }} />
             <span className="flex-1 text-left">{label}</span>
-            <Kbd>{keysOf(command)}</Kbd>
+            <Kbd>{formatKeys(keysOf(command))}</Kbd>
           </Button>
         ))}
       </div>
       <p className="text-xs text-muted-foreground">
-        Or type <Kbd>/</Kbd> to insert a layout, text or a component.
+        Or type <Kbd>{formatKeys("/")}</Kbd> to insert a layout, text or a component.
       </p>
     </div>
   )

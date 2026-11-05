@@ -1,4 +1,13 @@
 import {
+  Button,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@buildkitgg/shadcn-baseui-kit"
+import {
   boardTarget,
   changesField,
   type ComponentLibrary,
@@ -32,9 +41,6 @@ import {
 import { boardReader } from "@parity-app/editor"
 import { BookOpen, Diamond, Group, Info, Sparkles, Unlink } from "lucide-react"
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useProject } from "../canvas/context.ts"
 import { frameScale, nodeInFrames, selectionFrame } from "../canvas/hit.ts"
 import { focusOnMount, kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
@@ -650,11 +656,11 @@ function InstanceSection({
             )}
           </div>
           <div className="flex gap-1.5">
-            <Select
-              value=""
-              onValueChange={(design) =>
-                replace("Swap instance", (container) => swapInstance(container, node.id, design, library))
-              }
+            <Select<string>
+              value={null}
+              onValueChange={(design) => {
+                if (design) replace("Swap instance", (container) => swapInstance(container, node.id, design, library))
+              }}
             >
               <SelectTrigger size="sm" className="h-7 flex-1 text-xs">
                 <SelectValue placeholder="Swap component" />
@@ -709,8 +715,10 @@ function StateTarget({ entry, state, target }: { entry: ContainerEntry; state: S
     >
       <span className="shrink-0 text-muted-foreground">Editing</span>
       <Select
+        items={entry.container.states.map((candidate) => ({ value: candidate.id, label: candidate.name }))}
         value={state.id}
         onValueChange={(id) => {
+          if (!id) return
           const name = entry.container.states.find((candidate) => candidate.id === id)?.name ?? id
           store.updateView(entry.key, `Show ${name}`, (view) => ({ ...view, state: id }))
           selection.set({ ...selected, state: id })

@@ -14,14 +14,14 @@ const focusable =
 /**
  * Opens a card beside an element once the pointer has rested on it, and closes it shortly after the pointer leaves
  * both, so moving down a list doesn't open one per row, and moving onto the card keeps it. Once something in the card
- * has focus, as when a value in it is being edited, it stays until a click elsewhere or Escape closes it. Give
- * `setOpen` to the popover's `onOpenChange`, `enter` and `leave` to the item, and `id`, `stay`, `leave` and `hold` to
- * the card; the item's `aria-controls` takes the `id` too.
+ * has focus, as when a value in it is being edited, it stays until a click elsewhere or Escape closes it. The item is
+ * the popover's trigger, with its own click kept from toggling the card. Give `setOpen` to the popover's
+ * `onOpenChange`, `enter` and `leave` to the item, and `id`, `stay`, `leave` and `hold` to the card.
  *
  * `openWithKeyboard` is for a key on the item: it opens the card, or, when hovering already opened it, moves the
- * keyboard into it. Give `takesFocus` to the card's `onOpenAutoFocus`, so only a key moves focus into it and a hover
- * never takes focus from what has it, and `returnFocus` to its `onCloseAutoFocus`, which gives focus back to the item
- * a key opened it from, unless something else took it. `keepForItem` goes to the card's `onInteractOutside`.
+ * keyboard into it. Give `takesFocus` to the card's `initialFocus`, so only a key moves focus into it and a hover
+ * never takes focus from what has it, and `returnFocus` to its `finalFocus`, which gives focus back to the item a key
+ * opened it from, unless something else took it.
  */
 export function useHoverCard(initial = false) {
   const [open, setOpen] = useState(initial)
@@ -65,25 +65,19 @@ export function useHoverCard(initial = false) {
     keyed.current = true
     setOpen(true)
   }
-  const takesFocus = (event: Event) => {
-    if (!keyed.current) event.preventDefault()
+  /** Whether opening moves focus into the card, as only a key does. */
+  const takesFocus = (): boolean => {
+    const moves = keyed.current
     keyed.current = false
+    return moves
   }
-  const returnFocus = (event: Event) => {
-    event.preventDefault()
+  /** Where focus goes as the card closes: back to the item a key opened it from, or nowhere. */
+  const returnFocus = (): HTMLElement | false => {
     const item = cameFrom.current
     cameFrom.current = undefined
     // Focus that went somewhere else, as with a click on another field, stays there.
     const lost = !document.activeElement || document.activeElement === document.body
-    if (item?.isConnected && (lost || content()?.contains(document.activeElement))) item.focus()
-  }
-  /**
-   * For the card's `onInteractOutside`: a press on the item the card belongs to, as a click that copies it, isn't
-   * outside it, so the card stays.
-   */
-  const keepForItem = (event: Event) => {
-    const target = event.target
-    if (target instanceof Element && target.closest(`[aria-controls="${CSS.escape(id)}"]`)) event.preventDefault()
+    return item?.isConnected && (lost || content()?.contains(document.activeElement)) ? item : false
   }
   return {
     open,
@@ -95,7 +89,6 @@ export function useHoverCard(initial = false) {
     id,
     openWithKeyboard,
     takesFocus,
-    returnFocus,
-    keepForItem
+    returnFocus
   }
 }

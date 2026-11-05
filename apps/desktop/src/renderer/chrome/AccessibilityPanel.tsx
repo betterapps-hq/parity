@@ -1,3 +1,4 @@
+import { Button, Label, Switch } from "@buildkitgg/shadcn-baseui-kit"
 import type { AccessibilityFinding, AccessibilityImpact, ContrastDetail } from "@parity-app/agent"
 import { type ContainerSpec, findNode, type ModeSettings, shownModes } from "@parity-app/core"
 import { kindName } from "@parity-app/editor"
@@ -16,9 +17,6 @@ import {
   TriangleAlert
 } from "lucide-react"
 import { useEffect, useState, useSyncExternalStore } from "react"
-import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor, NodeIcon, nodeColor } from "../canvas/kinds.tsx"
 import { setTabOrderShown, useTabOrderShown } from "../canvas/tab-order.ts"

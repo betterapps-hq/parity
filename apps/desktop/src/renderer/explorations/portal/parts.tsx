@@ -1,3 +1,4 @@
+import { Button, Kbd } from "@buildkitgg/shadcn-baseui-kit"
 /**
  * The portal: Parity on the web, where a team sees what its people and agents are doing, finds what it's been tagged
  * in, and opens designs to see what changed. Opening a project goes straight to its canvas, in the browser or the
@@ -27,8 +28,7 @@ import {
   X
 } from "lucide-react"
 import type { ReactNode } from "react"
-import { Button } from "@/components/ui/button"
-import { Kbd } from "@/components/ui/kbd"
+import { formatKeys } from "../../chrome/keys.ts"
 import { me, type Person } from "../explore-data.ts"
 import { Avatar, ParityMark } from "../parts.tsx"
 import { OrgBadge, OrgSwitcher } from "../start-page-parts.tsx"
@@ -135,7 +135,7 @@ export function PortalNav({ active }: { active: PortalPlace }) {
           <span className={`flex-1 truncate ${active === "search" ? "text-foreground" : ""}`}>
             {active === "search" ? searchQuery : "Search"}
           </span>
-          <Kbd>Ctrl K</Kbd>
+          <Kbd>{formatKeys("Ctrl K")}</Kbd>
         </div>
         <Button size="icon-sm" aria-label="New project">
           <Plus />

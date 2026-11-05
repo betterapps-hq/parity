@@ -1,3 +1,4 @@
+import { Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import {
   AtSign,
   Bell,
@@ -11,7 +12,7 @@ import {
   UserPlus
 } from "lucide-react"
 import type { ReactNode } from "react"
-import { Kbd } from "@/components/ui/kbd"
+import { formatKeys } from "../chrome/keys.ts"
 import {
   type Activity,
   type ActivityKind,
@@ -57,7 +58,7 @@ export function CommandBar({ placeholder }: { placeholder?: string }) {
       <span className="flex-1 text-sm text-muted-foreground">
         {placeholder ?? "Search projects, templates and people, or paste a repository URL"}
       </span>
-      <Kbd>Ctrl K</Kbd>
+      <Kbd>{formatKeys("Ctrl K")}</Kbd>
     </div>
   )
 }

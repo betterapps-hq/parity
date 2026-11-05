@@ -1,9 +1,4 @@
 {
   "extends": "../../tsconfig.json",
-  "compilerOptions": {
-    "paths": {
-      "@/*": ["./src/renderer/*"]
-    }
-  },
   "include": ["src", "scripts", "e2e", ".storybook/*.ts", "*.ts"]
 }

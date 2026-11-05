@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises"
 import { createRequire } from "node:module"
-import { dirname, join, relative, resolve } from "node:path"
+import { dirname, isAbsolute, join, relative, resolve } from "node:path"
 import { guestModuleSource } from "@parity-app/builder-vite"
 import { inferProps } from "@parity-app/code"
 import { type ComponentInfo, defaultModeSettings, type PackageManifest, parseCanvasDocument } from "@parity-app/core"
@@ -48,6 +48,10 @@ export function exampleProject(): Plugin {
     },
     resolveId(source, importer) {
       if (source === projectId || source === guestId) return `\0${source}`
+      // The example's files import each other by `@/`, which its own Vite config points at its `src`.
+      if (source.startsWith("@/") && importer && inExample(importer)) {
+        return this.resolve(join(root, "src", source.slice(2)), importer, { skipSelf: true })
+      }
       if (importer !== `\0${guestId}`) return undefined
       // The guest module imports the renderer's runtime, the project's files by root path, and libraries by name.
       if (source === rendererId) return require.resolve("@parity-app/renderer-react/guest")
@@ -82,6 +86,12 @@ export function exampleProject(): Plugin {
       return `${code}\n@source "./";\n@source "${relative(dirname(path), designs).replaceAll("\\", "/")}";\n`
     }
   }
+}
+
+/** Whether a module is one of the example's own files. */
+function inExample(id: string): boolean {
+  const path = relative(root, id.split("?")[0] ?? id)
+  return !!path && !path.startsWith("..") && !isAbsolute(path)
 }
 
 async function discover(): Promise<{

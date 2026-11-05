@@ -1,4 +1,13 @@
 import {
+  Button,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from "@buildkitgg/shadcn-baseui-kit"
+import {
   Accessibility,
   BookOpen,
   Braces,
@@ -19,9 +28,6 @@ import {
   Zap
 } from "lucide-react"
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { ProcessStatus, ProjectProcess } from "../../shared/protocol.ts"
 import { useProject } from "../canvas/context.ts"
 import { Hint } from "./Hint.tsx"
@@ -113,24 +119,26 @@ export function Processes() {
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Hint label={label} detail="Click to see what's running" hidden={open}>
-          <button
-            type="button"
-            data-slot="processes-trigger"
-            aria-label={label}
-            className="flex h-6 shrink-0 items-center gap-2 rounded px-1.5 hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground"
-          >
-            <span className="flex items-center gap-[3px]" aria-hidden>
-              {active.slice(0, 5).map((process, index) => (
-                <Light key={process.id} process={process} size={6} delay={index * 0.45} />
-              ))}
-              {active.length > 5 && <span className="ml-0.5 text-[10px]">+{active.length - 5}</span>}
-              {unseen[0] && <Light process={unseenFailure ?? unseen[0]} size={6} />}
-            </span>
-          </button>
-        </Hint>
-      </PopoverTrigger>
+      <PopoverTrigger
+        render={
+          <Hint label={label} detail="Click to see what's running" hidden={open}>
+            <button
+              type="button"
+              data-slot="processes-trigger"
+              aria-label={label}
+              className="flex h-6 shrink-0 items-center gap-2 rounded px-1.5 hover:bg-accent hover:text-foreground aria-expanded:bg-accent aria-expanded:text-foreground"
+            >
+              <span className="flex items-center gap-[3px]" aria-hidden>
+                {active.slice(0, 5).map((process, index) => (
+                  <Light key={process.id} process={process} size={6} delay={index * 0.45} />
+                ))}
+                {active.length > 5 && <span className="ml-0.5 text-[10px]">+{active.length - 5}</span>}
+                {unseen[0] && <Light process={unseenFailure ?? unseen[0]} size={6} />}
+              </span>
+            </button>
+          </Hint>
+        }
+      />
       <PopoverContent
         side="top"
         align="end"
@@ -589,16 +597,18 @@ function Action({
 }) {
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          aria-label={label}
-          onClick={onClick}
-          className={`grid size-7 place-items-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-background hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 [&_svg]:size-3.5 ${danger ? "hover:text-[var(--process-failed)]" : ""}`}
-        >
-          {children}
-        </button>
-      </TooltipTrigger>
+      <TooltipTrigger
+        render={
+          <button
+            type="button"
+            aria-label={label}
+            onClick={onClick}
+            className={`grid size-7 place-items-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-background hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 [&_svg]:size-3.5 ${danger ? "hover:text-[var(--process-failed)]" : ""}`}
+          >
+            {children}
+          </button>
+        }
+      />
       <TooltipContent side="top">{label}</TooltipContent>
     </Tooltip>
   )

@@ -14,8 +14,28 @@ const entry = `
 export { prepareFrame, setDrawnNodes, findNodeElement, findNodeElements, nodeBox, nodesAt, nodeParent, nodeOfElement,
   drawnNodeIds } from "./frame.ts"
 export { createGuest } from "@parity-app/renderer-react/guest"
-import { createElement, Fragment, useEffect, useRef, useState } from "react"
-import { Slot } from "radix-ui"
+import { cloneElement, createElement, Fragment, useEffect, useRef, useState } from "react"
+
+// Radix's Slot, as shadcn's Button uses it for asChild: draws its one child with its own props under the child's, the
+// two classes joined, both handlers called, the child's first, and both refs set.
+function Slot({ children, ...props }) {
+  const own = children.props
+  const merged = { ...props, ...own }
+  for (const key of Object.keys(props)) {
+    if (/^on[A-Z]/.test(key) && typeof own[key] === "function") {
+      merged[key] = (...args) => {
+        own[key](...args)
+        props[key](...args)
+      }
+    }
+  }
+  merged.className = [props.className, own.className].filter(Boolean).join(" ") || undefined
+  const refs = [props.ref, own.ref].filter(Boolean)
+  merged.ref = (node) => {
+    for (const ref of refs) typeof ref === "function" ? ref(node) : (ref.current = node)
+  }
+  return cloneElement(children, merged)
+}
 
 // Takes the props it needs and renders none of the rest, data-canvas-node included.
 export function MemberRow({ member }) {
@@ -51,6 +71,11 @@ export function Nothing() {
   return null
 }
 
+// Draws only text, with no element around it.
+export function Label() {
+  return "Email address"
+}
+
 // Adds a root of its own when pressed, without the canvas rendering it again.
 export function Grows() {
   const [more, setMore] = useState(false)
@@ -61,7 +86,7 @@ export function Grows() {
 
 // Lends its class and attributes to its child with asChild, as shadcn's Button does through Radix's Slot.
 export function SlotButton({ asChild, ...props }) {
-  return createElement(asChild ? Slot.Root : "button", { className: "slot-button", "data-slot": "button", ...props })
+  return createElement(asChild ? Slot : "button", { className: "slot-button", "data-slot": "button", ...props })
 }
 
 // Counts presses on its asChild child through a handler and a ref, as a trigger does.
@@ -71,7 +96,7 @@ export function PressButton({ asChild, ...props }) {
   useEffect(() => {
     ref.current?.setAttribute("data-ref", ref.current.localName)
   })
-  return createElement(asChild ? Slot.Root : "button",
+  return createElement(asChild ? Slot : "button",
     { ...props, ref, "data-presses": String(presses), onClick: () => setPresses((count) => count + 1) })
 }
 
@@ -173,7 +198,8 @@ const design: Node[] = [
       ),
       component("group", "Group", {}, { children: [text("a", "A"), text("b", "B")] }),
       component("nothing", "Nothing"),
-      component("grows", "Grows")
+      component("grows", "Grows"),
+      component("label", "Label")
     ]
   }
 ]
@@ -307,8 +333,33 @@ describe("finding a design node's DOM", () => {
       "a",
       "b",
       "nothing",
-      "grows"
+      "grows",
+      "label"
     ])
+  })
+
+  it("gives a component that draws only text its text's box", async () => {
+    const found = await page.evaluate(() => {
+      const host = document.querySelector("#host")!
+      const page = host.shadowRoot!.querySelector("[data-canvas-node=page]")!
+      const text = [...page.childNodes].find((node) => node.nodeType === 3 && node.textContent === "Email address")!
+      const range = document.createRange()
+      range.selectNodeContents(text)
+      const rect = range.getBoundingClientRect()
+      // @ts-expect-error The bundle's global.
+      const { nodeBox, nodesAt, findNodeElements } = frame
+      const box = nodeBox(host, "label") as DOMRect
+      return {
+        box: [box.left, box.top, box.width, box.height],
+        text: [rect.left, rect.top, rect.width, rect.height],
+        elements: (findNodeElements(host, "label") as Element[]).length,
+        under: nodesAt(host, { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }) as string[]
+      }
+    })
+    expect(found.box).toEqual(found.text)
+    expect(found.text[2]).toBeGreaterThan(0)
+    expect(found.elements).toBe(0)
+    expect(found.under).toEqual(["page", "label"])
   })
 
   it("follows DOM a component adds by itself", async () => {

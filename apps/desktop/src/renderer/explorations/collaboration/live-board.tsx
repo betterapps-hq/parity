@@ -1,7 +1,7 @@
+import { Button, Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import { Eye, MessageSquarePlus } from "lucide-react"
 import { type PointerEvent, type ReactNode, useEffect, useRef, useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Kbd } from "@/components/ui/kbd"
+import { formatKeys } from "../../chrome/keys.ts"
 import type { ThreadData } from "./collab-data.ts"
 import { commentBlue, Thread } from "./comments.tsx"
 import { CommentPin, LayerOutline, PinPreview, type PinState } from "./pins.tsx"
@@ -251,7 +251,7 @@ export function LiveBoard({
           onClick={() => setCommenting(!commenting)}
           className="gap-1.5"
         >
-          <MessageSquarePlus style={{ color: commentBlue }} /> Comment <Kbd className="ml-0.5">C</Kbd>
+          <MessageSquarePlus style={{ color: commentBlue }} /> Comment <Kbd className="ml-0.5">{formatKeys("C")}</Kbd>
         </Button>
         <Button
           size="sm"

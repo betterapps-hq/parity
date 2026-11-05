@@ -83,7 +83,9 @@ to pass on to its DOM.
   box is its own root element, not the children inside it.
 - **A layer's box** is the box around everything it draws at its top level. That's one element for most layers, each
   root of a component that returns a fragment, and for a component that draws only what it's given (a provider), the
-  top-level elements of the layers inside it. An element that isn't drawn, such as one with `display: none`, is left out
+  top-level elements of the layers inside it. Text a layer draws outside any element of its own counts too (PAR-201), so
+  a component that draws only text, as `function Label() { return "Email" }` does, has its text's box, and can be
+  hovered, picked and sized on the canvas. An element that isn't drawn, such as one with `display: none`, is left out
   unless nothing else is drawn, and so is one clipped to nothing, such as the hidden input a checkbox draws for forms
   (PAR-163, below).
 - **A point belongs to the innermost layer** whose elements hold it. The layers under a point, outermost first, are the
@@ -98,9 +100,8 @@ to pass on to its DOM.
   past it to the component, and the layer is still found and still keeps its errors to itself.
 - **Edge cases.** A component that draws nothing has no box: it can be selected from Layers but not on the canvas.
   Content portaled out of the frame, as a dialog's often is, isn't part of the layer's box; content portaled to a place
-  inside the frame is. A component that draws only text, with no element around it, has no box of its own either. A slot
-  a component draws more than once, as a list's `renderItem`, is one layer whose box covers every copy. A component that
-  fails draws its error box in its place, and that box is the layer's.
+  inside the frame is. A slot a component draws more than once, as a list's `renderItem`, is one layer whose box covers
+  every copy. A component that fails draws its error box in its place, and that box is the layer's.
 - **Hovering stays cheap.** The walk runs once after the frame changes, when React commits it or DOM is added to or
   taken from it, and every lookup until then reuses it, so moving the pointer only measures boxes. Measured in the app
   on 2026-10-29: finding the layers under a point took about 0.15 ms on Sign in (45 layers) and 0.75 to 0.9 ms on the
@@ -132,7 +133,9 @@ Tests:
 
 - `packages/renderer-react/src/drawn-nodes.test.ts`: the walk on fibers shaped as React 19 makes them: a component that
   ignores its props, a fragment, a field around an input, nested layers, a provider, a component that draws nothing,
-  portals in and out of the frame, a slot drawn twice, and giving up on a tree that isn't one.
+  portals in and out of the frame, a slot drawn twice, and giving up on a tree that isn't one; and text drawn outside an
+  element (PAR-201): a component that draws only text, one that draws text beside an element, text inside an element
+  left to the element, and a provider given its children's text.
 - `apps/desktop/src/renderer/frame-nodes.test.ts`: the same cases on React itself in Chrome, through the canvas's
   lookups: each layer found, its box measured and resolved from a point, DOM a component adds by itself, ids React moves
   to other DOM without adding any, and the fallback to the attribute. Seven of these eight fail with the attribute
@@ -140,7 +143,8 @@ Tests:
   giving an element layer and a component layer the button's class and attributes, a component layer its handler and ref
   with its own class kept, the component layer still found inside the button and under the pointer, and a failing
   component in the slot keeping its error to itself; and a `$renderWith:` slot giving an element layer and a component
-  layer what each copy is rendered with, the node's style and each copy's key kept, and both spread and named props.
+  layer what each copy is rendered with, the node's style and each copy's key kept, and both spread and named props. A
+  component that draws only text has its text's box, no elements, and is under a point over its text (PAR-201).
 - `packages/code/src/props.test.ts`: whether a component's props take a `style`.
 - `chrome/LayerPanel.stories.tsx`, ComponentWithoutStyle: the note, and wrapping the component from it.
 - `apps/desktop/e2e/selecting.e2e.ts` (6), end to end (PAR-202), on the Members screen the run adds: hovering a
@@ -150,7 +154,8 @@ Tests:
 
 Gaps: the canvas's pointer handling over such a component, first checked by hand on 2026-10-29, is now the end-to-end
 test above. A component that declares `style` but puts it on an inner element, as a field passing it to its input, is
-outlined around the field but sized at the input, and the note doesn't say so.
+outlined around the field but sized at the input, and the note doesn't say so. How the inspector should say so is
+waiting on a design choice (PAR-201), in Storybook's Parity/Explorations/Styles on an inner element.
 
 ### Selecting what you point at (PAR-163)
 
@@ -331,9 +336,9 @@ menubar's command. The Layers panel's menu is unchanged.
   none. A text note over a board gets the menu for around the designs.
 - **Interact mode:** the design gets the right-click, and no menu opens.
 - **Keys after an item** are the canvas's at once (PAR-424). A menu holds focus for the 100 ms or so it takes to fade
-  out, so the canvas's shortcuts treat a menu, list or dialog that's closing (`data-state="closed"`) as gone, a field in
-  it included: Ctrl+Z pressed straight after Duplicate undoes it, where it used to go to the closing menu and do
-  nothing. This holds for the menubar's and the title's menus, and dialogs, too.
+  out, so the canvas's shortcuts treat a menu, list or dialog that's closing (`data-closed`) as gone, a field in it
+  included: Ctrl+Z pressed straight after Duplicate undoes it, where it used to go to the closing menu and do nothing.
+  This holds for the menubar's and the title's menus, and dialogs, too.
 
 Code: the menu's contents are `canvasMenu` in `apps/desktop/src/renderer/chrome/canvas-menu.ts`, which takes the
 selection and the design under the pointer and returns the items, available or not, in order, with Select layer's list;
@@ -1035,8 +1040,9 @@ through `formatKeys` so it reads as one chord:
   Shortcut components), as Figma's and the system's menus do. Tooltips, the toolbar, the start screen and the Keyboard
   shortcuts dialog show them as keycaps (`Kbd`). Both go through `formatKeys`.
 
-Code: `formatKeys` in `apps/desktop/src/renderer/chrome/keys.ts`, called by `components/ui/kbd.tsx`, `menubar.tsx`,
-`context-menu.tsx`, `dropdown-menu.tsx` and `command.tsx`.
+Code: `formatKeys` in `apps/desktop/src/renderer/chrome/keys.ts`. The kit's `Kbd` and its menus' and Search actions'
+`*Shortcut` parts show what they're given, so each place that shows keys passes them through `formatKeys` itself, as
+`AppMenu.tsx`, `CanvasMenu.tsx`, `ActionsSearch.tsx`, `Toolbar.tsx` and `ShortcutsDialog.tsx` do.
 
 Tests: `chrome/keymap.test.ts`, `formatKeys`: joining with `+`, naming `+` and `-`, the Mac's symbols, text left alone,
 and every key in the keymap showing as one chord off a Mac. End to end (PAR-202), `apps/desktop/e2e/keyboard.e2e.ts` (2)

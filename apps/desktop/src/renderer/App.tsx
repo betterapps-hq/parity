@@ -1,6 +1,5 @@
+import { SonnerToaster, TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
 import { useEffect } from "react"
-import { Toaster } from "@/components/ui/sonner"
-import { TooltipProvider } from "@/components/ui/tooltip"
 import { serveAgents } from "./agent/handlers.ts"
 import { useAppShortcuts } from "./canvas/shortcuts.ts"
 import { AboutDialog } from "./chrome/AboutDialog.tsx"
@@ -13,6 +12,7 @@ import { TabBar } from "./chrome/TabBar.tsx"
 import { UnsavedPrompt } from "./chrome/UnsavedPrompt.tsx"
 import { startUpdates } from "./chrome/updates.tsx"
 import { ProjectView } from "./ProjectView.tsx"
+import { useResolvedTheme } from "./theme.ts"
 import { useActiveTabId, useTabs, workspace } from "./workspace.ts"
 
 let started = false
@@ -36,6 +36,7 @@ export function App() {
 export function AppWindow() {
   const tabs = useTabs()
   const active = useActiveTabId()
+  const theme = useResolvedTheme()
   useAppShortcuts()
 
   return (
@@ -48,7 +49,8 @@ export function AppWindow() {
           tabs.map((tab) => <ProjectView key={tab.id} id={tab.id} active={tab.id === active} />)
         )}
       </div>
-      <Toaster
+      <SonnerToaster
+        theme={theme}
         position="bottom-right"
         offset={{ bottom: 40, right: 16 }}
         mobileOffset={{ bottom: 40, left: 16, right: 16 }}
