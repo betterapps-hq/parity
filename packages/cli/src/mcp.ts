@@ -1,4 +1,6 @@
 import { createInterface } from "node:readline"
+import { checkData, jsonText, plainObject } from "@parity-app/core/schema"
+import { z } from "zod"
 import { mcpCallerName } from "./caller.ts"
 import {
   call,
@@ -26,7 +28,8 @@ interface Tool {
   fields: readonly string[]
   /** Renames the contract's fields to this tool's, in error paths. */
   names?: Record<string, string>
-  run(input: Record<string, unknown>): Promise<Reply>
+  /** Runs the tool on its arguments, which its contract checks. */
+  run(input: unknown): Promise<Reply>
 }
 interface Reply {
   content: Content[]
@@ -41,7 +44,7 @@ type Content = { type: "text"; text: string } | { type: "image"; data: string; m
  *
  * Tools publish no outputSchema (PAR-510). Claude Code never shows one to the model, Codex's code mode puts it in the
  * model's context, and with them tools/list was 33 KB rather than 11. structuredContent needs no schema; the contracts
- * keep theirs for CLI --json and the tests.
+ * keep theirs, which the CLI checks the app's answers with.
  */
 function operationTool<Result>(
   name: string,
@@ -68,6 +71,14 @@ function operationTool<Result>(
 const json = (value: unknown): Content[] => [text(JSON.stringify(value))]
 /** MCP's names for execute's label and code. */
 const executeNames = { label: "description", code: "input" }
+
+/** MCP's execute arguments under the contract's names: description is label and input is code. */
+function contractNames(input: unknown): unknown {
+  const fields = plainObject.safeParse(input).data
+  if (!fields) return input
+  const { description: label, input: code, ...rest } = fields
+  return { ...rest, ...(label === undefined ? {} : { label }), ...(code === undefined ? {} : { code }) }
+}
 const tools: Tool[] = [
   operationTool(
     "get_tabs",
@@ -101,10 +112,7 @@ const tools: Tool[] = [
     fields: executeOperation.fields,
     names: executeNames,
     async run(input) {
-      const result = await executeOperation.run(
-        { tab: input.tab, label: input.description, code: input.input, editId: input.editId, edits: input.edits },
-        call
-      )
+      const result = await executeOperation.run(contractNames(input), call)
       const structured = executeOperation.structured(result)
       return {
         content: [text(describeExec(result)), ...result.screenshots.map((shot) => image(shot.png))],
@@ -173,33 +181,58 @@ const tools: Tool[] = [
 const instructions =
   "Parity renders a project's real components on a canvas. Designs are trees of the project's own components, layouts and text, styled only with its tokens, with states (like stories) and modes (viewport, theme, locale). Read the skill (read_skill) before designing, start with get_app_state, change designs with execute, check every state and mode with screenshot and find_problems, check accessibility with check_accessibility, and read what the components log with get_console."
 
+/**
+ * One JSON-RPC message from the client, as far as the server reads it. `params` stays open, since each method reads
+ * its own. A message without an id is a notification, which gets no reply.
+ */
+const message = z.looseObject({
+  id: z.union([z.string(), z.number()]).optional(),
+  method: z.string(),
+  params: z.looseObject({}).optional()
+})
+
+/** The client's side of `initialize`: who it is, for the canvas, and the protocol version it speaks. */
+const initializeParams = z.looseObject({
+  protocolVersion: z.string().optional().catch(undefined),
+  clientInfo: z.looseObject({ name: z.unknown().optional(), title: z.unknown().optional() }).optional().catch(undefined)
+})
+
+/** `tools/call`'s params: which tool, and its arguments, which the tool's own schema checks. */
+const toolCall = z.looseObject({ name: z.string(), arguments: z.unknown() })
+
 /** Serves Parity's tools over MCP on stdin and stdout. */
 export function serveMcp(): void {
   const lines = createInterface({ input: process.stdin })
-  const send = (message: unknown) => process.stdout.write(`${JSON.stringify(message)}\n`)
+  const send = (reply: unknown) => process.stdout.write(`${JSON.stringify(reply)}\n`)
   lines.on("line", (line) => {
     if (!line.trim()) return
-    let message: { id?: number | string; method?: string; params?: Record<string, unknown> }
-    try {
-      message = JSON.parse(line) as typeof message
-    } catch {
+    const json = jsonText(z.unknown()).safeParse(line)
+    if (!json.success) {
       send({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } })
       return
     }
-    void respond(message).then((reply) => {
-      if (message.id !== undefined && reply) send({ jsonrpc: "2.0", id: message.id, ...reply })
+    const read = checkData(message, json.data)
+    if (!read.success) {
+      const id = z.union([z.string(), z.number()]).safeParse(plainObject.safeParse(json.data).data?.id).data ?? null
+      const { pointer, message: problem } = read.problem
+      send({ jsonrpc: "2.0", id, error: { code: -32600, message: `Invalid request: ${pointer || "/"}: ${problem}` } })
+      return
+    }
+    const request = read.data
+    void respond(request.method, request.params).then((reply) => {
+      if (request.id !== undefined && reply) send({ jsonrpc: "2.0", id: request.id, ...reply })
     })
   })
 }
 
-async function respond(message: { method?: string; params?: Record<string, unknown> }) {
-  switch (message.method) {
+async function respond(method: string, params: Record<string, unknown> = {}) {
+  switch (method) {
     case "initialize": {
-      const name = mcpCallerName(message.params?.clientInfo as { name?: unknown; title?: unknown } | undefined)
-      setCaller(name, true)
+      const { clientInfo, protocolVersion } = initializeParams.parse(params)
+      setCaller(mcpCallerName(clientInfo), true)
       return {
         result: {
-          protocolVersion: (message.params?.protocolVersion as string | undefined) ?? "2025-06-18",
+          protocolVersion: protocolVersion ?? "2025-06-18",
           capabilities: { tools: {} },
           serverInfo: { name: "parity", version: "0.0.0" },
           instructions
@@ -215,20 +248,24 @@ async function respond(message: { method?: string; params?: Record<string, unkno
         }
       }
     case "tools/call": {
-      const tool = tools.find((candidate) => candidate.name === message.params?.name)
-      if (!tool) return { error: { code: -32602, message: `Unknown tool ${String(message.params?.name)}` } }
+      const called = checkData(toolCall, params)
+      if (!called.success) {
+        const { pointer, message: problem } = called.problem
+        return { error: { code: -32602, message: `Invalid params: ${pointer}: ${problem}` } }
+      }
+      const tool = tools.find((candidate) => candidate.name === called.data.name)
+      if (!tool) return { error: { code: -32602, message: `Unknown tool ${called.data.name}` } }
       try {
-        const result = await tool.run((message.params?.arguments ?? {}) as Record<string, unknown>)
-        return { result }
+        return { result: await tool.run(called.data.arguments ?? {}) }
       } catch (error) {
         const failure = renamePath(operationError(error, tool.fields), tool.names ?? {})
         return { result: { content: [text(failure.message)], structuredContent: { error: failure }, isError: true } }
       }
     }
     default:
-      return message.method?.startsWith("notifications/")
+      return method.startsWith("notifications/")
         ? undefined
-        : { error: { code: -32601, message: `Unknown method ${message.method}` } }
+        : { error: { code: -32601, message: `Unknown method ${method}` } }
   }
 }
 

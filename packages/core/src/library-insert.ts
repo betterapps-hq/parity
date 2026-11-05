@@ -22,7 +22,7 @@ const named = new WeakSet<DesignNode>()
  */
 export function componentNode(
   component: string,
-  info: ComponentInfo | undefined,
+  info: Pick<ComponentInfo, "props" | "fixedSize"> | undefined,
   taken: Set<string>,
   given: Record<string, unknown> = {}
 ): DesignNode {

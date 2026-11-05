@@ -4015,10 +4015,19 @@ booleans and screenshot scale before RPC, use the same defaults, and signal scre
 failures with details preserved. CLI relative-path resolution and output formatting stay at the edge. Local skill
 reading shares validation and a reader without requiring the app.
 
+Each operation's input and the app's answer are zod schemas in `packages/agent/src/contracts.ts`
+(`@parity-app/agent/contracts`), which the app can import too (PAR-590). `requests` has each RPC method's input,
+`replies` its answer, and `readRequest` checks a request and throws `invalid_input` with the schema's message and the
+field as its path. MCP's input schemas come from them through `z.toJSONSchema`, without `$schema`. Execute's input is a
+union of two strict objects, a snippet or an `editId` with edits; MCP's `input` and `description` are renamed to `code`
+and `label` before the check, and its discovery schema lists both kinds' fields with a `oneOf` rule for each. A selector
+is published as `anyOf` nonblank text or a nonempty list of it.
+
 `packages/cli/src/operations.test.ts` launches both real entry points against local RPC, covering each operation's
 defaults, explicit tab/options, human and JSON output, invalid inputs, RPC errors, image blocks, audit and screenshot
-failures, local skill reads and errors, and MCP discovery. `transport-fixture.ts` also supports execute's existing
-contract tests. The running app is checked with read-only state and component/token/prop reads through both transports.
+failures, local skill reads and errors, MCP discovery, the selector's published schema, and an answer the CLI can't
+read. `transport-fixture.ts` also supports execute's existing contract tests. The running app is checked with read-only
+state and component/token/prop reads through both transports.
 
 The RPC boundary uses `packages/agent/src/caller.ts` to preserve complete names and bound only explicit ids. Its
 `caller.test.ts` covers long shared prefixes, id bounds, fallback ids and invalid names. The renderer caps name width in
@@ -4048,19 +4057,25 @@ the same composition and text.
 ### Structured results and coded errors (PAR-472)
 
 Every shared operation returns the same data as CLI `--json` and MCP `structuredContent`, beside the text and images
-people read. Each operation's output schema stays in its contract; `tools/list` leaves them out, which keeps it under 12
-KiB (PAR-510). Failures carry a stable `code`, the `message`, `retryable`, a JSON-pointer `path` to the input at fault,
-up to 20 `alternatives` (valid ids for an unknown or ambiguous one) and a failed snippet's `editId`. Unknown tabs,
-designs, nodes, states, modes, viewports, components, icon sets and retry ids are coded where the app finds them;
-invalid input is coded before anything reaches the app; a missing app is `not_running`. Tokens and the console are
-bounded by `limit`, with `total` and `truncated`.
+people read. Each operation's answer has a zod schema in `@parity-app/agent/contracts`; `tools/list` leaves them out,
+which keeps it under 12 KiB (PAR-510). The client checks the HTTP reply and each answer before reading it, and its
+response types come from the schemas (PAR-590). An answer it can't read fails as `app_error` naming the field, as
+`/unsaved/0/kind: expected one of "document", "stylesheet"`. Objects stay open, so a field a newer app adds passes
+through; a field older apps leave out is optional. The MCP server checks each JSON-RPC line from stdin too: text that
+isn't JSON gets `-32700`, a message without a method `-32600`, and `tools/call` without a tool name `-32602`. Failures
+carry a stable `code`, the `message`, `retryable`, a JSON-pointer `path` to the input at fault, up to 20 `alternatives`
+(valid ids for an unknown or ambiguous one) and a failed snippet's `editId`. Unknown tabs, designs, nodes, states,
+modes, viewports, components, icon sets and retry ids are coded where the app finds them; invalid input is coded before
+anything reaches the app; a missing app is `not_running`. Tokens and the console are bounded by `limit`, with `total`
+and `truncated`.
 
 Implementation: `packages/core/src/errors.ts` (codes, `CodedError`, `closest`, `readErrorDetails`);
-`packages/cli/src/errors.ts` (the operation error, its schema and path mapping); `operations.ts` and `execute.ts`
-(output schemas, canonical results, bounds); `mcp.ts` and `bin.ts` (structured output in each transport);
-`packages/agent/src/workspace.ts` and `run.ts` (coded lookups, conflicts and retries, `ExecResult.details`);
-`apps/desktop/src/utility/agent.ts` (RPC `details`), `utility/index.ts`, `preload/index.ts` and
-`renderer/agent/handlers.ts` (details across the window channel, `ServeAnswer`, coded tab lookup).
+`packages/cli/src/errors.ts` (the operation error, its schema and path mapping); `packages/agent/src/contracts.ts`
+(request and answer schemas); `operations.ts` and `execute.ts` (canonical results, bounds); `client.ts` (checked
+answers); `mcp.ts` and `bin.ts` (structured output in each transport); `packages/agent/src/workspace.ts` and `run.ts`
+(coded lookups, conflicts and retries, `ExecResult.details`); `apps/desktop/src/utility/agent.ts` (RPC `details`),
+`utility/index.ts`, `preload/index.ts` and `renderer/agent/handlers.ts` (details across the window channel,
+`ServeAnswer`, coded tab lookup).
 
 Tests: `packages/core/src/errors.test.ts` (defaults, bounded closest-first alternatives, checking details from another
 process, coded unknown state). `packages/agent/src/run.test.ts` ("coded failures": unknown design, state, mode,
@@ -4068,8 +4083,9 @@ component and node, ambiguous node, uncoded throw, unknown retry id, a patch tha
 `packages/cli/src/operations.test.ts` and `execute.test.ts` launch the real CLI and MCP: structured data equal to CLI
 `--json` for every operation, app codes with paths and alternatives for unknown tab, design, state and component,
 unknown codes read as `app_error`, invalid input paths in each transport's names, `not_running`, bounds and limits,
-image data kept out of structured results, and every tool's output schema. `client.test.ts` covers the truncated token
-text.
+image data kept out of structured results, no output schemas in `tools/list`, and an unreadable answer as `app_error`.
+`client.test.ts` covers the truncated token text. `packages/core/src/schema.test.ts` covers `checkData`, which returns
+the first problem for the CLI to word.
 
 Checked in the running app on `examples/shadcn-vite`: unknown tab, component, design and state through the CLI with
 `--json`, bounded tokens, and an execute that applied and was renamed back. Gaps: the end-to-end suite doesn't drive the
