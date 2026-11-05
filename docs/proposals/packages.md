@@ -5,8 +5,9 @@ Status: draft. `@parity-app/code` exists (PKG-3), project edits are in `@parity-
 editing and matching tokens (PAR-35), and `@parity-app/editor` inserting, Make component and placement (PAR-32), drop
 rules and snapping (PAR-33) and the design store's history (PAR-34), on 2026-10-30. `@parity-app/models` holds the lens
 models (PAR-15), `@parity-app/editor` moving, resizing and nudging (PAR-577), and `@parity-app/project` the one reader
-of installed packages (PAR-573), on 2026-11-05. The rule and the first items are in [decisions.md](../decisions.md) and
-in Linear's Package boundaries stream.
+of installed packages (PAR-573), on 2026-11-05. `@parity-app/account` holds signing in with WorkOS (PAR-613), on
+2026-11-05. The rule and the first items are in [decisions.md](../decisions.md) and in Linear's Package boundaries
+stream.
 
 ## In one line
 
@@ -95,6 +96,7 @@ when it's spread through UI code. Today:
 | `@parity-app/editor`                    | Editor behaviour without the views: clipboard, drop rules, arranging, inserting, Make component, placement, snapping, moving, resizing and nudging, selection, undo and unsaved tracking. | The renderer files listed above.                                                                   |
 | `@parity-app/models`, then one per lens | The lens schemas (PAR-15), then each lens's standards reader and model operations. Each adapter, such as Drizzle or TanStack Router, is a package of its own.                             | New code.                                                                                          |
 | `@parity-app/storybook`                 | Everything Storybook-specific, behind the `StoryAdapter` in [storybook.md](../storybook.md).                                                                                              | `project/storybook.ts` and `utility/storybook.ts` (PAR-114).                                       |
+| `@parity-app/account`                   | Signing in with WorkOS without the views: the authorize URL and PKCE, the link the browser hands back, the code exchange and refresh, the token's claims, and when to refresh.            | New code, from [sign-in.md](sign-in.md) (PAR-613).                                                 |
 | `@parity-app/tokens`                    | Reading tokens (Tailwind, DTCG), editing them in stylesheets, and matching described tokens to custom properties.                                                                         | `core/tokens.ts`, `core/tokens-dtcg.ts`, `core/css-source.ts`, the Tokens panel's matching.        |
 
 ### `@parity-app/code`: design and code, both ways

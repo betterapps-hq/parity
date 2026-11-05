@@ -4112,3 +4112,25 @@ My calls:
   A copy that gets a link it didn't start passes it, through the agent registry, to the copy whose `state` it is.
 - **Only `safeStorage` keeps the refresh token,** and the window never sees a token.
 - **The client IDs go in the code,** since they're public. The API key never ships in the app.
+
+## Signing in is data in and data out in `@parity-app/account` (PAR-613)
+
+The package holds sign-in's logic, with no Electron, files or network, as [proposals/sign-in.md](proposals/sign-in.md)
+sets out. Main passes in `fetch` and keeps what it returns. My calls:
+
+- **A refresh sends only the client ID,** as WorkOS's own browser client, `authkit-js`, does for its public clients. The
+  AuthKit reference lists `client_secret` as required for a refresh, so PAR-612 checks it against the sandbox along with
+  switching organization.
+- **WorkOS's answers end in one of three ways:** a session, refused, or unavailable. 408, 429, a 5xx, a failed request
+  or an answer without a user and tokens is unavailable, and a refresh tries again after 5 seconds, doubling to 5
+  minutes. Any other refusal ends the session, and the person signs in again. `authkit-js` draws the same line.
+- **Main refreshes a minute before the access token expires,** or halfway through its life when that's later. WorkOS's
+  tokens last 5 minutes, so that's every 4.
+- **Main reads the access token without checking its signature.** It comes straight from WorkOS over HTTPS, and main
+  only reads who it names and when it expires. Parity's service checks signatures against WorkOS's keys (PAR-615).
+- **The link the browser hands back is refused when it isn't the redirect URI or its `state` is missing or another
+  sign-in's,** so a copy of Parity that didn't start the sign-in passes it on. `access_denied` reads as declined, and
+  any other `error` as failed, with WorkOS's description.
+- **The package returns codes, not text.** The screens word what happened (PAR-614).
+- **PKCE and `state` use Web Crypto,** a global in Node and Electron, so the package stays pure. Each is 32 random
+  bytes, base64url-encoded, and the challenge is S256, the only method WorkOS takes.

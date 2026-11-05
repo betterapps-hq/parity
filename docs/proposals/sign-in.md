@@ -1,6 +1,7 @@
 # Proposal: signing in with WorkOS
 
-Status: draft, 2026-11-05 (PAR-610). Nothing is built yet. The screens are the stories under Parity/Explorations/Sign in
+Status: draft, 2026-11-05 (PAR-610). `@parity-app/account` is built (PAR-613). The app's side isn't yet. The screens are
+the stories under Parity/Explorations/Sign in
 ([SignIn.stories.tsx](../../apps/desktop/src/renderer/explorations/SignIn.stories.tsx)), and the account menu is the
 start page's ([page.tsx](../../apps/desktop/src/renderer/explorations/start/page.tsx), `AccountMenu`). The calls made
 are in [decisions.md](../decisions.md#signing-in-goes-through-workos-in-the-browser-par-610), and the work is in Linear,
@@ -131,8 +132,9 @@ By hand, in WorkOS's dashboard and each provider's console (PAR-611):
 
 PAR-612 tries these and records what it finds in decisions.md:
 
-- **Whether a refresh from a public client can switch organization,** with `organization_id` on the refresh. WorkOS's
-  reference shows that grant with a client secret, but its Electron package switches organizations without one.
+- **Whether a public client can refresh, and switch organization,** with only the client ID, and `organization_id` on
+  the refresh to switch. WorkOS's reference lists the refresh grant's client secret as required, but its browser client,
+  `authkit-js`, and its Electron package both refresh and switch organizations without one.
 - **Whether WorkOS asks Parity to pick an organization** when a button skips AuthKit's page, and whether a public client
   can answer without the API key.
 - **The URL scheme on each system's installed build,** which only a packaged build can show: unsigned macOS builds
