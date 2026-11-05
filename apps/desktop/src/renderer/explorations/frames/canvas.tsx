@@ -1,4 +1,4 @@
-/* oxlint-disable jsx-a11y/prefer-tag-over-role -- designs and notes stand in for the canvas's shapes, which take the pointer; the keyboard reaches them through Layers and the canvas's keys, as in the app */
+/* oxlint-disable jsx-a11y/prefer-tag-over-role -- designs stand in for the canvas's shapes, which take the pointer; the keyboard reaches them through Layers and the canvas's keys, as in the app */
 import {
   ContextMenu,
   ContextMenuContent,

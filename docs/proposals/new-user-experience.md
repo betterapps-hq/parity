@@ -163,8 +163,8 @@ design, as Figma lists a frame's, so "Page" no longer sits between a screen and 
   the toolbar's frame tool, whose menu lists the modes' viewports as sizes.
 - **Layers' + always shows,** and its empty rows are buttons: "No screens yet. New screen".
 - **Whatever goes onto the empty canvas makes a frame there, by one rule:** a layout, text, a component, an image or a
-  paste. It's named after what's in it, never "Pasted", and Text makes a text layer in a frame that hugs it. Notes stay,
-  as annotations, under a tool of their own.
+  paste. It's named after what's in it, never "Pasted", and Text makes a text layer in a frame that hugs it. Notes stay
+  as annotations. A tool of their own was put off on 2026-11-05 as too early (PAR-540).
 - **A component inserted into a new screen keeps its own width,** rather than stretching across the page.
 
 ### The first run and New project
