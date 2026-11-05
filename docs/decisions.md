@@ -4037,7 +4037,7 @@ kept on disk). My calls in fixing it:
 - **"Draws nothing of its own" is a picture with every pixel alike.** It's what the person would see, whatever the
   reason: a provider, a part whose sample holds nothing, or content that couldn't be opened. It follows the Previews
   exploration's States story (an eye-off icon and "Draws nothing of its own" on the muted fill), which designs it.
-  Previews made before are made again once, as `previewFormat` went up to 2.
+  Previews made before are made again once, as `previewFormat` went up to 3.
 
 ## The offscreen window never scrolls (PAR-520)
 
