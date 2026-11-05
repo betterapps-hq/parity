@@ -150,7 +150,37 @@ Its `composition` says what it needs around it and holds, before you insert it:
 // A sidebar goes inside its provider: insert the example, then fill it in.
 const { composition } = Props("nova/Sidebar")
 Print(composition.parents.chain.map((parent) => parent.component))
-const sidebar = Insert("dashboard/Sidebar", composition.example.node)
+const sidebar = Insert("settings/Content", composition.example.node)
+```
+
+Writing the layers yourself works the same way. A provider draws nothing of its own, so the Components panel leaves it
+out, but `Components()` lists it, since the parts inside it throw without it. A part placed without its provider shows
+in `Problems` as a render error that names it.
+
+```js
+// A Nova sidebar, inside the provider its parts need.
+const part = (component, props, children) => ({ type: "component", component, props, slots: { children } })
+const item = (label, isActive) =>
+  part("nova/SidebarMenuItem", {}, [
+    { type: "component", component: "nova/SidebarMenuButton", props: { isActive, children: label } }
+  ])
+CreateDesign({
+  name: "App sidebar",
+  root: {
+    type: "layout",
+    name: "Frame",
+    style: { width: 280, height: 400 },
+    children: [
+      part("nova/SidebarProvider", {}, [
+        part("nova/Sidebar", { collapsible: "none" }, [
+          part("nova/SidebarContent", {}, [
+            part("nova/SidebarMenu", {}, [item("Dashboard", true), item("Members", false)])
+          ])
+        ])
+      ])
+    ]
+  }
+})
 ```
 
 ### Icons
