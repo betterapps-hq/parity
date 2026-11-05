@@ -143,7 +143,7 @@ export const OutOfDate: Story = {
         current.type === "text" ? { ...current, text: "By continuing you agree to our terms." } : current
       )
     }))
-    await within(canvasElement).findByText("The design changed since this check.", undefined, slowly)
+    await within(canvasElement).findByText("This screen changed after it was checked.", undefined, slowly)
   }
 }
 

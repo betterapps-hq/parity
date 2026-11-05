@@ -65,7 +65,7 @@ export const EveryModeShown: Story = {
   loaders: [
     inspecting("design", () => {
       const key = design("Sign in")
-      example().store.updateView(key, (view) => ({
+      example().store.updateView(key, "Show Desktop Dark, Tablet Light and Mobile Light", (view) => ({
         ...view,
         modes: ["desktop-dark", "tablet-light", "mobile-light"]
       }))
@@ -74,12 +74,16 @@ export const EveryModeShown: Story = {
   ]
 }
 
-/** A design whose main frame is another mode than the project's primary: Mobile Light is its main mode. */
-export const OtherMainMode: Story = {
+/** A screen that shows Mobile Light first, rather than the project's primary mode. */
+export const AnotherModeFirst: Story = {
   loaders: [
     inspecting("design", () => {
       const key = design("Sign in")
-      example().store.updateView(key, (view) => ({ ...view, mode: "mobile-light", modes: ["desktop-light"] }))
+      example().store.updateView(key, "Show Mobile Light first", (view) => ({
+        ...view,
+        mode: "mobile-light",
+        modes: ["desktop-light"]
+      }))
       return { design: key }
     })
   ]
@@ -90,7 +94,11 @@ export const ShowingAnotherState: Story = {
   loaders: [
     inspecting("design", () => {
       const key = design("Sign in")
-      example().store.updateView(key, (view) => ({ ...view, state: "wrong-password", allStates: false }))
+      example().store.updateView(key, "Show Wrong password", (view) => ({
+        ...view,
+        state: "wrong-password",
+        allStates: false
+      }))
       return { design: key }
     })
   ]

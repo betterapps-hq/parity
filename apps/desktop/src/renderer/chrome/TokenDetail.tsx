@@ -370,7 +370,7 @@ export function themeLabel(theme: string, themes: readonly string[], names: Read
 /** What the edit bar says beside Apply: why it can't apply yet, or what applying does. */
 function applyHint(valid: boolean, changed: boolean): string {
   if (!valid) return "Fix the value to apply"
-  return changed ? "Every frame shows it at once" : "Nothing to apply yet"
+  return changed ? "Every preview shows it at once" : "Nothing to apply yet"
 }
 
 /**

@@ -1,5 +1,5 @@
 import type { ContainerKind } from "@parity-app/core"
-import { turnInto } from "@parity-app/editor"
+import { kindName, kindTitle, turnInto } from "@parity-app/editor"
 import { Crown, MousePointerClick } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -10,11 +10,11 @@ import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor } from "../canvas/kinds.tsx"
-import { containerModes, withMainMode } from "../canvas/view.ts"
+import { containerModes, modeNames, withMainMode } from "../canvas/view.ts"
 import { type ContainerEntry, useContainerEntry, useModeSettings, useNotes } from "../design-store.ts"
 import { selectionKey, useSelection } from "../selection.ts"
 import { ComponentsSection, ParamsSection } from "./ComponentsSection.tsx"
-import { FieldTarget } from "./fields.tsx"
+import { FieldTarget, FirstStateName } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import { LayerPanel } from "./LayerPanel.tsx"
 import { ArrangePanel, MultiLayerPanel } from "./MultiPanel.tsx"
@@ -27,11 +27,14 @@ import { ModeViewportIcon } from "./viewports.tsx"
  * edit the selection, so a run of Up and Down presses in one ends when the selection changes.
  */
 export function DesignTab() {
-  const { selection } = useProject()
+  const { store, selection } = useProject()
   const selected = useSelection(selection)
+  const entry = useContainerEntry(store, selected.design)
   return (
     <FieldTarget value={selectionKey(selected)}>
-      <SelectedPanel />
+      <FirstStateName value={entry?.container.states[0]?.name ?? "Default"}>
+        <SelectedPanel />
+      </FirstStateName>
     </FieldTarget>
   )
 }
@@ -45,8 +48,8 @@ function SelectedPanel() {
     return (
       <div className="flex flex-col items-center gap-2 px-6 py-12 text-center text-sm text-muted-foreground">
         <MousePointerClick className="size-5" />
-        Select a design on the canvas or in Layers.
-        <span className="text-xs">Click inside a design to select a layer, and double-click to go deeper.</span>
+        Select a screen or component on the canvas or in Layers.
+        <span className="text-xs">Click inside one to select a layer, and double-click to go deeper.</span>
       </div>
     )
   }
@@ -66,7 +69,9 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
   const { container, key } = entry
   const { primary, all } = containerModes(settings, container)
   const shown = new Set(container.view?.modes ?? [])
-  const setModes = (modes: string[]) => store.updateView(key, (view) => ({ ...view, modes }))
+  const kind = kindName(container.kind)
+  const setModes = (modes: string[]) =>
+    store.updateView(key, `Show ${modeNames(all, [primary.id, ...modes])}`, (view) => ({ ...view, modes }))
 
   return (
     <>
@@ -80,12 +85,12 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
           <Input
             key={container.name}
             defaultValue={container.name}
-            aria-label="Design name"
+            aria-label={`${kindTitle(container.kind)} name`}
             className="h-7 flex-1 border-transparent bg-transparent px-1.5 text-base font-semibold shadow-none hover:border-input dark:bg-transparent"
             onBlur={(event) => {
               const name = event.currentTarget.value.trim()
               if (name && name !== container.name) {
-                store.updateContainer(key, "Rename design", (current) => ({ ...current, name }))
+                store.updateContainer(key, `Rename ${kind}`, (current) => ({ ...current, name }))
               }
             }}
             onKeyDown={(event) => {
@@ -104,7 +109,7 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
               value &&
               store.updateContainer(
                 key,
-                "Change design kind",
+                value === "component" ? "Make component" : "Make screen",
                 (current) => turnInto(current, value as ContainerKind, store.getModes()).design
               )
             }
@@ -129,13 +134,15 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
 
       <PanelSection
         title="Modes"
-        description="Pick the mode this design is shown in. Turn others on to see them beside it. Edit modes in the Modes tab."
+        description={`Pick the mode this ${kind} shows first. Turn others on to see them beside it. Edit modes in the Modes tab.`}
       >
         <RadioGroup
           value={primary.id}
-          onValueChange={(mode) => store.updateView(key, (view) => withMainMode(view, mode, all))}
+          onValueChange={(mode) =>
+            store.updateView(key, `Show ${modeNames(all, [mode])} first`, (view) => withMainMode(view, mode, all))
+          }
           className="gap-0.5"
-          aria-label="Main mode"
+          aria-label="Shown first"
         >
           {all.map((mode, index) => {
             const isMain = mode.id === primary.id
@@ -165,9 +172,9 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
                   </span>
                 </Label>
                 {isMain ? (
-                  <span className="text-xs text-muted-foreground">Main</span>
+                  <span className="text-xs whitespace-nowrap text-muted-foreground">Shown first</span>
                 ) : (
-                  <Hint label="Show beside the main frame">
+                  <Hint label="Show beside the first preview">
                     <span className="inline-flex">
                       <Switch
                         size="sm"

@@ -6,6 +6,7 @@ import {
   copyLayersInPlace,
   type DesignBox,
   distributeBoxes,
+  kindsName,
   type Order,
   removeDesigns,
   removeLayers,
@@ -82,7 +83,7 @@ export function deleteDesigns(session: ProjectSession): boolean {
   const keys = selectedDesigns(session.selection.get())
   const entries = keys.flatMap((key) => session.store.getEntry(key) ?? [])
   if (entries.length === 0) return false
-  session.store.change(entries.length === 1 ? "Delete design" : `Delete ${entries.length} designs`, (snapshot) => ({
+  session.store.change(`Delete ${kindsName(entries.map((entry) => entry.container.kind))}`, (snapshot) => ({
     ...snapshot,
     documents: removeDesigns(
       snapshot.documents,
@@ -198,13 +199,15 @@ export function align(session: ProjectSession, alignment: Alignment): void {
     return
   }
   const moves = alignBoxes(designBoxes(session), alignment)
-  if (moves.size > 0) moveDesigns(session, moves, "Align designs")
+  const selected = selectedDesigns(session.selection.get())
+  if (moves.size > 0) moveDesigns(session, moves, `Align ${session.store.designsLabel(selected)}`)
 }
 
 /** Spaces three or more designs evenly between the outermost two. */
 export function distribute(session: ProjectSession, axis: "horizontal" | "vertical"): void {
   const moves = distributeBoxes(designBoxes(session), axis)
-  if (moves.size > 0) moveDesigns(session, moves, "Distribute designs")
+  const selected = selectedDesigns(session.selection.get())
+  if (moves.size > 0) moveDesigns(session, moves, `Distribute ${session.store.designsLabel(selected)}`)
 }
 
 /** The selected designs' boxes on the canvas. */

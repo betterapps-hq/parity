@@ -67,6 +67,12 @@ export function toggleShownMode(
   return { main: mode === main ? all.find((candidate) => rest.includes(candidate.id))!.id : main, shown: rest }
 }
 
+/** The modes with these ids, named in project order for a label: "Desktop Light and Mobile Light". */
+export function modeNames(all: readonly ResolvedMode[], ids: readonly string[]): string {
+  const names = all.filter((mode) => ids.includes(mode.id)).map((mode) => mode.name)
+  return names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`
+}
+
 export function activeState(container: ContainerSpec): StateSpec {
   return container.states.find((state) => state.id === container.view?.state) ?? container.states[0]!
 }

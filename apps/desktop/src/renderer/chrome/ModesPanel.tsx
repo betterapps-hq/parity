@@ -76,7 +76,7 @@ export function ModesPanel() {
         title="Modes"
         description={
           <>
-            Shared by every design; each design picks which to show.{" "}
+            Shared by every screen and component; each picks which to show.{" "}
             {modesFile.custom ? "Saved in " : "Using the defaults; editing saves them to "}
             <code>{store.mainPath}</code>.
           </>
@@ -139,7 +139,7 @@ export function ModesPanel() {
           ))}
         </ul>
       </PanelSection>
-      <PanelSection title="Variables" description="The axes modes combine. Each option says what it does to a frame.">
+      <PanelSection title="Variables" description="The axes modes combine. Each option says what it does to a preview.">
         <ul className="flex flex-col gap-4">
           {settings.variables.map((variable) => (
             <VariableCard

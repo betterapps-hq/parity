@@ -52,7 +52,7 @@ const kinds: Record<ProjectProcess["kind"], { icon: typeof Hammer; tint: string;
   lint: { icon: SearchCheck, tint: "oklch(0.82 0.15 98)", role: "Lints files" },
   verify: { icon: ShieldCheck, tint: "oklch(0.75 0.13 175)", role: "Verifies the project" },
   build: { icon: Hammer, tint: "oklch(0.68 0.03 260)", role: "Builds the project" },
-  export: { icon: ImageDown, tint: "oklch(0.74 0.12 205)", role: "Exports designs" },
+  export: { icon: ImageDown, tint: "oklch(0.74 0.12 205)", role: "Exports images" },
   accessibility: { icon: Accessibility, tint: "oklch(0.72 0.17 330)", role: "Checks accessibility" }
 }
 

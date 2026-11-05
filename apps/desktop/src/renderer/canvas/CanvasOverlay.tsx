@@ -899,7 +899,7 @@ function startResize(
       const serialized = JSON.stringify(next)
       if (serialized === last) return
       last = serialized
-      store.updateContainer(entry.key, "Resize frame", (container) => withFrame(container, mode.viewport, next), {
+      store.updateContainer(entry.key, "Resize preview", (container) => withFrame(container, mode.viewport, next), {
         gesture
       })
     })
@@ -980,7 +980,7 @@ function resetSize(session: ProjectSession, handles: Handles, edge: Edge): void 
     const next: FrameSize = { ...entry.container.frames?.[mode.viewport] }
     if (horizontal) delete next.width
     if (vertical) delete next.height
-    store.updateContainer(entry.key, "Reset frame size", (container) => withFrame(container, mode.viewport, next))
+    store.updateContainer(entry.key, "Reset preview size", (container) => withFrame(container, mode.viewport, next))
     return
   }
   const nodeId = handles.node

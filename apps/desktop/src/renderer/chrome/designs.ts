@@ -1,5 +1,5 @@
 import { type ContainerKind, uniqueId } from "@parity-app/core"
-import { designGap, freeSpotBeside, turnInto } from "@parity-app/editor"
+import { designGap, freeSpotBeside, kindName, turnInto } from "@parity-app/editor"
 import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
 import { bringIntoView, takenBounds } from "../canvas/free-space.ts"
 import type { ContainerEntry } from "../design-store.ts"
@@ -8,7 +8,10 @@ import type { ProjectSession } from "../workspace.ts"
 export function renameDesign(session: ProjectSession, entry: ContainerEntry, name: string): void {
   const trimmed = name.trim()
   if (!trimmed || trimmed === entry.container.name) return
-  session.store.updateContainer(entry.key, "Rename design", (container) => ({ ...container, name: trimmed }))
+  session.store.updateContainer(entry.key, `Rename ${kindName(entry.container.kind)}`, (container) => ({
+    ...container,
+    name: trimmed
+  }))
 }
 
 /**
@@ -28,7 +31,7 @@ export function duplicateDesign(session: ProjectSession, entry: ContainerEntry):
   const key = store.addContainer(
     entry.path,
     { ...structuredClone(entry.container), id, name, position: { x: Math.round(x), y: entry.container.position.y } },
-    "Duplicate design"
+    `Duplicate ${kindName(entry.container.kind)}`
   )
   session.selection.set({ design: key })
   // A copy that lands off screen is brought into view (PAR-204).
