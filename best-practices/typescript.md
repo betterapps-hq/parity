@@ -1,18 +1,16 @@
 # TypeScript & Type Helpers
 
-Type conventions for all TypeScript in the monorepo, and a catalog of the type-helper libraries we install so you
-**don't reinvent them**. Many rules here are enforced by `oxlint` (see
-[`vite.config.ts`](../vite.config.ts)).
+In apps, import the helpers below from [`@buildkitgg/typescript-utils`](https://github.com/betterapps-hq/buildkit/tree/main/packages/core/typescript-utils). Use type-only imports for utility types.
 
-## Helper catalog
-
-[es-toolkit](#es-toolkit--runtime-utilities) · [ts-extras](#ts-extras--typed-built-ins) · [type-fest](#type-fest--compile-time-helpers) · [ts-reset](#total-typescriptts-reset--application-wide-declarations) · [ts-pattern](#ts-pattern--pattern-matching)
+```ts
+import { chunk, isPresent, match, P, type SetRequired } from "@buildkitgg/typescript-utils"
+```
 
 ## Conventions
 
 - **No `any`.** If a value is genuinely unknown, type it `unknown` and narrow it.
 - **Avoid `as` type assertions.** They silence the compiler. To narrow, prefer, in order: a **type guard**
-  (`value is T`) → **`invariant(...)`** (runtime-checked) → **`assertNever`** / **`ts-pattern` `.exhaustive()`** for
+  (`value is T`) → **`invariant(...)`** (runtime-checked) → **`assertNever`** / **`match(...).exhaustive()`** for
   unions. (`as const` is fine — the ban is on _type assertions_.)
 - **Prefer `type` over `interface`.** Reach for `interface` only when you need a feature it uniquely provides (e.g.
   declaration merging).
@@ -24,202 +22,23 @@ Type conventions for all TypeScript in the monorepo, and a catalog of the type-h
 ## Type narrowing — order of preference
 
 1. **Type guard** — a `function isThing(x: unknown): x is Thing` predicate.
-2. **`invariant(cond, msg)`** (`es-toolkit`) — asserts a runtime assumption and narrows afterward.
-3. **`assertNever(x)`** (`ts-extras`) / **`match(x).exhaustive()`** (`ts-pattern`) — for exhaustive unions.
+2. **`invariant(cond, msg)`** — asserts a runtime assumption and narrows afterward.
+3. **`assertNever(x)`** / **`match(x).exhaustive()`** — for exhaustive unions.
 
 Do **not** reach for `as`.
 
-## `ts-extras` — typed built-ins
+## Helper catalog
 
-| Helper | Use |
-| --- | --- |
-| `arrayAt` | Return the item at the given index like `Array#at()`, but with stronger typing for tuples. |
-| `arrayConcat` | A strongly-typed version of `Array#concat()` that properly handles arrays of different types. |
-| `arrayFirst` | Return the first item of an array with stronger typing for tuples. |
-| `arrayIncludes` | A strongly-typed version of `Array#includes()` that properly acts as a type guard. |
-| `arrayJoin` | A strongly-typed version of `Array#join()` that preserves literal string types. |
-| `arrayLast` | Return the last item of an array with stronger typing for tuples. |
-| `assert` | Assert that the given condition is truthy. |
-| `assertDefined` | Assert that the given value is defined, meaning it is not `undefined`. |
-| `assertError` | Assert that the given value is an `Error`. |
-| `assertNever` | Assert that a code path is unreachable. |
-| `assertPresent` | Assert that the given value is present (non-nullable), meaning it is neither `null` nor `undefined`. |
-| `asWritable` | Cast the given value to be [`Writable`](https://github.com/sindresorhus/type-fest/blob/main/source/writable.d.ts). |
-| `isDefined` | Check whether a value is defined, meaning it is not `undefined`. |
-| `isEmpty` | Check whether an array is empty. |
-| `isEqualType` | Check if two types are equal at compile time. |
-| `isFinite` | A strongly-typed version of `Number.isFinite()`. |
-| `isInfinite` | Check whether a value is infinite. |
-| `isInteger` | A strongly-typed version of `Number.isInteger()`. |
-| `isPresent` | Check whether a value is present (non-nullable), meaning it is neither `null` nor `undefined`. |
-| `isPropertyDefined` | Check whether a specific own property of a value is defined, meaning it is not `undefined`. |
-| `isPropertyPresent` | Check whether a specific own property of a value is present (non-nullable), meaning it is neither `null` nor `undefined`. |
-| `isSafeInteger` | A strongly-typed version of `Number.isSafeInteger()`. |
-| `keyIn` | Check if a key exists in an object and narrow the key type. |
-| `not` | Invert a type predicate function. |
-| `objectAssign` | A strongly-typed version of `Object.assign()`. |
-| `objectEntries` | A strongly-typed version of `Object.entries()`. |
-| `objectFromEntries` | A strongly-typed version of `Object.fromEntries()`. |
-| `objectHasIn` | Check if an object has a property (including inherited) and narrow the object type. |
-| `objectHasOwn` | A strongly-typed version of `Object.hasOwn()` that narrows the object type. |
-| `objectKeys` | A strongly-typed version of `Object.keys()`. |
-| `objectMapValues` | A strongly-typed version of mapping over an object's values, preserving keys. |
-| `objectUpdate` | Apply a type-checked partial update to an object in place. |
-| `objectValues` | A strongly-typed version of `Object.values()`. |
-| `safeCastTo` | Constrain a value to the given type safely. |
-| `setHas` | A strongly-typed version of `Set#has()` that properly acts as a type guard. |
-| `stringSplit` | A strongly-typed version of `String#split()` that returns a tuple for literal strings. |
+[Error](#error), [Function](#function), [Promise](#promise), [Util](#util), [Array](#array), [String](#string), [Math](#math), [Object](#object), [Predicate](#predicate), [Typed built-ins](#typed-built-ins), [Pattern matching](#pattern-matching), [Utility types](#utility-types), [Assertions](#assertions).
 
-## `ts-pattern` — pattern matching
-
-Use for branching on unions/shapes instead of `switch` or nested conditionals.
-
-```ts
-import { match, P } from "ts-pattern"
-
-const label = match(result)
-  .with({ status: "ok", data: P.select() }, (data) => `ok: ${data}`)
-  .with({ status: "error", error: P.instanceOf(Error) }, ({ error }) => error.message)
-  .with({ status: "loading" }, () => "loading…")
-  .exhaustive() // compile error if a case is missing
-```
-
-Key API:
-
-- `match(value)` → `.with(pattern, handler)` → terminate with `.exhaustive()` (enforces all cases) or `.otherwise(fn)`
-  (default). Use `.returnType<T>()` to pin the return type.
-- **Patterns (`P`):** `P._` / `P.any`, `P.string`, `P.number`, `P.boolean`, `P.bigint`, `P.nullish`, `P.array(pattern)`,
-  `P.set`, `P.map`, `P.union(...)`, `P.intersection(...)`, `P.not(pattern)`, `P.optional(pattern)`,
-  `P.instanceOf(Class)`, `P.when(predicate)`, `P.select()` (extract a value), and string/number refinements like
-  `P.string.startsWith(...)`, `P.number.gte(...)`.
-- `isMatching(pattern)` — a standalone type guard built from a pattern.
-
-String refinements include `startsWith`, `endsWith`, `includes`, `regex`, `length`, `minLength`, and `maxLength`. Numeric patterns offer `gt`, `gte`, `lt`, `lte`, `between`, `positive`, and `negative`. Number patterns also support `int` and `finite`.
-
-Additional matching APIs include `P` (also exported as `Pattern`), `P.unknown`, `P.symbol`, `P.nonNullable`, `P.record`, and `P.shape`. Combine patterns with `.and()` or `.or()`. Use `P.Pattern<T>` to constrain a pattern, `P.infer<typeof pattern>` for the matched type, or `P.narrow<Input, typeof pattern>` to narrow an existing union. Custom matchers use `P.matcher` and the experimental `P.unstable_Fn`, `P.unstable_Matcher`, and `P.unstable_Matchable` types. A match can branch with `.when()` or evaluate with `.run()`. An unmatched exhaustive evaluation throws `NonExhaustiveError`.
-
-## `es-toolkit` — runtime utilities
-
-```ts
-import { invariant } from "es-toolkit"
-
-invariant(user, "user must be loaded before render")
-user.name // narrowed to non-null here
-```
-
-Use an invariant for a condition the program requires to continue. Use schema validation for untrusted input.
-
-Use named imports from `es-toolkit` for the core helpers. Specialized entry points are labeled with their import path.
-
-### array
-
-| Helper | Use |
-| --- | --- |
-| `at` | Retrieves elements from an array at the specified indices. |
-| `cartesianProduct` | Computes the [Cartesian product](https://en.wikipedia.org/wiki/Cartesian_product) of the input arrays. |
-| `chunk` | Splits an array into smaller arrays of a specified length. |
-| `chunkBy` | Splits an array into chunks of consecutive elements that share the same key. |
-| `combinations` | Returns all `r`-length combinations of elements from the input array. |
-| `compact` | Removes falsey values (false, null, 0, -0, 0n, '', undefined, NaN) from an array. |
-| `countBy` | Count the occurrences of each item in an array based on a transformation function. |
-| `difference` | Computes the difference between two arrays. |
-| `differenceBy` | Computes the difference between two arrays after mapping their elements through a provided function. |
-| `differenceWith` | Computes the difference between two arrays based on a custom equality function. |
-| `drop` | Removes a specified number of elements from the beginning of an array and returns the rest. |
-| `dropRight` | Removes a specified number of elements from the end of an array and returns the rest. |
-| `dropRightWhile` | Removes elements from the end of an array until the predicate returns false. |
-| `dropWhile` | Removes elements from the beginning of an array until the predicate returns false. |
-| `fill` | Fills the whole array with a specified value. |
-| `filterAsync` | Filters an array asynchronously using an async predicate function. |
-| `flatMap` | Maps each element in the array using the iteratee function and flattens the result up to the specified depth. |
-| `flatMapAsync` | Maps each element in an array using an async callback function and flattens the result by one level. |
-| `flatMapDeep` | Recursively maps each element in an array using a provided iteratee function and then deeply flattens the resulting array. |
-| `flatten` | Flattens an array up to the specified depth. |
-| `flattenDeep` | Flattens all depths of a nested array. |
-| `forEachAsync` | Executes an async callback function for each element in an array. |
-| `forEachRight` | Iterates over elements of 'arr' from right to left and invokes 'callback' for each element. |
-| `groupBy` | Groups the elements of an array based on a provided key-generating function. |
-| `head` | Returns the first element of an array. |
-| `initial` | Returns an empty array when the input is a tuple containing exactly one element. |
-| `intersection` | Returns the intersection of two arrays. |
-| `intersectionBy` | Returns the intersection of two arrays based on a mapping function. |
-| `intersectionWith` | Returns the intersection of two arrays based on a custom equality function. |
-| `isSubset` | Checks if the `subset` array is entirely contained within the `superset` array. |
-| `isSubsetWith` | Checks if the `subset` array is entirely contained within the `superset` array based on a custom equality function. |
-| `keyBy` | Maps each element of an array based on a provided key-generating function. |
-| `last` | Returns the last element of an array. |
-| `limitAsync` | Wraps an async function to limit the number of concurrent executions. |
-| `mapAsync` | Transforms each element in an array using an async callback function and returns a promise that resolves to an array of transformed values. |
-| `maxBy` | Finds the element in an array that has the maximum value when applying the `getValue` function to each element. |
-| `minBy` | Finds the element in an array that has the minimum value when applying the `getValue` function to each element. |
-| `orderBy` | Sorts an array of objects based on the given `criteria` and their corresponding order directions. |
-| `partition` | Splits an array into two groups based on a predicate function. |
-| `pull` | Removes all specified values from an array. |
-| `pullAt` | Removes elements from an array at specified indices and returns the removed elements. |
-| `reduceAsync` | Reduces an array to a single value using an async reducer function. |
-| `remove` | Removes elements from an array based on a predicate function. |
-| `sample` | Returns a random element from an array. |
-| `sampleSize` | Returns a sample element array of a specified `size`. |
-| `shuffle` | Randomizes the order of elements in an array using the Fisher-Yates algorithm. |
-| `sortBy` | Sorts an array of objects based on the given `criteria`. |
-| `tail` | Returns an empty array when the input is a single-element array. |
-| `take` | Returns a new array containing the first `count` elements from the input array `arr`. |
-| `takeRight` | Returns a new array containing the last `count` elements from the input array `arr`. |
-| `takeRightWhile` | Takes elements from the end of the array while the predicate function returns `true`. |
-| `takeWhile` | Returns a new array containing the leading elements of the provided array that satisfy the provided predicate function. |
-| `toFilled` | Creates a new array filled with the specified value from the start position up to, but not including, the end position. |
-| `union` | Creates an array of unique values from all given arrays. |
-| `unionBy` | Creates an array of unique values, in order, from all given arrays using a provided mapping function to determine equality. |
-| `unionWith` | Creates an array of unique values from two given arrays based on a custom equality function. |
-| `uniq` | Creates a duplicate-free version of an array. |
-| `uniqBy` | Returns a new array containing only the unique elements from the original array, based on the values returned by the mapper function. |
-| `uniqWith` | Returns a new array containing only the unique elements from the original array, based on the values returned by the comparator function. |
-| `unzip` | Gathers elements in the same position in an internal array from a grouped array of elements and returns them as a new array. |
-| `unzipWith` | Unzips an array of arrays, applying an `iteratee` function to regrouped elements. |
-| `windowed` | Creates an array of sub-arrays (windows) from the input array, each of the specified size. |
-| `without` | Creates an array that excludes all specified values. |
-| `xor` | Computes the symmetric difference between two arrays. |
-| `xorBy` | Computes the symmetric difference between two arrays using a custom mapping function. |
-| `xorWith` | Computes the symmetric difference between two arrays using a custom equality function. |
-| `zip` | Combines multiple arrays into a single array of tuples. |
-| `zipObject` | Combines two arrays, one of property names and one of corresponding values, into a single object. |
-| `zipWith` | Combines multiple arrays into a single array using a custom combiner function. |
-
-### `es-toolkit/bigint`
-
-| Helper | Use |
-| --- | --- |
-| `clamp` | Clamps a bigint within the inclusive lower and upper bounds. |
-| `inRange` | Checks whether a bigint is within a range. |
-| `max` | Finds the largest bigint in an array. |
-| `maxBy` | Finds the element in an array that has the largest bigint value returned by `getValue`. |
-| `median` | Calculates the median of an array of bigints. |
-| `medianBy` | Calculates the median of an array by mapping each element to a bigint. |
-| `min` | Finds the smallest bigint in an array. |
-| `minBy` | Finds the element in an array that has the smallest bigint value returned by `getValue`. |
-| `percentile` | Calculates the value at a given percentile in an array of bigints. |
-| `range` | Returns an array of bigints from `0n` up to, but not including, `end`. |
-| `rangeRight` | Returns an array of bigints from `0n` up to, but not including, `end`, in descending order. |
-| `sum` | Calculates the sum of an array of bigints. |
-| `sumBy` | Calculates the sum of an array by mapping each element to a bigint. |
-
-### `es-toolkit/server`
-
-| Helper | Use |
-| --- | --- |
-| `ColorFunction` | Type a terminal text-coloring function. |
-| `colors` | Apply terminal colors to text. |
-| `exec` | Executes a command and captures its output. |
-| `ExecError` | Represents an error thrown when a process exits with a non-zero exit code. |
-
-### error
+### Error
 
 | Helper | Use |
 | --- | --- |
 | `AbortError` | An error class representing an aborted operation. |
 | `TimeoutError` | An error class representing a timeout operation. |
 
-### function
+### Function
 
 | Helper | Use |
 | --- | --- |
@@ -250,41 +69,131 @@ Use named imports from `es-toolkit` for the core helpers. Specialized entry poin
 | `ThrottleOptions` | Configure throttle timing and invocation. |
 | `unary` | Creates a function that accepts up to one argument, ignoring any additional arguments. |
 
-### `es-toolkit/iterator`
+### Promise
 
 | Helper | Use |
 | --- | --- |
+| `allKeyed` | Resolves an object of promises concurrently, returning an object with the same keys and resolved values. |
+| `delay` | Delays the execution of code for a specified number of milliseconds. |
+| `limitAsync` | Wraps an async function to limit the number of concurrent executions. |
+| `Mutex` | A Mutex (mutual exclusion lock) for async functions. |
+| `Semaphore` | A counting semaphore for async functions that manages available permits. |
+| `timeout` | Returns a promise that rejects with a `TimeoutError` after a specified delay. |
+| `withTimeout` | Executes an async function and enforces a timeout. |
+
+### Util
+
+| Helper | Use |
+| --- | --- |
+| `attempt` | Attempt to execute a function and return the result or error. |
+| `attemptAsync` | Attempt to execute an async function and return the result or error. |
+| `defer` | Creates a `Disposable` object that runs the given callback when it is disposed. |
+| `deferAsync` | Creates an `AsyncDisposable` object that runs the given callback when it is disposed. |
+| `Queue` | A first-in, first-out (FIFO) queue backed by a linked list. |
+| `serialize` | Serializes any value into a stable string. |
+
+### Array
+
+| Helper | Use |
+| --- | --- |
+| `at` | Retrieves elements from an array at the specified indices. |
 | `cartesianProduct` | Lazily computes the [Cartesian product](https://en.wikipedia.org/wiki/Cartesian_product) of the source iterators, yielding every possible tuple formed by picking one element from each source, in lexicographic order — the rightmost source advances fastest, like the digits of an odometer. |
 | `chunk` | Lazily groups the elements of `source` into arrays of length `size`. |
-| `count` | Consumes `source` and returns the number of elements it produces. |
+| `chunkBy` | Splits an array into chunks of consecutive elements that share the same key. |
+| `combinations` | Returns all `r`-length combinations of elements from the input array. |
+| `compact` | Removes falsey values (false, null, 0, -0, 0n, '', undefined, NaN) from an array. |
+| `countBy` | Counts the occurrences of items in a Set based on a transformation function. |
+| `difference` | Computes the difference between two arrays. |
+| `differenceBy` | Computes the difference between two arrays after mapping their elements through a provided function. |
+| `differenceWith` | Computes the difference between two arrays based on a custom equality function. |
+| `drop` | Removes a specified number of elements from the beginning of an array and returns the rest. |
+| `dropRight` | Removes a specified number of elements from the end of an array and returns the rest. |
+| `dropRightWhile` | Removes elements from the end of an array until the predicate returns false. |
 | `dropWhile` | Lazily skips elements from `source` as long as `shouldDrop` returns a truthy value, then yields every remaining element (including the one that first failed the predicate). |
+| `fill` | Fills the whole array with a specified value. |
+| `filterAsync` | Filters an array asynchronously using an async predicate function. |
+| `flatMap` | Maps each element in the array using the iteratee function and flattens the result up to the specified depth. |
+| `flatMapAsync` | Maps each element in an array using an async callback function and flattens the result by one level. |
+| `flatMapDeep` | Recursively maps each element in an array using a provided iteratee function and then deeply flattens the resulting array. |
+| `flatten` | Flattens an array up to the specified depth. |
+| `flattenDeep` | Flattens all depths of a nested array. |
+| `forEachAsync` | Executes an async callback function for each element in an array. |
+| `forEachRight` | Iterates over elements of 'arr' from right to left and invokes 'callback' for each element. |
+| `groupBy` | Groups the elements of an array based on a provided key-generating function. |
 | `head` | Returns the first element produced by `source`, or `undefined` if it is empty. |
-| `iterate` | Creates an infinite lazy iterator that starts with `seed` and repeatedly applies `getNext` to produce the following value: `seed`, `getNext(seed)`, `getNext(getNext(seed))`, and so on. |
+| `initial` | Returns an empty array when the input is a tuple containing exactly one element. |
+| `intersection` | Returns the intersection of two arrays. |
+| `intersectionBy` | Returns the intersection of two arrays based on a mapping function. |
+| `intersectionWith` | Returns the intersection of two arrays based on a custom equality function. |
+| `isSubset` | Checks if the `subset` array is entirely contained within the `superset` array. |
+| `isSubsetWith` | Checks if the `subset` array is entirely contained within the `superset` array based on a custom equality function. |
+| `keyBy` | Maps each element of a Set based on a provided key-generating function. |
+| `last` | Returns the last element of an array. |
+| `mapAsync` | Transforms each element in an array using an async callback function and returns a promise that resolves to an array of transformed values. |
+| `maxBy` | Finds the element in an array that has the largest bigint value returned by `getValue`. |
+| `minBy` | Finds the element in an array that has the smallest bigint value returned by `getValue`. |
+| `orderBy` | Sorts an array of objects based on the given `criteria` and their corresponding order directions. |
 | `partition` | Consumes `source` and splits its elements into two arrays: the first holds the elements for which `predicate` returns truthy, the second holds the rest. |
-| `range` | Lazily yields numbers from `0` (inclusive) up to `end` (exclusive), incrementing by `1`. |
-| `scan` | Lazily yields the running accumulation of `source` under `callback`, like a `reduce` that emits every intermediate result. |
+| `pull` | Removes all specified values from an array. |
+| `pullAt` | Removes elements from an array at specified indices and returns the removed elements. |
+| `reduceAsync` | Reduces an array to a single value using an async reducer function. |
+| `remove` | Removes elements from an array based on a predicate function. |
+| `sample` | Returns a random element from an array. |
+| `sampleSize` | Returns a sample element array of a specified `size`. |
+| `shuffle` | Randomizes the order of elements in an array using the Fisher-Yates algorithm. |
+| `sortBy` | Sorts an array of objects based on the given `criteria`. |
+| `tail` | Returns an empty array when the input is a single-element array. |
+| `take` | Returns a new array containing the first `count` elements from the input array `arr`. |
+| `takeRight` | Returns a new array containing the last `count` elements from the input array `arr`. |
+| `takeRightWhile` | Takes elements from the end of the array while the predicate function returns `true`. |
 | `takeWhile` | Lazily yields elements from `source` as long as `shouldContinue` returns a truthy value, stopping at (and excluding) the first element for which it returns a falsy value. |
+| `toFilled` | Creates a new array filled with the specified value from the start position up to, but not including, the end position. |
+| `union` | Creates an array of unique values from all given arrays. |
+| `unionBy` | Creates an array of unique values, in order, from all given arrays using a provided mapping function to determine equality. |
+| `unionWith` | Creates an array of unique values from two given arrays based on a custom equality function. |
+| `uniq` | Creates a duplicate-free version of an array. |
 | `uniqBy` | Lazily yields the elements of `source` whose mapped key has not been seen before, preserving the order of first occurrence. |
+| `uniqWith` | Returns a new array containing only the unique elements from the original array, based on the values returned by the comparator function. |
+| `unzip` | Gathers elements in the same position in an internal array from a grouped array of elements and returns them as a new array. |
+| `unzipWith` | Unzips an array of arrays, applying an `iteratee` function to regrouped elements. |
+| `windowed` | Creates an array of sub-arrays (windows) from the input array, each of the specified size. |
+| `without` | Creates an array that excludes all specified values. |
+| `xor` | Computes the symmetric difference between two arrays. |
+| `xorBy` | Computes the symmetric difference between two arrays using a custom mapping function. |
+| `xorWith` | Computes the symmetric difference between two arrays using a custom equality function. |
 | `zip` | Lazily combines several iterators into a single iterator of tuples, pairing the elements at matching positions. |
+| `zipObject` | Combines two arrays, one of property names and one of corresponding values, into a single object. |
+| `zipWith` | Combines multiple arrays into a single array using a custom combiner function. |
 
-### `es-toolkit/map`
+### String
 
 | Helper | Use |
 | --- | --- |
-| `countBy` | Counts the occurrences of items in a Map based on a transformation function. |
-| `every` | Tests whether all entries in a Map satisfy the provided predicate function. |
-| `filter` | Filters a Map based on a predicate function. |
-| `findKey` | Finds the first key in a Map for which the predicate function returns true. |
-| `findValue` | Finds the first value in a Map for which the predicate function returns true. |
-| `forEach` | Executes a provided function once for each entry in a Map. |
-| `hasValue` | Checks if a Map contains a specific value. |
-| `keyBy` | Maps each entry of a Map based on a provided key-generating function. |
-| `mapKeys` | Creates a new Map with the same values but with keys transformed by the provided function. |
-| `mapValues` | Creates a new Map with the same keys but with values transformed by the provided function. |
-| `reduce` | Reduces a Map to a single value by iterating through its entries and applying a callback function. |
-| `some` | Tests whether at least one entry in a Map satisfies the provided predicate function. |
+| `camelCase` | Converts a string to camel case. |
+| `capitalize` | Converts the first character of string to upper case and the remaining to lower case. |
+| `constantCase` | Converts a string to constant case. |
+| `deburr` | Converts a string by replacing special characters and diacritical marks with their ASCII equivalents. |
+| `dedent` | Removes common leading whitespace from each line of a multi-line string. |
+| `escape` | Converts the characters "&", "<", ">", '"', and "'" in `str` to their corresponding HTML entities. |
+| `escapeRegExp` | Escapes the RegExp special characters "^", "$", "\\", ".", "*", "+", "?", "(", ")", "[", "]", "{", "}", and "\|" in `str`. |
+| `kebabCase` | Converts a string to kebab case. |
+| `lowerCase` | Converts a string to lower case. |
+| `lowerFirst` | Converts the first character of string to lower case. |
+| `pad` | Pads string on the left and right sides if it's shorter than length. |
+| `pascalCase` | Converts a string to Pascal case. |
+| `reverseString` | Reverses a given string. |
+| `sentenceCase` | Converts a string to sentence case. |
+| `snakeCase` | Converts a string to snake case. |
+| `startCase` | Converts the first character of each word in a string to uppercase and the remaining characters to lowercase. |
+| `trim` | Removes leading and trailing whitespace or specified characters from a string. |
+| `trimEnd` | Removes trailing whitespace or specified characters from a string. |
+| `trimStart` | Removes leading whitespace or specified characters from a string. |
+| `unescape` | Converts the HTML entities `&amp;`, `&lt;`, `&gt;`, `&quot;`, and `&#39;` in `str` to their corresponding characters. |
+| `upperCase` | Converts a string to upper case. |
+| `upperFirst` | Converts the first character of string to upper case. |
+| `words` | Splits `string` into an array of its words, treating spaces and punctuation marks as separators. |
 
-### math
+### Math
 
 | Helper | Use |
 | --- | --- |
@@ -305,7 +214,7 @@ Use named imports from `es-toolkit` for the core helpers. Specialized entry poin
 | `sum` | Calculates the sum of an array of numbers. |
 | `sumBy` | Calculates the sum of an array of numbers when applying the `getValue` function to each element. |
 
-### object
+### Object
 
 | Helper | Use |
 | --- | --- |
@@ -334,7 +243,7 @@ Use named imports from `es-toolkit` for the core helpers. Specialized entry poin
 | `toPascalCaseKeys` | Creates a new object composed of the properties with keys converted to PascalCase. |
 | `toSnakeCaseKeys` | Creates a new object composed of the properties with keys converted to snake_case. |
 
-### predicate
+### Predicate
 
 | Helper | Use |
 | --- | --- |
@@ -374,114 +283,82 @@ Use named imports from `es-toolkit` for the core helpers. Specialized entry poin
 | `isWeakMap` | Checks if the given value is a `WeakMap`. |
 | `isWeakSet` | Checks if the given value is a `WeakSet`. |
 
-### promise
+### Typed built-ins
 
 | Helper | Use |
 | --- | --- |
-| `allKeyed` | Resolves an object of promises concurrently, returning an object with the same keys and resolved values. |
-| `delay` | Delays the execution of code for a specified number of milliseconds. |
-| `limitAsync` | Wraps an async function to limit the number of concurrent executions. |
-| `Mutex` | A Mutex (mutual exclusion lock) for async functions. |
-| `Semaphore` | A counting semaphore for async functions that manages available permits. |
-| `timeout` | Returns a promise that rejects with a `TimeoutError` after a specified delay. |
-| `withTimeout` | Executes an async function and enforces a timeout. |
+| `arrayAt` | Return the item at the given index like `Array#at()`, but with stronger typing for tuples. |
+| `arrayConcat` | A strongly-typed version of `Array#concat()` that properly handles arrays of different types. |
+| `arrayFirst` | Return the first item of an array with stronger typing for tuples. |
+| `arrayIncludes` | A strongly-typed version of `Array#includes()` that properly acts as a type guard. |
+| `arrayJoin` | A strongly-typed version of `Array#join()` that preserves literal string types. |
+| `arrayLast` | Return the last item of an array with stronger typing for tuples. |
+| `assertDefined` | Assert that the given value is defined, meaning it is not `undefined`. |
+| `assertError` | Assert that the given value is an `Error`. |
+| `assertNever` | Assert that a code path is unreachable. |
+| `assertPresent` | Assert that the given value is present (non-nullable), meaning it is neither `null` nor `undefined`. |
+| `asWritable` | Cast the given value to be [`Writable`](https://github.com/sindresorhus/type-fest/blob/main/source/writable.d.ts). |
+| `isDefined` | Check whether a value is defined, meaning it is not `undefined`. |
+| `isEmpty` | Check whether an array is empty. |
+| `isEqualType` | Check if two types are equal at compile time. |
+| `isFinite` | A strongly-typed version of `Number.isFinite()`. |
+| `isInfinite` | Check whether a value is infinite. |
+| `isInteger` | A strongly-typed version of `Number.isInteger()`. |
+| `isPresent` | Check whether a value is present (non-nullable), meaning it is neither `null` nor `undefined`. |
+| `isPropertyDefined` | Check whether a specific own property of a value is defined, meaning it is not `undefined`. |
+| `isPropertyPresent` | Check whether a specific own property of a value is present (non-nullable), meaning it is neither `null` nor `undefined`. |
+| `isSafeInteger` | A strongly-typed version of `Number.isSafeInteger()`. |
+| `keyIn` | Check if a key exists in an object and narrow the key type. |
+| `not` | Invert a type predicate function. |
+| `objectAssign` | A strongly-typed version of `Object.assign()`. |
+| `objectEntries` | A strongly-typed version of `Object.entries()`. |
+| `objectFromEntries` | A strongly-typed version of `Object.fromEntries()`. |
+| `objectHasIn` | Check if an object has a property (including inherited) and narrow the object type. |
+| `objectHasOwn` | A strongly-typed version of `Object.hasOwn()` that narrows the object type. |
+| `objectKeys` | A strongly-typed version of `Object.keys()`. |
+| `objectMapValues` | A strongly-typed version of mapping over an object's values, preserving keys. |
+| `objectUpdate` | Apply a type-checked partial update to an object in place. |
+| `objectValues` | A strongly-typed version of `Object.values()`. |
+| `safeCastTo` | Constrain a value to the given type safely. |
+| `setHas` | A strongly-typed version of `Set#has()` that properly acts as a type guard. |
+| `stringSplit` | A strongly-typed version of `String#split()` that returns a tuple for literal strings. |
 
-### `es-toolkit/query-string`
-
-| Helper | Use |
-| --- | --- |
-| `stringify` | Converts a flat object into a URL search string, such as `?a=1&b=2`. |
-
-### `es-toolkit/set`
-
-| Helper | Use |
-| --- | --- |
-| `countBy` | Counts the occurrences of items in a Set based on a transformation function. |
-| `every` | Tests whether all elements in a Set satisfy the provided predicate function. |
-| `filter` | Filters a Set based on a predicate function. |
-| `find` | Finds the first element in a Set for which the predicate function returns true. |
-| `forEach` | Executes a provided function once for each element in a Set. |
-| `keyBy` | Maps each element of a Set based on a provided key-generating function. |
-| `map` | Creates a new Set with elements transformed by the provided function. |
-| `reduce` | Reduces a Set to a single value by iterating through its elements and applying a callback function. |
-| `some` | Tests whether at least one element in a Set satisfies the provided predicate function. |
-
-### string
-
-| Helper | Use |
-| --- | --- |
-| `camelCase` | Converts a string to camel case. |
-| `capitalize` | Converts the first character of string to upper case and the remaining to lower case. |
-| `constantCase` | Converts a string to constant case. |
-| `deburr` | Converts a string by replacing special characters and diacritical marks with their ASCII equivalents. |
-| `dedent` | Removes common leading whitespace from each line of a multi-line string. |
-| `escape` | Converts the characters "&", "<", ">", '"', and "'" in `str` to their corresponding HTML entities. |
-| `escapeRegExp` | Escapes the RegExp special characters "^", "$", "\\", ".", "*", "+", "?", "(", ")", "[", "]", "{", "}", and "\|" in `str`. |
-| `kebabCase` | Converts a string to kebab case. |
-| `lowerCase` | Converts a string to lower case. |
-| `lowerFirst` | Converts the first character of string to lower case. |
-| `pad` | Pads string on the left and right sides if it's shorter than length. |
-| `pascalCase` | Converts a string to Pascal case. |
-| `reverseString` | Reverses a given string. |
-| `sentenceCase` | Converts a string to sentence case. |
-| `snakeCase` | Converts a string to snake case. |
-| `startCase` | Converts the first character of each word in a string to uppercase and the remaining characters to lowercase. |
-| `trim` | Removes leading and trailing whitespace or specified characters from a string. |
-| `trimEnd` | Removes trailing whitespace or specified characters from a string. |
-| `trimStart` | Removes leading whitespace or specified characters from a string. |
-| `unescape` | Converts the HTML entities `&amp;`, `&lt;`, `&gt;`, `&quot;`, and `&#39;` in `str` to their corresponding characters. |
-| `upperCase` | Converts a string to upper case. |
-| `upperFirst` | Converts the first character of string to upper case. |
-| `words` | Splits `string` into an array of its words, treating spaces and punctuation marks as separators. |
-
-### `es-toolkit/types`
+### Pattern matching
 
 | Helper | Use |
 | --- | --- |
-| `DeepPartial` | Makes all properties of `T` optional recursively, unlike the built-in `Partial` which only affects the first level. |
-| `DeepReadonly` | Makes all properties of `T` readonly recursively, unlike the built-in `Readonly` which only affects the first level. |
-| `DistributiveOmit` | Removes the given keys from each union member while preserving its remaining properties. |
-| `EmptyObject` | An object with no properties. |
-| `IsAny` | Resolves to `true` when `T` is `any`, `false` otherwise. |
-| `IsEqual` | Resolves to `true` when `A` and `B` are exactly the same type, `false` otherwise. |
-| `IsUnknown` | Resolves to `true` when `T` is `unknown`, `false` otherwise. |
-| `JSONValue` | Any value that `JSON.parse` can produce. |
-| `Merge` | The result of deeply merging the source type `S` into the target type `T`, matching what `merge(target, source)` returns at runtime. |
-| `NonEmptyArray` | An array guaranteed to have at least one element. |
-| `ObjectKeys` | Creates a union of the keys of `T` as they are returned by `Object.keys`: numeric keys are converted to strings and symbol keys are excluded, while string keys, including enum members, are kept as they are. |
-| `Primitive` | Every primitive value in JavaScript. |
-| `SetOptional` | Makes the given keys `K` of `T` optional, leaving the rest unchanged. |
-| `SetRequired` | Makes the given keys `K` of `T` required, leaving the rest unchanged. |
-| `Simplify` | Flattens an intersection or mapped type into a single, readable object type. |
-| `ToCamelCaseKeys` | Converts the keys of `T` to camelCase recursively. |
-| `ToConstantCaseKeys` | Converts the keys of `T` to CONSTANT_CASE recursively. |
-| `ToKebabCaseKeys` | Converts the keys of `T` to kebab-case recursively. |
-| `ToPascalCaseKeys` | Converts the keys of `T` to PascalCase recursively. |
-| `ToSnakeCaseKeys` | Converts the keys of `T` to snake_case recursively. |
-| `UnknownRecord` | An object with unknown keys and unknown values. |
-| `ValueOf` | Creates a union of all value types in `T`. |
-| `Writable` | Removes the `readonly` modifier from all properties of `T`. |
+| `isMatching` | Check a value against a pattern or create a reusable type guard. |
+| `match` | Branch on a value by matching patterns. |
+| `NonExhaustiveError` | Error thrown when an exhaustive match finds no matching branch. |
+| `P` | Build patterns and select values within a match. |
 
-### util
+Use for branching on unions/shapes instead of `switch` or nested conditionals.
 
-| Helper | Use |
-| --- | --- |
-| `assert` | Asserts that a given condition is true. |
-| `attempt` | Attempt to execute a function and return the result or error. |
-| `attemptAsync` | Attempt to execute an async function and return the result or error. |
-| `defer` | Creates a `Disposable` object that runs the given callback when it is disposed. |
-| `deferAsync` | Creates an `AsyncDisposable` object that runs the given callback when it is disposed. |
-| `invariant` | Asserts that a given condition is true. |
-| `Queue` | A first-in, first-out (FIFO) queue backed by a linked list. |
-| `serialize` | Serializes any value into a stable string. |
+```ts
+import { match, P } from "@buildkitgg/typescript-utils"
 
-### `es-toolkit/util/hash`
+const label = match(result)
+  .with({ status: "ok", data: P.select() }, (data) => `ok: ${data}`)
+  .with({ status: "error", error: P.instanceOf(Error) }, ({ error }) => error.message)
+  .with({ status: "loading" }, () => "loading…")
+  .exhaustive() // compile error if a case is missing
+```
 
-Use `hash(value)` to compute a hash string in Node or the browser.
+Key API:
 
-## `type-fest` — compile-time helpers
+- `match(value)` → `.with(pattern, handler)` → terminate with `.exhaustive()` (enforces all cases) or `.otherwise(fn)`
+  (default). Use `.returnType<T>()` to pin the return type.
+- **Patterns (`P`):** `P._` / `P.any`, `P.string`, `P.number`, `P.boolean`, `P.bigint`, `P.nullish`, `P.array(pattern)`,
+  `P.set`, `P.map`, `P.union(...)`, `P.intersection(...)`, `P.not(pattern)`, `P.optional(pattern)`,
+  `P.instanceOf(Class)`, `P.when(predicate)`, `P.select()` (extract a value), and string/number refinements like
+  `P.string.startsWith(...)`, `P.number.gte(...)`.
+- `isMatching(pattern)` — a standalone type guard built from a pattern.
 
-Use `import type` for these types. For example, `SetRequired<User, "email">` makes one field required and preserves the rest of the contract.
+String refinements include `startsWith`, `endsWith`, `includes`, `regex`, `length`, `minLength`, and `maxLength`. Numeric patterns offer `gt`, `gte`, `lt`, `lte`, `between`, `positive`, and `negative`. Number patterns also support `int` and `finite`.
+
+Additional matching APIs include `P.unknown`, `P.symbol`, `P.nonNullable`, `P.record`, and `P.shape`. Combine patterns with `.and()` or `.or()`. Use `P.Pattern<T>` to constrain a pattern, `P.infer<typeof pattern>` for the matched type, or `P.narrow<Input, typeof pattern>` to narrow an existing union. Custom matchers use `P.matcher` and the experimental `P.unstable_Fn`, `P.unstable_Matcher`, and `P.unstable_Matchable` types. A match can branch with `.when()` or evaluate with `.run()`. An unmatched exhaustive evaluation throws `NonExhaustiveError`.
+
+### Utility types
 
 | Helper | Use |
 | --- | --- |
@@ -736,9 +613,24 @@ Use `import type` for these types. For example, `SetRequired<User, "email">` mak
 | `WritableKeysOf` | Extract all writable keys from the given type. |
 | `Xor` | Returns a boolean for whether only one of two given types is `true`. |
 
-## `@total-typescript/ts-reset` — application-wide declarations
+### Assertions
 
-Import `@total-typescript/ts-reset` once in an app declaration file. Keep it out of published libraries because it changes global types for consumers.
+| Helper | Use |
+| --- | --- |
+| `invariant` | Throw if a required condition is falsy and narrow the value afterward. |
+
+```ts
+import { invariant } from "@buildkitgg/typescript-utils"
+
+invariant(user, "user must be loaded before render")
+user.name // narrowed to non-null here
+```
+
+Use an invariant for a condition the program requires to continue. Use schema validation for untrusted input.
+
+## Application-wide declarations
+
+Add `@buildkitgg/typescript-utils/reset` to the app’s `compilerOptions.types` alongside its existing entries. Importing the root package also applies the reset globally. Keep the bundle out of published libraries so their consumers retain control of their global types.
 
 ## `zod` — schema validation
 

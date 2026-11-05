@@ -203,7 +203,7 @@ importers:
     devDependencies:
       '@betterapps/playbook':
         specifier: github:betterapps-hq/playbook
-        version: https://codeload.github.com/betterapps-hq/playbook/tar.gz/8686055ab817b160c062023717c9a8137dca051a(@types/node@24.19.2)(supports-color@7.2.0)
+        version: https://codeload.github.com/betterapps-hq/playbook/tar.gz/2656bf7f95a07ebb50a864eaca7850ceeb761e3c(@types/node@24.19.2)(supports-color@7.2.0)
       '@types/node':
         specifier: ^24.12.0
         version: 24.19.2
@@ -817,8 +817,8 @@ packages:
       '@types/react':
         optional: true
 
-  '@betterapps/playbook@https://codeload.github.com/betterapps-hq/playbook/tar.gz/8686055ab817b160c062023717c9a8137dca051a':
-    resolution: {gitHosted: true, integrity: sha512-vVZ3DGbkf8dOgPifONMgMS3WmkCyhI3PU3Crd+mexlSzQ6ZgCB+FP8hfKUS0N3Rv9WjKHt6i6jV+iLG89HlGvw==, tarball: https://codeload.github.com/betterapps-hq/playbook/tar.gz/8686055ab817b160c062023717c9a8137dca051a}
+  '@betterapps/playbook@https://codeload.github.com/betterapps-hq/playbook/tar.gz/2656bf7f95a07ebb50a864eaca7850ceeb761e3c':
+    resolution: {gitHosted: true, integrity: sha512-dkeQveKzQPXHFYNgnHNAF2LLeo4kYQ7ROGPP+24RwBY4TBNF+iwp0qmGrXtkU2vm/uxhO+sOMBrHrwqeC75+rg==, tarball: https://codeload.github.com/betterapps-hq/playbook/tar.gz/2656bf7f95a07ebb50a864eaca7850ceeb761e3c}
     version: 0.0.0
     engines: {node: ^24.20.0 || >=26.0.0}
     hasBin: true
@@ -7480,7 +7480,7 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.3.0
 
-  '@betterapps/playbook@https://codeload.github.com/betterapps-hq/playbook/tar.gz/8686055ab817b160c062023717c9a8137dca051a(@types/node@24.19.2)(supports-color@7.2.0)':
+  '@betterapps/playbook@https://codeload.github.com/betterapps-hq/playbook/tar.gz/2656bf7f95a07ebb50a864eaca7850ceeb761e3c(@types/node@24.19.2)(supports-color@7.2.0)':
     dependencies:
       rulesync: 43.5.0(@types/node@24.19.2)(supports-color@7.2.0)
     transitivePeerDependencies:
