@@ -197,8 +197,8 @@ the example's dashboard.
   click would select, so a plain drag on a stat card moves Main, and Ctrl-dragging the card by its edge moves the card.
 - **A box drawn from a frame's background** selects the frame's top-level layers it touches, updating as it's drawn, as
   Figma's and tldraw's boxes select what they touch. It's tldraw's own box. With Shift they're added to the layers of
-  the design already selected. A box that touches nothing selects nothing, and Escape puts back what was selected before
-  it. A layer that isn't drawn is never touched.
+  the design already selected. A box that touches nothing selects nothing. Escape, or the window losing focus while the
+  box is drawn, puts back what was selected before it. A layer that isn't drawn is never touched.
 - **Hovering** outlines what a click would select, Ctrl included, in the frame under the pointer, in any design, not
   only in the one selected. Over a frame's background, and around the frames, no layer is outlined and tldraw outlines
   the board; over a layer, the board isn't outlined as hovered. Alt still outlines the deepest layer and measures to it
@@ -229,13 +229,14 @@ Tests:
   design, the background, Alt; what a box touches, what it selects, Shift, touching nothing; a click on the background
   and Shift there; and Enter, with the real store, on a design, a mode column, a layout, an instance and a layout inside
   one, several layers, text and a component with text, and a layer with nothing inside.
-- `canvas/CanvasOverlay.test.ts` (12), in Chrome: the overlay over two frames of a dashboard drawn by `ModeView` and the
+- `canvas/CanvasOverlay.test.ts` (13), in Chrome: the overlay over two frames of a dashboard drawn by `ModeView` and the
   React guest, with the real mouse, and an element standing in for tldraw's canvas. A click selects the top-level layer
   and keeps the press from tldraw, a frame's background selects the board, a checkbox's hidden input doesn't stretch it
   over the background, the board's own background reaches tldraw, double-clicks go a level deeper each, Ctrl and Shift,
-  dragging an unselected layer moves it, a box selects what it touches in its frame and Escape puts the selection back,
-  and hovering outlines what a click would in the frame under the pointer, and nothing over the background. All but
-  Ctrl's and the board's own background fail against the overlay as it was.
+  dragging an unselected layer moves it, a box selects what it touches in its frame, Escape puts the selection back, and
+  so does the window losing focus, after which the pointer moving on and letting go selects nothing more (PAR-583), and
+  hovering outlines what a click would in the frame under the pointer, and nothing over the background. All but Ctrl's
+  and the board's own background fail against the overlay as it was.
 - `apps/desktop/e2e/selecting.e2e.ts` (9), end to end with tldraw (PAR-202): a click on a stat card selects Main and
   leaves the board where it was; three double-clicks reach the card, and a Ctrl-click above its header the card itself;
   a click on a frame's background selects the board; the board moves by its own background and by its title; a box from
@@ -862,7 +863,10 @@ the text cursor. Escape cancels each of these drags.
   Taking back reverts the design to the checkpoint from when the drag began, leaving nothing to undo. A drag that's
   called off has written nothing, since it writes only when it's kept, and puts back what it showed: the drop preview,
   the designs on the canvas, the selection. Before PAR-568, a title drag and a box ended through listeners of their own
-  and didn't hear the window losing focus.
+  and didn't hear the window losing focus (PAR-583). A title drag cut short that way never ended: the design stayed
+  where it was dragged, unsaved, and the grabbing cursor covered the whole window even after the next click, since the
+  title had lost the pointer and its listeners heard nothing more. A box went on selecting as the pointer moved with no
+  button pressed, until the next click kept what it touched last.
 
 - **Why it needed a layer of its own.** The cursor used to be set on the page's body, which showed only where nothing
   else set one: over the canvas tldraw sets its own cursor on everything it draws, and a title sets `default`. Now a
@@ -893,6 +897,10 @@ Tests:
   step. Also `onGestureEnd` (4): a gesture ending once, at the release, a cancelled pointer, the window losing focus or
   Escape, with nothing left listening after; Escape kept from going further, other keys let by; giving up without
   ending; and one gesture's end left to it when another follows.
+- `canvas/CanvasOverlay.test.ts`, in Chrome, with the real mouse and the box's own code (`pressBackground`): a box from
+  a frame's background puts the selection back when the window loses focus mid-box, and the pointer moving on over the
+  cards and letting go selects nothing more (PAR-583). Against the box's listeners from before PAR-568 it fails, and the
+  listeners left behind spoil the hover test after it.
 - End to end (PAR-202), `apps/desktop/e2e/moving.e2e.ts` (5), reading the cursor of the element the browser finds under
   the pointer: grabbing while a stat card is dragged; grabbing while Dashboard is dragged by its title, on the title and
   200px off it; the arrows 80px below New project's right handle mid-resize, and not after; the text cursor over the
@@ -901,10 +909,20 @@ Tests:
 
 Gaps: what the system draws can't be read through the DevTools protocol, so the tests read the cursor the page asks for
 at the pointer. Whether Chrome takes a captured title's cursor or the layer's doesn't matter, since both are grabbing.
-The window losing focus is tested on the lifecycle, not end to end; PAR-583 checks it in the app. Checked on 2026-11-05
-in Storybook's app window, with the pointer, Escape and the window's blur sent by script: each of the five drags ended
-by Escape, by blur and by a release, as the table says, and a title drag with the real pointer. Dragging a board by its
-background is tldraw's, with tldraw's own cursor, and Escape there is tldraw's too.
+The window losing focus is tested on the lifecycle, and for a box in Chrome with the window's `blur` sent by script, but
+not end to end: Playwright tells the page it drives that it has the focus whatever the window does, so a real focus loss
+never reaches it. A title drag's own part, saving the designs where they are, is checked only in the app. Checked in the
+app on 2026-11-05 (PAR-583), on a copy of the example project, with the pointer sent over the DevTools protocol,
+Playwright's focus emulation turned off, and the window minimized through Win32 mid-drag, which blurred the page. Before
+PAR-568, Sign in dragged by its title and a box from its background both went on, as above. On main, the title drag
+saved Sign in where it was as one undo step (Move screen) and let the cursor go, the box put the selection back, and
+neither followed the pointer when it came back with no button pressed. The focus loss also took the title's pointer
+capture (`lostpointercapture`) and sent no `pointercancel`, for a press sent over the protocol; a press of the system's
+own mouse wasn't tried. That's why the old title drag, listening on the title, heard nothing more; `followPress` listens
+on the window. Also checked on 2026-11-05 in Storybook's app window, with the pointer, Escape and the window's blur sent
+by script: each of the five drags ended by Escape, by blur and by a release, as the table says, and a title drag with
+the real pointer. Dragging a board by its background is tldraw's, with tldraw's own cursor, and Escape there is tldraw's
+too.
 
 ### Snapping a dragged design (PAR-33)
 
