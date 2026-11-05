@@ -2635,7 +2635,10 @@ back in, a sleeping frame keeps showing its bitmap until it wakes, then draws it
   of the view's size, as boards out of view are), one frame each animation frame, in the order they asked. A frame out
   of view stays asleep, still showing its bitmap, until it comes near. Selecting a board wakes its frames at any zoom.
 - **A frame whose design changes while it sleeps** (an agent's edit, a token, a reloaded project) wakes wherever it is,
-  so its board lays out the new size, and sleeps again once its new bitmap is taken.
+  so its board lays out the new size, and sleeps again once its new bitmap is taken. A change to the project's code does
+  this to every frame, each waking once and sleeping once. A frame falls asleep just after React has run its effects,
+  not while it runs them, so a project's frames waking one after another don't make React report an update loop
+  (PAR-606).
 - **A frame that hasn't drawn waits on a placeholder (PAR-525).** Zoomed far out, a frame not drawn yet doesn't draw its
   design while its bitmap is to come, whether kept from an earlier session or still to be captured: it shows a plain
   block in the muted color, at its mode's width and its own height, or for a frame that grows with its content, its
@@ -2661,16 +2664,18 @@ by at least the elements the awake frames held, and no board changes size; back 
 with their layers while boards out of view stay asleep, still at the same sizes; and the selected board's frames wake at
 a far zoom, picked in Layers since its title is hidden there, and sleep again once nothing is selected).
 `apps/desktop/src/renderer/ModeView.test.ts` (1: a frame put to sleep keeps its host and height with nothing inside, and
-draws its design again when it wakes). `apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (2: a failed capture
-isn't kept, so the next try takes it and that one is kept; a frame that didn't render is kept and not drawn again).
-Before it, a capture that failed under load (Electron's `UnknownVizError`) was kept as no bitmap, so that frame never
-slept and `sleeping.e2e.ts`, which waits for every frame's bitmap, timed out in the full suite. The retry delays, and
-that a frame which leaves the canvas or changes stops retrying, have no test of their own; they were checked by reading
-`useFrameBitmap`, and the full suite passed four times under extra load with the fix. `App.settle` in `e2e/app.ts` waits
-for a design's board to wake, and `App.show` brings a design into view before finding a layer in it, so the other files'
-tests work on frames that slept. Gaps: the order frames wake in, and waking on a changed design, have no test of their
-own; the first was checked by reading `wakeNext`, the second by reading `useAwake`. The memory it gives back and the
-time waking takes were measured by hand in a debug copy (see [decisions.md](decisions.md), Canvas), not by the suite.
+draws its design again when it wakes). `apps/desktop/src/renderer/canvas/frame-sleep.test.ts` (2, in Chrome: a dormant
+frame whose `shows` changes wakes once and sleeps once; and 64 frames, each slow to draw, all do so through one change
+without React's "Maximum update depth exceeded", which React reported there before the fix).
+`apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (2: a failed capture isn't kept, so the next try takes it and
+that one is kept; a frame that didn't render is kept and not drawn again). Before it, a capture that failed under load
+(Electron's `UnknownVizError`) was kept as no bitmap, so that frame never slept and `sleeping.e2e.ts`, which waits for
+every frame's bitmap, timed out in the full suite. The retry delays, and that a frame which leaves the canvas or changes
+stops retrying, have no test of their own; they were checked by reading `useFrameBitmap`, and the full suite passed four
+times under extra load with the fix. `App.settle` in `e2e/app.ts` waits for a design's board to wake, and `App.show`
+brings a design into view before finding a layer in it, so the other files' tests work on frames that slept. Gaps: the
+order frames wake in has no test of its own; it was checked by reading `wakeNext`. The memory it gives back and the time
+waking takes were measured by hand in a debug copy (see [decisions.md](decisions.md), Canvas), not by the suite.
 
 ### A hidden tab's frames sleep (PAR-153)
 
