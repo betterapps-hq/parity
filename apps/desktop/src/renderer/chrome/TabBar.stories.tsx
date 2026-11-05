@@ -11,7 +11,7 @@ import {
   tooltip
 } from "../stories/fixtures.tsx"
 import { answering, roots } from "../stories/host.ts"
-import { workspace } from "../workspace.ts"
+import { homeTab, workspace } from "../workspace.ts"
 import { addNote, Chrome, renameDesign } from "./chrome-fixtures.tsx"
 import { TabBar } from "./TabBar.tsx"
 
@@ -140,15 +140,35 @@ export const ManyProjects: Story = {
   ]
 }
 
-/** Every project closed: just the menus and the button that opens one. */
+/** Every project closed: the menus, Home and the button that opens a new tab. */
 export const NoProjects: Story = { loaders: [() => openProjects()] }
 
-/** The open project button's tooltip, with its shortcut, as when pointing at it. */
-export const OpenProjectTooltip: Story = {
+/** The new tab button's tooltip, with its shortcut, as when pointing at it. */
+export const NewTabTooltip: Story = {
   loaders: [() => openProjects("example")],
   play: async () => {
     const body = within(document.body)
-    await userEvent.hover(body.getByRole("button", { name: "Open project" }))
-    await waitFor(() => expect(tooltip()).toHaveTextContent("Open project"))
+    await userEvent.hover(body.getByRole("button", { name: "New tab" }))
+    await waitFor(() => expect(tooltip()).toHaveTextContent("New tab"))
   }
+}
+
+/** A project and a new tab, which shows the start page until a project opens in it. */
+export const WithNewTab: Story = {
+  loaders: [
+    async () => {
+      await openProjects("example")
+      workspace.newTab()
+    }
+  ]
+}
+
+/** On Home, pinned first, with a project open behind it. */
+export const OnHome: Story = {
+  loaders: [
+    async () => {
+      await openProjects("example")
+      workspace.activate(homeTab)
+    }
+  ]
 }

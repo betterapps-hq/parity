@@ -132,8 +132,9 @@ parity status --summary
   Lorem ipsum hides layout problems.
 - **Reuse what repeats.** When a row, card or list item appears more than twice, make it a component design with
   `ExtractComponent`, so each copy is an instance with its own content.
-- **Leave the canvas tidy.** New designs go into empty space (`FindEmptySpace`); `Overlaps()` tells you if boards
-  collide, sizing boards the canvas hasn't drawn yet from their frames (`estimated: true`).
+- **Leave the canvas tidy.** New designs go into empty space (`FindEmptySpace`). A call warns only about the boards it
+  moves; `Overlaps()` checks every board, telling collisions from a title too close (`titleOnly`) and boards sized from
+  their frames because the canvas hasn't drawn them (`estimated: true`).
 
 ## When something fails
 

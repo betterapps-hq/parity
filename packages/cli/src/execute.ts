@@ -150,7 +150,10 @@ const warningGroupsSchema = {
         type: "string",
         description:
           "Stable: render_failed, unknown_component, unknown_component_design, unknown_prop, invalid_option, " +
-          "not_a_token, not_a_length_token, overlap, kind_changed or unnamed_layout."
+          "not_a_token, not_a_length_token, overlap, title_clearance, canvas_overlaps, kind_changed or " +
+          "unnamed_layout. overlap and title_clearance cover boards this call created, changed or moved: " +
+          "overlap when two boards collide, title_clearance when they're clear but one's title covers the other. " +
+          "canvas_overlaps counts the rest of the canvas's; call Overlaps() to check every board."
       },
       severity: {
         type: "string",

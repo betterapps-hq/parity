@@ -7,9 +7,11 @@ import {
   ContextMenuShortcut
 } from "@buildkitgg/shadcn-baseui-kit"
 import {
+  boardTarget,
   childNodes,
   deleteNode,
   type DesignNode,
+  editTargetName,
   insertNode,
   locateNode,
   nodeIds,
@@ -429,6 +431,8 @@ function LayerRow({
   const viewports = row.node ? Object.keys(row.node.responsive ?? {}) : []
   // Whether the board hides it in the state it shows, as Hide and Show read it.
   const hidden = row.node ? (nodeOnBoard(container, row.node, state).hidden ?? false) : false
+  // Where Hide and Show land: the variant option the board shows, in the base state, else the state.
+  const hidesIn = editTargetName(container, boardTarget(container, state.id))
   let background = "hover:bg-accent/40"
   if (selected) background = "bg-accent text-accent-foreground"
   else if (hovered) background = "bg-accent/40"
@@ -549,7 +553,7 @@ function LayerRow({
         {row.node && (
           <>
             <ContextMenuItem onClick={() => toggleHiddenRow(session, row)}>
-              {hidden ? "Show" : "Hide"} in {state.name}
+              {hidden ? "Show" : "Hide"} in {hidesIn}
             </ContextMenuItem>
             {row.depth > 1 && <ContextMenuItem onClick={() => duplicate(session, row)}>Duplicate</ContextMenuItem>}
           </>
