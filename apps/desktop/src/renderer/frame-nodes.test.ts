@@ -51,6 +51,11 @@ export function Nothing() {
   return null
 }
 
+// Draws only text, with no element around it.
+export function Label() {
+  return "Email address"
+}
+
 // Adds a root of its own when pressed, without the canvas rendering it again.
 export function Grows() {
   const [more, setMore] = useState(false)
@@ -173,7 +178,8 @@ const design: Node[] = [
       ),
       component("group", "Group", {}, { children: [text("a", "A"), text("b", "B")] }),
       component("nothing", "Nothing"),
-      component("grows", "Grows")
+      component("grows", "Grows"),
+      component("label", "Label")
     ]
   }
 ]
@@ -307,8 +313,33 @@ describe("finding a design node's DOM", () => {
       "a",
       "b",
       "nothing",
-      "grows"
+      "grows",
+      "label"
     ])
+  })
+
+  it("gives a component that draws only text its text's box", async () => {
+    const found = await page.evaluate(() => {
+      const host = document.querySelector("#host")!
+      const page = host.shadowRoot!.querySelector("[data-canvas-node=page]")!
+      const text = [...page.childNodes].find((node) => node.nodeType === 3 && node.textContent === "Email address")!
+      const range = document.createRange()
+      range.selectNodeContents(text)
+      const rect = range.getBoundingClientRect()
+      // @ts-expect-error The bundle's global.
+      const { nodeBox, nodesAt, findNodeElements } = frame
+      const box = nodeBox(host, "label") as DOMRect
+      return {
+        box: [box.left, box.top, box.width, box.height],
+        text: [rect.left, rect.top, rect.width, rect.height],
+        elements: (findNodeElements(host, "label") as Element[]).length,
+        under: nodesAt(host, { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }) as string[]
+      }
+    })
+    expect(found.box).toEqual(found.text)
+    expect(found.text[2]).toBeGreaterThan(0)
+    expect(found.elements).toBe(0)
+    expect(found.under).toEqual(["page", "label"])
   })
 
   it("follows DOM a component adds by itself", async () => {
