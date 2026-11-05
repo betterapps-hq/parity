@@ -347,7 +347,10 @@ still need your call.
 - **The canvas doesn't restyle its elements while the camera moves.** tldraw's `--tl-zoom` changes only once zooming
   stops, titles and labels size themselves from the zoom directly, selection colours go through tldraw's theme rather
   than custom properties, and the layer the camera moves is composited, so panning and zooming move what's already drawn
-  until the camera stops. Boards well out of view skip drawing their frames but keep their layout.
+  until the camera stops. Chrome never draws a composited layer again at a new scale, so once the zoom settles the layer
+  goes without the hint for two frames and is drawn sharp at that zoom (`redrawLayer`, PAR-556); keeping the hint off
+  whenever the camera is still would also do, but would repaint the whole layer when panning starts. Boards well out of
+  view skip drawing their frames but keep their layout.
 - **The app is named Parity, with Parity's icon, to every system.** The main process names itself Parity and keeps its
   settings where the package's name put them (`%APPDATA%\@parity\desktop` on Windows). Each system names and draws an
   app from its program rather than its windows, so `pnpm dev` runs a copy of Electron carrying Parity's name and icon
