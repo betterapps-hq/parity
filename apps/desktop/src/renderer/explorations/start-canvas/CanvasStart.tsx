@@ -1,8 +1,9 @@
+import { Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import { ImageUp, SquareDashedMousePointer, SquarePlus } from "lucide-react"
 import { type ReactNode, useId } from "react"
-import { Kbd } from "@/components/ui/kbd"
 import { useProject } from "../../canvas/context.ts"
 import { DesignIcon, kindColors } from "../../canvas/kinds.tsx"
+import { formatKeys } from "../../chrome/keys.ts"
 import { openQuickInsert } from "../../chrome/QuickInsert.tsx"
 import { useContainerEntries, useNotes } from "../../design-store.ts"
 import { keysOf, makeNew, type StartCommand } from "./commands.ts"
@@ -96,13 +97,13 @@ export function CanvasStart({ frames = false, onDrawFrame }: { frames?: boolean;
             >
               <SquarePlus className="size-4 shrink-0" />
               <span className="flex-1 text-left">Insert a layout, text or a component</span>
-              <Kbd className="ml-6">/</Kbd>
+              <Kbd className="ml-6">{formatKeys("/")}</Kbd>
             </button>
           </li>
           <li className="flex h-8 items-center gap-2.5 px-2.5">
             <ImageUp className="size-4 shrink-0" />
             <span className="flex-1">Drop or paste an image here</span>
-            <Kbd className="ml-6">Ctrl V</Kbd>
+            <Kbd className="ml-6">{formatKeys("Ctrl V")}</Kbd>
           </li>
         </ul>
       </section>
@@ -128,7 +129,7 @@ function StartTile({ tile }: { tile: Tile }) {
         <span className="text-sm font-medium text-foreground">{tile.label}</span>
         <span className="text-xs leading-snug text-muted-foreground">{tile.description}</span>
       </span>
-      <Kbd className="mt-auto">{keysOf(tile.command)}</Kbd>
+      <Kbd className="mt-auto">{formatKeys(keysOf(tile.command))}</Kbd>
     </button>
   )
 }

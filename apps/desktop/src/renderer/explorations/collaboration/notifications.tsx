@@ -1,4 +1,19 @@
 import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  RadioGroup,
+  RadioGroupItem,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Switch
+} from "@buildkitgg/shadcn-baseui-kit"
+import {
   ArrowLeft,
   AtSign,
   BellOff,
@@ -13,11 +28,6 @@ import {
   X
 } from "lucide-react"
 import { type ReactNode, useState } from "react"
-import { Button } from "@/components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
 import { me, people, type Person } from "../explore-data.ts"
 import { Avatar, ParityMark } from "../parts.tsx"
 import type { TrackerId } from "./collab-data.ts"
@@ -295,14 +305,16 @@ export function Inbox({ initial = notices, className = "" }: { initial?: Notice[
           </div>
           <div className="flex items-center gap-2 border-t px-2 py-1.5">
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="xs" variant="ghost" className="text-muted-foreground">
-                  <BellOff /> {paused ? "Paused" : "Pause"} <ChevronDown />
-                </Button>
-              </DropdownMenuTrigger>
+              <DropdownMenuTrigger
+                render={
+                  <Button size="xs" variant="ghost" className="text-muted-foreground">
+                    <BellOff /> {paused ? "Paused" : "Pause"} <ChevronDown />
+                  </Button>
+                }
+              />
               <DropdownMenuContent align="start" className="w-44">
                 {["for an hour", "until tomorrow", "until Monday"].map((until) => (
-                  <DropdownMenuItem key={until} onSelect={() => setPaused(until)}>
+                  <DropdownMenuItem key={until} onClick={() => setPaused(until)}>
                     {until.charAt(0).toUpperCase() + until.slice(1)}
                   </DropdownMenuItem>
                 ))}
@@ -515,7 +527,11 @@ export function NotificationSettings({ className = "" }: { className?: string })
                 <span className="text-[13px]">Email</span>
                 <span className="text-xs text-muted-foreground">To andrew@buildkit.dev</span>
               </span>
-              <Select value={shown.email} onValueChange={(email) => set({ email })}>
+              <Select
+                items={{ now: "Right away", daily: "Daily summary", weekly: "Weekly summary", off: "Never" }}
+                value={shown.email}
+                onValueChange={(email) => email && set({ email })}
+              >
                 <SelectTrigger size="sm" className="w-40">
                   <SelectValue />
                 </SelectTrigger>

@@ -1,10 +1,10 @@
 import { type ComponentLibrary, type ContainerKind, type DesignNode, nodeLabel } from "@parity-app/core"
 import {
+  AppWindow,
   Box,
   Columns3,
   Component,
   Diamond,
-  Frame,
   Image as ImageIcon,
   type LucideProps,
   Rows3,
@@ -45,7 +45,7 @@ export function layerLabel(node: DesignNode, entries: readonly ContainerEntry[],
 }
 
 export function DesignIcon({ kind, ...props }: LucideProps & { kind: ContainerKind | undefined }) {
-  return kind === "component" ? <Component {...props} /> : <Frame {...props} />
+  return kind === "component" ? <Component {...props} /> : <AppWindow {...props} />
 }
 
 export function NodeIcon({ node, ...props }: LucideProps & { node: DesignNode }) {

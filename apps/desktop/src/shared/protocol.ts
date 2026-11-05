@@ -22,7 +22,7 @@ import type {
   UpdateState
 } from "@parity-app/core"
 import type { EditStatus } from "@parity-app/editor"
-import type { Token, TokenChange } from "@parity-app/tokens"
+import type { Token, TokenChange, TokenWrite } from "@parity-app/tokens"
 
 /**
  * An edit the service made to a project's files: what it was for, each file's change as a unified diff (or a binary
@@ -127,8 +127,8 @@ export interface ServiceMethods {
     params: { projectId: string; design: string }
     result: { findings: AccessibilityFinding[]; frames: number; warnings: string[] }
   }
-  /** Writes token values back to the project's stylesheets. */
-  "tokens.save": { params: { projectId: string; changes: TokenChange[] }; result: ProjectEditResult }
+  /** Writes token values back to the project's stylesheets, taking out those without a value. */
+  "tokens.save": { params: { projectId: string; changes: TokenWrite[] }; result: ProjectEditResult }
   /**
    * What Parity runs for the open projects: each one's build server and the Storybook it started, the tasks running,
    * and each task's last result.

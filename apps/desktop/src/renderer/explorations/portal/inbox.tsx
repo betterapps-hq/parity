@@ -1,7 +1,7 @@
+import { Button } from "@buildkitgg/shadcn-baseui-kit"
 /** The inbox: everything that needs you across Kestrel, and the open one beside its design, with its thread. */
 import { Check, ChevronRight, ExternalLink, Monitor } from "lucide-react"
 import type { ReactNode } from "react"
-import { Button } from "@/components/ui/button"
 import type { ThreadData } from "../collaboration/collab-data.ts"
 import { Thread } from "../collaboration/comments.tsx"
 import { CommentPin } from "../collaboration/pins.tsx"

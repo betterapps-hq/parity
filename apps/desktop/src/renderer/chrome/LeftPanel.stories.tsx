@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
-import { design, example, node, openProjects, ProjectStage } from "../stories/fixtures.tsx"
+import { design, example, node, openProjects, ProjectStage, tooltip } from "../stories/fixtures.tsx"
 import { panelLimits, setLayout } from "./layout.ts"
 import { LeftPanel } from "./LeftPanel.tsx"
 
@@ -93,7 +93,7 @@ export const TabTooltip: Story = {
   loaders: [() => openProjects("example")],
   play: async ({ canvasElement }) => {
     await userEvent.hover(within(canvasElement).getByRole("tab", { name: "Tokens" }))
-    await waitFor(() => expect(within(document.body).getByRole("tooltip")).toHaveTextContent("Tokens"))
+    await waitFor(() => expect(tooltip()).toHaveTextContent("Tokens"))
   }
 }
 

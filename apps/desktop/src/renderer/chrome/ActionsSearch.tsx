@@ -1,4 +1,3 @@
-import { useState } from "react"
 import {
   Command,
   CommandDialog,
@@ -8,11 +7,13 @@ import {
   CommandItem,
   CommandList,
   CommandShortcut
-} from "@/components/ui/command"
+} from "@buildkitgg/shadcn-baseui-kit"
+import { useState } from "react"
 import { type Action, actions } from "./actions.ts"
 import { closeDialog, openDialog, useOpenDialog } from "./app-dialogs.ts"
 import { clearBitmapCache, exportImages } from "./commands.ts"
 import { type Command as KeyCommand, type Group, groups, keymap } from "./keymap.ts"
+import { formatKeys } from "./keys.ts"
 import { getPreferences, setPreferences } from "./preferences.ts"
 
 interface Item extends Action {
@@ -24,11 +25,11 @@ interface Item extends Action {
 
 /** What the menus offer that has no shortcut, so the search finds those too. */
 const extras: Item[] = [
-  { id: "exportAll", group: "File", label: "Export all designs", run: () => exportImages("all") },
+  { id: "exportAll", group: "File", label: "Export all", run: () => exportImages("all") },
   {
     id: "snapping",
     group: "View",
-    label: "Snap to designs",
+    label: "Snap to screens and components",
     run: () => setPreferences({ snapping: !getPreferences().snapping })
   },
   {
@@ -84,7 +85,7 @@ export function ActionsSearch() {
                     onSelect={() => run(item)}
                   >
                     {item.label}
-                    {item.keys && <CommandShortcut>{item.keys}</CommandShortcut>}
+                    {item.keys && <CommandShortcut>{formatKeys(item.keys)}</CommandShortcut>}
                   </CommandItem>
                 ))}
             </CommandGroup>

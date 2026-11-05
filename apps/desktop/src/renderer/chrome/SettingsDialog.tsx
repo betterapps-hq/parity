@@ -1,10 +1,21 @@
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Switch,
+  ToggleGroup,
+  ToggleGroupItem
+} from "@buildkitgg/shadcn-baseui-kit"
 import { type CodeEditorChoice, codeEditors } from "@parity-app/core"
 import { Monitor, Moon, Sun } from "lucide-react"
 import { type ReactNode, useState } from "react"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { workspace } from "../workspace.ts"
 import { closeDialog, useOpenDialog } from "./app-dialogs.ts"
 import { type Preferences, setPreferences, type ThemePreference, usePreferences } from "./preferences.ts"
@@ -14,6 +25,13 @@ const themes: { value: ThemePreference; label: string; icon: typeof Sun }[] = [
   { value: "light", label: "Light", icon: Sun },
   { value: "dark", label: "Dark", icon: Moon },
   { value: "system", label: "System", icon: Monitor }
+]
+
+/** Where View code opens a file: the first editor installed, a named one, or the system's choice. */
+const editorChoices: { value: CodeEditorChoice; label: string }[] = [
+  { value: "auto", label: "Automatic" },
+  ...codeEditors.map((editor) => ({ value: editor.id, label: editor.name })),
+  { value: "system", label: "System default" }
 ]
 
 /** Every preference in one place, from Edit > Settings or Ctrl+,. The View menu keeps the ones flipped while working. */
@@ -30,21 +48,20 @@ export function SettingsDialog() {
           <DialogDescription>For every project, and remembered between runs.</DialogDescription>
         </DialogHeader>
         <Section title="Appearance">
-          <Row label="Theme" detail="Parity's own look. Designs show whichever theme their mode picks.">
+          <Row label="Theme" detail="Parity's own look. Previews show whichever theme their mode picks.">
             <ToggleGroup
-              type="single"
               variant="outline"
               size="sm"
               spacing={0}
-              value={preferences.theme}
-              onValueChange={(theme) => theme && setPreferences({ theme: theme as ThemePreference })}
+              value={[preferences.theme]}
+              onValueChange={([theme]) => theme && setPreferences({ theme: theme as ThemePreference })}
               aria-label="Theme"
             >
               {themes.map(({ value, label, icon: Icon }) => (
                 <ToggleGroupItem
                   key={value}
                   value={value}
-                  className="gap-1.5 px-2.5 text-muted-foreground aria-checked:text-foreground"
+                  className="gap-1.5 px-2.5 text-muted-foreground aria-pressed:text-foreground"
                 >
                   <Icon /> {label}
                 </ToggleGroupItem>
@@ -70,16 +87,16 @@ export function SettingsDialog() {
         </Section>
         <Section title="Canvas">
           <Row
-            label="Snap to designs"
-            detail="Designs lock to the edges and centers of the designs around them while dragged."
+            label="Snap to screens and components"
+            detail="Screens and components line up with the edges and centers of those around them while dragged."
           >
             <Switch
               checked={preferences.snapping}
               onCheckedChange={(snapping) => setPreferences({ snapping })}
-              aria-label="Snap to designs"
+              aria-label="Snap to screens and components"
             />
           </Row>
-          <Row label="Layout grid" detail="Column grids over every frame, sized for its viewport.">
+          <Row label="Layout grid" detail="Column grids over every preview, sized for its viewport.">
             <Switch
               checked={preferences.layoutGrid}
               onCheckedChange={(layoutGrid) => setPreferences({ layoutGrid })}
@@ -100,20 +117,21 @@ export function SettingsDialog() {
             detail="Where View code opens a component's file. Automatic uses the first one installed."
           >
             <Select
+              items={editorChoices}
               value={preferences.codeEditor}
-              onValueChange={(codeEditor) => setPreferences({ codeEditor: codeEditor as CodeEditorChoice })}
+              onValueChange={(codeEditor) =>
+                codeEditor && setPreferences({ codeEditor: codeEditor as CodeEditorChoice })
+              }
             >
               <SelectTrigger size="sm" className="w-36" aria-label="Editor">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="auto">Automatic</SelectItem>
-                {codeEditors.map((editor) => (
-                  <SelectItem key={editor.id} value={editor.id}>
-                    {editor.name}
+                {editorChoices.map((choice) => (
+                  <SelectItem key={choice.value} value={choice.value}>
+                    {choice.label}
                   </SelectItem>
                 ))}
-                <SelectItem value="system">System default</SelectItem>
               </SelectContent>
             </Select>
           </Row>
@@ -121,12 +139,11 @@ export function SettingsDialog() {
         <Section title="Export">
           <Row label="Image scale" detail="How many pixels each CSS pixel becomes in exported PNGs.">
             <ToggleGroup
-              type="single"
               variant="outline"
               size="sm"
               spacing={0}
-              value={String(preferences.exportScale)}
-              onValueChange={(scale) =>
+              value={[String(preferences.exportScale)]}
+              onValueChange={([scale]) =>
                 scale && setPreferences({ exportScale: Number(scale) as Preferences["exportScale"] })
               }
               aria-label="Image scale"
@@ -135,7 +152,7 @@ export function SettingsDialog() {
                 <ToggleGroupItem
                   key={scale}
                   value={String(scale)}
-                  className="px-3 text-muted-foreground aria-checked:text-foreground"
+                  className="px-3 text-muted-foreground aria-pressed:text-foreground"
                 >
                   {scale}x
                 </ToggleGroupItem>

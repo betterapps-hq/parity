@@ -2,10 +2,12 @@ import { describe, expect, it } from "vite-plus/test"
 import { type ContainerSpec, type DesignNode, parseCanvasDocument } from "./document.ts"
 import { defaultModeSettings, resolveModes } from "./modes.ts"
 import {
+  applyPatch,
   componentLibrary,
   frameGeometry,
   frameSize,
   frameViewport,
+  mergePatches,
   placedDesigns,
   projectComponentLibrary,
   reachableLibrary,
@@ -147,6 +149,64 @@ describe("resolveDesign", () => {
     if (card?.kind !== "component") throw new Error("expected a component")
     expect(card.slots.children?.[0]).toMatchObject({ props: { children: "Save", disabled: true } })
   })
+
+  it("takes away what a state unsets, over the design and the viewport's patch", () => {
+    const state = {
+      id: "plain",
+      name: "Plain",
+      overrides: {
+        page: { unset: { style: ["direction" as const, "background" as const, "radius" as const] } },
+        save: { unset: { props: ["children"] } }
+      }
+    }
+    const rounded: DesignNode = { ...root, responsive: { mobile: { style: { radius: "radius" } } } }
+    const [page] = resolveDesign(rounded, state, "mobile")
+    if (page?.kind !== "element") throw new Error("expected an element")
+    // The design's row is taken away, so the layout is a column, as it is by default.
+    expect(page.style).toMatchObject({ flexDirection: "column", gap: "calc(var(--spacing) * 4)" })
+    expect(page.style).not.toHaveProperty("background")
+    expect(page.style).not.toHaveProperty("borderRadius")
+    expect(resolveDesign(rounded, undefined, "mobile")[0]).toMatchObject({ style: { borderRadius: "var(--radius)" } })
+    const card = page.children[1]
+    if (card?.kind !== "component") throw new Error("expected a component")
+    expect(card.slots.children?.[0]).toMatchObject({ component: "Button" })
+    expect(card.slots.children?.[0]).not.toHaveProperty("props.children")
+  })
+})
+
+describe("layering patches that take values away", () => {
+  it("takes away the lower patch's values, and a value the upper one sets wins over what the lower took away", () => {
+    expect(mergePatches({ style: { gap: 2, padding: 1 } }, { unset: { style: ["gap"] } })).toEqual({
+      props: {},
+      style: { padding: 1 },
+      unset: { style: ["gap"] }
+    })
+    expect(mergePatches({ unset: { props: ["disabled"] } }, { props: { disabled: false } })).toEqual({
+      props: { disabled: false },
+      style: {}
+    })
+  })
+
+  it("gives an instance's param its default again when a patch takes its value away", () => {
+    const badge: ContainerSpec = {
+      id: "badge",
+      name: "Badge",
+      kind: "component",
+      position: { x: 0, y: 0 },
+      params: { label: { type: "text", default: "New" } },
+      root: { type: "text", id: "label", text: "New", bind: { text: "label" } },
+      states: [{ id: "default", name: "Default" }]
+    }
+    const instance: DesignNode = { type: "instance", id: "tag", design: "badge", args: { label: "Sale" } }
+    const plain = { id: "plain", name: "Plain", overrides: { tag: { unset: { props: ["label"] } } } }
+    const [shown] = resolveDesign(instance, plain, "desktop", componentLibrary([badge]))
+    expect(shown).toMatchObject({ kind: "element", children: [{ kind: "text", text: "New" }] })
+    expect(applyPatch(instance, { unset: { props: ["label"] } })).toEqual({
+      type: "instance",
+      id: "tag",
+      design: "badge"
+    })
+  })
 })
 
 describe("parseCanvasDocument", () => {
@@ -174,6 +234,15 @@ describe("parseCanvasDocument", () => {
     expect(() => parseCanvasDocument(document({ root: bad }))).toThrow(
       "/containers/0/root/style/colour: unknown property"
     )
+  })
+
+  it("reads what a state takes away, and rejects a style key it doesn't know", () => {
+    const states = [{ id: "plain", name: "Plain", overrides: { page: { unset: { style: ["gap"], props: [] } } } }]
+    expect(parseCanvasDocument(document({ states })).containers[0]?.states[0]?.overrides?.page).toEqual({
+      unset: { style: ["gap"], props: [] }
+    })
+    const bad = [{ id: "plain", name: "Plain", overrides: { page: { unset: { style: ["colour"] } } } }]
+    expect(() => parseCanvasDocument(document({ states: bad }))).toThrow("/overrides/page/unset/style/0")
   })
 
   it("rejects overrides for nodes that don't exist", () => {

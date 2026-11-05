@@ -1,3 +1,4 @@
+import { Button } from "@buildkitgg/shadcn-baseui-kit"
 /**
  * Sharing a project from the portal, and asking for access to one. The dialog shows where everyone's access comes
  * from (owning the project, a team, being an admin, an invite), puts requests waiting for an answer first, and keeps
@@ -5,7 +6,6 @@
  */
 import { Building2, Link, Lock, Mail, Send, X } from "lucide-react"
 import type { ReactNode } from "react"
-import { Button } from "@/components/ui/button"
 import { agentRoles, RoleMenu, roles } from "../collaboration/sharing.tsx"
 import { me, type Person, people } from "../explore-data.ts"
 import { Avatar, GitHubMark, ParityMark } from "../parts.tsx"

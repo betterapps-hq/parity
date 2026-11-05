@@ -1,6 +1,6 @@
-import type { Token, TokenChange } from "@parity-app/tokens"
+import type { Token, TokenChange, TokenWrite } from "@parity-app/tokens"
 
-export type { TokenChange }
+export type { TokenChange, TokenWrite }
 
 /**
  * A token's value as the canvas edited it, with the value the stylesheet held before this session first changed it,
@@ -48,12 +48,9 @@ function valueOf(edits: TokenEdits, key: string, known: TokenEdit): string | und
  * on Save, and what the frames preview after an undo. A token that now has no value in a theme comes with `value`
  * undefined.
  */
-export function tokenDifferences(
-  from: TokenEdits,
-  to: TokenEdits
-): { name: string; theme: string; value: string | undefined }[] {
+export function tokenDifferences(from: TokenEdits, to: TokenEdits): TokenWrite[] {
   if (from === to) return []
-  const differences: { name: string; theme: string; value: string | undefined }[] = []
+  const differences: TokenWrite[] = []
   for (const key of new Set([...from.keys(), ...to.keys()])) {
     const known = (to.get(key) ?? from.get(key))!
     const value = valueOf(to, key, known)
@@ -72,7 +69,7 @@ export function tokenDifferences(
  */
 export function withTokenOverrides(
   overrides: readonly TokenChange[],
-  differences: readonly { name: string; theme: string; value: string | undefined }[],
+  differences: readonly TokenWrite[],
   baseline: readonly Token[]
 ): readonly TokenChange[] {
   if (differences.length === 0) return overrides
@@ -87,12 +84,10 @@ export function withTokenOverrides(
 
 /**
  * The values Save writes to go from what's saved to what's here. A token given a value in a theme that had none, saved
- * and then undone, has nothing to write: the stylesheet keeps the value (a gap; see docs/editor.md).
+ * and then undone, is written without a value, which takes its declaration out of the stylesheet again.
  */
-export function tokenWrites(current: TokenEdits, saved: TokenEdits): TokenChange[] {
-  return tokenDifferences(saved, current).flatMap(({ name, theme, value }) =>
-    value === undefined ? [] : [{ name, theme, value }]
-  )
+export function tokenWrites(current: TokenEdits, saved: TokenEdits): TokenWrite[] {
+  return tokenDifferences(saved, current)
 }
 
 /** Whether these edits leave every token at the value it has with the saved ones, so there's nothing to save. */

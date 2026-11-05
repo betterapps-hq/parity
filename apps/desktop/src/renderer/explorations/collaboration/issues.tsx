@@ -1,18 +1,22 @@
-import { ExternalLink, Search } from "lucide-react"
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
 import {
+  Button,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
+  DialogTitle,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Switch
+} from "@buildkitgg/shadcn-baseui-kit"
+import { ExternalLink, Search } from "lucide-react"
+import { useState } from "react"
 import { AzureDevOpsMark, GitHubMark } from "../parts.tsx"
 import type { LinkedIssue, ThreadData, TrackerId } from "./collab-data.ts"
 
@@ -252,7 +256,7 @@ export function IssueDialog({
             <>
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs text-muted-foreground">{placeLabel(tracker.id)}</Label>
-                <Select value={place} onValueChange={setPlace}>
+                <Select value={place} onValueChange={(next) => next && setPlace(next)}>
                   <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>

@@ -10,6 +10,7 @@ import {
   designsAt,
   isParityCopy,
   isSvgMarkup,
+  kindsName,
   missingComponents,
   nodeForItem,
   pastedPlacement,
@@ -153,7 +154,7 @@ export async function pasteOverSelection(session: ProjectSession): Promise<void>
     return
   }
   if (content.kind !== "envelope" || content.envelope.payload.kind !== "designs") {
-    toast.info("Copy designs to paste them over designs")
+    toast.info("Copy screens or components to paste them over the selection")
     return
   }
   const at = {
@@ -166,7 +167,8 @@ export async function pasteOverSelection(session: ProjectSession): Promise<void>
     at
   )
   const path = store.mainPath
-  store.change(copies.length === 1 ? "Paste over design" : `Paste ${copies.length} designs over`, (snapshot) => {
+  const pasted = kindsName(copies.map((copy) => copy.kind))
+  store.change(copies.length === 1 ? `Paste over ${pasted}` : `Paste ${pasted} over`, (snapshot) => {
     const document: CanvasDocument = snapshot.documents.get(path) ?? { version: 3, containers: [] }
     const next = { ...document, containers: [...document.containers, ...copies] }
     return { ...snapshot, documents: new Map(snapshot.documents).set(path, next) }
@@ -237,7 +239,7 @@ export async function pasteAtPointer(session: ProjectSession, point: Point): Pro
       at
     )
     const path = store.mainPath
-    store.change(copies.length === 1 ? "Paste design here" : `Paste ${copies.length} designs here`, (snapshot) => {
+    store.change(`Paste ${kindsName(copies.map((copy) => copy.kind))} here`, (snapshot) => {
       const document: CanvasDocument = snapshot.documents.get(path) ?? { version: 3, containers: [] }
       const next = { ...document, containers: [...document.containers, ...copies] }
       return { ...snapshot, documents: new Map(snapshot.documents).set(path, next) }
@@ -518,7 +520,7 @@ function pasteDesigns(session: ProjectSession, designs: ContainerSpec[], samePro
   const { shift, shown } = pastedPlacement(placed, viewCenter(session), editor ? takenBounds(editor) : [])
   const copies = copyDesigns(designs, ids, shift)
   const path = store.mainPath
-  store.change(copies.length === 1 ? "Paste design" : `Paste ${copies.length} designs`, (snapshot) => {
+  store.change(`Paste ${kindsName(copies.map((copy) => copy.kind))}`, (snapshot) => {
     const document: CanvasDocument = snapshot.documents.get(path) ?? { version: 3, containers: [] }
     const next = { ...document, containers: [...document.containers, ...copies] }
     return { ...snapshot, documents: new Map(snapshot.documents).set(path, next) }

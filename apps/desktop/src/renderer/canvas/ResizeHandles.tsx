@@ -42,7 +42,7 @@ export function ResizeHandles({ handles, onStart, onReset }: ResizeHandlesProps)
     return (
       <Hint
         key={edge}
-        label={handles.kind === "frame" ? "Drag to resize this frame" : "Drag to resize"}
+        label={handles.kind === "frame" ? "Drag to resize this preview" : "Drag to resize"}
         detail="Double-click to reset."
         wait
         open={hint === edge}

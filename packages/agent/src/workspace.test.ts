@@ -233,3 +233,34 @@ Print(JSON.stringify([at("profile/person").args, at("profile/person/title").text
     ])
   })
 })
+
+describe("Update taking a value away in a state", () => {
+  const card: ContainerSpec = {
+    id: "card",
+    name: "Card",
+    position: { x: 0, y: 0 },
+    root: { type: "layout", id: "body", style: { gap: 2, padding: 3 }, children: [] },
+    states: [
+      { id: "base", name: "Base" },
+      { id: "plain", name: "Plain" }
+    ]
+  }
+
+  it("takes the base's gap away in that state only", async () => {
+    const result = await read(
+      [card],
+      `Update("card/body", { unset: { style: ["gap"] } }, { state: "plain" })
+Print(JSON.stringify([Get("card/body", { state: "plain" }).style, Get("card/body").style]))`
+    )
+    expect(result).toEqual([{ padding: 3 }, { gap: 2, padding: 3 }])
+  })
+
+  it("refuses a style key it doesn't know", async () => {
+    const result = await execute(
+      { label: "Unset", code: `Update("card/body", { unset: { style: ["colour"] } }, { state: "plain" })` },
+      snapshot([card]),
+      hooks
+    )
+    expect(result.ok).toBe(false)
+  })
+})

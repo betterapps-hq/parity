@@ -9,9 +9,9 @@ export function baseDesignNote(container: ContainerSpec, state: StateSpec, what:
   const target = boardTarget(container, state.id)
   if (editsDesign(container, target)) return undefined
   if (!isBaseState(container, state.id) || !target.variant) {
-    return `${what} change the design in every state, not only ${state.name}.`
+    return `${what} change every state, not only ${state.name}.`
   }
   const { param, option } = target.variant
   const name = container.params?.[param]?.options?.find((candidate) => candidate.id === option)?.name ?? option
-  return `${what} change the design in every variant, not only ${name}.`
+  return `${what} change every variant, not only ${name}.`
 }

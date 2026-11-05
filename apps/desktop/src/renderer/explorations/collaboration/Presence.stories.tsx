@@ -1,7 +1,7 @@
+import { Button } from "@buildkitgg/shadcn-baseui-kit"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import type { ReactNode } from "react"
 import { userEvent, within } from "storybook/test"
-import { Button } from "@/components/ui/button"
 import { me, people } from "../explore-data.ts"
 import { TitleBarActions } from "../start-page-parts.tsx"
 import {

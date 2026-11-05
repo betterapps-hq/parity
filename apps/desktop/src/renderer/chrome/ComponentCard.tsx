@@ -1,6 +1,6 @@
+import { Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
 import { CircleAlert, Component, Diamond, LoaderCircle } from "lucide-react"
 import type { ReactElement, ReactNode } from "react"
-import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { kindColors } from "../canvas/kinds.tsx"
 import type { PreviewState } from "../component-previews.ts"
 import type { useHoverCard } from "./hover-card.ts"
@@ -126,17 +126,17 @@ export function ComponentPopover({
   ...props
 }: ComponentCardProps & { card: ReturnType<typeof useHoverCard>; children: ReactElement }) {
   return (
-    <Popover open={card.open} onOpenChange={card.setOpen} modal={false}>
-      <PopoverAnchor asChild>{children}</PopoverAnchor>
+    <Popover open={card.open} onOpenChange={card.setOpen}>
+      {/* The row opens its card by resting on it or by a key; a click does what the row does instead. */}
+      <PopoverTrigger render={children} onClick={(event) => event.preventBaseUIHandler()} />
       <PopoverContent
         className="w-80 p-0"
         align="start"
         side="right"
         sideOffset={12}
         id={card.id}
-        onOpenAutoFocus={card.takesFocus}
-        onCloseAutoFocus={card.returnFocus}
-        onInteractOutside={card.keepForItem}
+        initialFocus={card.takesFocus}
+        finalFocus={card.returnFocus}
         onPointerEnter={card.stay}
         onPointerLeave={card.leave}
       >

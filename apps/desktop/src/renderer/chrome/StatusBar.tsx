@@ -44,12 +44,12 @@ export function StatusBar() {
       </Item>
       <Item
         icon={<Blocks className="size-3.5" />}
-        hint={plural(info.componentCount, "component")}
+        hint={`${plural(info.componentCount, "component")} in code`}
         detail="Click to show them"
         onClick={() => openTab("components")}
       >
         <strong className="font-medium text-foreground">{info.componentCount}</strong>
-        <Words> {info.componentCount === 1 ? "component" : "components"}</Words>
+        <Words> {info.componentCount === 1 ? "component" : "components"} in code</Words>
       </Item>
       <Item
         icon={<Palette className="size-3.5" />}

@@ -1,22 +1,28 @@
+import {
+  Button,
+  Separator,
+  ToggleGroup,
+  ToggleGroupItem,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  Kbd
+} from "@buildkitgg/shadcn-baseui-kit"
 import { Hand, Maximize, Minus, MousePointer2, Plus, Pointer, Redo2, Type, Undo2 } from "lucide-react"
 import type { ReactNode } from "react"
 import { useValue } from "tldraw"
-import { Button } from "@/components/ui/button"
-import { Kbd } from "@/components/ui/kbd"
-import { Separator } from "@/components/ui/separator"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useProject } from "../canvas/context.ts"
 import { useHistory } from "../design-store.ts"
 import { type Tool, useTool } from "../selection.ts"
 import { IconButton } from "./IconButton.tsx"
 import { keymap } from "./keymap.ts"
+import { formatKeys } from "./keys.ts"
 
 const tools: { id: Tool; label: string; shortcut: string; icon: typeof Hand }[] = [
   { id: "select", label: "Move and select", shortcut: keymap.select.keys[0], icon: MousePointer2 },
   { id: "hand", label: "Hand", shortcut: keymap.hand.keys[0], icon: Hand },
   { id: "text", label: "Text", shortcut: keymap.text.keys[0], icon: Type },
-  { id: "interact", label: "Interact with designs", shortcut: keymap.interact.keys[0], icon: Pointer }
+  { id: "interact", label: "Interact with previews", shortcut: keymap.interact.keys[0], icon: Pointer }
 ]
 
 /** A pill floating over the canvas. */
@@ -37,28 +43,28 @@ export function FloatingToolbar() {
   return (
     <Floating className="bottom-4 left-1/2 -translate-x-1/2">
       <ToggleGroup
-        type="single"
         size="sm"
         spacing={0}
-        value={tool}
-        onValueChange={(value) => value && selection.setTool(value as Tool)}
+        value={[tool]}
+        onValueChange={([value]) => value && selection.setTool(value as Tool)}
         aria-label="Tools"
         className="gap-0.5"
       >
         {tools.map(({ id, label, shortcut, icon: Icon }) => (
           <Tooltip key={id}>
-            <TooltipTrigger asChild>
-              <ToggleGroupItem
-                value={id}
-                aria-label={label}
-                // The tooltip takes over data-state, so the pressed look keys off aria-checked.
-                className="size-9 rounded-lg aria-checked:bg-primary aria-checked:text-primary-foreground aria-checked:hover:bg-primary/90"
-              >
-                <Icon />
-              </ToggleGroupItem>
-            </TooltipTrigger>
+            <TooltipTrigger
+              render={
+                <ToggleGroupItem
+                  value={id}
+                  aria-label={label}
+                  className="size-9 rounded-lg aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:hover:bg-primary/90"
+                >
+                  <Icon />
+                </ToggleGroupItem>
+              }
+            />
             <TooltipContent side="top">
-              {label} <Kbd>{shortcut}</Kbd>
+              {label} <Kbd>{formatKeys(shortcut)}</Kbd>
             </TooltipContent>
           </Tooltip>
         ))}
@@ -100,19 +106,21 @@ export function ViewControls() {
         <Minus />
       </IconButton>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="min-w-14 tabular-nums"
-            disabled={!editor}
-            onClick={() => editor?.resetZoom()}
-          >
-            {Math.round(zoom * 100)}%
-          </Button>
-        </TooltipTrigger>
+        <TooltipTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="sm"
+              className="min-w-14 tabular-nums"
+              disabled={!editor}
+              onClick={() => editor?.resetZoom()}
+            >
+              {Math.round(zoom * 100)}%
+            </Button>
+          }
+        />
         <TooltipContent side="top">
-          Zoom to 100% <Kbd>{keymap.zoomTo100.keys[0]}</Kbd>
+          Zoom to 100% <Kbd>{formatKeys(keymap.zoomTo100.keys[0])}</Kbd>
         </TooltipContent>
       </Tooltip>
       <IconButton label="Zoom in" shortcut={keymap.zoomIn.keys[0]} disabled={!editor} onClick={() => editor?.zoomIn()}>

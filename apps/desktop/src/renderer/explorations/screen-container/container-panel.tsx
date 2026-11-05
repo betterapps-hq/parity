@@ -1,4 +1,20 @@
 import {
+  Badge,
+  Button,
+  Input,
+  Label,
+  RadioGroup,
+  RadioGroupItem,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Switch,
+  ToggleGroup,
+  ToggleGroupItem
+} from "@buildkitgg/shadcn-baseui-kit"
+import {
   boardTarget,
   type ContainerSpec,
   editNode,
@@ -15,18 +31,10 @@ import {
 } from "@parity-app/core"
 import { Crown, Diamond, MousePointerClick, ScanSearch, Sparkles } from "lucide-react"
 import { type ReactNode, useState } from "react"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { useProject } from "../../canvas/context.ts"
 import { DesignIcon, designColor, kindColors } from "../../canvas/kinds.tsx"
 import { useStylePreview } from "../../canvas/style-preview.ts"
-import { containerModes, withMainMode } from "../../canvas/view.ts"
+import { containerModes, modeNames, withMainMode } from "../../canvas/view.ts"
 import { extractIntoComponent } from "../../chrome/components.ts"
 import { ParamsSection } from "../../chrome/ComponentsSection.tsx"
 import { createDesign } from "../../chrome/create.ts"
@@ -156,13 +164,12 @@ function ContainerHeader({ entry }: { entry: ContainerEntry }) {
       </div>
       <div className="mt-2 flex items-center gap-2 pl-6">
         <ToggleGroup
-          type="single"
           variant="outline"
           size="sm"
           spacing={0}
-          value={kind}
+          value={[kind]}
           aria-label="Screen or component"
-          onValueChange={(value) => {
+          onValueChange={([value]) => {
             if (value !== "screen" && value !== "component") return
             store.updateContainer(
               key,
@@ -219,9 +226,12 @@ function EditingBar({ entry, state }: { entry: ContainerEntry; state: StateSpec 
     >
       <span className="shrink-0 text-muted-foreground">Editing</span>
       <Select
+        items={entry.container.states.map((candidate) => ({ value: candidate.id, label: candidate.name }))}
         value={state.id}
         onValueChange={(id) => {
-          store.updateView(entry.key, (view) => ({ ...view, state: id }))
+          if (!id) return
+          const name = entry.container.states.find((candidate) => candidate.id === id)?.name ?? id
+          store.updateView(entry.key, `Show ${name}`, (view) => ({ ...view, state: id }))
           selection.set({ ...selected, state: id })
         }}
       >
@@ -323,7 +333,8 @@ function ModesSection({ entry }: { entry: ContainerEntry }) {
   const { primary, all } = containerModes(settings, container)
   const shown = new Set(container.view?.modes ?? [])
   const noun = container.kind === "component" ? "component" : "screen"
-  const setModes = (modes: string[]) => store.updateView(key, (view) => ({ ...view, modes }))
+  const setModes = (modes: string[]) =>
+    store.updateView(key, `Show ${modeNames(all, [primary.id, ...modes])}`, (view) => ({ ...view, modes }))
 
   return (
     <PanelSection
@@ -332,7 +343,9 @@ function ModesSection({ entry }: { entry: ContainerEntry }) {
     >
       <RadioGroup
         value={primary.id}
-        onValueChange={(mode) => store.updateView(key, (view) => withMainMode(view, mode, all))}
+        onValueChange={(mode) =>
+          store.updateView(key, `Show ${modeNames(all, [mode])} first`, (view) => withMainMode(view, mode, all))
+        }
         className="gap-0.5"
         aria-label="Main mode"
       >

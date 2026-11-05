@@ -1,20 +1,28 @@
-import { codeForms, type PreviewKind, substituteReferences, tokenReferences, valueParts } from "@parity-app/tokens"
-import { Check, ChevronDown, ChevronsUpDown, LayoutGrid, List, Pause, Pencil, Play, Search } from "lucide-react"
-import { Fragment, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, useId, useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import {
+  Button,
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
-import { Input } from "@/components/ui/input"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+  DropdownMenuTrigger,
+  Input,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  ToggleGroup,
+  ToggleGroupItem
+} from "@buildkitgg/shadcn-baseui-kit"
+import { codeForms, type PreviewKind, substituteReferences, tokenReferences, valueParts } from "@parity-app/tokens"
+import { Check, ChevronDown, ChevronsUpDown, LayoutGrid, List, Pause, Pencil, Play, Search } from "lucide-react"
+import { Fragment, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, useId, useState } from "react"
 import { CopyButton, CopyOnClick, useCopy } from "../../chrome/Copy.tsx"
 import { Field, Swatch } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
@@ -40,6 +48,7 @@ import {
   valueLabel,
   valueProblem
 } from "../../chrome/token-previews.tsx"
+import { keepEditing } from "../../chrome/TokenDetail.tsx"
 import {
   allTokens,
   breakpoints,
@@ -99,11 +108,13 @@ function CopyMenu({ token }: { token: SampleToken }) {
       <span aria-hidden className="h-4 w-px bg-border" />
       <DropdownMenu>
         <Hint label="Copy as">
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label="Copy as" className="w-6 rounded-l-none">
-              <ChevronDown className="size-3.5" />
-            </Button>
-          </DropdownMenuTrigger>
+          <DropdownMenuTrigger
+            render={
+              <Button variant="ghost" size="icon-sm" aria-label="Copy as" className="w-6 rounded-l-none">
+                <ChevronDown className="size-3.5" />
+              </Button>
+            }
+          />
         </Hint>
         <DropdownMenuContent align="end" className="w-72">
           {[...groups].map(([group, forms], index) => (
@@ -111,7 +122,7 @@ function CopyMenu({ token }: { token: SampleToken }) {
               {index > 0 && <DropdownMenuSeparator />}
               <DropdownMenuLabel>{group}</DropdownMenuLabel>
               {forms.map((form) => (
-                <DropdownMenuItem key={form.text} onSelect={() => copying.copy(form.text)} className="gap-3 text-xs">
+                <DropdownMenuItem key={form.text} onClick={() => copying.copy(form.text)} className="gap-3 text-xs">
                   <span className="shrink-0">{form.label}</span>
                   <code className="ml-auto min-w-0 truncate font-mono text-muted-foreground">{form.text}</code>
                 </DropdownMenuItem>
@@ -142,24 +153,30 @@ export function TokenRow({
   const name = cssName(token)
   return (
     <li {...handlers} className="group/token relative flex items-center">
-      <Popover defaultOpen={open}>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            onKeyDown={copyKey(() => copying.copy(name))}
-            className="flex min-h-8 w-full min-w-0 items-center gap-2 rounded-md py-1 pr-8 pl-1.5 text-left text-xs group-hover/token:bg-accent/50 aria-expanded:bg-accent"
-          >
-            <TokenGlyph token={token} playing={playing} themes={token.kind === "color" ? themesOf(token) : undefined} />
-            <span className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate font-mono">{token.name}</span>
-              {token.description && (
-                <span className="truncate text-[11px] text-muted-foreground">{token.description}</span>
-              )}
-            </span>
-            {value && <span className="max-w-20 shrink-0 truncate text-muted-foreground tabular-nums">{value}</span>}
-          </button>
-        </PopoverTrigger>
-        <PopoverContent className="w-80 p-0" align="start" side="right" sideOffset={12} onEscapeKeyDown={keepEditing}>
+      <Popover defaultOpen={open} onOpenChange={(_open, details) => keepEditing(details)}>
+        <PopoverTrigger
+          render={
+            <button
+              type="button"
+              onKeyDown={copyKey(() => copying.copy(name))}
+              className="flex min-h-8 w-full min-w-0 items-center gap-2 rounded-md py-1 pr-8 pl-1.5 text-left text-xs group-hover/token:bg-accent/50 aria-expanded:bg-accent"
+            >
+              <TokenGlyph
+                token={token}
+                playing={playing}
+                themes={token.kind === "color" ? themesOf(token) : undefined}
+              />
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate font-mono">{token.name}</span>
+                {token.description && (
+                  <span className="truncate text-[11px] text-muted-foreground">{token.description}</span>
+                )}
+              </span>
+              {value && <span className="max-w-20 shrink-0 truncate text-muted-foreground tabular-nums">{value}</span>}
+            </button>
+          }
+        />
+        <PopoverContent className="w-80 p-0" align="start" side="right" sideOffset={12}>
           <TokenDetail token={original} values={values} onValues={setValues} />
         </PopoverContent>
       </Popover>
@@ -178,31 +195,33 @@ function TokenTileButton({ token: original, playing: forced }: { token: SampleTo
   const name = cssName(token)
   return (
     <div {...handlers} className="group/token relative flex min-w-0">
-      <Popover>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            onKeyDown={copyKey(() => copying.copy(name))}
-            className="flex min-w-0 flex-1 flex-col gap-1 rounded-md p-1 text-left group-hover/token:bg-accent/50 aria-expanded:bg-accent"
-          >
-            {token.kind === "color" ? (
-              <span className="flex h-[58px] w-full overflow-hidden rounded-md border border-white/10">
-                {themesOf(token).map((theme) => (
-                  <span key={theme} className="flex-1">
-                    <TokenArt token={token} width={60} height={58} theme={theme} />
-                  </span>
-                ))}
+      <Popover onOpenChange={(_open, details) => keepEditing(details)}>
+        <PopoverTrigger
+          render={
+            <button
+              type="button"
+              onKeyDown={copyKey(() => copying.copy(name))}
+              className="flex min-w-0 flex-1 flex-col gap-1 rounded-md p-1 text-left group-hover/token:bg-accent/50 aria-expanded:bg-accent"
+            >
+              {token.kind === "color" ? (
+                <span className="flex h-[58px] w-full overflow-hidden rounded-md border border-white/10">
+                  {themesOf(token).map((theme) => (
+                    <span key={theme} className="flex-1">
+                      <TokenArt token={token} width={60} height={58} theme={theme} />
+                    </span>
+                  ))}
+                </span>
+              ) : (
+                <TokenTile token={token} width={120} height={58} playing={playing} />
+              )}
+              <span className="flex min-w-0 items-baseline gap-1 px-0.5">
+                <span className="min-w-0 flex-1 truncate font-mono text-[11px]">{token.name}</span>
+                {value && <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">{value}</span>}
               </span>
-            ) : (
-              <TokenTile token={token} width={120} height={58} playing={playing} />
-            )}
-            <span className="flex min-w-0 items-baseline gap-1 px-0.5">
-              <span className="min-w-0 flex-1 truncate font-mono text-[11px]">{token.name}</span>
-              {value && <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">{value}</span>}
-            </span>
-          </button>
-        </PopoverTrigger>
-        <PopoverContent className="w-80 p-0" align="start" side="right" sideOffset={12} onEscapeKeyDown={keepEditing}>
+            </button>
+          }
+        />
+        <PopoverContent className="w-80 p-0" align="start" side="right" sideOffset={12}>
           <TokenDetail token={original} values={values} onValues={setValues} />
         </PopoverContent>
       </Popover>
@@ -294,21 +313,20 @@ export function TokensPanel({
             />
           </div>
           <ToggleGroup
-            type="single"
             variant="outline"
             size="sm"
             spacing={0}
-            value={view}
-            onValueChange={(value) => value && setView(value as "list" | "tiles")}
+            value={[view]}
+            onValueChange={([value]) => value && setView(value as "list" | "tiles")}
             aria-label="Show tokens as"
           >
             <Hint label="List">
-              <ToggleGroupItem value="list" aria-label="List" className="h-8 w-7 aria-checked:bg-muted">
+              <ToggleGroupItem value="list" aria-label="List" className="h-8 w-7">
                 <List className="size-3.5" />
               </ToggleGroupItem>
             </Hint>
             <Hint label="Tiles">
-              <ToggleGroupItem value="tiles" aria-label="Tiles" className="h-8 w-7 aria-checked:bg-muted">
+              <ToggleGroupItem value="tiles" aria-label="Tiles" className="h-8 w-7">
                 <LayoutGrid className="size-3.5" />
               </ToggleGroupItem>
             </Hint>
@@ -316,21 +334,20 @@ export function TokensPanel({
         </div>
         <div className="flex items-center gap-1.5">
           <ToggleGroup
-            type="single"
             variant="outline"
             size="sm"
             spacing={0}
-            value={source}
-            onValueChange={(value) => value && setSource(value as Source)}
+            value={[source]}
+            onValueChange={([value]) => value && setSource(value as Source)}
             className="min-w-0 flex-1"
           >
             <ToggleGroupItem value="all" className="h-7 flex-1 text-xs">
               All
             </ToggleGroupItem>
-            <ToggleGroupItem value="semantic" className="h-7 flex-1 text-xs aria-checked:bg-muted">
+            <ToggleGroupItem value="semantic" className="h-7 flex-1 text-xs">
               Project {project}
             </ToggleGroupItem>
-            <ToggleGroupItem value="theme" className="h-7 flex-1 text-xs aria-checked:bg-muted">
+            <ToggleGroupItem value="theme" className="h-7 flex-1 text-xs">
               Theme {allTokens.length - project}
             </ToggleGroupItem>
           </ToggleGroup>
@@ -656,14 +673,6 @@ function trimmed(values: Record<string, string>): Record<string, string> {
   return Object.fromEntries(Object.entries(values).map(([theme, value]) => [theme, value.trim()]))
 }
 
-/**
- * Escape in a field being edited leaves editing, which the field handles, rather than closing the detail. From the
- * buttons, Escape closes the detail, which writes nothing either.
- */
-function keepEditing(event: KeyboardEvent): void {
-  if (event.target instanceof Element && event.target.matches("[data-token-editing] input")) event.preventDefault()
-}
-
 /** The detail's large preview: the tile for most kinds, and for a few, the token among the rest of its scale. */
 function DetailPreview({ token, playing }: { token: SampleToken; playing: boolean }) {
   const width = 296
@@ -895,15 +904,17 @@ export function TokenPicker({
   const footer = highlighted && !["color", "spacing", "font-weight", "z-index"].includes(highlighted.kind)
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="h-7 w-full justify-between gap-1.5 px-2 text-xs font-normal">
-          <span className="flex min-w-0 items-center gap-1.5">
-            {current && <TriggerGlyph token={current} />}
-            <span className={`truncate font-mono ${current ? "" : "text-muted-foreground"}`}>{value ?? "None"}</span>
-          </span>
-          <ChevronsUpDown className="size-3 opacity-50" />
-        </Button>
-      </PopoverTrigger>
+      <PopoverTrigger
+        render={
+          <Button variant="outline" size="sm" className="h-7 w-full justify-between gap-1.5 px-2 text-xs font-normal">
+            <span className="flex min-w-0 items-center gap-1.5">
+              {current && <TriggerGlyph token={current} />}
+              <span className={`truncate font-mono ${current ? "" : "text-muted-foreground"}`}>{value ?? "None"}</span>
+            </span>
+            <ChevronsUpDown className="size-3 opacity-50" />
+          </Button>
+        }
+      />
       <PopoverContent className="w-72 p-0" align="start" side="left" sideOffset={8}>
         <Command value={active} onValueChange={setActive}>
           <CommandInput placeholder={`Search ${label.toLowerCase()} tokens`} className="h-8 text-xs" />

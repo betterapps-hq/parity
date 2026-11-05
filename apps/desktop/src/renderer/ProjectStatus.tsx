@@ -1,6 +1,6 @@
+import { Button } from "@buildkitgg/shadcn-baseui-kit"
 import { Check, Circle, Copy, FolderOpen, LoaderCircle, RotateCw, TriangleAlert } from "lucide-react"
 import { useEffect, useState } from "react"
-import { Button } from "@/components/ui/button"
 import { openProjectFolder } from "./chrome/commands.ts"
 import { useLayout } from "./chrome/layout.ts"
 import { isPlaceholder, type Tab, workspace } from "./workspace.ts"
