@@ -2349,15 +2349,16 @@ to draw, so its row shows the number. Beside the name is what the token comes to
   search says "Search tokens", without a count, which didn't fit (PAR-437).
 
 Code: the drawings are `apps/desktop/src/renderer/chrome/token-previews.tsx` (`TokenArt`, `TokenGlyph`, `TokenTile`,
-`valueLabel`, `valueProblem`, `spacingSlot`, `tokenSections`, `useHoverPlay`); the panel is `chrome/TokensPanel.tsx`
-(`panelItems`, the virtualized list, `TokenRow`, `TokenTileButton`, `PaletteShade`, `TokenEditor`); what a token comes
-to and the order built from it are `token-values.ts` (`comesTo`, `inTokenOrder`); lengths the browser measures are
-`lengths.ts` (`px`); the copy parts are `chrome/Copy.tsx`; the keyframes and the shared order are `tokens-store.ts`
-(`keyframesNamed`, `TokenStore.keyframes`, `TokenStore.inOrder`, `useTokenList`); a token's kind, the Copy as forms and
-the value helpers are `packages/tokens/src/kinds.ts`, and matching the tokens a `.lib.par` describes to the stylesheet's
-custom properties is `matchDescribed` in `packages/tokens/src/matching.ts`; the order itself is
-`packages/tokens/src/token-order.ts` (`orderTokens`, `scaleValue`, `shadowReach`, `compareNames`). The Storybook
-explorations under `explorations/previews` draw with the same module, from sample tokens.
+`valueLabel`, `spacingSlot`, `tokenSections`, `useHoverPlay`); the panel is `chrome/TokensPanel.tsx` (`panelItems`, the
+virtualized list, `TokenRow`, `TokenTileButton`, `PaletteShade`, `TokenEditor`); what a token comes to and the order
+built from it are `token-values.ts` (`comesTo`, `inTokenOrder`); lengths the browser measures are `lengths.ts` (`px`);
+the copy parts are `chrome/Copy.tsx`; the keyframes and the shared order are `tokens-store.ts` (`keyframesNamed`,
+`TokenStore.keyframes`, `TokenStore.inOrder`, `useTokenList`); a token's kind, the Copy as forms and the value helpers
+are `packages/tokens/src/kinds.ts`, the checks a value must pass to be its kind are `packages/tokens/src/checks.ts`
+(`valueProblem`, PAR-569), and matching the tokens a `.lib.par` describes to the stylesheet's custom properties is
+`matchDescribed` in `packages/tokens/src/matching.ts`; the order itself is `packages/tokens/src/token-order.ts`
+(`orderTokens`, `scaleValue`, `shadowReach`, `compareNames`). The Storybook explorations under `explorations/previews`
+draw with the same module, from sample tokens.
 
 Tests:
 
@@ -2436,10 +2437,17 @@ at once as one undoable step, unsaved, as any edit is (see "One history, saved t
 
 Code: `apps/desktop/src/renderer/chrome/TokenDetail.tsx` (`TokenDetail`, `DetailPreview`, `themeLabel`, `CopyMenu`); the
 panel's `TokenPopover` and `Detail` in `chrome/TokensPanel.tsx`, which name themes with `themeNamesOf` from the
-project's modes and apply through `TokenStore.set`. The Storybook exploration's own detail
-(`explorations/previews/token-panels.tsx`) is the design it came from, with Save in place of Apply.
+project's modes and apply through `TokenStore.set`. What an edit may write is decided in `packages/tokens/src/checks.ts`
+(PAR-569): `checkTokenEdit` gives each theme's problem and the smallest changes to save, from `loopProblem` and
+`valueProblem`, with `builtOn` for the tokens another is built on; the detail passes in the browser's `CSS.supports`,
+and keeps only the view. The Storybook exploration's own detail (`explorations/previews/token-panels.tsx`) is the design
+it came from, with Save in place of Apply.
 
-Tests: `chrome/TokensPanel.stories.tsx`: Detail (Light and Dark, never `.dark`; Copy and Copy as), EditingAColor,
+Tests: `packages/tokens/src/checks.test.ts` (14): a value of its kind with references filled in, an empty one, a bracket
+left open, a reference to no token, a value the browser refuses named with an example, a blur checked as its filter, a
+kind with no property; a token built on itself and one leading back to it; a step's base and references by theme; an
+edit saving only the themes that change, each theme's problem with a loop first, and nothing typed.
+`chrome/TokensPanel.stories.tsx`: Detail (Light and Dark, never `.dark`; Copy and Copy as), EditingAColor,
 EditingAPaletteShade, SpacingStep (Built on `--spacing × 4`, Edit off), InvalidValue and UnclosedBracket (refused as
 typed, a token built on itself too, Apply off), ReferenceToAnotherToken (Apply as one unsaved step, Edit and Cancel
 keeping Undo, then the detail's Undo), ReferenceLoop (refused through another token), and SaveFails. All 24 of the
