@@ -11,7 +11,6 @@ import {
   X
 } from "lucide-react"
 import { useCallback, useEffect } from "react"
-import { toast } from "sonner"
 import type { Editor } from "tldraw"
 import { CanvasDrop } from "../../canvas/CanvasDrop.tsx"
 import { CanvasEditor } from "../../canvas/CanvasEditor.tsx"
@@ -30,7 +29,6 @@ import { FloatingToolbar, ViewControls } from "../../chrome/Toolbar.tsx"
 import { useTool } from "../../selection.ts"
 import { useResolvedTheme } from "../../theme.ts"
 import { type ProjectSession, useActiveTabId, useTabs, workspace } from "../../workspace.ts"
-import { CanvasStart } from "./CanvasStart.tsx"
 import { keysOf, makeNew } from "./commands.ts"
 import { StartDesignTab } from "./StartInspector.tsx"
 import { StartLayers } from "./StartLayers.tsx"
@@ -38,11 +36,11 @@ import { StartActionsSearch, StartCanvasMenu, StartMenubar } from "./StartMenus.
 
 /**
  * The whole window as proposed, for the active tab's project: the title bar with the proposed menus, Layers, the
- * canvas with its start, the inspector and the status bar. Everything else is the app's own: the canvas, its
- * toolbars, the other panels' tabs, the insert picker and the keys. New screen and New component make real ones,
- * so the start, Layers' empty rows and the inspector's empty state go as they would.
+ * canvas with the proposed right-click menu, the inspector and the status bar. Everything else is the app's own: the
+ * canvas, its toolbars, the other panels' tabs, the insert picker and the keys. New screen and New component make real
+ * ones. There's no start in the middle of an empty canvas: every project opens on a screen (PAR-560).
  */
-export function StartWindow({ frames = false, search }: { frames?: boolean; search?: string }) {
+export function StartWindow({ search }: { search?: string }) {
   const tabs = useTabs()
   const active = useActiveTabId()
   const session = tabs.find((tab) => tab.id === active)?.session
@@ -59,7 +57,7 @@ export function StartWindow({ frames = false, search }: { frames?: boolean; sear
             <div className="flex min-h-0 flex-1 flex-col">
               <main className="flex min-h-0 flex-1">
                 <StartLeftPanel />
-                <StartCanvasArea id={active} frames={frames} />
+                <StartCanvasArea id={active} />
                 <StartInspectorPanel />
               </main>
               <StatusBar />
@@ -189,8 +187,8 @@ export function StartInspectorPanel() {
   )
 }
 
-/** The canvas as the app draws it, with the start in its middle and the proposed right-click menu around it. */
-function StartCanvasArea({ id, frames }: { id: string; frames: boolean }) {
+/** The canvas as the app draws it, with the proposed right-click menu around it. */
+function StartCanvasArea({ id }: { id: string }) {
   const session = useProject()
   const tool = useTool(session.selection)
   const onEditor = useCallback((editor: Editor | undefined) => workspace.setEditor(id, editor), [id])
@@ -206,10 +204,6 @@ function StartCanvasArea({ id, frames }: { id: string; frames: boolean }) {
         <CanvasEditor onEditor={onEditor} />
         <CanvasOverlay />
         <CanvasDrop />
-        <CanvasStart
-          frames={frames}
-          onDrawFrame={() => toast("Drawing a frame is designed in PAR-540, the frame tool's exploration.")}
-        />
         <FloatingToolbar />
         <ViewControls />
       </div>

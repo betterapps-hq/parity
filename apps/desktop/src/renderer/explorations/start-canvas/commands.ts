@@ -6,13 +6,11 @@ import type { ProjectSession } from "../../workspace.ts"
 
 /**
  * The commands this exploration adds, with the keys it proposes. They'd join the keymap in the build issue (PAR-546),
- * so the menus, Search actions, the Keyboard shortcuts dialog and the key handlers all read them from one place. Draw
- * a frame is PAR-540's: it's here only so the start can show where it goes once frames exist.
+ * so the menus, Search actions, the Keyboard shortcuts dialog and the key handlers all read them from one place.
  */
 export const startKeymap = {
   newScreen: { group: "Object", label: "New screen", keys: ["Ctrl Alt N"] },
-  newComponent: { group: "Object", label: "New component", keys: ["Ctrl Alt Shift N"] },
-  drawFrame: { group: "Tools", label: "Draw a frame", keys: ["F"] }
+  newComponent: { group: "Object", label: "New component", keys: ["Ctrl Alt Shift N"] }
 } as const satisfies Record<string, Binding>
 
 export type StartCommand = keyof typeof startKeymap
