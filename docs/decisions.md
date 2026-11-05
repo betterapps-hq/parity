@@ -4090,3 +4090,25 @@ project's discovery, libgen, the Tailwind adapter and `parity lib check`, and th
   so it's found as any package's stylesheet is.
 - **PAR-587's case now works.** A library's components come from its declarations found in `exports` too, so a package
   whose types are only there lists them. PAR-587 adds its test.
+
+## Signing in goes through WorkOS in the browser (PAR-610)
+
+You asked on 2026-11-05 for Google, GitHub and Microsoft sign-in through WorkOS, chosen for its organization support.
+The design is in [proposals/sign-in.md](proposals/sign-in.md), and the work is PAR-611 to PAR-616. Your calls, each
+taking my recommendation:
+
+- **The sign-in screen is the Centered form story.** AuthKit, in the browser, sends a work email to its company's single
+  sign-on or a code by email. The Email first stories have the code typed into Parity, which needs WorkOS's API key and
+  so a server.
+- **Parity talks to WorkOS itself, with no new library:** a public client with PKCE, on `fetch` and zod, in a new
+  `@parity-app/account` package. `@workos/authkit-electron` was passed over: it's at 0.1.2, needs an older
+  `@workos-inc/node` than Better Apps uses, and brings `electron-store` and its own React provider.
+- **Signing in is optional.** Nothing that works on local folders asks for it.
+
+My calls:
+
+- **Installed apps hand back through `parity://auth/callback` on WorkOS's production environment, and `pnpm dev` copies
+  through a loopback port on the sandbox,** since several copies run at once and only an installed app gets the scheme.
+  A copy that gets a link it didn't start passes it, through the agent registry, to the copy whose `state` it is.
+- **Only `safeStorage` keeps the refresh token,** and the window never sees a token.
+- **The client IDs go in the code,** since they're public. The API key never ships in the app.
