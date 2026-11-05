@@ -241,6 +241,8 @@ export interface WindowMethods {
   "agent.open": { params: { root: string }; result: TabSummary }
   /** An icon set's names in one style's module, from the tab's own copy of the set, for `Icons(set)`. */
   "agent.iconNames": { params: { tab: string; set: string; module?: string }; result: IconNames }
+  /** Whether the browser takes each value for its CSS property, for checking an agent's `SetTokens` (PAR-584). */
+  "agent.supports": { params: { property: string; value: string }[]; result: boolean[] }
   /** A project file changed on disk, not by this window. */
   "project.fileChanged": { params: { projectId: string; path: string; document: CanvasDocument }; result: undefined }
   /**
@@ -270,13 +272,20 @@ export type ServeAnswer = { result: unknown } | { error: string; details?: unkno
 export type ServiceMethod = keyof ServiceMethods
 export type WindowMethod = keyof WindowMethods
 
-/**
- * Messages on a window's channel to the service. Either side can make requests. A failed one carries its message, and
- * the coded error's details when it had them, which the receiving side checks before trusting.
- */
-export type ChannelMessage =
-  | { type: "request"; id: number; method: string; params?: unknown }
-  | { type: "response"; id: number; result?: unknown; error?: string; details?: unknown }
+/** The window's methods by name, for the preload script, which answers each through the page's one handler. */
+export const windowMethods = Object.keys({
+  "agent.tabs": true,
+  "agent.copy": true,
+  "agent.snapshot": true,
+  "agent.status": true,
+  "agent.apply": true,
+  "agent.presence": true,
+  "agent.open": true,
+  "agent.iconNames": true,
+  "project.fileChanged": true,
+  "project.componentsChanged": true,
+  "project.guestMoved": true
+} satisfies Record<WindowMethod, true>) as WindowMethod[]
 
 export interface ProjectInfo {
   /** Identifies the open project; its absolute root. */

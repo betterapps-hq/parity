@@ -1,9 +1,10 @@
 import type { Worker } from "node:worker_threads"
+import { type Channel, createChannel, type Method, type MethodMap, nodePort } from "@parity-app/channel"
 
 /** Asks a worker thread for results, starting it when asked and stopping it once it has sat idle. */
-export interface WorkerClient {
-  /** Sends `message` with an id, starting a worker when none is running, and settles with the worker's reply. */
-  request(message: Record<string, unknown>): Promise<unknown>
+export interface WorkerClient<Remote extends MethodMap<Remote>> {
+  /** Asks the worker, starting one when none is running, and settles with its answer. */
+  request<M extends keyof Remote & string>(method: M, params: Remote[M]["params"]): Promise<Remote[M]["result"]>
   /** Whether a worker is running, so whether the next request goes to one that has what earlier requests left in it. */
   readonly running: boolean
   /** Stops the worker now, failing the requests it hasn't answered with `reason`. */
@@ -11,7 +12,7 @@ export interface WorkerClient {
 }
 
 export interface WorkerClientOptions {
-  /** Starts a worker that answers each `{ id, ...message }` with `{ id, result }` or `{ id, error }`. */
+  /** Starts a worker that answers requests over its `parentPort` through `@parity-app/channel`. */
   start: () => Worker
   /** How long the worker is kept with nothing asked of it before it stops, returning all its memory. */
   idleMs: number
@@ -21,9 +22,9 @@ export interface WorkerClientOptions {
   stopped?: () => void
 }
 
-interface Running {
+interface Running<Remote extends MethodMap<Remote>> {
   worker: Worker
-  pending: Map<number, { resolve(value: unknown): void; reject(error: Error): void }>
+  channel: Channel<Record<never, Method>, Remote>
   idle?: ReturnType<typeof setTimeout>
 }
 
@@ -32,38 +33,44 @@ interface Running {
  * stops `idleMs` after its last answer, never while a request waits, and the next request starts a new one. A request
  * made while the old one is stopping goes to the new one.
  */
-export function workerClient({ start, idleMs, failed = (error) => error, stopped }: WorkerClientOptions): WorkerClient {
-  let current: Running | undefined
-  let nextId = 1
+export function workerClient<Remote extends MethodMap<Remote>>({
+  start,
+  idleMs,
+  failed = (error) => error,
+  stopped
+}: WorkerClientOptions): WorkerClient<Remote> {
+  let current: Running<Remote> | undefined
 
-  const launch = (): Running => {
-    const running: Running = { worker: start(), pending: new Map() }
-    running.worker.on("message", (message: { id: number; result?: unknown; error?: string }) => {
-      const request = running.pending.get(message.id)
-      if (!request) return
-      running.pending.delete(message.id)
-      if (message.error === undefined) request.resolve(message.result)
-      else request.reject(new Error(message.error))
-      if (running.pending.size === 0 && current === running) idleLater(running)
-    })
-    running.worker.on("error", (error: Error) => end(running, failed(error)))
-    running.worker.on("exit", (code: number) => end(running, new Error(`The worker stopped with exit code ${code}`)))
-    running.worker.unref()
+  const launch = (): Running<Remote> => {
+    const worker = start()
+    const running: Running<Remote> = { worker, channel: createChannel() }
+    running.channel.connect(
+      nodePort(worker, {
+        closedBy: {
+          error: (error) => failed(error as Error),
+          exit: (code) => new Error(`The worker stopped with exit code ${String(code)}`)
+        }
+      })
+    )
+    // Once it has failed or exited, the next request starts another.
+    const forget = () => end(running)
+    worker.on("error", forget)
+    worker.on("exit", forget)
+    worker.unref()
     return running
   }
 
-  /** Fails what the worker hasn't answered, and forgets it, so the next request starts another. */
-  const end = (running: Running, reason: Error) => {
+  /** Forgets the worker, so the next request starts another, failing what it hasn't answered with `reason`. */
+  const end = (running: Running<Remote>, reason?: Error) => {
     clearTimeout(running.idle)
-    for (const request of running.pending.values()) request.reject(reason)
-    running.pending.clear()
+    if (reason) running.channel.close(reason)
     if (current === running) current = undefined
   }
 
-  const idleLater = (running: Running) => {
+  const idleLater = (running: Running<Remote>) => {
     clearTimeout(running.idle)
     running.idle = setTimeout(() => {
-      if (current !== running || running.pending.size > 0) return
+      if (current !== running || running.channel.waiting > 0) return
       current = undefined
       void running.worker.terminate()
       stopped?.()
@@ -72,14 +79,15 @@ export function workerClient({ start, idleMs, failed = (error) => error, stopped
   }
 
   return {
-    request(message) {
+    request(method, params) {
       const running = (current ??= launch())
       clearTimeout(running.idle)
-      const id = nextId++
-      return new Promise((resolve, reject) => {
-        running.pending.set(id, { resolve, reject })
-        running.worker.postMessage({ id, ...message })
-      })
+      const answered = () => {
+        if (running.channel.waiting === 0 && current === running) idleLater(running)
+      }
+      const asked = running.channel.request(method, params)
+      asked.then(answered, answered)
+      return asked
     },
     get running() {
       return current !== undefined

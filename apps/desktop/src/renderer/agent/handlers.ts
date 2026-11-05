@@ -60,6 +60,10 @@ async function answer(method: WindowMethod, params: unknown): Promise<unknown> {
     }
     case "agent.iconNames":
       return iconNames(params as WindowMethods["agent.iconNames"]["params"])
+    case "agent.supports":
+      return (params as WindowMethods["agent.supports"]["params"]).map(({ property, value }) =>
+        CSS.supports(property, value)
+      )
     case "agent.apply":
       return apply(params as AgentChanges)
     case "agent.presence":

@@ -14,7 +14,6 @@ vi.mock("node:os", async (original) => ({
 }))
 
 let root: string
-let id = 0
 /** Each write's modification time, a second past the last, so a change shows on a clock coarser than the test. */
 let clock = Date.now() / 1000
 
@@ -41,13 +40,13 @@ const components = { Button: { path: "src/button.tsx", export: "Button", as: "fu
 
 /** The Button's prop names, as the worker's warm checker for the project reads them. */
 function props(lockfiles: string[] = []): string[] {
-  const found = answer({ id: ++id, kind: "props", root, components, lockfiles }) as Record<string, ComponentInfo>
+  const found = answer({ kind: "props", root, components, lockfiles }) as Record<string, ComponentInfo>
   return (found.Button?.props ?? []).map((prop) => prop.name)
 }
 
 /** The same, from a checker made afresh, as a reopened project or a worker started again gets. */
 function freshProps(lockfiles: string[] = []): string[] {
-  answer({ id: ++id, kind: "close", root })
+  answer({ kind: "close", root })
   return props(lockfiles)
 }
 
@@ -59,7 +58,7 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
-  answer({ id: ++id, kind: "close", root })
+  answer({ kind: "close", root })
   await rm(root, { recursive: true, force: true })
 })
 

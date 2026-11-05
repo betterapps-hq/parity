@@ -2916,6 +2916,25 @@ agent's `SetTokens` can refuse what the detail refuses (PAR-584).
 - `builtOn` gives the tokens a token is built on in a theme, a scale step's base first, which the panel had written
   inline.
 
+## Agents' token values are checked as the token detail checks them (PAR-584)
+
+You chose this on 2026-11-05 (option A of three). `SetTokens` used to check only that a value wasn't empty, so an agent
+could save an unclosed `calc(`, a reference to no token or a loop the token detail refuses. Agents run in the utility
+process, which has no `CSS.supports`, so the check is in two steps, both through `checkTokenEdit`:
+
+- `SetTokens` refuses brackets and quotes left open, references to no token and loops as it runs, with an
+  `invalid_input` error whose field is `SetTokens/<token>/<theme>`. None of that call's values are kept, so a snippet
+  can catch it and go on. Each value is read against the project's tokens, the canvas's unsaved values and the call's
+  own earlier `SetTokens`, so one token can refer to another set beside it.
+- Whether a value is its token's kind is asked once the snippet ends, before anything is applied: the workspace sends
+  every property and value to the window (`agent.supports`, the `supports` hook), which answers with `CSS.supports`. A
+  value refused there fails the call, and nothing in it is applied. A frame the call drew before then may show the
+  value. The alternatives were adding `css-tree` to check in Node, which could disagree with the browser the detail
+  asks, or checking only in the window's `agent.apply`, which would leave the agent package unable to refuse.
+- A token's kind is read from what the project has (`previewKind`), not from what the call types, as the detail's is; a
+  token the call adds takes its kind from its name and value. A scale step comes to its base times its factor as a
+  `calc()`, since the utility process can't measure lengths. Without the hook (tests, exports), kinds aren't checked.
+
 ## A mode's theme class also sets the theme's attribute (PAR-22)
 
 My call: a frame whose mode adds a theme's class also gets the attribute the project's stylesheet switches that theme on
@@ -4473,6 +4492,39 @@ Parity/Explorations/Sign in, and the screens they settle are in
   - Custom CSS: the sign-in screen's glow on `.ak-Background`.
 - **New wording uses "sign in" as a verb,** as the writing guide asks, so the new screens say "Parity couldn't sign you
   in" rather than calling it a sign-in.
+
+## Requests over every port go through one channel module (PAR-565)
+
+Matching replies to requests was written six times, in the preload script, the project service, its render and console
+requests, the worker client and main, and the copies disagreed. Now `@parity-app/channel` owns it. My calls:
+
+- **The channel is a package of its own, with no dependencies.** The sandboxed preload script bundles it and can load
+  nothing but Electron, so it can't use zod or core. It reads a message's envelope with `typeof`. What it checks and how
+  failures cross are given to it: `checks` read each request's params, and an `ErrorCodec` carries a failure's details.
+  The app's `codedErrors` sends a `CodedError`'s details and checks them with `readErrorDetails` on arrival.
+- **Its interface is the method maps.** `createChannel<Local, Remote>` answers `Local` and asks `Remote`:
+  `ServiceMethods` and `WindowMethods` on the window's port, `MainMethods` and `ServiceProcessMethods` on the service's
+  `parentPort`, and `CheckerMethods` on the type checker's worker thread. A method whose result is `undefined` may
+  return nothing.
+- **A channel holds requests until it has a port, and fails what a port was sent when the port closes or is replaced.**
+  The preload's requests wait for main's port, and a second port, after the service restarted, fails what the old one
+  was asked. The service fails what it asked a window when that window's port closes. Main fails what the service asked
+  when it exits, and gives the performance stats its last builder readings when the service doesn't answer in a second.
+- **Ports are adapters:** `domPort` for the preload's `MessagePort`, `nodePort` for Electron's `MessagePortMain`,
+  `parentPort` and `UtilityProcess` and Node's `Worker`, and `memoryPorts` for tests.
+- **Only the window's port to the service is checked.** Project code shares the window's page, so it can call
+  `window.canvasHost.request` with anything. `shared/service-checks.ts` has a zod schema for each method's params, typed
+  against `ServiceMethods` so the two can't drift, and a refused request fails with `invalid_input` and the field at
+  fault. A method the service doesn't have fails the same way, with `method` as the field. The other ports skip the
+  check, as PAR-578 says.
+- **What the checks cost.** On the example project's 1.8 MB `.par`, with 61 designs, checking `document.save` took 30 to
+  75 ms in the service, against 9 to 15 ms to copy the document across the port. `frames.capture` with a whole design as
+  its tree took 0.2 ms, and `previews.lookup` with 300 such previews 23 ms. A save waits on it, which the person doesn't
+  see, so it stays.
+- **The `canvas:*` IPC names are declared once,** in `shared/channels.ts`, for the preload script and main. Checking
+  main's IPC arguments is PAR-592.
+- **The window's answers keep their details on the way to the service,** since the preload passes them through. A
+  failure the preload hands the page still loses them at the bridge, which PAR-580 fixes.
 
 ## State labels shrink as titles do, beside rows tall enough to hold them (PAR-155)
 

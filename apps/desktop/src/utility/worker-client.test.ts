@@ -9,12 +9,12 @@ import { type WorkerClientOptions, workerClient } from "./worker-client.ts"
 const echo = `
 const { parentPort, threadId } = require("node:worker_threads")
 let answered = 0
-parentPort.on("message", (message) => {
+parentPort.on("message", ({ id, params: message }) => {
   if (message.crash) throw new Error("the worker broke")
   if (message.exit) process.exit(message.exit)
   setTimeout(() => {
-    if (message.fail) parentPort.postMessage({ id: message.id, error: message.fail })
-    else parentPort.postMessage({ id: message.id, result: { ...message, answered: ++answered, thread: threadId } })
+    if (message.fail) parentPort.postMessage({ type: "response", id, error: message.fail })
+    else parentPort.postMessage({ type: "response", id, result: { ...message, answered: ++answered, thread: threadId } })
   }, message.wait ?? 0)
 })
 `
@@ -22,6 +22,11 @@ parentPort.on("message", (message) => {
 interface Answer {
   answered: number
   thread: number
+}
+
+/** The echo worker's one method. */
+interface EchoMethods {
+  echo: { params: Record<string, unknown>; result: Answer }
 }
 
 const stops: Array<() => void> = []
@@ -33,7 +38,7 @@ afterEach(() => {
 function setup(options: Partial<WorkerClientOptions> = {}) {
   let stoppedIdle = 0
   const waiting: Array<() => void> = []
-  const client = workerClient({
+  const client = workerClient<EchoMethods>({
     start: () => new Worker(echo, { eval: true }),
     idleMs: 40,
     stopped: () => {
@@ -43,7 +48,7 @@ function setup(options: Partial<WorkerClientOptions> = {}) {
     ...options
   })
   stops.push(() => client.stop(new Error("The test ended")))
-  const ask = (message: Record<string, unknown> = {}) => client.request(message) as Promise<Answer>
+  const ask = (message: Record<string, unknown> = {}) => client.request("echo", message)
   return {
     client,
     ask,
@@ -86,7 +91,7 @@ describe("workerClient", () => {
     // Asked for the moment the idle worker is told to stop, before it has.
     let send: (request: Promise<unknown>) => void = () => undefined
     const during = new Promise<unknown>((resolve) => (send = resolve))
-    const { client, ask } = setup({ stopped: () => send(client.request({})) })
+    const { client, ask } = setup({ stopped: () => send(client.request("echo", {})) })
     const first = await ask()
     const answer = (await during) as Answer
     expect(answer.answered).toBe(1)

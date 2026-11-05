@@ -956,6 +956,86 @@ await Measure("signup")`
   })
 })
 
+describe("SetTokens refuses what the token detail refuses (PAR-584)", () => {
+  /** The browser's `CSS.supports`, as the app answers it: a color is a named one, a hex or `oklch()`. */
+  function checking(asked: { property: string; value: string }[] = []): AgentHooks {
+    return {
+      ...hooks(),
+      supports: async (queries) => {
+        asked.push(...queries)
+        return queries.map(({ property, value }) =>
+          property === "color" ? /^(white|black|blue|green|#[\da-f]{3,8}|oklch\(.+\))$/i.test(value) : true
+        )
+      }
+    }
+  }
+
+  async function refusal(code: string, ask = checking()) {
+    let applied = false
+    const result = await execute({ label: "Tokens", code }, snapshot(), {
+      ...ask,
+      apply: async () => {
+        applied = true
+        return []
+      }
+    })
+    expect(result.ok).toBe(false)
+    expect(applied).toBe(false)
+    return { error: result.error, details: result.details }
+  }
+
+  it("refuses a bracket left open, naming the token, and saves nothing", async () => {
+    // Refused as SetTokens runs, so the error says where in the snippet.
+    expect(await refusal(`SetTokens({ primary: "oklch(0.6 0.2 250" })`)).toEqual({
+      error: "SetTokens/primary/default: A bracket isn't closed. Add ) at the end. (line 1, column 1)",
+      details: { code: "invalid_input", field: "SetTokens/primary/default", retryable: false }
+    })
+  })
+
+  it("refuses a reference to no token, and a loop through another token", async () => {
+    expect((await refusal(`SetTokens({ primary: "var(--brand)" })`)).error).toMatch(
+      /^SetTokens\/primary\/default: There's no token named brand\. /
+    )
+    expect(
+      (await refusal(`SetTokens({ background: "var(--primary)" }); SetTokens({ primary: "var(--background)" })`)).error
+    ).toMatch(/^SetTokens\/primary\/default: background is built on primary, so this would loop\. /)
+  })
+
+  it("refuses a value that isn't its token's kind, asking the browser once", async () => {
+    const asked: { property: string; value: string }[] = []
+    expect((await refusal(`SetTokens({ primary: { dark: "bluish" } })`, checking(asked))).error).toBe(
+      "SetTokens/primary/dark: That isn't a color. Try oklch(0.6 0.2 250) or #2563eb."
+    )
+    expect(asked).toEqual([{ property: "color", value: "bluish" }])
+  })
+
+  it("accepts good values, references filled in, and applies them", async () => {
+    const asked: { property: string; value: string }[] = []
+    let applied: unknown
+    const result = await execute(
+      { label: "Tokens", code: `SetTokens({ primary: "oklch(0.6 0.2 250)", background: { dark: "var(--primary)" } })` },
+      snapshot(),
+      {
+        ...checking(asked),
+        apply: async (changes) => {
+          applied = changes.tokens
+          return []
+        }
+      }
+    )
+    expect(result.ok).toBe(true)
+    // Dark has no primary of its own, so the reference comes to the root's new value.
+    expect(asked).toEqual([
+      { property: "color", value: "oklch(0.6 0.2 250)" },
+      { property: "color", value: "oklch(0.6 0.2 250)" }
+    ])
+    expect(applied).toEqual([
+      { name: "primary", theme: "default", value: "oklch(0.6 0.2 250)" },
+      { name: "background", theme: "dark", value: "var(--primary)" }
+    ])
+  })
+})
+
 describe("icons", () => {
   it("knows an icon library's icons are components, and still warns about unknown ones", async () => {
     const result = await execute(

@@ -104,7 +104,7 @@ const componentRef = fileObject({ path: z.string(), export: z.string() })
 export type ComponentRef = z.infer<typeof componentRef>
 
 // An earlier version could take components off the list as `exclude`; a file that did still opens, without it.
-const detectionCorrections = fileObject({
+export const detectionCorrections = fileObject({
   include: z.array(componentRef).optional(),
   exclude: z.unknown().optional()
 }).transform(({ exclude: _dropped, ...corrections }) => corrections)
@@ -551,7 +551,8 @@ function problem(context: z.RefinementCtx, path: PropertyKey[], message: string)
   context.addIssue({ code: "custom", message, path })
 }
 
-const canvasDocument = fileObject({
+/** A project file's schema, which the project service also checks a saved document with (PAR-565). */
+export const canvasDocument = fileObject({
   version: z.literal(3),
   containers: z.array(containerSpec),
   /** The project's modes. Unset means the defaults. */
