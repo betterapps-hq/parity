@@ -3409,6 +3409,48 @@ Gaps: nothing checks automatically that the lights stay on opacity and transform
 
 How the project's code runs in the canvas's frames.
 
+### rem follows the project's root font (PAR-156)
+
+A project that sets `html { font-size: 62.5% }` gets 10px to the rem in its frames, as in Chrome, where it used to get
+Parity's 16px. Without a root font size of its own, a frame counts a browser's 16px, as before.
+
+- **Every `rem` the project writes measures the frame's root:** in its stylesheets, custom properties included, in
+  inline styles, in text in `<style>` elements and in rules its code adds while it runs. Each becomes a `calc()` of
+  `--canvas-rem`, which the frame's root sets to its own font size. Outside a frame the property isn't set, and `rem` is
+  Parity's. `rem` in media and container queries is left alone, as a media query counts a browser's 16px.
+- **The root's font size counts from a browser's 16px,** not from the canvas text around the frame: `62.5%`, `1.25em`
+  and `1.25rem` in a `:root` or `html` rule's `font-size` come to 10px, 20px and 20px. An `html, body` rule with a font
+  size is split, so the body's own `62.5%` stays relative to the root.
+- **Tokens show the values the project wrote,** `0.25rem` rather than the `calc()` frames draw it with. A token's
+  previewed value and the theme values the compiled CSS left out are rewritten for frames like the rest.
+- **Not covered** (see [decisions.md](decisions.md), "`rem` measures the project's root font"): a root font size inside
+  a width media query, which applies in no frame, since the root is the container those queries ask; `larger`, `smaller`
+  and the `font` shorthand on the root; a root font size from a variable holding a percentage or `rem`; and a root font
+  set by CSS-in-JS. Fields and spacing steps in the inspector still count 16px to the rem.
+
+Code: `rewriteFrameUnits`, `rewriteSheetFrameUnits`, `rewriteRootFontSize` and `serialize` in
+`packages/core/src/css.ts`, with `remProperty` and `rootFontSizeProperty`; `frameRootSheet` and `registerRootFontSize`
+in `apps/desktop/src/renderer/frame.ts`, which also rewrites inline styles, `<style>` text and added rules; `load` and
+`previewToken` in `apps/desktop/src/renderer/guest.ts`, which read tokens with `units: false` and rewrite previewed and
+theme values.
+
+Tests: `packages/core/src/css.test.ts` (8 of its tests: `rem` in declarations and custom properties rewritten, and once
+only; in selectors, strings, urls and media and container queries left alone; rules added at run time rewritten but not
+their selectors or queries; a root's `62.5%`, `1.25rem`, `em` in `clamp()` with `!important`, and a root rule inside a
+media query or with one inside it, worked out from 16px; other elements' font sizes and the root's other lengths and
+custom properties untouched; `html, body, .a:is(.b, .c)` split, while `:root, :host` and an `html, body` rule with no
+font size stay whole; lengths kept as written with `units: false`). `apps/desktop/src/renderer/guest.test.ts` (2 of its
+7, in Chrome: a previewed `0.5rem` and `10vh` rewritten in the rule edited or added; an offscreen frame's overrides
+rewritten the same way). `apps/desktop/src/renderer/tokens-store.test.ts` (1 of its 4, in Chrome: a token edit to `1rem`
+shows rewritten in the shared sheet while the override sent to offscreen frames keeps `1rem`).
+`apps/desktop/src/renderer/frame.test.ts` (3), in Chrome, with the frame on the canvas's 12px text: with
+`html { font-size: 62.5% }`, a box, Tailwind-style `--spacing`, an inline style and a rule added at run time have the
+same sizes and font sizes in the frame as on a fresh page, while Parity's root stays 16px; with no root font size, 16px
+to the rem; and roots of `20px`, `1.25em`, `1.25rem` and a `@media screen` rule, the same as on the page. Gaps: a root
+font size in a width media query doesn't work in frames yet, and no test covers it. `load` reading tokens with
+`units: false` has no test of its own; `packages/libgen/src/tokens.test.ts` and the fixtures' detection snapshot read
+tokens the same way.
+
 ### Frames run React's production build (PAR-198)
 
 Frames draw with the production builds of the project's dependencies, React's among them, so the window doesn't keep a

@@ -3,8 +3,10 @@ import {
   type DrawnNodes,
   type FrameViewport,
   emptyLayoutAttribute,
-  rewriteSheetViewportUnits,
-  rewriteViewportUnits,
+  remProperty,
+  rewriteFrameUnits,
+  rewriteSheetFrameUnits,
+  rootFontSizeProperty,
   viewportContainerName,
   viewportHeightProperty,
   viewportWidthProperty
@@ -38,9 +40,16 @@ export const emptyLayoutSize = 24
  * The root is also the size container the project's (rewritten) media queries ask, so they respond to the frame's
  * width. A container lays out on its own, as a page's root does, and fixed elements place themselves in it, as in a
  * browser's viewport. On the body it would keep a first heading's margin from joining the body's.
+ *
+ * `rem` in a shadow root measures Parity's own root, so the project's is rewritten to `--canvas-rem` (see core's
+ * `rewriteFrameUnits`), which the root sets to its font size, the project's `html { font-size }` included. That size is
+ * read through a registered length (`registerRootFontSize`), since `1em` in an ordinary custom property would measure
+ * each element that uses it. It's a rule of its own, after the first, so nothing that resets custom properties in the
+ * first can undo it.
  */
 function frameRootSheet(): CSSStyleSheet {
   if (rootSheet) return rootSheet
+  registerRootFontSize()
   rootSheet = new CSSStyleSheet()
   rootSheet.replaceSync(`@layer canvas-frame-root {
   :host {
@@ -51,6 +60,10 @@ function frameRootSheet(): CSSStyleSheet {
     cursor: inherit;
     user-select: inherit;
   }
+  :host {
+    ${rootFontSizeProperty}: 1em;
+    ${remProperty}: var(${rootFontSizeProperty});
+  }
   [${bodyAttribute}] { margin: 8px; }
   [${emptyLayoutAttribute}] {
     outline: 1px dashed color-mix(in oklab, currentColor 35%, transparent);
@@ -60,6 +73,19 @@ function frameRootSheet(): CSSStyleSheet {
   [${emptyLayoutAttribute}~="height"] { min-height: ${emptyLayoutSize}px !important; }
 }`)
   return rootSheet
+}
+
+/**
+ * Registers the length a frame's root reads its font size into, so `1em` there becomes pixels before `--canvas-rem`
+ * passes it down. Registering is the document's, and once: a second registration of the name, as when this module is
+ * loaded again in development, is refused, and the first still holds.
+ */
+function registerRootFontSize(): void {
+  try {
+    CSS.registerProperty({ name: rootFontSizeProperty, syntax: "<length>", inherits: false, initialValue: "16px" })
+  } catch (error) {
+    if (!(error instanceof DOMException && error.name === "InvalidModificationError")) throw error
+  }
 }
 
 /**
@@ -95,9 +121,10 @@ export function setFrameViewport(host: HTMLElement, viewport: FrameViewport): vo
 let rewritingRules = false
 
 /**
- * Viewport units in rules the project's code adds to a stylesheet while it runs, as CSS-in-JS does in production,
- * measure the frame's window too, as its stylesheets' do. They're rewritten as they're added, wherever that is. That
- * changes nothing outside a frame, where the custom properties aren't set, so the units still measure Parity's window.
+ * Viewport units and `rem` in rules the project's code adds to a stylesheet while it runs, as CSS-in-JS does in
+ * production, measure the frame's window and root font too, as its stylesheets' do. They're rewritten as they're added,
+ * wherever that is. That changes nothing outside a frame, where the custom properties aren't set, so the units still
+ * measure Parity's window and root.
  */
 function rewriteAddedRules(): void {
   if (rewritingRules) return
@@ -108,24 +135,25 @@ function rewriteAddedRules(): void {
   const replace = original.replace.value!
   const replaceSync = original.replaceSync.value!
   CSSStyleSheet.prototype.insertRule = function (rule, index) {
-    return insertRule.call(this, rewriteSheetViewportUnits(rule), index)
+    return insertRule.call(this, rewriteSheetFrameUnits(rule), index)
   }
   CSSStyleSheet.prototype.replace = function (text) {
-    return replace.call(this, rewriteSheetViewportUnits(text))
+    return replace.call(this, rewriteSheetFrameUnits(text))
   }
   CSSStyleSheet.prototype.replaceSync = function (text) {
-    replaceSync.call(this, rewriteSheetViewportUnits(text))
+    replaceSync.call(this, rewriteSheetFrameUnits(text))
   }
 }
 
 const watched = new WeakSet<ShadowRoot>()
 
 /**
- * Viewport units the project's code writes into a frame while it runs measure the frame's window too: in inline styles
- * (`style={{ minHeight: "100dvh" }}`, however they're set) and in text in its `<style>` elements, as CSS-in-JS writes
- * in development. They're rewritten as soon as they're written, before the frame is next drawn, though code that
- * measures straight after, as a layout effect can, still sees them measure Parity's window. A browser keeps inline style
- * properties to itself, so they can't be caught as they're set without slowing every style Parity sets.
+ * Viewport units and `rem` the project's code writes into a frame while it runs measure the frame's window and root
+ * font too: in inline styles (`style={{ minHeight: "100dvh" }}`, however they're set) and in text in its `<style>`
+ * elements, as CSS-in-JS writes in development. They're rewritten as soon as they're written, before the frame is next
+ * drawn, though code that measures straight after, as a layout effect can, still sees them measure Parity's window and
+ * root. A browser keeps inline style properties to itself, so they can't be caught as they're set without slowing every
+ * style Parity sets.
  */
 function watchFrameStyles(shadow: ShadowRoot): void {
   if (watched.has(shadow)) return
@@ -150,13 +178,13 @@ function rewriteAdded(node: Node): void {
 function rewriteStyleAttribute(element: Element): void {
   const style = element.getAttribute("style")
   if (style === null) return
-  const rewritten = rewriteViewportUnits(style)
+  const rewritten = rewriteFrameUnits(style)
   if (rewritten !== style) element.setAttribute("style", rewritten)
 }
 
 function rewriteStyleText(node: Node): void {
   if (!(node instanceof Text) || node.parentElement?.localName !== "style") return
-  const rewritten = rewriteSheetViewportUnits(node.data)
+  const rewritten = rewriteSheetFrameUnits(node.data)
   if (rewritten !== node.data) node.data = rewritten
 }
 
