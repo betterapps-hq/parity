@@ -264,6 +264,8 @@ function toAgentSnapshot(snapshot: TabSnapshot): AgentSnapshot {
     tokenOverrides: snapshot.tokenOverrides,
     mainDocument: snapshot.mainDocument,
     props: snapshot.props,
+    sources: snapshot.sources,
+    ...(snapshot.renderStatus ? { renderStatus: snapshot.renderStatus } : {}),
     selection: snapshot.selection,
     bounds: snapshot.bounds
   }

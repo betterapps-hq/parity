@@ -50,7 +50,8 @@ const usage = `parity: drive the Parity app from a terminal or an agent
                                             unless --limit says
   parity components [--tab t]               the components designs can use, by library
   parity props <Component> [--all] [--tab t]
-                                            a component's props from its source; --all adds the attributes it passes on
+                                            a component's props from its source, then what it goes inside and holds,
+                                            with an example to insert; --all adds the attributes it passes on
   parity lib [package] [--root dir] [--out file|-] [--registry] [--id id] [--name n] [--range r] [--json]
        [--only new|all|A,B] [--edits file] [--no-examples] [--no-tags]
                                             write a .lib.par: a package's components, tokens, breakpoints, icons and

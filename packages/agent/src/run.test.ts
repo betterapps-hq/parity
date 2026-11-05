@@ -929,6 +929,35 @@ Update("submit", {props: {variant: "primary", tone: "loud"}})`
       ])
     )
   })
+
+  it("tells an agent the provider a sidebar needs, with an example it inserts as it is", async () => {
+    const nova = { path: "@buildkit/nova", library: "nova" }
+    const result = await execute(
+      {
+        label: "Sidebar",
+        code: `const { composition } = Props("nova/Sidebar")
+Print(composition.parents.chain.map((parent) => parent.component).join(" "))
+Insert("page", composition.example.node)`
+      },
+      {
+        ...snapshot(),
+        components: ["Button", "Card", "nova/Sidebar", "nova/SidebarProvider"],
+        sources: {
+          "nova/SidebarProvider": { ...nova, export: "SidebarProvider", visual: false },
+          "nova/Sidebar": { ...nova, export: "Sidebar", parents: ["nova/SidebarProvider"], parentsFrom: "example" }
+        },
+        renderStatus: { "nova/Sidebar": { drawn: true } }
+      },
+      hooks()
+    )
+    expect(result.error).toBeUndefined()
+    expect(result.output).toEqual(["nova/SidebarProvider"])
+    const page = result.changes.designs[0]?.after?.root
+    expect(page?.type === "layout" && page.children.at(-1)).toMatchObject({
+      component: "nova/SidebarProvider",
+      slots: { children: [{ component: "nova/Sidebar" }] }
+    })
+  })
 })
 
 describe("frames", () => {

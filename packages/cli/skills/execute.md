@@ -137,6 +137,25 @@ Print(Get((node, at) => (node.type === "component" && node.component === "Button
 source: variants with their options (`variant`, `size`), its own props, and with `{ all: true }` the attributes it
 passes to its element. A prop that isn't listed, or a variant value outside its options, comes back as a warning.
 
+Its `composition` says what it needs around it and holds, before you insert it:
+
+- `role` is `provider` for one that draws nothing and gives the parts inside it their context (`SidebarProvider`),
+  `wrapper` for one other parts go inside (`Sidebar`), and `component` otherwise.
+- `parents` is `listed`, with the `chain` it goes inside, outermost first, and where its library learned that; `none`;
+  or `unknown`, with the `reason`, such as a project component that hasn't drawn yet or an error asking for a provider.
+  An `optional` parent is left out when the ones outside it are already there.
+- `holds` lists the parts that go directly inside it, and `slots` the `key` each slot's layers go under.
+- `example.node` is the component inside its parents with its sample, as the Assets panel inserts it and the Components
+  panel draws it. `example.status` is `drawn` once the component has drawn on the canvas, `failing` with a `reason`, or
+  `untried`.
+
+```js
+// A sidebar goes inside its provider: insert the example, then fill it in.
+const { composition } = Props("nova/Sidebar")
+Print(composition.parents.chain.map((parent) => parent.component))
+const sidebar = Insert("page", composition.example.node)
+```
+
 ### Icons
 
 `Icons()` lists the project's icon sets: each one's `id`, `name`, `package`, `styles` (such as `outline` and `solid`,
@@ -252,16 +271,16 @@ under "Discarded by Replace" (`discarded` in structured output), with each node'
 
 ```text
 Discarded by Replace (reapply what you still want to the new node):
-  signup/title, now k3x9a:
-    Title (title): viewports mobile; states loading
+  dashboard/stats, now k3x9a:
+    Stats (stats): viewports mobile
 ```
 
-Put back the ones you still want on the new ids, in the same call or the next:
+Put back the ones you still want on the new ids, in the same call or the next. A state's changes go back with
+`UpdateState(design, state, { changes: { [id]: … } })`.
 
 ```js
-const title = Replace("signup/Title", { type: "text", name: "Title", text: "Welcome" })
-Responsive(title, "mobile", { hidden: true })
-UpdateState("signup", "loading", { changes: { [title]: { text: "Signing you up…" } } })
+const stats = Replace("dashboard/Stats", { type: "layout", name: "Stats", style: { direction: "row", gap: 16 } })
+Responsive(stats, "mobile", { style: { direction: "column" } })
 ```
 
 ### Responsive
