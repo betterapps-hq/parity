@@ -2894,6 +2894,33 @@ was tried in a debug copy on `examples/shadcn-vite`: zooming in steadily from th
 board, the board was still blurry 8 seconds after the camera stopped; with the redraw, it was sharp once the zoom
 settled. Its cost wasn't timed, as the copy's window was minimized; it's one paint of the layer for each zoom.
 
+### Titles and labels zoomed far out (PAR-151)
+
+A board's labels are its design's title above it, the state labels beside its rows when it shows every state, and the
+captions naming each frame's mode. Up close they keep their screen size. Past 40% they shrink with the canvas, so they
+stay beside what they label instead of growing over the boards around it.
+
+- **A title is a name, so it stays.** It shrinks to 60% of its screen size and no smaller, and is as wide on screen as
+  its board: a long name truncates, and the design's icon is clipped with it, so nothing runs past the board's edge.
+- **Detail goes first.** State labels and mode captions shrink as titles do, but fade as they shrink and are gone by
+  25%, while titles show at any zoom.
+- **Too narrow to read, a label hides.** Once a board is narrower than 24 screen pixels, its title hides, and its state
+  labels with it. A caption hides once its frame is that narrow. So at 1% a board 2,400 pixels wide or more keeps its
+  title, clipped to its 24 or more pixels, and a narrower one shows none. A narrow component's labels hide this way even
+  above 25%, before detail would have faded, so a board's detail never shows once its title has gone. A hidden label
+  doesn't take the pointer.
+
+Code: `labelLook` in `packages/editor/src/canvas-labels.ts`, the rule for every label; `useCanvasLabel` in
+`apps/desktop/src/renderer/canvas/labels.ts`, which applies it to a label's style as the zoom changes; `TitleBar`,
+`StateLabel` and `FrameCaption` in `canvas/ContainerView.tsx`, which pass each the board's or the frame's width.
+
+Tests: `packages/editor/src/canvas-labels.test.ts` (5: every label at screen size up close; names shrinking to 60% and
+showing at any zoom while there's room, including a 3,000-pixel board at 1%; detail fading out by 25%; a label hiding
+once what it labels is under 24 screen pixels, and showing again closer in; a narrow board's detail hiding with its
+title at 30%, where it would otherwise still show). Gaps: applying the look to the DOM (the transform, the width it fits
+and the clipped icon) has no automated test. It was checked in Storybook on the example's boards at 100%, 25%, 5% and
+1%.
+
 ## What the editor itself loads
 
 What Parity's own UI costs the window, apart from the projects it shows.

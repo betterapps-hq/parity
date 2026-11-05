@@ -3892,3 +3892,17 @@ event and returns the next list, and every path goes through it. My calls:
 - **An export the person puts on the list shows at once,** before its file is read again. One they take back off waits
   for the read, as before. PAR-604 is the case where it stays listed after that.
 - **The program cache stays in the app's worker for now.** Moving it into `@parity-app/code` is its own issue, PAR-603.
+
+## Zoomed far out, a board's labels hide once it's too narrow (PAR-151)
+
+Called on 2026-11-04, for your approval in Storybook:
+
+- **The frame the issue names is the board.** A title is clipped to its board's width on screen and hides when the board
+  is under 24 screen pixels wide; a mode caption goes by its own frame's width, and a state label by its board's. One
+  threshold for all three means detail never outlasts the title: a frame is never wider than its board.
+- **Hidden at the line, not faded towards it.** The zoom moves in steps far out (1%, 2.5%, 5%, 10%), so a fade between
+  them would rarely show. At 24 pixels or wider, a title shows, however little of its name fits.
+- **The icon is clipped with the name,** by the title's button, rather than the title dropping to its icon alone. The
+  rename field isn't clipped, so renaming a narrow board up close still shows the whole field.
+- **The rule moved to `@parity-app/editor`** (`canvas-labels.ts`), taking the board's or frame's width with the zoom, as
+  packages hold the editor's logic; the canvas keeps applying it to each label's style.
