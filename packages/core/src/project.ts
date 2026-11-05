@@ -4,7 +4,8 @@ import type {
   ComponentSample,
   LibraryBreakpoint,
   LibraryDecorator,
-  LibraryIcons
+  LibraryIcons,
+  ParentSignal
 } from "./library.ts"
 import type { DescribedToken } from "./token-types.ts"
 
@@ -92,6 +93,8 @@ export interface ComponentSource {
   included?: true
   /** A library part's parents by component id, outermost first: inserting it alone places it inside them. */
   parents?: string[]
+  /** What said a library part needs `parents`: its library's examples, its namespace, the error it throws alone. */
+  parentsFrom?: ParentSignal
   /** Those of `parents` left out when the ones outside them are already there, by component id. */
   optionalParents?: string[]
   /** Its parents are inserted with the other parts their samples hold, which it needs to draw. */

@@ -334,6 +334,8 @@ export interface TabSnapshot {
   projectId: string
   guestUrl: string
   components: string[]
+  /** Where each component comes from, with the parents and sample a library part is inserted with. */
+  sources: Record<string, ComponentSource>
   /** Components the type checker found after the guest loaded, which other pages' guests have to add themselves. */
   addedComponents?: Record<string, Pick<ComponentSource, "path" | "export">>
   /** The app's exports the type checker left out, with why. */

@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Props reports a component's composition: the parents or provider it goes inside, the parts it holds, its slots and an example to insert (PAR-454)",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

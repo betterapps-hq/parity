@@ -361,9 +361,50 @@ const propsSchema = object(
         },
         ["group", "options", "default", "required"]
       )
-    }
+    },
+    composition: object({
+      role: {
+        type: "string",
+        enum: ["provider", "wrapper", "component"],
+        description: "provider draws nothing and gives parts inside it context; wrapper draws and holds other parts."
+      },
+      parents: object(
+        {
+          status: {
+            type: "string",
+            enum: ["listed", "none", "unknown"],
+            description: "listed: insert it inside chain; none: it needs nothing; unknown: nothing says, see reason."
+          },
+          chain: {
+            type: "array",
+            description: "Outermost first.",
+            items: object({ component: string, optional: boolean_ }, ["optional"])
+          },
+          from: { ...string, description: "What said so, such as the library's examples or the error it throws." },
+          reason: string
+        },
+        ["chain", "from", "reason"]
+      ),
+      holds: { ...strings, description: "Parts that go directly inside it." },
+      slots: {
+        type: "array",
+        items: object({ name: string, key: string, kind: { type: "string", enum: ["children", "element", "render"] } })
+      },
+      example: object(
+        {
+          node: { type: "object", description: "A node Insert takes as it is: the component inside its parents." },
+          status: {
+            type: "string",
+            enum: ["drawn", "failing", "untried"],
+            description: "Whether the component has drawn on the canvas."
+          },
+          reason: string
+        },
+        ["reason"]
+      )
+    })
   },
-  ["path", "import"]
+  ["path", "import", "composition"]
 )
 
 const viewportSchema = object(
