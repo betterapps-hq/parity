@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Measure explains that it lays out one frame when given a list, \"all\" or \"shown\", and lists the state or mode ids it takes",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

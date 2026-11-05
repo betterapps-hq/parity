@@ -3689,6 +3689,22 @@ its id, ignoring case and spaces; a shared name listing both ids; a former name 
 `packages/agent/src/run.test.ts` ("asks for a state's id in every call that takes one": the same message and
 alternatives from each call, a shared name, and the id working).
 
+### Measure draws one frame (PAR-461)
+
+`Measure` takes one state id and one mode id. A list, `"all"` or `"shown"`, which `Screenshot`, `Problems` and
+`Accessibility` take, fails before anything renders with `invalid_input` on `state` or `mode`. The message says Measure
+lays out one frame, to call it once for each, and that the checks take several, then lists the design's states as
+`id (name)` or its modes; a frame lists only the primary mode. `alternatives` gives those ids. The CLI and MCP show the
+same text and structured error. The execute skill shows a loop over a design's states and shown modes that keeps each
+layout with the state and mode it reports.
+
+Implementation: `expectOneFrame` in `packages/agent/src/workspace.ts`, called by `measure`.
+
+Tests: `packages/agent/src/run.test.ts` ("explains that Measure draws one frame": each of `"all"`, a list and `"shown"`
+for state and mode, with nothing rendered; one state and mode still measuring; a frame listing only its primary mode).
+`packages/cli/src/execute.test.ts` ("explains Measure's single frame the same way in both transports": the agent's error
+as CLI text, `--json` and MCP). `packages/cli/src/skill-examples.test.ts` runs the skill's loop.
+
 ### Warnings grouped by what they found (PAR-460)
 
 An execute call's findings are grouped: one per category and message, with how many places it was found and which.

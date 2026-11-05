@@ -89,7 +89,7 @@ SetTokens({ name: value | { theme: value } }): void
 
 // Checking
 Screenshot(design, { state?, mode?, scale? }?): number
-Measure(design, { state?, mode? }?): Layout
+Measure(design, { state?, mode? }?): Layout      // one frame: one state id, one mode id
 Problems(design, { state?, mode? }?): Problem[]
 Accessibility(design, { state?, mode? }?): Finding[]
 
@@ -434,6 +434,21 @@ Print(
   layout.mode,
   layout.nodes.map((node) => `${node.id} in ${node.parent}`)
 )
+```
+
+`Measure` takes one state id and one mode id, because it returns one frame's layout. A list, `"all"` or `"shown"` fails
+with `invalid_input`, naming the ids it takes. To measure several frames, call it once for each; every layout says which
+state and mode it drew:
+
+```js
+const signup = Designs().find((design) => design.id === "signup")
+const layouts = []
+for (const state of signup.states) {
+  for (const mode of [signup.showing.mode, ...signup.showing.beside]) {
+    layouts.push(await Measure("signup", { state: state.id, mode }))
+  }
+}
+for (const layout of layouts) Print(`${layout.state} in ${layout.mode}: ${layout.width} × ${layout.height}`)
 ```
 
 `Accessibility` returns axe-core's findings per node and frame, with the rule, its impact and what's wrong.

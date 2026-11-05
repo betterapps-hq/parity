@@ -3668,6 +3668,16 @@ ids and picks none. The ids a name points to lead `alternatives`, ahead of the r
 details finds them. The code stays `unknown_state`, since the reference isn't a state id at all, rather than
 `ambiguous_reference`, which is for references that match more than one valid thing.
 
+## Measure stays one frame, and says so (PAR-461)
+
+`Measure` returns one frame's layout, while `Screenshot`, `Problems` and `Accessibility` take a list of states or modes,
+`"all"` or `"shown"`. Given one of those, Measure used to look the word up as a state and fail with `unknown_state` on
+`"all"`. It now fails first, before anything renders, with `invalid_input` on `state` or `mode`. The message says it
+lays out one frame, to call it once for each frame, that the checks take several, and lists the ids it takes: each
+state's id beside its name, or the modes (only the primary mode for a frame), which also fill `alternatives`. Its result
+keeps its shape and there's no Measure over many frames; each layout already names its state and mode, so a loop keeps
+them apart. A Measure over many frames waits until agents need one.
+
 ## Data Parity didn't make is checked with zod (PAR-578)
 
 Asked how PAR-565's channel module should check request params, by hand as core's `validate.ts` does or with zod, you

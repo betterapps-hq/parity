@@ -21,7 +21,8 @@ small details.
   box. A node that only spills past a parent that doesn't clip still shows, so it isn't listed.
 - **Unknown components.** A name that isn't in `Components()`; it draws as a placeholder.
 
-`Measure` gives every node's box in one frame, for checking alignment or sizes by numbers.
+`Measure` gives every node's box in one frame, for checking alignment or sizes by numbers. It takes one state and one
+mode; to compare frames, call it for each, as the execute skill shows.
 
 ## Accessibility
 

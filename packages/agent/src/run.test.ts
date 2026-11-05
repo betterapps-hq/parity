@@ -1341,6 +1341,59 @@ describe("coded failures", () => {
     expect(byId.changes.designs[0]!.after!.states[1]).toEqual({ id: "loading", name: "Waiting" })
   })
 
+  it("explains that Measure draws one frame when given a list, all or shown, before rendering (PAR-461)", async () => {
+    const base = snapshot()
+    base.documents[0]!.document.containers[0]!.states = [
+      { id: "default", name: "Default" },
+      { id: "loading", name: "Busy" }
+    ]
+    const modes = resolveModes(base.modes).map((mode) => mode.id)
+    const calls = [
+      { option: `{ state: "all" }`, field: "state", given: '"all"', ids: ["default", "loading"] },
+      { option: `{ state: ["default", "loading"] }`, field: "state", given: "a list", ids: ["default", "loading"] },
+      { option: `{ mode: "all" }`, field: "mode", given: '"all"', ids: modes },
+      { option: `{ mode: "shown" }`, field: "mode", given: '"shown"', ids: modes },
+      { option: `{ mode: [${JSON.stringify(modes[0])}] }`, field: "mode", given: "a list", ids: modes }
+    ]
+    for (const { option, field, given, ids } of calls) {
+      const rendered: unknown[] = []
+      const code = `await Measure("signup", ${option})`
+      const result = await execute({ label: "Try", code }, base, {
+        ...hooks(),
+        render: async (job) => (rendered.push(job), hooks().render(job))
+      })
+      expect({ code, error: result.error, details: result.details, rendered }).toEqual({
+        code,
+        error:
+          `Measure lays out one frame, so ${field} takes one ${field} id, not ${given}. To compare ${field}s, call ` +
+          `Measure once for each; Problems, Screenshot and Accessibility take ` +
+          (field === "state"
+            ? 'a list or "all". States in Sign up: default (Default), loading (Busy).'
+            : `a list, "shown" or "all". Modes: ${modes.join(", ")}.`) +
+          " (line 1, column 7)",
+        details: { code: "invalid_input", retryable: false, field, alternatives: ids },
+        rendered: []
+      })
+    }
+    // One state and one mode still measure, as do the checks that take a matrix.
+    const single = await execute(
+      {
+        label: "Try",
+        code: `const layout = await Measure("signup", { state: "loading", mode: ${JSON.stringify(modes[0])} })
+Print(layout.state, layout.mode)
+await Problems("signup", { state: "all", mode: "all" })`
+      },
+      base,
+      hooks()
+    )
+    expect(single.error).toBeUndefined()
+    // A frame takes only the primary mode, so that's all it lists.
+    base.documents[0]!.document.containers[0]!.kind = "frame"
+    const frame = await execute({ label: "Try", code: `await Measure("signup", { mode: "all" })` }, base, hooks())
+    expect(frame.error).toContain(`Sign up is a frame, drawn only in the primary mode, ${modes[0]}.`)
+    expect(frame.details?.alternatives).toEqual([modes[0]])
+  })
+
   it("throws coded errors for a retry it can't patch, before running anything", async () => {
     await expect(execute({ label: "Retry", editId: "gone", edits: [] }, snapshot(), hooks())).rejects.toMatchObject({
       details: { code: "unknown_edit_id", retryable: false, field: "editId" }
