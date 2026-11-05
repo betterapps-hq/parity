@@ -3942,6 +3942,32 @@ event and returns the next list, and every path goes through it. My calls:
   for the read, as before. PAR-604 is the case where it stays listed after that.
 - **The program cache stays in the app's worker for now.** Moving it into `@parity-app/code` is its own issue, PAR-603.
 
+## A component's name goes in only where it fits (PAR-518)
+
+A component that takes children is inserted with its name as text, so it isn't an empty box. The preview survey found
+parts whose box has a fixed size showing it cut off: "Avata", "C", "Marke", the end of "AttachmentAction". Nothing in a
+component's props says how big its box is, so my calls:
+
+- **A component's own classes say whether it sets its size.** The props reader looks at the classes on the outermost
+  element a component returns, in a project's source or a library's compiled JavaScript, and marks it `fixedSize` for a
+  width (`size-8`, `w-10`, `w-(--sidebar-width)`), a height under a line of text (`h-px`, under 16 pixels) or
+  `@container`, whose width doesn't come from what's inside. Classes for the element's own states (`data-horizontal:`)
+  count; ones it takes from a parent (`group-*:`) or gives what's inside (`[&_svg]:`) don't. It reads Tailwind's names
+  only, which is what shadcn and the libraries Parity ships are written in; a component styled another way keeps its
+  name. Measuring the drawn label instead would take a second draw for every preview and an edit after every insert.
+- **A library's samples decide its parts' children.** A part with a sample gets what the sample gives, and no name when
+  it gives none: its examples use a Separator, a Checkbox or an icon button without text. Before, only a sample that
+  spelled out children replaced the name. A part without a sample of its own takes the children the first of its
+  library's other samples to use it gives it, which for MarkerIcon and AttachmentMedia is none (elements the sample
+  can't show, their icons). Only the label changes; a part's props still come from its own sample.
+- **A part no sample shows keeps its name,** as do the project's own components that don't set their size, since the
+  name is still the best sign of what was placed. ItemSeparator and SidebarSeparator wrap nova's Separator, whose
+  classes are on the Separator, not theirs, so they still show a cut name; reading through to the component a part
+  returns would cover them.
+- **A narrow Card stays narrow.** nova's Card in its preview is a narrow column because its CardHeader is a
+  `@container`, which takes no width from its text in a preview drawn at the width of its content. That's the preview's
+  width, not a name, and isn't changed here.
+
 ## Hide in and Show in name where the change lands (PAR-497)
 
 Called on 2026-11-05, for your approval in Storybook. The Layers row's menu said "Show in Default" for a layer that the

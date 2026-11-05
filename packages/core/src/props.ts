@@ -17,6 +17,11 @@ export interface ComponentInfo {
    * when they don't, so those do nothing; unset when it isn't known, as for props typed `any`.
    */
   takesStyle?: boolean
+  /**
+   * Its own element sets its size, as an Avatar's `size-8` or a Separator's `h-px` do, so text inside it is cut off or
+   * spills out rather than sizing it. Unset when it doesn't, or when that isn't known.
+   */
+  fixedSize?: true
 }
 
 export interface ComponentProp {

@@ -1130,9 +1130,16 @@ a component design; the Layers panel's add buttons start new designs. Each is on
   the view (PAR-546); with a design selected that has nowhere for it, a message says to select a layout.
 - **What goes in is ready to show something.** A component gets its required props (an option's first value, `false`,
   `0` or its own name, unless they have a default) and its name as text when it takes children. A library's part comes
-  inside the parents it needs that aren't around the layout already, with their samples. A component design goes in as a
-  linked instance or, from a library's menu, a detached copy. An image is 80 spacing steps (320px) wide, its height
-  following its shape.
+  inside the parents it needs that aren't around the layout already, with their samples.
+- **A name goes in only where it fits (PAR-518).** A component whose own element sets its size gets no name, since
+  "Avatar" in a 32px circle showed as "Avata": the props reader marks it `fixedSize` when the classes on the outermost
+  element it returns give it a width (`size-8`, `w-10`), a height under a line (`h-px`) or `@container`, in a project's
+  code or a library's compiled JavaScript. A library's part takes what its library's samples give it instead of its
+  name: its own sample's children or text, or none when the sample gives none, as for a Separator, a Checkbox or
+  AttachmentAction, an icon button. A part without a sample of its own takes the children the first of the library's
+  other samples to use it gives it, so MarkerIcon and AttachmentMedia, whose icons Marker's and Attachment's samples
+  can't show, hold nothing. A part no sample shows keeps its name. A component design goes in as a linked instance or,
+  from a library's menu, a detached copy. An image is 80 spacing steps (320px) wide, its height following its shape.
 - **The undo step says what was added:** "Add Button" (the component's name without its library), "Add component", "Add
   copy" or "Add image".
 - **Make component** puts the component design at the end of the project file, 640px above the topmost design on the
@@ -1146,9 +1153,11 @@ a component design; the Layers panel's add buttons start new designs. Each is on
   starts as a padded page with its name as a heading, a component as a small padded layout on a 480px frame.
 
 Code: the rules are in `packages/editor/src/insert.ts`, `components.ts`, `create.ts` and `placement.ts`
-(`@parity-app/editor`). The app's `canvas/insert.ts` measures the layout under the pointer and applies an insert to the
-selection and the store, `chrome/components.ts` measures the designs and applies Make component, and `chrome/create.ts`
-adds a new design and zooms to it.
+(`@parity-app/editor`), with the new layer's props and label in `componentNode` and a library part's parents and samples
+in `withLibraryContext`, both in `packages/core/src/library-insert.ts`, and `fixedSize` read by `setsOwnSize` in
+`packages/code/src/props.ts`. The app's `canvas/insert.ts` measures the layout under the pointer and applies an insert
+to the selection and the store, `chrome/components.ts` measures the designs and applies Make component, and
+`chrome/create.ts` adds a new design and zooms to it.
 
 Tests: `packages/editor/src/insert.test.ts`: the layer for a component (required props, given props, a library's name),
 an instance and an image (its size, alt text and credit, and a tiny one); the labels; inserting between children, at the
@@ -1160,11 +1169,15 @@ where one line along every child would pick the first, and the pointer's place i
 exist yet, and the errors; and instances in layouts and slots across designs. `create.test.ts`: a new screen and
 component, and a taken id. `placement.test.ts`: a new design beside everything, one the canvas hasn't drawn, an empty
 canvas, and a component above everything. A library part's parents and samples are core's, in
-`packages/core/src/library-insert.test.ts`. The extraction and its check are core's `extractComponent`, in
-`packages/core/src/decompose.test.ts`: occurrences become instances that render the same, a state changing the part
-refused, a single part's texts as params, and the check against the board, refused under a variant option that changes
-the part but not one that changes what's outside it or isn't shown, and refused when a layer in the part shows a param's
-default.
+`packages/core/src/library-insert.test.ts`, with three for names that fit (PAR-518): none for a component that sets its
+own size, unless given; none for a part whose sample gives no children; and a part without a sample taking the children
+its library's other samples give it (none for an icon's box or one used without any, their text), else its name.
+`packages/code/src/props.test.ts` has two for `fixedSize`: the example's Avatar, AvatarGroupCount, CardHeader and
+Separator but not Card, Badge or Button, and a library's compiled parts, leaving out classes for what's inside or taken
+from a parent. The extraction and its check are core's `extractComponent`, in `packages/core/src/decompose.test.ts`:
+occurrences become instances that render the same, a state changing the part refused, a single part's texts as params,
+and the check against the board, refused under a variant option that changes the part but not one that changes what's
+outside it or isn't shown, and refused when a layer in the part shows a param's default.
 
 End to end, `apps/desktop/e2e/dropping.e2e.ts` drags Badge from the Components panel onto the left of the fifth card in
 Projects' grid: the grid is outlined and the line stands beside that card while dragging, Badge lands fifth, selected,
@@ -2874,6 +2887,11 @@ dark theme, through the variables shadcn's tooltip reads, set in `styles.css`.
   sentence within them ends, else after the last whole word with "…" (`sampleText`), and the registry's files were
   shortened the same way. Since a preview's key covers its tree, both changes give the affected components new keys and
   new pictures without raising `previewFormat`.
+- **No cut-off names (PAR-518).** A part that sets its own size, or whose library's samples give it no text, is drawn
+  without its name, as it's inserted (see Inserting, Make component and new designs). On `examples/shadcn-vite`, Avatar,
+  AvatarGroupCount, CardHeader and Separator, and nova's MarkerIcon, AttachmentAction, AttachmentMedia, AlertAction and
+  Separator, no longer show "Avata", "C" or the like; their new trees give them new keys. ItemSeparator and
+  SidebarSeparator still do, and nova's Card is still a narrow column (see decisions.md).
 
 Code: `componentPreviewTree` in `packages/editor/src/component-preview.ts`; `renderQueue`, `nextPreview` and `fitInside`
 in `packages/core/src/preview-order.ts`; `renderedComponents` in `packages/core/src/render.ts`; `previewKey`,
