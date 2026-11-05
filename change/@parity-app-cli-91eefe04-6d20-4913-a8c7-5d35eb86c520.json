@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Box a component that draws only text by its text, so it can be hovered, picked and sized on the canvas",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
