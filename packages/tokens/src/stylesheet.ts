@@ -19,7 +19,8 @@ interface PlacedBlock extends SourceBlock {
   nested: boolean
 }
 
-export interface SetPropertyOptions {
+/** The blocks a custom property may live in. */
+export interface PropertyBlocks {
   /** Blocks the property may live in, by prelude (`:root`, `.dark`, `@theme`). A prelude matches if any of its comma-separated parts does. */
   blocks: string[]
   /**
@@ -27,6 +28,9 @@ export interface SetPropertyOptions {
    * `[data-theme="dark"]` alike. A block under a condition (`@media`…) is no theme's, so it's never edited.
    */
   theme?: string
+}
+
+export interface SetPropertyOptions extends PropertyBlocks {
   /**
    * Where to add the property when no matching block declares it: an existing block of this prelude, else the
    * theme's first block (unless this is an at-rule, such as `@theme`), else a new block of this prelude.
@@ -42,36 +46,42 @@ export interface TokenChange {
 }
 
 /**
+ * A token value Save writes in one theme, as `TokenChange` gives it, or `value` undefined to take the token's
+ * declaration out of that theme: a value the theme didn't have, undone after it was saved.
+ */
+export interface TokenWrite {
+  name: string
+  theme: string
+  value: string | undefined
+}
+
+/**
  * Writes token values into a stylesheet's source: semantic tokens into the root or their theme's block (`.dark` or
  * `[data-theme="dark"]`, whichever the stylesheet uses, else a new `.dark`), theme scale tokens (those `themeNames`
- * holds) into an `@theme` block, editing declarations in place where they already exist.
+ * holds) into an `@theme` block, editing declarations in place where they already exist. A write without a value
+ * takes the declaration out of the same blocks, and a block it leaves empty with it.
  */
 export function writeTokenChanges(
   source: string,
-  changes: readonly TokenChange[],
+  changes: readonly TokenWrite[],
   themeNames: ReadonlySet<string>
 ): string {
   let content = source
-  for (const change of changes) content = applyTokenChange(content, change, themeNames.has(change.name))
+  for (const { name, theme, value } of changes) {
+    const options = tokenBlocks(theme, themeNames.has(name))
+    content =
+      value === undefined
+        ? removeCustomProperty(content, name, options)
+        : setCustomProperty(content, name, value, options)
+  }
   return content
 }
 
-function applyTokenChange(source: string, change: TokenChange, isTheme: boolean): string {
-  if (change.theme !== "default") {
-    return setCustomProperty(source, change.name, change.value, {
-      blocks: [],
-      theme: change.theme,
-      create: `.${change.theme}`
-    })
-  }
-  if (isTheme) {
-    return setCustomProperty(source, change.name, change.value, {
-      blocks: ["@theme", "@theme inline", "@theme static"],
-      theme: "default",
-      create: "@theme"
-    })
-  }
-  return setCustomProperty(source, change.name, change.value, { blocks: [], theme: "default", create: ":root" })
+/** Where a token's value lives in a theme: a theme scale token (`isTheme`) in `@theme`, others in the root or theme. */
+function tokenBlocks(theme: string, isTheme: boolean): SetPropertyOptions {
+  if (theme !== "default") return { blocks: [], theme, create: `.${theme}` }
+  if (isTheme) return { blocks: ["@theme", "@theme inline", "@theme static"], theme: "default", create: "@theme" }
+  return { blocks: [], theme: "default", create: ":root" }
 }
 
 /**
@@ -79,22 +89,11 @@ function applyTokenChange(source: string, change: TokenChange, isTheme: boolean)
  * Replaces the declaration in every matching block that has one, else adds it to the block named by `create`.
  */
 export function setCustomProperty(source: string, name: string, value: string, options: SetPropertyOptions): string {
-  const blocks = place(scanBlocks(source), [], false).filter((block) => !block.nested && isUnconditional(block.atRules))
-  const matches = (block: SourceBlock, preludes: string[]) => {
-    const parts = block.prelude.split(",").map((part) => normalize(part))
-    return preludes.some(
-      (prelude) => parts.includes(normalize(prelude)) || normalize(block.prelude) === normalize(prelude)
-    )
-  }
-  const inTheme = (block: PlacedBlock) =>
-    options.theme !== undefined &&
-    !block.prelude.startsWith("@") &&
-    themeOfSelector(block.prelude, block.atRules) === options.theme
-
+  const blocks = editableBlocks(source)
   // Every block that declares it gets the value, as `previewToken` does, so `.dark` and a later `[data-theme="dark"]`
   // can't disagree after a save. From the last, so earlier offsets still hold.
   const declarations = blocks
-    .filter((candidate) => matches(candidate, options.blocks) || inTheme(candidate))
+    .filter((candidate) => holds(candidate, options))
     .flatMap((block) => findDeclaration(source, block, name) ?? [])
     .sort((a, b) => b.valueStart - a.valueStart)
   if (declarations.length > 0) {
@@ -105,7 +104,7 @@ export function setCustomProperty(source: string, name: string, value: string, o
 
   const target =
     blocks.find((candidate) => matches(candidate, [options.create])) ??
-    (options.create.startsWith("@") ? undefined : blocks.find(inTheme))
+    (options.create.startsWith("@") ? undefined : blocks.find((candidate) => inTheme(candidate, options.theme)))
   if (target) {
     const body = source.slice(target.bodyStart, target.bodyEnd)
     const indent = /\n([ \t]+)--/.exec(body)?.[1] ?? /\n([ \t]+)\S/.exec(body)?.[1] ?? "  "
@@ -116,6 +115,96 @@ export function setCustomProperty(source: string, name: string, value: string, o
   }
   const separator = source.endsWith("\n") || source.length === 0 ? "" : "\n"
   return `${source}${separator}\n${options.create} {\n  --${name}: ${value};\n}\n`
+}
+
+/**
+ * Takes a custom property out of every matching block that declares it, keeping everything else as written, and a
+ * block it leaves with nothing in it goes too, so a value `setCustomProperty` added in a block of its own leaves the
+ * stylesheet as it was before. The same source when no block declares it.
+ */
+export function removeCustomProperty(source: string, name: string, options: PropertyBlocks): string {
+  let next = source
+  for (;;) {
+    // The last declaration first, then the blocks again, since taking one out moves everything after it.
+    const found = editableBlocks(next)
+      .filter((block) => holds(block, options))
+      .flatMap((block) => {
+        const declaration = findDeclaration(next, block, name)
+        return declaration ? [{ block, declaration }] : []
+      })
+      .at(-1)
+    if (!found) return next
+    const { block, declaration } = found
+    const left = next.slice(block.bodyStart, declaration.start) + next.slice(declaration.end, block.bodyEnd)
+    next =
+      left.trim() === ""
+        ? cut(next, ruleStart(next, block), block.bodyEnd + 1)
+        : cut(next, declaration.start, declaration.end)
+  }
+}
+
+/** The blocks a custom property can be edited in: not nested in a style rule, and under no condition. */
+function editableBlocks(source: string): PlacedBlock[] {
+  return place(scanBlocks(source), [], false).filter((block) => !block.nested && isUnconditional(block.atRules))
+}
+
+/** Whether a block is one the property may live in. */
+function holds(block: PlacedBlock, options: PropertyBlocks): boolean {
+  return matches(block, options.blocks) || inTheme(block, options.theme)
+}
+
+function matches(block: SourceBlock, preludes: readonly string[]): boolean {
+  const parts = block.prelude.split(",").map((part) => normalize(part))
+  return preludes.some(
+    (prelude) => parts.includes(normalize(prelude)) || normalize(block.prelude) === normalize(prelude)
+  )
+}
+
+function inTheme(block: PlacedBlock, theme: string | undefined): boolean {
+  return (
+    theme !== undefined && !block.prelude.startsWith("@") && themeOfSelector(block.prelude, block.atRules) === theme
+  )
+}
+
+/** Where a block's rule begins: its prelude, after the whitespace and comments before it. */
+function ruleStart(source: string, block: SourceBlock): number {
+  let index = block.start
+  while (index < block.bodyStart) {
+    if (/\s/.test(source[index]!)) {
+      index++
+      continue
+    }
+    const commentEnd = source.startsWith("/*", index) ? source.indexOf("*/", index + 2) : -1
+    if (commentEnd === -1) break
+    index = commentEnd + 2
+  }
+  return index
+}
+
+/**
+ * Takes `source` from `from` to `to` out with the spaces around it: its whole line when nothing else is on it, and one
+ * of the blank lines that leaves on either side of it; otherwise the spaces that would be left over.
+ */
+function cut(source: string, from: number, to: number): string {
+  let start = from
+  while (start > 0 && /[ \t]/.test(source[start - 1]!)) start--
+  let end = to
+  while (end < source.length && /[ \t]/.test(source[end]!)) end++
+  const atLineStart = start === 0 || source[start - 1] === "\n"
+  const lineBreak = /^\r?\n/.exec(source.slice(end))?.[0]
+  const atLineEnd = end === source.length || lineBreak !== undefined
+  if (!atLineStart || !atLineEnd) {
+    return atLineEnd ? source.slice(0, start) + source.slice(to) : source.slice(0, from) + source.slice(end)
+  }
+  end += lineBreak?.length ?? 0
+  // A line taken out from between two blank lines, or a blank line and an end of the file, leaves one of them.
+  const blankBefore = /\r?\n\r?\n$/.exec(source.slice(0, start))?.[0]
+  const blankAfter = /^\r?\n/.exec(source.slice(end))?.[0]
+  const fileStart = start === 0
+  const fileEnd = end === source.length
+  if (blankBefore && (blankAfter || fileEnd)) start -= blankBefore.startsWith("\r\n") ? 2 : 1
+  else if (blankAfter && fileStart) end += blankAfter.length
+  return source.slice(0, start) + source.slice(end)
 }
 
 function normalize(text: string): string {
@@ -131,12 +220,15 @@ function place(blocks: SourceBlock[], atRules: EnclosingAtRule[], nested: boolea
   })
 }
 
-/** Finds `--name: value` directly inside a block (not in nested blocks). */
+/**
+ * Finds `--name: value` directly inside a block (not in nested blocks): where its value begins and ends, and where the
+ * whole declaration does, its `;` included.
+ */
 function findDeclaration(
   source: string,
   block: SourceBlock,
   name: string
-): { valueStart: number; valueEnd: number } | undefined {
+): { start: number; end: number; valueStart: number; valueEnd: number } | undefined {
   let index = block.bodyStart
   const nested = [...block.children].sort((a, b) => a.bodyStart - b.bodyStart)
   const pattern = new RegExp(`--${name.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*:`, "y")
@@ -159,7 +251,8 @@ function findDeclaration(
       const valueEnd = endOfValue(source, valueStart, block.bodyEnd)
       let trimmed = valueEnd
       while (trimmed > valueStart && /\s/.test(source[trimmed - 1]!)) trimmed--
-      return { valueStart, valueEnd: trimmed }
+      const end = source[valueEnd] === ";" ? valueEnd + 1 : trimmed
+      return { start: index, end, valueStart, valueEnd: trimmed }
     }
     index++
   }

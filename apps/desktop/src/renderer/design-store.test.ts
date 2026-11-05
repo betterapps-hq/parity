@@ -1,5 +1,5 @@
 import { type CanvasDocument, type ContainerSpec, defaultModeSettings } from "@parity-app/core"
-import { historyLimit, type TokenChange, type TokenEdit } from "@parity-app/editor"
+import { historyLimit, type TokenEdit, type TokenWrite } from "@parity-app/editor"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { DesignStore } from "./design-store.ts"
 
@@ -15,7 +15,7 @@ function design(id: string): ContainerSpec {
 
 function setup({ autosave = false, failing = false, home = design("home") } = {}) {
   const writes: { path: string; document: CanvasDocument }[] = []
-  const tokenWrites: TokenChange[][] = []
+  const tokenWrites: TokenWrite[][] = []
   let fail = failing
   let stylesheetFailure: string | undefined
   const store = new DesignStore(
@@ -348,6 +348,20 @@ describe("token edits", () => {
     expect(writes).toHaveLength(1)
     expect(tokenWrites).toEqual([[{ name: "primary", theme: "default", value: "oklch(0.55 0.2 260)" }]])
     expect(store.getSaveState()).toEqual({ status: "saved" })
+  })
+
+  it("write a value a theme didn't have without a value once it's undone after a save", async () => {
+    const { store, tokenWrites } = setup()
+    store.changeTokens("Edit --radius", [{ name: "radius", theme: "dark", value: "1rem" }])
+    await store.flush()
+    store.undo()
+    expect(store.unsavedPaths()).toEqual(["src/index.css"])
+    await store.flush()
+    expect(tokenWrites).toEqual([
+      [{ name: "radius", theme: "dark", value: "1rem" }],
+      [{ name: "radius", theme: "dark", value: undefined }]
+    ])
+    expect(store.hasUnsaved()).toBe(false)
   })
 
   it("say a failed write names the stylesheet and the tokens, and clear once one succeeds", async () => {

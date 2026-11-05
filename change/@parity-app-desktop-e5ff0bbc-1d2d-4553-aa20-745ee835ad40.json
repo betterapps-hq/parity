@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Saving after undoing a token value a theme didn't have takes it back out of the stylesheet, with any rule it leaves empty",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
