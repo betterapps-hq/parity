@@ -99,7 +99,7 @@ export function extractComponent(design: ContainerSpec, occurrences: string[], o
     for (const state of design.states) {
       for (const [id, patch] of Object.entries(state.overrides ?? {})) {
         if (!inside.has(id)) continue
-        if (id !== node.id || patch.props !== undefined || patch.text !== undefined) {
+        if (id !== node.id || patch.props !== undefined || patch.unset?.props || patch.text !== undefined) {
           throw new Error(
             `The ${state.name} state changes "${id}" inside the part being extracted. Move that change into a state of the component, then extract.`
           )

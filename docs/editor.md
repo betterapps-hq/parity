@@ -1221,7 +1221,10 @@ text. Copy style (Ctrl+Alt+C) and Paste style keep their own clipboard inside th
 - **Text pastes as a text layer** where layers would go, or as a note in the middle of the view. **SVG markup pastes as
   a picture,** not as its source.
 - **Copy style copies the look the frame shows,** with its variant options and viewport, and **Paste style gives each
-  selected layer the copied style in place of the one shown,** in the state being edited.
+  selected layer the copied style in place of the one shown,** in the state being edited. In a state other than the
+  base, the state takes away what the copy doesn't set (PAR-426), so it shows only the copied style there, as the base
+  would: pasting a padding of 4 onto a row with a gap of 3 and a padding of 1 leaves a column with a padding of 4. The
+  inspector marks each value taken away as changed in that state, with Reset.
 - **Layers naming components the project doesn't have** still paste, with a warning naming them.
 
 Code: the rules are in `packages/editor/src/clipboard.ts` (`@parity-app/editor`).
@@ -1237,12 +1240,16 @@ fresh ids in order, last, inside copies and in a slot; with the shared fixture's
 viewport, the bound title as it shows, and pasting it into a design with and without the param, bindings fitted all the
 way down, and none in a new screen; the new screen; designs' ids, kept when free even when not made from the name, and
 whole-pixel moves; notes beside where they were and at a place; copying style in a state, and in a variant and viewport,
-and pasting it in the base and in another state; and missing components at any depth, and none while the project's
-aren't known.
+and pasting it in the base and in another state, where the state shows only the copied style, taking away the design's
+values and keeping nothing for what the design doesn't set; and missing components at any depth, and none while the
+project's aren't known. What a state takes away is tested in `packages/core`: `edit.test.ts` ("taking a value away"), a
+prop taken away in one state, a value the state set taken away with nothing kept, setting it again and Reset, and
+removal in the base; `render.test.ts`, a state taking style and props away over the design and the viewport's patch,
+layered patches, an instance's param back to its default, and reading `unset` from a file;
+`packages/agent/src/workspace.test.ts`, `Update` taking the base's gap away in one state and refusing an unknown key.
 
-Gaps: reading and writing the system clipboard, images and the messages have no automated test. In a state other than
-the base, Paste style leaves the base's own style values under the copied ones, since a state's changes can't unset
-them; the test checks only that the copied values land.
+Gaps: reading and writing the system clipboard, images and the messages have no automated test. The inspector's mark on
+a value a state takes away has no automated DOM test.
 
 ### Paste over selection and paste to replace (CAN-39)
 

@@ -383,6 +383,23 @@ describe("copying and pasting style", () => {
     expect(fields.style).toEqual({ direction: "row", gap: 3, padding: 1 })
     expect(nodeInState(fields, container.states[1]).style).toMatchObject({ padding: 4 })
   })
+
+  it("leaves only the copied style in a state other than the base, taking away what the design sets", () => {
+    const container = applyStyle(form(), ["fields"], error, { padding: 4 })
+    const fields = findNode(container.root, "fields")!
+    expect(nodeInState(fields, container.states[1]).style).toEqual({ padding: 4 })
+    // The state keeps it as its changes: the padding, and the design's direction and gap taken away.
+    expect(container.states[1]!.overrides?.fields).toEqual({
+      style: { padding: 4 },
+      unset: { style: ["direction", "gap"] }
+    })
+    expect(nodeInState(fields, container.states[0]).style).toEqual({ direction: "row", gap: 3, padding: 1 })
+  })
+
+  it("takes away nothing the design doesn't set, pasted in a state", () => {
+    const container = applyStyle(form(), ["heading"], error, { padding: 2 })
+    expect(container.states[1]!.overrides?.heading).toEqual({ style: { padding: 2 } })
+  })
 })
 
 describe("components missing from the project", () => {

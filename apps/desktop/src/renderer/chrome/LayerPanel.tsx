@@ -1,5 +1,6 @@
 import {
   boardTarget,
+  changesField,
   type ComponentLibrary,
   type ContainerSpec,
   type DesignNode,
@@ -142,7 +143,7 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
           entry={entry}
           node={node}
           own={location.node as InstanceNode}
-          changed={(name) => override?.props?.[name] !== undefined}
+          changed={(name) => changesField(override, { kind: "props", key: name })}
           onChange={(name, value) => change(`Change ${name}`, { props: { [name]: value } })}
           onReset={(name) => reset({ kind: "props", key: name })}
         />
@@ -281,7 +282,7 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
         <InstanceSection
           entry={entry}
           node={node}
-          changed={(name) => override.props?.[name] !== undefined}
+          changed={(name) => changesField(override, { kind: "props", key: name })}
           onChange={(name, value) => change(`Change ${name}`, { props: { [name]: value } })}
           onReset={(name) => reset({ kind: "props", key: name })}
         />
@@ -355,7 +356,7 @@ function LayerSections({
   }
   const styleEditor: StyleEditor = {
     style: node.style ?? {},
-    changed: (name) => override?.style?.[name] !== undefined,
+    changed: (name) => changesField(override, { kind: "style", key: name }),
     reset: (name) => reset({ kind: "style", key: name }),
     set: (edit, label = "Change style", gesture) => {
       const values = styleValues(edit, node.style ?? {}, layer) as NodeStyle
@@ -380,7 +381,7 @@ function LayerSections({
           ) : (
             <Field
               label="Label"
-              changed={override?.props?.children !== undefined}
+              changed={changesField(override, { kind: "props", key: "children" })}
               onReset={() => reset({ kind: "props", key: "children" })}
             >
               <TextInput
@@ -405,7 +406,7 @@ function LayerSections({
         <PropsSection
           node={node}
           info={components[node.component]}
-          changed={(name) => override?.props?.[name] !== undefined}
+          changed={(name) => changesField(override, { kind: "props", key: name })}
           onChange={(name, value, gesture) => change(`Change ${name}`, { props: { [name]: value } }, gesture)}
           onReset={(name) => reset({ kind: "props", key: name })}
         />
