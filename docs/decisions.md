@@ -1580,6 +1580,22 @@ recommended answer to each of its questions.
   against a fresh page's, and the render sweep (PAR-211) is to compare whole frames with Chrome. On screen at 100%, a
   phone and a desktop frame were also captured and compared with Chrome pixel by pixel: same size and place, with only
   text antialiasing differing (the canvas draws text in grayscale, and Chrome with ClearType's colored edges).
+- **Parity's own custom properties stay out of frames** (PAR-157). Custom properties inherit into a shadow root, and
+  `all: initial` leaves them alone, so a frame inherited every variable Parity's page defines. shadcn's names are
+  Parity's too: a project using `var(--border, 1px)` without defining `--border` got Parity's border instead of its
+  fallback, which Chrome gives it. A frame's root now sets each custom property that reaches its host to `initial`, as
+  if nothing defined it, in the same lowest layer as `all: initial`, so the project's own definitions, in any layer or
+  none, still win, as do the viewport properties set on the host. My calls:
+  - **The names are read from the computed style of the element around the host** as each frame is prepared, which lists
+    every custom property reaching it: Parity's stylesheets, tldraw's, and inline ones such as tldraw's zoom. Collecting
+    them from Parity's stylesheets instead would miss the inline ones. The list sits in the sheet every frame shares and
+    only grows, since setting a property nothing passes down changes nothing; the sheet is written again only when a
+    name is new, normally for the first frame alone.
+  - **A variable Parity's page first defines after a frame is prepared** reaches that frame until it's prepared again,
+    as it is when its environment changes or it wakes. Parity's page defines its variables before the canvas draws.
+  - **Registered properties can't be kept out.** `@property` is the document's, shared by Parity and every project, so a
+    name Parity registers with an initial value has that value in frames, where on the project's own page it would be
+    undefined. Shadow roots ignore `@property`, so there's no per-frame registration to put in its place.
 - **Frames have square corners and cut nothing off,** at your request, since a browser's viewport doesn't round its
   corners. Only a frame with a device height clips, below that height, where a browser would scroll; a frame that grows
   with its content shows all of it, shadows and popups included.
