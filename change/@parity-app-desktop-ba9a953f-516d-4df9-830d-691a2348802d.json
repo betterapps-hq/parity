@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Layers' Hide in and Show in name the variant option the change goes to, not the state",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
