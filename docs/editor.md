@@ -288,6 +288,32 @@ Gaps: outlines following the camera and an animation inside a frame, and the win
 automated test; they were checked in the app as above. Layout that moves with nothing the overlay hears of, such as a
 video taking its size once its data arrives, is caught up at the next change.
 
+### Distance labels beside the line (PAR-558)
+
+Holding Alt over a layer, or snapping one as it's moved or resized, draws the distances to what it measures against as
+red lines. Each line has a black label with the distance in pixels, then the spacing step it comes to (`spacing-4`) in
+grey, or "off scale" in amber when it isn't a whole or half step.
+
+- **The label sits beside the line, not on it,** 8px from its midpoint: below a horizontal line, centred on it, and to
+  the right of a vertical one. Before, it was centred on the line and hid it, so between two layers a few pixels apart
+  no line showed at all. Beside a small selection it can reach a corner's resize handle, so it's drawn over the handles
+  and lets presses through to them.
+- **One colour for the label.** The step was a red chip and "off scale" a red one; both are now text in the black label,
+  so the line stays the only red.
+
+Code: `RedlineView` and `redlineLabel`, which places the label, in `apps/desktop/src/renderer/canvas/Redline.tsx`.
+`canvas/CanvasOverlay.tsx` measures the lines (`redlines`) and draws them.
+
+Tests:
+
+- `canvas/Redline.test.ts` (3): a horizontal line's label below it and centred, a vertical line's to its right, and both
+  clear of a line 2 or 4 pixels long.
+- `canvas/Redline.stories.tsx` (Parity/Canvas/Distances): layers side by side, stacked, 4px and 2px apart, and off the
+  scale. Close Together's play test checks the label starts below the line.
+
+Gaps: a label beside a line near the canvas's edge can run past it, as the centred one could. Checked in the app on
+2026-11-04 with Alt between layers far apart and a few pixels apart.
+
 ### Right-click menus (PAR-168)
 
 A right-click on a design opens Figma's canvas menu, as far as Parity's commands go, for what's selected. Each item
