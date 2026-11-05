@@ -97,7 +97,8 @@ keeping the designs there, so ask before running that in someone's project.
    them with `AddState`, as changes to the base design, not as copies.
 5. **Check every frame.** Screenshot the design in all its states and the modes it shows (`state: "all"`,
    `mode: "shown"`). Run `find_problems` and `check_accessibility` too, and read the warnings `execute` returns: they're
-   usually a token that doesn't exist or a prop the component doesn't take. Fix what you find, then check again.
+   usually a token that doesn't exist or a prop the component doesn't take. A render failure comes first and means a
+   frame wasn't checked. Fix what you find, then check again.
 6. **Say what you did.** Tell the person what changed and what you couldn't verify. Ask them to try anything interactive
    themselves with the Interact tool (I), which hands their mouse and keyboard to the real components.
 

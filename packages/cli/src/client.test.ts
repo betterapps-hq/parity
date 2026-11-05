@@ -3,6 +3,7 @@ import {
   type AccessibilityFinding,
   describeAccessibility,
   describeComponents,
+  describeExec,
   describeModes,
   describeProblems,
   describeStatus,
@@ -299,5 +300,45 @@ describe("describeTokens", () => {
       '532 tokens, the first 1 shown. Name them in styles without "--".',
       "Narrow them with category, source or search, or raise limit, to see the rest."
     ])
+  })
+})
+
+describe("describeExec", () => {
+  const done = { ok: true, applied: true, output: [], created: {}, screenshots: [] }
+
+  it("puts render failures, warnings and suggestions under their own headings", () => {
+    const text = describeExec({
+      ...done,
+      warnings: [
+        "Home (Default, Mobile): failed to render: boom",
+        'home/cta: Button has no prop "tone". Check Props("Button").',
+        "12 places (home/a, home/b, home/c, home/d, home/e and 7 more): name layouts that group things"
+      ],
+      warningGroups: [
+        { category: "render_failed", severity: "error", message: "failed to render: boom", count: 1, at: ["x"] },
+        { category: "unknown_prop", severity: "warning", message: "no prop", count: 1, at: ["home/cta"] },
+        { category: "unnamed_layout", severity: "suggestion", message: "name layouts", count: 12, at: [] }
+      ]
+    })
+    expect(text).toBe(
+      [
+        "Done. The changes are on the canvas as one undoable step.",
+        "",
+        "Render failures (these frames weren't checked):",
+        "  Home (Default, Mobile): failed to render: boom",
+        "",
+        "Warnings (fix these next):",
+        '  home/cta: Button has no prop "tone". Check Props("Button").',
+        "",
+        "Suggestions:",
+        "  12 places (home/a, home/b, home/c, home/d, home/e and 7 more): name layouts that group things"
+      ].join("\n")
+    )
+  })
+
+  it("reads every line as a warning from an app that sends no groups", () => {
+    expect(describeExec({ ...done, warnings: ["home/a: something"] })).toContain(
+      "Warnings (fix these next):\n  home/a: something"
+    )
   })
 })

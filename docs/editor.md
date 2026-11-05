@@ -3601,6 +3601,30 @@ its id, ignoring case and spaces; a shared name listing both ids; a former name 
 `packages/agent/src/run.test.ts` ("asks for a state's id in every call that takes one": the same message and
 alternatives from each call, a shared name, and the id working).
 
+### Warnings grouped by what they found (PAR-460)
+
+An execute call's findings are grouped: one per category and message, with how many places it was found and which.
+`warningGroups` gives each group's stable `category` (`render_failed`, `unknown_component`, `unknown_component_design`,
+`unknown_prop`, `invalid_option`, `not_a_token`, `not_a_length_token`, `overlap`, `kind_changed`, `unnamed_layout`), its
+`severity`, its `message`, its `count` and `at`, which lists every place as a `design/node` path or frame. Errors come
+first, then warnings, then suggestions, each in the order found. A render that failed is an error. A new unnamed layout
+that groups things is a suggestion, reported only for layouts the call added. `warnings` keeps one line per group: the
+place and message for one place, and for several the count, the first five and how many more
+(`12 places (home/a, …, home/e and 7 more): name layouts…`). The CLI and MCP text list the lines under "Render
+failures", "Warnings" and "Suggestions". A copy of the app without groups has every line read as a warning. Nothing is
+named or renamed for the agent.
+
+Implementation: `packages/agent/src/warnings.ts` (categories and severities, `groupWarnings`, `warningLine`);
+`packages/agent/src/workspace.ts` (`warn`, and the groups in `result`); `packages/cli/src/execute.ts` (the field and its
+schema) and `client.ts` (`describeExec`).
+
+Tests: `packages/agent/src/warnings.test.ts` (twelve places in one group with a count; a place counted once when a
+finding repeats there; categories and messages kept apart, errors first and suggestions last).
+`packages/agent/src/run.test.ts` ("warning groups": eight inserted unnamed rows as one suggestion, an unnamed layout
+already there left out, two unknown props, a token, and a render failure first). `packages/cli/src/client.test.ts`
+(headings by severity; lines from an app without groups). `packages/cli/src/execute.test.ts` (groups in `--json` and
+structured content).
+
 ### Which copy of the app a call reaches (PAR-514)
 
 Several copies of Parity can run at once, each with its own projects open, and every CLI or MCP call goes to the copy
