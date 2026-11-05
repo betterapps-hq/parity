@@ -3194,3 +3194,30 @@ request's Storybook preview:
   ready-made ones Ready-made components, so neither is "Component designs".
 - **Left as they were:** the explorations under `apps/desktop/src/renderer/explorations/`, which are design sketches;
   the agent tools' and `packages/core`'s messages ("No component design"), which agents read; and "Pasted" (PAR-546).
+
+## Starting on an empty canvas is one visible step (PAR-541)
+
+You approved the explorations on 2026-11-04 ("Looks pretty good! Let's ship it"). They're in Storybook under Parity /
+Explorations / Starting on the canvas, from the audit's "Making something is always one visible step"
+([proposals/new-user-experience.md](proposals/new-user-experience.md)). PAR-546 builds them in the app.
+
+- **An empty canvas says how to start in its middle:** a tile each for New screen and New component, saying what each
+  is, with its keys, and below them Insert (`/`) and "Drop or paste an image here" (Ctrl+V). It goes once anything is on
+  the canvas, and the canvas around it still pans, zooms and takes drops. Once frames exist, Draw a frame (F) is a third
+  tile in the same row, and the heading names all three; PAR-540 designs the frame itself.
+- **New screen is Ctrl+Alt+N and New component Ctrl+Alt+Shift+N.** Ctrl+N stays free for New project, which the start
+  page explorations give it. They join the keymap, in the Object group, so the menus, Search actions and the shortcuts
+  dialog show them.
+- **New screen and New component lead File and Object,** above opening a project and above Insert. Object's hint for the
+  rest says "Select layers, a screen or a component to act on them".
+- **The canvas's right-click menu** offers New screen, New component and Insert… above Paste here, Select all and Zoom
+  to fit. What it makes goes where you right-clicked, as Paste here does. On an empty canvas, Select all and Zoom to fit
+  are unavailable. Over a screen or component, the menu stays as it is.
+- **Search actions matches the start of a word,** not letters scattered through a name, so "new" finds New screen and
+  New component rather than Interact with designs.
+- **Layers' + always shows** beside Components and Screens, with its keys in the tooltip. An empty group's row is a
+  button, "No screens yet. New screen", with the action in the kind's color. The count is left out at none, since the
+  row says so.
+- **The inspector on an empty canvas** says "Nothing to inspect yet", that a screen or component makes a start and that
+  its size, layout and styles show there once one is selected, with New screen and New component buttons and their keys.
+  With something on the canvas and nothing selected, it asks for "a screen or component on the canvas or in Layers".

@@ -1,8 +1,67 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sun, 01 Nov 2026 03:52:41 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 05 Nov 2026 00:49:09 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.5.0
+
+Thu, 05 Nov 2026 00:49:09 GMT
+
+### Minor changes
+
+- A tab that isn't showing lets its frames sleep after 3 seconds, freeing their DOM and React roots; switching back
+  shows bitmaps at once and wakes only the frames near the view. (ajcraswell@gmail.com)
+- parity status and the MCP get_status tool say where a tab's edits stand: its revision, what's applied but not saved
+  (files and token values), the last save and failed writes, and undo and redo, with an optional bounded summary.
+  get_app_state carries the revision too. (ajcraswell@gmail.com)
+- Reopen a project in about 3 seconds: frames show the bitmaps kept from last time without drawing first, the project
+  opens as Parity starts, and kept bitmaps carry their frame's height (ajcraswell@gmail.com)
+- Frame bitmaps are kept on disk in app data, so a project opened again shows them without capturing each frame again;
+  View > Clear bitmap cache removes them. (ajcraswell@gmail.com)
+- Components show their preview in a card beside the row, and right-clicking one offers View in Storybook and View code,
+  which opens it in your editor (chosen in Settings). Tooltips are raised in the theme's own colors. Taking a component
+  off the list by hand is gone. (ajcraswell@gmail.com)
+- Agents get every result as data, in --json and MCP structuredContent with published output schemas, and failures as
+  stable error codes with the input at fault, whether to retry, and the valid ids to use instead. Token and console
+  reads are bounded by --limit. (ajcraswell@gmail.com)
+- Snap absolutely placed layers to their siblings and parent while moving and resizing, with guides, distances and even
+  spacing (ajcraswell@gmail.com)
+- Make a picture of every component offscreen, after the canvas's bitmaps, and keep it on disk so a reopened project
+  draws none again (ajcraswell@gmail.com)
+- Drop components from the panel into the slot under the pointer in grids and wrapping rows, and bring a duplicated or
+  pasted design that lands off screen into view (ajcraswell@gmail.com)
+- parity modes and the MCP get_modes tool list the project's viewports (the ids Responsive takes) with their window
+  heights, its modes (the ids renders take) resolved, and what each design shows; naming a design adds its frames'
+  sizes. Mistyped ids now suggest the nearest ones first. (ajcraswell@gmail.com)
+- Agents' calls go to the running copy of Parity that has their project open; --tab active names what the person is
+  looking at, and a call without --tab goes to the project its folder is in (ajcraswell@gmail.com)
+- Undo takes back a whole drag, resize, scrub or run of arrow presses in one step, however slowly it was made
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- Keep text given to a new library part rather than labelling over it (ajcraswell@gmail.com)
+- Add pnpm dev:prod, which runs Parity's window on React's production build, while pnpm dev stays on the development
+  build (ajcraswell@gmail.com)
+- pnpm dev on a port other than 5310 no longer stops before its window opens, since the updater is only made for
+  installed builds. (noreply@anthropic.com)
+- Keep the canvas idle while a selection is held: the overlay measures only after something changes or while a frame
+  animates (ajcraswell@gmail.com)
+- A call without --tab finds the project its folder is in through links, such as macOS's /var (ajcraswell@gmail.com)
+- Opening a project no longer pre-bundles its build tools, such as ESLint and Vite, which failed on Tailwind's native
+  module. (noreply@anthropic.com)
+- Capture frames' bitmaps in four offscreen windows at once, so a project opened for the first time has them in less
+  than half the time (ajcraswell@gmail.com)
+- Drop into right-to-left and reversed layouts where the pointer is, snap and undo gestures correctly, and bring pasted
+  designs into view at their real size (ajcraswell@gmail.com)
+- A second copy of Parity leaves agents with the copy already running unless started with PARITY_AGENT_TAKE_OVER=1, and
+  a copy that quits gives the agent file back instead of removing another copy's (ajcraswell@gmail.com)
+- Name the missing script when the project service can't start, and let pnpm dev run Electron as installed for
+  comparison (ajcraswell@gmail.com)
+- The running status light breathes by opacity, so an idle window no longer repaints every frame (ajcraswell@gmail.com)
+- Inserting a component that passes its props to an input no longer gives it children, and library samples' text ends at
+  a sentence or a whole word (ajcraswell@gmail.com)
 
 ## 0.4.2
 

@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Name the missing script when the project service can't start, and let pnpm dev run Electron as installed for comparison",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "parity status and the MCP get_status tool say where a tab's edits stand: its revision, what's applied but not saved (files and token values), the last save and failed writes, and undo and redo, with an optional bounded summary. get_app_state carries the revision too.",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
