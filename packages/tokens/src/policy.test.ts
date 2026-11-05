@@ -1,5 +1,6 @@
+import { collectCustomProperties } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
-import { categorize, themeOfSelector } from "./policy.ts"
+import { categorize, frameAttributes, themeAttributes, themeOfSelector } from "./policy.ts"
 
 const media = (prelude: string) => ({ name: "media", prelude })
 
@@ -65,6 +66,52 @@ describe("themeOfSelector", () => {
     expect(themeOfSelector(":root", [media("screen and (prefers-color-scheme: dark)")], { colorScheme: true })).toBe(
       undefined
     )
+  })
+})
+
+describe("themeAttributes", () => {
+  const read = (css: string) => themeAttributes(collectCustomProperties(css))
+
+  it("names the attribute a theme is switched on with", () => {
+    // vite7-js's stylesheet.
+    expect(read(":root { --bg: #fff; }\n[data-theme='dark'] { --bg: #111; }")).toEqual({
+      dark: { "data-theme": "dark" }
+    })
+    expect(read(":root { --bg: #fff; }\n.dark, [data-mode=dark] { --bg: #111; }")).toEqual({
+      dark: { "data-mode": "dark" }
+    })
+  })
+
+  it("leaves out class themes, the light theme, attributes on the root and conditional rules", () => {
+    const css = [
+      ":root { --bg: #fff; }",
+      ".dark { --bg: #111; }",
+      "[data-theme=light] { --bg: #fafafa; }",
+      ":root[data-theme=ocean], :host([data-theme=ocean]) { --bg: blue; }",
+      "@media (width > 40rem) { [data-theme=sand] { --bg: tan; } }"
+    ].join("\n")
+    expect(read(css)).toEqual({})
+  })
+
+  it("leaves out an attribute that only sets its own variables, as a component's does", () => {
+    expect(read(":root { --bg: #fff; }\n[data-size=large] { --pad: 2rem; }")).toEqual({})
+  })
+})
+
+describe("frameAttributes", () => {
+  const themes = { dark: { "data-theme": "dark" } }
+
+  it("adds a theme's attributes when the mode has its class", () => {
+    expect(frameAttributes({ classNames: ["dark"], attributes: { lang: "en" } }, themes)).toEqual({
+      "data-theme": "dark",
+      lang: "en"
+    })
+    expect(frameAttributes({ classNames: [], attributes: { lang: "en" } }, themes)).toEqual({ lang: "en" })
+  })
+
+  it("keeps an attribute the mode sets itself", () => {
+    const mode = { classNames: ["dark"], attributes: { "data-theme": "midnight" } }
+    expect(frameAttributes(mode, themes)).toEqual({ "data-theme": "midnight" })
   })
 })
 

@@ -5,12 +5,14 @@ import {
   boardSize,
   type CanvasDocument,
   childEntries,
+  childNodes,
   closest,
   CodedError,
   type ContainerKind,
   type ContainerSpec,
   deleteNode,
   type DesignChange,
+  dropPatches,
   designModes,
   type DesignNode,
   editNode,
@@ -18,6 +20,7 @@ import {
   drawnNode,
   type EvalContext,
   extractComponent,
+  findNode,
   findRepeats,
   findState,
   frameGeometry,
@@ -59,6 +62,8 @@ import type {
   AgentEvent,
   AgentHooks,
   AgentSnapshot,
+  DiscardedNode,
+  DiscardedPatches,
   ExecResult,
   Screenshot,
   TokenChange
@@ -70,6 +75,44 @@ interface Located {
 }
 
 type Values = Record<string, unknown>
+
+/**
+ * The patches replacing `removed` threw away: the responsive patches on it and what was inside it, and every state and
+ * variant patch the design had before and hasn't after, keyed by node (or `instance/inner` path).
+ */
+function discardedPatches(before: ContainerSpec, removed: DesignNode, after: ContainerSpec): DiscardedNode[] {
+  const nodes = new Map<string, DiscardedNode>()
+  const entry = (id: string): DiscardedNode => {
+    let found = nodes.get(id)
+    if (!found) {
+      const name = findNode(before.root, id.split("/")[0]!)?.name
+      found = { id, ...(name ? { name } : {}) }
+      nodes.set(id, found)
+    }
+    return found
+  }
+  const visit = (node: DesignNode) => {
+    const viewports = Object.keys(node.responsive ?? {})
+    if (viewports.length > 0) entry(node.id).viewports = viewports
+    for (const child of childNodes(node)) visit(child)
+  }
+  visit(removed)
+  for (const state of before.states) {
+    const kept = after.states.find((candidate) => candidate.id === state.id)?.overrides ?? {}
+    for (const key of Object.keys(state.overrides ?? {})) {
+      if (!(key in kept)) (entry(key).states ??= []).push(state.id)
+    }
+  }
+  for (const [param, spec] of Object.entries(before.params ?? {})) {
+    for (const option of spec.options ?? []) {
+      const kept = after.params?.[param]?.options?.find((candidate) => candidate.id === option.id)?.overrides ?? {}
+      for (const key of Object.keys(option.overrides ?? {})) {
+        if (!(key in kept)) (entry(key).variants ??= []).push(`${param}=${option.id}`)
+      }
+    }
+  }
+  return [...nodes.values()]
+}
 
 const nodeKeys = new Set([
   "type",
@@ -148,6 +191,8 @@ export class AgentWorkspace {
   readonly warnings: string[] = []
   readonly screenshots: Screenshot[] = []
   readonly created: Record<string, string> = {}
+  /** What each `Replace` threw away, reported so the agent can put back what it still wants. */
+  private readonly discarded: DiscardedPatches[] = []
   private readonly pending: AgentEvent[] = []
   private flushScheduled = false
   private readonly inserted = new Set<string>()
@@ -210,7 +255,7 @@ export class AgentWorkspace {
     }
   }
 
-  result(): Pick<ExecResult, "changes" | "created" | "output" | "warnings" | "screenshots"> {
+  result(): Pick<ExecResult, "changes" | "created" | "output" | "warnings" | "screenshots" | "discarded"> {
     this.flush()
     for (const path of this.changed) {
       const document = this.documents.get(path)!
@@ -234,6 +279,7 @@ export class AgentWorkspace {
       created: this.created,
       output: this.output,
       warnings: [...new Set([...this.warnings, ...this.overlapWarnings()])],
+      ...(this.discarded.length > 0 ? { discarded: this.discarded } : {}),
       screenshots: this.screenshots
     }
   }
@@ -656,21 +702,23 @@ export class AgentWorkspace {
     const parent = location.ancestors.at(-1)
     const ids = nodeIds(container.root)
     const replacement = this.prepareNode(input, ids)
-    if (!parent) {
-      this.setContainer(
-        file,
-        {
-          ...container,
-          root: replacement,
-          states: container.states.map((state) => ({ id: state.id, name: state.name }))
-        },
-        replacement.id
-      )
-      return replacement.id
+    let next: ContainerSpec
+    if (parent) {
+      const withoutOld = deleteNode(container, node.id)
+      const root = insertNode(withoutOld.root, parent.id, replacement, { index: location.index, slot: location.slot })
+      next = { ...withoutOld, root }
+    } else {
+      next = {
+        ...dropPatches(container, nodeIds(node)),
+        root: replacement,
+        states: container.states.map((state) => ({ id: state.id, name: state.name }))
+      }
     }
-    const withoutOld = deleteNode(container, node.id)
-    const root = insertNode(withoutOld.root, parent.id, replacement, { index: location.index, slot: location.slot })
-    this.setContainer(file, { ...withoutOld, root }, replacement.id)
+    this.setContainer(file, next, replacement.id)
+    const nodes = discardedPatches(container, node, next)
+    if (nodes.length > 0) {
+      this.discarded.push({ design: container.id, replaced: node.id, replacement: replacement.id, nodes })
+    }
     return replacement.id
   }
 

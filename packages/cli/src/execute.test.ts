@@ -265,6 +265,52 @@ describe("execute transport contract", () => {
     })
   })
 
+  it("shows the patches a Replace discarded in both transports, and nothing when none were (PAR-455)", async () => {
+    const replaced: ExecReply = {
+      ...success,
+      warnings: [],
+      screenshots: [],
+      discarded: [
+        {
+          design: "home",
+          replaced: "hero",
+          replacement: "k3x9a",
+          nodes: [
+            { id: "hero", name: "Hero", viewports: ["mobile"], states: ["loading"] },
+            { id: "card/title", variants: ["size=small"] }
+          ]
+        }
+      ]
+    }
+    fixture.response = { result: replaced }
+    const [cli, json, protocol] = await Promise.all([
+      run(["exec"], "Print(1)"),
+      run(["exec", "--json"], "Print(1)"),
+      mcp({ input: "Print(1)" })
+    ])
+    const text = describeExec(execResponse(replaced))
+    expect(text).toContain(
+      [
+        "Discarded by Replace (reapply what you still want to the new node):",
+        "  home/hero, now k3x9a:",
+        "    Hero (hero): viewports mobile; states loading",
+        "    card/title: variants size=small"
+      ].join("\n")
+    )
+    expect(cli.stdout.trim()).toBe(text)
+    expect(JSON.parse(json.stdout).discarded).toEqual(replaced.discarded)
+    expect(toolReply(protocol.stdout)).toEqual(
+      expect.objectContaining({
+        result: expect.objectContaining({
+          content: [{ type: "text", text }],
+          structuredContent: execResponse(replaced)
+        })
+      })
+    )
+    expect(describeExec(execResponse(success))).not.toContain("Discarded")
+    expect(structuredExec(execResponse(success))).not.toHaveProperty("discarded")
+  })
+
   it("preserves desktop RPC errors in both transports, coded app_error when the app gives no code", async () => {
     fixture.response = { error: "Tab is not ready" }
     const [cli, json, protocol] = await Promise.all([

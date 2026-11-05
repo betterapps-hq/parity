@@ -2,6 +2,7 @@
 // agents can lay out and screenshot any state in any mode without touching the person's canvas.
 import type { AccessibilityIssue, ContrastDetail } from "@parity-app/agent"
 import { type RenderNode, renderedComponents } from "@parity-app/core"
+import { frameAttributes } from "@parity-app/tokens"
 import axe, { type NodeResult, type RunOptions } from "axe-core"
 import type { MeasuredNode, RenderedFrame, RenderJob } from "../shared/protocol.ts"
 import { componentsGone } from "../shared/render-job.ts"
@@ -58,7 +59,8 @@ window.canvasRender = async (job) => {
     const errors: string[] = []
     // The window the frame stands for, resolved with the frame, so it's the live frame's even when the frame grows.
     const { viewport } = job.mode
-    const target = prepareFrame(host, loaded.sheet, { ...job.mode, viewport })
+    const attributes = frameAttributes(job.mode, loaded.themeAttributes)
+    const target = prepareFrame(host, loaded.sheet, { ...job.mode, attributes, viewport })
     const tree = job.tree as RenderNode[]
     if (job.components) {
       // Ones whose source went away are taken back first, so a frame using one draws as the canvas's does.

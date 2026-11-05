@@ -1796,8 +1796,12 @@ decisions.md's "Saving is explicit" sets out.
   `[data-theme="dark"]` or `html.dark` alike. Every block that declares the token gets the new value, so a later
   `[data-theme="dark"]` can't win back over an edited `.dark` after a save; a value the theme lacks goes into its first
   block, else a new `.dark`. A `:root` inside `@media`, such as a `prefers-color-scheme` block, isn't the default, so
-  editing the default never changes it. A frame shows an attribute theme only when its option in Modes sets that
-  attribute.
+  editing the default never changes it.
+- **A frame shows a theme set by attribute** (PAR-22): a mode whose class names a theme the stylesheet switches on with
+  an attribute, such as the default Dark option's `dark` with `[data-theme="dark"]`, sets that attribute on the frame's
+  body too (`themeAttributes` and `frameAttributes` in `packages/tokens/src/policy.ts`, used by
+  `apps/desktop/src/renderer/ModeView.tsx` and `render.ts`). An attribute the mode sets itself wins. An attribute on the
+  root (`:root[data-theme="dark"]`) still never applies in a frame, as the frame's root is its shadow host.
 
 Code: the history, what's unsaved and the save state are `packages/editor/src/history.ts` in `@parity-app/editor`
 (`recordChange`, `undoChange`, `redoChange`, `reloadFile`, `unsavedPaths`, `fileWrite`, `writeSucceeded` and
@@ -1855,7 +1859,9 @@ Tests:
   attribute, adding a value a theme lacks with the selector it already uses, and leaving a `prefers-color-scheme` block
   alone when previewing the default.
 - `packages/tokens/src/policy.test.ts` and `packages/libgen/src/tokens.test.ts`: which selector is which theme, and the
-  same CSS read alike by libgen and the app.
+  same CSS read alike by libgen and the app; and the attributes a frame gets for an attribute theme (PAR-22, 5 tests:
+  vite7-js's `[data-theme='dark']`, an attribute beside a class, none for a class theme, the light theme, the root, a
+  conditional rule or a component's own attribute, and a mode's own attribute winning).
 - `packages/editor/src/token-edits.test.ts` (6): the first edit's original kept, what Save writes, a theme value that
   wasn't there written without a value once it's undone, the token list with edits, and the overrides offscreen frames
   get (PAR-465).
@@ -3310,6 +3316,29 @@ text.
 Checked in the running app on `examples/shadcn-vite`: unknown tab, component, design and state through the CLI with
 `--json`, bounded tokens, and an execute that applied and was renamed back. Gaps: the end-to-end suite doesn't drive the
 CLI; `get_app_state` is unbounded (53 KB for 61 designs), left to PAR-479.
+
+### What Replace discards (PAR-455)
+
+`Replace` puts a new node, with fresh ids, where the old one was. The old node and everything inside it go, and so do
+the patches keyed to them: their responsive patches, their changes in every state and their variant options' patches.
+Replacing a design's root also clears every state's changes. Nothing is moved onto the new node, since its ids don't map
+onto the old ones. Patches on nodes outside the replaced one stay.
+
+An execute result says what went in `discarded`: for each `Replace` that threw patches away, the design, the replaced
+node, its replacement, and each node that had patches, by id (or `instance/inner` path) and name, with the viewports,
+states and `param=option` variants it was patched in. The CLI and MCP text list them under "Discarded by Replace". A
+replacement that dropped nothing adds nothing, and a failed call reports nothing, because it changed nothing. Undo
+brings the patches back with the rest of the step. The skill shows how to put back the ones still wanted.
+
+Implementation: `packages/agent/src/workspace.ts` (`replace` and `discardedPatches`, which compares the design before
+and after); `packages/agent/src/types.ts` (`DiscardedPatches`); `packages/cli/src/execute.ts` (the field and its schema)
+and `client.ts` (`describeExec`).
+
+Tests: `packages/agent/src/run.test.ts` ("Replace": a nested replacement reports only its node's viewports and variant
+and keeps the rest; a root replacement reports every node's patches and drops the variant patches; the design as read
+keeps them for undo; a failed call reports nothing; replacements without patches add no field; the skill's example of
+putting patches back). `packages/cli/src/execute.test.ts` (the same text from the CLI and MCP, `discarded` in `--json`
+and structured content, and nothing when there's none).
 
 ### Which copy of the app a call reaches (PAR-514)
 

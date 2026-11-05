@@ -110,17 +110,17 @@ at the end of this page are the plan for testing more. Four of them exist in `fi
 
 ### Tokens
 
-| Format                                     | Status | Notes                                                                                                                                                                                                          |
-| ------------------------------------------ | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| CSS custom properties on `:root`           | ✅     | Read and written.                                                                                                                                                                                              |
-| Tailwind `@theme`                          | ✅     | Read and written, including `@theme inline` and `@theme static`.                                                                                                                                               |
-| Themes as one class (`.dark`)              | ✅     | Also on the root (`html.dark`, `:root.dark`). `.light` is the default.                                                                                                                                         |
-| Themes as attributes (`[data-theme]`)      | ◐      | Read and written in place; `[data-theme="dark"]` is the `dark` theme. Frames show it only when the theme's option in Modes sets that attribute; on the root (`:root[data-theme]`) it never applies in a frame. |
-| `prefers-color-scheme` blocks              | ◐      | Not read as a theme in a project; the defaults keep the light values. `parity lib` reads them as a library's `dark`, below its `.dark` or `[data-theme]` values.                                               |
-| Selectors that only scope a theme          | ❌     | `.dark .card`, `.dark.contrast` and `:where(:root, :host)` name no theme.                                                                                                                                      |
-| Breakpoints (`--breakpoint-*`, `.lib.par`) | ✅     | Plus device presets.                                                                                                                                                                                           |
-| DTCG token files and resolvers             | ✅     | Read from a `.lib.par`'s `tokens`, filed by the category `$extensions.parity` gives, each theme as a mode.                                                                                                     |
-| JavaScript themes (MUI, Chakra, Fluent)    | ✅     | Read by `parity lib` into the registry's DTCG.                                                                                                                                                                 |
+| Format                                     | Status | Notes                                                                                                                                                                                                                    |
+| ------------------------------------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| CSS custom properties on `:root`           | ✅     | Read and written.                                                                                                                                                                                                        |
+| Tailwind `@theme`                          | ✅     | Read and written, including `@theme inline` and `@theme static`.                                                                                                                                                         |
+| Themes as one class (`.dark`)              | ✅     | Also on the root (`html.dark`, `:root.dark`). `.light` is the default.                                                                                                                                                   |
+| Themes as attributes (`[data-theme]`)      | ◐      | Read, written in place and shown: `[data-theme="dark"]` is the `dark` theme, and a frame in the Dark mode gets `data-theme="dark"` with its `dark` class. On the root (`:root[data-theme]`) it never applies in a frame. |
+| `prefers-color-scheme` blocks              | ◐      | Not read as a theme in a project; the defaults keep the light values. `parity lib` reads them as a library's `dark`, below its `.dark` or `[data-theme]` values.                                                         |
+| Selectors that only scope a theme          | ❌     | `.dark .card`, `.dark.contrast` and `:where(:root, :host)` name no theme.                                                                                                                                                |
+| Breakpoints (`--breakpoint-*`, `.lib.par`) | ✅     | Plus device presets.                                                                                                                                                                                                     |
+| DTCG token files and resolvers             | ✅     | Read from a `.lib.par`'s `tokens`, filed by the category `$extensions.parity` gives, each theme as a mode.                                                                                                               |
+| JavaScript themes (MUI, Chakra, Fluent)    | ✅     | Read by `parity lib` into the registry's DTCG.                                                                                                                                                                           |
 
 ### Finding components
 
@@ -262,8 +262,8 @@ In each column, ● means the feature needs it, and ◐ means the feature is bet
 
 Not requirements, just work not done yet:
 
-- `prefers-color-scheme` blocks aren't read as a project's themes, and frames show a theme set by attribute
-  (`[data-theme="dark"]`) only when its option in Modes sets that attribute.
+- `prefers-color-scheme` blocks aren't read as a project's themes, and a theme set by attribute on the root
+  (`:root[data-theme="dark"]`) never shows in a frame.
 - Per-component styles (CSS modules, CSS-in-JS) don't reach frames.
 - Library installs are limited to the built-in catalog.
 
