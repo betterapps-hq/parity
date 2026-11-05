@@ -112,7 +112,7 @@ export const FoldedSections: Story = {
 export const Tiles: Story = {
   loaders: [openTokens],
   play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByRole("radio", { name: "Tiles" }))
+    await userEvent.click(within(canvasElement).getByRole("button", { name: "Tiles" }))
     await search(canvasElement, "shadow")
   }
 }
@@ -143,7 +143,7 @@ export const Copying: Story = {
       await userEvent.keyboard("{Control>}c{/Control}")
       await expect(writes).toHaveBeenLastCalledWith("secondary")
       // The theme's tokens on their own put the palette at the top.
-      await userEvent.click(canvas.getByRole("radio", { name: /^Primitive/ }))
+      await userEvent.click(canvas.getByRole("button", { name: /^Primitive/ }))
       await userEvent.click(await canvas.findByRole("button", { name: "Copy color-blue-500" }))
       await expect(writes).toHaveBeenLastCalledWith("color-blue-500")
       await waitFor(() => expect(within(document.body).getAllByText("Copied").length).toBeGreaterThan(0))
@@ -165,7 +165,7 @@ export const Motion: Story = {
 export const ProjectTokens: Story = {
   loaders: [openTokens],
   play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByRole("radio", { name: /^Semantic/ }))
+    await userEvent.click(within(canvasElement).getByRole("button", { name: /^Semantic/ }))
   }
 }
 
@@ -173,7 +173,7 @@ export const ProjectTokens: Story = {
 export const ThemeScale: Story = {
   loaders: [openTokens],
   play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByRole("radio", { name: /^Primitive/ }))
+    await userEvent.click(within(canvasElement).getByRole("button", { name: /^Primitive/ }))
   }
 }
 
@@ -254,7 +254,7 @@ export const Narrow: Story = {
   play: async ({ canvasElement }) => {
     const panel = within(canvasElement)
     await panel.findByText("Semantic colors")
-    const filters = panel.getAllByRole("radio")
+    const filters = panel.getAllByRole("button").filter((button) => button.hasAttribute("aria-pressed"))
     for (const filter of filters) await expect(filter.scrollWidth).toBeLessThanOrEqual(filter.clientWidth + 1)
     const tabs = panel.getByRole("tablist")
     await expect(tabs.scrollWidth).toBeLessThanOrEqual(tabs.clientWidth + 1)
@@ -341,7 +341,7 @@ export const EqualThemes: Story = {
     await expect(detail.getAllByText("Dark")).toHaveLength(2)
     await expect(dialog).not.toHaveTextContent("Light and Dark")
     await userEvent.keyboard("{Escape}")
-    await userEvent.click(canvas.getByRole("radio", { name: "Tiles" }))
+    await userEvent.click(canvas.getByRole("button", { name: "Tiles" }))
     await waitFor(() => expect(swatches()).toBe(2))
   }
 }

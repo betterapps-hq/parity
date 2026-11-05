@@ -1,4 +1,15 @@
 import {
+  Button,
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+  Input,
+  Popover,
+  PopoverContent,
+  PopoverTrigger
+} from "@buildkitgg/shadcn-baseui-kit"
+import {
   type CanvasDocument,
   type ComponentRef,
   type ComponentRenderStatus,
@@ -37,12 +48,17 @@ import {
   Search,
   Smile
 } from "lucide-react"
-import { type DragEvent, type ReactNode, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
+import {
+  type DragEvent,
+  type ReactElement,
+  type ReactNode,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore
+} from "react"
 import { toast } from "sonner"
-import { Button } from "@/components/ui/button"
-import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu"
-import { Input } from "@/components/ui/input"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import type { ProjectInfo } from "../../shared/protocol.ts"
 import { useProject } from "../canvas/context.ts"
 import { insertAtSelection, insertMime } from "../canvas/insert.ts"
@@ -497,15 +513,15 @@ function AssetEntry({
       {instance && (
         // A library's design is placed linked, following the library, or as a copy to change freely.
         <>
-          <ContextMenuItem onSelect={() => addAtSelection(session, item)}>Insert linked instance</ContextMenuItem>
-          <ContextMenuItem onSelect={() => addAtSelection(session, { ...item, detached: true })}>
+          <ContextMenuItem onClick={() => addAtSelection(session, item)}>Insert linked instance</ContextMenuItem>
+          <ContextMenuItem onClick={() => addAtSelection(session, { ...item, detached: true })}>
             Insert detached copy
           </ContextMenuItem>
         </>
       )}
     </ComponentMenu>
   )
-  const trigger = menu ? <ContextMenuTrigger asChild>{button}</ContextMenuTrigger> : button
+  const trigger = menu ? <ContextMenuTrigger render={button} /> : button
   const row = component ? (
     <ComponentPopover
       card={card}
@@ -581,7 +597,7 @@ async function installLibrary(session: ProjectSession, library: { id: string; na
 const shownIconSets = new Map<string, string>()
 
 /** The catalog's libraries of one kind, to add to the project; `trigger` replaces the plus button that opens it. */
-function AddLibrary({ kind, trigger }: { kind: "components" | "icons"; trigger?: ReactNode }) {
+function AddLibrary({ kind, trigger }: { kind: "components" | "icons"; trigger?: ReactElement }) {
   const session = useProject()
   const [catalog, setCatalog] =
     useState<{ id: string; name: string; description: string; kind: "components" | "icons"; installed: boolean }[]>()
@@ -597,18 +613,20 @@ function AddLibrary({ kind, trigger }: { kind: "components" | "icons"; trigger?:
         }
       }}
     >
-      <PopoverTrigger asChild>
-        {trigger ?? (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="mt-2"
-            aria-label={kind === "icons" ? "Add an icon set" : "Add a library"}
-          >
-            <Plus />
-          </Button>
-        )}
-      </PopoverTrigger>
+      <PopoverTrigger
+        render={
+          trigger ?? (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="mt-2"
+              aria-label={kind === "icons" ? "Add an icon set" : "Add a library"}
+            >
+              <Plus />
+            </Button>
+          )
+        }
+      />
       <PopoverContent align="end" className="w-80 p-2">
         <p className="px-1 pb-2 text-xs text-muted-foreground">
           Libraries install into the project with its package manager. Any package with a <code>.lib.par</code> file is

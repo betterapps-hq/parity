@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { AppWindow } from "../App.tsx"
 import type { Tool } from "../selection.ts"
-import { clearNotifications, design, example, frameDesigns, openProjects } from "../stories/fixtures.tsx"
+import { clearNotifications, design, example, frameDesigns, openProjects, tooltip } from "../stories/fixtures.tsx"
 import { renameDesign, Window } from "./chrome-fixtures.tsx"
 import { FloatingToolbar } from "./Toolbar.tsx"
 
@@ -30,11 +30,11 @@ const withTool = (tool: Tool) => async () => {
 }
 
 /** Points at a control until its tooltip shows, moving away first, since a click hides the tooltip until then. */
-async function pointAt(label: string, role: "button" | "radio" = "button"): Promise<void> {
-  const control = await body().findByRole(role, { name: label })
+async function pointAt(label: string): Promise<void> {
+  const control = await body().findByRole("button", { name: label })
   await userEvent.unhover(control)
   await userEvent.hover(control)
-  await waitFor(() => expect(body().getByRole("tooltip")).toHaveTextContent(label))
+  await waitFor(() => expect(tooltip()).toHaveTextContent(label))
 }
 
 /**
@@ -69,7 +69,7 @@ export const ToolTooltip: Story = {
   loaders: [withTool("select")],
   play: async () => {
     await frameDesigns("Pricing", "Dashboard")
-    await pointAt("Hand", "radio")
+    await pointAt("Hand")
   }
 }
 

@@ -1,7 +1,6 @@
+import { Button, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
 import { Gauge } from "lucide-react"
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import type { ProcessUsage } from "../../shared/protocol.ts"
 import { Hint } from "./Hint.tsx"
 import { usePerformanceStats } from "./performance.ts"
@@ -49,34 +48,36 @@ export function PerformanceStats() {
   const label = latest ? `${latest.fps} fps, ${megabytes(memory)}, ${percent(cpu)} CPU` : "Measuring"
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Hint label={label} detail="Click to show each process" hidden={open}>
-          <button
-            type="button"
-            aria-label={label}
-            className="flex h-6 shrink-0 items-center gap-2.5 rounded px-1.5 tabular-nums hover:bg-accent hover:text-foreground"
-          >
-            <Gauge className="size-3.5" />
-            {latest ? (
-              // In a status bar narrower than 56rem only the frame rate shows; the rest is left to screen readers.
-              <>
-                <span>
-                  <strong className={`font-medium ${fpsTone(latest.fps)}`}>{latest.fps}</strong>
-                  <span className="@max-4xl/footer:sr-only"> fps</span>
-                </span>
-                <span className="@max-4xl/footer:sr-only">
-                  <strong className="font-medium text-foreground">{megabytes(memory)}</strong>
-                </span>
-                <span className="@max-4xl/footer:sr-only">
-                  <strong className="font-medium text-foreground">{percent(cpu)}</strong> CPU
-                </span>
-              </>
-            ) : (
-              <span>Measuring</span>
-            )}
-          </button>
-        </Hint>
-      </PopoverTrigger>
+      <PopoverTrigger
+        render={
+          <Hint label={label} detail="Click to show each process" hidden={open}>
+            <button
+              type="button"
+              aria-label={label}
+              className="flex h-6 shrink-0 items-center gap-2.5 rounded px-1.5 tabular-nums hover:bg-accent hover:text-foreground"
+            >
+              <Gauge className="size-3.5" />
+              {latest ? (
+                // In a status bar narrower than 56rem only the frame rate shows; the rest is left to screen readers.
+                <>
+                  <span>
+                    <strong className={`font-medium ${fpsTone(latest.fps)}`}>{latest.fps}</strong>
+                    <span className="@max-4xl/footer:sr-only"> fps</span>
+                  </span>
+                  <span className="@max-4xl/footer:sr-only">
+                    <strong className="font-medium text-foreground">{megabytes(memory)}</strong>
+                  </span>
+                  <span className="@max-4xl/footer:sr-only">
+                    <strong className="font-medium text-foreground">{percent(cpu)}</strong> CPU
+                  </span>
+                </>
+              ) : (
+                <span>Measuring</span>
+              )}
+            </button>
+          </Hint>
+        }
+      />
       <PopoverContent side="top" align="end" className="w-80 gap-0 p-0 text-xs">
         <div className="flex items-center justify-between gap-2 border-b py-1.5 pr-1.5 pl-3">
           <span className="text-sm font-medium">Performance</span>

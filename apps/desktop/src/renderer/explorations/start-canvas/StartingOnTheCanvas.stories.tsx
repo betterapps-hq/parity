@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { openDialog } from "../../chrome/app-dialogs.ts"
-import { design, example, frameDesigns, openProjects, ProjectStage } from "../../stories/fixtures.tsx"
+import { design, example, findTooltip, frameDesigns, openProjects, ProjectStage } from "../../stories/fixtures.tsx"
 import { StartInspectorPanel, StartLeftPanel, StartWindow } from "./StartWindow.tsx"
 
 /**
@@ -162,8 +162,11 @@ export const Layers: Story = {
   )
 }
 
-/** Layers' + focused from the keyboard: its tooltip names it and gives its keys. */
-export const LayersPlusFocused: Story = {
+/**
+ * Layers' + under the pointer: its tooltip names it and gives its keys. Tabbing to it shows the same tooltip; a story
+ * can't, as Base UI opens one on focus only when the browser shows focus, and a script's focus doesn't count.
+ */
+export const LayersPlusHovered: Story = {
   loaders: [() => openProjects("empty")],
   render: () => (
     <ProjectStage project="empty">
@@ -172,8 +175,8 @@ export const LayersPlusFocused: Story = {
   ),
   play: async () => {
     const screens = await body().findByRole("region", { name: "Screens" })
-    within(screens).getByRole("button", { name: "New screen" }).focus()
-    await body().findByRole("tooltip")
+    await userEvent.hover(within(screens).getByRole("button", { name: "New screen" }))
+    await expect(await findTooltip({ timeout: 8000 })).toHaveTextContent("New screen")
   }
 }
 

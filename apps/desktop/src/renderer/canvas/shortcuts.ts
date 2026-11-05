@@ -48,7 +48,7 @@ export function useShortcuts(session: ProjectSession | undefined, active: boolea
       const target = event.target as HTMLElement | null
       // A menu or dialog playing its closing animation still holds focus for a moment, but its keys, a field's in it
       // included, are the canvas's again: Ctrl+Z straight after picking an item undoes it (PAR-424).
-      const closing = !!target?.closest(":is([role=menu], [role=listbox], [role=dialog])[data-state=closed]")
+      const closing = !!target?.closest(":is([role=menu], [role=listbox], [role=dialog])[data-closed]")
       const typing =
         !closing && !!target?.closest("input, textarea, select, [contenteditable='true'], [contenteditable='']")
       const inMenu = !closing && !!target?.closest("[role=menu], [role=listbox], [role=dialog]")

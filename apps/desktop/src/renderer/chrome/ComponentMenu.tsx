@@ -1,7 +1,6 @@
+import { ContextMenuItem, ContextMenuSeparator, ContextMenuShortcut } from "@buildkitgg/shadcn-baseui-kit"
 import { BookOpen, FileCode } from "lucide-react"
 import type { ReactNode } from "react"
-import { ContextMenuItem, ContextMenuSeparator, ContextMenuShortcut } from "@/components/ui/context-menu"
-
 export interface ComponentMenuProps {
   /** Its stories, when the project has a Storybook: whether it has any, whether Storybook is running, and opening them. */
   storybook?: { stories: boolean; running: boolean; open: () => void }
@@ -31,14 +30,14 @@ export function ComponentMenu({ storybook, code, children }: ComponentMenuProps)
   return (
     <>
       {storybook && (
-        <ContextMenuItem disabled={!storybook.stories} onSelect={storybook.open}>
+        <ContextMenuItem disabled={!storybook.stories} onClick={storybook.open}>
           <BookOpen /> View in Storybook
           {!storybook.stories && <Aside>No stories</Aside>}
           {storybook.stories && !storybook.running && <Aside>Starts Storybook</Aside>}
         </ContextMenuItem>
       )}
       {code && (
-        <ContextMenuItem disabled={!code.file} onSelect={code.open}>
+        <ContextMenuItem disabled={!code.file} onClick={code.open}>
           <FileCode /> View code
           {!code.file && <Aside>Not in the project</Aside>}
         </ContextMenuItem>

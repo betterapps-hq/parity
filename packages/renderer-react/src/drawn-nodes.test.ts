@@ -80,6 +80,45 @@ function build(specs: Spec[]) {
 
 const tags = (elements: readonly Element[]) => elements.map((element) => (element as unknown as FakeElement).tag)
 
+const words = (texts: readonly Text[]) => texts.map((text) => text.data)
+
+describe("text a design node draws outside its elements", () => {
+  it("collects the text of a component that draws only text, and of one that draws text beside an element", () => {
+    // function Label() { return "Email" }, and function Price() { return <>$<strong>24</strong></> }
+    const { drawn } = build([
+      { boundary: "label", children: [{ component: "Label", children: [{ text: "Email" }] }] },
+      {
+        boundary: "price",
+        children: [{ component: "Price", children: [{ text: "$" }, { host: "strong", children: [{ text: "24" }] }] }]
+      }
+    ])
+    expect(words(drawn.texts("label"))).toEqual(["Email"])
+    expect(drawn.elements("label")).toEqual([])
+    expect(words(drawn.texts("price"))).toEqual(["$"])
+    expect(tags(drawn.elements("price"))).toEqual(["strong"])
+  })
+
+  it("leaves text inside an element to the element, and gives a provider its children's text", () => {
+    const { drawn } = build([
+      {
+        boundary: "group",
+        children: [
+          {
+            component: "Group",
+            children: [
+              { host: "p", props: { id: "title", "data-canvas-node": "title" }, children: [{ text: "Team" }] },
+              { boundary: "caption", children: [{ component: "Caption", children: [{ text: "Everyone" }] }] }
+            ]
+          }
+        ]
+      }
+    ])
+    expect(drawn.texts("title")).toEqual([])
+    expect(words(drawn.texts("caption"))).toEqual(["Everyone"])
+    expect(words(drawn.texts("group"))).toEqual(["Everyone"])
+  })
+})
+
 describe("finding the DOM a design node draws", () => {
   it("finds a component that renders none of its props by its boundary", () => {
     // function MemberRow({ member }) { return <tr>…</tr> }
@@ -108,6 +147,7 @@ describe("finding the DOM a design node draws", () => {
     expect(tags(drawn.elements("pair"))).toEqual(["h3", "p"])
     expect(drawn.elements("nothing")).toEqual([])
     expect(drawn.ids).toEqual(["pair", "nothing"])
+    expect(drawn.texts("nothing")).toEqual([])
   })
 
   it("takes a field's outer element, not the inner input its props are passed to", () => {

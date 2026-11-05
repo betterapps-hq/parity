@@ -2,7 +2,7 @@ import { findNode } from "@parity-app/core"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { userEvent, within } from "storybook/test"
 import { designsSelection, layersSelection } from "../selection.ts"
-import { design, example, node } from "../stories/fixtures.tsx"
+import { design, example, findTooltip, node } from "../stories/fixtures.tsx"
 import { DesignTab } from "./DesignPanel.tsx"
 import { inspecting, InspectorStage, slowly } from "./inspector-stories.tsx"
 import { Inspector } from "./Inspector.tsx"
@@ -46,7 +46,7 @@ export const AlignTooltip: Story = {
   loaders: [inspecting("design", () => designsSelection([design("Pricing"), design("Dashboard")]))],
   play: async ({ canvasElement }) => {
     await userEvent.hover(within(canvasElement).getByRole("button", { name: "Align left" }))
-    await within(document.body).findByRole("tooltip", undefined, slowly)
+    await findTooltip(slowly)
   }
 }
 

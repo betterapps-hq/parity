@@ -28,9 +28,7 @@ export default defineConfig(({ mode }) => {
     // Dependencies come without their source maps inlined, which cost the window more memory than their code, and each
     // lucide icon loads on its own rather than every one with the first.
     plugins: lazyPlugins(() => [reactPlugin(react.react), tailwindcss(), dependencySourceMaps(), iconImportsPlugin()]),
-    resolve: {
-      alias: { "@": resolve(import.meta.dirname, "src/renderer"), ...react.alias }
-    },
+    resolve: { alias: react.alias },
     // Prebundled dependencies are minified, which halves what the window holds of tldraw and React DOM. Their source
     // maps still lead DevTools to the code as published; only the app's own code is served as written.
     optimizeDeps: { rolldownOptions: { output: { minify: true }, ...react.dependencies } },

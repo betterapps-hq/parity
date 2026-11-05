@@ -1,5 +1,5 @@
+import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { TooltipProvider } from "@/components/ui/tooltip"
 import { OpeningProject, ProjectFailed } from "./ProjectStatus.tsx"
 import { roots } from "./stories/host.ts"
 import type { Tab } from "./workspace.ts"

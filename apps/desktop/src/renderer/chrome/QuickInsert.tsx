@@ -1,3 +1,15 @@
+import { cn } from "@buildkitgg/shadcn-baseui-kit"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogPortal,
+  DialogTitle,
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput
+} from "@buildkitgg/shadcn-baseui-kit"
 // The list is ARIA's combobox pattern: focus stays in the search field, which takes the keys and points at the active
 // option with aria-activedescendant, so the options are neither focusable nor keyed, and they're divs, which a
 // virtualized list draws and a native select can't hold.
@@ -5,7 +17,6 @@
 import type { DesignNode, LibraryInfo } from "@parity-app/core"
 import { type InsertItem, type InsertOption, type InsertOrigin, type InsertRow, insertRows } from "@parity-app/editor"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { cn } from "cn"
 import { Columns3, Component, Diamond, Rows3, SearchIcon, Shapes, Type } from "lucide-react"
 import {
   type KeyboardEvent,
@@ -19,15 +30,6 @@ import {
   useSyncExternalStore
 } from "react"
 import { toast } from "sonner"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogPortal,
-  DialogTitle
-} from "@/components/ui/dialog"
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
 import { placeLayers } from "../canvas/clipboard.ts"
 import { insertAtSelection } from "../canvas/insert.ts"
 import { kindColors } from "../canvas/kinds.tsx"
