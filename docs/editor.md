@@ -3026,7 +3026,7 @@ On first launch the installed app shows Home. Later launches restore the saved p
 the window was. Development can request an initial project through its runner. `workspace.test.ts` covers these startup
 choices (PAR-8, PAR-605).
 
-### The start page: Home and new tabs (PAR-605)
+### The start page: Home and new tabs (PAR-605, PAR-607)
 
 Home is pinned first in the tab strip, an icon that can't be closed, and shows whenever no tab is chosen. Alt+Home or
 View > Home goes there, and Ctrl+Tab goes round with Home first. The strip's +, Ctrl+T and File > New tab open a new tab
@@ -3042,21 +3042,48 @@ at the end of the strip. Both are the start page from the explorations (decision
   offers to continue.
 - **Opening from a new tab uses that tab.** A project already open elsewhere is switched to, and the new tab closes.
 - **Search is Ctrl+K,** which lists your projects as well as actions: first on Home and in a new tab, last in a project.
-- **Stubs:** pictures are placeholders in a color of each project's own; For you and Shared with you are empty; New
-  project, New project from this, cloning, Copy link, Invite people and New organization show a toast saying they aren't
-  ready yet. New project's toast also offers Open a folder.
+- **A project's picture is its canvas as last saved (PAR-607).** It shows the project's first screens as the canvas drew
+  them, each its main frame with the phone frame beside it where its board shows one, each frame the shape of its
+  window, or shorter where the frame is. Moving the pointer across a card flips through them, naming each; Home's
+  Continue picture names the frames above them, as the canvas does. Up to five screens are pictured: those with a phone
+  frame beside them first, then the rest, each in Layers' order; components and frames aren't. A project not opened
+  since shows a placeholder, a board and a phone in a color of its own with its initial.
+  - **When it's taken:** two seconds after the project opens and after each save, once the canvas has drawn the frames
+    and has every bitmap it's waiting for, from those bitmaps; no frame is drawn again for it. A run of saves takes one.
+    Edits not saved yet are never pictured: a picture that would show them waits for the next save.
+  - **Where it's kept:** in Parity's app data, in `pictures`, one file per project with each frame cut to the top of its
+    window, about 70 KB for the example's five screens. Clear bitmap cache leaves them. A project's picture goes when
+    the start page stops listing it.
+- **Stubs:** For you and Shared with you are empty; New project, New project from this, cloning, Copy link, Invite
+  people and New organization show a toast saying they aren't ready yet. New project's toast also offers Open a folder.
 
 Code: `apps/desktop/src/renderer/start/` (`HomePage.tsx`, `NewTabPage.tsx`, `ProjectList.tsx`, `ProjectCard.tsx`,
 `StartControls.tsx`, and `projects.ts` for what's listed and how times read); `workspace.ts` keeps Home, new tabs and
 each project's notes; `chrome/TabBar.tsx` draws the Home tab and the + button; `chrome/ActionsSearch.tsx` lists the
-projects.
+projects. Pictures: `start/ProjectArt.tsx` draws one, `start/pictures.ts` reads them for the page, and
+`start/picture-screens.ts` (`picturedScreens`, `isPhone`) picks the screens and frames; `renderer/project-picture.ts`
+(`keepProjectPicture`, started by `ProjectView.tsx`) takes them, from `useFirstRowFrame`, `firstRowFrame` and
+`frameBitmap` in `canvas/frame-bitmaps.ts`; the service keeps them in `utility/pictures.ts`, cut by `topOfPicture` in
+`utility/webp.ts`, through the `pictures.store`, `pictures.read` and `pictures.keepOnly` handlers in `utility/index.ts`,
+in the folder main names as `PARITY_PICTURE_DIR`.
 
 Tests: `start/projects.test.ts` (8: the order recent and starred projects list in, each scope, the times from minutes to
-another year, the picture's hue, folder names) and `workspace.test.ts`'s "Home and new tabs" (7) and "starting the
-workspace" (Home on a fresh install, and staying there). Stories: Parity/Start page (Home, the first time, Starred,
-Shared with you, a project's menu, New project, Open, a new tab), Parity/App's On Home, New tab, No project open and
-Nothing opened yet, and the tab bar's On Home, With new tab and New tab tooltip. Gaps: no end-to-end test drives Home or
-a new tab yet; `reopening.e2e.ts` opens the project again with Home's Resume.
+another year, the picture's hue, folder names) and `workspace.test.ts`'s "Home and new tabs" (8, with a project's
+picture let go once it isn't listed) and "starting the workspace" (Home on a fresh install, and staying there).
+`start/picture-screens.test.ts` (4: screens with a phone frame first, then the rest, in Layers' order; no components or
+frames, and no more than the most; no second phone beside a phone; a phone by its device or its width) and
+`utility/pictures.test.ts` (6: a picture kept with each frame cut to its window and read back; the latest in place of
+the one before; projects with none, or a file that can't be read, left out; a kept frame that isn't an image refused;
+the pictures of projects no longer listed let go, and partial files only once old; nothing kept without a folder).
+Stories: Parity/Start page (Home, a card flipping through screens, which plays, Home without pictures, the first time,
+Starred, Shared with you, a project's menu, New project, Open, a new tab), with the example project's pictures,
+Parity/App's On Home, New tab, No project open and Nothing opened yet, and the tab bar's On Home, With new tab and New
+tab tooltip. Gaps: no end-to-end test drives Home or a new tab yet; `reopening.e2e.ts` opens the project again with
+Home's Resume. Taking a picture, which waits on the canvas, has no test of its own: it was checked in `pnpm dev` on
+2026-11-05, where opening the example kept its five screens (72 KB), Home showed Team members with Mobile Light, moving
+across its card flipped through Team members, Sign in and Pricing, and Team members' main frame set to Desktop Dark and
+saved with Ctrl+S showed dark on the card once taken again; chakra's Home screen, shorter than its window, was drawn as
+tall as its content.
 
 ### A project with no Parity file opens on a Home screen (PAR-561)
 

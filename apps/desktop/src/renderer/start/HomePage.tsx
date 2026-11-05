@@ -3,7 +3,8 @@ import { FileInput, FolderOpen } from "lucide-react"
 import { useEffect } from "react"
 import { formatKeys } from "../chrome/keys.ts"
 import { useKnownProjects } from "../workspace.ts"
-import { accent, ProjectArt } from "./ProjectCard.tsx"
+import { ProjectArt } from "./ProjectArt.tsx"
+import { accent } from "./ProjectCard.tsx"
 import { ProjectList } from "./ProjectList.tsx"
 import { type KnownProject, whenLabel } from "./projects.ts"
 import { useStartActions } from "./start-actions.ts"
@@ -72,7 +73,7 @@ function ContinueCard({ project, active }: { project: KnownProject; active: bool
         onClick={resume}
         className="block overflow-hidden rounded-lg text-left ring-1 ring-foreground/10 outline-none transition-shadow duration-150 hover:ring-2 hover:ring-(--parity)"
       >
-        <ProjectArt project={project} />
+        <ProjectArt project={project} labels />
       </button>
       <div className="flex min-w-0 flex-col items-start gap-3">
         <div className="flex max-w-full flex-col gap-1">

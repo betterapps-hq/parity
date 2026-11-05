@@ -576,6 +576,10 @@ export class Workspace {
       // Storage can be unavailable; the notes then just aren't remembered.
     }
     this.projects = knownProjects(this.recent, this.notes)
+    // A project's picture goes with it (PAR-607).
+    void window.canvasHost
+      .request("pictures.keepOnly", { roots: this.projects.map(({ root }) => root) })
+      .catch(() => undefined)
     this.notify()
   }
 
