@@ -38,6 +38,7 @@ import { spacingUnit, useTokenList } from "../tokens-store.ts"
 import { alignSelection, deleteSelection, distributeSelection, duplicateSelection, wrapSelection } from "./commands.ts"
 import { IconButton } from "./IconButton.tsx"
 import { keymap } from "./keymap.ts"
+import { formatKeys } from "./keys.ts"
 import { measureNode } from "./LayerPanel.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { type EditedLayer, type StyleEdit, type StyleEditor, StyleSections, styleValues } from "./StyleSections.tsx"
@@ -211,7 +212,8 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
         <div className="flex flex-col gap-2">
           <AlignButtons />
           <Button variant="outline" size="sm" onClick={() => wrapSelection()}>
-            <Group /> Wrap in layout <span className="ml-auto text-xs text-muted-foreground">Ctrl G</span>
+            <Group /> {keymap.wrap.label}{" "}
+            <span className="ml-auto text-xs text-muted-foreground">{formatKeys(keymap.wrap.keys[0])}</span>
           </Button>
         </div>
       </PanelSection>

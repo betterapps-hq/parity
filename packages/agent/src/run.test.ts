@@ -454,9 +454,10 @@ Print(JSON.stringify(Overlaps()))`
       base,
       hooks()
     )
-    // The 3000 frame and the board's 33 padding reach to 3066, past the new design's left edge at 1800.
+    // The 3000 frame and the board's gutter, 30 each side as it's drawn at 40%, reach to 3060, past the new design's left
+    // edge at 1800.
     expect(JSON.parse(result.output[0]!)).toMatchObject([
-      { designs: ["signup", "pricing"], width: 3066 - 1800, estimated: true }
+      { designs: ["signup", "pricing"], width: 3060 - 1800, estimated: true }
     ])
   })
 
@@ -476,11 +477,12 @@ Print(JSON.stringify(Overlaps()))`
       base,
       hooks()
     )
-    // 3000 tall, under a 36 caption, inside 33 of padding: 3102 reaches past 3200 less a 160 title band. The dark
-    // companion is drawn at half size, so the board is 1280 + 640 + 32 + 65 + 66 = 2083 wide, past 2000.
+    // 3000 tall, under a 90 caption band and above 30 of gutter, as it's drawn at 40%: 3120 reaches past 3200 less a 160
+    // title band. The dark companion is drawn at half size after a divider of 30, 2.5 and 30, so the board is
+    // 1280 + 640 + 62.5 + 60, rounded up to 2043 wide, past 2000.
     expect(JSON.parse(result.output[0]!)).toMatchObject([
       { designs: ["signup", "below"], titleOnly: true, estimated: true },
-      { designs: ["signup", "beside"], width: 83, estimated: true }
+      { designs: ["signup", "beside"], width: 43, estimated: true }
     ])
     expect(result.warnings).toContainEqual(expect.stringContaining("estimated, as Sign up and Below aren't drawn yet"))
   })

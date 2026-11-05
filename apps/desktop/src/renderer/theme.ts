@@ -41,12 +41,12 @@ export function getResolvedTheme(): ResolvedTheme {
   return resolved
 }
 
+/** Calls `listener` whenever the app's light or dark theme changes, until the function it gives is called. */
+export function subscribeResolvedTheme(listener: () => void): () => void {
+  listeners.add(listener)
+  return () => listeners.delete(listener)
+}
+
 export function useResolvedTheme(): ResolvedTheme {
-  return useSyncExternalStore(
-    (listener) => {
-      listeners.add(listener)
-      return () => listeners.delete(listener)
-    },
-    () => resolved
-  )
+  return useSyncExternalStore(subscribeResolvedTheme, () => resolved)
 }

@@ -208,13 +208,14 @@ function makeLabel(alone: ContainerSpec | undefined): string | undefined {
   return alone ? "Convert to component" : undefined
 }
 
-function item(action: MenuAction, enabled: boolean, label?: string): MenuItem {
+/** An item for a command, labelled and with keys from the keymap unless `label` says otherwise. */
+export function item(action: MenuAction, enabled: boolean, label?: string): MenuItem {
   if (action === "pasteHere") return { kind: "item", action, label: label ?? "Paste here", enabled }
   return { kind: "item", action, label: label ?? keymap[action].label, keys: keymap[action].keys[0], enabled }
 }
 
 /** Groups of items with a line between each, leaving out the empty ones. */
-function sections(groups: readonly (readonly MenuEntry[])[]): MenuEntry[] {
+export function sections(groups: readonly (readonly MenuEntry[])[]): MenuEntry[] {
   return groups
     .filter((group) => group.length > 0)
     .flatMap((group, index): MenuEntry[] => (index === 0 ? [...group] : [{ kind: "separator" }, ...group]))

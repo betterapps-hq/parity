@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "An export taken back off the component list now stays listed only if detection lists it, and keeps its mark while it's still listed by hand.",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

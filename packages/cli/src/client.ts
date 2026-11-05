@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { realpathSync } from "node:fs"
 import { homedir } from "node:os"
+import { replies, rpcReply } from "@parity-app/agent/contracts"
 import { agentRegistry, isRunning, readEntries, removeStaleEntry } from "@parity-app/agent/registry"
 import {
   type Copy,
@@ -12,6 +13,8 @@ import {
   route
 } from "@parity-app/agent/routing"
 import { CodedError, readErrorDetails, unknownReference } from "@parity-app/core/errors"
+import { checkData, jsonText, type SchemaProblem } from "@parity-app/core/schema"
+import type { z } from "zod"
 import { cliCallerName, sessionCallerId } from "./caller.ts"
 import type { ExecResponse } from "./execute.ts"
 
@@ -23,6 +26,30 @@ export const registry = agentRegistry(process.env, homedir())
 
 export type { OperationError } from "./errors.ts"
 export type { Edit, ExecResponse, Screenshot } from "./execute.ts"
+import type { ConsoleResponse, TokensResponse } from "./operations.ts"
+
+export type { ConsoleResponse, TabsResponse, TokensResponse } from "./operations.ts"
+
+// What the app answers, from the schemas the client checks each answer with.
+/** One open project. */
+export type TabSummary = z.output<typeof replies.open>
+export type StateResponse = z.output<typeof replies.state>
+export type StatusResponse = z.output<typeof replies.status>
+export type ModesResponse = z.output<typeof replies.modes>
+export type AccessibilityResponse = z.output<typeof replies.accessibility>
+export type AccessibilityFinding = AccessibilityResponse["findings"][number]
+export type ProblemsResponse = z.output<typeof replies.problems>
+export type Problem = ProblemsResponse["problems"][number]
+/** A box in a frame, in CSS pixels from its top left corner. */
+export type FrameBox = NonNullable<Problem["box"]>
+export type TokenInfo = z.output<typeof replies.tokens>[number]
+export type ComponentsResponse = z.output<typeof replies.components>
+/** One of the app's exports, by its file and export name. */
+export type ComponentRef = NonNullable<NonNullable<ComponentsResponse["corrections"]>["include"]>[number]
+export type PropsResponse = z.output<typeof replies.props>
+/** A component's composition, as `@parity-app/editor`'s `componentComposition` reads it. */
+export type Composition = NonNullable<PropsResponse["composition"]>
+export type ConsoleEntry = z.output<typeof replies.console>["entries"][number]
 
 let caller = cliCallerName(process.env)
 /** Tells callers with the same name apart. A terminal's calls are separate processes, so they share their name. */
@@ -46,16 +73,17 @@ export type Routing = "tab" | "open" | "copies"
 
 /**
  * Calls the running Parity app: the copy that has the call's project open, with the exact tab it chose, by the rules
- * in `@parity-app/agent/routing`. Fails with a clear message, and a code, when no copy is running, none has the
- * project, or the call fails: the app's own code when it gives one.
+ * in `@parity-app/agent/routing`, and returns its answer once `reply` has checked it. Fails with a clear message, and a
+ * code, when no copy is running, none has the project, or the call fails: the app's own code when it gives one.
  */
-export async function call<T>(
+export async function call<Reply extends z.ZodType>(
   method: string,
-  params: Record<string, unknown> = {},
-  routing: Routing = "tab"
-): Promise<T> {
+  params: Record<string, unknown>,
+  routing: Routing,
+  reply: Reply
+): Promise<z.output<Reply>> {
   const copies = await runningCopies()
-  if (routing === "copies") return openTabs(copies) as T
+  if (routing === "copies") return answer(reply, openTabs(copies), "tabs")
   const request: Request =
     routing === "open"
       ? { kind: "open", root: String(params.root) }
@@ -66,7 +94,7 @@ export async function call<T>(
     const ids = target.open.map((tab) => tab.id)
     throw unknownReference("unknown_tab", target.message, typeof params.tab === "string" ? params.tab : "", ids, "tab")
   }
-  return send<T>(target.copy.entry, method, target.tab ? { ...params, tab: target.tab.id } : params)
+  return send(target.copy.entry, method, target.tab ? { ...params, tab: target.tab.id } : params, reply)
 }
 
 /** A folder's real path, through any link, or the folder as named when it can't be read. */
@@ -115,18 +143,24 @@ async function runningCopies(): Promise<Copy<TabSummary>[]> {
 /** What a copy has open and when it was last used; just its tabs from an app too old to say more. */
 async function reportOf(entry: CopyEntry): Promise<CopyReport<TabSummary> | undefined> {
   try {
-    return await send<CopyReport<TabSummary>>(entry, "copy", {}, 5000)
+    return await send(entry, "copy", {}, replies.copy, 5000)
   } catch (error) {
     if (!(error instanceof CodedError) || error.details.code !== "app_error") return undefined
     try {
-      return { tabs: await send<TabSummary[]>(entry, "tabs", {}, 5000) }
+      return { tabs: await send(entry, "tabs", {}, replies.tabs, 5000) }
     } catch {
       return undefined
     }
   }
 }
 
-async function send<T>(entry: CopyEntry, method: string, params: Record<string, unknown>, timeout?: number) {
+async function send<Reply extends z.ZodType>(
+  entry: CopyEntry,
+  method: string,
+  params: Record<string, unknown>,
+  reply: Reply,
+  timeout?: number
+): Promise<z.output<Reply>> {
   let response: Response
   try {
     response = await fetch(`${entry.url}/rpc`, {
@@ -141,11 +175,22 @@ async function send<T>(entry: CopyEntry, method: string, params: Record<string, 
       retryable: true
     })
   }
-  const body = (await response.json()) as { result?: T; error?: string; details?: unknown }
+  const body = answer(jsonText(rpcReply), await response.text(), method)
   if (body.error !== undefined) {
     throw new CodedError(body.error, readErrorDetails(body.details) ?? { code: "app_error" })
   }
-  return body.result as T
+  return answer(reply, body.result, method)
+}
+
+/** The app's answer to `method` once `schema` has checked it, or `app_error` saying what this CLI couldn't read. */
+function answer<Schema extends z.ZodType>(schema: Schema, value: unknown, method: string): z.output<Schema> {
+  const checked = checkData(schema, value)
+  if (checked.success) return checked.data
+  throw new CodedError(unreadable(method, checked.problem), { code: "app_error" })
+}
+
+function unreadable(method: string, { pointer, message }: SchemaProblem): string {
+  return `This CLI can't read Parity's answer to ${method} (${pointer || "/"}: ${message}). Update Parity and @parity-app/cli, then try again.`
 }
 
 /** A readable account of an exec call, for terminals and for agents. */
@@ -210,44 +255,6 @@ function describeWarnings(result: ExecResponse): string[] {
   return lines
 }
 
-/** One open project. */
-export interface TabSummary {
-  id: string
-  name: string
-  root: string
-  active: boolean
-  status: "loading" | "ready" | "error"
-  error?: string
-  designs: number
-}
-
-export interface TabsResponse {
-  tabs: TabSummary[]
-}
-
-export interface StatusResponse {
-  tab: { id: string; name: string }
-  /** Opaque: the same only while nothing in the tab has changed. */
-  revision: string
-  /** Something applied (and undoable) isn't on disk yet. */
-  dirty: boolean
-  /** Changes save themselves a moment later; otherwise they wait for the person to save. */
-  autosave: boolean
-  unsaved: {
-    path: string
-    kind: "document" | "stylesheet"
-    designs?: { added: string[]; changed: string[]; removed: string[] }
-    modes?: boolean
-    tokens?: string[]
-    more?: number
-  }[]
-  tokenEdits: number
-  save: { status: "saved" | "unsaved" | "saving" | "failed"; error?: string }
-  errors: { path: string; error: string }[]
-  undo: { count: number; labels?: string[] }
-  redo: { count: number; labels?: string[] }
-}
-
 /** Where a tab's edits stand: the revision, what's applied and undoable, what's on disk, and what failed to write. */
 export function describeStatus(result: StatusResponse): string {
   const { tab, revision, unsaved, undo, redo, save, errors } = result
@@ -281,47 +288,6 @@ export function describeStatus(result: StatusResponse): string {
   if (redo.count > 0)
     lines.push(`Redo has ${steps(redo.count)}${redo.labels?.length ? `: ${redo.labels.join(", ")}` : ""}.`)
   return lines.join("\n")
-}
-
-export interface ModesResponse {
-  tab: { id: string; name: string }
-  variables: {
-    id: string
-    name: string
-    kind: "viewport" | "theme" | "locale" | "custom"
-    options: {
-      id: string
-      name: string
-      width?: number
-      height?: number
-      device?: string
-      className?: string
-      attributes?: Record<string, string>
-    }[]
-  }[]
-  /** Viewport options: the ids Responsive takes, with the window each stands for. */
-  viewports: { id: string; name: string; width: number; height: number; device?: string }[]
-  /** Modes: the ids renders take, each a combination of one option per variable. */
-  modes: {
-    id: string
-    name: string
-    primary: boolean
-    viewport: string
-    width: number
-    height: number
-    values: Record<string, string>
-    classNames: string[]
-    attributes: Record<string, string>
-  }[]
-  designs: {
-    id: string
-    name: string
-    state: string
-    states: string[]
-    main: string
-    beside: string[]
-    frames?: { mode: string; width: number; height?: number; window: { width: number; height: number } }[]
-  }[]
 }
 
 /**
@@ -368,28 +334,6 @@ export function describeModes(result: ModesResponse): string {
     }
   }
   return lines.join("\n")
-}
-
-export interface AccessibilityFinding {
-  state: string
-  mode: string
-  rule: string
-  impact: "critical" | "serious" | "moderate" | "minor"
-  help: string
-  helpUrl: string
-  node?: string
-  name?: string
-  detail: string
-  /** For a contrast failure: the token to color the layer's text with, or `"none"` when none of the project's pass. */
-  contrast?: { fix?: { token: string; ratio: number } | "none" }
-}
-
-export interface AccessibilityResponse {
-  tab: { id: string; name: string }
-  design: { id: string; name: string }
-  findings: AccessibilityFinding[]
-  frames: number
-  warnings: string[]
 }
 
 const impactOrder = ["critical", "serious", "moderate", "minor"]
@@ -462,38 +406,6 @@ function fixLine(finding: AccessibilityFinding): string | undefined {
   return fix && `Fix: set style.foreground to "${fix.token}", which reaches ${fix.ratio}:1 in every frame checked.`
 }
 
-export interface ProblemsResponse {
-  tab: { id: string; name: string }
-  design: { id: string; name: string }
-  problems: Problem[]
-  frames: number
-  warnings: string[]
-}
-
-/** A box in a frame, in CSS pixels from its top left corner. */
-export interface FrameBox {
-  x: number
-  y: number
-  width: number
-  height: number
-}
-
-/**
- * One problem in one frame. Layout problems (`frame-overflow`, `clipped`) name the node, what it overflows (the node
- * that clips it, or the frame, which has none), both boxes, and how far past each edge it reaches.
- */
-export interface Problem {
-  state: string
-  mode: string
-  kind?: "render-error" | "unknown-component" | "content-wider" | "frame-overflow" | "clipped"
-  problem: string
-  node?: string
-  name?: string
-  box?: FrameBox
-  container?: { node?: string; name?: string; box: FrameBox }
-  overflow?: { left?: number; right?: number; top?: number; bottom?: number }
-}
-
 /** A readable account of the layout problems in a design's frames, each once with the frames it's in. */
 export function describeProblems(result: ProblemsResponse): string {
   const { design, problems, frames } = result
@@ -514,20 +426,6 @@ export function describeProblems(result: ProblemsResponse): string {
   }
   if (result.warnings.length > 0) lines.push("", "Warnings:", ...result.warnings.map((warning) => `  ${warning}`))
   return lines.join("\n")
-}
-
-export interface TokenInfo {
-  name: string
-  category: string
-  source: string
-  values: Record<string, string>
-}
-
-export interface TokensResponse {
-  tokens: TokenInfo[]
-  /** How many matched, before the limit. */
-  total: number
-  truncated: boolean
 }
 
 /** Tokens by category, each with its value in every theme that sets one. */
@@ -552,25 +450,6 @@ export function describeTokens({ tokens, total, truncated }: TokensResponse): st
     }
   }
   return lines.join("\n")
-}
-
-export interface ComponentsResponse {
-  components: string[]
-  iconLibraries?: string[]
-  /** The app's capitalised exports the type checker left out, with why. */
-  leftOut?: { name: string; path: string; reason: string; undecided?: true }[]
-  /** How many components have drawn on the canvas without errors so far. */
-  drawn?: number
-  /** Components failing to draw on the canvas now: why in words, and the kind of problem. */
-  failing?: { id: string; problem: "provider" | "server" | "async" | "error"; reason: string }[]
-  /** The person's corrections in the main project file, saved or not: exports listed by hand. */
-  corrections?: { include?: ComponentRef[] }
-}
-
-/** One of the app's exports, by its file and export name. */
-export interface ComponentRef {
-  path: string
-  export: string
 }
 
 /**
@@ -617,36 +496,6 @@ export function describeComponents({
     for (const ref of include) lines.push(`  listed: ${name(ref)}, in ${ref.path}`)
   }
   return lines.join("\n").trimEnd()
-}
-
-export interface PropsResponse {
-  component: string
-  path?: string
-  /** What the project's code imports it from: a package, or the file through the app's alias. */
-  import?: string
-  known: boolean
-  props: {
-    name: string
-    kind: string
-    group?: string
-    options?: (string | number | boolean)[]
-    default?: string | number | boolean | null
-    required?: boolean
-  }[]
-  /** What it needs around it and holds inside it, read from its library's metadata (PAR-454). */
-  composition?: Composition
-}
-
-/** A component's composition, as `@parity-app/editor`'s `componentComposition` reads it. */
-export interface Composition {
-  role: "provider" | "wrapper" | "component"
-  parents:
-    | { status: "listed"; chain: { component: string; optional?: true }[]; from?: string }
-    | { status: "none" }
-    | { status: "unknown"; reason: string }
-  holds: string[]
-  slots: { name: string; key: string; kind: "children" | "element" | "render" }[]
-  example: { node: unknown; status: "drawn" | "failing" | "untried"; reason?: string }
 }
 
 /** A component's props, with each variant's options and default, then what it needs around it and holds. */
@@ -699,26 +548,6 @@ function frameList(frames: { state: string; mode: string }[]): string {
   const modes = [...new Set(frames.map((frame) => frame.mode))]
   if (modes.length === 1) return `${frames.map((frame) => frame.state).join(", ")} in ${modes[0]}`
   return frames.map((frame) => `${frame.state} in ${frame.mode}`).join(", ")
-}
-
-export interface ConsoleEntry {
-  level: "info" | "warning" | "error" | "debug"
-  text: string
-  source: string
-  line: number
-  where: "canvas" | "offscreen"
-  count: number
-  first: number
-  last: number
-}
-
-export interface ConsoleResponse {
-  tab: { id: string; name: string }
-  /** The newest entries, up to the limit, oldest first. */
-  entries: ConsoleEntry[]
-  /** How many there were, before the limit. */
-  total: number
-  truncated: boolean
 }
 
 /** A readable account of what a project's code wrote to the console, oldest first, with where each came from. */

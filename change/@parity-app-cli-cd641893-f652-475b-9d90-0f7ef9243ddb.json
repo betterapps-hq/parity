@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Zoomed far out, board titles clip to their board and hide once it's under 24 pixels wide on screen, and state labels and mode captions hide before titles do",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

@@ -52,8 +52,8 @@
       // scripts/try-packed.ts tries the packed CLI.
       "entry": ["src/**/*.test.ts", "scripts/*.ts"],
       // Imported by Parity's packages, which `vp pack` bundles while leaving these out, so npm installs them beside
-      // the published CLI: semver by @parity-app/project and @parity-app/registry, zod by core and the agent.
-      "ignoreDependencies": ["semver", "zod"]
+      // the published CLI: semver by @parity-app/project and @parity-app/registry.
+      "ignoreDependencies": ["semver"]
     },
     "packages/libgen": {
       "entry": ["src/**/*.test.ts"],

@@ -3,6 +3,8 @@ import {
   type EnclosingAtRule,
   type Guest,
   prepareCanvasCss,
+  rewriteFrameUnits,
+  rewriteSheetFrameUnits,
   type ThemeVariable
 } from "@parity-app/core"
 import {
@@ -76,11 +78,15 @@ async function load(url: string, theme: readonly ThemeVariable[], entry: Loading
     document.adoptedStyleSheets = [...document.adoptedStyleSheets, global]
     entry.global = global
   }
-  const sheet = guestSheet(themeFallbackCss(css.scoped, theme) + packages.scoped + css.scoped)
+  // The theme's own values measure the frame as the project's CSS does, though they never went through preparing.
+  const fallbacks = rewriteSheetFrameUnits(themeFallbackCss(css.scoped, theme))
+  const sheet = guestSheet(fallbacks + packages.scoped + css.scoped)
+  // Tokens keep the values the project wrote, `0.25rem` rather than what a frame draws it with.
+  const written = prepareCanvasCss(guest.css, { baseUrl: new URL(url).origin, units: false }).scoped
   return {
     guest,
     sheet,
-    tokens: extractTokens(css.scoped, theme, guest.tokenCategories),
+    tokens: extractTokens(written, theme, guest.tokenCategories),
     themeAttributes: themeAttributes(collectCustomProperties(css.scoped))
   }
 }
@@ -137,12 +143,14 @@ export function previewToken(sheet: CSSStyleSheet, name: string, theme: string, 
     }
   }
   collect(sheet.cssRules, [])
+  // Lengths in the value measure the frame, as the compiled CSS's do: `0.5rem` the project's root font.
+  const drawn = rewriteFrameUnits(value)
   const declaring = rules.filter((rule) => rule.style.getPropertyValue(property) !== "")
-  if (declaring.length > 0) for (const rule of declaring) rule.style.setProperty(property, value)
+  if (declaring.length > 0) for (const rule of declaring) rule.style.setProperty(property, drawn)
   else {
     // A rule of its own, with the selector the theme already uses, so `[data-theme="dark"]` stays an attribute.
     const selector = rules[0]?.selectorText ?? (theme === "default" ? ":host" : `.${theme}`)
-    sheet.insertRule(`${selector} { ${property}: ${value}; }`, sheet.cssRules.length)
+    sheet.insertRule(`${selector} { ${property}: ${drawn}; }`, sheet.cssRules.length)
   }
 }
 

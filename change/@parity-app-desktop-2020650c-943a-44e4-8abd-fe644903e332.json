@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Make component is refused when any variant option, shown on the board or not, would change the part",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

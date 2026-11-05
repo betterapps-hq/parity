@@ -20,7 +20,7 @@ import {
 } from "./client.ts"
 import { type ExecReply, type Screenshot, execResponse, structuredExec } from "./execute.ts"
 import { bounded, operations, skillOperation } from "./operations.ts"
-import { fixtureTab, processTests, toolReply, transportFixture } from "./transport-fixture.ts"
+import { emptyState, fixtureTab, processTests, toolReply, transportFixture } from "./transport-fixture.ts"
 
 const fixture = transportFixture({})
 const { requests, run, mcp } = fixture
@@ -130,10 +130,10 @@ const cases: Case[] = [
     method: "state",
     input: {},
     params: {},
-    result: { tab, designs: [] },
-    structured: { tab, designs: [] },
-    text: JSON.stringify({ tab, designs: [] }, null, 2),
-    mcpText: JSON.stringify({ tab, designs: [] })
+    result: emptyState(fixtureTab),
+    structured: emptyState(fixtureTab),
+    text: JSON.stringify(emptyState(fixtureTab), null, 2),
+    mcpText: JSON.stringify(emptyState(fixtureTab))
   },
   {
     name: "status",
@@ -164,10 +164,10 @@ const cases: Case[] = [
     method: "open",
     input: { root: project },
     params: { root: project },
-    result: tab,
-    structured: tab,
-    text: JSON.stringify(tab, null, 2),
-    mcpText: JSON.stringify(tab)
+    result: fixtureTab,
+    structured: fixtureTab,
+    text: JSON.stringify(fixtureTab, null, 2),
+    mcpText: JSON.stringify(fixtureTab)
   },
   {
     name: "screenshot",
@@ -562,7 +562,7 @@ describe("remaining transport contracts", processTests, () => {
   })
 
   it("resolves a CLI relative folder before entering the shared open operation", async () => {
-    fixture.response = { result: tab }
+    fixture.response = { result: fixtureTab }
     const [cli] = await Promise.all([run(["open", "some/../project"]), mcp({ root: project }, "open_project")])
     expect(cli.code).toBe(0)
     expectRequests("open", { root: project })
@@ -804,6 +804,31 @@ describe("remaining transport contracts", processTests, () => {
           }
         })
       )
+  })
+
+  // Published from the zod schemas (PAR-590): clients that take anyOf but not oneOf, and pattern, still read them.
+  it("publishes a selector as nonblank text or a nonempty list of it", () => {
+    const nonblank = { type: "string", minLength: 1, pattern: "\\S" }
+    expect(operations.problems.inputSchema.properties).toEqual(
+      expect.objectContaining({
+        state: expect.objectContaining({
+          default: "all",
+          anyOf: [nonblank, { type: "array", minItems: 1, items: nonblank }]
+        }),
+        design: expect.objectContaining(nonblank)
+      })
+    )
+  })
+
+  it("refuses an answer it can't read, as app_error naming what's wrong", async () => {
+    fixture.response = { result: { ...status, unsaved: [{ path: "app.par", kind: "folder" }] } }
+    const cli = await run(["status", "--json"])
+    expect(cli.code).toBe(1)
+    expect(JSON.parse(cli.stdout).error).toEqual({
+      code: "app_error",
+      message: expect.stringContaining('answer to status (/unsaved/0/kind: expected one of "document", "stylesheet")'),
+      retryable: false
+    })
   })
 
   it("says in text what a component goes inside, with the example to insert", () => {

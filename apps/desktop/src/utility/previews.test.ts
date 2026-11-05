@@ -144,11 +144,50 @@ describe("component previews", () => {
     expect(open.draws).toHaveLength(1)
   })
 
+  it("keep one that drew nothing to see as that, across a restart, and draw it again once its code changes", async () => {
+    await previews.makePreview(preview("Badge"), "idle")
+    open.draw = () => Promise.resolve({ empty: true })
+    expect(await previews.makePreview(preview("Button"), "idle")).toMatchObject({ empty: true })
+    expect((await previews.makePreview(preview("Button"), "idle")).image).toBeUndefined()
+
+    vi.resetModules()
+    previews = await import("./previews.ts")
+    serve("http://localhost:5002")
+    const [found] = await previews.lookupPreviews([preview("Button", "http://localhost:5002")])
+    expect(found).toMatchObject({ empty: true })
+    expect(open.draws).toHaveLength(2)
+
+    // It keeps no picture, so none stands in for it once it's drawn again.
+    await write("src/Button.tsx", "export const Button = () => 'Buy'")
+    const later = new Date(Date.now() + 1000)
+    await utimes(join(open.root, "src/Button.tsx"), later, later)
+    serve("http://localhost:5003")
+    const [changed] = await previews.lookupPreviews([preview("Button", "http://localhost:5003")])
+    expect(changed).not.toHaveProperty("empty")
+    expect(changed).not.toHaveProperty("last")
+  })
+
   it("try again later when the offscreen window couldn't finish one", async () => {
     open.draw = () => Promise.reject(new Error("The render window closed"))
     await expect(previews.makePreview(preview("Button"), "idle")).rejects.toThrow("The render window closed")
     open.draw = drawn
     expect((await previews.makePreview(preview("Button"), "idle")).image).toBeDefined()
+    expect(open.draws).toHaveLength(2)
+  })
+
+  it("keep each theme's picture apart, so switching back draws nothing again", async () => {
+    const inMode = (classNames: string[]): PreviewJob => {
+      const asked = preview("Button")
+      return { ...asked, job: { ...asked.job, mode: { ...asked.job.mode, classNames } } }
+    }
+    const light = await previews.makePreview(inMode([]), "visible")
+    const dark = await previews.makePreview(inMode(["dark"]), "visible")
+    expect(dark.key).not.toBe(light.key)
+    expect(open.draws).toHaveLength(2)
+
+    const [again] = await previews.lookupPreviews([inMode([])])
+    expect(again?.image).toEqual(light.image)
+    await previews.makePreview(inMode([]), "visible")
     expect(open.draws).toHaveLength(2)
   })
 

@@ -6,6 +6,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./contracts": "./src/contracts.ts",
     "./routing": "./src/routing.ts",
     "./registry": "./src/registry.ts"
   },

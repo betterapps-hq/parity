@@ -139,8 +139,15 @@ describe("editing tokens", () => {
         project.store.previews()
       ]
     })
-    // Frames drawn elsewhere are sent no override for it any more, so they draw the compiled value.
-    expect(result).toEqual(["1rem", "", "0.5rem", [{ name: "radius", theme: "dark", value: "1rem" }], []])
+    // The sheet measures the previewed rem against the frame's root (PAR-156), while the override keeps the value as
+    // typed. Frames drawn elsewhere are sent no override for it any more, so they draw the compiled value.
+    expect(result).toEqual([
+      "calc(1 * var(--canvas-rem, 1rem))",
+      "",
+      "0.5rem",
+      [{ name: "radius", theme: "dark", value: "1rem" }],
+      []
+    ])
   })
 
   it("shows unsaved edits in a guest loaded again, which then writes them", async () => {
