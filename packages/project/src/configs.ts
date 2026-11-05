@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises"
 import { dirname, relative, resolve } from "node:path"
+import { parseJsonc } from "@parity-app/core"
 import { createConfigLoader, type LoadConfigSource } from "unconfig"
-import { parseJsonc } from "./jsonc.ts"
 
 /**
  * Where a tool keeps its config, as data: the names it looks for, in its order. `unconfig` does the searching, so every

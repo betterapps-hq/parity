@@ -1,30 +1,13 @@
 import { existsSync } from "node:fs"
 import { readdir, readFile } from "node:fs/promises"
 import { dirname, join, posix, relative, resolve } from "node:path"
-import type {
-  ComponentEvidence,
-  ComponentSource,
-  LibraryInfo,
-  PackageManifest,
-  RendererAdapter
-} from "@parity-app/core"
-import { parseJsonc } from "./jsonc.ts"
+import type { ComponentSource, LibraryInfo, PackageManifest, RendererAdapter } from "@parity-app/core"
+import { exportedComponents, type PackageFolder, packageEntry, readPackage } from "./packages.ts"
 
 /** A monorepo's root and the packages in it, by name. */
 export interface Workspace {
   root: string
-  packages: Map<string, { dir: string; manifest: WorkspaceManifest }>
-}
-
-interface WorkspaceManifest extends PackageManifest {
-  name?: string
-  version?: string
-  exports?: unknown
-  types?: string
-  typings?: string
-  module?: string
-  main?: string
-  workspaces?: string[] | { packages?: string[] }
+  packages: Map<string, PackageFolder>
 }
 
 /**
@@ -35,10 +18,10 @@ export async function findWorkspace(root: string): Promise<Workspace | undefined
   for (let folder = dirname(resolve(root)); ; folder = dirname(folder)) {
     const patterns = await workspacePatterns(folder)
     if (patterns) {
-      const packages = new Map<string, { dir: string; manifest: WorkspaceManifest }>()
+      const packages = new Map<string, PackageFolder>()
       for (const dir of await expand(folder, patterns)) {
-        const manifest = await readManifest(dir)
-        if (manifest?.name) packages.set(manifest.name, { dir, manifest })
+        const found = await readWorkspacePackage(dir)
+        if (found?.manifest.name) packages.set(found.manifest.name, found)
       }
       const app = resolve(root)
       if ([...packages.values()].some((entry) => resolve(entry.dir) === app)) return { root: folder, packages }
@@ -52,7 +35,7 @@ export function workspaceDependencies(
   workspace: Workspace,
   pkg: PackageManifest,
   described: ReadonlySet<string>
-): { name: string; dir: string; manifest: WorkspaceManifest }[] {
+): (PackageFolder & { name: string })[] {
   const names = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies })
   return names.flatMap((name) => {
     const found = workspace.packages.get(name)
@@ -72,14 +55,14 @@ export interface WorkspaceSection {
  */
 export async function workspaceSection(
   root: string,
-  entry: { name: string; dir: string; manifest: WorkspaceManifest },
+  entry: PackageFolder & { name: string },
   renderer: RendererAdapter,
   taken: ReadonlySet<string>
 ): Promise<WorkspaceSection | undefined> {
-  const source = await sourceEntry(entry.dir, entry.manifest)
+  const source = packageEntry(entry, "source")
   if (!source) return undefined
-  const exported = await exportsOf(source, renderer, new Set())
-  if (exported.size === 0) return undefined
+  const exported = [...(await exportedComponents(source, renderer))].filter(([, component]) => component.as)
+  if (exported.length === 0) return undefined
   const id = sectionId(entry.name, taken)
   const library: LibraryInfo = {
     id,
@@ -94,125 +77,15 @@ export async function workspaceSection(
   }
   const components: Record<string, ComponentSource> = {}
   for (const [name, found] of exported) {
-    components[`${id}/${name}`] = {
+    components[`${id}/${name === "default" ? found.name : name}`] = {
       path: entry.name,
       export: name,
       library: id,
       declaration: slashes(relative(root, found.file)),
-      as: found.as
+      ...(found.as ? { as: found.as } : {})
     }
   }
   return { library, components }
-}
-
-/**
- * The file a package's entry is written in: what `exports` names for `.` (its `source`, `types`, `import` or `default`
- * condition), else `types`, `module` or `main`. A built file (`dist/index.js`, `dist/index.d.ts`) is traced back to its
- * source, `src/index.tsx` or `src/index.ts`, since the canvas builds a workspace package the way the app does.
- */
-async function sourceEntry(dir: string, manifest: WorkspaceManifest): Promise<string | undefined> {
-  const named =
-    exportedEntry(manifest.exports) ?? manifest.types ?? manifest.typings ?? manifest.module ?? manifest.main
-  const candidates = [
-    ...(named && !isBuilt(named) ? [named] : []),
-    "src/index.tsx",
-    "src/index.ts",
-    "src/index.jsx",
-    "src/index.js",
-    "index.tsx",
-    "index.ts"
-  ]
-  for (const candidate of candidates) {
-    const file = join(dir, candidate)
-    if (existsSync(file)) return file
-  }
-  return undefined
-}
-
-function exportedEntry(exports: unknown): string | undefined {
-  const pick = (value: unknown): string | undefined => {
-    if (typeof value === "string") return value
-    if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined
-    const record = value as Record<string, unknown>
-    for (const key of ["source", "types", "import", "default"]) {
-      const found = pick(record[key])
-      if (found) return found
-    }
-    return undefined
-  }
-  if (typeof exports === "string") return exports
-  if (typeof exports !== "object" || exports === null) return undefined
-  const record = exports as Record<string, unknown>
-  return pick("." in record ? record["."] : record)
-}
-
-function isBuilt(path: string): boolean {
-  return /\.d\.[cm]?ts$/.test(path) || /(^|\/)(dist|build|lib|out|esm|cjs)\//.test(path.replace(/^\.\//, ""))
-}
-
-/**
- * What a module exports that the renderer recognises as components, by export name, following `export * from` and
- * `export { A as B } from` into the package's own files. Re-exports from other packages are left out.
- */
-async function exportsOf(
-  file: string,
-  renderer: RendererAdapter,
-  seen: Set<string>
-): Promise<Map<string, { file: string; as: ComponentEvidence }>> {
-  const found = new Map<string, { file: string; as: ComponentEvidence }>()
-  if (seen.has(file)) return found
-  seen.add(file)
-  const source = await readFile(file, "utf8").catch(() => undefined)
-  if (source === undefined) return found
-  for (const component of renderer.findComponents(source, file)) {
-    if (component.as) found.set(component.name, { file, as: component.as })
-  }
-  for (const reexport of reexportsOf(source)) {
-    const target = resolveRelative(file, reexport.from)
-    if (!target) continue
-    const inner = await exportsOf(target, renderer, seen)
-    if (!reexport.names) {
-      for (const [name, value] of inner) if (!found.has(name)) found.set(name, value)
-      continue
-    }
-    for (const [name, as] of reexport.names) {
-      const value = inner.get(name) ?? (name === "default" ? [...inner.values()][0] : undefined)
-      if (value) found.set(as, value)
-    }
-  }
-  return found
-}
-
-/** A module's re-exports: `export * from "./x"` (every name), and `export { A, B as C } from "./x"`. Types are left out. */
-function reexportsOf(source: string): { from: string; names?: [string, string][] }[] {
-  const found: { from: string; names?: [string, string][] }[] = []
-  for (const match of source.matchAll(/export\s+\*\s+from\s+["']([^"']+)["']/g)) found.push({ from: match[1]! })
-  for (const match of source.matchAll(/export\s+(type\s+)?\{([^}]*)\}\s*from\s+["']([^"']+)["']/g)) {
-    if (match[1]) continue
-    const names = match[2]!
-      .split(",")
-      .map((part) => part.trim())
-      .filter((part) => part && !part.startsWith("type "))
-      .map((part): [string, string] => {
-        const [name, as] = part.split(/\s+as\s+/).map((text) => text.trim())
-        return [name!, as ?? name!]
-      })
-    found.push({ from: match[3]!, names })
-  }
-  return found
-}
-
-const extensions = [".tsx", ".ts", ".jsx", ".js", "/index.tsx", "/index.ts", "/index.jsx", "/index.js"]
-
-/** A relative specifier as a file: `./button` or `./button.js` written for `./button.tsx`, or a folder's index. */
-function resolveRelative(from: string, specifier: string): string | undefined {
-  if (!specifier.startsWith(".")) return undefined
-  const base = join(dirname(from), specifier)
-  const stem = base.replace(/\.[cm]?jsx?$/, "")
-  for (const candidate of [base, ...extensions.map((extension) => stem + extension)]) {
-    if (/\.[cm]?[jt]sx?$/.test(candidate) && existsSync(candidate)) return candidate
-  }
-  return undefined
 }
 
 /** A section's id: the package's name without its scope, as `@acme/ui` is `ui`, unless something already has it. */
@@ -226,11 +99,8 @@ function sectionId(name: string, taken: ReadonlySet<string>): string {
 async function workspacePatterns(folder: string): Promise<string[] | undefined> {
   const yaml = await readFile(join(folder, "pnpm-workspace.yaml"), "utf8").catch(() => undefined)
   if (yaml !== undefined) return pnpmPackages(yaml)
-  const manifest = await readManifest(folder)
-  const workspaces = manifest?.workspaces
-  if (Array.isArray(workspaces)) return workspaces
-  if (workspaces && Array.isArray(workspaces.packages)) return workspaces.packages
-  return undefined
+  const workspaces = (await readWorkspacePackage(folder))?.manifest.workspaces
+  return Array.isArray(workspaces) ? workspaces : workspaces?.packages
 }
 
 /** The `packages` list of a pnpm-workspace.yaml, read without a YAML parser: it's a list of quoted or bare globs. */
@@ -287,14 +157,9 @@ async function subfolders(folder: string): Promise<string[]> {
     .map((entry) => join(folder, entry.name))
 }
 
-async function readManifest(dir: string): Promise<WorkspaceManifest | undefined> {
-  const text = await readFile(join(dir, "package.json"), "utf8").catch(() => undefined)
-  if (text === undefined) return undefined
-  try {
-    return parseJsonc(text) as WorkspaceManifest
-  } catch {
-    return undefined
-  }
+/** A folder's package, or nothing when its package.json is missing or isn't a package's, as package managers skip it. */
+async function readWorkspacePackage(dir: string): Promise<PackageFolder | undefined> {
+  return readPackage(dir).catch(() => undefined)
 }
 
 function slashes(path: string): string {

@@ -3699,7 +3699,8 @@ below. My calls on how they move:
     without the leading slash, which the CLI and MCP report as the error's `path`.
   - `plainObject`, `nonBlankString` (trimmed) and `finiteNumber` are the shared pieces, and `jsonText(schema)` parses
     JSON text, then checks it with the schema.
-  - `packageManifest`, in core's `adapters.ts`, is the package manifest schema, and `PackageManifest` its type.
+  - `packageManifest`, in core's `adapters.ts`, is the package manifest schema, and `PackageManifest` its type. PAR-573
+    added the fields its package reader needs.
   - A read that returns nothing when the data is malformed calls the schema's own `safeParse(value).data`, as
     `readErrorDetails`, `readCopyEntry`, the caller-name helpers and the agent registry's settings do.
 - **A schema is the check and the type.** Types come from `z.infer`, not from an interface kept beside the check.
@@ -3995,3 +3996,50 @@ see changes. My calls:
   in `move-resize.test.ts`, with one fixture renamed so they can share a file. The app's `nudge.test.ts` keeps the
   presses on the real stores. Resizing a frame, the double-click resets, `grow`, a resize's snapped edges and the drag
   have tests from boxes now.
+
+## Installed packages are read one way (PAR-573)
+
+The architecture review of 2026-11-04 found that finding an installed package and the file it points to was written
+three to five ways, and the copies disagreed. One reader in `@parity-app/project`, `packages.ts`, now does it for the
+project's discovery, libgen, the Tailwind adapter and `parity lib check`, and the old copies are gone. My calls:
+
+- **The reader is a set of functions over a package's folder and manifest.** `findPackage` looks in `node_modules` from
+  a folder up, as Node does, follows pnpm's links and never uses NODE_PATH. `readPackage` reads a folder's manifest.
+  `packageEntry(pkg, use, subpath)` gives the file an entry point leads to for `types`, `runtime`, `source` or `style`,
+  `packageStylesheet` the stylesheet a project imports, and `exportedComponents` what a module exports through both
+  kinds of re-export. The Tailwind adapter now depends on `@parity-app/project` for them, as the edge may depend on
+  readers.
+- **Manifests are read through core's `packageManifest`,** which gains the fields the reader needs: `version`,
+  `exports`, `types`, `typings`, `module`, `main`, `style` and `workspaces`. PAR-597 adds the rest. A manifest that
+  isn't JSON, or has a field of the wrong type, throws with the file and the JSON pointer:
+  - Discovery leaves that package out and says why in its notes.
+  - Detection treats it as not installed.
+  - A workspace skips it, as package managers do.
+- **Conditions are tried in the order each use wants them,** as every copy did, rather than the order the package writes
+  them:
+  - Declarations: `types`, `import`, `default`, `require`.
+  - The module Node imports: `node`, `import`, `default`.
+  - Source: `source`, `types`, `import`, `default`.
+  - A stylesheet: `style`, `import`, `default`.
+- **The rest of `exports` is read as Node reads it:** patterns (`./icons/*`, the longest prefix first), `null` for a
+  private path, fallback lists and conditions written for the one entry point. Without an entry in `exports`, the older
+  fields are read, and declarations beside the module (`dist/index.d.ts` for `dist/index.js`), as TypeScript reads them.
+- **A built file is traced to its source by its path.** The build folders at the start of the path (`dist`, `build`,
+  `lib`, `out`, `esm` and `cjs`) become `src`, so `dist/esm/card.js` was built from `src/card.tsx`. Before, a build
+  folder's name anywhere counted, so a workspace package whose `main` was `src/lib/index.ts` was read from
+  `src/index.ts` when it had one, and not at all when it didn't.
+- **Re-exports follow JavaScript's rules.** `export *` doesn't bring a module's default export, and
+  `export { default as Dialog }` brings it under its new name. A library's declarations now follow `export { A } from`
+  as well as `export *`, which only the workspace copy did.
+- **The Tailwind adapter loads `@tailwindcss/node` through its `import` condition,** since it loads it with `import()`.
+  It used the `require` one, which is what `createRequire` resolved to. The theme reads the same.
+- **Hand edits are read one way, in `@parity-app/registry`:** `withEdits` and `readLibraryEdits`. A shared edits file
+  may have comments, as discovery and libgen allowed; `parity lib check` read it as plain JSON. `parseJsonc` moved to
+  core so the registry can use it.
+- **The registry picks each package's newest file by semver,** with its hand edits applied (`newestEntries`). The
+  library catalog compared versions as text, so 10.0.0 came before 9.5.0, and `parity lib check` took the first file
+  with the library's id by file name.
+- **Buildkit's presets no longer name `tailwind.css`.** It's the first of the usual stylesheet names in their `exports`,
+  so it's found as any package's stylesheet is.
+- **PAR-587's case now works.** A library's components come from its declarations found in `exports` too, so a package
+  whose types are only there lists them. PAR-587 adds its test.
