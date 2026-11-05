@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Resetting a text layer's Resizing in a state now clears the grow its switch set, as well as width and height",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
