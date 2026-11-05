@@ -963,7 +963,13 @@ recommended answer to each of its questions.
   is: text, or layers in a slot of its name. One that takes only its part's props (an `input`, an `img`) is an object.
   My call: a content slot is listed with the component's own props though its package declares it, since it's one of the
   component's parts and not an HTML attribute; `root` is the component itself, so it stays with the attributes. A
-  library's other props, `children` included, still sit with the attributes, as before.
+  library's other props sat with the attributes until PAR-457, below.
+- **A library's own props are those its component's declaration file declares (PAR-457).** Nova's `SidebarMenuButton`
+  adds `isActive` to a button's attributes, and hiding it behind `all` hid how an item shows as current. A prop declared
+  in the file that declares the component is its own; one from React or another package stays with the attributes, as
+  does a slot that isn't content. Defaults come from the compiled JavaScript beside the declarations, and a cva
+  variant's options go to a prop only when its type has the same options, since one file can hold several components'
+  variants. Upstream components and styles are unchanged; only Parity's reading of them is.
 - **A node prop held in a slot says so (PAR-127):** once its slot has layers, the Props panel says "Set in layers" in
   place of a text field and doesn't offer the prop again, since the canvas passes the slot's layers over a value.
 - **Components declared but missing when they run are left out (LIB-37):** MUI's types declare `BadgeRoot`, `ModalRoot`
@@ -2173,8 +2179,9 @@ the Repository, CI and releases stream in Linear.
     deploy's secrets.
 - **Parity's CI (PAR-2) runs `pnpm verify` through ci-verify on Ubuntu, Windows and macOS.** My calls:
   - Its `prepare` installs the fixture projects when any is missing, with Bun 1.4.3 and Corepack 0.35.0 pinned from npm
-    on every system, and `npm ci` for the five fixtures `install-projects` doesn't know (buildkit, chakra, fluent,
-    headless, mui). Their `node_modules`, about 2 GB per system, are cached on their lockfiles.
+    on every system. `install-projects` installs every project in `fixtures/`: those `generate.ts` makes with their own
+    package manager, and the rest (buildkit, chakra, fluent, headless, mui) with `npm ci` from their committed
+    `package-lock.json` (PAR-404). Their `node_modules`, about 2 GB per system, are cached on their lockfiles.
   - Runners get 45 minutes, since a run that installs the fixtures can outlast 30 on Windows.
   - After `pnpm verify`, each system also installs and runs the CLI's packed tarball (`try-packed`, PAR-13).
   - A second ci-verify call, `checks`, runs once on Ubuntu with full history: `pnpm check:types`, and on pull requests
@@ -3617,3 +3624,72 @@ same screen. My calls:
   next open makes the same one.
 - **A file that couldn't be read gets no Home screen,** so saving can't write over it. A file whose designs were all
   deleted opens with none, as the person left it.
+
+## Data Parity didn't make is checked with zod (PAR-578)
+
+Asked how PAR-565's channel module should check request params, by hand as core's `validate.ts` does or with zod, you
+chose zod on 2026-11-04 and widened it: "We should definitely be using zod where we can. Handwritten parsers that can be
+migrated to zod should absolutely be done. If there are some remaining, we need tasks to track it." A survey that day
+found about 70 hand-written parsers, checks and unchecked casts. Each one that can move to zod has an issue, listed
+below. My calls on how they move:
+
+- **zod 4 comes from the pnpm catalog, at 4.6.7,** the version the MCP SDK already installs. PAR-588 adds it to
+  `@parity-app/core`, with the helpers the other issues use.
+- **A schema is the check and the type.** Types come from `z.infer`, not from an interface kept beside the check.
+  - Files Parity owns (`.par`, `.lib.par`, edits) use strict objects, so an unknown key is still an error.
+  - Third-party JSON (package manifests, tool configs, npm and GitHub responses) uses loose objects that read only the
+    fields Parity needs.
+  - Caches and saved preferences put `.catch` on each field, so one bad value falls back to its default without
+    resetting the rest.
+- **Errors read as they do now.** A failed check throws `TypeError` with `/json/pointer: message`, as `validate.ts`
+  does, so people and tests see the same messages. Agent input throws `CodedError` with `invalid_input` and the pointer
+  as its `path` (PAR-472).
+- **Everything that crosses into Parity is checked:**
+  - project and library files
+  - the clipboard, drag payloads and saved preferences
+  - agent, CLI and MCP input, and the agent endpoint's HTTP body
+  - `ipcMain` arguments, and the window's port to the project service, since project code shares that page
+  - environment variables and command-line arguments
+  - package manifests, tool configs and token files
+  - caches and network responses
+- **Some things stay unchecked or hand-parsed:**
+  - Messages between Parity's own processes and threads, apart from the window's: worker threads, the builder process
+    and the service's replies. Parity writes both ends, some messages are large (snapshots, frame captures), and every
+    call would pay for the check.
+  - Text formats. CSS values and stylesheets, JSONC, the fields expression lexer, pnpm's workspace file, tar entries and
+    WebP text chunks stay hand-parsed, and zod checks what they produce where it has a shape.
+  - Shapes that are found rather than checked. `libgen/src/icon-tags.ts` works out each icon set's metadata by
+    heuristics, and a prop field takes whatever JSON a person types.
+  - JSON the code itself wrote a moment earlier, such as keys it stringified, and tsconfig, which TypeScript's own API
+    reads.
+- **No zod in a project's page.** The project's own Vite bundles the guest (`renderer-react/src/guest.ts`), which
+  evaluates decorator values on every frame. Values are checked once, when their library file loads (PAR-594). The
+  guest's evaluator stays hand-written, typed from the schema (PAR-572).
+- **MCP's input schemas come from zod** through `z.toJSONSchema`, and `tools/list` keeps its 12 KiB budget (PAR-510).
+- **Token files stay lenient.** A malformed token is skipped and reported rather than failing its file, since a strict
+  check would refuse files that load today (PAR-591).
+- **New code adds no hand-written parsers.**
+
+The issues, in order. PAR-588 comes first, since it adds zod.
+
+| Issue   | What moves to zod                                                               | After            |
+| ------- | ------------------------------------------------------------------------------- | ---------------- |
+| PAR-588 | zod and core's helpers, with error details, agent copy entries and caller names | –                |
+| PAR-589 | `.par` documents and mode settings                                              | PAR-588          |
+| PAR-594 | `.lib.par` files, edits and the decorator value language                        | PAR-589          |
+| PAR-595 | The clipboard, drag payloads and saved preferences                              | PAR-589          |
+| PAR-590 | The CLI and MCP contracts                                                       | PAR-588          |
+| PAR-596 | The agent snippet API's arguments                                               | PAR-589, PAR-590 |
+| PAR-598 | The desktop's agent requests                                                    | PAR-590, PAR-564 |
+| PAR-597 | Package manifests and tool configs                                              | PAR-573          |
+| PAR-599 | libgen's npm, upstream and theme data                                           | PAR-597, PAR-594 |
+| PAR-591 | DTCG token files and resolvers                                                  | PAR-588          |
+| PAR-592 | The main process's IPC arguments, files and environment                         | PAR-588          |
+| PAR-593 | The project service's files, caches and environment                             | PAR-588          |
+
+Four issues from the architecture review build on these:
+
+- PAR-565's channel module checks the window's requests with zod.
+- PAR-564 declares its method map with PAR-590's schemas.
+- PAR-572 checks decorator values with PAR-594's grammar.
+- PAR-573 reads manifests through PAR-588's schema.

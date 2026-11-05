@@ -1648,7 +1648,8 @@ Tests:
 
 - `packages/code/src/props.test.ts`, Fluent's slots (4): a declaration in a package's `node_modules` written as Fluent
   writes `Slot`, with a content slot read as an own node prop typed `Slot<'span'>`, a void element's slot as an object,
-  the root slot left with the attributes, and the library's other props read as before.
+  the root slot left with the attributes, and the library's other props its file declares listed as its own (PAR-457,
+  below).
 - `packages/core/src/props.test.ts` (6): a node prop edited as layers, text or a typed value; a content slot listed and
   taking text, set in layers once its slot holds them and not offered again, an attribute's slot with layers among the
   set props, a library's children in layers left to the Layers panel, and a text label and functions left out.
@@ -1660,6 +1661,34 @@ Gaps: the section's wiring has no automated DOM test. The reader was run against
 isolated copy of the app on that project, the same day, a Button with a text layer in its `icon` slot drew it before its
 label and its Props section said `icon` was set in layers, and an Input's `contentBefore` took `$` as text and drew it
 in the field, with `contentAfter` offering "Text, or layers in its slot".
+
+### A library's own props beside the attributes it passes on (PAR-457)
+
+A library component often takes an element's attributes and adds props of its own: Nova's `SidebarMenuButton` is a
+button's attributes and `isActive`, `tooltip`, `variant` and `size`. The props its own declaration file adds are its
+own, listed with its variants in the Props section and in `Props()` for agents, with their defaults. What it passes on
+from React or another package (`disabled`, `type`, Base UI's `render`) stays with the attributes, behind `all`.
+
+- **Defaults** come from the package's compiled JavaScript beside the declaration file, which keeps what the component
+  destructures (`isActive = false`) where the declarations drop it.
+- **A cva variant** is a prop's only when its options are the prop's. Nova's `sidebar.js` has a `variant` for the menu
+  button, so the `Sidebar`'s own `variant` (`sidebar`, `floating`, `inset`) and `SidebarMenuSubButton`'s `size` used to
+  take the menu button's options; they now keep their own, with their own defaults.
+- **Slots** keep their rule (PAR-127): `root` and slots that take only their part's props stay with the attributes.
+- **Other libraries** gain their own props the same way where a file declares a component and its props together: MUI's
+  Button lists `color`, `variant`, `size` and `startIcon` (and `sx` and `classes`, read as values of unknown type),
+  Fluent's lists `appearance`, `shape` and `size`, and Chakra's lists `loading` and `spinner`. Before, they listed none
+  of these outside `all`.
+
+Code: `componentProps`, `sameOptions` and `functionNamed` in `packages/code/src/props.ts`. The Props section, `Props()`,
+`parity props` and the MCP's `get_props` read the same result.
+
+Tests: `packages/code/src/props.test.ts`, a library's own props (4): a kit shaped as Nova lists `isActive` and a
+provider's `defaultOpen` and `open` as its own with their defaults; the attributes it passes on stay with the
+attributes; a cva variant's options go only to the prop whose type has them; and the example's installed Nova reads
+`isActive`, `tooltip`, the provider's props and the `Sidebar`'s `variant` this way.
+`packages/libgen/src/nova-sidebar.test.ts` (1: a menu button given `isActive` draws Nova's own `data-active` style). The
+other libraries' lists were read from `fixtures/mui`, `fixtures/fluent` and `fixtures/chakra` on 2026-11-05.
 
 ## Text
 

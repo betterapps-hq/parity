@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "List the props a library's component declares beside its element's attributes, such as Nova's isActive, as its own, with their defaults",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

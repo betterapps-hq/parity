@@ -18,8 +18,7 @@ jobs:
       # The detection tests need every project in fixtures/ installed, each with its own package manager. Their
       # node_modules come back from the cache while their lockfiles are unchanged, and npm ci would delete them, so
       # they're installed only when one is missing. Bun (for mantine) and Corepack (which brings react-aria's Yarn)
-      # come from npm at pinned versions, the same on every system. install-projects installs only the projects
-      # generate.ts makes; the others in fixtures/ are npm projects, installed from their lockfiles after it.
+      # come from npm at pinned versions, the same on every system.
       prepare: |
         missing=
         for project in fixtures/*/; do
@@ -30,9 +29,6 @@ jobs:
           npm install --prefix "$tools" --no-audit --no-fund bun@1.4.3 corepack@0.35.0
           export PATH="$tools/node_modules/.bin:$PATH"
           pnpm --filter @parity-app/fixtures install-projects
-          for project in fixtures/*/; do
-            if [ ! -d "${project}node_modules" ]; then (cd "$project" && npm ci --no-audit --no-fund); fi
-          done
         else
           echo "Every fixture project came from the cache."
         fi
