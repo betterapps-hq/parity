@@ -4,6 +4,7 @@ import { readFileSync, realpathSync, statSync } from "node:fs"
 import { freemem } from "node:os"
 import { dirname, resolve } from "node:path"
 import { parentPort } from "node:worker_threads"
+import { createChannel, type Method, nodePort } from "@parity-app/channel"
 import {
   type CheckResult,
   type ConfigChange,
@@ -25,26 +26,33 @@ import ts from "typescript"
  * stopped while idle: the app's files that one's program had read, so this one's reads them too. `lockfiles` are the
  * project's lockfiles as `findLockfiles` finds them now, relative to the root.
  */
-type Request =
-  | {
-      id: number
-      kind: "props"
+export interface CheckerMethods {
+  props: {
+    params: {
       root: string
       components: Record<string, ComponentSource>
       files?: string[]
       known?: string[]
       lockfiles: string[]
     }
-  | { id: number; kind: "check"; root: string; files: string[]; known?: string[]; lockfiles: string[] }
-  | { id: number; kind: "close"; root: string }
-
-parentPort?.on("message", (request: Request) => {
-  try {
-    parentPort?.postMessage({ id: request.id, result: answer(request) })
-  } catch (error) {
-    parentPort?.postMessage({ id: request.id, error: error instanceof Error ? error.message : String(error) })
+    result: Record<string, ComponentInfo>
   }
-})
+  check: { params: { root: string; files: string[]; known?: string[]; lockfiles: string[] }; result: CheckResult }
+  close: { params: { root: string }; result: undefined }
+}
+
+/** One request, named by its method as `kind`. */
+type Request = { [M in keyof CheckerMethods]: { kind: M } & CheckerMethods[M]["params"] }[keyof CheckerMethods]
+
+if (parentPort) {
+  createChannel<CheckerMethods, Record<never, Method>>({
+    handlers: {
+      props: (params) => answer({ kind: "props", ...params }) as Record<string, ComponentInfo>,
+      check: (params) => answer({ kind: "check", ...params }) as CheckResult,
+      close: (params) => answer({ kind: "close", ...params }) as undefined
+    }
+  }).connect(nodePort(parentPort))
+}
 
 /** Answers one request as the worker thread does, exported so tests run the same code without a thread. */
 export function answer(request: Request): CheckResult | Record<string, ComponentInfo> | undefined {

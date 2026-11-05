@@ -81,3 +81,67 @@ describe("native update menu handoff", () => {
     expect(next).toHaveBeenCalledOnce()
   })
 })
+
+/** A DOM `MessagePort` the test holds the other end of: what the preload sends, and a way to answer. */
+function fakePort() {
+  const listeners = new Map<string, ((event: { data?: unknown }) => void)[]>()
+  const sent: { type: string; id: number; method?: string }[] = []
+  return {
+    sent,
+    port: {
+      postMessage: (message: { type: string; id: number; method?: string }) => sent.push(message),
+      addEventListener: (type: string, listener: (event: { data?: unknown }) => void) =>
+        listeners.set(type, [...(listeners.get(type) ?? []), listener]),
+      start: () => undefined,
+      close: () => undefined
+    },
+    deliver: (data: unknown) => {
+      for (const listener of listeners.get("message") ?? []) listener({ data })
+    }
+  }
+}
+
+describe("the window's channel to the project service", () => {
+  it("holds requests until main gives the page its port, then matches the reply", async () => {
+    const { ipc, host } = preload()
+    const opened = host.request("project.open", { root: "D:/shop" })
+    const first = fakePort()
+    ipc.emit("canvas:port", { ports: [first.port] })
+    expect(first.sent).toEqual([{ type: "request", id: 1, method: "project.open", params: { root: "D:/shop" } }])
+    first.deliver({ type: "response", id: 1, result: { id: "D:/shop" } })
+    expect(await opened).toEqual({ id: "D:/shop" })
+  })
+
+  it("fails what the old service was asked when a new port comes, and says it reconnected", async () => {
+    const { ipc, host } = preload()
+    const reconnected = vi.fn<() => void>()
+    host.onReconnect(reconnected)
+    ipc.emit("canvas:port", { ports: [fakePort().port] })
+    const lost = host.request("processes.list", {})
+    ipc.emit("canvas:port", { ports: [fakePort().port] })
+    await expect(lost).rejects.toThrow("The project service restarted")
+    expect(reconnected).toHaveBeenCalledOnce()
+  })
+
+  it("answers the service through the page's handler, passing a failure's details back", async () => {
+    const { ipc, host } = preload()
+    const { port, sent, deliver } = fakePort()
+    ipc.emit("canvas:port", { ports: [port] })
+    deliver({ type: "request", id: 7, method: "agent.tabs" })
+    await vi.waitFor(() => expect(sent).toContainEqual(expect.objectContaining({ id: 7 })))
+    expect(sent.at(-1)).toEqual({ type: "response", id: 7, error: "The canvas window isn't ready yet" })
+
+    host.serve(async (method) =>
+      method === "agent.tabs"
+        ? { result: [] }
+        : { error: "No tab is open", details: { code: "unknown_tab", retryable: false } }
+    )
+    deliver({ type: "request", id: 8, method: "agent.tabs" })
+    deliver({ type: "request", id: 9, method: "agent.snapshot", params: {} })
+    await vi.waitFor(() => expect(sent).toHaveLength(3))
+    expect(sent.slice(1)).toEqual([
+      { type: "response", id: 8, result: [] },
+      { type: "response", id: 9, error: "No tab is open", details: { code: "unknown_tab", retryable: false } }
+    ])
+  })
+})

@@ -1,79 +1,74 @@
+import { createChannel, domPort, type Handlers, plainErrors } from "@parity-app/channel"
 import { contextBridge, ipcRenderer } from "electron"
-import type { CanvasHost, ChannelMessage, ProcessUsage, ServeAnswer, WindowMethod } from "../shared/protocol.ts"
+import { ipc } from "../shared/channels.ts"
+import {
+  type CanvasHost,
+  type ProcessUsage,
+  type ServeAnswer,
+  type ServiceMethods,
+  type WindowMethod,
+  type WindowMethods,
+  windowMethods
+} from "../shared/protocol.ts"
 
-interface Pending {
-  resolve(value: unknown): void
-  reject(error: Error): void
-}
-
-let port: MessagePort | undefined
-let nextId = 1
-const pending = new Map<number, Pending>()
-const queued: ChannelMessage[] = []
-let handler: ((method: WindowMethod, params: unknown) => Promise<ServeAnswer>) | undefined
+/**
+ * The window's channel to the project service. Requests wait until main gives the page its port, and a second port
+ * means the service restarted: what was asked of the old one won't be answered.
+ */
+const service = createChannel<WindowMethods, ServiceMethods>({
+  notServing: () => new Error("The canvas window isn't ready yet"),
+  disconnected: () => new Error("The project service restarted")
+})
 const reconnectListeners = new Set<() => void>()
 const showUpdateListeners = new Set<() => void>()
 let pendingShowUpdate = false
+let connections = 0
 
 // A native menu action may arrive after load but before React mounts and subscribes.
-ipcRenderer.on("canvas:show-updates", () => {
+ipcRenderer.on(ipc.showUpdates, () => {
   if (showUpdateListeners.size === 0) pendingShowUpdate = true
   else for (const listener of showUpdateListeners) listener()
 })
 
-function send(message: ChannelMessage): void {
-  if (port) port.postMessage(message)
-  else queued.push(message)
-}
-
-ipcRenderer.on("canvas:port", (event) => {
+ipcRenderer.on(ipc.port, (event) => {
   const next = event.ports[0]
   if (!next) return
-  // A second channel means the service restarted: what was asked of the old one won't be answered.
-  const reconnected = port !== undefined
-  port?.close()
-  port = next
-  if (reconnected) {
-    for (const request of pending.values()) request.reject(new Error("The project service restarted"))
-    pending.clear()
-  }
-  port.onmessage = ({ data }: MessageEvent<ChannelMessage>) => {
-    if (data.type === "response") {
-      const request = pending.get(data.id)
-      if (!request) return
-      pending.delete(data.id)
-      if (data.error === undefined) request.resolve(data.result)
-      else request.reject(new Error(data.error))
-      return
-    }
-    const answer = handler
-      ? handler(data.method as WindowMethod, data.params)
-      : Promise.reject(new Error("The canvas window isn't ready yet"))
-    answer.then(
-      (reply) => send({ type: "response", id: data.id, ...reply }),
-      (error: unknown) =>
-        send({ type: "response", id: data.id, error: error instanceof Error ? error.message : String(error) })
-    )
-  }
-  for (const message of queued.splice(0)) port.postMessage(message)
-  if (reconnected) for (const listener of reconnectListeners) listener()
+  service.connect(domPort(next))
+  connections++
+  if (connections > 1) for (const listener of reconnectListeners) listener()
 })
 
+/**
+ * The page's one handler as the channel's handlers. The page answers with data, since a failure thrown across the
+ * bridge keeps only its message; its details go back to the service as they came.
+ */
+function windowHandlers(
+  handler: (method: WindowMethod, params: unknown) => Promise<ServeAnswer>
+): Handlers<WindowMethods> {
+  const answer = async (method: WindowMethod, params: unknown) => {
+    const reply = await handler(method, params)
+    if ("error" in reply) throw plainErrors.decode(reply.error, reply.details)
+    return reply.result
+  }
+  return Object.fromEntries(
+    windowMethods.map((method) => [method, (params: unknown) => answer(method, params)])
+  ) as Handlers<WindowMethods>
+}
 const host: CanvasHost = {
   appVersion:
     process.argv.find((argument) => argument.startsWith("--parity-version="))?.slice("--parity-version=".length) ??
     "unknown",
-  getBuildInfo: () => ipcRenderer.invoke("canvas:build-info"),
+  getBuildInfo: () => ipcRenderer.invoke(ipc.buildInfo),
   updates: {
-    get: () => ipcRenderer.invoke("canvas:update-state"),
-    check: () => ipcRenderer.invoke("canvas:update-check"),
-    setBeta: (beta) => ipcRenderer.invoke("canvas:update-beta", beta),
-    act: () => ipcRenderer.invoke("canvas:update-act"),
+    get: () => ipcRenderer.invoke(ipc.updateState),
+    check: () => ipcRenderer.invoke(ipc.updateCheck),
+    setBeta: (beta) => ipcRenderer.invoke(ipc.updateBeta, beta),
+    act: () => ipcRenderer.invoke(ipc.updateAct),
     subscribe: (listener) => {
       const changed = (_event: Electron.IpcRendererEvent, state: Parameters<typeof listener>[0]) => listener(state)
-      ipcRenderer.on("canvas:update-changed", changed)
+      ipcRenderer.on(ipc.updateChanged, changed)
       return () => {
-        ipcRenderer.removeListener("canvas:update-changed", changed)
+        ipcRenderer.removeListener(ipc.updateChanged, changed)
       }
     },
     onShow: (listener) => {
@@ -92,34 +87,28 @@ const host: CanvasHost = {
     ?.split("=")
     .slice(1)
     .join("="),
-  request(method, params) {
-    return new Promise((resolve, reject) => {
-      const id = nextId++
-      pending.set(id, { resolve: resolve as (value: unknown) => void, reject })
-      send({ type: "request", id, method, params })
-    })
-  },
+  request: (method, params) => service.request(method, params),
   serve(next) {
-    handler = next
+    service.serve(windowHandlers(next))
   },
   onReconnect(listener) {
     reconnectListeners.add(listener)
   },
-  pickFolder: (title) => ipcRenderer.invoke("canvas:pick-folder", title) as Promise<string | undefined>,
-  pickProjectFile: () => ipcRenderer.invoke("canvas:pick-project-file") as Promise<string | undefined>,
-  saveFile: (options) => ipcRenderer.invoke("canvas:save-dialog", options) as Promise<string | undefined>,
-  showItem: (path) => ipcRenderer.invoke("canvas:show-item", path) as Promise<void>,
-  openInEditor: (request) => ipcRenderer.invoke("canvas:open-in-editor", request) as Promise<{ opened: string }>,
-  quit: () => ipcRenderer.invoke("canvas:quit") as Promise<void>,
-  toggleDevTools: () => ipcRenderer.invoke("canvas:toggle-dev-tools") as Promise<void>,
-  setTheme: (theme) => ipcRenderer.invoke("canvas:set-theme", theme) as Promise<void>,
-  metrics: () => ipcRenderer.invoke("canvas:metrics") as Promise<ProcessUsage[]>,
+  pickFolder: (title) => ipcRenderer.invoke(ipc.pickFolder, title) as Promise<string | undefined>,
+  pickProjectFile: () => ipcRenderer.invoke(ipc.pickProjectFile) as Promise<string | undefined>,
+  saveFile: (options) => ipcRenderer.invoke(ipc.saveDialog, options) as Promise<string | undefined>,
+  showItem: (path) => ipcRenderer.invoke(ipc.showItem, path) as Promise<void>,
+  openInEditor: (request) => ipcRenderer.invoke(ipc.openInEditor, request) as Promise<{ opened: string }>,
+  quit: () => ipcRenderer.invoke(ipc.quit) as Promise<void>,
+  toggleDevTools: () => ipcRenderer.invoke(ipc.toggleDevTools) as Promise<void>,
+  setTheme: (theme) => ipcRenderer.invoke(ipc.setTheme, theme) as Promise<void>,
+  metrics: () => ipcRenderer.invoke(ipc.metrics) as Promise<ProcessUsage[]>,
   onClosing(listener) {
-    ipcRenderer.on("canvas:closing", () => {
-      ipcRenderer.send("canvas:close-pending")
+    ipcRenderer.on(ipc.closing, () => {
+      ipcRenderer.send(ipc.closePending)
       listener().then(
-        (close) => ipcRenderer.send(close ? "canvas:close-ready" : "canvas:close-cancel"),
-        () => ipcRenderer.send("canvas:close-cancel")
+        (close) => ipcRenderer.send(close ? ipc.closeReady : ipc.closeCancel),
+        () => ipcRenderer.send(ipc.closeCancel)
       )
     })
   }

@@ -1,15 +1,16 @@
 import { Worker } from "node:worker_threads"
 import type { CheckResult } from "@parity-app/code"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
+import type { CheckerMethods } from "./props-worker.ts"
 import { typeChecker } from "./props.ts"
 import { workerClient } from "./worker-client.ts"
 
 // Answers each request with the request itself, a moment later for a check of `slow.tsx`.
 const echo = `
 const { parentPort } = require("node:worker_threads")
-parentPort.on("message", (message) => {
-  const answer = () => parentPort.postMessage({ id: message.id, result: message })
-  if (message.files?.includes("src/slow.tsx")) setTimeout(answer, 5000)
+parentPort.on("message", ({ id, params }) => {
+  const answer = () => parentPort.postMessage({ type: "response", id, result: params })
+  if (params.files?.includes("src/slow.tsx")) setTimeout(answer, 5000)
   else answer()
 })
 `
@@ -29,7 +30,7 @@ afterEach(() => {
 
 function setup() {
   const waiting: Array<() => void> = []
-  const client = workerClient({
+  const client = workerClient<CheckerMethods>({
     start: () => new Worker(echo, { eval: true }),
     idleMs: 30,
     stopped: () => {

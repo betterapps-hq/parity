@@ -89,15 +89,16 @@ when it's spread through UI code. Today:
 
 ## The packages
 
-| Package                                 | What it owns                                                                                                                                                                              | Comes from                                                                                         |
-| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `@parity-app/code`                      | One TypeScript program per project. Listing components, props, file ownership by hash, writing a component file from a design, reading an edited file back, drift, review.                | `project/components.ts`, `libgen/components.ts`, `@parity/props`, and the CMP items not built yet. |
-| Project edits, in `@parity-app/project` | File edits built as data, shown as a diff, applied together, undone together, remembered so the app ignores its own writes.                                                               | The writes in `utility/projects.ts`, `utility/libraries.ts`, `utility/images.ts` and `cli/lib.ts`. |
-| `@parity-app/editor`                    | Editor behaviour without the views: clipboard, drop rules, arranging, inserting, Make component, placement, snapping, moving, resizing and nudging, selection, undo and unsaved tracking. | The renderer files listed above.                                                                   |
-| `@parity-app/models`, then one per lens | The lens schemas (PAR-15), then each lens's standards reader and model operations. Each adapter, such as Drizzle or TanStack Router, is a package of its own.                             | New code.                                                                                          |
-| `@parity-app/storybook`                 | Everything Storybook-specific, behind the `StoryAdapter` in [storybook.md](../storybook.md).                                                                                              | `project/storybook.ts` and `utility/storybook.ts` (PAR-114).                                       |
-| `@parity-app/account`                   | Signing in with WorkOS without the views: the authorize URL and PKCE, the link the browser hands back, the code exchange and refresh, the token's claims, and when to refresh.            | New code, from [sign-in.md](sign-in.md) (PAR-613).                                                 |
-| `@parity-app/tokens`                    | Reading tokens (Tailwind, DTCG), editing them in stylesheets, matching described tokens to custom properties, and checking what a token edit may write (PAR-569).                         | `core/tokens.ts`, `core/tokens-dtcg.ts`, `core/css-source.ts`, the Tokens panel's matching.        |
+| Package                                 | What it owns                                                                                                                                                                              | Comes from                                                                                                |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `@parity-app/code`                      | One TypeScript program per project. Listing components, props, file ownership by hash, writing a component file from a design, reading an edited file back, drift, review.                | `project/components.ts`, `libgen/components.ts`, `@parity/props`, and the CMP items not built yet.        |
+| Project edits, in `@parity-app/project` | File edits built as data, shown as a diff, applied together, undone together, remembered so the app ignores its own writes.                                                               | The writes in `utility/projects.ts`, `utility/libraries.ts`, `utility/images.ts` and `cli/lib.ts`.        |
+| `@parity-app/editor`                    | Editor behaviour without the views: clipboard, drop rules, arranging, inserting, Make component, placement, snapping, moving, resizing and nudging, selection, undo and unsaved tracking. | The renderer files listed above.                                                                          |
+| `@parity-app/models`, then one per lens | The lens schemas (PAR-15), then each lens's standards reader and model operations. Each adapter, such as Drizzle or TanStack Router, is a package of its own.                             | New code.                                                                                                 |
+| `@parity-app/storybook`                 | Everything Storybook-specific, behind the `StoryAdapter` in [storybook.md](../storybook.md).                                                                                              | `project/storybook.ts` and `utility/storybook.ts` (PAR-114).                                              |
+| `@parity-app/account`                   | Signing in with WorkOS without the views: the authorize URL and PKCE, the link the browser hands back, the code exchange and refresh, the token's claims, and when to refresh.            | New code, from [sign-in.md](sign-in.md) (PAR-613).                                                        |
+| `@parity-app/tokens`                    | Reading tokens (Tailwind, DTCG), editing them in stylesheets, matching described tokens to custom properties, and checking what a token edit may write (PAR-569).                         | `core/tokens.ts`, `core/tokens-dtcg.ts`, `core/css-source.ts`, the Tokens panel's matching.               |
+| `@parity-app/channel`                   | Requests and replies over any port: request ids, waiting for a port, failing on close, coded details both ways, unknown methods and checked params.                                       | The preload script, `utility/index.ts`, `render.ts`, `console.ts`, `worker-client.ts` and main (PAR-565). |
 
 ### `@parity-app/code`: design and code, both ways
 
@@ -183,6 +184,10 @@ and the copies disagreed.
 - **Main:** windows, menus, the render window and process lifecycles.
 - **The project service:** reading and watching files, applying project edits, starting processes and answering IPC. The
   logic it runs comes from packages.
+- **The ports, through `@parity-app/channel`** (PAR-565). Each process connects its port with an adapter and answers its
+  method map: the preload script the window's `MessagePort`, the service each window's `MessagePortMain` and its
+  `parentPort`, main the service's `UtilityProcess`, and the type checker's client its `Worker`. The method maps and the
+  service's param checks are in `shared/`, and the `canvas:*` IPC names in `shared/channels.ts`.
 - **The renderer:** views, tldraw wiring, hooks, and DOM measuring.
 
 ## Order
