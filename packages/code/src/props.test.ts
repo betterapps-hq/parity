@@ -305,3 +305,64 @@ describe("whether a component takes a style", () => {
     expect(names.map((name) => found[name]?.takesStyle)).toEqual([false, true, false, undefined, undefined])
   })
 })
+
+describe("components that set their own size (PAR-518)", () => {
+  let root: string
+
+  // A library's compiled parts, as `implementationOf` reads them beside their declarations.
+  const compiled = [
+    'import { jsx as _jsx } from "react/jsx-runtime"',
+    "function Icon({ className, ...props }) {",
+    '  return _jsx("span", { className: cn("size-4 shrink-0 [&_svg]:size-4", className), ...props })',
+    "}",
+    "function Rule({ className, ...props }) {",
+    '  return _jsx("div", { className: cn("bg-border data-horizontal:h-px data-horizontal:w-full", className), ...props })',
+    "}",
+    "function Panel({ className, ...props }) {",
+    '  return _jsx("div", { className: cn("flex w-full gap-2 group-data-[size=sm]/card:size-6", className), ...props })',
+    "}",
+    "export { Icon, Rule, Panel }"
+  ]
+  const parts = ["Icon", "Rule", "Panel"]
+
+  beforeAll(async () => {
+    root = (await mkdtemp(join(tmpdir(), "canvas-sized-"))).replaceAll("\\", "/")
+    await mkdir(join(root, "node_modules", "kit"), { recursive: true })
+    const declaration = (name: string) => `export declare function ${name}(props: { children?: string }): null`
+    await writeFile(join(root, "node_modules", "kit", "index.d.ts"), parts.map(declaration).join("\n"))
+    await writeFile(join(root, "node_modules", "kit", "index.js"), compiled.join("\n"))
+  })
+
+  afterAll(async () => {
+    await rm(root, { recursive: true, force: true })
+  })
+
+  it("says so for a width, a height under a line or @container on its own element, in a project's code", () => {
+    const file = (name: string, path: string) => [name, { path: `src/components/ui/${path}.tsx`, export: name }]
+    const found = inferProps(
+      example,
+      Object.fromEntries([
+        file("Avatar", "avatar"),
+        file("AvatarGroupCount", "avatar"),
+        file("CardHeader", "card"),
+        file("Separator", "separator"),
+        file("Card", "card"),
+        file("Badge", "badge"),
+        file("Button", "button")
+      ])
+    )
+    const sized = Object.entries(found).flatMap(([name, info]) => (info.fixedSize ? [name] : []))
+    // `size-8`, `size-8`, `@container/card-header` and `data-horizontal:h-px`. Badge's `h-5` holds a line of text, and
+    // Button's size comes from a cva variant, not classes written on its element.
+    expect(sized.sort()).toEqual(["Avatar", "AvatarGroupCount", "CardHeader", "Separator"])
+  })
+
+  it("reads a library's compiled parts, leaving out classes for what's inside or taken from a parent", () => {
+    const part = (name: string) => [
+      name,
+      { path: "kit", export: name, library: "kit", declaration: "node_modules/kit/index.d.ts" }
+    ]
+    const found = inferProps(root, Object.fromEntries(parts.map(part)))
+    expect(parts.map((name) => found[name]?.fixedSize)).toEqual([true, true, undefined])
+  })
+}, 60_000)

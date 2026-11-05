@@ -49,7 +49,8 @@ export function inferProps(
           path: source.path,
           ...(from ? { import: from } : {}),
           props,
-          ...(takesStyle === undefined ? {} : { takesStyle })
+          ...(takesStyle === undefined ? {} : { takesStyle }),
+          ...(setsOwnSize(implementation, source.export) ? { fixedSize: true as const } : {})
         }
       }
     } catch (error) {
@@ -370,6 +371,88 @@ function destructuredDefaults(found: ts.Node | undefined): Map<string, Literal> 
     if (name && value !== undefined) defaults.set(name, value)
   }
   return defaults
+}
+
+/**
+ * Whether a component's own element sets its size, so text put inside is cut off or spills out rather than sizing it
+ * (PAR-518). It's read from the classes the component writes on the outermost element it returns, in its source or a
+ * library's compiled JavaScript, by Tailwind's names: a width (`size-8`, `w-10`, `w-(--sidebar-width)`), a height under
+ * a line of text (`h-px`), or `@container`, whose width doesn't come from what's inside. Classes for its own states
+ * (`data-horizontal:h-px`) count; ones it takes from elsewhere (`group-data-[size=sm]/avatar:size-6`) or that style what's
+ * inside it (`[&_svg]:size-4`) don't.
+ */
+function setsOwnSize(file: ts.SourceFile, name: string): boolean {
+  const root = returnedElement(declaredFunction(file, name))
+  if (!root) return false
+  const classes = classNameOf(root)
+  if (!classes) return false
+  const texts: string[] = []
+  const collect = (node: ts.Node) => {
+    if (ts.isStringLiteralLike(node)) texts.push(node.text)
+    node.forEachChild(collect)
+  }
+  collect(classes)
+  return texts.join(" ").split(/\s+/).some(sizingClass)
+}
+
+/** The function a file declares under a name: `function Avatar(...)`, or a const holding one, through `forwardRef(...)`. */
+function declaredFunction(file: ts.SourceFile, name: string): ts.FunctionLikeDeclaration | undefined {
+  for (const statement of file.statements) {
+    if (ts.isFunctionDeclaration(statement) && statement.name?.text === name) return statement
+    if (!ts.isVariableStatement(statement)) continue
+    for (const declaration of statement.declarationList.declarations) {
+      if (!ts.isIdentifier(declaration.name) || declaration.name.text !== name) continue
+      let value = declaration.initializer
+      while (value && ts.isCallExpression(value)) value = value.arguments[0]
+      if (value && (ts.isArrowFunction(value) || ts.isFunctionExpression(value))) return value
+    }
+  }
+  return undefined
+}
+
+/** The element a function returns at its top level, as JSX or a compiled `jsx(...)` call. */
+function returnedElement(fn: ts.FunctionLikeDeclaration | undefined): ts.Expression | undefined {
+  const body = fn?.body
+  if (!body) return undefined
+  let returned: ts.Expression | undefined = ts.isBlock(body)
+    ? body.statements.find((statement): statement is ts.ReturnStatement => ts.isReturnStatement(statement))?.expression
+    : body
+  while (returned && ts.isParenthesizedExpression(returned)) returned = returned.expression
+  return returned
+}
+
+/** The expression an element's `className` is given, in JSX or in a compiled `jsx(tag, { className })` call. */
+function classNameOf(element: ts.Expression): ts.Node | undefined {
+  if (ts.isJsxElement(element) || ts.isJsxSelfClosingElement(element)) {
+    const opening = ts.isJsxElement(element) ? element.openingElement : element
+    const attribute = opening.attributes.properties.find(
+      (entry): entry is ts.JsxAttribute =>
+        ts.isJsxAttribute(entry) && ts.isIdentifier(entry.name) && entry.name.text === "className"
+    )
+    return attribute?.initializer
+  }
+  const callee = ts.isCallExpression(element) ? element.expression : undefined
+  if (ts.isCallExpression(element) && callee && ts.isIdentifier(callee) && /^_?jsxs?$|^jsxDEV$/.test(callee.text)) {
+    const props = element.arguments[1]
+    return props && ts.isObjectLiteralExpression(props) ? property(props, "className") : undefined
+  }
+  return undefined
+}
+
+/** A length a width can be set to: a step of the scale, `px`, a bracketed length that isn't a percentage, or a variable. */
+const fixedLength = /^(\d+(\.\d+)?|px|\[[^\]%]+\]|\(--[\w-]+\))$/
+
+/** Whether a Tailwind class sets the element's own size, as `setsOwnSize` describes. */
+function sizingClass(token: string): boolean {
+  // Variants are split at colons outside brackets: `data-[size=lg]:size-10`.
+  const parts = token.replace(/^!/, "").split(/:(?![^[]*\])/)
+  const utility = parts.pop() ?? ""
+  if (!parts.every((variant) => /^(data|aria)-/.test(variant))) return false
+  if (/^@container(\/|$)/.test(utility)) return true
+  const [, axis, value] = /^(size|w|h)-(.+)$/.exec(utility) ?? []
+  if (!axis || !value || !fixedLength.test(value)) return false
+  // A height holds text unless it's under a line: 16px, step 4.
+  return axis !== "h" || value === "px" || Number(value) < 4
 }
 
 function property(object: ts.ObjectLiteralExpression, name: string): ts.Expression | undefined {
