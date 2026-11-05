@@ -2861,9 +2861,19 @@ dark theme, through the variables shadcn's tooltip reads, set in `styles.css`.
 
 - **What's pictured is what inserting places:** the node `nodeForItem` and `withLibraryContext` build for an empty
   layout, with the component's sample and the parents a part needs, its layers numbered in order so the tree is the same
-  every time. It's drawn in the project's first mode, inside an element as wide as the component up to 640 pixels with 8
-  pixels around it, in a window the mode's width, at twice its size, and cropped to that element. Unsaved token previews
-  aren't drawn. A story's args aren't read yet; PAR-209 gives a component sample props, its first story's args first.
+  every time. It's drawn in the project's mode that matches Parity's theme (below), inside an element as wide as the
+  component up to 640 pixels with 8 pixels around it, in a window the mode's width, at twice its size, and cropped to
+  that element. Unsaved token previews aren't drawn. A story's args aren't read yet; PAR-209 gives a component sample
+  props, its first story's args first.
+- **In the mode that matches Parity's light or dark theme (PAR-521).** Every preview was drawn in the project's first
+  mode, light on the example, so in Parity's dark theme the pictures were white boxes. A mode is dark when one of its
+  theme options' id, name or class is the word "dark" (shadcn's `dark` class), light otherwise (`modeAppearance`).
+  Previews are drawn in the first mode when it matches Parity's theme, else in the first mode that does with the first
+  mode's viewport and locale, else with its viewport, else any that does, else the first (`previewMode`); a project
+  without a theme variable keeps its first mode. The mode is in the preview's key, so each theme's pictures are kept
+  apart: switching themes looks the previews up again, draws those not kept for that theme, and switching back shows the
+  ones kept without drawing them. The card's box takes the page's color from the picture's own corner, which is in the
+  room round the component, so a dark picture sits on its dark page rather than in white.
 - **Two pictures each,** scaled down in the main process to fit 240 by 152 pixels (rows, tiles, the picker) and 608 by
   352 (the card), never larger than drawn. They go in the project's `previews` folder in the bitmap store, named by
   their key, with `index.json` holding each component's latest key and, for one that fails to draw, its error. The
@@ -2927,6 +2937,11 @@ the offscreen page, `apps/desktop/src/renderer/render.ts`; `previewJob`, `startP
 `usePreviewOnScreen` in `apps/desktop/src/renderer/component-previews.ts`; `ComponentCard` in
 `renderer/chrome/ComponentCard.tsx` and `AssetRow` in `chrome/AssetsPanel.tsx`; `bitmapsWaiting` in
 `renderer/canvas/frame-bitmaps.ts`; `passesToVoidElement` in `packages/code/src/props.ts`; `sampleText` and
+`shortenedText` in `packages/libgen/src/sample-text.ts`. `previewJob`, `startPreviews`, `useComponentPreview` and
+`usePreviewOnScreen` in `apps/desktop/src/renderer/component-previews.ts`; `previewMode` and `modeAppearance` in
+`packages/core/src/modes.ts`, and `subscribeResolvedTheme` in `renderer/theme.ts`; `ComponentCard` in
+`renderer/chrome/ComponentCard.tsx` and `AssetRow` in `chrome/AssetsPanel.tsx`; `bitmapsWaiting` in
+`renderer/canvas/frame-bitmaps.ts`; `passesToVoidElement` in `packages/code/src/props.ts`; `sampleText` and
 `shortenedText` in `packages/libgen/src/sample-text.ts`.
 
 Tests: `packages/core/src/preview-order.test.ts` (5 for `renderQueue`: canvas and agent jobs before previews on screen
@@ -2943,7 +2958,7 @@ changes or when the dependencies do, new with what's drawn, and 40 hex character
 inserting places inside the sized element, a part inside its parents, and the same tree every time).
 `apps/desktop/src/utility/bitmap-store.test.ts` (6: addresses and size for a kept preview, pictures and index kept
 across a restart, none for a key not made, kept in the previews folder with no partial file, swept with an unused
-project, and none once cleared). `apps/desktop/src/utility/previews.test.ts` (6, with the project and the offscreen
+project, and none once cleared). `apps/desktop/src/utility/previews.test.ts` (7, with the project and the offscreen
 window standing in: drawn once and not again after a restart with the same code; after an edit, drawn again only for the
 component importing what changed, with its last picture meanwhile; a draw failure kept; one that didn't finish tried
 again; two asks at once drawing once; and none for code the project hasn't served).
@@ -2954,7 +2969,19 @@ own, and none for shadcn's Input). `packages/libgen/src/sample-text.test.ts` (6:
 sentence, at a whole word with "…", not at a too-short first sentence, text without spaces, and text cut before
 shortened as the whole would be). `packages/registry/src/index.test.ts` (1: no sample text in the registry cut mid-word,
 and nova's Accordion ending its sentence). Gaps: the window's store and scheduler (`component-previews.ts`), the queue's
-use in main and the protocol have no test of their own; they were tried in the app.
+use in main and the protocol have no test of their own; they were tried in the app. again; a light and a dark picture
+kept apart under their own keys, the light one shown again without drawing; two asks at once drawing once; and none for
+code the project hasn't served). `packages/core/src/modes.test.ts` (4 for `previewMode` and `modeAppearance`: the first
+mode when it matches and the dark one with its options when it doesn't; the first mode's viewport kept over a matching
+mode listed first, else the first that matches; the first mode when none matches or there's no theme; and dark read from
+a theme option's id, name or class as a word). `packages/code/src/props.test.ts` (3 for void elements: no `children` for
+`<input>` attributes or a ref to an `<hr>`, kept for other elements and for a component's own, and none for shadcn's
+Input). `packages/libgen/src/sample-text.test.ts` (6: short text whole, a long one ended at a sentence, at a whole word
+with "…", not at a too-short first sentence, text without spaces, and text cut before shortened as the whole would be).
+`packages/registry/src/index.test.ts` (1: no sample text in the registry cut mid-word, and nova's Accordion ending its
+sentence). Gaps: the window's store and scheduler (`component-previews.ts`), including looking previews up again when
+Parity's theme changes, the card's page color from the picture's corner, the queue's use in main and the protocol have
+no test of their own; they were tried in the app.
 
 Tried in a debug copy on `examples/shadcn-vite`, with 587 components: the canvas's 119 bitmaps were taken in 16 seconds
 and the first preview was made a second after the last. The idle pass then made 555 previews and kept 13 failures (parts
@@ -3591,6 +3618,48 @@ Gaps: nothing checks automatically that the lights stay on opacity and transform
 
 How the project's code runs in the canvas's frames.
 
+### rem follows the project's root font (PAR-156)
+
+A project that sets `html { font-size: 62.5% }` gets 10px to the rem in its frames, as in Chrome, where it used to get
+Parity's 16px. Without a root font size of its own, a frame counts a browser's 16px, as before.
+
+- **Every `rem` the project writes measures the frame's root:** in its stylesheets, custom properties included, in
+  inline styles, in text in `<style>` elements and in rules its code adds while it runs. Each becomes a `calc()` of
+  `--canvas-rem`, which the frame's root sets to its own font size. Outside a frame the property isn't set, and `rem` is
+  Parity's. `rem` in media and container queries is left alone, as a media query counts a browser's 16px.
+- **The root's font size counts from a browser's 16px,** not from the canvas text around the frame: `62.5%`, `1.25em`
+  and `1.25rem` in a `:root` or `html` rule's `font-size` come to 10px, 20px and 20px. An `html, body` rule with a font
+  size is split, so the body's own `62.5%` stays relative to the root.
+- **Tokens show the values the project wrote,** `0.25rem` rather than the `calc()` frames draw it with. A token's
+  previewed value and the theme values the compiled CSS left out are rewritten for frames like the rest.
+- **Not covered** (see [decisions.md](decisions.md), "`rem` measures the project's root font"): a root font size inside
+  a width media query, which applies in no frame, since the root is the container those queries ask; `larger`, `smaller`
+  and the `font` shorthand on the root; a root font size from a variable holding a percentage or `rem`; and a root font
+  set by CSS-in-JS. Fields and spacing steps in the inspector still count 16px to the rem.
+
+Code: `rewriteFrameUnits`, `rewriteSheetFrameUnits`, `rewriteRootFontSize` and `serialize` in
+`packages/core/src/css.ts`, with `remProperty` and `rootFontSizeProperty`; `frameRootSheet` and `registerRootFontSize`
+in `apps/desktop/src/renderer/frame.ts`, which also rewrites inline styles, `<style>` text and added rules; `load` and
+`previewToken` in `apps/desktop/src/renderer/guest.ts`, which read tokens with `units: false` and rewrite previewed and
+theme values.
+
+Tests: `packages/core/src/css.test.ts` (8 of its tests: `rem` in declarations and custom properties rewritten, and once
+only; in selectors, strings, urls and media and container queries left alone; rules added at run time rewritten but not
+their selectors or queries; a root's `62.5%`, `1.25rem`, `em` in `clamp()` with `!important`, and a root rule inside a
+media query or with one inside it, worked out from 16px; other elements' font sizes and the root's other lengths and
+custom properties untouched; `html, body, .a:is(.b, .c)` split, while `:root, :host` and an `html, body` rule with no
+font size stay whole; lengths kept as written with `units: false`). `apps/desktop/src/renderer/guest.test.ts` (2 of its
+7, in Chrome: a previewed `0.5rem` and `10vh` rewritten in the rule edited or added; an offscreen frame's overrides
+rewritten the same way). `apps/desktop/src/renderer/tokens-store.test.ts` (1 of its 4, in Chrome: a token edit to `1rem`
+shows rewritten in the shared sheet while the override sent to offscreen frames keeps `1rem`).
+`apps/desktop/src/renderer/frame.test.ts` (3), in Chrome, with the frame on the canvas's 12px text: with
+`html { font-size: 62.5% }`, a box, Tailwind-style `--spacing`, an inline style and a rule added at run time have the
+same sizes and font sizes in the frame as on a fresh page, while Parity's root stays 16px; with no root font size, 16px
+to the rem; and roots of `20px`, `1.25em`, `1.25rem` and a `@media screen` rule, the same as on the page. Gaps: a root
+font size in a width media query doesn't work in frames yet, and no test covers it. `load` reading tokens with
+`units: false` has no test of its own; `packages/libgen/src/tokens.test.ts` and the fixtures' detection snapshot read
+tokens the same way.
+
 ### Parity's variables stay out of frames (PAR-157)
 
 A frame shows what the project's CSS gives on its own page in Chrome, not Parity's variables. Custom properties inherit
@@ -4024,6 +4093,7 @@ then reads the status; deltas since a revision are PAR-267.
 viewports (the ids `Responsive` takes) with each window's height, each mode (the ids renders take) resolved with its
 option per variable, classes and attributes, and each design's shown state or states, main mode and beside modes. Naming
 a design returns just it, with each frame's width, fixed height when it has one, and window. Reading changes nothing.
+`get_app_state` lists the same modes in short (id, name, width), with the project's first mode marked `primary`.
 
 Implementation: `packages/core/src/mode-report.ts` (`modesReport`, `designModes`); `GetModes` in
 `packages/agent/src/workspace.ts`; the `modes` RPC in `apps/desktop/src/utility/agent.ts`; the `modes` operation and
@@ -4032,9 +4102,10 @@ schema in `packages/cli/src/operations.ts`, `describeModes` in `client.ts`, and 
 Tests: `packages/core/src/mode-report.test.ts` (viewport windows, a device's own height, resolved values including
 defaults, theme classes and locale attributes, a design's main, beside, every-state and fixed-height frames).
 `packages/agent/src/run.test.ts` (`GetModes` with and without a design, no writes or changes, and `unknown_design` with
-alternatives). `packages/core/src/errors.test.ts` (a typo ranked first). `packages/cli/src/operations.test.ts` (CLI and
-MCP defaults, a named design, structured output, invalid and unknown input, an unknown design's code and alternatives)
-and `client.test.ts` (the text). Checked in the running app on `examples/shadcn-vite`: `parity modes dashboard`,
+alternatives). `apps/desktop/src/utility/agent.test.ts` (`state` marks the first resolved mode primary and no other,
+PAR-579). `packages/core/src/errors.test.ts` (a typo ranked first). `packages/cli/src/operations.test.ts` (CLI and MCP
+defaults, a named design, structured output, invalid and unknown input, an unknown design's code and alternatives) and
+`client.test.ts` (the text). Checked in the running app on `examples/shadcn-vite`: `parity modes dashboard`,
 `parity modes`, and a mistyped design with `--json`. Gap: locale and custom variables are reported as set; whether a
 project's code reads them is up to its decorators.
 

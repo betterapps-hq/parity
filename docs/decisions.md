@@ -1620,6 +1620,36 @@ recommended answer to each of its questions.
     rewritten as rules are added, in any stylesheet. Outside a frame the custom properties aren't set, so the units
     still measure Parity's window there.
   - Only declarations are rewritten, so a selector such as `.h-[100vh]` still matches. Rewriting twice changes nothing.
+- **`rem` measures the project's root font** (PAR-156). In a shadow root `rem` reads the document's root, Parity's, so a
+  project with `html { font-size: 62.5% }` got 16px to the rem in frames where Chrome gives it 10px. Two things were
+  wrong: `rem` measured Parity's root, and the root's own `62.5%` was of the canvas's 12px text, since a frame's root
+  sits in Parity's page rather than at the top of one. My calls:
+  - **`rem` in the project's CSS is rewritten,** as viewport units are and in the same places (its stylesheets, inline
+    styles, `<style>` text and rules added while it runs): `1.6rem` becomes `calc(1.6 * var(--canvas-rem, 1rem))`.
+    Custom properties are rewritten too, since Tailwind's `--spacing: 0.25rem` is used everywhere. Queries are left
+    alone: `rem` in a media query counts a browser's default 16px, not the root's font.
+  - **The frame's root sets `--canvas-rem` to its font size,** whatever the project's rules make it, read through a
+    length Parity registers (`--canvas-root-font-size: 1em`), since `1em` in an ordinary custom property would measure
+    each element that uses it. A size worked out once, when the frame is prepared, would miss a theme or mode that
+    changes the root's font; through the cascade it follows them.
+  - **A relative root font size counts from a browser's 16px,** as on a page: `62.5%` and `em` in a `:root` or `html`
+    rule's `font-size` become `calc()`s of 16px, and so does `rem`, which in the root's own font size means the default.
+    A rule for the root and other elements at once, as `html, body`, is split when it sets a font size, so only the
+    root's changes.
+  - **Tokens keep the values the project wrote.** They used to be read from the CSS prepared for frames, so a token in
+    `vh` already read as a `calc()`, and with `rem` rewritten, Tailwind's and shadcn's spacing, text and radius would
+    have too. They're now read from the CSS with selectors mapped and lengths as written (`units: false`). What frames
+    draw is rewritten instead: a token's previewed value, and the values of the styling framework's theme that the
+    compiled CSS left out.
+  - **Not covered:** a root font size in a width media query, since those become container queries the root asks rather
+    than answers (a container can't query itself), so it applies in no frame; `larger`, `smaller` or the `font`
+    shorthand on the root; a root font size from a variable holding a percentage, or holding `rem`, which makes a cycle
+    with `--canvas-rem` and leaves the root at the canvas's font size; and a root font set by CSS-in-JS, whose added
+    rules aren't mapped onto the root. The editor's own rem (Fields count 16px to the rem, and a spacing step is
+    `--spacing` at 16px to the rem) is unchanged.
+  - **Rejected:** setting Parity's own root to the project's font size, which would resize Parity's interface and can't
+    serve two projects at once; converting `rem` to pixels when the CSS is prepared, which misses themes, modes and
+    token previews that change the root's font; and iframes, as for viewport units.
 - **A frame's body has a browser's 8px margin,** in the lowest layer, so a reset such as Tailwind's preflight still
   removes it (CAN-25). The size container that the project's rewritten media queries ask is the frame's root rather than
   its body. A container lays out on its own, as a page's root does, so on the body it kept a first heading's margin from
@@ -3980,6 +4010,28 @@ the picture. My calls:
 - **`previewFormat` went up to 2.** A preview's key covers its tree and code, not the renderer, so pictures kept with a
   scrollbar would otherwise stay until their code changed. Every project's previews are made again once, in the idle
   pass.
+
+## Component previews follow Parity's light or dark theme (PAR-521)
+
+Previews were all drawn in the project's first mode, light on the example, so in Parity's dark theme they were white
+boxes (see editor.md, Component previews, made offscreen and kept on disk). My calls in fixing it:
+
+- **One mode at a time, the one matching the theme, not both.** The issue allowed drawing both and showing the matching
+  one. Drawing both would double the idle pass's work and the disk for a theme most people don't switch, so the window
+  draws only the matching one, and a switch draws the rest then. The key covers the mode, so both are kept once made and
+  a switch back draws nothing.
+- **Dark is read from the mode's theme options, by the word.** Modes don't say light or dark, so a mode is dark when a
+  theme option's id, name or class is the word "dark": shadcn's `dark` class, a "Dark" option, `theme-dark`. A project
+  whose dark theme is called something else ("Night", "Midnight") is drawn in its first mode, as before.
+- **The matching mode keeps the first mode's other options.** Desktop Dark is picked over a Mobile Dark listed before
+  it, so a preview changes in theme only, not in viewport or locale.
+- **The card's box takes the page's color from the picture.** It was white, the light page; a dark picture in it showed
+  a white frame round its own dark page. Nothing in the window says what the page's color is in that mode, and the
+  picture's corner is that page, so the box draws the picture's first pixel scaled past its size as its background,
+  which needs no stored color and no decoding in script.
+- **Switching themes shows the other theme's picture, dimmed, until its own is made.** The index keeps one latest key a
+  component, so a switch to a theme not drawn yet shows the last picture as updating, as after an edit, rather than
+  nothing; switching back shows the kept one at once.
 
 ## Zoomed far out, a board's labels hide once it's too narrow (PAR-151)
 

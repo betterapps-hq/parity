@@ -87,7 +87,7 @@ const cases: Case[] = [
 /** What libgen and the app each read from the CSS, by token. */
 function readBoth(css: string) {
   const library = new Map(cssTokens(css).map((token) => [token.var, token]))
-  const compiled = prepareCanvasCss(css, { baseUrl: "http://localhost" }).scoped
+  const compiled = prepareCanvasCss(css, { baseUrl: "http://localhost", units: false }).scoped
   const project = new Map(extractTokens(compiled).map((token) => [token.name, token]))
   return { library, project }
 }

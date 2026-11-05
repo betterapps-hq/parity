@@ -1,9 +1,10 @@
-import { frameViewport, nextPreview, previewSettleMs, resolveModes } from "@parity-app/core"
+import { frameViewport, nextPreview, previewMode, previewSettleMs, resolveModes } from "@parity-app/core"
 import { componentPreviewTree, previewFrameWidth } from "@parity-app/editor"
 import { useEffect, useState, useSyncExternalStore } from "react"
 import type { ComponentPreview, PreviewImage, PreviewJob } from "../shared/protocol.ts"
 import { renderJobMode } from "../shared/render-job.ts"
 import { bitmapsWaiting } from "./canvas/frame-bitmaps.ts"
+import { getResolvedTheme, type ResolvedTheme, subscribeResolvedTheme } from "./theme.ts"
 import { type ProjectSession, workspace } from "./workspace.ts"
 
 /**
@@ -29,11 +30,17 @@ export type PreviewState =
 
 /**
  * The job that draws a component's preview: what inserting it would place (see `componentPreviewTree`), in the
- * project's first mode, at its own width up to the preview's, in a window the mode's width, at `previewScale`. Unsaved
- * token previews aren't drawn, so trying a token re-makes nothing.
+ * project's mode that matches Parity's light or dark theme (`previewMode`, PAR-521), at its own width up to the
+ * preview's, in a window the mode's width, at `previewScale`. The mode is in the preview's key, so each theme's picture
+ * is kept apart and switching back shows the one kept. Unsaved token previews aren't drawn, so trying a token re-makes
+ * nothing.
  */
-export function previewJob(session: ProjectSession, component: string): PreviewJob | undefined {
-  const mode = resolveModes(session.store.getModes())[0]
+export function previewJob(
+  session: ProjectSession,
+  component: string,
+  appearance: ResolvedTheme = getResolvedTheme()
+): PreviewJob | undefined {
+  const mode = previewMode(resolveModes(session.store.getModes()), appearance)
   if (!mode) return undefined
   const tree = componentPreviewTree(component, {
     ...(session.components.get()[component] ? { info: session.components.get()[component] } : {}),
@@ -98,6 +105,8 @@ class ProjectPreviews {
     if (session) this.stops.push(session.store.subscribe(active))
     if (session) this.stops.push(session.components.subscribe(() => this.refreshSoon()))
     this.stops.push(workspace.subscribe(() => this.refreshSoon()))
+    // Previews are drawn in the mode matching Parity's light or dark theme, so a new theme looks them up again.
+    this.stops.push(subscribeResolvedTheme(() => this.refreshSoon()))
     this.refreshSoon()
   }
 
@@ -141,12 +150,16 @@ class ProjectPreviews {
     for (const listener of this.listeners) listener()
   }
 
-  /** Looks the previews up again once what they're drawn from has changed: the code, the theme or the components. */
+  /**
+   * Looks the previews up again once what they're drawn from has changed: the code, the theme, the components, or
+   * Parity's own light or dark theme, which picks their mode.
+   */
   private refreshSoon(): void {
     const session = this.session()
     if (!session || this.stopped) return
     const drawnFrom = [
       session.info.guestUrl,
+      getResolvedTheme(),
       session.info.theme,
       session.info.sources,
       session.added,

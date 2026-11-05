@@ -123,7 +123,8 @@ export async function snapshotProject(root: string): Promise<ProjectSnapshot> {
   }
 
   const css = prepareCanvasCss(sources.filter((source) => source !== undefined).join("\n"), {
-    baseUrl: "http://localhost"
+    baseUrl: "http://localhost",
+    units: false
   }).scoped
   const tokens = extractTokens(css, theme)
   const categories: Record<string, number> = {}

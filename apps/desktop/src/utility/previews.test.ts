@@ -152,6 +152,22 @@ describe("component previews", () => {
     expect(open.draws).toHaveLength(2)
   })
 
+  it("keep each theme's picture apart, so switching back draws nothing again", async () => {
+    const inMode = (classNames: string[]): PreviewJob => {
+      const asked = preview("Button")
+      return { ...asked, job: { ...asked.job, mode: { ...asked.job.mode, classNames } } }
+    }
+    const light = await previews.makePreview(inMode([]), "visible")
+    const dark = await previews.makePreview(inMode(["dark"]), "visible")
+    expect(dark.key).not.toBe(light.key)
+    expect(open.draws).toHaveLength(2)
+
+    const [again] = await previews.lookupPreviews([inMode([])])
+    expect(again?.image).toEqual(light.image)
+    await previews.makePreview(inMode([]), "visible")
+    expect(open.draws).toHaveLength(2)
+  })
+
   it("draw a preview asked for twice at once only once", async () => {
     await Promise.all([
       previews.makePreview(preview("Badge"), "visible"),
