@@ -10,6 +10,7 @@ const success: ExecReply = {
   applied: true,
   output: ["Read 28 designs"],
   warnings: ["Example warning"],
+  warningGroups: [{ category: "unknown_prop", severity: "warning", message: "Example warning", count: 1, at: [] }],
   created: { home: "home-id" },
   screenshots: [{ path: "/shot.png", png: "AA==", design: "home", state: "default", mode: "desktop" }]
 }

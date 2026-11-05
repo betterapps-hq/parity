@@ -3711,3 +3711,20 @@ Four issues from the architecture review build on these:
 - PAR-564 declares its method map with PAR-590's schemas.
 - PAR-572 checks decorator values with PAR-594's grammar.
 - PAR-573 reads manifests through PAR-588's schema.
+
+## Agent warnings come grouped, with a category and severity (PAR-460)
+
+A large insertion used to return a warning per unnamed layout, each a sentence with the place in front. Now each finding
+comes once, with a count and every place:
+
+- **Grouped by category and message.** Findings that say the same thing go together, whatever node they're on. A
+  repeated finding at the same place counts once. Different props or tokens stay apart, since each needs its own fix.
+- **Stable categories, three severities.** `error` is a render that failed, because a screenshot or check is missing for
+  that frame. `suggestion` is a name for the layers tree. Everything else is a `warning`. Groups are sorted by severity,
+  then kept in the order found.
+- **`warnings` stays, beside `warningGroups`.** As with PAR-472's coded errors, an older CLI and text-only clients keep
+  reading lines, now one per group in the same order. A CLI talking to an older app reads every line as a warning. The
+  CLI's schema names the categories in prose, not as an enum, so it doesn't import the agent package for them.
+- **The place is kept apart from the message,** a node's `design/node` path where there is one, so an agent can act on
+  every place without parsing. Overlaps and kind changes name their boards in the message and have no place.
+- **No automatic names.** As the issue said, Parity doesn't name layers or require unique names; it only reports.

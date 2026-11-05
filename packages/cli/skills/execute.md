@@ -29,6 +29,20 @@ held.
   patches with a nonempty `find`, string `replace` (which can be empty), and optional boolean `all`. Invalid requests
   are rejected before reaching the app.
 
+### Warnings
+
+A call that applies can still return warnings. Each finding comes once, with every place it was found. The text puts
+them under "Render failures", "Warnings" and "Suggestions". The structured result's `warningGroups` gives each one's
+`category`, `severity` (`error`, `warning` or `suggestion`), `message`, `count` and `at`, which lists the places as
+`design/node` paths or frames. A render failure means a screenshot or check is missing for that frame, so look into it
+first. `unnamed_layout` is a suggestion for layouts this call added: give each one a name with `Update`.
+
+```js
+// Unnamed rows come back as one suggestion, such as 12 places (team-members/k3x9a, … and 7 more). Name them:
+const rows = Get("team-members", (node, at) => (node.type === "layout" && !node.name ? at.path : undefined))
+rows.forEach((path, index) => Update(path, { name: `Member row ${index + 1}` }))
+```
+
 ## API
 
 ```ts

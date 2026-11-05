@@ -61,6 +61,7 @@ export async function execute(request: ExecRequest, snapshot: AgentSnapshot, hoo
       editId,
       output: workspace.output,
       warnings: [],
+      warningGroups: [],
       screenshots: [],
       created: {},
       changes: { designs: [], tokens: [] }

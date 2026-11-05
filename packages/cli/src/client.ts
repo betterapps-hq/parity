@@ -164,8 +164,7 @@ export function describeExec(result: ExecResponse): string {
   if (result.output.length > 0) lines.push("", "Output:", ...result.output)
   const created = Object.entries(result.created)
   if (created.length > 0) lines.push("", "Created:", ...created.map(([name, id]) => `  ${name} = ${id}`))
-  if (result.warnings.length > 0)
-    lines.push("", "Warnings (fix these next):", ...result.warnings.map((warning) => `  ${warning}`))
+  lines.push(...describeWarnings(result))
   if (result.discarded?.length) {
     lines.push("", "Discarded by Replace (reapply what you still want to the new node):")
     for (const { design, replaced, replacement, nodes } of result.discarded) {
@@ -188,6 +187,27 @@ export function describeExec(result: ExecResponse): string {
     )
   }
   return lines.join("\n")
+}
+
+const warningHeadings = {
+  error: "Render failures (these frames weren't checked):",
+  warning: "Warnings (fix these next):",
+  suggestion: "Suggestions:"
+} as const
+
+/**
+ * The warnings under a heading for each severity, so a failed render doesn't read like a naming tip. The lines are
+ * the app's, one per group in the groups' order; an app older than PAR-460 sends no groups, so they're all warnings.
+ */
+function describeWarnings(result: ExecResponse): string[] {
+  const lines: string[] = []
+  for (const severity of ["error", "warning", "suggestion"] as const) {
+    const matching = result.warnings.filter(
+      (_, index) => (result.warningGroups?.[index]?.severity ?? "warning") === severity
+    )
+    if (matching.length > 0) lines.push("", warningHeadings[severity], ...matching.map((warning) => `  ${warning}`))
+  }
+  return lines
 }
 
 /** One open project. */

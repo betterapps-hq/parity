@@ -14,6 +14,7 @@ import type {
   ThemeVariable
 } from "@parity-app/core"
 import type { Token } from "@parity-app/tokens"
+import type { WarningGroup } from "./warnings.ts"
 
 /** What an agent call starts from: one tab's live state. */
 export interface AgentSnapshot {
@@ -255,7 +256,10 @@ export interface ExecResult {
   ok: boolean
   /** Lines from `Print`. */
   output: string[]
+  /** One line per warning group, places first: what people and text-only clients read. */
   warnings: string[]
+  /** The same findings as data: each category and severity once, with how many places and which. */
+  warningGroups: WarningGroup[]
   error?: string
   /** Set when the call failed: why, as a stable code, with the field at fault and what to use instead. */
   details?: ErrorDetails

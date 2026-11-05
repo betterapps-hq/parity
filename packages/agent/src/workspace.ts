@@ -71,6 +71,7 @@ import type {
   Screenshot,
   TokenChange
 } from "./types.ts"
+import { groupWarnings, type Warning, type WarningCategory, warningLine } from "./warnings.ts"
 
 interface Located {
   path: string
@@ -191,7 +192,8 @@ export class AgentWorkspace {
   private modesChanged = false
   private readonly tokenChanges: TokenChange[] = []
   readonly output: string[] = []
-  readonly warnings: string[] = []
+  /** What the call found worth fixing, by category; `result` groups them. */
+  private readonly found: Warning[] = []
   readonly screenshots: Screenshot[] = []
   readonly created: Record<string, string> = {}
   /** What each `Replace` threw away, reported so the agent can put back what it still wants. */
@@ -258,7 +260,10 @@ export class AgentWorkspace {
     }
   }
 
-  result(): Pick<ExecResult, "changes" | "created" | "output" | "warnings" | "screenshots" | "discarded"> {
+  result(): Pick<
+    ExecResult,
+    "changes" | "created" | "output" | "warnings" | "warningGroups" | "screenshots" | "discarded"
+  > {
     this.flush()
     for (const path of this.changed) {
       const document = this.documents.get(path)!
@@ -271,6 +276,7 @@ export class AgentWorkspace {
       }
       this.lint(document)
     }
+    const groups = groupWarnings([...this.found, ...this.overlapWarnings()])
     return {
       changes: {
         designs: [...this.changed].flatMap((path) => this.designChanges(path)),
@@ -281,7 +287,8 @@ export class AgentWorkspace {
       },
       created: this.created,
       output: this.output,
-      warnings: [...new Set([...this.warnings, ...this.overlapWarnings()])],
+      warnings: groups.map(warningLine),
+      warningGroups: groups,
       ...(this.discarded.length > 0 ? { discarded: this.discarded } : {}),
       screenshots: this.screenshots
     }
@@ -590,7 +597,7 @@ export class AgentWorkspace {
       const turned = turnInto(found, update.kind, this.modes)
       container = turned.design
       const lost = describeDropped(turned.dropped)
-      if (lost) this.warnings.push(`${found.name} is a frame now. ${lost}`)
+      if (lost) this.warn("kind_changed", `${found.name} is a frame now. ${lost}`)
     }
     const frame = container.kind === "frame"
     const viewKeys = (["mode", "showModes", "state", "allStates"] as const).filter((name) => update[name] !== undefined)
@@ -1002,7 +1009,11 @@ export class AgentWorkspace {
       for (const mode of this.modesFor(container, options.mode)) {
         const { frame } = await this.render(reference, { state: state.id, mode: mode.id }, "screenshot", scale)
         if (frame.error)
-          this.warnings.push(`${container.name} (${state.name}, ${mode.name}) failed to render: ${frame.error}`)
+          this.warn(
+            "render_failed",
+            `failed to render: ${frame.error}`,
+            `${container.name} (${state.name}, ${mode.name})`
+          )
         if (!frame.png) continue
         this.screenshots.push({
           design: container.id,
@@ -1030,7 +1041,11 @@ export class AgentWorkspace {
       for (const mode of this.modesFor(container, options.mode)) {
         const { frame } = await this.render(reference, { state: state.id, mode: mode.id }, "accessibility")
         if (frame.error) {
-          this.warnings.push(`${container.name} (${state.name}, ${mode.name}) failed to render: ${frame.error}`)
+          this.warn(
+            "render_failed",
+            `failed to render: ${frame.error}`,
+            `${container.name} (${state.name}, ${mode.name})`
+          )
           continue
         }
         const seen = new Set<string>()
@@ -1115,7 +1130,7 @@ export class AgentWorkspace {
   }
 
   /** Warnings for boards this call created, changed or moved that now overlap another. */
-  private overlapWarnings(): string[] {
+  private overlapWarnings(): Warning[] {
     const ids = new Set(this.boards().flatMap((board) => (this.touched.has(board.key) ? [board.id] : [])))
     return this.overlaps()
       .filter(({ designs }) => designs.some((id) => ids.has(id)))
@@ -1124,8 +1139,14 @@ export class AgentWorkspace {
         const what = titleOnly
           ? `is too close to ${names[1]} (${designs[1]}): a title would cover the other board`
           : `overlaps ${names[1]} (${designs[1]}) by ${size}`
-        return `${names[0]} (${designs[0]}) ${what}. Leave at least ${titleBand} between boards for titles. Move one clear with UpdateDesign(id, { x, y }); FindEmptySpace finds space and Overlaps() lists every overlap.`
+        const message = `${names[0]} (${designs[0]}) ${what}. Leave at least ${titleBand} between boards for titles. Move one clear with UpdateDesign(id, { x, y }); FindEmptySpace finds space and Overlaps() lists every overlap.`
+        return { category: "overlap" as const, message }
       })
+  }
+
+  /** Notes a finding for the result, with the node or frame it's about kept apart from what to do. */
+  private warn(category: WarningCategory, message: string, at?: string): void {
+    this.found.push({ category, message, ...(at === undefined ? {} : { at }) })
   }
 
   private findEmptySpace(options: SpaceOptions): { x: number; y: number } {
@@ -1396,12 +1417,14 @@ export class AgentWorkspace {
       const prop = info.props.find((candidate) => candidate.name === name)
       if (!prop) {
         if (!name.startsWith("data-"))
-          this.warnings.push(`${where}: ${component} has no prop "${name}". Check Props("${component}").`)
+          this.warn("unknown_prop", `${component} has no prop "${name}". Check Props("${component}").`, where)
         continue
       }
       if (prop.kind === "enum" && value !== undefined && !prop.options?.includes(value as string)) {
-        this.warnings.push(
-          `${where}: ${component} ${name} is one of ${prop.options?.map((option) => JSON.stringify(option)).join(", ")}, not ${JSON.stringify(value)}`
+        this.warn(
+          "invalid_option",
+          `${component} ${name} is one of ${prop.options?.map((option) => JSON.stringify(option)).join(", ")}, not ${JSON.stringify(value)}`,
+          where
         )
       }
     }
@@ -1417,15 +1440,17 @@ export class AgentWorkspace {
     for (const container of document.containers) {
       const check = (node: DesignNode, where: string) => {
         if (node.type === "instance" && !library.has(node.design)) {
-          this.warnings.push(`${where}: no component design "${node.design}"`)
+          this.warn("unknown_component_design", `no component design "${node.design}"`, where)
         }
         if (
           node.type === "component" &&
           !components.has(node.component) &&
           !icons.some((prefix) => node.component.startsWith(prefix))
         ) {
-          this.warnings.push(
-            `${where}: "${node.component}" isn't one of the project's components; it renders as a placeholder. Check Components().`
+          this.warn(
+            "unknown_component",
+            `"${node.component}" isn't one of the project's components; it renders as a placeholder. Check Components().`,
+            where
           )
         }
         if (node.type === "component" && this.inserted.has(node.id)) this.checkProps(node.component, node.props, where)
@@ -1433,12 +1458,14 @@ export class AgentWorkspace {
           for (const name of tokenStyleKeys) {
             const value = style?.[name]
             if (value && !known(name, value))
-              this.warnings.push(`${where}: ${name} "${value}" isn't a token. Use a name from GetTokens().`)
+              this.warn("not_a_token", `${name} "${value}" isn't a token. Use a name from GetTokens().`, where)
           }
           for (const [name, value] of lengthTokens(style)) {
             if (!tokens.has(value)) {
-              this.warnings.push(
-                `${where}: ${name} "${value}" isn't a length token. Use a spacing step (a number) instead.`
+              this.warn(
+                "not_a_length_token",
+                `${name} "${value}" isn't a length token. Use a spacing step (a number) instead.`,
+                where
               )
             }
           }
@@ -1449,7 +1476,7 @@ export class AgentWorkspace {
           node.type === "layout" &&
           childEntries(node).some((entry) => entry.nodes.length > 1)
         ) {
-          this.warnings.push(`${where}: name layouts that group things, so the layers tree reads well`)
+          this.warn("unnamed_layout", "name layouts that group things, so the layers tree reads well", where)
         }
         for (const entry of childEntries(node))
           for (const child of entry.nodes) check(child, `${container.id}/${child.id}`)
@@ -1460,7 +1487,11 @@ export class AgentWorkspace {
           for (const name of tokenStyleKeys) {
             const value = patch.style?.[name]
             if (value && !known(name, value))
-              this.warnings.push(`${container.id} state ${state.id}/${nodeId}: ${name} "${value}" isn't a token`)
+              this.warn(
+                "not_a_token",
+                `${name} "${value}" isn't a token`,
+                `${container.id} state ${state.id}/${nodeId}`
+              )
           }
         }
       }

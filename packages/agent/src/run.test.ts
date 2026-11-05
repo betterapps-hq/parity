@@ -973,6 +973,56 @@ Insert("dashboard/Toolbar", {
   })
 })
 
+describe("warning groups", () => {
+  it("reports each finding once with its places, render failures first and naming tips last", async () => {
+    const base = snapshot()
+    const page = base.documents[0]!.document.containers[0]!.root
+    if (page.type !== "layout") throw new Error("Expected a layout")
+    // An unnamed layout that was there before the call isn't this call's to name.
+    page.children.push({
+      type: "layout",
+      id: "old",
+      children: [
+        { type: "text", id: "old-a", text: "A" },
+        { type: "text", id: "old-b", text: "B" }
+      ]
+    })
+    const failing: AgentHooks = {
+      ...hooks(),
+      render: async (request) => ({ ...(await hooks().render(request)), error: "boom" })
+    }
+    const result = await execute(
+      {
+        label: "Rows",
+        code: `for (let i = 0; i < 8; i++) {
+  Insert("page", { type: "layout", children: [{ type: "text", text: "Name" }, { type: "text", text: "Role" }] })
+}
+Insert("page", { type: "component", component: "Button", props: { tone: "loud" } })
+Insert("page", { type: "component", component: "Button", props: { tone: "loud" } })
+Update("submit", { style: { background: "hotpink" } })
+await Screenshot("signup")`
+      },
+      base,
+      failing
+    )
+    expect(result.error).toBeUndefined()
+    expect(result.warningGroups.map(({ severity, category, count }) => [severity, category, count])).toEqual([
+      ["error", "render_failed", 1],
+      ["warning", "not_a_token", 1],
+      ["warning", "unknown_prop", 2],
+      ["suggestion", "unnamed_layout", 8]
+    ])
+    const [failed, token, prop, unnamed] = result.warningGroups
+    expect(failed).toMatchObject({ message: "failed to render: boom", at: ["Sign up (Default, Desktop Light)"] })
+    expect(prop!.at).toHaveLength(2)
+    expect(token).toMatchObject({ at: ["signup/submit"] })
+    expect(unnamed!.at).toHaveLength(8)
+    expect(unnamed!.at).not.toContain("signup/old")
+    expect(result.warnings).toHaveLength(4)
+    expect(result.warnings[3]).toMatch(/^8 places \(signup\/\w+, .* and 3 more\): name layouts that group things/)
+  })
+})
+
 describe("component props", () => {
   it("lists a component's props and warns about values it doesn't take", async () => {
     const result = await execute(
