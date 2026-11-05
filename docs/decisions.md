@@ -2512,6 +2512,11 @@ A lens is a view of one layer of an app, such as its routes, data, API, permissi
 - **Standards first, then adapters.** You decided this: "We focus on standards first, then adapters/plugins." Each lens
   works from its standard before any adapter for a particular tool is built. Web apps and their backends come first; the
   plan is [proposals/web-and-backend.md](proposals/web-and-backend.md).
+- **The editor and code viewing come before every other lens** (PAR-609). You decided this on 2026-11-05: "We need to
+  improve the new user experience and editor experience before we begin taking in lens work. The editor and code viewing
+  is the first and most important lens. Until that experience is great, it doesn't matter to add other lenses." So the
+  lenses below wait, in their order, at Low priority in Linear, and PAR-17 to PAR-19, which read schemas and keep
+  database keys, stay in Backlog.
 - **Lens priority: databases, the API, routes and mock data, then telemetry.** You set this order: "1) Databases 2)
   API 3) Telemetry", then placed the rest: "Routes and mock data should come before telemetry, right after the API."
   Mock data includes the scenarios that fill designs. Telemetry means OpenTelemetry from the running app: traces linking
