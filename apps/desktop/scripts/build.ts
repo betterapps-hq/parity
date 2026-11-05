@@ -1,5 +1,5 @@
 // Builds the app without a development server (PAR-8). The output is also the input to installer packaging.
-import { execSync } from "node:child_process"
+import { execFileSync, execSync } from "node:child_process"
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs"
 import { createRequire } from "node:module"
 import { tmpdir } from "node:os"
@@ -69,6 +69,29 @@ cpSync(dirname(require.resolve("typescript/package.json")), join(out, "node_modu
 shipPackage("sharp", appDir)
 // One macOS build packages both Apple Silicon and Intel, from an install that has only the runner's own binaries.
 if (process.platform === "darwin") shipOtherMacBinaries()
+checkShippedSharp()
+
+/**
+ * Fails the build unless the sharp it ships loads in Parity's Electron and encodes a lossless WebP, from the files the
+ * installer unpacks beside the service, so an installer whose bitmaps couldn't be kept is never made (PAR-535). The
+ * other Mac architecture's binaries can't run here, so they're only checked to be there.
+ */
+function checkShippedSharp(): void {
+  const sharp = join(out, "node_modules/sharp")
+  const script = `require(${JSON.stringify(sharp)})({ create: { width: 2, height: 2, channels: 3, background: "#36c" } })
+    .webp({ lossless: true }).toBuffer()
+    .then((webp) => { if (webp.toString("latin1", 8, 12) !== "WEBP") throw new Error("not a WebP"); console.log("sharp loads in Electron") })
+    .catch((error) => { console.error(error); process.exit(1) })`
+  const electron = require("electron") as unknown as string
+  execFileSync(electron, ["-e", script], { stdio: "inherit", env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" } })
+  if (process.platform !== "darwin") return
+  for (const arch of ["arm64", "x64"]) {
+    for (const name of [`@img/sharp-darwin-${arch}`, `@img/sharp-libvips-darwin-${arch}`]) {
+      if (!existsSync(join(out, "node_modules", name, "package.json"))) throw new Error(`The build ships no ${name}`)
+    }
+  }
+}
+
 /**
  * Copies an installed package into `out/node_modules`, with the dependencies and optional dependencies installed beside
  * it, which for sharp are its prebuilt binaries for this system. pnpm keeps each package's dependencies as its siblings,

@@ -3248,5 +3248,7 @@ yours:
   cache's 30-day and 200 MB sweeps, as earlier format changes did; the PNG text helper is gone.
 - **sharp ships beside the service, unpacked,** since it loads its prebuilt libvips at runtime. The build copies it and
   the packages installed with it, its binaries for the system building, and on macOS also fetches the other
-  architecture's from npm, since one Mac build packages both. A system where it can't load keeps nothing rather than
-  failing, and captures each session.
+  architecture's from npm, since one Mac build packages both. The build then loads the shipped sharp in Parity's
+  Electron and encodes a WebP, and fails if it can't, so each platform's installer is checked as it's made; the other
+  Mac architecture's binaries are checked to be there. A system where it can't load keeps nothing rather than failing,
+  and captures each session.
