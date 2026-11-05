@@ -1796,8 +1796,12 @@ decisions.md's "Saving is explicit" sets out.
   `[data-theme="dark"]` or `html.dark` alike. Every block that declares the token gets the new value, so a later
   `[data-theme="dark"]` can't win back over an edited `.dark` after a save; a value the theme lacks goes into its first
   block, else a new `.dark`. A `:root` inside `@media`, such as a `prefers-color-scheme` block, isn't the default, so
-  editing the default never changes it. A frame shows an attribute theme only when its option in Modes sets that
-  attribute.
+  editing the default never changes it.
+- **A frame shows a theme set by attribute** (PAR-22): a mode whose class names a theme the stylesheet switches on with
+  an attribute, such as the default Dark option's `dark` with `[data-theme="dark"]`, sets that attribute on the frame's
+  body too (`themeAttributes` and `frameAttributes` in `packages/tokens/src/policy.ts`, used by
+  `apps/desktop/src/renderer/ModeView.tsx` and `render.ts`). An attribute the mode sets itself wins. An attribute on the
+  root (`:root[data-theme="dark"]`) still never applies in a frame, as the frame's root is its shadow host.
 
 Code: the history, what's unsaved and the save state are `packages/editor/src/history.ts` in `@parity-app/editor`
 (`recordChange`, `undoChange`, `redoChange`, `reloadFile`, `unsavedPaths`, `fileWrite`, `writeSucceeded` and
@@ -1855,7 +1859,9 @@ Tests:
   attribute, adding a value a theme lacks with the selector it already uses, and leaving a `prefers-color-scheme` block
   alone when previewing the default.
 - `packages/tokens/src/policy.test.ts` and `packages/libgen/src/tokens.test.ts`: which selector is which theme, and the
-  same CSS read alike by libgen and the app.
+  same CSS read alike by libgen and the app; and the attributes a frame gets for an attribute theme (PAR-22, 5 tests:
+  vite7-js's `[data-theme='dark']`, an attribute beside a class, none for a class theme, the light theme, the root, a
+  conditional rule or a component's own attribute, and a mode's own attribute winning).
 - `packages/editor/src/token-edits.test.ts` (6): the first edit's original kept, what Save writes, a theme value that
   wasn't there written without a value once it's undone, the token list with edits, and the overrides offscreen frames
   get (PAR-465).

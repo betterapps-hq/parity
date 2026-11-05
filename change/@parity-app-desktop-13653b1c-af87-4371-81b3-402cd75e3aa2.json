@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Size the View menu's checkbox icons like its other icons.",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

@@ -1,8 +1,16 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 05 Nov 2026 06:17:53 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 05 Nov 2026 07:14:25 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.8.1
+
+Thu, 05 Nov 2026 07:14:25 GMT
+
+### Patches
+
+- Size the View menu's checkbox icons like its other icons. (ajcraswell@gmail.com)
 
 ## 0.8.0
 

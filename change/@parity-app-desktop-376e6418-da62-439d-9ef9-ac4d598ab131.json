@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Frames in a theme's mode get the attribute the stylesheet switches it on with, so [data-theme=dark] themes show in Dark frames",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
