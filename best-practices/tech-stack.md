@@ -3,8 +3,8 @@
 The tools we reach for **first**. Prefer them before introducing an alternative for the same job.
 
 > **Deviating from this list requires a discussion with a human.** If a task seems to need a library that isn't here (or
-> a different one than what's listed), raise it — in the issue or PR — and get agreement before adding it. Don't
-> silently swap in a different tool.
+> a different one than what's listed), raise it in the PR and get agreement before adding it. Don't silently swap in a
+> different tool.
 
 Agents must follow the [permission rule](../AGENTS.md#permission-to-change-guidance) before editing this guide.
 
