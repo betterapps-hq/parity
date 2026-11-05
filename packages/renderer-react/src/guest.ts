@@ -164,9 +164,9 @@ function hasStyle(style: unknown): boolean {
  * with a style, and a way to look when one hasn't. Layers hear when a component turns out to put it inside.
  */
 interface LayerStyles {
-  placement(name: string): StylePlacement | undefined
-  check(): void
-  subscribe(listener: () => void): () => void
+  placement: (name: string) => StylePlacement | undefined
+  check: () => void
+  subscribe: (listener: () => void) => () => void
 }
 
 const LayerStylesContext = createContext<LayerStyles>({
