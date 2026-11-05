@@ -94,6 +94,44 @@ describe("editing another state", () => {
   })
 })
 
+describe("taking a value away", () => {
+  const submit = (container: ContainerSpec, state: number) =>
+    nodeInState(findNode(container.root, "submit")!, container.states[state])
+
+  it("takes a prop the design sets away in one state, leaving the design and the other states alone", () => {
+    const next = editNode(design, "loading", "submit", { unset: { props: ["children"] } })
+    expect(next.states[1]?.overrides?.submit).toEqual({ props: { disabled: true }, unset: { props: ["children"] } })
+    expect(submit(next, 1)).toEqual({ type: "component", id: "submit", component: "Button", props: { disabled: true } })
+    expect(findNode(next.root, "submit")).toEqual(findNode(design.root, "submit"))
+    expect(changeCount(next.states[1]!)).toBe(2)
+  })
+
+  it("takes a value the state set away too, keeping nothing for what the design doesn't set", () => {
+    const next = editNode(design, "loading", "submit", { unset: { props: ["disabled"] } })
+    expect(next.states[1]?.overrides).toBeUndefined()
+    const style = editNode(design, "loading", "page", { unset: { style: ["gap", "padding"] } })
+    expect(style.states[1]?.overrides?.page).toEqual({ unset: { style: ["gap"] } })
+    expect(nodeInState(style.root, style.states[1]).style).toBeUndefined()
+  })
+
+  it("sets a value it took away again, and Reset takes the state's change back", () => {
+    const taken = editNode(design, "loading", "submit", { unset: { props: ["children"] } })
+    const again = editNode(taken, "loading", "submit", { props: { children: "Wait" } })
+    expect(again.states[1]?.overrides?.submit).toEqual({ props: { disabled: true, children: "Wait" } })
+    const back = editNode(taken, "loading", "submit", { props: { children: undefined } })
+    expect(back.states[1]?.overrides?.submit).toEqual({ props: { disabled: true } })
+    const reset = resetOverride(taken, "loading", "submit", { kind: "props", key: "children" })
+    expect(reset.states[1]?.overrides?.submit).toEqual({ props: { disabled: true } })
+    expect(submit(reset, 1)).toMatchObject({ props: { children: "Sign up", disabled: true } })
+  })
+
+  it("removes the value from the design in the base state", () => {
+    const next = editNode(design, "default", "submit", { unset: { props: ["children"] } })
+    expect(findNode(next.root, "submit")).toEqual({ type: "component", id: "submit", component: "Button" })
+    expect(editNode(design, "default", "page", { unset: { style: ["gap"] } }).root.style).toBeUndefined()
+  })
+})
+
 describe("states", () => {
   it("adds, duplicates and removes states", () => {
     const added = addState(design, "Error")

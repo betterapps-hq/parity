@@ -321,7 +321,17 @@ export interface NodePatch {
   text?: string
   props?: Record<string, unknown>
   style?: NodeStyle
+  /** What the patch takes away from what's under it, so a state can turn off a prop or style the design sets. */
+  unset?: PatchUnset
 }
+
+/** Props and style keys a patch takes away. A key a patch sets isn't also taken away by it. */
+export interface PatchUnset {
+  props?: string[]
+  style?: StyleKey[]
+}
+
+export type StyleKey = keyof NodeStyle
 
 const textTags = ["p", "span", "h1", "h2", "h3", "h4", "strong"] as const
 export const imageFits = ["cover", "contain", "fill"] as const
@@ -694,12 +704,26 @@ function parsePatches(value: unknown, path: string, ids?: Set<string>): Record<s
 
 function parsePatch(value: unknown, path: string): NodePatch {
   const patch = expectObject(value, path)
-  expectKnownKeys(patch, ["hidden", "text", "props", "style"], path)
+  expectKnownKeys(patch, ["hidden", "text", "props", "style", "unset"], path)
   return compact({
     hidden: optional(patch.hidden, (v) => expectBoolean(v, `${path}/hidden`)),
     text: optional(patch.text, (v) => expectString(v, `${path}/text`)),
     props: optional(patch.props, (v) => expectObject(v, `${path}/props`)),
-    style: optional(patch.style, (v) => parseStyle(v, `${path}/style`))
+    style: optional(patch.style, (v) => parseStyle(v, `${path}/style`)),
+    unset: optional(patch.unset, (v) => parseUnset(v, `${path}/unset`))
+  })
+}
+
+function parseUnset(value: unknown, path: string): PatchUnset {
+  const unset = expectObject(value, path)
+  expectKnownKeys(unset, ["props", "style"], path)
+  const keys = <T>(key: "props" | "style", item: (v: unknown, where: string) => T) =>
+    optional(unset[key], (v) =>
+      expectArray(v, `${path}/${key}`).map((entry, index) => item(entry, `${path}/${key}/${index}`))
+    )
+  return compact({
+    props: keys("props", expectString),
+    style: keys("style", (v, where) => expectOneOf(v, styleKeys, where))
   })
 }
 

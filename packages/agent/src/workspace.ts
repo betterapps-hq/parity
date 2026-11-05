@@ -615,14 +615,14 @@ export class AgentWorkspace {
       delete change.args
     }
     const unknown = Object.keys(change).filter(
-      (name) => !["name", "text", "tag", "hidden", "props", "style", "component"].includes(name)
+      (name) => !["name", "text", "tag", "hidden", "props", "style", "unset", "component"].includes(name)
     )
     if (unknown.length > 0)
       throw new Error(`Update can't change ${unknown.join(", ")}; use Replace, Move or Responsive`)
     const stateId = options.state ?? container.states[0]!.id
     const base = stateId === container.states[0]!.id
     if (!base && ("name" in change || "tag" in change || "component" in change)) {
-      throw new Error("A state can only change hidden, text, props and style")
+      throw new Error("A state can only change hidden, text, props, style and unset")
     }
     if (node.type === "component" && change.props) {
       this.checkProps(
@@ -1565,6 +1565,8 @@ function toChange(change: Values): NodeChange {
   if (change.props !== undefined) result.props = nullsToUndefined(expectObject(change.props, "props"))
   if (change.style !== undefined)
     result.style = nullsToUndefined(expectObject(change.style, "style")) as NodeChange["style"]
+  // Props and style keys a state takes away from the base, checked as a patch's are.
+  if (change.unset !== undefined && change.unset !== null) result.unset = parseNodePatch({ unset: change.unset }).unset
   return result
 }
 

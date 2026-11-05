@@ -1,5 +1,6 @@
 import {
   boardTarget,
+  changesField,
   editsDesign,
   type ContainerSpec,
   type DesignNode,
@@ -173,7 +174,7 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
   const parentStyle = parent?.type === "layout" ? (shown(parent).style ?? {}) : undefined
   const editor: StyleEditor = {
     style: common,
-    changed: (name) => present.some((id) => patches?.[id]?.style?.[name] !== undefined),
+    changed: (name) => present.some((id) => changesField(patches?.[id], { kind: "style", key: name })),
     reset: (name) =>
       store.updateContainer(key, "Reset changes", (current) =>
         present.reduce(

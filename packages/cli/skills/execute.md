@@ -53,7 +53,7 @@ DeleteDesign(design): void
 
 // Nodes
 Insert(parent, node, { index?, slot? }?): string // returns the new node's id
-Update(path, change, { state? }?): void          // change: name, text, tag, hidden, props, args, style, component
+Update(path, change, { state? }?): void          // change: name, text, tag, hidden, props, args, style, unset, component
 Replace(path, node): string
 Move(path, parent, { index?, slot? }?): void     // within one design
 Copy(path, parent, { index?, slot?, name? }?): string
@@ -220,11 +220,14 @@ const form = Insert("settings/Content", {
 
 ### Update
 
-Changes a node. `change` takes `name`, `text`, `tag`, `hidden`, `props`, `args` (an instance's values), `style` and
-`component`. `props`, `args` and `style` merge with what's there; set a key to `null` to remove it.
+Changes a node. `change` takes `name`, `text`, `tag`, `hidden`, `props`, `args` (an instance's values), `style`, `unset`
+and `component`. `props`, `args` and `style` merge with what's there; set a key to `null` to remove it.
 
-With `{ state: "loading" }` the change belongs to that state instead of the base design. A state can change only
-`hidden`, `text`, `props` and `style`.
+With `{ state: "loading" }` the change belongs to that state instead of the base design, and `null` takes back the
+state's change to that key. A state can change only `hidden`, `text`, `props`, `style` and `unset`. To turn off in one
+state what the base sets, list it in `unset`:
+`Update(button, { unset: { props: ["disabled"], style: ["gap"] } }, { state: "ready" })`. In the base design, `unset`
+removes the keys as `null` does.
 
 ### Replace, Move, Copy and Delete
 
