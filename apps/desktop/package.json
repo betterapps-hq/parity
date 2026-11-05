@@ -37,6 +37,7 @@
   "devDependencies": {
     "@parity-app/agent": "workspace:*",
     "@parity-app/builder-vite": "workspace:*",
+    "@parity-app/channel": "workspace:*",
     "@parity-app/code": "workspace:*",
     "@parity-app/core": "workspace:*",
     "@parity-app/editor": "workspace:*",

@@ -1,14 +1,16 @@
-import { CodedError, readErrorDetails } from "@parity-app/core"
+import { type Channel, createChannel, type Handlers, nodePort } from "@parity-app/channel"
 import type { MessagePortMain } from "electron"
-import type { ChannelMessage, ServiceMethods, WindowMethods } from "../shared/protocol.ts"
-import type { MainMessage, ServiceMessage } from "../shared/service.ts"
+import { codedErrors } from "../shared/coded-errors.ts"
+import type { ServiceMethods, WindowMethods } from "../shared/protocol.ts"
+import { serviceChecks, unknownServiceMethod } from "../shared/service-checks.ts"
+import type { ConnectMessage } from "../shared/service.ts"
 import { checkAccessibility, exportDesigns, startAgentServer } from "./agent.ts"
 import { clearBitmaps, storeBitmap, storedBitmap, sweepBitmaps } from "./bitmap-store.ts"
 import { builderReadings } from "./builders.ts"
-import { handleConsoleResult } from "./console.ts"
 import { undoProjectEdit } from "./edits.ts"
 import { importImage } from "./images.ts"
 import { addLibrary, catalogFor, importStyles } from "./libraries.ts"
+import { mainProcess } from "./main-process.ts"
 import { keepOnlyPictures, readPictures, storePicture } from "./pictures.ts"
 import { lookupPreviews, makePreview } from "./previews.ts"
 import { dismissProcess, listProcesses, restartProcess, stopProcess } from "./processes.ts"
@@ -17,7 +19,6 @@ import {
   codeServedAt,
   correctComponents,
   getProject,
-  message,
   onFileChange,
   openProject,
   openRoots,
@@ -27,7 +28,7 @@ import {
   saveDocumentCopy,
   saveTokens
 } from "./projects.ts"
-import { handlePreviewResult, handleRenderResult, renderOffscreen } from "./render.ts"
+import { renderOffscreen } from "./render.ts"
 import { startReopening } from "./reopening.ts"
 import { openStorybook } from "./storybook.ts"
 import { losslessWebp } from "./webp.ts"
@@ -35,8 +36,6 @@ import { losslessWebp } from "./webp.ts"
 // Dependencies such as Rollup probe process.execPath. In an installed app that is Parity.exe, so their children
 // must inherit Node mode; otherwise a platform probe launches another app and overwrites agent discovery.
 process.env.ELECTRON_RUN_AS_NODE = "1"
-
-type Handlers = { [M in keyof ServiceMethods]: (params: ServiceMethods[M]["params"]) => Promise<unknown> }
 
 // The projects open when the service last ran open again as it starts, before the window asks for them (PAR-179).
 const reopening = startReopening({
@@ -49,7 +48,7 @@ function rememberOpen(): void {
   reopening.remember(openRoots())
 }
 
-const handlers: Handlers = {
+const handlers: Handlers<ServiceMethods> = {
   "project.open": ({ root }) => {
     const projectRoot = projectRootFor(root)
     reopening.claim(projectRoot)
@@ -107,72 +106,41 @@ export interface WindowChannel {
   ): Promise<WindowMethods[M]["result"]>
 }
 
-let editor: (WindowChannel & { port: MessagePortMain }) | undefined
+let editor: Channel<ServiceMethods, WindowMethods> | undefined
 
 export function editorWindow(): WindowChannel {
   if (!editor) throw new Error("The canvas window isn't open")
   return editor
 }
 
+/**
+ * Answers a window over its own port, and makes it the window agents act through. Project code shares the window's
+ * page, so every request's params are checked before a handler sees them (PAR-565).
+ */
 function connect(port: MessagePortMain): void {
-  let nextId = 1
-  const pending = new Map<number, { resolve(value: unknown): void; reject(error: Error): void }>()
-  const channel = {
-    port,
-    request(method: string, params: unknown) {
-      return new Promise((resolve, reject) => {
-        const id = nextId++
-        pending.set(id, { resolve, reject })
-        port.postMessage({ type: "request", id, method, params } satisfies ChannelMessage)
-      })
-    }
-  } as WindowChannel & { port: MessagePortMain }
-
-  port.on("message", ({ data }: { data: ChannelMessage }) => {
-    if (data.type === "response") {
-      const request = pending.get(data.id)
-      pending.delete(data.id)
-      if (data.error === undefined) {
-        request?.resolve(data.result)
-        return
-      }
-      const details = readErrorDetails(data.details)
-      request?.reject(details ? new CodedError(data.error, details) : new Error(data.error))
-      return
-    }
-    const handler = handlers[data.method as keyof Handlers] as ((params: unknown) => Promise<unknown>) | undefined
-    const result = handler ? handler(data.params) : Promise.reject(new Error(`Unknown method ${data.method}`))
-    result.then(
-      (value) => port.postMessage({ type: "response", id: data.id, result: value } satisfies ChannelMessage),
-      (error: unknown) =>
-        port.postMessage({ type: "response", id: data.id, error: message(error) } satisfies ChannelMessage)
-    )
+  const closed = () => new Error("The canvas window closed")
+  const channel = createChannel<ServiceMethods, WindowMethods>({
+    handlers,
+    checks: serviceChecks,
+    errors: codedErrors,
+    unknownMethod: unknownServiceMethod,
+    disconnected: closed
   })
   port.on("close", () => {
     if (editor === channel) editor = undefined
-    for (const request of pending.values()) request.reject(new Error("The canvas window closed"))
+    channel.close(closed())
   })
-  port.start()
+  channel.connect(nodePort(port, { wrapped: true }))
   editor = channel
 }
 
-process.parentPort.on("message", (event: { data: MainMessage; ports: MessagePortMain[] }) => {
-  if (event.data.type === "connect") {
-    const [port] = event.ports
-    if (port) connect(port)
-  } else if (event.data.type === "render-result") {
-    handleRenderResult(event.data)
-  } else if (event.data.type === "preview-result") {
-    handlePreviewResult(event.data)
-  } else if (event.data.type === "console-result") {
-    handleConsoleResult(event.data)
-  } else if (event.data.type === "builders") {
-    const { id } = event.data
-    void builderReadings().then((builders) =>
-      process.parentPort.postMessage({ type: "builders-result", id, builders } satisfies ServiceMessage)
-    )
-  }
+process.parentPort.on("message", (event: { data: unknown; ports: MessagePortMain[] }) => {
+  if ((event.data as ConnectMessage | undefined)?.type !== "connect") return
+  const [port] = event.ports
+  if (port) connect(port)
 })
+mainProcess.serve({ builders: () => builderReadings() })
+mainProcess.connect(nodePort(process.parentPort, { wrapped: true }))
 
 onFileChange(
   (change) => {

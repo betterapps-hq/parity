@@ -5,6 +5,7 @@ import { Worker } from "node:worker_threads"
 import type { CheckResult } from "@parity-app/code"
 import type { ComponentInfo, ComponentSource } from "@parity-app/core"
 import { findLockfiles } from "@parity-app/project"
+import type { CheckerMethods } from "./props-worker.ts"
 import { type WorkerClient, workerClient } from "./worker-client.ts"
 
 const workerUrl = new URL("./props-worker.mjs", import.meta.url)
@@ -51,7 +52,7 @@ export interface TypeChecker {
  * installed packages' declarations again.
  */
 export function typeChecker(
-  client: WorkerClient,
+  client: WorkerClient<CheckerMethods>,
   lockfiles: (root: string) => Promise<string[]> = findLockfiles
 ): TypeChecker {
   /** The app's files each open project's program was asked to read. */
@@ -61,7 +62,12 @@ export function typeChecker(
   /** How many times each project was closed, so a request made before a close isn't sent after it. */
   const closes = new Map<string, number>()
 
-  const ask = async (root: string, message: Record<string, unknown>, files: string[]) => {
+  const ask = async <M extends "props" | "check">(
+    method: M,
+    root: string,
+    params: Omit<CheckerMethods[M]["params"], "root" | "lockfiles" | "known">,
+    files: string[]
+  ): Promise<CheckerMethods[M]["result"]> => {
     const closed = closes.get(root) ?? 0
     const locks = await lockfiles(root)
     if ((closes.get(root) ?? 0) !== closed) throw new Error("The project closed")
@@ -71,20 +77,24 @@ export function typeChecker(
     const kept = read.get(root) ?? new Set<string>()
     for (const file of files) kept.add(file)
     read.set(root, kept)
-    return client.request({ ...message, root, lockfiles: locks, ...(known.length > 0 ? { known } : {}) })
+    return client.request(method, {
+      ...params,
+      root,
+      lockfiles: locks,
+      ...(known.length > 0 ? { known } : {})
+    } as CheckerMethods[M]["params"])
   }
 
   return {
     async inferComponents(root, components, files = []) {
       const started = Date.now()
-      const answer = await ask(root, { kind: "props", components, files }, files)
-      const result = (answer ?? {}) as Record<string, ComponentInfo>
+      const result = (await ask("props", root, { components, files }, files)) ?? {}
       console.log(`[service] props for ${Object.keys(result).length} components in ${Date.now() - started}ms`)
       return result
     },
     async checkComponents(root, files) {
       const started = Date.now()
-      const result = (await ask(root, { kind: "check", files }, files)) as CheckResult
+      const result = await ask("check", root, { files }, files)
       console.log(`[service] the type checker read ${files.length} files in ${Date.now() - started}ms`)
       return result
     },
@@ -97,13 +107,13 @@ export function typeChecker(
         client.stop(new Error("The project closed"))
         return
       }
-      if (client.running) void client.request({ kind: "close", root }).catch(() => undefined)
+      if (client.running) void client.request("close", { root }).catch(() => undefined)
     }
   }
 }
 
 const checker = typeChecker(
-  workerClient({
+  workerClient<CheckerMethods>({
     // Half the computer's memory at most, so a project too big to check stops the worker rather than the computer.
     start: () =>
       new Worker(workerUrl, { resourceLimits: { maxOldGenerationSizeMb: Math.round(totalmem() / 2 ** 20 / 2) } }),

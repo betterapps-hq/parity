@@ -3840,8 +3840,9 @@ Implementation: `packages/core/src/errors.ts` (codes, `CodedError`, `closest`, `
 `packages/cli/src/errors.ts` (the operation error, its schema and path mapping); `operations.ts` and `execute.ts`
 (output schemas, canonical results, bounds); `mcp.ts` and `bin.ts` (structured output in each transport);
 `packages/agent/src/workspace.ts` and `run.ts` (coded lookups, conflicts and retries, `ExecResult.details`);
-`apps/desktop/src/utility/agent.ts` (RPC `details`), `utility/index.ts`, `preload/index.ts` and
-`renderer/agent/handlers.ts` (details across the window channel, `ServeAnswer`, coded tab lookup).
+`apps/desktop/src/utility/agent.ts` (RPC `details`), `packages/channel/src/channel.ts` and
+`apps/desktop/src/shared/coded-errors.ts` (details both ways across every port), `preload/index.ts` and
+`renderer/agent/handlers.ts` (`ServeAnswer`, coded tab lookup).
 
 Tests: `packages/core/src/errors.test.ts` (defaults, bounded closest-first alternatives, checking details from another
 process, coded unknown state). `packages/agent/src/run.test.ts` ("coded failures": unknown design, state, mode,

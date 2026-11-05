@@ -1,35 +1,41 @@
 import type { ConsoleEntry, RenderedFrame, RenderJob } from "./protocol.ts"
 
-/** Messages from the main process to the project service. */
-export type MainMessage =
-  | { type: "connect" }
-  | { type: "render-result"; id: number; frame?: RenderedFrame; png?: string; error?: string }
-  /**
-   * A component preview's pictures, base64 PNGs, and the large one's size; or `error`, why its component couldn't be
-   * drawn; or `failed`, why the offscreen window couldn't finish it, which a later try may not hit.
-   */
-  | {
-      type: "preview-result"
-      id: number
-      pictures?: { thumb: string; large: string; width: number; height: number }
-      error?: string
-      failed?: string
-    }
-  | { type: "console-result"; id: number; entries: ConsoleEntry[] }
-  /** Asks for each builder's CPU and memory, for the performance stats: builders run in processes of their own. */
-  | { type: "builders"; id: number }
+/** Messages from the main process to the project service that aren't requests: a window's port to the service. */
+export type ConnectMessage = { type: "connect" }
 
-/** Messages from the project service to the main process. */
-export type ServiceMessage =
-  | { type: "render"; id: number; job: RenderJob; capture: boolean }
+/** A component preview's pictures, base64 PNGs, with the large one's size. */
+export interface PreviewPictures {
+  thumb: string
+  large: string
+  width: number
+  height: number
+}
+
+/** Requests the project service sends to the main process, which owns the offscreen windows and every console. */
+export interface MainMethods {
+  /**
+   * Draws a frame in one of the offscreen render windows and measures it, optionally capturing a PNG. No frame when it
+   * didn't render.
+   */
+  render: { params: { job: RenderJob; capture: boolean }; result: { frame?: RenderedFrame; png?: string } }
   /**
    * Draws a component preview offscreen, after every canvas and agent job waiting, and crops it to the element `crop`
-   * names (PAR-207).
+   * names (PAR-207). Gives its pictures, or `error`, why its component couldn't be drawn. It fails when the offscreen
+   * window couldn't finish it, which a later try may not hit.
    */
-  | { type: "preview"; id: number; job: RenderJob; crop: string; priority: "visible" | "idle" }
-  /** Reads what code from a project's builder at `origin` wrote to the console. */
-  | { type: "console"; id: number; origin: string; clear: boolean }
-  | { type: "builders-result"; id: number; builders: BuilderReading[] }
+  preview: {
+    params: { job: RenderJob; crop: string; priority: "visible" | "idle" }
+    result: { pictures: PreviewPictures } | { error: string }
+  }
+  /** What code from a project's builder at `origin` wrote to the console, forgotten once read when `clear` is set. */
+  console: { params: { origin: string; clear: boolean }; result: ConsoleEntry[] }
+}
+
+/** Requests the main process sends to the project service. */
+export interface ServiceProcessMethods {
+  /** Each builder's CPU and memory, for the performance stats: builders run in processes of their own. */
+  builders: { params: undefined; result: BuilderReading[] }
+}
 
 /** A project's builder process, as the performance stats show it. */
 export interface BuilderReading {

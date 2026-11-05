@@ -3,6 +3,7 @@ import { readFile, utimes } from "node:fs/promises"
 import { availableParallelism, homedir } from "node:os"
 import { join } from "node:path"
 import { agentRegistry, removeEntry } from "@parity-app/agent/registry"
+import { type Channel, createChannel, nodePort } from "@parity-app/channel"
 import { fitInside, offscreenWindows, previewSizes, type RenderPriority, renderQueue } from "@parity-app/core"
 import {
   app,
@@ -19,6 +20,8 @@ import {
   utilityProcess,
   webContents
 } from "electron"
+import { ipc } from "../shared/channels.ts"
+import { codedErrors } from "../shared/coded-errors.ts"
 import type {
   OpenInEditorRequest,
   ProcessUsage,
@@ -26,7 +29,7 @@ import type {
   RenderJob,
   SaveDialogOptions
 } from "../shared/protocol.ts"
-import type { BuilderReading, MainMessage, ServiceMessage } from "../shared/service.ts"
+import type { BuilderReading, ConnectMessage, MainMethods, ServiceProcessMethods } from "../shared/service.ts"
 import { InstalledBuild } from "./build-info.ts"
 import { openInEditor } from "./code-editor.ts"
 import { readConsole, recordConsole } from "./console-log.ts"
@@ -60,6 +63,8 @@ let updates: UpdateSession | undefined
 const updateRestarts = new Set<number>()
 /** Services replaced by a fresh one; their exit is expected. */
 const retired = new WeakSet<UtilityProcess>()
+/** Each service's channel, which its requests to draw and read consoles come over. */
+const serviceChannels = new WeakMap<UtilityProcess, Channel<MainMethods, ServiceProcessMethods>>()
 
 type ThemeSource = "light" | "dark" | "system"
 
@@ -124,36 +129,19 @@ function startService(): UtilityProcess {
       PARITY_APP_STARTED: String(appStarted)
     }
   })
-  child.on("message", (message: ServiceMessage) => {
-    if (message.type === "render") {
-      renderFrame(message.job, message.capture).then(
-        (result) => child.postMessage({ type: "render-result", id: message.id, ...result } satisfies MainMessage),
-        (error: unknown) =>
-          child.postMessage({
-            type: "render-result",
-            id: message.id,
-            error: error instanceof Error ? error.message : String(error)
-          } satisfies MainMessage)
-      )
-    } else if (message.type === "preview") {
-      renderPreview(message.job, message.crop, message.priority).then(
-        (result) => child.postMessage({ type: "preview-result", id: message.id, ...result } satisfies MainMessage),
-        (error: unknown) =>
-          child.postMessage({
-            type: "preview-result",
-            id: message.id,
-            failed: error instanceof Error ? error.message : String(error)
-          } satisfies MainMessage)
-      )
-    } else if (message.type === "console") {
-      const entries = readConsole(message.origin, message.clear)
-      child.postMessage({ type: "console-result", id: message.id, entries } satisfies MainMessage)
-    } else if (message.type === "builders-result") {
-      lastBuilders = message.builders
-      builderAnswers.get(message.id)?.(message.builders)
-    }
+  const channel = createChannel<MainMethods, ServiceProcessMethods>({
+    errors: codedErrors,
+    handlers: {
+      render: ({ job, capture }) => renderFrame(job, capture),
+      preview: ({ job, crop, priority }) => renderPreview(job, crop, priority),
+      console: ({ origin, clear }) => readConsole(origin, clear)
+    },
+    disconnected: () => new Error("The project service stopped")
   })
+  channel.connect(nodePort(child, { closedBy: { exit: () => undefined } }))
+  serviceChannels.set(child, channel)
   child.on("exit", (code) => {
+    channel.close(new Error("The project service stopped"))
     if (service === child) service = undefined
     if (code === 0 || retired.has(child)) return
     // A utility process whose script is missing exits with code 1 and prints nothing, even with Electron's logging on,
@@ -168,8 +156,8 @@ function startService(): UtilityProcess {
 function connectWindow(window: BrowserWindow): void {
   service ??= startService()
   const { port1, port2 } = new MessageChannelMain()
-  service.postMessage({ type: "connect" } satisfies MainMessage, [port1])
-  window.webContents.postMessage("canvas:port", null, [port2])
+  service.postMessage({ type: "connect" } satisfies ConnectMessage, [port1])
+  window.webContents.postMessage(ipc.port, null, [port2])
 }
 
 /**
@@ -235,10 +223,10 @@ function createWindow(): void {
     if (deciding) return
     deciding = true
     let acknowledged = false
-    ipcMain.once("canvas:close-pending", () => {
+    ipcMain.once(ipc.closePending, () => {
       acknowledged = true
     })
-    window.webContents.send("canvas:closing")
+    window.webContents.send(ipc.closing)
     setTimeout(() => {
       if (acknowledged || ready || window.isDestroyed()) return
       if (updateRestarts.delete(window.id)) {
@@ -251,15 +239,15 @@ function createWindow(): void {
       if (quitting) app.quit()
     }, 3000)
   })
-  ipcMain.removeAllListeners("canvas:close-cancel")
-  ipcMain.on("canvas:close-cancel", (event) => {
+  ipcMain.removeAllListeners(ipc.closeCancel)
+  ipcMain.on(ipc.closeCancel, (event) => {
     if (event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame) return
     updateRestarts.delete(window.id)
     deciding = false
     quitting = false
   })
-  ipcMain.removeAllListeners("canvas:close-ready")
-  ipcMain.on("canvas:close-ready", (event) => {
+  ipcMain.removeAllListeners(ipc.closeReady)
+  ipcMain.on(ipc.closeReady, (event) => {
     if (event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame || ready) return
     ready = true
     if (updateRestarts.delete(window.id)) {
@@ -324,7 +312,7 @@ function applicationMenu(): Menu {
             }
             if (!window) return
             const contents = window.webContents
-            const show = () => contents.send("canvas:show-updates")
+            const show = () => contents.send(ipc.showUpdates)
             if (contents.isLoadingMainFrame()) contents.once("did-finish-load", show)
             else show()
             window.show()
@@ -376,25 +364,25 @@ const installedBuild = new InstalledBuild({
   read: () => JSON.parse(readFileSync(buildInfoFile, "utf8")),
   save: (value) => writeFileSync(buildInfoFile, JSON.stringify(value))
 })
-ipcMain.handle("canvas:build-info", (event) => {
+ipcMain.handle(ipc.buildInfo, (event) => {
   updateOwner(event)
   return installedBuild.get()
 })
 
-ipcMain.handle("canvas:update-state", (event) => {
+ipcMain.handle(ipc.updateState, (event) => {
   updateOwner(event)
   return updates?.get() ?? { phase: "disabled", beta: false }
 })
-ipcMain.handle("canvas:update-check", async (event) => {
+ipcMain.handle(ipc.updateCheck, async (event) => {
   updateOwner(event)
   await updates?.check()
 })
-ipcMain.handle("canvas:update-beta", (event, beta: unknown) => {
+ipcMain.handle(ipc.updateBeta, (event, beta: unknown) => {
   updateOwner(event)
   if (typeof beta !== "boolean") throw new Error("The beta setting must be true or false.")
   updates?.setBeta(beta)
 })
-ipcMain.handle("canvas:update-act", async (event) => {
+ipcMain.handle(ipc.updateAct, async (event) => {
   const window = updateOwner(event)
   const state = updates?.get()
   if (state?.phase === "manual") {
@@ -413,11 +401,11 @@ async function showOpen(event: Electron.IpcMainInvokeEvent, options: Electron.Op
   return result.canceled ? undefined : result.filePaths[0]
 }
 
-ipcMain.handle("canvas:pick-folder", (event, title?: string) =>
+ipcMain.handle(ipc.pickFolder, (event, title?: string) =>
   showOpen(event, { title: title ?? "Open project", properties: ["openDirectory", "createDirectory"] })
 )
 
-ipcMain.handle("canvas:pick-project-file", (event) =>
+ipcMain.handle(ipc.pickProjectFile, (event) =>
   showOpen(event, {
     title: "Open project file",
     properties: ["openFile"],
@@ -425,22 +413,22 @@ ipcMain.handle("canvas:pick-project-file", (event) =>
   })
 )
 
-ipcMain.handle("canvas:save-dialog", async (event, options: SaveDialogOptions) => {
+ipcMain.handle(ipc.saveDialog, async (event, options: SaveDialogOptions) => {
   const owner = ownerOf(event)
   const settings = { title: options.title, defaultPath: options.defaultPath, filters: options.filters }
   const result = owner ? await dialog.showSaveDialog(owner, settings) : await dialog.showSaveDialog(settings)
   return result.canceled ? undefined : result.filePath
 })
 
-ipcMain.handle("canvas:show-item", (_event, path: string) => shell.showItemInFolder(path))
+ipcMain.handle(ipc.showItem, (_event, path: string) => shell.showItemInFolder(path))
 
-ipcMain.handle("canvas:open-in-editor", (_event, request: OpenInEditorRequest) => openInEditor(request))
+ipcMain.handle(ipc.openInEditor, (_event, request: OpenInEditorRequest) => openInEditor(request))
 
-ipcMain.handle("canvas:quit", () => app.quit())
+ipcMain.handle(ipc.quit, () => app.quit())
 
-ipcMain.handle("canvas:toggle-dev-tools", (event) => event.sender.toggleDevTools())
+ipcMain.handle(ipc.toggleDevTools, (event) => event.sender.toggleDevTools())
 
-ipcMain.handle("canvas:set-theme", (_event, theme: ThemeSource) => {
+ipcMain.handle(ipc.setTheme, (_event, theme: ThemeSource) => {
   if (!["light", "dark", "system"].includes(theme) || nativeTheme.themeSource === theme) return
   nativeTheme.themeSource = theme
   try {
@@ -450,33 +438,29 @@ ipcMain.handle("canvas:set-theme", (_event, theme: ThemeSource) => {
   }
 })
 
-let nextBuilderReading = 1
-const builderAnswers = new Map<number, (builders: BuilderReading[]) => void>()
 /** The service's last answer, for when it's too busy to answer in time. */
 let lastBuilders: BuilderReading[] = []
 
 /** Each project's builder's CPU and memory, from the service, which runs each builder in a process of its own. */
 function builderReadings(): Promise<BuilderReading[]> {
-  const current = service
-  if (!current) return Promise.resolve([])
-  const id = nextBuilderReading++
-  return new Promise((resolve) => {
-    const answer = (builders: BuilderReading[]) => {
-      builderAnswers.delete(id)
-      clearTimeout(timer)
-      resolve(builders)
-    }
-    const timer = setTimeout(() => answer(lastBuilders), 1000)
-    builderAnswers.set(id, answer)
-    current.postMessage({ type: "builders", id } satisfies MainMessage)
+  const channel = service && serviceChannels.get(service)
+  if (!channel) return Promise.resolve([])
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const late = new Promise<BuilderReading[]>((resolve) => {
+    timer = setTimeout(() => resolve(lastBuilders), 1000)
   })
+  const asked = channel.request("builders", undefined).then(
+    (builders) => (lastBuilders = builders),
+    () => lastBuilders
+  )
+  return Promise.race([asked, late]).finally(() => clearTimeout(timer))
 }
 
 // The performance stats: each process's CPU and memory, named by what it does. Storybook and other programs the
 // project service starts run outside the app, so they aren't counted, apart from each project's builder, which runs
 // in a process of its own the service starts. Memory is what each process uses on its own, as the system's monitor
 // counts it (see private-memory.ts), and its working set where the system won't say.
-ipcMain.handle("canvas:metrics", async (event): Promise<ProcessUsage[]> => {
+ipcMain.handle(ipc.metrics, async (event): Promise<ProcessUsage[]> => {
   const cores = availableParallelism()
   const pages = new Map(webContents.getAllWebContents().map((contents) => [contents.getOSProcessId(), contents]))
   const metrics = app.getAppMetrics()
@@ -698,7 +682,7 @@ void app.whenReady().then(() => {
   Menu.setApplicationMenu(applicationMenu())
   updates = createUpdates((state) => {
     for (const window of BrowserWindow.getAllWindows()) {
-      if (!isRenderWindow(window)) window.webContents.send("canvas:update-changed", state)
+      if (!isRenderWindow(window)) window.webContents.send(ipc.updateChanged, state)
     }
   })
   service = startService()
