@@ -4359,3 +4359,22 @@ Parity/Explorations/Sign in, and the screens they settle are in
   - Custom CSS: the sign-in screen's glow on `.ak-Background`.
 - **New wording uses "sign in" as a verb,** as the writing guide asks, so the new screens say "Parity couldn't sign you
   in" rather than calling it a sign-in.
+
+## State labels shrink as titles do, beside rows tall enough to hold them (PAR-155)
+
+Called on 2026-11-04, for your approval in Storybook. Built on PAR-151's rule, which had state labels fade out by 25% as
+captions do:
+
+- **A state's label is a name now,** shrinking to 60% as a board's title does rather than fading, since it's how a row
+  is found on a board showing every state. Captions stay detail and still fade.
+- **It hides once it has under 24 screen pixels before the next row's label,** the line titles hide at, measured from
+  its top to where the next row's label starts, past the dashed line between rows. A label is 36 pixels tall at screen
+  size and about 22 at 60%, and that space is never under 98 page pixels, so a label that shows can't reach the next
+  one. Measuring only the row beside it would hide a component's lower rows at 25% while its first row, which also holds
+  the captions, kept its label. The last row is measured the same way. A row of component boards at 5% shows no state
+  labels, since their rows have a few pixels each; a screen's rows keep theirs.
+- **Rows are measured, not worked out.** A frame that grows with its content sets its row's height, which only the
+  layout knows, so each label watches its row with a `ResizeObserver`, as the board does for its own size.
+- **A label isn't clipped to the gap beside its board.** At 60% a screen's state label can reach over the board to its
+  left when zoomed far out, since how far away that board is isn't known to the label. The example's boards are 400
+  apart. Keeping labels to that gap would be its own change.

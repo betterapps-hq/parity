@@ -27,7 +27,7 @@ import {
   type StateSpec,
   variantChoices
 } from "@parity-app/core"
-import { kindTitle } from "@parity-app/editor"
+import { kindTitle, stateLabelSpace } from "@parity-app/editor"
 import { ChevronDown, Crown, Rows3 } from "lucide-react"
 import {
   type CSSProperties,
@@ -35,7 +35,9 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   type Ref,
+  type RefObject,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState
@@ -452,10 +454,10 @@ function StateMenu({
 }
 
 /**
- * Names a row in the every-state grid, to the left of the board. It's detail (see `labelLook`), so it fades out when
- * zoomed far out instead of spilling onto the boards beside it, and hides with the board's name once the board is too
- * narrow on screen. A design with one state has no label: its title and state menu already name the only state there
- * is.
+ * Names a row in the every-state grid, to the left of the board. It's a name (see `labelLook`), so zoomed out it
+ * shrinks as the board's title does and stays, while there's space on screen below it before the next row's label: a
+ * short row's label hides rather than piling onto the next one. It hides with the title once the board is too narrow on
+ * screen. A design with one state has no label: its title and state menu already name the only state there is.
  */
 function StateLabel({
   state,
@@ -476,7 +478,8 @@ function StateLabel({
 }) {
   const changes = changeCount(state)
   const ref = useRef<HTMLButtonElement>(null)
-  useCanvasLabel(ref, "detail", { width: boardWidth })
+  const height = useLabelSpace(ref, offset)
+  useCanvasLabel(ref, "name", { width: boardWidth, height })
   return (
     <Hint label={`Show only ${state.name}`} wait>
       <button
@@ -496,6 +499,22 @@ function StateLabel({
       </button>
     </Hint>
   )
+}
+
+/**
+ * How much height a state's label has on the canvas, down to the next row's label (see `stateLabelSpace`), with its top
+ * `offset` into its row. A frame that grows with its content sets its row's height, so the row is measured.
+ */
+function useLabelSpace(label: RefObject<HTMLElement | null>, offset: number): number | undefined {
+  const [height, setHeight] = useState<number>()
+  useLayoutEffect(() => {
+    const row = label.current?.closest<HTMLElement>(".state-row")
+    if (!row) return undefined
+    const observer = new ResizeObserver(() => setHeight(stateLabelSpace(row.offsetHeight, offset)))
+    observer.observe(row)
+    return () => observer.disconnect()
+  }, [label, offset])
+  return height
 }
 
 /**
