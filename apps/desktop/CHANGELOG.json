@@ -2,6 +2,181 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 05 Nov 2026 00:49:09 GMT",
+      "version": "0.5.0",
+      "tag": "@parity-app/desktop_v0.5.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "491a016faa2e1910b9e8401e9afc4b55d78404d9",
+            "comment": "A tab that isn't showing lets its frames sleep after 3 seconds, freeing their DOM and React roots; switching back shows bitmaps at once and wakes only the frames near the view."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "e9d14cc8ee88af44c5560dc311ed703b349b3559",
+            "comment": "parity status and the MCP get_status tool say where a tab's edits stand: its revision, what's applied but not saved (files and token values), the last save and failed writes, and undo and redo, with an optional bounded summary. get_app_state carries the revision too."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "0ce863b773253c74edabc7d7129bd74cc319afa3",
+            "comment": "Reopen a project in about 3 seconds: frames show the bitmaps kept from last time without drawing first, the project opens as Parity starts, and kept bitmaps carry their frame's height"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "940bae774d38719ceaf4eeab58292a2ad460b0e1",
+            "comment": "Frame bitmaps are kept on disk in app data, so a project opened again shows them without capturing each frame again; View > Clear bitmap cache removes them."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "3c12b4650b3089ada072345fee6b6202c1c126d1",
+            "comment": "Components show their preview in a card beside the row, and right-clicking one offers View in Storybook and View code, which opens it in your editor (chosen in Settings). Tooltips are raised in the theme's own colors. Taking a component off the list by hand is gone."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "3e386bed25a9bfb40df33470fdf64cfd6ac0ad73",
+            "comment": "Agents get every result as data, in --json and MCP structuredContent with published output schemas, and failures as stable error codes with the input at fault, whether to retry, and the valid ids to use instead. Token and console reads are bounded by --limit."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "d48dd4b93a71511addc8ff8d318b22522f027ab1",
+            "comment": "Snap absolutely placed layers to their siblings and parent while moving and resizing, with guides, distances and even spacing"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "d80a6a79a6ab0680d1cc7258cad2a11908d6d257",
+            "comment": "Make a picture of every component offscreen, after the canvas's bitmaps, and keep it on disk so a reopened project draws none again"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "d71dd18c3e4ec377ab9b676368728ccd7ac24505",
+            "comment": "Drop components from the panel into the slot under the pointer in grids and wrapping rows, and bring a duplicated or pasted design that lands off screen into view"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "933ee27f4aa0c2c9de15388abdacb44760036267",
+            "comment": "parity modes and the MCP get_modes tool list the project's viewports (the ids Responsive takes) with their window heights, its modes (the ids renders take) resolved, and what each design shows; naming a design adds its frames' sizes. Mistyped ids now suggest the nearest ones first."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "583b9fd66f0d9b5ad35e12e32b08bc3f8a84c38b",
+            "comment": "Agents' calls go to the running copy of Parity that has their project open; --tab active names what the person is looking at, and a call without --tab goes to the project its folder is in"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "ad41fa4c062c08242e66fafa4950ca14c9254ffa",
+            "comment": "Undo takes back a whole drag, resize, scrub or run of arrow presses in one step, however slowly it was made"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "b088abf665e74ee65dcdc4b85bb32c09745722fd",
+            "comment": "Compare the app's shadcn components with Buildkit's Base UI kit in Storybook"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "db3964ec87a96f45c2310e0df47f6168ceff4b41",
+            "comment": "e2e: describe what a failed click met"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "a7937a0a1fd3e5f20875c73d4f82d87c27e66fcc",
+            "comment": "Keep pnpm dev on React's development build and choose the build with a flag"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "7516b6935b6587a66cd953fadda1ee0f55cc44ac",
+            "comment": "Keep text given to a new library part rather than labelling over it"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "a7937a0a1fd3e5f20875c73d4f82d87c27e66fcc",
+            "comment": "Add pnpm dev:prod, which runs Parity's window on React's production build, while pnpm dev stays on the development build"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "765b678889e977227d7884a20bc5777a609adcf2",
+            "comment": "pnpm dev on a port other than 5310 no longer stops before its window opens, since the updater is only made for installed builds."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "9198d8a4fe81f75db46e18df21d15a1143f6fbe4",
+            "comment": "Keep the canvas idle while a selection is held: the overlay measures only after something changes or while a frame animates"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "1687fede313e598f4f8aa476bb88afd1be0f59a0",
+            "comment": "A call without --tab finds the project its folder is in through links, such as macOS's /var"
+          },
+          {
+            "author": "noreply@anthropic.com",
+            "package": "@parity-app/desktop",
+            "commit": "b473a21374f334f0880c0bee2dbfe3889650c97c",
+            "comment": "Opening a project no longer pre-bundles its build tools, such as ESLint and Vite, which failed on Tailwind's native module."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "1984e7710a779b2bdf06b5781331a8c5b85014d7",
+            "comment": "Capture frames' bitmaps in four offscreen windows at once, so a project opened for the first time has them in less than half the time"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "a0d0e80557832e39688d9cc2fa4783f17eda3f2d",
+            "comment": "Drop into right-to-left and reversed layouts where the pointer is, snap and undo gestures correctly, and bring pasted designs into view at their real size"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "7c9d2b2e84e8f855e80603f2a8aa0d7ebc7199ad",
+            "comment": "A second copy of Parity leaves agents with the copy already running unless started with PARITY_AGENT_TAKE_OVER=1, and a copy that quits gives the agent file back instead of removing another copy's"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "19bfa326eeb0c2f9603af11fa1ea2a5c5e91e653",
+            "comment": "Name the missing script when the project service can't start, and let pnpm dev run Electron as installed for comparison"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "87f2243e13142b163be360f7ba6b8f2ccfeecc5c",
+            "comment": "The running status light breathes by opacity, so an idle window no longer repaints every frame"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "5277f9364cb83dc6d166d2d2d4812d65eb537b7e",
+            "comment": "Inserting a component that passes its props to an input no longer gives it children, and library samples' text ends at a sentence or a whole word"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sun, 01 Nov 2026 03:52:41 GMT",
       "version": "0.4.2",
       "tag": "@parity-app/desktop_v0.4.2",

@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Agents' calls go to the running copy of Parity that has their project open; --tab active names what the person is looking at, and a call without --tab goes to the project its folder is in",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

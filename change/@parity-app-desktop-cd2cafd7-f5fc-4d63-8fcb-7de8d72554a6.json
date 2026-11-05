@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Add pnpm dev:prod, which runs Parity's window on React's production build, while pnpm dev stays on the development build",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
