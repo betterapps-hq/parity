@@ -3296,7 +3296,7 @@ Tests:
   nearest ancestor at each level; a clipping element outside the layers; children going no further than their reported
   parent left out, one going further kept; a bottom edge only with a fixed height; nodes drawn at no size; the
   sentences.
-- `packages/agent/src/run.test.ts` (2 of its 40): the finding in only the mode whose frame the button passes, with its
+- `packages/agent/src/run.test.ts` (2 of its 46): the finding in only the mode whose frame the button passes, with its
   boxes, the frame's overflow not reported again, a clipped title in every mode, and Measure's parent, state and mode; a
   node wider than every frame found once in each.
 - `packages/cli/src/client.test.ts` (1 of its 11): the readable line names the layer.
