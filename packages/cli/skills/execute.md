@@ -134,6 +134,36 @@ Print(Get((node, at) => (node.type === "component" && node.component === "Button
 source: variants with their options (`variant`, `size`), its own props, and with `{ all: true }` the attributes it
 passes to its element. A prop that isn't listed, or a variant value outside its options, comes back as a warning.
 
+A library's providers draw nothing of their own, so the Components panel leaves them out, but `Components()` lists them,
+because the parts inside them throw without them. Nova's `Sidebar` parts go inside `nova/SidebarProvider`; one placed
+without it shows in `Problems` as a render error that names the provider.
+
+```js
+// A Nova sidebar, inside the provider its parts need.
+const part = (component, props, children) => ({ type: "component", component, props, slots: { children } })
+const item = (label, isActive) =>
+  part("nova/SidebarMenuItem", {}, [
+    { type: "component", component: "nova/SidebarMenuButton", props: { isActive, children: label } }
+  ])
+CreateDesign({
+  name: "App sidebar",
+  root: {
+    type: "layout",
+    name: "Frame",
+    style: { width: 280, height: 400 },
+    children: [
+      part("nova/SidebarProvider", {}, [
+        part("nova/Sidebar", { collapsible: "none" }, [
+          part("nova/SidebarContent", {}, [
+            part("nova/SidebarMenu", {}, [item("Dashboard", true), item("Members", false)])
+          ])
+        ])
+      ])
+    ]
+  }
+})
+```
+
 ### Icons
 
 `Icons()` lists the project's icon sets: each one's `id`, `name`, `package`, `styles` (such as `outline` and `solid`,
