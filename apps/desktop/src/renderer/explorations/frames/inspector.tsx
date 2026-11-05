@@ -1,18 +1,26 @@
-import type { ContainerSpec, DesignNode, NodeStyle } from "@parity-app/core"
-import { Accessibility, CircleMinus, Crown, MonitorSmartphone, SlidersHorizontal } from "lucide-react"
-import { type ReactNode, useState } from "react"
-import { Button } from "@/components/ui/button"
 import {
+  Button,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { TabsContent } from "@/components/ui/tabs"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+  DialogTitle,
+  Input,
+  TabsContent,
+  ToggleGroup,
+  ToggleGroupItem
+} from "@buildkitgg/shadcn-baseui-kit"
+import type { ContainerSpec, DesignNode, NodeStyle } from "@parity-app/core"
+import {
+  Accessibility,
+  CircleMinus,
+  Crown,
+  MonitorSmartphone,
+  MousePointerClick,
+  SlidersHorizontal
+} from "lucide-react"
+import { type ReactNode, useState } from "react"
 import { useProject } from "../../canvas/context.ts"
 import { Hint } from "../../chrome/Hint.tsx"
 import { SidePanel } from "../../chrome/SidePanel.tsx"
@@ -30,26 +38,44 @@ const kinds: Kind[] = ["frame", "component", "screen"]
  * frame says where it's drawn and that it isn't written to code. Picking a heavier kind makes it that kind at once;
  * picking Frame for a screen or component asks first, since it drops things (see BackToAFrameDialog).
  */
-export function KindHeader({ kind, name, onKind }: { kind: Kind; name: string; onKind?: (kind: Kind) => void }) {
+export function KindHeader({
+  kind,
+  name,
+  onKind,
+  onRename
+}: {
+  kind: Kind
+  name: string
+  onKind?: (kind: Kind) => void
+  onRename?: (name: string) => void
+}) {
   return (
     <div className="border-b px-4 py-3">
       <div className="flex items-center gap-2">
         <KindIcon kind={kind} className="size-4 shrink-0" style={{ color: kindColor(kind) }} />
         <Input
+          // A new name from the canvas or Layers starts the field again.
+          key={name}
           defaultValue={name}
           aria-label={`${kindNames[kind]} name`}
           className="h-7 flex-1 border-transparent bg-transparent px-1.5 text-base font-semibold shadow-none hover:border-input dark:bg-transparent"
+          onBlur={(event) => {
+            const next = event.currentTarget.value.trim()
+            if (next && next !== name) onRename?.(next)
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") event.currentTarget.blur()
+          }}
         />
       </div>
       <div className="mt-2 flex flex-col gap-2 pl-6">
         <ToggleGroup
-          type="single"
           variant="outline"
           size="sm"
           spacing={0}
-          value={kind}
+          value={[kind]}
           aria-label="Kind"
-          onValueChange={(value) => {
+          onValueChange={([value]) => {
             const picked = kinds.find((candidate) => candidate === value)
             if (picked) onKind?.(picked)
           }}
@@ -83,32 +109,40 @@ export function KindHeader({ kind, name, onKind }: { kind: Kind; name: string; o
  * A frame's own layout, size and fill, from the inspector's real style sections. A frame is its root layout, so these
  * come straight after its name, with no states, modes or params above them.
  */
-function FrameStyles({ root }: { root: DesignNode }) {
+function FrameStyles({ root, onSize }: { root: DesignNode; onSize?: (width?: number, height?: number) => void }) {
   const session = useProject()
   const tokens = useTokenList(session.tokens)
+  const unit = spacingUnit(tokens)
   const [style, setStyle] = useState<NodeStyle>(root.style ?? {})
   const node = { ...root, style }
   const editor: StyleEditor = {
     style,
     changed: () => false,
     reset: (name) => setStyle(({ [name]: _, ...rest }) => rest),
-    set: (edit) =>
-      setStyle((current) => {
-        const values = styleValues(edit, current, {
-          base: true,
-          measure: () => undefined,
-          type: root.type,
-          column: false
-        })
-        const next: Record<string, unknown> = { ...current }
-        for (const [key, value] of Object.entries(values)) {
-          if (value === undefined) delete next[key]
-          else next[key] = value
-        }
-        return next as NodeStyle
-      }),
+    set: (edit) => {
+      const values = styleValues(edit, style, {
+        base: true,
+        measure: () => undefined,
+        type: root.type,
+        column: false
+      })
+      const next: Record<string, unknown> = { ...style }
+      for (const [key, value] of Object.entries(values)) {
+        if (value === undefined) delete next[key]
+        else next[key] = value
+      }
+      setStyle(next as NodeStyle)
+      // A fixed width or height resizes the frame on the canvas too.
+      const { width, height } = next
+      if ("width" in values || "height" in values) {
+        onSize?.(
+          typeof width === "number" ? width * unit : undefined,
+          typeof height === "number" ? height * unit : undefined
+        )
+      }
+    },
     tokens,
-    unit: spacingUnit(tokens),
+    unit,
     measure: () => undefined
   }
   return <StyleSections editor={editor} node={node} />
@@ -138,17 +172,43 @@ export function InspectorPanel({ children }: { children: ReactNode }) {
 export function FrameInspector({
   name,
   root,
-  onKind
+  onKind,
+  onRename,
+  onSize
 }: {
   name: string
   root: DesignNode
   onKind?: (kind: Kind) => void
+  onRename?: (name: string) => void
+  onSize?: (width?: number, height?: number) => void
 }) {
   return (
-    <InspectorPanel>
-      <KindHeader kind="frame" name={name} onKind={onKind} />
-      <FrameStyles root={root} />
-    </InspectorPanel>
+    <>
+      <KindHeader kind="frame" name={name} onKind={onKind} onRename={onRename} />
+      {/* A frame resized on the canvas starts its sections again, at its new size. */}
+      <FrameStyles key={JSON.stringify(root.style)} root={root} onSize={onSize} />
+    </>
+  )
+}
+
+/** The Design tab with nothing selected: what to select, and where. */
+export function NothingSelected() {
+  return (
+    <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
+      <MousePointerClick className="size-5 text-muted-foreground" aria-hidden />
+      <p className="text-sm text-foreground">Select a screen, component or frame on the canvas or in Layers.</p>
+      <p className="text-xs text-muted-foreground">Or press F and drag on the canvas to draw a frame.</p>
+    </div>
+  )
+}
+
+/** The Design tab for a note, which has nothing to style: it's for the team, never drawn in the app. */
+export function NoteSelected() {
+  return (
+    <div className="flex flex-col gap-1 border-b px-4 py-3">
+      <span className="text-base font-semibold">Note</span>
+      <p className="text-xs text-muted-foreground">Notes are for your team. They&apos;re never drawn in your app.</p>
+    </div>
   )
 }
 
@@ -220,13 +280,15 @@ export function BackToAFrameDialog({
   name,
   drops,
   open = true,
-  onOpenChange
+  onOpenChange,
+  onConfirm
 }: {
   kind: "screen" | "component"
   name: string
   drops: FrameDrops
   open?: boolean
   onOpenChange?: (open: boolean) => void
+  onConfirm?: () => void
 }) {
   const lines = dropLines(drops)
   return (
@@ -252,7 +314,14 @@ export function BackToAFrameDialog({
           <Button variant="outline" onClick={() => onOpenChange?.(false)}>
             Cancel
           </Button>
-          <Button onClick={() => onOpenChange?.(false)}>Convert to frame</Button>
+          <Button
+            onClick={() => {
+              onConfirm?.()
+              onOpenChange?.(false)
+            }}
+          >
+            Convert to frame
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

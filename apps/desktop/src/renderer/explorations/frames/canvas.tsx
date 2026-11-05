@@ -1,21 +1,28 @@
-import { companionScale, type ResolvedMode } from "@parity-app/core"
-import { AppWindow, ChevronDown, Component, Crown, Frame, type LucideProps } from "lucide-react"
-import { type CSSProperties, type ReactNode, useLayoutEffect, useRef, useState } from "react"
+/* oxlint-disable jsx-a11y/prefer-tag-over-role -- designs and notes stand in for the canvas's shapes, which take the pointer; the keyboard reaches them through Layers and the canvas's keys, as in the app */
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
-  ContextMenuTrigger
-} from "@/components/ui/context-menu"
-import {
+  ContextMenuTrigger,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
+} from "@buildkitgg/shadcn-baseui-kit"
+import { companionScale, type ResolvedMode } from "@parity-app/core"
+import { AppWindow, ChevronDown, Component, Crown, Frame, type LucideProps } from "lucide-react"
+import {
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+  type ReactElement,
+  type ReactNode,
+  useLayoutEffect,
+  useRef,
+  useState
+} from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { labelLook } from "../../canvas/labels.ts"
 import { ModesMenu } from "../../canvas/ModesMenu.tsx"
@@ -23,8 +30,9 @@ import { ModeViewportIcon } from "../../chrome/viewports.tsx"
 import { modes, primaryMode } from "./data.ts"
 
 /*
- * The canvas as the explorations draw it: tldraw's background in the app's theme, boards and frames placed on it at a
- * zoom, and their titles drawn at screen size above them, as the canvas draws them.
+ * The canvas as the explorations draw it: boards and frames placed on it at a zoom, and their titles drawn at screen
+ * size above them, as the canvas draws them. The workspace (workspace.tsx) owns what's on it and what's selected; these
+ * draw one design each and report what's done to them.
  */
 
 /** The three kinds of top-level design, lightest first. */
@@ -54,38 +62,41 @@ export function KindIcon({ kind, ...props }: LucideProps & { kind: Kind }) {
 
 export const kindNames: Record<Kind, string> = { frame: "Frame", component: "Component", screen: "Screen" }
 
-/** The canvas behind the panels, in the app's theme. */
-export function CanvasStage({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return (
-    <div
-      className={`relative h-screen min-h-[680px] overflow-hidden bg-[#f9fafb] font-sans text-foreground dark:bg-[#101011] ${className}`}
-    >
-      {children}
-    </div>
-  )
+/** What can be done to a design from its title's menu. */
+export interface DesignActions {
+  onRename?: () => void
+  onDuplicate?: () => void
+  onConvert?: (kind: Kind) => void
+  onDelete?: () => void
 }
 
-/** Puts something on the canvas at a point on the screen. */
-export function At({
-  x,
-  y,
-  children,
-  className = ""
-}: {
-  x: number
-  y: number
-  children: ReactNode
-  className?: string
-}) {
+/** The menu on a design's title: Rename and Duplicate, Convert to each other kind, and Delete. */
+function TitleMenu({ kind, actions, children }: { kind: Kind; actions: DesignActions; children: ReactElement }) {
+  const others = (["component", "screen", "frame"] as const).filter((each) => each !== kind)
   return (
-    <div className={`absolute ${className}`} style={{ left: x, top: y }}>
-      {children}
-    </div>
+    <ContextMenu>
+      <ContextMenuTrigger render={children} />
+      <ContextMenuContent className="w-52" onPointerDown={(event) => event.stopPropagation()}>
+        <ContextMenuItem onClick={actions.onRename}>Rename</ContextMenuItem>
+        <ContextMenuItem onClick={actions.onDuplicate}>Duplicate</ContextMenuItem>
+        <ContextMenuSeparator />
+        {others.map((each) => (
+          <ContextMenuItem key={each} onClick={() => actions.onConvert?.(each)}>
+            <KindIcon kind={each} />
+            Convert to {each}
+          </ContextMenuItem>
+        ))}
+        <ContextMenuSeparator />
+        <ContextMenuItem variant="destructive" onClick={actions.onDelete}>
+          Delete
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   )
 }
 
 const menuTrigger =
-  "flex h-8 items-center gap-1.5 rounded-md border bg-background/80 px-2.5 text-sm shadow-xs backdrop-blur hover:bg-accent data-[state=open]:bg-accent"
+  "flex h-8 items-center gap-1.5 rounded-md border bg-background/80 px-2.5 text-sm shadow-xs backdrop-blur hover:bg-accent data-popup-open:bg-accent"
 
 /**
  * Steps something down until it fits its box: `steps` versions of it, fullest first, each tried in turn until one no
@@ -152,33 +163,77 @@ function StateTrigger({ states }: { states: string[] }) {
   )
 }
 
-/** A board's or frame's name, with its kind's icon, in its color once selected. */
+/** What every design's title is given: whether it's selected or being renamed, its menu, and what a press does. */
+interface TitleProps {
+  selected?: boolean
+  renaming?: boolean
+  actions?: DesignActions
+  /** A press on the design or its name, which selects it and can start moving it. */
+  onPointerDown?: (event: ReactPointerEvent) => void
+  /** Renaming finished: the new name, or nothing to keep the old one. */
+  onRenamed?: (name: string | undefined) => void
+}
+
+/**
+ * A design's name with its kind's icon, in its color once selected: a button, so a click selects the design, a
+ * double-click renames it and a right-click opens its menu.
+ */
 function DesignName({
   kind,
   name,
+  quiet,
   selected,
-  quiet
-}: {
-  kind: Kind
-  name: string
-  selected?: boolean
-  quiet?: boolean
-}) {
+  renaming,
+  actions = {},
+  onPointerDown,
+  onRenamed
+}: TitleProps & { kind: Kind; name: string; quiet?: boolean }) {
   const color = kindColor(kind)
+  const icon = (
+    <KindIcon
+      kind={kind}
+      className={`shrink-0 ${quiet ? "size-3.5" : "size-4"}`}
+      style={{ color: quiet && !selected ? undefined : color }}
+    />
+  )
+  const look = `flex shrink-0 items-center gap-1.5 rounded-md px-1 py-0.5 ${
+    quiet ? "text-[13px] text-muted-foreground" : "text-sm font-medium text-foreground/90"
+  }`
+  if (renaming) {
+    return (
+      <span className={look}>
+        {icon}
+        <input
+          // oxlint-disable-next-line jsx-a11y/no-autofocus -- Rename puts the cursor in the name, as the app does
+          autoFocus
+          defaultValue={name}
+          aria-label={`${kindNames[kind]} name`}
+          className="w-40 rounded-sm bg-background px-1 text-foreground ring-2 ring-ring/50 outline-none"
+          onFocus={(event) => event.currentTarget.select()}
+          onPointerDown={(event) => event.stopPropagation()}
+          onBlur={(event) => onRenamed?.(event.currentTarget.value.trim() || undefined)}
+          onKeyDown={(event) => {
+            event.stopPropagation()
+            if (event.key === "Enter") event.currentTarget.blur()
+            if (event.key === "Escape") onRenamed?.(undefined)
+          }}
+        />
+      </span>
+    )
+  }
   return (
-    <span
-      className={`flex shrink-0 items-center gap-1.5 px-1 py-0.5 ${
-        quiet ? "text-[13px] text-muted-foreground" : "text-sm font-medium text-foreground/90"
-      }`}
-      style={selected ? { color } : undefined}
-    >
-      <KindIcon
-        kind={kind}
-        className={`shrink-0 ${quiet ? "size-3.5" : "size-4"}`}
-        style={{ color: quiet && !selected ? undefined : color }}
-      />
-      <span>{name}</span>
-    </span>
+    <TitleMenu kind={kind} actions={actions}>
+      <button
+        type="button"
+        className={`${look} cursor-default outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50`}
+        style={selected ? { color } : undefined}
+        onPointerDown={onPointerDown}
+        onDoubleClick={actions.onRename}
+      >
+        {icon}
+        <span>{name}</span>
+      </button>
+    </TitleMenu>
   )
 }
 
@@ -201,17 +256,18 @@ export function Board({
   zoom,
   previews,
   states = ["Default"],
-  controls = false,
-  selected = false
-}: {
+  onModes,
+  ...title
+}: TitleProps & {
   kind: "screen" | "component"
   name: string
   zoom: number
   previews: Preview[]
   states?: string[]
-  controls?: boolean
-  selected?: boolean
+  /** The modes menu changed what the board shows: its main mode, and every mode shown. */
+  onModes?: (main: string, shown: string[]) => void
 }) {
+  const [hovered, setHovered] = useState(false)
   const [main, ...beside] = previews
   const gutter = gutterAt(zoom)
   // The board's width on screen, which the title bar's menus have to fit in.
@@ -222,14 +278,14 @@ export function Board({
       beside.length * gutter.between
   )
   return (
-    <div className="relative w-max">
+    <div className="relative w-max" onPointerEnter={() => setHovered(true)} onPointerLeave={() => setHovered(false)}>
       <TitleBar
         key={onScreen}
         zoom={zoom}
         width={onScreen}
-        name={<DesignName kind={kind} name={name} selected={selected} />}
+        name={<DesignName kind={kind} name={name} {...title} />}
         controls={
-          controls &&
+          (hovered || title.selected) &&
           main && (
             <div className="ml-auto flex shrink-0 items-center gap-1.5">
               <StateTrigger states={states} />
@@ -238,7 +294,7 @@ export function Board({
                 main={main.mode}
                 beside={beside.map((preview) => preview.mode)}
                 triggerClassName={menuTrigger}
-                onChange={() => undefined}
+                onChange={(next, shown) => onModes?.(next, shown)}
               />
             </div>
           )
@@ -246,9 +302,12 @@ export function Board({
       />
       <div
         className="relative w-max rounded-lg border bg-card text-card-foreground shadow-2xl"
+        role="group"
+        aria-label={`${name}, a ${kind}`}
+        onPointerDown={title.onPointerDown}
         style={{
           padding: `0 ${gutter.side}px ${gutter.side}px`,
-          ...(selected ? { boxShadow: `0 0 0 2px ${kindColor(kind)}` } : {})
+          ...(title.selected ? { boxShadow: `0 0 0 2px ${kindColor(kind)}` } : {})
         }}
       >
         <div className="flex items-start">
@@ -377,63 +436,43 @@ function Selection({ size, color = frameColor }: { size: string; color?: string 
 export function CanvasFrame({
   name,
   zoom,
-  selected = false,
   size,
-  outline = false,
-  children
-}: {
+  children,
+  ...title
+}: TitleProps & {
   name: string
   zoom: number
-  selected?: boolean
   /** The size shown under it once selected; "Hug" for a side that hugs its content. */
   size?: string
-  /** A hairline around it, as when the pointer is over it. */
-  outline?: boolean
   children: ReactNode
 }) {
+  const [hovered, setHovered] = useState(false)
   return (
-    <div className="relative w-max">
+    <div className="relative w-max" onPointerEnter={() => setHovered(true)} onPointerLeave={() => setHovered(false)}>
       <div className="absolute bottom-full left-0 pb-1" style={{ zoom: labelLook("name", zoom).scale }}>
-        <ContextMenu>
-          <ContextMenuTrigger asChild>
-            <button
-              type="button"
-              className="flex cursor-default rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
-            >
-              <DesignName kind="frame" name={name} selected={selected} quiet />
-            </button>
-          </ContextMenuTrigger>
-          <ContextMenuContent className="w-52">
-            <ContextMenuItem>Rename</ContextMenuItem>
-            <ContextMenuItem>Duplicate</ContextMenuItem>
-            <ContextMenuSeparator />
-            <ContextMenuItem>
-              <Component />
-              Convert to component
-            </ContextMenuItem>
-            <ContextMenuItem>
-              <AppWindow />
-              Convert to screen
-            </ContextMenuItem>
-            <ContextMenuSeparator />
-            <ContextMenuItem variant="destructive">Delete</ContextMenuItem>
-          </ContextMenuContent>
-        </ContextMenu>
+        <DesignName kind="frame" name={name} quiet {...title} />
       </div>
-      <div style={{ zoom }} className="relative">
+      <div
+        style={{ zoom }}
+        className="relative"
+        role="group"
+        aria-label={`${name}, a frame`}
+        onPointerDown={title.onPointerDown}
+      >
         <div
           className="relative w-max shadow-sm"
           // A hairline, so a white frame still has an edge on the light canvas; hovered, the frame color instead.
           style={{
-            outline: outline
-              ? `${1 / zoom}px solid ${frameColor}`
-              : `${1 / zoom}px solid color-mix(in oklch, var(--foreground) 12%, transparent)`
+            outline:
+              hovered && !title.selected
+                ? `${1 / zoom}px solid ${frameColor}`
+                : `${1 / zoom}px solid color-mix(in oklch, var(--foreground) 12%, transparent)`
           }}
         >
           {children}
         </div>
       </div>
-      {selected && size && <Selection size={size} />}
+      {title.selected && size && <Selection size={size} />}
     </div>
   )
 }
@@ -441,7 +480,7 @@ export function CanvasFrame({
 /** A rectangle being dragged out with the frame tool, with its size underneath as it grows. */
 export function DraggedFrame({ width, height, size }: { width: number; height: number; size: string }) {
   return (
-    <div className="relative" style={{ width, height, background: "rgb(255 255 255 / 0.9)" }}>
+    <div className="pointer-events-none relative" style={{ width, height, background: "rgb(255 255 255 / 0.9)" }}>
       <Selection size={size} />
     </div>
   )
@@ -461,68 +500,16 @@ export function Guide({
 }) {
   return (
     <div
-      className="absolute bg-[oklch(0.68_0.21_15)]"
+      className="pointer-events-none absolute bg-[oklch(0.68_0.21_15)]"
       style={vertical ? { left: x, top: y, width: 1, height: length } : { left: x, top: y, height: 1, width: length }}
     />
   )
 }
 
-/** The pointer, drawn where a story needs it: the arrow, the crosshair the frame tool shows, or the text cursor. */
-export function Pointer({ x, y, kind }: { x: number; y: number; kind: "arrow" | "crosshair" | "text" }) {
-  if (kind === "arrow") {
-    return (
-      <svg
-        className="pointer-events-none absolute drop-shadow"
-        style={{ left: x, top: y }}
-        width="18"
-        height="22"
-        viewBox="0 0 18 22"
-        aria-hidden
-      >
-        <path
-          d="M1 1 L1 17 L5.5 13 L8.5 20 L11 19 L8 12 L14 12 Z"
-          fill="black"
-          stroke="white"
-          strokeWidth="1.5"
-          strokeLinejoin="round"
-        />
-      </svg>
-    )
-  }
-  if (kind === "text") {
-    return (
-      <svg
-        className="pointer-events-none absolute"
-        style={{ left: x - 5, top: y - 10 }}
-        width="10"
-        height="20"
-        viewBox="0 0 10 20"
-        aria-hidden
-      >
-        <path d="M2 1 H8 M5 1 V19 M2 19 H8" stroke="white" strokeWidth="3" strokeLinecap="round" />
-        <path d="M2 1 H8 M5 1 V19 M2 19 H8" stroke="black" strokeWidth="1.25" strokeLinecap="round" />
-      </svg>
-    )
-  }
-  return (
-    <svg
-      className="pointer-events-none absolute"
-      style={{ left: x - 10, top: y - 10 }}
-      width="20"
-      height="20"
-      viewBox="0 0 20 20"
-      aria-hidden
-    >
-      <path d="M10 1 V19 M1 10 H19" stroke="white" strokeWidth="3" strokeLinecap="round" />
-      <path d="M10 1 V19 M1 10 H19" stroke="black" strokeWidth="1.25" strokeLinecap="round" />
-    </svg>
-  )
-}
-
 /** A short line of explanation pinned to the canvas, in the explorations' dimmed type, for a reviewer. */
-export function Explainer({ title, children }: { title: string; children: ReactNode }) {
+export function Explainer({ title, width = 320, children }: { title: string; width?: number; children: ReactNode }) {
   return (
-    <div className="flex flex-col gap-1" style={{ width: 320 }}>
+    <div className="flex flex-col gap-1" style={{ width }}>
       <span className="text-sm font-medium text-foreground">{title}</span>
       <span className="text-[13px] leading-snug text-muted-foreground">{children}</span>
     </div>
