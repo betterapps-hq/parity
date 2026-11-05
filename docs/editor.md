@@ -1145,10 +1145,12 @@ a component design; the Layers panel's add buttons start new designs. Each is on
 - **Make component** puts the component design at the end of the project file, 640px above the topmost design on the
   canvas, lined up with the design it came from, so components sit above screens. An instance replaces each occurrence,
   and the step is "Extract" and its name. It's refused, changing nothing, unless the design renders the same in every
-  state and viewport, as its board shows it: with the variant option the board shows and the defaults of the params the
-  design binds (PAR-486). So a variant that changes something inside the part, or a param default a layer in it shows,
-  refuses it rather than losing the change. A component design's Params section lists its instances, across every
-  design.
+  state, viewport and variant option, as its board shows each, with the defaults of the params the design binds
+  (PAR-486). Every option of every variant is checked, not only the one the board shows (PAR-493), each with the other
+  variants as the board shows them, and the message names the option: "Extracting would change how Team looks (Default,
+  desktop, Compact), so it wasn't done". So a variant option that changes something inside the part, shown or not, or a
+  param default a layer in it shows, refuses it rather than losing the change. A component design's Params section lists
+  its instances, across every design.
 - **A new design goes 240px to the right of everything on the canvas,** top-aligned with the topmost design. A screen
   starts as a padded page with its name as a heading, a component as a small padded layout on a 480px frame.
 
@@ -1169,15 +1171,21 @@ where one line along every child would pick the first, and the pointer's place i
 exist yet, and the errors; and instances in layouts and slots across designs. `create.test.ts`: a new screen and
 component, and a taken id. `placement.test.ts`: a new design beside everything, one the canvas hasn't drawn, an empty
 canvas, and a component above everything. A library part's parents and samples are core's, in
-`packages/core/src/library-insert.test.ts`, with three for names that fit (PAR-518): none for a component that sets its
-own size, unless given; none for a part whose sample gives no children; and a part without a sample taking the children
-its library's other samples give it (none for an icon's box or one used without any, their text), else its name.
-`packages/code/src/props.test.ts` has two for `fixedSize`: the example's Avatar, AvatarGroupCount, CardHeader and
-Separator but not Card, Badge or Button, and a library's compiled parts, leaving out classes for what's inside or taken
-from a parent. The extraction and its check are core's `extractComponent`, in `packages/core/src/decompose.test.ts`:
-occurrences become instances that render the same, a state changing the part refused, a single part's texts as params,
-and the check against the board, refused under a variant option that changes the part but not one that changes what's
-outside it or isn't shown, and refused when a layer in the part shows a param's default.
+`packages/core/src/library-insert.test.ts`. The extraction and its check are core's `extractComponent`, in
+`packages/core/src/decompose.test.ts`: occurrences become instances that render the same, a state changing the part
+refused, a single part's texts as params, and the check against the board, refused under a variant option that changes
+the part, whether the board shows it or not (PAR-493), but not one that changes what's outside it; each option of two
+variant params checked in turn, refused for one the board doesn't show; and refused when a layer in the part shows a
+param's default. `packages/core/src/library-insert.test.ts`, with three for names that fit (PAR-518): none for a
+component that sets its own size, unless given; none for a part whose sample gives no children; and a part without a
+sample taking the children its library's other samples give it (none for an icon's box or one used without any, their
+text), else its name. `packages/code/src/props.test.ts` has two for `fixedSize`: the example's Avatar, AvatarGroupCount,
+CardHeader and Separator but not Card, Badge or Button, and a library's compiled parts, leaving out classes for what's
+inside or taken from a parent. The extraction and its check are core's `extractComponent`, in
+`packages/core/src/decompose.test.ts`: occurrences become instances that render the same, a state changing the part
+refused, a single part's texts as params, and the check against the board, refused under a variant option that changes
+the part but not one that changes what's outside it or isn't shown, and refused when a layer in the part shows a param's
+default.
 
 End to end, `apps/desktop/e2e/dropping.e2e.ts` drags Badge from the Components panel onto the left of the fifth card in
 Projects' grid: the grid is outlined and the line stands beside that card while dragging, Badge lands fifth, selected,
@@ -2651,18 +2659,18 @@ in `canvas/ContainerShapeUtil.tsx`; `isRestingFar` in `canvas/CanvasEditor.tsx`;
 Tests: `apps/desktop/e2e/sleeping.e2e.ts` (2: zoomed out, every frame with a bitmap sleeps, the window's DOM nodes fall
 by at least the elements the awake frames held, and no board changes size; back at 100% the design's frames draw again
 with their layers while boards out of view stay asleep, still at the same sizes; and the selected board's frames wake at
-a far zoom and sleep again once nothing is selected). `apps/desktop/src/renderer/ModeView.test.ts` (1: a frame put to
-sleep keeps its host and height with nothing inside, and draws its design again when it wakes).
-`apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (2: a failed capture isn't kept, so the next try takes it and
-that one is kept; a frame that didn't render is kept and not drawn again). Before it, a capture that failed under load
-(Electron's `UnknownVizError`) was kept as no bitmap, so that frame never slept and `sleeping.e2e.ts`, which waits for
-every frame's bitmap, timed out in the full suite. The retry delays, and that a frame which leaves the canvas or changes
-stops retrying, have no test of their own; they were checked by reading `useFrameBitmap`, and the full suite passed four
-times under extra load with the fix. `App.settle` in `e2e/app.ts` waits for a design's board to wake, and `App.show`
-brings a design into view before finding a layer in it, so the other files' tests work on frames that slept. Gaps: the
-order frames wake in, and waking on a changed design, have no test of their own; the first was checked by reading
-`wakeNext`, the second by reading `useAwake`. The memory it gives back and the time waking takes were measured by hand
-in a debug copy (see [decisions.md](decisions.md), Canvas), not by the suite.
+a far zoom, picked in Layers since its title is hidden there, and sleep again once nothing is selected).
+`apps/desktop/src/renderer/ModeView.test.ts` (1: a frame put to sleep keeps its host and height with nothing inside, and
+draws its design again when it wakes). `apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (2: a failed capture
+isn't kept, so the next try takes it and that one is kept; a frame that didn't render is kept and not drawn again).
+Before it, a capture that failed under load (Electron's `UnknownVizError`) was kept as no bitmap, so that frame never
+slept and `sleeping.e2e.ts`, which waits for every frame's bitmap, timed out in the full suite. The retry delays, and
+that a frame which leaves the canvas or changes stops retrying, have no test of their own; they were checked by reading
+`useFrameBitmap`, and the full suite passed four times under extra load with the fix. `App.settle` in `e2e/app.ts` waits
+for a design's board to wake, and `App.show` brings a design into view before finding a layer in it, so the other files'
+tests work on frames that slept. Gaps: the order frames wake in, and waking on a changed design, have no test of their
+own; the first was checked by reading `wakeNext`, the second by reading `useAwake`. The memory it gives back and the
+time waking takes were measured by hand in a debug copy (see [decisions.md](decisions.md), Canvas), not by the suite.
 
 ### A hidden tab's frames sleep (PAR-153)
 
@@ -2980,6 +2988,33 @@ a new one runs its two frames again). Gaps: that the layer is drawn sharp is up 
 was tried in a debug copy on `examples/shadcn-vite`: zooming in steadily from the whole project to 324% on Button's
 board, the board was still blurry 8 seconds after the camera stopped; with the redraw, it was sharp once the zoom
 settled. Its cost wasn't timed, as the copy's window was minimized; it's one paint of the layer for each zoom.
+
+### Titles and labels zoomed far out (PAR-151)
+
+A board's labels are its design's title above it, the state labels beside its rows when it shows every state, and the
+captions naming each frame's mode. Up close they keep their screen size. Past 40% they shrink with the canvas, so they
+stay beside what they label instead of growing over the boards around it.
+
+- **A title is a name, so it stays.** It shrinks to 60% of its screen size and no smaller, and is as wide on screen as
+  its board: a long name truncates, and the design's icon is clipped with it, so nothing runs past the board's edge.
+- **Detail goes first.** State labels and mode captions shrink as titles do, but fade as they shrink and are gone by
+  25%, while titles show at any zoom.
+- **Too narrow to read, a label hides.** Once a board is narrower than 24 screen pixels, its title hides, and its state
+  labels with it. A caption hides once its frame is that narrow. So at 1% a board 2,400 pixels wide or more keeps its
+  title, clipped to its 24 or more pixels, and a narrower one shows none. A narrow component's labels hide this way even
+  above 25%, before detail would have faded, so a board's detail never shows once its title has gone. A hidden label
+  doesn't take the pointer.
+
+Code: `labelLook` in `packages/editor/src/canvas-labels.ts`, the rule for every label; `useCanvasLabel` in
+`apps/desktop/src/renderer/canvas/labels.ts`, which applies it to a label's style as the zoom changes; `TitleBar`,
+`StateLabel` and `FrameCaption` in `canvas/ContainerView.tsx`, which pass each the board's or the frame's width.
+
+Tests: `packages/editor/src/canvas-labels.test.ts` (5: every label at screen size up close; names shrinking to 60% and
+showing at any zoom while there's room, including a 3,000-pixel board at 1%; detail fading out by 25%; a label hiding
+once what it labels is under 24 screen pixels, and showing again closer in; a narrow board's detail hiding with its
+title at 30%, where it would otherwise still show). Gaps: applying the look to the DOM (the transform, the width it fits
+and the clipped icon) has no automated test. It was checked in Storybook on the example's boards at 100%, 25%, 5% and
+1%.
 
 ## What the editor itself loads
 

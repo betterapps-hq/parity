@@ -3720,6 +3720,8 @@ below. My calls on how they move:
     without the leading slash, which the CLI and MCP report as the error's `path`.
   - `plainObject`, `nonBlankString` (trimmed) and `finiteNumber` are the shared pieces, and `jsonText(schema)` parses
     JSON text, then checks it with the schema.
+  - `fileObject(shape)` is an object in a file Parity owns (PAR-589). It's strict, and it leaves out a key set to
+    `undefined`, as `validate.ts`'s `compact` did, so what the window saves from memory reads as it would from the file.
   - `packageManifest`, in core's `adapters.ts`, is the package manifest schema, and `PackageManifest` its type. PAR-573
     added the fields its package reader needs.
   - A read that returns nothing when the data is malformed calls the schema's own `safeParse(value).data`, as
@@ -3733,6 +3735,18 @@ below. My calls on how they move:
 - **Errors read as they do now.** A failed check throws `TypeError` with `/json/pointer: message`, as `validate.ts`
   does, so people and tests see the same messages. Agent input throws `CodedError` with `invalid_input` and the pointer
   as its `path` (PAR-472).
+- **`.par` files are zod schemas (PAR-589).** `parseCanvasDocument`, `parseDesignNode`, `parseNodePatch` and
+  `parseModeSettings` check with them, and the types of `document.ts` and the mode settings come from `z.infer`.
+  - The node tree is a discriminated union on `type`. Each type of node extends one base schema, since spreading the
+    base's shape loses the recursive type.
+  - Rules that span fields are refinements, each reported at the field at fault: node ids used twice, patch keys that
+    name no node, what a frame may hold, a variant's options, links' ends and mode values. A refinement runs after the
+    fields it reads pass their own checks, so a file with several problems can report a different one first.
+  - Positions of designs and notes are strict too, as canvas objects' already were.
+  - A few messages say more than before. A length that's neither a number nor a string says
+    `expected a number or a string`, padding names its three forms, and a problem in a file's modes points inside
+    `/modes`.
+  - `validate.ts` is left only for `library.ts`, until PAR-594.
 - **Everything that crosses into Parity is checked:**
   - project and library files
   - the clipboard, drag payloads and saved preferences
@@ -3967,6 +3981,30 @@ the picture. My calls:
   scrollbar would otherwise stay until their code changed. Every project's previews are made again once, in the idle
   pass.
 
+## Zoomed far out, a board's labels hide once it's too narrow (PAR-151)
+
+Called on 2026-11-04, for your approval in Storybook:
+
+- **The frame the issue names is the board.** A title is clipped to its board's width on screen and hides when the board
+  is under 24 screen pixels wide; a mode caption goes by its own frame's width, and a state label by its board's. One
+  threshold for all three means detail never outlasts the title: a frame is never wider than its board.
+- **Hidden at the line, not faded towards it.** The zoom moves in steps far out (1%, 2.5%, 5%, 10%), so a fade between
+  them would rarely show. At 24 pixels or wider, a title shows, however little of its name fits.
+- **The icon is clipped with the name,** by the title's button, rather than the title dropping to its icon alone. The
+  rename field isn't clipped, so renaming a narrow board up close still shows the whole field.
+- **The rule moved to `@parity-app/editor`** (`canvas-labels.ts`), taking the board's or frame's width with the zoom, as
+  packages hold the editor's logic; the canvas keeps applying it to each label's style.
+
+## Make component checks every variant option (PAR-493)
+
+Called on 2026-11-05. Make component's before-and-after check now renders the design in each option of each variant
+param, not only the option its board shows, as it already did for every state and viewport. Each option is checked with
+the other params as the board shows them, rather than every combination of options: an option that changes nothing
+inside the part on its own changes nothing there beside another that doesn't either, and the checks grow with the number
+of options rather than their product. A refusal for an option the board doesn't show names it after the state and
+viewport. A variant's change inside the part isn't caught earlier with its own advice, as a state's is; the render check
+refuses it.
+
 ## Width and Height make room for their value (PAR-496)
 
 Called on 2026-11-05, for your approval in Storybook. A 96 by 48 layer showed "9" and "4" in the Size section. Both
@@ -3978,6 +4016,23 @@ Size row is narrower than 176px (an inspector under about 310 pixels) the list g
 it, so the row is taller there instead of the value being cut. Shrinking the list or dropping `px` wouldn't have made
 room for four digits at 260 pixels. Padding, Margin, Min, Max and insets keep two lengths to a row and still clip at the
 narrowest; they're left for another issue.
+
+## A correction taken back leaves the list to detection (PAR-581, PAR-604)
+
+An export the person took back off the component list stayed listed when the parse couldn't decide it, as
+`export const Menu = MenuPrimitive.Root`: reading its file again kept its `included` mark, and the type checker skips
+marked components. My calls:
+
+- **The mark follows the person's list.** `correctedSources` takes the mark off any component whose export is no longer
+  in `include`, every time it runs. Nothing else sets or clears it, so the mark always says whether the person listed
+  it.
+- **One taken back stays listed until the checker reads its file.** It's left as any export the parse can't decide is
+  after files change, so the checker confirms or drops it in the check that follows the read. Dropping it at once would
+  take it off the canvas and put it back when the checker does recognise it.
+- **An export still on the person's list keeps its mark** through files being read again, so it doesn't drop off and
+  come back.
+- **PAR-581 needed only its test.** PAR-566's step already lets removed ids go before new components get theirs, so a
+  component the checker finds keeps an id it took off the list in the same check.
 
 ## A component's name goes in only where it fits (PAR-518)
 
@@ -4176,3 +4231,99 @@ My calls:
   A copy that gets a link it didn't start passes it, through the agent registry, to the copy whose `state` it is.
 - **Only `safeStorage` keeps the refresh token,** and the window never sees a token.
 - **The client IDs go in the code,** since they're public. The API key never ships in the app.
+
+## Signing in is data in and data out in `@parity-app/account` (PAR-613)
+
+The package holds sign-in's logic, with no Electron, files or network, as [proposals/sign-in.md](proposals/sign-in.md)
+sets out. Main passes in `fetch` and keeps what it returns. My calls:
+
+- **A refresh sends only the client ID,** as WorkOS's own browser client, `authkit-js`, does for its public clients. The
+  AuthKit reference lists `client_secret` as required for a refresh, so PAR-612 checks it against the sandbox along with
+  switching organization.
+- **WorkOS's answers end in one of three ways:** a session, refused, or unavailable. 408, 429, a 5xx, a failed request
+  or an answer without a user and tokens is unavailable, and a refresh tries again after 5 seconds, doubling to 5
+  minutes. Any other refusal ends the session, and the person signs in again. `authkit-js` draws the same line.
+- **Main refreshes a minute before the access token expires,** or halfway through its life when that's later. WorkOS's
+  tokens last 5 minutes, so that's every 4.
+- **Main reads the access token without checking its signature.** It comes straight from WorkOS over HTTPS, and main
+  only reads who it names and when it expires. Parity's service checks signatures against WorkOS's keys (PAR-615).
+- **The link the browser hands back is refused when it isn't the redirect URI or its `state` is missing or another
+  sign-in's,** so a copy of Parity that didn't start the sign-in passes it on. `access_denied` reads as declined, and
+  any other `error` as failed, with WorkOS's description.
+- **The package returns codes, not text.** The screens word what happened (PAR-614).
+- **PKCE and `state` use Web Crypto,** a global in Node and Electron, so the package stays pure. Each is 32 random
+  bytes, base64url-encoded, and the challenge is S256, the only method WorkOS takes.
+
+## Parity's own telemetry goes to Sentry, on by default
+
+The plan is [proposals/product-telemetry.md](proposals/product-telemetry.md), and the work is the Product telemetry
+stream in Linear. You set its direction on 2026-11-05, after a first draft that kept everything local unless people
+opted in: "we actually need to log the telemetry to the Sentry service. The app is still in development and not
+released, so all of our testers expect to have the telemetry collected. Mostly it's agents running test passes, so we
+need to default on." The aim is that agents "capture traces and replays so the agents can file bugs, pick them up, and
+address issues with actual context."
+
+- **Sentry receives it:** errors, crashes, traces, structured events and replays, through `@sentry/electron` in the app
+  and `@sentry/node` in the CLI. Adding both is approved with this direction.
+- **On by default, at its fullest level, everywhere Parity runs,** development and CI included, each tagged with its
+  environment. Settings and `PARITY_TELEMETRY` turn it down or off; unit tests leave it off.
+- **Names, paths, values and messages are sent as written.** My call: secrets are still scrubbed (keys, tokens,
+  passwords, `.env` values), since a leaked key is never what makes a bug findable.
+- **Session Replay records the editor window unmasked,** every session while testers and agents are few.
+- **The CLI sends too, at the same level, read from the same setting.** My call, since agents drive Parity through it
+  and their calls are half of each trace.
+- **All of this is revisited before the first public release,** in its own Backlog issue.
+
+## The rest of signing in is designed (PAR-614)
+
+You asked on 2026-11-05 for every missing sign-in design before PAR-612 builds it. The stories are under
+Parity/Explorations/Sign in, and the screens they settle are in
+[proposals/sign-in.md](proposals/sign-in.md#the-screens). My calls:
+
+- **The stories are one prototype,** each starting at a different point, as the start page's are. The browser can't be
+  driven from a story, so while Parity waits, a panel marked Prototype plays it: sign in, cancel there, hit an error, or
+  use an account WorkOS turns down. The sign-in screen and Waiting for browser now work too.
+- **Signed out, the account spot is an outline of an avatar** that opens the same menu, with Sign in where your name
+  goes. Agents, settings and help stay in it, since none of them needs an account; Sign out goes. There's no Sign in
+  button in the title bar, so it doesn't nag, but Home offers it twice more: in For you, and in the organization
+  switcher's menu. The inbox is left out until you sign in.
+- **Sign in from the title bar opens the sign-in screen in a dialog over Home,** without the link to skip it. Waiting
+  and what went wrong show in the same dialog, and only Cancel, Escape or its close button end it.
+- **"Open a folder on this computer without signing in" opens the folder picker,** as it says, over Home, which stays if
+  the picker is closed.
+- **Signing out asks nothing.** Open tabs stay, and a toast says "You're signed out" and that projects on this computer
+  stay open.
+- **Signed out, Home is Personal, listing every project on this computer,** as the built start page does now, since
+  Parity can't tell which organization a folder belongs to. It leaves out people's presence and what they did, which
+  come through an organization, and keeps what agents on this computer did.
+- **Someone in no organization yet** sees their email in the account menu where the organization and role go. Home's
+  switcher has Personal alone, and its menu offers New organization (PAR-616) but not Invite people, which needs an
+  organization. For you and the inbox only show what comes from organizations you're in.
+- **Waiting for browser never gives up on its own,** since the person may still be signing in. After 30 seconds it says
+  what to do if the page didn't open or opened in the wrong browser, and Open it again becomes the main button. Cancel
+  goes back to the ways in, or closes the dialog.
+- **Sign-in can end four ways without a session,** each saying what to do next. Nothing open changes in any of them.
+  - Canceled in the browser (`access_denied`): Try again, or Choose another way.
+  - An error, handed back or from trading the code: "Parity couldn't sign you in", with Try again and Details that hold
+    what WorkOS said, to copy for help.
+  - WorkOS turns the account down: it's named, with Choose another way and Details.
+  - The organization requires single sign-on (`sso_required`, or `organization_authentication_methods_required`):
+    Continue with single sign-on opens the browser at it. WorkOS's answer names neither the organization nor its
+    identity provider, so the screen doesn't either.
+- **A `pnpm dev` copy's loopback answers once the code is traded,** so its page can say whether that worked: "You're
+  signed in to Parity" or "Parity couldn't sign you in", and that the tab can be closed. It's plain HTML with no
+  scripts, light or dark as the system is, and says nothing about which copy it came from (your call). `handBackHtml` in
+  the exploration is the page. Installed apps hand back through `parity://`, where the browser shows its own prompt.
+- **Without a keyring, a toast says so once,** right after signing in: "You're signed in until you quit Parity", with
+  What to do. The account menu keeps saying it under your name, and both open a dialog that explains and names GNOME
+  Keyring and KWallet. The sign-in screen says nothing beforehand, since most people never meet it.
+- **AuthKit's pages take the app's look through WorkOS's branding,** the same in the sandbox and production (PAR-611):
+  - Global styles: display name Parity; the app icon as the logo icon and logo, since there's no wordmark; its small
+    drawing as the favicon; a 10-pixel corner radius.
+  - Colors, light then dark: page background `#FFFFFF` and `#0A0A0A`, buttons `#171717` and `#E5E5E5` with text
+    `#FAFAFA` and `#171717`, the app's own, and links `#5432E6` and `#8A74FF`, from the mark.
+  - AuthKit styles: the system's appearance, Geist, the logo icon only, a centered page titled "Sign in to Parity", the
+    Last used badge, and legal links once Parity has them.
+  - Custom CSS: the sign-in screen's glow on `.ak-Background`.
+- **New wording uses "sign in" as a verb,** as the writing guide asks, so the new screens say "Parity couldn't sign you
+  in" rather than calling it a sign-in.

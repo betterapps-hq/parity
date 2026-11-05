@@ -87,7 +87,7 @@ beforeAll(async () => {
       ${card("plain", "")}
     </div>`
   })
-}, 30_000)
+})
 
 afterAll(async () => {
   await browser?.close()
