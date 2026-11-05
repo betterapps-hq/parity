@@ -110,10 +110,14 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
             value={[container.kind ?? "screen"]}
             onValueChange={([value]) =>
               value &&
-              store.updateContainer(key, value === "component" ? "Make component" : "Make screen", (current) => ({
-                ...current,
-                kind: value as ContainerKind
-              }))
+              store.updateContainer(
+                key,
+                value === "component" ? "Convert to component" : "Convert to screen",
+                (current) => ({
+                  ...current,
+                  kind: value as ContainerKind
+                })
+              )
             }
           >
             <ToggleGroupItem value="screen" className="h-6 px-2 text-xs">

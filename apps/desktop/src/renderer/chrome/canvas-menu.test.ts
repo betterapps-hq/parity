@@ -173,7 +173,7 @@ describe("the canvas menu", () => {
     expect(labelOf(menuFor({ ...compact, view: { variants: { density: "comfortable" } } }), "hide")).toBe("Hide")
   })
 
-  it("leaves what acts on layers out for a design, and offers to make it a component", () => {
+  it("leaves what acts on layers out for a design, and offers to convert it to a component", () => {
     const menu = canvasMenu(overTitle, { design }, entries)
     expect(outline(menu)).toEqual([
       "Select layer >",
@@ -185,9 +185,9 @@ describe("the canvas menu", () => {
       "---",
       "makeComponent"
     ])
-    expect(labelOf(menu, "makeComponent")).toBe("Make it a component")
+    expect(labelOf(menu, "makeComponent")).toBe("Convert to component")
     const card = canvasMenu({ design: component, path: ["card"] }, { design: component }, entries)
-    expect(labelOf(card, "makeComponent")).toBe("Make it a screen")
+    expect(labelOf(card, "makeComponent")).toBe("Convert to screen")
   })
 
   it("makes no component of several designs", () => {

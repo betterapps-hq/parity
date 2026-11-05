@@ -3358,3 +3358,12 @@ My calls:
   their look off `aria-pressed`.
 - **Open triggers style by `aria-expanded`,** which Base UI sets on every menu, popover and select trigger, where Radix
   set `data-state="open"`; a closing popup is `[data-closed]` for the canvas's shortcuts.
+
+## "Convert to" changes what a design is (PAR-553)
+
+Andrew decided on 2026-11-04, in PAR-540: "We should say "Convert to" and you're right, it should be changed
+everywhere." So the item that turns a screen into a component, or a component back into a screen, reads "Convert to
+component" or "Convert to screen" in the canvas menu, the Object menu and a board title's menu, rather than "Make it a
+component" or "Make it a screen". Undo names the change the same way, whether it came from those menus or the Design
+tab's Screen and Component toggle, where it said "Make component" and "Make screen". Make component keeps its name for
+turning layers into a new component.

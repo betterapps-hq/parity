@@ -299,8 +299,8 @@ menubar's command. The Layers panel's menu is unchanged.
   and Go to the main component; Hide. Labels are the menubar's, except that Go to names the main component ("Go to Plan
   card"), Hide reads Show when every selected layer is hidden as the board shows it in the state being edited (the
   variant shown, the state and the params it binds, as Hide itself reads them, PAR-486), and Make component, with a
-  design selected on its own, reads "Make it a component", or "Make it a screen" on a component. Paste here has no keys.
-  Lock comes with PAR-192, and Open in editor and Copy as JSX with PAR-166; they have no placeholders.
+  design selected on its own, reads "Convert to component", or "Convert to screen" on a component. Paste here has no
+  keys. Lock comes with PAR-192, and Open in editor and Copy as JSX with PAR-166; they have no placeholders.
 - **With designs selected**, what's only for layers is left out: Paste to replace, the order, Wrap in layout and Hide.
   Go to the main component is there only with an instance selected.
 - **Unavailable** items are greyed: the order and Make component with several layers selected, Make component with

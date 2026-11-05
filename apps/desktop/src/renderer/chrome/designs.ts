@@ -48,10 +48,14 @@ export function duplicateDesign(session: ProjectSession, entry: ContainerEntry):
 }
 
 export function setDesignKind(session: ProjectSession, entry: ContainerEntry, kind: ContainerKind): void {
-  session.store.updateContainer(entry.key, kind === "component" ? "Make component" : "Make screen", (container) => ({
-    ...container,
-    kind
-  }))
+  session.store.updateContainer(
+    entry.key,
+    kind === "component" ? "Convert to component" : "Convert to screen",
+    (container) => ({
+      ...container,
+      kind
+    })
+  )
 }
 
 export function deleteDesign(session: ProjectSession, entry: ContainerEntry): void {
