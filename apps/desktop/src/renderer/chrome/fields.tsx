@@ -120,7 +120,7 @@ export function Field({ label, hint, changed, mixed = false, onReset, children }
     })
   }, [])
   return (
-    <div className="grid min-h-8 grid-cols-[88px_1fr_20px] items-center gap-2">
+    <div className="grid min-h-8 grid-cols-[88px_1fr] items-center gap-2">
       <Hint
         label={changed ? `${label}: changed in this state` : label}
         detail={[mixed && "Different across the selected layers", hint, scrub && "Drag to change it"]
@@ -136,29 +136,28 @@ export function Field({ label, hint, changed, mixed = false, onReset, children }
           {label}
         </span>
       </Hint>
-      <div className="min-w-0">
+      {/* The reset arrow sits outside the control, in the gutter the inspector keeps beside every row (see `panelEnd`). */}
+      <div className="relative min-w-0">
         <ScrubContext value={register}>
           <MessageContext value={say}>
             <MixedContext value={mixed}>{children}</MixedContext>
           </MessageContext>
         </ScrubContext>
+        {changed && onReset && (
+          <Hint label={`Reset to ${firstState}`}>
+            <button
+              type="button"
+              onClick={onReset}
+              className="absolute top-1/2 left-full ml-2 grid size-5 -translate-y-1/2 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
+              aria-label={`Reset ${label} to ${firstState}`}
+            >
+              <RotateCcw className="size-3" />
+            </button>
+          </Hint>
+        )}
       </div>
-      {changed && onReset ? (
-        <Hint label={`Reset to ${firstState}`}>
-          <button
-            type="button"
-            onClick={onReset}
-            className="grid size-5 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
-            aria-label={`Reset ${label} to ${firstState}`}
-          >
-            <RotateCcw className="size-3" />
-          </button>
-        </Hint>
-      ) : (
-        <span />
-      )}
       {messages.size > 0 && (
-        <div className="col-span-2 col-start-2 -mt-1 flex flex-col gap-0.5 pb-1">
+        <div className="col-start-2 -mt-1 flex flex-col gap-0.5 pb-1">
           {[...messages].map(([id, message]) => (
             <FieldMessageLine key={id} id={id} message={message} />
           ))}

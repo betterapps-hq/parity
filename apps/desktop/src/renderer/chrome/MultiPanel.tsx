@@ -39,7 +39,7 @@ import { alignSelection, deleteSelection, distributeSelection, duplicateSelectio
 import { IconButton } from "./IconButton.tsx"
 import { keymap } from "./keymap.ts"
 import { editingState, measureNode } from "./LayerPanel.tsx"
-import { PanelSection } from "./PanelSection.tsx"
+import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { type EditedLayer, type StyleEdit, type StyleEditor, StyleSections, styleValues } from "./StyleSections.tsx"
 
 const alignments: { value: Alignment; label: string; shortcut: string; icon: typeof AlignStartVertical }[] = [
@@ -98,7 +98,7 @@ export function ArrangePanel({ keys }: { keys: string[] }) {
   const entries = keys.flatMap((key) => store.getEntry(key) ?? [])
   return (
     <>
-      <div className="border-b px-4 py-3">
+      <div className={`border-b py-3 pl-4 ${panelEnd}`}>
         <div className="flex items-center gap-2 font-semibold">
           <Layers className="size-4 shrink-0" style={{ color: designColor("screen") }} />
           {kindsName(entries.map((entry) => entry.container.kind))}
@@ -110,7 +110,7 @@ export function ArrangePanel({ keys }: { keys: string[] }) {
       <PanelSection title="Arrange" description="Line up and space them out on the canvas.">
         <AlignButtons distribute={entries.length > 2} />
       </PanelSection>
-      <div className="flex gap-2 px-4 py-3">
+      <div className={`flex gap-2 py-3 pl-4 ${panelEnd}`}>
         <Button variant="outline" size="sm" className="flex-1" onClick={() => duplicateSelection()}>
           <Copy /> Duplicate
         </Button>
@@ -197,7 +197,7 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
 
   return (
     <>
-      <div className="border-b px-4 py-3">
+      <div className={`border-b py-3 pl-4 ${panelEnd}`}>
         <div className="flex items-center gap-2 font-semibold">
           <Layers className="size-4 shrink-0" style={{ color: kindColors.layer }} />
           {present.length} layers
@@ -216,7 +216,7 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
         </div>
       </PanelSection>
       {mixed.length > 0 && (
-        <p className="border-b px-4 py-2.5 text-xs text-muted-foreground">
+        <p className={`border-b py-2.5 pl-4 text-xs text-muted-foreground ${panelEnd}`}>
           Different across these layers: {mixed.map(styleLabel).join(", ")}. Setting one gives them all the same value.
         </p>
       )}

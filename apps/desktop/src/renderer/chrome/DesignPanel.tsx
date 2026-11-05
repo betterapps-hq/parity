@@ -18,7 +18,7 @@ import { FieldTarget, FirstStateName } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import { LayerPanel } from "./LayerPanel.tsx"
 import { ArrangePanel, MultiLayerPanel } from "./MultiPanel.tsx"
-import { PanelSection } from "./PanelSection.tsx"
+import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { StatesSection } from "./StatesSection.tsx"
 import { ModeViewportIcon } from "./viewports.tsx"
 
@@ -33,7 +33,10 @@ export function DesignTab() {
   return (
     <FieldTarget value={selectionKey(selected)}>
       <FirstStateName value={entry?.container.states[0]?.name ?? "Default"}>
-        <SelectedPanel />
+        {/* A gutter beside every row for a field's reset arrow, so the rows end at one edge (see `panelEnd`). */}
+        <div className="[--reset-gutter:1.75rem]">
+          <SelectedPanel />
+        </div>
       </FirstStateName>
     </FieldTarget>
   )
@@ -75,7 +78,7 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
 
   return (
     <>
-      <div className="border-b px-4 py-3">
+      <div className={`border-b py-3 pl-4 ${panelEnd}`}>
         <div className="flex items-center gap-2">
           <DesignIcon
             kind={container.kind}
@@ -121,8 +124,8 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
             </ToggleGroupItem>
           </ToggleGroup>
           <Hint label={entry.path} wait>
-            <Badge variant="outline" className="min-w-0 truncate font-normal">
-              {entry.path}
+            <Badge variant="outline" className="min-w-0 shrink justify-start font-normal">
+              <span className="truncate">{entry.path}</span>
             </Badge>
           </Hint>
         </div>

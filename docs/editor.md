@@ -1502,6 +1502,23 @@ functions weren't run in Storybook. Number props don't preview, since a prop cha
 they take maths and are made on Enter, as before. In a 320px inspector, Width and Height show about three characters of
 what's typed (PAR-189).
 
+### One right edge in the inspector (PAR-552)
+
+Everything in the inspector's Design tab ends at one right edge: inputs, the Editing bar, buttons such as Make
+component, a section's action such as Min and max, and the toggles beside Padding and Margin. A field's reset arrow,
+shown while a state changes it, sits outside that edge in a 28px gutter the tab keeps for it, centered on its control,
+so a row's input keeps its width whether or not it can be reset. An image's photo credit sits under its fields, in their
+column. The Editing bar reads as one sentence ("Editing Monthly changes every state") and wraps when it doesn't fit,
+rather than running past its border.
+
+Code: the gutter is `--reset-gutter` on the Design tab (`DesignTab` in
+`apps/desktop/src/renderer/chrome/DesignPanel.tsx`) and on the stories' `PanelColumn`; `panelEnd` in
+`chrome/PanelSection.tsx` is the right padding sections and headers use; `Field` in `chrome/fields.tsx` places the reset
+arrow. The Modes and Accessibility tabs have no gutter.
+
+Tests: none; it's checked in the Inspector stories (Layer: Image Layer and Instance Changed In A State; Fields: Changed
+In A State; Design: Screen Selected), in light and dark.
+
 ## Component props
 
 What the Props section of a component layer lists, and how each kind of prop is set there.

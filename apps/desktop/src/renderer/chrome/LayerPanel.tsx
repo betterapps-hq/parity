@@ -52,7 +52,7 @@ import { ChoiceInput, Field, SwitchInput, TextInput, ValueInput } from "./fields
 import { Hint } from "./Hint.tsx"
 import { keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
-import { PanelSection } from "./PanelSection.tsx"
+import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { valueKind } from "./prop-values.ts"
 import { PropsSection } from "./PropsSection.tsx"
 import { revealSelection } from "./reveal.ts"
@@ -110,7 +110,7 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
 
   return (
     <>
-      <div className="border-b px-4 py-3">
+      <div className={`border-b py-3 pl-4 ${panelEnd}`}>
         <div className="flex items-center gap-2">
           <NodeIcon node={location.node} className="size-4 shrink-0" style={{ color: nodeColor(location.node) }} />
           <Input
@@ -209,7 +209,7 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
 
   return (
     <>
-      <div className="border-b px-4 py-3">
+      <div className={`border-b py-3 pl-4 ${panelEnd}`}>
         <div className="flex h-7 items-center gap-2">
           <NodeIcon node={inner.node} className="size-4 shrink-0" style={{ color: kindColors.component }} />
           <span className="truncate px-1.5 text-sm font-medium">
@@ -700,7 +700,7 @@ function StateTarget({ entry, state, target }: { entry: ContainerEntry; state: S
   else if (variantOnly) changes = `changes only the ${variant.name} variant`
   return (
     <div
-      className="mt-3 flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs"
+      className="mt-3 flex items-center gap-1 rounded-md border px-2 py-1.5 text-xs"
       style={
         base
           ? undefined
@@ -718,7 +718,7 @@ function StateTarget({ entry, state, target }: { entry: ContainerEntry; state: S
       >
         <SelectTrigger
           size="sm"
-          className="h-6 flex-1 border-none bg-transparent px-1.5 text-xs shadow-none dark:bg-transparent"
+          className="h-6 w-auto max-w-32 shrink-0 gap-1 border-none bg-transparent px-1 text-xs shadow-none dark:bg-transparent"
         >
           <SelectValue />
         </SelectTrigger>
@@ -730,7 +730,8 @@ function StateTarget({ entry, state, target }: { entry: ContainerEntry; state: S
           ))}
         </SelectContent>
       </Select>
-      <span className="shrink-0 text-muted-foreground">{changes}</span>
+      {/* What edits change wraps rather than spilling past the bar when it doesn't fit beside the state. */}
+      <span className="min-w-0 text-muted-foreground">{changes}</span>
     </div>
   )
 }
@@ -829,7 +830,7 @@ function ImageSection({ entry, node }: { entry: ContainerEntry; node: ImageNode 
         />
       </Field>
       {node.credit && (
-        <p className="px-1 text-xs text-muted-foreground">
+        <p className="-mt-1 ml-24 text-xs text-muted-foreground">
           Photo by{" "}
           <a href={node.credit.url} target="_blank" rel="noreferrer" className="text-foreground hover:underline">
             {node.credit.name}

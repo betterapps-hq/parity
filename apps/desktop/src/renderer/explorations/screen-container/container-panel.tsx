@@ -221,7 +221,7 @@ function EditingBar({ entry, state }: { entry: ContainerEntry; state: StateSpec 
       <Select
         value={state.id}
         onValueChange={(id) => {
-          store.updateView(entry.key, (view) => ({ ...view, state: id }))
+          store.updateView(entry.key, `Show ${id}`, (view) => ({ ...view, state: id }))
           selection.set({ ...selected, state: id })
         }}
       >
@@ -323,7 +323,7 @@ function ModesSection({ entry }: { entry: ContainerEntry }) {
   const { primary, all } = containerModes(settings, container)
   const shown = new Set(container.view?.modes ?? [])
   const noun = container.kind === "component" ? "component" : "screen"
-  const setModes = (modes: string[]) => store.updateView(key, (view) => ({ ...view, modes }))
+  const setModes = (modes: string[]) => store.updateView(key, "Show modes", (view) => ({ ...view, modes }))
 
   return (
     <PanelSection
@@ -332,7 +332,7 @@ function ModesSection({ entry }: { entry: ContainerEntry }) {
     >
       <RadioGroup
         value={primary.id}
-        onValueChange={(mode) => store.updateView(key, (view) => withMainMode(view, mode, all))}
+        onValueChange={(mode) => store.updateView(key, `Show ${mode} first`, (view) => withMainMode(view, mode, all))}
         className="gap-0.5"
         aria-label="Main mode"
       >

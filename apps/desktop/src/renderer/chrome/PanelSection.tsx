@@ -10,9 +10,15 @@ interface PanelSectionProps {
   children: ReactNode
 }
 
+/**
+ * The right padding of the inspector's sections and headers: 12px, and the reset gutter the Design tab sets beside it
+ * (`--reset-gutter`), where a field's reset arrow sits. So inputs, bars, buttons and section actions end at one edge.
+ */
+export const panelEnd = "pr-[calc(0.75rem+var(--reset-gutter,0px))]"
+
 export function PanelSection({ title, count, description, action, children }: PanelSectionProps) {
   return (
-    <section className="border-b px-3 py-4 last:border-b-0">
+    <section className={`border-b py-4 pl-3 last:border-b-0 ${panelEnd}`}>
       <PanelSectionTitle title={title} count={count} action={action} />
       {description && <p className="mb-3 px-1 text-xs text-muted-foreground">{description}</p>}
       {children}
@@ -42,7 +48,7 @@ export function PanelSectionTitle({
     </>
   )
   return (
-    <div className={`flex items-center justify-between gap-2 ${onToggle ? "" : "mb-3 px-1"}`}>
+    <div className={`flex items-center justify-between gap-2 ${onToggle ? "" : "mb-3 pl-1"}`}>
       <h3 className="flex min-w-0 flex-1 items-center gap-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
         {onToggle ? (
           <button

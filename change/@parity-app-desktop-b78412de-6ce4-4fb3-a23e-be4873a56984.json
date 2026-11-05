@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "The inspector's rows end at one right edge, with a field's reset arrow beside it",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
