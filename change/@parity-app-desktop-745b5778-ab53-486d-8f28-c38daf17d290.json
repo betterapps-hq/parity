@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Turn a prop off in one state when the base design has it on, and reset it from the inspector",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

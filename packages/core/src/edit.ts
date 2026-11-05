@@ -278,6 +278,15 @@ export interface NodeChange {
 }
 
 /**
+ * A prop set to `value`, as the inspector sets one; cleared (`undefined`), it's taken away rather than taken back. In
+ * the base state that removes it from the design, as clearing always did; in another state the state turns it off,
+ * even where the design sets it. Taking back a state's change is Reset (`resetOverride`).
+ */
+export function propChange(name: string, value: unknown): NodeChange {
+  return value === undefined ? { unset: { props: [name] } } : { props: { [name]: value } }
+}
+
+/**
  * Where an edit lands: a state; and in the base state, a variant option the board shows other than the default, which
  * then takes the edit instead of the design. A state other than the base always takes it itself.
  */

@@ -12,6 +12,7 @@ import {
   moveNode,
   nodeInState,
   nodeLabel,
+  propChange,
   removeState,
   resetOverride,
   withFreshIds
@@ -80,6 +81,32 @@ describe("editing another state", () => {
       submit: { props: { disabled: true } }
     })
     expect(resetOverride(edited, "loading", "submit").states[1]?.overrides).toEqual({ title: { hidden: true } })
+  })
+})
+
+describe("clearing a prop, as the inspector does", () => {
+  const disabled: ContainerSpec = editNode(design, "default", "submit", { props: { disabled: true } })
+  const shown = (container: ContainerSpec) => {
+    const node = nodeInState(findNode(container.root, "submit")!, container.states[1])
+    return node.type === "component" ? { props: node.props } : {}
+  }
+
+  it("turns a prop the design sets off in one state, and Reset takes that back", () => {
+    // The design disables the button; Loading set nothing of its own for it.
+    const base = { ...disabled, states: [disabled.states[0]!, { id: "loading", name: "Loading" }] }
+    const off = editNode(base, "loading", "submit", propChange("disabled", undefined))
+    expect(shown(off).props).toEqual({ children: "Sign up" })
+    expect(findNode(off.root, "submit")).toMatchObject({ props: { disabled: true } })
+    const reset = resetOverride(off, "loading", "submit", { kind: "props", key: "disabled" })
+    expect(reset.states[1]?.overrides).toBeUndefined()
+    expect(shown(reset).props).toEqual({ children: "Sign up", disabled: true })
+  })
+
+  it("removes it from the design in the base state, and sets a value as before", () => {
+    expect(findNode(editNode(disabled, "default", "submit", propChange("disabled", undefined)).root, "submit")).toEqual(
+      findNode(design.root, "submit")
+    )
+    expect(propChange("size", "sm")).toEqual({ props: { size: "sm" } })
   })
 })
 

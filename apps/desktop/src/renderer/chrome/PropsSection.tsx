@@ -20,6 +20,8 @@ interface PropsSectionProps {
   /** What the component accepts, when its source could be read. */
   info: ComponentInfo | undefined
   changed: (name: string) => boolean
+  /** Props the state being edited takes away, still listed so they can be set or reset there. */
+  taken?: readonly string[]
   /** Sets a prop, as part of a gesture's one undo step when given (a number field's run of Up and Down presses). */
   onChange: (name: string, value: unknown, gesture?: string) => void
   onReset: (name: string) => void
@@ -32,11 +34,14 @@ const groupTitles = { html: "Attributes", aria: "Accessibility", event: "Events"
  * shows its default when unset. Attributes it passes to its element are added one at a time from a searchable list.
  * Node props, `children` and a Fluent slot alike, take text or say they're set in layers (see `propsPanel`).
  */
-export function PropsSection({ node, info, changed, onChange, onReset }: PropsSectionProps) {
+export function PropsSection({ node, info, changed, taken = [], onChange, onReset }: PropsSectionProps) {
   const values = node.props ?? {}
   const known = new Map((info?.props ?? []).map((prop) => [prop.name, prop]))
-  // Variants and own props always show; pass-through attributes only once set.
-  const { main, extra, addable, inSlot } = propsPanel(info, node)
+  // Variants and own props always show; pass-through attributes only once set, or taken away in this state.
+  const panel = propsPanel(info, node)
+  const { main, addable, inSlot } = panel
+  const listed = new Set([...main.map((prop) => prop.name), ...panel.extra])
+  const extra = [...panel.extra, ...taken.filter((name) => !listed.has(name))]
 
   return (
     <PanelSection
