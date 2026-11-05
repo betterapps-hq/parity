@@ -562,6 +562,14 @@ function renderFrame(job: RenderJob, capture: boolean): Promise<{ frame?: Render
     }
     if (!capture) return { frame }
     const image = await window.webContents.capturePage({ x: 0, y: 0, width, height })
+    // A frame that grows with its content keeps the height the canvas lays it out at, measured after the capture
+    // (PAR-525).
+    if (job.mode.height === undefined) {
+      const canvasHeight = (await window.webContents.executeJavaScript("window.canvasHeight()", true)) as
+        | number
+        | undefined
+      if (canvasHeight !== undefined) frame.canvasHeight = canvasHeight
+    }
     return { frame, png: image.toPNG().toString("base64") }
   })
 }
