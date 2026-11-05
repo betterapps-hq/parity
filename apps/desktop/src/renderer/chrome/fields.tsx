@@ -133,22 +133,37 @@ export function Field({ label, hint, changed, mixed = false, onReset, children }
     })
   }, [])
   return (
-    <div className="grid min-h-8 grid-cols-[88px_1fr_20px] items-center gap-2">
-      <Hint
-        label={changed ? `${label}: changed in this state` : label}
-        detail={[mixed && "Different across the selected layers", hint, scrub && "Drag to change it"]
-          .filter(Boolean)
-          .join("\n")}
-        wait
-      >
-        <span
-          className={`truncate text-xs text-muted-foreground ${scrub ? "cursor-ew-resize touch-none select-none" : ""}`}
-          style={changed ? { color: kindColors.agent } : undefined}
-          onPointerDown={scrub}
+    <div className="grid min-h-8 grid-cols-[88px_1fr] items-center gap-2">
+      <div className="flex min-w-0 items-center gap-0.5">
+        <Hint
+          label={changed ? `${label}: changed in this state` : label}
+          detail={[mixed && "Different across the selected layers", hint, scrub && "Drag to change it"]
+            .filter(Boolean)
+            .join("\n")}
+          wait
         >
-          {label}
-        </span>
-      </Hint>
+          <span
+            className={`truncate text-xs text-muted-foreground ${scrub ? "cursor-ew-resize touch-none select-none" : ""}`}
+            style={changed ? { color: kindColors.agent } : undefined}
+            onPointerDown={scrub}
+          >
+            {label}
+          </span>
+        </Hint>
+        {/* The reset arrow sits beside the label, so the control keeps the row's full width whether or not it can be reset. */}
+        {changed && onReset && (
+          <Hint label={`Reset to ${firstState}`}>
+            <button
+              type="button"
+              onClick={onReset}
+              className="grid size-5 shrink-0 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
+              aria-label={`Reset ${label} to ${firstState}`}
+            >
+              <RotateCcw className="size-3" />
+            </button>
+          </Hint>
+        )}
+      </div>
       <div className="min-w-0">
         <ScrubContext value={register}>
           <MessageContext value={say}>
@@ -156,22 +171,8 @@ export function Field({ label, hint, changed, mixed = false, onReset, children }
           </MessageContext>
         </ScrubContext>
       </div>
-      {changed && onReset ? (
-        <Hint label={`Reset to ${firstState}`}>
-          <button
-            type="button"
-            onClick={onReset}
-            className="grid size-5 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
-            aria-label={`Reset ${label} to ${firstState}`}
-          >
-            <RotateCcw className="size-3" />
-          </button>
-        </Hint>
-      ) : (
-        <span />
-      )}
       {messages.size > 0 && (
-        <div className="col-span-2 col-start-2 -mt-1 flex flex-col gap-0.5 pb-1">
+        <div className="col-start-2 -mt-1 flex flex-col gap-0.5 pb-1">
           {[...messages].map(([id, message]) => (
             <FieldMessageLine key={id} id={id} message={message} />
           ))}

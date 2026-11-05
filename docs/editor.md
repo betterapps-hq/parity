@@ -1564,6 +1564,21 @@ functions weren't run in Storybook. A number prop's preview wasn't timed: it dra
 does. Params' number fields don't preview yet. In a 320px inspector, Width and Height show about three characters of
 what's typed (PAR-189).
 
+### One right edge in the inspector (PAR-552)
+
+Everything in the inspector's Design tab runs to one right edge, 12px from the panel's side: inputs, the Editing bar,
+buttons such as Make component, a section's action such as Min and max, and the toggles beside Padding and Margin. A
+field's reset arrow, shown while a state changes it, sits in the label column right after the label, so a row's input
+keeps the row's full width whether or not it can be reset. An image's photo credit sits under its fields, in their
+column. The Editing bar reads as one sentence ("Editing Monthly changes every state") and wraps when it doesn't fit,
+rather than running past its border.
+
+Code: `panelEnd` in `apps/desktop/src/renderer/chrome/PanelSection.tsx` is the right padding sections and headers use;
+`Field` in `chrome/fields.tsx` places the reset arrow beside the label.
+
+Tests: none; it's checked in the Inspector stories (Layer: Image Layer and Instance Changed In A State; Fields: Changed
+In A State; Design: Screen Selected), in light and dark.
+
 ## Component props
 
 What the Props section of a component layer lists, and how each kind of prop is set there.
