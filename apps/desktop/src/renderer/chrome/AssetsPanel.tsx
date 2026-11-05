@@ -65,6 +65,7 @@ import { insertAtSelection, insertMime } from "../canvas/insert.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import { useComponentPreview, usePreviewOnScreen } from "../component-previews.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
+import { request } from "../service.ts"
 import { type ProjectSession, workspace } from "../workspace.ts"
 import { componentFile, viewCode } from "./code-editor.ts"
 import { ComponentPopover } from "./ComponentCard.tsx"
@@ -584,7 +585,7 @@ function AssetRow({ component, children }: { component: string | undefined; chil
 async function installLibrary(session: ProjectSession, library: { id: string; name: string }): Promise<void> {
   const progress = toast.loading(`Installing ${library.name}…`, { description: "With the project's package manager" })
   try {
-    await window.canvasHost.request("library.add", { projectId: session.id, library: library.id })
+    await request("library.add", { projectId: session.id, library: library.id })
     toast.success(`${library.name} is ready`, { id: progress, description: undefined })
     await workspace.reload(session.id, `Loading ${library.name}`)
   } catch (error) {
@@ -604,11 +605,9 @@ function AddLibrary({ kind, trigger }: { kind: "components" | "icons"; trigger?:
     <Popover
       onOpenChange={(open) => {
         if (open && !catalog) {
-          void window.canvasHost
-            .request("library.catalog", { projectId: session.id })
-            .then(setCatalog, (error: unknown) =>
-              toast.error("Couldn't list libraries", { description: message(error) })
-            )
+          void request("library.catalog", { projectId: session.id }).then(setCatalog, (error: unknown) =>
+            toast.error("Couldn't list libraries", { description: message(error) })
+          )
         }
       }}
     >
@@ -682,7 +681,7 @@ function ImportStyles({ library }: { library: LibraryInfo }) {
  */
 export async function importStyles(session: ProjectSession, library: LibraryInfo): Promise<void> {
   try {
-    const edit = await window.canvasHost.request("library.importStyles", { projectId: session.id, library: library.id })
+    const edit = await request("library.importStyles", { projectId: session.id, library: library.id })
     await workspace.reload(session.id, `Loading ${library.name}'s styles`)
     if (edit) {
       announceEdit(session.id, edit, {

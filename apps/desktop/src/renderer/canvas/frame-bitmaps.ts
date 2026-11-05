@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "reac
 import { react } from "tldraw"
 import type { RenderJob } from "../../shared/protocol.ts"
 import { renderJobMode } from "../../shared/render-job.ts"
+import { request } from "../service.ts"
 import type { ProjectSession } from "../workspace.ts"
 import type { BoardRest } from "./frame-sleep.ts"
 
@@ -324,9 +325,7 @@ export function stored(key: string, job: RenderJob): Promise<KeptBitmap | undefi
 }
 
 async function readStored(key: string, job: RenderJob): Promise<KeptBitmap | undefined> {
-  const { src, height } = await window.canvasHost
-    .request("frames.stored", { job })
-    .catch((): { src?: string; height?: number } => ({}))
+  const { src, height } = await request("frames.stored", { job }).catch((): { src?: string; height?: number } => ({}))
   const captured = bitmaps.get(key)
   if (captured) {
     return captured.then((src) => {
@@ -373,7 +372,7 @@ export function capture(
       return undefined
     }
     const height = measure?.()
-    const taken = await window.canvasHost.request("frames.capture", { job, ...(height ? { height } : {}) })
+    const taken = await request("frames.capture", { job, ...(height ? { height } : {}) })
     if (taken.src === undefined) return undefined
     // The height kept with it: the live frame's, or the offscreen window's for a frame that hasn't drawn.
     if (taken.height !== undefined) heights.set(key, taken.height)

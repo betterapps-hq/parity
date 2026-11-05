@@ -3842,7 +3842,8 @@ Implementation: `packages/core/src/errors.ts` (codes, `CodedError`, `closest`, `
 `packages/agent/src/workspace.ts` and `run.ts` (coded lookups, conflicts and retries, `ExecResult.details`);
 `apps/desktop/src/utility/agent.ts` (RPC `details`), `packages/channel/src/channel.ts` and
 `apps/desktop/src/shared/coded-errors.ts` (details both ways across every port), `preload/index.ts` and
-`renderer/agent/handlers.ts` (`ServeAnswer`, coded tab lookup).
+`renderer/service.ts` (answers as data across the bridge to the page, PAR-580) and `renderer/agent/handlers.ts`
+(`ServeAnswer`, coded tab lookup).
 
 Tests: `packages/core/src/errors.test.ts` (defaults, bounded closest-first alternatives, checking details from another
 process, coded unknown state). `packages/agent/src/run.test.ts` ("coded failures": unknown design, state, mode,
@@ -3851,7 +3852,9 @@ component and node, ambiguous node, uncoded throw, unknown retry id, a patch tha
 `--json` for every operation, app codes with paths and alternatives for unknown tab, design, state and component,
 unknown codes read as `app_error`, invalid input paths in each transport's names, `not_running`, bounds and limits,
 image data kept out of structured results, and every tool's output schema. `client.test.ts` covers the truncated token
-text.
+text. `packages/channel/src/channel.test.ts` carries coded details both ways over a port, and
+`apps/desktop/src/utility/window-channel.test.ts` takes them from the service to the page, with refused params and
+unknown methods coded `invalid_input`.
 
 Checked in the running app on `examples/shadcn-vite`: unknown tab, component, design and state through the CLI with
 `--json`, bounded tokens, and an execute that applied and was renamed back. Gaps: the end-to-end suite doesn't drive the

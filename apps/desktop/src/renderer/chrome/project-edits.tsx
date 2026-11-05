@@ -1,5 +1,6 @@
 import { toast } from "sonner"
 import type { ProjectEditResult } from "../../shared/protocol.ts"
+import { request } from "../service.ts"
 
 /**
  * Says the service changed the project's files: which ones and why, with the diff to look at and Undo. `afterUndo`
@@ -38,7 +39,7 @@ async function undo(
   toast.loading(`Putting back ${files(edit)}…`, { id, description: undefined, action: undefined })
   let undone: ProjectEditResult
   try {
-    undone = await window.canvasHost.request("project.undoEdit", { projectId, id: edit.id })
+    undone = await request("project.undoEdit", { projectId, id: edit.id })
   } catch (error) {
     toast.error("Couldn't undo it", { id, description: message(error) })
     return

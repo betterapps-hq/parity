@@ -11,6 +11,7 @@ import { ComponentStore } from "./components-store.ts"
 import { DesignStore } from "./design-store.ts"
 import { type LoadedGuest, loadGuest, releaseGuest } from "./guest.ts"
 import { SelectionStore } from "./selection.ts"
+import { request } from "./service.ts"
 import { type KnownProject, knownProjects, type ProjectNote } from "./start/projects.ts"
 import { TokenStore } from "./tokens-store.ts"
 
@@ -164,7 +165,7 @@ export class Workspace {
     let current = placeholder
     let opened: string | undefined
     try {
-      const info = await window.canvasHost.request("project.open", { root })
+      const info = await request("project.open", { root })
       opened = info.id
       attempt.projectId = info.id
       if (attempt.abandoned) {
@@ -249,7 +250,7 @@ export class Workspace {
       this.settleDrops()
     }
     if (tab.session) {
-      void window.canvasHost.request("project.close", { projectId: tab.session.id })
+      void request("project.close", { projectId: tab.session.id })
       releaseGuest(tab.session.info.guestUrl)
     }
     this.save()
@@ -278,14 +279,14 @@ export class Workspace {
     // A tab that has opened is its project's id, so a reopen is known to be for it from the start.
     attempt.projectId = id
     this.setProgress(id, [step, "Loading its components"], 0)
-    await window.canvasHost.request("project.close", { projectId: id }).catch(() => undefined)
+    await request("project.close", { projectId: id }).catch(() => undefined)
     // Its stylesheets are made anew, without the last session's token previews; its modules come back as they were
     // when the project's code hasn't changed.
     if (tab.session) releaseGuest(tab.session.info.guestUrl)
     if (attempt.abandoned) return
     let opened: string | undefined
     try {
-      const info = await window.canvasHost.request("project.open", { root: id })
+      const info = await request("project.open", { root: id })
       opened = info.id
       if (attempt.abandoned) return this.dropAbandoned(info.id)
       this.setProgress(id, [step, `Loading components from ${info.builder.name}`], 1)
@@ -318,7 +319,7 @@ export class Workspace {
       this.tabs.map(async ({ id, session }) => {
         if (!session) return
         try {
-          const info = await window.canvasHost.request("project.open", { root: id })
+          const info = await request("project.open", { root: id })
           const loaded = await loadGuest(info.guestUrl, info.theme)
           inferComponents(info, session.components)
           const current = this.getTab(id)
@@ -517,7 +518,7 @@ export class Workspace {
       }
       if (undecided) continue
       this.drops.delete(projectId)
-      void window.canvasHost.request("project.close", { projectId })
+      void request("project.close", { projectId })
       if (guestUrl) releaseGuest(guestUrl)
     }
   }
@@ -577,9 +578,7 @@ export class Workspace {
     }
     this.projects = knownProjects(this.recent, this.notes)
     // A project's picture goes with it (PAR-607).
-    void window.canvasHost
-      .request("pictures.keepOnly", { roots: this.projects.map(({ root }) => root) })
-      .catch(() => undefined)
+    void request("pictures.keepOnly", { roots: this.projects.map(({ root }) => root) }).catch(() => undefined)
     this.notify()
   }
 
@@ -661,8 +660,7 @@ async function createSession(info: ProjectInfo): Promise<ProjectSession> {
     info.modes.settings,
     info.mainDocument,
     {
-      saveDocument: (path, document) =>
-        window.canvasHost.request("document.save", { projectId: info.id, path, document }),
+      saveDocument: (path, document) => request("document.save", { projectId: info.id, path, document }),
       autosave: () => getPreferences().autosave
     },
     info.libraries.flatMap((library) => library.designs ?? [])
@@ -696,16 +694,15 @@ function followCorrections(session: ProjectSession): void {
     const next = corrections()
     if (next === sent) return
     sent = next
-    window.canvasHost
-      .request("project.correctComponents", { projectId: session.id, ...(next ? { corrections: next } : {}) })
-      .catch((error: unknown) => console.warn("The component list couldn't take the correction", error))
+    request("project.correctComponents", { projectId: session.id, ...(next ? { corrections: next } : {}) }).catch(
+      (error: unknown) => console.warn("The component list couldn't take the correction", error)
+    )
   })
 }
 
 /** Fills in each component's props once the service has inferred them, after the tab opens. */
 function inferComponents(info: ProjectInfo, components: ComponentStore): void {
-  window.canvasHost
-    .request("project.components", { projectId: info.id })
+  request("project.components", { projectId: info.id })
     .then((inferred) => components.set(inferred))
     .catch((error: unknown) => console.warn("Component props couldn't be inferred", error))
 }
@@ -715,7 +712,7 @@ function tokenStore(info: ProjectInfo, loaded: LoadedGuest, store: DesignStore):
   return new TokenStore(
     loaded.tokens,
     loaded.sheet,
-    (changes) => window.canvasHost.request("tokens.save", { projectId: info.id, changes }),
+    (changes) => request("tokens.save", { projectId: info.id, changes }),
     store,
     info.styles?.stylesheet,
     info.describedTokens

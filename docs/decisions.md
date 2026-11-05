@@ -4338,5 +4338,20 @@ requests, the worker client and main, and the copies disagreed. Now `@parity-app
   see, so it stays.
 - **The `canvas:*` IPC names are declared once,** in `shared/channels.ts`, for the preload script and main. Checking
   main's IPC arguments is PAR-592.
-- **The window's answers keep their details on the way to the service,** since the preload passes them through. A
-  failure the preload hands the page still loses them at the bridge, which PAR-580 fixes.
+- **The window's answers keep their details on the way to the service,** since the preload passes them through. The
+  service's answers keep them on the way to the page too (PAR-580, below).
+
+## The page gets the service's coded errors whole (PAR-580)
+
+PAR-565's channel already refused a request with bad params or an unknown method, and carried a coded error's details to
+the preload script. The bridge from the preload script to the page then dropped them, since a failure thrown across it
+keeps only its message. My calls:
+
+- **The bridge's `canvasHost.ask` never fails.** It gives back an answer as data, `{ result }` or `{ error, details }`,
+  as the page's own answers to the service already were.
+- **The page asks through `request` in `renderer/service.ts`.** It throws a failure again, as a `CodedError` when its
+  details check out with `readErrorDetails`, else as an `Error` with the message. `canvasHost.request` is gone, so a
+  call can't skip it.
+- **Stand-ins answer as the preload does,** through `preloadAnswers`, so stories and tests see the same failures.
+- **A test goes the whole way:** `utility/window-channel.test.ts` sends requests from a channel set up as the preload's
+  to the service's own window channel, and reads the page's errors through `settled`.

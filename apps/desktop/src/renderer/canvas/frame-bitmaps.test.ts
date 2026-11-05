@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import type { RenderJob } from "../../shared/protocol.ts"
+import { preloadAnswers } from "../service.ts"
 import { capture, failed, holdsFirstDraw, stored, type UndrawnFrame, want } from "./frame-bitmaps.ts"
 
 const job = {} as RenderJob
@@ -7,7 +8,7 @@ const job = {} as RenderJob
 /** Answers each capture the offscreen window is asked for with the next of `answers`. */
 function offscreen(...answers: (() => Promise<{ src?: string }>)[]) {
   const request = vi.fn<() => Promise<{ src?: string }>>(() => answers.shift()!())
-  vi.stubGlobal("window", { canvasHost: { request } })
+  vi.stubGlobal("window", { canvasHost: { ask: preloadAnswers(request) } })
   return request
 }
 
@@ -44,7 +45,7 @@ describe("stored", () => {
     const request = vi.fn<(method: string) => Promise<{ src?: string; height?: number }>>((method) =>
       answers[method]!()
     )
-    vi.stubGlobal("window", { canvasHost: { request } })
+    vi.stubGlobal("window", { canvasHost: { ask: preloadAnswers(request) } })
     return request
   }
 
