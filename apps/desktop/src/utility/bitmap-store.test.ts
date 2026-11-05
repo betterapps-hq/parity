@@ -35,17 +35,19 @@ const code = (fingerprint: string, sources: Record<string, { path: string; expor
   sources
 })
 
-/** A PNG of one transparent pixel, as base64. */
-const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+/** A lossless WebP of 3x2 pixels, as sharp encodes one. */
+const webp = Buffer.from("UklGRh4AAABXRUJQVlA4TBEAAAAvAkAAAAdQvFIUuf+BiOh/AAA=", "base64")
 
 describe("the frame bitmap store", () => {
   it("gives back a kept bitmap and its frame's height for the same job and code, from another address", async () => {
-    await store.storeBitmap(code("code-1"), job("http://localhost:5001"), png, 812.5)
+    await store.storeBitmap(code("code-1"), job("http://localhost:5001"), webp, 812.5)
     // A project opened again serves its guest at a new address, which isn't what the bitmap shows.
     const kept = await store.storedBitmap(code("code-1"), job("http://localhost:5002"))
     expect(kept?.height).toBe(812.5)
-    // The height is kept inside the PNG, which still begins as one.
-    expect(Buffer.from(kept!.png, "base64").subarray(0, 8)).toEqual(Buffer.from(png, "base64").subarray(0, 8))
+    // The height is kept inside the WebP, beside the same image.
+    const read = Buffer.from(kept!.webp, "base64")
+    expect(read.subarray(0, 4).toString("latin1")).toBe("RIFF")
+    expect(read.includes(webp.subarray(12))).toBe(true)
   })
 
   it("finds a bitmap whose guest was given a component in a session whose guest was served it", async () => {
@@ -56,7 +58,7 @@ describe("the frame bitmap store", () => {
       ...(components ? { components } : {})
     })
     // The first session's type checker found Card after the guest loaded, so its jobs gave it to the guest.
-    await store.storeBitmap(code("code-1"), drawsCard("http://localhost:5001", { Card: card }), png, 100)
+    await store.storeBitmap(code("code-1"), drawsCard("http://localhost:5001", { Card: card }), webp, 100)
     // The next session's guest is served it from the start.
     expect(await store.storedBitmap(code("code-1", { Card: card }), drawsCard("http://localhost:5002"))).toBeDefined()
     // Served from another file, it's another bitmap.
@@ -65,68 +67,69 @@ describe("the frame bitmap store", () => {
   })
 
   it("has none for a file without its frame's height, as an earlier version kept", async () => {
-    await store.storeBitmap(code("code-1"), job("http://localhost:5001"), png, 100)
+    await store.storeBitmap(code("code-1"), job("http://localhost:5001"), webp, 100)
     const [project] = await readdir(folder)
     const [name] = await readdir(join(folder, project!))
-    await writeFile(join(folder, project!, name!), Buffer.from(png, "base64"))
+    await writeFile(join(folder, project!, name!), webp)
     expect(await store.storedBitmap(code("code-1"), job("http://localhost:5001"))).toBeUndefined()
   })
 
   it("has none for other code or another frame", async () => {
-    await store.storeBitmap(code("code-1"), job("http://localhost:5001"), png, 100)
+    await store.storeBitmap(code("code-1"), job("http://localhost:5001"), webp, 100)
     expect(await store.storedBitmap(code("code-2"), job("http://localhost:5001"))).toBeUndefined()
     expect(await store.storedBitmap(code("code-1"), job("http://localhost:5001", "Sign up"))).toBeUndefined()
   })
 
   it("leaves no partial file behind a write", async () => {
-    await store.storeBitmap(code("code-1"), job("http://localhost:5001"), png, 100)
+    await store.storeBitmap(code("code-1"), job("http://localhost:5001"), webp, 100)
     const [project] = await readdir(folder)
     const names = await readdir(join(folder, project!))
     expect(names).toHaveLength(1)
-    expect(names[0]).toMatch(/^[0-9a-f]{40}\.png$/)
+    expect(names[0]).toMatch(/^[0-9a-f]{40}\.webp$/)
   })
 
   it("sweeps away a project not used for over 30 days, and a partial file a write left", async () => {
-    await store.storeBitmap(code("code-1"), job("http://localhost:5001"), png, 100)
+    await store.storeBitmap(code("code-1"), job("http://localhost:5001"), webp, 100)
     const [project] = await readdir(folder)
     const [name] = await readdir(join(folder, project!))
     const old = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000)
     await utimes(join(folder, project!, name!), old, old)
-    await writeFile(join(folder, project!, "left.png.1.x.partial"), "x")
-    await utimes(join(folder, project!, "left.png.1.x.partial"), old, old)
+    await writeFile(join(folder, project!, "left.webp.1.x.partial"), "x")
+    await utimes(join(folder, project!, "left.webp.1.x.partial"), old, old)
     await store.sweepBitmaps()
     expect(await readdir(folder)).toEqual([])
   })
 
   it("keeps nothing once cleared", async () => {
-    await store.storeBitmap(code("code-1"), job("http://localhost:5001"), png, 100)
+    await store.storeBitmap(code("code-1"), job("http://localhost:5001"), webp, 100)
     await store.clearBitmaps()
     expect(await store.storedBitmap(code("code-1"), job("http://localhost:5001"))).toBeUndefined()
   })
 })
 
-/** The start of a PNG of a size, which is all the store reads of one. */
-function png24(width: number, height: number): Buffer {
-  const header = Buffer.alloc(24)
-  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(header, 0)
-  header.writeUInt32BE(13, 8)
-  header.write("IHDR", 12, "latin1")
-  header.writeUInt32BE(width, 16)
-  header.writeUInt32BE(height, 20)
+/** The start of a WebP of a size, its RIFF header and extended header, which is all the store reads of one. */
+function webpOf(width: number, height: number): Buffer {
+  const header = Buffer.alloc(30)
+  header.write("RIFF", 0, "latin1")
+  header.writeUInt32LE(22, 4)
+  header.write("WEBPVP8X", 8, "latin1")
+  header.writeUInt32LE(10, 16)
+  header.writeUIntLE(width - 1, 24, 3)
+  header.writeUIntLE(height - 1, 27, 3)
   return header
 }
 
 const key = "a".repeat(40)
 const newer = "b".repeat(40)
-const pictures = () => ({ thumb: png24(240, 40), large: png24(600, 100) })
+const pictures = () => ({ thumb: webpOf(240, 40), large: webpOf(600, 100) })
 
 describe("the component preview store", () => {
   it("gives a preview's pictures as parity-preview addresses, with the large one's size", async () => {
     await store.storePreview("D:/shop", "ui/Button", { key }, pictures(), { width: 600, height: 100 })
     const image = await store.storedPreview("D:/shop", key)
     expect(image).toEqual({
-      thumb: expect.stringMatching(new RegExp(`^parity-preview://[0-9a-f]{24}/${key}-thumb[.]png$`)),
-      large: expect.stringMatching(new RegExp(`^parity-preview://[0-9a-f]{24}/${key}-large[.]png$`)),
+      thumb: expect.stringMatching(new RegExp(`^parity-preview://[0-9a-f]{24}/${key}-thumb[.]webp$`)),
+      large: expect.stringMatching(new RegExp(`^parity-preview://[0-9a-f]{24}/${key}-large[.]webp$`)),
       width: 600,
       height: 100
     })
@@ -152,8 +155,8 @@ describe("the component preview store", () => {
     await store.storePreview("D:/shop", "ui/Button", { key }, pictures(), { width: 600, height: 100 })
     const [project] = await readdir(folder)
     expect((await readdir(join(folder, project!, "previews"))).sort()).toEqual([
-      `${key}-large.png`,
-      `${key}-thumb.png`,
+      `${key}-large.webp`,
+      `${key}-thumb.webp`,
       "index.json"
     ])
   })

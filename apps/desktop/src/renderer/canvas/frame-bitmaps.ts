@@ -279,9 +279,9 @@ export function stored(key: string, job: RenderJob): Promise<KeptBitmap | undefi
 }
 
 async function readStored(key: string, job: RenderJob): Promise<KeptBitmap | undefined> {
-  const { png, height } = await window.canvasHost
+  const { src, height } = await window.canvasHost
     .request("frames.stored", { job })
-    .catch((): { png?: string; height?: number } => ({}))
+    .catch((): { src?: string; height?: number } => ({}))
   const captured = bitmaps.get(key)
   if (captured) {
     return captured.then((src) => {
@@ -290,8 +290,7 @@ async function readStored(key: string, job: RenderJob): Promise<KeptBitmap | und
       return { src, ...(height === undefined ? {} : { height }) }
     })
   }
-  if (png === undefined) return undefined
-  const src = `data:image/png;base64,${png}`
+  if (src === undefined) return undefined
   bitmaps.set(key, Promise.resolve(src))
   if (height !== undefined) heights.set(key, height)
   forgetOldest()
@@ -330,10 +329,10 @@ export function capture(
     }
     const height = measure?.()
     const taken = await window.canvasHost.request("frames.capture", { job, ...(height ? { height } : {}) })
-    if (taken.png === undefined) return undefined
+    if (taken.src === undefined) return undefined
     // The height kept with it: the live frame's, or the offscreen window's for a frame that hasn't drawn.
     if (taken.height !== undefined) heights.set(key, taken.height)
-    return `data:image/png;base64,${taken.png}`
+    return taken.src
   })
   const settled = taking.catch((): typeof failed => {
     if (bitmaps.get(key) === settled) bitmaps.delete(key)
