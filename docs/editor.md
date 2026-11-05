@@ -2110,6 +2110,10 @@ as that state's or variant's changes ("changes only this state", "changes only t
   (Ctrl+Shift+H, or Hide in and Show in on a row in Layers) hides what the state shows and shows what it hides, so a
   layer the state, the variant or a param hides counts as hidden, and Layers marks it so. The canvas menu's Hide says
   Show by the same reading (`hiddenOnBoard`, PAR-486), so it never offers to hide a layer the variant already hides.
+- **Hide in and Show in name where the change lands** (PAR-497). In the base state, with a variant option other than the
+  default shown, the change goes to that option, so the row's menu names it: Show in Compact, not Show in Default. In
+  any other state the state takes it, and the menu names the state. Core's `editTargetName` gives the name, which the
+  note above edits that always change the design uses too.
 - **Operations read what the frame shows** (PAR-464). Align, Wrap, resizing, nudging, dragging, Copy, Copy style, Paste
   style, Paste over, Paste to replace, Paste here and Select matching read a layer through core's evaluation, as
   `@parity-app/editor`'s `shownNode` and `boardReader` give it: the state being edited, the variant options the board
@@ -2143,9 +2147,9 @@ as that state's or variant's changes ("changes only this state", "changes only t
   its default there. In the base state, clearing removes the prop from the design, as before.
 
 Code: in `packages/core`, `edit.ts` (`propChange`, how the inspector sets and clears a prop; `nodeOnBoard`,
-`hiddenOnBoard`, `toggleHidden`, `editNode` keeping the bound param's default in step and a state's patch against the
-board) and `render.ts` (`boardArgs`, which `resolveDesign` gives a board, and `paramDefaults`, shared with instances);
-`instances.ts` (`layerOnBoard`, for one of a design's own layers or one inside an instance).
+`hiddenOnBoard`, `toggleHidden`, `editTargetName`, `editNode` keeping the bound param's default in step and a state's
+patch against the board) and `render.ts` (`boardArgs`, which `resolveDesign` gives a board, and `paramDefaults`, shared
+with instances); `instances.ts` (`layerOnBoard`, for one of a design's own layers or one inside an instance).
 `packages/editor/src/shown.ts` (`shownNode`, `boardReader`) builds the context an operation reads with, and
 `canvas/view.ts`'s `frameViewport` gives the viewport of the frame a layer was picked in. In the app,
 `canvas/TextEditor.tsx`, `chrome/arrange.ts` (`toggleHiddenLayers`), `chrome/LayerTree.tsx` (the row's hidden mark and
@@ -2161,6 +2165,10 @@ Tests:
   value; the board's layer in a state, inside an instance and with a variant shown; and hiding through a bound param, in
   a state the param hides, and through the state's and the variant's changes. The five about the board and Hide fail
   against the code before PAR-164.
+- `packages/core/src/instances.test.ts`, "names where Show and Hide land" (PAR-497): the variant option shown in the
+  base state, another state over the variant, and the base state with the default option shown.
+- `chrome/LayerTree.stories.tsx`, HiddenByAVariant (PAR-497): Plan card's Compact option hides Feature 4, and its row's
+  menu offers Show in Compact.
 - `packages/editor/src/shown.test.ts` (7): `shownNode` and `boardReader` agree with each other for every layer in each
   of the shared fixture's cases, in every viewport; a bound text's default, the variant shown and a viewport's patches;
   and a layer inside an instance by its path, with the library. The operations' own tests are under their sections.
@@ -2175,16 +2183,16 @@ Tests:
 - `chrome/LayerPanel.stories.tsx`, TurningAPropOffInAState (PAR-421): Sign in's button disabled in the base, its
   `disabled` switch turned off in Wrong password, then Reset, which turns it back on and leaves nothing to reset.
 
-Gaps: the wiring has no automated DOM test (the text editor reading `layerOnBoard`, Layers' Hide in label, the notes in
-the inspector, the typed fields). All of it, and the history above, was checked in an isolated copy of the app on a copy
-of the example project on 2026-10-29: `--primary` edited in the Tokens panel showed in the frames with the file
-untouched, Ctrl+Z and Ctrl+Shift+Z took it back and forth, and Ctrl+S wrote it to `src/index.css`; with the stylesheet
-read-only, Save failed with the token and file named in the notice, the status bar and the Tokens panel, and Try again
-wrote it once it could; an edit closed with Don't save left the stylesheet as it was; `SetTokens` from `parity exec` was
-one unsaved step that Undo took back; Show every state on and off left Pricing clean; the Stat card showed one trend
-icon, and Ctrl+Shift+H on Falling showed it and turned `showFalling`'s default on; the text editor opened on $19 in
-Yearly and $24 in Monthly; the notes showed in Yearly and not in Monthly; and 12 typed in a number param with no default
-gave the number 12. Known limits:
+Gaps: the wiring has no automated DOM test (the text editor reading `layerOnBoard`, the notes in the inspector, the
+typed fields) beyond the stories above, whose play functions run only in Storybook. All of it, and the history above,
+was checked in an isolated copy of the app on a copy of the example project on 2026-10-29: `--primary` edited in the
+Tokens panel showed in the frames with the file untouched, Ctrl+Z and Ctrl+Shift+Z took it back and forth, and Ctrl+S
+wrote it to `src/index.css`; with the stylesheet read-only, Save failed with the token and file named in the notice, the
+status bar and the Tokens panel, and Try again wrote it once it could; an edit closed with Don't save left the
+stylesheet as it was; `SetTokens` from `parity exec` was one unsaved step that Undo took back; Show every state on and
+off left Pricing clean; the Stat card showed one trend icon, and Ctrl+Shift+H on Falling showed it and turned
+`showFalling`'s default on; the text editor opened on $19 in Yearly and $24 in Monthly; the notes showed in Yearly and
+not in Monthly; and 12 typed in a number param with no default gave the number 12. Known limits:
 
 - The stylesheet changing on disk isn't read back into the tokens until the project reopens, as before.
 

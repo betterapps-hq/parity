@@ -1,8 +1,17 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Thu, 05 Nov 2026 11:11:43 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 05 Nov 2026 11:30:13 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.6.0
+
+Thu, 05 Nov 2026 11:30:13 GMT
+
+### Minor changes
+
+- Agent overlap warnings tell board collisions (overlap) from a title too close (title_clearance), say whether sizes are
+  measured or estimated, and count crowded boards a call didn't touch (canvas_overlaps) (ajcraswell@gmail.com)
 
 ## 0.5.1
 

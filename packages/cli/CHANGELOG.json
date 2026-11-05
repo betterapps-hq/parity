@@ -2,6 +2,21 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Thu, 05 Nov 2026 11:30:13 GMT",
+      "version": "0.6.0",
+      "tag": "@parity-app/cli_v0.6.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "61aee15522a6f74aa009644466bbe9927a5e8101",
+            "comment": "Agent overlap warnings tell board collisions (overlap) from a title too close (title_clearance), say whether sizes are measured or estimated, and count crowded boards a call didn't touch (canvas_overlaps)"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 05 Nov 2026 11:11:43 GMT",
       "version": "0.5.1",
       "tag": "@parity-app/cli_v0.5.1",

@@ -3910,6 +3910,14 @@ event and returns the next list, and every path goes through it. My calls:
   for the read, as before. PAR-604 is the case where it stays listed after that.
 - **The program cache stays in the app's worker for now.** Moving it into `@parity-app/code` is its own issue, PAR-603.
 
+## Hide in and Show in name where the change lands (PAR-497)
+
+Called on 2026-11-05, for your approval in Storybook. The Layers row's menu said "Show in Default" for a layer that the
+variant option shown on the board hides, though the change goes to that option. It now names whatever takes the change,
+as `boardTarget` decides it: the option shown, in the base state, whether or not that option is what hides the layer;
+any other state, since a state takes changes over the variant. Core's `editTargetName` gives the name, so the menu and
+the inspector's note ("change every variant, not only Large") read it the same way.
+
 ## The start page is built: Home and new tabs (PAR-605)
 
 You asked on 2026-11-05 to build the start page's Home and New tab from the explorations (Parity/Explorations/Start
