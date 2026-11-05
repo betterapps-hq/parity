@@ -142,7 +142,7 @@ beforeAll(async () => {
       contentType: "text/html",
       body: `<style>:root { --background: red; --border: 3px }</style>
         <div style="font: 12px/18px monospace; letter-spacing: 1px; color: red; color-scheme: dark;
-        user-select: none; pointer-events: none; --tl-zoom: 2"><div id="host"></div></div><iframe></iframe><div id="frames"></div>
+        user-select: none; pointer-events: none; --tl-zoom: 2; --frame-height: 40px"><div id="host"></div></div><iframe></iframe><div id="frames"></div>
         <script src="http://project.test/frame.js"></script><script src="http://parity.test/parity.js"></script>`
     })
   )
@@ -232,9 +232,11 @@ describe("a frame's custom properties", () => {
             zoom: style.getPropertyValue("--tl-zoom")
           }
         }
+        const host = document.querySelector("#host")!
         return {
-          frame: read(document.querySelector("#host")!.shadowRoot!.querySelector(".box")!),
-          page: read(document_.querySelector(".box")!)
+          frame: read(host.shadowRoot!.querySelector(".box")!),
+          page: read(document_.querySelector(".box")!),
+          hostHeight: getComputedStyle(host).getPropertyValue("--frame-height")
         }
       },
       { projectCss, html }
@@ -247,6 +249,11 @@ describe("a frame's custom properties", () => {
     const { frame, page } = await box(usesFallbacks)
     expect(frame).toEqual(page)
     expect(frame).toEqual({ background: "rgb(0, 128, 0)", border: "1px", zoom: "" })
+  })
+
+  it("keeps the height the canvas holds a frame at on its host, for the canvas's own rules", async () => {
+    const { hostHeight } = await box(usesFallbacks)
+    expect(hostHeight).toBe("40px")
   })
 
   it("takes the project's own values, from its root and from a layer", async () => {

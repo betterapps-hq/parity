@@ -23,6 +23,12 @@ let rootSheet: CSSStyleSheet | undefined
 /** The custom properties a frame's root sets to `initial`: every one Parity's page has given a frame's host to inherit. */
 const resetNames = new Set<string>()
 
+/**
+ * How tall a frame was measured or kept with its bitmap, set around its host for the canvas's own `[data-frame]` rules
+ * to read on the host, so a frame that skips drawing keeps its height (see styles.css). The root leaves it inherited.
+ */
+export const frameHeightProperty = "--frame-height"
+
 /** The least an empty layout takes on the canvas each way, in the design's pixels. */
 export const emptyLayoutSize = 24
 
@@ -81,6 +87,8 @@ function frameRootSheet(): CSSStyleSheet {
  * property that reaches it, from any rule or inline style. One sheet serves every frame, and setting a property nothing
  * passes down changes nothing, so the list only grows; it's written again only when it does, normally for the first
  * frame alone. A property defined on the frame's host, as the project's `:root` rules and its viewport are, still wins.
+ * `frameHeightProperty` stays: the canvas's rules read it on the host itself, where a reset would leave a sleeping
+ * frame no height to keep, and its board would shrink to its caption (PAR-157).
  */
 function keepOutInherited(host: HTMLElement): void {
   const parent = host.parentNode instanceof ShadowRoot ? host.parentNode.host : host.parentElement
@@ -89,7 +97,7 @@ function keepOutInherited(host: HTMLElement): void {
   let added = false
   for (let index = 0; index < style.length; index++) {
     const name = style.item(index)
-    if (!name.startsWith("--") || resetNames.has(name)) continue
+    if (!name.startsWith("--") || name === frameHeightProperty || resetNames.has(name)) continue
     resetNames.add(name)
     added = true
   }

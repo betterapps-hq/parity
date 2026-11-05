@@ -3503,6 +3503,8 @@ to get Parity's values, since shadcn's names are Parity's too. Now it gets its f
   host, read as the frame is prepared, so Parity's stylesheets, tldraw's and inline variables all count.
 - **The project's own variables win,** from `:root` and `html` (which become `:host`), in any layer, as do the viewport
   sizes each frame sets on its host and token previews.
+- **The canvas's own `--frame-height` stays,** set around the host for the canvas's rules on the host itself: it holds a
+  sleeping frame at the height it was drawn at, so its board doesn't shrink to its caption zoomed far out.
 - **Registered properties stay the document's.** A name Parity registers with `@property` keeps its initial value in
   frames, since shadow roots ignore `@property` (see [decisions.md](decisions.md), "Parity's own custom properties stay
   out of frames").
@@ -3511,12 +3513,13 @@ Code: `resetCustomProperties` in `packages/core/src/css.ts`; `keepOutInherited` 
 `apps/desktop/src/renderer/frame.ts`, called by `prepareFrame`.
 
 Tests: `packages/core/src/css.test.ts` (3: each name set to `initial`; names that aren't custom properties left out; a
-name with `:`, a space or `;` escaped, so it can't set another property). `apps/desktop/src/renderer/frame.test.ts` (2),
-in Chrome, on a page that defines `--background` and `--border` in a stylesheet and `--tl-zoom` inline around the frame:
-a box using them with fallbacks has the same background and border in the frame as on a fresh page, its fallbacks, and
-no `--tl-zoom`; and with the project defining two of them on `:root` and in a layer on `html`, the project's values, as
-on the page. Gap: a variable Parity first defines after a frame is prepared isn't tested; it reaches the frame until
-it's prepared again.
+name with `:`, a space or `;` escaped, so it can't set another property). `apps/desktop/src/renderer/frame.test.ts` (3),
+in Chrome, on a page that defines `--background` and `--border` in a stylesheet, and `--tl-zoom` and `--frame-height`
+inline around the frame: a box using them with fallbacks has the same background and border in the frame as on a fresh
+page, its fallbacks, and no `--tl-zoom`; and with the project defining two of them on `:root` and in a layer on `html`,
+the project's values, as on the page; and the host still has `--frame-height`. End to end, `sleeping.e2e.ts` checks
+every board keeps its size zoomed far out. Gap: a variable Parity first defines after a frame is prepared isn't tested;
+it reaches the frame until it's prepared again.
 
 ### Frames run React's production build (PAR-198)
 
