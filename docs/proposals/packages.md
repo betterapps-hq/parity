@@ -77,7 +77,7 @@ when it's spread through UI code. Today:
 - **The edge is where Node and React belong:** the CLI, `@parity-app/libgen`, the agent runtime, the adapters
   (`renderer-react`, the only package with React, `builder-vite` and `styles-tailwind`) and the fixtures.
 - **Dependencies point one way:** the app uses packages, no package imports Electron, tldraw or the app, and core
-  imports nothing.
+  imports nothing but zod, which checks the data Parity didn't make (PAR-588).
 - **Each package's tests run in Vitest without Electron.** They may use Node to set up files. A rule that changes gets a
   test where it lives.
 - **The guard is mechanical.** pnpm already stops a package importing what its `package.json` doesn't declare, and

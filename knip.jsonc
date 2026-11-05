@@ -33,11 +33,12 @@
       // CSS too, so its imports of tailwindcss, the kit's stylesheet and Geist count as uses.
       "project": ["src/**/*.{ts,tsx,css}", "scripts/**/*.ts", ".storybook/*.ts", "e2e/**/*.ts", "*.ts"],
       "ignoreDependencies": [
-        // Imported by @parity-app/project, which scripts/dev.ts bundles while leaving these out, so the bundled
-        // service loads them from the app's own node_modules.
+        // Imported by Parity's packages, which scripts/dev.ts bundles while leaving these out, so the bundled processes
+        // load them from the app's own node_modules: the first three by @parity-app/project, zod by core and the agent.
         "package-manager-detector",
         "semver",
-        "unconfig"
+        "unconfig",
+        "zod"
       ],
       // macOS's own commands: plutil and sips name and brand the dev Electron, top reads memory.
       "ignoreBinaries": ["plutil", "sips", "top"],

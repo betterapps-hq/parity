@@ -1,3 +1,5 @@
+import { z } from "zod"
+
 /**
  * Why an agent's call failed, as a stable code it can act on without reading the message. The CLI and MCP publish
  * these; the app throws them where it knows the cause.
@@ -33,19 +35,26 @@ export const errorCodes = [
 
 export type ErrorCode = (typeof errorCodes)[number]
 
-/** What a coded failure says beyond its message. Plain data, so it crosses processes and the RPC boundary as is. */
-export interface ErrorDetails {
-  code: ErrorCode
-  /** Whether sending the same request again, unchanged, can succeed. */
-  retryable: boolean
-  /** The request field at fault, as a path: `design`, `state`, `edits/0/find`. */
-  field?: string
-  /** Valid references to use instead of an unknown or ambiguous one, at most `alternativeLimit` of them. */
-  alternatives?: string[]
-}
-
 /** The most alternatives a failure names, so an unknown component in a large library stays a small reply. */
 export const alternativeLimit = 20
+
+/** Details as another process sends them. Each field that's malformed falls back on its own; only the code must hold. */
+const errorDetailsSchema = z.object({
+  code: z.enum(errorCodes),
+  /** Whether sending the same request again, unchanged, can succeed. */
+  retryable: z.boolean().catch(false),
+  /** The request field at fault, as a path: `design`, `state`, `edits/0/find`. */
+  field: z.string().min(1).optional().catch(undefined),
+  /** Valid references to use instead of an unknown or ambiguous one, at most `alternativeLimit` of them. */
+  alternatives: z
+    .array(z.unknown())
+    .transform((items) => items.filter((item) => typeof item === "string").slice(0, alternativeLimit))
+    .optional()
+    .catch(undefined)
+})
+
+/** What a coded failure says beyond its message. Plain data, so it crosses processes and the RPC boundary as is. */
+export type ErrorDetails = z.infer<typeof errorDetailsSchema>
 
 /** An error with a stable code, the field it's about and what to use instead. */
 export class CodedError extends Error {
@@ -110,20 +119,5 @@ export function errorDetails(error: unknown): ErrorDetails | undefined {
 
 /** Details that came from another process, checked before they're trusted. Anything malformed reads as none. */
 export function readErrorDetails(value: unknown): ErrorDetails | undefined {
-  if (!value || typeof value !== "object") return undefined
-  const code = "code" in value ? value.code : undefined
-  const known = errorCodes.find((candidate) => candidate === code)
-  if (!known) return undefined
-  const retryable = "retryable" in value && value.retryable === true
-  const field = "field" in value && typeof value.field === "string" && value.field ? value.field : undefined
-  const alternatives =
-    "alternatives" in value && Array.isArray(value.alternatives)
-      ? value.alternatives.filter((item): item is string => typeof item === "string").slice(0, alternativeLimit)
-      : undefined
-  return {
-    code: known,
-    retryable,
-    ...(field === undefined ? {} : { field }),
-    ...(alternatives === undefined ? {} : { alternatives })
-  }
+  return errorDetailsSchema.safeParse(value).data
 }

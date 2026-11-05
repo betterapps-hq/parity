@@ -3672,7 +3672,18 @@ found about 70 hand-written parsers, checks and unchecked casts. Each one that c
 below. My calls on how they move:
 
 - **zod 4 comes from the pnpm catalog, at 4.6.7,** the version the MCP SDK already installs. PAR-588 adds it to
-  `@parity-app/core`, with the helpers the other issues use.
+  `@parity-app/core` and the agent, with the helpers the other issues use. The CLI and the desktop app declare it too,
+  since `vp pack` and `scripts/dev.ts` bundle Parity's packages but leave zod to load from their own `node_modules`.
+- **Core's helpers are in `@parity-app/core/schema`,** which `@parity-app/core` exports too (PAR-588):
+  - `parseData(schema, value, at?)` returns what the schema reads, or throws `TypeError` with the first problem as
+    `/json/pointer: message`, in `validate.ts`'s words. `at` is where the value sits in a larger one.
+  - `parseInput(schema, value, at?)` throws `CodedError` with `invalid_input` instead. Its `field` is the pointer
+    without the leading slash, which the CLI and MCP report as the error's `path`.
+  - `plainObject`, `nonBlankString` (trimmed) and `finiteNumber` are the shared pieces, and `jsonText(schema)` parses
+    JSON text, then checks it with the schema.
+  - `packageManifest`, in core's `adapters.ts`, is the package manifest schema, and `PackageManifest` its type.
+  - A read that returns nothing when the data is malformed calls the schema's own `safeParse(value).data`, as
+    `readErrorDetails`, `readCopyEntry`, the caller-name helpers and the agent registry's settings do.
 - **A schema is the check and the type.** Types come from `z.infer`, not from an interface kept beside the check.
   - Files Parity owns (`.par`, `.lib.par`, edits) use strict objects, so an unknown key is still an error.
   - Third-party JSON (package manifests, tool configs, npm and GitHub responses) uses loose objects that read only the
@@ -3702,7 +3713,8 @@ below. My calls on how they move:
     reads.
 - **No zod in a project's page.** The project's own Vite bundles the guest (`renderer-react/src/guest.ts`), which
   evaluates decorator values on every frame. Values are checked once, when their library file loads (PAR-594). The
-  guest's evaluator stays hand-written, typed from the schema (PAR-572).
+  guest's evaluator stays hand-written, typed from the schema (PAR-572). `guest.test.ts` follows what the guest imports,
+  through Parity's packages, and fails if it reaches zod.
 - **MCP's input schemas come from zod** through `z.toJSONSchema`, and `tools/list` keeps its 12 KiB budget (PAR-510).
 - **Token files stay lenient.** A malformed token is skipped and reported rather than failing its file, since a strict
   check would refuse files that load today (PAR-591).
