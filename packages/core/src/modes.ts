@@ -1,56 +1,72 @@
-import { type DeviceKind, deviceKinds } from "./devices.ts"
+import { z } from "zod"
+import { deviceKinds } from "./devices.ts"
 import type { ContainerSpec } from "./document.ts"
-import {
-  compact,
-  expectArray,
-  expectKnownKeys,
-  expectNumber,
-  expectObject,
-  expectOneOf,
-  expectString,
-  optional
-} from "./validate.ts"
+import { fileObject, finiteNumber, parseData } from "./schema.ts"
+
+const variableKinds = ["viewport", "theme", "locale", "custom"] as const
+
+/** What choosing this option does to a rendered frame. */
+const variableOption = fileObject({
+  id: z.string(),
+  name: z.string(),
+  /** Frame width in CSS pixels (viewport options). */
+  width: finiteNumber.optional(),
+  /** The screen's height, for viewports taken from a device. Frames still grow with their content. */
+  height: finiteNumber.optional(),
+  /** What the viewport is, for its icon. Otherwise judged by its width. */
+  device: z.enum(deviceKinds).optional(),
+  /** Class added to the frame body, e.g. `dark` for shadcn themes. */
+  className: z.string().optional(),
+  /** Attributes set on the frame body, e.g. `lang` and `dir` for locales. */
+  attributes: z.record(z.string(), z.string()).optional()
+})
+
+export type VariableOption = z.infer<typeof variableOption>
+
+const modeVariable = fileObject({
+  id: z.string(),
+  name: z.string(),
+  kind: z.enum(variableKinds),
+  options: z.array(variableOption).min(1, "expected at least one option")
+})
+
+export type ModeVariable = z.infer<typeof modeVariable>
+
+const modeSpec = fileObject({
+  id: z.string(),
+  name: z.string(),
+  /** Option id per variable id. A variable that isn't listed uses its first option. */
+  values: z.record(z.string(), z.string())
+})
+
+export type ModeSpec = z.infer<typeof modeSpec>
 
 /**
  * Project-wide modes, like Chromatic modes in Storybook. A variable is one axis of the environment (viewport, theme,
  * locale…); a mode is a named combination of one option per variable. Every design can show any mode, and each design
  * chooses which ones it shows. The first mode is the primary one: the main frame of every design.
  */
-export interface ModeSettings {
-  version: 1
-  variables: ModeVariable[]
-  modes: ModeSpec[]
-}
+export const modeSettings = fileObject({
+  $schema: z.string().optional(),
+  version: z.literal(1),
+  variables: z.array(modeVariable),
+  modes: z.array(modeSpec).min(1, "expected at least one mode")
+}).superRefine((settings, context) => {
+  // Each mode picks options its variables have.
+  for (const [index, mode] of settings.modes.entries()) {
+    for (const [variableId, optionId] of Object.entries(mode.values)) {
+      const path = ["modes", index, "values", variableId]
+      const variable = settings.variables.find((candidate) => candidate.id === variableId)
+      if (!variable) context.addIssue({ code: "custom", message: "unknown variable", path, input: variableId })
+      else if (!variable.options.some((option) => option.id === optionId)) {
+        const message = `"${optionId}" is not an option of ${variable.name}`
+        context.addIssue({ code: "custom", message, path, input: optionId })
+      }
+    }
+  }
+})
 
-export interface ModeVariable {
-  id: string
-  name: string
-  kind: (typeof variableKinds)[number]
-  options: VariableOption[]
-}
-
-/** What choosing this option does to a rendered frame. */
-export interface VariableOption {
-  id: string
-  name: string
-  /** Frame width in CSS pixels (viewport options). */
-  width?: number
-  /** The screen's height, for viewports taken from a device. Frames still grow with their content. */
-  height?: number
-  /** What the viewport is, for its icon. Otherwise judged by its width. */
-  device?: DeviceKind
-  /** Class added to the frame body, e.g. `dark` for shadcn themes. */
-  className?: string
-  /** Attributes set on the frame body, e.g. `lang` and `dir` for locales. */
-  attributes?: Record<string, string>
-}
-
-export interface ModeSpec {
-  id: string
-  name: string
-  /** Option id per variable id. A variable that isn't listed uses its first option. */
-  values: Record<string, string>
-}
+export type ModeSettings = z.infer<typeof modeSettings>
 
 /** A mode with its variables applied: everything needed to render a frame in it. */
 export interface ResolvedMode {
@@ -65,7 +81,6 @@ export interface ResolvedMode {
   options: { variable: ModeVariable; option: VariableOption }[]
 }
 
-const variableKinds = ["viewport", "theme", "locale", "custom"] as const
 /** A frame's width when no option in its mode sets one. */
 export const defaultWidth = 1280
 
@@ -168,58 +183,7 @@ export function uniqueId(name: string, taken: Iterable<string>): string {
   return id
 }
 
+/** Reads a project's modes, or throws `TypeError` with the first problem as `/json/pointer: message`. */
 export function parseModeSettings(value: unknown): ModeSettings {
-  const settings = expectObject(value, "")
-  expectKnownKeys(settings, ["$schema", "version", "variables", "modes"], "")
-  if (settings.version !== 1) throw new TypeError("/version: expected 1")
-  const variables = expectArray(settings.variables, "/variables").map((item, index) => {
-    const at = `/variables/${index}`
-    const variable = expectObject(item, at)
-    expectKnownKeys(variable, ["id", "name", "kind", "options"], at)
-    const options = expectArray(variable.options, `${at}/options`).map((entry, optionIndex) => {
-      const optionAt = `${at}/options/${optionIndex}`
-      const option = expectObject(entry, optionAt)
-      expectKnownKeys(option, ["id", "name", "width", "height", "device", "className", "attributes"], optionAt)
-      return compact({
-        id: expectString(option.id, `${optionAt}/id`),
-        name: expectString(option.name, `${optionAt}/name`),
-        width: optional(option.width, (v) => expectNumber(v, `${optionAt}/width`)),
-        height: optional(option.height, (v) => expectNumber(v, `${optionAt}/height`)),
-        device: optional(option.device, (v) => expectOneOf(v, deviceKinds, `${optionAt}/device`)),
-        className: optional(option.className, (v) => expectString(v, `${optionAt}/className`)),
-        attributes: optional(option.attributes, (v) => {
-          const attributes = expectObject(v, `${optionAt}/attributes`)
-          for (const [name, attribute] of Object.entries(attributes)) {
-            expectString(attribute, `${optionAt}/attributes/${name}`)
-          }
-          return attributes as Record<string, string>
-        })
-      })
-    })
-    if (options.length === 0) throw new TypeError(`${at}/options: expected at least one option`)
-    return {
-      id: expectString(variable.id, `${at}/id`),
-      name: expectString(variable.name, `${at}/name`),
-      kind: expectOneOf(variable.kind, variableKinds, `${at}/kind`),
-      options
-    }
-  })
-  const modes = expectArray(settings.modes, "/modes").map((item, index) => {
-    const at = `/modes/${index}`
-    const mode = expectObject(item, at)
-    expectKnownKeys(mode, ["id", "name", "values"], at)
-    const values: Record<string, string> = {}
-    for (const [variableId, optionId] of Object.entries(expectObject(mode.values, `${at}/values`))) {
-      const variable = variables.find((candidate) => candidate.id === variableId)
-      if (!variable) throw new TypeError(`${at}/values/${variableId}: unknown variable`)
-      const option = expectString(optionId, `${at}/values/${variableId}`)
-      if (!variable.options.some((candidate) => candidate.id === option)) {
-        throw new TypeError(`${at}/values/${variableId}: "${option}" is not an option of ${variable.name}`)
-      }
-      values[variableId] = option
-    }
-    return { id: expectString(mode.id, `${at}/id`), name: expectString(mode.name, `${at}/name`), values }
-  })
-  if (modes.length === 0) throw new TypeError("/modes: expected at least one mode")
-  return { version: 1, variables, modes }
+  return parseData(modeSettings, value)
 }
