@@ -40,8 +40,10 @@ import {
   Ellipsis,
   FileInput,
   FolderOpen,
+  KeyRound,
   Keyboard,
   Link,
+  LogIn,
   LogOut,
   Plus,
   Search,
@@ -49,6 +51,7 @@ import {
   Sparkles,
   Star,
   UserPlus,
+  UserRound,
   X
 } from "lucide-react"
 import { createContext, type CSSProperties, type ReactNode, useContext, useEffect, useRef, useState } from "react"
@@ -93,6 +96,50 @@ export interface StartActions {
   /** The agents connected to your account, by name, and the way to connect one. */
   agents?: readonly string[]
   connectAgent?(name: string): void
+  /** Who's signed in, or null for nobody. Left out, it's someone in Kestrel, as the start page's own stories show. */
+  account?: StartAccount | null
+  signIn?(): void
+  signOut?(): void
+  /** Say why signing in lasts only until Parity quits. */
+  explainUntilQuit?(): void
+}
+
+/** Someone signed in, as the window knows them: no tokens, only who they are and where they belong. */
+export interface StartAccount {
+  email: string
+  /** The organizations they're in. Personal isn't one of WorkOS's: it's what belongs to no organization. */
+  orgs: readonly OrgId[]
+  /** The system has no keychain, so the sign-in lasts until Parity quits. */
+  untilQuit?: boolean
+}
+
+/** Someone in Kestrel, as an editor: who the start page's stories are signed in as. */
+export const kestrelMember: StartAccount = { email: "andrew@kestrel.dev", orgs: ["kestrel", "personal"] }
+
+/**
+ * Who's working in a project right now, as far as you can see: agents on this computer always, and people only once
+ * you're signed in, since their presence comes through your organization.
+ */
+function useLive(project: StartProject): StartProject["live"] {
+  const account = useAccount()
+  return project.live && (account || project.live.who.agent) ? project.live : undefined
+}
+
+/** What's waiting for you and not dealt with: only from the organizations you're in, and nothing signed out. */
+function useWaiting(): ForYouItem[] {
+  const start = useStart()
+  const account = useAccount()
+  if (!account) return []
+  return forYou.filter((item) => {
+    const org = projects.find((candidate) => candidate.name === item.project)?.org
+    return !start.done?.includes(item.id) && (!org || account.orgs.includes(org))
+  })
+}
+
+/** Who's signed in, with the start page stories' Kestrel member when no one said. */
+export function useAccount(): StartAccount | null {
+  const { account } = useStart()
+  return account === undefined ? kestrelMember : account
 }
 
 /** The agents Parity can connect to. */
@@ -128,6 +175,7 @@ export function StartWindow({
   onNew?: () => void
   children: ReactNode
 }) {
+  const account = useAccount()
   return (
     <ExploreWindow
       tabs={tabs}
@@ -142,7 +190,8 @@ export function StartWindow({
       }
       actions={
         <>
-          <Inbox enabled={inbox} />
+          {/* What waits for you comes from your organization, so there's no inbox until you sign in. */}
+          {account && <Inbox enabled={inbox} />}
           <AccountMenu />
         </>
       }
@@ -254,7 +303,8 @@ function StartMenus({
 function Inbox({ enabled }: { enabled: boolean }) {
   const start = useStart()
   const [open, setOpen] = useState(false)
-  const waiting = enabled ? forYou.filter((item) => !start.done?.includes(item.id)) : []
+  const all = useWaiting()
+  const waiting = enabled ? all : []
   const unread = waiting.filter((item) => item.unread).length
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -301,32 +351,71 @@ function Inbox({ enabled }: { enabled: boolean }) {
   )
 }
 
-/** Your account: the agents that can work in your projects, settings and help. */
-function AccountMenu() {
+/** Nobody's avatar: an outline of a person, where yours goes once you sign in. */
+function NobodyAvatar({ size }: { size: number }) {
+  return (
+    <span
+      className="grid shrink-0 place-items-center rounded-full border border-dashed border-muted-foreground/50 text-muted-foreground"
+      style={{ width: size, height: size }}
+    >
+      <UserRound style={{ width: size * 0.58, height: size * 0.58 }} />
+    </span>
+  )
+}
+
+/**
+ * Your account: who you are and where, the agents that can work in your projects, settings and help. Signed out, it
+ * offers Sign in in your name's place and keeps the rest, since settings and help don't need an account.
+ */
+export function AccountMenu() {
   const start = useStart()
+  const account = useAccount()
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
           <button
             type="button"
-            aria-label="Your account"
+            aria-label={account ? "Your account" : "Sign in, settings and help"}
             className="ml-1 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <Avatar person={me} size={24} />
+            {account ? <Avatar person={me} size={24} /> : <NobodyAvatar size={24} />}
           </button>
         }
       />
       <DropdownMenuContent align="end" className="w-64">
-        <DropdownMenuGroup>
-          <DropdownMenuLabel className="flex items-center gap-2.5 py-2 font-normal">
-            <Avatar person={me} size={28} />
-            <span className="flex flex-col">
-              <span className="text-sm font-medium text-foreground">{me.name}</span>
-              <span className="text-xs text-muted-foreground">Kestrel, editor</span>
-            </span>
-          </DropdownMenuLabel>
-        </DropdownMenuGroup>
+        {account ? (
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="flex items-center gap-2.5 py-2 font-normal">
+              <Avatar person={me} size={28} />
+              <span className="flex min-w-0 flex-col">
+                <span className="text-sm font-medium text-foreground">{me.name}</span>
+                <span className="truncate text-xs text-muted-foreground">
+                  {/* Someone in no organization yet has no role to show, so their email says which account it is. */}
+                  {account.orgs.includes("kestrel") ? "Kestrel, editor" : account.email}
+                </span>
+              </span>
+            </DropdownMenuLabel>
+            {account.untilQuit && (
+              <DropdownMenuItem onClick={() => start.explainUntilQuit?.()} className="text-xs text-muted-foreground">
+                <KeyRound /> Signed in until you quit Parity
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuGroup>
+        ) : (
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="flex items-center gap-2.5 py-2 font-normal">
+              <NobodyAvatar size={28} />
+              <span className="flex flex-col">
+                <span className="text-sm font-medium text-foreground">Not signed in</span>
+                <span className="text-xs text-muted-foreground">Projects on this computer still work</span>
+              </span>
+            </DropdownMenuLabel>
+            <DropdownMenuItem onClick={() => start.signIn?.()}>
+              <LogIn /> Sign in
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Agents</DropdownMenuLabel>
@@ -361,10 +450,14 @@ function AccountMenu() {
         <DropdownMenuItem>
           <Sparkles /> What&apos;s new
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem>
-          <LogOut /> Sign out
-        </DropdownMenuItem>
+        {account && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => start.signOut?.()}>
+              <LogOut /> Sign out
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -637,6 +730,7 @@ export function ProjectCard({
   onRemove?: () => void
 }) {
   const start = useStart()
+  const live = useLive(project)
   const art = useRef<HTMLDivElement>(null)
   const [index, setIndex] = useState(0)
   const [hovered, setHovered] = useState(false)
@@ -698,9 +792,9 @@ export function ProjectCard({
           </span>
         </div>
         <span className="relative z-10 grid size-7 shrink-0 place-items-center">
-          {project.live && (
+          {live && (
             <Here
-              who={project.live.who}
+              who={live.who}
               className="transition-opacity group-hover/card:opacity-0 group-has-aria-expanded/card:opacity-0"
             />
           )}
@@ -721,6 +815,10 @@ export function ProjectCard({
 export function ContinueCard({ visit }: { visit: Visit }) {
   const start = useStart()
   const project = findProject(visit.project)
+  const live = useLive(project)
+  // Signed out, what people did comes through no organization, but what agents did on this computer still shows.
+  const signedIn = !!useAccount()
+  const since = visit.since.filter((item) => signedIn || item.who.agent)
   const design = project.designs.find((item) => item.name === visit.design) ?? project.designs[0]!
   const resume = () => start.openProject?.(project.id)
   useEffect(() => {
@@ -749,13 +847,12 @@ export function ContinueCard({ visit }: { visit: Visit }) {
             >
               {project.name}
             </button>
-            {project.live && <Here who={project.live.who} />}
+            {live && <Here who={live.who} />}
           </h2>
         </div>
         <p className="text-sm text-pretty text-muted-foreground">
           You were on {visit.design} {visit.when[0]!.toLowerCase() + visit.when.slice(1)}.
-          {visit.since.length > 0 &&
-            ` Since then, ${listed(visit.since.map((item) => `${firstName(item.who)} ${item.text}`))}.`}
+          {since.length > 0 && ` Since then, ${listed(since.map((item) => `${firstName(item.who)} ${item.text}`))}.`}
         </p>
         <Button onClick={resume} className="relative z-10 mt-1 gap-2">
           Resume <Kbd className="bg-primary-foreground/10 text-primary-foreground/70">{formatKeys("Enter")}</Kbd>
@@ -813,20 +910,34 @@ function ForYouRow({ item, onOpen }: { item: ForYouItem; onOpen?: () => void }) 
 /** What needs you across every project: an agent waiting on an answer, a mention, a review. */
 export function ForYouPanel({ limit = 4 }: { limit?: number }) {
   const start = useStart()
-  const waiting = forYou.filter((item) => !start.done?.includes(item.id))
+  const account = useAccount()
+  const waiting = useWaiting()
   return (
     <section className="flex flex-col gap-1.5">
       <h2 className="flex items-baseline gap-2 text-sm font-semibold">
         For you
         {waiting.length > 0 && <span className="font-normal text-muted-foreground">{waiting.length}</span>}
       </h2>
-      {waiting.length > 0 ? (
+      {!account && (
+        <p className="py-2 text-sm text-pretty text-muted-foreground">
+          <button
+            type="button"
+            onClick={() => start.signIn?.()}
+            className="rounded-sm font-medium text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Sign in
+          </button>{" "}
+          to see comments, mentions and reviews that need you.
+        </p>
+      )}
+      {account && waiting.length > 0 && (
         <ul className="flex flex-col">
           {waiting.slice(0, limit).map((item) => (
             <ForYouRow key={item.id} item={item} />
           ))}
         </ul>
-      ) : (
+      )}
+      {account && waiting.length === 0 && (
         <p className="py-2 text-sm text-muted-foreground">Nothing needs you right now.</p>
       )}
     </section>
@@ -1072,9 +1183,16 @@ export function NewProjectButton({ onClick, size = "lg" }: { onClick?: () => voi
   )
 }
 
-/** Which organization's projects the page shows, and the way to switch. */
+/**
+ * Which organization's projects the page shows, and the way to switch. Signed out, or in no organization yet, it's
+ * Personal alone, and the menu offers the way to more: signing in, or making an organization.
+ */
 export function OrgSwitcher({ value = "kestrel", onChange }: { value?: OrgId; onChange?: (org: OrgId) => void }) {
+  const start = useStart()
+  const account = useAccount()
   const org = organizations[value]
+  const choices = account ? account.orgs.map((id) => organizations[id]) : [organizations.personal]
+  const inOne = choices.some((candidate) => candidate.id !== "personal")
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -1091,7 +1209,7 @@ export function OrgSwitcher({ value = "kestrel", onChange }: { value?: OrgId; on
       />
       <DropdownMenuContent align="start" className="w-60">
         <DropdownMenuRadioGroup value={value} onValueChange={(next) => onChange?.(next as OrgId)}>
-          {Object.values(organizations).map((candidate) => (
+          {choices.map((candidate) => (
             <DropdownMenuRadioItem key={candidate.id} value={candidate.id}>
               <OrgBadge org={candidate} size={18} /> {candidate.name}
               <span className="ml-auto text-xs text-muted-foreground">
@@ -1101,12 +1219,23 @@ export function OrgSwitcher({ value = "kestrel", onChange }: { value?: OrgId; on
           ))}
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>
-          <UserPlus /> Invite people
-        </DropdownMenuItem>
-        <DropdownMenuItem>
-          <Plus /> New organization
-        </DropdownMenuItem>
+        {!account ? (
+          <DropdownMenuItem onClick={() => start.signIn?.()}>
+            <LogIn /> Sign in to see your organizations
+          </DropdownMenuItem>
+        ) : (
+          <>
+            {/* Inviting needs an organization to invite people to. */}
+            {inOne && (
+              <DropdownMenuItem>
+                <UserPlus /> Invite people
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem>
+              <Plus /> New organization
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -1114,7 +1243,8 @@ export function OrgSwitcher({ value = "kestrel", onChange }: { value?: OrgId; on
 
 /** Home: where you left off and what needs you, then your projects. New project starts something new. */
 export function HomePage() {
-  const [org, setOrg] = useState<OrgId>("kestrel")
+  const account = useAccount()
+  const [org, setOrg] = useState<OrgId>(account?.orgs[0] ?? "personal")
   const visit = lastVisits[org]
   return (
     <div className="h-full overflow-y-auto">
@@ -1131,7 +1261,8 @@ export function HomePage() {
           <ContinueCard visit={visit} />
           <ForYouPanel />
         </div>
-        <RecentProjects key={org} org={org} skip={visit.project} rows={2} />
+        {/* Signed out, Parity can't tell which organization a folder belongs to, so Personal lists every one. */}
+        <RecentProjects key={org} org={account ? org : undefined} skip={visit.project} rows={2} />
       </div>
     </div>
   )

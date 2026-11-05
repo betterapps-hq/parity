@@ -9,7 +9,16 @@ import { me, people } from "../explore-data.ts"
 import { Avatar, AzureDevOpsMark, GitHubMark } from "../parts.tsx"
 import { stacks, type StartProject, templatesOn } from "./data.ts"
 import type { ExistingSource } from "./new-project.tsx"
-import { agentChoices, CanvasArt, NewProjectButton, OpenMenu, parity, TemplateCard, useStart } from "./page.tsx"
+import {
+  agentChoices,
+  CanvasArt,
+  NewProjectButton,
+  OpenMenu,
+  parity,
+  TemplateCard,
+  useAccount,
+  useStart
+} from "./page.tsx"
 
 /** A finished project to look around in, with designs, states, comments and an agent at work. */
 export const sample: StartProject = {
@@ -45,6 +54,7 @@ function SideList({ title, children }: { title: string; children: ReactNode }) {
 /** The first time: a project to explore, what to bring and connect, and templates to start from. */
 export function FirstRunPage() {
   const start = useStart()
+  const account = useAccount()
   const firsts = stacks.flatMap((stack) => templatesOn(stack.id).slice(0, 1))
   const openSample = () => start.create?.(sample)
   return (
@@ -52,7 +62,9 @@ export function FirstRunPage() {
       <div className="mx-auto flex max-w-[1120px] flex-col gap-11 px-10 pt-7 pb-14">
         <header className="flex items-end justify-between gap-6">
           <div className="flex flex-col gap-1">
-            <h1 className="text-2xl font-semibold tracking-tight">Welcome to Parity, Andrew</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {account ? "Welcome to Parity, Andrew" : "Welcome to Parity"}
+            </h1>
             <p className="text-sm text-muted-foreground">
               Design with your app&apos;s real components, beside your team and your agents.
             </p>
