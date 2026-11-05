@@ -1620,6 +1620,36 @@ recommended answer to each of its questions.
     rewritten as rules are added, in any stylesheet. Outside a frame the custom properties aren't set, so the units
     still measure Parity's window there.
   - Only declarations are rewritten, so a selector such as `.h-[100vh]` still matches. Rewriting twice changes nothing.
+- **`rem` measures the project's root font** (PAR-156). In a shadow root `rem` reads the document's root, Parity's, so a
+  project with `html { font-size: 62.5% }` got 16px to the rem in frames where Chrome gives it 10px. Two things were
+  wrong: `rem` measured Parity's root, and the root's own `62.5%` was of the canvas's 12px text, since a frame's root
+  sits in Parity's page rather than at the top of one. My calls:
+  - **`rem` in the project's CSS is rewritten,** as viewport units are and in the same places (its stylesheets, inline
+    styles, `<style>` text and rules added while it runs): `1.6rem` becomes `calc(1.6 * var(--canvas-rem, 1rem))`.
+    Custom properties are rewritten too, since Tailwind's `--spacing: 0.25rem` is used everywhere. Queries are left
+    alone: `rem` in a media query counts a browser's default 16px, not the root's font.
+  - **The frame's root sets `--canvas-rem` to its font size,** whatever the project's rules make it, read through a
+    length Parity registers (`--canvas-root-font-size: 1em`), since `1em` in an ordinary custom property would measure
+    each element that uses it. A size worked out once, when the frame is prepared, would miss a theme or mode that
+    changes the root's font; through the cascade it follows them.
+  - **A relative root font size counts from a browser's 16px,** as on a page: `62.5%` and `em` in a `:root` or `html`
+    rule's `font-size` become `calc()`s of 16px, and so does `rem`, which in the root's own font size means the default.
+    A rule for the root and other elements at once, as `html, body`, is split when it sets a font size, so only the
+    root's changes.
+  - **Tokens keep the values the project wrote.** They used to be read from the CSS prepared for frames, so a token in
+    `vh` already read as a `calc()`, and with `rem` rewritten, Tailwind's and shadcn's spacing, text and radius would
+    have too. They're now read from the CSS with selectors mapped and lengths as written (`units: false`). What frames
+    draw is rewritten instead: a token's previewed value, and the values of the styling framework's theme that the
+    compiled CSS left out.
+  - **Not covered:** a root font size in a width media query, since those become container queries the root asks rather
+    than answers (a container can't query itself), so it applies in no frame; `larger`, `smaller` or the `font`
+    shorthand on the root; a root font size from a variable holding a percentage, or holding `rem`, which makes a cycle
+    with `--canvas-rem` and leaves the root at the canvas's font size; and a root font set by CSS-in-JS, whose added
+    rules aren't mapped onto the root. The editor's own rem (Fields count 16px to the rem, and a spacing step is
+    `--spacing` at 16px to the rem) is unchanged.
+  - **Rejected:** setting Parity's own root to the project's font size, which would resize Parity's interface and can't
+    serve two projects at once; converting `rem` to pixels when the CSS is prepared, which misses themes, modes and
+    token previews that change the root's font; and iframes, as for viewport units.
 - **A frame's body has a browser's 8px margin,** in the lowest layer, so a reset such as Tailwind's preflight still
   removes it (CAN-25). The size container that the project's rewritten media queries ask is the frame's root rather than
   its body. A container lays out on its own, as a page's root does, so on the body it kept a first heading's margin from
