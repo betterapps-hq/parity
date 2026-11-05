@@ -634,39 +634,98 @@ export function SwitchInput({
 }
 
 /** Rules for a number a prop or param takes: any number, with maths. */
-export const numberRules: FieldRules = { kind: "number" }
+const numberRules: FieldRules = { kind: "number" }
+
+/** A number value previewed on the canvas, before it's made. */
+export interface NumberPreview {
+  onPreview: (value: number | undefined) => void
+  /** Takes the preview back. */
+  onCancel: () => void
+}
+
+/**
+ * A number a prop or param takes, with maths, Up and Down and scrubbing. Given `preview`, it shows on the canvas while
+ * it's typed or scrubbed. A preview is made in the design while it shows (see `ChangePreview`), so the value the field
+ * gets then is the preview's: edits work from the value as it was before it, so `+8` doesn't add to itself.
+ */
+export function NumberValueInput({
+  value,
+  title,
+  placeholder,
+  blank,
+  preview,
+  onCommit
+}: {
+  value: unknown
+  title: string
+  placeholder?: string
+  /** What an unset value counts as when an edit works from it, such as the prop's default. */
+  blank?: () => number | undefined
+  preview?: NumberPreview
+  onCommit: (value: number | undefined, gesture?: string) => void
+}) {
+  const current = typeof value === "number" ? value : undefined
+  const before = useRef<{ value: number | undefined }>(undefined)
+  const from = () => (before.current ? before.current.value : current)
+  return (
+    <NumberInput
+      value={current}
+      rules={numberRules}
+      title={title}
+      placeholder={placeholder}
+      blank={blank}
+      onPreview={
+        preview &&
+        ((update) => {
+          const base = from()
+          before.current = { value: base }
+          preview.onPreview(numberOrUnset(update(base)))
+        })
+      }
+      onCancel={
+        preview &&
+        (() => {
+          before.current = undefined
+          preview.onCancel()
+        })
+      }
+      onCommit={(update, gesture) => {
+        const base = from()
+        const previewed = before.current !== undefined
+        before.current = undefined
+        const next = numberOrUnset(update(base))
+        if (next !== base) onCommit(next, gesture)
+        else if (previewed) preview?.onCancel()
+      }}
+    />
+  )
+}
+
+/** A number field's value as a number prop takes it; number rules give no token names. */
+function numberOrUnset(value: FieldValue): number | undefined {
+  return typeof value === "number" ? value : undefined
+}
 
 /**
  * A prop's or param's value, edited so it keeps its type: a switch for a boolean, a number field for a number, text
  * for text, and JSON for the rest. `kind` says which, from what the value is declared to take (`valueKind`); without
- * it, the value's own type decides.
+ * it, the value's own type decides. A number previews on the canvas when given `preview`.
  */
 export function ValueInput({
   value,
   title = "Value",
   kind = valueKind(value),
+  preview,
   onCommit
 }: {
   value: unknown
   title?: string
   kind?: ValueKind
-  onCommit: (value: unknown) => void
+  preview?: NumberPreview
+  onCommit: (value: unknown, gesture?: string) => void
 }) {
   if (kind === "boolean") return <SwitchInput value={value === true} label={title} onChange={onCommit} />
-  if (kind === "number") {
-    const current = typeof value === "number" ? value : undefined
-    return (
-      <NumberInput
-        value={current}
-        rules={numberRules}
-        title={title}
-        onCommit={(update) => {
-          const next = update(current)
-          if (next !== current) onCommit(next)
-        }}
-      />
-    )
-  }
+  if (kind === "number") return <NumberValueInput value={value} title={title} preview={preview} onCommit={onCommit} />
   if (kind === "text") {
     return <TextInput value={value === undefined ? "" : String(value as unknown)} onCommit={onCommit} />
   }

@@ -8566,7 +8566,7 @@
                                   "props": {
                                     "id": "verify-code",
                                     "maxLength": 6,
-                                    "defaultValue": "482913",
+                                    "value": "482913",
                                     "autoComplete": "one-time-code",
                                     "inputMode": "numeric"
                                   },
@@ -8904,7 +8904,7 @@
           "overrides": {
             "l1cB8": {
               "props": {
-                "defaultValue": "482931",
+                "value": "482931",
                 "aria-invalid": true
               }
             },

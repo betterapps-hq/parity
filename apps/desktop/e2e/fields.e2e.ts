@@ -161,11 +161,74 @@ describe("several layers", () => {
     await app.toggleInLayers("Pricing", plans)
     await expect.poll(async () => (await app.selection()).nodes).toEqual([brand, plans])
     await expect.poll(() => width().inputValue()).toBe("Mixed")
+    // The note on what differs says how to change each from its own value (PAR-203).
+    expect(await app.page.getByText("Different across these layers").textContent()).toContain(
+      "Mixed+8 adds 8 to each layer's own value"
+    )
     await width().click()
     await width().press("End")
     await width().pressSequentially("+8", { delay: 20 })
     await width().press("Enter")
     await expect.poll(brandWidth).toBe(10)
     expect((await app.style("Pricing", plans)).width).toBe(302)
+  })
+})
+
+describe("number props (PAR-203)", () => {
+  // App sidebar's Seats bar, a nova/Progress whose value is 70.
+  const seats = "LiOql"
+  const valueField = () => app.page.locator('input[aria-label="value"]')
+  const storedValue = async () => {
+    const node = await app.node("App sidebar", seats)
+    return node?.type === "component" ? node.props?.value : undefined
+  }
+  /** The value the bar is drawn with, which the component sets on its progressbar. */
+  const drawnValue = () =>
+    app.page.evaluate((seats) => {
+      const e2e = window.e2e!
+      const element = window.e2eModules!.frames.findNodeElement(e2e.frame(e2e.key("App sidebar")), seats)
+      const bar = element?.matches('[role="progressbar"]') ? element : element?.querySelector('[role="progressbar"]')
+      return bar?.getAttribute("aria-valuenow")
+    }, seats)
+
+  async function selectSeats(): Promise<void> {
+    await app.show("App sidebar", 1, seats)
+    await app.selectLayer("App sidebar", seats)
+    await expect.poll(() => valueField().inputValue()).toBe("70")
+  }
+
+  it("previews each keystroke on the canvas, and Enter makes it one undo step", async () => {
+    await selectSeats()
+    await valueField().click()
+    await valueField().press("ControlOrMeta+a")
+    for (const [key, shown] of [
+      ["2", "2"],
+      ["5", "25"]
+    ] as const) {
+      await app.page.keyboard.press(key)
+      await expect.poll(drawnValue).toBe(shown)
+    }
+    await valueField().press("Enter")
+    await expect.poll(storedValue).toBe(25)
+    expect(await drawnValue()).toBe("25")
+    await valueField().press("Escape")
+    await app.page.keyboard.press("Control+z")
+    await expect.poll(storedValue).toBe(70)
+  })
+
+  it("works maths out from the value as it was, and Escape takes the preview back, leaving nothing to undo", async () => {
+    await selectSeats()
+    const before = await app.undoLabel()
+    await valueField().click()
+    await valueField().press("ControlOrMeta+a")
+    await valueField().pressSequentially("/2", { delay: 20 })
+    await expect.poll(drawnValue).toBe("35")
+    // 70 divided by 20, not the 35 the design holds while it's previewed.
+    await valueField().pressSequentially("0", { delay: 20 })
+    await expect.poll(drawnValue).toBe("3.5")
+    await valueField().press("Escape")
+    await expect.poll(drawnValue).toBe("70")
+    expect(await storedValue()).toBe(70)
+    expect(await app.undoLabel()).toBe(before)
   })
 })
