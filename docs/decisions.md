@@ -3295,6 +3295,30 @@ frames show a skeleton loader until their image loads. My calls:
 - **`pnpm perf` counts a frame as shown once it's asleep,** which is when it shows its bitmap or its placeholder, and
   still times every bitmap separately.
 
+## Frame bitmaps and component previews are kept as lossless WebP (PAR-535)
+
+Kept bitmaps were PNGs as Electron's `capturePage` writes them, about 7.6 KB each on the example project. You asked to
+keep these files small, so Parity doesn't fill people's disks with images, and to keep them lossless. My calls, and
+yours:
+
+- **Lossless WebP, encoded with sharp (your call), in the project service.** On the example's 119 bitmaps, libwebp's
+  lossless mode made 562 KB of 908 KB, the same pixels. Re-compressing the PNGs with zlib at its best gained nothing
+  (929 KB), and Chromium's own WebP encoder, lossless at full quality, wrote 957 KB. Lossy WebP would be smaller still
+  but isn't what you asked for. Encoding runs in the service, off main's thread, where a capture's PNG already passes.
+- **The canvas is given the WebP, not the PNG,** so the window reads, holds and decodes the smaller file, and what it
+  shows is what's kept.
+- **The frame's height stays inside the file,** in a chunk of its own after the image (`withWebpText`), as it was in the
+  PNG's text chunk, so each bitmap is still one file for the cache's sweeping and partial-file handling. A plain WebP
+  has only its image, so the extended header goes in front first, which the format requires.
+- **The PNGs kept before aren't read.** Bitmaps are named `.webp` now, so the old files are never found and go with the
+  cache's 30-day and 200 MB sweeps, as earlier format changes did; the PNG text helper is gone.
+- **sharp ships beside the service, unpacked,** since it loads its prebuilt libvips at runtime. The build copies it and
+  the packages installed with it, its binaries for the system building, and on macOS also fetches the other
+  architecture's from npm, since one Mac build packages both. The build then loads the shipped sharp in Parity's
+  Electron and encodes a WebP, and fails if it can't, so each platform's installer is checked as it's made; the other
+  Mac architecture's binaries are checked to be there. A system where it can't load keeps nothing rather than failing,
+  and captures each session.
+
 ## A screen is its own container (PAR-542)
 
 You approved the explorations on 2026-11-04 ("Yeah, let's ship it"). They're in Storybook under Parity / Explorations /

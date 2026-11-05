@@ -15,9 +15,11 @@ npmRebuild: false
 files:
   - "**/*"
   - "!node_modules/**"
+# The packages the build ships beside the service, unpacked: TypeScript, whose checker reads its own files, and sharp
+# with its native binaries (PAR-535).
 extraResources:
-  - from: out/node_modules/typescript
-    to: app.asar.unpacked/node_modules/typescript
+  - from: out/node_modules
+    to: app.asar.unpacked/node_modules
 artifactName: Parity-${version}-${os}-${arch}.${ext}
 publish:
   provider: github

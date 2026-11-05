@@ -2343,7 +2343,7 @@ files, which other sessions share; `ModeView.test.ts` drives the guest's side of
 
 Frame bitmaps are kept on disk, so a project opened again, or Parity started again, shows its frames' bitmaps once
 they're read rather than capturing every one again, one at a time, before frames can sleep. They're kept in Parity's app
-data, in `bitmaps`, one folder per project and one PNG per bitmap.
+data, in `bitmaps`, one folder per project and one lossless WebP per bitmap.
 
 - **A bitmap is named by what it shows:** the project's code as the guest drawing it was loaded, the render job less the
   guest's address, which is new each time a project opens, and where each component the frame draws comes from, whether
@@ -2353,10 +2353,18 @@ data, in `bitmaps`, one folder per project and one PNG per bitmap.
   It's taken when each address is first served and kept for that address, since the page never loads a module twice: a
   builder started again on the same port keeps it. Any edit to code, CSS or config gives a new name, so a bitmap of old
   code is never shown for new.
-- **Each PNG carries its frame's height** as the canvas drew it, in a `parity:height` text chunk, so a frame that hasn't
-  drawn yet can show its kept bitmap at its size (see Opening in seconds). The offscreen window lays a frame out at the
-  bitmap's quarter zoom, where text rounds to other heights, so its own measure is kept only for a frame the canvas
-  hadn't drawn. A file without a height, as versions before PAR-179 kept, isn't shown.
+- **Kept as lossless WebP (PAR-535).** The offscreen window captures a PNG, and the project service encodes it again as
+  a lossless WebP with sharp's libwebp before keeping it, the same pixels in about 40% less: the example project's 119
+  bitmaps came to 569 KB in the app, 4.8 KB each and 21 KB at most, where their PNGs took 908 KB, 7.6 and 33, encoding
+  in about 10 ms each, off main's thread. The canvas is given the WebP too, so it reads and decodes the smaller file.
+  Component previews are kept the same way. Chromium's own encoder was tried first, being lossless at full quality, but
+  wrote files 5% larger than the PNGs. A system where sharp can't load keeps nothing, and captures each session.
+- **Each bitmap carries its frame's height** as the canvas drew it, in a `parity:height` text chunk after the image, so
+  a frame that hasn't drawn yet can show its kept bitmap at its size (see Opening in seconds). WebP decoders skip it, as
+  the format asks them to of a chunk they don't know. The offscreen window lays a frame out at the bitmap's quarter
+  zoom, where text rounds to other heights, so its own measure is kept only for a frame the canvas hadn't drawn. A file
+  without a height, as versions before PAR-179 kept, isn't shown, and nor are the PNGs kept before PAR-535, which age
+  out with the cache.
 - **A frame not yet captured this session asks for a kept one first,** and shows it as soon as it's read. Only when
   there's none is it captured, after what's left of the 1-second wait; frames showing the same bitmap share one read,
   and a capture that landed meanwhile wins. Every capture that rendered is kept, written beside its name and renamed so
@@ -2378,9 +2386,11 @@ Code: `cacheRemovals` in `packages/core/src/bitmap-cache.ts`; `renderQueue` and 
 `ensureRenderWindow` and `closeRenderWindows` in `apps/desktop/src/main/index.ts`; `codeSnapshot` in
 `packages/project/src/code-fingerprint.ts`; `apps/desktop/src/utility/bitmap-store.ts`, and `codeServedAt` and the
 `fingerprints` kept per address in `utility/projects.ts`, with the components each address served; `drawnComponents` in
-`apps/desktop/src/shared/render-job.ts`; `withPngText` and `pngText` in `packages/core/src/png-text.ts`; the
-`frames.capture`, `frames.stored` and `frames.clearStored` handlers in `utility/index.ts`; `useFrameBitmap` and `stored`
-in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `clearBitmapCache` in `renderer/chrome/commands.ts`, in the View
+`apps/desktop/src/shared/render-job.ts`; `withWebpText`, `webpText` and `webpSize` in `packages/core/src/webp-text.ts`;
+`losslessWebp` in `apps/desktop/src/utility/webp.ts`, and the build shipping sharp beside the service
+(`apps/desktop/scripts/build.ts`, `electron-builder.yml`); the `frames.capture`, `frames.stored` and
+`frames.clearStored` handlers in `utility/index.ts`; `useFrameBitmap` and `stored` in
+`apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `clearBitmapCache` in `renderer/chrome/commands.ts`, in the View
 menu (`AppMenu.tsx`) and the actions search (`ActionsSearch.tsx`); `PARITY_BITMAP_DIR`, which main gives the service.
 
 Tests: `packages/core/src/turns.test.ts` (2: no more than the limit run at once, the earliest waiting next, and a failed
@@ -2395,8 +2405,10 @@ frame's height, one whose guest was given a component is found from a guest serv
 another file, none for a file without a height, none for other code or another frame, no partial file left behind, an
 old project and an old partial file swept, and nothing once cleared). `apps/desktop/src/shared/render-job.test.ts` (2
 for `drawnComponents`: the components a tree draws, nested in slots and props, by where they come from, and the same
-whether served or given). `packages/core/src/png-text.test.ts` (4: text kept right after the header with valid CRCs and
-read back, replaced under the same keyword, none in a PNG without it, and what isn't a PNG left alone).
+whether served or given). `packages/core/src/webp-text.test.ts` (5: text kept after the image behind the extended header
+a plain WebP needs, with its size and alpha, for lossless and lossy images; replaced under the same keyword and kept
+under others; none without it, and what isn't a WebP left alone; and the size read from either header).
+`apps/desktop/src/utility/webp.test.ts` (1: the WebP has the PNG's pixels exactly).
 `apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (4: a kept bitmap stands in for its key, with its height, so no
 capture is asked for, frames with the same key share a read, none when none was kept, and a capture taken during the
 read wins). Gaps: that a frame waits for the read before its capture, and the fingerprint kept per address, have no test

@@ -660,23 +660,23 @@ function bitmapFolder(): string {
 }
 
 /**
- * Serves a component preview's picture from the store, as `parity-preview://<project>/<key>-<size>.png`, the address
+ * Serves a component preview's picture from the store, as `parity-preview://<project>/<key>-<size>.webp`, the address
  * the service gives. Showing it counts as using it, for the cache's limits. Its name is its content, so the same
  * address never shows another picture.
  */
 async function servePreview(request: Request): Promise<Response> {
   const { host, pathname } = new URL(request.url)
   const name = pathname.slice(1)
-  if (!/^[0-9a-f]{24}$/.test(host) || !/^[0-9a-f]{40}-(thumb|large)\.png$/.test(name)) {
+  if (!/^[0-9a-f]{24}$/.test(host) || !/^[0-9a-f]{40}-(thumb|large)\.webp$/.test(name)) {
     return new Response(null, { status: 400 })
   }
   const file = join(bitmapFolder(), host, "previews", name)
   try {
-    const png = await readFile(file)
+    const picture = await readFile(file)
     const now = new Date()
     void utimes(file, now, now).catch(() => undefined)
-    return new Response(png, {
-      headers: { "content-type": "image/png", "cache-control": "max-age=31536000, immutable" }
+    return new Response(picture, {
+      headers: { "content-type": "image/webp", "cache-control": "max-age=31536000, immutable" }
     })
   } catch {
     return new Response(null, { status: 404 })
