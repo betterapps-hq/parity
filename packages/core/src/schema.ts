@@ -69,7 +69,9 @@ interface Problem {
 
 /**
  * The problem to report from a failed check: its first issue. An unknown property points at that property. A union
- * that no option matched reports the option that came closest, or every type it takes when none got past the value.
+ * that no option matched reports the option that came closest, or every type it takes when none got past the value's
+ * type. An option for another type of value isn't close, so `{ size: "big" }` against a string or an object with a
+ * numeric size reports the size, however many issues the object has.
  */
 function firstProblem(issues: readonly z.core.$ZodIssue[], at: string): Problem {
   const [issue] = issues
@@ -90,10 +92,17 @@ function unionProblem(options: readonly (readonly z.core.$ZodIssue[])[], pointer
     return { pointer, message: `expected ${[...new Set(expected)].join(" or ")}` }
   }
   const depth = (option: readonly z.core.$ZodIssue[]) => option[0]?.path.length ?? 0
-  const closest = options.reduce((best, option) =>
+  const typed = options.filter((option) => !refusesType(option))
+  const closest = (typed.length > 0 ? typed : options).reduce((best, option) =>
     option.length < best.length || (option.length === best.length && depth(option) > depth(best)) ? option : best
   )
   return firstProblem(closest, pointer)
+}
+
+/** Whether a union's option failed on the value's type itself, as a string option does for an object. */
+function refusesType(option: readonly z.core.$ZodIssue[]): boolean {
+  const [first] = option
+  return first?.code === "invalid_type" && first.path.length === 0
 }
 
 /** What one type or value check wanted, as `a string` or `"row"`; nothing for other checks. */

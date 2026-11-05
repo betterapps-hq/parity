@@ -94,7 +94,7 @@ export async function discoverProject(
   if (own) {
     try {
       const manifest = parseLibraryManifest(parseJsonc(await readFile(join(root, own), "utf8")))
-      const described = await describedTokens(root, join(root, own), manifest)
+      const described = await describedTokens(root, join(root, own), manifest, notes)
       if (described) tokens.unshift(described)
       namespace = libraryId(manifest, pkg.name ?? basename(root))
       notes.push(`a library, described by ${own}, whose components are named like ${namespace}/Button`)

@@ -320,6 +320,16 @@ export function boardTarget(container: ContainerSpec, stateId: string): EditTarg
   return param ? { state: stateId, variant: { param, option: shown[param]! } } : { state: stateId }
 }
 
+/**
+ * The name of where an edit to `target` lands, for saying so: the variant option's name when an option takes it, else
+ * the state's.
+ */
+export function editTargetName(container: ContainerSpec, target: string | EditTarget): string {
+  const { state, variant } = toEditTarget(target)
+  if (variant && isBaseState(container, state)) return findOption(container, variant.param, variant.option).name
+  return findState(container, state).name
+}
+
 /** Whether an edit to `target` changes the design itself, rather than a state's or a variant's patches. */
 export function editsDesign(container: ContainerSpec, target: string | EditTarget): boolean {
   const { state, variant } = toEditTarget(target)
