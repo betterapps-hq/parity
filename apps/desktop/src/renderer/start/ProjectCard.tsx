@@ -7,49 +7,14 @@ import {
   DropdownMenuTrigger
 } from "@buildkitgg/shadcn-baseui-kit"
 import { AppWindow, CopyPlus, Ellipsis, Link, Star, X } from "lucide-react"
-import type { CSSProperties } from "react"
+import { type CSSProperties, useRef, useState } from "react"
 import { Hint } from "../chrome/Hint.tsx"
-import { type KnownProject, projectHue, whenLabel } from "./projects.ts"
+import { ProjectArt, useScreenCount, useScreenName } from "./ProjectArt.tsx"
+import { type KnownProject, whenLabel } from "./projects.ts"
 import { newProjectNotReady, notReady, useStartActions } from "./start-actions.ts"
 
 /** Parity's own accent, from its mark, for the ring round a project or template under the pointer. */
 export const accent = { "--parity": "oklch(0.7 0.16 275)" } as CSSProperties
-
-/**
- * A project's picture, until Parity keeps a render of its canvas: a desktop board with a phone beside it, in a color of
- * the project's own, with its initial where the design would be.
- */
-export function ProjectArt({ project }: { project: KnownProject }) {
-  const hue = projectHue(project.root)
-  const ink = `oklch(0.66 0.15 ${hue})`
-  const initial = /[\p{L}\p{N}]/u.exec(project.name)?.[0]?.toUpperCase() ?? "?"
-  return (
-    <div aria-hidden className="relative aspect-[16/10] overflow-hidden bg-muted/70">
-      <div
-        className="absolute inset-0"
-        style={{
-          background: `radial-gradient(70% 60% at 30% 25%, oklch(0.6 0.14 ${hue} / 0.22), transparent 70%), radial-gradient(50% 50% at 90% 100%, oklch(0.6 0.12 ${hue + 60} / 0.14), transparent 70%)`
-        }}
-      />
-      <div className="absolute top-[13%] left-[7%] flex aspect-[16/10] w-[66%] flex-col overflow-hidden rounded-[5px] bg-background shadow-lg ring-1 ring-foreground/10">
-        <span className="flex h-[12%] shrink-0 items-center gap-[3%] border-b px-[4%]">
-          <span className="aspect-square h-2/5 rounded-full" style={{ background: ink }} />
-          <span className="h-1/4 w-1/4 rounded-full bg-muted" />
-        </span>
-        <span
-          className="grid flex-1 place-items-center font-semibold"
-          style={{ color: ink, containerType: "size", fontSize: "min(40cqh, 2.5rem)" }}
-        >
-          {initial}
-        </span>
-      </div>
-      <div className="absolute top-[24%] right-[8%] flex aspect-[9/19] w-[16%] flex-col overflow-hidden rounded-[6px] bg-background shadow-lg ring-1 ring-foreground/10">
-        <span className="h-[8%] shrink-0 border-b" />
-        <span className="m-[14%] h-[6%] rounded-full" style={{ background: ink }} />
-      </div>
-    </div>
-  )
-}
 
 /** When it was opened, or where it is when that isn't known. */
 function openedLine(project: KnownProject, now: number): string {
@@ -115,10 +80,43 @@ export function ProjectCard({
   onRemove?: () => void
 }) {
   const actions = useStartActions()
+  const art = useRef<HTMLDivElement>(null)
+  const count = useScreenCount(project)
+  const [screen, setScreen] = useState(0)
+  const [hovered, setHovered] = useState(false)
+  const name = useScreenName(project, screen)
   return (
-    <article className="group/card relative flex min-w-0 flex-col gap-2.5" style={accent}>
-      <div className="overflow-hidden rounded-lg ring-1 ring-foreground/10 transition-shadow duration-150 group-hover/card:ring-2 group-hover/card:ring-(--parity)">
-        <ProjectArt project={project} />
+    <article
+      className="group/card relative flex min-w-0 flex-col gap-2.5"
+      style={accent}
+      onPointerEnter={() => setHovered(true)}
+      onPointerMove={(event) => setScreen(screenUnder(art.current, event.clientX, event.clientY, count))}
+      onPointerLeave={() => {
+        setHovered(false)
+        setScreen(0)
+      }}
+    >
+      <div
+        ref={art}
+        className="relative overflow-hidden rounded-lg ring-1 ring-foreground/10 transition-shadow duration-150 group-hover/card:ring-2 group-hover/card:ring-(--parity)"
+      >
+        <ProjectArt project={project} screen={screen} />
+        {count > 1 && (
+          <div
+            aria-hidden
+            className={`pointer-events-none absolute inset-x-0 bottom-0 flex flex-col gap-2 bg-linear-to-t from-black/70 to-transparent px-3 pt-6 pb-2.5 transition-opacity duration-150 ${hovered ? "opacity-100" : "opacity-0"}`}
+          >
+            <span className="truncate text-[11px] font-medium text-white">{name}</span>
+            <span className="flex gap-1">
+              {Array.from({ length: count }, (_, position) => (
+                <span
+                  key={position}
+                  className={`h-0.5 flex-1 rounded-full ${position === screen ? "bg-white" : "bg-white/30"}`}
+                />
+              ))}
+            </span>
+          </div>
+        )}
       </div>
       <div className="flex items-center gap-2">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -143,4 +141,14 @@ export function ProjectCard({
       </div>
     </article>
   )
+}
+
+/**
+ * Which of a picture's screens the pointer is over: the picture split into as many strips across as there are screens,
+ * as the exploration's cards flip. The first below the picture, over the card's name.
+ */
+function screenUnder(art: HTMLElement | null, x: number, y: number, count: number): number {
+  const box = art?.getBoundingClientRect()
+  if (!box || count < 2 || y > box.bottom || box.width === 0) return 0
+  return Math.min(count - 1, Math.max(0, Math.floor(((x - box.left) / box.width) * count)))
 }

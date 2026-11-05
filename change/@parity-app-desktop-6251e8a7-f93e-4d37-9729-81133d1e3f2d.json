@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Point to problems in a project file more exactly: a length that is neither a number nor a string, padding of the wrong form, and mistakes in its modes",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

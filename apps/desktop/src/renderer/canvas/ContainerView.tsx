@@ -51,7 +51,7 @@ import { frameHeightProperty } from "../frame.ts"
 import { ModeView } from "../ModeView.tsx"
 import { useDesignSelection, useInteracting, useInteractions, useRenameRequest } from "../selection.ts"
 import { useProject } from "./context.ts"
-import { drawnHeight, useFirstDrawWaits, useFrameBitmap, useFrameShows } from "./frame-bitmaps.ts"
+import { drawnHeight, useFirstDrawWaits, useFirstRowFrame, useFrameBitmap, useFrameShows } from "./frame-bitmaps.ts"
 import { useFrameSkeleton } from "./frame-skeletons.ts"
 import { type BoardRest, useAwake } from "./frame-sleep.ts"
 import { FrameSkeleton } from "./FrameSkeleton.tsx"
@@ -563,6 +563,8 @@ const FrameTile = memo(function FrameTile({
   // What the frame shows, worked out once, which the live frame, its bitmap, its skeleton and its sleep all go by.
   const shows = useFrameShows(session, tree, mode, frame, scale)
   const { key } = shows
+  // The first row's frames are what the project's picture shows (PAR-607).
+  useFirstRowFrame(session.id, entry.key, mode.id, shows, caption)
   // Whether the frame is holding off drawing its design for its bitmap, which then needn't wait to be captured.
   const holding = useRef(false)
   // The live frame's height as it's drawn when its bitmap is taken, which is kept with it.

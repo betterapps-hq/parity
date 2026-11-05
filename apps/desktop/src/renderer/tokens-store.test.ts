@@ -78,7 +78,7 @@ beforeAll(async () => {
   // @ts-expect-error The bundle's global.
   if (!(await page.evaluate(() => typeof tokens === "object")))
     throw new Error(`The page didn't load: ${errors.join(",")}`)
-}, 30_000)
+})
 
 afterAll(async () => {
   await browser?.close()

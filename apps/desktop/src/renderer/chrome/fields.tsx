@@ -517,7 +517,8 @@ export function NumberField({
         placeholder={placeholder}
         spellCheck={false}
         autoComplete="off"
-        className={`h-6 min-w-0 flex-1 border-0 bg-transparent px-1.5 text-xs shadow-none focus-visible:ring-0 aria-invalid:ring-0 dark:bg-transparent ${
+        // The kit's input turns to 14px from the md breakpoint, which every window is past; md:text-xs keeps it 12px.
+        className={`h-6 min-w-0 flex-1 border-0 bg-transparent px-1.5 text-xs shadow-none md:text-xs focus-visible:ring-0 aria-invalid:ring-0 dark:bg-transparent ${
           mono || typeof value === "string" ? "font-mono" : "tabular-nums"
         }`}
         onChange={(event) => dispatch({ type: "type", text: event.currentTarget.value })}

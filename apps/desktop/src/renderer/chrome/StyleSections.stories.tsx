@@ -1,6 +1,6 @@
 import { editNode, type NodeStyle } from "@parity-app/core"
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { userEvent, within } from "storybook/test"
+import { expect, userEvent, within } from "storybook/test"
 import { layersSelection } from "../selection.ts"
 import { design, example, node } from "../stories/fixtures.tsx"
 import { inspecting, InspectorStage, PanelColumn, SelectedStyles, slowly } from "./inspector-stories.tsx"
@@ -13,9 +13,9 @@ const meta = {
   title: "Parity/Inspector/Styles",
   component: SelectedStyles,
   decorators: [
-    (Story) => (
+    (Story, { parameters }) => (
       <InspectorStage>
-        <PanelColumn>
+        <PanelColumn width={typeof parameters.panelWidth === "number" ? parameters.panelWidth : undefined}>
           <Story />
         </PanelColumn>
       </InspectorStage>
@@ -56,6 +56,35 @@ export const InAGrid: Story = { loaders: [pick("Pricing", "Pro plan", { colSpan:
 
 /** A fixed size and a fill color, Pricing's brand mark: 8 steps square, in the primary color. */
 export const FixedSizeAndFill: Story = { loaders: [pick("Pricing", "Brand mark")] }
+
+/** Shows `value` whole in a field, not clipped by the field's width. */
+async function expectWhole(canvasElement: HTMLElement, name: string, value: string) {
+  const field = within(canvasElement).getByRole<HTMLInputElement>("textbox", { name })
+  await expect(field).toHaveValue(value)
+  await expect(field.scrollWidth).toBeLessThanOrEqual(field.clientWidth)
+}
+
+/**
+ * A 96 by 48 brand mark with the inspector at its narrowest, 260 pixels: Width and Height show 96 and 48 whole, with
+ * Fixed under each rather than beside it (PAR-496).
+ */
+export const SizeAtNarrowest: Story = {
+  parameters: { panelWidth: 260 },
+  loaders: [pick("Pricing", "Brand mark", { width: 24, height: 12 })],
+  play: async ({ canvasElement }) => {
+    await expectWhole(canvasElement, "Width", "96")
+    await expectWhole(canvasElement, "Height", "48")
+  }
+}
+
+/** A 1440 by 900 brand mark at the inspector's usual width: four digits and px fit beside Fixed (PAR-496). */
+export const LargeSize: Story = {
+  loaders: [pick("Pricing", "Brand mark", { width: 360, height: 225 })],
+  play: async ({ canvasElement }) => {
+    await expectWhole(canvasElement, "Width", "1440")
+    await expectWhole(canvasElement, "Height", "900")
+  }
+}
 
 /** A button that fills its parent's width, Plan card's call to action. */
 export const FillWidth: Story = { loaders: [pick("Plan card", "Call to action")] }
