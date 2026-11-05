@@ -75,7 +75,15 @@ const designs: ContainerSpec[] = [
       ]),
       layout("Empty state", [text("empty", "No members yet")], true)
     ])
-  )
+  ),
+  // Replace's example puts back a title's patches in its loading state.
+  {
+    ...screen("signup", "Signup", 4800, layout("Page", [{ ...text("title", "Sign up"), name: "Title" }])),
+    states: [
+      { id: "default", name: "Default" },
+      { id: "loading", name: "Loading" }
+    ]
+  }
 ]
 
 function project(tab: string): AgentSnapshot {
