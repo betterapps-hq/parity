@@ -82,9 +82,11 @@ export const keymap = {
   showLayers: { group: "View", label: "Show Layers", keys: ["Alt 1"] },
   showComponents: { group: "View", label: "Show Components", keys: ["Alt 2"] },
   layoutGrid: { group: "View", label: "Layout grid", keys: ["Shift G"] },
+  home: { group: "View", label: "Home", keys: ["Alt Home"] },
   nextTab: { group: "View", label: "Next tab", keys: ["Ctrl Tab"] },
   previousTab: { group: "View", label: "Previous tab", keys: ["Ctrl Shift Tab"] },
 
+  newTab: { group: "File", label: "New tab", keys: ["Ctrl T"] },
   openFolder: { group: "File", label: "Open project folder", keys: ["Ctrl O"] },
   openFile: { group: "File", label: "Open project file", keys: ["Ctrl Shift O"] },
   save: { group: "File", label: "Save", keys: ["Ctrl S"] },

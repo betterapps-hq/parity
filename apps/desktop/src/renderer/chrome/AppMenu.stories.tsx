@@ -419,8 +419,8 @@ export const SearchActions: Story = {
 }
 
 /**
- * Search actions searched for "new": New screen and New component, with their keys, in the Object group. It matches the
- * start of words, so nothing with n, e and w scattered through its name comes up (PAR-546).
+ * Search actions searched for "new": New screen and New component, with their keys, in the Object group, then New tab in
+ * File. It matches the start of words, so nothing with n, e and w scattered through its name comes up (PAR-546).
  */
 export const SearchActionsForNew: Story = {
   loaders: [() => openProjects("example")],
@@ -428,13 +428,17 @@ export const SearchActionsForNew: Story = {
     await frameDesigns("Pricing", "Dashboard")
     openDialog("actions")
     await enter(await body().findByRole("combobox"), "new")
-    const dialog = await body().findByRole("dialog", { name: "Search actions" })
+    const dialog = await body().findByRole("dialog", { name: "Search" })
     await waitFor(() =>
       expect(
         within(dialog)
           .getAllByRole("option")
           .map((option) => option.textContent)
-      ).toEqual([`New screen${formatKeys("Ctrl Alt N")}`, `New component${formatKeys("Ctrl Alt Shift N")}`])
+      ).toEqual([
+        `New screen${formatKeys("Ctrl Alt N")}`,
+        `New component${formatKeys("Ctrl Alt Shift N")}`,
+        `New tab${formatKeys("Ctrl T")}`
+      ])
     )
   }
 }

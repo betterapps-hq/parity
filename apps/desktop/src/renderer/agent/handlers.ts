@@ -96,22 +96,23 @@ async function answer(method: WindowMethod, params: unknown): Promise<unknown> {
 
 /** A tab by id, root or name, as the CLI matches one when it routes a call; the active tab when none is given. */
 function findTab(reference: string | undefined): Tab {
-  const tabs = workspace.getTabs()
+  // New tabs have no project yet, and Home isn't a tab, so neither is a tab here.
+  const tabs = workspace.getTabs().filter((candidate) => !candidate.blank)
   const named = reference && reference !== activeTab ? reference : undefined
-  const found = named && matchTab(workspace.summaries(), named)
-  const tab = named ? tabs.find((candidate) => found && candidate.id === found.id) : workspace.getActive()
-  if (!tab) {
-    if (!reference) throw new CodedError("No project is open", { code: "unknown_tab", field: "tab" })
-    const ids = tabs.map((candidate) => candidate.id)
-    throw unknownReference(
-      "unknown_tab",
-      `No open tab matches "${reference}". Tabs: ${ids.join(", ")}`,
-      reference,
-      ids,
-      "tab"
-    )
+  const ids = tabs.map((candidate) => candidate.id)
+  if (named) {
+    const found = matchTab(workspace.summaries(), named)
+    const tab = found && tabs.find((candidate) => candidate.id === found.id)
+    if (tab) return tab
+    throw unknownReference("unknown_tab", `No open tab matches "${named}". Tabs: ${ids.join(", ")}`, named, ids, "tab")
   }
-  return tab
+  const active = workspace.getActive()
+  if (active && !active.blank) return active
+  if (ids.length === 0) throw new CodedError("No project is open", { code: "unknown_tab", field: "tab" })
+  throw new CodedError(`No project tab is active. Set tab to one of the open tabs: ${ids.join(", ")}`, {
+    code: "unknown_tab",
+    field: "tab"
+  })
 }
 
 function ready(tab: Tab): ProjectSession {

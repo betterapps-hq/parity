@@ -1,7 +1,8 @@
 import { type ContainerSpec, defaultModeSettings } from "@parity-app/core"
+import { dragThreshold } from "@parity-app/editor"
 import { describe, expect, it, vi } from "vite-plus/test"
 import { DesignStore } from "../design-store.ts"
-import { dragThreshold, followPress, GestureRun, gestures, onGestureEnd, type Press } from "./gesture.ts"
+import { followPress, GestureRun, gestures, onGestureEnd, type Press } from "./gesture.ts"
 
 /** A key press as the window gets it. */
 const press = (key: string) => Object.assign(new Event("keydown", { cancelable: true }), { key })

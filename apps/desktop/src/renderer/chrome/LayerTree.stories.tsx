@@ -1,3 +1,4 @@
+import { addVariant, editNode } from "@parity-app/core"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
 import { designsSelection, layersSelection } from "../selection.ts"
@@ -304,6 +305,38 @@ export const LayerMenu: Story = {
     await reveal("Stat card", "Value skeleton")
     await rightClick(row("Stat card", "Value skeleton"))
     await within(document.body).findByRole("menu")
+  }
+}
+
+/**
+ * Plan card with a density variant whose Compact option hides Feature 4, shown on its board. Feature 4's menu offers
+ * Show in Compact, where the change lands, rather than in the base state (PAR-497).
+ */
+export const HiddenByAVariant: Story = {
+  loaders: [
+    async () => {
+      await openProjects("example")
+      const card = design("Plan card")
+      const feature = node("Plan card", "Feature 4")
+      example().store.updateContainer(card, "Add density variant", (current) => {
+        const added = addVariant(current, "density", ["Comfortable", "Compact"])
+        const compact = added.params!.density!.options![1]!.id
+        const hidden = editNode(
+          added,
+          { state: added.states[0]!.id, variant: { param: "density", option: compact } },
+          feature,
+          {
+            hidden: true
+          }
+        )
+        return { ...hidden, view: { ...hidden.view, variants: { density: compact } } }
+      })
+    }
+  ],
+  play: async () => {
+    await reveal("Plan card", "Feature 4")
+    await rightClick(row("Plan card", "Feature 4"))
+    await within(document.body).findByRole("menuitem", { name: "Show in Compact" })
   }
 }
 

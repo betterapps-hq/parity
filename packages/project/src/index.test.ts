@@ -143,6 +143,24 @@ describe("libraries", () => {
     ])
   })
 
+  it("leaves out a library's malformed token, and notes why", async () => {
+    const pkg = { dependencies: { "@acme/ui": "1.0.0" } }
+    const tokens = { radius: { $type: "dimension", $value: 8 }, gap: { $value: "4px" } }
+    await write("package.json", JSON.stringify(pkg))
+    await write("node_modules/@acme/ui/package.json", '{ "name": "@acme/ui", "types": "index.d.ts" }')
+    await write("node_modules/@acme/ui/index.d.ts", "")
+    await write(
+      "node_modules/@acme/ui/acme.lib.par",
+      JSON.stringify({ version: 3, id: "acme", name: "Acme UI", tokens })
+    )
+
+    const project = await discoverProject(root, renderer, pkg)
+    expect(project.describedTokens?.[0]?.tokens.map((token) => token.path)).toEqual(["gap"])
+    expect(project.notes).toContain(
+      "node_modules/@acme/ui/acme.lib.par: skipped radius (/$value: expected a string or an object)"
+    )
+  })
+
   it("names a library's own components by its id, so its canvas's designs refer to them as apps do", async () => {
     await write("src/components/ui/button.tsx", "export function Button() {}")
     await write("nova.lib.par", JSON.stringify({ version: 3, id: "nova", name: "Shadcn Nova" }))

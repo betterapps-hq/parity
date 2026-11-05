@@ -2405,7 +2405,9 @@ How Parity's code is split, so the parts that change most are easy to find, repl
   - The canvas passes measures in and applies what comes back. It keeps measuring frames (`DragLayouts`), finding the
     frame under the pointer, the pointer handling and the drop preview, `measureHere`, and moving an absolutely placed
     layer by its insets, whose rule (`shiftInsets`) stays with nudging in the app. For snapping it keeps reading
-    tldraw's boxes, the View menu's preference, Ctrl to move freely and drawing the guides.
+    tldraw's boxes, the View menu's preference, Ctrl to move freely and drawing the guides. You reopened the
+    `shiftInsets` call on 2026-11-04: it's in `@parity-app/editor` now, with the rest of moving, resizing and nudging
+    (PAR-577, below).
   - A frame's layouts' flows are read when the frame is measured, with the boxes, so `dropTargetAt` takes only data.
     Before, the flow of the layout found was read from its computed style at each pointer move. Showing a copy doesn't
     change a layout's display or direction, so drops land where they did.
@@ -3733,7 +3735,20 @@ below. My calls on how they move:
   through Parity's packages, and fails if it reaches zod.
 - **MCP's input schemas come from zod** through `z.toJSONSchema`, and `tools/list` keeps its 12 KiB budget (PAR-510).
 - **Token files stay lenient.** A malformed token is skipped and reported rather than failing its file, since a strict
-  check would refuse files that load today (PAR-591).
+  check would refuse files that load today (PAR-591). Each of the 12 registry libraries with tokens read the same before
+  and after, with nothing skipped. My calls:
+  - Each `$type`'s `$value` is a schema in `tokens/src/dtcg-values.ts`, checked once aliases are followed. Any value can
+    be a string instead, CSS read as written, since libgen writes CSS where DTCG has no form for it.
+  - The parts Parity filled in when they were missing stay optional: a shadow's offsets, blur, spread and inset, and a
+    typography's weight, line height and letter spacing. A dimension takes any CSS unit, since libgen writes `em`.
+  - A token malformed in one context is left out of that context only. A malformed set, modifier or step of a resolver's
+    resolution order is left out too. A broken alias still fails the file.
+  - Each skip is reported once. `readDesignTokens` passes it to its caller, and project discovery adds it to the
+    project's notes, as `acme.lib.par: skipped radius (/$value: expected a string or an object)`. The Tokens panel
+    doesn't show these yet.
+  - A stroke style's dash pattern is written as `dashed`, since a CSS border can't draw one.
+  - `parseData` passes over a union's options for another type of value, so a malformed shadow reports its bad part
+    rather than `expected a string`.
 - **New code adds no hand-written parsers.**
 
 The issues, in order. PAR-588 comes first, since it adds zod.
@@ -3861,6 +3876,23 @@ gesture). My calls:
 - **tldraw's own drag of a board stays tldraw's,** ending when tldraw stops translating, since tldraw follows that
   pointer, not Parity.
 
+## Agents tell board collisions from title clearance, and a call's warnings from an audit (PAR-462)
+
+An agent read an execute call with no overlap warnings as a tidy canvas, and a title too close as boards on top of each
+other. The two checks already differed, and `Overlaps()` already marked `titleOnly` and `estimated`; this makes what
+they mean, and what each check covers, plain:
+
+- **Two categories for a call's own boards.** `overlap` is two boards colliding; `title_clearance` is boards that are
+  clear, but so close that the lower one's title covers the upper. Both are warnings, and both stay limited to boards
+  the call created, changed or moved, as before.
+- **The rest of the canvas is counted, not listed.** When boards the call didn't touch are too close, one
+  `canvas_overlaps` suggestion says how many pairs and points to `Overlaps()`. A call that only reads therefore doesn't
+  look like a clean canvas, without repeating every old overlap on every call.
+- **Measured or estimated, in words.** A warning says "measured" when the canvas drew both boards, and otherwise names
+  the board that isn't drawn yet. `Overlaps()` keeps `titleOnly` and `estimated` as they were, with no new fields, and
+  `state`'s schema now describes them. Real sizes for undrawn boards remain PAR-279's, and the 1400 × 1000 room a new
+  screen is placed with isn't treated as a placement bug: it's placed right of every board.
+
 ## One step works out the component list (PAR-566)
 
 The order that keeps the component list current was written four times in the project service, and the copies disagreed.
@@ -3912,3 +3944,74 @@ the picture. My calls:
 - **`previewFormat` went up to 2.** A preview's key covers its tree and code, not the renderer, so pictures kept with a
   scrollbar would otherwise stay until their code changed. Every project's previews are made again once, in the idle
   pass.
+
+## Hide in and Show in name where the change lands (PAR-497)
+
+Called on 2026-11-05, for your approval in Storybook. The Layers row's menu said "Show in Default" for a layer that the
+variant option shown on the board hides, though the change goes to that option. It now names whatever takes the change,
+as `boardTarget` decides it: the option shown, in the base state, whether or not that option is what hides the layer;
+any other state, since a state takes changes over the variant. Core's `editTargetName` gives the name, so the menu and
+the inspector's note ("change every variant, not only Large") read it the same way.
+
+## The start page is built: Home and new tabs (PAR-605)
+
+You asked on 2026-11-05 to build the start page's Home and New tab from the explorations (Parity/Explorations/Start
+page), with whatever Parity can't do yet stubbed. My calls:
+
+- **Home is a tab pinned first in the strip,** an icon only, which can't be closed. It shows when it's chosen, and
+  whenever no tab is, so closing the last tab lands there, and a fresh install starts there. The window remembers
+  whether it was on Home and comes back to it, reopening the saved tabs behind it.
+- **Home's shortcut is Alt+Home,** which browsers use for their home page; the exploration's Ctrl+Shift+H already runs
+  Hide or show. Ctrl+Tab and Ctrl+Shift+Tab go round with Home first.
+- **The strip's + and Ctrl+T open a new tab,** at the end of the strip, rather than the folder picker. A project opened
+  from it, by its cards, Open, the File menu or search, opens in that tab. A project that's already open elsewhere is
+  switched to, and the new tab it was picked from closes, since a project opens once. New tabs aren't saved, and agents
+  don't see them: with Home or a new tab showing, a call that names no tab says no project tab is active.
+- **A project is named by its folder,** as File > Open recent names it, and its card says when it was last opened. The
+  window keeps that time and whether it's starred beside the recent list (`parity.projects` in local storage, checked
+  with zod as it's read). Starred keeps a project after it leaves the recent list; All projects is the recent and
+  starred ones together.
+- **Ctrl+K finds your projects as well as actions,** so the start page's search does something real. Projects come first
+  on Home and in a new tab, and last in a project.
+- **What can't work yet is in place and says so.** Each project's picture is a placeholder, a board and a phone in a
+  color of its own with its initial, until Parity keeps a render of each project. For you says nothing needs you, and
+  Shared with you is empty. New project and New project from this wait on the scaffolder (PAR-284) and offer to open a
+  folder instead; cloning, Copy link, Invite people and New organization say they aren't ready yet. The organization
+  switcher shows Personal alone. The exploration's inbox and account in the title bar, and people working in a project
+  right now, are left out until they exist.
+- **Home names the page and, in a project, its first screen.** A project with no `.par` file still opens on a Home
+  screen (PAR-561). The two don't meet: the page is a tab in the window's strip, and the screen is on a project's
+  canvas.
+
+## Moving, resizing and nudging are one editor module (PAR-577)
+
+Resizing a layer ran through five places in two packages, and the overlay's `startResize` had to call them in the right
+order. PAR-33 had left moving an absolutely placed layer by its insets with nudging in the app (see Packages, above).
+You reopened that call on 2026-11-04, since resizing needs both halves in a fixed order. Now `move-resize.ts` in
+`@parity-app/editor` holds the rules, and the canvas measures and writes (see editor.md, Resize handles). Nothing people
+see changes. My calls:
+
+- **One file, not one per gesture.** Insets, resizing a layer or a frame, dragging an absolutely placed layer and
+  nudging share their rounding, which sizes a handle changes, and how a layer's insets move. Where handles go
+  (`handles.ts`) and snapping (`snap.ts`) stay files of their own, which the module calls. `resizeStart`, which reads a
+  layer as the board shows it, moved from `handles.ts` into the module.
+- **The canvas measures, the module decides.** For a layer, the overlay measures its box, its parent's inside and, for
+  one placed absolutely, where its sides are drawn and what it snaps to. For each pointer move, `layerResize` gives the
+  style and where its edges snapped: snapped edges taken exactly, Shift on a corner not snapping, and `grow` taken away.
+  `frameResize` takes the frame's box and gives its size, and double-clicks are `layerSizeReset` and `frameSizeReset`.
+  The overlay still chooses what to measure from the style the board shows, since an absolutely placed layer's insets
+  and siblings cost layout reads that a layer in a layout doesn't need.
+- **`LayerSnapping` measures and shows; it no longer snaps.** `absoluteDrag` and `layerResize` call `snapLayer` with
+  what it measured and give back where the layer locked, which its `show` draws, or clears when nothing locked. Its
+  Chrome test calls `snapLayer` with what it measured.
+- **One half-pixel rule.** A snapped resize and a snapped drag went to the half pixel in two ways, one counting pixels
+  and one counting steps (PAR-551). Both use one rule now, in steps, and so do the half steps an inset moves in.
+- **The 4-pixel drag threshold is the editor's.** `resizeGesture` needs it and the canvas's gesture lifecycle (PAR-568)
+  imports it, so it's still written once.
+- **A frame snaps back by the fill distance.** A frame's width and content height came back within 6 screen pixels, a
+  number the overlay called `snapDistance`, though snapping a layer goes by 8. It's `fillDistance` now, the distance a
+  layer's edge fills by.
+- **The tests moved as they were.** The insets, resize and nudge tests, and `resizeStart`'s from `handles.test.ts`, are
+  in `move-resize.test.ts`, with one fixture renamed so they can share a file. The app's `nudge.test.ts` keeps the
+  presses on the real stores. Resizing a frame, the double-click resets, `grow`, a resize's snapped edges and the drag
+  have tests from boxes now.
