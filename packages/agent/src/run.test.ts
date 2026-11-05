@@ -1080,6 +1080,53 @@ describe("coded failures", () => {
     })
   })
 
+  it("asks for a state's id in every call that takes one, pointing a name to its id", async () => {
+    const base = snapshot()
+    base.documents[0]!.document.containers[0]!.states = [
+      { id: "default", name: "Default" },
+      { id: "loading", name: "Busy" },
+      { id: "error", name: "Failed" },
+      { id: "error-2", name: "Failed" }
+    ]
+    const calls = [
+      `UpdateState("signup", "Busy", { name: "Waiting" })`,
+      `DeleteState("signup", "Busy")`,
+      `Update("submit", { hidden: true }, { state: "Busy" })`,
+      `Get("submit", { state: "Busy" })`,
+      `UpdateDesign("signup", { state: "Busy" })`,
+      `await Screenshot("signup", { state: "Busy" })`,
+      `await Measure("signup", { state: "Busy" })`,
+      `await Problems("signup", { state: ["default", "Busy"] })`,
+      `await Accessibility("signup", { state: "Busy" })`
+    ]
+    for (const code of calls) {
+      const result = await execute({ label: "Try", code }, base, hooks())
+      // The call rides along, so a failure names which one went wrong.
+      expect({ code, error: result.error, details: result.details }).toEqual({
+        code,
+        error: expect.stringMatching(
+          /^No state with id "Busy" in Sign up\..*"Busy" is the name of state "loading"; use/
+        ),
+        details: {
+          code: "unknown_state",
+          retryable: false,
+          field: "state",
+          alternatives: ["loading", "default", "error", "error-2"]
+        }
+      })
+    }
+    const duplicate = await execute({ label: "Try", code: `DeleteState("signup", "Failed")` }, base, hooks())
+    expect(duplicate.error).toContain('"Failed" names 2 states, "error" and "error-2"; use the id of the one you mean.')
+    expect(duplicate.details?.alternatives?.slice(0, 2)).toEqual(["error", "error-2"])
+    const byId = await execute(
+      { label: "Try", code: `UpdateState("signup", "loading", { name: "Waiting" })` },
+      base,
+      hooks()
+    )
+    expect(byId.error).toBeUndefined()
+    expect(byId.changes.designs[0]!.after!.states[1]).toEqual({ id: "loading", name: "Waiting" })
+  })
+
   it("throws coded errors for a retry it can't patch, before running anything", async () => {
     await expect(execute({ label: "Retry", editId: "gone", edits: [] }, snapshot(), hooks())).rejects.toMatchObject({
       details: { code: "unknown_edit_id", retryable: false, field: "editId" }

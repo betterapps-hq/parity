@@ -22,6 +22,20 @@ only its changes, so editing the base updates every state.
 
 Name states for the situation ("No members yet", "Invite failed"), not the change ("Table hidden").
 
+Every call that takes a state takes its id, never its name: `UpdateState`, `DeleteState`, `Update`'s and `Get`'s
+`state`, `UpdateDesign`'s `state` and the checks. `AddState` returns the id, and `Designs()` lists each design's states
+with their ids and names. Names can repeat and change, so an id made from a name stops matching it after a rename. A
+name passed by mistake fails with `unknown_state`, naming the id it belongs to, or every id when states share the name.
+
+```js
+AddState("team-members", { name: "No members yet", changes: { "Members table": { hidden: true } } })
+// Later, find a state's id by its name in Designs(), then pass the id.
+const states = Designs().find((design) => design.id === "team-members").states // [{ id, name }]
+const empty = states.find((state) => state.name === "No members yet").id
+UpdateState("team-members", empty, { name: "No members" })
+await Screenshot("team-members", { state: empty })
+```
+
 ## Modes
 
 Modes are the project's, shared by every design. Each mode picks one option of each variable:

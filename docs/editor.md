@@ -3397,6 +3397,23 @@ keeps them for undo; a failed call reports nothing; replacements without patches
 putting patches back). `packages/cli/src/execute.test.ts` (the same text from the CLI and MCP, `discarded` in `--json`
 and structured content, and nothing when there's none).
 
+### States named by id (PAR-459)
+
+Every agent call that takes a state takes its id: `UpdateState`, `DeleteState`, `Update`'s and `Get`'s `state`,
+`UpdateDesign`'s `state`, and `Screenshot`, `Measure`, `Problems` and `Accessibility`, with the CLI and MCP checks that
+run them. A reference that isn't an id fails with `unknown_state` on `state`. The message says ids are expected and
+lists each one beside its name, as `Designs()` does. When the reference matches a state's name (ignoring case and spaces
+at the ends), it names that state's id, which leads `alternatives`. When several states share the name, it names all of
+their ids and picks none. A name a state had before a rename matches nothing.
+
+Implementation: `findState` in `packages/core/src/edit.ts`, which every lookup goes through; `update` in
+`packages/agent/src/workspace.ts` checks the state before the change.
+
+Tests: `packages/core/src/errors.test.ts` (an unknown id with ids and names listed; a renamed state's name pointing to
+its id, ignoring case and spaces; a shared name listing both ids; a former name matching nothing).
+`packages/agent/src/run.test.ts` ("asks for a state's id in every call that takes one": the same message and
+alternatives from each call, a shared name, and the id working).
+
 ### Which copy of the app a call reaches (PAR-514)
 
 Several copies of Parity can run at once, each with its own projects open, and every CLI or MCP call goes to the copy

@@ -678,7 +678,7 @@ export class AgentWorkspace {
     )
     if (unknown.length > 0)
       throw new Error(`Update can't change ${unknown.join(", ")}; use Replace, Move or Responsive`)
-    const stateId = options.state ?? container.states[0]!.id
+    const stateId = options.state === undefined ? container.states[0]!.id : findState(container, options.state).id
     const base = stateId === container.states[0]!.id
     if (!base && ("name" in change || "tag" in change || "component" in change)) {
       throw new Error("A state can only change hidden, text, props, style and unset")
