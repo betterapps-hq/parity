@@ -344,7 +344,8 @@ menubar's command. The Layers panel's menu is unchanged.
   several designs, and, for layers inside an instance, Copy, Duplicate, the order, Wrap in layout and Hide. Paste over
   selection and Paste to replace stay for those, and say why they can't. The menubar's Edit and Object menus grey the
   same ones for layers inside an instance, and their keys do nothing then, since both read one rule.
-- **Around the designs** the menu is Paste here, then Select all and Zoom to fit.
+- **Around the designs** the menu is New screen, New component and Insert…, then Paste here, then Select all and Zoom to
+  fit (PAR-546, below).
 - **A right-click selects first**, what a click there would select (Ctrl-right-click the deepest layer), unless the
   pointer is inside the selection: over a selected layer or a layer inside one, or anywhere in a selected design when no
   layers are selected. Then the selection stays and the menu acts on all of it. On a frame's background, or around the
@@ -372,7 +373,7 @@ menubar's command. The Layers panel's menu is unchanged.
     each 4 steps right of the one before when that one has a width in steps (PAR-24); one that fills or hugs leaves the
     next where it starts. A copy that's absolutely placed itself goes in the slot, and at the pointer.
   - Over a design with no layout under the pointer, nothing is pasted, and a toast says so. Around the designs, text
-    becomes a note at the pointer, and layers a new screen there.
+    becomes a note at the pointer, and layers a new screen there, named after them (PAR-546).
 - **Where the right-click lands decides.** tldraw keeps the system's menu from the canvas, pans while the right button
   is dragged (no menu then), and when the button comes up without panning, selects the board under it and sends a
   `contextmenu` of its own, for a release anywhere over the canvas. So the menu reads the selection, the target and Ctrl
@@ -402,12 +403,13 @@ an open menu keeps is `inMenu` in `canvas/shortcuts.ts`.
 
 Tests:
 
-- `chrome/canvas-menu.test.ts` (20): one layer's menu in order with its keys, an instance's Go to, several layers, Show
+- `chrome/canvas-menu.test.ts` (21): one layer's menu in order with its keys, an instance's Go to, several layers, Show
   and Hide in two states, Show for a layer the variant shown hides and Hide after Hide shows it, a design's menu and its
-  Make component label, several designs, a layer inside an instance, the menu around the designs; Select layer's list,
-  names, checks and the design's kind; what a right-click selects on a layer, a frame's background, around the frames,
-  the root, inside the selection, outside it, and in a selected design; and `layerCommands`, which the menubar shares,
-  for the design's own layers, one or several, and for a layer inside an instance, the root, and one of each.
+  Make component label, several designs, a layer inside an instance, the menu around the designs and on a canvas with
+  nothing on it; Select layer's list, names, checks and the design's kind; what a right-click selects on a layer, a
+  frame's background, around the frames, the root, inside the selection, outside it, and in a selected design; and
+  `layerCommands`, which the menubar shares, for the design's own layers, one or several, and for a layer inside an
+  instance, the root, and one of each.
 - `packages/editor/src/paste-here.test.ts` (23): the dashboard's stats row, at the slot under the pointer, first and
   last, several copies together, fresh ids, a hidden card skipped, an empty layout; an absolutely placed layout at half
   size, half steps, a copy's own insets replaced; an absolutely placed copy in the slot; a state that places the row
@@ -423,11 +425,12 @@ Tests:
 - `chrome/AppMenu.stories.tsx` (EditLayerInInstance and ObjectLayerInInstance, under Parity/Chrome/App menu): with the
   Users card's value selected inside its instance, Edit greys Copy and Duplicate but not the pastes, and Object greys
   Wrap in layout, the order and Hide or show. Not played in headless Chrome; the end-to-end test below checks the same.
-- `chrome/CanvasMenu.stories.tsx` (7 stories, under Parity/Chrome/Canvas menu), on the real canvas with tldraw: Layer,
-  Instance, SeveralLayers, Design, EmptyCanvas, SelectLayer and Interacting. Each right-clicks through tldraw's pointer
-  events and checks the selection, the items, what's unavailable and the keys; SelectLayer checks the list and the
-  outline. All seven played without errors in headless Chrome on 2026-10-29.
-- `apps/desktop/e2e/menus.e2e.ts` (7), end to end with the system's right button (PAR-202): a right-click on a
+- `chrome/CanvasMenu.stories.tsx` (8 stories, under Parity/Chrome/Canvas menu), on the real canvas with tldraw: Layer,
+  Instance, SeveralLayers, Design, EmptyCanvas, NewScreenHere, SelectLayer and Interacting. Each right-clicks through
+  tldraw's pointer events and checks the selection, the items, what's unavailable and the keys; SelectLayer checks the
+  list and the outline, and NewScreenHere where the new screen goes. The first seven played without errors in headless
+  Chrome on 2026-10-29, and EmptyCanvas and NewScreenHere again on 2026-11-05.
+- `apps/desktop/e2e/menus.e2e.ts` (8), end to end with the system's right button (PAR-202): a right-click on a
   `MemberRow` selects it and lists its items in order, with their keys and the lines between groups, and Duplicate runs
   as one undo step; Ctrl+Z pressed at once after Duplicate, with focus still in the closing menu, undoes it (PAR-424,
   which fails without the fix); a right-click on the next row, left of the open menu, selects that row and moves the
@@ -435,8 +438,9 @@ Tests:
   Users card selected by Ctrl and a click, the menubar's Edit greys Copy and Duplicate and its Object greys Wrap in
   layout, the order and Hide or show (PAR-419); from a stat card, Select layer lists Dashboard, Main, Content, Stats and
   Users card with Main checked, and picks the card; Paste here below the lede in Pricing's Hero pastes the copied
-  headline at that slot, from the stand-in clipboard, as "Paste layer here", and Undo takes it out; and in Interact a
-  right-click reaches the design and no menu opens.
+  headline at that slot, from the stand-in clipboard, as "Paste layer here", and Undo takes it out; New screen from the
+  menu around the designs makes one at the pointer (PAR-546); and in Interact a right-click reaches the design and no
+  menu opens.
 
 Gaps: the end-to-end test covers the right button, opening the menu again, the menubar for a layer inside an instance,
 Select layer, Paste here into a layout and Interact. Panning with the right button, Paste here into an absolutely placed
@@ -1044,10 +1048,11 @@ a component design; the Layers panel's add buttons start new designs. Each is on
   it, so a card dropped on the second row of Projects' grid goes there, not in the first row. In a layout that's
   absolutely placed as the board shows it, it goes last, placed at the pointer in half steps of the spacing scale. While
   dragging, the layout is outlined and a line shows the slot, or a corner marks the pointer where it goes in an
-  absolutely placed layout. A drop outside a layout says to drop onto one.
+  absolutely placed layout. A drop on the empty canvas makes a screen there (PAR-546, below); one over a design where
+  there's no layout says so.
 - **A click inserts at the selection:** into a selected layout, at its end; just after any other selected layer, in its
-  layout or slot; or at the end of a selected design's root. With nothing to insert into, a message says to select a
-  layout.
+  layout or slot; or at the end of a selected design's root. With nothing selected it makes a screen in the middle of
+  the view (PAR-546); with a design selected that has nowhere for it, a message says to select a layout.
 - **What goes in is ready to show something.** A component gets its required props (an option's first value, `false`,
   `0` or its own name, unless they have a default) and its name as text when it takes children. A library's part comes
   inside the parents it needs that aren't around the layout already, with their samples. A component design goes in as a
@@ -1090,9 +1095,94 @@ End to end, `apps/desktop/e2e/dropping.e2e.ts` drags Badge from the Components p
 Projects' grid: the grid is outlined and the line stands beside that card while dragging, Badge lands fifth, selected,
 as "Add Badge", and Undo takes it out. It also drops Badge into the Calendar's Events layout, which is absolutely
 placed, above the Planning slot: Events is outlined with a corner at the pointer and no line while dragging, and Badge
-lands last, placed absolutely 10 steps from Events' left and 6 from its top, and Undo takes it out.
+lands last, placed absolutely 10 steps from Events' left and 6 from its top, and Undo takes it out. And it drops Badge
+on the empty canvas, which makes a screen called Badge there (PAR-546, below).
 
 Gaps: clicking in the panels, the messages, and a drop into an absolutely placed layout have no end-to-end test.
+
+### New screen, New component and the empty canvas (PAR-546)
+
+Making a screen or component is one visible step, as PAR-541's approved designs show, without the start in the middle of
+an empty canvas that PAR-560 dropped: New screen and New component are everywhere a command is, and whatever lands on
+empty space on the canvas makes a screen there.
+
+- **New screen (Ctrl+Alt+N) and New component (Ctrl+Alt+Shift+N)** are in the keymap's Object group, so the Keyboard
+  shortcuts dialog lists them and their keys work on the canvas, not in a text field. They lead File, above opening a
+  project, and Object, above Insert…, each with its keys. Each makes an empty screen or component right of everything,
+  selects it and zooms to it, as Layers' + always has.
+- **Search actions finds them by the start of words.** Each typed word must start a word of an action's name or group,
+  in any order, and a name that starts with everything typed comes first, so "new" lists New screen and New component
+  and nothing with n, e and w scattered through it, and "fit zoom" still finds Zoom to fit.
+- **The canvas's right-click menu around the designs** starts with New screen, New component and Insert…, each with its
+  keys, then Paste here, then Select all and Zoom to fit. New screen and New component put the new one's top left where
+  the canvas was right-clicked and select it, leaving the view where it is. With no screen, component or note on the
+  canvas, Select all and Zoom to fit are unavailable. Over a design the menu is as it was. It's as wide as its longest
+  item, so New component and its keys stay on one line.
+- **Layers' + always shows** beside Components and Screens, after the count, with its name and keys in the tooltip. An
+  empty group leaves the count out, since its row says so, and the row is a button that makes the first one: "No screens
+  yet. New screen", the action in the kind's color. Enter or Space on either makes one, rather than renaming the
+  selected row as Enter in the tree does.
+- **The inspector with nothing selected** asks for "a screen or component on the canvas or in Layers", whatever is on
+  the canvas.
+- **What lands on empty space on the canvas makes a screen there,** by one rule. Its top left is where it landed, it
+  holds what landed in a padded column, and it's selected, as one undo step named for what landed ("Paste layer", "Paste
+  7 layers", "Add Badge", "Add vertical layout"). It's named after what's in it, never "Pasted": one layer as Layers
+  names it (a component without its library, "Button"; an instance after its design; text by its words; a layout Column
+  or Row); several images Images; several other layers the first and how many more ("Nav and 6 more").
+  - Layers pasted on the empty canvas with Paste here, or with nothing selected with Ctrl+V, in the middle of the view;
+    and the insert picker's Text and layouts with nothing selected.
+  - A component, component design or image from the Components panel dropped on the empty canvas, where a corner in the
+    screen's color marks its top left while dragging; or clicked in the panel or picked in the insert picker with
+    nothing selected, in the middle of the view. It goes in as inserting it into a layout would: with its required
+    props, a library part inside the parents it needs, and a detached copy as the layers its design shows.
+  - Image files dropped on the empty canvas, named after the file or Images (see Dropping image files, below).
+  - Over a design where there's no layout under the pointer, nothing lands, and a message says "There's no layout here
+    to drop into", as it does for files. With a design selected that has nowhere to insert, the insert picker and the
+    Components panel both say "Select a layout, or a layer to add it after".
+  - Frames will take this over once PAR-545 builds them.
+
+Code: the commands are `newScreen` and `newComponent` in `chrome/keymap.ts` and `chrome/actions.ts`, run through
+`createDesign` in `chrome/create.ts`, which takes a point for the canvas menu. `AppMenu.tsx` (`NewItems`),
+`canvas-menu.ts` (`canvasMenu`, around the designs) and `CanvasMenu.tsx` (`run`) show them; `chrome/word-match.ts`
+(`matchWords`) is Search actions' filter in `ActionsSearch.tsx`; the headings and empty rows are in
+`chrome/LayerTree.tsx`, and the inspector's prompt in `DesignPanel.tsx`. The rule and the names are
+`packages/editor/src/new-screen.ts` (`layersName`, `designOfLayers`, `designOfItem`); the app's `canvas/new-screen.ts`
+finds the empty canvas (`emptyCanvasAt`) and the middle of the view and adds a screen of layers, `canvas/insert.ts` adds
+one of an item (`addScreenOfItem`, from `insertAtSelection` and drops), and `canvas/clipboard.ts` and
+`canvas/CanvasDrop.tsx` call them.
+
+Tests:
+
+- `packages/editor/src/new-screen.test.ts` (11): one layer named as Layers names it, a component without its library and
+  by its own name, an instance by its design or its id, several images, several layers and the first, and never Pasted;
+  a screen of layers at the point, named after them, with a free id, fresh ids and no bindings; and a screen of a
+  component with its props, a design's instance, an image by its alt text, and a library part inside its parents, named
+  after the part.
+- `chrome/keymap.test.ts`: Ctrl+Alt+N, Ctrl+Alt+Shift+N and Cmd+Alt+N, and Ctrl+N left free; `chrome/word-match.test.ts`
+  (4): "new" finding New screen and New component only, a word inside a name ranked after a name that starts with it,
+  typed words in any order and case, and everything before anything's typed; `chrome/canvas-menu.test.ts`: the menu
+  around the designs with its labels and keys, and Select all and Zoom to fit unavailable on an empty canvas.
+- Stories, which replace the exploration Parity / Explorations / Starting on the canvas, deleted with this build: Parity
+  / Left panel / Layers (Designs, EmptyProject, NewScreenHovered, FirstScreenMade), Parity / Chrome / App menu (File,
+  ObjectWithNothingSelected, SearchActionsForNew), Parity / Chrome / Canvas menu (EmptyCanvas, NewScreenHere), Parity /
+  Chrome / Quick insert (NothingSelected, NowhereToInsertInto), Parity / Left panel / Components
+  (AddingWithNothingSelected) and Parity / Inspector / Design (NothingSelected). All but the two Quick insert ones
+  played without errors in headless Chrome on 2026-11-05; there `/` doesn't reach the canvas, for Open's story too.
+- End to end (PAR-202), `apps/desktop/e2e/menus.e2e.ts`: a right-click on the empty canvas lists New screen, New
+  component and Insert… with their keys, and New screen makes an untitled screen at the pointer, selected, as "New
+  screen"; `e2e/dropping.e2e.ts`: Badge dragged from the Components panel onto the empty canvas shows the corner and no
+  outline, and makes a screen called Badge at the drop point holding it, selected, as "Add Badge", which Undo takes out.
+
+Checked in `pnpm dev` on the example on 2026-11-05: File and Object start with both items and their keys; Ctrl+Alt+N and
+Ctrl+Alt+Shift+N make and select an untitled screen and component; Ctrl+K and "new" lists the two, and Enter makes a
+screen; the canvas menu around the designs makes one at the pointer; Layers' + is named, shows "New screen Ctrl+Alt+N"
+in its tooltip, is reached with Tab and makes one with Enter; `/` with nothing selected makes Column from Vertical
+layout and Badge from Badge; Badge dragged onto the empty canvas shows the corner and makes Badge there; and Pricing's
+layers, copied, make "Nav and 6 more" with Paste here and with Ctrl+V. Each undid as one step.
+
+Gaps: the end-to-end tests run only in CI. A screen made with nothing selected goes in the middle of the view, as pasted
+layers always have, even when a design is there. A component in a new screen fills its width, as it would in any column;
+the proposal's "keeps its own width" is not part of this.
 
 ## Keyboard
 
@@ -1295,7 +1385,8 @@ text. Copy style (Ctrl+Alt+C) and Paste style keep their own clipboard inside th
   as text.
 - **Pasted layers get fresh ids,** for them and everything in them. They go into the selected layout when it's the only
   layer selected, else just after the last selected layer in its layout or slot, else into the design's root. With no
-  design selected, or a root that isn't a layout, they become a new screen called Pasted, laid out in a padded column.
+  design selected, or a root that isn't a layout, they become a new screen named after them, laid out in a padded column
+  (PAR-546, under Inserting).
 - **Pasted designs keep their ids unless taken,** when they get one from their name. Into the project they came from,
   they go to the right of the originals (see Duplicating a design); elsewhere, in the middle of the view.
 - **Pasted notes get fresh ids** and sit a little below and right of where they were copied, as they sat together.
@@ -1318,16 +1409,17 @@ layers, designs and notes, all rejected; telling a Parity copy, readable or not,
 back; SVG markup, and text that only looks like it; copying the outermost layers as a state shows them; where layers
 paste (a lone selected layout, after the last selected layer, in a slot, the root, and a root that isn't a layout);
 fresh ids in order, last, inside copies and in a slot; with the shared fixture's card, copying in a variant, state and
-viewport, the bound title as it shows, and pasting it into a design with and without the param, bindings fitted all the
-way down, and none in a new screen; the new screen; designs' ids, kept when free even when not made from the name, and
-whole-pixel moves; notes beside where they were and at a place; copying style in a state, and in a variant and viewport,
-and pasting it in the base and in another state, where the state shows only the copied style, taking away the design's
-values and keeping nothing for what the design doesn't set; and missing components at any depth, and none while the
-project's aren't known. What a state takes away is tested in `packages/core`: `edit.test.ts` ("taking a value away"), a
-prop taken away in one state, a value the state set taken away with nothing kept, setting it again and Reset, and
-removal in the base; `render.test.ts`, a state taking style and props away over the design and the viewport's patch,
-layered patches, an instance's param back to its default, and reading `unset` from a file;
-`packages/agent/src/workspace.test.ts`, `Update` taking the base's gap away in one state and refusing an unknown key.
+viewport, the bound title as it shows, and pasting it into a design with and without the param, and bindings fitted all
+the way down; designs' ids, kept when free even when not made from the name, and whole-pixel moves; notes beside where
+they were and at a place; copying style in a state, and in a variant and viewport, and pasting it in the base and in
+another state, where the state shows only the copied style, taking away the design's values and keeping nothing for what
+the design doesn't set; and missing components at any depth, and none while the project's aren't known. The new screen
+layers make, its name and the bindings it keeps none of, are in `packages/editor/src/new-screen.test.ts` (PAR-546). What
+a state takes away is tested in `packages/core`: `edit.test.ts` ("taking a value away"), a prop taken away in one state,
+a value the state set taken away with nothing kept, setting it again and Reset, and removal in the base;
+`render.test.ts`, a state taking style and props away over the design and the viewport's patch, layered patches, an
+instance's param back to its default, and reading `unset` from a file; `packages/agent/src/workspace.test.ts`, `Update`
+taking the base's gap away in one state and refusing an unknown key.
 
 Gaps: reading and writing the system clipboard, images and the messages have no automated test. The inspector's mark on
 a value a state takes away has no automated DOM test.
@@ -1414,7 +1506,7 @@ project under `public/images/` through `images.import`, as a pasted image is, an
   GIF, WebP or SVG image."), or larger than 20 MB. The rest are still added. A file the system gives no type is taken by
   its extension. One that fails to save gets a message too, and the rest are placed.
 - **While dragging** over the canvas, a label beside the pointer says what a drop there does ("Add 2 images here", "New
-  design with the image", "Drop onto a layout, or onto the empty canvas"), counting only the files that may be images.
+  screen with the image", "Drop onto a layout, or onto the empty canvas"), counting only the files that may be images.
   Over a layout, its box is outlined with a dashed line and the slot is marked as a dragged layer's is; where they'd go
   at the pointer, a corner marks their top left. It goes when the drag leaves the canvas, when it's dropped, or a second
   after the drag stops sending updates, as one called off can end without saying so.
@@ -3141,10 +3233,10 @@ it land where they're aimed.
   end-to-end suite found the page 1139 px tall in a 903 px window, and focusing a design's title below the fold scrolled
   it by 235 px: the menubar and tabs went out of view, and every canvas click after it landed 235 px off, selecting
   nothing or the wrong layer.
-- **The cause** was the Layers panel's group headings. Their New component and New screen buttons are visually hidden,
+- **The cause** was the Layers panel's group headings. Their New component and New screen buttons were visually hidden,
   left to screen readers (`sr-only`, which places them absolutely), until hovered or focused, and the heading wasn't
   positioned, so the buttons were placed against the window rather than inside the panel, and the panel's scroll didn't
-  clip them. The heading is now `relative`.
+  clip them. The heading is now `relative`, and since PAR-546 the buttons always show.
 - **The guard.** The app's root (`#root` in `styles.css`) is positioned and has `overflow: clip`, so nothing inside it,
   even an absolutely placed element with no positioned ancestor, can make the page bigger than the window. `hidden`
   wouldn't do: the page already had `overflow: hidden` (from the body), and the browser still scrolls a hidden page to

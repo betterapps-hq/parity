@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "New screen and New component in the File and Object menus, the canvas menu, Search actions and Layers, and what lands on the empty canvas makes a screen named after it (PAR-546)",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

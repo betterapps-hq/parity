@@ -22,9 +22,11 @@ import {
   AlignStartHorizontal,
   AlignStartVertical,
   AlignVerticalSpaceAround,
+  AppWindow,
   BringToFront,
   ClipboardPaste,
   Code,
+  Component,
   Copy,
   Diamond,
   EyeOff,
@@ -134,12 +136,24 @@ function Item({
   )
 }
 
+/** New screen and New component, which lead File and Object, each made right of everything. */
+function NewItems() {
+  return (
+    <>
+      <Item command="newScreen" icon={AppWindow} />
+      <Item command="newComponent" icon={Component} />
+    </>
+  )
+}
+
 function FileItems() {
   const session = activeSession()
   const recent = useRecentProjects()
   const designs = session?.store.getEntries().length ?? 0
   return (
     <>
+      <NewItems />
+      <MenubarSeparator />
       <Item command="openFolder" icon={FolderOpen}>
         Open project folder…
       </Item>
@@ -279,6 +293,7 @@ function ObjectItems() {
   else if (design) makeComponent = "Convert to component"
   return (
     <>
+      <NewItems />
       <Item command="insert" icon={SquarePlus}>
         Insert…
       </Item>

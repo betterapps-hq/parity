@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { expect, userEvent, within } from "storybook/test"
+import { expect, userEvent, waitFor, within } from "storybook/test"
 import { AppWindow } from "../App.tsx"
 import { layersSelection } from "../selection.ts"
 import {
@@ -87,13 +87,43 @@ export const NoResults: Story = {
 }
 
 /**
- * Picking a component with nothing selected: the picker closes and a notification says to select where it should go.
+ * Picking a component with nothing selected: it lands on the canvas, so the picker closes and a new screen named Badge,
+ * holding it, is made in the middle of the view and selected (PAR-546).
  */
-export const NothingToInsertInto: Story = {
+export const NothingSelected: Story = {
   loaders: [() => openProjects("example")],
   play: async () => {
     await openWith("badge")()
     await userEvent.keyboard("{Enter}")
-    await holdToast("Select a screen, component or layout to insert into")
+    await waitFor(async () => {
+      const made = example().store.getEntry(example().selection.get().design ?? "")?.container
+      await expect(made).toMatchObject({
+        name: "Badge",
+        root: { children: [{ type: "component", component: "Badge" }] }
+      })
+    })
+  }
+}
+
+/**
+ * Picking a component with a design selected that has nowhere for it, as Plan card's root once it's a Card: the picker
+ * closes and a notification says what to select.
+ */
+export const NowhereToInsertInto: Story = {
+  loaders: [
+    async () => {
+      await openProjects("example")
+      const card = design("Plan card")
+      example().store.updateContainer(card, "Make the root a card", (container) => ({
+        ...container,
+        root: { type: "component", id: container.root.id, component: "Card" }
+      }))
+      example().selection.set({ design: card })
+    }
+  ],
+  play: async () => {
+    await openWith("badge")()
+    await userEvent.keyboard("{Enter}")
+    await holdToast("Select a layout, or a layer to add it after")
   }
 }

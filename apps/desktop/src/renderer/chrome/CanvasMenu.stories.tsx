@@ -168,10 +168,43 @@ export const Design: Story = onCanvas(
   }
 )
 
-/** The canvas around the designs: pasting there, selecting everything and fitting it all in view. */
+/**
+ * The canvas around the designs: New screen and New component, made where it was right-clicked, and Insert, each with
+ * its keys (PAR-546); then pasting there; then selecting everything and fitting it all in view.
+ */
 export const EmptyCanvas: Story = onCanvas(["Pricing"], undefined, async () => {
   const menu = await rightClick(leftOf("Pricing"))
-  await expect(items(menu)).toEqual(["Paste here", "---", "Select all", "Zoom to fit"])
+  await expect(items(menu)).toEqual([
+    "New screen",
+    "New component",
+    "Insert…",
+    "---",
+    "Paste here",
+    "---",
+    "Select all",
+    "Zoom to fit"
+  ])
+  await expect(keysOf(menu, "New screen")).toBe(formatKeys("Ctrl Alt N"))
+  await expect(keysOf(menu, "New component")).toBe(formatKeys("Ctrl Alt Shift N"))
+})
+
+/**
+ * New screen, chosen from the menu around the designs: an untitled screen is made with its top left where the canvas
+ * was right-clicked, and selected.
+ */
+export const NewScreenHere: Story = onCanvas(["Pricing"], undefined, async () => {
+  const point = leftOf("Pricing")
+  const menu = await rightClick(point)
+  // Where the right-click was on the page, as the item reads it; the camera may still be settling from framing Pricing.
+  const page = example().editor!.screenToPage(point)
+  await userEvent.click(within(menu).getByRole("menuitem", { name: /^New screen/ }))
+  const made = await waitFor(() => {
+    const found = example().store.getEntry(selected().design ?? "")?.container
+    if (found?.name !== "Untitled screen") throw new Error("No new screen is selected")
+    return found
+  })
+  await expect(Math.abs(made.position.x - page.x)).toBeLessThan(8)
+  await expect(Math.abs(made.position.y - page.y)).toBeLessThan(8)
 })
 
 /**

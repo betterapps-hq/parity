@@ -58,7 +58,9 @@ const layersMime = "application/x-parity-layers"
 
 /**
  * Every design in the project as a tree, Figma style: components, then screens, at the top level, their layers
- * nested inside. Selecting, hovering and renaming here act on the canvas too.
+ * nested inside. Selecting, hovering and renaming here act on the canvas too. Each group's heading has its count and a
+ * + that makes a new one, always showing, with its keys in the tooltip; an empty group's row is a button that makes
+ * the first one (PAR-546).
  */
 export function LayerTree() {
   const session = useProject()
@@ -98,8 +100,20 @@ export function LayerTree() {
     const components = entries.filter((entry) => entry.container.kind === "component")
     const screens = entries.filter((entry) => entry.container.kind !== "component")
     return [
-      { title: "Components", kind: "component" as const, entries: components },
-      { title: "Screens", kind: "screen" as const, entries: screens }
+      {
+        title: "Components",
+        kind: "component" as const,
+        command: "newComponent" as const,
+        none: "No components yet.",
+        entries: components
+      },
+      {
+        title: "Screens",
+        kind: "screen" as const,
+        command: "newScreen" as const,
+        none: "No screens yet.",
+        entries: screens
+      }
     ]
   }, [entries])
   const rows = useMemo(() => {
@@ -236,6 +250,9 @@ export function LayerTree() {
   }
 
   const onKeyDown = (event: KeyboardEvent) => {
+    // A heading's + and an empty group's row keep their keys, so Enter makes a new one rather than renaming.
+    const from = event.target
+    if (from instanceof Element && from.closest("button") && !from.closest("[role=treeitem]")) return
     const index = rows.findIndex((row) => row.id === selectedRow)
     const row = rows[index]
     if (!row) return
@@ -265,25 +282,34 @@ export function LayerTree() {
     <div className="flex flex-col py-2 text-[13px]" role="tree" aria-label="Layers" tabIndex={0} onKeyDown={onKeyDown}>
       {groups.map((group) => (
         <div key={group.title} className="mb-2">
-          {/* Positioned, so its button stays inside the scroller while it's hidden for screen readers (sr-only is
-              absolute), rather than being placed against the window, where it made the page taller (PAR-424). */}
-          <div className="group/heading relative flex h-7 items-center gap-1 pr-1.5 pl-3 text-xs text-muted-foreground">
+          {/* Positioned, so nothing in it is ever placed against the window, which made the page taller (PAR-424). */}
+          <div className="relative flex h-7 items-center gap-1 pr-1.5 pl-3 text-xs text-muted-foreground">
             <span className="flex-1">{group.title}</span>
-            <span className="tabular-nums group-focus-within/heading:hidden group-hover/heading:hidden">
-              {group.entries.length}
-            </span>
+            {/* At none, the empty row says so. */}
+            {group.entries.length > 0 && <span className="tabular-nums">{group.entries.length}</span>}
             <IconButton
-              label={group.kind === "component" ? "New component" : "New screen"}
+              label={keymap[group.command].label}
+              shortcut={keymap[group.command].keys[0]}
               onClick={() => createDesign(session, group.kind)}
-              className="sr-only size-6 group-hover/heading:not-sr-only focus-visible:not-sr-only"
+              className="size-6"
             >
               <Plus />
             </IconButton>
           </div>
           {group.entries.length === 0 && (
-            <p className="px-3 py-1 text-xs text-muted-foreground/70">
-              {group.kind === "component" ? "No components yet." : "No screens yet."}
-            </p>
+            <button
+              type="button"
+              onClick={() => createDesign(session, group.kind)}
+              className="group/empty mx-1.5 flex h-7 w-[calc(100%-0.75rem)] items-center gap-1 rounded-md px-1.5 text-left text-xs text-muted-foreground outline-none hover:bg-accent/50 focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            >
+              {group.none}{" "}
+              <span
+                className="font-medium underline-offset-2 group-hover/empty:underline"
+                style={{ color: designColor(group.kind) }}
+              >
+                {keymap[group.command].label}
+              </span>
+            </button>
           )}
           {rows
             .filter((row) => group.entries.includes(row.design))

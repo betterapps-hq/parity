@@ -87,6 +87,14 @@ describe("shortcutFor", () => {
     expect(shortcutFor(press("r", "KeyR", { ctrl: true }), commands)).toBe("rename")
   })
 
+  it("makes a new screen with Ctrl+Alt+N and a new component with Shift as well, apart from N for the next one", () => {
+    const commands = Object.keys(keymap) as Command[]
+    expect(shortcutFor(press("n", "KeyN", { ctrl: true, alt: true }), commands)).toBe("newScreen")
+    expect(shortcutFor(press("N", "KeyN", { ctrl: true, alt: true, shift: true }), commands)).toBe("newComponent")
+    expect(shortcutFor(press("n", "KeyN", { meta: true, alt: true }), commands)).toBe("newScreen")
+    expect(shortcutFor(press("n", "KeyN", { ctrl: true }), commands)).toBeUndefined()
+  })
+
   it("never gives two commands the same keys", () => {
     const seen = new Map<string, string>()
     for (const [command, binding] of Object.entries(keymap)) {

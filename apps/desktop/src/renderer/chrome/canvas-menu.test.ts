@@ -224,14 +224,32 @@ describe("the canvas menu", () => {
     ])
   })
 
-  it("offers Paste here, Select all and Zoom to fit on the canvas around designs", () => {
+  it("offers New screen, New component, Insert, Paste here, Select all and Zoom to fit around designs", () => {
     const menu = canvasMenu(undefined, layersSelection(design, ["title"]), entries)
-    expect(outline(menu)).toEqual(["pasteHere", "---", "selectAll", "zoomToFit"])
-    expect(menu.flatMap((entry) => (entry.kind === "item" ? [entry.keys] : []))).toEqual([
-      undefined,
-      keymap.selectAll.keys[0],
-      keymap.zoomToFit.keys[0]
+    expect(outline(menu)).toEqual([
+      "newScreen",
+      "newComponent",
+      "insert",
+      "---",
+      "pasteHere",
+      "---",
+      "selectAll",
+      "zoomToFit"
     ])
+    expect(menu.flatMap((entry) => (entry.kind === "item" ? [[entry.label, entry.keys]] : []))).toEqual([
+      ["New screen", keymap.newScreen.keys[0]],
+      ["New component", keymap.newComponent.keys[0]],
+      ["Insert…", keymap.insert.keys[0]],
+      ["Paste here", undefined],
+      ["Select all", keymap.selectAll.keys[0]],
+      ["Zoom to fit", keymap.zoomToFit.keys[0]]
+    ])
+  })
+
+  it("has nothing to select or zoom to on a canvas with no designs or notes", () => {
+    const outlineOf = (notes: number) => outline(canvasMenu(undefined, {}, [], notes)).slice(-2)
+    expect(outlineOf(0)).toEqual(["selectAll (unavailable)", "zoomToFit (unavailable)"])
+    expect(outlineOf(1)).toEqual(["selectAll", "zoomToFit"])
   })
 })
 

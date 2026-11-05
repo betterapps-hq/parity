@@ -17,6 +17,7 @@ import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { importImage } from "./clipboard.ts"
 import { type Hit, hitTest, type Point } from "./hit.ts"
+import { emptyCanvasAt } from "./new-screen.ts"
 import { measureHere } from "./paste-here.ts"
 import { frameViewport } from "./view.ts"
 
@@ -57,13 +58,8 @@ export function fileDropAt(session: ProjectSession, area: ParentNode, point: Poi
     const slot = here && slotHere(hit.entry.container, here, state, frameViewport(store.getModes(), hit.mode))
     return here && slot ? { kind: "layout", hit, here, line: slot.line } : { kind: "none" }
   }
-  if (!editor) return { kind: "none" }
-  const page = editor.screenToPage(point)
-  const board = editor.getShapeAtPoint(page, {
-    hitInside: true,
-    filter: (shape) => shape.type === "canvas-container"
-  })
-  return board ? { kind: "none" } : { kind: "canvas", at: { x: Math.round(page.x), y: Math.round(page.y) } }
+  const at = emptyCanvasAt(session, area, point)
+  return at ? { kind: "canvas", at } : { kind: "none" }
 }
 
 /**
