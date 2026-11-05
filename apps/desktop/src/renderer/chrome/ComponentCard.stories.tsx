@@ -126,7 +126,7 @@ export const Pictures: Story = {
 
 /**
  * Everything else a preview can be: waiting its turn, being drawn, updating after its code changed (the last picture,
- * dimmed), and failing to draw. Only a made picture sits on the project's white page.
+ * dimmed), and failing to draw. Only a made picture sits on the project's page.
  */
 export const States: Story = {
   render: () => (

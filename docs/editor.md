@@ -2861,9 +2861,19 @@ dark theme, through the variables shadcn's tooltip reads, set in `styles.css`.
 
 - **What's pictured is what inserting places:** the node `nodeForItem` and `withLibraryContext` build for an empty
   layout, with the component's sample and the parents a part needs, its layers numbered in order so the tree is the same
-  every time. It's drawn in the project's first mode, inside an element as wide as the component up to 640 pixels with 8
-  pixels around it, in a window the mode's width, at twice its size, and cropped to that element. Unsaved token previews
-  aren't drawn. A story's args aren't read yet; PAR-209 gives a component sample props, its first story's args first.
+  every time. It's drawn in the project's mode that matches Parity's theme (below), inside an element as wide as the
+  component up to 640 pixels with 8 pixels around it, in a window the mode's width, at twice its size, and cropped to
+  that element. Unsaved token previews aren't drawn. A story's args aren't read yet; PAR-209 gives a component sample
+  props, its first story's args first.
+- **In the mode that matches Parity's light or dark theme (PAR-521).** Every preview was drawn in the project's first
+  mode, light on the example, so in Parity's dark theme the pictures were white boxes. A mode is dark when one of its
+  theme options' id, name or class is the word "dark" (shadcn's `dark` class), light otherwise (`modeAppearance`).
+  Previews are drawn in the first mode when it matches Parity's theme, else in the first mode that does with the first
+  mode's viewport and locale, else with its viewport, else any that does, else the first (`previewMode`); a project
+  without a theme variable keeps its first mode. The mode is in the preview's key, so each theme's pictures are kept
+  apart: switching themes looks the previews up again, draws those not kept for that theme, and switching back shows the
+  ones kept without drawing them. The card's box takes the page's color from the picture's own corner, which is in the
+  room round the component, so a dark picture sits on its dark page rather than in white.
 - **Two pictures each,** scaled down in the main process to fit 240 by 152 pixels (rows, tiles, the picker) and 608 by
   352 (the card), never larger than drawn. They go in the project's `previews` folder in the bitmap store, named by
   their key, with `index.json` holding each component's latest key and, for one that fails to draw, its error. The
@@ -2915,8 +2925,9 @@ in `packages/core/src/preview-order.ts`; `renderedComponents` in `packages/core/
 `previews.lookup` and `previews.make` handlers, `apps/desktop/src/utility/previews.ts` and the preview half of
 `utility/bitmap-store.ts`; `renderPreview`, `renderOffscreen` and `servePreview` in `apps/desktop/src/main/index.ts`;
 `previewJob`, `startPreviews`, `useComponentPreview` and `usePreviewOnScreen` in
-`apps/desktop/src/renderer/component-previews.ts`; `ComponentCard` in `renderer/chrome/ComponentCard.tsx` and `AssetRow`
-in `chrome/AssetsPanel.tsx`; `bitmapsWaiting` in `renderer/canvas/frame-bitmaps.ts`; `passesToVoidElement` in
+`apps/desktop/src/renderer/component-previews.ts`; `previewMode` and `modeAppearance` in `packages/core/src/modes.ts`,
+and `subscribeResolvedTheme` in `renderer/theme.ts`; `ComponentCard` in `renderer/chrome/ComponentCard.tsx` and
+`AssetRow` in `chrome/AssetsPanel.tsx`; `bitmapsWaiting` in `renderer/canvas/frame-bitmaps.ts`; `passesToVoidElement` in
 `packages/code/src/props.ts`; `sampleText` and `shortenedText` in `packages/libgen/src/sample-text.ts`.
 
 Tests: `packages/core/src/preview-order.test.ts` (5 for `renderQueue`: canvas and agent jobs before previews on screen
@@ -2933,16 +2944,22 @@ changes or when the dependencies do, new with what's drawn, and 40 hex character
 inserting places inside the sized element, a part inside its parents, and the same tree every time).
 `apps/desktop/src/utility/bitmap-store.test.ts` (6: addresses and size for a kept preview, pictures and index kept
 across a restart, none for a key not made, kept in the previews folder with no partial file, swept with an unused
-project, and none once cleared). `apps/desktop/src/utility/previews.test.ts` (6, with the project and the offscreen
+project, and none once cleared). `apps/desktop/src/utility/previews.test.ts` (7, with the project and the offscreen
 window standing in: drawn once and not again after a restart with the same code; after an edit, drawn again only for the
 component importing what changed, with its last picture meanwhile; a draw failure kept; one that didn't finish tried
-again; two asks at once drawing once; and none for code the project hasn't served). `packages/code/src/props.test.ts` (3
-for void elements: no `children` for `<input>` attributes or a ref to an `<hr>`, kept for other elements and for a
-component's own, and none for shadcn's Input). `packages/libgen/src/sample-text.test.ts` (6: short text whole, a long
-one ended at a sentence, at a whole word with "…", not at a too-short first sentence, text without spaces, and text cut
-before shortened as the whole would be). `packages/registry/src/index.test.ts` (1: no sample text in the registry cut
-mid-word, and nova's Accordion ending its sentence). Gaps: the window's store and scheduler (`component-previews.ts`),
-the queue's use in main and the protocol have no test of their own; they were tried in the app.
+again; a light and a dark picture kept apart under their own keys, the light one shown again without drawing; two asks
+at once drawing once; and none for code the project hasn't served). `packages/core/src/modes.test.ts` (4 for
+`previewMode` and `modeAppearance`: the first mode when it matches and the dark one with its options when it doesn't;
+the first mode's viewport kept over a matching mode listed first, else the first that matches; the first mode when none
+matches or there's no theme; and dark read from a theme option's id, name or class as a word).
+`packages/code/src/props.test.ts` (3 for void elements: no `children` for `<input>` attributes or a ref to an `<hr>`,
+kept for other elements and for a component's own, and none for shadcn's Input).
+`packages/libgen/src/sample-text.test.ts` (6: short text whole, a long one ended at a sentence, at a whole word with
+"…", not at a too-short first sentence, text without spaces, and text cut before shortened as the whole would be).
+`packages/registry/src/index.test.ts` (1: no sample text in the registry cut mid-word, and nova's Accordion ending its
+sentence). Gaps: the window's store and scheduler (`component-previews.ts`), including looking previews up again when
+Parity's theme changes, the card's page color from the picture's corner, the queue's use in main and the protocol have
+no test of their own; they were tried in the app.
 
 Tried in a debug copy on `examples/shadcn-vite`, with 587 components: the canvas's 119 bitmaps were taken in 16 seconds
 and the first preview was made a second after the last. The idle pass then made 555 previews and kept 13 failures (parts

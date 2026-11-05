@@ -3961,6 +3961,28 @@ event and returns the next list, and every path goes through it. My calls:
   for the read, as before. PAR-604 is the case where it stays listed after that.
 - **The program cache stays in the app's worker for now.** Moving it into `@parity-app/code` is its own issue, PAR-603.
 
+## Component previews follow Parity's light or dark theme (PAR-521)
+
+Previews were all drawn in the project's first mode, light on the example, so in Parity's dark theme they were white
+boxes (see editor.md, Component previews, made offscreen and kept on disk). My calls in fixing it:
+
+- **One mode at a time, the one matching the theme, not both.** The issue allowed drawing both and showing the matching
+  one. Drawing both would double the idle pass's work and the disk for a theme most people don't switch, so the window
+  draws only the matching one, and a switch draws the rest then. The key covers the mode, so both are kept once made and
+  a switch back draws nothing.
+- **Dark is read from the mode's theme options, by the word.** Modes don't say light or dark, so a mode is dark when a
+  theme option's id, name or class is the word "dark": shadcn's `dark` class, a "Dark" option, `theme-dark`. A project
+  whose dark theme is called something else ("Night", "Midnight") is drawn in its first mode, as before.
+- **The matching mode keeps the first mode's other options.** Desktop Dark is picked over a Mobile Dark listed before
+  it, so a preview changes in theme only, not in viewport or locale.
+- **The card's box takes the page's color from the picture.** It was white, the light page; a dark picture in it showed
+  a white frame round its own dark page. Nothing in the window says what the page's color is in that mode, and the
+  picture's corner is that page, so the box draws the picture's first pixel scaled past its size as its background,
+  which needs no stored color and no decoding in script.
+- **Switching themes shows the other theme's picture, dimmed, until its own is made.** The index keeps one latest key a
+  component, so a switch to a theme not drawn yet shows the last picture as updating, as after an edit, rather than
+  nothing; switching back shows the kept one at once.
+
 ## Zoomed far out, a board's labels hide once it's too narrow (PAR-151)
 
 Called on 2026-11-04, for your approval in Storybook:
