@@ -268,16 +268,16 @@ under "Discarded by Replace" (`discarded` in structured output), with each node'
 
 ```text
 Discarded by Replace (reapply what you still want to the new node):
-  signup/title, now k3x9a:
-    Title (title): viewports mobile; states loading
+  dashboard/stats, now k3x9a:
+    Stats (stats): viewports mobile
 ```
 
-Put back the ones you still want on the new ids, in the same call or the next:
+Put back the ones you still want on the new ids, in the same call or the next. A state's changes go back with
+`UpdateState(design, state, { changes: { [id]: … } })`.
 
 ```js
-const title = Replace("signup/Title", { type: "text", name: "Title", text: "Welcome" })
-Responsive(title, "mobile", { hidden: true })
-UpdateState("signup", "loading", { changes: { [title]: { text: "Signing you up…" } } })
+const stats = Replace("dashboard/Stats", { type: "layout", name: "Stats", style: { direction: "row", gap: 16 } })
+Responsive(stats, "mobile", { style: { direction: "column" } })
 ```
 
 ### Responsive
