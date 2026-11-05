@@ -42,6 +42,7 @@ import {
 import { boardReader } from "@parity-app/editor"
 import { BookOpen, Diamond, Group, Info, Sparkles, Unlink } from "lucide-react"
 import { useState } from "react"
+import { useChangePreview } from "../canvas/change-preview.ts"
 import { useProject } from "../canvas/context.ts"
 import { frameScale, nodeInFrames, selectionFrame } from "../canvas/hit.ts"
 import { focusOnMount, kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
@@ -343,6 +344,10 @@ function LayerSections({
     : undefined
   // A field's edit previews on the canvas, applied as `change` would apply it, until it's made or taken back.
   const preview = useStylePreview(session, entry.key)
+  // A number prop previews by being made, as the component has to draw again for it, and is taken back unless it's made.
+  const propPreview = useChangePreview(session.store, entry.key)
+  const setProp = (name: string, value: unknown) => (gesture?: string) =>
+    change(`Change ${name}`, propChange(name, value), gesture)
   const edited = (style: NodeStyle) => (current: ContainerSpec) => {
     const target = boardTarget(current, editingState(current, selected.state).id)
     return inner
@@ -415,7 +420,9 @@ function LayerSections({
           info={components[node.component]}
           changed={(name) => changesField(override, { kind: "props", key: name })}
           taken={override?.unset?.props}
-          onChange={(name, value, gesture) => change(`Change ${name}`, propChange(name, value), gesture)}
+          onChange={(name, value, gesture) => propPreview.commit(setProp(name, value), gesture)}
+          onPreview={(name, value) => propPreview.show(setProp(name, value))}
+          onCancel={() => propPreview.cancel()}
           onReset={(name) => reset({ kind: "props", key: name })}
         />
       )}

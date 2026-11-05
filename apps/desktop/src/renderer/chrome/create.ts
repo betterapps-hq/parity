@@ -23,7 +23,7 @@ export function createDesign(session: ProjectSession, kind: ContainerKind = "scr
       kind,
       entries.map((entry) => entry.container.id),
       position,
-      viewport
+      { viewport }
     ),
     kind === "component" ? "New component" : "New screen"
   )

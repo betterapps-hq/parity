@@ -10,7 +10,7 @@ import {
   ToggleGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
 import type { ContainerKind } from "@parity-app/core"
-import { kindName, kindTitle } from "@parity-app/editor"
+import { kindName, kindTitle, turnInto } from "@parity-app/editor"
 import { Crown, MousePointerClick } from "lucide-react"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor } from "../canvas/kinds.tsx"
@@ -113,10 +113,7 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
               store.updateContainer(
                 key,
                 value === "component" ? "Convert to component" : "Convert to screen",
-                (current) => ({
-                  ...current,
-                  kind: value as ContainerKind
-                })
+                (current) => turnInto(current, value as ContainerKind, store.getModes()).design
               )
             }
           >

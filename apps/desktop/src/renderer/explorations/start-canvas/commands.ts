@@ -37,7 +37,7 @@ export function makeNew(session: ProjectSession, kind: ContainerKind, at?: { x: 
   const taken = store.getEntries().map((entry) => entry.container.id)
   const key = store.addContainer(
     store.mainPath,
-    newDesign(kind, taken, { x: Math.round(page.x), y: Math.round(page.y) }, viewport),
+    newDesign(kind, taken, { x: Math.round(page.x), y: Math.round(page.y) }, { viewport }),
     kind === "component" ? "New component" : "New screen"
   )
   session.selection.set({ design: key })

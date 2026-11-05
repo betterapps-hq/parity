@@ -1433,8 +1433,9 @@ numbers. A component's number props take any number.
 - **Working from the value there.** A leading `+`, `*` or `/` works from it: `+8` adds 8px, `*2` doubles it. A leading
   minus is a negative number, since an inset can be negative; to subtract, type after the value shown, or `Mixed-8`.
   Mixed stands for each layer's own value, so `Mixed+8` adds 8px to each selected layer; anything without it gives every
-  layer the same value. In a length or a count, `%` is a share of the value there (`50%` halves a width, as in Figma's
-  dimension fields); in Opacity it's the unit, so `50%` is 50.
+  layer the same value. The note above the fields of several selected layers, which lists what differs, says so too
+  (PAR-203). In a length or a count, `%` is a share of the value there (`50%` halves a width, as in Figma's dimension
+  fields); in Opacity it's the unit, so `50%` is 50.
 - **What unset counts as,** for maths that works from the value: 0 for padding, margin, gaps and insets, 100 for
   opacity, 2 for a grid's columns, 1 for a span, and a layer's measured size for Width and Height when they're auto,
   fill or hug, as Figma's sizes are always numbers. Unset limits, rows, max lines and props have no value, so such maths
@@ -1445,9 +1446,11 @@ numbers. A component's number props take any number.
   with a 4px unit), which is what Tailwind's scale lists below 4 and what dragging already writes, and the field says so
   under its row: "Snapped to 282px, the nearest step on the spacing scale". A value already off it shows as it is (29.2)
   until it's edited. Keeping and flagging lengths off the scale is PAR-194.
-- **Limits.** Sizes, padding, margin, gaps and limits can't go below 0; insets can. Opacity stays within 0 and 100.
-  Counts are whole numbers from 1. A value past a limit is kept at it ("Kept at 0px: it can't go lower"), and a count
-  with a fraction is rounded ("Rounded to 2: it takes whole numbers"), each said under the row.
+- **Limits.** Sizes, padding, margin, gaps and limits can't go below 0; insets can. Opacity is a whole percentage within
+  0 and 100 (PAR-203). Counts are whole numbers from 1. A value past a limit is kept at it ("Kept at 0px: it can't go
+  lower"), and a count or an opacity with a fraction is rounded ("Rounded to 2: it takes whole numbers", "Rounded to
+  33%: it takes whole percentages"), each said under the row. An opacity already off a whole percentage shows as it is
+  until it's edited, and Up and Down go from the whole percentage nearest it.
 - **Up and Down** move a length one step of the spacing scale (4px with a 4px unit) and Shift ten steps, the same
   distance nudging moves an absolutely placed layer; a half step goes to the whole step beside it. Opacity, counts and
   numbers move by 1, and Shift by 10. Each press is made at once, and a run of presses is one undo step, however slow
@@ -1466,6 +1469,12 @@ numbers. A component's number props take any number.
   the change is made. Something it can't read keeps the last preview while typing, since `16p` is on its way to `16px`.
   A component previews only when it renders the design's props on its root, as only then does it take the style; one
   that doesn't changes once the edit is made, as before.
+- **Number props preview too** (PAR-203), typed or scrubbed, such as a Progress bar's `value`. A prop has to draw the
+  component again, which inline styles can't do, so the preview is made in the design, in a gesture of its own, as a
+  resize writes as the pointer moves, and each keystroke takes the last one back first. Maths works from the value as it
+  was before the preview (`/20` divides 70, not the 35 `/2` showed). Escape, or committing the value it started with,
+  takes it all back with nothing to undo; Enter makes anything else one undo step. While it shows, the panels, agents
+  and, with automatic saving on, the file see it as they see a resize in progress.
 - **Committing.** Enter makes the edit, one undo step, and keeps the field, with its text selected for the next value.
   Tab or clicking away makes it too. The preview stays until the change draws over it, so the canvas doesn't flick back.
   Escape takes the preview back, puts the value back and leaves the field.
@@ -1493,46 +1502,57 @@ Code:
 - `chrome/fields.tsx`: `NumberField`, which runs those effects, handles keys and scrubbing, and begins and ends the
   gesture a run of steps or a scrub commits in (`runEnders` says what ends a run, and `FieldTarget`, which
   `chrome/DesignPanel.tsx` sets to the selection's `selectionKey`, what the run edits), `NumberInput`, and `Field`,
-  whose label scrubs a lone field and which shows what its fields say under the row.
+  whose label scrubs a lone field and which shows what its fields say under the row. `NumberValueInput` is a prop's or
+  param's number, which works its edits out from the value as it was before a preview.
 - `chrome/StyleSections.tsx`: each style field's rules and how its edit reads and writes each layer's own style
   (`fieldEdits`), with `LengthInput` and `CompactNumber`. `StyleEditor` takes values, or a function of each layer's
-  style, and has `preview` and `endPreview`. `chrome/PropsSection.tsx` has the number props.
+  style, and has `preview` and `endPreview`. `chrome/PropsSection.tsx` has the number props, which
+  `chrome/LayerPanel.tsx` previews through `canvas/change-preview.ts`'s `ChangePreview`: a change made in a gesture and
+  taken back to its checkpoint unless it's made. `chrome/MultiPanel.tsx` has the note on what differs.
 - `canvas/style-preview.ts`: `StylePreview`, which writes previews onto the frames, takes them back, and settles them
   for the change. `chrome/LayerPanel.tsx` and `chrome/MultiPanel.tsx` wire it into the inspector, the latter working an
   edit out for each layer.
 
 Tests:
 
-- `packages/core/src/fields.test.ts` (42): 320 as pixels, `16px`, `rem` and step names, tokens, maths with units, `%` of
+- `packages/core/src/fields.test.ts` (44): 320 as pixels, `16px`, `rem` and step names, tokens, maths with units, `%` of
   the value there, leading operators, a leading minus, Mixed per layer, landing on the scale with its note, limits,
-  another spacing unit, clearing, `50-10` in Opacity, counts and numbers, each reason for input it can't read, steps,
-  scrubbing, and notes across layers. The cases the audit found broken fail without the change.
+  another spacing unit, clearing, `50-10` in Opacity, whole percentages in Opacity with their note and stepping from a
+  fraction (PAR-203), counts and numbers, each reason for input it can't read, steps, scrubbing, and notes across
+  layers. The cases the audit found broken fail without the change.
+- `apps/desktop/src/renderer/canvas/change-preview.test.ts` (4), with the real store: each preview in place of the last
+  and taken back with nothing to undo, a commit after previews as one undo step, a commit in a run's gesture, and Redo
+  kept when a preview is taken back.
 - `packages/core/src/style-changes.test.ts` (6): only what an edit changes, properties taken off, a component's style, a
   state that sets its own value, and nothing for no change.
 - `apps/desktop/src/renderer/chrome/number-field.test.ts` (16): previews while typing, keeping the last one, the draft
   over a changing value, Enter committing and keeping focus, input it can't read kept with its reason, leaving the
   field, Escape, steps from the value and from a draft, and scrubbing.
-- `apps/desktop/src/renderer/chrome/fields.test.ts` (11), in Chrome: the real field in a row. 320 previews as it's
+- `apps/desktop/src/renderer/chrome/fields.test.ts` (14), in Chrome: the real field in a row. 320 previews as it's
   typed; Enter commits and keeps focus with the text selected; `16em` stays with its reason, also after leaving; a value
   changing underneath, then Escape; a snapped note; Up, Shift+Up and Down; a run of Up presses with a pause as one
   gesture, ended by Enter, another ended by leaving the field, and a typed commit in none (PAR-441); a run ended by what
   the field edits changing while it keeps focus, the next press starting another; scrubbing the row's label to one
-  commit, in a gesture from the press to the release, and Escape during a scrub; and `Mixed+8` on two layers.
+  commit, in a gesture from the press to the release, and Escape during a scrub; `Mixed+8` on two layers; and a number
+  prop whose preview the value it's given holds (PAR-203): `/20` previewed and committed from 70, Escape and Enter on
+  the value it started with taking the preview back, and a scrub from 70.
 - `apps/desktop/src/renderer/canvas/style-preview.test.ts` (6), in Chrome: a preview drawn in each state's frame, a
   state that sets its own width left alone, a later preview putting back what it doesn't change, taking it back exactly,
   settling for the change, and nothing written for no change.
 - `chrome/fields.stories.tsx`: a Length row in every look, and TypingMaths, SnappedToTheScale, CantRead and Stepping.
-- `apps/desktop/e2e/fields.e2e.ts` (8), end to end on Pricing's Brand mark (PAR-202), the inspector's wiring against the
-  real store and frames: 320 typed in Width drawn at each keystroke (4, 32 and 320px) while the design keeps its width,
-  and Enter making 80 steps as one undo step, with the field focused and its text selected; `16px`; 281 landing on 282px
-  with its note; `abc` kept with its reason, and Escape putting the value back; a value set underneath leaving `12` in
-  the field; Up, Shift+Up and Down, more than a second apart, as one undo step; `50-10` in Opacity; scrubbing the Width
-  label, drawn while dragging and one undo step on release; and `Mixed+8` on Brand mark and Plans.
+- `apps/desktop/e2e/fields.e2e.ts` (10), end to end on Pricing's Brand mark (PAR-202), the inspector's wiring against
+  the real store and frames: 320 typed in Width drawn at each keystroke (4, 32 and 320px) while the design keeps its
+  width, and Enter making 80 steps as one undo step, with the field focused and its text selected; `16px`; 281 landing
+  on 282px with its note; `abc` kept with its reason, and Escape putting the value back; a value set underneath leaving
+  `12` in the field; Up, Shift+Up and Down, more than a second apart, as one undo step; `50-10` in Opacity; scrubbing
+  the Width label, drawn while dragging and one undo step on release; and `Mixed+8` on Brand mark and Plans, with the
+  note naming it. On App sidebar's Seats bar (PAR-203): 25 typed in its `value` drawn at each keystroke and made as one
+  undo step, and `/20` drawn as 3.5 from 70, then taken back by Escape with nothing to undo.
 
 Gaps: the timings were measured by hand in an isolated copy of the app on 2026-10-29: typing 320 in Width previewed at
 each keystroke in 25, 25 and 41 ms (a commit took 291 ms to show before), and scrubbing in 22 ms. The stories' play
-functions weren't run in Storybook. Number props don't preview, since a prop change has to draw the component again;
-they take maths and are made on Enter, as before. In a 320px inspector, Width and Height show about three characters of
+functions weren't run in Storybook. A number prop's preview wasn't timed: it draws the component again, as a commit
+does. Params' number fields don't preview yet. In a 320px inspector, Width and Height show about three characters of
 what's typed (PAR-189).
 
 ## Component props
@@ -2343,7 +2363,7 @@ files, which other sessions share; `ModeView.test.ts` drives the guest's side of
 
 Frame bitmaps are kept on disk, so a project opened again, or Parity started again, shows its frames' bitmaps once
 they're read rather than capturing every one again, one at a time, before frames can sleep. They're kept in Parity's app
-data, in `bitmaps`, one folder per project and one PNG per bitmap.
+data, in `bitmaps`, one folder per project and one lossless WebP per bitmap.
 
 - **A bitmap is named by what it shows:** the project's code as the guest drawing it was loaded, the render job less the
   guest's address, which is new each time a project opens, and where each component the frame draws comes from, whether
@@ -2353,10 +2373,18 @@ data, in `bitmaps`, one folder per project and one PNG per bitmap.
   It's taken when each address is first served and kept for that address, since the page never loads a module twice: a
   builder started again on the same port keeps it. Any edit to code, CSS or config gives a new name, so a bitmap of old
   code is never shown for new.
-- **Each PNG carries its frame's height** as the canvas drew it, in a `parity:height` text chunk, so a frame that hasn't
-  drawn yet can show its kept bitmap at its size (see Opening in seconds). The offscreen window lays a frame out at the
-  bitmap's quarter zoom, where text rounds to other heights, so its own measure is kept only for a frame the canvas
-  hadn't drawn. A file without a height, as versions before PAR-179 kept, isn't shown.
+- **Kept as lossless WebP (PAR-535).** The offscreen window captures a PNG, and the project service encodes it again as
+  a lossless WebP with sharp's libwebp before keeping it, the same pixels in about 40% less: the example project's 119
+  bitmaps came to 569 KB in the app, 4.8 KB each and 21 KB at most, where their PNGs took 908 KB, 7.6 and 33, encoding
+  in about 10 ms each, off main's thread. The canvas is given the WebP too, so it reads and decodes the smaller file.
+  Component previews are kept the same way. Chromium's own encoder was tried first, being lossless at full quality, but
+  wrote files 5% larger than the PNGs. A system where sharp can't load keeps nothing, and captures each session.
+- **Each bitmap carries its frame's height** as the canvas drew it, in a `parity:height` text chunk after the image, so
+  a frame that hasn't drawn yet can show its kept bitmap at its size (see Opening in seconds). WebP decoders skip it, as
+  the format asks them to of a chunk they don't know. The offscreen window lays a frame out at the bitmap's quarter
+  zoom, where text rounds to other heights, so its own measure is kept only for a frame the canvas hadn't drawn. A file
+  without a height, as versions before PAR-179 kept, isn't shown, and nor are the PNGs kept before PAR-535, which age
+  out with the cache.
 - **A frame not yet captured this session asks for a kept one first,** and shows it as soon as it's read. Only when
   there's none is it captured, after what's left of the 1-second wait; frames showing the same bitmap share one read,
   and a capture that landed meanwhile wins. Every capture that rendered is kept, written beside its name and renamed so
@@ -2378,9 +2406,11 @@ Code: `cacheRemovals` in `packages/core/src/bitmap-cache.ts`; `renderQueue` and 
 `ensureRenderWindow` and `closeRenderWindows` in `apps/desktop/src/main/index.ts`; `codeSnapshot` in
 `packages/project/src/code-fingerprint.ts`; `apps/desktop/src/utility/bitmap-store.ts`, and `codeServedAt` and the
 `fingerprints` kept per address in `utility/projects.ts`, with the components each address served; `drawnComponents` in
-`apps/desktop/src/shared/render-job.ts`; `withPngText` and `pngText` in `packages/core/src/png-text.ts`; the
-`frames.capture`, `frames.stored` and `frames.clearStored` handlers in `utility/index.ts`; `useFrameBitmap` and `stored`
-in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `clearBitmapCache` in `renderer/chrome/commands.ts`, in the View
+`apps/desktop/src/shared/render-job.ts`; `withWebpText`, `webpText` and `webpSize` in `packages/core/src/webp-text.ts`;
+`losslessWebp` in `apps/desktop/src/utility/webp.ts`, and the build shipping sharp beside the service
+(`apps/desktop/scripts/build.ts`, `electron-builder.yml`); the `frames.capture`, `frames.stored` and
+`frames.clearStored` handlers in `utility/index.ts`; `useFrameBitmap` and `stored` in
+`apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `clearBitmapCache` in `renderer/chrome/commands.ts`, in the View
 menu (`AppMenu.tsx`) and the actions search (`ActionsSearch.tsx`); `PARITY_BITMAP_DIR`, which main gives the service.
 
 Tests: `packages/core/src/turns.test.ts` (2: no more than the limit run at once, the earliest waiting next, and a failed
@@ -2395,8 +2425,10 @@ frame's height, one whose guest was given a component is found from a guest serv
 another file, none for a file without a height, none for other code or another frame, no partial file left behind, an
 old project and an old partial file swept, and nothing once cleared). `apps/desktop/src/shared/render-job.test.ts` (2
 for `drawnComponents`: the components a tree draws, nested in slots and props, by where they come from, and the same
-whether served or given). `packages/core/src/png-text.test.ts` (4: text kept right after the header with valid CRCs and
-read back, replaced under the same keyword, none in a PNG without it, and what isn't a PNG left alone).
+whether served or given). `packages/core/src/webp-text.test.ts` (5: text kept after the image behind the extended header
+a plain WebP needs, with its size and alpha, for lossless and lossy images; replaced under the same keyword and kept
+under others; none without it, and what isn't a WebP left alone; and the size read from either header).
+`apps/desktop/src/utility/webp.test.ts` (1: the WebP has the PNG's pixels exactly).
 `apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (4: a kept bitmap stands in for its key, with its height, so no
 capture is asked for, frames with the same key share a read, none when none was kept, and a capture taken during the
 read wins). Gaps: that a frame waits for the read before its capture, and the fingerprint kept per address, have no test

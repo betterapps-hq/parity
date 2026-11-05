@@ -85,13 +85,13 @@ export function boardRoot(design: ContainerSpec): DesignNode {
 
 /**
  * The size a design's frame is drawn at in a mode: the design's own size for the mode's viewport if it has one, else
- * as wide as the viewport and as tall as its content (no height).
+ * as wide as the viewport and as tall as its content (no height). A frame has one size of its own, whatever the mode.
  */
 export function frameSize(
   design: ContainerSpec,
   mode: { viewport: string; width: number }
 ): { width: number; height?: number } {
-  const size = design.frames?.[mode.viewport]
+  const size = design.kind === "frame" ? design.size : design.frames?.[mode.viewport]
   return { width: size?.width ?? mode.width, ...(size?.height === undefined ? {} : { height: size.height }) }
 }
 

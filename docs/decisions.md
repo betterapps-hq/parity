@@ -463,7 +463,21 @@ still need your call.
   focus with the text selected, and Escape reverts and leaves. A value changing underneath doesn't touch what's being
   typed.
 - **The canvas previews a field's edit as inline styles on the frames already drawn,** not through the store, so typing
-  shows in about 25 ms and commits as one undo step. Number props don't preview yet (PAR-203).
+  shows in about 25 ms and commits as one undo step.
+- **A number prop previews by being made in the design and taken back,** since the component has to draw again for it
+  (PAR-203). My call: the preview is a change in a gesture of its own, reverted to its checkpoint before the next
+  keystroke and on Escape, as a resize writes as the pointer moves, rather than a second source of designs for the
+  frames to draw beside the store. So while it shows, the panels, agents and, with automatic saving on, the file see it,
+  as they see a resize in progress; taking it back leaves nothing to undo, and making it is one undo step. Edits work
+  from the value as it was before the preview.
+- **Opacity takes whole percentages** (PAR-203). My call, of the two the issue offered: a typed fraction is rounded to
+  the nearest whole percentage and the field says so ("Rounded to 33%: it takes whole percentages"), as a count's is,
+  rather than keeping the fraction and naming what it shows. It's the same code path counts already had, and the field
+  shows two decimals, so `100/3` would have kept 33.333… behind a 33.33. An opacity already off a whole percentage stays
+  as it is until it's edited.
+- **The example's code field takes `value`, not `defaultValue`** (PAR-203). input-otp, under nova's InputOTP, reads
+  `defaultValue` for itself but also passes it to its input beside its own `value`, which React warned about in
+  development. Verify email's code is now fixed at 482913 (482931 in Wrong code), so in Interact it can't be typed over.
 - **The field parser is in `@parity-app/core`** until `@parity-app/editor` exists (PAR-7).
 - **A dragged layer stays in its own layout while the pointer is over that layout** (CAN-47): it changes places with its
   neighbours and never drops into one of them, so cards and bars that are layouts themselves don't swallow the neighbour
@@ -3295,6 +3309,30 @@ frames show a skeleton loader until their image loads. My calls:
 - **`pnpm perf` counts a frame as shown once it's asleep,** which is when it shows its bitmap or its placeholder, and
   still times every bitmap separately.
 
+## Frame bitmaps and component previews are kept as lossless WebP (PAR-535)
+
+Kept bitmaps were PNGs as Electron's `capturePage` writes them, about 7.6 KB each on the example project. You asked to
+keep these files small, so Parity doesn't fill people's disks with images, and to keep them lossless. My calls, and
+yours:
+
+- **Lossless WebP, encoded with sharp (your call), in the project service.** On the example's 119 bitmaps, libwebp's
+  lossless mode made 562 KB of 908 KB, the same pixels. Re-compressing the PNGs with zlib at its best gained nothing
+  (929 KB), and Chromium's own WebP encoder, lossless at full quality, wrote 957 KB. Lossy WebP would be smaller still
+  but isn't what you asked for. Encoding runs in the service, off main's thread, where a capture's PNG already passes.
+- **The canvas is given the WebP, not the PNG,** so the window reads, holds and decodes the smaller file, and what it
+  shows is what's kept.
+- **The frame's height stays inside the file,** in a chunk of its own after the image (`withWebpText`), as it was in the
+  PNG's text chunk, so each bitmap is still one file for the cache's sweeping and partial-file handling. A plain WebP
+  has only its image, so the extended header goes in front first, which the format requires.
+- **The PNGs kept before aren't read.** Bitmaps are named `.webp` now, so the old files are never found and go with the
+  cache's 30-day and 200 MB sweeps, as earlier format changes did; the PNG text helper is gone.
+- **sharp ships beside the service, unpacked,** since it loads its prebuilt libvips at runtime. The build copies it and
+  the packages installed with it, its binaries for the system building, and on macOS also fetches the other
+  architecture's from npm, since one Mac build packages both. The build then loads the shipped sharp in Parity's
+  Electron and encodes a WebP, and fails if it can't, so each platform's installer is checked as it's made; the other
+  Mac architecture's binaries are checked to be there. A system where it can't load keeps nothing rather than failing,
+  and captures each session.
+
 ## A screen is its own container (PAR-542)
 
 You approved the explorations on 2026-11-04 ("Yeah, let's ship it"). They're in Storybook under Parity / Explorations /
@@ -3358,6 +3396,45 @@ My calls:
   their look off `aria-pressed`.
 - **Open triggers style by `aria-expanded`,** which Base UI sets on every menu, popover and select trigger, where Radix
   set `data-state="open"`; a closing popup is `[data-closed]` for the canvas's shortcuts.
+
+## Frames are a third, light kind of design (PAR-539)
+
+Decision 1 of PAR-537 adds frames beside screens and components, and decision 6 keeps them out of code. They're now in
+the file and the packages, with no UI yet: PAR-540 designs their look and tools in Storybook, and PAR-545 builds them in
+the app. My calls:
+
+- **A frame is `kind: "frame"`, and its size is `size`.** `frames` stays a screen's and a component's sizes per
+  viewport. A frame has one size, `{ width?, height? }` in pixels, whatever the project's viewports are, so it doesn't
+  move when the modes change. Without a width it's as wide as the primary mode, and without a height as tall as its
+  content, as a screen's main preview is. `frameSize` gives a frame that size in every mode. A frame that hugs its text
+  (decision 4) is PAR-545's to add.
+- **The file checks what a frame holds.** Its root is a layout and it has one state, with no patches of its own; it has
+  no `params`, `view` or `frames`, and no other kind has a `size`. There's no route to refuse, since screens have none
+  in the file yet; when routes land, a frame takes none.
+- **One mode and one state, decided in core.** `shownModes` takes the design rather than its view and gives a frame the
+  primary mode alone, so the canvas, the accessibility checks, `GetModes`, `Designs()` and agents' renders draw it once.
+  With one state there's nothing else to show. The editor's `tidyView` keeps no view on a frame, so the state and mode
+  controls a frame's board still has until PAR-545 change nothing. Core's `addState`, `duplicateState` and `addVariant`
+  refuse a frame with `invalid_input`.
+- **Becoming a frame keeps what the board showed.** `turnInto` in `@parity-app/editor` (`kinds.ts`) keeps a design's
+  layers as its first state drew them, with the variant options shown and bound values filled in, since its params and
+  their bindings go, as a paste into a design without the param does (PAR-464). Responsive patches stay on the layers.
+  It takes the size it was drawn at in the primary mode, puts a root that isn't a layout inside one, and returns what it
+  dropped (its other states, the modes it showed besides the primary one, its params and its variants), for the app to
+  say before it does it. A frame becoming a screen or a component drops nothing, and its size becomes its preview's in
+  the primary viewport, so it shows as it did. A screen and a component still become each other by their kind alone. The
+  app's two kind switches go through `turnInto` already, so a frame in the file can't become a component with a `size`.
+- **Inside another design, a frame is a layout.** `frameAsLayout` is its root layout, named after it, with its size as a
+  width and height in spacing steps on the half step, as typed lengths land. `pasteFramesInto` and `moveFrameInto` paste
+  and move it in with fresh ids; designs that aren't all frames don't paste inside, since a screen or a component
+  doesn't go inside another design.
+- **Never written to code.** Nothing writes designs to code or checks them for drift yet, so the rule lives on
+  `ContainerKind` and here: whatever writes screens and components to code, and the drift review, leaves frames out.
+- **Agents read and write frames.** `CreateDesign({ kind: "frame", width, height })` makes one, in empty space for its
+  own size. `UpdateDesign` takes `width` and `height` for a frame and refuses them on the other kinds, and its `kind`
+  goes through `turnInto`, saying what was dropped in the call's warnings. A frame refuses `mode`, `showModes`, `state`
+  and `allStates`, and renders only in the primary mode: `mode: "all"` is that one, and another mode is `invalid_input`
+  naming it. `@parity-app/agent` now depends on `@parity-app/editor`, which is pure, for `turnInto` and `newDesign`.
 
 ## "Convert to" changes what a design is (PAR-553)
 

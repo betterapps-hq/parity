@@ -143,6 +143,21 @@ describe("percentages", () => {
   it("won't take a length", () => {
     expect(reason("16px", opacity)).toBe("Opacity takes a percentage, not px")
   })
+
+  it("takes whole percentages, rounding a fraction and saying so", () => {
+    expect(typed("33.333", opacity)).toEqual({ ok: true, value: 33, note: { kind: "rounded", to: 33 } })
+    expect(typed("100/3", opacity)).toMatchObject({ value: 33 })
+    expect(typed("Mixed/2", opacity, 75)).toMatchObject({ value: 38 })
+    expect(describeFieldNote({ kind: "rounded", to: 33 }, opacity)).toBe("Rounded to 33%: it takes whole percentages")
+    // Rounded first, then kept within its limits.
+    expect(typed("100.4", opacity)).toEqual({ ok: true, value: 100, note: { kind: "rounded", to: 100 } })
+    expect(typed("100.6", opacity)).toMatchObject({ value: 100, note: { kind: "clamped", to: 100 } })
+  })
+
+  it("steps a fraction already there from the whole percentage nearest it", () => {
+    expect(stepFieldValue(33.3, 1, opacity)).toBe(34)
+    expect(stepFieldValue(33.6, -1, opacity)).toBe(33)
+  })
 })
 
 describe("counts and numbers", () => {

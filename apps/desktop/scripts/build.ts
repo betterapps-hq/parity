@@ -1,8 +1,9 @@
 // Builds the app without a development server (PAR-8). The output is also the input to installer packaging.
-import { execSync } from "node:child_process"
-import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { execFileSync, execSync } from "node:child_process"
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs"
 import { createRequire } from "node:module"
-import { dirname, join, resolve } from "node:path"
+import { tmpdir } from "node:os"
+import { basename, dirname, join, resolve } from "node:path"
 import { build, type BuildOptions } from "esbuild"
 
 const appDir = resolve(import.meta.dirname, "..")
@@ -20,7 +21,8 @@ const node: BuildOptions = {
   format: "esm",
   outdir: out,
   outExtension: { ".js": ".mjs" },
-  external: ["electron", "typescript"],
+  // sharp loads its prebuilt libvips at runtime, so it's shipped as a package beside the service (PAR-535).
+  external: ["electron", "typescript", "sharp"],
   // Jiti's static entry includes its config transformer instead of looking for Babel beside the original package.
   alias: { jiti: join(dirname(require.resolve("jiti/package.json")), "lib/jiti-static.mjs") },
   banner: {
@@ -64,6 +66,79 @@ cpSync(join(registry, "libraries"), join(out, "libraries"), { recursive: true })
 cpSync(join(registry, "in-app.json"), join(out, "in-app.json"))
 // The checker reads lib.*.d.ts next to TypeScript at runtime. A real directory also works from a packaged app.
 cpSync(dirname(require.resolve("typescript/package.json")), join(out, "node_modules/typescript"), { recursive: true })
+shipPackage("sharp", appDir)
+// One macOS build packages both Apple Silicon and Intel, from an install that has only the runner's own binaries.
+if (process.platform === "darwin") shipOtherMacBinaries()
+checkShippedSharp()
+
+/**
+ * Fails the build unless the sharp it ships loads in Parity's Electron and encodes a lossless WebP, from the files the
+ * installer unpacks beside the service, so an installer whose bitmaps couldn't be kept is never made (PAR-535). The
+ * other Mac architecture's binaries can't run here, so they're only checked to be there.
+ */
+function checkShippedSharp(): void {
+  const sharp = join(out, "node_modules/sharp")
+  const script = `require(${JSON.stringify(sharp)})({ create: { width: 2, height: 2, channels: 3, background: "#36c" } })
+    .webp({ lossless: true }).toBuffer()
+    .then((webp) => { if (webp.toString("latin1", 8, 12) !== "WEBP") throw new Error("not a WebP"); console.log("sharp loads in Electron") })
+    .catch((error) => { console.error(error); process.exit(1) })`
+  const electron = require("electron") as unknown as string
+  execFileSync(electron, ["-e", script], { stdio: "inherit", env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" } })
+  if (process.platform !== "darwin") return
+  for (const arch of ["arm64", "x64"]) {
+    for (const name of [`@img/sharp-darwin-${arch}`, `@img/sharp-libvips-darwin-${arch}`]) {
+      if (!existsSync(join(out, "node_modules", name, "package.json"))) throw new Error(`The build ships no ${name}`)
+    }
+  }
+}
+
+/**
+ * Copies an installed package into `out/node_modules`, with the dependencies and optional dependencies installed beside
+ * it, which for sharp are its prebuilt binaries for this system. pnpm keeps each package's dependencies as its siblings,
+ * so they're looked for from the package's own folder up.
+ */
+function shipPackage(name: string, from: string, shipped = new Set<string>()): void {
+  const folder = installed(name, from)
+  if (!folder || shipped.has(folder)) return
+  shipped.add(folder)
+  cpSync(folder, join(out, "node_modules", name), { recursive: true, dereference: true })
+  const manifest = JSON.parse(readFileSync(join(folder, "package.json"), "utf8")) as {
+    dependencies?: Record<string, string>
+    optionalDependencies?: Record<string, string>
+  }
+  for (const dependency of Object.keys({ ...manifest.dependencies, ...manifest.optionalDependencies })) {
+    shipPackage(dependency, folder, shipped)
+  }
+}
+
+/** Where a package is installed, as seen from a folder; nothing when it isn't, as for another system's binaries. */
+function installed(name: string, from: string): string | undefined {
+  for (let folder = from; ; folder = dirname(folder)) {
+    const candidate = basename(folder) === "node_modules" ? join(folder, name) : join(folder, "node_modules", name)
+    if (existsSync(join(candidate, "package.json"))) return realpathSync(candidate)
+    if (dirname(folder) === folder) return undefined
+  }
+}
+
+/** Adds sharp's binaries for the Mac architecture this runner isn't, from npm, at the versions sharp asks for. */
+function shipOtherMacBinaries(): void {
+  const other = process.arch === "arm64" ? "x64" : "arm64"
+  const sharp = JSON.parse(readFileSync(join(out, "node_modules/sharp/package.json"), "utf8")) as {
+    optionalDependencies: Record<string, string>
+  }
+  for (const name of [`@img/sharp-darwin-${other}`, `@img/sharp-libvips-darwin-${other}`]) {
+    const version = sharp.optionalDependencies[name]
+    if (!version) throw new Error(`sharp doesn't list ${name}`)
+    const target = join(out, "node_modules", name)
+    if (existsSync(target)) continue
+    const packed = mkdtempSync(join(tmpdir(), "parity-sharp-"))
+    const tarball = execSync(`npm pack ${name}@${version} --silent`, { cwd: packed, encoding: "utf8" }).trim()
+    mkdirSync(target, { recursive: true })
+    execSync(`tar -xzf ${JSON.stringify(join(packed, tarball))} -C ${JSON.stringify(target)} --strip-components=1`)
+    rmSync(packed, { recursive: true, force: true })
+  }
+}
+
 const { name, version, license, description, author, homepage } = JSON.parse(
   readFileSync(join(appDir, "package.json"), "utf8")
 )

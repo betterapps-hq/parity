@@ -3,13 +3,13 @@ import type { CanvasDocument, ContainerSpec, ContainerViewSettings } from "@pari
 /**
  * A design's view without what says nothing: every state not shown, no modes or variants beside the defaults, the
  * first state named as the one shown. Undefined when nothing is left, so turning a view setting on and off again gives
- * back the view the file had.
+ * back the view the file had. A frame has none, since it shows only the primary mode and its one state.
  */
 export function tidyView(
-  container: Pick<ContainerSpec, "states">,
+  container: Pick<ContainerSpec, "states" | "kind">,
   view: ContainerViewSettings | undefined
 ): ContainerViewSettings | undefined {
-  if (!view) return undefined
+  if (!view || container.kind === "frame") return undefined
   const next: ContainerViewSettings = { ...view }
   if (!next.allStates) delete next.allStates
   if (next.modes?.length === 0) delete next.modes

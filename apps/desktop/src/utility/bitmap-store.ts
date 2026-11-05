@@ -1,18 +1,26 @@
 import { createHash } from "node:crypto"
 import { mkdir, open, readdir, readFile, rename, rm, stat, utimes, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import { type CachedFile, type ComponentSource, cacheRemovals, pngText, withPngText } from "@parity-app/core"
+import {
+  type CachedFile,
+  type ComponentSource,
+  cacheRemovals,
+  webpSize,
+  webpText,
+  withWebpText
+} from "@parity-app/core"
 import type { CodeSnapshot } from "@parity-app/project"
 import type { PreviewImage, RenderJob } from "../shared/protocol.ts"
 import { drawnComponents } from "../shared/render-job.ts"
 
 /**
  * Frame bitmaps and component previews kept on disk, so a project opened again shows them at once (PAR-158, PAR-207).
- * They live in Parity's app data, which main names (`PARITY_BITMAP_DIR`), one folder per project. A frame bitmap is a
- * PNG named by what it shows: the project's code as the guest drawing it was loaded (`codeSnapshot`), the render job,
- * less the guest's address, which is new each time the project opens, and where the components it draws come from.
- * Each PNG carries its frame's height. Component previews are in the project's `previews` folder, two PNGs each, named
- * by `previewKey`, with an index of each component's latest. Without a folder, as in tests, nothing is kept.
+ * They live in Parity's app data, which main names (`PARITY_BITMAP_DIR`), one folder per project, as lossless WebP
+ * (PAR-535). A frame bitmap is named by what it shows: the project's code as the guest drawing it was loaded
+ * (`codeSnapshot`), the render job, less the guest's address, which is new each time the project opens, and where the
+ * components it draws come from. Each carries its frame's height. Component previews are in the project's `previews`
+ * folder, two pictures each, named by `previewKey`, with an index of each component's latest. Without a folder, as in
+ * tests, nothing is kept.
  */
 
 /**
@@ -31,41 +39,41 @@ const sweepEvery = 50
 let writes = 0
 let sweeping: Promise<void> | undefined
 
-/** The PNG text the frame's height is kept under. */
+/** The text the frame's height is kept under, inside the WebP. */
 const heightKeyword = "parity:height"
 
 /**
- * The bitmap a job draws, as base64, and the frame's height when it was captured, if one was kept for the code it's
- * drawn with. Showing it counts as using it.
+ * The bitmap a job draws, as a lossless WebP in base64, and the frame's height when it was captured, if one was kept for
+ * the code it's drawn with. Showing it counts as using it.
  */
 export async function storedBitmap(
   served: ServedCode,
   job: RenderJob
-): Promise<{ png: string; height: number } | undefined> {
+): Promise<{ webp: string; height: number } | undefined> {
   if (!folder) return undefined
   const file = bitmapFile(await served.fingerprint, served, job)
   try {
-    const png = await readFile(file)
-    const height = Number(pngText(png, heightKeyword))
+    const webp = await readFile(file)
+    const height = Number(webpText(webp, heightKeyword))
     // Every bitmap kept says how tall its frame was; one that doesn't isn't one this version wrote.
     if (!(height > 0)) return undefined
     const now = new Date()
     void utimes(file, now, now).catch(() => undefined)
-    return { png: png.toString("base64"), height }
+    return { webp: webp.toString("base64"), height }
   } catch {
     return undefined
   }
 }
 
 /**
- * Keeps a captured bitmap, with the frame's height in its own CSS pixels inside the PNG. It's written beside its name and
- * then renamed, so a reader never finds half a file.
+ * Keeps a captured bitmap, as a lossless WebP, with the frame's height in its own CSS pixels inside it. It's written
+ * beside its name and then renamed, so a reader never finds half a file.
  */
-export async function storeBitmap(served: ServedCode, job: RenderJob, png: string, height: number): Promise<void> {
+export async function storeBitmap(served: ServedCode, job: RenderJob, webp: Uint8Array, height: number): Promise<void> {
   if (!folder) return
   try {
     const file = bitmapFile(await served.fingerprint, served, job)
-    await writeWhole(file, withPngText(Buffer.from(png, "base64"), heightKeyword, String(height)))
+    await writeWhole(file, withWebpText(webp, heightKeyword, String(height)))
   } catch (error) {
     console.warn(`[service] couldn't keep a frame bitmap: ${message(error)}`)
     return
@@ -104,13 +112,13 @@ export function previewIndex(projectId: string): Promise<Map<string, PreviewReco
 export async function storedPreview(projectId: string, key: string): Promise<PreviewImage | undefined> {
   if (!folder) return undefined
   const thumb = await stat(previewFile(projectId, key, "thumb")).catch(() => undefined)
-  const size = thumb?.isFile() ? await pngSize(previewFile(projectId, key, "large")) : undefined
+  const size = thumb?.isFile() ? await pictureSize(previewFile(projectId, key, "large")) : undefined
   return size && previewImage(projectId, key, size)
 }
 
 /**
- * Keeps a component's preview: its two pictures, when it was made, and the index's record of it as the component's
- * latest. A preview that failed keeps only its record, so the same code doesn't fail again on every open. Gives the
+ * Keeps a component's preview: its two pictures, as lossless WebP, when it was made, and the index's record of it as the
+ * component's latest. A preview that failed keeps only its record, so the same code doesn't fail again on every open. Gives the
  * pictures as the window shows them, once they're kept.
  */
 export async function storePreview(
@@ -142,7 +150,7 @@ export async function storePreview(
 
 /** Where the window loads a preview's picture from: main serves `parity-preview:` from the store. */
 export function previewAddress(projectId: string, key: string, size: PreviewSize): string {
-  return `parity-preview://${projectName(projectId)}/${key}-${size}.png`
+  return `parity-preview://${projectName(projectId)}/${key}-${size}.webp`
 }
 
 function previewImage(projectId: string, key: string, size: { width: number; height: number }): PreviewImage {
@@ -153,15 +161,14 @@ function previewImage(projectId: string, key: string, size: { width: number; hei
   }
 }
 
-/** A PNG's size, from its header; nothing when it isn't one or can't be read. */
-async function pngSize(file: string): Promise<{ width: number; height: number } | undefined> {
+/** A WebP's size, from its header; nothing when it isn't one or can't be read. */
+async function pictureSize(file: string): Promise<{ width: number; height: number } | undefined> {
   const handle = await open(file).catch(() => undefined)
   if (!handle) return undefined
   try {
-    const header = Buffer.alloc(24)
-    const { bytesRead } = await handle.read(header, 0, 24, 0)
-    if (bytesRead < 24 || header.toString("latin1", 12, 16) !== "IHDR") return undefined
-    return { width: header.readUInt32BE(16), height: header.readUInt32BE(20) }
+    const header = Buffer.alloc(30)
+    const { bytesRead } = await handle.read(header, 0, 30, 0)
+    return webpSize(header.subarray(0, bytesRead))
   } finally {
     await handle.close()
   }
@@ -291,7 +298,7 @@ function previewFolder(projectId: string): string {
 }
 
 function previewFile(projectId: string, key: string, size: PreviewSize): string {
-  return join(previewFolder(projectId), `${key}-${size}.png`)
+  return join(previewFolder(projectId), `${key}-${size}.webp`)
 }
 
 /**
@@ -308,5 +315,5 @@ function bitmapFile(fingerprint: string, served: ServedCode, job: RenderJob): st
     .update("\0")
     .update(JSON.stringify(drawnComponents(job.tree, served.sources, components)))
     .digest("hex")
-  return join(projectFolder(job.projectId), `${name.slice(0, 40)}.png`)
+  return join(projectFolder(job.projectId), `${name.slice(0, 40)}.webp`)
 }

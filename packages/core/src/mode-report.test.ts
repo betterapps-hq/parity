@@ -98,4 +98,32 @@ describe("designModes", () => {
       ]
     })
   })
+
+  it("gives a frame the primary mode alone, at its own size, whatever its view or sizes say", () => {
+    // A frame's file has neither, but one held in memory before it's checked still shows only its one frame.
+    const frame: ContainerSpec = {
+      ...design,
+      kind: "frame",
+      states: [design.states[0]!],
+      size: { width: 400, height: 300 },
+      view: { mode: "mobile-light", modes: ["desktop-dark"] },
+      frames: { desktop: { width: 1000 } }
+    }
+    expect(designModes(defaultModeSettings, frame, true)).toEqual({
+      id: "home",
+      name: "Home",
+      state: "default",
+      states: ["default"],
+      main: "desktop-light",
+      beside: [],
+      frames: [{ mode: "desktop-light", width: 400, height: 300, window: { width: 400, height: 300 } }]
+    })
+  })
+
+  it("draws a frame without a width as wide as the primary mode's viewport, growing with its content", () => {
+    const frame: ContainerSpec = { ...design, kind: "frame", states: [design.states[0]!] }
+    expect(designModes(defaultModeSettings, frame, true).frames).toEqual([
+      { mode: "desktop-light", width: 1280, window: { width: 1280, height: 800 } }
+    ])
+  })
 })
