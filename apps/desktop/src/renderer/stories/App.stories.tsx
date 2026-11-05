@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { AppWindow } from "../App.tsx"
-import { workspace } from "../workspace.ts"
+import { homeTab, workspace } from "../workspace.ts"
 import { frameDesigns, openProjects } from "./fixtures.tsx"
 
 /** The whole window, as people see it: the tab bar, then the active project's panels, canvas and status bar. */
@@ -38,7 +38,7 @@ export const Opening: Story = { loaders: [() => openProjects("slow")] }
 /** A project that couldn't be opened, with the service's reason. */
 export const FailedToOpen: Story = { loaders: [() => openProjects("broken")] }
 
-/** Every tab closed, after opening two projects: the ways to open one, and those two at the top of the recent ones. */
+/** Every tab closed, after opening two projects: Home offers the last one to continue, and lists the other. */
 export const NoProjectOpen: Story = {
   loaders: [
     async () => {
@@ -48,12 +48,32 @@ export const NoProjectOpen: Story = {
   ]
 }
 
-/** Every tab closed, with nothing opened before: just the ways to open a project. */
+/** Every tab closed, with nothing opened before: Home with the ways to open a project. */
 export const NothingOpenedYet: Story = {
   loaders: [
     async () => {
       await openProjects()
       workspace.forgetRecent()
+    }
+  ]
+}
+
+/** Home, pinned first, with two projects open in tabs behind it. */
+export const OnHome: Story = {
+  loaders: [
+    async () => {
+      await openProjects("example", "empty")
+      workspace.activate(homeTab)
+    }
+  ]
+}
+
+/** A new tab beside an open project. A project opened from it opens in this tab. */
+export const NewTab: Story = {
+  loaders: [
+    async () => {
+      await openProjects("example", "empty")
+      workspace.newTab()
     }
   ]
 }

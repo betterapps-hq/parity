@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "List an export you put on the component list straight away, and keep a new component that takes a removed one's id when files change",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

@@ -157,21 +157,25 @@ const examples = (
   await Promise.all(files.map(async (file) => snippets(await readSkill(file)).map((snippet) => ({ file, ...snippet }))))
 ).flat()
 
+const boardCategories = new Set(["overlap", "title_clearance", "canvas_overlaps"])
+
 describe("the skill's examples", () => {
   it("finds the examples to run", () => {
     expect(examples.length).toBeGreaterThan(10)
   })
 
   // A file's snippets share one tab, so a value one assigns without `const` carries into the next, as the skill says.
-  // Overlap warnings are left out: they depend on where the example project's boards sit, and the canvas example
-  // makes one on purpose. Any other warning means the example uses the API wrongly.
+  // Warnings about boards being too close are left out: they depend on where the example project's boards sit, and the
+  // canvas example makes them on purpose. Any other warning means the example uses the API wrongly.
   it.each(files.filter((file) => examples.some((example) => example.file === file)))(
     "runs every example in %s against the example project",
     async (file) => {
       const tab = `skill-${file}`
       for (const { line, code } of examples.filter((example) => example.file === file)) {
         const result = await execute({ label: "Example", code }, project(tab), hooks)
-        const warnings = result.warnings.filter((warning) => !/\) overlaps .+ by \d+x\d+/.test(warning))
+        const warnings = result.warnings.filter(
+          (_, index) => !boardCategories.has(result.warningGroups?.[index]?.category ?? "")
+        )
         expect({ at: `${file}:${line}`, error: result.error, warnings }).toEqual({
           at: `${file}:${line}`,
           error: undefined,
