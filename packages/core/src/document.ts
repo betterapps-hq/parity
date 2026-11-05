@@ -64,8 +64,15 @@ export interface NoteSpec {
   width?: number
 }
 
-/** A screen is a whole page or view; a component is a reusable piece that screens place as instances. */
-export type ContainerKind = "screen" | "component"
+/**
+ * What a design is. A screen is a whole page or view; a component is a reusable piece that screens place as instances.
+ * A frame is the light kind, for sketching on the canvas: a layout drawn once, at its own `size`, in the project's
+ * primary mode, with one state, no params, no modes beside it, and no code written from it. Only a top-level design is
+ * a frame; one placed inside another design becomes a layout there.
+ */
+export type ContainerKind = (typeof containerKinds)[number]
+
+export const containerKinds = ["screen", "component", "frame"] as const
 
 /**
  * One design, like a Storybook CSF file. `root` is the design itself. States are authored and patch nodes (content,
@@ -89,10 +96,15 @@ export interface ContainerSpec {
    */
   context?: { component: string; props?: Record<string, unknown> }[]
   /**
-   * Frame sizes in CSS pixels, keyed by viewport option id. Without one, a frame is as wide as its mode's viewport and
-   * as tall as its content.
+   * A screen's or component's frame sizes in CSS pixels, keyed by viewport option id. Without one, a frame is as wide
+   * as its mode's viewport and as tall as its content.
    */
   frames?: Record<string, FrameSize>
+  /**
+   * A frame's own size in CSS pixels, whatever the project's viewports are. Without a width it's as wide as the primary
+   * mode's viewport, and without a height as tall as its content. Only a frame has one.
+   */
+  size?: FrameSize
 }
 
 export interface FrameSize {
@@ -431,7 +443,7 @@ function parseContainer(value: unknown, path: string): ContainerSpec {
   const container = expectObject(value, path)
   expectKnownKeys(
     container,
-    ["id", "name", "kind", "position", "root", "states", "view", "params", "context", "frames"],
+    ["id", "name", "kind", "position", "root", "states", "view", "params", "context", "frames", "size"],
     path
   )
   const position = expectObject(container.position, `${path}/position`)
@@ -468,11 +480,16 @@ function parseContainer(value: unknown, path: string): ContainerSpec {
     }
   })
   if (states.length === 0) throw new TypeError(`${path}/states: expected at least one state`)
+  const kind = optional(container.kind, (v) => expectOneOf(v, containerKinds, `${path}/kind`))
+  if (kind === "frame") checkFrame(container, root, states, path)
+  else if (container.size !== undefined) {
+    throw new TypeError(`${path}/size: only a frame has a size of its own; size a ${kind ?? "screen"} in frames`)
+  }
 
   return compact({
     id: expectString(container.id, `${path}/id`),
     name: expectString(container.name, `${path}/name`),
-    kind: optional(container.kind, (v) => expectOneOf(v, ["screen", "component"] as const, `${path}/kind`)),
+    kind,
     context: optional(container.context, (v) =>
       expectArray(v, `${path}/context`).map((item, index) => {
         const at = `${path}/context/${index}`
@@ -521,21 +538,42 @@ function parseContainer(value: unknown, path: string): ContainerSpec {
     frames: optional(container.frames, (v) => {
       const frames: Record<string, FrameSize> = {}
       for (const [viewport, entry] of Object.entries(expectObject(v, `${path}/frames`))) {
-        const at = `${path}/frames/${viewport}`
-        const size = expectObject(entry, at)
-        expectKnownKeys(size, ["width", "height"], at)
-        frames[viewport] = compact({
-          width: optional(size.width, (w) => expectNumber(w, `${at}/width`)),
-          height: optional(size.height, (h) => expectNumber(h, `${at}/height`))
-        })
+        frames[viewport] = parseFrameSize(entry, `${path}/frames/${viewport}`)
       }
       return frames
     }),
+    size: optional(container.size, (v) => parseFrameSize(v, `${path}/size`)),
     position: { x: expectNumber(position.x, `${path}/position/x`), y: expectNumber(position.y, `${path}/position/y`) },
     root,
     states,
     view
   })
+}
+
+function parseFrameSize(value: unknown, path: string): FrameSize {
+  const size = expectObject(value, path)
+  expectKnownKeys(size, ["width", "height"], path)
+  return compact({
+    width: optional(size.width, (w) => expectNumber(w, `${path}/width`)),
+    height: optional(size.height, (h) => expectNumber(h, `${path}/height`))
+  })
+}
+
+/**
+ * What a frame may hold: a layout at its root and one state, drawn as its layers are, with no params, no view (it
+ * shows only the primary mode and that state) and no sizes per viewport, since it has one of its own.
+ */
+function checkFrame(container: Record<string, unknown>, root: DesignNode, states: StateSpec[], path: string): void {
+  if (root.type !== "layout") throw new TypeError(`${path}/root: a frame's root is a layout`)
+  if (states.length > 1) throw new TypeError(`${path}/states: a frame has one state`)
+  if (Object.keys(states[0]!.overrides ?? {}).length > 0) {
+    throw new TypeError(`${path}/states/0/overrides: a frame is drawn as its layers are`)
+  }
+  if (container.params !== undefined) throw new TypeError(`${path}/params: a frame has no params`)
+  if (container.view !== undefined) {
+    throw new TypeError(`${path}/view: a frame shows only the primary mode and its one state`)
+  }
+  if (container.frames !== undefined) throw new TypeError(`${path}/frames: a frame's size is in size, not per viewport`)
 }
 
 /** Validates one node tree on its own, as agents insert them. */

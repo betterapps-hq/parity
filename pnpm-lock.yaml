@@ -458,6 +458,9 @@ importers:
       '@parity-app/core':
         specifier: workspace:*
         version: link:../core
+      '@parity-app/editor':
+        specifier: workspace:*
+        version: link:../editor
       '@parity-app/icons':
         specifier: workspace:*
         version: link:../icons

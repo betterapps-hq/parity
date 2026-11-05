@@ -900,6 +900,106 @@ Update("submit", {props: {variant: "primary", tone: "loud"}})`
   })
 })
 
+describe("frames", () => {
+  it("makes a frame at its own size and draws it once, in the primary mode", async () => {
+    const result = await execute(
+      {
+        label: "Sketch",
+        code: `id = CreateDesign({ name: "Sketch", kind: "frame", width: 400, height: 300, x: 0, y: 2000 })
+Insert(id, { type: "text", text: "Idea" })
+Print(Designs().find((design) => design.id === id).showing, await Screenshot(id, { mode: "all" }))
+Print(GetModes(id).designs[0].frames)`
+      },
+      snapshot(),
+      hooks()
+    )
+    expect(result.error).toBeUndefined()
+    expect(result.changes.designs[0]!.after).toMatchObject({
+      kind: "frame",
+      size: { width: 400, height: 300 },
+      root: { type: "layout", children: [{ type: "text", text: "Idea" }] },
+      states: [{ id: "default", name: "Default" }]
+    })
+    expect(result.changes.designs[0]!.after).not.toHaveProperty("view")
+    expect(result.output).toEqual([
+      '{"state":"default","mode":"desktop-light","beside":[]} 1',
+      '[{"mode":"desktop-light","width":400,"height":300,"window":{"width":400,"height":300}}]'
+    ])
+    expect(result.screenshots).toMatchObject([{ mode: "desktop-light", width: 400 }])
+  })
+
+  it("places a frame without a place in empty space for its own size", async () => {
+    const result = await execute(
+      { label: "Sketch", code: `CreateDesign({ name: "Sketch", kind: "frame", width: 400, height: 300 })` },
+      snapshot(),
+      hooks()
+    )
+    // Right of Sign up's 1400 board, with the gap boards keep.
+    expect(result.changes.designs[0]!.after).toMatchObject({ kind: "frame", position: { y: 0 } })
+    expect(result.changes.designs[0]!.after!.position.x).toBeGreaterThan(1400)
+  })
+
+  it("turns a screen into a frame, saying what it dropped, and back", async () => {
+    const base = snapshot()
+    const signup = base.documents[0]!.document.containers[0]!
+    signup.states.push({ id: "error", name: "Error", overrides: { title: { text: "Try again" } } })
+    signup.view = { modes: ["mobile-light"], state: "error" }
+    const result = await execute(
+      {
+        label: "Sketch it",
+        code: `UpdateDesign("signup", { kind: "frame", width: 600 })
+Print(GetDesign("signup").size)
+UpdateDesign("signup", { kind: "screen" })
+Print(GetDesign("signup").frames)`
+      },
+      base,
+      hooks()
+    )
+    expect(result.error).toBeUndefined()
+    expect(result.warnings).toContain("Sign up is a frame now. States dropped: Error. Modes dropped: mobile-light.")
+    expect(result.output).toEqual(['{"width":600}', '{"desktop":{"width":600}}'])
+    expect(result.changes.designs[0]!.after).toMatchObject({ kind: "screen", states: [{ id: "default" }] })
+  })
+
+  it("refuses what a frame doesn't have: other states, modes and sizes per viewport", async () => {
+    const base = snapshot()
+    const frame = { ...base.documents[0]!.document.containers[0]!, kind: "frame" as const, size: { width: 400 } }
+    base.documents[0]!.document.containers = [frame]
+    const calls: [string, string, string][] = [
+      [`AddState("signup", { name: "Error" })`, "design", "Sign up is a frame, which has one state"],
+      [`UpdateDesign("signup", { showModes: ["mobile-light"] })`, "showModes", "takes no showModes"],
+      [`await Screenshot("signup", { mode: "mobile-light" })`, "mode", "drawn only in the primary mode, desktop-light"],
+      [`UpdateDesign(CreateDesign({ name: "Home" }), { width: 400 })`, "width", "only a frame takes a width"]
+    ]
+    for (const [code, field, message] of calls) {
+      const result = await execute({ label: "Try", code }, base, hooks())
+      expect(result.ok).toBe(false)
+      expect(result.error).toContain(message)
+      expect(result.details).toMatchObject({ code: "invalid_input", field })
+    }
+  })
+
+  it("runs the skill's frame example", async () => {
+    const result = await execute(
+      {
+        label: "Sketch",
+        code: `const sketch = CreateDesign({ name: "Sketch", kind: "frame", width: 480, height: 320 })
+Insert(sketch, { type: "text", tag: "h2", text: "Pricing ideas" })
+await Screenshot(sketch)
+UpdateDesign(sketch, { kind: "screen" }) // keeps its layers, and its size in the primary viewport`
+      },
+      snapshot(),
+      hooks()
+    )
+    expect(result.error).toBeUndefined()
+    expect(result.screenshots).toMatchObject([{ design: "sketch", mode: "desktop-light", width: 480 }])
+    expect(result.changes.designs[0]!.after).toMatchObject({
+      kind: "screen",
+      frames: { desktop: { width: 480, height: 320 } }
+    })
+  })
+})
+
 describe("coded failures", () => {
   it.each([
     {

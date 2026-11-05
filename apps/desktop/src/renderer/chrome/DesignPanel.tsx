@@ -1,4 +1,5 @@
 import type { ContainerKind } from "@parity-app/core"
+import { turnInto } from "@parity-app/editor"
 import { Crown, MousePointerClick } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -101,10 +102,11 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
             value={container.kind ?? "screen"}
             onValueChange={(value) =>
               value &&
-              store.updateContainer(key, "Change design kind", (current) => ({
-                ...current,
-                kind: value as ContainerKind
-              }))
+              store.updateContainer(
+                key,
+                "Change design kind",
+                (current) => turnInto(current, value as ContainerKind, store.getModes()).design
+              )
             }
           >
             <ToggleGroupItem value="screen" className="h-6 px-2 text-xs">

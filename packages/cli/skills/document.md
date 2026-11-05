@@ -5,19 +5,25 @@ change, so you never edit the files by hand. This is the shape `GetDesign` and `
 
 ## Designs
 
-A design is a screen or a component, drawn on the canvas as a board of frames: one frame per state and mode it shows.
+A design is a screen, a component or a frame, drawn on the canvas as a board of frames: one frame per state and mode it
+shows.
 
 | Field     | What it is                                                                                                                                  |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `id`      | Made from the name when the design is created. Stable; use it in paths.                                                                     |
 | `name`    | What people see.                                                                                                                            |
-| `kind`    | `screen` (a page or view) or `component` (a reusable part that screens place as instances).                                                 |
+| `kind`    | `screen` (a page or view), `component` (a reusable part that screens place as instances) or `frame` (a sketch; see below).                  |
 | `root`    | The design itself: one node, usually a layout.                                                                                              |
 | `states`  | Situations the whole design can be in, like loading or empty. The first is the base; the others store only what they change.                |
 | `params`  | A component design's inputs, each with a `type` (`text`, `boolean`, `number`, `value`, `variant`) and a `default`. See Params and bindings. |
-| `frames`  | A fixed size per viewport, when the design isn't as wide as the viewport or as tall as its content.                                         |
+| `frames`  | A screen's or component's fixed size per viewport, when it isn't as wide as the viewport or as tall as its content.                         |
+| `size`    | A frame's own `width` and `height` in pixels. Without a width it's as wide as the primary mode; without a height, as tall as its content.   |
 | `view`    | How the canvas shows it: the main mode, the modes beside it, the state and the variant options shown. Not part of the design.               |
 | `context` | Components a component design is drawn inside on its own board, such as a table around a table row.                                         |
+
+A frame is the light kind, for sketching: a layout at its root, drawn once in the project's primary mode at its own
+`size`, with one state and no `params`, `view` or `frames`. No code is written from it. Make it a screen or a component
+to give it more.
 
 ## Nodes
 

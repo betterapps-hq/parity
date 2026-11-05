@@ -1,5 +1,5 @@
 import type { ContainerSpec, DesignNode, NodePatch, NodeStyle, StateSpec } from "./document.ts"
-import { unknownReference } from "./errors.ts"
+import { CodedError, unknownReference } from "./errors.ts"
 import { uniqueId } from "./modes.ts"
 import {
   applyPatch,
@@ -524,7 +524,16 @@ function replaceState(container: ContainerSpec, state: StateSpec): ContainerSpec
   return { ...container, states: container.states.map((candidate) => (candidate.id === state.id ? next : candidate)) }
 }
 
+/** Refuses to give a frame what only screens and components have, such as states and variants, saying why. */
+function refuseOnFrame(container: ContainerSpec, why: string): void {
+  if (container.kind !== "frame") return
+  throw new CodedError(`${container.name} is a frame, ${why}`, { code: "invalid_input", field: "design" })
+}
+
+const oneState = "which has one state. Make it a screen or a component to add states."
+
 export function addState(container: ContainerSpec, name: string): { container: ContainerSpec; id: string } {
+  refuseOnFrame(container, oneState)
   const id = uniqueId(
     name,
     container.states.map((state) => state.id)
@@ -538,6 +547,7 @@ export function renameState(container: ContainerSpec, stateId: string, name: str
 }
 
 export function duplicateState(container: ContainerSpec, stateId: string): { container: ContainerSpec; id: string } {
+  refuseOnFrame(container, oneState)
   const state = findState(container, stateId)
   const name = `${state.name} copy`
   const id = uniqueId(
@@ -723,6 +733,7 @@ export function unwrapNode(container: ContainerSpec, id: string): ContainerSpec 
 
 /** Adds a variant param to a component design, with one option per name. The first option is the default. */
 export function addVariant(container: ContainerSpec, name: string, options: readonly string[]): ContainerSpec {
+  refuseOnFrame(container, "which has no variants. Make it a component to add them.")
   if (container.params?.[name]) throw new Error(`${container.name} already has a param "${name}"`)
   if (options.length === 0) throw new Error("A variant needs at least one option")
   const ids: string[] = []

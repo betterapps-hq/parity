@@ -17,7 +17,7 @@ export interface ContainerModes {
 }
 
 export function containerModes(settings: ModeSettings, container: ContainerSpec): ContainerModes {
-  const { main, beside, all } = shownModes(settings, container.view)
+  const { main, beside, all } = shownModes(settings, container)
   return { primary: main, companions: beside, all }
 }
 

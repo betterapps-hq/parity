@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test"
 import type { ContainerSpec } from "./document.ts"
 import {
   addState,
+  addVariant,
   changeCount,
   deleteNode,
   duplicateState,
@@ -16,6 +17,16 @@ import {
   resetOverride,
   withFreshIds
 } from "./edit.ts"
+import { CodedError, errorDetails } from "./errors.ts"
+
+function caught(run: () => unknown): unknown {
+  try {
+    run()
+  } catch (error) {
+    return error
+  }
+  return undefined
+}
 
 const design: ContainerSpec = {
   id: "signup",
@@ -92,6 +103,24 @@ describe("states", () => {
     expect(copied.container.states[2]?.overrides).toEqual(design.states[1]?.overrides)
     expect(removeState(copied.container, "loading-copy").states).toHaveLength(3)
     expect(() => removeState(design, "default")).toThrow("base state")
+  })
+
+  it("gives a frame no second state and no variants, with a code an agent can act on", () => {
+    const frame: ContainerSpec = { ...design, kind: "frame", name: "Sketch", states: [design.states[0]!] }
+    const refusals = [
+      () => addState(frame, "Error"),
+      () => duplicateState(frame, "default"),
+      () => addVariant(frame, "size", ["Small", "Large"])
+    ]
+    for (const refuse of refusals) {
+      expect(refuse).toThrow(CodedError)
+      expect(refuse).toThrow(/^Sketch is a frame, which has/)
+      expect(errorDetails(caught(refuse))).toEqual({ code: "invalid_input", field: "design", retryable: false })
+    }
+    // Editing its one state still changes its layers.
+    expect(findNode(editNode(frame, "default", "title", { text: "Idea" }).root, "title")).toMatchObject({
+      text: "Idea"
+    })
   })
 })
 
