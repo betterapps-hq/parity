@@ -2824,6 +2824,15 @@ dark theme, through the variables shadcn's tooltip reads, set in `styles.css`.
   sentence within them ends, else after the last whole word with "…" (`sampleText`), and the registry's files were
   shortened the same way. Since a preview's key covers its tree, both changes give the affected components new keys and
   new pictures without raising `previewFormat`.
+- **The offscreen window never scrolls (PAR-520).** For a capture the window is made as tall as the frame, so anything
+  reaching past it, such as a name below a 1px Separator, ItemSeparator or AlertAction, or Bubble's reactions hanging
+  below it, made the page scroll. The scrollbars took room from the window, and the one along its bottom was captured
+  inside the picture. The render page's root hides its overflow (`render.ts`), so the window has no scrollbars. On
+  `examples/shadcn-vite` this took the scrollbar out of Separator, AlertAction, Bubble, BubbleGroup and BubbleReactions,
+  which the survey found, and of ItemSeparator, SidebarSeparator, SidebarMenu, SidebarMenuAction, Slider, the Toast
+  parts, AspectRatio and Portal. What reaches past the box is still cut off: BubbleReactions, alone in an empty Bubble,
+  hangs wholly below it, so its picture is empty. `previewFormat` went up to 2, so pictures kept with a scrollbar are
+  made again.
 
 Code: `componentPreviewTree` in `packages/editor/src/component-preview.ts`; `renderQueue`, `nextPreview` and `fitInside`
 in `packages/core/src/preview-order.ts`; `renderedComponents` in `packages/core/src/render.ts`; `previewKey`,
@@ -2831,10 +2840,11 @@ in `packages/core/src/preview-order.ts`; `renderedComponents` in `packages/core/
 `codeSnapshot` in `packages/project/src/code-fingerprint.ts`; `importSpecifiers` in `packages/code/src/listing.ts`; the
 `previews.lookup` and `previews.make` handlers, `apps/desktop/src/utility/previews.ts` and the preview half of
 `utility/bitmap-store.ts`; `renderPreview`, `renderOffscreen` and `servePreview` in `apps/desktop/src/main/index.ts`;
-`previewJob`, `startPreviews`, `useComponentPreview` and `usePreviewOnScreen` in
-`apps/desktop/src/renderer/component-previews.ts`; `ComponentCard` in `renderer/chrome/ComponentCard.tsx` and `AssetRow`
-in `chrome/AssetsPanel.tsx`; `bitmapsWaiting` in `renderer/canvas/frame-bitmaps.ts`; `passesToVoidElement` in
-`packages/code/src/props.ts`; `sampleText` and `shortenedText` in `packages/libgen/src/sample-text.ts`.
+the offscreen page, `apps/desktop/src/renderer/render.ts`; `previewJob`, `startPreviews`, `useComponentPreview` and
+`usePreviewOnScreen` in `apps/desktop/src/renderer/component-previews.ts`; `ComponentCard` in
+`renderer/chrome/ComponentCard.tsx` and `AssetRow` in `chrome/AssetsPanel.tsx`; `bitmapsWaiting` in
+`renderer/canvas/frame-bitmaps.ts`; `passesToVoidElement` in `packages/code/src/props.ts`; `sampleText` and
+`shortenedText` in `packages/libgen/src/sample-text.ts`.
 
 Tests: `packages/core/src/preview-order.test.ts` (5 for `renderQueue`: canvas and agent jobs before previews on screen
 and those before the idle pass, one job at a time with one window, one job in each window at once in the lowest free,
@@ -2853,13 +2863,15 @@ across a restart, none for a key not made, kept in the previews folder with no p
 project, and none once cleared). `apps/desktop/src/utility/previews.test.ts` (6, with the project and the offscreen
 window standing in: drawn once and not again after a restart with the same code; after an edit, drawn again only for the
 component importing what changed, with its last picture meanwhile; a draw failure kept; one that didn't finish tried
-again; two asks at once drawing once; and none for code the project hasn't served). `packages/code/src/props.test.ts` (3
-for void elements: no `children` for `<input>` attributes or a ref to an `<hr>`, kept for other elements and for a
-component's own, and none for shadcn's Input). `packages/libgen/src/sample-text.test.ts` (6: short text whole, a long
-one ended at a sentence, at a whole word with "…", not at a too-short first sentence, text without spaces, and text cut
-before shortened as the whole would be). `packages/registry/src/index.test.ts` (1: no sample text in the registry cut
-mid-word, and nova's Accordion ending its sentence). Gaps: the window's store and scheduler (`component-previews.ts`),
-the queue's use in main and the protocol have no test of their own; they were tried in the app.
+again; two asks at once drawing once; and none for code the project hasn't served).
+`apps/desktop/src/renderer/render.test.ts` (1, in Chrome with its scrollbars shown: a part whose name runs below the
+frame leaves no scrollbar once the window is as tall as the frame). `packages/code/src/props.test.ts` (3 for void
+elements: no `children` for `<input>` attributes or a ref to an `<hr>`, kept for other elements and for a component's
+own, and none for shadcn's Input). `packages/libgen/src/sample-text.test.ts` (6: short text whole, a long one ended at a
+sentence, at a whole word with "…", not at a too-short first sentence, text without spaces, and text cut before
+shortened as the whole would be). `packages/registry/src/index.test.ts` (1: no sample text in the registry cut mid-word,
+and nova's Accordion ending its sentence). Gaps: the window's store and scheduler (`component-previews.ts`), the queue's
+use in main and the protocol have no test of their own; they were tried in the app.
 
 Tried in a debug copy on `examples/shadcn-vite`, with 587 components: the canvas's 119 bitmaps were taken in 16 seconds
 and the first preview was made a second after the last. The idle pass then made 555 previews and kept 13 failures (parts
