@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { includeComponent, parseCanvasDocument } from "./document.ts"
+import { includeComponent, linkAllowed, parseCanvasDocument } from "./document.ts"
 
 const toaster = { path: "src/components/ui/sonner.tsx", export: "Toaster" }
 const price = { path: "src/promo.tsx", export: "PromoPrice" }
@@ -54,6 +54,67 @@ describe("a frame in a project file", () => {
     for (const kind of ["screen", "component", undefined]) {
       expect(() => parseCanvasDocument(file({ ...frame, kind }))).toThrow("/containers/0/size: only a frame")
     }
+  })
+})
+
+describe("canvas objects, links and sources in a project file", () => {
+  const objects = [
+    { kind: "table", ref: "public.users", position: { x: 0, y: 0 } },
+    { kind: "operation", ref: "getUser", position: { x: 400, y: 0 } },
+    { kind: "route", ref: "/users/:id", position: { x: 800, y: 0 } }
+  ]
+  const links = [
+    { id: "l1", type: "shows", from: { kind: "screen", ref: "user-page" }, to: { kind: "route", ref: "/users/:id" } },
+    { id: "l2", type: "calls", from: { kind: "route", ref: "/users/:id" }, to: { kind: "operation", ref: "getUser" } },
+    { id: "l3", type: "reads", from: { kind: "operation", ref: "getUser" }, to: { kind: "table", ref: "public.users" } }
+  ]
+  const file = {
+    version: 3,
+    containers: [],
+    objects,
+    links,
+    sources: { data: "migrations", routes: "tanstack-router" }
+  }
+
+  it("are read and written as saved, with nothing of the models themselves", () => {
+    const read = parseCanvasDocument(file)
+    expect(read).toEqual(file)
+    const written = JSON.stringify(read)
+    expect(parseCanvasDocument(JSON.parse(written))).toEqual(read)
+    expect(parseCanvasDocument({ version: 3, containers: [] })).toEqual({ version: 3, containers: [] })
+  })
+
+  it("keep a table, operation or route only as where it sits", () => {
+    const cases: [unknown, string][] = [
+      [[{ ...objects[0], columns: ["id"] }], "/objects/0/columns: unknown property"],
+      [[{ ...objects[0], kind: "screen" }], "/objects/0/kind"],
+      [[objects[0], { ...objects[0], position: { x: 9, y: 9 } }], '/objects/1: the table "public.users" is already'],
+      [[{ ...objects[0], position: { x: 0 } }], "/objects/0/position/y"]
+    ]
+    for (const [list, message] of cases) {
+      expect(() => parseCanvasDocument({ ...file, objects: list })).toThrow(message)
+    }
+  })
+
+  it("join only the kinds each type of link allows", () => {
+    const tableToScreen = { ...links[0], from: links[2]!.to, to: links[0]!.from }
+    const cases: [unknown, string][] = [
+      [[tableToScreen], "/links/0: a shows link goes from screen to route, not table to screen"],
+      [[{ ...links[2], type: "joins" }], "/links/0/type"],
+      [[links[0], { ...links[1], id: "l1" }], '/links/1/id: duplicate link id "l1"'],
+      [[{ ...links[0], from: { kind: "frame", ref: "sketch" } }], "/links/0/from/kind"]
+    ]
+    for (const [list, message] of cases) {
+      expect(() => parseCanvasDocument({ ...file, links: list })).toThrow(message)
+    }
+    expect(linkAllowed("writes", "operation", "table")).toBe(true)
+    expect(linkAllowed("calls", "component", "operation")).toBe(true)
+    expect(linkAllowed("calls", "operation", "table")).toBe(false)
+  })
+
+  it("choose a source for the data, API and routes lenses only", () => {
+    expect(() => parseCanvasDocument({ ...file, sources: { flags: "openfeature" } })).toThrow("/sources/flags")
+    expect(() => parseCanvasDocument({ ...file, sources: { api: 3 } })).toThrow("/sources/api: expected a string")
   })
 })
 

@@ -2512,6 +2512,19 @@ A lens is a view of one layer of an app, such as its routes, data, API, permissi
   system keychain.
 - **The second example is a Buildkit scaffolder project,** once the scaffolder can make one. You said: "I don't know if
   scaffolder is ready, but yeah, that's the preferred route."
+- **`.par` keeps canvas objects, hand-drawn links and lens sources, and none of the models** (PAR-16). You approved this
+  shape on 2026-11-05. All three keys are optional, so the format stays at version 3, and core's `document.ts` parses
+  them with the rest of `.par`.
+  - **`objects`** places a table, operation or route on the canvas: its `kind`, its `ref` and its `position`. The ref is
+    the model's own key: `schema.table` for a table, the operation's id, or the route's URL pattern. Each is placed
+    once. One whose model is gone stays in the file, shown as missing, until the person removes it.
+  - **`links`** are typed, and each type joins set kinds: `shows` goes from a screen to a route, `calls` from a screen,
+    route or component to an operation, and `reads` and `writes` from an operation to a table. A screen or component end
+    is the design's id. Any other pairing is rejected when the file opens. Only links drawn by hand are saved; links
+    from code or traces are read each time.
+  - **`sources`** names the adapter or standard the `data`, `api` or `routes` lens reads, and is written only when the
+    person switches from the one Parity picked.
+  - **Save a copy** keeps every file's objects and links, each once, and the main file's sources.
 
 ## Extensions
 
