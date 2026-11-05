@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Move the rules for moving, resizing and nudging layers and frames into the editor package, with no change in how they behave",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

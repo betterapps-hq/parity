@@ -2,6 +2,37 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 05 Nov 2026 12:23:23 GMT",
+      "version": "0.11.0",
+      "tag": "@parity-app/desktop_v0.11.0",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "e0a5abd11e6cafa959f3fb9e87de4726418de81c",
+            "comment": "Move the rules for moving, resizing and nudging layers and frames into the editor package, with no change in how they behave"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "1a9ce919ef75545c116676133be7737cf1dd42c6",
+            "comment": "Leave out malformed tokens in a library's DTCG files, and note why, instead of reading them as broken CSS"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "efd287481e035c75ece204adb03a53ffce441999",
+            "comment": "Open Home and new tabs on the start page, with your recent and starred projects, search, Open and New project"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 05 Nov 2026 11:43:57 GMT",
       "version": "0.10.1",
       "tag": "@parity-app/desktop_v0.10.1",
