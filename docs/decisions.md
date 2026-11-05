@@ -3917,3 +3917,33 @@ variant option shown on the board hides, though the change goes to that option. 
 as `boardTarget` decides it: the option shown, in the base state, whether or not that option is what hides the layer;
 any other state, since a state takes changes over the variant. Core's `editTargetName` gives the name, so the menu and
 the inspector's note ("change every variant, not only Large") read it the same way.
+
+## The start page is built: Home and new tabs (PAR-605)
+
+You asked on 2026-11-05 to build the start page's Home and New tab from the explorations (Parity/Explorations/Start
+page), with whatever Parity can't do yet stubbed. My calls:
+
+- **Home is a tab pinned first in the strip,** an icon only, which can't be closed. It shows when it's chosen, and
+  whenever no tab is, so closing the last tab lands there, and a fresh install starts there. The window remembers
+  whether it was on Home and comes back to it, reopening the saved tabs behind it.
+- **Home's shortcut is Alt+Home,** which browsers use for their home page; the exploration's Ctrl+Shift+H already runs
+  Hide or show. Ctrl+Tab and Ctrl+Shift+Tab go round with Home first.
+- **The strip's + and Ctrl+T open a new tab,** at the end of the strip, rather than the folder picker. A project opened
+  from it, by its cards, Open, the File menu or search, opens in that tab. A project that's already open elsewhere is
+  switched to, and the new tab it was picked from closes, since a project opens once. New tabs aren't saved, and agents
+  don't see them: with Home or a new tab showing, a call that names no tab says no project tab is active.
+- **A project is named by its folder,** as File > Open recent names it, and its card says when it was last opened. The
+  window keeps that time and whether it's starred beside the recent list (`parity.projects` in local storage, checked
+  with zod as it's read). Starred keeps a project after it leaves the recent list; All projects is the recent and
+  starred ones together.
+- **Ctrl+K finds your projects as well as actions,** so the start page's search does something real. Projects come first
+  on Home and in a new tab, and last in a project.
+- **What can't work yet is in place and says so.** Each project's picture is a placeholder, a board and a phone in a
+  color of its own with its initial, until Parity keeps a render of each project. For you says nothing needs you, and
+  Shared with you is empty. New project and New project from this wait on the scaffolder (PAR-284) and offer to open a
+  folder instead; cloning, Copy link, Invite people and New organization say they aren't ready yet. The organization
+  switcher shows Personal alone. The exploration's inbox and account in the title bar, and people working in a project
+  right now, are left out until they exist.
+- **Home names the page and, in a project, its first screen.** A project with no `.par` file still opens on a Home
+  screen (PAR-561). The two don't meet: the page is a tab in the window's strip, and the screen is on a project's
+  canvas.

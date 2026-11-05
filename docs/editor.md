@@ -2980,8 +2980,41 @@ component reloaded the page on the production build, and the prebundle's config 
 
 What opening a project loads into the windows, and what closing it gives back.
 
-On first launch the installed app shows the welcome page. Later launches restore the saved project tabs. Development can
-request an initial project through its runner. `workspace.test.ts` covers these startup choices (PAR-8).
+On first launch the installed app shows Home. Later launches restore the saved project tabs, and Home if that's where
+the window was. Development can request an initial project through its runner. `workspace.test.ts` covers these startup
+choices (PAR-8, PAR-605).
+
+### The start page: Home and new tabs (PAR-605)
+
+Home is pinned first in the tab strip, an icon that can't be closed, and shows whenever no tab is chosen. Alt+Home or
+View > Home goes there, and Ctrl+Tab goes round with Home first. The strip's +, Ctrl+T and File > New tab open a new tab
+at the end of the strip. Both are the start page from the explorations (decisions.md, "The start page is built"):
+
+- **Home** has the organization switcher, Search, Open and New project along the top. Below them, the Continue where you
+  left off section offers the project opened last, which its picture, Resume or Enter opens, with For you beside it.
+  Before any project has opened, the Open a project panel takes its place, with Open a folder and Open a project file.
+- **A new tab** has a large Search field, then New project and Open.
+- **Both list your projects** as cards under Recent, Starred, Shared with you and All projects, two rows until Show N
+  more. A card has the project's picture, its folder's name and when it was last opened; its tooltip is the folder's
+  path. Its menu opens it, stars or unstars it, and removes it from Recent. Home's Recent leaves out the project it
+  offers to continue.
+- **Opening from a new tab uses that tab.** A project already open elsewhere is switched to, and the new tab closes.
+- **Search is Ctrl+K,** which lists your projects as well as actions: first on Home and in a new tab, last in a project.
+- **Stubs:** pictures are placeholders in a color of each project's own; For you and Shared with you are empty; New
+  project, New project from this, cloning, Copy link, Invite people and New organization show a toast saying they aren't
+  ready yet. New project's toast also offers Open a folder.
+
+Code: `apps/desktop/src/renderer/start/` (`HomePage.tsx`, `NewTabPage.tsx`, `ProjectList.tsx`, `ProjectCard.tsx`,
+`StartControls.tsx`, and `projects.ts` for what's listed and how times read); `workspace.ts` keeps Home, new tabs and
+each project's notes; `chrome/TabBar.tsx` draws the Home tab and the + button; `chrome/ActionsSearch.tsx` lists the
+projects.
+
+Tests: `start/projects.test.ts` (8: the order recent and starred projects list in, each scope, the times from minutes to
+another year, the picture's hue, folder names) and `workspace.test.ts`'s "Home and new tabs" (7) and "starting the
+workspace" (Home on a fresh install, and staying there). Stories: Parity/Start page (Home, the first time, Starred,
+Shared with you, a project's menu, New project, Open, a new tab), Parity/App's On Home, New tab, No project open and
+Nothing opened yet, and the tab bar's On Home, With new tab and New tab tooltip. Gaps: no end-to-end test drives Home or
+a new tab yet; `reopening.e2e.ts` opens the project again with Home's Resume.
 
 ### A project with no Parity file opens on a Home screen (PAR-561)
 

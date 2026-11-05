@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Open Home and new tabs on the start page, with your recent and starred projects, search, Open and New project",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
