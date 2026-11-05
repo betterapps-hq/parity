@@ -6,19 +6,7 @@ import {
   ContextMenuTrigger,
   ContextMenuShortcut
 } from "@buildkitgg/shadcn-baseui-kit"
-import {
-  boardTarget,
-  childNodes,
-  deleteNode,
-  type DesignNode,
-  editTargetName,
-  insertNode,
-  locateNode,
-  nodeIds,
-  nodeOnBoard,
-  toggleHidden,
-  withFreshIds
-} from "@parity-app/core"
+import { childNodes, type DesignNode, locateNode, nodeOnBoard } from "@parity-app/core"
 import { kindName } from "@parity-app/editor"
 import { ChevronRight, EyeOff, FileWarning, Plus, MonitorSmartphone, PenLine, StickyNote } from "lucide-react"
 import { type DragEvent, type KeyboardEvent, type MouseEvent, useEffect, useMemo, useState } from "react"
@@ -36,12 +24,14 @@ import {
   useRenameRequest,
   useSelection
 } from "../selection.ts"
+import { actions } from "./actions.ts"
 import { createDesign } from "./create.ts"
 import { Hint } from "./Hint.tsx"
 import { IconButton } from "./IconButton.tsx"
 import { keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
 import { renameLayer } from "./LayerPanel.tsx"
+import { type LayersRow, layersMenu, rowSelection } from "./layers-menu.ts"
 import { revealSelection } from "./reveal.ts"
 
 interface Row {
@@ -431,14 +421,17 @@ function LayerRow({
   const viewports = row.node ? Object.keys(row.node.responsive ?? {}) : []
   // Whether the board hides it in the state it shows, as Hide and Show read it.
   const hidden = row.node ? (nodeOnBoard(container, row.node, state).hidden ?? false) : false
-  // Where Hide and Show land: the variant option the board shows, in the base state, else the state.
-  const hidesIn = editTargetName(container, boardTarget(container, state.id))
   let background = "hover:bg-accent/40"
   if (selected) background = "bg-accent text-accent-foreground"
   else if (hovered) background = "bg-accent/40"
 
   return (
-    <ContextMenu>
+    <ContextMenu
+      onOpenChange={(open) => {
+        // A right-click selects the row first, unless it's in the selection, as on the canvas.
+        if (open) session.selection.set(rowSelection(session.selection.get(), rowTarget(row)))
+      }}
+    >
       <ContextMenuTrigger
         render={
           <div
@@ -546,26 +539,8 @@ function LayerRow({
           </div>
         }
       />
-      <ContextMenuContent className="w-52">
-        <ContextMenuItem onClick={onRename}>
-          Rename <ContextMenuShortcut>{formatKeys(keymap.rename.keys[0])}</ContextMenuShortcut>
-        </ContextMenuItem>
-        {row.node && (
-          <>
-            <ContextMenuItem onClick={() => toggleHiddenRow(session, row)}>
-              {hidden ? "Show" : "Hide"} in {hidesIn}
-            </ContextMenuItem>
-            {row.depth > 1 && <ContextMenuItem onClick={() => duplicate(session, row)}>Duplicate</ContextMenuItem>}
-          </>
-        )}
-        {(row.depth > 1 || !row.node) && (
-          <>
-            <ContextMenuSeparator />
-            <ContextMenuItem variant="destructive" onClick={() => remove(session, row)}>
-              Delete <ContextMenuShortcut>{formatKeys("Del")}</ContextMenuShortcut>
-            </ContextMenuItem>
-          </>
-        )}
+      <ContextMenuContent className="w-52" aria-label={label}>
+        <RowMenuItems row={row} onRename={onRename} />
       </ContextMenuContent>
     </ContextMenu>
   )
@@ -589,44 +564,33 @@ function rename(session: Session, row: Row, name: string): void {
   session.store.updateContainer(row.design.key, "Rename layer", (container) => renameLayer(container, nodeId, name))
 }
 
-function toggleHiddenRow(session: Session, row: Row): void {
-  if (!row.node) return
-  const nodeId = row.node.id
-  session.store.updateContainer(row.design.key, "Toggle visibility", (container) =>
-    toggleHidden(container, activeState(container).id, [nodeId])
-  )
+/** The row as the row menu reads it: its design, and its layer unless it's the design's own row. */
+function rowTarget(row: Row): LayersRow {
+  return row.node ? { design: row.design.key, node: row.node.id } : { design: row.design.key }
 }
 
-export function duplicate(session: Session, row: { design: ContainerEntry; node?: DesignNode }): void {
-  if (!row.node) return
-  const nodeId = row.node.id
-  let copyId: string | undefined
-  session.store.updateContainer(row.design.key, "Duplicate layer", (container) => {
-    const location = locateNode(container.root, nodeId)
-    const parent = location?.ancestors.at(-1)
-    if (!location || !parent) return container
-    const copy = withFreshIds(location.node, nodeIds(container.root))
-    copyId = copy.id
-    return {
-      ...container,
-      root: insertNode(container.root, parent.id, copy, { index: location.index + 1, slot: location.slot })
-    }
-  })
-  if (copyId) session.selection.set({ design: row.design.key, node: copyId })
-}
-
-export function remove(session: Session, row: { design: ContainerEntry; node?: DesignNode }): void {
-  if (!row.node) {
-    session.store.removeContainer(row.design.key)
-    session.selection.set({})
-    return
-  }
-  const nodeId = row.node.id
-  const parent = locateNode(row.design.container.root, nodeId)?.ancestors.at(-1)
-  if (!parent) return
-  session.store.updateContainer(row.design.key, "Delete layer", (container) => deleteNode(container, nodeId))
-  session.selection.set({
-    design: row.design.key,
-    node: parent.id === row.design.container.root.id ? undefined : parent.id
+/**
+ * A row's menu, for what the right-click selected (see `layersMenu`). Rename renames the row in place, as a
+ * double-click does; the rest run the menubar's commands on the selection.
+ */
+function RowMenuItems({ row, onRename }: { row: Row; onRename: () => void }) {
+  const session = useProject()
+  const selection = useSelection(session.selection)
+  const entries = useContainerEntries(session.store)
+  return layersMenu(rowTarget(row), selection, entries).map((entry, index) => {
+    if (entry.kind === "separator") return <ContextMenuSeparator key={`line-${index}`} />
+    if (entry.kind !== "item" || entry.action === "pasteHere") return null
+    const { action } = entry
+    return (
+      <ContextMenuItem
+        key={action}
+        disabled={!entry.enabled}
+        variant={action === "delete" ? "destructive" : undefined}
+        onClick={() => (action === "rename" ? onRename() : void actions[action].run())}
+      >
+        {entry.label}
+        {entry.keys && <ContextMenuShortcut>{formatKeys(entry.keys)}</ContextMenuShortcut>}
+      </ContextMenuItem>
+    )
   })
 }
