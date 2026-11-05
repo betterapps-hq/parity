@@ -81,7 +81,24 @@ const designs: ContainerSpec[] = [
 function project(tab: string): AgentSnapshot {
   return {
     tab,
-    components: ["Badge", "Button", "Card", "CardDescription", "CardHeader", "CardTitle", "Input", "Label", "Skeleton"],
+    components: [
+      "Badge",
+      "Button",
+      "Card",
+      "CardDescription",
+      "CardHeader",
+      "CardTitle",
+      "Input",
+      "Label",
+      "Skeleton",
+      // Nova's sidebar and the provider its parts need, as the shadcn example lists them.
+      "nova/Sidebar",
+      "nova/SidebarContent",
+      "nova/SidebarMenu",
+      "nova/SidebarMenuButton",
+      "nova/SidebarMenuItem",
+      "nova/SidebarProvider"
+    ],
     iconSets: [{ id: "lucide", name: "Lucide", package: "lucide-react", version: "0.500.0" }],
     tokens: [
       { name: "background", category: "color", source: "semantic", values: { default: "white", dark: "black" } },
