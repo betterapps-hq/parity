@@ -4021,10 +4021,9 @@ project's discovery, libgen, the Tailwind adapter and `parity lib check`, and th
   - The module Node imports: `node`, `import`, `default`.
   - Source: `source`, `types`, `import`, `default`.
   - A stylesheet: `style`, `import`, `default`.
-
-  Patterns (`./icons/*`, the longest prefix first), `null` for a private path, fallback lists and conditions written for
-  the one entry point are read as Node reads them. Without an entry in `exports`, the older fields are read, and
-  declarations beside the module (`dist/index.d.ts` for `dist/index.js`), as TypeScript reads them.
+- **The rest of `exports` is read as Node reads it:** patterns (`./icons/*`, the longest prefix first), `null` for a
+  private path, fallback lists and conditions written for the one entry point. Without an entry in `exports`, the older
+  fields are read, and declarations beside the module (`dist/index.d.ts` for `dist/index.js`), as TypeScript reads them.
 - **A built file is traced to its source by its path.** The build folders at the start of the path (`dist`, `build`,
   `lib`, `out`, `esm` and `cjs`) become `src`, so `dist/esm/card.js` was built from `src/card.tsx`. Before, a build
   folder's name anywhere counted, so a workspace package whose `main` was `src/lib/index.ts` was read from
