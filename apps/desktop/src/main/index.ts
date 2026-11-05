@@ -36,7 +36,14 @@ import type {
   RenderJob,
   SaveDialogOptions
 } from "../shared/protocol.ts"
-import type { BuilderReading, ConnectMessage, MainMethods, ServiceProcessMethods } from "../shared/service.ts"
+import type {
+  BuilderReading,
+  ConnectMessage,
+  MainMethods,
+  PreviewDrawn,
+  PreviewPictures,
+  ServiceProcessMethods
+} from "../shared/service.ts"
 import { InstalledBuild } from "./build-info.ts"
 import { openInEditor } from "./code-editor.ts"
 import { readConsole, recordConsole } from "./console-log.ts"
@@ -569,14 +576,6 @@ function renderFrame(job: RenderJob, capture: boolean): Promise<{ frame?: Render
   })
 }
 
-/** A component preview's pictures, base64 PNGs, with the large one's size. */
-interface PreviewPictures {
-  thumb: string
-  large: string
-  width: number
-  height: number
-}
-
 /**
  * Draws a component preview and crops it to the element `crop` names, scaled down to the two sizes previews are kept
  * at (PAR-207). A component that fails to draw gives its error.
@@ -585,7 +584,7 @@ async function renderPreview(
   job: RenderJob,
   crop: string,
   priority: Exclude<RenderPriority, "render">
-): Promise<{ pictures: PreviewPictures } | { error: string } | { empty: true }> {
+): Promise<PreviewDrawn> {
   let pictures: PreviewPictures | undefined
   let empty = false
   const { frame } = await renderOffscreen(priority, job, true, async (window, drawn) => {

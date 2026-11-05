@@ -1,8 +1,6 @@
 import type { RenderedFrame, RenderJob } from "../shared/protocol.ts"
-import type { PreviewDrawn, PreviewPictures } from "../shared/service.ts"
+import type { PreviewDrawn } from "../shared/service.ts"
 import { mainProcess } from "./main-process.ts"
-
-export type { PreviewDrawn, PreviewPictures }
 
 /**
  * Draws a frame in one of the offscreen render windows (owned by the main process) and measures it, optionally
