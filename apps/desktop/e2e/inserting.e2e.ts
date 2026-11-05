@@ -46,7 +46,7 @@ async function open(): Promise<number> {
   return app.page.evaluate(() => window.pickerOpened!)
 }
 
-/** Closes the picker with Escape, once it has played its closing animation. */
+/** Closes the picker with Escape, which takes it out of the page. */
 async function close(): Promise<void> {
   await app.page.keyboard.press("Escape")
   await expect.poll(() => app.page.getByRole("dialog").count()).toBe(0)
@@ -91,6 +91,19 @@ describe("the insert picker", () => {
     console.log(`Opened the picker in ${times.map((time) => Math.round(time)).join(", ")}ms`)
     expect(sorted[0]).toBeLessThan(100)
     expect(sorted[3]).toBeLessThan(150)
+  })
+
+  it("takes Escape as soon as it opens, and leaves nothing behind to take the next click", async () => {
+    await app.show("Members", 0.5)
+    await app.selectDesign("Members")
+    const members = { design: await app.key("Members") }
+    await open()
+    // Straight after `/`, Escape is the picker's. The canvas would select the design's parent and leave the picker open.
+    await app.page.keyboard.press("Escape")
+    expect(await app.selection()).toEqual(members)
+    // Straight after Escape, a click is the canvas's, not a backdrop's that's playing its closing animation (PAR-554).
+    await app.selectLayer("Members", "ada")
+    expect(await app.page.getByRole("dialog").count()).toBe(0)
   })
 
   it("lists basic layers, then the project's component designs and its own components, and libraries' last", async () => {
