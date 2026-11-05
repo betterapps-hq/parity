@@ -1,14 +1,12 @@
 import type { NodeStyle } from "@parity-app/core"
 import type { Edge, Rect } from "@parity-app/editor"
+import { dragThreshold } from "./gesture.ts"
 import { type DrawnSteps, resizeInsets } from "./insets.ts"
 
 /** The sizes a handle changes: a side's handle changes the one across it, a corner's both. */
 export function edgeAxes(edge: Edge): { width: boolean; height: boolean } {
   return { width: edge.includes("e") || edge.includes("w"), height: edge.includes("n") || edge.includes("s") }
 }
-
-/** How far, in screen pixels, the pointer goes along a handle's axes before the resize starts. */
-export const resizeThreshold = 4
 
 /** How close, in screen pixels, an edge comes to the inside of its parent to fill it. */
 export const fillDistance = 6
@@ -76,7 +74,8 @@ export function resizeGesture(start: ResizeStart): (move: ResizeMove) => NodeSty
       const signY = edge.includes("n") ? -1 : 1
       dy = ((signX * dx) / ratio) * signY
     }
-    if (!started && Math.hypot(dx, dy) < resizeThreshold) return undefined
+    // Measured along the handle's axes, so a pointer moving across them changes nothing.
+    if (!started && Math.hypot(dx, dy) < dragThreshold) return undefined
     started = true
     const style: NodeStyle = {}
     if (absolute) {

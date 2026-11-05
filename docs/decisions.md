@@ -3827,3 +3827,26 @@ it. You approved zod for it on 2026-11-05, which PAR-578 had already chosen for 
   - Links join a screen, route, operation or table to another, and say whether a person drew it, a trace showed it or
     the code calls it. Any kind may link to any other, since "screen → route → operation → table" is an example, not a
     rule.
+
+## Canvas gestures share one lifecycle (PAR-568)
+
+The architecture review of 2026-11-04 found each canvas drag rebuilding what surrounds the history's gesture and
+checkpoint, so a fix reached one copy and missed the others: in a0d0e80 a field's run and a nudge run had the same bug,
+fixed twice. Now `canvas/gesture.ts` follows every drag and every run (see editor.md, Cursors and Escape during a
+gesture). My calls:
+
+- **Each gesture's policy is one entry in one table** (`gestures`): what Escape does, and what the pointer cancelled or
+  the window losing focus does, each keep, revert or cancel. The table is what the tests drive, so every gesture's
+  Escape and blur are checked side by side.
+- **The window losing focus is cut short, as a cancelled pointer is.** Each gesture keeps what its pointercancel already
+  did: a resize keeps what it wrote, a title drag saves the designs where they are, and layer drags and a box call
+  themselves off. Before, a title drag and a box didn't hear the window losing focus at all (PAR-583).
+- **Every press waits the same 4 screen pixels before it's a drag.** A title drag used to start after 1 page pixel, and
+  a frame's handle at once; both now wait as layer drags and boxes did. A layer's resize handle still checks the 4
+  pixels along its own axes too, so a pointer moving across them changes nothing.
+- **The undo gesture, the checkpoint and the cursor start with the drag,** not at the press, so a click on a handle
+  begins nothing. A revert writes only when the design changed, since reverting writes its file again.
+- **Runs are keyed by the selection's `selectionKey`,** one `GestureRun` for arrow presses on the canvas and for Up and
+  Down in a field. A nudge run follows the selection while it lasts; a field's follows its `FieldTarget`.
+- **tldraw's own drag of a board stays tldraw's,** ending when tldraw stops translating, since tldraw follows that
+  pointer, not Parity.
