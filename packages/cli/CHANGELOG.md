@@ -1,8 +1,24 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Thu, 05 Nov 2026 01:01:24 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 05 Nov 2026 02:15:39 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.3.0
+
+Thu, 05 Nov 2026 02:15:39 GMT
+
+### Minor changes
+
+- A state can take away a prop or style the design sets, and Paste style in a state leaves only the copied style
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- Saving after undoing a token value a theme didn't have takes it back out of the stylesheet, with any rule it leaves
+  empty (ajcraswell@gmail.com)
+- Box a component that draws only text by its text, so it can be hovered, picked and sized on the canvas
+  (ajcraswell@gmail.com)
 
 ## 0.2.0
 

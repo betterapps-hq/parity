@@ -59,8 +59,10 @@ function isDependabots() {
 module.exports = {
   // A name with a slash is used as written; without one, Beachball would add the remote.
   branch: hasOriginMain() ? "origin/main" : "refs/heads/main",
-  // `pnpm changefile` runs Beachball locally, which shouldn't wait on the network. CI fetches when it checks out.
-  fetch: false,
+  // `pnpm changefile` runs Beachball locally, which shouldn't wait on the network. In CI it fetches: cd-npm.yml and
+  // cd-desktop.yml can push to main at the same time, and `beachball publish` retries a rejected push only after
+  // fetching main and merging it in. Without that, 0.3.0 of the CLI reached npm but its release commit didn't reach main.
+  fetch: process.env.GITHUB_ACTIONS === "true",
   // Beachball publishes a scoped package with `--access restricted` unless told otherwise, which overrides the CLI's
   // publishConfig and makes npm refuse it as a private package (E402), as Buildkit's config also says.
   access: "public",
