@@ -2753,8 +2753,7 @@ cycle), and libgen reads CSS with core's `collectCustomProperties` instead of it
   per-token modifiers for both.
 - `writeTokenChanges` and `previewToken` find a theme's blocks with `themeOfSelector` too, so a theme read from
   `[data-theme="dark"]` is previewed and written there, a value it lacks is added to its block, and a `:root` inside a
-  media query is never edited as the default. A frame still shows an attribute theme only when its option in Modes sets
-  that attribute; that's in `docs/support.md`.
+  media query is never edited as the default. A frame showing an attribute theme came later, in PAR-22 below.
 
 The differences that stay are explicit options, both for libgen: `tailwindTheme` reads `@theme` as the default, which
 only source CSS has (the app takes Tailwind's resolved theme from its styles adapter), and `colorScheme` reads a
@@ -2765,6 +2764,24 @@ app's derived spacing steps (`spacing-4`) stay the app's, as libgen writes only 
 
 The detection snapshots changed with it: `chakra`'s `--app-gap` is spacing, `mantine`'s `--app-radius` a radius, and
 `vite7-js` has its `[data-theme="dark"]` theme.
+
+## A mode's theme class also sets the theme's attribute (PAR-22)
+
+My call: a frame whose mode adds a theme's class also gets the attribute the project's stylesheet switches that theme on
+with. vite7-js's `[data-theme="dark"]` was read as `dark`, but the default Dark option adds only the `dark` class, so
+its frames stayed light unless someone edited the option in Modes. The alternatives were to write `data-theme` into each
+project's mode settings when it opens, which changes a file the person didn't touch and goes stale when the stylesheet
+does, or to rewrite the stylesheet's attribute selectors as classes, which the preview and the save would then have to
+undo. Reading the stylesheet each time a guest loads keeps both as they are.
+
+- `themeAttributes` in `packages/tokens/src/policy.ts` lists, by theme, the attributes whose value names it, from the
+  rules `themedProperties` reads as themes and no condition holds: `[data-theme='dark']` gives
+  `dark: { "data-theme": "dark" }`. `light` is the default and needs none.
+- `frameAttributes` adds them for each class the mode has, then the mode's own attributes, which win, so an option that
+  sets `data-theme` itself keeps its value.
+- An attribute on the root (`:root[data-theme="dark"]`, `:host([data-theme="dark"])`) isn't listed. Frames get it on
+  their body, and the root is the frame's shadow host, which the mode's attributes don't reach; that's still in
+  `docs/support.md`.
 
 ## Agent calls merge per design (PAR-278)
 
