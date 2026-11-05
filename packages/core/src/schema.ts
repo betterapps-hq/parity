@@ -16,6 +16,20 @@ export const nonBlankString = z.string().trim().min(1, "can't be blank")
 /** A number other than NaN or ±Infinity, which zod 4 refuses on its own. */
 export const finiteNumber = z.number()
 
+/**
+ * An object in a file Parity owns, such as a `.par`. A key it doesn't know is an error, and a key set to `undefined` is
+ * left out, as JSON leaves it out, so what the window saves from memory reads as it would from the file.
+ */
+export function fileObject<const Shape extends z.core.$ZodLooseShape>(shape: Shape) {
+  return z.strictObject(shape).overwrite(withoutUnset)
+}
+
+/** Zod's own copy of an object, without the keys whose values are `undefined`. */
+function withoutUnset<T extends object>(value: T): T {
+  for (const [key, entry] of Object.entries(value)) if (entry === undefined) Reflect.deleteProperty(value, key)
+  return value
+}
+
 /** JSON text holding what `schema` checks. Text that isn't JSON fails as `expected JSON`. */
 export function jsonText<T extends z.ZodType>(schema: T) {
   return z

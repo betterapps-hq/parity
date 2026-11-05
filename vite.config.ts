@@ -269,6 +269,7 @@ export default defineConfig({
     maxWorkers: process.env.CI ? availableParallelism() : 12,
     // Closing Chrome after the browser tests takes more than the default 10 seconds on CI's macOS runners, and starting
     // it with a bundle (frame.test.ts, frame-nodes.test.ts) took more than 30 on its macOS and Windows runners (PAR-533).
+    // A hook that passes a timeout of its own skips this, so the browser tests' hooks don't (PAR-645).
     hookTimeout: process.env.CI ? 60_000 : 30_000,
     // CI's Windows runners take longer than the default 5 seconds over whichever tests run slowest, a different few
     // each run, with Chrome and the fixture projects on four cores. Locally a slow test still fails at 5.
