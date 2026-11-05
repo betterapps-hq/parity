@@ -13,7 +13,8 @@ import { selectedNodes, type Selection, useHover, useSelection } from "../../sel
 /*
  * The Layers tab once a screen and its root are one thing: each screen or component lists its root's children straight
  * under its own row, as Figma lists a frame's, with no "Page" row between. Its rows look as LayerTree's do; dragging,
- * renaming and the right-click menu are left out, since they don't change.
+ * renaming and the right-click menu are left out, since they don't change. The headings and empty rows follow the
+ * approved start design (PAR-541, "Starting on an empty canvas is one visible step" in decisions.md).
  */
 
 interface Row {
@@ -63,12 +64,18 @@ export function ContainerLayers() {
       {
         title: "Components",
         kind: "component" as const,
-        entries: entries.filter((entry) => entry.container.kind === "component")
+        entries: entries.filter((entry) => entry.container.kind === "component"),
+        action: "New component",
+        keys: "Ctrl Alt Shift N",
+        none: "No components yet."
       },
       {
         title: "Screens",
         kind: "screen" as const,
-        entries: entries.filter((entry) => entry.container.kind !== "component")
+        entries: entries.filter((entry) => entry.container.kind !== "component"),
+        action: "New screen",
+        keys: "Ctrl Alt N",
+        none: "No screens yet."
       }
     ],
     [entries]
@@ -132,19 +139,35 @@ export function ContainerLayers() {
     <div className="flex flex-col py-2 text-[13px]" role="tree" aria-label="Layers" tabIndex={0} onKeyDown={onKeyDown}>
       {groups.map((group) => (
         <div key={group.title} className="mb-2">
-          <div className="group/heading relative flex h-7 items-center gap-1 pr-1.5 pl-3 text-xs text-muted-foreground">
+          {/* The headings and empty rows as PAR-541 settled them: the + always shows, with its keys, and the count is
+              left out at none, where the row says so. */}
+          <div className="flex h-7 items-center gap-1 pr-1.5 pl-3 text-xs text-muted-foreground">
             <span className="flex-1">{group.title}</span>
-            <span className="tabular-nums group-focus-within/heading:hidden group-hover/heading:hidden">
-              {group.entries.length}
-            </span>
+            {group.entries.length > 0 && <span className="tabular-nums">{group.entries.length}</span>}
             <IconButton
-              label={group.kind === "component" ? "New component" : "New screen"}
+              label={group.action}
+              shortcut={group.keys}
               onClick={() => createDesign(session, group.kind)}
-              className="sr-only size-6 group-hover/heading:not-sr-only focus-visible:not-sr-only"
+              className="size-6"
             >
               <Plus />
             </IconButton>
           </div>
+          {group.entries.length === 0 && (
+            <button
+              type="button"
+              onClick={() => createDesign(session, group.kind)}
+              className="group/empty mx-1.5 flex h-7 w-[calc(100%-0.75rem)] items-center gap-1 rounded-md px-1.5 text-left text-xs text-muted-foreground outline-none hover:bg-accent/50 focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            >
+              {group.none}{" "}
+              <span
+                className="font-medium underline-offset-2 group-hover/empty:underline"
+                style={{ color: designColor(group.kind) }}
+              >
+                {group.action}
+              </span>
+            </button>
+          )}
           {rows
             .filter((row) => group.entries.includes(row.entry))
             .map((row) => (

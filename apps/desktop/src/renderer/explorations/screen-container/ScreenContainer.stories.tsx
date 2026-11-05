@@ -140,6 +140,13 @@ export const EditingAnotherState: Story = {
 }
 
 /**
+ * Nothing selected, as after Esc from a screen: the inspector asks for a screen or component and says what it will
+ * show, in the words the start design settled (PAR-541). Layers' headings follow that design too: the + always shows,
+ * with its keys. A click on a screen's padding selects it, and Enter from there selects the layers inside.
+ */
+export const NothingSelected: Story = { loaders: [inspecting("design")] }
+
+/**
  * For comparison, the shipped Layers and inspector with Sign in selected. The inspector has its name, kind, file,
  * states, Components and modes, but no layout, padding, size or fill: those are Page's. Layers shows Sign in, then
  * Page, then Brand, Sign in card and Terms. On the canvas, a click on Sign in's padding already selects Sign in and
