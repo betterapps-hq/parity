@@ -98,7 +98,7 @@ export interface ServiceMethods {
    * keeps it on disk. No PNG when the frame didn't render. `height` is the live frame's height in its own CSS pixels,
    * kept with the bitmap; without one, the offscreen frame's is kept, which can be a few pixels out (PAR-179).
    */
-  "frames.capture": { params: { job: RenderJob; height?: number }; result: { png?: string } }
+  "frames.capture": { params: { job: RenderJob; height?: number }; result: { png?: string; height?: number } }
   /**
    * The bitmap of a frame kept on disk from an earlier capture of the same job with the same code, if there is one
    * (PAR-158). It's asked for before anything is captured, so a project opened again shows its frames zoomed out at once.
@@ -538,6 +538,11 @@ export interface ComponentPreview {
 export interface RenderedFrame {
   width: number
   height: number
+  /**
+   * For a frame drawn smaller, as for a bitmap, and growing with its content: its height as the canvas lays it out at
+   * full size, which the bitmap keeps (PAR-525).
+   */
+  canvasHeight?: number
   nodes: MeasuredNode[]
   overflowsX: boolean
   unknownComponents: string[]
