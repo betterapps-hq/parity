@@ -67,7 +67,7 @@ beforeAll(async () => {
     `<body style="margin: 0"><div id="camera" style="transform-origin: 0 0"><div id="host"></div></div></body>`
   )
   await page.addScriptTag({ content: bundle.outputFiles[0]!.text })
-}, 30_000)
+})
 
 afterAll(async () => {
   await browser?.close()

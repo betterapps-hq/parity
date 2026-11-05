@@ -17,11 +17,6 @@ export function expectNumber(value: unknown, path: string): number {
   return value
 }
 
-export function expectBoolean(value: unknown, path: string): boolean {
-  if (typeof value !== "boolean") throw new TypeError(`${path}: expected true or false`)
-  return value
-}
-
 export function expectArray(value: unknown, path: string): unknown[] {
   if (!Array.isArray(value)) throw new TypeError(`${path}: expected an array`)
   return value

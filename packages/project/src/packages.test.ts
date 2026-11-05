@@ -1,8 +1,9 @@
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
-import type { ComponentEvidence } from "@parity-app/core"
+import type { ComponentEvidence, RendererAdapter } from "@parity-app/core"
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
+import { findLibraries } from "./libraries.ts"
 import {
   exportedComponents,
   findPackage,
@@ -124,6 +125,15 @@ beforeAll(() => {
   write("node_modules/sugar/index.d.ts")
   write("node_modules/sugar/index.mjs")
   write("node_modules/sugar/worker.mjs")
+  // A library whose declarations are named only under `exports`, away from the old `dist/index.d.ts` guess.
+  write("node_modules/exported/package.json", {
+    name: "exported",
+    version: "1.0.0",
+    exports: { ".": { import: { types: "./types/main.d.mts", default: "./esm/main.mjs" } } }
+  })
+  write("node_modules/exported/exported.lib.par", { version: 3, id: "exported", name: "Exported" })
+  write("node_modules/exported/types/main.d.mts", "export declare function Badge(): unknown")
+  write("node_modules/exported/esm/main.mjs")
 
   // Installed under an alias (`"@acme/alias": "npm:@acme/real@3.1.0"`), and linked from pnpm's store.
   write("node_modules/@acme/alias/package.json", { name: "@acme/real", version: "3.1.0" })
@@ -263,6 +273,19 @@ describe("following re-exports", () => {
       Panel: { name: "Panel", file: dist("card.d.ts") },
       Dialog: { name: "Dialog", file: dist("dialog.d.ts") },
       Loop: { name: "Loop", file: dist("cycle.d.ts") }
+    })
+  })
+
+  it("lists a library's components from declarations only its exports name", async () => {
+    const found = await findLibraries(app(), { dependencies: { exported: "1.0.0" } }, [], renderer as RendererAdapter)
+    expect(found.libraries.map((library) => library.id)).toEqual(["exported"])
+    expect(found.components).toEqual({
+      "exported/Badge": {
+        path: "exported",
+        export: "Badge",
+        library: "exported",
+        declaration: "../../node_modules/exported/types/main.d.mts"
+      }
     })
   })
 
