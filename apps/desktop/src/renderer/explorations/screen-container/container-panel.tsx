@@ -26,7 +26,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { useProject } from "../../canvas/context.ts"
 import { DesignIcon, designColor, kindColors } from "../../canvas/kinds.tsx"
 import { useStylePreview } from "../../canvas/style-preview.ts"
-import { containerModes, withMainMode } from "../../canvas/view.ts"
+import { containerModes, modeNames, withMainMode } from "../../canvas/view.ts"
 import { extractIntoComponent } from "../../chrome/components.ts"
 import { ParamsSection } from "../../chrome/ComponentsSection.tsx"
 import { createDesign } from "../../chrome/create.ts"
@@ -221,7 +221,8 @@ function EditingBar({ entry, state }: { entry: ContainerEntry; state: StateSpec 
       <Select
         value={state.id}
         onValueChange={(id) => {
-          store.updateView(entry.key, (view) => ({ ...view, state: id }))
+          const name = entry.container.states.find((candidate) => candidate.id === id)?.name ?? id
+          store.updateView(entry.key, `Show ${name}`, (view) => ({ ...view, state: id }))
           selection.set({ ...selected, state: id })
         }}
       >
@@ -323,7 +324,8 @@ function ModesSection({ entry }: { entry: ContainerEntry }) {
   const { primary, all } = containerModes(settings, container)
   const shown = new Set(container.view?.modes ?? [])
   const noun = container.kind === "component" ? "component" : "screen"
-  const setModes = (modes: string[]) => store.updateView(key, (view) => ({ ...view, modes }))
+  const setModes = (modes: string[]) =>
+    store.updateView(key, `Show ${modeNames(all, modes)}`, (view) => ({ ...view, modes }))
 
   return (
     <PanelSection
@@ -332,7 +334,9 @@ function ModesSection({ entry }: { entry: ContainerEntry }) {
     >
       <RadioGroup
         value={primary.id}
-        onValueChange={(mode) => store.updateView(key, (view) => withMainMode(view, mode, all))}
+        onValueChange={(mode) =>
+          store.updateView(key, `Show ${modeNames(all, [mode])} first`, (view) => withMainMode(view, mode, all))
+        }
         className="gap-0.5"
         aria-label="Main mode"
       >
