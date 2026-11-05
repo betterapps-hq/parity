@@ -2916,6 +2916,25 @@ agent's `SetTokens` can refuse what the detail refuses (PAR-584).
 - `builtOn` gives the tokens a token is built on in a theme, a scale step's base first, which the panel had written
   inline.
 
+## Agents' token values are checked as the token detail checks them (PAR-584)
+
+You chose this on 2026-11-05 (option A of three). `SetTokens` used to check only that a value wasn't empty, so an agent
+could save an unclosed `calc(`, a reference to no token or a loop the token detail refuses. Agents run in the utility
+process, which has no `CSS.supports`, so the check is in two steps, both through `checkTokenEdit`:
+
+- `SetTokens` refuses brackets and quotes left open, references to no token and loops as it runs, with an
+  `invalid_input` error whose field is `SetTokens/<token>/<theme>`. None of that call's values are kept, so a snippet
+  can catch it and go on. Each value is read against the project's tokens, the canvas's unsaved values and the call's
+  own earlier `SetTokens`, so one token can refer to another set beside it.
+- Whether a value is its token's kind is asked once the snippet ends, before anything is applied: the workspace sends
+  every property and value to the window (`agent.supports`, the `supports` hook), which answers with `CSS.supports`. A
+  value refused there fails the call, and nothing in it is applied. A frame the call drew before then may show the
+  value. The alternatives were adding `css-tree` to check in Node, which could disagree with the browser the detail
+  asks, or checking only in the window's `agent.apply`, which would leave the agent package unable to refuse.
+- A token's kind is read from what the project has (`previewKind`), not from what the call types, as the detail's is; a
+  token the call adds takes its kind from its name and value. A scale step comes to its base times its factor as a
+  `calc()`, since the utility process can't measure lengths. Without the hook (tests, exports), kinds aren't checked.
+
 ## A mode's theme class also sets the theme's attribute (PAR-22)
 
 My call: a frame whose mode adds a theme's class also gets the attribute the project's stylesheet switches that theme on
