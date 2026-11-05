@@ -1,8 +1,20 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Thu, 05 Nov 2026 10:01:58 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 05 Nov 2026 11:11:43 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.5.1
+
+Thu, 05 Nov 2026 11:11:43 GMT
+
+### Patches
+
+- List an export you put on the component list straight away, and keep a new component that takes a removed one's id
+  when files change (ajcraswell@gmail.com)
+- Measure explains that it lays out one frame when given a list, "all" or "shown", and lists the state or mode ids it
+  takes (ajcraswell@gmail.com)
+- Check registry entries, caller names and the app's error details with zod (ajcraswell@gmail.com)
 
 ## 0.5.0
 
