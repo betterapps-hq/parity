@@ -200,9 +200,9 @@ describe("insertRows", () => {
 
   it("doesn't show them for a search that only matches their description", () => {
     // App and ThemeProvider are listed under `src`, as MemberRow is under `src/components`. The project's own
-    // components match `components` by their heading, Local components.
+    // components aren't matched by their heading, Local components, alone.
     expect(names(insertRows(example, "src"))).toEqual(["MemberRow"])
-    expect(names(insertRows(example, "components"))).toEqual(["Member row", "Stat card", "MemberRow"])
+    expect(names(insertRows(example, "components"))).toEqual(["MemberRow"])
   })
 
   it("puts hidden ones a search partly names after the rest, and ones it names in full with them", () => {
