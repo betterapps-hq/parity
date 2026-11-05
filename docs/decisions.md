@@ -3174,3 +3174,31 @@ You chose these on 2026-11-04 from the new-user audit
   out (`detection.include`, "List it") stays, as you didn't ask for that to go.
 - **A project file with an `exclude` list still opens.** It's read and dropped, so the next save leaves it out, rather
   than the file failing to open over a list no version reads now.
+
+## A screen is its own container (PAR-542)
+
+You approved the explorations on 2026-11-04 ("Yeah, let's ship it"). They're in Storybook under Parity / Explorations /
+A screen is its container, from the audit's "Selecting any of them selects the container"
+([proposals/new-user-experience.md](proposals/new-user-experience.md)). PAR-547 builds them in the app.
+
+- **Selecting a screen or component shows its root's sections first,** the ones a layer's inspector has today: Layout
+  (auto layout), Spacing (padding), Size, Appearance (fill), Stroke and Text inside. A component whose root is a code
+  component, as Plan card's is a Card, starts with that component's props. There's no Visibility or Position section,
+  since a root has no parent.
+- **What only a screen or component has comes below:** a component's Variants and Params, with where it's used, then
+  States, Modes, and for a screen Repeated parts, the heading Find repeated parts now sits under rather than
+  "Components". The header keeps the name, the Screen or Component toggle and the file.
+- **The editing bar shows only once there's somewhere else for edits to go:** a second state or a variant. It says
+  "changes every state" or "changes only this state", and the root's edits go to the state being edited, as a layer's
+  do.
+- **Layers lists the root's children straight under the screen or component,** with no Page row. A change the root has
+  in the shown state, or on a viewport, marks the screen's own row. The headings and empty rows are the start design's
+  (above).
+- **A click on a screen's padding selects the screen,** and Enter from there selects the layers inside, as Figma's Enter
+  selects a frame's children. Shift+Enter or Esc from one of them selects the screen again, never a root layer between.
+- **With nothing selected, the inspector asks for "a screen or component on the canvas or in Layers"** and says its
+  size, layout and styles show there, matching the empty canvas's wording.
+
+Seen in review, for PAR-547 to weigh: a screen's own sections now start below six style sections, about 1,300px down
+Plan card's panel; and at the inspector's default 320px the shipped padding and minimum height fields cut off values
+such as 64 and 800, which are now among the first fields a person sees.
